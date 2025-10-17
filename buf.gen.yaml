@@ -8,3 +8,7 @@ plugins:
     out: .
     opt:
       - paths=source_relative
+  - plugin: buf.build/connectrpc/go
+    out: ./connect
+    opt:
+      - paths=source_relative
