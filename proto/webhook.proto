@@ -4,74 +4,142 @@ package webhook;
 
 option go_package = "github.com/sarathsp06/httpqueue/proto/webhook";
 
-// WebhookService handles webhook requests
+// WebhookService handles webhook registration and event pushing
 service WebhookService {
-  // ScheduleWebhook schedules a webhook to be sent
-  rpc ScheduleWebhook(ScheduleWebhookRequest) returns (ScheduleWebhookResponse);
+  // RegisterWebhook registers a URL for specific events in a namespace
+  rpc RegisterWebhook(RegisterWebhookRequest) returns (RegisterWebhookResponse);
   
-  // ScheduleWebhookBatch schedules multiple webhooks to be sent
-  rpc ScheduleWebhookBatch(ScheduleWebhookBatchRequest) returns (ScheduleWebhookBatchResponse);
+  // UnregisterWebhook removes a webhook registration
+  rpc UnregisterWebhook(UnregisterWebhookRequest) returns (UnregisterWebhookResponse);
   
-  // GetWebhookStatus gets the status of a webhook job
+  // PushEvent pushes an event that triggers registered webhooks
+  rpc PushEvent(PushEventRequest) returns (PushEventResponse);
+  
+  // GetWebhookStatus gets the status of webhook deliveries
   rpc GetWebhookStatus(GetWebhookStatusRequest) returns (GetWebhookStatusResponse);
+  
+  // ListWebhooks lists all registered webhooks for a namespace
+  rpc ListWebhooks(ListWebhooksRequest) returns (ListWebhooksResponse);
 }
 
-// ScheduleWebhookRequest represents a request to schedule a webhook
-message ScheduleWebhookRequest {
-  string url = 1;                           // Target URL for the webhook
-  string method = 2;                        // HTTP method (POST, PUT, GET, etc.)
-  map<string, string> headers = 3;          // HTTP headers
-  string payload = 4;                       // JSON payload as string
-  int32 timeout = 5;                        // Timeout in seconds
-  string queue = 6;                         // Queue name (optional)
-  int64 scheduled_at = 7;                   // Unix timestamp for scheduling (optional)
-  int32 priority = 8;                       // Job priority (optional)
+// RegisterWebhookRequest represents a request to register a webhook URL
+message RegisterWebhookRequest {
+  string namespace = 1;                     // Namespace for grouping webhooks
+  repeated string events = 2;               // Event names to listen for (multiple events supported)
+  string url = 3;                           // Target URL for the webhook
+  map<string, string> headers = 4;          // HTTP headers to include in requests
+  int32 timeout = 5;                        // Timeout in seconds (default: 30)
+  bool active = 6;                          // Whether webhook is active (default: true)
+  string description = 7;                   // Optional description
 }
 
-// ScheduleWebhookResponse represents the response for scheduling a webhook
-message ScheduleWebhookResponse {
-  int64 job_id = 1;                         // Unique job identifier
-  bool success = 2;                         // Whether the scheduling was successful
+// RegisterWebhookResponse represents the response for webhook registration
+message RegisterWebhookResponse {
+  string webhook_id = 1;                    // Unique webhook identifier
+  bool success = 2;                         // Whether registration was successful
   string message = 3;                       // Success or error message
-  int64 scheduled_at = 4;                   // When the job was scheduled for
+  int64 created_at = 4;                     // When the webhook was registered
 }
 
-// ScheduleWebhookBatchRequest represents a request to schedule multiple webhooks
-message ScheduleWebhookBatchRequest {
-  repeated ScheduleWebhookRequest webhooks = 1;
+// UnregisterWebhookRequest represents a request to remove a webhook
+message UnregisterWebhookRequest {
+  string webhook_id = 1;                    // Webhook ID to remove
 }
 
-// ScheduleWebhookBatchResponse represents the response for batch webhook scheduling
-message ScheduleWebhookBatchResponse {
-  repeated ScheduleWebhookResponse results = 1;
-  int32 total_scheduled = 2;
-  int32 total_failed = 3;
+// UnregisterWebhookResponse represents the response for webhook removal
+message UnregisterWebhookResponse {
+  bool success = 1;                         // Whether removal was successful
+  string message = 2;                       // Success or error message
 }
 
-// GetWebhookStatusRequest represents a request to get webhook job status
+// PushEventRequest represents a request to push an event
+message PushEventRequest {
+  string namespace = 1;                     // Namespace for the event
+  string event = 2;                         // Event name
+  string payload = 3;                       // Event payload as JSON string
+  int64 ttl_seconds = 4;                    // TTL for webhook retry attempts
+  map<string, string> metadata = 5;         // Additional event metadata
+}
+
+// PushEventResponse represents the response for event pushing
+message PushEventResponse {
+  string event_id = 1;                      // Unique event identifier
+  int32 webhooks_triggered = 2;             // Number of webhooks triggered
+  repeated string webhook_ids = 3;          // IDs of triggered webhooks
+  bool success = 4;                         // Whether event was processed
+  string message = 5;                       // Success or error message
+}
+
+// GetWebhookStatusRequest represents a request to get webhook status
 message GetWebhookStatusRequest {
-  int64 job_id = 1;
+  oneof identifier {
+    string webhook_id = 1;                  // Get status for specific webhook
+    string event_id = 2;                    // Get status for specific event
+  }
+  string namespace = 3;                     // Optional namespace filter
 }
 
-// WebhookJobStatus represents the status of a webhook job
-enum WebhookJobStatus {
-  UNKNOWN = 0;
-  PENDING = 1;
-  RUNNING = 2;
-  COMPLETED = 3;
-  FAILED = 4;
-  CANCELLED = 5;
-  RETRYING = 6;
+// WebhookDeliveryStatus represents the status of webhook delivery
+enum WebhookDeliveryStatus {
+  DELIVERY_UNKNOWN = 0;
+  DELIVERY_PENDING = 1;
+  DELIVERY_SENDING = 2;
+  DELIVERY_SUCCESS = 3;
+  DELIVERY_FAILED = 4;
+  DELIVERY_RETRYING = 5;
+  DELIVERY_EXPIRED = 6;
+}
+
+// WebhookDelivery represents a single webhook delivery attempt
+message WebhookDelivery {
+  string delivery_id = 1;                   // Unique delivery identifier
+  string webhook_id = 2;                    // Associated webhook ID
+  string event_id = 3;                      // Associated event ID
+  WebhookDeliveryStatus status = 4;         // Current delivery status
+  int32 attempt_count = 5;                  // Number of delivery attempts
+  int32 max_attempts = 6;                   // Maximum retry attempts
+  int64 created_at = 7;                     // When delivery was created
+  int64 last_attempted_at = 8;              // Last attempt timestamp
+  int64 next_retry_at = 9;                  // Next retry timestamp
+  int64 expires_at = 10;                    // When delivery expires (TTL)
+  int32 response_code = 11;                 // HTTP response code from last attempt
+  string response_body = 12;                // HTTP response body (truncated)
+  string error_message = 13;                // Error message if failed
 }
 
 // GetWebhookStatusResponse represents the response for webhook status
 message GetWebhookStatusResponse {
-  int64 job_id = 1;
-  WebhookJobStatus status = 2;
-  string message = 3;
-  int64 created_at = 4;
-  int64 scheduled_at = 5;
-  int64 attempted_at = 6;
-  int32 attempt_count = 7;
-  int32 max_attempts = 8;
+  repeated WebhookDelivery deliveries = 1;
+  int32 total_deliveries = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+// ListWebhooksRequest represents a request to list webhooks
+message ListWebhooksRequest {
+  string namespace = 1;                     // Namespace to filter by
+  string event = 2;                         // Event to filter by (optional)
+  bool active_only = 3;                     // Only return active webhooks
+}
+
+// RegisteredWebhook represents a registered webhook
+message RegisteredWebhook {
+  string webhook_id = 1;                    // Unique webhook identifier
+  string namespace = 2;                     // Webhook namespace
+  repeated string events = 3;               // Events the webhook listens for
+  string url = 4;                           // Target URL
+  map<string, string> headers = 5;          // HTTP headers
+  int32 timeout = 6;                        // Timeout in seconds
+  bool active = 7;                          // Whether webhook is active
+  string description = 8;                   // Webhook description
+  int64 created_at = 9;                     // When webhook was registered
+  int64 updated_at = 10;                    // When webhook was last updated
+}
+
+// ListWebhooksResponse represents the response for listing webhooks
+message ListWebhooksResponse {
+  repeated RegisteredWebhook webhooks = 1;
+  int32 total_count = 2;
+  bool success = 3;
+  string message = 4;
 }
