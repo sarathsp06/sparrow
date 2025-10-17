@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    container_name: httpqueue-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: riverqueue
+      POSTGRES_USER: riveruser
+      POSTGRES_PASSWORD: riverpass
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "0.0.0.0:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./setup_db.sql:/docker-entrypoint-initdb.d/setup_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U riveruser -d riverqueue"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Database migration
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: httpqueue-migrate
+    environment:
+      DATABASE_URL: postgres://riveruser:riverpass@postgres:5432/riverqueue?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["./tools/migrate"]
+    restart: "no"
+
+  # gRPC server for webhook scheduling
+  grpc-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: httpqueue-grpc
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://riveruser:riverpass@postgres:5432/riverqueue?sslmode=disable
+      GRPC_PORT: "50051"
+    ports:
+      - "0.0.0.0:50051:50051"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["./grpc-server"]
+    volumes:
+      - ./logs:/app/logs # Optional: for log files
+
+  # pgAdmin for database management (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: httpqueue-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "0.0.0.0:8081:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+  # River UI for job monitoring and management
+  riverui:
+    image: ghcr.io/riverqueue/riverui:latest
+    container_name: httpqueue-riverui
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://riveruser:riverpass@postgres:5432/riverqueue?sslmode=disable
+    ports:
+      - "0.0.0.0:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  default:
+    name: httpqueue-network

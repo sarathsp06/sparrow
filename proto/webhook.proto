@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package webhook;
+
+option go_package = "github.com/sarathsp06/httpqueue/proto/webhook";
+
+// WebhookService handles webhook requests
+service WebhookService {
+  // ScheduleWebhook schedules a webhook to be sent
+  rpc ScheduleWebhook(ScheduleWebhookRequest) returns (ScheduleWebhookResponse);
+  
+  // ScheduleWebhookBatch schedules multiple webhooks to be sent
+  rpc ScheduleWebhookBatch(ScheduleWebhookBatchRequest) returns (ScheduleWebhookBatchResponse);
+  
+  // GetWebhookStatus gets the status of a webhook job
+  rpc GetWebhookStatus(GetWebhookStatusRequest) returns (GetWebhookStatusResponse);
+}
+
+// ScheduleWebhookRequest represents a request to schedule a webhook
+message ScheduleWebhookRequest {
+  string url = 1;                           // Target URL for the webhook
+  string method = 2;                        // HTTP method (POST, PUT, GET, etc.)
+  map<string, string> headers = 3;          // HTTP headers
+  string payload = 4;                       // JSON payload as string
+  int32 timeout = 5;                        // Timeout in seconds
+  string queue = 6;                         // Queue name (optional)
+  int64 scheduled_at = 7;                   // Unix timestamp for scheduling (optional)
+  int32 priority = 8;                       // Job priority (optional)
+}
+
+// ScheduleWebhookResponse represents the response for scheduling a webhook
+message ScheduleWebhookResponse {
+  int64 job_id = 1;                         // Unique job identifier
+  bool success = 2;                         // Whether the scheduling was successful
+  string message = 3;                       // Success or error message
+  int64 scheduled_at = 4;                   // When the job was scheduled for
+}
+
+// ScheduleWebhookBatchRequest represents a request to schedule multiple webhooks
+message ScheduleWebhookBatchRequest {
+  repeated ScheduleWebhookRequest webhooks = 1;
+}
+
+// ScheduleWebhookBatchResponse represents the response for batch webhook scheduling
+message ScheduleWebhookBatchResponse {
+  repeated ScheduleWebhookResponse results = 1;
+  int32 total_scheduled = 2;
+  int32 total_failed = 3;
+}
+
+// GetWebhookStatusRequest represents a request to get webhook job status
+message GetWebhookStatusRequest {
+  int64 job_id = 1;
+}
+
+// WebhookJobStatus represents the status of a webhook job
+enum WebhookJobStatus {
+  UNKNOWN = 0;
+  PENDING = 1;
+  RUNNING = 2;
+  COMPLETED = 3;
+  FAILED = 4;
+  CANCELLED = 5;
+  RETRYING = 6;
+}
+
+// GetWebhookStatusResponse represents the response for webhook status
+message GetWebhookStatusResponse {
+  int64 job_id = 1;
+  WebhookJobStatus status = 2;
+  string message = 3;
+  int64 created_at = 4;
+  int64 scheduled_at = 5;
+  int64 attempted_at = 6;
+  int32 attempt_count = 7;
+  int32 max_attempts = 8;
+}
