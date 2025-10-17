@@ -33,7 +33,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["./tools/migrate"]
+    volumes:
+      - ./db/migrations:/app/db/migrations:ro  # Mount migrations directory
+    command: ["./tools/migrate", "-direction=up"]
     restart: "no"
 
   # gRPC server for webhook scheduling

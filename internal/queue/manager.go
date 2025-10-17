@@ -3,7 +3,6 @@ package queue
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -42,7 +41,6 @@ func NewManager(ctx context.Context, databaseURL string) (*Manager, error) {
 
 	// Initialize River workers
 	riverWorkers := river.NewWorkers()
-	river.AddWorker(riverWorkers, workers.DataProcessingWorker{})
 
 	// Create River client first (needed for workers)
 	riverClient, err := river.NewClient(riverpgxv5.New(dbPool), &river.Config{
@@ -100,11 +98,6 @@ func (m *Manager) GetWebhookRepo() *webhooks.Repository {
 	return m.webhookRepo
 }
 
-// InsertDataProcessingJob inserts a data processing job
-func (m *Manager) InsertDataProcessingJob(ctx context.Context, args jobs.DataProcessingArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error) {
-	return m.client.Insert(ctx, args, opts)
-}
-
 // InsertWebhookJob inserts a webhook job
 func (m *Manager) InsertWebhookJob(ctx context.Context, args jobs.WebhookArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error) {
 	return m.client.Insert(ctx, args, opts)
@@ -123,95 +116,4 @@ type JobInserter struct {
 // NewJobInserter creates a new job inserter
 func (m *Manager) NewJobInserter() *JobInserter {
 	return &JobInserter{manager: m}
-}
-
-// InsertBatchJobs inserts a batch of webhook jobs
-func (ji *JobInserter) InsertBatchJobs(ctx context.Context) error {
-	log := logger.NewLogger("job-inserter")
-
-	insertParams := make([]river.InsertManyParams, 0)
-	for i := 0; i < 3; i++ {
-		// Add webhook jobs
-		insertParams = append(insertParams, river.InsertManyParams{
-			Args: jobs.WebhookArgs{
-				DeliveryID: fmt.Sprintf("delivery_%d_%d", time.Now().Unix(), i),
-				WebhookID:  fmt.Sprintf("webhook_%d", i),
-				EventID:    fmt.Sprintf("event_%d", i),
-				URL:        "https://httpbin.org/post",
-				Headers:    map[string]string{"Content-Type": "application/json"},
-				Payload:    fmt.Sprintf(`{"event": "batch_notification", "batch_id": %d, "user": "batch-user%d@example.com", "type": "batch_webhook_notification"}`, i+1, i+1),
-				Timeout:    30,
-				ExpiresAt:  time.Now().Add(1 * time.Hour),
-				Namespace:  "batch",
-				Event:      "notification",
-			},
-			InsertOpts: &river.InsertOpts{
-				Queue: "webhooks",
-			},
-		})
-	}
-
-	results, err := ji.manager.InsertManyJobs(ctx, insertParams)
-	if err != nil {
-		return fmt.Errorf("failed to insert batch jobs: %w", err)
-	}
-	log.Info("Inserted batch jobs",
-		"total_jobs", len(results),
-		"webhook_jobs", 3,
-	)
-	return nil
-}
-
-// StartPeriodicJobs starts inserting periodic jobs
-func (ji *JobInserter) StartPeriodicJobs(ctx context.Context) {
-	log := logger.NewLogger("periodic-jobs")
-
-	ticker := time.NewTicker(30 * time.Second)
-	go func() {
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				// Insert periodic data processing job
-				job, err := ji.manager.InsertDataProcessingJob(ctx, jobs.DataProcessingArgs{
-					DataID:   int(time.Now().Unix()),
-					DataType: "periodic_cleanup",
-				}, nil)
-				if err != nil {
-					log.Error("Failed to insert periodic job", "error", err)
-				} else {
-					log.Info("Inserted periodic cleanup job",
-						"job_id", job.Job.ID,
-						"data_type", "periodic_cleanup",
-					)
-				}
-
-				// Insert periodic webhook health check
-				healthJob, err := ji.manager.InsertWebhookJob(ctx, jobs.WebhookArgs{
-					DeliveryID: fmt.Sprintf("health_%d", time.Now().Unix()),
-					WebhookID:  "health-check",
-					EventID:    fmt.Sprintf("health_event_%d", time.Now().Unix()),
-					URL:        "https://httpbin.org/status/200",
-					Headers:    map[string]string{"User-Agent": "httpqueue-health-check"},
-					Payload:    fmt.Sprintf(`{"timestamp": %d, "check_type": "periodic_health", "service": "httpqueue"}`, time.Now().Unix()),
-					Timeout:    5,
-					ExpiresAt:  time.Now().Add(10 * time.Minute),
-					Namespace:  "system",
-					Event:      "health_check",
-				}, &river.InsertOpts{
-					Queue: "webhooks",
-				})
-				if err != nil {
-					log.Error("Failed to insert periodic webhook health check", "error", err)
-				} else {
-					log.Info("Inserted periodic webhook health check",
-						"job_id", healthJob.Job.ID,
-						"url", "https://httpbin.org/status/200",
-					)
-				}
-			}
-		}
-	}()
 }

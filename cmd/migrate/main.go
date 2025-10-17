@@ -2,9 +2,17 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"flag"
+	"fmt"
+	"log/slog"
 	"os"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
 	"github.com/sarathsp06/httpqueue/internal/config"
@@ -12,168 +20,189 @@ import (
 )
 
 func main() {
+	// Parse command line flags
+	var (
+		direction = flag.String("direction", "up", "Migration direction: up, down")
+		steps     = flag.Int("steps", 0, "Number of migration steps (0 for all)")
+		version   = flag.Uint("version", 0, "Target migration version")
+	)
+	flag.Parse()
+
 	// Initialize logger
 	log := logger.NewLogger("migration")
 
 	// Load configuration
 	cfg := config.Load()
-	log.Info("Starting River database migration",
+	log.Info("Starting database migration",
 		"database_url", cfg.DatabaseURL,
+		"direction", *direction,
 	)
 
 	ctx := context.Background()
 
-	// Connect to database
-	dbPool, err := pgxpool.New(ctx, cfg.DatabaseURL)
-	if err != nil {
-		log.Error("Failed to create database pool", "error", err)
+	// Run River migrations first
+	if err := runRiverMigrations(ctx, cfg.DatabaseURL, log); err != nil {
+		log.Error("Failed to run River migrations", "error", err)
 		os.Exit(1)
+	}
+
+	// Run application migrations
+	if err := runAppMigrations(cfg.DatabaseURL, *direction, *steps, *version, log); err != nil {
+		log.Error("Failed to run application migrations", "error", err)
+		os.Exit(1)
+	}
+
+	log.Info("All migrations completed successfully")
+}
+
+func runRiverMigrations(ctx context.Context, databaseURL string, log *slog.Logger) error {
+	log.Info("Running River queue migrations...")
+
+	// Connect to database
+	dbPool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		return fmt.Errorf("failed to create database pool: %w", err)
 	}
 	defer dbPool.Close()
 
 	// Test database connection
 	if err := dbPool.Ping(ctx); err != nil {
-		log.Error("Failed to connect to database", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	log.Info("Connected to database successfully")
-
-	// Create migrator
+	// Create River migrator
 	migrator, err := rivermigrate.New(riverpgxv5.New(dbPool), nil)
 	if err != nil {
-		log.Error("Failed to create migrator", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create River migrator: %w", err)
 	}
 
-	// Get migration status
+	// Run River migrations
 	res, err := migrator.Migrate(ctx, rivermigrate.DirectionUp, &rivermigrate.MigrateOpts{})
 	if err != nil {
-		log.Error("Failed to run migrations", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to run River migrations: %w", err)
 	}
 
-	log.Info("Database migration completed successfully",
+	log.Info("River migrations completed",
 		"migrations_run", len(res.Versions),
 	)
 
 	// Log each migration that was applied
 	for _, version := range res.Versions {
-		log.Info("Applied migration",
+		log.Info("Applied River migration",
 			"version", version.Version,
 			"name", version.Name,
 		)
 	}
 
 	if len(res.Versions) == 0 {
-		log.Info("No migrations needed - database is already up to date")
+		log.Info("No River migrations needed - database is already up to date")
 	}
 
-	// Create webhook tables
-	log.Info("Creating webhook tables...")
-	if err := createWebhookTables(ctx, dbPool); err != nil {
-		log.Error("Failed to create webhook tables", "error", err)
-		os.Exit(1)
-	}
-	log.Info("Webhook tables created successfully")
+	return nil
 }
 
-func createWebhookTables(ctx context.Context, db *pgxpool.Pool) error {
-	// Read and execute webhook schema (with multiple events support)
-	schema := `
-		-- Create webhook_registrations table with multiple events support
-		CREATE TABLE IF NOT EXISTS webhook_registrations (
-			id VARCHAR(36) PRIMARY KEY,
-			namespace VARCHAR(255) NOT NULL,
-			events JSONB NOT NULL,
-			url TEXT NOT NULL,
-			headers JSONB DEFAULT '{}',
-			timeout INTEGER NOT NULL DEFAULT 30,
-			active BOOLEAN NOT NULL DEFAULT true,
-			description TEXT,
-			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-		);
+func runAppMigrations(databaseURL, direction string, steps int, targetVersion uint, log *slog.Logger) error {
+	log.Info("Running application migrations...")
 
-		-- Create indexes for efficient lookups using JSONB operators
-		CREATE INDEX IF NOT EXISTS idx_webhook_registrations_namespace 
-			ON webhook_registrations(namespace) WHERE active = true;
-		CREATE INDEX IF NOT EXISTS idx_webhook_registrations_events 
-			ON webhook_registrations USING GIN(events) WHERE active = true;
+	// Create database connection for golang-migrate using stdlib
+	db, err := sql.Open("pgx", databaseURL)
+	if err != nil {
+		return fmt.Errorf("failed to open database connection: %w", err)
+	}
+	defer db.Close()
 
-		-- Create event_records table
-		CREATE TABLE IF NOT EXISTS event_records (
-			id VARCHAR(36) PRIMARY KEY,
-			namespace VARCHAR(255) NOT NULL,
-			event VARCHAR(255) NOT NULL,
-			payload TEXT NOT NULL,
-			ttl BIGINT NOT NULL,
-			metadata JSONB DEFAULT '{}',
-			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-			expires_at TIMESTAMP WITH TIME ZONE NOT NULL
-		);
-
-		-- Create indexes for event records
-		CREATE INDEX IF NOT EXISTS idx_event_records_namespace_event 
-			ON event_records(namespace, event);
-		CREATE INDEX IF NOT EXISTS idx_event_records_expires_at 
-			ON event_records(expires_at);
-
-		-- Create webhook_deliveries table
-		CREATE TABLE IF NOT EXISTS webhook_deliveries (
-			id VARCHAR(36) PRIMARY KEY,
-			webhook_id VARCHAR(36) NOT NULL,
-			event_id VARCHAR(36) NOT NULL,
-			status VARCHAR(20) NOT NULL DEFAULT 'pending',
-			attempt_count INTEGER NOT NULL DEFAULT 0,
-			max_attempts INTEGER NOT NULL DEFAULT 3,
-			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-			last_attempted_at TIMESTAMP WITH TIME ZONE,
-			next_retry_at TIMESTAMP WITH TIME ZONE,
-			expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-			response_code INTEGER DEFAULT 0,
-			response_body TEXT DEFAULT '',
-			error_message TEXT DEFAULT ''
-		);
-
-		-- Create indexes for webhook deliveries
-		CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook_id 
-			ON webhook_deliveries(webhook_id);
-		CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_event_id 
-			ON webhook_deliveries(event_id);
-		CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_status 
-			ON webhook_deliveries(status);
-		CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_expires_at 
-			ON webhook_deliveries(expires_at);
-		CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_next_retry 
-			ON webhook_deliveries(next_retry_at) WHERE next_retry_at IS NOT NULL;
-	`
-
-	// Execute the main schema
-	if _, err := db.Exec(ctx, schema); err != nil {
-		return err
+	// Test the connection
+	if err := db.Ping(); err != nil {
+		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	// Create trigger function and trigger separately to avoid syntax issues
-	triggerSQL := `
-		CREATE OR REPLACE FUNCTION update_updated_at_column()
-		RETURNS TRIGGER AS $$
-		BEGIN
-			NEW.updated_at = NOW();
-			RETURN NEW;
-		$$ language 'plpgsql';
-	`
-
-	if _, err := db.Exec(ctx, triggerSQL); err != nil {
-		return err
+	// Create database driver for golang-migrate
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to create postgres driver: %w", err)
 	}
 
-	triggerCreateSQL := `
-		DROP TRIGGER IF EXISTS update_webhook_registrations_updated_at ON webhook_registrations;
-		CREATE TRIGGER update_webhook_registrations_updated_at BEFORE UPDATE
-			ON webhook_registrations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-	`
+	// Create migrate instance
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://db/migrations",
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create migrate instance: %w", err)
+	}
+	defer m.Close()
 
-	_, err := db.Exec(ctx, triggerCreateSQL)
-	return err
+	// Get current version and dirty state
+	currentVersion, dirty, err := m.Version()
+	if err != nil && err != migrate.ErrNilVersion {
+		return fmt.Errorf("failed to get current migration version: %w", err)
+	}
+
+	if dirty {
+		log.Warn("Database is in dirty state, forcing version", "version", currentVersion)
+		if err := m.Force(int(currentVersion)); err != nil {
+			return fmt.Errorf("failed to force version: %w", err)
+		}
+	}
+
+	log.Info("Current migration state",
+		"version", currentVersion,
+		"dirty", dirty,
+	)
+
+	// Execute migrations based on direction
+	switch direction {
+	case "up":
+		if targetVersion > 0 {
+			log.Info("Migrating to specific version", "target_version", targetVersion)
+			if err := m.Migrate(targetVersion); err != nil && err != migrate.ErrNoChange {
+				return fmt.Errorf("failed to migrate to version %d: %w", targetVersion, err)
+			}
+		} else if steps > 0 {
+			log.Info("Migrating up with steps", "steps", steps)
+			if err := m.Steps(steps); err != nil && err != migrate.ErrNoChange {
+				return fmt.Errorf("failed to migrate %d steps up: %w", steps, err)
+			}
+		} else {
+			log.Info("Migrating to latest version")
+			if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+				return fmt.Errorf("failed to migrate up: %w", err)
+			}
+		}
+
+	case "down":
+		if targetVersion > 0 {
+			log.Info("Migrating down to specific version", "target_version", targetVersion)
+			if err := m.Migrate(targetVersion); err != nil && err != migrate.ErrNoChange {
+				return fmt.Errorf("failed to migrate to version %d: %w", targetVersion, err)
+			}
+		} else if steps > 0 {
+			log.Info("Migrating down with steps", "steps", steps)
+			if err := m.Steps(-steps); err != nil && err != migrate.ErrNoChange {
+				return fmt.Errorf("failed to migrate %d steps down: %w", steps, err)
+			}
+		} else {
+			log.Info("Migrating down one step")
+			if err := m.Steps(-1); err != nil && err != migrate.ErrNoChange {
+				return fmt.Errorf("failed to migrate down: %w", err)
+			}
+		}
+
+	default:
+		return fmt.Errorf("invalid direction: %s (must be 'up' or 'down')", direction)
+	}
+
+	// Get final version
+	finalVersion, dirty, err := m.Version()
+	if err != nil && err != migrate.ErrNilVersion {
+		return fmt.Errorf("failed to get final migration version: %w", err)
+	}
+
+	log.Info("Application migrations completed",
+		"final_version", finalVersion,
+		"dirty", dirty,
+	)
+
+	return nil
 }
