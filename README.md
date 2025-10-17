@@ -1,278 +1,408 @@
-# HTTP Queue with River & gRPC
+# HTTP Queue - Event-Driven Webhook System
 
-A production-ready job queue system built with [River Queue](https://riverqueue.com/docs) and Go, featuring a gRPC API for webhook scheduling, structured logging, and comprehensive Docker integration.
+A robust, event-driven webhook delivery system built with Go, River Queue, PostgreSQL, and gRPC. The system allows you to register webhooks for specific namespace/event combinations, push events that trigger registered webhooks, and track delivery status with comprehensive retry logic.
 
-## 🚀 Features
+## Features
 
-### Core Queue System
-- **River Queue Integration**: Fast, robust job queue with PostgreSQL backend
-- **Multiple Workers**: Data processing and webhook workers with configurable concurrency
-- **Queue Management**: Multiple queues (default, webhooks) with separate worker pools
-- **Graceful Shutdown**: Proper cleanup and signal handling
-- **Structured Logging**: JSON logging with slog throughout the application
+- **🎯 Event-driven Architecture**: Register webhooks for namespace/event pairs, then push events to trigger deliveries
+- **🔄 Reliable Delivery**: Built on River Queue with PostgreSQL for durability and retry logic
+- **📊 Delivery Tracking**: Complete visibility into webhook delivery status, attempts, and failures
+- **⚙️ Configurable**: Flexible timeout, retry, and TTL settings per webhook
+- **🌐 gRPC API**: Modern, efficient API for webhook management and event pushing
+- **🐳 Docker Ready**: Complete Docker Compose setup for easy deployment
 
-### gRPC API Service
-- **Webhook Scheduling API**: Schedule single or batch webhook requests
-- **Protocol Buffers**: Type-safe API definitions with generated Go code
-- **Status Tracking**: Query webhook job status and execution details
-- **Error Handling**: Comprehensive error responses and validation
+## Architecture
 
-### Infrastructure
-- **Docker Compose**: Multi-service orchestration with dependency management
-- **Database Migrations**: Automatic River schema setup
-- **Monitoring**: River UI dashboard for job visualization
-- **Development Tools**: pgAdmin for database management
+The system follows an event-driven pattern:
 
-## 📋 Prerequisites
+1. **Register** webhooks for specific namespace/event combinations
+2. **Push** events to trigger all registered webhooks for that namespace/event
+3. **Track** delivery status and retry failed deliveries automatically
 
-- Go 1.25 or later
-- Docker and Docker Compose
-- Protocol Buffers compiler (protoc) for gRPC development
+### Core Components
 
-## 🚀 Quick Start
+- **gRPC Server**: Handles webhook registration, event pushing, and status queries
+- **Event Processing Worker**: Processes events and creates webhook delivery jobs
+- **Webhook Worker**: Handles HTTP delivery with status tracking and retries
+- **PostgreSQL Database**: Stores webhook registrations, events, and delivery records
+- **River Queue**: Manages job processing with reliability and retry logic
 
-### Option 1: Docker Compose (Recommended)
+## Quick Start
 
-Start the complete system with one command:
+### Prerequisites
 
-```bash
-# Clone and start all services
-git clone <repository>
-cd httpqueue
-docker-compose -f docker-compose.grpc.yml up -d
+- Go 1.24+
+- PostgreSQL 13+
+- Docker & Docker Compose (optional)
+
+### Using Docker Compose
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd httpqueue
+   ```
+
+2. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
+
+3. Run the example client:
+   ```bash
+   go run examples/grpc_client.go
+   ```
+
+### Manual Setup
+
+1. Start PostgreSQL and create a database:
+   ```bash
+   createdb riverqueue
+   ```
+
+2. Run database migrations:
+   ```bash
+   go run migrations/setup.go
+   ```
+
+3. Start the server:
+   ```bash
+   go run main.go
+   ```
+
+4. Test with the example client:
+   ```bash
+   go run examples/grpc_client.go
+   ```
+
+## API Reference
+
+### gRPC Service Methods
+
+#### RegisterWebhook
+Register a webhook URL for specific namespace/event combinations.
+
+```protobuf
+rpc RegisterWebhook(RegisterWebhookRequest) returns (RegisterWebhookResponse);
 ```
 
-This starts:
-- PostgreSQL database
-- Database migrations
-- River queue processor  
-- gRPC API server (port 50051)
-- River UI dashboard (port 8080)
-- pgAdmin (port 8081)
-
-### Option 2: Local Development
-
-```bash
-# Start PostgreSQL in Docker
-docker-compose up postgres -d
-
-# Set database URL
-export DATABASE_URL="postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable"
-
-# Run migrations
-go run cmd/migrate/main.go
-
-# Start queue processor
-go run cmd/grpc-server/main.go
-
-# In another terminal, start gRPC server
-go run cmd/grpc-server/main.go
-```
-
-## 🔧 gRPC API Usage
-
-### Test the gRPC Service
-
-```bash
-# Run the provided client examples
-go run examples/grpc_client.go
-```
-
-### gRPC Methods
-
-#### Schedule Single Webhook
+**Example:**
 ```go
-req := &pb.ScheduleWebhookRequest{
-    Url:    "https://httpbin.org/post",
-    Method: "POST",
-    Payload: `{"event": "user_signup", "user_id": "12345"}`,
-    DelaySeconds: 0,
-}
-response, err := client.ScheduleWebhook(ctx, req)
-```
-
-#### Schedule Batch Webhooks
-```go
-req := &pb.ScheduleWebhookBatchRequest{
-    Webhooks: []*pb.WebhookRequest{
-        {Url: "https://api1.com/webhook", Payload: `{"data": "test1"}`},
-        {Url: "https://api2.com/webhook", Payload: `{"data": "test2"}`},
+client.RegisterWebhook(ctx, &pb.RegisterWebhookRequest{
+    Namespace: "user",
+    Event:     "signup",
+    Url:       "https://api.example.com/webhooks/user-signup",
+    Method:    "POST",
+    Headers: map[string]string{
+        "Authorization": "Bearer secret-token",
+        "X-Event-Type":  "user-signup",
     },
-}
-response, err := client.ScheduleWebhookBatch(ctx, req)
+    Timeout:     30,
+    Active:      true,
+    Description: "User signup notifications",
+})
 ```
 
-#### Check Webhook Status
+#### PushEvent
+Push an event that triggers all registered webhooks for the namespace/event.
+
+```protobuf
+rpc PushEvent(PushEventRequest) returns (PushEventResponse);
+```
+
+**Example:**
 ```go
-req := &pb.GetWebhookStatusRequest{JobId: 123}
-response, err := client.GetWebhookStatus(ctx, req)
+client.PushEvent(ctx, &pb.PushEventRequest{
+    Namespace:  "user",
+    Event:      "signup",
+    Payload:    `{"user_id": "12345", "email": "user@example.com"}`,
+    TtlSeconds: 3600, // 1 hour
+    Metadata: map[string]string{
+        "source": "api",
+        "region": "us-east-1",
+    },
+})
 ```
 
-## 🏗️ Project Structure
+#### GetWebhookStatus
+Check the delivery status of webhooks.
 
-```
-httpqueue/
-├── cmd/                          # Applications
-│   ├── grpc-server/             # gRPC API server with queue processing
-│   └── migrate/                 # Database migrations
-├── internal/                    # Private application code
-│   ├── config/                  # Configuration
-│   ├── grpc/                    # gRPC service implementation
-│   ├── jobs/                    # Job argument types
-│   ├── logger/                  # Structured logging
-│   ├── queue/                   # Queue management
-│   └── workers/                 # Job workers
-├── proto/                       # Protocol buffer definitions
-├── examples/                    # Usage examples
-├── docker-compose.grpc.yml      # Docker orchestration
-└── GRPC_README.md              # gRPC documentation
+```protobuf
+rpc GetWebhookStatus(GetWebhookStatusRequest) returns (GetWebhookStatusResponse);
 ```
 
-## 🐳 Docker Services
+**Example:**
+```go
+// Get status by webhook ID
+client.GetWebhookStatus(ctx, &pb.GetWebhookStatusRequest{
+    Identifier: &pb.GetWebhookStatusRequest_WebhookId{
+        WebhookId: "webhook-id-here",
+    },
+})
 
-- **PostgreSQL**: `localhost:5432` (riveruser/riverpass)
-- **gRPC Server**: `localhost:50051` (webhook scheduling API)
-- **River UI**: `http://localhost:8080` (job monitoring)
-- **pgAdmin**: `http://localhost:8081` (admin@example.com/admin123)
+// Get status by event ID  
+client.GetWebhookStatus(ctx, &pb.GetWebhookStatusRequest{
+    Identifier: &pb.GetWebhookStatusRequest_EventId{
+        EventId: "event-id-here",
+    },
+})
+```
 
-## 🔄 How It Works
+#### ListWebhooks
+List all registered webhooks for a namespace.
 
-### Workers
+```protobuf
+rpc ListWebhooks(ListWebhooksRequest) returns (ListWebhooksResponse);
+```
 
-- **DataProcessingWorker**: Handles background data processing tasks with 3-second simulation
-- **WebhookWorker**: Sends HTTP requests with JSON payloads to external APIs
-- **Configurable Concurrency**: 10 workers for default queue, 8 for webhook queue
+#### UnregisterWebhook
+Remove a webhook registration.
 
-### Job Types
+```protobuf
+rpc UnregisterWebhook(UnregisterWebhookRequest) returns (UnregisterWebhookResponse);
+```
 
-1. **Webhook Jobs**: HTTP requests via gRPC API or direct insertion  
-2. **Data Processing Jobs**: Background processing tasks
-3. **Scheduled Jobs**: Delayed execution using `ScheduledAt`
-4. **Batch Jobs**: Multiple jobs inserted at once
-5. **Periodic Jobs**: Automatically created every 30 seconds for cleanup and health checks
+## Database Schema
 
-### Webhook Features
+The system uses several PostgreSQL tables:
 
-- **Multiple HTTP Methods**: GET, POST, PUT, DELETE, PATCH
-- **Custom Headers**: Authentication, content-type, custom headers
-- **Configurable Timeouts**: Per-request timeout settings (5-30 seconds)
-- **JSON Payloads**: Automatic JSON marshaling and validation
-- **Error Handling**: Comprehensive error responses and retry logic
-- **Status Tracking**: Monitor job progress and completion status
+### webhook_registrations
+Stores webhook registration details:
+- `id`: Unique webhook identifier
+- `namespace`: Event namespace (e.g., "user", "order")
+- `event`: Event type (e.g., "signup", "created")
+- `url`: Webhook endpoint URL
+- `method`: HTTP method (POST, PUT, etc.)
+- `headers`: Custom HTTP headers (JSONB)
+- `timeout`: Request timeout in seconds
+- `active`: Whether the webhook is active
+- `description`: Human-readable description
 
-## 📊 Example Output
+### event_records
+Stores event history:
+- `id`: Unique event identifier
+- `namespace`: Event namespace
+- `event`: Event type
+- `payload`: Event data (JSON)
+- `ttl_seconds`: Time-to-live for webhook retries
+- `metadata`: Additional event metadata (JSONB)
 
-### gRPC Client Test
+### webhook_deliveries
+Tracks webhook delivery attempts:
+- `id`: Unique delivery identifier
+- `webhook_id`: Associated webhook
+- `event_id`: Associated event
+- `status`: Delivery status (pending, success, failed, etc.)
+- `attempt_count`: Number of delivery attempts
+- `max_attempts`: Maximum retry attempts
+- `response_code`: HTTP response code
+- `response_body`: HTTP response body
+- `error_message`: Error details if failed
+
+## Configuration
+
+### Environment Variables
+
+- `DATABASE_URL`: PostgreSQL connection string (default: `postgres://localhost/riverqueue?sslmode=disable`)
+- `GRPC_PORT`: gRPC server port (default: `50051`)
+
+### Webhook Configuration
+
+Each webhook can be configured with:
+
+- **Timeout**: Request timeout (1-300 seconds)
+- **Headers**: Custom HTTP headers
+- **Method**: HTTP method (GET, POST, PUT, PATCH, DELETE)
+- **Active Status**: Enable/disable webhook
+- **Description**: Human-readable description
+
+### Event Configuration
+
+Events support:
+
+- **TTL**: How long to retry failed webhooks (seconds)
+- **Metadata**: Additional context data
+- **Payload**: JSON event data
+
+## Examples
+
+### Complete Workflow Example
+
+```go
+// 1. Register webhook for user signups
+registerResp, err := client.RegisterWebhook(ctx, &pb.RegisterWebhookRequest{
+    Namespace: "user",
+    Event:     "signup",
+    Url:       "https://api.example.com/hooks/user-signup",
+    Method:    "POST",
+    Headers: map[string]string{
+        "Authorization": "Bearer your-token",
+    },
+    Timeout: 30,
+    Active:  true,
+})
+
+// 2. Push a user signup event
+eventResp, err := client.PushEvent(ctx, &pb.PushEventRequest{
+    Namespace:  "user",
+    Event:      "signup",
+    Payload:    `{"user_id": "12345", "email": "new-user@example.com"}`,
+    TtlSeconds: 3600,
+})
+
+// 3. Check delivery status
+statusResp, err := client.GetWebhookStatus(ctx, &pb.GetWebhookStatusRequest{
+    Identifier: &pb.GetWebhookStatusRequest_WebhookId{
+        WebhookId: registerResp.WebhookId,
+    },
+})
+```
+
+### Multiple Webhooks for Same Event
+
+You can register multiple webhooks for the same namespace/event:
+
+```go
+// Primary webhook
+client.RegisterWebhook(ctx, &pb.RegisterWebhookRequest{
+    Namespace: "order",
+    Event:     "created",
+    Url:       "https://api.primary.com/orders",
+    // ...
+})
+
+// Analytics webhook  
+client.RegisterWebhook(ctx, &pb.RegisterWebhookRequest{
+    Namespace: "order", 
+    Event:     "created",
+    Url:       "https://analytics.company.com/track",
+    // ...
+})
+
+// One event triggers both webhooks
+client.PushEvent(ctx, &pb.PushEventRequest{
+    Namespace: "order",
+    Event:     "created", 
+    Payload:   `{"order_id": "12345", "total": 99.99}`,
+})
+```
+
+## Development
+
+### Building
 
 ```bash
-$ go run examples/grpc_client.go
+# Build main server
+go build -o httpqueue .
 
-=== Example 1: Simple Webhook ===
-Webhook scheduled successfully:
-  Job ID: 134
-  Success: true
-  Message: Webhook scheduled successfully
-  Scheduled At: 2025-10-17 12:12:56 +0200 CEST
+# Build example client
+go build -o client examples/grpc_client.go
 
-=== Example 3: Batch Webhooks ===
-Batch webhooks scheduled:
-  Total Scheduled: 3
-  Total Failed: 0
-  Webhook 1: Job ID 136, Success: true
-  Webhook 2: Job ID 137, Success: true
-  Webhook 3: Job ID 138, Success: true
+# Build with Docker
+docker build -t httpqueue .
 ```
 
-### Queue Processing Logs
-
-```json
-{"time":"2025-10-17T10:12:56.415Z","level":"INFO","msg":"Processing webhook job","component":"webhook-worker","job_id":138,"url":"https://httpbin.org/post","method":"POST","payload_keys":3,"timeout":20}
-{"time":"2025-10-17T10:12:58.568Z","level":"INFO","msg":"Webhook response received","component":"webhook-worker","job_id":138,"status_code":200,"duration_ms":2153}
-{"time":"2025-10-17T10:12:58.568Z","level":"INFO","msg":"Webhook sent successfully","component":"webhook-worker","job_id":138,"status_code":200}
-```
-
-## 🔧 Technical Implementation
-
-### Job Arguments
-
-```go
-type WebhookArgs struct {
-    URL     string            `json:"url"`
-    Method  string            `json:"method"`
-    Payload json.RawMessage   `json:"payload"`
-    Headers map[string]string `json:"headers,omitempty"`
-    Timeout int               `json:"timeout,omitempty"`
-}
-
-func (WebhookArgs) Kind() string { return "webhook" }
-```
-
-### gRPC Service
-
-```go
-func (s *WebhookServer) ScheduleWebhook(ctx context.Context, req *pb.ScheduleWebhookRequest) (*pb.ScheduleWebhookResponse, error) {
-    args := jobs.WebhookArgs{
-        URL:     req.Url,
-        Method:  req.Method,
-        Payload: json.RawMessage(req.Payload),
-        Headers: req.Headers,
-        Timeout: int(req.TimeoutSeconds),
-    }
-    
-    opts := river.InsertOpts{}
-    if req.DelaySeconds > 0 {
-        opts.ScheduledAt = time.Now().Add(time.Duration(req.DelaySeconds) * time.Second)
-    }
-    
-    job, err := s.queueManager.GetClient().Insert(ctx, args, &opts)
-    // Handle response...
-}
-```
-
-## 🚀 Advanced Features
-
-- **Structured Logging**: JSON logs with slog throughout the application
-- **Graceful Shutdown**: Proper signal handling and resource cleanup
-- **Docker Integration**: Complete containerized deployment
-- **gRPC API**: Type-safe Protocol Buffer API with validation
-- **Job Monitoring**: River UI for real-time job tracking
-- **Database Management**: Automatic migrations and connection pooling
-- **Error Handling**: Comprehensive error responses and retry logic
-
-## 📚 Useful Commands
+### Running Tests
 
 ```bash
-# View all running containers
-docker ps
+# Run all tests
+go test ./...
 
-# Check gRPC server logs
-docker logs httpqueue-grpc --tail 20
+# Run tests with coverage
+go test -cover ./...
 
-# Access River UI
-open http://localhost:8080
-
-# Monitor database
-docker exec -it httpqueue-postgres psql -U riveruser -d riverqueue -c "SELECT * FROM river_job ORDER BY created_at DESC LIMIT 5;"
-
-# Test gRPC service
-go run examples/grpc_client.go
-
-# Stop all services
-docker-compose -f docker-compose.grpc.yml down
+# Run specific package tests
+go test ./internal/webhooks/
 ```
 
-## 📖 Next Steps
+### Generating Protobuf
 
-1. **Implement job status tracking** - Add database queries for GetWebhookStatus
-2. **Add authentication** - Secure the gRPC API with tokens or mTLS
-3. **Enhance monitoring** - Add Prometheus metrics and health checks
-4. **Job prioritization** - Implement priority queues for urgent webhooks
-5. **Retry policies** - Add exponential backoff and dead letter queues
-6. **Rate limiting** - Control webhook delivery rates per endpoint
+```bash
+# Generate Go code from proto files
+protoc --go_out=. --go_opt=paths=source_relative \
+    --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+    proto/webhook.proto
+```
 
-## 📋 Documentation
+## Deployment
 
-- [River Documentation](https://riverqueue.com/docs)
-- [gRPC Go Documentation](https://grpc.io/docs/languages/go/)
-- [Protocol Buffers Guide](https://developers.google.com/protocol-buffers)
-- [Docker Compose Reference](https://docs.docker.com/compose/)
+### Docker Compose
+
+The provided `docker-compose.yml` includes:
+
+- **httpqueue**: Main application server
+- **postgres**: PostgreSQL database with River extensions
+- **adminer**: Database admin interface (optional)
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f httpqueue
+
+# Stop services
+docker-compose down
+```
+
+### Production Considerations
+
+1. **Database**: Use managed PostgreSQL with connection pooling
+2. **Monitoring**: Add metrics collection (Prometheus/Grafana)
+3. **Logging**: Configure structured logging with appropriate levels
+4. **Security**: Use TLS for gRPC, secure webhook endpoints
+5. **Scaling**: Run multiple instances behind a load balancer
+6. **Backup**: Regular database backups including job state
+
+## Monitoring & Observability
+
+### Key Metrics to Monitor
+
+- **Webhook Registration Rate**: New webhooks registered per minute
+- **Event Processing Rate**: Events processed per second
+- **Delivery Success Rate**: Percentage of successful webhook deliveries
+- **Average Delivery Time**: Time from event to successful delivery
+- **Failed Delivery Count**: Number of failed deliveries requiring retry
+- **Queue Depth**: Number of pending jobs in each queue
+
+### Health Checks
+
+The system provides several health check endpoints:
+
+- **Database Connectivity**: Verify PostgreSQL connection
+- **Queue Processing**: Confirm River workers are processing jobs
+- **gRPC Service**: Verify API responsiveness
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Connection Refused**: Check PostgreSQL is running and accessible
+2. **Jobs Not Processing**: Verify River workers are started
+3. **Webhook Timeouts**: Check network connectivity and increase timeout
+4. **High Memory Usage**: Review job queue sizes and processing rates
+
+### Debug Commands
+
+```bash
+# Check database connectivity
+psql $DATABASE_URL -c "SELECT 1"
+
+# View recent jobs
+# (Use database client to query river_job table)
+
+# Check webhook delivery logs
+docker-compose logs httpqueue | grep "webhook-worker"
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details.

@@ -21,97 +21,96 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// WebhookJobStatus represents the status of a webhook job
-type WebhookJobStatus int32
+// WebhookDeliveryStatus represents the status of webhook delivery
+type WebhookDeliveryStatus int32
 
 const (
-	WebhookJobStatus_UNKNOWN   WebhookJobStatus = 0
-	WebhookJobStatus_PENDING   WebhookJobStatus = 1
-	WebhookJobStatus_RUNNING   WebhookJobStatus = 2
-	WebhookJobStatus_COMPLETED WebhookJobStatus = 3
-	WebhookJobStatus_FAILED    WebhookJobStatus = 4
-	WebhookJobStatus_CANCELLED WebhookJobStatus = 5
-	WebhookJobStatus_RETRYING  WebhookJobStatus = 6
+	WebhookDeliveryStatus_DELIVERY_UNKNOWN  WebhookDeliveryStatus = 0
+	WebhookDeliveryStatus_DELIVERY_PENDING  WebhookDeliveryStatus = 1
+	WebhookDeliveryStatus_DELIVERY_SENDING  WebhookDeliveryStatus = 2
+	WebhookDeliveryStatus_DELIVERY_SUCCESS  WebhookDeliveryStatus = 3
+	WebhookDeliveryStatus_DELIVERY_FAILED   WebhookDeliveryStatus = 4
+	WebhookDeliveryStatus_DELIVERY_RETRYING WebhookDeliveryStatus = 5
+	WebhookDeliveryStatus_DELIVERY_EXPIRED  WebhookDeliveryStatus = 6
 )
 
-// Enum value maps for WebhookJobStatus.
+// Enum value maps for WebhookDeliveryStatus.
 var (
-	WebhookJobStatus_name = map[int32]string{
-		0: "UNKNOWN",
-		1: "PENDING",
-		2: "RUNNING",
-		3: "COMPLETED",
-		4: "FAILED",
-		5: "CANCELLED",
-		6: "RETRYING",
+	WebhookDeliveryStatus_name = map[int32]string{
+		0: "DELIVERY_UNKNOWN",
+		1: "DELIVERY_PENDING",
+		2: "DELIVERY_SENDING",
+		3: "DELIVERY_SUCCESS",
+		4: "DELIVERY_FAILED",
+		5: "DELIVERY_RETRYING",
+		6: "DELIVERY_EXPIRED",
 	}
-	WebhookJobStatus_value = map[string]int32{
-		"UNKNOWN":   0,
-		"PENDING":   1,
-		"RUNNING":   2,
-		"COMPLETED": 3,
-		"FAILED":    4,
-		"CANCELLED": 5,
-		"RETRYING":  6,
+	WebhookDeliveryStatus_value = map[string]int32{
+		"DELIVERY_UNKNOWN":  0,
+		"DELIVERY_PENDING":  1,
+		"DELIVERY_SENDING":  2,
+		"DELIVERY_SUCCESS":  3,
+		"DELIVERY_FAILED":   4,
+		"DELIVERY_RETRYING": 5,
+		"DELIVERY_EXPIRED":  6,
 	}
 )
 
-func (x WebhookJobStatus) Enum() *WebhookJobStatus {
-	p := new(WebhookJobStatus)
+func (x WebhookDeliveryStatus) Enum() *WebhookDeliveryStatus {
+	p := new(WebhookDeliveryStatus)
 	*p = x
 	return p
 }
 
-func (x WebhookJobStatus) String() string {
+func (x WebhookDeliveryStatus) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (WebhookJobStatus) Descriptor() protoreflect.EnumDescriptor {
+func (WebhookDeliveryStatus) Descriptor() protoreflect.EnumDescriptor {
 	return file_proto_webhook_proto_enumTypes[0].Descriptor()
 }
 
-func (WebhookJobStatus) Type() protoreflect.EnumType {
+func (WebhookDeliveryStatus) Type() protoreflect.EnumType {
 	return &file_proto_webhook_proto_enumTypes[0]
 }
 
-func (x WebhookJobStatus) Number() protoreflect.EnumNumber {
+func (x WebhookDeliveryStatus) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use WebhookJobStatus.Descriptor instead.
-func (WebhookJobStatus) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use WebhookDeliveryStatus.Descriptor instead.
+func (WebhookDeliveryStatus) EnumDescriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{0}
 }
 
-// ScheduleWebhookRequest represents a request to schedule a webhook
-type ScheduleWebhookRequest struct {
+// RegisterWebhookRequest represents a request to register a webhook URL
+type RegisterWebhookRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Url           string                 `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`                                                                                   // Target URL for the webhook
-	Method        string                 `protobuf:"bytes,2,opt,name=method,proto3" json:"method,omitempty"`                                                                             // HTTP method (POST, PUT, GET, etc.)
-	Headers       map[string]string      `protobuf:"bytes,3,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // HTTP headers
-	Payload       string                 `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`                                                                           // JSON payload as string
-	Timeout       int32                  `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                          // Timeout in seconds
-	Queue         string                 `protobuf:"bytes,6,opt,name=queue,proto3" json:"queue,omitempty"`                                                                               // Queue name (optional)
-	ScheduledAt   int64                  `protobuf:"varint,7,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`                                               // Unix timestamp for scheduling (optional)
-	Priority      int32                  `protobuf:"varint,8,opt,name=priority,proto3" json:"priority,omitempty"`                                                                        // Job priority (optional)
+	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                       // Namespace for grouping webhooks
+	Events        []string               `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`                                                                             // Event names to listen for (multiple events supported)
+	Url           string                 `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`                                                                                   // Target URL for the webhook
+	Headers       map[string]string      `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // HTTP headers to include in requests
+	Timeout       int32                  `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                          // Timeout in seconds (default: 30)
+	Active        bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`                                                                            // Whether webhook is active (default: true)
+	Description   string                 `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`                                                                   // Optional description
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ScheduleWebhookRequest) Reset() {
-	*x = ScheduleWebhookRequest{}
+func (x *RegisterWebhookRequest) Reset() {
+	*x = RegisterWebhookRequest{}
 	mi := &file_proto_webhook_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ScheduleWebhookRequest) String() string {
+func (x *RegisterWebhookRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ScheduleWebhookRequest) ProtoMessage() {}
+func (*RegisterWebhookRequest) ProtoMessage() {}
 
-func (x *ScheduleWebhookRequest) ProtoReflect() protoreflect.Message {
+func (x *RegisterWebhookRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_webhook_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -123,92 +122,85 @@ func (x *ScheduleWebhookRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ScheduleWebhookRequest.ProtoReflect.Descriptor instead.
-func (*ScheduleWebhookRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use RegisterWebhookRequest.ProtoReflect.Descriptor instead.
+func (*RegisterWebhookRequest) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *ScheduleWebhookRequest) GetUrl() string {
+func (x *RegisterWebhookRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *RegisterWebhookRequest) GetEvents() []string {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *RegisterWebhookRequest) GetUrl() string {
 	if x != nil {
 		return x.Url
 	}
 	return ""
 }
 
-func (x *ScheduleWebhookRequest) GetMethod() string {
-	if x != nil {
-		return x.Method
-	}
-	return ""
-}
-
-func (x *ScheduleWebhookRequest) GetHeaders() map[string]string {
+func (x *RegisterWebhookRequest) GetHeaders() map[string]string {
 	if x != nil {
 		return x.Headers
 	}
 	return nil
 }
 
-func (x *ScheduleWebhookRequest) GetPayload() string {
-	if x != nil {
-		return x.Payload
-	}
-	return ""
-}
-
-func (x *ScheduleWebhookRequest) GetTimeout() int32 {
+func (x *RegisterWebhookRequest) GetTimeout() int32 {
 	if x != nil {
 		return x.Timeout
 	}
 	return 0
 }
 
-func (x *ScheduleWebhookRequest) GetQueue() string {
+func (x *RegisterWebhookRequest) GetActive() bool {
 	if x != nil {
-		return x.Queue
+		return x.Active
+	}
+	return false
+}
+
+func (x *RegisterWebhookRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
 	}
 	return ""
 }
 
-func (x *ScheduleWebhookRequest) GetScheduledAt() int64 {
-	if x != nil {
-		return x.ScheduledAt
-	}
-	return 0
-}
-
-func (x *ScheduleWebhookRequest) GetPriority() int32 {
-	if x != nil {
-		return x.Priority
-	}
-	return 0
-}
-
-// ScheduleWebhookResponse represents the response for scheduling a webhook
-type ScheduleWebhookResponse struct {
+// RegisterWebhookResponse represents the response for webhook registration
+type RegisterWebhookResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	JobId         int64                  `protobuf:"varint,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`                   // Unique job identifier
-	Success       bool                   `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`                            // Whether the scheduling was successful
-	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`                             // Success or error message
-	ScheduledAt   int64                  `protobuf:"varint,4,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"` // When the job was scheduled for
+	WebhookId     string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`  // Unique webhook identifier
+	Success       bool                   `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`                      // Whether registration was successful
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`                       // Success or error message
+	CreatedAt     int64                  `protobuf:"varint,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"` // When the webhook was registered
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ScheduleWebhookResponse) Reset() {
-	*x = ScheduleWebhookResponse{}
+func (x *RegisterWebhookResponse) Reset() {
+	*x = RegisterWebhookResponse{}
 	mi := &file_proto_webhook_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ScheduleWebhookResponse) String() string {
+func (x *RegisterWebhookResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ScheduleWebhookResponse) ProtoMessage() {}
+func (*RegisterWebhookResponse) ProtoMessage() {}
 
-func (x *ScheduleWebhookResponse) ProtoReflect() protoreflect.Message {
+func (x *RegisterWebhookResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_webhook_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -220,61 +212,61 @@ func (x *ScheduleWebhookResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ScheduleWebhookResponse.ProtoReflect.Descriptor instead.
-func (*ScheduleWebhookResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use RegisterWebhookResponse.ProtoReflect.Descriptor instead.
+func (*RegisterWebhookResponse) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *ScheduleWebhookResponse) GetJobId() int64 {
+func (x *RegisterWebhookResponse) GetWebhookId() string {
 	if x != nil {
-		return x.JobId
+		return x.WebhookId
 	}
-	return 0
+	return ""
 }
 
-func (x *ScheduleWebhookResponse) GetSuccess() bool {
+func (x *RegisterWebhookResponse) GetSuccess() bool {
 	if x != nil {
 		return x.Success
 	}
 	return false
 }
 
-func (x *ScheduleWebhookResponse) GetMessage() string {
+func (x *RegisterWebhookResponse) GetMessage() string {
 	if x != nil {
 		return x.Message
 	}
 	return ""
 }
 
-func (x *ScheduleWebhookResponse) GetScheduledAt() int64 {
+func (x *RegisterWebhookResponse) GetCreatedAt() int64 {
 	if x != nil {
-		return x.ScheduledAt
+		return x.CreatedAt
 	}
 	return 0
 }
 
-// ScheduleWebhookBatchRequest represents a request to schedule multiple webhooks
-type ScheduleWebhookBatchRequest struct {
-	state         protoimpl.MessageState    `protogen:"open.v1"`
-	Webhooks      []*ScheduleWebhookRequest `protobuf:"bytes,1,rep,name=webhooks,proto3" json:"webhooks,omitempty"`
+// UnregisterWebhookRequest represents a request to remove a webhook
+type UnregisterWebhookRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WebhookId     string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"` // Webhook ID to remove
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ScheduleWebhookBatchRequest) Reset() {
-	*x = ScheduleWebhookBatchRequest{}
+func (x *UnregisterWebhookRequest) Reset() {
+	*x = UnregisterWebhookRequest{}
 	mi := &file_proto_webhook_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ScheduleWebhookBatchRequest) String() string {
+func (x *UnregisterWebhookRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ScheduleWebhookBatchRequest) ProtoMessage() {}
+func (*UnregisterWebhookRequest) ProtoMessage() {}
 
-func (x *ScheduleWebhookBatchRequest) ProtoReflect() protoreflect.Message {
+func (x *UnregisterWebhookRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_webhook_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -286,42 +278,41 @@ func (x *ScheduleWebhookBatchRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ScheduleWebhookBatchRequest.ProtoReflect.Descriptor instead.
-func (*ScheduleWebhookBatchRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use UnregisterWebhookRequest.ProtoReflect.Descriptor instead.
+func (*UnregisterWebhookRequest) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *ScheduleWebhookBatchRequest) GetWebhooks() []*ScheduleWebhookRequest {
+func (x *UnregisterWebhookRequest) GetWebhookId() string {
 	if x != nil {
-		return x.Webhooks
+		return x.WebhookId
 	}
-	return nil
+	return ""
 }
 
-// ScheduleWebhookBatchResponse represents the response for batch webhook scheduling
-type ScheduleWebhookBatchResponse struct {
-	state          protoimpl.MessageState     `protogen:"open.v1"`
-	Results        []*ScheduleWebhookResponse `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
-	TotalScheduled int32                      `protobuf:"varint,2,opt,name=total_scheduled,json=totalScheduled,proto3" json:"total_scheduled,omitempty"`
-	TotalFailed    int32                      `protobuf:"varint,3,opt,name=total_failed,json=totalFailed,proto3" json:"total_failed,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+// UnregisterWebhookResponse represents the response for webhook removal
+type UnregisterWebhookResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // Whether removal was successful
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // Success or error message
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ScheduleWebhookBatchResponse) Reset() {
-	*x = ScheduleWebhookBatchResponse{}
+func (x *UnregisterWebhookResponse) Reset() {
+	*x = UnregisterWebhookResponse{}
 	mi := &file_proto_webhook_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ScheduleWebhookBatchResponse) String() string {
+func (x *UnregisterWebhookResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ScheduleWebhookBatchResponse) ProtoMessage() {}
+func (*UnregisterWebhookResponse) ProtoMessage() {}
 
-func (x *ScheduleWebhookBatchResponse) ProtoReflect() protoreflect.Message {
+func (x *UnregisterWebhookResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_webhook_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -333,43 +324,195 @@ func (x *ScheduleWebhookBatchResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ScheduleWebhookBatchResponse.ProtoReflect.Descriptor instead.
-func (*ScheduleWebhookBatchResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use UnregisterWebhookResponse.ProtoReflect.Descriptor instead.
+func (*UnregisterWebhookResponse) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *ScheduleWebhookBatchResponse) GetResults() []*ScheduleWebhookResponse {
+func (x *UnregisterWebhookResponse) GetSuccess() bool {
 	if x != nil {
-		return x.Results
+		return x.Success
+	}
+	return false
+}
+
+func (x *UnregisterWebhookResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// PushEventRequest represents a request to push an event
+type PushEventRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                         // Namespace for the event
+	Event         string                 `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`                                                                                 // Event name
+	Payload       string                 `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`                                                                             // Event payload as JSON string
+	TtlSeconds    int64                  `protobuf:"varint,4,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"`                                                    // TTL for webhook retry attempts
+	Metadata      map[string]string      `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Additional event metadata
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushEventRequest) Reset() {
+	*x = PushEventRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushEventRequest) ProtoMessage() {}
+
+func (x *PushEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushEventRequest.ProtoReflect.Descriptor instead.
+func (*PushEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *PushEventRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *PushEventRequest) GetEvent() string {
+	if x != nil {
+		return x.Event
+	}
+	return ""
+}
+
+func (x *PushEventRequest) GetPayload() string {
+	if x != nil {
+		return x.Payload
+	}
+	return ""
+}
+
+func (x *PushEventRequest) GetTtlSeconds() int64 {
+	if x != nil {
+		return x.TtlSeconds
+	}
+	return 0
+}
+
+func (x *PushEventRequest) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
 	}
 	return nil
 }
 
-func (x *ScheduleWebhookBatchResponse) GetTotalScheduled() int32 {
+// PushEventResponse represents the response for event pushing
+type PushEventResponse struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	EventId           string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`                                // Unique event identifier
+	WebhooksTriggered int32                  `protobuf:"varint,2,opt,name=webhooks_triggered,json=webhooksTriggered,proto3" json:"webhooks_triggered,omitempty"` // Number of webhooks triggered
+	WebhookIds        []string               `protobuf:"bytes,3,rep,name=webhook_ids,json=webhookIds,proto3" json:"webhook_ids,omitempty"`                       // IDs of triggered webhooks
+	Success           bool                   `protobuf:"varint,4,opt,name=success,proto3" json:"success,omitempty"`                                              // Whether event was processed
+	Message           string                 `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`                                               // Success or error message
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *PushEventResponse) Reset() {
+	*x = PushEventResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushEventResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushEventResponse) ProtoMessage() {}
+
+func (x *PushEventResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[5]
 	if x != nil {
-		return x.TotalScheduled
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushEventResponse.ProtoReflect.Descriptor instead.
+func (*PushEventResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *PushEventResponse) GetEventId() string {
+	if x != nil {
+		return x.EventId
+	}
+	return ""
+}
+
+func (x *PushEventResponse) GetWebhooksTriggered() int32 {
+	if x != nil {
+		return x.WebhooksTriggered
 	}
 	return 0
 }
 
-func (x *ScheduleWebhookBatchResponse) GetTotalFailed() int32 {
+func (x *PushEventResponse) GetWebhookIds() []string {
 	if x != nil {
-		return x.TotalFailed
+		return x.WebhookIds
 	}
-	return 0
+	return nil
 }
 
-// GetWebhookStatusRequest represents a request to get webhook job status
+func (x *PushEventResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *PushEventResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// GetWebhookStatusRequest represents a request to get webhook status
 type GetWebhookStatusRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	JobId         int64                  `protobuf:"varint,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Identifier:
+	//
+	//	*GetWebhookStatusRequest_WebhookId
+	//	*GetWebhookStatusRequest_EventId
+	Identifier    isGetWebhookStatusRequest_Identifier `protobuf_oneof:"identifier"`
+	Namespace     string                               `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"` // Optional namespace filter
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetWebhookStatusRequest) Reset() {
 	*x = GetWebhookStatusRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[4]
+	mi := &file_proto_webhook_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -381,7 +524,7 @@ func (x *GetWebhookStatusRequest) String() string {
 func (*GetWebhookStatusRequest) ProtoMessage() {}
 
 func (x *GetWebhookStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[4]
+	mi := &file_proto_webhook_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -394,34 +537,212 @@ func (x *GetWebhookStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWebhookStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetWebhookStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{4}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *GetWebhookStatusRequest) GetJobId() int64 {
+func (x *GetWebhookStatusRequest) GetIdentifier() isGetWebhookStatusRequest_Identifier {
 	if x != nil {
-		return x.JobId
+		return x.Identifier
+	}
+	return nil
+}
+
+func (x *GetWebhookStatusRequest) GetWebhookId() string {
+	if x != nil {
+		if x, ok := x.Identifier.(*GetWebhookStatusRequest_WebhookId); ok {
+			return x.WebhookId
+		}
+	}
+	return ""
+}
+
+func (x *GetWebhookStatusRequest) GetEventId() string {
+	if x != nil {
+		if x, ok := x.Identifier.(*GetWebhookStatusRequest_EventId); ok {
+			return x.EventId
+		}
+	}
+	return ""
+}
+
+func (x *GetWebhookStatusRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+type isGetWebhookStatusRequest_Identifier interface {
+	isGetWebhookStatusRequest_Identifier()
+}
+
+type GetWebhookStatusRequest_WebhookId struct {
+	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3,oneof"` // Get status for specific webhook
+}
+
+type GetWebhookStatusRequest_EventId struct {
+	EventId string `protobuf:"bytes,2,opt,name=event_id,json=eventId,proto3,oneof"` // Get status for specific event
+}
+
+func (*GetWebhookStatusRequest_WebhookId) isGetWebhookStatusRequest_Identifier() {}
+
+func (*GetWebhookStatusRequest_EventId) isGetWebhookStatusRequest_Identifier() {}
+
+// WebhookDelivery represents a single webhook delivery attempt
+type WebhookDelivery struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	DeliveryId      string                 `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`                   // Unique delivery identifier
+	WebhookId       string                 `protobuf:"bytes,2,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`                      // Associated webhook ID
+	EventId         string                 `protobuf:"bytes,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`                            // Associated event ID
+	Status          WebhookDeliveryStatus  `protobuf:"varint,4,opt,name=status,proto3,enum=webhook.WebhookDeliveryStatus" json:"status,omitempty"`         // Current delivery status
+	AttemptCount    int32                  `protobuf:"varint,5,opt,name=attempt_count,json=attemptCount,proto3" json:"attempt_count,omitempty"`            // Number of delivery attempts
+	MaxAttempts     int32                  `protobuf:"varint,6,opt,name=max_attempts,json=maxAttempts,proto3" json:"max_attempts,omitempty"`               // Maximum retry attempts
+	CreatedAt       int64                  `protobuf:"varint,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                     // When delivery was created
+	LastAttemptedAt int64                  `protobuf:"varint,8,opt,name=last_attempted_at,json=lastAttemptedAt,proto3" json:"last_attempted_at,omitempty"` // Last attempt timestamp
+	NextRetryAt     int64                  `protobuf:"varint,9,opt,name=next_retry_at,json=nextRetryAt,proto3" json:"next_retry_at,omitempty"`             // Next retry timestamp
+	ExpiresAt       int64                  `protobuf:"varint,10,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`                    // When delivery expires (TTL)
+	ResponseCode    int32                  `protobuf:"varint,11,opt,name=response_code,json=responseCode,proto3" json:"response_code,omitempty"`           // HTTP response code from last attempt
+	ResponseBody    string                 `protobuf:"bytes,12,opt,name=response_body,json=responseBody,proto3" json:"response_body,omitempty"`            // HTTP response body (truncated)
+	ErrorMessage    string                 `protobuf:"bytes,13,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`            // Error message if failed
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *WebhookDelivery) Reset() {
+	*x = WebhookDelivery{}
+	mi := &file_proto_webhook_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WebhookDelivery) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WebhookDelivery) ProtoMessage() {}
+
+func (x *WebhookDelivery) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WebhookDelivery.ProtoReflect.Descriptor instead.
+func (*WebhookDelivery) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *WebhookDelivery) GetDeliveryId() string {
+	if x != nil {
+		return x.DeliveryId
+	}
+	return ""
+}
+
+func (x *WebhookDelivery) GetWebhookId() string {
+	if x != nil {
+		return x.WebhookId
+	}
+	return ""
+}
+
+func (x *WebhookDelivery) GetEventId() string {
+	if x != nil {
+		return x.EventId
+	}
+	return ""
+}
+
+func (x *WebhookDelivery) GetStatus() WebhookDeliveryStatus {
+	if x != nil {
+		return x.Status
+	}
+	return WebhookDeliveryStatus_DELIVERY_UNKNOWN
+}
+
+func (x *WebhookDelivery) GetAttemptCount() int32 {
+	if x != nil {
+		return x.AttemptCount
 	}
 	return 0
 }
 
+func (x *WebhookDelivery) GetMaxAttempts() int32 {
+	if x != nil {
+		return x.MaxAttempts
+	}
+	return 0
+}
+
+func (x *WebhookDelivery) GetCreatedAt() int64 {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return 0
+}
+
+func (x *WebhookDelivery) GetLastAttemptedAt() int64 {
+	if x != nil {
+		return x.LastAttemptedAt
+	}
+	return 0
+}
+
+func (x *WebhookDelivery) GetNextRetryAt() int64 {
+	if x != nil {
+		return x.NextRetryAt
+	}
+	return 0
+}
+
+func (x *WebhookDelivery) GetExpiresAt() int64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
+func (x *WebhookDelivery) GetResponseCode() int32 {
+	if x != nil {
+		return x.ResponseCode
+	}
+	return 0
+}
+
+func (x *WebhookDelivery) GetResponseBody() string {
+	if x != nil {
+		return x.ResponseBody
+	}
+	return ""
+}
+
+func (x *WebhookDelivery) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
 // GetWebhookStatusResponse represents the response for webhook status
 type GetWebhookStatusResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	JobId         int64                  `protobuf:"varint,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
-	Status        WebhookJobStatus       `protobuf:"varint,2,opt,name=status,proto3,enum=webhook.WebhookJobStatus" json:"status,omitempty"`
-	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	CreatedAt     int64                  `protobuf:"varint,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	ScheduledAt   int64                  `protobuf:"varint,5,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`
-	AttemptedAt   int64                  `protobuf:"varint,6,opt,name=attempted_at,json=attemptedAt,proto3" json:"attempted_at,omitempty"`
-	AttemptCount  int32                  `protobuf:"varint,7,opt,name=attempt_count,json=attemptCount,proto3" json:"attempt_count,omitempty"`
-	MaxAttempts   int32                  `protobuf:"varint,8,opt,name=max_attempts,json=maxAttempts,proto3" json:"max_attempts,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Deliveries      []*WebhookDelivery     `protobuf:"bytes,1,rep,name=deliveries,proto3" json:"deliveries,omitempty"`
+	TotalDeliveries int32                  `protobuf:"varint,2,opt,name=total_deliveries,json=totalDeliveries,proto3" json:"total_deliveries,omitempty"`
+	Success         bool                   `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	Message         string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GetWebhookStatusResponse) Reset() {
 	*x = GetWebhookStatusResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[5]
+	mi := &file_proto_webhook_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -433,7 +754,7 @@ func (x *GetWebhookStatusResponse) String() string {
 func (*GetWebhookStatusResponse) ProtoMessage() {}
 
 func (x *GetWebhookStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[5]
+	mi := &file_proto_webhook_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -446,21 +767,28 @@ func (x *GetWebhookStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWebhookStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetWebhookStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{5}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *GetWebhookStatusResponse) GetJobId() int64 {
+func (x *GetWebhookStatusResponse) GetDeliveries() []*WebhookDelivery {
 	if x != nil {
-		return x.JobId
+		return x.Deliveries
+	}
+	return nil
+}
+
+func (x *GetWebhookStatusResponse) GetTotalDeliveries() int32 {
+	if x != nil {
+		return x.TotalDeliveries
 	}
 	return 0
 }
 
-func (x *GetWebhookStatusResponse) GetStatus() WebhookJobStatus {
+func (x *GetWebhookStatusResponse) GetSuccess() bool {
 	if x != nil {
-		return x.Status
+		return x.Success
 	}
-	return WebhookJobStatus_UNKNOWN
+	return false
 }
 
 func (x *GetWebhookStatusResponse) GetMessage() string {
@@ -470,94 +798,375 @@ func (x *GetWebhookStatusResponse) GetMessage() string {
 	return ""
 }
 
-func (x *GetWebhookStatusResponse) GetCreatedAt() int64 {
+// ListWebhooksRequest represents a request to list webhooks
+type ListWebhooksRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`                      // Namespace to filter by
+	Event         string                 `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`                              // Event to filter by (optional)
+	ActiveOnly    bool                   `protobuf:"varint,3,opt,name=active_only,json=activeOnly,proto3" json:"active_only,omitempty"` // Only return active webhooks
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWebhooksRequest) Reset() {
+	*x = ListWebhooksRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWebhooksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWebhooksRequest) ProtoMessage() {}
+
+func (x *ListWebhooksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWebhooksRequest.ProtoReflect.Descriptor instead.
+func (*ListWebhooksRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ListWebhooksRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *ListWebhooksRequest) GetEvent() string {
+	if x != nil {
+		return x.Event
+	}
+	return ""
+}
+
+func (x *ListWebhooksRequest) GetActiveOnly() bool {
+	if x != nil {
+		return x.ActiveOnly
+	}
+	return false
+}
+
+// RegisteredWebhook represents a registered webhook
+type RegisteredWebhook struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WebhookId     string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`                                                      // Unique webhook identifier
+	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                       // Webhook namespace
+	Events        []string               `protobuf:"bytes,3,rep,name=events,proto3" json:"events,omitempty"`                                                                             // Events the webhook listens for
+	Url           string                 `protobuf:"bytes,4,opt,name=url,proto3" json:"url,omitempty"`                                                                                   // Target URL
+	Headers       map[string]string      `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // HTTP headers
+	Timeout       int32                  `protobuf:"varint,6,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                          // Timeout in seconds
+	Active        bool                   `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`                                                                            // Whether webhook is active
+	Description   string                 `protobuf:"bytes,8,opt,name=description,proto3" json:"description,omitempty"`                                                                   // Webhook description
+	CreatedAt     int64                  `protobuf:"varint,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                                                     // When webhook was registered
+	UpdatedAt     int64                  `protobuf:"varint,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`                                                    // When webhook was last updated
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisteredWebhook) Reset() {
+	*x = RegisteredWebhook{}
+	mi := &file_proto_webhook_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisteredWebhook) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisteredWebhook) ProtoMessage() {}
+
+func (x *RegisteredWebhook) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisteredWebhook.ProtoReflect.Descriptor instead.
+func (*RegisteredWebhook) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *RegisteredWebhook) GetWebhookId() string {
+	if x != nil {
+		return x.WebhookId
+	}
+	return ""
+}
+
+func (x *RegisteredWebhook) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *RegisteredWebhook) GetEvents() []string {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *RegisteredWebhook) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *RegisteredWebhook) GetHeaders() map[string]string {
+	if x != nil {
+		return x.Headers
+	}
+	return nil
+}
+
+func (x *RegisteredWebhook) GetTimeout() int32 {
+	if x != nil {
+		return x.Timeout
+	}
+	return 0
+}
+
+func (x *RegisteredWebhook) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *RegisteredWebhook) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *RegisteredWebhook) GetCreatedAt() int64 {
 	if x != nil {
 		return x.CreatedAt
 	}
 	return 0
 }
 
-func (x *GetWebhookStatusResponse) GetScheduledAt() int64 {
+func (x *RegisteredWebhook) GetUpdatedAt() int64 {
 	if x != nil {
-		return x.ScheduledAt
+		return x.UpdatedAt
 	}
 	return 0
 }
 
-func (x *GetWebhookStatusResponse) GetAttemptedAt() int64 {
+// ListWebhooksResponse represents the response for listing webhooks
+type ListWebhooksResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Webhooks      []*RegisteredWebhook   `protobuf:"bytes,1,rep,name=webhooks,proto3" json:"webhooks,omitempty"`
+	TotalCount    int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	Success       bool                   `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWebhooksResponse) Reset() {
+	*x = ListWebhooksResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWebhooksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWebhooksResponse) ProtoMessage() {}
+
+func (x *ListWebhooksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[11]
 	if x != nil {
-		return x.AttemptedAt
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWebhooksResponse.ProtoReflect.Descriptor instead.
+func (*ListWebhooksResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListWebhooksResponse) GetWebhooks() []*RegisteredWebhook {
+	if x != nil {
+		return x.Webhooks
+	}
+	return nil
+}
+
+func (x *ListWebhooksResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
 	}
 	return 0
 }
 
-func (x *GetWebhookStatusResponse) GetAttemptCount() int32 {
+func (x *ListWebhooksResponse) GetSuccess() bool {
 	if x != nil {
-		return x.AttemptCount
+		return x.Success
 	}
-	return 0
+	return false
 }
 
-func (x *GetWebhookStatusResponse) GetMaxAttempts() int32 {
+func (x *ListWebhooksResponse) GetMessage() string {
 	if x != nil {
-		return x.MaxAttempts
+		return x.Message
 	}
-	return 0
+	return ""
 }
 
 var File_proto_webhook_proto protoreflect.FileDescriptor
 
 const file_proto_webhook_proto_rawDesc = "" +
 	"\n" +
-	"\x13proto/webhook.proto\x12\awebhook\"\xcf\x02\n" +
-	"\x16ScheduleWebhookRequest\x12\x10\n" +
-	"\x03url\x18\x01 \x01(\tR\x03url\x12\x16\n" +
-	"\x06method\x18\x02 \x01(\tR\x06method\x12F\n" +
-	"\aheaders\x18\x03 \x03(\v2,.webhook.ScheduleWebhookRequest.HeadersEntryR\aheaders\x12\x18\n" +
-	"\apayload\x18\x04 \x01(\tR\apayload\x12\x18\n" +
-	"\atimeout\x18\x05 \x01(\x05R\atimeout\x12\x14\n" +
-	"\x05queue\x18\x06 \x01(\tR\x05queue\x12!\n" +
-	"\fscheduled_at\x18\a \x01(\x03R\vscheduledAt\x12\x1a\n" +
-	"\bpriority\x18\b \x01(\x05R\bpriority\x1a:\n" +
+	"\x13proto/webhook.proto\x12\awebhook\"\xb8\x02\n" +
+	"\x16RegisterWebhookRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x16\n" +
+	"\x06events\x18\x02 \x03(\tR\x06events\x12\x10\n" +
+	"\x03url\x18\x03 \x01(\tR\x03url\x12F\n" +
+	"\aheaders\x18\x04 \x03(\v2,.webhook.RegisterWebhookRequest.HeadersEntryR\aheaders\x12\x18\n" +
+	"\atimeout\x18\x05 \x01(\x05R\atimeout\x12\x16\n" +
+	"\x06active\x18\x06 \x01(\bR\x06active\x12 \n" +
+	"\vdescription\x18\a \x01(\tR\vdescription\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x87\x01\n" +
-	"\x17ScheduleWebhookResponse\x12\x15\n" +
-	"\x06job_id\x18\x01 \x01(\x03R\x05jobId\x12\x18\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8b\x01\n" +
+	"\x17RegisterWebhookResponse\x12\x1d\n" +
+	"\n" +
+	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x18\n" +
 	"\asuccess\x18\x02 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x03 \x01(\tR\amessage\x12!\n" +
-	"\fscheduled_at\x18\x04 \x01(\x03R\vscheduledAt\"Z\n" +
-	"\x1bScheduleWebhookBatchRequest\x12;\n" +
-	"\bwebhooks\x18\x01 \x03(\v2\x1f.webhook.ScheduleWebhookRequestR\bwebhooks\"\xa6\x01\n" +
-	"\x1cScheduleWebhookBatchResponse\x12:\n" +
-	"\aresults\x18\x01 \x03(\v2 .webhook.ScheduleWebhookResponseR\aresults\x12'\n" +
-	"\x0ftotal_scheduled\x18\x02 \x01(\x05R\x0etotalScheduled\x12!\n" +
-	"\ftotal_failed\x18\x03 \x01(\x05R\vtotalFailed\"0\n" +
-	"\x17GetWebhookStatusRequest\x12\x15\n" +
-	"\x06job_id\x18\x01 \x01(\x03R\x05jobId\"\xab\x02\n" +
-	"\x18GetWebhookStatusResponse\x12\x15\n" +
-	"\x06job_id\x18\x01 \x01(\x03R\x05jobId\x121\n" +
-	"\x06status\x18\x02 \x01(\x0e2\x19.webhook.WebhookJobStatusR\x06status\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x04 \x01(\x03R\tcreatedAt\x12!\n" +
-	"\fscheduled_at\x18\x05 \x01(\x03R\vscheduledAt\x12!\n" +
-	"\fattempted_at\x18\x06 \x01(\x03R\vattemptedAt\x12#\n" +
-	"\rattempt_count\x18\a \x01(\x05R\fattemptCount\x12!\n" +
-	"\fmax_attempts\x18\b \x01(\x05R\vmaxAttempts*q\n" +
-	"\x10WebhookJobStatus\x12\v\n" +
-	"\aUNKNOWN\x10\x00\x12\v\n" +
-	"\aPENDING\x10\x01\x12\v\n" +
-	"\aRUNNING\x10\x02\x12\r\n" +
-	"\tCOMPLETED\x10\x03\x12\n" +
+	"created_at\x18\x04 \x01(\x03R\tcreatedAt\"9\n" +
+	"\x18UnregisterWebhookRequest\x12\x1d\n" +
 	"\n" +
-	"\x06FAILED\x10\x04\x12\r\n" +
-	"\tCANCELLED\x10\x05\x12\f\n" +
-	"\bRETRYING\x10\x062\xa4\x02\n" +
+	"webhook_id\x18\x01 \x01(\tR\twebhookId\"O\n" +
+	"\x19UnregisterWebhookResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\x83\x02\n" +
+	"\x10PushEventRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x14\n" +
+	"\x05event\x18\x02 \x01(\tR\x05event\x12\x18\n" +
+	"\apayload\x18\x03 \x01(\tR\apayload\x12\x1f\n" +
+	"\vttl_seconds\x18\x04 \x01(\x03R\n" +
+	"ttlSeconds\x12C\n" +
+	"\bmetadata\x18\x05 \x03(\v2'.webhook.PushEventRequest.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb2\x01\n" +
+	"\x11PushEventResponse\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12-\n" +
+	"\x12webhooks_triggered\x18\x02 \x01(\x05R\x11webhooksTriggered\x12\x1f\n" +
+	"\vwebhook_ids\x18\x03 \x03(\tR\n" +
+	"webhookIds\x12\x18\n" +
+	"\asuccess\x18\x04 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x05 \x01(\tR\amessage\"\x83\x01\n" +
+	"\x17GetWebhookStatusRequest\x12\x1f\n" +
+	"\n" +
+	"webhook_id\x18\x01 \x01(\tH\x00R\twebhookId\x12\x1b\n" +
+	"\bevent_id\x18\x02 \x01(\tH\x00R\aeventId\x12\x1c\n" +
+	"\tnamespace\x18\x03 \x01(\tR\tnamespaceB\f\n" +
+	"\n" +
+	"identifier\"\xe9\x03\n" +
+	"\x0fWebhookDelivery\x12\x1f\n" +
+	"\vdelivery_id\x18\x01 \x01(\tR\n" +
+	"deliveryId\x12\x1d\n" +
+	"\n" +
+	"webhook_id\x18\x02 \x01(\tR\twebhookId\x12\x19\n" +
+	"\bevent_id\x18\x03 \x01(\tR\aeventId\x126\n" +
+	"\x06status\x18\x04 \x01(\x0e2\x1e.webhook.WebhookDeliveryStatusR\x06status\x12#\n" +
+	"\rattempt_count\x18\x05 \x01(\x05R\fattemptCount\x12!\n" +
+	"\fmax_attempts\x18\x06 \x01(\x05R\vmaxAttempts\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\a \x01(\x03R\tcreatedAt\x12*\n" +
+	"\x11last_attempted_at\x18\b \x01(\x03R\x0flastAttemptedAt\x12\"\n" +
+	"\rnext_retry_at\x18\t \x01(\x03R\vnextRetryAt\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\n" +
+	" \x01(\x03R\texpiresAt\x12#\n" +
+	"\rresponse_code\x18\v \x01(\x05R\fresponseCode\x12#\n" +
+	"\rresponse_body\x18\f \x01(\tR\fresponseBody\x12#\n" +
+	"\rerror_message\x18\r \x01(\tR\ferrorMessage\"\xb3\x01\n" +
+	"\x18GetWebhookStatusResponse\x128\n" +
+	"\n" +
+	"deliveries\x18\x01 \x03(\v2\x18.webhook.WebhookDeliveryR\n" +
+	"deliveries\x12)\n" +
+	"\x10total_deliveries\x18\x02 \x01(\x05R\x0ftotalDeliveries\x12\x18\n" +
+	"\asuccess\x18\x03 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\"j\n" +
+	"\x13ListWebhooksRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x14\n" +
+	"\x05event\x18\x02 \x01(\tR\x05event\x12\x1f\n" +
+	"\vactive_only\x18\x03 \x01(\bR\n" +
+	"activeOnly\"\x8b\x03\n" +
+	"\x11RegisteredWebhook\x12\x1d\n" +
+	"\n" +
+	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x16\n" +
+	"\x06events\x18\x03 \x03(\tR\x06events\x12\x10\n" +
+	"\x03url\x18\x04 \x01(\tR\x03url\x12A\n" +
+	"\aheaders\x18\x05 \x03(\v2'.webhook.RegisteredWebhook.HeadersEntryR\aheaders\x12\x18\n" +
+	"\atimeout\x18\x06 \x01(\x05R\atimeout\x12\x16\n" +
+	"\x06active\x18\a \x01(\bR\x06active\x12 \n" +
+	"\vdescription\x18\b \x01(\tR\vdescription\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\t \x01(\x03R\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\x03R\tupdatedAt\x1a:\n" +
+	"\fHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa3\x01\n" +
+	"\x14ListWebhooksResponse\x126\n" +
+	"\bwebhooks\x18\x01 \x03(\v2\x1a.webhook.RegisteredWebhookR\bwebhooks\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x05R\n" +
+	"totalCount\x12\x18\n" +
+	"\asuccess\x18\x03 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage*\xb1\x01\n" +
+	"\x15WebhookDeliveryStatus\x12\x14\n" +
+	"\x10DELIVERY_UNKNOWN\x10\x00\x12\x14\n" +
+	"\x10DELIVERY_PENDING\x10\x01\x12\x14\n" +
+	"\x10DELIVERY_SENDING\x10\x02\x12\x14\n" +
+	"\x10DELIVERY_SUCCESS\x10\x03\x12\x13\n" +
+	"\x0fDELIVERY_FAILED\x10\x04\x12\x15\n" +
+	"\x11DELIVERY_RETRYING\x10\x05\x12\x14\n" +
+	"\x10DELIVERY_EXPIRED\x10\x062\xac\x03\n" +
 	"\x0eWebhookService\x12T\n" +
-	"\x0fScheduleWebhook\x12\x1f.webhook.ScheduleWebhookRequest\x1a .webhook.ScheduleWebhookResponse\x12c\n" +
-	"\x14ScheduleWebhookBatch\x12$.webhook.ScheduleWebhookBatchRequest\x1a%.webhook.ScheduleWebhookBatchResponse\x12W\n" +
-	"\x10GetWebhookStatus\x12 .webhook.GetWebhookStatusRequest\x1a!.webhook.GetWebhookStatusResponseB/Z-github.com/sarathsp06/httpqueue/proto/webhookb\x06proto3"
+	"\x0fRegisterWebhook\x12\x1f.webhook.RegisterWebhookRequest\x1a .webhook.RegisterWebhookResponse\x12Z\n" +
+	"\x11UnregisterWebhook\x12!.webhook.UnregisterWebhookRequest\x1a\".webhook.UnregisterWebhookResponse\x12B\n" +
+	"\tPushEvent\x12\x19.webhook.PushEventRequest\x1a\x1a.webhook.PushEventResponse\x12W\n" +
+	"\x10GetWebhookStatus\x12 .webhook.GetWebhookStatusRequest\x1a!.webhook.GetWebhookStatusResponse\x12K\n" +
+	"\fListWebhooks\x12\x1c.webhook.ListWebhooksRequest\x1a\x1d.webhook.ListWebhooksResponseB/Z-github.com/sarathsp06/httpqueue/proto/webhookb\x06proto3"
 
 var (
 	file_proto_webhook_proto_rawDescOnce sync.Once
@@ -572,33 +1181,47 @@ func file_proto_webhook_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_webhook_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_proto_webhook_proto_goTypes = []any{
-	(WebhookJobStatus)(0),                // 0: webhook.WebhookJobStatus
-	(*ScheduleWebhookRequest)(nil),       // 1: webhook.ScheduleWebhookRequest
-	(*ScheduleWebhookResponse)(nil),      // 2: webhook.ScheduleWebhookResponse
-	(*ScheduleWebhookBatchRequest)(nil),  // 3: webhook.ScheduleWebhookBatchRequest
-	(*ScheduleWebhookBatchResponse)(nil), // 4: webhook.ScheduleWebhookBatchResponse
-	(*GetWebhookStatusRequest)(nil),      // 5: webhook.GetWebhookStatusRequest
-	(*GetWebhookStatusResponse)(nil),     // 6: webhook.GetWebhookStatusResponse
-	nil,                                  // 7: webhook.ScheduleWebhookRequest.HeadersEntry
+	(WebhookDeliveryStatus)(0),        // 0: webhook.WebhookDeliveryStatus
+	(*RegisterWebhookRequest)(nil),    // 1: webhook.RegisterWebhookRequest
+	(*RegisterWebhookResponse)(nil),   // 2: webhook.RegisterWebhookResponse
+	(*UnregisterWebhookRequest)(nil),  // 3: webhook.UnregisterWebhookRequest
+	(*UnregisterWebhookResponse)(nil), // 4: webhook.UnregisterWebhookResponse
+	(*PushEventRequest)(nil),          // 5: webhook.PushEventRequest
+	(*PushEventResponse)(nil),         // 6: webhook.PushEventResponse
+	(*GetWebhookStatusRequest)(nil),   // 7: webhook.GetWebhookStatusRequest
+	(*WebhookDelivery)(nil),           // 8: webhook.WebhookDelivery
+	(*GetWebhookStatusResponse)(nil),  // 9: webhook.GetWebhookStatusResponse
+	(*ListWebhooksRequest)(nil),       // 10: webhook.ListWebhooksRequest
+	(*RegisteredWebhook)(nil),         // 11: webhook.RegisteredWebhook
+	(*ListWebhooksResponse)(nil),      // 12: webhook.ListWebhooksResponse
+	nil,                               // 13: webhook.RegisterWebhookRequest.HeadersEntry
+	nil,                               // 14: webhook.PushEventRequest.MetadataEntry
+	nil,                               // 15: webhook.RegisteredWebhook.HeadersEntry
 }
 var file_proto_webhook_proto_depIdxs = []int32{
-	7, // 0: webhook.ScheduleWebhookRequest.headers:type_name -> webhook.ScheduleWebhookRequest.HeadersEntry
-	1, // 1: webhook.ScheduleWebhookBatchRequest.webhooks:type_name -> webhook.ScheduleWebhookRequest
-	2, // 2: webhook.ScheduleWebhookBatchResponse.results:type_name -> webhook.ScheduleWebhookResponse
-	0, // 3: webhook.GetWebhookStatusResponse.status:type_name -> webhook.WebhookJobStatus
-	1, // 4: webhook.WebhookService.ScheduleWebhook:input_type -> webhook.ScheduleWebhookRequest
-	3, // 5: webhook.WebhookService.ScheduleWebhookBatch:input_type -> webhook.ScheduleWebhookBatchRequest
-	5, // 6: webhook.WebhookService.GetWebhookStatus:input_type -> webhook.GetWebhookStatusRequest
-	2, // 7: webhook.WebhookService.ScheduleWebhook:output_type -> webhook.ScheduleWebhookResponse
-	4, // 8: webhook.WebhookService.ScheduleWebhookBatch:output_type -> webhook.ScheduleWebhookBatchResponse
-	6, // 9: webhook.WebhookService.GetWebhookStatus:output_type -> webhook.GetWebhookStatusResponse
-	7, // [7:10] is the sub-list for method output_type
-	4, // [4:7] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	13, // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
+	14, // 1: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
+	0,  // 2: webhook.WebhookDelivery.status:type_name -> webhook.WebhookDeliveryStatus
+	8,  // 3: webhook.GetWebhookStatusResponse.deliveries:type_name -> webhook.WebhookDelivery
+	15, // 4: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
+	11, // 5: webhook.ListWebhooksResponse.webhooks:type_name -> webhook.RegisteredWebhook
+	1,  // 6: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
+	3,  // 7: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
+	5,  // 8: webhook.WebhookService.PushEvent:input_type -> webhook.PushEventRequest
+	7,  // 9: webhook.WebhookService.GetWebhookStatus:input_type -> webhook.GetWebhookStatusRequest
+	10, // 10: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
+	2,  // 11: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
+	4,  // 12: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
+	6,  // 13: webhook.WebhookService.PushEvent:output_type -> webhook.PushEventResponse
+	9,  // 14: webhook.WebhookService.GetWebhookStatus:output_type -> webhook.GetWebhookStatusResponse
+	12, // 15: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
+	11, // [11:16] is the sub-list for method output_type
+	6,  // [6:11] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_proto_webhook_proto_init() }
@@ -606,13 +1229,17 @@ func file_proto_webhook_proto_init() {
 	if File_proto_webhook_proto != nil {
 		return
 	}
+	file_proto_webhook_proto_msgTypes[6].OneofWrappers = []any{
+		(*GetWebhookStatusRequest_WebhookId)(nil),
+		(*GetWebhookStatusRequest_EventId)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_webhook_proto_rawDesc), len(file_proto_webhook_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   7,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

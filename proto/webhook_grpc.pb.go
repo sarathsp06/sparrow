@@ -19,23 +19,29 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WebhookService_ScheduleWebhook_FullMethodName      = "/webhook.WebhookService/ScheduleWebhook"
-	WebhookService_ScheduleWebhookBatch_FullMethodName = "/webhook.WebhookService/ScheduleWebhookBatch"
-	WebhookService_GetWebhookStatus_FullMethodName     = "/webhook.WebhookService/GetWebhookStatus"
+	WebhookService_RegisterWebhook_FullMethodName   = "/webhook.WebhookService/RegisterWebhook"
+	WebhookService_UnregisterWebhook_FullMethodName = "/webhook.WebhookService/UnregisterWebhook"
+	WebhookService_PushEvent_FullMethodName         = "/webhook.WebhookService/PushEvent"
+	WebhookService_GetWebhookStatus_FullMethodName  = "/webhook.WebhookService/GetWebhookStatus"
+	WebhookService_ListWebhooks_FullMethodName      = "/webhook.WebhookService/ListWebhooks"
 )
 
 // WebhookServiceClient is the client API for WebhookService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// WebhookService handles webhook requests
+// WebhookService handles webhook registration and event pushing
 type WebhookServiceClient interface {
-	// ScheduleWebhook schedules a webhook to be sent
-	ScheduleWebhook(ctx context.Context, in *ScheduleWebhookRequest, opts ...grpc.CallOption) (*ScheduleWebhookResponse, error)
-	// ScheduleWebhookBatch schedules multiple webhooks to be sent
-	ScheduleWebhookBatch(ctx context.Context, in *ScheduleWebhookBatchRequest, opts ...grpc.CallOption) (*ScheduleWebhookBatchResponse, error)
-	// GetWebhookStatus gets the status of a webhook job
+	// RegisterWebhook registers a URL for specific events in a namespace
+	RegisterWebhook(ctx context.Context, in *RegisterWebhookRequest, opts ...grpc.CallOption) (*RegisterWebhookResponse, error)
+	// UnregisterWebhook removes a webhook registration
+	UnregisterWebhook(ctx context.Context, in *UnregisterWebhookRequest, opts ...grpc.CallOption) (*UnregisterWebhookResponse, error)
+	// PushEvent pushes an event that triggers registered webhooks
+	PushEvent(ctx context.Context, in *PushEventRequest, opts ...grpc.CallOption) (*PushEventResponse, error)
+	// GetWebhookStatus gets the status of webhook deliveries
 	GetWebhookStatus(ctx context.Context, in *GetWebhookStatusRequest, opts ...grpc.CallOption) (*GetWebhookStatusResponse, error)
+	// ListWebhooks lists all registered webhooks for a namespace
+	ListWebhooks(ctx context.Context, in *ListWebhooksRequest, opts ...grpc.CallOption) (*ListWebhooksResponse, error)
 }
 
 type webhookServiceClient struct {
@@ -46,20 +52,30 @@ func NewWebhookServiceClient(cc grpc.ClientConnInterface) WebhookServiceClient {
 	return &webhookServiceClient{cc}
 }
 
-func (c *webhookServiceClient) ScheduleWebhook(ctx context.Context, in *ScheduleWebhookRequest, opts ...grpc.CallOption) (*ScheduleWebhookResponse, error) {
+func (c *webhookServiceClient) RegisterWebhook(ctx context.Context, in *RegisterWebhookRequest, opts ...grpc.CallOption) (*RegisterWebhookResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ScheduleWebhookResponse)
-	err := c.cc.Invoke(ctx, WebhookService_ScheduleWebhook_FullMethodName, in, out, cOpts...)
+	out := new(RegisterWebhookResponse)
+	err := c.cc.Invoke(ctx, WebhookService_RegisterWebhook_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *webhookServiceClient) ScheduleWebhookBatch(ctx context.Context, in *ScheduleWebhookBatchRequest, opts ...grpc.CallOption) (*ScheduleWebhookBatchResponse, error) {
+func (c *webhookServiceClient) UnregisterWebhook(ctx context.Context, in *UnregisterWebhookRequest, opts ...grpc.CallOption) (*UnregisterWebhookResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ScheduleWebhookBatchResponse)
-	err := c.cc.Invoke(ctx, WebhookService_ScheduleWebhookBatch_FullMethodName, in, out, cOpts...)
+	out := new(UnregisterWebhookResponse)
+	err := c.cc.Invoke(ctx, WebhookService_UnregisterWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) PushEvent(ctx context.Context, in *PushEventRequest, opts ...grpc.CallOption) (*PushEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PushEventResponse)
+	err := c.cc.Invoke(ctx, WebhookService_PushEvent_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,18 +92,32 @@ func (c *webhookServiceClient) GetWebhookStatus(ctx context.Context, in *GetWebh
 	return out, nil
 }
 
+func (c *webhookServiceClient) ListWebhooks(ctx context.Context, in *ListWebhooksRequest, opts ...grpc.CallOption) (*ListWebhooksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWebhooksResponse)
+	err := c.cc.Invoke(ctx, WebhookService_ListWebhooks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WebhookServiceServer is the server API for WebhookService service.
 // All implementations must embed UnimplementedWebhookServiceServer
 // for forward compatibility.
 //
-// WebhookService handles webhook requests
+// WebhookService handles webhook registration and event pushing
 type WebhookServiceServer interface {
-	// ScheduleWebhook schedules a webhook to be sent
-	ScheduleWebhook(context.Context, *ScheduleWebhookRequest) (*ScheduleWebhookResponse, error)
-	// ScheduleWebhookBatch schedules multiple webhooks to be sent
-	ScheduleWebhookBatch(context.Context, *ScheduleWebhookBatchRequest) (*ScheduleWebhookBatchResponse, error)
-	// GetWebhookStatus gets the status of a webhook job
+	// RegisterWebhook registers a URL for specific events in a namespace
+	RegisterWebhook(context.Context, *RegisterWebhookRequest) (*RegisterWebhookResponse, error)
+	// UnregisterWebhook removes a webhook registration
+	UnregisterWebhook(context.Context, *UnregisterWebhookRequest) (*UnregisterWebhookResponse, error)
+	// PushEvent pushes an event that triggers registered webhooks
+	PushEvent(context.Context, *PushEventRequest) (*PushEventResponse, error)
+	// GetWebhookStatus gets the status of webhook deliveries
 	GetWebhookStatus(context.Context, *GetWebhookStatusRequest) (*GetWebhookStatusResponse, error)
+	// ListWebhooks lists all registered webhooks for a namespace
+	ListWebhooks(context.Context, *ListWebhooksRequest) (*ListWebhooksResponse, error)
 	mustEmbedUnimplementedWebhookServiceServer()
 }
 
@@ -98,14 +128,20 @@ type WebhookServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedWebhookServiceServer struct{}
 
-func (UnimplementedWebhookServiceServer) ScheduleWebhook(context.Context, *ScheduleWebhookRequest) (*ScheduleWebhookResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ScheduleWebhook not implemented")
+func (UnimplementedWebhookServiceServer) RegisterWebhook(context.Context, *RegisterWebhookRequest) (*RegisterWebhookResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterWebhook not implemented")
 }
-func (UnimplementedWebhookServiceServer) ScheduleWebhookBatch(context.Context, *ScheduleWebhookBatchRequest) (*ScheduleWebhookBatchResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ScheduleWebhookBatch not implemented")
+func (UnimplementedWebhookServiceServer) UnregisterWebhook(context.Context, *UnregisterWebhookRequest) (*UnregisterWebhookResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnregisterWebhook not implemented")
+}
+func (UnimplementedWebhookServiceServer) PushEvent(context.Context, *PushEventRequest) (*PushEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PushEvent not implemented")
 }
 func (UnimplementedWebhookServiceServer) GetWebhookStatus(context.Context, *GetWebhookStatusRequest) (*GetWebhookStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetWebhookStatus not implemented")
+}
+func (UnimplementedWebhookServiceServer) ListWebhooks(context.Context, *ListWebhooksRequest) (*ListWebhooksResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListWebhooks not implemented")
 }
 func (UnimplementedWebhookServiceServer) mustEmbedUnimplementedWebhookServiceServer() {}
 func (UnimplementedWebhookServiceServer) testEmbeddedByValue()                        {}
@@ -128,38 +164,56 @@ func RegisterWebhookServiceServer(s grpc.ServiceRegistrar, srv WebhookServiceSer
 	s.RegisterService(&WebhookService_ServiceDesc, srv)
 }
 
-func _WebhookService_ScheduleWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ScheduleWebhookRequest)
+func _WebhookService_RegisterWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterWebhookRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(WebhookServiceServer).ScheduleWebhook(ctx, in)
+		return srv.(WebhookServiceServer).RegisterWebhook(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: WebhookService_ScheduleWebhook_FullMethodName,
+		FullMethod: WebhookService_RegisterWebhook_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WebhookServiceServer).ScheduleWebhook(ctx, req.(*ScheduleWebhookRequest))
+		return srv.(WebhookServiceServer).RegisterWebhook(ctx, req.(*RegisterWebhookRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _WebhookService_ScheduleWebhookBatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ScheduleWebhookBatchRequest)
+func _WebhookService_UnregisterWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnregisterWebhookRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(WebhookServiceServer).ScheduleWebhookBatch(ctx, in)
+		return srv.(WebhookServiceServer).UnregisterWebhook(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: WebhookService_ScheduleWebhookBatch_FullMethodName,
+		FullMethod: WebhookService_UnregisterWebhook_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WebhookServiceServer).ScheduleWebhookBatch(ctx, req.(*ScheduleWebhookBatchRequest))
+		return srv.(WebhookServiceServer).UnregisterWebhook(ctx, req.(*UnregisterWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_PushEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PushEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).PushEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_PushEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).PushEvent(ctx, req.(*PushEventRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -182,6 +236,24 @@ func _WebhookService_GetWebhookStatus_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WebhookService_ListWebhooks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWebhooksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).ListWebhooks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_ListWebhooks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).ListWebhooks(ctx, req.(*ListWebhooksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WebhookService_ServiceDesc is the grpc.ServiceDesc for WebhookService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,16 +262,24 @@ var WebhookService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*WebhookServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ScheduleWebhook",
-			Handler:    _WebhookService_ScheduleWebhook_Handler,
+			MethodName: "RegisterWebhook",
+			Handler:    _WebhookService_RegisterWebhook_Handler,
 		},
 		{
-			MethodName: "ScheduleWebhookBatch",
-			Handler:    _WebhookService_ScheduleWebhookBatch_Handler,
+			MethodName: "UnregisterWebhook",
+			Handler:    _WebhookService_UnregisterWebhook_Handler,
+		},
+		{
+			MethodName: "PushEvent",
+			Handler:    _WebhookService_PushEvent_Handler,
 		},
 		{
 			MethodName: "GetWebhookStatus",
 			Handler:    _WebhookService_GetWebhookStatus_Handler,
+		},
+		{
+			MethodName: "ListWebhooks",
+			Handler:    _WebhookService_ListWebhooks_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
