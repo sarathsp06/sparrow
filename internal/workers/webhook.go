@@ -9,8 +9,13 @@ import (
 	"time"
 
 	"github.com/riverqueue/river"
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/sarathsp06/httpqueue/internal/jobs"
 	"github.com/sarathsp06/httpqueue/internal/logger"
+	"github.com/sarathsp06/httpqueue/internal/observability"
 	"github.com/sarathsp06/httpqueue/internal/webhooks"
 )
 
@@ -18,22 +23,47 @@ import (
 type WebhookWorker struct {
 	river.WorkerDefaults[jobs.WebhookArgs]
 	webhookRepo *webhooks.Repository
+	tracer      trace.Tracer
+	metrics     *observability.HTTPQueueMetrics
 }
 
 // NewWebhookWorker creates a new webhook worker
 func NewWebhookWorker(webhookRepo *webhooks.Repository) *WebhookWorker {
+	metrics, err := observability.NewHTTPQueueMetrics()
+	if err != nil {
+		// Log error but continue without metrics
+		log := logger.NewLogger("webhook-worker")
+		log.Error("Failed to initialize metrics", "error", err)
+	}
+
 	return &WebhookWorker{
 		webhookRepo: webhookRepo,
+		tracer:      observability.GetTracer("httpqueue.workers.webhook"),
+		metrics:     metrics,
 	}
 }
 
 // Work processes the webhook delivery job
 func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArgs]) error {
-	log := logger.NewLogger("webhook-worker")
 	args := job.Args
+
+	ctx, span := w.tracer.Start(ctx, "webhook.delivery",
+		trace.WithAttributes(
+			attribute.String("delivery_id", args.DeliveryID),
+			attribute.String("webhook_id", args.WebhookID),
+			attribute.String("event_id", args.EventID),
+			attribute.String("url", args.URL),
+			attribute.String("namespace", args.Namespace),
+			attribute.String("event", args.Event),
+		),
+	)
+	defer span.End()
+
+	log := logger.NewLogger("webhook-worker")
 
 	// Check if the delivery has expired
 	if time.Now().After(args.ExpiresAt) {
+		span.SetStatus(otelcodes.Error, "webhook delivery expired")
 		log.Warn("Webhook delivery expired",
 			"job_id", job.ID,
 			"delivery_id", args.DeliveryID,
@@ -135,6 +165,18 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 
 	// Consider 2xx status codes as success
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		span.SetAttributes(
+			attribute.Int("status_code", resp.StatusCode),
+			attribute.Float64("duration_seconds", duration.Seconds()),
+		)
+		span.SetStatus(otelcodes.Ok, "webhook delivered successfully")
+
+		// Record metrics
+		if w.metrics != nil {
+			w.metrics.WebhookDeliveries.Add(ctx, 1)
+			w.metrics.DeliveryDuration.Record(ctx, duration.Seconds())
+		}
+
 		log.Info("Webhook delivered successfully",
 			"job_id", job.ID,
 			"delivery_id", args.DeliveryID,
@@ -153,6 +195,20 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 
 	// For non-2xx responses, update status and return error for retry
 	errorMessage := fmt.Sprintf("HTTP %d: %s", resp.StatusCode, resp.Status)
+
+	span.SetAttributes(
+		attribute.Int("status_code", resp.StatusCode),
+		attribute.Float64("duration_seconds", duration.Seconds()),
+	)
+	span.RecordError(fmt.Errorf("webhook delivery failed: %s", errorMessage))
+	span.SetStatus(otelcodes.Error, "webhook delivery failed")
+
+	// Record metrics
+	if w.metrics != nil {
+		w.metrics.WebhookDeliveries.Add(ctx, 1)
+		w.metrics.DeliveryDuration.Record(ctx, duration.Seconds())
+	}
+
 	log.Warn("Webhook delivery failed",
 		"job_id", job.ID,
 		"delivery_id", args.DeliveryID,
