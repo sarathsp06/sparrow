@@ -12,6 +12,8 @@ help:
 	@echo "  make test        - Run tests"
 	@echo "  make clean       - Clean build artifacts"
 	@echo "  make proto       - Generate protobuf files"
+	@echo "  make proto-lint  - Lint protobuf files"
+	@echo "  make proto-format - Format protobuf files"
 	@echo ""
 	@echo "Database Migrations:"
 	@echo "  make migrate-up     - Run all pending migrations"
@@ -26,6 +28,11 @@ help:
 	@echo "  make grpc-up     - Start full gRPC system (queue + gRPC server)"
 	@echo "  make grpc-down   - Stop gRPC system"
 	@echo "  make proto       - Generate protobuf files (for development)"
+	@echo ""
+	@echo "Observability:"
+	@echo "  make obs-up      - Start observability stack (Jaeger, Prometheus, Grafana, OTEL Collector)"
+	@echo "  make obs-down    - Stop observability stack"
+	@echo "  make obs-logs    - View observability stack logs"
 
 # Setup development environment
 setup:
@@ -87,9 +94,21 @@ grpc-logs:
 
 # Build protobuf files (for development)
 proto:
-	@echo "🔨 Generating protobuf files..."
-	@protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/webhook.proto
+	@echo "🔨 Generating protobuf files with buf..."
+	@buf generate
 	@echo "✅ Protobuf files generated"
+
+# Lint protobuf files
+proto-lint:
+	@echo "🔍 Linting protobuf files..."
+	@buf lint
+	@echo "✅ Protobuf files linted"
+
+# Format protobuf files
+proto-format:
+	@echo "🎨 Formatting protobuf files..."
+	@buf format -w
+	@echo "✅ Protobuf files formatted"
 
 # Database Migration Commands
 migrate-up:
@@ -120,3 +139,22 @@ migrate-create:
 	echo "✅ Created migration files:"; \
 	echo "   📄 db/migrations/$${padded_num}_$$name.up.sql"; \
 	echo "   📄 db/migrations/$${padded_num}_$$name.down.sql"
+
+# Observability Commands
+obs-up:
+	@echo "🔭 Starting observability stack..."
+	@docker-compose -f docker-compose.observability.yml up -d
+	@echo "✅ Observability stack started!"
+	@echo "   📊 Grafana: http://localhost:3000 (admin/admin)"
+	@echo "   🔍 Jaeger: http://localhost:16686"
+	@echo "   📈 Prometheus: http://localhost:9090"
+	@echo "   🔧 OTEL Collector: http://localhost:8888/metrics"
+
+obs-down:
+	@echo "🛑 Stopping observability stack..."
+	@docker-compose -f docker-compose.observability.yml down
+	@echo "✅ Observability stack stopped"
+
+obs-logs:
+	@echo "📋 Observability stack logs (press Ctrl+C to exit):"
+	@docker-compose -f docker-compose.observability.yml logs -f

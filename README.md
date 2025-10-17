@@ -5,9 +5,11 @@ Event-driven webhook delivery system with reliable processing and retry logic.
 ## Overview
 
 HTTPQueue allows you to:
+
 - Register webhooks for namespace/event combinations
 - Push events that automatically trigger all matching webhooks  
 - Track delivery status with built-in retries
+- Monitor performance with OpenTelemetry metrics and tracing
 
 Built with Go, gRPC, PostgreSQL, and River Queue for durability and performance.
 
@@ -82,8 +84,43 @@ client.GetWebhookStatus(ctx, &pb.GetWebhookStatusRequest{
 ## Configuration
 
 Set environment variables:
+
 - `DATABASE_URL` - PostgreSQL connection (default: localhost)
 - `GRPC_PORT` - gRPC server port (default: 50051)
+
+### OpenTelemetry Configuration
+
+HTTPQueue includes built-in OpenTelemetry support for distributed tracing and metrics:
+
+- `OTEL_EXPORTER_OTLP_ENDPOINT` - OTLP endpoint (default: http://localhost:4318)
+- `ENVIRONMENT` - Deployment environment (default: development)  
+- `OTEL_TRACE_SAMPLE_RATE` - Trace sampling rate 0.0-1.0 (default: 1.0)
+
+## Observability
+
+Start the full observability stack:
+
+```bash
+make obs-up    # Starts Jaeger, Prometheus, Grafana, OTEL Collector
+```
+
+Access the UIs:
+- **Grafana**: http://localhost:3000 (admin/admin) - Dashboards and metrics
+- **Jaeger**: http://localhost:16686 - Distributed tracing
+- **Prometheus**: http://localhost:9090 - Raw metrics
+
+### Quick Start with Observability
+
+```bash
+# Start observability stack
+make obs-up
+
+# Start HTTPQueue with tracing
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 make run
+
+# Run example client to generate traces
+go run examples/grpc_client.go
+```
 
 ## Development Commands
 
@@ -91,7 +128,9 @@ Set environment variables:
 make help           # Show all available commands
 make build          # Build the server
 make test           # Run tests
-make proto          # Generate gRPC code
+make proto          # Generate gRPC code with buf
+make proto-lint     # Lint protobuf files
+make proto-format   # Format protobuf files
 make migrate-create # Create new migration
 ```
 

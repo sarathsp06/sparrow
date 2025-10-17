@@ -9,8 +9,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/sarathsp06/httpqueue/internal/jobs"
 	"github.com/sarathsp06/httpqueue/internal/logger"
+	"github.com/sarathsp06/httpqueue/internal/observability"
 	"github.com/sarathsp06/httpqueue/internal/queue"
 	"github.com/sarathsp06/httpqueue/internal/webhooks"
 	pb "github.com/sarathsp06/httpqueue/proto"
@@ -24,19 +29,39 @@ type WebhookServer struct {
 	queueManager *queue.Manager
 	webhookRepo  *webhooks.Repository
 	logger       *slog.Logger
+	tracer       trace.Tracer
+	metrics      *observability.HTTPQueueMetrics
 }
 
 // NewWebhookServer creates a new WebhookServer instance
 func NewWebhookServer(queueManager *queue.Manager, webhookRepo *webhooks.Repository) *WebhookServer {
+	metrics, err := observability.NewHTTPQueueMetrics()
+	if err != nil {
+		// Log error but continue without metrics
+		log := logger.NewLogger("grpc-webhook-server")
+		log.Error("Failed to initialize metrics", "error", err)
+	}
+
 	return &WebhookServer{
 		queueManager: queueManager,
 		webhookRepo:  webhookRepo,
 		logger:       logger.NewLogger("grpc-webhook-server"),
+		tracer:       observability.GetTracer("httpqueue.grpc.webhook"),
+		metrics:      metrics,
 	}
 }
 
 // RegisterWebhook registers a URL for specific events in a namespace
 func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWebhookRequest) (*pb.RegisterWebhookResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "webhook.register",
+		trace.WithAttributes(
+			attribute.String("namespace", req.Namespace),
+			attribute.StringSlice("events", req.Events),
+			attribute.String("url", req.Url),
+		),
+	)
+	defer span.End()
+
 	s.logger.Info("Received webhook registration request",
 		"namespace", req.Namespace,
 		"events", req.Events,
@@ -45,18 +70,26 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 
 	// Validate required fields
 	if req.Namespace == "" {
+		span.RecordError(fmt.Errorf("namespace is required"))
+		span.SetStatus(otelcodes.Error, "namespace is required")
 		return nil, status.Error(codes.InvalidArgument, "namespace is required")
 	}
 	if len(req.Events) == 0 {
+		span.RecordError(fmt.Errorf("at least one event is required"))
+		span.SetStatus(otelcodes.Error, "at least one event is required")
 		return nil, status.Error(codes.InvalidArgument, "at least one event is required")
 	}
 	if req.Url == "" {
+		span.RecordError(fmt.Errorf("URL is required"))
+		span.SetStatus(otelcodes.Error, "URL is required")
 		return nil, status.Error(codes.InvalidArgument, "URL is required")
 	}
 
 	// Validate events are not empty
 	for _, event := range req.Events {
 		if event == "" {
+			span.RecordError(fmt.Errorf("event names cannot be empty"))
+			span.SetStatus(otelcodes.Error, "event names cannot be empty")
 			return nil, status.Error(codes.InvalidArgument, "event names cannot be empty")
 		}
 	}
@@ -66,6 +99,8 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 	if timeout <= 0 {
 		timeout = 30
 	}
+
+	span.SetAttributes(attribute.Int("timeout", int(timeout)))
 
 	// Create webhook registration (method is always POST)
 	registration := &webhooks.WebhookRegistration{
@@ -80,6 +115,8 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 
 	// Store the registration
 	if err := s.webhookRepo.RegisterWebhook(ctx, registration); err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "failed to register webhook")
 		s.logger.Error("Failed to register webhook",
 			"namespace", req.Namespace,
 			"events", req.Events,
@@ -88,6 +125,15 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 		)
 		return nil, status.Errorf(codes.Internal, "failed to register webhook: %v", err)
 	}
+
+	// Record metrics
+	if s.metrics != nil {
+		s.metrics.WebhookRegistrations.Add(ctx, 1)
+		s.metrics.ActiveWebhooks.Add(ctx, 1)
+	}
+
+	span.SetAttributes(attribute.String("webhook_id", registration.ID))
+	span.SetStatus(otelcodes.Ok, "webhook registered successfully")
 
 	s.logger.Info("Webhook registered successfully",
 		"webhook_id", registration.ID,
@@ -135,6 +181,14 @@ func (s *WebhookServer) UnregisterWebhook(ctx context.Context, req *pb.Unregiste
 
 // PushEvent pushes an event that triggers registered webhooks
 func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest) (*pb.PushEventResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "event.push",
+		trace.WithAttributes(
+			attribute.String("namespace", req.Namespace),
+			attribute.String("event", req.Event),
+		),
+	)
+	defer span.End()
+
 	s.logger.Info("Received push event request",
 		"namespace", req.Namespace,
 		"event", req.Event,
@@ -142,9 +196,13 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 
 	// Validate required fields
 	if req.Namespace == "" {
+		span.RecordError(fmt.Errorf("namespace is required"))
+		span.SetStatus(otelcodes.Error, "namespace is required")
 		return nil, status.Error(codes.InvalidArgument, "namespace is required")
 	}
 	if req.Event == "" {
+		span.RecordError(fmt.Errorf("event is required"))
+		span.SetStatus(otelcodes.Error, "event is required")
 		return nil, status.Error(codes.InvalidArgument, "event is required")
 	}
 
@@ -152,6 +210,8 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 	if req.Payload != "" {
 		var payload interface{}
 		if err := json.Unmarshal([]byte(req.Payload), &payload); err != nil {
+			span.RecordError(err)
+			span.SetStatus(otelcodes.Error, "invalid JSON payload")
 			return nil, status.Errorf(codes.InvalidArgument, "invalid JSON payload: %v", err)
 		}
 	}
@@ -179,6 +239,8 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 	// Find registered webhooks first to know how many will be triggered
 	registeredWebhooks, err := s.webhookRepo.GetWebhooksByEvent(ctx, req.Namespace, req.Event)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "failed to get registered webhooks")
 		s.logger.Error("Failed to get registered webhooks",
 			"namespace", req.Namespace,
 			"event", req.Event,
@@ -186,6 +248,11 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 		)
 		return nil, status.Errorf(codes.Internal, "failed to get registered webhooks: %v", err)
 	}
+
+	span.SetAttributes(
+		attribute.String("event_id", eventID),
+		attribute.Int("webhooks_count", len(registeredWebhooks)),
+	)
 
 	webhookIDs := make([]string, len(registeredWebhooks))
 	for i, wh := range registeredWebhooks {
@@ -197,6 +264,8 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 		Queue: "events",
 	})
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "failed to schedule event processing")
 		s.logger.Error("Failed to schedule event processing job",
 			"event_id", eventID,
 			"namespace", req.Namespace,
@@ -205,6 +274,13 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 		)
 		return nil, status.Errorf(codes.Internal, "failed to schedule event processing: %v", err)
 	}
+
+	// Record metrics
+	if s.metrics != nil {
+		s.metrics.EventsPushed.Add(ctx, 1)
+	}
+
+	span.SetStatus(otelcodes.Ok, "event scheduled successfully")
 
 	s.logger.Info("Event processing scheduled successfully",
 		"event_id", eventID,
