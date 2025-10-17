@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -12,8 +13,12 @@ import (
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 
+	connectserver "github.com/sarathsp06/httpqueue/internal/connect"
 	grpcserver "github.com/sarathsp06/httpqueue/internal/grpc"
 	"github.com/sarathsp06/httpqueue/internal/observability"
 	"github.com/sarathsp06/httpqueue/internal/queue"
@@ -82,23 +87,60 @@ func main() {
 	webhookRepo := queueManager.GetWebhookRepo()
 
 	// Initialize gRPC server with OpenTelemetry instrumentation
+	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+	)
+	webhookGRPCServer := grpcserver.NewWebhookServer(queueManager, webhookRepo)
+	pb.RegisterWebhookServiceServer(grpcServer, webhookGRPCServer)
+
+	// Initialize Connect-RPC server
+	webhookConnectServer := connectserver.NewWebhookConnectServer(queueManager, webhookRepo)
+	connectPath, connectHandler := webhookConnectServer.Handler()
+
+	// Create HTTP mux for Connect-RPC
+	mux := http.NewServeMux()
+	mux.Handle(connectPath, connectHandler)
+
+	// Add health check endpoint
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"healthy","version":"1.0.0"}`))
+	})
+
+	// Create HTTP server with OpenTelemetry instrumentation
+	httpServer := &http.Server{
+		Addr: ":8080",
+		Handler: otelhttp.NewHandler(
+			h2c.NewHandler(mux, &http2.Server{}),
+			"httpqueue-connect",
+		),
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	// Start gRPC server
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		log.Fatalf("Failed to listen on port 50051: %v", err)
 	}
 
-	grpcServer := grpc.NewServer(
-		grpc.StatsHandler(otelgrpc.NewServerHandler()),
-	)
-	webhookServer := grpcserver.NewWebhookServer(queueManager, webhookRepo)
-	pb.RegisterWebhookServiceServer(grpcServer, webhookServer)
-
-	fmt.Println("🌐 gRPC server starting on port 50051")
+	fmt.Println("🌐 Starting servers...")
+	fmt.Println("   gRPC server: localhost:50051")
+	fmt.Println("   Connect-RPC (HTTP): localhost:8080")
 
 	// Start gRPC server in a goroutine
 	go func() {
 		if err := grpcServer.Serve(lis); err != nil {
 			log.Fatalf("Failed to serve gRPC: %v", err)
+		}
+	}()
+
+	// Start HTTP server in a goroutine
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to serve HTTP: %v", err)
 		}
 	}()
 
@@ -108,6 +150,8 @@ func main() {
 
 	fmt.Println("🎯 HTTP Queue Server is running...")
 	fmt.Println("   gRPC server: localhost:50051")
+	fmt.Println("   Connect-RPC (HTTP): localhost:8080")
+	fmt.Println("   Health check: http://localhost:8080/health")
 	if otelShutdown != nil {
 		fmt.Printf("   OTLP endpoint: %s\n", otelConfig.OTLPEndpoint)
 	}
@@ -120,6 +164,12 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Shutdown HTTP server
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP server shutdown error: %v", err)
+	}
+
+	// Shutdown gRPC server
 	grpcServer.GracefulStop()
 	queueManager.Stop(shutdownCtx)
 	fmt.Println("👋 Shutdown complete")

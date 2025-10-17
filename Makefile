@@ -1,6 +1,6 @@
 # Makefile for River Queue example
 
-.PHONY: build run test clean help docker-dev grpc-up grpc-down grpc-logs grpc-test grpc-db-shell grpc-jobs proto
+.PHONY: build run test clean help docker-dev grpc-up grpc-down grpc-logs grpc-test grpc-test-http grpc-db-shell grpc-jobs proto
 
 # Default target
 help:
@@ -25,9 +25,11 @@ help:
 	@echo "  make docker-dev  - Start development environment (PostgreSQL + pgAdmin + River UI)"
 	@echo ""
 	@echo "gRPC Mode:"
-	@echo "  make grpc-up     - Start full gRPC system (queue + gRPC server)"
-	@echo "  make grpc-down   - Stop gRPC system"
-	@echo "  make proto       - Generate protobuf files (for development)"
+	@echo "  make grpc-up       - Start full gRPC system (queue + gRPC server)"
+	@echo "  make grpc-down     - Stop gRPC system"
+	@echo "  make grpc-test     - Test gRPC API with example client"
+	@echo "  make grpc-test-http - Test Connect-RPC HTTP/JSON API"
+	@echo "  make proto         - Generate protobuf files (for development)"
 	@echo ""
 	@echo "Observability:"
 	@echo "  make obs-up      - Start observability stack (Jaeger, Prometheus, Grafana, OTEL Collector)"
@@ -158,3 +160,34 @@ obs-down:
 obs-logs:
 	@echo "📋 Observability stack logs (press Ctrl+C to exit):"
 	@docker-compose -f docker-compose.observability.yml logs -f
+
+# gRPC & Connect-RPC Commands
+grpc-up:
+	@echo "🐳 Starting full gRPC system with Docker..."
+	@docker-compose -f docker-compose.grpc.yml up -d
+	@echo "✅ gRPC system started!"
+	@echo "   gRPC API: localhost:50051"
+	@echo "   Connect-RPC HTTP API: localhost:8082"
+	@echo "   River UI: http://localhost:8080"
+	@echo "   pgAdmin: http://localhost:8081 (admin@example.com/admin123)"
+
+grpc-down:
+	@echo "🛑 Stopping gRPC system..."
+	@docker-compose -f docker-compose.grpc.yml down
+	@echo "✅ gRPC system stopped"
+
+grpc-test:
+	@echo "🧪 Testing gRPC API..."
+	@go run examples/grpc_client.go
+
+grpc-test-http:
+	@echo "🧪 Testing Connect-RPC HTTP/JSON API..."
+	@./examples/test_connect_api.sh
+
+grpc-db-shell:
+	@echo "🐘 Connecting to PostgreSQL database..."
+	@docker-compose -f docker-compose.grpc.yml exec postgres psql -U riveruser -d riverqueue
+
+grpc-jobs:
+	@echo "💼 Showing recent River jobs..."
+	@docker-compose -f docker-compose.grpc.yml exec postgres psql -U riveruser -d riverqueue -c "SELECT id, kind, state, created_at, finalized_at FROM river_job ORDER BY created_at DESC LIMIT 10;"

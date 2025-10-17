@@ -11,23 +11,41 @@ HTTPQueue allows you to:
 - Track delivery status with built-in retries
 - Monitor performance with OpenTelemetry metrics and tracing
 
-Built with Go, gRPC, PostgreSQL, and River Queue for durability and performance.
+Built with Go, gRPC/Connect-RPC, PostgreSQL, and River Queue for durability and performance.
+
+## API Options
+
+HTTPQueue provides **two API interfaces**:
+
+1. **gRPC API** (port 50051): High-performance binary protocol for backend services
+2. **Connect-RPC HTTP/JSON API** (port 8080): Web-friendly HTTP API compatible with browsers and curl
+
+Both APIs provide identical functionality and can be used simultaneously.
 
 ## Quick Start
 
 ### Using Docker (Recommended)
 
 1. Start the system:
+
    ```bash
    make grpc-up
    ```
 
-2. Test with example client:
+2. Test gRPC API:
+
    ```bash
    go run examples/grpc_client.go
    ```
 
-3. View logs:
+3. Test HTTP/JSON API:
+
+   ```bash
+   ./examples/test_connect_api.sh
+   ```
+
+4. View logs:
+
    ```bash
    make grpc-logs
    ```
@@ -35,23 +53,29 @@ Built with Go, gRPC, PostgreSQL, and River Queue for durability and performance.
 ### Local Development
 
 1. Start PostgreSQL:
+
    ```bash
    make docker-dev
    ```
 
 2. Run migrations:
+
    ```bash
    make migrate-up
    ```
 
 3. Start server:
+
    ```bash
    make run
    ```
 
 ## Basic Usage
 
-### Register a webhook:
+### gRPC API Examples
+
+Register a webhook:
+
 ```go
 client.RegisterWebhook(ctx, &pb.RegisterWebhookRequest{
     Namespace: "user",
@@ -62,7 +86,8 @@ client.RegisterWebhook(ctx, &pb.RegisterWebhookRequest{
 })
 ```
 
-### Push an event:
+Push an event:
+
 ```go
 client.PushEvent(ctx, &pb.PushEventRequest{
     Namespace:  "user",
@@ -72,13 +97,57 @@ client.PushEvent(ctx, &pb.PushEventRequest{
 })
 ```
 
-### Check delivery status:
+Check delivery status:
+
 ```go
 client.GetWebhookStatus(ctx, &pb.GetWebhookStatusRequest{
     Identifier: &pb.GetWebhookStatusRequest_WebhookId{
         WebhookId: "webhook-id",
     },
 })
+```
+
+### HTTP/JSON API Examples
+
+Register a webhook:
+
+```bash
+curl -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "namespace": "user",
+    "events": ["signup"],
+    "url": "https://api.example.com/webhooks/user-signup",
+    "headers": {"Authorization": "Bearer token"},
+    "timeout": 30
+  }'
+```
+
+Push an event:
+
+```bash
+curl -X POST http://localhost:8080/webhook.WebhookService/PushEvent \
+  -H "Content-Type: application/json" \
+  -d '{
+    "namespace": "user",
+    "event": "signup",
+    "payload": "{\"user_id\": \"12345\", \"email\": \"user@example.com\"}",
+    "ttlSeconds": 3600
+  }'
+```
+
+Check webhook status:
+
+```bash
+curl -X POST http://localhost:8080/webhook.WebhookService/GetWebhookStatus \
+  -H "Content-Type: application/json" \
+  -d '{"webhookId": "your-webhook-id"}'
+```
+
+Health check:
+
+```bash
+curl http://localhost:8080/health
 ```
 
 ## Configuration

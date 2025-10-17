@@ -38,7 +38,7 @@ services:
     command: ["./tools/migrate", "-direction=up"]
     restart: "no"
 
-  # gRPC server for webhook scheduling
+  # gRPC & Connect-RPC server for webhook scheduling
   grpc-server:
     build:
       context: .
@@ -49,7 +49,8 @@ services:
       DATABASE_URL: postgres://riveruser:riverpass@postgres:5432/riverqueue?sslmode=disable
       GRPC_PORT: "50051"
     ports:
-      - "0.0.0.0:50051:50051"
+      - "0.0.0.0:50051:50051"  # gRPC port
+      - "0.0.0.0:8082:8080"    # Connect-RPC HTTP port (avoiding conflict with River UI)
     depends_on:
       migrate:
         condition: service_completed_successfully
