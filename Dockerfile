@@ -42,6 +42,9 @@ RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
 COPY --from=builder /build/tools/migrate ./tools/migrate
 COPY --from=builder /build/grpc-server ./grpc-server
 
+# Copy migrations directory
+COPY db/migrations ./db/migrations
+
 # Change ownership
 RUN chown appuser:appgroup grpc-server
 

@@ -13,16 +13,18 @@ help:
 	@echo "  make clean       - Clean build artifacts"
 	@echo "  make proto       - Generate protobuf files"
 	@echo ""
+	@echo "Database Migrations:"
+	@echo "  make migrate-up     - Run all pending migrations"
+	@echo "  make migrate-down   - Rollback last migration"
+	@echo "  make migrate-status - Check current migration status"
+	@echo "  make migrate-create - Create new migration files"
+	@echo ""
 	@echo "Docker Development:"
 	@echo "  make docker-dev  - Start development environment (PostgreSQL + pgAdmin + River UI)"
 	@echo ""
 	@echo "gRPC Mode:"
 	@echo "  make grpc-up     - Start full gRPC system (queue + gRPC server)"
 	@echo "  make grpc-down   - Stop gRPC system"
-	@echo "  make grpc-logs   - View gRPC system logs"
-	@echo "  make grpc-test   - Test gRPC API with client examples"
-	@echo "  make grpc-db-shell - Open PostgreSQL shell for gRPC environment"
-	@echo "  make grpc-jobs   - Show recent jobs in gRPC environment"
 	@echo "  make proto       - Generate protobuf files (for development)"
 
 # Setup development environment
@@ -38,7 +40,7 @@ build:
 # Run the gRPC server
 run: build
 	@echo "🚀 Starting gRPC server..."
-	@./grpc-server
+	@DATABASE_URL='postgres://riveruser:riverpass@0.0.0.0:5432/riverqueue?sslmode=disable' ./grpc-server
 
 # Run tests
 test:
@@ -66,29 +68,6 @@ docker-dev:
 	@echo "   pgAdmin: http://0.0.0.0:8081 (admin@example.com/admin123)"
 	@echo "   River UI: http://0.0.0.0:8082"
 
-
-
-
-
-# gRPC Mode Commands
-grpc-up:
-	@echo "🚀 Starting gRPC system with Docker Compose..."
-	@docker-compose -f docker-compose.grpc.yml up -d
-	@echo "✅ gRPC system started!"
-	@echo ""
-	@echo "Services available:"
-	@echo "   📡 gRPC Server: localhost:50051"
-	@echo "   📊 River UI: http://localhost:8080"
-	@echo "   🗄️  pgAdmin: http://localhost:8081 (admin@example.com/admin123)"
-	@echo "   🐘 PostgreSQL: localhost:5432 (riveruser/riverpass)"
-	@echo ""
-	@echo "Test the API with: make grpc-test"
-
-grpc-down:
-	@echo "🛑 Stopping gRPC system..."
-	@docker-compose -f docker-compose.grpc.yml down
-	@echo "✅ gRPC system stopped"
-
 grpc-logs:
 	@echo "📋 gRPC system logs (press Ctrl+C to exit):"
 	@echo "Choose which service to view:"
@@ -105,28 +84,39 @@ grpc-logs:
 		*) echo "Invalid choice, showing all logs..."; docker-compose -f docker-compose.grpc.yml logs -f ;; \
 	esac
 
-grpc-test:
-	@echo "🧪 Testing gRPC API..."
-	@echo "Waiting for services to be ready..."
-	@sleep 3
-	@echo ""
-	@echo "Running gRPC client examples:"
-	@go run examples/grpc_client.go
-	@echo ""
-	@echo "✅ gRPC API test completed!"
-
-# gRPC database shell
-grpc-db-shell:
-	@echo "📊 Opening PostgreSQL shell for gRPC environment..."
-	@docker-compose -f docker-compose.grpc.yml exec httpqueue-postgres psql -U riveruser -d riverqueue
-
-# Show jobs in gRPC environment
-grpc-jobs:
-	@echo "📋 Recent jobs in gRPC environment:"
-	@docker-compose -f docker-compose.grpc.yml exec httpqueue-postgres psql -U riveruser -d riverqueue -c "SELECT id, kind, state, created_at, scheduled_at FROM river_job ORDER BY created_at DESC LIMIT 10;" 2>/dev/null || echo "❌ Cannot connect to database"
 
 # Build protobuf files (for development)
 proto:
 	@echo "🔨 Generating protobuf files..."
 	@protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative proto/webhook.proto
 	@echo "✅ Protobuf files generated"
+
+# Database Migration Commands
+migrate-up:
+	@echo "⬆️  Running database migrations..."
+	@DATABASE_URL=$${DATABASE_URL:-"postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable"} go run cmd/migrate/main.go -direction=up
+	@echo "✅ Migrations completed"
+
+migrate-down:
+	@echo "⬇️  Rolling back last migration..."
+	@DATABASE_URL=$${DATABASE_URL:-"postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable"} go run cmd/migrate/main.go -direction=down
+	@echo "✅ Rollback completed"
+
+migrate-status:
+	@echo "📊 Checking migration status..."
+	@DATABASE_URL=$${DATABASE_URL:-"postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable"} docker-compose -f docker-compose.grpc.yml exec postgres psql -U riveruser -d riverqueue -c "SELECT version, dirty FROM schema_migrations;" 2>/dev/null || echo "❌ Cannot connect to database or schema_migrations table doesn't exist"
+
+migrate-create:
+	@echo "📝 Creating new migration files..."
+	@read -p "Enter migration name (e.g., add_user_index): " name; \
+	if [ -z "$$name" ]; then \
+		echo "❌ Migration name cannot be empty"; \
+		exit 1; \
+	fi; \
+	timestamp=$$(date +%s); \
+	padded_num=$$(printf "%06d" $$((timestamp % 999999))); \
+	echo "-- Add your SQL statements here" > db/migrations/$${padded_num}_$$name.up.sql; \
+	echo "-- Add rollback SQL statements here" > db/migrations/$${padded_num}_$$name.down.sql; \
+	echo "✅ Created migration files:"; \
+	echo "   📄 db/migrations/$${padded_num}_$$name.up.sql"; \
+	echo "   📄 db/migrations/$${padded_num}_$$name.down.sql"
