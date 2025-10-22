@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# HTTPQueue OpenTelemetry Integration Test
+# sparrow OpenTelemetry Integration Test
 # This script demonstrates the complete observability setup
 
 set -e
 
-echo "🔭 HTTPQueue OpenTelemetry Integration Test"
+echo "🔭 sparrow OpenTelemetry Integration Test"
 echo "=========================================="
 echo ""
 
@@ -72,12 +72,12 @@ echo ""
 # Provide instructions for next steps
 echo "🚀 Next steps:"
 echo ""
-echo "1. Start HTTPQueue with observability:"
+echo "1. Start sparrow with observability:"
 echo "   export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318"
 echo "   export ENVIRONMENT=testing"
 echo "   make docker-dev  # Start PostgreSQL"
 echo "   make migrate-up  # Run migrations"
-echo "   make run         # Start HTTPQueue"
+echo "   make run         # Start sparrow"
 echo ""
 echo "2. Generate some test data:"
 echo "   go run examples/grpc_client.go"
@@ -88,4 +88,4 @@ echo "4. Stop everything when done:"
 echo "   make obs-down"
 echo ""
 
-echo "✨ Setup complete! The observability stack is ready for HTTPQueue."
+echo "✨ Setup complete! The observability stack is ready for sparrow."

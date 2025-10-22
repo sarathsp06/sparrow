@@ -4,7 +4,7 @@ services:
   # PostgreSQL database (same as production)
   postgres:
     image: postgres:15-alpine
-    container_name: httpqueue-postgres-dev
+    container_name: sparrow-postgres-dev
     restart: unless-stopped
     environment:
       POSTGRES_DB: riverqueue
@@ -25,7 +25,7 @@ services:
   # pgAdmin for database management
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: httpqueue-pgadmin-dev
+    container_name: sparrow-pgadmin-dev
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
@@ -41,7 +41,7 @@ services:
   # River UI for job monitoring and management
   riverui:
     image: ghcr.io/riverqueue/riverui:latest
-    container_name: httpqueue-riverui-dev
+    container_name: sparrow-riverui-dev
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://riveruser:riverpass@postgres:5432/riverqueue?sslmode=disable
@@ -59,4 +59,4 @@ volumes:
 
 networks:
   default:
-    name: httpqueue-dev-network
+    name: sparrow-dev-network

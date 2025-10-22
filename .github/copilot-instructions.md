@@ -1,8 +1,8 @@
-# HTTPQueue - AI Development Guide
+# sparrow - AI Development Guide
 
 ## Architecture Overview
 
-HTTPQueue is an event-driven webhook delivery system with these key components:
+sparrow is an event-driven webhook delivery system with these key components:
 
 - **gRPC API Server** (`internal/grpc/webhook_server.go`): Handles webhook registration and event publishing
 - **River Queue Workers** (`internal/workers/`): Processes events and delivers webhooks asynchronously  

@@ -15,8 +15,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
-	"github.com/sarathsp06/httpqueue/internal/config"
-	"github.com/sarathsp06/httpqueue/internal/logger"
+	"github.com/sarathsp06/sparrow/internal/config"
+	"github.com/sarathsp06/sparrow/internal/logger"
 )
 
 func main() {

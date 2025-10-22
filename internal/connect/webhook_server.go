@@ -15,13 +15,13 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/sarathsp06/httpqueue/internal/jobs"
-	"github.com/sarathsp06/httpqueue/internal/logger"
-	"github.com/sarathsp06/httpqueue/internal/observability"
-	"github.com/sarathsp06/httpqueue/internal/queue"
-	"github.com/sarathsp06/httpqueue/internal/webhooks"
-	pb "github.com/sarathsp06/httpqueue/proto"
-	"github.com/sarathsp06/httpqueue/proto/protoconnect"
+	"github.com/sarathsp06/sparrow/internal/jobs"
+	"github.com/sarathsp06/sparrow/internal/logger"
+	"github.com/sarathsp06/sparrow/internal/observability"
+	"github.com/sarathsp06/sparrow/internal/queue"
+	"github.com/sarathsp06/sparrow/internal/webhooks"
+	pb "github.com/sarathsp06/sparrow/proto"
+	"github.com/sarathsp06/sparrow/proto/protoconnect"
 )
 
 // WebhookConnectServer implements the WebhookService Connect-RPC interface
@@ -30,12 +30,12 @@ type WebhookConnectServer struct {
 	webhookRepo  *webhooks.Repository
 	logger       *slog.Logger
 	tracer       trace.Tracer
-	metrics      *observability.HTTPQueueMetrics
+	metrics      *observability.SparrowMetrics
 }
 
 // NewWebhookConnectServer creates a new Connect-RPC server instance
 func NewWebhookConnectServer(queueManager *queue.Manager, webhookRepo *webhooks.Repository) *WebhookConnectServer {
-	metrics, err := observability.NewHTTPQueueMetrics()
+	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
 		log := logger.NewLogger("connect-webhook-server")
@@ -46,7 +46,7 @@ func NewWebhookConnectServer(queueManager *queue.Manager, webhookRepo *webhooks.
 		queueManager: queueManager,
 		webhookRepo:  webhookRepo,
 		logger:       logger.NewLogger("connect-webhook-server"),
-		tracer:       observability.GetTracer("httpqueue.connect.webhook"),
+		tracer:       observability.GetTracer("sparrow.connect.webhook"),
 		metrics:      metrics,
 	}
 }

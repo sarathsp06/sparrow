@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
-	"github.com/sarathsp06/httpqueue/internal/jobs"
-	"github.com/sarathsp06/httpqueue/internal/logger"
-	"github.com/sarathsp06/httpqueue/internal/webhooks"
+	"github.com/sarathsp06/sparrow/internal/jobs"
+	"github.com/sarathsp06/sparrow/internal/logger"
+	"github.com/sarathsp06/sparrow/internal/webhooks"
 )
 
 // EventProcessingWorker processes events and triggers webhook deliveries

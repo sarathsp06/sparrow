@@ -33,7 +33,7 @@ type Config struct {
 // DefaultConfig returns a default OpenTelemetry configuration
 func DefaultConfig() *Config {
 	return &Config{
-		ServiceName:    "httpqueue",
+		ServiceName:    "sparrow",
 		ServiceVersion: "1.0.0",
 		Environment:    "development",
 		OTLPEndpoint:   "http://localhost:4318", // Default OTLP HTTP endpoint
@@ -175,8 +175,8 @@ func GetMeter(name string) metric.Meter {
 	return otel.Meter(name, metric.WithInstrumentationVersion("1.0.0"))
 }
 
-// HTTPQueueMetrics holds application-specific metrics
-type HTTPQueueMetrics struct {
+// SparrowMetrics holds application-specific metrics
+type SparrowMetrics struct {
 	WebhookRegistrations metric.Int64Counter
 	EventsPushed         metric.Int64Counter
 	WebhookDeliveries    metric.Int64Counter
@@ -185,12 +185,12 @@ type HTTPQueueMetrics struct {
 	ActiveWebhooks       metric.Int64UpDownCounter
 }
 
-// NewHTTPQueueMetrics creates application-specific metrics
-func NewHTTPQueueMetrics() (*HTTPQueueMetrics, error) {
-	meter := GetMeter("httpqueue")
+// NewSparrowMetrics creates application-specific metrics
+func NewSparrowMetrics() (*SparrowMetrics, error) {
+	meter := GetMeter("sparrow")
 
 	webhookRegistrations, err := meter.Int64Counter(
-		"httpqueue_webhook_registrations_total",
+		"sparrow_webhook_registrations_total",
 		metric.WithDescription("Total number of webhook registrations"),
 	)
 	if err != nil {
@@ -198,7 +198,7 @@ func NewHTTPQueueMetrics() (*HTTPQueueMetrics, error) {
 	}
 
 	eventsPushed, err := meter.Int64Counter(
-		"httpqueue_events_pushed_total",
+		"sparrow_events_pushed_total",
 		metric.WithDescription("Total number of events pushed"),
 	)
 	if err != nil {
@@ -206,7 +206,7 @@ func NewHTTPQueueMetrics() (*HTTPQueueMetrics, error) {
 	}
 
 	webhookDeliveries, err := meter.Int64Counter(
-		"httpqueue_webhook_deliveries_total",
+		"sparrow_webhook_deliveries_total",
 		metric.WithDescription("Total number of webhook delivery attempts"),
 	)
 	if err != nil {
@@ -214,7 +214,7 @@ func NewHTTPQueueMetrics() (*HTTPQueueMetrics, error) {
 	}
 
 	deliveryDuration, err := meter.Float64Histogram(
-		"httpqueue_webhook_delivery_duration_seconds",
+		"sparrow_webhook_delivery_duration_seconds",
 		metric.WithDescription("Duration of webhook deliveries in seconds"),
 		metric.WithUnit("s"),
 	)
@@ -223,7 +223,7 @@ func NewHTTPQueueMetrics() (*HTTPQueueMetrics, error) {
 	}
 
 	queueDepth, err := meter.Int64UpDownCounter(
-		"httpqueue_queue_depth",
+		"sparrow_queue_depth",
 		metric.WithDescription("Current depth of job queues"),
 	)
 	if err != nil {
@@ -231,14 +231,14 @@ func NewHTTPQueueMetrics() (*HTTPQueueMetrics, error) {
 	}
 
 	activeWebhooks, err := meter.Int64UpDownCounter(
-		"httpqueue_active_webhooks",
+		"sparrow_active_webhooks",
 		metric.WithDescription("Current number of active webhook registrations"),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	return &HTTPQueueMetrics{
+	return &SparrowMetrics{
 		WebhookRegistrations: webhookRegistrations,
 		EventsPushed:         eventsPushed,
 		WebhookDeliveries:    webhookDeliveries,

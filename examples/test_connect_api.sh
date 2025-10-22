@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# HTTPQueue Connect-RPC HTTP/JSON API Test Script
+# sparrow Connect-RPC HTTP/JSON API Test Script
 # This script demonstrates the Connect-RPC HTTP/JSON API
 # Make sure the server is running: go run main.go
 
-echo "🌐 HTTPQueue Connect-RPC HTTP/JSON API Test"
+echo "🌐 sparrow Connect-RPC HTTP/JSON API Test"
 echo "============================================="
 
 BASE_URL="http://localhost:8080"

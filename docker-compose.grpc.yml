@@ -4,7 +4,7 @@ services:
   # PostgreSQL database
   postgres:
     image: postgres:15-alpine
-    container_name: httpqueue-postgres
+    container_name: sparrow-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: riverqueue
@@ -27,7 +27,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: httpqueue-migrate
+    container_name: sparrow-migrate
     environment:
       DATABASE_URL: postgres://riveruser:riverpass@postgres:5432/riverqueue?sslmode=disable
     depends_on:
@@ -43,7 +43,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: httpqueue-grpc
+    container_name: sparrow-grpc
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://riveruser:riverpass@postgres:5432/riverqueue?sslmode=disable
@@ -61,7 +61,7 @@ services:
   # pgAdmin for database management (optional)
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: httpqueue-pgadmin
+    container_name: sparrow-pgadmin
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
@@ -77,7 +77,7 @@ services:
   # River UI for job monitoring and management
   riverui:
     image: ghcr.io/riverqueue/riverui:latest
-    container_name: httpqueue-riverui
+    container_name: sparrow-riverui
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://riveruser:riverpass@postgres:5432/riverqueue?sslmode=disable
@@ -95,4 +95,4 @@ volumes:
 
 networks:
   default:
-    name: httpqueue-network
+    name: sparrow-network

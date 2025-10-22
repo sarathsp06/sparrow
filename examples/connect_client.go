@@ -10,11 +10,11 @@ import (
 
 	"connectrpc.com/connect"
 
-	pb "github.com/sarathsp06/httpqueue/proto"
-	"github.com/sarathsp06/httpqueue/proto/protoconnect"
+	pb "github.com/sarathsp06/sparrow/proto"
+	"github.com/sarathsp06/sparrow/proto/protoconnect"
 )
 
-func main() {
+func MainConnect() {
 	// Create Connect client
 	client := protoconnect.NewWebhookServiceClient(
 		http.DefaultClient,
@@ -23,7 +23,7 @@ func main() {
 
 	ctx := context.Background()
 
-	fmt.Println("🌐 HTTPQueue Connect-RPC Client Example")
+	fmt.Println("🌐 sparrow Connect-RPC Client Example")
 	fmt.Println("========================================")
 
 	// Test 1: Register a webhook
