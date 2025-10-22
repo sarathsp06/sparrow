@@ -13,7 +13,7 @@ processors:
   resource:
     attributes:
       - key: service.name
-        value: httpqueue
+        value: sparrow
         action: upsert
   memory_limiter:
     limit_mib: 512

@@ -9,10 +9,10 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivertype"
-	"github.com/sarathsp06/httpqueue/internal/jobs"
-	"github.com/sarathsp06/httpqueue/internal/logger"
-	"github.com/sarathsp06/httpqueue/internal/webhooks"
-	"github.com/sarathsp06/httpqueue/internal/workers"
+	"github.com/sarathsp06/sparrow/internal/jobs"
+	"github.com/sarathsp06/sparrow/internal/logger"
+	"github.com/sarathsp06/sparrow/internal/webhooks"
+	"github.com/sarathsp06/sparrow/internal/workers"
 )
 
 // Manager handles the River queue management

@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Example script to demonstrate HTTPQueue with OpenTelemetry
-# This script starts the observability stack and HTTPQueue with tracing enabled
+# Example script to demonstrate sparrow with OpenTelemetry
+# This script starts the observability stack and sparrow with tracing enabled
 
-echo "🔭 Starting HTTPQueue with OpenTelemetry observability..."
+echo "🔭 Starting sparrow with OpenTelemetry observability..."
 
 # Start the observability stack
 echo "1. Starting observability stack (Jaeger, Prometheus, Grafana)..."
@@ -13,7 +13,7 @@ echo ""
 echo "⏳ Waiting for observability stack to be ready..."
 sleep 10
 
-# Start HTTPQueue with development database
+# Start sparrow with development database
 echo ""
 echo "2. Starting development database..."
 make docker-dev
@@ -27,9 +27,9 @@ echo ""
 echo "3. Running database migrations..."
 make migrate-up
 
-# Start HTTPQueue with OpenTelemetry enabled
+# Start sparrow with OpenTelemetry enabled
 echo ""
-echo "4. Starting HTTPQueue with OpenTelemetry..."
+echo "4. Starting sparrow with OpenTelemetry..."
 echo "   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318"
 echo "   ENVIRONMENT=development"
 echo ""
@@ -40,7 +40,7 @@ export ENVIRONMENT="development"
 export DATABASE_URL="postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable"
 
 # Start the server
-echo "🚀 Starting HTTPQueue server..."
+echo "🚀 Starting sparrow server..."
 echo "   gRPC server will be available at: localhost:50051"
 echo "   Traces will be sent to: http://localhost:4318"
 echo ""

@@ -13,10 +13,10 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/sarathsp06/httpqueue/internal/jobs"
-	"github.com/sarathsp06/httpqueue/internal/logger"
-	"github.com/sarathsp06/httpqueue/internal/observability"
-	"github.com/sarathsp06/httpqueue/internal/webhooks"
+	"github.com/sarathsp06/sparrow/internal/jobs"
+	"github.com/sarathsp06/sparrow/internal/logger"
+	"github.com/sarathsp06/sparrow/internal/observability"
+	"github.com/sarathsp06/sparrow/internal/webhooks"
 )
 
 // WebhookWorker handles webhook delivery jobs
@@ -24,12 +24,12 @@ type WebhookWorker struct {
 	river.WorkerDefaults[jobs.WebhookArgs]
 	webhookRepo *webhooks.Repository
 	tracer      trace.Tracer
-	metrics     *observability.HTTPQueueMetrics
+	metrics     *observability.SparrowMetrics
 }
 
 // NewWebhookWorker creates a new webhook worker
 func NewWebhookWorker(webhookRepo *webhooks.Repository) *WebhookWorker {
-	metrics, err := observability.NewHTTPQueueMetrics()
+	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
 		log := logger.NewLogger("webhook-worker")
@@ -38,7 +38,7 @@ func NewWebhookWorker(webhookRepo *webhooks.Repository) *WebhookWorker {
 
 	return &WebhookWorker{
 		webhookRepo: webhookRepo,
-		tracer:      observability.GetTracer("httpqueue.workers.webhook"),
+		tracer:      observability.GetTracer("sparrow.workers.webhook"),
 		metrics:     metrics,
 	}
 }

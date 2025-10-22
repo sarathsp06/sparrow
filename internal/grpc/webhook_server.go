@@ -13,12 +13,12 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/sarathsp06/httpqueue/internal/jobs"
-	"github.com/sarathsp06/httpqueue/internal/logger"
-	"github.com/sarathsp06/httpqueue/internal/observability"
-	"github.com/sarathsp06/httpqueue/internal/queue"
-	"github.com/sarathsp06/httpqueue/internal/webhooks"
-	pb "github.com/sarathsp06/httpqueue/proto"
+	"github.com/sarathsp06/sparrow/internal/jobs"
+	"github.com/sarathsp06/sparrow/internal/logger"
+	"github.com/sarathsp06/sparrow/internal/observability"
+	"github.com/sarathsp06/sparrow/internal/queue"
+	"github.com/sarathsp06/sparrow/internal/webhooks"
+	pb "github.com/sarathsp06/sparrow/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -30,12 +30,12 @@ type WebhookServer struct {
 	webhookRepo  *webhooks.Repository
 	logger       *slog.Logger
 	tracer       trace.Tracer
-	metrics      *observability.HTTPQueueMetrics
+	metrics      *observability.SparrowMetrics
 }
 
 // NewWebhookServer creates a new WebhookServer instance
 func NewWebhookServer(queueManager *queue.Manager, webhookRepo *webhooks.Repository) *WebhookServer {
-	metrics, err := observability.NewHTTPQueueMetrics()
+	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
 		log := logger.NewLogger("grpc-webhook-server")
@@ -46,7 +46,7 @@ func NewWebhookServer(queueManager *queue.Manager, webhookRepo *webhooks.Reposit
 		queueManager: queueManager,
 		webhookRepo:  webhookRepo,
 		logger:       logger.NewLogger("grpc-webhook-server"),
-		tracer:       observability.GetTracer("httpqueue.grpc.webhook"),
+		tracer:       observability.GetTracer("sparrow.grpc.webhook"),
 		metrics:      metrics,
 	}
 }

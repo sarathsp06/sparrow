@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package webhook;
 
-option go_package = "github.com/sarathsp06/httpqueue/proto";
+option go_package = "github.com/sarathsp06/sparrow/proto";
 
 // WebhookService handles webhook registration and event pushing
 service WebhookService {

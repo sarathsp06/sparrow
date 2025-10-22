@@ -1,4 +1,4 @@
-module github.com/sarathsp06/httpqueue
+module github.com/sarathsp06/sparrow
 
 go 1.24.0
 

@@ -18,11 +18,11 @@ import (
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 
-	connectserver "github.com/sarathsp06/httpqueue/internal/connect"
-	grpcserver "github.com/sarathsp06/httpqueue/internal/grpc"
-	"github.com/sarathsp06/httpqueue/internal/observability"
-	"github.com/sarathsp06/httpqueue/internal/queue"
-	pb "github.com/sarathsp06/httpqueue/proto"
+	connectserver "github.com/sarathsp06/sparrow/internal/connect"
+	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
+	"github.com/sarathsp06/sparrow/internal/observability"
+	"github.com/sarathsp06/sparrow/internal/queue"
+	pb "github.com/sarathsp06/sparrow/proto"
 )
 
 func main() {
@@ -113,7 +113,7 @@ func main() {
 		Addr: ":8080",
 		Handler: otelhttp.NewHandler(
 			h2c.NewHandler(mux, &http2.Server{}),
-			"httpqueue-connect",
+			"sparrow-connect",
 		),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,

@@ -1,4 +1,4 @@
--- Initial schema for HTTPQueue webhook system
+-- Initial schema for sparrow webhook system
 -- Create webhook_registrations table
 CREATE TABLE webhook_registrations (
     id VARCHAR(255) PRIMARY KEY,

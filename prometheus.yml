@@ -8,8 +8,8 @@ scrape_configs:
       - targets: ['otel-collector:8888']
     scrape_interval: 5s
     
-  - job_name: 'httpqueue'
+  - job_name: 'sparrow'
     static_configs:
-      - targets: ['host.docker.internal:8080']  # Adjust if httpqueue runs on different port
+      - targets: ['host.docker.internal:8080']  # Adjust if sparrow runs on different port
     scrape_interval: 10s
     metrics_path: /metrics

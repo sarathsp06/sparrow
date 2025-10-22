@@ -1166,7 +1166,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x11UnregisterWebhook\x12!.webhook.UnregisterWebhookRequest\x1a\".webhook.UnregisterWebhookResponse\x12B\n" +
 	"\tPushEvent\x12\x19.webhook.PushEventRequest\x1a\x1a.webhook.PushEventResponse\x12W\n" +
 	"\x10GetWebhookStatus\x12 .webhook.GetWebhookStatusRequest\x1a!.webhook.GetWebhookStatusResponse\x12K\n" +
-	"\fListWebhooks\x12\x1c.webhook.ListWebhooksRequest\x1a\x1d.webhook.ListWebhooksResponseB'Z%github.com/sarathsp06/httpqueue/protob\x06proto3"
+	"\fListWebhooks\x12\x1c.webhook.ListWebhooksRequest\x1a\x1d.webhook.ListWebhooksResponseB%Z#github.com/sarathsp06/sparrow/protob\x06proto3"
 
 var (
 	file_proto_webhook_proto_rawDescOnce sync.Once

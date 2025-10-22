@@ -9,10 +9,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	pb "github.com/sarathsp06/httpqueue/proto"
+	pb "github.com/sarathsp06/sparrow/proto"
 )
 
-func main() {
+func MainGRPC() {
 	// Connect to the gRPC server
 	conn, err := grpc.Dial("0.0.0.0:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -244,4 +244,8 @@ func main() {
 	}
 
 	log.Println("\n=== All examples completed ===")
+}
+
+func main() {
+	MainGRPC()
 }
