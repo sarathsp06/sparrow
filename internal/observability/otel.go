@@ -2,6 +2,7 @@ package observability
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -36,7 +37,7 @@ func DefaultConfig() *Config {
 		ServiceName:    "sparrow",
 		ServiceVersion: "1.0.0",
 		Environment:    "development",
-		OTLPEndpoint:   "http://localhost:4318", // Default OTLP HTTP endpoint
+		OTLPEndpoint:   "localhost:4318", // Default OTLP HTTP endpoint
 		EnableTracing:  true,
 		EnableMetrics:  true,
 		SampleRate:     1.0, // Sample all traces in development
@@ -95,7 +96,7 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 			}
 		}
 		if len(errs) > 0 {
-			return fmt.Errorf("shutdown errors: %v", errs)
+			return fmt.Errorf("failed to shutdown OpenTelemetry: %w", errors.Join(errs...))
 		}
 		return nil
 	}, nil
@@ -105,7 +106,7 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 func setupTracing(ctx context.Context, res *resource.Resource, config *Config) (*sdktrace.TracerProvider, error) {
 	// Create OTLP trace exporter
 	opts := []otlptracehttp.Option{
-		otlptracehttp.WithEndpoint(config.OTLPEndpoint),
+		otlptracehttp.WithEndpoint("localhost:4318"),
 		otlptracehttp.WithInsecure(), // Use HTTP instead of HTTPS for local development
 	}
 
@@ -142,7 +143,7 @@ func setupTracing(ctx context.Context, res *resource.Resource, config *Config) (
 func setupMetrics(ctx context.Context, res *resource.Resource, config *Config) (*sdkmetric.MeterProvider, error) {
 	// Create OTLP metric exporter
 	opts := []otlpmetrichttp.Option{
-		otlpmetrichttp.WithEndpoint(config.OTLPEndpoint),
+		otlpmetrichttp.WithEndpoint("localhost:4318"),
 		otlpmetrichttp.WithInsecure(), // Use HTTP instead of HTTPS for local development
 	}
 

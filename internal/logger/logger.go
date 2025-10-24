@@ -11,7 +11,8 @@ var Logger *slog.Logger
 func init() {
 	// Create a structured logger with JSON output
 	opts := &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level:     slog.LevelInfo,
+		AddSource: true,
 	}
 
 	// Use JSON handler for structured logging

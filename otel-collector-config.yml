@@ -1,48 +1,59 @@
+processors:
+  resourcedetection:
+    detectors: [env, system]
+  cumulativetodelta:
+  batch:
+    send_batch_size: 100
+    timeout: 10s
+
 receivers:
+  postgresql:
+    endpoint: localhost:5432
+    transport: tcp
+    username: riveruser
+    password: riverpass
+    databases:
+      - riverqueue
+    collection_interval: 10s
   otlp:
     protocols:
       grpc:
-        endpoint: 0.0.0.0:4317
+        endpoint: "0.0.0.0:4317"
       http:
-        endpoint: 0.0.0.0:4318
-
-processors:
-  batch:
-    timeout: 1s
-    send_batch_size: 1024
-  resource:
-    attributes:
-      - key: service.name
-        value: sparrow
-        action: upsert
-  memory_limiter:
-    limit_mib: 512
+        endpoint: "0.0.0.0:4318"
+  hostmetrics:
+    scrapers:
+      cpu:
+      disk:
+      filesystem:
+      load:
+      memory:
+      network:
+      paging:
 
 exporters:
-  # Export traces to Jaeger
-  jaeger:
-    endpoint: jaeger:14250
-    tls:
-      insecure: true
-  
-  # Export metrics to Prometheus
-  prometheus:
-    endpoint: "0.0.0.0:8888"
-    
-  # Logging exporter for debugging
-  logging:
-    loglevel: info
+  debug:
+  otlp/uptrace:
+    endpoint: https://otlp.uptrace.dev:4317
+    tls: { insecure: false }
+    headers:
+      uptrace-dsn: 'https://H38a10azMHU9wIsDS3QG3w@api.uptrace.dev?grpc=4317'
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch, resource]
-      exporters: [jaeger, logging]
-    
+      processors: [batch]
+      exporters: [otlp/uptrace, debug]
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, batch, resource]
-      exporters: [prometheus, logging]
-      
-  extensions: []
+      processors: [cumulativetodelta, batch]
+      exporters: [otlp/uptrace, debug]
+    metrics/host:
+      receivers: [hostmetrics]
+      processors: [cumulativetodelta, batch, resourcedetection]
+      exporters: [otlp/uptrace, debug]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/uptrace, debug]

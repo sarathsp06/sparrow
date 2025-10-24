@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"connectrpc.com/connect"
+	"connectrpc.com/otelconnect"
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 	"go.opentelemetry.io/otel/attribute"
@@ -483,6 +485,10 @@ func convertDeliveryStatus(status webhooks.WebhookDeliveryStatus) pb.WebhookDeli
 // Handler returns the Connect-RPC handler
 func (s *WebhookConnectServer) Handler() (string, http.Handler) {
 	// Create simple handler
-	path, handler := protoconnect.NewWebhookServiceHandler(s)
+	otelInterceptor, err := otelconnect.NewInterceptor()
+	if err != nil {
+		log.Fatal(err)
+	}
+	path, handler := protoconnect.NewWebhookServiceHandler(s, connect.WithInterceptors(otelInterceptor))
 	return path, handler
 }
