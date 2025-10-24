@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -31,17 +30,12 @@ func main() {
 	// Configure OpenTelemetry
 	otelConfig := observability.DefaultConfig()
 
-	// Override with environment variables if set
-	if endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); endpoint != "" {
-		otelConfig.OTLPEndpoint = endpoint
-	}
 	if env := os.Getenv("ENVIRONMENT"); env != "" {
 		otelConfig.Environment = env
 	}
-	if sampleRate := os.Getenv("OTEL_TRACE_SAMPLE_RATE"); sampleRate != "" {
-		if rate, err := strconv.ParseFloat(sampleRate, 64); err == nil {
-			otelConfig.SampleRate = rate
-		}
+
+	if otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); otlpEndpoint != "" {
+		otelConfig.OTLPEndpoint = otlpEndpoint
 	}
 
 	// Initialize OpenTelemetry

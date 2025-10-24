@@ -48,6 +48,7 @@ services:
     environment:
       DATABASE_URL: postgres://riveruser:riverpass@postgres:5432/riverqueue?sslmode=disable
       GRPC_PORT: "50051"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     ports:
       - "0.0.0.0:50051:50051"  # gRPC port
       - "0.0.0.0:8082:8080"    # Connect-RPC HTTP port (avoiding conflict with River UI)

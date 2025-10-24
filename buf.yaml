@@ -7,3 +7,4 @@ lint:
     - DEFAULT
 deps:
   - buf.build/googleapis/googleapis
+  - buf.build/bufbuild/protoschema-jsonschema:va0.5.2
