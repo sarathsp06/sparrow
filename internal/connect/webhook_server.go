@@ -191,6 +191,149 @@ func (s *WebhookConnectServer) ListWebhooks(
 	return connect.NewResponse(result), nil
 }
 
+// RegisterEvent registers a new event type
+func (s *WebhookConnectServer) RegisterEvent(
+	ctx context.Context,
+	req *connect.Request[pb.RegisterEventRequest],
+) (*connect.Response[pb.RegisterEventResponse], error) {
+	// Convert to service request
+	serviceReq := &services.RegisterEventRequest{
+		Name:        req.Msg.Name,
+		Description: req.Msg.Description,
+		Schema:      req.Msg.Schema,
+		Metadata:    req.Msg.Metadata,
+		Active:      req.Msg.Active,
+	}
+
+	// Call service
+	serviceResp, err := s.service.RegisterEvent(ctx, serviceReq)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if !serviceResp.Success {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(serviceResp.Message))
+	}
+
+	// Convert to protobuf response
+	result := &pb.RegisterEventResponse{
+		EventId:   serviceResp.EventID,
+		Success:   serviceResp.Success,
+		Message:   serviceResp.Message,
+		CreatedAt: serviceResp.CreatedAt,
+	}
+
+	return connect.NewResponse(result), nil
+}
+
+// ListEvents lists all registered event types
+func (s *WebhookConnectServer) ListEvents(
+	ctx context.Context,
+	req *connect.Request[pb.ListEventsRequest],
+) (*connect.Response[pb.ListEventsResponse], error) {
+	// Convert to service request
+	serviceReq := &services.ListEventsRequest{
+		ActiveOnly: req.Msg.ActiveOnly,
+	}
+
+	// Call service
+	serviceResp, err := s.service.ListEvents(ctx, serviceReq)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if !serviceResp.Success {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(serviceResp.Message))
+	}
+
+	// Convert to protobuf format
+	pbEvents := make([]*pb.RegisteredEvent, len(serviceResp.Events))
+	for i, event := range serviceResp.Events {
+		pbEvents[i] = &pb.RegisteredEvent{
+			EventId:     event.ID,
+			Name:        event.Name,
+			Description: event.Description,
+			Schema:      event.Schema,
+			Metadata:    event.Metadata,
+			Active:      event.Active,
+			CreatedAt:   event.CreatedAt.Unix(),
+			UpdatedAt:   event.UpdatedAt.Unix(),
+		}
+	}
+
+	// Convert to protobuf response
+	result := &pb.ListEventsResponse{
+		Events:     pbEvents,
+		TotalCount: serviceResp.TotalCount,
+		Success:    serviceResp.Success,
+		Message:    serviceResp.Message,
+	}
+
+	return connect.NewResponse(result), nil
+}
+
+// UpdateEvent updates an event registration
+func (s *WebhookConnectServer) UpdateEvent(
+	ctx context.Context,
+	req *connect.Request[pb.UpdateEventRequest],
+) (*connect.Response[pb.UpdateEventResponse], error) {
+	// Convert to service request
+	serviceReq := &services.UpdateEventRequest{
+		Name:        req.Msg.Name,
+		Description: req.Msg.Description,
+		Schema:      req.Msg.Schema,
+		Metadata:    req.Msg.Metadata,
+		Active:      req.Msg.Active,
+	}
+
+	// Call service
+	serviceResp, err := s.service.UpdateEvent(ctx, serviceReq)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if !serviceResp.Success {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(serviceResp.Message))
+	}
+
+	// Convert to protobuf response
+	result := &pb.UpdateEventResponse{
+		Success: serviceResp.Success,
+		Message: serviceResp.Message,
+	}
+
+	return connect.NewResponse(result), nil
+}
+
+// DeleteEvent deletes an event registration
+func (s *WebhookConnectServer) DeleteEvent(
+	ctx context.Context,
+	req *connect.Request[pb.DeleteEventRequest],
+) (*connect.Response[pb.DeleteEventResponse], error) {
+	// Convert to service request
+	serviceReq := &services.DeleteEventRequest{
+		Name: req.Msg.Name,
+	}
+
+	// Call service
+	serviceResp, err := s.service.DeleteEvent(ctx, serviceReq)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if !serviceResp.Success {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New(serviceResp.Message))
+	}
+
+	// Convert to protobuf response
+	result := &pb.DeleteEventResponse{
+		Success: serviceResp.Success,
+		Message: serviceResp.Message,
+	}
+
+	return connect.NewResponse(result), nil
+}
+
 // convertDeliveryStatus converts internal status to protobuf status
 func convertDeliveryStatus(status webhooks.WebhookDeliveryStatus) pb.WebhookDeliveryStatus {
 	switch status {

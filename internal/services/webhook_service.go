@@ -1018,6 +1018,278 @@ func (s *WebhookService) GetWebhookDeliveryHistory(ctx context.Context, req *Get
 	}, nil
 }
 
+// RegisterEventRequest represents a register event request
+type RegisterEventRequest struct {
+	Name        string
+	Description string
+	Schema      string
+	Metadata    map[string]string
+	Active      bool
+}
+
+// RegisterEventResponse represents a register event response
+type RegisterEventResponse struct {
+	EventID   string
+	Success   bool
+	Message   string
+	CreatedAt int64
+}
+
+// ListEventsRequest represents a list events request
+type ListEventsRequest struct {
+	ActiveOnly bool
+}
+
+// ListEventsResponse represents a list events response
+type ListEventsResponse struct {
+	Events     []*webhooks.EventRegistration
+	TotalCount int32
+	Success    bool
+	Message    string
+}
+
+// UpdateEventRequest represents an update event request
+type UpdateEventRequest struct {
+	Name        string
+	Description string
+	Schema      string
+	Metadata    map[string]string
+	Active      bool
+}
+
+// UpdateEventResponse represents an update event response
+type UpdateEventResponse struct {
+	Success bool
+	Message string
+}
+
+// DeleteEventRequest represents a delete event request
+type DeleteEventRequest struct {
+	Name string
+}
+
+// DeleteEventResponse represents a delete event response
+type DeleteEventResponse struct {
+	Success bool
+	Message string
+}
+
+// RegisterEvent registers a new event type
+func (s *WebhookService) RegisterEvent(ctx context.Context, req *RegisterEventRequest) (*RegisterEventResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.RegisterEvent")
+	defer span.End()
+
+	s.logger.Info("Processing event registration request",
+		"name", req.Name,
+		"description", req.Description)
+
+	// Validate required fields
+	if req.Name == "" {
+		return &RegisterEventResponse{
+			Success: false,
+			Message: "Event name is required",
+		}, nil
+	}
+
+	// Check if event already exists
+	existingEvent, err := s.webhookRepo.GetEventByName(ctx, req.Name)
+	if err != nil {
+		s.logger.Error("Failed to check existing event", "error", err)
+		return &RegisterEventResponse{
+			Success: false,
+			Message: "Failed to check existing event",
+		}, err
+	}
+
+	if existingEvent != nil {
+		return &RegisterEventResponse{
+			Success: false,
+			Message: "Event already exists",
+		}, nil
+	}
+
+	// Create event registration
+	event := &webhooks.EventRegistration{
+		Name:        req.Name,
+		Description: req.Description,
+		Schema:      req.Schema,
+		Metadata:    req.Metadata,
+		Active:      req.Active,
+	}
+
+	// Default to active if not specified
+	if !req.Active {
+		event.Active = true
+	}
+
+	// Store the event registration
+	if err := s.webhookRepo.RegisterEvent(ctx, event); err != nil {
+		s.logger.Error("Failed to register event",
+			"name", req.Name,
+			"error", err,
+		)
+		return &RegisterEventResponse{
+			Success: false,
+			Message: "Failed to register event",
+		}, err
+	}
+
+	s.logger.Info("Event registered successfully",
+		"event_id", event.ID,
+		"name", req.Name,
+		"description", req.Description,
+	)
+
+	return &RegisterEventResponse{
+		EventID:   event.ID,
+		Success:   true,
+		Message:   "Event registered successfully",
+		CreatedAt: event.CreatedAt.Unix(),
+	}, nil
+}
+
+// ListEvents lists all registered events
+func (s *WebhookService) ListEvents(ctx context.Context, req *ListEventsRequest) (*ListEventsResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.ListEvents")
+	defer span.End()
+
+	s.logger.Info("Processing list events request",
+		"active_only", req.ActiveOnly)
+
+	// Get events from repository
+	events, err := s.webhookRepo.ListEvents(ctx, req.ActiveOnly)
+	if err != nil {
+		s.logger.Error("Failed to list events", "error", err)
+		return &ListEventsResponse{
+			Success: false,
+			Message: "Failed to retrieve events",
+		}, err
+	}
+
+	s.logger.Info("Listed events successfully",
+		"total_count", len(events),
+	)
+
+	return &ListEventsResponse{
+		Events:     events,
+		TotalCount: int32(len(events)),
+		Success:    true,
+		Message:    fmt.Sprintf("Found %d events", len(events)),
+	}, nil
+}
+
+// UpdateEvent updates an event registration
+func (s *WebhookService) UpdateEvent(ctx context.Context, req *UpdateEventRequest) (*UpdateEventResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateEvent")
+	defer span.End()
+
+	s.logger.Info("Processing event update request",
+		"name", req.Name,
+		"description", req.Description)
+
+	// Validate required fields
+	if req.Name == "" {
+		return &UpdateEventResponse{
+			Success: false,
+			Message: "Event name is required",
+		}, nil
+	}
+
+	// Check if event exists
+	existingEvent, err := s.webhookRepo.GetEventByName(ctx, req.Name)
+	if err != nil {
+		s.logger.Error("Failed to get event", "error", err)
+		return &UpdateEventResponse{
+			Success: false,
+			Message: "Failed to retrieve event",
+		}, err
+	}
+
+	if existingEvent == nil {
+		return &UpdateEventResponse{
+			Success: false,
+			Message: "Event not found",
+		}, nil
+	}
+
+	// Update event fields
+	existingEvent.Description = req.Description
+	existingEvent.Schema = req.Schema
+	existingEvent.Metadata = req.Metadata
+	existingEvent.Active = req.Active
+
+	// Update the event
+	if err := s.webhookRepo.UpdateEvent(ctx, existingEvent); err != nil {
+		s.logger.Error("Failed to update event",
+			"name", req.Name,
+			"error", err,
+		)
+		return &UpdateEventResponse{
+			Success: false,
+			Message: "Failed to update event",
+		}, err
+	}
+
+	s.logger.Info("Event updated successfully", "name", req.Name)
+
+	return &UpdateEventResponse{
+		Success: true,
+		Message: "Event updated successfully",
+	}, nil
+}
+
+// DeleteEvent deletes an event registration
+func (s *WebhookService) DeleteEvent(ctx context.Context, req *DeleteEventRequest) (*DeleteEventResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.DeleteEvent")
+	defer span.End()
+
+	s.logger.Info("Processing event deletion request", "name", req.Name)
+
+	// Validate required fields
+	if req.Name == "" {
+		return &DeleteEventResponse{
+			Success: false,
+			Message: "Event name is required",
+		}, nil
+	}
+
+	// Check if event exists
+	existingEvent, err := s.webhookRepo.GetEventByName(ctx, req.Name)
+	if err != nil {
+		s.logger.Error("Failed to get event", "error", err)
+		return &DeleteEventResponse{
+			Success: false,
+			Message: "Failed to retrieve event",
+		}, err
+	}
+
+	if existingEvent == nil {
+		return &DeleteEventResponse{
+			Success: false,
+			Message: "Event not found",
+		}, nil
+	}
+
+	// Delete the event
+	if err := s.webhookRepo.DeleteEvent(ctx, req.Name); err != nil {
+		s.logger.Error("Failed to delete event",
+			"name", req.Name,
+			"error", err,
+		)
+		return &DeleteEventResponse{
+			Success: false,
+			Message: "Failed to delete event",
+		}, err
+	}
+
+	s.logger.Info("Event deleted successfully", "name", req.Name)
+
+	return &DeleteEventResponse{
+		Success: true,
+		Message: "Event deleted successfully",
+	}, nil
+}
+
 // Helper function to generate delivery ID
 func generateDeliveryID() string {
 	return uuid.New().String()

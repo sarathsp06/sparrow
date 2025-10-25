@@ -20,6 +20,18 @@ service WebhookService {
 
   // ListWebhooks lists all registered webhooks for a namespace
   rpc ListWebhooks(ListWebhooksRequest) returns (ListWebhooksResponse);
+
+  // RegisterEvent registers a new event type (no namespace required)
+  rpc RegisterEvent(RegisterEventRequest) returns (RegisterEventResponse);
+
+  // ListEvents lists all registered event types
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+
+  // UpdateEvent updates an event registration
+  rpc UpdateEvent(UpdateEventRequest) returns (UpdateEventResponse);
+
+  // DeleteEvent deletes an event registration
+  rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse);
 }
 
 // RegisterWebhookRequest represents a request to register a webhook URL
@@ -142,4 +154,72 @@ message ListWebhooksResponse {
   int32 total_count = 2;
   bool success = 3;
   string message = 4;
+}
+
+// RegisterEventRequest represents a request to register an event type
+message RegisterEventRequest {
+  string name = 1; // Event name (required)
+  string description = 2; // Event description
+  string schema = 3; // JSON schema for event payload validation
+  map<string, string> metadata = 4; // Additional metadata
+  bool active = 5; // Whether event is active (default: true)
+}
+
+// RegisterEventResponse represents the response for event registration
+message RegisterEventResponse {
+  string event_id = 1; // Unique event identifier
+  bool success = 2; // Whether registration was successful
+  string message = 3; // Success or error message
+  int64 created_at = 4; // When the event was registered
+}
+
+// ListEventsRequest represents a request to list events
+message ListEventsRequest {
+  bool active_only = 1; // Only return active events
+}
+
+// RegisteredEvent represents a registered event type
+message RegisteredEvent {
+  string event_id = 1; // Unique event identifier
+  string name = 2; // Event name
+  string description = 3; // Event description
+  string schema = 4; // JSON schema for validation
+  map<string, string> metadata = 5; // Additional metadata
+  bool active = 6; // Whether event is active
+  int64 created_at = 7; // When event was registered
+  int64 updated_at = 8; // When event was last updated
+}
+
+// ListEventsResponse represents the response for listing events
+message ListEventsResponse {
+  repeated RegisteredEvent events = 1;
+  int32 total_count = 2;
+  bool success = 3;
+  string message = 4;
+}
+
+// UpdateEventRequest represents a request to update an event
+message UpdateEventRequest {
+  string name = 1; // Event name (required)
+  string description = 2; // Event description
+  string schema = 3; // JSON schema for event payload validation
+  map<string, string> metadata = 4; // Additional metadata
+  bool active = 5; // Whether event is active
+}
+
+// UpdateEventResponse represents the response for event update
+message UpdateEventResponse {
+  bool success = 1; // Whether update was successful
+  string message = 2; // Success or error message
+}
+
+// DeleteEventRequest represents a request to delete an event
+message DeleteEventRequest {
+  string name = 1; // Event name to delete
+}
+
+// DeleteEventResponse represents the response for event deletion
+message DeleteEventResponse {
+  bool success = 1; // Whether deletion was successful
+  string message = 2; // Success or error message
 }

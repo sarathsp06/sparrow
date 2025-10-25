@@ -185,6 +185,126 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 	}, nil
 }
 
+// RegisterEvent registers a new event type
+func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEventRequest) (*pb.RegisterEventResponse, error) {
+	// Convert to service request
+	serviceReq := &services.RegisterEventRequest{
+		Name:        req.Name,
+		Description: req.Description,
+		Schema:      req.Schema,
+		Metadata:    req.Metadata,
+		Active:      req.Active,
+	}
+
+	// Call service
+	serviceResp, err := s.service.RegisterEvent(ctx, serviceReq)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to register event: %v", err)
+	}
+
+	if !serviceResp.Success {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", serviceResp.Message)
+	}
+
+	// Convert to protobuf response
+	return &pb.RegisterEventResponse{
+		EventId:   serviceResp.EventID,
+		Success:   serviceResp.Success,
+		Message:   serviceResp.Message,
+		CreatedAt: serviceResp.CreatedAt,
+	}, nil
+}
+
+// ListEvents lists all registered event types
+func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
+	// Convert to service request
+	serviceReq := &services.ListEventsRequest{
+		ActiveOnly: req.ActiveOnly,
+	}
+
+	// Call service
+	serviceResp, err := s.service.ListEvents(ctx, serviceReq)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to list events: %v", err)
+	}
+
+	if !serviceResp.Success {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", serviceResp.Message)
+	}
+
+	// Convert to protobuf format
+	pbEvents := make([]*pb.RegisteredEvent, len(serviceResp.Events))
+	for i, event := range serviceResp.Events {
+		pbEvents[i] = &pb.RegisteredEvent{
+			EventId:     event.ID,
+			Name:        event.Name,
+			Description: event.Description,
+			Schema:      event.Schema,
+			Metadata:    event.Metadata,
+			Active:      event.Active,
+			CreatedAt:   event.CreatedAt.Unix(),
+			UpdatedAt:   event.UpdatedAt.Unix(),
+		}
+	}
+
+	return &pb.ListEventsResponse{
+		Events:     pbEvents,
+		TotalCount: serviceResp.TotalCount,
+		Success:    serviceResp.Success,
+		Message:    serviceResp.Message,
+	}, nil
+}
+
+// UpdateEvent updates an event registration
+func (s *WebhookServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequest) (*pb.UpdateEventResponse, error) {
+	// Convert to service request
+	serviceReq := &services.UpdateEventRequest{
+		Name:        req.Name,
+		Description: req.Description,
+		Schema:      req.Schema,
+		Metadata:    req.Metadata,
+		Active:      req.Active,
+	}
+
+	// Call service
+	serviceResp, err := s.service.UpdateEvent(ctx, serviceReq)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to update event: %v", err)
+	}
+
+	if !serviceResp.Success {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", serviceResp.Message)
+	}
+
+	return &pb.UpdateEventResponse{
+		Success: serviceResp.Success,
+		Message: serviceResp.Message,
+	}, nil
+}
+
+// DeleteEvent deletes an event registration
+func (s *WebhookServer) DeleteEvent(ctx context.Context, req *pb.DeleteEventRequest) (*pb.DeleteEventResponse, error) {
+	// Convert to service request
+	serviceReq := &services.DeleteEventRequest{
+		Name: req.Name,
+	}
+
+	// Call service
+	serviceResp, err := s.service.DeleteEvent(ctx, serviceReq)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to delete event: %v", err)
+	}
+
+	if !serviceResp.Success {
+		return nil, status.Errorf(codes.InvalidArgument, "%s", serviceResp.Message)
+	}
+
+	return &pb.DeleteEventResponse{
+		Success: serviceResp.Success,
+		Message: serviceResp.Message,
+	}, nil
+}
+
 // Helper function to convert delivery status
 func convertDeliveryStatus(status webhooks.WebhookDeliveryStatus) pb.WebhookDeliveryStatus {
 	switch status {

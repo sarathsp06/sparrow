@@ -503,3 +503,150 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, webhookID, na
 
 	return deliveries, totalCount, nil
 }
+
+// RegisterEvent registers a new event type
+func (r *Repository) RegisterEvent(ctx context.Context, event *EventRegistration) error {
+	event.ID = uuid.New().String()
+	event.CreatedAt = time.Now()
+	event.UpdatedAt = time.Now()
+
+	query := `
+		INSERT INTO event_registrations (
+			id, name, description, schema, metadata, active, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`
+
+	metadataJSON, err := json.Marshal(event.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	_, err = r.db.Exec(ctx, query,
+		event.ID,
+		event.Name,
+		event.Description,
+		event.Schema,
+		metadataJSON,
+		event.Active,
+		event.CreatedAt,
+		event.UpdatedAt,
+	)
+	return err
+}
+
+// GetEventByName gets an event registration by name
+func (r *Repository) GetEventByName(ctx context.Context, eventName string) (*EventRegistration, error) {
+	query := `
+		SELECT id, name, description, schema, metadata, active, created_at, updated_at
+		FROM event_registrations 
+		WHERE name = $1
+	`
+
+	var event EventRegistration
+	var metadataJSON []byte
+
+	err := r.db.QueryRow(ctx, query, eventName).Scan(
+		&event.ID,
+		&event.Name,
+		&event.Description,
+		&event.Schema,
+		&metadataJSON,
+		&event.Active,
+		&event.CreatedAt,
+		&event.UpdatedAt,
+	)
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if err := json.Unmarshal(metadataJSON, &event.Metadata); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+	}
+
+	return &event, nil
+}
+
+// ListEvents returns all registered events
+func (r *Repository) ListEvents(ctx context.Context, activeOnly bool) ([]*EventRegistration, error) {
+	query := `
+		SELECT id, name, description, schema, metadata, active, created_at, updated_at
+		FROM event_registrations
+	`
+	args := []interface{}{}
+
+	if activeOnly {
+		query += ` WHERE active = true`
+	}
+
+	query += ` ORDER BY name ASC`
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []*EventRegistration
+	for rows.Next() {
+		var event EventRegistration
+		var metadataJSON []byte
+
+		err := rows.Scan(
+			&event.ID,
+			&event.Name,
+			&event.Description,
+			&event.Schema,
+			&metadataJSON,
+			&event.Active,
+			&event.CreatedAt,
+			&event.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := json.Unmarshal(metadataJSON, &event.Metadata); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+		}
+
+		events = append(events, &event)
+	}
+
+	return events, nil
+}
+
+// UpdateEvent updates an event registration
+func (r *Repository) UpdateEvent(ctx context.Context, event *EventRegistration) error {
+	event.UpdatedAt = time.Now()
+
+	query := `
+		UPDATE event_registrations 
+		SET description = $2, schema = $3, metadata = $4, active = $5, updated_at = $6
+		WHERE name = $1
+	`
+
+	metadataJSON, err := json.Marshal(event.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	_, err = r.db.Exec(ctx, query,
+		event.Name,
+		event.Description,
+		event.Schema,
+		metadataJSON,
+		event.Active,
+		event.UpdatedAt,
+	)
+	return err
+}
+
+// DeleteEvent deletes an event registration
+func (r *Repository) DeleteEvent(ctx context.Context, eventName string) error {
+	query := `DELETE FROM event_registrations WHERE name = $1`
+	_, err := r.db.Exec(ctx, query, eventName)
+	return err
+}

@@ -58,3 +58,15 @@ const (
 	StatusRetrying WebhookDeliveryStatus = "retrying"
 	StatusExpired  WebhookDeliveryStatus = "expired"
 )
+
+// EventRegistration represents a registered event type
+type EventRegistration struct {
+	ID          string            `json:"id" db:"id"`
+	Name        string            `json:"name" db:"name"`
+	Description string            `json:"description" db:"description"`
+	Schema      string            `json:"schema" db:"schema"` // JSON schema for validation
+	Metadata    map[string]string `json:"metadata" db:"metadata"`
+	Active      bool              `json:"active" db:"active"`
+	CreatedAt   time.Time         `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at" db:"updated_at"`
+}

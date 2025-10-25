@@ -69,7 +69,25 @@ make build                      # Build binaries
 - Same methods as gRPC but over HTTP with JSON payloads
 - RESTful-style endpoints with Connect protocol
 
-See `examples/grpc_client.go`, `examples/connect_client.go`, and `proto/webhook.proto` for detailed usage.
+### Event Management Endpoints
+Both gRPC and Connect-RPC support:
+- `RegisterEvent` - Register new event types
+- `ListEvents` - List all registered events
+- `UpdateEvent` - Update event information
+- `DeleteEvent` - Remove event registrations
+
+### Testing & Examples
+```bash
+# Test webhook operations
+go run examples/grpc_client.go
+go run examples/connect_client.go
+
+# Test event management
+./examples/test_event_management.sh
+go run examples/event_management_client.go
+```
+
+See `proto/webhook.proto` for complete API definitions.
 
 ## Core Management Methods
 
@@ -99,6 +117,28 @@ ResendWebhook(delivery_id, namespace, force_resend?)
 // Get delivery history with pagination
 GetWebhookDeliveryHistory(webhook_id, namespace, limit?, offset?)
 ```
+
+### Event Type Management
+```go
+// Register a new event type (namespace-independent)
+RegisterEvent(name, description, schema?, metadata?, active?)
+
+// List all registered event types
+ListEvents(active_only?)
+
+// Update event type information
+UpdateEvent(name, description?, schema?, metadata?, active?)
+
+// Delete an event type registration
+DeleteEvent(name)
+```
+
+#### Event Registration Features
+- **Schema Validation** - JSON Schema definitions for event payloads
+- **Metadata Support** - Custom key-value pairs for categorization
+- **Active/Inactive States** - Enable/disable event types
+- **Namespace Independent** - Global event registry across all namespaces
+- **Unique Names** - Prevent duplicate event type registrations
 
 ## Configuration
 
