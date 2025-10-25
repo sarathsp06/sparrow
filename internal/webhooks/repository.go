@@ -323,3 +323,183 @@ func (h *HeadersMap) Scan(value interface{}) error {
 }
 
 type HeadersMap map[string]string
+
+// GetWebhookByID gets a webhook by ID and namespace
+func (r *Repository) GetWebhookByID(ctx context.Context, webhookID, namespace string) (*WebhookRegistration, error) {
+	query := `
+		SELECT id, namespace, events, url, headers, timeout, active, description, created_at, updated_at
+		FROM webhook_registrations 
+		WHERE id = $1 AND namespace = $2
+	`
+
+	var wh WebhookRegistration
+	var headersJSON []byte
+	var eventsJSON []byte
+
+	err := r.db.QueryRow(ctx, query, webhookID, namespace).Scan(
+		&wh.ID,
+		&wh.Namespace,
+		&eventsJSON,
+		&wh.URL,
+		&headersJSON,
+		&wh.Timeout,
+		&wh.Active,
+		&wh.Description,
+		&wh.CreatedAt,
+		&wh.UpdatedAt,
+	)
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if err := json.Unmarshal(headersJSON, &wh.Headers); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal headers: %w", err)
+	}
+
+	if err := json.Unmarshal(eventsJSON, &wh.Events); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal events: %w", err)
+	}
+
+	return &wh, nil
+}
+
+// GetWebhooksByNamespace gets webhooks by namespace
+func (r *Repository) GetWebhooksByNamespace(ctx context.Context, namespace string, activeOnly bool) ([]*WebhookRegistration, error) {
+	return r.ListWebhooks(ctx, namespace, activeOnly)
+}
+
+// UpdateWebhook updates a webhook registration
+func (r *Repository) UpdateWebhook(ctx context.Context, webhook *WebhookRegistration) error {
+	webhook.UpdatedAt = time.Now()
+
+	query := `
+		UPDATE webhook_registrations 
+		SET events = $2, url = $3, headers = $4, timeout = $5, active = $6, 
+		    description = $7, updated_at = $8
+		WHERE id = $1 AND namespace = $9
+	`
+
+	headersJSON, err := json.Marshal(webhook.Headers)
+	if err != nil {
+		return fmt.Errorf("failed to marshal headers: %w", err)
+	}
+
+	eventsJSON, err := json.Marshal(webhook.Events)
+	if err != nil {
+		return fmt.Errorf("failed to marshal events: %w", err)
+	}
+
+	_, err = r.db.Exec(ctx, query,
+		webhook.ID,
+		eventsJSON,
+		webhook.URL,
+		headersJSON,
+		webhook.Timeout,
+		webhook.Active,
+		webhook.Description,
+		webhook.UpdatedAt,
+		webhook.Namespace,
+	)
+	return err
+}
+
+// GetDeliveryByID gets a delivery by ID and namespace
+func (r *Repository) GetDeliveryByID(ctx context.Context, deliveryID, namespace string) (*WebhookDelivery, error) {
+	query := `
+		SELECT wd.id, wd.webhook_id, wd.event_id, wd.status, wd.attempt_count, wd.max_attempts, 
+		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
+		       wd.response_code, wd.response_body, wd.error_message
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE wd.id = $1 AND wr.namespace = $2
+	`
+
+	var d WebhookDelivery
+	err := r.db.QueryRow(ctx, query, deliveryID, namespace).Scan(
+		&d.ID,
+		&d.WebhookID,
+		&d.EventID,
+		&d.Status,
+		&d.AttemptCount,
+		&d.MaxAttempts,
+		&d.CreatedAt,
+		&d.LastAttemptedAt,
+		&d.NextRetryAt,
+		&d.ExpiresAt,
+		&d.ResponseCode,
+		&d.ResponseBody,
+		&d.ErrorMessage,
+	)
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &d, nil
+}
+
+// GetDeliveriesByWebhookID gets deliveries for a webhook with pagination
+func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, webhookID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error) {
+	// First get total count
+	countQuery := `
+		SELECT COUNT(*)
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE wd.webhook_id = $1 AND wr.namespace = $2
+	`
+
+	var totalCount int
+	err := r.db.QueryRow(ctx, countQuery, webhookID, namespace).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Then get paginated results
+	query := `
+		SELECT wd.id, wd.webhook_id, wd.event_id, wd.status, wd.attempt_count, wd.max_attempts, 
+		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
+		       wd.response_code, wd.response_body, wd.error_message
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE wd.webhook_id = $1 AND wr.namespace = $2
+		ORDER BY wd.created_at DESC
+		LIMIT $3 OFFSET $4
+	`
+
+	rows, err := r.db.Query(ctx, query, webhookID, namespace, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var deliveries []*WebhookDelivery
+	for rows.Next() {
+		var d WebhookDelivery
+		err := rows.Scan(
+			&d.ID,
+			&d.WebhookID,
+			&d.EventID,
+			&d.Status,
+			&d.AttemptCount,
+			&d.MaxAttempts,
+			&d.CreatedAt,
+			&d.LastAttemptedAt,
+			&d.NextRetryAt,
+			&d.ExpiresAt,
+			&d.ResponseCode,
+			&d.ResponseBody,
+			&d.ErrorMessage,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		deliveries = append(deliveries, &d)
+	}
+
+	return deliveries, totalCount, nil
+}

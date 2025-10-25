@@ -8,13 +8,16 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/golang-migrate/migrate/v4/source/iofs"
+
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
+	"github.com/sarathsp06/sparrow/db"
 	"github.com/sarathsp06/sparrow/internal/config"
 	"github.com/sarathsp06/sparrow/internal/logger"
 )
@@ -105,28 +108,27 @@ func runAppMigrations(databaseURL, direction string, steps int, targetVersion ui
 	log.Info("Running application migrations...")
 
 	// Create database connection for golang-migrate using stdlib
-	db, err := sql.Open("pgx", databaseURL)
+	dbConn, err := sql.Open("pgx", databaseURL)
 	if err != nil {
 		return fmt.Errorf("failed to open database connection: %w", err)
 	}
-	defer db.Close()
+	defer dbConn.Close()
 
 	// Test the connection
-	if err := db.Ping(); err != nil {
+	if err := dbConn.Ping(); err != nil {
 		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	// Create database driver for golang-migrate
-	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	driver, err := iofs.New(db.GetMigrationsFS(), "migrations")
 	if err != nil {
-		return fmt.Errorf("failed to create postgres driver: %w", err)
+		return fmt.Errorf("failed to load embedded migration: %w", err)
 	}
 
 	// Create migrate instance
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://db/migrations",
-		"postgres",
+	m, err := migrate.NewWithSourceInstance(
+		"iofs",
 		driver,
+		databaseURL,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create migrate instance: %w", err)

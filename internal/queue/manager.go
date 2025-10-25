@@ -117,3 +117,21 @@ type JobInserter struct {
 func (m *Manager) NewJobInserter() *JobInserter {
 	return &JobInserter{manager: m}
 }
+
+// QueueWebhook queues a webhook for delivery
+func (m *Manager) QueueWebhook(ctx context.Context, args *jobs.WebhookArgs) error {
+	opts := &river.InsertOpts{
+		Queue: "webhooks",
+	}
+	_, err := m.client.Insert(ctx, *args, opts)
+	return err
+}
+
+// QueueEvent queues an event for processing
+func (m *Manager) QueueEvent(ctx context.Context, args *jobs.EventArgs) error {
+	opts := &river.InsertOpts{
+		Queue: "events",
+	}
+	_, err := m.client.Insert(ctx, *args, opts)
+	return err
+}
