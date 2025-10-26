@@ -2,10 +2,11 @@
   import { createClient } from "@connectrpc/connect";
   import { createConnectTransport } from "@connectrpc/connect-web";
   import { onMount } from 'svelte';
-  import type { RegisteredWebhook } from '../../../../proto/webhook_pb.js';
+  import type { RegisteredWebhook, WebhookDelivery } from '../../../../proto/webhook_pb.js';
   import { WebhookService } from '../../../../proto/webhook_pb.js';
 
   let webhooks: RegisteredWebhook[] = [];
+  let deliveries: WebhookDelivery[] = [];
   let loading = true;
   let error = '';
   const transport = createConnectTransport({
@@ -20,16 +21,38 @@
       const res = await client.listWebhooks({
         namespace: 'default',
         event: '',
-        activeOnly: false
+        activeOnly: false,
       });
-      webhooks = res.webhooks || [];
+      // get only first 5 webhooks
+      webhooks = res.webhooks?.slice(0, 5) || [];
     } catch (e) {
       error = 'Failed to load webhooks';
     }
     loading = false;
   }
 
-  onMount(fetchWebhooks);
+  async function fetchDeliveries() {
+    console.log("FETCH DELIVERIES");
+    try {
+      await Promise.all(webhooks.map(async webhook => {
+        const res = await client.getWebhookDeliveryHistory({
+          namespace: 'default',
+          webhookId: webhook.webhookId,
+          limit: 5
+        });
+        deliveries.push(...(res.deliveries || []));
+      }));
+    } catch (e) {
+      error = 'Failed to load deliveries';
+      console.error(e);
+    }
+  }
+
+  onMount(async () => {
+    await fetchWebhooks();
+    await fetchDeliveries();
+    console.log("DELIVERIES",...deliveries);
+  });
 </script>
 
 <!-- Paper-inspired Light Theme Webhook Dashboard -->
@@ -45,7 +68,6 @@
   <div class="p-6 max-w-3xl mx-auto">
     {#if loading}
       <div class="flex justify-center items-center h-32">
-        <span class="material-symbols-outlined animate-spin text-4xl text-primary">autorenew</span>
         <span class="ml-3 text-lg text-gray-700">Loading...</span>
       </div>
     {:else if error}
@@ -63,11 +85,34 @@
             <div class="flex flex-col gap-1">
               <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-primary text-2xl">link</span>
-                <span class="font-bold text-gray-900">{wh.name ?? wh.description ?? wh.url}</span>
+                <span class="font-bold text-gray-900">{ wh.description ?? wh.url}</span>
               </div>
-              <span class="text-gray-500 text-sm">{wh.description ?? wh.url}</span>
+              <span class="text-gray-500 text-sm">{ wh.url}</span>
             </div>
             <a href={`/webhooks/${wh.webhookId}`} class="bg-primary/10 text-primary font-semibold px-4 py-2 rounded-lg shadow hover:bg-primary/20 transition ml-4">Details</a>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
+
+  <!-- Latest Deliveries Section -->
+  <div class="p-6 max-w-3xl mx-auto">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">Latest Deliveries (Namespace: default)</h2>
+    {#if deliveries.length === 0}
+      <div class="bg-gray-50 rounded-md p-3 text-gray-500 shadow mb-4 flex items-center gap-2">
+        <span class="material-symbols-outlined text-gray-400">info</span>No deliveries found.
+      </div>
+    {:else}
+      <div class="grid gap-4">
+        {#each deliveries as d}
+          <div class="delivery-card flex flex-col md:flex-row justify-between items-center bg-white rounded-md shadow-sm p-4">
+            <div class="flex flex-col gap-1">
+              <span class="font-semibold text-gray-900">Webhook: {d.webhookId}</span>
+              <span class="text-gray-500 text-sm">Status: {d.status}</span>
+              <span class="text-gray-500 text-sm">Delivered At: {d.deliveredAt}</span>
+            </div>
+            <a href={`/deliveries/${d.deliveryId}`} class="text-gray-700 font-medium px-3 py-1 rounded hover:underline ml-4">Details</a>
           </div>
         {/each}
       </div>
@@ -93,5 +138,15 @@
     }
     .bg-primary { background-color: #2563eb; }
     .text-primary { color: #2563eb; }
+    .delivery-card {
+      background: #fff;
+      border: 1px solid #ececec;
+      box-shadow: 0 1px 4px 0 rgba(60, 60, 100, 0.04);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .delivery-card:hover {
+      box-shadow: 0 4px 12px 0 rgba(60, 60, 100, 0.08);
+      transform: translateY(-1px) scale(1.01);
+    }
   </style>
 </div>
