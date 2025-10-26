@@ -60,6 +60,45 @@ const (
 	// WebhookServiceDeleteEventProcedure is the fully-qualified name of the WebhookService's
 	// DeleteEvent RPC.
 	WebhookServiceDeleteEventProcedure = "/webhook.WebhookService/DeleteEvent"
+	// WebhookServiceGetWebhookHealthProcedure is the fully-qualified name of the WebhookService's
+	// GetWebhookHealth RPC.
+	WebhookServiceGetWebhookHealthProcedure = "/webhook.WebhookService/GetWebhookHealth"
+	// WebhookServiceListWebhooksByHealthProcedure is the fully-qualified name of the WebhookService's
+	// ListWebhooksByHealth RPC.
+	WebhookServiceListWebhooksByHealthProcedure = "/webhook.WebhookService/ListWebhooksByHealth"
+	// WebhookServiceGetHealthSummaryProcedure is the fully-qualified name of the WebhookService's
+	// GetHealthSummary RPC.
+	WebhookServiceGetHealthSummaryProcedure = "/webhook.WebhookService/GetHealthSummary"
+	// WebhookServiceResubmitWebhookProcedure is the fully-qualified name of the WebhookService's
+	// ResubmitWebhook RPC.
+	WebhookServiceResubmitWebhookProcedure = "/webhook.WebhookService/ResubmitWebhook"
+	// WebhookServiceGetRegisteredWebhooksProcedure is the fully-qualified name of the WebhookService's
+	// GetRegisteredWebhooks RPC.
+	WebhookServiceGetRegisteredWebhooksProcedure = "/webhook.WebhookService/GetRegisteredWebhooks"
+	// WebhookServiceListRegisteredWebhooksByEventProcedure is the fully-qualified name of the
+	// WebhookService's ListRegisteredWebhooksByEvent RPC.
+	WebhookServiceListRegisteredWebhooksByEventProcedure = "/webhook.WebhookService/ListRegisteredWebhooksByEvent"
+	// WebhookServiceGetWebhookDeliveryStatusProcedure is the fully-qualified name of the
+	// WebhookService's GetWebhookDeliveryStatus RPC.
+	WebhookServiceGetWebhookDeliveryStatusProcedure = "/webhook.WebhookService/GetWebhookDeliveryStatus"
+	// WebhookServiceResendWebhookProcedure is the fully-qualified name of the WebhookService's
+	// ResendWebhook RPC.
+	WebhookServiceResendWebhookProcedure = "/webhook.WebhookService/ResendWebhook"
+	// WebhookServiceGetWebhookDeliveryHistoryProcedure is the fully-qualified name of the
+	// WebhookService's GetWebhookDeliveryHistory RPC.
+	WebhookServiceGetWebhookDeliveryHistoryProcedure = "/webhook.WebhookService/GetWebhookDeliveryHistory"
+	// WebhookServiceGetNamespaceStatsProcedure is the fully-qualified name of the WebhookService's
+	// GetNamespaceStats RPC.
+	WebhookServiceGetNamespaceStatsProcedure = "/webhook.WebhookService/GetNamespaceStats"
+	// WebhookServiceUpdateWebhookConfigProcedure is the fully-qualified name of the WebhookService's
+	// UpdateWebhookConfig RPC.
+	WebhookServiceUpdateWebhookConfigProcedure = "/webhook.WebhookService/UpdateWebhookConfig"
+	// WebhookServicePauseWebhookProcedure is the fully-qualified name of the WebhookService's
+	// PauseWebhook RPC.
+	WebhookServicePauseWebhookProcedure = "/webhook.WebhookService/PauseWebhook"
+	// WebhookServiceResumeWebhookProcedure is the fully-qualified name of the WebhookService's
+	// ResumeWebhook RPC.
+	WebhookServiceResumeWebhookProcedure = "/webhook.WebhookService/ResumeWebhook"
 )
 
 // WebhookServiceClient is a client for the webhook.WebhookService service.
@@ -82,6 +121,34 @@ type WebhookServiceClient interface {
 	UpdateEvent(context.Context, *connect.Request[proto.UpdateEventRequest]) (*connect.Response[proto.UpdateEventResponse], error)
 	// DeleteEvent deletes an event registration
 	DeleteEvent(context.Context, *connect.Request[proto.DeleteEventRequest]) (*connect.Response[proto.DeleteEventResponse], error)
+	// Health Management
+	// GetWebhookHealth gets health metrics for a specific webhook
+	GetWebhookHealth(context.Context, *connect.Request[proto.GetWebhookHealthRequest]) (*connect.Response[proto.GetWebhookHealthResponse], error)
+	// ListWebhooksByHealth lists webhooks filtered by health status
+	ListWebhooksByHealth(context.Context, *connect.Request[proto.ListWebhooksByHealthRequest]) (*connect.Response[proto.ListWebhooksByHealthResponse], error)
+	// GetHealthSummary gets a summary of webhook health across all namespaces
+	GetHealthSummary(context.Context, *connect.Request[proto.GetHealthSummaryRequest]) (*connect.Response[proto.GetHealthSummaryResponse], error)
+	// ResubmitWebhook manually retries failed or pending webhook deliveries
+	ResubmitWebhook(context.Context, *connect.Request[proto.ResubmitWebhookRequest]) (*connect.Response[proto.ResubmitWebhookResponse], error)
+	// Additional webhook management methods
+	// GetRegisteredWebhooks retrieves registered webhooks by ID or namespace
+	GetRegisteredWebhooks(context.Context, *connect.Request[proto.GetRegisteredWebhooksRequest]) (*connect.Response[proto.GetRegisteredWebhooksResponse], error)
+	// ListRegisteredWebhooksByEvent retrieves webhooks registered for specific events
+	ListRegisteredWebhooksByEvent(context.Context, *connect.Request[proto.ListRegisteredWebhooksByEventRequest]) (*connect.Response[proto.ListRegisteredWebhooksByEventResponse], error)
+	// GetWebhookDeliveryStatus retrieves delivery status for specific delivery
+	GetWebhookDeliveryStatus(context.Context, *connect.Request[proto.GetWebhookDeliveryStatusRequest]) (*connect.Response[proto.GetWebhookDeliveryStatusResponse], error)
+	// ResendWebhook resends a failed webhook delivery
+	ResendWebhook(context.Context, *connect.Request[proto.ResendWebhookRequest]) (*connect.Response[proto.ResendWebhookResponse], error)
+	// GetWebhookDeliveryHistory retrieves delivery history for a webhook
+	GetWebhookDeliveryHistory(context.Context, *connect.Request[proto.GetWebhookDeliveryHistoryRequest]) (*connect.Response[proto.GetWebhookDeliveryHistoryResponse], error)
+	// GetNamespaceStats retrieves statistics for a namespace
+	GetNamespaceStats(context.Context, *connect.Request[proto.GetNamespaceStatsRequest]) (*connect.Response[proto.GetNamespaceStatsResponse], error)
+	// UpdateWebhookConfig updates webhook configuration
+	UpdateWebhookConfig(context.Context, *connect.Request[proto.UpdateWebhookConfigRequest]) (*connect.Response[proto.UpdateWebhookConfigResponse], error)
+	// PauseWebhook temporarily disables a webhook
+	PauseWebhook(context.Context, *connect.Request[proto.PauseWebhookRequest]) (*connect.Response[proto.PauseWebhookResponse], error)
+	// ResumeWebhook re-enables a paused webhook
+	ResumeWebhook(context.Context, *connect.Request[proto.ResumeWebhookRequest]) (*connect.Response[proto.ResumeWebhookResponse], error)
 }
 
 // NewWebhookServiceClient constructs a client for the webhook.WebhookService service. By default,
@@ -149,20 +216,111 @@ func NewWebhookServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(webhookServiceMethods.ByName("DeleteEvent")),
 			connect.WithClientOptions(opts...),
 		),
+		getWebhookHealth: connect.NewClient[proto.GetWebhookHealthRequest, proto.GetWebhookHealthResponse](
+			httpClient,
+			baseURL+WebhookServiceGetWebhookHealthProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("GetWebhookHealth")),
+			connect.WithClientOptions(opts...),
+		),
+		listWebhooksByHealth: connect.NewClient[proto.ListWebhooksByHealthRequest, proto.ListWebhooksByHealthResponse](
+			httpClient,
+			baseURL+WebhookServiceListWebhooksByHealthProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("ListWebhooksByHealth")),
+			connect.WithClientOptions(opts...),
+		),
+		getHealthSummary: connect.NewClient[proto.GetHealthSummaryRequest, proto.GetHealthSummaryResponse](
+			httpClient,
+			baseURL+WebhookServiceGetHealthSummaryProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("GetHealthSummary")),
+			connect.WithClientOptions(opts...),
+		),
+		resubmitWebhook: connect.NewClient[proto.ResubmitWebhookRequest, proto.ResubmitWebhookResponse](
+			httpClient,
+			baseURL+WebhookServiceResubmitWebhookProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("ResubmitWebhook")),
+			connect.WithClientOptions(opts...),
+		),
+		getRegisteredWebhooks: connect.NewClient[proto.GetRegisteredWebhooksRequest, proto.GetRegisteredWebhooksResponse](
+			httpClient,
+			baseURL+WebhookServiceGetRegisteredWebhooksProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("GetRegisteredWebhooks")),
+			connect.WithClientOptions(opts...),
+		),
+		listRegisteredWebhooksByEvent: connect.NewClient[proto.ListRegisteredWebhooksByEventRequest, proto.ListRegisteredWebhooksByEventResponse](
+			httpClient,
+			baseURL+WebhookServiceListRegisteredWebhooksByEventProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("ListRegisteredWebhooksByEvent")),
+			connect.WithClientOptions(opts...),
+		),
+		getWebhookDeliveryStatus: connect.NewClient[proto.GetWebhookDeliveryStatusRequest, proto.GetWebhookDeliveryStatusResponse](
+			httpClient,
+			baseURL+WebhookServiceGetWebhookDeliveryStatusProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("GetWebhookDeliveryStatus")),
+			connect.WithClientOptions(opts...),
+		),
+		resendWebhook: connect.NewClient[proto.ResendWebhookRequest, proto.ResendWebhookResponse](
+			httpClient,
+			baseURL+WebhookServiceResendWebhookProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("ResendWebhook")),
+			connect.WithClientOptions(opts...),
+		),
+		getWebhookDeliveryHistory: connect.NewClient[proto.GetWebhookDeliveryHistoryRequest, proto.GetWebhookDeliveryHistoryResponse](
+			httpClient,
+			baseURL+WebhookServiceGetWebhookDeliveryHistoryProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("GetWebhookDeliveryHistory")),
+			connect.WithClientOptions(opts...),
+		),
+		getNamespaceStats: connect.NewClient[proto.GetNamespaceStatsRequest, proto.GetNamespaceStatsResponse](
+			httpClient,
+			baseURL+WebhookServiceGetNamespaceStatsProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("GetNamespaceStats")),
+			connect.WithClientOptions(opts...),
+		),
+		updateWebhookConfig: connect.NewClient[proto.UpdateWebhookConfigRequest, proto.UpdateWebhookConfigResponse](
+			httpClient,
+			baseURL+WebhookServiceUpdateWebhookConfigProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("UpdateWebhookConfig")),
+			connect.WithClientOptions(opts...),
+		),
+		pauseWebhook: connect.NewClient[proto.PauseWebhookRequest, proto.PauseWebhookResponse](
+			httpClient,
+			baseURL+WebhookServicePauseWebhookProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("PauseWebhook")),
+			connect.WithClientOptions(opts...),
+		),
+		resumeWebhook: connect.NewClient[proto.ResumeWebhookRequest, proto.ResumeWebhookResponse](
+			httpClient,
+			baseURL+WebhookServiceResumeWebhookProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("ResumeWebhook")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // webhookServiceClient implements WebhookServiceClient.
 type webhookServiceClient struct {
-	registerWebhook   *connect.Client[proto.RegisterWebhookRequest, proto.RegisterWebhookResponse]
-	unregisterWebhook *connect.Client[proto.UnregisterWebhookRequest, proto.UnregisterWebhookResponse]
-	pushEvent         *connect.Client[proto.PushEventRequest, proto.PushEventResponse]
-	getWebhookStatus  *connect.Client[proto.GetWebhookStatusRequest, proto.GetWebhookStatusResponse]
-	listWebhooks      *connect.Client[proto.ListWebhooksRequest, proto.ListWebhooksResponse]
-	registerEvent     *connect.Client[proto.RegisterEventRequest, proto.RegisterEventResponse]
-	listEvents        *connect.Client[proto.ListEventsRequest, proto.ListEventsResponse]
-	updateEvent       *connect.Client[proto.UpdateEventRequest, proto.UpdateEventResponse]
-	deleteEvent       *connect.Client[proto.DeleteEventRequest, proto.DeleteEventResponse]
+	registerWebhook               *connect.Client[proto.RegisterWebhookRequest, proto.RegisterWebhookResponse]
+	unregisterWebhook             *connect.Client[proto.UnregisterWebhookRequest, proto.UnregisterWebhookResponse]
+	pushEvent                     *connect.Client[proto.PushEventRequest, proto.PushEventResponse]
+	getWebhookStatus              *connect.Client[proto.GetWebhookStatusRequest, proto.GetWebhookStatusResponse]
+	listWebhooks                  *connect.Client[proto.ListWebhooksRequest, proto.ListWebhooksResponse]
+	registerEvent                 *connect.Client[proto.RegisterEventRequest, proto.RegisterEventResponse]
+	listEvents                    *connect.Client[proto.ListEventsRequest, proto.ListEventsResponse]
+	updateEvent                   *connect.Client[proto.UpdateEventRequest, proto.UpdateEventResponse]
+	deleteEvent                   *connect.Client[proto.DeleteEventRequest, proto.DeleteEventResponse]
+	getWebhookHealth              *connect.Client[proto.GetWebhookHealthRequest, proto.GetWebhookHealthResponse]
+	listWebhooksByHealth          *connect.Client[proto.ListWebhooksByHealthRequest, proto.ListWebhooksByHealthResponse]
+	getHealthSummary              *connect.Client[proto.GetHealthSummaryRequest, proto.GetHealthSummaryResponse]
+	resubmitWebhook               *connect.Client[proto.ResubmitWebhookRequest, proto.ResubmitWebhookResponse]
+	getRegisteredWebhooks         *connect.Client[proto.GetRegisteredWebhooksRequest, proto.GetRegisteredWebhooksResponse]
+	listRegisteredWebhooksByEvent *connect.Client[proto.ListRegisteredWebhooksByEventRequest, proto.ListRegisteredWebhooksByEventResponse]
+	getWebhookDeliveryStatus      *connect.Client[proto.GetWebhookDeliveryStatusRequest, proto.GetWebhookDeliveryStatusResponse]
+	resendWebhook                 *connect.Client[proto.ResendWebhookRequest, proto.ResendWebhookResponse]
+	getWebhookDeliveryHistory     *connect.Client[proto.GetWebhookDeliveryHistoryRequest, proto.GetWebhookDeliveryHistoryResponse]
+	getNamespaceStats             *connect.Client[proto.GetNamespaceStatsRequest, proto.GetNamespaceStatsResponse]
+	updateWebhookConfig           *connect.Client[proto.UpdateWebhookConfigRequest, proto.UpdateWebhookConfigResponse]
+	pauseWebhook                  *connect.Client[proto.PauseWebhookRequest, proto.PauseWebhookResponse]
+	resumeWebhook                 *connect.Client[proto.ResumeWebhookRequest, proto.ResumeWebhookResponse]
 }
 
 // RegisterWebhook calls webhook.WebhookService.RegisterWebhook.
@@ -210,6 +368,71 @@ func (c *webhookServiceClient) DeleteEvent(ctx context.Context, req *connect.Req
 	return c.deleteEvent.CallUnary(ctx, req)
 }
 
+// GetWebhookHealth calls webhook.WebhookService.GetWebhookHealth.
+func (c *webhookServiceClient) GetWebhookHealth(ctx context.Context, req *connect.Request[proto.GetWebhookHealthRequest]) (*connect.Response[proto.GetWebhookHealthResponse], error) {
+	return c.getWebhookHealth.CallUnary(ctx, req)
+}
+
+// ListWebhooksByHealth calls webhook.WebhookService.ListWebhooksByHealth.
+func (c *webhookServiceClient) ListWebhooksByHealth(ctx context.Context, req *connect.Request[proto.ListWebhooksByHealthRequest]) (*connect.Response[proto.ListWebhooksByHealthResponse], error) {
+	return c.listWebhooksByHealth.CallUnary(ctx, req)
+}
+
+// GetHealthSummary calls webhook.WebhookService.GetHealthSummary.
+func (c *webhookServiceClient) GetHealthSummary(ctx context.Context, req *connect.Request[proto.GetHealthSummaryRequest]) (*connect.Response[proto.GetHealthSummaryResponse], error) {
+	return c.getHealthSummary.CallUnary(ctx, req)
+}
+
+// ResubmitWebhook calls webhook.WebhookService.ResubmitWebhook.
+func (c *webhookServiceClient) ResubmitWebhook(ctx context.Context, req *connect.Request[proto.ResubmitWebhookRequest]) (*connect.Response[proto.ResubmitWebhookResponse], error) {
+	return c.resubmitWebhook.CallUnary(ctx, req)
+}
+
+// GetRegisteredWebhooks calls webhook.WebhookService.GetRegisteredWebhooks.
+func (c *webhookServiceClient) GetRegisteredWebhooks(ctx context.Context, req *connect.Request[proto.GetRegisteredWebhooksRequest]) (*connect.Response[proto.GetRegisteredWebhooksResponse], error) {
+	return c.getRegisteredWebhooks.CallUnary(ctx, req)
+}
+
+// ListRegisteredWebhooksByEvent calls webhook.WebhookService.ListRegisteredWebhooksByEvent.
+func (c *webhookServiceClient) ListRegisteredWebhooksByEvent(ctx context.Context, req *connect.Request[proto.ListRegisteredWebhooksByEventRequest]) (*connect.Response[proto.ListRegisteredWebhooksByEventResponse], error) {
+	return c.listRegisteredWebhooksByEvent.CallUnary(ctx, req)
+}
+
+// GetWebhookDeliveryStatus calls webhook.WebhookService.GetWebhookDeliveryStatus.
+func (c *webhookServiceClient) GetWebhookDeliveryStatus(ctx context.Context, req *connect.Request[proto.GetWebhookDeliveryStatusRequest]) (*connect.Response[proto.GetWebhookDeliveryStatusResponse], error) {
+	return c.getWebhookDeliveryStatus.CallUnary(ctx, req)
+}
+
+// ResendWebhook calls webhook.WebhookService.ResendWebhook.
+func (c *webhookServiceClient) ResendWebhook(ctx context.Context, req *connect.Request[proto.ResendWebhookRequest]) (*connect.Response[proto.ResendWebhookResponse], error) {
+	return c.resendWebhook.CallUnary(ctx, req)
+}
+
+// GetWebhookDeliveryHistory calls webhook.WebhookService.GetWebhookDeliveryHistory.
+func (c *webhookServiceClient) GetWebhookDeliveryHistory(ctx context.Context, req *connect.Request[proto.GetWebhookDeliveryHistoryRequest]) (*connect.Response[proto.GetWebhookDeliveryHistoryResponse], error) {
+	return c.getWebhookDeliveryHistory.CallUnary(ctx, req)
+}
+
+// GetNamespaceStats calls webhook.WebhookService.GetNamespaceStats.
+func (c *webhookServiceClient) GetNamespaceStats(ctx context.Context, req *connect.Request[proto.GetNamespaceStatsRequest]) (*connect.Response[proto.GetNamespaceStatsResponse], error) {
+	return c.getNamespaceStats.CallUnary(ctx, req)
+}
+
+// UpdateWebhookConfig calls webhook.WebhookService.UpdateWebhookConfig.
+func (c *webhookServiceClient) UpdateWebhookConfig(ctx context.Context, req *connect.Request[proto.UpdateWebhookConfigRequest]) (*connect.Response[proto.UpdateWebhookConfigResponse], error) {
+	return c.updateWebhookConfig.CallUnary(ctx, req)
+}
+
+// PauseWebhook calls webhook.WebhookService.PauseWebhook.
+func (c *webhookServiceClient) PauseWebhook(ctx context.Context, req *connect.Request[proto.PauseWebhookRequest]) (*connect.Response[proto.PauseWebhookResponse], error) {
+	return c.pauseWebhook.CallUnary(ctx, req)
+}
+
+// ResumeWebhook calls webhook.WebhookService.ResumeWebhook.
+func (c *webhookServiceClient) ResumeWebhook(ctx context.Context, req *connect.Request[proto.ResumeWebhookRequest]) (*connect.Response[proto.ResumeWebhookResponse], error) {
+	return c.resumeWebhook.CallUnary(ctx, req)
+}
+
 // WebhookServiceHandler is an implementation of the webhook.WebhookService service.
 type WebhookServiceHandler interface {
 	// RegisterWebhook registers a URL for specific events in a namespace
@@ -230,6 +453,34 @@ type WebhookServiceHandler interface {
 	UpdateEvent(context.Context, *connect.Request[proto.UpdateEventRequest]) (*connect.Response[proto.UpdateEventResponse], error)
 	// DeleteEvent deletes an event registration
 	DeleteEvent(context.Context, *connect.Request[proto.DeleteEventRequest]) (*connect.Response[proto.DeleteEventResponse], error)
+	// Health Management
+	// GetWebhookHealth gets health metrics for a specific webhook
+	GetWebhookHealth(context.Context, *connect.Request[proto.GetWebhookHealthRequest]) (*connect.Response[proto.GetWebhookHealthResponse], error)
+	// ListWebhooksByHealth lists webhooks filtered by health status
+	ListWebhooksByHealth(context.Context, *connect.Request[proto.ListWebhooksByHealthRequest]) (*connect.Response[proto.ListWebhooksByHealthResponse], error)
+	// GetHealthSummary gets a summary of webhook health across all namespaces
+	GetHealthSummary(context.Context, *connect.Request[proto.GetHealthSummaryRequest]) (*connect.Response[proto.GetHealthSummaryResponse], error)
+	// ResubmitWebhook manually retries failed or pending webhook deliveries
+	ResubmitWebhook(context.Context, *connect.Request[proto.ResubmitWebhookRequest]) (*connect.Response[proto.ResubmitWebhookResponse], error)
+	// Additional webhook management methods
+	// GetRegisteredWebhooks retrieves registered webhooks by ID or namespace
+	GetRegisteredWebhooks(context.Context, *connect.Request[proto.GetRegisteredWebhooksRequest]) (*connect.Response[proto.GetRegisteredWebhooksResponse], error)
+	// ListRegisteredWebhooksByEvent retrieves webhooks registered for specific events
+	ListRegisteredWebhooksByEvent(context.Context, *connect.Request[proto.ListRegisteredWebhooksByEventRequest]) (*connect.Response[proto.ListRegisteredWebhooksByEventResponse], error)
+	// GetWebhookDeliveryStatus retrieves delivery status for specific delivery
+	GetWebhookDeliveryStatus(context.Context, *connect.Request[proto.GetWebhookDeliveryStatusRequest]) (*connect.Response[proto.GetWebhookDeliveryStatusResponse], error)
+	// ResendWebhook resends a failed webhook delivery
+	ResendWebhook(context.Context, *connect.Request[proto.ResendWebhookRequest]) (*connect.Response[proto.ResendWebhookResponse], error)
+	// GetWebhookDeliveryHistory retrieves delivery history for a webhook
+	GetWebhookDeliveryHistory(context.Context, *connect.Request[proto.GetWebhookDeliveryHistoryRequest]) (*connect.Response[proto.GetWebhookDeliveryHistoryResponse], error)
+	// GetNamespaceStats retrieves statistics for a namespace
+	GetNamespaceStats(context.Context, *connect.Request[proto.GetNamespaceStatsRequest]) (*connect.Response[proto.GetNamespaceStatsResponse], error)
+	// UpdateWebhookConfig updates webhook configuration
+	UpdateWebhookConfig(context.Context, *connect.Request[proto.UpdateWebhookConfigRequest]) (*connect.Response[proto.UpdateWebhookConfigResponse], error)
+	// PauseWebhook temporarily disables a webhook
+	PauseWebhook(context.Context, *connect.Request[proto.PauseWebhookRequest]) (*connect.Response[proto.PauseWebhookResponse], error)
+	// ResumeWebhook re-enables a paused webhook
+	ResumeWebhook(context.Context, *connect.Request[proto.ResumeWebhookRequest]) (*connect.Response[proto.ResumeWebhookResponse], error)
 }
 
 // NewWebhookServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -293,6 +544,84 @@ func NewWebhookServiceHandler(svc WebhookServiceHandler, opts ...connect.Handler
 		connect.WithSchema(webhookServiceMethods.ByName("DeleteEvent")),
 		connect.WithHandlerOptions(opts...),
 	)
+	webhookServiceGetWebhookHealthHandler := connect.NewUnaryHandler(
+		WebhookServiceGetWebhookHealthProcedure,
+		svc.GetWebhookHealth,
+		connect.WithSchema(webhookServiceMethods.ByName("GetWebhookHealth")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webhookServiceListWebhooksByHealthHandler := connect.NewUnaryHandler(
+		WebhookServiceListWebhooksByHealthProcedure,
+		svc.ListWebhooksByHealth,
+		connect.WithSchema(webhookServiceMethods.ByName("ListWebhooksByHealth")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webhookServiceGetHealthSummaryHandler := connect.NewUnaryHandler(
+		WebhookServiceGetHealthSummaryProcedure,
+		svc.GetHealthSummary,
+		connect.WithSchema(webhookServiceMethods.ByName("GetHealthSummary")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webhookServiceResubmitWebhookHandler := connect.NewUnaryHandler(
+		WebhookServiceResubmitWebhookProcedure,
+		svc.ResubmitWebhook,
+		connect.WithSchema(webhookServiceMethods.ByName("ResubmitWebhook")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webhookServiceGetRegisteredWebhooksHandler := connect.NewUnaryHandler(
+		WebhookServiceGetRegisteredWebhooksProcedure,
+		svc.GetRegisteredWebhooks,
+		connect.WithSchema(webhookServiceMethods.ByName("GetRegisteredWebhooks")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webhookServiceListRegisteredWebhooksByEventHandler := connect.NewUnaryHandler(
+		WebhookServiceListRegisteredWebhooksByEventProcedure,
+		svc.ListRegisteredWebhooksByEvent,
+		connect.WithSchema(webhookServiceMethods.ByName("ListRegisteredWebhooksByEvent")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webhookServiceGetWebhookDeliveryStatusHandler := connect.NewUnaryHandler(
+		WebhookServiceGetWebhookDeliveryStatusProcedure,
+		svc.GetWebhookDeliveryStatus,
+		connect.WithSchema(webhookServiceMethods.ByName("GetWebhookDeliveryStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webhookServiceResendWebhookHandler := connect.NewUnaryHandler(
+		WebhookServiceResendWebhookProcedure,
+		svc.ResendWebhook,
+		connect.WithSchema(webhookServiceMethods.ByName("ResendWebhook")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webhookServiceGetWebhookDeliveryHistoryHandler := connect.NewUnaryHandler(
+		WebhookServiceGetWebhookDeliveryHistoryProcedure,
+		svc.GetWebhookDeliveryHistory,
+		connect.WithSchema(webhookServiceMethods.ByName("GetWebhookDeliveryHistory")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webhookServiceGetNamespaceStatsHandler := connect.NewUnaryHandler(
+		WebhookServiceGetNamespaceStatsProcedure,
+		svc.GetNamespaceStats,
+		connect.WithSchema(webhookServiceMethods.ByName("GetNamespaceStats")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webhookServiceUpdateWebhookConfigHandler := connect.NewUnaryHandler(
+		WebhookServiceUpdateWebhookConfigProcedure,
+		svc.UpdateWebhookConfig,
+		connect.WithSchema(webhookServiceMethods.ByName("UpdateWebhookConfig")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webhookServicePauseWebhookHandler := connect.NewUnaryHandler(
+		WebhookServicePauseWebhookProcedure,
+		svc.PauseWebhook,
+		connect.WithSchema(webhookServiceMethods.ByName("PauseWebhook")),
+		connect.WithHandlerOptions(opts...),
+	)
+	webhookServiceResumeWebhookHandler := connect.NewUnaryHandler(
+		WebhookServiceResumeWebhookProcedure,
+		svc.ResumeWebhook,
+		connect.WithSchema(webhookServiceMethods.ByName("ResumeWebhook")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/webhook.WebhookService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case WebhookServiceRegisterWebhookProcedure:
@@ -313,6 +642,32 @@ func NewWebhookServiceHandler(svc WebhookServiceHandler, opts ...connect.Handler
 			webhookServiceUpdateEventHandler.ServeHTTP(w, r)
 		case WebhookServiceDeleteEventProcedure:
 			webhookServiceDeleteEventHandler.ServeHTTP(w, r)
+		case WebhookServiceGetWebhookHealthProcedure:
+			webhookServiceGetWebhookHealthHandler.ServeHTTP(w, r)
+		case WebhookServiceListWebhooksByHealthProcedure:
+			webhookServiceListWebhooksByHealthHandler.ServeHTTP(w, r)
+		case WebhookServiceGetHealthSummaryProcedure:
+			webhookServiceGetHealthSummaryHandler.ServeHTTP(w, r)
+		case WebhookServiceResubmitWebhookProcedure:
+			webhookServiceResubmitWebhookHandler.ServeHTTP(w, r)
+		case WebhookServiceGetRegisteredWebhooksProcedure:
+			webhookServiceGetRegisteredWebhooksHandler.ServeHTTP(w, r)
+		case WebhookServiceListRegisteredWebhooksByEventProcedure:
+			webhookServiceListRegisteredWebhooksByEventHandler.ServeHTTP(w, r)
+		case WebhookServiceGetWebhookDeliveryStatusProcedure:
+			webhookServiceGetWebhookDeliveryStatusHandler.ServeHTTP(w, r)
+		case WebhookServiceResendWebhookProcedure:
+			webhookServiceResendWebhookHandler.ServeHTTP(w, r)
+		case WebhookServiceGetWebhookDeliveryHistoryProcedure:
+			webhookServiceGetWebhookDeliveryHistoryHandler.ServeHTTP(w, r)
+		case WebhookServiceGetNamespaceStatsProcedure:
+			webhookServiceGetNamespaceStatsHandler.ServeHTTP(w, r)
+		case WebhookServiceUpdateWebhookConfigProcedure:
+			webhookServiceUpdateWebhookConfigHandler.ServeHTTP(w, r)
+		case WebhookServicePauseWebhookProcedure:
+			webhookServicePauseWebhookHandler.ServeHTTP(w, r)
+		case WebhookServiceResumeWebhookProcedure:
+			webhookServiceResumeWebhookHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -356,4 +711,56 @@ func (UnimplementedWebhookServiceHandler) UpdateEvent(context.Context, *connect.
 
 func (UnimplementedWebhookServiceHandler) DeleteEvent(context.Context, *connect.Request[proto.DeleteEventRequest]) (*connect.Response[proto.DeleteEventResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.DeleteEvent is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) GetWebhookHealth(context.Context, *connect.Request[proto.GetWebhookHealthRequest]) (*connect.Response[proto.GetWebhookHealthResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.GetWebhookHealth is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) ListWebhooksByHealth(context.Context, *connect.Request[proto.ListWebhooksByHealthRequest]) (*connect.Response[proto.ListWebhooksByHealthResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.ListWebhooksByHealth is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) GetHealthSummary(context.Context, *connect.Request[proto.GetHealthSummaryRequest]) (*connect.Response[proto.GetHealthSummaryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.GetHealthSummary is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) ResubmitWebhook(context.Context, *connect.Request[proto.ResubmitWebhookRequest]) (*connect.Response[proto.ResubmitWebhookResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.ResubmitWebhook is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) GetRegisteredWebhooks(context.Context, *connect.Request[proto.GetRegisteredWebhooksRequest]) (*connect.Response[proto.GetRegisteredWebhooksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.GetRegisteredWebhooks is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) ListRegisteredWebhooksByEvent(context.Context, *connect.Request[proto.ListRegisteredWebhooksByEventRequest]) (*connect.Response[proto.ListRegisteredWebhooksByEventResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.ListRegisteredWebhooksByEvent is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) GetWebhookDeliveryStatus(context.Context, *connect.Request[proto.GetWebhookDeliveryStatusRequest]) (*connect.Response[proto.GetWebhookDeliveryStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.GetWebhookDeliveryStatus is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) ResendWebhook(context.Context, *connect.Request[proto.ResendWebhookRequest]) (*connect.Response[proto.ResendWebhookResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.ResendWebhook is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) GetWebhookDeliveryHistory(context.Context, *connect.Request[proto.GetWebhookDeliveryHistoryRequest]) (*connect.Response[proto.GetWebhookDeliveryHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.GetWebhookDeliveryHistory is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) GetNamespaceStats(context.Context, *connect.Request[proto.GetNamespaceStatsRequest]) (*connect.Response[proto.GetNamespaceStatsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.GetNamespaceStats is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) UpdateWebhookConfig(context.Context, *connect.Request[proto.UpdateWebhookConfigRequest]) (*connect.Response[proto.UpdateWebhookConfigResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.UpdateWebhookConfig is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) PauseWebhook(context.Context, *connect.Request[proto.PauseWebhookRequest]) (*connect.Response[proto.PauseWebhookResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.PauseWebhook is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) ResumeWebhook(context.Context, *connect.Request[proto.ResumeWebhookRequest]) (*connect.Response[proto.ResumeWebhookResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.ResumeWebhook is not implemented"))
 }

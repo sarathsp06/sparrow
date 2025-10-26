@@ -1074,6 +1074,124 @@ type DeleteEventResponse struct {
 	Message string
 }
 
+// GetWebhookHealthRequest represents a get webhook health request
+type GetWebhookHealthRequest struct {
+	WebhookID string
+	Namespace string
+}
+
+// WebhookHealthData represents webhook health information
+type WebhookHealthData struct {
+	WebhookID            string                 `json:"webhook_id"`
+	Health               webhooks.WebhookHealth `json:"health"`
+	TotalDeliveries      int                    `json:"total_deliveries"`
+	SuccessfulDeliveries int                    `json:"successful_deliveries"`
+	FailedDeliveries     int                    `json:"failed_deliveries"`
+	ConsecutiveFailures  int                    `json:"consecutive_failures"`
+	LastSuccessAt        *time.Time             `json:"last_success_at"`
+	LastFailureAt        *time.Time             `json:"last_failure_at"`
+	SuccessRate          float64                `json:"success_rate"`
+	AvgResponseTime      int                    `json:"avg_response_time"` // milliseconds
+	CreatedAt            time.Time              `json:"created_at"`
+	UpdatedAt            time.Time              `json:"updated_at"`
+}
+
+// GetWebhookHealthResponse represents a get webhook health response
+type GetWebhookHealthResponse struct {
+	Success   bool                   `json:"success"`
+	Message   string                 `json:"message"`
+	WebhookID string                 `json:"webhook_id"`
+	Health    webhooks.WebhookHealth `json:"health"`
+	Metrics   *WebhookHealthData     `json:"metrics,omitempty"`
+}
+
+// ListWebhooksByHealthRequest represents a list webhooks by health request
+type ListWebhooksByHealthRequest struct {
+	Health webhooks.WebhookHealth
+}
+
+// ListWebhooksByHealthResponse represents a list webhooks by health response
+type ListWebhooksByHealthResponse struct {
+	Success    bool                            `json:"success"`
+	Message    string                          `json:"message"`
+	Webhooks   []*webhooks.WebhookRegistration `json:"webhooks"`
+	TotalCount int32                           `json:"total_count"`
+}
+
+// GetHealthSummaryRequest represents a get health summary request
+type GetHealthSummaryRequest struct {
+	// No parameters needed
+}
+
+// HealthSummaryData represents health summary information
+type HealthSummaryData struct {
+	HealthyCount   int `json:"healthy_count"`
+	DegradedCount  int `json:"degraded_count"`
+	UnhealthyCount int `json:"unhealthy_count"`
+	UnknownCount   int `json:"unknown_count"`
+	TotalCount     int `json:"total_count"`
+}
+
+// GetHealthSummaryResponse represents a get health summary response
+type GetHealthSummaryResponse struct {
+	Success bool               `json:"success"`
+	Message string             `json:"message"`
+	Summary *HealthSummaryData `json:"summary"`
+}
+
+// ResubmitWebhookRequest represents a resubmit webhook request
+type ResubmitWebhookRequest struct {
+	DeliveryID string // Resubmit specific delivery (mutually exclusive with WebhookID)
+	WebhookID  string // Resubmit all failed/pending deliveries for webhook (mutually exclusive with DeliveryID)
+	Namespace  string // Namespace for authorization
+	Force      bool   // Force retry even for non-failed deliveries
+}
+
+// ResubmitWebhookResponse represents a resubmit webhook response
+type ResubmitWebhookResponse struct {
+	Success          bool     `json:"success"`
+	Message          string   `json:"message"`
+	ResubmittedCount int32    `json:"resubmitted_count"`
+	DeliveryIDs      []string `json:"delivery_ids"`
+}
+
+// GetNamespaceStatsRequest represents a get namespace stats request
+type GetNamespaceStatsRequest struct {
+	Namespace string
+}
+
+// NamespaceStatsData represents namespace statistics
+type NamespaceStatsData struct {
+	TotalWebhooks        int     `json:"total_webhooks"`
+	ActiveWebhooks       int     `json:"active_webhooks"`
+	TotalDeliveries      int     `json:"total_deliveries"`
+	SuccessfulDeliveries int     `json:"successful_deliveries"`
+	FailedDeliveries     int     `json:"failed_deliveries"`
+	PendingDeliveries    int     `json:"pending_deliveries"`
+	SuccessRate          float64 `json:"success_rate"`
+}
+
+// GetNamespaceStatsResponse represents a get namespace stats response
+type GetNamespaceStatsResponse struct {
+	Success   bool                `json:"success"`
+	Message   string              `json:"message"`
+	Namespace string              `json:"namespace"`
+	Stats     *NamespaceStatsData `json:"stats"`
+}
+
+// UpdateWebhookConfigRequest represents an update webhook config request
+type UpdateWebhookConfigRequest struct {
+	WebhookID string
+	Namespace string
+	Updates   *webhooks.WebhookUpdateFields
+}
+
+// UpdateWebhookConfigResponse represents an update webhook config response
+type UpdateWebhookConfigResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
 // RegisterEvent registers a new event type
 func (s *WebhookService) RegisterEvent(ctx context.Context, req *RegisterEventRequest) (*RegisterEventResponse, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.RegisterEvent")
@@ -1287,6 +1405,516 @@ func (s *WebhookService) DeleteEvent(ctx context.Context, req *DeleteEventReques
 	return &DeleteEventResponse{
 		Success: true,
 		Message: "Event deleted successfully",
+	}, nil
+}
+
+// GetWebhookHealth retrieves health metrics for a webhook
+func (s *WebhookService) GetWebhookHealth(ctx context.Context, req *GetWebhookHealthRequest) (*GetWebhookHealthResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.GetWebhookHealth")
+	defer span.End()
+
+	s.logger.Info("Processing get webhook health request",
+		"webhook_id", req.WebhookID,
+		"namespace", req.Namespace)
+
+	// Validate required fields
+	if req.WebhookID == "" {
+		return &GetWebhookHealthResponse{
+			Success: false,
+			Message: "Webhook ID is required",
+		}, nil
+	}
+
+	if req.Namespace == "" {
+		return &GetWebhookHealthResponse{
+			Success: false,
+			Message: "Namespace is required",
+		}, nil
+	}
+
+	// Get webhook to verify it exists and get current health
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, req.WebhookID, req.Namespace)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "Failed to get webhook")
+		s.logger.Error("Failed to get webhook", "error", err)
+		return &GetWebhookHealthResponse{
+			Success: false,
+			Message: "Webhook not found",
+		}, err
+	}
+
+	// Get health state (current status and consecutive failures)
+	healthState, err := s.webhookRepo.GetWebhookHealthState(ctx, req.WebhookID)
+	if err != nil {
+		// If no health state exists yet, return basic health info
+		s.logger.Info("No health state found for webhook", "webhook_id", req.WebhookID)
+		return &GetWebhookHealthResponse{
+			Success:   true,
+			Message:   "Webhook health retrieved (no metrics available yet)",
+			WebhookID: req.WebhookID,
+			Health:    webhook.Health,
+		}, nil
+	}
+
+	// Get health summary for the last 24 hours
+	healthSummary, err := s.webhookRepo.GetWebhookHealthSummary(ctx, req.WebhookID, 24)
+	if err != nil {
+		s.logger.Error("Failed to get health summary", "error", err)
+		// Continue with just the state info
+	}
+
+	// Convert to response format
+	healthData := &WebhookHealthData{
+		WebhookID:           req.WebhookID,
+		Health:              webhook.Health,
+		ConsecutiveFailures: healthState.ConsecutiveFailures,
+		LastSuccessAt:       healthState.LastSuccessAt,
+		LastFailureAt:       healthState.LastFailureAt,
+		CreatedAt:           healthState.CreatedAt,
+		UpdatedAt:           healthState.UpdatedAt,
+	}
+
+	// Add summary data if available
+	if healthSummary != nil {
+		healthData.TotalDeliveries = healthSummary.TotalDeliveries
+		healthData.SuccessfulDeliveries = healthSummary.SuccessfulDeliveries
+		healthData.FailedDeliveries = healthSummary.FailedDeliveries
+		healthData.SuccessRate = healthSummary.SuccessRate
+		healthData.AvgResponseTime = healthSummary.AvgResponseTime
+	}
+
+	var successRate float64
+	if healthSummary != nil {
+		successRate = healthSummary.SuccessRate
+	}
+
+	s.logger.Info("Webhook health retrieved successfully",
+		"webhook_id", req.WebhookID,
+		"health", webhook.Health,
+		"success_rate", successRate)
+
+	return &GetWebhookHealthResponse{
+		Success:   true,
+		Message:   "Webhook health retrieved successfully",
+		WebhookID: req.WebhookID,
+		Health:    webhook.Health,
+		Metrics:   healthData,
+	}, nil
+}
+
+// ListWebhooksByHealth retrieves webhooks filtered by health status
+func (s *WebhookService) ListWebhooksByHealth(ctx context.Context, req *ListWebhooksByHealthRequest) (*ListWebhooksByHealthResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.ListWebhooksByHealth")
+	defer span.End()
+
+	s.logger.Info("Processing list webhooks by health request", "health", req.Health)
+
+	// Get webhooks by health status
+	webhooksList, err := s.webhookRepo.GetWebhooksByHealth(ctx, req.Health)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "Failed to get webhooks by health")
+		s.logger.Error("Failed to get webhooks by health", "error", err)
+		return &ListWebhooksByHealthResponse{
+			Success: false,
+			Message: "Failed to retrieve webhooks",
+		}, err
+	}
+
+	s.logger.Info("Webhooks retrieved successfully",
+		"health", req.Health,
+		"count", len(webhooksList))
+
+	return &ListWebhooksByHealthResponse{
+		Success:    true,
+		Message:    "Webhooks retrieved successfully",
+		Webhooks:   webhooksList,
+		TotalCount: int32(len(webhooksList)),
+	}, nil
+}
+
+// GetHealthSummary retrieves a summary of webhook health across all namespaces
+func (s *WebhookService) GetHealthSummary(ctx context.Context, req *GetHealthSummaryRequest) (*GetHealthSummaryResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.GetHealthSummary")
+	defer span.End()
+
+	s.logger.Info("Processing get health summary request")
+
+	// Get health summary from repository
+	summary, err := s.webhookRepo.GetHealthSummary(ctx)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "Failed to get health summary")
+		s.logger.Error("Failed to get health summary", "error", err)
+		return &GetHealthSummaryResponse{
+			Success: false,
+			Message: "Failed to retrieve health summary",
+		}, err
+	}
+
+	// Convert to response format
+	healthSummary := &HealthSummaryData{
+		HealthyCount:   summary[webhooks.HealthHealthy],
+		DegradedCount:  summary[webhooks.HealthDegraded],
+		UnhealthyCount: summary[webhooks.HealthUnhealthy],
+		UnknownCount:   summary[webhooks.HealthUnknown],
+	}
+
+	// Calculate total
+	healthSummary.TotalCount = healthSummary.HealthyCount + healthSummary.DegradedCount +
+		healthSummary.UnhealthyCount + healthSummary.UnknownCount
+
+	s.logger.Info("Health summary retrieved successfully",
+		"healthy", healthSummary.HealthyCount,
+		"degraded", healthSummary.DegradedCount,
+		"unhealthy", healthSummary.UnhealthyCount,
+		"unknown", healthSummary.UnknownCount,
+		"total", healthSummary.TotalCount)
+
+	return &GetHealthSummaryResponse{
+		Success: true,
+		Message: "Health summary retrieved successfully",
+		Summary: healthSummary,
+	}, nil
+}
+
+// ResubmitWebhook manually retries failed or pending webhook deliveries
+func (s *WebhookService) ResubmitWebhook(ctx context.Context, req *ResubmitWebhookRequest) (*ResubmitWebhookResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.ResubmitWebhook")
+	defer span.End()
+
+	s.logger.Info("Processing resubmit webhook request",
+		"delivery_id", req.DeliveryID,
+		"webhook_id", req.WebhookID,
+		"namespace", req.Namespace,
+		"force", req.Force)
+
+	// Validate required fields
+	if req.Namespace == "" {
+		return &ResubmitWebhookResponse{
+			Success: false,
+			Message: "Namespace is required",
+		}, nil
+	}
+
+	if req.DeliveryID == "" && req.WebhookID == "" {
+		return &ResubmitWebhookResponse{
+			Success: false,
+			Message: "Either delivery_id or webhook_id is required",
+		}, nil
+	}
+
+	if req.DeliveryID != "" && req.WebhookID != "" {
+		return &ResubmitWebhookResponse{
+			Success: false,
+			Message: "Only one of delivery_id or webhook_id can be specified",
+		}, nil
+	}
+
+	var deliveriesToResubmit []*webhooks.WebhookDelivery
+
+	if req.DeliveryID != "" {
+		// Resubmit specific delivery
+		delivery, err := s.webhookRepo.GetDeliveryByID(ctx, req.DeliveryID, req.Namespace)
+		if err != nil {
+			s.logger.Error("Failed to get delivery", "error", err)
+			return &ResubmitWebhookResponse{
+				Success: false,
+				Message: "Failed to retrieve delivery",
+			}, err
+		}
+
+		if delivery == nil {
+			return &ResubmitWebhookResponse{
+				Success: false,
+				Message: "Delivery not found",
+			}, nil
+		}
+
+		// Check if delivery can be resubmitted
+		if !req.Force && delivery.Status == webhooks.StatusSuccess {
+			return &ResubmitWebhookResponse{
+				Success: false,
+				Message: "Delivery already succeeded. Use force to resubmit anyway",
+			}, nil
+		}
+
+		deliveriesToResubmit = []*webhooks.WebhookDelivery{delivery}
+	} else {
+		// Resubmit all failed/pending deliveries for webhook
+		webhook, err := s.webhookRepo.GetWebhookByID(ctx, req.WebhookID, req.Namespace)
+		if err != nil {
+			s.logger.Error("Failed to get webhook", "error", err)
+			return &ResubmitWebhookResponse{
+				Success: false,
+				Message: "Failed to retrieve webhook",
+			}, err
+		}
+
+		if webhook == nil {
+			return &ResubmitWebhookResponse{
+				Success: false,
+				Message: "Webhook not found",
+			}, nil
+		}
+
+		// Get retriable deliveries
+		deliveriesToResubmit, err = s.webhookRepo.GetRetriableDeliveries(ctx, req.WebhookID, req.Namespace, req.Force)
+		if err != nil {
+			s.logger.Error("Failed to get retriable deliveries", "error", err)
+			return &ResubmitWebhookResponse{
+				Success: false,
+				Message: "Failed to retrieve deliveries",
+			}, err
+		}
+
+		if len(deliveriesToResubmit) == 0 {
+			message := "No failed or pending deliveries found"
+			if !req.Force {
+				message += ". Use force to resubmit all deliveries"
+			}
+			return &ResubmitWebhookResponse{
+				Success:          true,
+				Message:          message,
+				ResubmittedCount: 0,
+			}, nil
+		}
+	}
+
+	// Process each delivery for resubmission
+	var resubmittedIDs []string
+	var resubmittedCount int32
+
+	for _, delivery := range deliveriesToResubmit {
+		// Reset delivery status to pending
+		err := s.webhookRepo.ResetDeliveryForRetry(ctx, delivery.ID)
+		if err != nil {
+			s.logger.Error("Failed to reset delivery for retry",
+				"delivery_id", delivery.ID,
+				"error", err)
+			continue
+		}
+
+		// Get webhook info for queuing
+		webhook, err := s.webhookRepo.GetWebhookByID(ctx, delivery.WebhookID, req.Namespace)
+		if err != nil {
+			s.logger.Error("Failed to get webhook for delivery",
+				"webhook_id", delivery.WebhookID,
+				"delivery_id", delivery.ID,
+				"error", err)
+			continue
+		}
+
+		// Queue the webhook for delivery
+		err = s.queueManager.QueueWebhook(ctx, &jobs.WebhookArgs{
+			DeliveryID: delivery.ID,
+			WebhookID:  delivery.WebhookID,
+			URL:        webhook.URL,
+			Headers:    webhook.Headers,
+			Payload:    "", // Will be populated by the event data
+			ExpiresAt:  delivery.ExpiresAt,
+			Namespace:  webhook.Namespace,
+		})
+		if err != nil {
+			s.logger.Error("Failed to queue webhook for resubmission",
+				"delivery_id", delivery.ID,
+				"webhook_id", delivery.WebhookID,
+				"error", err)
+			continue
+		}
+
+		resubmittedIDs = append(resubmittedIDs, delivery.ID)
+		resubmittedCount++
+	}
+
+	if resubmittedCount == 0 {
+		return &ResubmitWebhookResponse{
+			Success: false,
+			Message: "Failed to resubmit any deliveries",
+		}, nil
+	}
+
+	s.logger.Info("Webhook deliveries resubmitted successfully",
+		"resubmitted_count", resubmittedCount,
+		"total_requested", len(deliveriesToResubmit))
+
+	return &ResubmitWebhookResponse{
+		Success:          true,
+		Message:          fmt.Sprintf("Successfully resubmitted %d deliveries", resubmittedCount),
+		ResubmittedCount: resubmittedCount,
+		DeliveryIDs:      resubmittedIDs,
+	}, nil
+}
+
+// GetNamespaceStats retrieves statistics for a namespace
+func (s *WebhookService) GetNamespaceStats(ctx context.Context, req *GetNamespaceStatsRequest) (*GetNamespaceStatsResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.GetNamespaceStats")
+	defer span.End()
+
+	s.logger.Info("Processing get namespace stats request", "namespace", req.Namespace)
+
+	// Validate required fields
+	if req.Namespace == "" {
+		return &GetNamespaceStatsResponse{
+			Success: false,
+			Message: "Namespace is required",
+		}, nil
+	}
+
+	// Get webhook counts
+	allWebhooks, err := s.webhookRepo.ListWebhooks(ctx, req.Namespace, false)
+	if err != nil {
+		s.logger.Error("Failed to get webhooks for stats", "error", err)
+		return &GetNamespaceStatsResponse{
+			Success: false,
+			Message: "Failed to retrieve webhook statistics",
+		}, err
+	}
+
+	activeWebhooks, err := s.webhookRepo.ListWebhooks(ctx, req.Namespace, true)
+	if err != nil {
+		s.logger.Error("Failed to get active webhooks for stats", "error", err)
+		return &GetNamespaceStatsResponse{
+			Success: false,
+			Message: "Failed to retrieve webhook statistics",
+		}, err
+	}
+
+	// Calculate delivery stats (simplified - would need more complex queries for production)
+	totalDeliveries := 0
+	successfulDeliveries := 0
+	failedDeliveries := 0
+	pendingDeliveries := 0
+
+	for _, webhook := range allWebhooks {
+		deliveries, err := s.webhookRepo.GetDeliveriesByWebhook(ctx, webhook.ID)
+		if err != nil {
+			continue // Skip webhooks with delivery errors
+		}
+
+		totalDeliveries += len(deliveries)
+		for _, delivery := range deliveries {
+			switch delivery.Status {
+			case webhooks.StatusSuccess:
+				successfulDeliveries++
+			case webhooks.StatusFailed, webhooks.StatusExpired:
+				failedDeliveries++
+			case webhooks.StatusPending, webhooks.StatusSending, webhooks.StatusRetrying:
+				pendingDeliveries++
+			}
+		}
+	}
+
+	// Calculate success rate
+	var successRate float64
+	if totalDeliveries > 0 {
+		successRate = float64(successfulDeliveries) / float64(totalDeliveries)
+	}
+
+	stats := &NamespaceStatsData{
+		TotalWebhooks:        len(allWebhooks),
+		ActiveWebhooks:       len(activeWebhooks),
+		TotalDeliveries:      totalDeliveries,
+		SuccessfulDeliveries: successfulDeliveries,
+		FailedDeliveries:     failedDeliveries,
+		PendingDeliveries:    pendingDeliveries,
+		SuccessRate:          successRate,
+	}
+
+	s.logger.Info("Namespace stats retrieved successfully",
+		"namespace", req.Namespace,
+		"total_webhooks", stats.TotalWebhooks,
+		"active_webhooks", stats.ActiveWebhooks,
+		"success_rate", successRate)
+
+	return &GetNamespaceStatsResponse{
+		Success:   true,
+		Message:   "Namespace statistics retrieved successfully",
+		Namespace: req.Namespace,
+		Stats:     stats,
+	}, nil
+}
+
+// UpdateWebhookConfig updates webhook configuration
+func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, req *UpdateWebhookConfigRequest) (*UpdateWebhookConfigResponse, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateWebhookConfig")
+	defer span.End()
+
+	s.logger.Info("Processing update webhook config request",
+		"webhook_id", req.WebhookID,
+		"namespace", req.Namespace)
+
+	// Validate required fields
+	if req.WebhookID == "" {
+		return &UpdateWebhookConfigResponse{
+			Success: false,
+			Message: "Webhook ID is required",
+		}, nil
+	}
+
+	if req.Namespace == "" {
+		return &UpdateWebhookConfigResponse{
+			Success: false,
+			Message: "Namespace is required",
+		}, nil
+	}
+
+	// Get the existing webhook
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, req.WebhookID, req.Namespace)
+	if err != nil {
+		s.logger.Error("Failed to get webhook", "error", err)
+		return &UpdateWebhookConfigResponse{
+			Success: false,
+			Message: "Failed to retrieve webhook",
+		}, err
+	}
+
+	if webhook == nil {
+		return &UpdateWebhookConfigResponse{
+			Success: false,
+			Message: "Webhook not found",
+		}, nil
+	}
+
+	// Apply updates if provided
+	if req.Updates != nil {
+		if len(req.Updates.Events) > 0 {
+			webhook.Events = req.Updates.Events
+		}
+		if req.Updates.URL != "" {
+			webhook.URL = req.Updates.URL
+		}
+		if req.Updates.Headers != nil {
+			webhook.Headers = req.Updates.Headers
+		}
+		if req.Updates.Timeout > 0 {
+			webhook.Timeout = req.Updates.Timeout
+		}
+		webhook.Active = req.Updates.Active
+		if req.Updates.Description != "" {
+			webhook.Description = req.Updates.Description
+		}
+	}
+
+	// Update the webhook
+	err = s.webhookRepo.UpdateWebhook(ctx, webhook)
+	if err != nil {
+		s.logger.Error("Failed to update webhook config",
+			"webhook_id", req.WebhookID,
+			"error", err)
+		return &UpdateWebhookConfigResponse{
+			Success: false,
+			Message: "Failed to update webhook configuration",
+		}, err
+	}
+
+	s.logger.Info("Webhook configuration updated successfully",
+		"webhook_id", req.WebhookID)
+
+	return &UpdateWebhookConfigResponse{
+		Success: true,
+		Message: "Webhook configuration updated successfully",
 	}, nil
 }
 

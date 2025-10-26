@@ -26,11 +26,12 @@ func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookR
 	registration.ID = uuid.New().String()
 	registration.CreatedAt = time.Now()
 	registration.UpdatedAt = time.Now()
+	registration.Health = HealthUnknown // New webhooks start with unknown health
 
 	query := `
 		INSERT INTO webhook_registrations (
-			id, namespace, events, url, headers, timeout, active, description, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			id, namespace, events, url, headers, timeout, active, description, health, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
 	headersJSON, err := json.Marshal(registration.Headers)
@@ -52,6 +53,7 @@ func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookR
 		registration.Timeout,
 		registration.Active,
 		registration.Description,
+		registration.Health,
 		registration.CreatedAt,
 		registration.UpdatedAt,
 	)
@@ -68,7 +70,7 @@ func (r *Repository) UnregisterWebhook(ctx context.Context, webhookID string) er
 // GetWebhooksByEvent returns all active webhooks for a namespace/event
 func (r *Repository) GetWebhooksByEvent(ctx context.Context, namespace, event string) ([]*WebhookRegistration, error) {
 	query := `
-		SELECT id, namespace, events, url, headers, timeout, active, description, created_at, updated_at
+		SELECT id, namespace, events, url, headers, timeout, active, description, health, created_at, updated_at
 		FROM webhook_registrations 
 		WHERE namespace = $1 AND active = true AND events::jsonb ? $2
 	`
@@ -94,6 +96,7 @@ func (r *Repository) GetWebhooksByEvent(ctx context.Context, namespace, event st
 			&wh.Timeout,
 			&wh.Active,
 			&wh.Description,
+			&wh.Health,
 			&wh.CreatedAt,
 			&wh.UpdatedAt,
 		)
@@ -118,7 +121,7 @@ func (r *Repository) GetWebhooksByEvent(ctx context.Context, namespace, event st
 // ListWebhooks returns webhooks for a namespace
 func (r *Repository) ListWebhooks(ctx context.Context, namespace string, activeOnly bool) ([]*WebhookRegistration, error) {
 	query := `
-		SELECT id, namespace, events, url, headers, timeout, active, description, created_at, updated_at
+		SELECT id, namespace, events, url, headers, timeout, active, description, health, created_at, updated_at
 		FROM webhook_registrations 
 		WHERE namespace = $1
 	`
@@ -151,6 +154,7 @@ func (r *Repository) ListWebhooks(ctx context.Context, namespace string, activeO
 			&wh.Timeout,
 			&wh.Active,
 			&wh.Description,
+			&wh.Health,
 			&wh.CreatedAt,
 			&wh.UpdatedAt,
 		)
@@ -327,7 +331,7 @@ type HeadersMap map[string]string
 // GetWebhookByID gets a webhook by ID and namespace
 func (r *Repository) GetWebhookByID(ctx context.Context, webhookID, namespace string) (*WebhookRegistration, error) {
 	query := `
-		SELECT id, namespace, events, url, headers, timeout, active, description, created_at, updated_at
+		SELECT id, namespace, events, url, headers, timeout, active, description, health, created_at, updated_at
 		FROM webhook_registrations 
 		WHERE id = $1 AND namespace = $2
 	`
@@ -345,6 +349,7 @@ func (r *Repository) GetWebhookByID(ctx context.Context, webhookID, namespace st
 		&wh.Timeout,
 		&wh.Active,
 		&wh.Description,
+		&wh.Health,
 		&wh.CreatedAt,
 		&wh.UpdatedAt,
 	)
@@ -648,5 +653,331 @@ func (r *Repository) UpdateEvent(ctx context.Context, event *EventRegistration) 
 func (r *Repository) DeleteEvent(ctx context.Context, eventName string) error {
 	query := `DELETE FROM event_registrations WHERE name = $1`
 	_, err := r.db.Exec(ctx, query, eventName)
+	return err
+}
+
+// RecordWebhookHealthEvent records a health event for time-series tracking
+func (r *Repository) RecordWebhookHealthEvent(ctx context.Context, webhookID, deliveryID string, success bool, responseTime, responseCode int, errorMessage string) error {
+	query := `
+		INSERT INTO webhook_health_events (webhook_id, delivery_id, success, response_time, response_code, error_message, timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+	`
+
+	_, err := r.db.Exec(ctx, query, webhookID, deliveryID, success, responseTime, responseCode, errorMessage)
+	if err != nil {
+		return fmt.Errorf("failed to record health event: %w", err)
+	}
+
+	return nil
+}
+
+// GetWebhookHealthMetrics retrieves current health state for a webhook
+func (r *Repository) GetWebhookHealthState(ctx context.Context, webhookID string) (*WebhookHealthMetrics, error) {
+	query := `
+		SELECT id, webhook_id, consecutive_failures, last_success_at, last_failure_at, 
+		       last_event_at, created_at, updated_at
+		FROM webhook_health_state
+		WHERE webhook_id = $1
+	`
+
+	var state WebhookHealthMetrics
+	err := r.db.QueryRow(ctx, query, webhookID).Scan(
+		&state.ID,
+		&state.WebhookID,
+		&state.ConsecutiveFailures,
+		&state.LastSuccessAt,
+		&state.LastFailureAt,
+		&state.LastEventAt,
+		&state.CreatedAt,
+		&state.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &state, nil
+}
+
+// GetWebhookHealthSummary gets aggregated health metrics for a time window
+func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID string, hours int) (*WebhookHealthSummary, error) {
+	// First try to get from pre-computed summaries
+	query := `
+		SELECT id, webhook_id, window_start, window_end, total_deliveries, successful_deliveries,
+		       failed_deliveries, success_rate, avg_response_time, min_response_time,
+		       max_response_time, p95_response_time, created_at, updated_at
+		FROM webhook_health_summaries
+		WHERE webhook_id = $1 
+		  AND window_start >= NOW() - INTERVAL '1 hour' * $2
+		ORDER BY window_start DESC
+		LIMIT 1
+	`
+
+	var summary WebhookHealthSummary
+	err := r.db.QueryRow(ctx, query, webhookID, hours).Scan(
+		&summary.ID,
+		&summary.WebhookID,
+		&summary.WindowStart,
+		&summary.WindowEnd,
+		&summary.TotalDeliveries,
+		&summary.SuccessfulDeliveries,
+		&summary.FailedDeliveries,
+		&summary.SuccessRate,
+		&summary.AvgResponseTime,
+		&summary.MinResponseTime,
+		&summary.MaxResponseTime,
+		&summary.P95ResponseTime,
+		&summary.CreatedAt,
+		&summary.UpdatedAt,
+	)
+	if err == nil {
+		return &summary, nil
+	}
+
+	// If no pre-computed summary exists, compute on-the-fly
+	realTimeQuery := `
+		SELECT 
+			$1 as webhook_id,
+			NOW() - INTERVAL '1 hour' * $2 as window_start,
+			NOW() as window_end,
+			COUNT(*) as total_deliveries,
+			SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful_deliveries,
+			SUM(CASE WHEN success THEN 0 ELSE 1 END) as failed_deliveries,
+			COALESCE(AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END), 0) as success_rate,
+			COALESCE(AVG(response_time), 0)::INTEGER as avg_response_time,
+			COALESCE(MIN(response_time), 0) as min_response_time,
+			COALESCE(MAX(response_time), 0) as max_response_time,
+			COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time), 0)::INTEGER as p95_response_time,
+			NOW() as created_at,
+			NOW() as updated_at
+		FROM webhook_health_events
+		WHERE webhook_id = $1 
+		  AND timestamp >= NOW() - INTERVAL '1 hour' * $2
+	`
+
+	err = r.db.QueryRow(ctx, realTimeQuery, webhookID, hours).Scan(
+		&summary.WebhookID,
+		&summary.WindowStart,
+		&summary.WindowEnd,
+		&summary.TotalDeliveries,
+		&summary.SuccessfulDeliveries,
+		&summary.FailedDeliveries,
+		&summary.SuccessRate,
+		&summary.AvgResponseTime,
+		&summary.MinResponseTime,
+		&summary.MaxResponseTime,
+		&summary.P95ResponseTime,
+		&summary.CreatedAt,
+		&summary.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate a synthetic ID for the real-time summary
+	summary.ID = uuid.New().String()
+
+	return &summary, nil
+}
+
+// GetWebhookHealthTimeSeries gets health events over time for analytics
+func (r *Repository) GetWebhookHealthTimeSeries(ctx context.Context, webhookID string, hours int, bucketSize string) ([]*WebhookHealthEvent, error) {
+	// bucketSize can be "1 minute", "5 minute", "1 hour", "1 day"
+	query := `
+		SELECT id, webhook_id, delivery_id, success, response_time, response_code, error_message, timestamp
+		FROM webhook_health_events
+		WHERE webhook_id = $1 
+		  AND timestamp >= NOW() - INTERVAL '1 hour' * $2
+		ORDER BY timestamp DESC
+		LIMIT 1000
+	`
+
+	rows, err := r.db.Query(ctx, query, webhookID, hours)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []*WebhookHealthEvent
+	for rows.Next() {
+		var event WebhookHealthEvent
+		err := rows.Scan(
+			&event.ID,
+			&event.WebhookID,
+			&event.DeliveryID,
+			&event.Success,
+			&event.ResponseTime,
+			&event.ResponseCode,
+			&event.ErrorMessage,
+			&event.Timestamp,
+		)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, &event)
+	}
+
+	return events, nil
+}
+
+// AggregateHealthSummaries runs the aggregation function for health summaries
+func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) {
+	query := `SELECT aggregate_webhook_health_hourly()`
+
+	var processedCount int
+	err := r.db.QueryRow(ctx, query).Scan(&processedCount)
+	if err != nil {
+		return 0, fmt.Errorf("failed to aggregate health summaries: %w", err)
+	}
+
+	return processedCount, nil
+}
+
+// GetWebhooksByHealth retrieves webhooks filtered by health status
+func (r *Repository) GetWebhooksByHealth(ctx context.Context, health WebhookHealth) ([]*WebhookRegistration, error) {
+	query := `
+		SELECT wr.id, wr.namespace, wr.events, wr.url, wr.headers, wr.timeout, 
+		       wr.active, wr.description, wr.health, wr.created_at, wr.updated_at
+		FROM webhook_registrations wr
+		WHERE wr.health = $1
+		ORDER BY wr.created_at DESC
+	`
+
+	rows, err := r.db.Query(ctx, query, string(health))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var webhooks []*WebhookRegistration
+	for rows.Next() {
+		var webhook WebhookRegistration
+		var eventsJSON, headersJSON []byte
+
+		err := rows.Scan(
+			&webhook.ID,
+			&webhook.Namespace,
+			&eventsJSON,
+			&webhook.URL,
+			&headersJSON,
+			&webhook.Timeout,
+			&webhook.Active,
+			&webhook.Description,
+			&webhook.Health,
+			&webhook.CreatedAt,
+			&webhook.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := json.Unmarshal(eventsJSON, &webhook.Events); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal events: %w", err)
+		}
+
+		if err := json.Unmarshal(headersJSON, &webhook.Headers); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal headers: %w", err)
+		}
+
+		webhooks = append(webhooks, &webhook)
+	}
+
+	return webhooks, nil
+}
+
+// GetHealthSummary returns a summary of webhook health across all namespaces
+func (r *Repository) GetHealthSummary(ctx context.Context) (map[WebhookHealth]int, error) {
+	query := `
+		SELECT health, COUNT(*) as count
+		FROM webhook_registrations
+		GROUP BY health
+	`
+
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	summary := make(map[WebhookHealth]int)
+	for rows.Next() {
+		var health string
+		var count int
+
+		err := rows.Scan(&health, &count)
+		if err != nil {
+			return nil, err
+		}
+
+		summary[WebhookHealth(health)] = count
+	}
+
+	return summary, nil
+}
+
+// GetRetriableDeliveries gets deliveries that can be retried for a webhook
+func (r *Repository) GetRetriableDeliveries(ctx context.Context, webhookID, namespace string, force bool) ([]*WebhookDelivery, error) {
+	query := `
+		SELECT wd.id, wd.webhook_id, wd.event_id, wd.status, wd.attempt_count, wd.max_attempts, 
+		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
+		       wd.response_code, wd.response_body, wd.error_message
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE wd.webhook_id = $1 AND wr.namespace = $2
+	`
+	args := []interface{}{webhookID, namespace}
+
+	if !force {
+		query += ` AND wd.status IN ('failed', 'pending', 'retrying')`
+	}
+
+	query += ` ORDER BY wd.created_at DESC`
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var deliveries []*WebhookDelivery
+	for rows.Next() {
+		var d WebhookDelivery
+		err := rows.Scan(
+			&d.ID,
+			&d.WebhookID,
+			&d.EventID,
+			&d.Status,
+			&d.AttemptCount,
+			&d.MaxAttempts,
+			&d.CreatedAt,
+			&d.LastAttemptedAt,
+			&d.NextRetryAt,
+			&d.ExpiresAt,
+			&d.ResponseCode,
+			&d.ResponseBody,
+			&d.ErrorMessage,
+		)
+		if err != nil {
+			return nil, err
+		}
+		deliveries = append(deliveries, &d)
+	}
+
+	return deliveries, nil
+}
+
+// ResetDeliveryForRetry resets a delivery status to pending for retry
+func (r *Repository) ResetDeliveryForRetry(ctx context.Context, deliveryID string) error {
+	query := `
+		UPDATE webhook_deliveries 
+		SET status = 'pending', 
+		    last_attempted_at = NULL, 
+		    next_retry_at = NULL,
+		    response_code = 0,
+		    response_body = '',
+		    error_message = ''
+		WHERE id = $1
+	`
+
+	_, err := r.db.Exec(ctx, query, deliveryID)
 	return err
 }

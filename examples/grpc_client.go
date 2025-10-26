@@ -226,8 +226,84 @@ func MainGRPC() {
 		}
 	}
 
-	// Example 8: Unregister a webhook
-	log.Println("\n=== Example 8: Unregister Webhook ===")
+	// Example 8: Get Webhook Health Metrics
+	log.Println("\n=== Example 8: Get Webhook Health Metrics ===")
+	if registerResp != nil && registerResp.Success {
+		healthReq := &pb.GetWebhookHealthRequest{
+			WebhookId: registerResp.WebhookId,
+			Namespace: "user",
+		}
+
+		healthResp, err := client.GetWebhookHealth(ctx, healthReq)
+		if err != nil {
+			log.Printf("Failed to get webhook health: %v", err)
+		} else {
+			log.Printf("Webhook health status:")
+			log.Printf("  Webhook ID: %s", healthResp.WebhookId)
+			log.Printf("  Health: %s", healthResp.Health)
+			log.Printf("  Success: %t", healthResp.Success)
+			if healthResp.Metrics != nil {
+				log.Printf("  Health Metrics:")
+				log.Printf("    Total Deliveries: %d", healthResp.Metrics.TotalDeliveries)
+				log.Printf("    Successful Deliveries: %d", healthResp.Metrics.SuccessfulDeliveries)
+				log.Printf("    Failed Deliveries: %d", healthResp.Metrics.FailedDeliveries)
+				log.Printf("    Success Rate: %.2f%%", healthResp.Metrics.SuccessRate*100)
+				log.Printf("    Consecutive Failures: %d", healthResp.Metrics.ConsecutiveFailures)
+				log.Printf("    Avg Response Time: %dms", healthResp.Metrics.AvgResponseTime)
+			}
+		}
+	}
+
+	// Example 9: Resubmit Failed Webhook Deliveries
+	log.Println("\n=== Example 9: Resubmit Failed Webhook Deliveries ===")
+	if registerResp != nil && registerResp.Success {
+		// First, try to resubmit all failed deliveries for the webhook
+		resubmitReq := &pb.ResubmitWebhookRequest{
+			Identifier: &pb.ResubmitWebhookRequest_WebhookId{
+				WebhookId: registerResp.WebhookId,
+			},
+			Namespace: "user",
+			Force:     false, // Only resubmit failed/pending deliveries
+		}
+
+		resubmitResp, err := client.ResubmitWebhook(ctx, resubmitReq)
+		if err != nil {
+			log.Printf("Failed to resubmit webhook deliveries: %v", err)
+		} else {
+			log.Printf("Webhook deliveries resubmitted:")
+			log.Printf("  Success: %t", resubmitResp.Success)
+			log.Printf("  Message: %s", resubmitResp.Message)
+			log.Printf("  Resubmitted Count: %d", resubmitResp.ResubmittedCount)
+			if len(resubmitResp.DeliveryIds) > 0 {
+				log.Printf("  Resubmitted Delivery IDs:")
+				for i, deliveryId := range resubmitResp.DeliveryIds {
+					log.Printf("    %d: %s", i+1, deliveryId)
+				}
+			}
+		}
+	}
+
+	// Example 10: Get Health Summary
+	log.Println("\n=== Example 10: Get Health Summary ===")
+	healthSummaryReq := &pb.GetHealthSummaryRequest{}
+
+	healthSummaryResp, err := client.GetHealthSummary(ctx, healthSummaryReq)
+	if err != nil {
+		log.Printf("Failed to get health summary: %v", err)
+	} else {
+		log.Printf("Webhook health summary:")
+		log.Printf("  Success: %t", healthSummaryResp.Success)
+		if healthSummaryResp.Summary != nil {
+			log.Printf("  Total Webhooks: %d", healthSummaryResp.Summary.TotalCount)
+			log.Printf("  Healthy: %d", healthSummaryResp.Summary.HealthyCount)
+			log.Printf("  Degraded: %d", healthSummaryResp.Summary.DegradedCount)
+			log.Printf("  Unhealthy: %d", healthSummaryResp.Summary.UnhealthyCount)
+			log.Printf("  Unknown: %d", healthSummaryResp.Summary.UnknownCount)
+		}
+	}
+
+	// Example 11: Unregister a webhook
+	log.Println("\n=== Example 11: Unregister Webhook ===")
 	if registerResp2 != nil && registerResp2.Success {
 		unregisterReq := &pb.UnregisterWebhookRequest{
 			WebhookId: registerResp2.WebhookId,

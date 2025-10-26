@@ -140,6 +140,40 @@ DeleteEvent(name)
 - **Namespace Independent** - Global event registry across all namespaces
 - **Unique Names** - Prevent duplicate event type registrations
 
+### Webhook Health Management
+
+```go
+// Get health metrics for a specific webhook
+GetWebhookHealth(webhook_id, namespace)
+
+// List webhooks filtered by health status
+ListWebhooksByHealth(health_status) // HEALTHY, DEGRADED, UNHEALTHY, UNKNOWN
+
+// Get overall health summary across all namespaces
+GetHealthSummary()
+```
+
+#### Health Monitoring Features
+- **Automatic Health Tracking** - Real-time health status updates based on delivery metrics
+- **Health States** - Healthy (>90% success), Degraded (80-90%), Unhealthy (<80% or 5+ consecutive failures), Unknown (no deliveries)
+- **Comprehensive Metrics** - Success rate, response times, failure counts, last success/failure timestamps
+- **Database Triggers** - Automatic health status updates when delivery metrics change
+- **Health-based Filtering** - Query webhooks by health status for monitoring and alerting
+
+#### Health Calculation Rules
+- **Healthy**: Success rate ≥ 90% with at least 5 deliveries
+- **Degraded**: Success rate 80-89% with at least 10 deliveries
+- **Unhealthy**: 5+ consecutive failures or success rate < 80%
+- **Unknown**: No delivery attempts yet
+
+### Health Testing
+
+```bash
+# Test webhook health functionality
+./examples/test_webhook_health.sh
+go run examples/webhook_health_client.go
+```
+
 ## Configuration
 
 ### Environment Variables

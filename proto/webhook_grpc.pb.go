@@ -19,15 +19,28 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WebhookService_RegisterWebhook_FullMethodName   = "/webhook.WebhookService/RegisterWebhook"
-	WebhookService_UnregisterWebhook_FullMethodName = "/webhook.WebhookService/UnregisterWebhook"
-	WebhookService_PushEvent_FullMethodName         = "/webhook.WebhookService/PushEvent"
-	WebhookService_GetWebhookStatus_FullMethodName  = "/webhook.WebhookService/GetWebhookStatus"
-	WebhookService_ListWebhooks_FullMethodName      = "/webhook.WebhookService/ListWebhooks"
-	WebhookService_RegisterEvent_FullMethodName     = "/webhook.WebhookService/RegisterEvent"
-	WebhookService_ListEvents_FullMethodName        = "/webhook.WebhookService/ListEvents"
-	WebhookService_UpdateEvent_FullMethodName       = "/webhook.WebhookService/UpdateEvent"
-	WebhookService_DeleteEvent_FullMethodName       = "/webhook.WebhookService/DeleteEvent"
+	WebhookService_RegisterWebhook_FullMethodName               = "/webhook.WebhookService/RegisterWebhook"
+	WebhookService_UnregisterWebhook_FullMethodName             = "/webhook.WebhookService/UnregisterWebhook"
+	WebhookService_PushEvent_FullMethodName                     = "/webhook.WebhookService/PushEvent"
+	WebhookService_GetWebhookStatus_FullMethodName              = "/webhook.WebhookService/GetWebhookStatus"
+	WebhookService_ListWebhooks_FullMethodName                  = "/webhook.WebhookService/ListWebhooks"
+	WebhookService_RegisterEvent_FullMethodName                 = "/webhook.WebhookService/RegisterEvent"
+	WebhookService_ListEvents_FullMethodName                    = "/webhook.WebhookService/ListEvents"
+	WebhookService_UpdateEvent_FullMethodName                   = "/webhook.WebhookService/UpdateEvent"
+	WebhookService_DeleteEvent_FullMethodName                   = "/webhook.WebhookService/DeleteEvent"
+	WebhookService_GetWebhookHealth_FullMethodName              = "/webhook.WebhookService/GetWebhookHealth"
+	WebhookService_ListWebhooksByHealth_FullMethodName          = "/webhook.WebhookService/ListWebhooksByHealth"
+	WebhookService_GetHealthSummary_FullMethodName              = "/webhook.WebhookService/GetHealthSummary"
+	WebhookService_ResubmitWebhook_FullMethodName               = "/webhook.WebhookService/ResubmitWebhook"
+	WebhookService_GetRegisteredWebhooks_FullMethodName         = "/webhook.WebhookService/GetRegisteredWebhooks"
+	WebhookService_ListRegisteredWebhooksByEvent_FullMethodName = "/webhook.WebhookService/ListRegisteredWebhooksByEvent"
+	WebhookService_GetWebhookDeliveryStatus_FullMethodName      = "/webhook.WebhookService/GetWebhookDeliveryStatus"
+	WebhookService_ResendWebhook_FullMethodName                 = "/webhook.WebhookService/ResendWebhook"
+	WebhookService_GetWebhookDeliveryHistory_FullMethodName     = "/webhook.WebhookService/GetWebhookDeliveryHistory"
+	WebhookService_GetNamespaceStats_FullMethodName             = "/webhook.WebhookService/GetNamespaceStats"
+	WebhookService_UpdateWebhookConfig_FullMethodName           = "/webhook.WebhookService/UpdateWebhookConfig"
+	WebhookService_PauseWebhook_FullMethodName                  = "/webhook.WebhookService/PauseWebhook"
+	WebhookService_ResumeWebhook_FullMethodName                 = "/webhook.WebhookService/ResumeWebhook"
 )
 
 // WebhookServiceClient is the client API for WebhookService service.
@@ -54,6 +67,34 @@ type WebhookServiceClient interface {
 	UpdateEvent(ctx context.Context, in *UpdateEventRequest, opts ...grpc.CallOption) (*UpdateEventResponse, error)
 	// DeleteEvent deletes an event registration
 	DeleteEvent(ctx context.Context, in *DeleteEventRequest, opts ...grpc.CallOption) (*DeleteEventResponse, error)
+	// Health Management
+	// GetWebhookHealth gets health metrics for a specific webhook
+	GetWebhookHealth(ctx context.Context, in *GetWebhookHealthRequest, opts ...grpc.CallOption) (*GetWebhookHealthResponse, error)
+	// ListWebhooksByHealth lists webhooks filtered by health status
+	ListWebhooksByHealth(ctx context.Context, in *ListWebhooksByHealthRequest, opts ...grpc.CallOption) (*ListWebhooksByHealthResponse, error)
+	// GetHealthSummary gets a summary of webhook health across all namespaces
+	GetHealthSummary(ctx context.Context, in *GetHealthSummaryRequest, opts ...grpc.CallOption) (*GetHealthSummaryResponse, error)
+	// ResubmitWebhook manually retries failed or pending webhook deliveries
+	ResubmitWebhook(ctx context.Context, in *ResubmitWebhookRequest, opts ...grpc.CallOption) (*ResubmitWebhookResponse, error)
+	// Additional webhook management methods
+	// GetRegisteredWebhooks retrieves registered webhooks by ID or namespace
+	GetRegisteredWebhooks(ctx context.Context, in *GetRegisteredWebhooksRequest, opts ...grpc.CallOption) (*GetRegisteredWebhooksResponse, error)
+	// ListRegisteredWebhooksByEvent retrieves webhooks registered for specific events
+	ListRegisteredWebhooksByEvent(ctx context.Context, in *ListRegisteredWebhooksByEventRequest, opts ...grpc.CallOption) (*ListRegisteredWebhooksByEventResponse, error)
+	// GetWebhookDeliveryStatus retrieves delivery status for specific delivery
+	GetWebhookDeliveryStatus(ctx context.Context, in *GetWebhookDeliveryStatusRequest, opts ...grpc.CallOption) (*GetWebhookDeliveryStatusResponse, error)
+	// ResendWebhook resends a failed webhook delivery
+	ResendWebhook(ctx context.Context, in *ResendWebhookRequest, opts ...grpc.CallOption) (*ResendWebhookResponse, error)
+	// GetWebhookDeliveryHistory retrieves delivery history for a webhook
+	GetWebhookDeliveryHistory(ctx context.Context, in *GetWebhookDeliveryHistoryRequest, opts ...grpc.CallOption) (*GetWebhookDeliveryHistoryResponse, error)
+	// GetNamespaceStats retrieves statistics for a namespace
+	GetNamespaceStats(ctx context.Context, in *GetNamespaceStatsRequest, opts ...grpc.CallOption) (*GetNamespaceStatsResponse, error)
+	// UpdateWebhookConfig updates webhook configuration
+	UpdateWebhookConfig(ctx context.Context, in *UpdateWebhookConfigRequest, opts ...grpc.CallOption) (*UpdateWebhookConfigResponse, error)
+	// PauseWebhook temporarily disables a webhook
+	PauseWebhook(ctx context.Context, in *PauseWebhookRequest, opts ...grpc.CallOption) (*PauseWebhookResponse, error)
+	// ResumeWebhook re-enables a paused webhook
+	ResumeWebhook(ctx context.Context, in *ResumeWebhookRequest, opts ...grpc.CallOption) (*ResumeWebhookResponse, error)
 }
 
 type webhookServiceClient struct {
@@ -154,6 +195,136 @@ func (c *webhookServiceClient) DeleteEvent(ctx context.Context, in *DeleteEventR
 	return out, nil
 }
 
+func (c *webhookServiceClient) GetWebhookHealth(ctx context.Context, in *GetWebhookHealthRequest, opts ...grpc.CallOption) (*GetWebhookHealthResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWebhookHealthResponse)
+	err := c.cc.Invoke(ctx, WebhookService_GetWebhookHealth_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) ListWebhooksByHealth(ctx context.Context, in *ListWebhooksByHealthRequest, opts ...grpc.CallOption) (*ListWebhooksByHealthResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWebhooksByHealthResponse)
+	err := c.cc.Invoke(ctx, WebhookService_ListWebhooksByHealth_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) GetHealthSummary(ctx context.Context, in *GetHealthSummaryRequest, opts ...grpc.CallOption) (*GetHealthSummaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetHealthSummaryResponse)
+	err := c.cc.Invoke(ctx, WebhookService_GetHealthSummary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) ResubmitWebhook(ctx context.Context, in *ResubmitWebhookRequest, opts ...grpc.CallOption) (*ResubmitWebhookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResubmitWebhookResponse)
+	err := c.cc.Invoke(ctx, WebhookService_ResubmitWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) GetRegisteredWebhooks(ctx context.Context, in *GetRegisteredWebhooksRequest, opts ...grpc.CallOption) (*GetRegisteredWebhooksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRegisteredWebhooksResponse)
+	err := c.cc.Invoke(ctx, WebhookService_GetRegisteredWebhooks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) ListRegisteredWebhooksByEvent(ctx context.Context, in *ListRegisteredWebhooksByEventRequest, opts ...grpc.CallOption) (*ListRegisteredWebhooksByEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRegisteredWebhooksByEventResponse)
+	err := c.cc.Invoke(ctx, WebhookService_ListRegisteredWebhooksByEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) GetWebhookDeliveryStatus(ctx context.Context, in *GetWebhookDeliveryStatusRequest, opts ...grpc.CallOption) (*GetWebhookDeliveryStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWebhookDeliveryStatusResponse)
+	err := c.cc.Invoke(ctx, WebhookService_GetWebhookDeliveryStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) ResendWebhook(ctx context.Context, in *ResendWebhookRequest, opts ...grpc.CallOption) (*ResendWebhookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResendWebhookResponse)
+	err := c.cc.Invoke(ctx, WebhookService_ResendWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) GetWebhookDeliveryHistory(ctx context.Context, in *GetWebhookDeliveryHistoryRequest, opts ...grpc.CallOption) (*GetWebhookDeliveryHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetWebhookDeliveryHistoryResponse)
+	err := c.cc.Invoke(ctx, WebhookService_GetWebhookDeliveryHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) GetNamespaceStats(ctx context.Context, in *GetNamespaceStatsRequest, opts ...grpc.CallOption) (*GetNamespaceStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetNamespaceStatsResponse)
+	err := c.cc.Invoke(ctx, WebhookService_GetNamespaceStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) UpdateWebhookConfig(ctx context.Context, in *UpdateWebhookConfigRequest, opts ...grpc.CallOption) (*UpdateWebhookConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateWebhookConfigResponse)
+	err := c.cc.Invoke(ctx, WebhookService_UpdateWebhookConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) PauseWebhook(ctx context.Context, in *PauseWebhookRequest, opts ...grpc.CallOption) (*PauseWebhookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PauseWebhookResponse)
+	err := c.cc.Invoke(ctx, WebhookService_PauseWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) ResumeWebhook(ctx context.Context, in *ResumeWebhookRequest, opts ...grpc.CallOption) (*ResumeWebhookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResumeWebhookResponse)
+	err := c.cc.Invoke(ctx, WebhookService_ResumeWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WebhookServiceServer is the server API for WebhookService service.
 // All implementations must embed UnimplementedWebhookServiceServer
 // for forward compatibility.
@@ -178,6 +349,34 @@ type WebhookServiceServer interface {
 	UpdateEvent(context.Context, *UpdateEventRequest) (*UpdateEventResponse, error)
 	// DeleteEvent deletes an event registration
 	DeleteEvent(context.Context, *DeleteEventRequest) (*DeleteEventResponse, error)
+	// Health Management
+	// GetWebhookHealth gets health metrics for a specific webhook
+	GetWebhookHealth(context.Context, *GetWebhookHealthRequest) (*GetWebhookHealthResponse, error)
+	// ListWebhooksByHealth lists webhooks filtered by health status
+	ListWebhooksByHealth(context.Context, *ListWebhooksByHealthRequest) (*ListWebhooksByHealthResponse, error)
+	// GetHealthSummary gets a summary of webhook health across all namespaces
+	GetHealthSummary(context.Context, *GetHealthSummaryRequest) (*GetHealthSummaryResponse, error)
+	// ResubmitWebhook manually retries failed or pending webhook deliveries
+	ResubmitWebhook(context.Context, *ResubmitWebhookRequest) (*ResubmitWebhookResponse, error)
+	// Additional webhook management methods
+	// GetRegisteredWebhooks retrieves registered webhooks by ID or namespace
+	GetRegisteredWebhooks(context.Context, *GetRegisteredWebhooksRequest) (*GetRegisteredWebhooksResponse, error)
+	// ListRegisteredWebhooksByEvent retrieves webhooks registered for specific events
+	ListRegisteredWebhooksByEvent(context.Context, *ListRegisteredWebhooksByEventRequest) (*ListRegisteredWebhooksByEventResponse, error)
+	// GetWebhookDeliveryStatus retrieves delivery status for specific delivery
+	GetWebhookDeliveryStatus(context.Context, *GetWebhookDeliveryStatusRequest) (*GetWebhookDeliveryStatusResponse, error)
+	// ResendWebhook resends a failed webhook delivery
+	ResendWebhook(context.Context, *ResendWebhookRequest) (*ResendWebhookResponse, error)
+	// GetWebhookDeliveryHistory retrieves delivery history for a webhook
+	GetWebhookDeliveryHistory(context.Context, *GetWebhookDeliveryHistoryRequest) (*GetWebhookDeliveryHistoryResponse, error)
+	// GetNamespaceStats retrieves statistics for a namespace
+	GetNamespaceStats(context.Context, *GetNamespaceStatsRequest) (*GetNamespaceStatsResponse, error)
+	// UpdateWebhookConfig updates webhook configuration
+	UpdateWebhookConfig(context.Context, *UpdateWebhookConfigRequest) (*UpdateWebhookConfigResponse, error)
+	// PauseWebhook temporarily disables a webhook
+	PauseWebhook(context.Context, *PauseWebhookRequest) (*PauseWebhookResponse, error)
+	// ResumeWebhook re-enables a paused webhook
+	ResumeWebhook(context.Context, *ResumeWebhookRequest) (*ResumeWebhookResponse, error)
 	mustEmbedUnimplementedWebhookServiceServer()
 }
 
@@ -214,6 +413,45 @@ func (UnimplementedWebhookServiceServer) UpdateEvent(context.Context, *UpdateEve
 }
 func (UnimplementedWebhookServiceServer) DeleteEvent(context.Context, *DeleteEventRequest) (*DeleteEventResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteEvent not implemented")
+}
+func (UnimplementedWebhookServiceServer) GetWebhookHealth(context.Context, *GetWebhookHealthRequest) (*GetWebhookHealthResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetWebhookHealth not implemented")
+}
+func (UnimplementedWebhookServiceServer) ListWebhooksByHealth(context.Context, *ListWebhooksByHealthRequest) (*ListWebhooksByHealthResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListWebhooksByHealth not implemented")
+}
+func (UnimplementedWebhookServiceServer) GetHealthSummary(context.Context, *GetHealthSummaryRequest) (*GetHealthSummaryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetHealthSummary not implemented")
+}
+func (UnimplementedWebhookServiceServer) ResubmitWebhook(context.Context, *ResubmitWebhookRequest) (*ResubmitWebhookResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResubmitWebhook not implemented")
+}
+func (UnimplementedWebhookServiceServer) GetRegisteredWebhooks(context.Context, *GetRegisteredWebhooksRequest) (*GetRegisteredWebhooksResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRegisteredWebhooks not implemented")
+}
+func (UnimplementedWebhookServiceServer) ListRegisteredWebhooksByEvent(context.Context, *ListRegisteredWebhooksByEventRequest) (*ListRegisteredWebhooksByEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListRegisteredWebhooksByEvent not implemented")
+}
+func (UnimplementedWebhookServiceServer) GetWebhookDeliveryStatus(context.Context, *GetWebhookDeliveryStatusRequest) (*GetWebhookDeliveryStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetWebhookDeliveryStatus not implemented")
+}
+func (UnimplementedWebhookServiceServer) ResendWebhook(context.Context, *ResendWebhookRequest) (*ResendWebhookResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResendWebhook not implemented")
+}
+func (UnimplementedWebhookServiceServer) GetWebhookDeliveryHistory(context.Context, *GetWebhookDeliveryHistoryRequest) (*GetWebhookDeliveryHistoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetWebhookDeliveryHistory not implemented")
+}
+func (UnimplementedWebhookServiceServer) GetNamespaceStats(context.Context, *GetNamespaceStatsRequest) (*GetNamespaceStatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetNamespaceStats not implemented")
+}
+func (UnimplementedWebhookServiceServer) UpdateWebhookConfig(context.Context, *UpdateWebhookConfigRequest) (*UpdateWebhookConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateWebhookConfig not implemented")
+}
+func (UnimplementedWebhookServiceServer) PauseWebhook(context.Context, *PauseWebhookRequest) (*PauseWebhookResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PauseWebhook not implemented")
+}
+func (UnimplementedWebhookServiceServer) ResumeWebhook(context.Context, *ResumeWebhookRequest) (*ResumeWebhookResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResumeWebhook not implemented")
 }
 func (UnimplementedWebhookServiceServer) mustEmbedUnimplementedWebhookServiceServer() {}
 func (UnimplementedWebhookServiceServer) testEmbeddedByValue()                        {}
@@ -398,6 +636,240 @@ func _WebhookService_DeleteEvent_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WebhookService_GetWebhookHealth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWebhookHealthRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).GetWebhookHealth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_GetWebhookHealth_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).GetWebhookHealth(ctx, req.(*GetWebhookHealthRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_ListWebhooksByHealth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWebhooksByHealthRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).ListWebhooksByHealth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_ListWebhooksByHealth_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).ListWebhooksByHealth(ctx, req.(*ListWebhooksByHealthRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_GetHealthSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetHealthSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).GetHealthSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_GetHealthSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).GetHealthSummary(ctx, req.(*GetHealthSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_ResubmitWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResubmitWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).ResubmitWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_ResubmitWebhook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).ResubmitWebhook(ctx, req.(*ResubmitWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_GetRegisteredWebhooks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRegisteredWebhooksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).GetRegisteredWebhooks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_GetRegisteredWebhooks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).GetRegisteredWebhooks(ctx, req.(*GetRegisteredWebhooksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_ListRegisteredWebhooksByEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRegisteredWebhooksByEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).ListRegisteredWebhooksByEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_ListRegisteredWebhooksByEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).ListRegisteredWebhooksByEvent(ctx, req.(*ListRegisteredWebhooksByEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_GetWebhookDeliveryStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWebhookDeliveryStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).GetWebhookDeliveryStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_GetWebhookDeliveryStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).GetWebhookDeliveryStatus(ctx, req.(*GetWebhookDeliveryStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_ResendWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResendWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).ResendWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_ResendWebhook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).ResendWebhook(ctx, req.(*ResendWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_GetWebhookDeliveryHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWebhookDeliveryHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).GetWebhookDeliveryHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_GetWebhookDeliveryHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).GetWebhookDeliveryHistory(ctx, req.(*GetWebhookDeliveryHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_GetNamespaceStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNamespaceStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).GetNamespaceStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_GetNamespaceStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).GetNamespaceStats(ctx, req.(*GetNamespaceStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_UpdateWebhookConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateWebhookConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).UpdateWebhookConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_UpdateWebhookConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).UpdateWebhookConfig(ctx, req.(*UpdateWebhookConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_PauseWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PauseWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).PauseWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_PauseWebhook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).PauseWebhook(ctx, req.(*PauseWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_ResumeWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResumeWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).ResumeWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_ResumeWebhook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).ResumeWebhook(ctx, req.(*ResumeWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WebhookService_ServiceDesc is the grpc.ServiceDesc for WebhookService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -440,6 +912,58 @@ var WebhookService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteEvent",
 			Handler:    _WebhookService_DeleteEvent_Handler,
+		},
+		{
+			MethodName: "GetWebhookHealth",
+			Handler:    _WebhookService_GetWebhookHealth_Handler,
+		},
+		{
+			MethodName: "ListWebhooksByHealth",
+			Handler:    _WebhookService_ListWebhooksByHealth_Handler,
+		},
+		{
+			MethodName: "GetHealthSummary",
+			Handler:    _WebhookService_GetHealthSummary_Handler,
+		},
+		{
+			MethodName: "ResubmitWebhook",
+			Handler:    _WebhookService_ResubmitWebhook_Handler,
+		},
+		{
+			MethodName: "GetRegisteredWebhooks",
+			Handler:    _WebhookService_GetRegisteredWebhooks_Handler,
+		},
+		{
+			MethodName: "ListRegisteredWebhooksByEvent",
+			Handler:    _WebhookService_ListRegisteredWebhooksByEvent_Handler,
+		},
+		{
+			MethodName: "GetWebhookDeliveryStatus",
+			Handler:    _WebhookService_GetWebhookDeliveryStatus_Handler,
+		},
+		{
+			MethodName: "ResendWebhook",
+			Handler:    _WebhookService_ResendWebhook_Handler,
+		},
+		{
+			MethodName: "GetWebhookDeliveryHistory",
+			Handler:    _WebhookService_GetWebhookDeliveryHistory_Handler,
+		},
+		{
+			MethodName: "GetNamespaceStats",
+			Handler:    _WebhookService_GetNamespaceStats_Handler,
+		},
+		{
+			MethodName: "UpdateWebhookConfig",
+			Handler:    _WebhookService_UpdateWebhookConfig_Handler,
+		},
+		{
+			MethodName: "PauseWebhook",
+			Handler:    _WebhookService_PauseWebhook_Handler,
+		},
+		{
+			MethodName: "ResumeWebhook",
+			Handler:    _WebhookService_ResumeWebhook_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

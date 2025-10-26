@@ -190,6 +190,12 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 		if err != nil {
 			log.Error("Failed to update delivery status to success", "error", err)
 		}
+
+		// Record health event for successful delivery
+		if err := w.webhookRepo.RecordWebhookHealthEvent(ctx, args.WebhookID, args.DeliveryID, true, int(duration.Milliseconds()), resp.StatusCode, ""); err != nil {
+			log.Error("Failed to record webhook health event", "error", err)
+		}
+
 		return nil
 	}
 
@@ -222,6 +228,11 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 		webhooks.StatusFailed, resp.StatusCode, string(body), errorMessage)
 	if err != nil {
 		log.Error("Failed to update delivery status to failed", "error", err)
+	}
+
+	// Record health event for failed delivery
+	if err := w.webhookRepo.RecordWebhookHealthEvent(ctx, args.WebhookID, args.DeliveryID, false, int(duration.Milliseconds()), resp.StatusCode, errorMessage); err != nil {
+		log.Error("Failed to record webhook health event", "error", err)
 	}
 
 	return fmt.Errorf("webhook delivery failed: %s", errorMessage)
