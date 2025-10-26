@@ -9,17 +9,17 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivertype"
-	"github.com/sarathsp06/sparrow/internal/jobs"
 	"github.com/sarathsp06/sparrow/internal/logger"
-	"github.com/sarathsp06/sparrow/internal/webhooks"
-	"github.com/sarathsp06/sparrow/internal/workers"
+	"github.com/sarathsp06/sparrow/internal/webhooks/jobs"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/internal/webhooks/workers"
 )
 
 // Manager handles the River queue management
 type Manager struct {
 	client      *river.Client[pgx.Tx]
 	dbPool      *pgxpool.Pool
-	webhookRepo *webhooks.Repository
+	webhookRepo *store.Repository
 }
 
 // NewManager creates a new queue manager
@@ -37,7 +37,7 @@ func NewManager(ctx context.Context, databaseURL string) (*Manager, error) {
 	}
 
 	// Create webhook repository
-	webhookRepo := webhooks.NewRepository(dbPool)
+	webhookRepo := store.NewRepository(dbPool)
 
 	// Initialize River workers
 	riverWorkers := river.NewWorkers()
@@ -56,9 +56,9 @@ func NewManager(ctx context.Context, databaseURL string) (*Manager, error) {
 		return nil, fmt.Errorf("failed to create River client: %w", err)
 	}
 
-	// Add workers that need dependencies
-	river.AddWorker(riverWorkers, workers.NewWebhookWorker(webhookRepo))
-	river.AddWorker(riverWorkers, workers.NewEventProcessingWorker(webhookRepo, riverClient))
+	// Add workers with explicit generic types
+	river.AddWorker[jobs.WebhookArgs](riverWorkers, workers.NewWebhookWorker(webhookRepo))
+	river.AddWorker[jobs.EventArgs](riverWorkers, workers.NewEventProcessingWorker(webhookRepo, riverClient))
 
 	return &Manager{
 		client:      riverClient,
@@ -94,7 +94,7 @@ func (m *Manager) GetClient() *river.Client[pgx.Tx] {
 }
 
 // GetWebhookRepo returns the webhook repository
-func (m *Manager) GetWebhookRepo() *webhooks.Repository {
+func (m *Manager) GetWebhookRepo() *store.Repository {
 	return m.webhookRepo
 }
 

@@ -1,10 +1,13 @@
-package services
+package webhooks
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/url"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,17 +16,18 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/sarathsp06/sparrow/internal/jobs"
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/observability"
-	"github.com/sarathsp06/sparrow/internal/queue"
-	"github.com/sarathsp06/sparrow/internal/webhooks"
+	"github.com/sarathsp06/sparrow/internal/webhooks/jobs"
+	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	pb "github.com/sarathsp06/sparrow/proto"
 )
 
 // WebhookService contains the core business logic for webhook operations
 type WebhookService struct {
 	queueManager *queue.Manager
-	webhookRepo  *webhooks.Repository
+	webhookRepo  *store.Repository
 	logger       *slog.Logger
 	tracer       trace.Tracer
 	metrics      *observability.SparrowMetrics
@@ -85,7 +89,7 @@ type GetWebhookStatusRequest struct {
 
 // GetWebhookStatusResponse represents a webhook status response
 type GetWebhookStatusResponse struct {
-	Deliveries      []*webhooks.WebhookDelivery
+	Deliveries      []*store.WebhookDelivery
 	TotalDeliveries int32
 	Success         bool
 	Message         string
@@ -100,7 +104,7 @@ type ListWebhooksRequest struct {
 
 // ListWebhooksResponse represents a list webhooks response
 type ListWebhooksResponse struct {
-	Webhooks   []*webhooks.WebhookRegistration
+	Webhooks   []*store.WebhookRegistration
 	TotalCount int32
 	Success    bool
 	Message    string
@@ -115,7 +119,7 @@ type GetRegisteredWebhooksRequest struct {
 
 // GetRegisteredWebhooksResponse represents a get registered webhooks response
 type GetRegisteredWebhooksResponse struct {
-	Webhooks   []*webhooks.WebhookRegistration
+	Webhooks   []*store.WebhookRegistration
 	TotalCount int32
 	Success    bool
 	Message    string
@@ -130,7 +134,7 @@ type ListRegisteredWebhooksByEventRequest struct {
 
 // ListRegisteredWebhooksByEventResponse represents a list webhooks by event response
 type ListRegisteredWebhooksByEventResponse struct {
-	Webhooks   []*webhooks.WebhookRegistration
+	Webhooks   []*store.WebhookRegistration
 	Event      string
 	Namespace  string
 	TotalCount int32
@@ -146,7 +150,7 @@ type GetWebhookDeliveryStatusRequest struct {
 
 // GetWebhookDeliveryStatusResponse represents a get delivery status response
 type GetWebhookDeliveryStatusResponse struct {
-	Delivery *webhooks.WebhookDelivery
+	Delivery *store.WebhookDelivery
 	Success  bool
 	Message  string
 }
@@ -200,14 +204,14 @@ type GetWebhookDeliveryHistoryRequest struct {
 
 // GetWebhookDeliveryHistoryResponse represents a get delivery history response
 type GetWebhookDeliveryHistoryResponse struct {
-	Deliveries []*webhooks.WebhookDelivery
+	Deliveries []*store.WebhookDelivery
 	TotalCount int32
 	Success    bool
 	Message    string
 }
 
 // NewWebhookService creates a new WebhookService instance
-func NewWebhookService(queueManager *queue.Manager, webhookRepo *webhooks.Repository) *WebhookService {
+func NewWebhookService(queueManager *queue.Manager, webhookRepo *store.Repository) *WebhookService {
 	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
@@ -280,7 +284,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, req *RegisterWebho
 	span.SetAttributes(attribute.Int("timeout", int(timeout)))
 
 	// Create webhook registration
-	registration := &webhooks.WebhookRegistration{
+	registration := &store.WebhookRegistration{
 		Namespace:   req.Namespace,
 		Events:      req.Events,
 		URL:         req.URL,
@@ -481,7 +485,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, req *PushEventRequest) (
 func (s *WebhookService) GetWebhookStatus(ctx context.Context, req *GetWebhookStatusRequest) (*GetWebhookStatusResponse, error) {
 	s.logger.Info("Processing webhook status request")
 
-	var deliveries []*webhooks.WebhookDelivery
+	var deliveries []*store.WebhookDelivery
 	var err error
 
 	if req.WebhookID != "" {
@@ -528,7 +532,7 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, req *ListWebhooksRequ
 	}
 
 	// Filter by event if specified
-	var filteredRegistrations []*webhooks.WebhookRegistration
+	var filteredRegistrations []*store.WebhookRegistration
 	if req.Event != "" {
 		for _, reg := range registrations {
 			// Check if the webhook listens to the requested event
@@ -573,7 +577,7 @@ func (s *WebhookService) GetRegisteredWebhooks(ctx context.Context, req *GetRegi
 		}, nil
 	}
 
-	var regs []*webhooks.WebhookRegistration
+	var regs []*store.WebhookRegistration
 	var err error
 
 	if req.WebhookID != "" {
@@ -587,7 +591,7 @@ func (s *WebhookService) GetRegisteredWebhooks(ctx context.Context, req *GetRegi
 			}, err
 		}
 		if webhook != nil && (!req.ActiveOnly || webhook.Active) {
-			regs = []*webhooks.WebhookRegistration{webhook}
+			regs = []*store.WebhookRegistration{webhook}
 		}
 	} else {
 		// Get all webhooks for namespace
@@ -643,7 +647,7 @@ func (s *WebhookService) ListRegisteredWebhooksByEvent(ctx context.Context, req 
 	}
 
 	// Filter by active status if requested
-	var webhooks []*webhooks.WebhookRegistration
+	var webhooks []*store.WebhookRegistration
 	for _, wh := range allWebhooks {
 		if !req.ActiveOnly || wh.Active {
 			webhooks = append(webhooks, wh)
@@ -748,7 +752,7 @@ func (s *WebhookService) ResendWebhook(ctx context.Context, req *ResendWebhookRe
 	}
 
 	// Check if delivery can be resent
-	if !req.ForceResend && delivery.Status == webhooks.StatusSuccess {
+	if !req.ForceResend && delivery.Status == store.StatusSuccess {
 		return &ResendWebhookResponse{
 			Success: false,
 			Message: "Delivery already succeeded. Use force_resend to resend anyway",
@@ -780,11 +784,11 @@ func (s *WebhookService) ResendWebhook(ctx context.Context, req *ResendWebhookRe
 	}
 
 	// Create new delivery record
-	newDelivery := &webhooks.WebhookDelivery{
+	newDelivery := &store.WebhookDelivery{
 		ID:          generateDeliveryID(),
 		WebhookID:   delivery.WebhookID,
 		EventID:     delivery.EventID,
-		Status:      webhooks.StatusPending,
+		Status:      store.StatusPending,
 		CreatedAt:   time.Now(),
 		ExpiresAt:   time.Now().Add(24 * time.Hour), // 24 hour TTL
 		MaxAttempts: delivery.MaxAttempts,
@@ -1042,7 +1046,7 @@ type ListEventsRequest struct {
 
 // ListEventsResponse represents a list events response
 type ListEventsResponse struct {
-	Events     []*webhooks.EventRegistration
+	Events     []*store.EventRegistration
 	TotalCount int32
 	Success    bool
 	Message    string
@@ -1082,40 +1086,40 @@ type GetWebhookHealthRequest struct {
 
 // WebhookHealthData represents webhook health information
 type WebhookHealthData struct {
-	WebhookID            string                 `json:"webhook_id"`
-	Health               webhooks.WebhookHealth `json:"health"`
-	TotalDeliveries      int                    `json:"total_deliveries"`
-	SuccessfulDeliveries int                    `json:"successful_deliveries"`
-	FailedDeliveries     int                    `json:"failed_deliveries"`
-	ConsecutiveFailures  int                    `json:"consecutive_failures"`
-	LastSuccessAt        *time.Time             `json:"last_success_at"`
-	LastFailureAt        *time.Time             `json:"last_failure_at"`
-	SuccessRate          float64                `json:"success_rate"`
-	AvgResponseTime      int                    `json:"avg_response_time"` // milliseconds
-	CreatedAt            time.Time              `json:"created_at"`
-	UpdatedAt            time.Time              `json:"updated_at"`
+	WebhookID            string              `json:"webhook_id"`
+	Health               store.WebhookHealth `json:"health"`
+	TotalDeliveries      int                 `json:"total_deliveries"`
+	SuccessfulDeliveries int                 `json:"successful_deliveries"`
+	FailedDeliveries     int                 `json:"failed_deliveries"`
+	ConsecutiveFailures  int                 `json:"consecutive_failures"`
+	LastSuccessAt        *time.Time          `json:"last_success_at"`
+	LastFailureAt        *time.Time          `json:"last_failure_at"`
+	SuccessRate          float64             `json:"success_rate"`
+	AvgResponseTime      int                 `json:"avg_response_time"` // milliseconds
+	CreatedAt            time.Time           `json:"created_at"`
+	UpdatedAt            time.Time           `json:"updated_at"`
 }
 
 // GetWebhookHealthResponse represents a get webhook health response
 type GetWebhookHealthResponse struct {
-	Success   bool                   `json:"success"`
-	Message   string                 `json:"message"`
-	WebhookID string                 `json:"webhook_id"`
-	Health    webhooks.WebhookHealth `json:"health"`
-	Metrics   *WebhookHealthData     `json:"metrics,omitempty"`
+	Success   bool                `json:"success"`
+	Message   string              `json:"message"`
+	WebhookID string              `json:"webhook_id"`
+	Health    store.WebhookHealth `json:"health"`
+	Metrics   *WebhookHealthData  `json:"metrics,omitempty"`
 }
 
 // ListWebhooksByHealthRequest represents a list webhooks by health request
 type ListWebhooksByHealthRequest struct {
-	Health webhooks.WebhookHealth
+	Health store.WebhookHealth
 }
 
 // ListWebhooksByHealthResponse represents a list webhooks by health response
 type ListWebhooksByHealthResponse struct {
-	Success    bool                            `json:"success"`
-	Message    string                          `json:"message"`
-	Webhooks   []*webhooks.WebhookRegistration `json:"webhooks"`
-	TotalCount int32                           `json:"total_count"`
+	Success    bool                         `json:"success"`
+	Message    string                       `json:"message"`
+	Webhooks   []*store.WebhookRegistration `json:"webhooks"`
+	TotalCount int32                        `json:"total_count"`
 }
 
 // GetHealthSummaryRequest represents a get health summary request
@@ -1183,7 +1187,7 @@ type GetNamespaceStatsResponse struct {
 type UpdateWebhookConfigRequest struct {
 	WebhookID string
 	Namespace string
-	Updates   *webhooks.WebhookUpdateFields
+	Updates   *store.WebhookUpdateFields
 }
 
 // UpdateWebhookConfigResponse represents an update webhook config response
@@ -1227,7 +1231,7 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, req *RegisterEventRe
 	}
 
 	// Create event registration
-	event := &webhooks.EventRegistration{
+	event := &store.EventRegistration{
 		Name:        req.Name,
 		Description: req.Description,
 		Schema:      req.Schema,
@@ -1555,10 +1559,10 @@ func (s *WebhookService) GetHealthSummary(ctx context.Context, req *GetHealthSum
 
 	// Convert to response format
 	healthSummary := &HealthSummaryData{
-		HealthyCount:   summary[webhooks.HealthHealthy],
-		DegradedCount:  summary[webhooks.HealthDegraded],
-		UnhealthyCount: summary[webhooks.HealthUnhealthy],
-		UnknownCount:   summary[webhooks.HealthUnknown],
+		HealthyCount:   summary[store.HealthHealthy],
+		DegradedCount:  summary[store.HealthDegraded],
+		UnhealthyCount: summary[store.HealthUnhealthy],
+		UnknownCount:   summary[store.HealthUnknown],
 	}
 
 	// Calculate total
@@ -1612,7 +1616,7 @@ func (s *WebhookService) ResubmitWebhook(ctx context.Context, req *ResubmitWebho
 		}, nil
 	}
 
-	var deliveriesToResubmit []*webhooks.WebhookDelivery
+	var deliveriesToResubmit []*store.WebhookDelivery
 
 	if req.DeliveryID != "" {
 		// Resubmit specific delivery
@@ -1633,14 +1637,14 @@ func (s *WebhookService) ResubmitWebhook(ctx context.Context, req *ResubmitWebho
 		}
 
 		// Check if delivery can be resubmitted
-		if !req.Force && delivery.Status == webhooks.StatusSuccess {
+		if !req.Force && delivery.Status == store.StatusSuccess {
 			return &ResubmitWebhookResponse{
 				Success: false,
 				Message: "Delivery already succeeded. Use force to resubmit anyway",
 			}, nil
 		}
 
-		deliveriesToResubmit = []*webhooks.WebhookDelivery{delivery}
+		deliveriesToResubmit = []*store.WebhookDelivery{delivery}
 	} else {
 		// Resubmit all failed/pending deliveries for webhook
 		webhook, err := s.webhookRepo.GetWebhookByID(ctx, req.WebhookID, req.Namespace)
@@ -1796,11 +1800,11 @@ func (s *WebhookService) GetNamespaceStats(ctx context.Context, req *GetNamespac
 		totalDeliveries += len(deliveries)
 		for _, delivery := range deliveries {
 			switch delivery.Status {
-			case webhooks.StatusSuccess:
+			case store.StatusSuccess:
 				successfulDeliveries++
-			case webhooks.StatusFailed, webhooks.StatusExpired:
+			case store.StatusFailed, store.StatusExpired:
 				failedDeliveries++
-			case webhooks.StatusPending, webhooks.StatusSending, webhooks.StatusRetrying:
+			case store.StatusPending, store.StatusSending, store.StatusRetrying:
 				pendingDeliveries++
 			}
 		}
@@ -1921,4 +1925,582 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, req *UpdateWeb
 // Helper function to generate delivery ID
 func generateDeliveryID() string {
 	return uuid.New().String()
+}
+
+// ============================================================================
+// VALIDATION METHODS
+// ============================================================================
+
+// Regular expressions for validation
+var (
+	namespaceRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	eventRegex     = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+)
+
+// ValidateNamespace validates namespace field (required for most operations)
+func (s *WebhookService) ValidateNamespace(namespace string) *ValidationError {
+	if namespace == "" {
+		return &ValidationError{
+			Field:   "namespace",
+			Message: MsgRequired,
+			Code:    ErrorCodeRequired,
+		}
+	}
+
+	if len(namespace) > 64 {
+		return &ValidationError{
+			Field:   "namespace",
+			Message: MsgNamespaceTooLong,
+			Code:    ErrorCodeTooLong,
+		}
+	}
+
+	if !namespaceRegex.MatchString(namespace) {
+		return &ValidationError{
+			Field:   "namespace",
+			Message: MsgInvalidNamespace,
+			Code:    ErrorCodeInvalidFormat,
+		}
+	}
+
+	return nil
+}
+
+// ValidateURL validates webhook URL
+func (s *WebhookService) ValidateURL(urlStr string) *ValidationError {
+	if urlStr == "" {
+		return &ValidationError{
+			Field:   "url",
+			Message: MsgRequired,
+			Code:    ErrorCodeRequired,
+		}
+	}
+
+	u, err := url.Parse(urlStr)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return &ValidationError{
+			Field:   "url",
+			Message: MsgInvalidURL,
+			Code:    ErrorCodeInvalidFormat,
+		}
+	}
+
+	return nil
+}
+
+// ValidateEvents validates event names array
+func (s *WebhookService) ValidateEvents(events []string) *ValidationErrors {
+	var errors ValidationErrors
+
+	if len(events) == 0 {
+		errors.Add("events", MsgRequired, ErrorCodeRequired)
+		return &errors
+	}
+
+	if len(events) > 50 {
+		errors.Add("events", MsgTooManyEvents, ErrorCodeTooLong)
+		return &errors
+	}
+
+	seen := make(map[string]bool)
+	for i, event := range events {
+		field := fmt.Sprintf("events[%d]", i)
+
+		if event == "" {
+			errors.Add(field, MsgRequired, ErrorCodeRequired)
+			continue
+		}
+
+		if !eventRegex.MatchString(event) {
+			errors.Add(field, MsgInvalidEvent, ErrorCodeInvalidFormat)
+			continue
+		}
+
+		if seen[event] {
+			errors.Add(field, "duplicate event name", ErrorCodeDuplicate)
+			continue
+		}
+
+		seen[event] = true
+	}
+
+	if errors.HasErrors() {
+		return &errors
+	}
+
+	return nil
+}
+
+// ValidateTimeout validates timeout value
+func (s *WebhookService) ValidateTimeout(timeout int32) *ValidationError {
+	if timeout < 1 || timeout > 300 {
+		return &ValidationError{
+			Field:   "timeout",
+			Message: MsgInvalidTimeout,
+			Code:    ErrorCodeInvalid,
+		}
+	}
+
+	return nil
+}
+
+// ValidateHeaders validates HTTP headers
+func (s *WebhookService) ValidateHeaders(headers map[string]string) *ValidationError {
+	if headers == nil {
+		return nil
+	}
+
+	totalSize := 0
+	for key, value := range headers {
+		totalSize += len(key) + len(value) + 4 // key: value\r\n
+	}
+
+	if totalSize > 8*1024 { // 8KB limit
+		return &ValidationError{
+			Field:   "headers",
+			Message: MsgHeadersTooLarge,
+			Code:    ErrorCodeTooLong,
+		}
+	}
+
+	return nil
+}
+
+// ValidateJSON validates that a string is valid JSON
+func (s *WebhookService) ValidateJSON(jsonStr string) *ValidationError {
+	if jsonStr == "" {
+		return nil
+	}
+
+	var js json.RawMessage
+	if err := json.Unmarshal([]byte(jsonStr), &js); err != nil {
+		return &ValidationError{
+			Field:   "payload",
+			Message: MsgInvalidJSON,
+			Code:    ErrorCodeInvalidFormat,
+		}
+	}
+
+	if len(jsonStr) > 1024*1024 { // 1MB limit
+		return &ValidationError{
+			Field:   "payload",
+			Message: MsgPayloadTooLarge,
+			Code:    ErrorCodeTooLong,
+		}
+	}
+
+	return nil
+}
+
+// ValidateDescription validates description field
+func (s *WebhookService) ValidateDescription(description string) *ValidationError {
+	if len(description) > 500 {
+		return &ValidationError{
+			Field:   "description",
+			Message: MsgDescriptionTooLong,
+			Code:    ErrorCodeTooLong,
+		}
+	}
+
+	return nil
+}
+
+// ValidateEventName validates a single event name
+func (s *WebhookService) ValidateEventName(event string) *ValidationError {
+	if event == "" {
+		return &ValidationError{
+			Field:   "event",
+			Message: MsgRequired,
+			Code:    ErrorCodeRequired,
+		}
+	}
+
+	if !eventRegex.MatchString(event) {
+		return &ValidationError{
+			Field:   "event",
+			Message: MsgInvalidEvent,
+			Code:    ErrorCodeInvalidFormat,
+		}
+	}
+
+	return nil
+}
+
+// ValidateWebhookID validates webhook ID format
+func (s *WebhookService) ValidateWebhookID(webhookID string) *ValidationError {
+	if webhookID == "" {
+		return &ValidationError{
+			Field:   "webhook_id",
+			Message: MsgRequired,
+			Code:    ErrorCodeRequired,
+		}
+	}
+
+	// Assuming UUIDs or similar format
+	if len(webhookID) < 10 || len(webhookID) > 64 {
+		return &ValidationError{
+			Field:   "webhook_id",
+			Message: "webhook ID must be between 10 and 64 characters",
+			Code:    ErrorCodeInvalidFormat,
+		}
+	}
+
+	return nil
+}
+
+// ValidateDeliveryID validates delivery ID format
+func (s *WebhookService) ValidateDeliveryID(deliveryID string) *ValidationError {
+	if deliveryID == "" {
+		return &ValidationError{
+			Field:   "delivery_id",
+			Message: MsgRequired,
+			Code:    ErrorCodeRequired,
+		}
+	}
+
+	// Assuming UUIDs or similar format
+	if len(deliveryID) < 10 || len(deliveryID) > 64 {
+		return &ValidationError{
+			Field:   "delivery_id",
+			Message: "delivery ID must be between 10 and 64 characters",
+			Code:    ErrorCodeInvalidFormat,
+		}
+	}
+
+	return nil
+}
+
+// ValidateDateRange validates start and end date parameters
+func (s *WebhookService) ValidateDateRange(startDate, endDate string) *ValidationErrors {
+	var errors ValidationErrors
+
+	if startDate != "" {
+		if _, err := time.Parse(time.RFC3339, startDate); err != nil {
+			errors.Add("start_date", "must be a valid RFC3339 timestamp", ErrorCodeInvalidFormat)
+		}
+	}
+
+	if endDate != "" {
+		if _, err := time.Parse(time.RFC3339, endDate); err != nil {
+			errors.Add("end_date", "must be a valid RFC3339 timestamp", ErrorCodeInvalidFormat)
+		}
+	}
+
+	if startDate != "" && endDate != "" {
+		start, startErr := time.Parse(time.RFC3339, startDate)
+		end, endErr := time.Parse(time.RFC3339, endDate)
+
+		if startErr == nil && endErr == nil && start.After(end) {
+			errors.Add("start_date", "start date must be before end date", ErrorCodeInvalid)
+		}
+	}
+
+	if errors.HasErrors() {
+		return &errors
+	}
+
+	return nil
+}
+
+// ValidateLimit validates pagination limit
+func (s *WebhookService) ValidateLimit(limit int32) *ValidationError {
+	if limit < 1 || limit > 1000 {
+		return &ValidationError{
+			Field:   "limit",
+			Message: "limit must be between 1 and 1000",
+			Code:    ErrorCodeInvalid,
+		}
+	}
+
+	return nil
+}
+
+// ValidateOffset validates pagination offset
+func (s *WebhookService) ValidateOffset(offset int32) *ValidationError {
+	if offset < 0 {
+		return &ValidationError{
+			Field:   "offset",
+			Message: "offset must be non-negative",
+			Code:    ErrorCodeInvalid,
+		}
+	}
+
+	return nil
+}
+
+// ValidateStatus validates delivery status
+func (s *WebhookService) ValidateStatus(status string) *ValidationError {
+	if status == "" {
+		return nil // Status is optional in filters
+	}
+
+	validStatuses := map[string]bool{
+		"pending":   true,
+		"success":   true,
+		"failed":    true,
+		"retrying":  true,
+		"cancelled": true,
+	}
+
+	if !validStatuses[strings.ToLower(status)] {
+		return &ValidationError{
+			Field:   "status",
+			Message: "status must be one of: pending, success, failed, retrying, cancelled",
+			Code:    ErrorCodeInvalid,
+		}
+	}
+
+	return nil
+}
+
+// ============================================================================
+// REQUEST VALIDATION METHODS
+// ============================================================================
+
+// ValidateRegisterWebhookRequest validates RegisterWebhookRequest
+func (s *WebhookService) ValidateRegisterWebhookRequest(req *pb.RegisterWebhookRequest) *ValidationErrors {
+	var errors ValidationErrors
+
+	// Namespace is required
+	if err := s.ValidateNamespace(req.GetNamespace()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	// URL is required
+	if err := s.ValidateURL(req.GetUrl()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	// Events are required
+	if eventsErr := s.ValidateEvents(req.GetEvents()); eventsErr != nil {
+		errors.Errors = append(errors.Errors, eventsErr.Errors...)
+	}
+
+	// Optional fields
+	if req.GetTimeout() > 0 {
+		if err := s.ValidateTimeout(req.GetTimeout()); err != nil {
+			errors.Errors = append(errors.Errors, *err)
+		}
+	}
+
+	if err := s.ValidateHeaders(req.GetHeaders()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	if err := s.ValidateDescription(req.GetDescription()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	if errors.HasErrors() {
+		return &errors
+	}
+
+	return nil
+}
+
+// ValidateUnregisterWebhookRequest validates UnregisterWebhookRequest
+func (s *WebhookService) ValidateUnregisterWebhookRequest(req *pb.UnregisterWebhookRequest) *ValidationErrors {
+	var errors ValidationErrors
+
+	// Webhook ID is required
+	if err := s.ValidateWebhookID(req.GetWebhookId()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	if errors.HasErrors() {
+		return &errors
+	}
+
+	return nil
+}
+
+// ValidatePushEventRequest validates PushEventRequest
+func (s *WebhookService) ValidatePushEventRequest(req *pb.PushEventRequest) *ValidationErrors {
+	var errors ValidationErrors
+
+	// Namespace is required
+	if err := s.ValidateNamespace(req.GetNamespace()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	// Event is required
+	if err := s.ValidateEventName(req.GetEvent()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	// Validate payload if provided
+	if req.GetPayload() != "" {
+		if err := s.ValidateJSON(req.GetPayload()); err != nil {
+			errors.Errors = append(errors.Errors, *err)
+		}
+	}
+
+	if errors.HasErrors() {
+		return &errors
+	}
+
+	return nil
+}
+
+// ValidateGetWebhookStatusRequest validates GetWebhookStatusRequest
+func (s *WebhookService) ValidateGetWebhookStatusRequest(req *pb.GetWebhookStatusRequest) *ValidationErrors {
+	var errors ValidationErrors
+
+	// Namespace is required
+	if err := s.ValidateNamespace(req.GetNamespace()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	// Either webhook_id or event_id should be provided
+	if req.GetWebhookId() == "" && req.GetEventId() == "" {
+		errors.Add("identifier", "either webhook_id or event_id must be provided", ErrorCodeRequired)
+	}
+
+	// If webhook_id is provided, validate it
+	if req.GetWebhookId() != "" {
+		if err := s.ValidateWebhookID(req.GetWebhookId()); err != nil {
+			errors.Errors = append(errors.Errors, *err)
+		}
+	}
+
+	if errors.HasErrors() {
+		return &errors
+	}
+
+	return nil
+}
+
+// ValidateListWebhooksRequest validates ListWebhooksRequest
+func (s *WebhookService) ValidateListWebhooksRequest(req *pb.ListWebhooksRequest) *ValidationErrors {
+	var errors ValidationErrors
+
+	// Namespace is required
+	if err := s.ValidateNamespace(req.GetNamespace()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	// Optional event filter validation
+	if req.GetEvent() != "" {
+		if err := s.ValidateEventName(req.GetEvent()); err != nil {
+			errors.Errors = append(errors.Errors, *err)
+		}
+	}
+
+	if errors.HasErrors() {
+		return &errors
+	}
+
+	return nil
+}
+
+// ValidateGetWebhookHealthRequest validates GetWebhookHealthRequest
+func (s *WebhookService) ValidateGetWebhookHealthRequest(req *pb.GetWebhookHealthRequest) *ValidationErrors {
+	var errors ValidationErrors
+
+	// Namespace is required
+	if err := s.ValidateNamespace(req.GetNamespace()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	// Webhook ID is required
+	if err := s.ValidateWebhookID(req.GetWebhookId()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	if errors.HasErrors() {
+		return &errors
+	}
+
+	return nil
+}
+
+// ValidateResubmitWebhookRequest validates ResubmitWebhookRequest
+func (s *WebhookService) ValidateResubmitWebhookRequest(req *pb.ResubmitWebhookRequest) *ValidationErrors {
+	var errors ValidationErrors
+
+	// Namespace is required
+	if err := s.ValidateNamespace(req.GetNamespace()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	// Delivery ID is required
+	if err := s.ValidateDeliveryID(req.GetDeliveryId()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	if errors.HasErrors() {
+		return &errors
+	}
+
+	return nil
+}
+
+// ValidateGetNamespaceStatsRequest validates GetNamespaceStatsRequest
+func (s *WebhookService) ValidateGetNamespaceStatsRequest(req *pb.GetNamespaceStatsRequest) *ValidationErrors {
+	var errors ValidationErrors
+
+	// Namespace is required
+	if err := s.ValidateNamespace(req.GetNamespace()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	if errors.HasErrors() {
+		return &errors
+	}
+
+	return nil
+}
+
+// ValidateUpdateWebhookConfigRequest validates UpdateWebhookConfigRequest
+func (s *WebhookService) ValidateUpdateWebhookConfigRequest(req *pb.UpdateWebhookConfigRequest) *ValidationErrors {
+	var errors ValidationErrors
+
+	// Namespace is required
+	if err := s.ValidateNamespace(req.GetNamespace()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	// Webhook ID is required
+	if err := s.ValidateWebhookID(req.GetWebhookId()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	if errors.HasErrors() {
+		return &errors
+	}
+
+	return nil
+}
+
+// ValidatePauseWebhookRequest validates PauseWebhookRequest
+func (s *WebhookService) ValidatePauseWebhookRequest(req *pb.PauseWebhookRequest) *ValidationErrors {
+	var errors ValidationErrors
+
+	// Namespace is required
+	if err := s.ValidateNamespace(req.GetNamespace()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	// Webhook ID is required
+	if err := s.ValidateWebhookID(req.GetWebhookId()); err != nil {
+		errors.Errors = append(errors.Errors, *err)
+	}
+
+	if errors.HasErrors() {
+		return &errors
+	}
+
+	return nil
+}
+
+// ============================================================================
+// VALIDATION HELPER METHODS
+// ============================================================================
+
+// ValidateAndConvertToError validates using a validation function and converts to a regular error
+func (s *WebhookService) ValidateAndConvertToError(validationFunc func() *ValidationErrors) error {
+	if validationErrors := validationFunc(); validationErrors != nil {
+		return fmt.Errorf("validation failed: %s", validationErrors.Error())
+	}
+	return nil
 }

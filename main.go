@@ -7,6 +7,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+
+	"github.com/rs/cors"
+
 	"os/signal"
 	"syscall"
 	"time"
@@ -20,7 +23,7 @@ import (
 	connectserver "github.com/sarathsp06/sparrow/internal/connect"
 	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
 	"github.com/sarathsp06/sparrow/internal/observability"
-	"github.com/sarathsp06/sparrow/internal/queue"
+	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
@@ -105,10 +108,10 @@ func main() {
 	// Create HTTP server with OpenTelemetry instrumentation
 	httpServer := &http.Server{
 		Addr: ":8080",
-		Handler: otelhttp.NewHandler(
+		Handler: cors.AllowAll().Handler(otelhttp.NewHandler(
 			h2c.NewHandler(mux, &http2.Server{}),
 			"sparrow-connect",
-		),
+		)),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,

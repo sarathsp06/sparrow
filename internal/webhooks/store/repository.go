@@ -1,4 +1,4 @@
-package webhooks
+package store
 
 import (
 	"context"
@@ -8,12 +8,134 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Repository handles webhook registration storage
 type Repository struct {
 	db *pgxpool.Pool
+}
+
+// BeginTx starts a new transaction
+func (r *Repository) BeginTx(ctx context.Context) (pgx.Tx, error) {
+	return r.db.Begin(ctx)
+}
+
+// StoreEventTx stores an event record within a transaction
+func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRecord) error {
+	if event.ID == "" {
+		event.ID = uuid.New().String()
+	}
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = time.Now()
+	}
+	if event.ExpiresAt.IsZero() {
+		event.ExpiresAt = time.Now().Add(time.Duration(event.TTL) * time.Second)
+	}
+
+	query := `
+		       INSERT INTO event_records (
+			       id, namespace, event, payload, ttl, metadata, created_at, expires_at
+		       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	       `
+
+	metadataJSON, err := json.Marshal(event.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, query,
+		event.ID,
+		event.Namespace,
+		event.Event,
+		event.Payload,
+		event.TTL,
+		metadataJSON,
+		event.CreatedAt,
+		event.ExpiresAt,
+	)
+	return err
+}
+
+// GetWebhooksByEventTx returns all active webhooks for a namespace/event within a transaction
+func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namespace, event string) ([]*WebhookRegistration, error) {
+	query := `
+		       SELECT id, namespace, events, url, headers, timeout, active, description, health, created_at, updated_at
+		       FROM webhook_registrations 
+		       WHERE namespace = $1 AND active = true AND events::jsonb ? $2
+	       `
+
+	rows, err := tx.Query(ctx, query, namespace, event)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var webhooks []*WebhookRegistration
+	for rows.Next() {
+		var wh WebhookRegistration
+		var headersJSON []byte
+		var eventsJSON []byte
+
+		err := rows.Scan(
+			&wh.ID,
+			&wh.Namespace,
+			&eventsJSON,
+			&wh.URL,
+			&headersJSON,
+			&wh.Timeout,
+			&wh.Active,
+			&wh.Description,
+			&wh.Health,
+			&wh.CreatedAt,
+			&wh.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := json.Unmarshal(headersJSON, &wh.Headers); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal headers: %w", err)
+		}
+
+		if err := json.Unmarshal(eventsJSON, &wh.Events); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal events: %w", err)
+		}
+
+		webhooks = append(webhooks, &wh)
+	}
+
+	return webhooks, nil
+}
+
+// CreateDeliveryTx creates a webhook delivery record within a transaction
+func (r *Repository) CreateDeliveryTx(ctx context.Context, tx pgx.Tx, delivery *WebhookDelivery) error {
+	delivery.ID = uuid.New().String()
+	delivery.CreatedAt = time.Now()
+	delivery.Status = StatusPending
+
+	query := `
+		       INSERT INTO webhook_deliveries (
+			       id, webhook_id, event_id, status, attempt_count, max_attempts, 
+			       created_at, expires_at, response_code, response_body, error_message
+		       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	       `
+
+	_, err := tx.Exec(ctx, query,
+		delivery.ID,
+		delivery.WebhookID,
+		delivery.EventID,
+		delivery.Status,
+		delivery.AttemptCount,
+		delivery.MaxAttempts,
+		delivery.CreatedAt,
+		delivery.ExpiresAt,
+		delivery.ResponseCode,
+		delivery.ResponseBody,
+		delivery.ErrorMessage,
+	)
+	return err
 }
 
 // NewRepository creates a new webhook repository
@@ -178,9 +300,15 @@ func (r *Repository) ListWebhooks(ctx context.Context, namespace string, activeO
 
 // StoreEvent stores an event record
 func (r *Repository) StoreEvent(ctx context.Context, event *EventRecord) error {
-	event.ID = uuid.New().String()
-	event.CreatedAt = time.Now()
-	event.ExpiresAt = time.Now().Add(time.Duration(event.TTL) * time.Second)
+	if event.ID == "" {
+		event.ID = uuid.New().String()
+	}
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = time.Now()
+	}
+	if event.ExpiresAt.IsZero() {
+		event.ExpiresAt = time.Now().Add(time.Duration(event.TTL) * time.Second)
+	}
 
 	query := `
 		INSERT INTO event_records (

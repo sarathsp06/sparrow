@@ -1,15 +1,12 @@
--- High-performance time-series health tracking for webhooks
--- This replaces the previous health system with a more scalable approach
 
--- Drop old health system first
 DROP TRIGGER IF EXISTS webhook_health_update_trigger ON webhook_health_metrics;
 DROP FUNCTION IF EXISTS update_webhook_health();
 DROP TABLE IF EXISTS webhook_health_metrics;
+-- Remove legacy health metrics system (already dropped in previous migrations)
 
--- Create time-series table for individual health events
 CREATE TABLE webhook_health_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    webhook_id UUID NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
+    webhook_id VARCHAR NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
     delivery_id UUID NOT NULL,
     success BOOLEAN NOT NULL,
     response_time INTEGER NOT NULL DEFAULT 0, -- milliseconds
@@ -18,8 +15,6 @@ CREATE TABLE webhook_health_events (
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
--- Create hypertable for time-series performance (if TimescaleDB is available)
--- This will be ignored if TimescaleDB extension is not installed
 DO $$
 BEGIN
     -- Try to create hypertable, ignore if TimescaleDB is not available
@@ -29,16 +24,14 @@ EXCEPTION WHEN OTHERS THEN
     RAISE NOTICE 'TimescaleDB not available, using regular table for webhook_health_events';
 END $$;
 
--- Create indexes for time-series queries
 CREATE INDEX idx_webhook_health_events_webhook_id_timestamp ON webhook_health_events(webhook_id, timestamp DESC);
 CREATE INDEX idx_webhook_health_events_timestamp ON webhook_health_events(timestamp DESC);
 CREATE INDEX idx_webhook_health_events_success ON webhook_health_events(success);
 CREATE INDEX idx_webhook_health_events_delivery_id ON webhook_health_events(delivery_id);
 
--- Create aggregated health summaries table (pre-computed for performance)
 CREATE TABLE webhook_health_summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    webhook_id UUID NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
+    webhook_id VARCHAR NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
     window_start TIMESTAMP WITH TIME ZONE NOT NULL,
     window_end TIMESTAMP WITH TIME ZONE NOT NULL,
     total_deliveries INTEGER NOT NULL DEFAULT 0,
@@ -53,15 +46,13 @@ CREATE TABLE webhook_health_summaries (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create indexes for summary queries
 CREATE UNIQUE INDEX idx_webhook_health_summaries_unique ON webhook_health_summaries(webhook_id, window_start, window_end);
 CREATE INDEX idx_webhook_health_summaries_webhook_id ON webhook_health_summaries(webhook_id);
 CREATE INDEX idx_webhook_health_summaries_window ON webhook_health_summaries(window_start, window_end);
 
--- Create current health state table (lightweight, frequently updated)
 CREATE TABLE webhook_health_state (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    webhook_id UUID NOT NULL UNIQUE REFERENCES webhook_registrations(id) ON DELETE CASCADE,
+    webhook_id VARCHAR NOT NULL UNIQUE REFERENCES webhook_registrations(id) ON DELETE CASCADE,
     consecutive_failures INTEGER NOT NULL DEFAULT 0,
     last_success_at TIMESTAMP WITH TIME ZONE,
     last_failure_at TIMESTAMP WITH TIME ZONE,
@@ -70,12 +61,10 @@ CREATE TABLE webhook_health_state (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create index for state queries
 CREATE INDEX idx_webhook_health_state_webhook_id ON webhook_health_state(webhook_id);
 CREATE INDEX idx_webhook_health_state_last_event ON webhook_health_state(last_event_at DESC);
 
--- Function to calculate health status based on recent events
-CREATE OR REPLACE FUNCTION calculate_webhook_health(p_webhook_id UUID, p_lookback_hours INTEGER DEFAULT 24)
+CREATE OR REPLACE FUNCTION calculate_webhook_health(p_webhook_id VARCHAR, p_lookback_hours INTEGER DEFAULT 24)
 RETURNS TEXT AS $$
 DECLARE
     recent_events_count INTEGER;
@@ -114,7 +103,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to update webhook health state after each delivery
 CREATE OR REPLACE FUNCTION update_webhook_health_state()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -154,13 +142,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Create trigger for health state updates
 CREATE TRIGGER webhook_health_state_update_trigger
     AFTER INSERT ON webhook_health_events
     FOR EACH ROW
     EXECUTE FUNCTION update_webhook_health_state();
 
--- Function to aggregate health events into hourly summaries
 CREATE OR REPLACE FUNCTION aggregate_webhook_health_hourly()
 RETURNS INTEGER AS $$
 DECLARE
@@ -226,7 +212,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Initialize health state for existing webhooks
 INSERT INTO webhook_health_state (webhook_id)
 SELECT id FROM webhook_registrations
 ON CONFLICT (webhook_id) DO NOTHING;

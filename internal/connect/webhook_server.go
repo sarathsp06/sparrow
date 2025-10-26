@@ -10,22 +10,22 @@ import (
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
 
-	"github.com/sarathsp06/sparrow/internal/queue"
-	"github.com/sarathsp06/sparrow/internal/services"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
+	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
 	"github.com/sarathsp06/sparrow/proto/protoconnect"
 )
 
 // WebhookConnectServer implements the WebhookService Connect-RPC interface
 type WebhookConnectServer struct {
-	service *services.WebhookService
+	service *webhooks.WebhookService
 }
 
-// NewWebhookConnectServer creates a new Connect-RPC server instance
-func NewWebhookConnectServer(queueManager *queue.Manager, webhookRepo *webhooks.Repository) *WebhookConnectServer {
+// NewWebhookConnectServer creates a new Connect-RPC server
+func NewWebhookConnectServer(queueManager *queue.Manager, webhookRepo *store.Repository) *WebhookConnectServer {
 	return &WebhookConnectServer{
-		service: services.NewWebhookService(queueManager, webhookRepo),
+		service: webhooks.NewWebhookService(queueManager, webhookRepo),
 	}
 }
 
@@ -35,7 +35,7 @@ func (s *WebhookConnectServer) RegisterWebhook(
 	req *connect.Request[pb.RegisterWebhookRequest],
 ) (*connect.Response[pb.RegisterWebhookResponse], error) {
 	// Convert to service request
-	serviceReq := &services.RegisterWebhookRequest{
+	serviceReq := &webhooks.RegisterWebhookRequest{
 		Namespace:   req.Msg.Namespace,
 		Events:      req.Msg.Events,
 		URL:         req.Msg.Url,
@@ -72,7 +72,7 @@ func (s *WebhookConnectServer) UnregisterWebhook(
 	req *connect.Request[pb.UnregisterWebhookRequest],
 ) (*connect.Response[pb.UnregisterWebhookResponse], error) {
 	// Convert to service request
-	serviceReq := &services.UnregisterWebhookRequest{
+	serviceReq := &webhooks.UnregisterWebhookRequest{
 		WebhookID: req.Msg.WebhookId,
 	}
 
@@ -101,7 +101,7 @@ func (s *WebhookConnectServer) PushEvent(
 	req *connect.Request[pb.PushEventRequest],
 ) (*connect.Response[pb.PushEventResponse], error) {
 	// Convert to service request
-	serviceReq := &services.PushEventRequest{
+	serviceReq := &webhooks.PushEventRequest{
 		Namespace:  req.Msg.Namespace,
 		Event:      req.Msg.Event,
 		Payload:    req.Msg.Payload,
@@ -147,7 +147,7 @@ func (s *WebhookConnectServer) ListWebhooks(
 	req *connect.Request[pb.ListWebhooksRequest],
 ) (*connect.Response[pb.ListWebhooksResponse], error) {
 	// Convert to service request
-	serviceReq := &services.ListWebhooksRequest{
+	serviceReq := &webhooks.ListWebhooksRequest{
 		Namespace:  req.Msg.Namespace,
 		Event:      req.Msg.Event,
 		ActiveOnly: req.Msg.ActiveOnly,
@@ -198,7 +198,7 @@ func (s *WebhookConnectServer) RegisterEvent(
 	req *connect.Request[pb.RegisterEventRequest],
 ) (*connect.Response[pb.RegisterEventResponse], error) {
 	// Convert to service request
-	serviceReq := &services.RegisterEventRequest{
+	serviceReq := &webhooks.RegisterEventRequest{
 		Name:        req.Msg.Name,
 		Description: req.Msg.Description,
 		Schema:      req.Msg.Schema,
@@ -233,7 +233,7 @@ func (s *WebhookConnectServer) ListEvents(
 	req *connect.Request[pb.ListEventsRequest],
 ) (*connect.Response[pb.ListEventsResponse], error) {
 	// Convert to service request
-	serviceReq := &services.ListEventsRequest{
+	serviceReq := &webhooks.ListEventsRequest{
 		ActiveOnly: req.Msg.ActiveOnly,
 	}
 
@@ -279,7 +279,7 @@ func (s *WebhookConnectServer) UpdateEvent(
 	req *connect.Request[pb.UpdateEventRequest],
 ) (*connect.Response[pb.UpdateEventResponse], error) {
 	// Convert to service request
-	serviceReq := &services.UpdateEventRequest{
+	serviceReq := &webhooks.UpdateEventRequest{
 		Name:        req.Msg.Name,
 		Description: req.Msg.Description,
 		Schema:      req.Msg.Schema,
@@ -312,7 +312,7 @@ func (s *WebhookConnectServer) DeleteEvent(
 	req *connect.Request[pb.DeleteEventRequest],
 ) (*connect.Response[pb.DeleteEventResponse], error) {
 	// Convert to service request
-	serviceReq := &services.DeleteEventRequest{
+	serviceReq := &webhooks.DeleteEventRequest{
 		Name: req.Msg.Name,
 	}
 
@@ -341,7 +341,7 @@ func (s *WebhookConnectServer) GetWebhookHealth(
 	req *connect.Request[pb.GetWebhookHealthRequest],
 ) (*connect.Response[pb.GetWebhookHealthResponse], error) {
 	// Convert to service request
-	serviceReq := &services.GetWebhookHealthRequest{
+	serviceReq := &webhooks.GetWebhookHealthRequest{
 		WebhookID: req.Msg.WebhookId,
 		Namespace: req.Msg.Namespace,
 	}
@@ -398,7 +398,7 @@ func (s *WebhookConnectServer) ListWebhooksByHealth(
 	req *connect.Request[pb.ListWebhooksByHealthRequest],
 ) (*connect.Response[pb.ListWebhooksByHealthResponse], error) {
 	// Convert to service request
-	serviceReq := &services.ListWebhooksByHealthRequest{
+	serviceReq := &webhooks.ListWebhooksByHealthRequest{
 		Health: convertPbHealthToInternal(req.Msg.Health),
 	}
 
@@ -447,7 +447,7 @@ func (s *WebhookConnectServer) GetHealthSummary(
 	req *connect.Request[pb.GetHealthSummaryRequest],
 ) (*connect.Response[pb.GetHealthSummaryResponse], error) {
 	// Convert to service request
-	serviceReq := &services.GetHealthSummaryRequest{}
+	serviceReq := &webhooks.GetHealthSummaryRequest{}
 
 	// Call service
 	serviceResp, err := s.service.GetHealthSummary(ctx, serviceReq)
@@ -487,7 +487,7 @@ func (s *WebhookConnectServer) ResubmitWebhook(
 	req *connect.Request[pb.ResubmitWebhookRequest],
 ) (*connect.Response[pb.ResubmitWebhookResponse], error) {
 	// Convert to service request
-	serviceReq := &services.ResubmitWebhookRequest{
+	serviceReq := &webhooks.ResubmitWebhookRequest{
 		Namespace: req.Msg.Namespace,
 		Force:     req.Msg.Force,
 	}
@@ -534,7 +534,7 @@ func (s *WebhookConnectServer) GetRegisteredWebhooks(
 	ctx context.Context,
 	req *connect.Request[pb.GetRegisteredWebhooksRequest],
 ) (*connect.Response[pb.GetRegisteredWebhooksResponse], error) {
-	serviceReq := &services.GetRegisteredWebhooksRequest{
+	serviceReq := &webhooks.GetRegisteredWebhooksRequest{
 		WebhookID:  req.Msg.WebhookId,
 		Namespace:  req.Msg.Namespace,
 		ActiveOnly: req.Msg.ActiveOnly,
@@ -577,7 +577,7 @@ func (s *WebhookConnectServer) ListRegisteredWebhooksByEvent(
 	ctx context.Context,
 	req *connect.Request[pb.ListRegisteredWebhooksByEventRequest],
 ) (*connect.Response[pb.ListRegisteredWebhooksByEventResponse], error) {
-	serviceReq := &services.ListRegisteredWebhooksByEventRequest{
+	serviceReq := &webhooks.ListRegisteredWebhooksByEventRequest{
 		Namespace:  req.Msg.Namespace,
 		Event:      req.Msg.Event,
 		ActiveOnly: req.Msg.ActiveOnly,
@@ -622,7 +622,7 @@ func (s *WebhookConnectServer) GetWebhookDeliveryStatus(
 	ctx context.Context,
 	req *connect.Request[pb.GetWebhookDeliveryStatusRequest],
 ) (*connect.Response[pb.GetWebhookDeliveryStatusResponse], error) {
-	serviceReq := &services.GetWebhookDeliveryStatusRequest{
+	serviceReq := &webhooks.GetWebhookDeliveryStatusRequest{
 		DeliveryID: req.Msg.DeliveryId,
 		Namespace:  req.Msg.Namespace,
 	}
@@ -670,7 +670,7 @@ func (s *WebhookConnectServer) ResendWebhook(
 	ctx context.Context,
 	req *connect.Request[pb.ResendWebhookRequest],
 ) (*connect.Response[pb.ResendWebhookResponse], error) {
-	serviceReq := &services.ResendWebhookRequest{
+	serviceReq := &webhooks.ResendWebhookRequest{
 		DeliveryID:  req.Msg.DeliveryId,
 		Namespace:   req.Msg.Namespace,
 		ForceResend: req.Msg.ForceResend,
@@ -695,7 +695,7 @@ func (s *WebhookConnectServer) GetWebhookDeliveryHistory(
 	ctx context.Context,
 	req *connect.Request[pb.GetWebhookDeliveryHistoryRequest],
 ) (*connect.Response[pb.GetWebhookDeliveryHistoryResponse], error) {
-	serviceReq := &services.GetWebhookDeliveryHistoryRequest{
+	serviceReq := &webhooks.GetWebhookDeliveryHistoryRequest{
 		WebhookID: req.Msg.WebhookId,
 		Namespace: req.Msg.Namespace,
 		Limit:     req.Msg.Limit,
@@ -748,7 +748,7 @@ func (s *WebhookConnectServer) GetNamespaceStats(
 	ctx context.Context,
 	req *connect.Request[pb.GetNamespaceStatsRequest],
 ) (*connect.Response[pb.GetNamespaceStatsResponse], error) {
-	serviceReq := &services.GetNamespaceStatsRequest{
+	serviceReq := &webhooks.GetNamespaceStatsRequest{
 		Namespace: req.Msg.Namespace,
 	}
 
@@ -785,9 +785,9 @@ func (s *WebhookConnectServer) UpdateWebhookConfig(
 	ctx context.Context,
 	req *connect.Request[pb.UpdateWebhookConfigRequest],
 ) (*connect.Response[pb.UpdateWebhookConfigResponse], error) {
-	var updates *webhooks.WebhookUpdateFields
+	var updates *store.WebhookUpdateFields
 	if req.Msg.Updates != nil {
-		updates = &webhooks.WebhookUpdateFields{
+		updates = &store.WebhookUpdateFields{
 			Events:      req.Msg.Updates.Events,
 			URL:         req.Msg.Updates.Url,
 			Headers:     req.Msg.Updates.Headers,
@@ -797,7 +797,7 @@ func (s *WebhookConnectServer) UpdateWebhookConfig(
 		}
 	}
 
-	serviceReq := &services.UpdateWebhookConfigRequest{
+	serviceReq := &webhooks.UpdateWebhookConfigRequest{
 		WebhookID: req.Msg.WebhookId,
 		Namespace: req.Msg.Namespace,
 		Updates:   updates,
@@ -821,7 +821,7 @@ func (s *WebhookConnectServer) PauseWebhook(
 	ctx context.Context,
 	req *connect.Request[pb.PauseWebhookRequest],
 ) (*connect.Response[pb.PauseWebhookResponse], error) {
-	serviceReq := &services.PauseWebhookRequest{
+	serviceReq := &webhooks.PauseWebhookRequest{
 		WebhookID: req.Msg.WebhookId,
 		Namespace: req.Msg.Namespace,
 		Reason:    req.Msg.Reason,
@@ -845,7 +845,7 @@ func (s *WebhookConnectServer) ResumeWebhook(
 	ctx context.Context,
 	req *connect.Request[pb.ResumeWebhookRequest],
 ) (*connect.Response[pb.ResumeWebhookResponse], error) {
-	serviceReq := &services.ResumeWebhookRequest{
+	serviceReq := &webhooks.ResumeWebhookRequest{
 		WebhookID: req.Msg.WebhookId,
 		Namespace: req.Msg.Namespace,
 	}
@@ -864,19 +864,19 @@ func (s *WebhookConnectServer) ResumeWebhook(
 }
 
 // convertDeliveryStatus converts internal status to protobuf status
-func convertDeliveryStatus(status webhooks.WebhookDeliveryStatus) pb.WebhookDeliveryStatus {
+func convertDeliveryStatus(status store.WebhookDeliveryStatus) pb.WebhookDeliveryStatus {
 	switch status {
-	case webhooks.StatusPending:
+	case store.StatusPending:
 		return pb.WebhookDeliveryStatus_DELIVERY_PENDING
-	case webhooks.StatusSending:
+	case store.StatusSending:
 		return pb.WebhookDeliveryStatus_DELIVERY_SENDING
-	case webhooks.StatusSuccess:
+	case store.StatusSuccess:
 		return pb.WebhookDeliveryStatus_DELIVERY_SUCCESS
-	case webhooks.StatusFailed:
+	case store.StatusFailed:
 		return pb.WebhookDeliveryStatus_DELIVERY_FAILED
-	case webhooks.StatusRetrying:
+	case store.StatusRetrying:
 		return pb.WebhookDeliveryStatus_DELIVERY_RETRYING
-	case webhooks.StatusExpired:
+	case store.StatusExpired:
 		return pb.WebhookDeliveryStatus_DELIVERY_EXPIRED
 	default:
 		return pb.WebhookDeliveryStatus_DELIVERY_UNKNOWN
@@ -884,15 +884,15 @@ func convertDeliveryStatus(status webhooks.WebhookDeliveryStatus) pb.WebhookDeli
 }
 
 // Helper function to convert webhook health to protobuf
-func convertWebhookHealth(health webhooks.WebhookHealth) pb.WebhookHealth {
+func convertWebhookHealth(health store.WebhookHealth) pb.WebhookHealth {
 	switch health {
-	case webhooks.HealthHealthy:
+	case store.HealthHealthy:
 		return pb.WebhookHealth_HEALTH_HEALTHY
-	case webhooks.HealthDegraded:
+	case store.HealthDegraded:
 		return pb.WebhookHealth_HEALTH_DEGRADED
-	case webhooks.HealthUnhealthy:
+	case store.HealthUnhealthy:
 		return pb.WebhookHealth_HEALTH_UNHEALTHY
-	case webhooks.HealthUnknown:
+	case store.HealthUnknown:
 		return pb.WebhookHealth_HEALTH_UNKNOWN
 	default:
 		return pb.WebhookHealth_HEALTH_UNKNOWN
@@ -900,18 +900,18 @@ func convertWebhookHealth(health webhooks.WebhookHealth) pb.WebhookHealth {
 }
 
 // Helper function to convert protobuf health to internal
-func convertPbHealthToInternal(health pb.WebhookHealth) webhooks.WebhookHealth {
+func convertPbHealthToInternal(health pb.WebhookHealth) store.WebhookHealth {
 	switch health {
 	case pb.WebhookHealth_HEALTH_HEALTHY:
-		return webhooks.HealthHealthy
+		return store.HealthHealthy
 	case pb.WebhookHealth_HEALTH_DEGRADED:
-		return webhooks.HealthDegraded
+		return store.HealthDegraded
 	case pb.WebhookHealth_HEALTH_UNHEALTHY:
-		return webhooks.HealthUnhealthy
+		return store.HealthUnhealthy
 	case pb.WebhookHealth_HEALTH_UNKNOWN:
-		return webhooks.HealthUnknown
+		return store.HealthUnknown
 	default:
-		return webhooks.HealthUnknown
+		return store.HealthUnknown
 	}
 }
 

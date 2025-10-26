@@ -38,19 +38,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[jobs.Ev
 		"event", args.Event,
 	)
 
-	// Use a transaction for event and deliveries
-	tx, err := w.webhookRepo.BeginTx(ctx)
-	if err != nil {
-		log.Error("Failed to begin transaction", "error", err)
-		return err
-	}
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback(ctx)
-			panic(p)
-		}
-	}()
-
+	// Store the event record
 	eventRecord := &store.EventRecord{
 		ID:        args.EventID,
 		Namespace: args.Namespace,
@@ -61,16 +49,15 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[jobs.Ev
 		CreatedAt: args.CreatedAt,
 	}
 
-	if err := w.webhookRepo.StoreEventTx(ctx, tx, eventRecord); err != nil {
+	if err := w.webhookRepo.StoreEvent(ctx, eventRecord); err != nil {
 		log.Error("Failed to store event record", "error", err, "event_id", args.EventID)
-		tx.Rollback(ctx)
 		return err
 	}
 
-	registeredWebhooks, err := w.webhookRepo.GetWebhooksByEventTx(ctx, tx, args.Namespace, args.Event)
+	// Find all registered webhooks for this namespace/event
+	registeredWebhooks, err := w.webhookRepo.GetWebhooksByEvent(ctx, args.Namespace, args.Event)
 	if err != nil {
 		log.Error("Failed to get registered webhooks", "error", err)
-		tx.Rollback(ctx)
 		return err
 	}
 
@@ -79,7 +66,6 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[jobs.Ev
 			"namespace", args.Namespace,
 			"event", args.Event,
 		)
-		tx.Commit(ctx)
 		return nil
 	}
 
@@ -89,22 +75,28 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[jobs.Ev
 		"event", args.Event,
 	)
 
+	// Create webhook delivery jobs for each registered webhook
 	expiresAt := time.Now().Add(time.Duration(args.TTLSeconds) * time.Second)
 
 	for _, webhook := range registeredWebhooks {
 		deliveryID := uuid.New().String()
+
+		// Create webhook delivery record
 		delivery := &store.WebhookDelivery{
 			ID:          deliveryID,
 			WebhookID:   webhook.ID,
 			EventID:     args.EventID,
 			Status:      store.StatusPending,
-			MaxAttempts: 3,
+			MaxAttempts: 3, // Default max attempts
 			ExpiresAt:   expiresAt,
 		}
-		if err := w.webhookRepo.CreateDeliveryTx(ctx, tx, delivery); err != nil {
+
+		if err := w.webhookRepo.CreateDelivery(ctx, delivery); err != nil {
 			log.Error("Failed to create delivery record", "error", err, "webhook_id", webhook.ID)
 			continue
 		}
+
+		// Create webhook delivery job
 		webhookArgs := jobs.WebhookArgs{
 			DeliveryID: deliveryID,
 			WebhookID:  webhook.ID,
@@ -117,6 +109,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[jobs.Ev
 			Namespace:  args.Namespace,
 			Event:      args.Event,
 		}
+
 		_, err := w.riverClient.Insert(ctx, webhookArgs, &river.InsertOpts{
 			Queue: "webhooks",
 		})
@@ -128,6 +121,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[jobs.Ev
 			)
 			continue
 		}
+
 		log.Info("Scheduled webhook delivery",
 			"webhook_id", webhook.ID,
 			"delivery_id", deliveryID,
@@ -135,10 +129,10 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[jobs.Ev
 		)
 	}
 
-	tx.Commit(ctx)
 	log.Info("Event processing completed",
 		"event_id", args.EventID,
 		"webhooks_scheduled", len(registeredWebhooks),
 	)
+
 	return nil
 }

@@ -3,7 +3,7 @@ package workers
 import (
 	"testing"
 
-	"github.com/sarathsp06/sparrow/internal/jobs"
+	"github.com/sarathsp06/sparrow/internal/webhooks/jobs"
 )
 
 func TestWebhookWorkerDefaults(t *testing.T) {

@@ -3,9 +3,9 @@ package grpc
 import (
 	"context"
 
-	"github.com/sarathsp06/sparrow/internal/queue"
-	"github.com/sarathsp06/sparrow/internal/services"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
+	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -14,19 +14,19 @@ import (
 // WebhookServer implements the WebhookService gRPC interface
 type WebhookServer struct {
 	pb.UnimplementedWebhookServiceServer
-	service *services.WebhookService
+	service *webhooks.WebhookService
 }
 
 // NewWebhookServer creates a new WebhookServer instance
-func NewWebhookServer(queueManager *queue.Manager, webhookRepo *webhooks.Repository) *WebhookServer {
+func NewWebhookServer(queueManager *queue.Manager, webhookRepo *store.Repository) *WebhookServer {
 	return &WebhookServer{
-		service: services.NewWebhookService(queueManager, webhookRepo),
+		service: webhooks.NewWebhookService(queueManager, webhookRepo),
 	}
 }
 
 // RegisterWebhook registers a URL for specific events in a namespace
 func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWebhookRequest) (*pb.RegisterWebhookResponse, error) {
-	serviceReq := &services.RegisterWebhookRequest{
+	serviceReq := &webhooks.RegisterWebhookRequest{
 		Namespace:   req.Namespace,
 		Events:      req.Events,
 		URL:         req.Url,
@@ -51,7 +51,7 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 
 // UnregisterWebhook removes a webhook registration
 func (s *WebhookServer) UnregisterWebhook(ctx context.Context, req *pb.UnregisterWebhookRequest) (*pb.UnregisterWebhookResponse, error) {
-	serviceReq := &services.UnregisterWebhookRequest{
+	serviceReq := &webhooks.UnregisterWebhookRequest{
 		WebhookID: req.WebhookId,
 	}
 
@@ -68,7 +68,7 @@ func (s *WebhookServer) UnregisterWebhook(ctx context.Context, req *pb.Unregiste
 
 // PushEvent pushes an event that triggers registered webhooks
 func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest) (*pb.PushEventResponse, error) {
-	serviceReq := &services.PushEventRequest{
+	serviceReq := &webhooks.PushEventRequest{
 		Namespace:  req.Namespace,
 		Event:      req.Event,
 		Payload:    req.Payload,
@@ -92,7 +92,7 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 
 // GetWebhookStatus gets the status of webhook deliveries
 func (s *WebhookServer) GetWebhookStatus(ctx context.Context, req *pb.GetWebhookStatusRequest) (*pb.GetWebhookStatusResponse, error) {
-	serviceReq := &services.GetWebhookStatusRequest{}
+	serviceReq := &webhooks.GetWebhookStatusRequest{}
 
 	switch id := req.Identifier.(type) {
 	case *pb.GetWebhookStatusRequest_WebhookId:
@@ -149,7 +149,7 @@ func (s *WebhookServer) GetWebhookStatus(ctx context.Context, req *pb.GetWebhook
 
 // ListWebhooks lists all registered webhooks for a namespace
 func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRequest) (*pb.ListWebhooksResponse, error) {
-	serviceReq := &services.ListWebhooksRequest{
+	serviceReq := &webhooks.ListWebhooksRequest{
 		Namespace:  req.Namespace,
 		Event:      req.Event,
 		ActiveOnly: req.ActiveOnly,
@@ -189,7 +189,7 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 // RegisterEvent registers a new event type
 func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEventRequest) (*pb.RegisterEventResponse, error) {
 	// Convert to service request
-	serviceReq := &services.RegisterEventRequest{
+	serviceReq := &webhooks.RegisterEventRequest{
 		Name:        req.Name,
 		Description: req.Description,
 		Schema:      req.Schema,
@@ -219,7 +219,7 @@ func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEvent
 // ListEvents lists all registered event types
 func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
 	// Convert to service request
-	serviceReq := &services.ListEventsRequest{
+	serviceReq := &webhooks.ListEventsRequest{
 		ActiveOnly: req.ActiveOnly,
 	}
 
@@ -259,7 +259,7 @@ func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsReques
 // UpdateEvent updates an event registration
 func (s *WebhookServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequest) (*pb.UpdateEventResponse, error) {
 	// Convert to service request
-	serviceReq := &services.UpdateEventRequest{
+	serviceReq := &webhooks.UpdateEventRequest{
 		Name:        req.Name,
 		Description: req.Description,
 		Schema:      req.Schema,
@@ -286,7 +286,7 @@ func (s *WebhookServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequ
 // DeleteEvent deletes an event registration
 func (s *WebhookServer) DeleteEvent(ctx context.Context, req *pb.DeleteEventRequest) (*pb.DeleteEventResponse, error) {
 	// Convert to service request
-	serviceReq := &services.DeleteEventRequest{
+	serviceReq := &webhooks.DeleteEventRequest{
 		Name: req.Name,
 	}
 
@@ -309,7 +309,7 @@ func (s *WebhookServer) DeleteEvent(ctx context.Context, req *pb.DeleteEventRequ
 // GetWebhookHealth gets health metrics for a webhook
 func (s *WebhookServer) GetWebhookHealth(ctx context.Context, req *pb.GetWebhookHealthRequest) (*pb.GetWebhookHealthResponse, error) {
 	// Convert to service request
-	serviceReq := &services.GetWebhookHealthRequest{
+	serviceReq := &webhooks.GetWebhookHealthRequest{
 		WebhookID: req.WebhookId,
 		Namespace: req.Namespace,
 	}
@@ -360,7 +360,7 @@ func (s *WebhookServer) GetWebhookHealth(ctx context.Context, req *pb.GetWebhook
 // ListWebhooksByHealth lists webhooks filtered by health status
 func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWebhooksByHealthRequest) (*pb.ListWebhooksByHealthResponse, error) {
 	// Convert to service request
-	serviceReq := &services.ListWebhooksByHealthRequest{
+	serviceReq := &webhooks.ListWebhooksByHealthRequest{
 		Health: convertPbHealthToInternal(req.Health),
 	}
 
@@ -403,7 +403,7 @@ func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWe
 // GetHealthSummary gets a summary of webhook health
 func (s *WebhookServer) GetHealthSummary(ctx context.Context, req *pb.GetHealthSummaryRequest) (*pb.GetHealthSummaryResponse, error) {
 	// Convert to service request
-	serviceReq := &services.GetHealthSummaryRequest{}
+	serviceReq := &webhooks.GetHealthSummaryRequest{}
 
 	// Call service
 	serviceResp, err := s.service.GetHealthSummary(ctx, serviceReq)
@@ -437,7 +437,7 @@ func (s *WebhookServer) GetHealthSummary(ctx context.Context, req *pb.GetHealthS
 // ResubmitWebhook manually retries failed or pending webhook deliveries
 func (s *WebhookServer) ResubmitWebhook(ctx context.Context, req *pb.ResubmitWebhookRequest) (*pb.ResubmitWebhookResponse, error) {
 	// Convert to service request
-	serviceReq := &services.ResubmitWebhookRequest{
+	serviceReq := &webhooks.ResubmitWebhookRequest{
 		Namespace: req.Namespace,
 		Force:     req.Force,
 	}
@@ -478,7 +478,7 @@ func (s *WebhookServer) ResubmitWebhook(ctx context.Context, req *pb.ResubmitWeb
 
 // GetRegisteredWebhooks retrieves registered webhooks by ID or namespace
 func (s *WebhookServer) GetRegisteredWebhooks(ctx context.Context, req *pb.GetRegisteredWebhooksRequest) (*pb.GetRegisteredWebhooksResponse, error) {
-	serviceReq := &services.GetRegisteredWebhooksRequest{
+	serviceReq := &webhooks.GetRegisteredWebhooksRequest{
 		WebhookID:  req.WebhookId,
 		Namespace:  req.Namespace,
 		ActiveOnly: req.ActiveOnly,
@@ -516,7 +516,7 @@ func (s *WebhookServer) GetRegisteredWebhooks(ctx context.Context, req *pb.GetRe
 
 // ListRegisteredWebhooksByEvent retrieves webhooks registered for specific events
 func (s *WebhookServer) ListRegisteredWebhooksByEvent(ctx context.Context, req *pb.ListRegisteredWebhooksByEventRequest) (*pb.ListRegisteredWebhooksByEventResponse, error) {
-	serviceReq := &services.ListRegisteredWebhooksByEventRequest{
+	serviceReq := &webhooks.ListRegisteredWebhooksByEventRequest{
 		Namespace:  req.Namespace,
 		Event:      req.Event,
 		ActiveOnly: req.ActiveOnly,
@@ -556,7 +556,7 @@ func (s *WebhookServer) ListRegisteredWebhooksByEvent(ctx context.Context, req *
 
 // GetWebhookDeliveryStatus retrieves delivery status for specific delivery
 func (s *WebhookServer) GetWebhookDeliveryStatus(ctx context.Context, req *pb.GetWebhookDeliveryStatusRequest) (*pb.GetWebhookDeliveryStatusResponse, error) {
-	serviceReq := &services.GetWebhookDeliveryStatusRequest{
+	serviceReq := &webhooks.GetWebhookDeliveryStatusRequest{
 		DeliveryID: req.DeliveryId,
 		Namespace:  req.Namespace,
 	}
@@ -599,7 +599,7 @@ func (s *WebhookServer) GetWebhookDeliveryStatus(ctx context.Context, req *pb.Ge
 
 // ResendWebhook resends a failed webhook delivery
 func (s *WebhookServer) ResendWebhook(ctx context.Context, req *pb.ResendWebhookRequest) (*pb.ResendWebhookResponse, error) {
-	serviceReq := &services.ResendWebhookRequest{
+	serviceReq := &webhooks.ResendWebhookRequest{
 		DeliveryID:  req.DeliveryId,
 		Namespace:   req.Namespace,
 		ForceResend: req.ForceResend,
@@ -619,7 +619,7 @@ func (s *WebhookServer) ResendWebhook(ctx context.Context, req *pb.ResendWebhook
 
 // GetWebhookDeliveryHistory retrieves delivery history for a webhook
 func (s *WebhookServer) GetWebhookDeliveryHistory(ctx context.Context, req *pb.GetWebhookDeliveryHistoryRequest) (*pb.GetWebhookDeliveryHistoryResponse, error) {
-	serviceReq := &services.GetWebhookDeliveryHistoryRequest{
+	serviceReq := &webhooks.GetWebhookDeliveryHistoryRequest{
 		WebhookID: req.WebhookId,
 		Namespace: req.Namespace,
 		Limit:     req.Limit,
@@ -667,7 +667,7 @@ func (s *WebhookServer) GetWebhookDeliveryHistory(ctx context.Context, req *pb.G
 
 // GetNamespaceStats retrieves statistics for a namespace
 func (s *WebhookServer) GetNamespaceStats(ctx context.Context, req *pb.GetNamespaceStatsRequest) (*pb.GetNamespaceStatsResponse, error) {
-	serviceReq := &services.GetNamespaceStatsRequest{
+	serviceReq := &webhooks.GetNamespaceStatsRequest{
 		Namespace: req.Namespace,
 	}
 
@@ -699,9 +699,9 @@ func (s *WebhookServer) GetNamespaceStats(ctx context.Context, req *pb.GetNamesp
 
 // UpdateWebhookConfig updates webhook configuration
 func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateWebhookConfigRequest) (*pb.UpdateWebhookConfigResponse, error) {
-	var updates *webhooks.WebhookUpdateFields
+	var updates *store.WebhookUpdateFields
 	if req.Updates != nil {
-		updates = &webhooks.WebhookUpdateFields{
+		updates = &store.WebhookUpdateFields{
 			Events:      req.Updates.Events,
 			URL:         req.Updates.Url,
 			Headers:     req.Updates.Headers,
@@ -711,7 +711,7 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 		}
 	}
 
-	serviceReq := &services.UpdateWebhookConfigRequest{
+	serviceReq := &webhooks.UpdateWebhookConfigRequest{
 		WebhookID: req.WebhookId,
 		Namespace: req.Namespace,
 		Updates:   updates,
@@ -730,7 +730,7 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 
 // PauseWebhook temporarily disables a webhook
 func (s *WebhookServer) PauseWebhook(ctx context.Context, req *pb.PauseWebhookRequest) (*pb.PauseWebhookResponse, error) {
-	serviceReq := &services.PauseWebhookRequest{
+	serviceReq := &webhooks.PauseWebhookRequest{
 		WebhookID: req.WebhookId,
 		Namespace: req.Namespace,
 		Reason:    req.Reason,
@@ -749,7 +749,7 @@ func (s *WebhookServer) PauseWebhook(ctx context.Context, req *pb.PauseWebhookRe
 
 // ResumeWebhook re-enables a paused webhook
 func (s *WebhookServer) ResumeWebhook(ctx context.Context, req *pb.ResumeWebhookRequest) (*pb.ResumeWebhookResponse, error) {
-	serviceReq := &services.ResumeWebhookRequest{
+	serviceReq := &webhooks.ResumeWebhookRequest{
 		WebhookID: req.WebhookId,
 		Namespace: req.Namespace,
 	}
@@ -766,19 +766,19 @@ func (s *WebhookServer) ResumeWebhook(ctx context.Context, req *pb.ResumeWebhook
 }
 
 // Helper function to convert delivery status
-func convertDeliveryStatus(status webhooks.WebhookDeliveryStatus) pb.WebhookDeliveryStatus {
+func convertDeliveryStatus(status store.WebhookDeliveryStatus) pb.WebhookDeliveryStatus {
 	switch status {
-	case webhooks.StatusPending:
+	case store.StatusPending:
 		return pb.WebhookDeliveryStatus_DELIVERY_PENDING
-	case webhooks.StatusSending:
+	case store.StatusSending:
 		return pb.WebhookDeliveryStatus_DELIVERY_SENDING
-	case webhooks.StatusSuccess:
+	case store.StatusSuccess:
 		return pb.WebhookDeliveryStatus_DELIVERY_SUCCESS
-	case webhooks.StatusFailed:
+	case store.StatusFailed:
 		return pb.WebhookDeliveryStatus_DELIVERY_FAILED
-	case webhooks.StatusRetrying:
+	case store.StatusRetrying:
 		return pb.WebhookDeliveryStatus_DELIVERY_RETRYING
-	case webhooks.StatusExpired:
+	case store.StatusExpired:
 		return pb.WebhookDeliveryStatus_DELIVERY_EXPIRED
 	default:
 		return pb.WebhookDeliveryStatus_DELIVERY_UNKNOWN
@@ -786,15 +786,15 @@ func convertDeliveryStatus(status webhooks.WebhookDeliveryStatus) pb.WebhookDeli
 }
 
 // Helper function to convert webhook health to protobuf
-func convertWebhookHealth(health webhooks.WebhookHealth) pb.WebhookHealth {
+func convertWebhookHealth(health store.WebhookHealth) pb.WebhookHealth {
 	switch health {
-	case webhooks.HealthHealthy:
+	case store.HealthHealthy:
 		return pb.WebhookHealth_HEALTH_HEALTHY
-	case webhooks.HealthDegraded:
+	case store.HealthDegraded:
 		return pb.WebhookHealth_HEALTH_DEGRADED
-	case webhooks.HealthUnhealthy:
+	case store.HealthUnhealthy:
 		return pb.WebhookHealth_HEALTH_UNHEALTHY
-	case webhooks.HealthUnknown:
+	case store.HealthUnknown:
 		return pb.WebhookHealth_HEALTH_UNKNOWN
 	default:
 		return pb.WebhookHealth_HEALTH_UNKNOWN
@@ -802,17 +802,17 @@ func convertWebhookHealth(health webhooks.WebhookHealth) pb.WebhookHealth {
 }
 
 // Helper function to convert protobuf health to internal
-func convertPbHealthToInternal(health pb.WebhookHealth) webhooks.WebhookHealth {
+func convertPbHealthToInternal(health pb.WebhookHealth) store.WebhookHealth {
 	switch health {
 	case pb.WebhookHealth_HEALTH_HEALTHY:
-		return webhooks.HealthHealthy
+		return store.HealthHealthy
 	case pb.WebhookHealth_HEALTH_DEGRADED:
-		return webhooks.HealthDegraded
+		return store.HealthDegraded
 	case pb.WebhookHealth_HEALTH_UNHEALTHY:
-		return webhooks.HealthUnhealthy
+		return store.HealthUnhealthy
 	case pb.WebhookHealth_HEALTH_UNKNOWN:
-		return webhooks.HealthUnknown
+		return store.HealthUnknown
 	default:
-		return webhooks.HealthUnknown
+		return store.HealthUnknown
 	}
 }

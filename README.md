@@ -212,7 +212,7 @@ make obs-up                     # OTEL Collector + backends
 ## Architecture
 
 ### Clean Service Layer
-- **Service Layer**: Protocol-agnostic business logic in `/internal/services/`
+- **Service Layer**: Protocol-agnostic business logic in `/internal/webhooks/`
 - **Transport Layer**: gRPC and Connect-RPC adapters in `/internal/grpc/` and `/internal/connect/`
 - **Repository Layer**: Database access abstraction in `/internal/webhooks/`
 - **Queue Layer**: River job processing in `/internal/queue/` and `/internal/workers/`

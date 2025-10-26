@@ -13,22 +13,22 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/sarathsp06/sparrow/internal/jobs"
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/observability"
-	"github.com/sarathsp06/sparrow/internal/webhooks"
+	"github.com/sarathsp06/sparrow/internal/webhooks/jobs"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
 // WebhookWorker handles webhook delivery jobs
 type WebhookWorker struct {
 	river.WorkerDefaults[jobs.WebhookArgs]
-	webhookRepo *webhooks.Repository
+	webhookRepo *store.Repository
 	tracer      trace.Tracer
 	metrics     *observability.SparrowMetrics
 }
 
 // NewWebhookWorker creates a new webhook worker
-func NewWebhookWorker(webhookRepo *webhooks.Repository) *WebhookWorker {
+func NewWebhookWorker(webhookRepo *store.Repository) *WebhookWorker {
 	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
@@ -72,7 +72,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 		)
 
 		err := w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
-			webhooks.StatusExpired, 0, "", "Delivery expired")
+			store.StatusExpired, 0, "", "Delivery expired")
 		if err != nil {
 			log.Error("Failed to update delivery status to expired", "error", err)
 		}
@@ -92,7 +92,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 
 	// Update delivery status to sending
 	if err := w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
-		webhooks.StatusSending, 0, "", ""); err != nil {
+		store.StatusSending, 0, "", ""); err != nil {
 		log.Error("Failed to update delivery status to sending", "error", err)
 	}
 
@@ -108,7 +108,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 		)
 
 		w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
-			webhooks.StatusFailed, 0, "", fmt.Sprintf("Failed to create request: %v", err))
+			store.StatusFailed, 0, "", fmt.Sprintf("Failed to create request: %v", err))
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
@@ -141,7 +141,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 		)
 
 		w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
-			webhooks.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err))
+			store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err))
 		return fmt.Errorf("failed to send webhook: %w", err)
 	}
 	defer resp.Body.Close()
@@ -186,7 +186,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 		)
 
 		err := w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
-			webhooks.StatusSuccess, resp.StatusCode, string(body), "")
+			store.StatusSuccess, resp.StatusCode, string(body), "")
 		if err != nil {
 			log.Error("Failed to update delivery status to success", "error", err)
 		}
@@ -225,7 +225,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 	)
 
 	err = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
-		webhooks.StatusFailed, resp.StatusCode, string(body), errorMessage)
+		store.StatusFailed, resp.StatusCode, string(body), errorMessage)
 	if err != nil {
 		log.Error("Failed to update delivery status to failed", "error", err)
 	}
