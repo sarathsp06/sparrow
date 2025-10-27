@@ -2,7 +2,7 @@
   import { createClient } from "@connectrpc/connect";
   import { createConnectTransport } from "@connectrpc/connect-web";
   import { onMount } from 'svelte';
-  import type { RegisteredWebhook, WebhookDelivery } from '../../../../proto/webhook_pb.js';
+  import { ListWebhooksRequest, UnregisterWebhookRequest, GetWebhookDeliveryHistoryRequest, RegisteredWebhook, WebhookDelivery } from '../../../../proto/webhook_pb.js';
   import { WebhookService } from '../../../../proto/webhook_pb.js';
 
   let webhooks: RegisteredWebhook[] = [];
@@ -18,13 +18,13 @@
     loading = true;
     error = '';
     try {
-      const res = await client.listWebhooks({
+      const req = new ListWebhooksRequest({
         namespace: 'default',
         event: '',
         activeOnly: false,
       });
-      // get only first 5 webhooks
-      webhooks = res.webhooks?.slice(0, 5) || [];
+      const res = await client.listWebhooks(req);
+      webhooks = res.webhooks || [];
     } catch (e) {
       error = 'Failed to load webhooks';
     }
@@ -35,11 +35,12 @@
     console.log("FETCH DELIVERIES");
     try {
       await Promise.all(webhooks.map(async webhook => {
-        const res = await client.getWebhookDeliveryHistory({
+        const req = new GetWebhookDeliveryHistoryRequest({
           namespace: 'default',
           webhookId: webhook.webhookId,
           limit: 5
         });
+        const res = await client.getWebhookDeliveryHistory(req);
         deliveries.push(...(res.deliveries || []));
       }));
     } catch (e) {
@@ -53,6 +54,16 @@
     await fetchDeliveries();
     console.log("DELIVERIES",...deliveries);
   });
+
+  async function unregisterWebhook(webhookId: string) {
+    try {
+      const req = new UnregisterWebhookRequest({ webhookId });
+      await client.unregisterWebhook(req);
+      await fetchWebhooks(); // Refresh the list
+    } catch (e) {
+      error = `Failed to unregister webhook: ${webhookId}`;
+    }
+  }
 </script>
 
 <!-- Paper-inspired Light Theme Webhook Dashboard -->
@@ -89,7 +100,10 @@
               </div>
               <span class="text-gray-500 text-sm">{ wh.url}</span>
             </div>
-            <a href={`/webhooks/${wh.webhookId}`} class="bg-primary/10 text-primary font-semibold px-4 py-2 rounded-lg shadow hover:bg-primary/20 transition ml-4">Details</a>
+            <div class="flex gap-2">
+                <a href={`/webhooks/${wh.webhookId}`} class="bg-primary/10 text-primary font-semibold px-4 py-2 rounded-lg shadow hover:bg-primary/20 transition ml-4">Details</a>
+                <button on:click={() => unregisterWebhook(wh.webhookId)} class="bg-red-500/10 text-red-500 font-semibold px-4 py-2 rounded-lg shadow hover:bg-red-500/20 transition">Delete</button>
+            </div>
           </div>
         {/each}
       </div>
