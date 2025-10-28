@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createClient } from "@connectrpc/connect";
   import { createConnectTransport } from "@connectrpc/connect-web";
-  import { WebhookService, RegisterEventRequest } from '../../../../../proto/webhook_pb.js';
+  import  { WebhookService } from '../../../../../proto/webhook_pb.js';
   import { goto } from '$app/navigation';
 
   let name = '';
@@ -18,12 +18,12 @@
   async function registerEvent() {
     error = '';
     try {
-      const req = new RegisterEventRequest({
+      const req = {
         name,
         description,
         schema,
         active,
-      });
+      };
       await client.registerEvent(req);
       goto('/events');
     } catch (e) {
@@ -57,7 +57,7 @@
       {#if error}
         <p class="text-red-500 text-sm mb-4">{error}</p>
       {/if}
-      <button type="submit" class="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">Register</button>
+      <button type="submit" class="bg-blue-200 text-black py-2 px-4 rounded-md hover:bg-blue-300">Register</button>
     </form>
   </div>
 </div>

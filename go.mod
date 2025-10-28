@@ -1,8 +1,6 @@
 module github.com/sarathsp06/sparrow
 
-go 1.24.0
-
-toolchain go1.24.4
+go 1.25
 
 require (
 	connectrpc.com/connect v1.19.1
@@ -10,9 +8,11 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.6
+	github.com/kaptinlin/jsonschema v0.5.2
 	github.com/riverqueue/river v0.26.0
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.26.0
 	github.com/riverqueue/river/rivertype v0.26.0
+	github.com/rs/cors v1.11.1
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.63.0
 	go.opentelemetry.io/otel v1.38.0
@@ -31,19 +31,22 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/go-json-experiment/json v0.0.0-20250910080747-cc2cfa0554c3 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/goccy/go-yaml v1.18.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/kaptinlin/go-i18n v0.2.0 // indirect
+	github.com/kaptinlin/messageformat-go v0.4.5 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/riverqueue/river/riverdriver v0.26.0 // indirect
 	github.com/riverqueue/river/rivershared v0.26.0 // indirect
-	github.com/rs/cors v1.11.1 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect

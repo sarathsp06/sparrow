@@ -145,6 +145,18 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 
 // RegisterWebhook stores a new webhook registration
 func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookRegistration) error {
+	// Check for existing webhook with same namespace and url
+	checkQuery := `SELECT id FROM webhook_registrations WHERE namespace = $1 AND url = $2 LIMIT 1`
+	var existingID string
+	err := r.db.QueryRow(ctx, checkQuery, registration.Namespace, registration.URL).Scan(&existingID)
+	if err == nil && existingID != "" {
+		// Already exists, treat as success
+		return nil
+	} else if err != nil && err.Error() != "no rows in result set" {
+		// DB error
+		return err
+	}
+
 	registration.ID = uuid.New().String()
 	registration.CreatedAt = time.Now()
 	registration.UpdatedAt = time.Now()

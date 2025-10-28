@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	jsonschema "github.com/kaptinlin/jsonschema"
 	"github.com/riverqueue/river"
 	"go.opentelemetry.io/otel/attribute"
 	otelcodes "go.opentelemetry.io/otel/codes"
@@ -389,13 +390,36 @@ func (s *WebhookService) PushEvent(ctx context.Context, req *PushEventRequest) (
 		return nil, err
 	}
 
-	// Validate JSON payload
-	if req.Payload != "" {
+	// Lookup registered event
+	eventReg, err := s.webhookRepo.GetEventByName(ctx, req.Event)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "event lookup failed")
+		s.logger.Error("Failed to lookup event registration", "event", req.Event, "error", err)
+		return nil, fmt.Errorf("failed to lookup event registration: %w", err)
+	}
+	if eventReg == nil || !eventReg.Active {
+		err := fmt.Errorf("event '%s' is not registered", req.Event)
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "event not registered")
+		s.logger.Error("Event not registered", "event", req.Event)
+		return nil, err
+	}
+
+	// Validate payload against event schema if present
+	if eventReg.Schema != "" && req.Payload != "" {
 		var payload interface{}
 		if err := json.Unmarshal([]byte(req.Payload), &payload); err != nil {
 			span.RecordError(err)
 			span.SetStatus(otelcodes.Error, "invalid JSON payload")
 			return nil, fmt.Errorf("invalid JSON payload: %w", err)
+		}
+		// Validate against JSON schema
+		if err := ValidateJSONSchema(eventReg.Schema, payload); err != nil {
+			span.RecordError(err)
+			span.SetStatus(otelcodes.Error, "payload does not match schema")
+			s.logger.Error("Payload does not match event schema", "event", req.Event, "error", err)
+			return nil, fmt.Errorf("payload does not match event schema: %w", err)
 		}
 	}
 
@@ -2501,6 +2525,23 @@ func (s *WebhookService) ValidatePauseWebhookRequest(req *pb.PauseWebhookRequest
 func (s *WebhookService) ValidateAndConvertToError(validationFunc func() *ValidationErrors) error {
 	if validationErrors := validationFunc(); validationErrors != nil {
 		return fmt.Errorf("validation failed: %s", validationErrors.Error())
+	}
+	return nil
+}
+
+// ValidateJSONSchema validates a payload against a JSON schema string
+func ValidateJSONSchema(schema string, payload interface{}) error {
+	compiler := jsonschema.NewCompiler()
+	sch, err := compiler.Compile([]byte(schema))
+	if err != nil {
+		return fmt.Errorf("invalid event schema: %w", err)
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+	if result := sch.ValidateJSON(payloadBytes); result != nil && !result.Valid {
+		return fmt.Errorf("payload validation failed: %v", result)
 	}
 	return nil
 }

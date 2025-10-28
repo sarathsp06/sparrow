@@ -1,10 +1,10 @@
 <script lang="ts">
+  import { page } from '$app/stores';
   import { createClient } from "@connectrpc/connect";
   import { createConnectTransport } from "@connectrpc/connect-web";
-  import { WebhookService, GetWebhookDeliveryStatusRequest } from '../../../../../../proto/webhook_pb.js';
-  import { page } from '$app/stores';
   import { onMount } from 'svelte';
-  import type { WebhookDelivery } from "../../../../../../proto/webhook_pb.js";
+  import type { WebhookDelivery } from "../../../../../proto/webhook_pb.js";
+  import { WebhookService } from '../../../../../proto/webhook_pb.js';
 
   let delivery: WebhookDelivery | undefined;
   let loading = true;
@@ -18,11 +18,13 @@
   onMount(async () => {
     const deliveryId = $page.params.deliveryId;
     try {
-      const req = new GetWebhookDeliveryStatusRequest({
+      const req = {
           deliveryId,
           namespace: 'default',
-      });
-      const res = await client.getWebhookDeliveryStatus(req);
+      };
+      const res = await client.getWebhookDeliveryStatus({
+        deliveryId: deliveryId, namespace: 'default',
+      })
       delivery = res.delivery;
     } catch (e) {
       error = 'Failed to load delivery details';

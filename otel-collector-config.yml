@@ -8,13 +8,13 @@ processors:
 
 receivers:
   postgresql:
-    endpoint: localhost:5432
+    endpoint: postgres:5432
     transport: tcp
     username: riveruser
     password: riverpass
     databases:
       - riverqueue
-    collection_interval: 10s
+    collection_interval: 2s
   otlp:
     protocols:
       grpc:
@@ -46,7 +46,7 @@ service:
       processors: [batch]
       exporters: [otlp/uptrace, debug]
     metrics:
-      receivers: [otlp]
+      receivers: [otlp,postgresql]
       processors: [cumulativetodelta, batch]
       exporters: [otlp/uptrace, debug]
     metrics/host:

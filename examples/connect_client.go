@@ -11,7 +11,7 @@ import (
 	"connectrpc.com/connect"
 
 	pb "github.com/sarathsp06/sparrow/proto"
-	protoconnect "github.com/sarathsp06/sparrow/proto/protoconnect/client"
+	protoconnect "github.com/sarathsp06/sparrow/proto/protoconnect"
 )
 
 func MainConnect() {

@@ -21,23 +21,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # pgAdmin for database management
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: sparrow-pgadmin-dev
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    ports:
-      - "0.0.0.0:8081:80"
-    depends_on:
-      - postgres
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: sparrow-otel-collector
+    command: ["--config=/etc/otel-collector-config.yml"]
     volumes:
-      - pgadmin_dev_data:/var/lib/pgadmin
-
+      - ./otel-collector-config.yml:/etc/otel-collector-config.yml
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
   # River UI for job monitoring and management
   riverui:
     image: ghcr.io/riverqueue/riverui:latest
@@ -50,7 +42,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-
 volumes:
   postgres_dev_data:
     driver: local

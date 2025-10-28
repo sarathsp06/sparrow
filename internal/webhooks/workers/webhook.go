@@ -76,7 +76,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 		if err != nil {
 			log.Error("Failed to update delivery status to expired", "error", err)
 		}
-		return fmt.Errorf("webhook delivery expired")
+		return nil
 	}
 
 	log.Info("Processing webhook delivery",

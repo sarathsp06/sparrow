@@ -5,12 +5,13 @@ CREATE TABLE webhook_registrations (
     namespace VARCHAR(255) NOT NULL,
     events JSONB NOT NULL,           -- Array of events this webhook listens to
     url TEXT NOT NULL,
-    headers JSONB DEFAULT '{}',      -- Custom headers as JSON
+    headers JSONB DEFAULT '{}'::JSONB,      -- Custom headers as JSON
     timeout INTEGER DEFAULT 30,     -- Timeout in seconds
     active BOOLEAN DEFAULT true,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_namespace_url UNIQUE (namespace, url)
 );
 
 -- Create indexes for efficient querying

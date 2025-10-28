@@ -1,12 +1,12 @@
 <script lang="ts">
+  import { page } from '$app/stores';
   import { createClient } from "@connectrpc/connect";
   import { createConnectTransport } from "@connectrpc/connect-web";
-  import { WebhookService, GetWebhookHealthRequest, GetWebhookDeliveryHistoryRequest } from '../../../../../../proto/webhook_pb.js';
-  import { page } from '$app/stores';
   import { onMount } from 'svelte';
-  import type { WebhookHealthMetrics, WebhookDelivery } from "../../../../../../proto/webhook_pb.js";
+  import type { WebhookDelivery, WebhookHealthMetrics } from "../../../../../proto/webhook_pb.js";
+  import { WebhookService } from '../../../../../proto/webhook_pb.js';
 
-  let healthMetrics: WebhookHealthMetrics | undefined;
+  let healthMetrics: WebhookHealthMetrics | null;
   let deliveries: WebhookDelivery[] = [];
   let loading = true;
   let error = '';
@@ -19,14 +19,14 @@
   onMount(async () => {
     const webhookId = $page.params.webhookId;
     try {
-      const healthReq = new GetWebhookHealthRequest({
+      const healthReq = ({
           webhookId,
           namespace: 'default',
       });
       const healthRes = await client.getWebhookHealth(healthReq);
-      healthMetrics = healthRes.metrics;
+      healthMetrics = healthRes.metrics ? healthRes.metrics : null;
 
-      const deliveryReq = new GetWebhookDeliveryHistoryRequest({
+      const deliveryReq = ({
           webhookId,
           namespace: 'default',
           limit: 20,
@@ -53,8 +53,8 @@
             <h2 class="text-xl font-bold mb-4">Health Metrics</h2>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <p class="text-sm font-medium text-gray-700">Success Rate</p>
-                    <p class="text-lg">{healthMetrics.successRate}%</p>
+                    <p class="text-sm font-medium text-gray-700">Avg Response Time</p>
+                    <p class="text-lg">{healthMetrics.avgResponseTime} ms</p>
                 </div>
                 <div>
                     <p class="text-sm font-medium text-gray-700">Total Deliveries</p>

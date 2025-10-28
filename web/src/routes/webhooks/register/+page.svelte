@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createClient } from "@connectrpc/connect";
   import { createConnectTransport } from "@connectrpc/connect-web";
-  import { WebhookService, RegisterWebhookRequest, ListEventsRequest } from '../../../../../proto/webhook_pb.js';
+  import { WebhookService, RegisterWebhookRequest } from '../../../../../proto/webhook_pb.js';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import type { RegisteredEvent } from '../../../../../proto/webhook_pb.js';

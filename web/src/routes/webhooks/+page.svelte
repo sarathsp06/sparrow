@@ -2,11 +2,12 @@
   import { createClient } from "@connectrpc/connect";
   import { createConnectTransport } from "@connectrpc/connect-web";
   import { onMount } from 'svelte';
-  import { ListWebhooksRequest, UnregisterWebhookRequest, GetWebhookDeliveryHistoryRequest, RegisteredWebhook, WebhookDelivery } from '../../../../proto/webhook_pb.js';
+  import type {  RegisteredWebhook, WebhookDelivery } from '../../../../proto/webhook_pb.js';
   import { WebhookService } from '../../../../proto/webhook_pb.js';
 
   let webhooks: RegisteredWebhook[] = [];
   let deliveries: WebhookDelivery[] = [];
+
   let loading = true;
   let error = '';
   const transport = createConnectTransport({
@@ -18,28 +19,26 @@
     loading = true;
     error = '';
     try {
-      const req = new ListWebhooksRequest({
+      const req = {
         namespace: 'default',
-        event: '',
-        activeOnly: false,
-      });
+      };
       const res = await client.listWebhooks(req);
-      webhooks = res.webhooks || [];
+      webhooks = res.webhooks.slice(0, 5) || [];
     } catch (e) {
+      console.error(e);
       error = 'Failed to load webhooks';
     }
     loading = false;
   }
 
   async function fetchDeliveries() {
-    console.log("FETCH DELIVERIES");
     try {
       await Promise.all(webhooks.map(async webhook => {
-        const req = new GetWebhookDeliveryHistoryRequest({
+        const req = {
           namespace: 'default',
           webhookId: webhook.webhookId,
           limit: 5
-        });
+        };
         const res = await client.getWebhookDeliveryHistory(req);
         deliveries.push(...(res.deliveries || []));
       }));
@@ -52,13 +51,12 @@
   onMount(async () => {
     await fetchWebhooks();
     await fetchDeliveries();
-    console.log("DELIVERIES",...deliveries);
   });
 
   async function unregisterWebhook(webhookId: string) {
     try {
-      const req = new UnregisterWebhookRequest({ webhookId });
-      await client.unregisterWebhook(req);
+      const req = { webhookId };
+      await client.UnregisterWebhook(req);
       await fetchWebhooks(); // Refresh the list
     } catch (e) {
       error = `Failed to unregister webhook: ${webhookId}`;

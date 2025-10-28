@@ -112,6 +112,7 @@ message PushEventRequest {
   string payload = 3; // Event payload as JSON string
   int64 ttl_seconds = 4; // TTL for webhook retry attempts
   map<string, string> metadata = 5; // Additional event metadata
+  optional string id = 6; // Optional id for idempotency 
 }
 
 // PushEventResponse represents the response for event pushing

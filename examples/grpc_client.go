@@ -26,7 +26,7 @@ func MainGRPC() {
 	// Example 1: Register a webhook for multiple user events
 	log.Println("=== Example 1: Register Webhook for Multiple User Events ===")
 	registerReq := &pb.RegisterWebhookRequest{
-		Namespace: "user",
+		Namespace: "default",
 		Events:    []string{"signup", "login", "profile_update"},
 		Url:       "https://webhooks.sarathsadasivan.com/32c5c978-30ed-49d6-aafc-fda9e7fcdc33",
 		Headers: map[string]string{
@@ -52,7 +52,7 @@ func MainGRPC() {
 	// Example 2: Register another webhook for order events
 	log.Println("\n=== Example 2: Register Webhook for Order Events ===")
 	registerReq2 := &pb.RegisterWebhookRequest{
-		Namespace: "order",
+		Namespace: "default",
 		Events:    []string{"created", "updated", "cancelled"},
 		Url:       "https://webhooks.sarathsadasivan.com/32c5c978-30ed-49d6-aafc-fda9e7fcdc33",
 		Headers: map[string]string{
@@ -76,7 +76,7 @@ func MainGRPC() {
 	// Example 3: Register webhook for payment events
 	log.Println("\n=== Example 3: Register Webhook for Payment Events ===")
 	registerReq3 := &pb.RegisterWebhookRequest{
-		Namespace: "payment",
+		Namespace: "default",
 		Events:    []string{"processed", "failed", "refunded"},
 		Url:       "https://webhooks.sarathsadasivan.com/32c5c978-30ed-49d6-aafc-fda9e7fcdc33",
 		Headers: map[string]string{
@@ -99,7 +99,7 @@ func MainGRPC() {
 	// Example 4: List registered webhooks
 	log.Println("\n=== Example 4: List Webhooks in User Namespace ===")
 	listReq := &pb.ListWebhooksRequest{
-		Namespace:  "user",
+		Namespace:  "default",
 		ActiveOnly: true,
 	}
 
@@ -134,7 +134,7 @@ func MainGRPC() {
 	payloadJSON, _ := json.Marshal(eventPayload)
 
 	pushReq := &pb.PushEventRequest{
-		Namespace:  "user",
+		Namespace:  "default",
 		Event:      "signup",
 		Payload:    string(payloadJSON),
 		TtlSeconds: 3600, // 1 hour TTL
@@ -174,7 +174,7 @@ func MainGRPC() {
 	orderPayloadJSON, _ := json.Marshal(orderPayload)
 
 	pushOrderReq := &pb.PushEventRequest{
-		Namespace:  "order",
+		Namespace:  "default",
 		Event:      "created",
 		Payload:    string(orderPayloadJSON),
 		TtlSeconds: 1800, // 30 minutes TTL
@@ -231,7 +231,7 @@ func MainGRPC() {
 	if registerResp != nil && registerResp.Success {
 		healthReq := &pb.GetWebhookHealthRequest{
 			WebhookId: registerResp.WebhookId,
-			Namespace: "user",
+			Namespace: "default",
 		}
 
 		healthResp, err := client.GetWebhookHealth(ctx, healthReq)
@@ -262,7 +262,7 @@ func MainGRPC() {
 			Identifier: &pb.ResubmitWebhookRequest_WebhookId{
 				WebhookId: registerResp.WebhookId,
 			},
-			Namespace: "user",
+			Namespace: "default",
 			Force:     false, // Only resubmit failed/pending deliveries
 		}
 
@@ -317,6 +317,75 @@ func MainGRPC() {
 			log.Printf("  Success: %t", unregisterResp.Success)
 			log.Printf("  Message: %s", unregisterResp.Message)
 		}
+	}
+
+	// Register an event with JSON schema
+	log.Println("\n=== Register Event with JSON Schema ===")
+	eventSchema := `{"type": "object", "properties": {"userId": {"type": "string"}, "email": {"type": "string"}}, "required": ["userId", "email"]}`
+	regEventReq := &pb.RegisterEventRequest{
+		Name:        "user.created",
+		Description: "Triggered when a new user is created",
+		Schema:      eventSchema,
+		Metadata:    map[string]string{"category": "user"},
+		Active:      true,
+	}
+	regEventResp, err := client.RegisterEvent(ctx, regEventReq)
+	if err != nil {
+		log.Fatalf("Failed to register event: %v", err)
+	} else {
+		log.Printf("Event registered: %s (ID: %s)", regEventResp.Message, regEventResp.EventId)
+	}
+
+	// Register webhook for the registered event
+	log.Println("\n=== Register Webhook for Registered Event ===")
+	regWebhookReq := &pb.RegisterWebhookRequest{
+		Namespace:   "default",
+		Events:      []string{"user.created"},
+		Url:         "https://webhooks.sarathsadasivan.com/test-user-created",
+		Headers:     map[string]string{"X-Test": "true"},
+		Timeout:     10,
+		Active:      true,
+		Description: "Webhook for user.created event",
+	}
+	regWebhookResp, err := client.RegisterWebhook(ctx, regWebhookReq)
+	if err != nil {
+		log.Fatalf("Failed to register webhook: %v", err)
+	} else {
+		log.Printf("Webhook registered: %s (ID: %s)", regWebhookResp.Message, regWebhookResp.WebhookId)
+	}
+
+	// Push event with valid payload
+	log.Println("\n=== Push user.created Event with Valid Payload ===")
+	validPayload := map[string]interface{}{"userId": "user_001", "email": "user@example.com"}
+	validPayloadJSON, _ := json.Marshal(validPayload)
+	pushValidReq := &pb.PushEventRequest{
+		Namespace:  "default",
+		Event:      "user.created",
+		Payload:    string(validPayloadJSON),
+		TtlSeconds: 600,
+	}
+	pushValidResp, err := client.PushEvent(ctx, pushValidReq)
+	if err != nil {
+		log.Printf("Failed to push valid event: %v", err)
+	} else {
+		log.Printf("Valid event pushed: %s", pushValidResp.Message)
+	}
+
+	// Push event with invalid payload (missing required field)
+	log.Println("\n=== Push user.created Event with Invalid Payload ===")
+	invalidPayload := map[string]interface{}{"userId": "user_002"} // missing email
+	invalidPayloadJSON, _ := json.Marshal(invalidPayload)
+	pushInvalidReq := &pb.PushEventRequest{
+		Namespace:  "default",
+		Event:      "user.created",
+		Payload:    string(invalidPayloadJSON),
+		TtlSeconds: 600,
+	}
+	pushInvalidResp, err := client.PushEvent(ctx, pushInvalidReq)
+	if err != nil {
+		log.Printf("Expected failure for invalid event: %v", err)
+	} else {
+		log.Printf("Unexpected success for invalid event: %s", pushInvalidResp.Message)
 	}
 
 	log.Println("\n=== All examples completed ===")
