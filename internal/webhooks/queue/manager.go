@@ -57,8 +57,8 @@ func NewManager(ctx context.Context, databaseURL string) (*Manager, error) {
 	}
 
 	// Add workers with explicit generic types
-	river.AddWorker[jobs.WebhookArgs](riverWorkers, workers.NewWebhookWorker(webhookRepo))
-	river.AddWorker[jobs.EventArgs](riverWorkers, workers.NewEventProcessingWorker(webhookRepo, riverClient))
+	river.AddWorker(riverWorkers, workers.NewWebhookWorker(webhookRepo))
+	river.AddWorker(riverWorkers, workers.NewEventProcessingWorker(webhookRepo, riverClient))
 
 	return &Manager{
 		client:      riverClient,

@@ -70,13 +70,16 @@ make build                      # Build binaries
 - RESTful-style endpoints with Connect protocol
 
 ### Event Management Endpoints
+
 Both gRPC and Connect-RPC support:
+
 - `RegisterEvent` - Register new event types
 - `ListEvents` - List all registered events
 - `UpdateEvent` - Update event information
 - `DeleteEvent` - Remove event registrations
 
 ### Testing & Examples
+
 ```bash
 # Test webhook operations
 go run examples/grpc_client.go
@@ -92,6 +95,7 @@ See `proto/webhook.proto` for complete API definitions.
 ## Core Management Methods
 
 ### Webhook Operations
+
 ```go
 // Get webhooks by namespace
 GetRegisteredWebhooks(namespace, webhook_id?, active_only?)
@@ -154,6 +158,7 @@ GetHealthSummary()
 ```
 
 #### Health Monitoring Features
+
 - **Automatic Health Tracking** - Real-time health status updates based on delivery metrics
 - **Health States** - Healthy (>90% success), Degraded (80-90%), Unhealthy (<80% or 5+ consecutive failures), Unknown (no deliveries)
 - **Comprehensive Metrics** - Success rate, response times, failure counts, last success/failure timestamps
@@ -161,6 +166,7 @@ GetHealthSummary()
 - **Health-based Filtering** - Query webhooks by health status for monitoring and alerting
 
 #### Health Calculation Rules
+
 - **Healthy**: Success rate ≥ 90% with at least 5 deliveries
 - **Degraded**: Success rate 80-89% with at least 10 deliveries
 - **Unhealthy**: 5+ consecutive failures or success rate < 80%
