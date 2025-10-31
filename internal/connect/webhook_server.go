@@ -19,7 +19,7 @@ import (
 
 // WebhookConnectServer implements the WebhookService Connect-RPC interface
 type WebhookConnectServer struct {
-	service *webhooks.WebhookService
+	service webhooks.WebhookServiceInterface
 }
 
 // NewWebhookConnectServer creates a new Connect-RPC server

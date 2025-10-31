@@ -14,7 +14,7 @@ import (
 // WebhookServer implements the WebhookService gRPC interface
 type WebhookServer struct {
 	pb.UnimplementedWebhookServiceServer
-	service *webhooks.WebhookService
+	service webhooks.WebhookServiceInterface
 }
 
 // NewWebhookServer creates a new WebhookServer instance
@@ -26,97 +26,68 @@ func NewWebhookServer(queueManager *queue.Manager, webhookRepo *store.Repository
 
 // RegisterWebhook registers a URL for specific events in a namespace
 func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWebhookRequest) (*pb.RegisterWebhookResponse, error) {
-	serviceReq := &webhooks.RegisterWebhookRequest{
-		Namespace:   req.Namespace,
-		Events:      req.Events,
-		URL:         req.Url,
-		Headers:     req.Headers,
-		Timeout:     req.Timeout,
-		Active:      req.Active,
-		Description: req.Description,
-	}
-
-	resp, err := s.service.RegisterWebhook(ctx, serviceReq)
+	webhookID, createdAt, err := s.service.RegisterWebhook(ctx, req.Namespace, req.Events, req.Url, req.Headers, int(req.Timeout), req.Active, req.Description)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to register webhook: %v", err)
 	}
-
 	return &pb.RegisterWebhookResponse{
-		WebhookId: resp.WebhookID,
-		Success:   resp.Success,
-		Message:   resp.Message,
-		CreatedAt: resp.CreatedAt,
+		WebhookId: webhookID,
+		Success:   true,
+		Message:   "Webhook registered successfully",
+		CreatedAt: createdAt,
 	}, nil
 }
 
 // UnregisterWebhook removes a webhook registration
 func (s *WebhookServer) UnregisterWebhook(ctx context.Context, req *pb.UnregisterWebhookRequest) (*pb.UnregisterWebhookResponse, error) {
-	serviceReq := &webhooks.UnregisterWebhookRequest{
-		WebhookID: req.WebhookId,
-	}
-
-	resp, err := s.service.UnregisterWebhook(ctx, serviceReq)
+	err := s.service.UnregisterWebhook(ctx, req.WebhookId)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unregister webhook: %v", err)
 	}
-
 	return &pb.UnregisterWebhookResponse{
-		Success: resp.Success,
-		Message: resp.Message,
+		Success: true,
+		Message: "Webhook unregistered successfully",
 	}, nil
 }
 
 // PushEvent pushes an event that triggers registered webhooks
 func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest) (*pb.PushEventResponse, error) {
-	serviceReq := &webhooks.PushEventRequest{
-		Namespace:  req.Namespace,
-		Event:      req.Event,
-		Payload:    req.Payload,
-		TTLSeconds: req.TtlSeconds,
-		Metadata:   req.Metadata,
-	}
-
-	resp, err := s.service.PushEvent(ctx, serviceReq)
+	eventID, webhooksTriggered, webhookIDs, err := s.service.PushEvent(ctx, req.Namespace, req.Event, req.Payload, req.TtlSeconds, req.Metadata)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to push event: %v", err)
 	}
-
 	return &pb.PushEventResponse{
-		EventId:           resp.EventID,
-		WebhooksTriggered: resp.WebhooksTriggered,
-		WebhookIds:        resp.WebhookIDs,
-		Success:           resp.Success,
-		Message:           resp.Message,
+		EventId:           eventID,
+		WebhooksTriggered: webhooksTriggered,
+		WebhookIds:        webhookIDs,
+		Success:           true,
+		Message:           "Event pushed successfully",
 	}, nil
 }
 
 // GetWebhookStatus gets the status of webhook deliveries
 func (s *WebhookServer) GetWebhookStatus(ctx context.Context, req *pb.GetWebhookStatusRequest) (*pb.GetWebhookStatusResponse, error) {
-	serviceReq := &webhooks.GetWebhookStatusRequest{}
-
+	var webhookID, eventID string
 	switch id := req.Identifier.(type) {
 	case *pb.GetWebhookStatusRequest_WebhookId:
 		if id.WebhookId == "" {
 			return nil, status.Error(codes.InvalidArgument, "webhook_id is required")
 		}
-		serviceReq.WebhookID = id.WebhookId
+		webhookID = id.WebhookId
 	case *pb.GetWebhookStatusRequest_EventId:
 		if id.EventId == "" {
 			return nil, status.Error(codes.InvalidArgument, "event_id is required")
 		}
-		serviceReq.EventID = id.EventId
+		eventID = id.EventId
 	default:
 		return nil, status.Error(codes.InvalidArgument, "either webhook_id or event_id is required")
 	}
-
-	resp, err := s.service.GetWebhookStatus(ctx, serviceReq)
+	deliveries, totalDeliveries, err := s.service.GetWebhookStatus(ctx, webhookID, eventID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get webhook status: %v", err)
 	}
-
-	// Convert to protobuf format
-	pbDeliveries := make([]*pb.WebhookDelivery, len(resp.Deliveries))
-	for i, d := range resp.Deliveries {
+	pbDeliveries := make([]*pb.WebhookDelivery, len(deliveries))
+	for i, d := range deliveries {
 		pbDeliveries[i] = &pb.WebhookDelivery{
 			DeliveryId:   d.ID,
 			WebhookId:    d.WebhookID,
@@ -130,7 +101,6 @@ func (s *WebhookServer) GetWebhookStatus(ctx context.Context, req *pb.GetWebhook
 			ResponseBody: d.ResponseBody,
 			ErrorMessage: d.ErrorMessage,
 		}
-
 		if d.LastAttemptedAt != nil {
 			pbDeliveries[i].LastAttemptedAt = d.LastAttemptedAt.Unix()
 		}
@@ -138,31 +108,22 @@ func (s *WebhookServer) GetWebhookStatus(ctx context.Context, req *pb.GetWebhook
 			pbDeliveries[i].NextRetryAt = d.NextRetryAt.Unix()
 		}
 	}
-
 	return &pb.GetWebhookStatusResponse{
 		Deliveries:      pbDeliveries,
-		TotalDeliveries: resp.TotalDeliveries,
-		Success:         resp.Success,
-		Message:         resp.Message,
+		TotalDeliveries: totalDeliveries,
+		Success:         true,
+		Message:         "Webhook status retrieved successfully",
 	}, nil
 }
 
 // ListWebhooks lists all registered webhooks for a namespace
 func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRequest) (*pb.ListWebhooksResponse, error) {
-	serviceReq := &webhooks.ListWebhooksRequest{
-		Namespace:  req.Namespace,
-		Event:      req.Event,
-		ActiveOnly: req.ActiveOnly,
-	}
-
-	resp, err := s.service.ListWebhooks(ctx, serviceReq)
+	regs, err := s.service.ListWebhooks(ctx, req.Namespace, req.Event, req.ActiveOnly)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list webhooks: %v", err)
 	}
-
-	// Convert to protobuf format
-	pbWebhooks := make([]*pb.RegisteredWebhook, len(resp.Webhooks))
-	for i, reg := range resp.Webhooks {
+	pbWebhooks := make([]*pb.RegisteredWebhook, len(regs))
+	for i, reg := range regs {
 		pbWebhooks[i] = &pb.RegisteredWebhook{
 			WebhookId:   reg.ID,
 			Namespace:   reg.Namespace,
@@ -177,65 +138,36 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 			UpdatedAt:   reg.UpdatedAt.Unix(),
 		}
 	}
-
 	return &pb.ListWebhooksResponse{
 		Webhooks:   pbWebhooks,
-		TotalCount: resp.TotalCount,
-		Success:    resp.Success,
-		Message:    resp.Message,
+		TotalCount: int32(len(pbWebhooks)),
+		Success:    true,
+		Message:    "Webhooks listed successfully",
 	}, nil
 }
 
 // RegisterEvent registers a new event type
 func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEventRequest) (*pb.RegisterEventResponse, error) {
-	// Convert to service request
-	serviceReq := &webhooks.RegisterEventRequest{
-		Name:        req.Name,
-		Description: req.Description,
-		Schema:      req.Schema,
-		Metadata:    req.Metadata,
-		Active:      req.Active,
-	}
-
-	// Call service
-	serviceResp, err := s.service.RegisterEvent(ctx, serviceReq)
+	eventID, createdAt, err := s.service.RegisterEvent(ctx, req.Name, req.Description, req.Schema, req.Metadata, req.Active)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to register event: %v", err)
 	}
-
-	if !serviceResp.Success {
-		return nil, status.Errorf(codes.InvalidArgument, "%s", serviceResp.Message)
-	}
-
-	// Convert to protobuf response
 	return &pb.RegisterEventResponse{
-		EventId:   serviceResp.EventID,
-		Success:   serviceResp.Success,
-		Message:   serviceResp.Message,
-		CreatedAt: serviceResp.CreatedAt,
+		EventId:   eventID,
+		Success:   true,
+		Message:   "Event registered successfully",
+		CreatedAt: createdAt,
 	}, nil
 }
 
 // ListEvents lists all registered event types
 func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
-	// Convert to service request
-	serviceReq := &webhooks.ListEventsRequest{
-		ActiveOnly: req.ActiveOnly,
-	}
-
-	// Call service
-	serviceResp, err := s.service.ListEvents(ctx, serviceReq)
+	events, err := s.service.ListEvents(ctx, req.ActiveOnly)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to list events: %v", err)
 	}
-
-	if !serviceResp.Success {
-		return nil, status.Errorf(codes.InvalidArgument, "%s", serviceResp.Message)
-	}
-
-	// Convert to protobuf format
-	pbEvents := make([]*pb.RegisteredEvent, len(serviceResp.Events))
-	for i, event := range serviceResp.Events {
+	pbEvents := make([]*pb.RegisteredEvent, len(events))
+	for i, event := range events {
 		pbEvents[i] = &pb.RegisteredEvent{
 			EventId:     event.ID,
 			Name:        event.Name,
@@ -247,136 +179,82 @@ func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsReques
 			UpdatedAt:   event.UpdatedAt.Unix(),
 		}
 	}
-
 	return &pb.ListEventsResponse{
 		Events:     pbEvents,
-		TotalCount: serviceResp.TotalCount,
-		Success:    serviceResp.Success,
-		Message:    serviceResp.Message,
+		TotalCount: int32(len(pbEvents)),
+		Success:    true,
+		Message:    "Events listed successfully",
 	}, nil
 }
 
 // UpdateEvent updates an event registration
 func (s *WebhookServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequest) (*pb.UpdateEventResponse, error) {
-	// Convert to service request
-	serviceReq := &webhooks.UpdateEventRequest{
-		Name:        req.Name,
-		Description: req.Description,
-		Schema:      req.Schema,
-		Metadata:    req.Metadata,
-		Active:      req.Active,
-	}
-
-	// Call service
-	serviceResp, err := s.service.UpdateEvent(ctx, serviceReq)
+	err := s.service.UpdateEvent(ctx, req.Name, req.Description, req.Schema, req.Metadata, req.Active)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to update event: %v", err)
 	}
-
-	if !serviceResp.Success {
-		return nil, status.Errorf(codes.InvalidArgument, "%s", serviceResp.Message)
-	}
-
 	return &pb.UpdateEventResponse{
-		Success: serviceResp.Success,
-		Message: serviceResp.Message,
+		Success: true,
+		Message: "Event updated successfully",
 	}, nil
 }
 
 // DeleteEvent deletes an event registration
 func (s *WebhookServer) DeleteEvent(ctx context.Context, req *pb.DeleteEventRequest) (*pb.DeleteEventResponse, error) {
-	// Convert to service request
-	serviceReq := &webhooks.DeleteEventRequest{
-		Name: req.Name,
-	}
-
-	// Call service
-	serviceResp, err := s.service.DeleteEvent(ctx, serviceReq)
+	err := s.service.DeleteEvent(ctx, req.Name)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to delete event: %v", err)
 	}
-
-	if !serviceResp.Success {
-		return nil, status.Errorf(codes.InvalidArgument, "%s", serviceResp.Message)
-	}
-
 	return &pb.DeleteEventResponse{
-		Success: serviceResp.Success,
-		Message: serviceResp.Message,
+		Success: true,
+		Message: "Event deleted successfully",
 	}, nil
 }
 
 // GetWebhookHealth gets health metrics for a webhook
 func (s *WebhookServer) GetWebhookHealth(ctx context.Context, req *pb.GetWebhookHealthRequest) (*pb.GetWebhookHealthResponse, error) {
-	// Convert to service request
-	serviceReq := &webhooks.GetWebhookHealthRequest{
-		WebhookID: req.WebhookId,
-		Namespace: req.Namespace,
-	}
-
-	// Call service
-	serviceResp, err := s.service.GetWebhookHealth(ctx, serviceReq)
+	healthData, err := s.service.GetWebhookHealth(ctx, req.WebhookId, req.Namespace)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get webhook health: %v", err)
 	}
-
-	if !serviceResp.Success {
-		return nil, status.Errorf(codes.InvalidArgument, "%s", serviceResp.Message)
-	}
-
-	// Convert metrics to protobuf format
 	var pbMetrics *pb.WebhookHealthMetrics
-	if serviceResp.Metrics != nil {
+	if healthData != nil {
 		pbMetrics = &pb.WebhookHealthMetrics{
-			WebhookId:            serviceResp.Metrics.WebhookID,
-			TotalDeliveries:      int32(serviceResp.Metrics.TotalDeliveries),
-			SuccessfulDeliveries: int32(serviceResp.Metrics.SuccessfulDeliveries),
-			FailedDeliveries:     int32(serviceResp.Metrics.FailedDeliveries),
-			ConsecutiveFailures:  int32(serviceResp.Metrics.ConsecutiveFailures),
-			SuccessRate:          serviceResp.Metrics.SuccessRate,
-			AvgResponseTime:      int32(serviceResp.Metrics.AvgResponseTime),
-			CreatedAt:            serviceResp.Metrics.CreatedAt.Unix(),
-			UpdatedAt:            serviceResp.Metrics.UpdatedAt.Unix(),
+			WebhookId:            healthData.WebhookID,
+			TotalDeliveries:      int32(healthData.TotalDeliveries),
+			SuccessfulDeliveries: int32(healthData.SuccessfulDeliveries),
+			FailedDeliveries:     int32(healthData.FailedDeliveries),
+			ConsecutiveFailures:  int32(healthData.ConsecutiveFailures),
+			SuccessRate:          healthData.SuccessRate,
+			AvgResponseTime:      int32(healthData.AvgResponseTime),
+			CreatedAt:            healthData.CreatedAt.Unix(),
+			UpdatedAt:            healthData.UpdatedAt.Unix(),
 		}
-
-		if serviceResp.Metrics.LastSuccessAt != nil {
-			pbMetrics.LastSuccessAt = serviceResp.Metrics.LastSuccessAt.Unix()
+		if healthData.LastSuccessAt != nil {
+			pbMetrics.LastSuccessAt = healthData.LastSuccessAt.Unix()
 		}
-
-		if serviceResp.Metrics.LastFailureAt != nil {
-			pbMetrics.LastFailureAt = serviceResp.Metrics.LastFailureAt.Unix()
+		if healthData.LastFailureAt != nil {
+			pbMetrics.LastFailureAt = healthData.LastFailureAt.Unix()
 		}
 	}
-
 	return &pb.GetWebhookHealthResponse{
-		Success:   serviceResp.Success,
-		Message:   serviceResp.Message,
-		WebhookId: serviceResp.WebhookID,
-		Health:    convertWebhookHealth(serviceResp.Health),
+		Success:   true,
+		Message:   "Webhook health retrieved successfully",
+		WebhookId: req.WebhookId,
+		Health:    convertWebhookHealth(healthData.Health),
 		Metrics:   pbMetrics,
 	}, nil
 }
 
 // ListWebhooksByHealth lists webhooks filtered by health status
 func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWebhooksByHealthRequest) (*pb.ListWebhooksByHealthResponse, error) {
-	// Convert to service request
-	serviceReq := &webhooks.ListWebhooksByHealthRequest{
-		Health: convertPbHealthToInternal(req.Health),
-	}
-
-	// Call service
-	serviceResp, err := s.service.ListWebhooksByHealth(ctx, serviceReq)
+	health := convertPbHealthToInternal(req.Health)
+	webhooks, err := s.service.ListWebhooksByHealth(ctx, health)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to list webhooks by health: %v", err)
 	}
-
-	if !serviceResp.Success {
-		return nil, status.Errorf(codes.InvalidArgument, "%s", serviceResp.Message)
-	}
-
-	// Convert to protobuf format
-	pbWebhooks := make([]*pb.RegisteredWebhook, len(serviceResp.Webhooks))
-	for i, webhook := range serviceResp.Webhooks {
+	pbWebhooks := make([]*pb.RegisteredWebhook, len(webhooks))
+	for i, webhook := range webhooks {
 		pbWebhooks[i] = &pb.RegisteredWebhook{
 			WebhookId:   webhook.ID,
 			Namespace:   webhook.Namespace,
@@ -391,106 +269,74 @@ func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWe
 			UpdatedAt:   webhook.UpdatedAt.Unix(),
 		}
 	}
-
 	return &pb.ListWebhooksByHealthResponse{
-		Success:    serviceResp.Success,
-		Message:    serviceResp.Message,
+		Success:    true,
+		Message:    "Webhooks by health listed successfully",
 		Webhooks:   pbWebhooks,
-		TotalCount: serviceResp.TotalCount,
+		TotalCount: int32(len(pbWebhooks)),
 	}, nil
 }
 
 // GetHealthSummary gets a summary of webhook health
 func (s *WebhookServer) GetHealthSummary(ctx context.Context, req *pb.GetHealthSummaryRequest) (*pb.GetHealthSummaryResponse, error) {
-	// Convert to service request
-	serviceReq := &webhooks.GetHealthSummaryRequest{}
-
-	// Call service
-	serviceResp, err := s.service.GetHealthSummary(ctx, serviceReq)
+	summaryData, err := s.service.GetHealthSummary(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get health summary: %v", err)
 	}
-
-	if !serviceResp.Success {
-		return nil, status.Errorf(codes.InvalidArgument, "%s", serviceResp.Message)
-	}
-
-	// Convert to protobuf format
 	var pbSummary *pb.HealthSummary
-	if serviceResp.Summary != nil {
+	if summaryData != nil {
 		pbSummary = &pb.HealthSummary{
-			HealthyCount:   int32(serviceResp.Summary.HealthyCount),
-			DegradedCount:  int32(serviceResp.Summary.DegradedCount),
-			UnhealthyCount: int32(serviceResp.Summary.UnhealthyCount),
-			UnknownCount:   int32(serviceResp.Summary.UnknownCount),
-			TotalCount:     int32(serviceResp.Summary.TotalCount),
+			HealthyCount:   int32(summaryData.HealthyCount),
+			DegradedCount:  int32(summaryData.DegradedCount),
+			UnhealthyCount: int32(summaryData.UnhealthyCount),
+			UnknownCount:   int32(summaryData.UnknownCount),
+			TotalCount:     int32(summaryData.TotalCount),
 		}
 	}
-
 	return &pb.GetHealthSummaryResponse{
-		Success: serviceResp.Success,
-		Message: serviceResp.Message,
+		Success: true,
+		Message: "Health summary retrieved successfully",
 		Summary: pbSummary,
 	}, nil
 }
 
 // ResubmitWebhook manually retries failed or pending webhook deliveries
 func (s *WebhookServer) ResubmitWebhook(ctx context.Context, req *pb.ResubmitWebhookRequest) (*pb.ResubmitWebhookResponse, error) {
-	// Convert to service request
-	serviceReq := &webhooks.ResubmitWebhookRequest{
-		Namespace: req.Namespace,
-		Force:     req.Force,
-	}
-
-	// Handle the identifier (either delivery_id or webhook_id)
+	var deliveryID, webhookID string
 	switch id := req.Identifier.(type) {
 	case *pb.ResubmitWebhookRequest_DeliveryId:
 		if id.DeliveryId == "" {
 			return nil, status.Error(codes.InvalidArgument, "delivery_id cannot be empty")
 		}
-		serviceReq.DeliveryID = id.DeliveryId
+		deliveryID = id.DeliveryId
 	case *pb.ResubmitWebhookRequest_WebhookId:
 		if id.WebhookId == "" {
 			return nil, status.Error(codes.InvalidArgument, "webhook_id cannot be empty")
 		}
-		serviceReq.WebhookID = id.WebhookId
+		webhookID = id.WebhookId
 	default:
 		return nil, status.Error(codes.InvalidArgument, "either delivery_id or webhook_id is required")
 	}
-
-	// Call service
-	serviceResp, err := s.service.ResubmitWebhook(ctx, serviceReq)
+	deliveryIDs, resubmittedCount, err := s.service.ResubmitWebhook(ctx, deliveryID, webhookID, req.Namespace, req.Force)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to resubmit webhook: %v", err)
 	}
-
-	if !serviceResp.Success {
-		return nil, status.Errorf(codes.InvalidArgument, "%s", serviceResp.Message)
-	}
-
 	return &pb.ResubmitWebhookResponse{
-		Success:          serviceResp.Success,
-		Message:          serviceResp.Message,
-		ResubmittedCount: serviceResp.ResubmittedCount,
-		DeliveryIds:      serviceResp.DeliveryIDs,
+		Success:          true,
+		Message:          "Webhook resubmitted successfully",
+		DeliveryIds:      deliveryIDs,
+		ResubmittedCount: resubmittedCount,
 	}, nil
 }
 
 // GetRegisteredWebhooks retrieves registered webhooks by ID or namespace
 func (s *WebhookServer) GetRegisteredWebhooks(ctx context.Context, req *pb.GetRegisteredWebhooksRequest) (*pb.GetRegisteredWebhooksResponse, error) {
-	serviceReq := &webhooks.GetRegisteredWebhooksRequest{
-		WebhookID:  req.WebhookId,
-		Namespace:  req.Namespace,
-		ActiveOnly: req.ActiveOnly,
-	}
-
-	serviceResp, err := s.service.GetRegisteredWebhooks(ctx, serviceReq)
+	regs, err := s.service.GetRegisteredWebhooks(ctx, req.Namespace, req.WebhookId, req.ActiveOnly)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get registered webhooks: %v", err)
 	}
-
 	var webhooks []*pb.RegisteredWebhook
-	for _, webhook := range serviceResp.Webhooks {
+	for _, webhook := range regs {
 		webhooks = append(webhooks, &pb.RegisteredWebhook{
 			WebhookId:   webhook.ID,
 			Namespace:   webhook.Namespace,
@@ -505,30 +351,22 @@ func (s *WebhookServer) GetRegisteredWebhooks(ctx context.Context, req *pb.GetRe
 			UpdatedAt:   webhook.UpdatedAt.Unix(),
 		})
 	}
-
 	return &pb.GetRegisteredWebhooksResponse{
 		Webhooks:   webhooks,
-		TotalCount: serviceResp.TotalCount,
-		Success:    serviceResp.Success,
-		Message:    serviceResp.Message,
+		TotalCount: int32(len(webhooks)),
+		Success:    true,
+		Message:    "Webhooks retrieved successfully",
 	}, nil
 }
 
 // ListRegisteredWebhooksByEvent retrieves webhooks registered for specific events
 func (s *WebhookServer) ListRegisteredWebhooksByEvent(ctx context.Context, req *pb.ListRegisteredWebhooksByEventRequest) (*pb.ListRegisteredWebhooksByEventResponse, error) {
-	serviceReq := &webhooks.ListRegisteredWebhooksByEventRequest{
-		Namespace:  req.Namespace,
-		Event:      req.Event,
-		ActiveOnly: req.ActiveOnly,
-	}
-
-	serviceResp, err := s.service.ListRegisteredWebhooksByEvent(ctx, serviceReq)
+	regs, err := s.service.ListRegisteredWebhooksByEvent(ctx, req.Namespace, req.Event, req.ActiveOnly)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list webhooks by event: %v", err)
 	}
-
 	var webhooks []*pb.RegisteredWebhook
-	for _, webhook := range serviceResp.Webhooks {
+	for _, webhook := range regs {
 		webhooks = append(webhooks, &pb.RegisteredWebhook{
 			WebhookId:   webhook.ID,
 			Namespace:   webhook.Namespace,
@@ -543,96 +381,72 @@ func (s *WebhookServer) ListRegisteredWebhooksByEvent(ctx context.Context, req *
 			UpdatedAt:   webhook.UpdatedAt.Unix(),
 		})
 	}
-
 	return &pb.ListRegisteredWebhooksByEventResponse{
 		Webhooks:   webhooks,
-		Event:      serviceResp.Event,
-		Namespace:  serviceResp.Namespace,
-		TotalCount: serviceResp.TotalCount,
-		Success:    serviceResp.Success,
-		Message:    serviceResp.Message,
+		Event:      req.Event,
+		Namespace:  req.Namespace,
+		TotalCount: int32(len(webhooks)),
+		Success:    true,
+		Message:    "Webhooks by event retrieved successfully",
 	}, nil
 }
 
 // GetWebhookDeliveryStatus retrieves delivery status for specific delivery
 func (s *WebhookServer) GetWebhookDeliveryStatus(ctx context.Context, req *pb.GetWebhookDeliveryStatusRequest) (*pb.GetWebhookDeliveryStatusResponse, error) {
-	serviceReq := &webhooks.GetWebhookDeliveryStatusRequest{
-		DeliveryID: req.DeliveryId,
-		Namespace:  req.Namespace,
-	}
-
-	serviceResp, err := s.service.GetWebhookDeliveryStatus(ctx, serviceReq)
+	delivery, err := s.service.GetWebhookDeliveryStatus(ctx, req.DeliveryId, req.Namespace)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get delivery status: %v", err)
 	}
-
-	var delivery *pb.WebhookDelivery
-	if serviceResp.Delivery != nil {
-		delivery = &pb.WebhookDelivery{
-			DeliveryId:   serviceResp.Delivery.ID,
-			WebhookId:    serviceResp.Delivery.WebhookID,
-			EventId:      serviceResp.Delivery.EventID,
-			Status:       convertDeliveryStatus(serviceResp.Delivery.Status),
-			AttemptCount: int32(serviceResp.Delivery.AttemptCount),
-			MaxAttempts:  int32(serviceResp.Delivery.MaxAttempts),
-			CreatedAt:    serviceResp.Delivery.CreatedAt.Unix(),
-			ExpiresAt:    serviceResp.Delivery.ExpiresAt.Unix(),
-			ResponseCode: int32(serviceResp.Delivery.ResponseCode),
-			ResponseBody: serviceResp.Delivery.ResponseBody,
-			ErrorMessage: serviceResp.Delivery.ErrorMessage,
+	var pbDelivery *pb.WebhookDelivery
+	if delivery != nil {
+		pbDelivery = &pb.WebhookDelivery{
+			DeliveryId:   delivery.ID,
+			WebhookId:    delivery.WebhookID,
+			EventId:      delivery.EventID,
+			Status:       convertDeliveryStatus(delivery.Status),
+			AttemptCount: int32(delivery.AttemptCount),
+			MaxAttempts:  int32(delivery.MaxAttempts),
+			CreatedAt:    delivery.CreatedAt.Unix(),
+			ExpiresAt:    delivery.ExpiresAt.Unix(),
+			ResponseCode: int32(delivery.ResponseCode),
+			ResponseBody: delivery.ResponseBody,
+			ErrorMessage: delivery.ErrorMessage,
 		}
-
-		if serviceResp.Delivery.LastAttemptedAt != nil {
-			delivery.LastAttemptedAt = serviceResp.Delivery.LastAttemptedAt.Unix()
+		if delivery.LastAttemptedAt != nil {
+			pbDelivery.LastAttemptedAt = delivery.LastAttemptedAt.Unix()
 		}
-		if serviceResp.Delivery.NextRetryAt != nil {
-			delivery.NextRetryAt = serviceResp.Delivery.NextRetryAt.Unix()
+		if delivery.NextRetryAt != nil {
+			pbDelivery.NextRetryAt = delivery.NextRetryAt.Unix()
 		}
 	}
-
 	return &pb.GetWebhookDeliveryStatusResponse{
-		Delivery: delivery,
-		Success:  serviceResp.Success,
-		Message:  serviceResp.Message,
+		Delivery: pbDelivery,
+		Success:  true,
+		Message:  "Delivery status retrieved successfully",
 	}, nil
 }
 
 // ResendWebhook resends a failed webhook delivery
 func (s *WebhookServer) ResendWebhook(ctx context.Context, req *pb.ResendWebhookRequest) (*pb.ResendWebhookResponse, error) {
-	serviceReq := &webhooks.ResendWebhookRequest{
-		DeliveryID:  req.DeliveryId,
-		Namespace:   req.Namespace,
-		ForceResend: req.ForceResend,
-	}
-
-	serviceResp, err := s.service.ResendWebhook(ctx, serviceReq)
+	newDeliveryID, err := s.service.ResendWebhook(ctx, req.DeliveryId, req.Namespace, req.ForceResend)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to resend webhook: %v", err)
 	}
-
 	return &pb.ResendWebhookResponse{
-		NewDeliveryId: serviceResp.NewDeliveryID,
-		Success:       serviceResp.Success,
-		Message:       serviceResp.Message,
+		NewDeliveryId: newDeliveryID,
+		Success:       true,
+		Message:       "Webhook resent successfully",
 	}, nil
 }
 
 // GetWebhookDeliveryHistory retrieves delivery history for a webhook
 func (s *WebhookServer) GetWebhookDeliveryHistory(ctx context.Context, req *pb.GetWebhookDeliveryHistoryRequest) (*pb.GetWebhookDeliveryHistoryResponse, error) {
-	serviceReq := &webhooks.GetWebhookDeliveryHistoryRequest{
-		WebhookID: req.WebhookId,
-		Namespace: req.Namespace,
-		Limit:     req.Limit,
-		Offset:    req.Offset,
-	}
-
-	serviceResp, err := s.service.GetWebhookDeliveryHistory(ctx, serviceReq)
+	deliveries, totalCount, err := s.service.GetWebhookDeliveryHistory(ctx, req.WebhookId, req.Namespace, req.Limit, req.Offset)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get delivery history: %v", err)
 	}
-
-	var deliveries []*pb.WebhookDelivery
-	for _, delivery := range serviceResp.Deliveries {
+	var pbDeliveries []*pb.WebhookDelivery
+	for _, delivery := range deliveries {
 		pbDelivery := &pb.WebhookDelivery{
 			DeliveryId:   delivery.ID,
 			WebhookId:    delivery.WebhookID,
@@ -646,122 +460,95 @@ func (s *WebhookServer) GetWebhookDeliveryHistory(ctx context.Context, req *pb.G
 			ResponseBody: delivery.ResponseBody,
 			ErrorMessage: delivery.ErrorMessage,
 		}
-
 		if delivery.LastAttemptedAt != nil {
 			pbDelivery.LastAttemptedAt = delivery.LastAttemptedAt.Unix()
 		}
 		if delivery.NextRetryAt != nil {
 			pbDelivery.NextRetryAt = delivery.NextRetryAt.Unix()
 		}
-
-		deliveries = append(deliveries, pbDelivery)
+		pbDeliveries = append(pbDeliveries, pbDelivery)
 	}
-
 	return &pb.GetWebhookDeliveryHistoryResponse{
-		Deliveries: deliveries,
-		TotalCount: serviceResp.TotalCount,
-		Success:    serviceResp.Success,
-		Message:    serviceResp.Message,
+		Deliveries: pbDeliveries,
+		TotalCount: totalCount,
+		Success:    true,
+		Message:    "Delivery history retrieved successfully",
 	}, nil
 }
 
 // GetNamespaceStats retrieves statistics for a namespace
 func (s *WebhookServer) GetNamespaceStats(ctx context.Context, req *pb.GetNamespaceStatsRequest) (*pb.GetNamespaceStatsResponse, error) {
-	serviceReq := &webhooks.GetNamespaceStatsRequest{
-		Namespace: req.Namespace,
-	}
-
-	serviceResp, err := s.service.GetNamespaceStats(ctx, serviceReq)
+	stats, err := s.service.GetNamespaceStats(ctx, req.Namespace)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get namespace stats: %v", err)
 	}
-
-	var stats *pb.NamespaceStats
-	if serviceResp.Stats != nil {
-		stats = &pb.NamespaceStats{
-			TotalWebhooks:        int32(serviceResp.Stats.TotalWebhooks),
-			ActiveWebhooks:       int32(serviceResp.Stats.ActiveWebhooks),
-			TotalDeliveries:      int32(serviceResp.Stats.TotalDeliveries),
-			SuccessfulDeliveries: int32(serviceResp.Stats.SuccessfulDeliveries),
-			FailedDeliveries:     int32(serviceResp.Stats.FailedDeliveries),
-			PendingDeliveries:    int32(serviceResp.Stats.PendingDeliveries),
-			SuccessRate:          serviceResp.Stats.SuccessRate,
+	var pbStats *pb.NamespaceStats
+	if stats != nil {
+		pbStats = &pb.NamespaceStats{
+			TotalWebhooks:        int32(stats.TotalWebhooks),
+			ActiveWebhooks:       int32(stats.ActiveWebhooks),
+			TotalDeliveries:      int32(stats.TotalDeliveries),
+			SuccessfulDeliveries: int32(stats.SuccessfulDeliveries),
+			FailedDeliveries:     int32(stats.FailedDeliveries),
+			PendingDeliveries:    int32(stats.PendingDeliveries),
+			SuccessRate:          stats.SuccessRate,
 		}
 	}
-
 	return &pb.GetNamespaceStatsResponse{
-		Namespace: serviceResp.Namespace,
-		Stats:     stats,
-		Success:   serviceResp.Success,
-		Message:   serviceResp.Message,
+		Namespace: req.Namespace,
+		Stats:     pbStats,
+		Success:   true,
+		Message:   "Namespace stats retrieved successfully",
 	}, nil
 }
 
 // UpdateWebhookConfig updates webhook configuration
 func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateWebhookConfigRequest) (*pb.UpdateWebhookConfigResponse, error) {
-	var updates *store.WebhookUpdateFields
+	var events []string
+	var url string
+	var headers map[string]string
+	var timeout int
+	var active bool
+	var description string
 	if req.Updates != nil {
-		updates = &store.WebhookUpdateFields{
-			Events:      req.Updates.Events,
-			URL:         req.Updates.Url,
-			Headers:     req.Updates.Headers,
-			Timeout:     int(req.Updates.Timeout),
-			Active:      req.Updates.Active,
-			Description: req.Updates.Description,
-		}
+		events = req.Updates.Events
+		url = req.Updates.Url
+		headers = req.Updates.Headers
+		timeout = int(req.Updates.Timeout)
+		active = req.Updates.Active
+		description = req.Updates.Description
 	}
-
-	serviceReq := &webhooks.UpdateWebhookConfigRequest{
-		WebhookID: req.WebhookId,
-		Namespace: req.Namespace,
-		Updates:   updates,
-	}
-
-	serviceResp, err := s.service.UpdateWebhookConfig(ctx, serviceReq)
+	err := s.service.UpdateWebhookConfig(ctx, req.WebhookId, req.Namespace, events, url, headers, timeout, active, description)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to update webhook config: %v", err)
 	}
-
 	return &pb.UpdateWebhookConfigResponse{
-		Success: serviceResp.Success,
-		Message: serviceResp.Message,
+		Success: true,
+		Message: "Webhook config updated successfully",
 	}, nil
 }
 
 // PauseWebhook temporarily disables a webhook
 func (s *WebhookServer) PauseWebhook(ctx context.Context, req *pb.PauseWebhookRequest) (*pb.PauseWebhookResponse, error) {
-	serviceReq := &webhooks.PauseWebhookRequest{
-		WebhookID: req.WebhookId,
-		Namespace: req.Namespace,
-		Reason:    req.Reason,
-	}
-
-	serviceResp, err := s.service.PauseWebhook(ctx, serviceReq)
+	err := s.service.PauseWebhook(ctx, req.WebhookId, req.Namespace, req.Reason)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to pause webhook: %v", err)
 	}
-
 	return &pb.PauseWebhookResponse{
-		Success: serviceResp.Success,
-		Message: serviceResp.Message,
+		Success: true,
+		Message: "Webhook paused successfully",
 	}, nil
 }
 
 // ResumeWebhook re-enables a paused webhook
 func (s *WebhookServer) ResumeWebhook(ctx context.Context, req *pb.ResumeWebhookRequest) (*pb.ResumeWebhookResponse, error) {
-	serviceReq := &webhooks.ResumeWebhookRequest{
-		WebhookID: req.WebhookId,
-		Namespace: req.Namespace,
-	}
-
-	serviceResp, err := s.service.ResumeWebhook(ctx, serviceReq)
+	err := s.service.ResumeWebhook(ctx, req.WebhookId, req.Namespace)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to resume webhook: %v", err)
 	}
-
 	return &pb.ResumeWebhookResponse{
-		Success: serviceResp.Success,
-		Message: serviceResp.Message,
+		Success: true,
+		Message: "Webhook resumed successfully",
 	}, nil
 }
 
