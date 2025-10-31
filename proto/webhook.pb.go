@@ -404,6 +404,7 @@ type PushEventRequest struct {
 	Payload       string                 `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`                                                                             // Event payload as JSON string
 	TtlSeconds    int64                  `protobuf:"varint,4,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"`                                                    // TTL for webhook retry attempts
 	Metadata      map[string]string      `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Additional event metadata
+	Id            *string                `protobuf:"bytes,6,opt,name=id,proto3,oneof" json:"id,omitempty"`                                                                                 // Optional id for idempotency
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -471,6 +472,13 @@ func (x *PushEventRequest) GetMetadata() map[string]string {
 		return x.Metadata
 	}
 	return nil
+}
+
+func (x *PushEventRequest) GetId() string {
+	if x != nil && x.Id != nil {
+		return *x.Id
+	}
+	return ""
 }
 
 // PushEventResponse represents the response for event pushing
@@ -3719,17 +3727,19 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\"O\n" +
 	"\x19UnregisterWebhookResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\x83\x02\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\x9f\x02\n" +
 	"\x10PushEventRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x14\n" +
 	"\x05event\x18\x02 \x01(\tR\x05event\x12\x18\n" +
 	"\apayload\x18\x03 \x01(\tR\apayload\x12\x1f\n" +
 	"\vttl_seconds\x18\x04 \x01(\x03R\n" +
 	"ttlSeconds\x12C\n" +
-	"\bmetadata\x18\x05 \x03(\v2'.webhook.PushEventRequest.MetadataEntryR\bmetadata\x1a;\n" +
+	"\bmetadata\x18\x05 \x03(\v2'.webhook.PushEventRequest.MetadataEntryR\bmetadata\x12\x13\n" +
+	"\x02id\x18\x06 \x01(\tH\x00R\x02id\x88\x01\x01\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb2\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x05\n" +
+	"\x03_id\"\xb2\x01\n" +
 	"\x11PushEventResponse\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12-\n" +
 	"\x12webhooks_triggered\x18\x02 \x01(\x05R\x11webhooksTriggered\x12\x1f\n" +
@@ -4215,6 +4225,7 @@ func file_proto_webhook_proto_init() {
 	if File_proto_webhook_proto != nil {
 		return
 	}
+	file_proto_webhook_proto_msgTypes[4].OneofWrappers = []any{}
 	file_proto_webhook_proto_msgTypes[6].OneofWrappers = []any{
 		(*GetWebhookStatusRequest_WebhookId)(nil),
 		(*GetWebhookStatusRequest_EventId)(nil),

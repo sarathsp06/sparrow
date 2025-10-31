@@ -7,10 +7,13 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/log"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -81,6 +84,14 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 		otel.SetMeterProvider(meterProvider)
 	}
 
+	loggerProvider, err := newLoggerProvider(ctx, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup logger: %w", err)
+	}
+
+	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
+	global.SetLoggerProvider(loggerProvider)
+
 	// Set global propagator for distributed tracing
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
@@ -137,6 +148,27 @@ func setupTracing(ctx context.Context, res *resource.Resource, config *Config) (
 	)
 
 	return tracerProvider, nil
+}
+
+func newLoggerProvider(ctx context.Context, config *Config) (*log.LoggerProvider, error) {
+	opts := []otlploghttp.Option{
+		otlploghttp.WithEndpoint("localhost:4318"),
+		otlploghttp.WithInsecure(), // Use HTTP instead of HTTPS for local development
+	}
+
+	if len(config.OTLPHeaders) > 0 {
+		opts = append(opts, otlploghttp.WithHeaders(config.OTLPHeaders))
+	}
+
+	exporter, err := otlploghttp.New(ctx, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OTLP log exporter: %w", err)
+	}
+
+	loggerProvider := log.NewLoggerProvider(
+		log.WithProcessor(log.NewBatchProcessor(exporter)),
+	)
+	return loggerProvider, nil
 }
 
 // setupMetrics configures OpenTelemetry metrics

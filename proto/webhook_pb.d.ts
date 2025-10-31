@@ -200,6 +200,13 @@ export declare type PushEventRequest = Message<"webhook.PushEventRequest"> & {
    * @generated from field: map<string, string> metadata = 5;
    */
   metadata: { [key: string]: string };
+
+  /**
+   * Optional id for idempotency 
+   *
+   * @generated from field: optional string id = 6;
+   */
+  id?: string;
 };
 
 /**
