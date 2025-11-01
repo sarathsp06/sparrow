@@ -1,77 +1,117 @@
 <script lang="ts">
-  import { createClient } from "@connectrpc/connect";
-  import { createConnectTransport } from "@connectrpc/connect-web";
-  import { WebhookService, PushEventRequest, ListEventsRequest } from '../../../../../proto/webhook_pb.js';
-  import { onMount } from 'svelte';
-  import type { RegisteredEvent } from '../../../../../proto/webhook_pb.js';
+	import { client } from '$lib/services';
+	import { PushEventRequest } from '../../../../../proto/webhook_pb.js';
+	import { onMount } from 'svelte';
+	import { ListEventsRequest, RegisteredEvent } from '../../../../../proto/webhook_pb.js';
 
-  let namespace = 'default';
-  let event = '';
-  let payload = '';
-  let allEvents: RegisteredEvent[] = [];
-  let error = '';
-  let success = '';
+	let namespace = 'default';
+	let event = '';
+	let payload = '{}';
+	let loading = false;
+	let error = '';
+	let successMessage = '';
+	let availableEvents: RegisteredEvent[] = [];
 
-  const transport = createConnectTransport({
-    baseUrl: "http://localhost:8080",
-  });
-  const client = createClient(WebhookService, transport);
+	async function fetchEvents() {
+		try {
+			const req = { activeOnly: true };
+			const res = await client.listEvents(req);
+			availableEvents = res.events || [];
+			if (availableEvents.length > 0) {
+				event = availableEvents[0].name;
+			}
+		} catch (e: any) {
+			error = `Failed to load available events: ${e.message}`;
+		}
+	}
 
-  onMount(async () => {
-    try {
-      const req = new ListEventsRequest({ activeOnly: true });
-      const res = await client.listEvents(req);
-      allEvents = res.events || [];
-    } catch (e) {
-      error = 'Failed to load events';
-    }
-  });
+	onMount(fetchEvents);
 
-  async function pushEvent() {
-    error = '';
-    success = '';
-    try {
-      const req = new PushEventRequest({
-        namespace,
-        event,
-        payload,
-      });
-      const res = await client.pushEvent(req);
-      success = `Event pushed successfully! ${res.webhooksTriggered} webhooks triggered.`;
-    } catch (e) {
-      error = 'Failed to push event';
-    }
-  }
+	async function pushEvent() {
+		loading = true;
+		error = '';
+		successMessage = '';
+		try {
+			const req = {
+				namespace,
+				event,
+				payload
+			};
+			const res = await client.pushEvent(req);
+			successMessage = `Event pushed successfully! ${res.webhooksTriggered} webhooks triggered.`;
+		} catch (e: any) {
+			error = `Failed to push event: ${e.message}`;
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
-<div class="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 font-display">
-  <div class="p-6 max-w-lg mx-auto">
-    <h1 class="text-2xl font-bold mb-4">Push Event</h1>
-    <form on:submit|preventDefault={pushEvent} class="bg-white rounded-lg shadow p-6">
-      <div class="mb-4">
-        <label for="namespace" class="block text-sm font-medium text-gray-700">Namespace</label>
-        <input type="text" id="namespace" bind:value={namespace} class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
-      </div>
-      <div class="mb-4">
-        <label for="event" class="block text-sm font-medium text-gray-700">Event</label>
-        <select id="event" bind:value={event} class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
-          <option value="">Select an event</option>
-          {#each allEvents as e}
-            <option value={e.name}>{e.name}</option>
-          {/each}
-        </select>
-      </div>
-      <div class="mb-4">
-        <label for="payload" class="block text-sm font-medium text-gray-700">Payload (JSON)</label>
-        <textarea id="payload" bind:value={payload} rows="5" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"></textarea>
-      </div>
-      {#if error}
-        <p class="text-red-500 text-sm mb-4">{error}</p>
-      {/if}
-      {#if success}
-        <p class="text-green-500 text-sm mb-4">{success}</p>
-      {/if}
-      <button type="submit" class="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">Push</button>
-    </form>
-  </div>
+<div class="min-h-screen bg-gray-50 font-display">
+	<header
+		class="flex items-center justify-between p-4 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b"
+	>
+		<a href="/events" class="text-primary font-semibold hover:underline flex items-center gap-2">
+			<span class="material-symbols-outlined">arrow_back</span>
+			Back to Events
+		</a>
+	</header>
+
+	<main class="p-6">
+		<div class="max-w-xl mx-auto bg-white rounded-lg shadow-sm border p-6">
+			<h1 class="text-2xl font-bold text-gray-800 mb-4">Push a Test Event</h1>
+			<form on:submit|preventDefault={pushEvent} class="flex flex-col gap-4">
+				<div>
+					<label for="namespace" class="font-semibold text-gray-600">Namespace</label>
+					<input
+						type="text"
+						id="namespace"
+						bind:value={namespace}
+						class="w-full mt-1 p-2 border rounded-md"
+						required
+					/>
+				</div>
+				<div>
+					<label for="event" class="font-semibold text-gray-600">Event</label>
+					<select id="event" bind:value={event} class="w-full mt-1 p-2 border rounded-md" required>
+						{#each availableEvents as e}
+							<option value={e.name}>{e.name}</option>
+						{/each}
+					</select>
+				</div>
+				<div>
+					<label for="payload" class="font-semibold text-gray-600">Payload (JSON)</label>
+					<textarea
+						id="payload"
+						bind:value={payload}
+						rows="10"
+						class="w-full mt-1 p-2 border rounded-md font-mono"
+						required
+					/>
+				</div>
+				<button
+					type="submit"
+					class="bg-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary/90 transition"
+					disabled={loading}
+				>
+					{loading ? 'Pushing...' : 'Push Event'}
+				</button>
+			</form>
+			{#if error}
+				<div class="mt-4 bg-red-100 text-red-700 p-3 rounded-md">{error}</div>
+			{/if}
+			{#if successMessage}
+				<div class="mt-4 bg-green-100 text-green-700 p-3 rounded-md">{successMessage}</div>
+			{/if}
+		</div>
+	</main>
 </div>
+
+<style>
+	.bg-primary {
+		background-color: #1d4ed8;
+	}
+	.text-primary {
+		color: #1d4ed8;
+	}
+</style>

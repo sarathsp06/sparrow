@@ -14,6 +14,7 @@
     <nav class="flex gap-8 text-lg font-medium">
       <a href="/webhooks" class="hover:text-primary transition">Webhooks</a>
       <a href="/events" class="hover:text-primary transition">Events</a>
+      <a href="/health" class="hover:text-primary transition">Health</a>
       <a href="#features" class="hover:text-primary transition">Features</a>
     </nav>
   </header>

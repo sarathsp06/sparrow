@@ -1,50 +1,47 @@
 <script lang="ts">
-  import { createClient } from "@connectrpc/connect";
-  import { createConnectTransport } from "@connectrpc/connect-web";
-  import { WebhookService, RegisterWebhookRequest } from '../../../../../proto/webhook_pb.js';
-  import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
-  import type { RegisteredEvent } from '../../../../../proto/webhook_pb.js';
+	import { client } from '$lib/services';
+	import {
+		RegisterWebhookRequest,
+		ListEventsRequest,
+		RegisteredEvent
+	} from '../../../../../proto/webhook_pb.js';
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 
-  let namespace = 'default';
-  let events: string[] = [];
-  let url = '';
-  let description = '';
-  let active = true;
-  let allEvents: RegisteredEvent[] = [];
-  let error = '';
+	let namespace = 'default';
+	let events: string[] = [];
+	let url = '';
+	let description = '';
+	let active = true;
+	let allEvents: RegisteredEvent[] = [];
+	let error = '';
 
-  const transport = createConnectTransport({
-    baseUrl: "http://localhost:8080",
-  });
-  const client = createClient(WebhookService, transport);
+	onMount(async () => {
+		try {
+			const req = { activeOnly: true };
+			const res = await client.listEvents(req);
+			allEvents = res.events || [];
+		} catch (e: any) {
+			error = `Failed to load events: ${e.message}`;
+		}
+	});
 
-  onMount(async () => {
-    try {
-      const req = new ListEventsRequest({ activeOnly: true });
-      const res = await client.listEvents(req);
-      allEvents = res.events || [];
-    } catch (e) {
-      error = 'Failed to load events';
-    }
-  });
-
-  async function registerWebhook() {
-    error = '';
-    try {
-      const req = new RegisterWebhookRequest({
-        namespace,
-        events,
-        url,
-        description,
-        active,
-      });
-      await client.registerWebhook(req);
-      goto('/webhooks');
-    } catch (e) {
-      error = 'Failed to register webhook';
-    }
-  }
+	async function registerWebhook() {
+		error = '';
+		try {
+			const req = {
+				namespace,
+				events,
+				url,
+				description,
+				active
+			};
+			await client.registerWebhook(req);
+			goto('/webhooks');
+		} catch (e: any) {
+			error = `Failed to register webhook: ${e.message}`;
+		}
+	}
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 font-display">

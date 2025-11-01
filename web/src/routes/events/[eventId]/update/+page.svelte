@@ -1,54 +1,48 @@
 <script lang="ts">
-  import { createClient } from "@connectrpc/connect";
-  import { createConnectTransport } from "@connectrpc/connect-web";
-  import { WebhookService, UpdateEventRequest, ListEventsRequest } from '../../../../../../proto/webhook_pb.js';
-  import { page } from '$app/stores';
-  import { onMount } from 'svelte';
-  import { goto } from '$app/navigation';
+	import { client } from '$lib/services';
+	import { UpdateEventRequest, ListEventsRequest } from '../../../../../../proto/webhook_pb.js';
+	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 
-  let name = '';
-  let description = '';
-  let schema = '';
-  let active = true;
-  let error = '';
+	let name = '';
+	let description = '';
+	let schema = '';
+	let active = true;
+	let error = '';
 
-  const transport = createConnectTransport({
-    baseUrl: "http://localhost:8080",
-  });
-  const client = createClient(WebhookService, transport);
+	onMount(async () => {
+		const eventId = $page.params.eventId;
+		try {
+			const req = { activeOnly: false };
+			const res = await client.listEvents(req);
+			const event = res.events.find((e) => e.eventId === eventId);
+			if (event) {
+				name = event.name;
+				description = event.description;
+				schema = event.schema;
+				active = event.active;
+			}
+		} catch (e: any) {
+			error = `Failed to load event details: ${e.message}`;
+		}
+	});
 
-  onMount(async () => {
-    const eventId = $page.params.eventId;
-    try {
-        const req = new ListEventsRequest({ activeOnly: false });
-        const res = await client.listEvents(req);
-        const event = res.events.find(e => e.eventId === eventId);
-        if (event) {
-            name = event.name;
-            description = event.description;
-            schema = event.schema;
-            active = event.active;
-        }
-    } catch (e) {
-      error = 'Failed to load event details';
-    }
-  });
-
-  async function updateEvent() {
-    error = '';
-    try {
-      const req = new UpdateEventRequest({
-        name,
-        description,
-        schema,
-        active,
-      });
-      await client.updateEvent(req);
-      goto('/events');
-    } catch (e) {
-      error = 'Failed to update event';
-    }
-  }
+	async function updateEvent() {
+		error = '';
+		try {
+			const req = {
+				name,
+				description,
+				schema,
+				active
+			};
+			await client.updateEvent(req);
+			goto('/events');
+		} catch (e: any) {
+			error = `Failed to update event: ${e.message}`;
+		}
+	}
 </script>
 
 <div class="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 font-display">
