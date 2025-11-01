@@ -1,5 +1,5 @@
 build:
-	go build -o grpc-server ./cmd/grpc-server
+	go build -o grpc-server ./main.go
 
 docker-purge:
 	docker-compose -f docker-compose.dev.yml -f docker-compose.observability.yml down -v

@@ -48,6 +48,9 @@ type WebhookServiceInterface interface {
 	DeleteEvent(ctx context.Context, name string) error
 	GetWebhookHealth(ctx context.Context, webhookID string, namespace string) (*WebhookHealthData, error)
 	GetHealthSummary(ctx context.Context) (*HealthSummaryData, error)
+	ListEvents(ctx context.Context, activeOnly bool) ([]*store.EventRegistration, error)
+	ListWebhooksByHealth(ctx context.Context, health store.WebhookHealth) ([]*store.WebhookRegistration, error)
+	ResubmitWebhook(ctx context.Context, deliveryID string, webhookID string, namespace string, force bool) ([]string, int32, error)
 }
 
 var _ WebhookServiceInterface = (*WebhookService)(nil)
@@ -157,7 +160,7 @@ func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string
 }
 
 // PushEvent pushes an event that triggers registered webhooks
-func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event string, payload string, ttlSeconds int64, metadata map[string]string) error {
+func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event string, payload string, ttlSeconds int64, metadata map[string]string) (string, int32, []string, error) {
 	ctx, span := s.tracer.Start(ctx, "event.push",
 		trace.WithAttributes(
 			attribute.String("namespace", namespace),
@@ -176,13 +179,13 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		err := fmt.Errorf("namespace is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "namespace is required")
-		return err
+		return "", 0, nil, err
 	}
 	if event == "" {
 		err := fmt.Errorf("event is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event is required")
-		return err
+		return "", 0, nil, err
 	}
 
 	// Lookup registered event
@@ -191,18 +194,18 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event lookup failed")
 		s.logger.Error("Failed to lookup event registration", "event", event, "error", err)
-		return nil, fmt.Errorf("failed to lookup event registration: %w", err)
+		return "", 0, nil, fmt.Errorf("failed to lookup event registration: %w", err)
 	}
 	if eventReg == nil || !eventReg.Active {
 		err := fmt.Errorf("event '%s' is not registered", event)
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event not registered")
-		s.logger.Error("Event not registered", "event", req.Event)
-		return nil, err
+		s.logger.Error("Event not registered", "event", event)
+		return "", 0, nil, err
 	}
 
 	// Validate payload against event schema if present
-	if eventReg.Schema != "" && req.Payload != "" {
+	if eventReg.Schema != "" && payload != "" {
 		var payloadObj interface{}
 		if err := json.Unmarshal([]byte(payload), &payloadObj); err != nil {
 			return "", 0, nil, fmt.Errorf("invalid JSON payload: %w", err)
@@ -242,11 +245,11 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "failed to get registered webhooks")
 		s.logger.Error("Failed to get registered webhooks",
-			"namespace", req.Namespace,
-			"event", req.Event,
+			"namespace", namespace,
+			"event", event,
 			"error", err,
 		)
-		return nil, fmt.Errorf("failed to get registered webhooks: %w", err)
+		return "", 0, nil, fmt.Errorf("failed to get registered webhooks: %w", err)
 	}
 
 	span.SetAttributes(
@@ -450,22 +453,16 @@ func (s *WebhookService) ResendWebhook(ctx context.Context, deliveryID string, n
 	defer span.End()
 
 	s.logger.Info("Resending webhook",
-		"delivery_id", req.DeliveryID,
-		"namespace", req.Namespace,
-		"force_resend", req.ForceResend)
+		"delivery_id", deliveryID,
+		"namespace", namespace,
+		"force_resend", forceResend)
 
-	if req.DeliveryID == "" {
-		return &ResendWebhookResponse{
-			Success: false,
-			Message: "Delivery ID is required",
-		}, nil
+	if deliveryID == "" {
+		return "", fmt.Errorf("delivery ID is required")
 	}
 
-	if req.Namespace == "" {
-		return &ResendWebhookResponse{
-			Success: false,
-			Message: "Namespace is required",
-		}, nil
+	if namespace == "" {
+		return "", fmt.Errorf("namespace is required")
 	}
 
 	// Get the original delivery

@@ -160,33 +160,6 @@ func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEvent
 	}, nil
 }
 
-// ListEvents lists all registered event types
-func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
-	events, err := s.service.ListEvents(ctx, req.ActiveOnly)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to list events: %v", err)
-	}
-	pbEvents := make([]*pb.RegisteredEvent, len(events))
-	for i, event := range events {
-		pbEvents[i] = &pb.RegisteredEvent{
-			EventId:     event.ID,
-			Name:        event.Name,
-			Description: event.Description,
-			Schema:      event.Schema,
-			Metadata:    event.Metadata,
-			Active:      event.Active,
-			CreatedAt:   event.CreatedAt.Unix(),
-			UpdatedAt:   event.UpdatedAt.Unix(),
-		}
-	}
-	return &pb.ListEventsResponse{
-		Events:     pbEvents,
-		TotalCount: int32(len(pbEvents)),
-		Success:    true,
-		Message:    "Events listed successfully",
-	}, nil
-}
-
 // UpdateEvent updates an event registration
 func (s *WebhookServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequest) (*pb.UpdateEventResponse, error) {
 	err := s.service.UpdateEvent(ctx, req.Name, req.Description, req.Schema, req.Metadata, req.Active)
@@ -246,37 +219,6 @@ func (s *WebhookServer) GetWebhookHealth(ctx context.Context, req *pb.GetWebhook
 	}, nil
 }
 
-// ListWebhooksByHealth lists webhooks filtered by health status
-func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWebhooksByHealthRequest) (*pb.ListWebhooksByHealthResponse, error) {
-	health := convertPbHealthToInternal(req.Health)
-	webhooks, err := s.service.ListWebhooksByHealth(ctx, health)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to list webhooks by health: %v", err)
-	}
-	pbWebhooks := make([]*pb.RegisteredWebhook, len(webhooks))
-	for i, webhook := range webhooks {
-		pbWebhooks[i] = &pb.RegisteredWebhook{
-			WebhookId:   webhook.ID,
-			Namespace:   webhook.Namespace,
-			Events:      webhook.Events,
-			Url:         webhook.URL,
-			Headers:     webhook.Headers,
-			Timeout:     int32(webhook.Timeout),
-			Active:      webhook.Active,
-			Description: webhook.Description,
-			Health:      convertWebhookHealth(webhook.Health),
-			CreatedAt:   webhook.CreatedAt.Unix(),
-			UpdatedAt:   webhook.UpdatedAt.Unix(),
-		}
-	}
-	return &pb.ListWebhooksByHealthResponse{
-		Success:    true,
-		Message:    "Webhooks by health listed successfully",
-		Webhooks:   pbWebhooks,
-		TotalCount: int32(len(pbWebhooks)),
-	}, nil
-}
-
 // GetHealthSummary gets a summary of webhook health
 func (s *WebhookServer) GetHealthSummary(ctx context.Context, req *pb.GetHealthSummaryRequest) (*pb.GetHealthSummaryResponse, error) {
 	summaryData, err := s.service.GetHealthSummary(ctx)
@@ -297,35 +239,6 @@ func (s *WebhookServer) GetHealthSummary(ctx context.Context, req *pb.GetHealthS
 		Success: true,
 		Message: "Health summary retrieved successfully",
 		Summary: pbSummary,
-	}, nil
-}
-
-// ResubmitWebhook manually retries failed or pending webhook deliveries
-func (s *WebhookServer) ResubmitWebhook(ctx context.Context, req *pb.ResubmitWebhookRequest) (*pb.ResubmitWebhookResponse, error) {
-	var deliveryID, webhookID string
-	switch id := req.Identifier.(type) {
-	case *pb.ResubmitWebhookRequest_DeliveryId:
-		if id.DeliveryId == "" {
-			return nil, status.Error(codes.InvalidArgument, "delivery_id cannot be empty")
-		}
-		deliveryID = id.DeliveryId
-	case *pb.ResubmitWebhookRequest_WebhookId:
-		if id.WebhookId == "" {
-			return nil, status.Error(codes.InvalidArgument, "webhook_id cannot be empty")
-		}
-		webhookID = id.WebhookId
-	default:
-		return nil, status.Error(codes.InvalidArgument, "either delivery_id or webhook_id is required")
-	}
-	deliveryIDs, resubmittedCount, err := s.service.ResubmitWebhook(ctx, deliveryID, webhookID, req.Namespace, req.Force)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to resubmit webhook: %v", err)
-	}
-	return &pb.ResubmitWebhookResponse{
-		Success:          true,
-		Message:          "Webhook resubmitted successfully",
-		DeliveryIds:      deliveryIDs,
-		ResubmittedCount: resubmittedCount,
 	}, nil
 }
 
