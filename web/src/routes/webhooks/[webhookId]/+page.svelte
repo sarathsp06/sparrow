@@ -1,17 +1,14 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { client } from '$lib/services';
-	import {
-		RegisteredWebhook,
-		WebhookDelivery,
-		WebhookHealthMetrics,
-		GetRegisteredWebhooksRequest,
-		GetWebhookDeliveryHistoryRequest,
-		GetWebhookHealthRequest,
-		WebhookHealth,
-		WebhookDeliveryStatus
+	import { onMount } from 'svelte';
+	import type {
+	  RegisteredWebhook,
+	  WebhookDelivery,
+	  WebhookHealthMetrics
 	} from '../../../../../proto/webhook_pb.js';
+
+	import { WebhookDeliveryStatus, WebhookHealth } from '../../../../../proto/webhook_pb.js';
 
 	let webhook: RegisteredWebhook | undefined;
 	let deliveries: WebhookDelivery[] = [];
@@ -19,7 +16,7 @@
 	let loading = true;
 	let error = '';
 
-	const webhookId = $page.params.webhookId;
+	const webhookId = page.params.webhookId;
 
 	const healthColor: Record<WebhookHealth, string> = {
 		[WebhookHealth.HEALTH_UNKNOWN]: 'bg-gray-400',
@@ -44,6 +41,7 @@
 		try {
 			const webhookReq = {
 				webhookId,
+				// TODO: pass on the namespace in the URL or user context
 				namespace: 'default'
 			};
 			const webhookRes = await client.getRegisteredWebhooks(webhookReq);
@@ -56,7 +54,7 @@
 			};
 			const historyRes = await client.getWebhookDeliveryHistory(historyReq);
 			deliveries = historyRes.deliveries || [];
-
+			console.log('Deliveries:', deliveries);
 			const healthReq = {
 				webhookId,
 				namespace: 'default'
@@ -107,7 +105,7 @@
 		class="flex items-center justify-between p-4 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b"
 	>
 		<a href="/webhooks" class="text-primary font-semibold hover:underline flex items-center gap-2">
-			<span class="material-symbols-outlined">arrow_back</span>
+			<span class="material-symbols-outlined">⬅</span>
 			Back to Webhooks
 		</a>
 	</header>
@@ -272,12 +270,14 @@
 		{/if}
 	</main>
 </div>
-
 <style>
-	.bg-primary {
-		background-color: #1d4ed8;
-	}
-	.text-primary {
-		color: #1d4ed8;
-	}
+  .bg-primary {
+    background-color: #13348f;
+  }
+  .text-primary {
+    color: #1d4ed8;
+  }
+  .border-primary {
+    border-color: #1d4ed8;
+  }
 </style>

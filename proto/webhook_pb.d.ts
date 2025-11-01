@@ -2,8 +2,8 @@
 // @generated from file proto/webhook.proto (package webhook, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import type { Message } from "@bufbuild/protobuf";
+import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 
 /**
  * Describes the file proto/webhook.proto.

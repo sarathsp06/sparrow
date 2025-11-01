@@ -23,12 +23,53 @@ func MainGRPC() {
 	client := pb.NewWebhookServiceClient(conn)
 	ctx := context.Background()
 
+	// // Example 0: Register events
+	// log.Println("=== Example 0: Register Events ===")
+	// events := []struct {
+	// 	name        string
+	// 	description string
+	// 	schema      string
+	// 	metadata    map[string]string
+	// }{
+	// 	{
+	// 		name:        "signup",
+	// 		description: "User signup event",
+	// 		schema:      `{"type": "object", "properties": {"user_id": {"type": "string"}, "email": {"type": "string"}}, "required": ["user_id", "email"]}`,
+	// 		metadata: map[string]string{
+	// 			"category": "user",
+	// 		},
+	// 	},
+	// 	{
+	// 		name:        "login",
+	// 		description: "User login event",
+	// 		schema:      `{"type": "object", "properties": {"user_id": {"type": "string"}, "login_time": {"type": "string"}}, "required": ["user_id", "login_time"]}`,
+	// 		metadata: map[string]string{
+	// 			"category": "user",
+	// 		},
+	// 	},
+	// }
+
+	// for _, event := range events {
+	// 	regEventReq := &pb.RegisterEventRequest{
+	// 		Name:        event.name,
+	// 		Description: event.description,
+	// 		Schema:      event.schema,
+	// 		Metadata:    event.metadata,
+	// 		Active:      true,
+	// 	}
+	// 	regEventResp, err := client.RegisterEvent(ctx, regEventReq)
+	// 	if err != nil {
+	// 		log.Printf("Failed to register event %s: %v", event.name, err)
+	// 	} else {
+	// 		log.Printf("Event %s registered: %s (ID: %s)", event.name, regEventResp.Message, regEventResp.EventId)
+	// 	}
+	// }
 	// Example 1: Register a webhook for multiple user events
 	log.Println("=== Example 1: Register Webhook for Multiple User Events ===")
 	registerReq := &pb.RegisterWebhookRequest{
 		Namespace: "default",
-		Events:    []string{"signup", "login", "profile_update"},
-		Url:       "https://webhooks.sarathsadasivan.com/32c5c978-30ed-49d6-aafc-fda9e7fcdc33",
+		Events:    []string{"signup", "login"},
+		Url:       "https://webhooks.sarathsadasivan.com/65f3d9dc-e921-4154-8926-42e27f6e7058",
 		Headers: map[string]string{
 			"Authorization": "Bearer secret-token",
 			"X-App-Name":    "MyApp",
@@ -124,7 +165,7 @@ func MainGRPC() {
 	log.Println("\n=== Example 5: Push User Signup Event ===")
 	eventPayload := map[string]interface{}{
 		"user_id":   "user_12345",
-		"email":     "john.doe@example.com",
+		"email":     "john.doe@default.com",
 		"name":      "John Doe",
 		"signup_at": time.Now().Unix(),
 		"plan":      "premium",
@@ -341,7 +382,7 @@ func MainGRPC() {
 	regWebhookReq := &pb.RegisterWebhookRequest{
 		Namespace:   "default",
 		Events:      []string{"user.created"},
-		Url:         "https://webhooks.sarathsadasivan.com/test-user-created",
+		Url:         "https://webhooks.sarathsadasivan.com/65f3d9dc-e921-4154-8926-42e27f6e7058",
 		Headers:     map[string]string{"X-Test": "true"},
 		Timeout:     10,
 		Active:      true,
@@ -356,7 +397,7 @@ func MainGRPC() {
 
 	// Push event with valid payload
 	log.Println("\n=== Push user.created Event with Valid Payload ===")
-	validPayload := map[string]interface{}{"userId": "user_001", "email": "user@example.com"}
+	validPayload := map[string]interface{}{"userId": "user_001", "email": "user@default.com"}
 	validPayloadJSON, _ := json.Marshal(validPayload)
 	pushValidReq := &pb.PushEventRequest{
 		Namespace:  "default",
@@ -388,7 +429,7 @@ func MainGRPC() {
 		log.Printf("Unexpected success for invalid event: %s", pushInvalidResp.Message)
 	}
 
-	log.Println("\n=== All examples completed ===")
+	log.Println("\n=== All defaults completed ===")
 }
 
 func main() {
