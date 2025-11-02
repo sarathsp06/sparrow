@@ -62,27 +62,7 @@
 </script>
 
 <div class="min-h-screen bg-gray-50 font-display">
-	<header
-		class="flex items-center  justify-between p-4 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b border-gray-200"
-	>
-		<h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
-			<a title="home" class="text-primary text-3xl" href="/"><span class="inline-block bg-primary rounded-full p-2 shadow-lg"><svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg></span></a>
-			<span class="text-primary">Events</span>
-		</h1>
-		<div>
-			<a
-				href="/events/push"
-				class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:bg-blue-600 transition mr-4"
-				>Push Test Event</a
-			>
-			<a
-				href="/events/register"
-				class="bg-primary text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:bg-primary/90 transition"
-				>+ Register Event</a
-			>
-		</div>
-	</header>
-
+	
 	<main class="p-6">
 		{#if loading}
 			<div class="flex justify-center items-center h-40">
@@ -150,6 +130,20 @@
 			</div>
 		{/if}
 	</main>
+
+	<footer class="fixed bottom-0  w-full bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-sm p-4 flex justify-end">
+			<a
+				href="/events/push"
+				class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:bg-blue-600 transition mr-4"
+				>Push Test Event</a
+			>
+			<a
+				href="/events/register"
+				class="bg-primary text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:bg-primary/90 transition"
+				>+ Register Event</a
+			>
+	</footer>
+
 </div>
 
 {#if isModalOpen}

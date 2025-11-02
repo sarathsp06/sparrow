@@ -4,20 +4,7 @@
 
 <!-- Paper-inspired Light Theme Landing Page -->
 <div class="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 font-display flex flex-col relative overflow-hidden">
-  <header class="flex items-center justify-between px-8 py-6 z-10 bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm">
-    <div class="flex items-center gap-2">
-      <span class="inline-block bg-primary rounded-full p-2 shadow-lg">
-        <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-      </span>
-      <span class="text-2xl font-bold text-primary drop-shadow">Sparrow</span>
-    </div>
-    <nav class="flex gap-8 text-lg font-medium">
-      <a href="/webhooks" class="hover:text-primary transition">Webhooks</a>
-      <a href="/events" class="hover:text-primary transition">Events</a>
-      <a href="/health" class="hover:text-primary transition">Health</a>
-      <a href="#features" class="hover:text-primary transition">Features</a>
-    </nav>
-  </header>
+
 
   <main class="flex-1 flex flex-col items-center justify-center text-center px-4 z-10">
     <div class="max-w-2xl">

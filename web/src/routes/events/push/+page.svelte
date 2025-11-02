@@ -49,15 +49,6 @@
 </script>
 
 <div class="min-h-screen bg-gray-50 font-display">
-	<header
-		class="flex items-center justify-between p-4 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b"
-	>
-		<a href="/events" class="text-primary font-semibold hover:underline flex items-center gap-2">
-			<span class="material-symbols-outlined">🔙</span>
-			Back to Events
-		</a>
-	</header>
-
 	<main class="p-6">
 		<div class="max-w-xl mx-auto bg-white rounded-lg shadow-sm border p-6">
 			<h1 class="text-2xl font-bold text-gray-800 mb-4">Push a Test Event</h1>

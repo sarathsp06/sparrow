@@ -59,20 +59,6 @@
 </script>
 
 <div class="min-h-screen bg-gray-50 font-display">
-  <header
-    class="flex items-center justify-between p-4 bg-white-800/80 top-0 z-10 border-b border-cyan-200"
-  >
-    <h1 class="text-2xl text-black-700 flex items-center gap-2">
-      <a class="text-primary text-3xl" href="/">🏠</a>
-      Webhooks
-    </h1>
-    <a
-      href="/webhooks/register"
-      class="hover:bg-primary/20 bg-primary text-white font-semibold px-4 py-2 rounded-lg"
-      >+ Register Webhook</a
-    >
-  </header>
-
   <main class="p-6">
     <div class="mb-6">
       <input
@@ -152,6 +138,13 @@
       </div>
     {/if}
   </main>
+<a
+  href="/webhooks/register"
+  class="fixed bottom-4 right-4 hover:bg-primary/10 bg-primary text-white font-semibold p-2 rounded-lg"
+>
+  + Register Webhook
+</a>
+
 </div>
 
 <style>
