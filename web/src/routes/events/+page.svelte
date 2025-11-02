@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { client } from '$lib/services';
 	import { onMount } from 'svelte';
-	import { JSONEditor, type Content } from 'svelte-jsoneditor';
+	import { JSONEditor, Mode, type Content } from 'svelte-jsoneditor';
 
 
 	import type {
@@ -143,7 +143,6 @@
 				>+ Register Event</a
 			>
 	</footer>
-
 </div>
 
 {#if isModalOpen}
@@ -152,7 +151,7 @@
 	>
 		<div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
 			<h3 class="text-lg font-bold mb-4">Event Schema</h3>
-			<JSONEditor bind:content={content} />
+			<JSONEditor bind:content={content} mode={Mode.text} mainMenuBar={false} readOnly={true}/>
 			<button
 				type="button"
 				onclick={closeModal}

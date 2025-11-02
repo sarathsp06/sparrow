@@ -4,8 +4,9 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { client } from "$lib/services";
+  import { stringifyContent } from "$lib/utils";
   import { onMount } from "svelte";
-  import { type Content, type JSONContent, JSONEditor } from "svelte-jsoneditor";
+  import { type JSONContent, JSONEditor, Mode } from "svelte-jsoneditor";
 
   let name = $state("");
   let description = $state("");
@@ -13,15 +14,7 @@
   let active = $state(true);
   let error = $state("");
 
-  function getJsonString(content: Content): string {
-    if ("text" in content && content.text) {
-      return content.text;
-    }
-    if ("json" in content && content.json !== undefined) {
-      return JSON.stringify(content.json, null, 2);
-    }
-    return "{}"; // fallback
-  }
+ 
 
   $inspect(schema);
   onMount(async () => {
@@ -48,7 +41,7 @@
       const req = {
         name,
         description,
-        schema: getJsonString(schema),
+        schema: stringifyContent(schema),
         active,
       };
       await client.updateEvent(req);
@@ -95,7 +88,8 @@
         <label for="schema" class="block text-sm font-medium text-gray-700"
           >Schema (JSON)</label
         >
-        <JSONEditor bind:content={schema} />
+        			<JSONEditor bind:content={schema} mode={Mode.text} mainMenuBar={false}/>
+
       </div>
       <div class="mb-4">
         <label class="flex items-center">

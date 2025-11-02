@@ -1,14 +1,15 @@
 <script lang="ts">
   import { preventDefault } from 'svelte/legacy';
 
+  import { goto } from '$app/navigation';
   import { createClient } from "@connectrpc/connect";
   import { createConnectTransport } from "@connectrpc/connect-web";
-  import  { WebhookService } from '../../../../../proto/webhook_pb.js';
-  import { goto } from '$app/navigation';
+  import { type JSONContent, JSONEditor, Mode } from "svelte-jsoneditor";
+  import { WebhookService } from '../../../../../proto/webhook_pb.js';
 
   let name = $state('');
   let description = $state('');
-  let schema = $state('');
+  let schema = $state({ json: {} } as JSONContent);
   let active = $state(true);
   let error = $state('');
 
@@ -48,7 +49,7 @@
       </div>
       <div class="mb-4">
         <label for="schema" class="block text-sm font-medium text-gray-700">Schema (JSON)</label>
-        <textarea id="schema" bind:value={schema} rows="5" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"></textarea>
+        <JSONEditor  bind:content={schema} mode={Mode.text} mainMenuBar={false} />
       </div>
       <div class="mb-4">
         <label class="flex items-center">
