@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { client } from '$lib/services';
-	import {
-		RegisterWebhookRequest,
-		ListEventsRequest,
-		RegisteredEvent
-	} from '../../../../../proto/webhook_pb.js';
-	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+  import { preventDefault } from 'svelte/legacy';
 
-	let namespace = 'default';
-	let events: string[] = [];
-	let url = '';
-	let description = '';
-	let active = true;
-	let allEvents: RegisteredEvent[] = [];
-	let error = '';
+	import { goto } from '$app/navigation';
+	import { client } from '$lib/services';
+	import { onMount } from 'svelte';
+	import type {
+	  RegisteredEvent
+	} from '../../../../../proto/webhook_pb.js';
+
+	let namespace = $state('default');
+	let events: string[] = $state([]);
+	let url = $state('');
+	let description = $state('');
+	let active = $state(true);
+	let allEvents: RegisteredEvent[] = $state([]);
+	let error = $state('');
 
 	onMount(async () => {
 		try {
@@ -47,7 +47,7 @@
 <div class="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 font-display">
   <div class="p-6 max-w-lg mx-auto">
     <h1 class="text-2xl font-bold mb-4">Register New Webhook</h1>
-    <form on:submit|preventDefault={registerWebhook} class="bg-white rounded-lg shadow p-6">
+    <form onsubmit={preventDefault(registerWebhook)} class="bg-white rounded-lg shadow p-6">
       <div class="mb-4">
         <label for="namespace" class="block text-sm font-medium text-gray-700">Namespace</label>
         <input type="text" id="namespace" bind:value={namespace} class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
@@ -61,7 +61,7 @@
         <input type="text" id="description" bind:value={description} class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
       </div>
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700">Events</label>
+        <label for="events" class="block text-sm font-medium text-gray-700">Events</label>
         <div class="mt-2 grid grid-cols-2 gap-2">
           {#each allEvents as event}
             <label class="flex items-center">
@@ -84,3 +84,8 @@
     </form>
   </div>
 </div>
+<style>
+  .bg-primary {
+    background-color: #13348f;
+  }
+</style>

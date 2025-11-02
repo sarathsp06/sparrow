@@ -1,14 +1,16 @@
 <script lang="ts">
+  import { preventDefault } from 'svelte/legacy';
+
   import { createClient } from "@connectrpc/connect";
   import { createConnectTransport } from "@connectrpc/connect-web";
   import  { WebhookService } from '../../../../../proto/webhook_pb.js';
   import { goto } from '$app/navigation';
 
-  let name = '';
-  let description = '';
-  let schema = '';
-  let active = true;
-  let error = '';
+  let name = $state('');
+  let description = $state('');
+  let schema = $state('');
+  let active = $state(true);
+  let error = $state('');
 
   const transport = createConnectTransport({
     baseUrl: "http://localhost:8080",
@@ -35,7 +37,7 @@
 <div class="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 font-display">
   <div class="p-6 max-w-lg mx-auto">
     <h1 class="text-2xl font-bold mb-4">Register New Event</h1>
-    <form on:submit|preventDefault={registerEvent} class="bg-white rounded-lg shadow p-6">
+    <form onsubmit={preventDefault(registerEvent)} class="bg-white rounded-lg shadow p-6">
       <div class="mb-4">
         <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
         <input type="text" id="name" bind:value={name} class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">

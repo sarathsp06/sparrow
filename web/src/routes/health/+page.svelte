@@ -8,10 +8,10 @@
 		NamespaceStats
 	} from '../../../../proto/webhook_pb.js';
 
-	let healthSummary: HealthSummary | undefined;
-	let namespaceStats: NamespaceStats | undefined;
-	let loading = true;
-	let error = '';
+	let healthSummary: HealthSummary | undefined = $state();
+	let namespaceStats: NamespaceStats | undefined = $state();
+	let loading = $state(true);
+	let error = $state('');
 
 	async function fetchData() {
 		loading = true;

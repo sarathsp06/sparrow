@@ -12,6 +12,109 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// UpdateWebhookHealthState updates or inserts health state and updates webhook status after a health event.
+func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID string, success bool, eventTimestamp time.Time) error {
+	// Upsert health state
+	var err error
+	var consecutiveFailures int
+	if success {
+		consecutiveFailures = 0
+	} else {
+		// Get current consecutive failures
+		err = r.db.QueryRow(ctx, `SELECT COALESCE(consecutive_failures, 0) FROM webhook_health_state WHERE webhook_id = $1`, webhookID).Scan(&consecutiveFailures)
+		if err != nil && err.Error() != "no rows in result set" {
+			return err
+		}
+		consecutiveFailures++
+	}
+
+	var lastSuccessAt, lastFailureAt *time.Time
+	if success {
+		lastSuccessAt = &eventTimestamp
+	} else {
+		lastFailureAt = &eventTimestamp
+	}
+	// Upsert health state
+	_, err = r.db.Exec(ctx, `
+		INSERT INTO webhook_health_state (webhook_id, consecutive_failures, last_success_at, last_failure_at, last_event_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW())
+		ON CONFLICT (webhook_id) DO UPDATE SET
+			consecutive_failures = $2,
+			last_success_at = COALESCE($3, webhook_health_state.last_success_at),
+			last_failure_at = COALESCE($4, webhook_health_state.last_failure_at),
+			last_event_at = $5,
+			updated_at = NOW()
+	`,
+		webhookID,
+		consecutiveFailures,
+		lastSuccessAt,
+		lastFailureAt,
+		eventTimestamp,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Calculate health status
+	healthStatus, err := r.CalculateWebhookHealth(ctx, webhookID, 24)
+	if err != nil {
+		return err
+	}
+
+	// Update webhook_registrations health field
+	_, err = r.db.Exec(ctx, `UPDATE webhook_registrations SET health = $1, updated_at = NOW() WHERE id = $2`, healthStatus, webhookID)
+	return err
+}
+
+// ifThenElse returns the first argument if the condition is true, and the second argument otherwise.
+// It is a shorthand for a simple if-else statement.
+// Example: ifThenElse(x > 0, "positive", "negative") will return "positive" if x is greater than 0, and "negative" otherwise.
+func ifThenElse[T any](cond bool, a, b T) T {
+	if cond {
+		return a
+	}
+	return b
+}
+
+// CalculateWebhookHealth computes the health status for a webhook based on recent events and failures.
+func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID string, lookbackHours int) (string, error) {
+	// Get recent event statistics
+	query := `
+		SELECT COUNT(*), COALESCE(AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END), 0)
+		FROM webhook_health_events
+		WHERE webhook_id = $1 AND timestamp >= NOW() - INTERVAL '1 hour' * $2
+	`
+	var recentEventsCount int
+	var recentSuccessRate float64
+	err := r.db.QueryRow(ctx, query, webhookID, lookbackHours).Scan(&recentEventsCount, &recentSuccessRate)
+	if err != nil {
+		return "unknown", err
+	}
+
+	// Get consecutive failures
+	var consecutiveFailuresCount int
+	err = r.db.QueryRow(ctx, `SELECT COALESCE(consecutive_failures, 0) FROM webhook_health_state WHERE webhook_id = $1`, webhookID).Scan(&consecutiveFailuresCount)
+	if err != nil && err.Error() != "no rows in result set" {
+		return "unknown", err
+	}
+
+	// Calculate health status
+	switch {
+	case recentEventsCount == 0:
+		return "unknown", nil
+	case consecutiveFailuresCount >= 5:
+		return "unhealthy", nil
+	case recentSuccessRate < 0.8 && recentEventsCount >= 10:
+		return "unhealthy", nil
+	case recentSuccessRate < 0.9 && recentEventsCount >= 5:
+		return "degraded", nil
+	case recentSuccessRate >= 0.9 && recentEventsCount >= 3:
+		return "healthy", nil
+	default:
+		return "unknown", nil
+	}
+}
+
 // Repository handles webhook registration storage
 type Repository struct {
 	db *pgxpool.Pool

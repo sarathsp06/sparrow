@@ -1,17 +1,19 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { client } from '$lib/services';
-	import {
-		RegisteredEvent,
-		ListEventsRequest,
-		DeleteEventRequest
+	import { onMount } from 'svelte';
+	import { JSONEditor, type Content } from 'svelte-jsoneditor';
+
+
+	import type {
+	  RegisteredEvent
 	} from '../../../../proto/webhook_pb.js';
 
-	let events: RegisteredEvent[] = [];
-	let loading = true;
-	let error = '';
-	let selectedSchema = '';
-	let isModalOpen = false;
+	let events: RegisteredEvent[] = $state([]);
+	let loading = $state(true);
+	let error = $state('');
+	let content: Content = $state({json: {} });
+	let isModalOpen = $state(false);
+	$inspect(events,content)
 
 	async function fetchEvents() {
 		loading = true;
@@ -27,7 +29,16 @@
 		}
 	}
 
-	onMount(fetchEvents);
+	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape' && isModalOpen) {
+			closeModal();
+		}
+	};
+
+	onMount(() => {
+		window.addEventListener('keydown', handleKeydown);
+		fetchEvents();
+	});
 
 	async function deleteEvent(name: string) {
 		try {
@@ -40,23 +51,23 @@
 	}
 
 	function viewSchema(schema: string) {
-		selectedSchema = JSON.stringify(JSON.parse(schema), null, 2);
+		content = { json: JSON.parse(schema) };
 		isModalOpen = true;
 	}
 
 	function closeModal() {
 		isModalOpen = false;
-		selectedSchema = '';
+		content = { json: {} };
 	}
 </script>
 
 <div class="min-h-screen bg-gray-50 font-display">
 	<header
-		class="flex items-center justify-between p-4 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b"
+		class="flex items-center  justify-between p-4 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b border-gray-200"
 	>
 		<h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
-			<span class="material-symbols-outlined text-primary text-3xl">event_note</span>
-			Events
+			<a title="home" class="text-primary text-3xl" href="/"><span class="inline-block bg-primary rounded-full p-2 shadow-lg"><svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg></span></a>
+			<span class="text-primary">Events</span>
 		</h1>
 		<div>
 			<a
@@ -117,7 +128,7 @@
 							<div class="flex gap-2 items-center">
 								{#if event.schema}
 									<button
-										on:click={() => viewSchema(event.schema)}
+										onclick={() => viewSchema(event.schema)}
 										class="text-gray-600 font-semibold px-4 py-2 rounded-lg hover:bg-gray-100 transition"
 										>View Schema</button
 									>
@@ -128,7 +139,7 @@
 									>Update</a
 								>
 								<button
-									on:click={() => deleteEvent(event.name)}
+									onclick={() => deleteEvent(event.name)}
 									class="text-red-600 font-semibold px-4 py-2 rounded-lg hover:bg-red-500/10 transition"
 									>Delete</button
 								>
@@ -144,14 +155,14 @@
 {#if isModalOpen}
 	<div
 		class="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
-		on:click|self={closeModal}
 	>
 		<div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl">
 			<h3 class="text-lg font-bold mb-4">Event Schema</h3>
-			<pre class="bg-gray-100 p-4 rounded-md text-sm overflow-auto"><code>{selectedSchema}</code></pre>
+			<JSONEditor bind:content={content} />
 			<button
-				on:click={closeModal}
-				class="mt-4 bg-primary text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary/90 transition"
+				type="button"
+				onclick={closeModal}
+				class="block mt-4 bg-primary text-white px-4 p-2 rounded font-semibold hover:bg-primary/90 transition"
 				>Close</button
 			>
 		</div>
@@ -170,13 +181,5 @@
 	}
 	.event-card:hover {
 		transform: translateY(-2px);
-	}
-	.animate-spin {
-		animation: spin 1.5s linear infinite;
-	}
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
 	}
 </style>

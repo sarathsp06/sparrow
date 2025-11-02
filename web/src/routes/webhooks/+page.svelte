@@ -1,20 +1,29 @@
 <script lang="ts">
+  import { stopPropagation } from 'svelte/legacy';
+
   import { goto } from "$app/navigation";
   import { client } from "$lib/services";
   import { onMount } from "svelte";
   import type { RegisteredWebhook } from "../../../../proto/webhook_pb.js";
   import { WebhookHealth } from "../../../../proto/webhook_pb.js";
 
-  let webhooks: RegisteredWebhook[] = [];
-  let loading = true;
-  let error = "";
-  let namespace = "default";
+  let webhooks: RegisteredWebhook[] = $state([]);
+  let loading = $state(true);
+  let error = $state("");
+  let namespace = $state("default");
 
   const healthColor: Record<WebhookHealth, string> = {
-    [WebhookHealth.HEALTH_UNKNOWN]: "bg-gray-400",
-    [WebhookHealth.HEALTH_HEALTHY]: "bg-green-500",
-    [WebhookHealth.HEALTH_DEGRADED]: "bg-yellow-500",
-    [WebhookHealth.HEALTH_UNHEALTHY]: "bg-red-500",
+    [WebhookHealth.HEALTH_UNKNOWN]: "gray-500",
+    [WebhookHealth.HEALTH_HEALTHY]: "green-500",
+    [WebhookHealth.HEALTH_DEGRADED]: "yellow-500",
+    [WebhookHealth.HEALTH_UNHEALTHY]: "red-500",
+  };
+
+  const healthText: Record<WebhookHealth, string> = {
+    [WebhookHealth.HEALTH_UNKNOWN]: "Unknown",
+    [WebhookHealth.HEALTH_HEALTHY]: "Healthy",
+    [WebhookHealth.HEALTH_DEGRADED]: "Degraded",
+    [WebhookHealth.HEALTH_UNHEALTHY]: "Unhealthy",
   };
 
   async function fetchWebhooks() {
@@ -51,10 +60,10 @@
 
 <div class="min-h-screen bg-gray-50 font-display">
   <header
-    class="flex items-center justify-between p-4 bg-white-800/80 sticky top-0 z-10 border-b border-cyan-200"
+    class="flex items-center justify-between p-4 bg-white-800/80 top-0 z-10 border-b border-cyan-200"
   >
     <h1 class="text-2xl text-black-700 flex items-center gap-2">
-      <span class="text-primary text-3xl">hub</span>
+      <a class="text-primary text-3xl" href="/">🏠</a>
       Webhooks
     </h1>
     <a
@@ -71,7 +80,7 @@
         placeholder="Filter by namespace..."
         bind:value={namespace}
         class="border border-gray-300 rounded-md px-4 py-2 w-full max-w-sm"
-        on:keydown={(e) => {
+        onkeydown={(e) => {
           if (e.key === "Enter") {
             fetchWebhooks();
           }
@@ -103,46 +112,44 @@
         <p>Get started by registering a new webhook.</p>
       </div>
     {:else}
-      <table
-        class="table-auto w-full bg-white border border-gray-200 rounded-lg shadow-sm"
-      >
-        <thead class="bg-gray-100 border-b border-gray-200 py-8">
-          <tr class="text-center">
-            <th>Namespace</th>
-            <th>URL</th>
-            <th>Events</th>
-            <th>Health</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each webhooks as wh}
-            <tr
-              class="border-b border-gray-100 hover:bg-gray-100 hover:cursor-pointer"
-              data-id={wh.webhookId}
-              on:click={() => goto(`/webhooks/${wh.webhookId}`)}
-            >
-              <td class="px-4 py-2">{wh.namespace}</td>
-              <td class="px-4 py-2">{wh.url}</td>
-              <td class="px-4 py-2">{wh.events.join(", ")}</td>
-              <td class="px-4 py-2">
-                <span
-                  class="inline-block w-3 h-3 rounded-full {healthColor[
-                    wh.health
-                  ]}"
-                ></span>
-              </td>
-              <td class="px-4 py-2">
-                <button
-                  class="bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600"
-                  on:click|stopPropagation={() =>
-                    unregisterWebhook(wh.webhookId)}>Unregister</button
-                >
-              </td>
+      <div class="overflow-x-auto rounded-lg border border-gray-400 p-4">
+        <table class="w-full text-sm text-left">
+          <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+            <tr class="text-center">
+              <th>Namespace</th>
+              <th>URL</th>
+              <th>Events</th>
+              <th>Health</th>
+              <th>Actions</th>
             </tr>
-          {/each}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {#each webhooks as wh}
+              <tr
+                class="border-b border-gray-100 hover:bg-gray-100 hover:cursor-pointer"
+                data-id={wh.webhookId}
+                onclick={() => goto(`/webhooks/${wh.webhookId}`)}
+              >
+                <td class="px-4 py-2">{wh.namespace}</td>
+                <td class="px-4 py-2">{wh.url}</td>
+                <td class="px-4 py-2">{wh.events.join(", ")}</td>
+                <td class="px-4 py-2">
+                  <span class="text-{healthColor[wh.health]}">
+                    {healthText[wh.health]}
+                  </span>
+                </td>
+                <td class="px-4 py-2">
+                  <button
+                    class="bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600"
+                    onclick={stopPropagation(() =>
+                      unregisterWebhook(wh.webhookId))}>Unregister</button
+                  >
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
     {/if}
   </main>
 </div>

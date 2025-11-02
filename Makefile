@@ -2,7 +2,7 @@ build:
 	go build -o grpc-server ./main.go
 
 docker-purge:
-	docker-compose -f docker-compose.dev.yml -f docker-compose.observability.yml down -v
+	docker-compose -f docker-compose.dev.yml  down -v
 example:
 	DATABASE_URL='postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable' go run examples/grpc_client.go 
 

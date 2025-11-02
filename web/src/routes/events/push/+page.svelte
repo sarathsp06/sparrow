@@ -1,16 +1,17 @@
 <script lang="ts">
-	import { client } from '$lib/services';
-	import { PushEventRequest } from '../../../../../proto/webhook_pb.js';
-	import { onMount } from 'svelte';
-	import { ListEventsRequest, RegisteredEvent } from '../../../../../proto/webhook_pb.js';
+	import { preventDefault } from 'svelte/legacy';
 
-	let namespace = 'default';
-	let event = '';
-	let payload = '{}';
-	let loading = false;
-	let error = '';
-	let successMessage = '';
-	let availableEvents: RegisteredEvent[] = [];
+	import { client } from '$lib/services';
+	import { onMount } from 'svelte';
+	import type { PushEventRequest, RegisteredEvent } from '../../../../../proto/webhook_pb.js';
+
+	let namespace = $state('default');
+	let event = $state('');
+	let payload = $state('{}');
+	let loading = $state(false);
+	let error = $state('');
+	let successMessage = $state('');
+	let availableEvents: RegisteredEvent[] = $state([]);
 
 	async function fetchEvents() {
 		try {
@@ -32,7 +33,7 @@
 		error = '';
 		successMessage = '';
 		try {
-			const req = {
+			const req:PushEventRequest = {
 				namespace,
 				event,
 				payload
@@ -52,7 +53,7 @@
 		class="flex items-center justify-between p-4 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b"
 	>
 		<a href="/events" class="text-primary font-semibold hover:underline flex items-center gap-2">
-			<span class="material-symbols-outlined">arrow_back</span>
+			<span class="material-symbols-outlined">🔙</span>
 			Back to Events
 		</a>
 	</header>
@@ -60,7 +61,7 @@
 	<main class="p-6">
 		<div class="max-w-xl mx-auto bg-white rounded-lg shadow-sm border p-6">
 			<h1 class="text-2xl font-bold text-gray-800 mb-4">Push a Test Event</h1>
-			<form on:submit|preventDefault={pushEvent} class="flex flex-col gap-4">
+			<form onsubmit={preventDefault(pushEvent)} class="flex flex-col gap-4">
 				<div>
 					<label for="namespace" class="font-semibold text-gray-600">Namespace</label>
 					<input
@@ -87,7 +88,7 @@
 						rows="10"
 						class="w-full mt-1 p-2 border rounded-md font-mono"
 						required
-					/>
+					></textarea>
 				</div>
 				<button
 					type="submit"

@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { page } from '$app/state';
   import { createClient } from "@connectrpc/connect";
   import { createConnectTransport } from "@connectrpc/connect-web";
   import { onMount } from 'svelte';
   import type { WebhookDelivery } from "../../../../../proto/webhook_pb.js";
   import { WebhookService } from '../../../../../proto/webhook_pb.js';
 
-  let delivery: WebhookDelivery | undefined;
-  let loading = true;
-  let error = '';
+  let delivery: WebhookDelivery | undefined = $state();
+  let loading = $state(true);
+  let error = $state('');
 
   const transport = createConnectTransport({
     baseUrl: "http://localhost:8080",
@@ -16,7 +16,7 @@
   const client = createClient(WebhookService, transport);
 
   onMount(async () => {
-    const deliveryId = $page.params.deliveryId;
+    const deliveryId = page.params.deliveryId;
     try {
       const req = {
           deliveryId,

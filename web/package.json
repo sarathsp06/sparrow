@@ -30,6 +30,9 @@
 	"dependencies": {
 		"@bufbuild/protobuf": "^2.10.0",
 		"@connectrpc/connect": "^2.1.0",
-		"@connectrpc/connect-web": "^2.1.0"
+		"@connectrpc/connect-web": "^2.1.0",
+		"@kaifronsdal/svelte-json-viewer": "^0.1.0",
+		"@zerodevx/svelte-json-view": "^1.0.11",
+		"svelte-jsoneditor": "^3.10.0"
 	}
 }
