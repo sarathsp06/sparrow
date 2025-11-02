@@ -23,47 +23,47 @@ func MainGRPC() {
 	client := pb.NewWebhookServiceClient(conn)
 	ctx := context.Background()
 
-	// // Example 0: Register events
-	// log.Println("=== Example 0: Register Events ===")
-	// events := []struct {
-	// 	name        string
-	// 	description string
-	// 	schema      string
-	// 	metadata    map[string]string
-	// }{
-	// 	{
-	// 		name:        "signup",
-	// 		description: "User signup event",
-	// 		schema:      `{"type": "object", "properties": {"user_id": {"type": "string"}, "email": {"type": "string"}}, "required": ["user_id", "email"]}`,
-	// 		metadata: map[string]string{
-	// 			"category": "user",
-	// 		},
-	// 	},
-	// 	{
-	// 		name:        "login",
-	// 		description: "User login event",
-	// 		schema:      `{"type": "object", "properties": {"user_id": {"type": "string"}, "login_time": {"type": "string"}}, "required": ["user_id", "login_time"]}`,
-	// 		metadata: map[string]string{
-	// 			"category": "user",
-	// 		},
-	// 	},
-	// }
+	// Example 0: Register events
+	log.Println("=== Example 0: Register Events ===")
+	events := []struct {
+		name        string
+		description string
+		schema      string
+		metadata    map[string]string
+	}{
+		{
+			name:        "signup",
+			description: "User signup event",
+			schema:      `{"type": "object", "properties": {"user_id": {"type": "string"}, "email": {"type": "string"}}, "required": ["user_id", "email"]}`,
+			metadata: map[string]string{
+				"category": "user",
+			},
+		},
+		{
+			name:        "login",
+			description: "User login event",
+			schema:      `{"type": "object", "properties": {"user_id": {"type": "string"}, "login_time": {"type": "string"}}, "required": ["user_id", "login_time"]}`,
+			metadata: map[string]string{
+				"category": "user",
+			},
+		},
+	}
 
-	// for _, event := range events {
-	// 	regEventReq := &pb.RegisterEventRequest{
-	// 		Name:        event.name,
-	// 		Description: event.description,
-	// 		Schema:      event.schema,
-	// 		Metadata:    event.metadata,
-	// 		Active:      true,
-	// 	}
-	// 	regEventResp, err := client.RegisterEvent(ctx, regEventReq)
-	// 	if err != nil {
-	// 		log.Printf("Failed to register event %s: %v", event.name, err)
-	// 	} else {
-	// 		log.Printf("Event %s registered: %s (ID: %s)", event.name, regEventResp.Message, regEventResp.EventId)
-	// 	}
-	// }
+	for _, event := range events {
+		regEventReq := &pb.RegisterEventRequest{
+			Name:        event.name,
+			Description: event.description,
+			Schema:      event.schema,
+			Metadata:    event.metadata,
+			Active:      true,
+		}
+		regEventResp, err := client.RegisterEvent(ctx, regEventReq)
+		if err != nil {
+			log.Printf("Failed to register event %s: %v", event.name, err)
+		} else {
+			log.Printf("Event %s registered: %s (ID: %s)", event.name, regEventResp.Message, regEventResp.EventId)
+		}
+	}
 	// Example 1: Register a webhook for multiple user events
 	log.Println("=== Example 1: Register Webhook for Multiple User Events ===")
 	registerReq := &pb.RegisterWebhookRequest{
@@ -362,19 +362,37 @@ func MainGRPC() {
 
 	// Register an event with JSON schema
 	log.Println("\n=== Register Event with JSON Schema ===")
-	eventSchema := `{"type": "object", "properties": {"userId": {"type": "string"}, "email": {"type": "string"}}, "required": ["userId", "email"]}`
-	regEventReq := &pb.RegisterEventRequest{
-		Name:        "user.created",
-		Description: "Triggered when a new user is created",
-		Schema:      eventSchema,
-		Metadata:    map[string]string{"category": "user"},
-		Active:      true,
+	eventDefs := []*pb.RegisterEventRequest{
+		&pb.RegisterEventRequest{
+			Name:        "user.created",
+			Description: "Triggered when a new user is created",
+			Schema:      `{"type": "object", "properties": {"userId": {"type": "string"}, "email": {"type": "string"}}, "required": ["userId", "email"]}`,
+			Metadata:    map[string]string{"category": "user"},
+			Active:      true,
+		},
+		&pb.RegisterEventRequest{
+			Name:        "user.deleted",
+			Description: "Triggered when a user is deleted",
+			Schema:      `{"type": "object", "properties": {"userId": {"type": "string"}}, "required": ["userId"]}`,
+			Metadata:    map[string]string{"category": "user"},
+			Active:      true,
+		},
+		&pb.RegisterEventRequest{
+			Name:        "user.updated",
+			Description: "Triggered when a user is updated",
+			Schema:      `{"type": "object", "properties": {"userId": {"type": "string"}, "email": {"type": "string"}}, "required": ["userId", "email"]}`,
+			Metadata:    map[string]string{"category": "user"},
+			Active:      true,
+		},
 	}
-	regEventResp, err := client.RegisterEvent(ctx, regEventReq)
-	if err != nil {
-		log.Fatalf("Failed to register event: %v", err)
-	} else {
-		log.Printf("Event registered: %s (ID: %s)", regEventResp.Message, regEventResp.EventId)
+
+	for _, eventDef := range eventDefs {
+		regEventResp, err := client.RegisterEvent(ctx, eventDef)
+		if err != nil {
+			log.Fatalf("Failed to register event: %v", err)
+		} else {
+			log.Printf("Event registered: %s (ID: %s)", regEventResp.Message, regEventResp.EventId)
+		}
 	}
 
 	// Register webhook for the registered event
@@ -393,23 +411,6 @@ func MainGRPC() {
 		log.Fatalf("Failed to register webhook: %v", err)
 	} else {
 		log.Printf("Webhook registered: %s (ID: %s)", regWebhookResp.Message, regWebhookResp.WebhookId)
-	}
-
-	// Push event with valid payload
-	log.Println("\n=== Push user.created Event with Valid Payload ===")
-	validPayload := map[string]interface{}{"userId": "user_001", "email": "user@default.com"}
-	validPayloadJSON, _ := json.Marshal(validPayload)
-	pushValidReq := &pb.PushEventRequest{
-		Namespace:  "default",
-		Event:      "user.created",
-		Payload:    string(validPayloadJSON),
-		TtlSeconds: 600,
-	}
-	pushValidResp, err := client.PushEvent(ctx, pushValidReq)
-	if err != nil {
-		log.Printf("Failed to push valid event: %v", err)
-	} else {
-		log.Printf("Valid event pushed: %s", pushValidResp.Message)
 	}
 
 	// Push event with invalid payload (missing required field)

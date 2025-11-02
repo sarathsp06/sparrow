@@ -6,7 +6,6 @@
     Mode,
     type Validator
   } from "svelte-jsoneditor";
-  import { preventDefault } from "svelte/legacy";
 
   import { client } from "$lib/services";
   import { stringifyContent } from "$lib/utils";
@@ -58,7 +57,8 @@
 
   onMount(fetchEvents);
 
-  async function pushEvent() {
+  async function pushEvent(e : Event) {
+	e.preventDefault();
     loading = true;
     error = "";
     successMessage = "";
@@ -78,11 +78,11 @@
   }
 </script>
 
-<div class="min-h-screen bg-gray-50 font-display">
-  <main class="p-6">
-    <div class="max-w-xl mx-auto bg-white rounded-lg shadow-sm border p-6">
+<div class="min-h-screen w-full bg-gray-50 font-display">
+  <main class="w-full p-6 flex items-center justify-center">
+    <div class="w-full bg-white rounded-lg shadow-sm border p-6 max-w-4xl">
       <h1 class="text-2xl font-bold text-gray-800 mb-4">Push a Test Event</h1>
-      <form onsubmit={preventDefault(pushEvent)} class="flex flex-col gap-4">
+      <form onsubmit={pushEvent} class="flex flex-col gap-4">
         <div>
           <label for="namespace" class="font-semibold text-gray-600"
             >Namespace</label
