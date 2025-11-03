@@ -1,11 +1,22 @@
 
-
-
 <div align="center">
 	<img src="https://upload.wikimedia.org/wikipedia/commons/1/1e/Emojione_1F426.svg" alt="Sparrow" width="120" height="120" />
 	<h1 style="font-family:monospace;font-weight:900;color:#222;">sparrow</h1>
 	<p style="font-size:1.2em;color:#555;">Minimal event-driven webhook delivery system</p>
 </div>
+
+---
+
+##  Introduction
+
+Sparrow is built for developers who value clarity, reliability, and speed. With a clean service layer, protocol-agnostic APIs, and instant observability, Sparrow makes webhook management effortless—whether you're building for scale or hacking on a side project.
+
+- **Minimal setup:** Get started in minutes with Makefile workflows and Docker support.
+- **Modern stack:** Go, Svelte, Tailwind, River queue, and OpenTelemetry for full-stack productivity.
+- **Built for reliability:** Automatic health tracking, retries, and delivery metrics out of the box.
+- **Developer experience first:** Simple configuration, clear API, and easy local development.
+
+Whether you're integrating webhooks, building event-driven systems, or just want a reliable queue, Sparrow is designed to help you ship faster and debug smarter.
 
 
 
