@@ -19,7 +19,7 @@ import (
 type Manager struct {
 	client      *river.Client[pgx.Tx]
 	dbPool      *pgxpool.Pool
-	webhookRepo *store.Repository
+	webhookRepo store.RepositoryInterface
 }
 
 // NewManager creates a new queue manager
@@ -94,7 +94,7 @@ func (m *Manager) GetClient() *river.Client[pgx.Tx] {
 }
 
 // GetWebhookRepo returns the webhook repository
-func (m *Manager) GetWebhookRepo() *store.Repository {
+func (m *Manager) GetWebhookRepo() store.RepositoryInterface {
 	return m.webhookRepo
 }
 
@@ -125,6 +125,11 @@ func (m *Manager) QueueWebhook(ctx context.Context, args *jobs.WebhookArgs) erro
 	}
 	_, err := m.client.Insert(ctx, *args, opts)
 	return err
+}
+
+// Insert inserts a job into the queue.
+func (m *Manager) Insert(ctx context.Context, args river.JobArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error) {
+	return m.client.Insert(ctx, args, opts)
 }
 
 // QueueEvent queues an event for processing

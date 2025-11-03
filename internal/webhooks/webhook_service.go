@@ -21,8 +21,8 @@ import (
 )
 
 type WebhookService struct {
-	queueManager *queue.Manager
-	webhookRepo  *store.Repository
+	queueManager queue.QueueManagerInterface
+	webhookRepo  store.RepositoryInterface
 	logger       *slog.Logger
 	tracer       trace.Tracer
 	metrics      *observability.SparrowMetrics
@@ -56,7 +56,7 @@ type WebhookServiceInterface interface {
 var _ WebhookServiceInterface = (*WebhookService)(nil)
 
 // NewWebhookService creates a new WebhookService instance
-func NewWebhookService(queueManager *queue.Manager, webhookRepo *store.Repository) *WebhookService {
+func NewWebhookService(queueManager queue.QueueManagerInterface, webhookRepo store.RepositoryInterface) *WebhookService {
 	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
@@ -263,7 +263,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 	}
 
 	// Insert the event processing job
-	_, err = s.queueManager.GetClient().Insert(ctx, eventArgs, &river.InsertOpts{
+	_, err = s.queueManager.Insert(ctx, eventArgs, &river.InsertOpts{
 		Queue: "events",
 	})
 	if err != nil {

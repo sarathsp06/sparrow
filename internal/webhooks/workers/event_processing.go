@@ -15,12 +15,12 @@ import (
 // EventProcessingWorker processes events and triggers webhook deliveries
 type EventProcessingWorker struct {
 	river.WorkerDefaults[jobs.EventArgs]
-	webhookRepo *store.Repository
+	webhookRepo store.RepositoryInterface
 	riverClient *river.Client[pgx.Tx]
 }
 
 // NewEventProcessingWorker creates a new event processing worker with a river client
-func NewEventProcessingWorker(webhookRepo *store.Repository, riverClient *river.Client[pgx.Tx]) *EventProcessingWorker {
+func NewEventProcessingWorker(webhookRepo store.RepositoryInterface, riverClient *river.Client[pgx.Tx]) *EventProcessingWorker {
 	return &EventProcessingWorker{
 		webhookRepo: webhookRepo,
 		riverClient: riverClient,

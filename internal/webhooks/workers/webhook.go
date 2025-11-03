@@ -3,6 +3,7 @@ package workers
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,13 +23,13 @@ import (
 // WebhookWorker handles webhook delivery jobs
 type WebhookWorker struct {
 	river.WorkerDefaults[jobs.WebhookArgs]
-	webhookRepo *store.Repository
+	webhookRepo store.RepositoryInterface
 	tracer      trace.Tracer
 	metrics     *observability.SparrowMetrics
 }
 
 // NewWebhookWorker creates a new webhook worker
-func NewWebhookWorker(webhookRepo *store.Repository) *WebhookWorker {
+func NewWebhookWorker(webhookRepo store.RepositoryInterface) *WebhookWorker {
 	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
@@ -96,8 +97,33 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 		log.Error("Failed to update delivery status to sending", "error", err)
 	}
 
+	// Get event payload
+	eventRecord, err := w.webhookRepo.GetEventByID(ctx, args.EventID)
+	if err != nil {
+		log.Error("Failed to get event record", "error", err)
+		return err
+	}
+
+	// Create webhook payload
+	webhookPayload := struct {
+		EventID   string          `json:"event_id"`
+		Namespace string          `json:"namespace"`
+		Event     string          `json:"event"`
+		Payload   json.RawMessage `json:"payload"`
+	}{
+		EventID:   args.EventID,
+		Namespace: args.Namespace,
+		Event:     args.Event,
+		Payload:   json.RawMessage(eventRecord.Payload),
+	}
+	payloadBytes, err := json.Marshal(webhookPayload)
+	if err != nil {
+		log.Error("Failed to marshal webhook payload", "error", err)
+		return err
+	}
+
 	// Create HTTP request (always POST for webhooks)
-	req, err := http.NewRequestWithContext(ctx, "POST", args.URL, bytes.NewBuffer([]byte(args.Payload)))
+	req, err := http.NewRequestWithContext(ctx, "POST", args.URL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		log.Error("Failed to create request",
 			"job_id", job.ID,

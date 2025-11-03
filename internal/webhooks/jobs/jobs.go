@@ -2,6 +2,8 @@ package jobs
 
 import (
 	"time"
+
+	"github.com/riverqueue/river"
 )
 
 // EventArgs represents an event processing job
@@ -14,6 +16,8 @@ type EventArgs struct {
 	Metadata   map[string]string `json:"metadata"`
 	CreatedAt  time.Time         `json:"created_at"`
 }
+
+var _ river.JobArgs = (*EventArgs)(nil)
 
 // Kind returns the job kind for River queue
 func (EventArgs) Kind() string {
@@ -34,6 +38,8 @@ type WebhookArgs struct {
 	Event      string            `json:"event"`
 }
 
+var _ river.JobArgs = (*WebhookArgs)(nil)
+
 // Kind returns the job kind for River queue
 func (WebhookArgs) Kind() string {
 	return "webhook_delivery"
@@ -44,6 +50,8 @@ type DataProcessingArgs struct {
 	DataID   int    `json:"data_id"`
 	DataType string `json:"data_type"`
 }
+
+var _ river.JobArgs = (*DataProcessingArgs)(nil)
 
 // Kind returns the job kind for River queue
 func (DataProcessingArgs) Kind() string {
