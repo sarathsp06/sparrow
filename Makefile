@@ -1,5 +1,25 @@
-build: ## Build the server binary
-	go build -o server ./cmd/server
+
+# Generic build target for any OS/arch
+
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
+OUTPUT ?= build/server-$(GOOS)-$(GOARCH)
+
+
+build: ## Build the server binary for current OS/arch
+	mkdir -p build
+	go build -o $(OUTPUT) ./cmd/server
+
+
+build-all: ## Build for common OS/arch combinations
+	mkdir -p build
+	GOOS=linux GOARCH=amd64 go build -ldflags "-w" -o build/server-linux-amd64 ./cmd/server
+	GOOS=linux GOARCH=arm64 go build -ldflags "-w" -o build/server-linux-arm64 ./cmd/server
+	GOOS=darwin GOARCH=amd64 go build -ldflags "-w" -o build/server-darwin-amd64 ./cmd/server
+	GOOS=darwin GOARCH=arm64 go build -ldflags "-w" -o build/server-darwin-arm64 ./cmd/server
+	GOOS=windows GOARCH=amd64 go build -ldflags "-w" -o build/server-windows-amd64.exe ./cmd/server
+
+
 
 docker-purge: ## Stop and remove Docker containers, networks, volumes, and images created by Docker Compose for development
 	docker-compose -f docker-compose.dev.yml  down -v
@@ -20,8 +40,10 @@ migrate: ## Run database migrations
 	DATABASE_URL='postgres://riveruser:riverpass@0.0.0.0:5432/riverqueue?sslmode=disable' go run ./cmd/migrate
 
 
-clean: ## Clean up build artifacts
-	rm -f grpc-server
+
+clean: ## Clean up build artifacts and Go module cache
+	rm -rf build
+	go clean -modcache
 
 proto: ## Generate protobuf code
 	buf generate
@@ -32,4 +54,4 @@ docker-dev: ## Run the development environment with Docker Compose
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	
-.PHONY: build run test clean proto docker-dev example
+.PHONY: build build-all build-custom run test clean proto docker-dev example

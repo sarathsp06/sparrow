@@ -3,7 +3,7 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { WebhookService } from "../../../proto/webhook_pb.js";
 
 const transport = createConnectTransport({
-  baseUrl: "http://localhost:8080",
+  baseUrl: "https://sparrow.sarathsadasivan.com",
 });
 
 export const client = createClient(WebhookService, transport);

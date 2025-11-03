@@ -1,3 +1,4 @@
+
 # Build stage
 FROM golang:1.25-alpine AS builder
 
@@ -16,8 +17,9 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+
 # Build the migration tool
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o tools/migrate ./cmd/migrate
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o migrate ./cmd/migrate
 
 # Build the gRPC server
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o grpc-server ./cmd/grpc-server
@@ -38,15 +40,18 @@ WORKDIR /app
 # Create logs directory
 RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
 
+
 # Copy the binaries from builder stage
-COPY --from=builder /build/tools/migrate ./tools/migrate
+COPY --from=builder /build/migrate ./tools/migrate
 COPY --from=builder /build/grpc-server ./grpc-server
 
 # Copy migrations directory
 COPY db/migrations ./db/migrations
 
-# Change ownership
-RUN chown appuser:appgroup grpc-server
+
+# Use COPY --chown for correct permissions
+COPY --chown=appuser:appgroup --from=builder /build/grpc-server ./grpc-server
+COPY --chown=appuser:appgroup --from=builder /build/migrate ./tools/migrate
 
 # Switch to non-root user
 USER appuser
@@ -54,9 +59,10 @@ USER appuser
 # Expose gRPC port
 EXPOSE 50051
 
+
 # Health check for gRPC server
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD pgrep grpc-server || exit 1
+    CMD pidof grpc-server || exit 1
 
 # Run the gRPC server by default
 CMD ["./grpc-server"]
