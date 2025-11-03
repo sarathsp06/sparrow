@@ -107,18 +107,6 @@
 </script>
 
 <div class="min-h-screen bg-gray-50 font-display">
-  <header
-    class="flex items-center p-4 bg-white-400/100 top-0 z-10 border-b border-cyan-200"
-  >
-    <a href="/webhooks" class="text-primary font-semibold">
-      <span class="material-symbols-outlined text-4xl font-bold">く</span>
-    </a>
-    <span
-      class="absolute left-1/2 transform -translate-x-1/2 text-3xl text-primary"
-      >{webhook?.description}</span
-    >
-  </header>
-
   <main class="p-6">
     {#if loading}
       <div class="flex justify-center items-center h-40">
@@ -253,7 +241,7 @@
 
       <!-- Delivery History -->
       <div class="bg-white rounded-lg shadow-sm border p-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">Delivery History</h2>
+        <h2 class="text-xl font-bold text-gray-800 mb-8">Delivery History</h2>
         {#if deliveries.length === 0}
           <p class="text-gray-500">No deliveries found for this webhook.</p>
         {:else}
@@ -303,12 +291,7 @@
 </div>
 
 <style>
-  .bg-primary {
-    background-color: #13348f;
-  }
-  .text-primary {
-    color: #1d4ed8;
-  }
+  
   .border-primary {
     border-color: #1d4ed8;
   }

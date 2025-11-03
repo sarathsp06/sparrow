@@ -3,6 +3,9 @@
 @plugin '@tailwindcss/typography';
 
 @layer base {
+  	.border-primary {
+   	 border-color: #1d4ed8;
+  	}
 	html, body {
 		@apply font-mono bg-gray-50 text-gray-900 text-base;
 	}
