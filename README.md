@@ -30,7 +30,8 @@
 6. `make docker-purge`    | Clean up all Docker resources
 
 ### Other Commands
-
+| Command           | Description                                      |
+|-------------------|--------------------------------------------------|
 | make build   | Build the gRPC server binary
 | make test    | Run Go tests
 | make proto   | Regenerate gRPC/Connect code from proto
