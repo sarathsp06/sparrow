@@ -1,11 +1,9 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { client } from '$lib/services';
-	import {
-		GetHealthSummaryRequest,
-		GetNamespaceStatsRequest,
-		HealthSummary,
-		NamespaceStats
+	import { onMount } from 'svelte';
+	import type {
+	  HealthSummary,
+	  NamespaceStats
 	} from '../../../../proto/webhook_pb.js';
 
 	let healthSummary: HealthSummary | undefined = $state();
@@ -35,15 +33,6 @@
 </script>
 
 <div class="min-h-screen bg-gray-50 font-display">
-	<header
-		class="flex items-center justify-between p-4 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b"
-	>
-		<h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
-			<span class="material-symbols-outlined text-primary text-3xl">monitor_heart</span>
-			Health Dashboard
-		</h1>
-	</header>
-
 	<main class="p-6">
 		{#if loading}
 			<div class="flex justify-center items-center h-40">

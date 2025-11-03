@@ -9,7 +9,7 @@ Minimal event-driven webhook delivery system.
 | make docker-purge | Remove all Docker containers and volumes         |
 | make docker-dev   | Start dev setup (Postgres, River) except app     |
 | make migrate      | Run DB migrations (assumes docker-dev running)   |
-| make run-connect  | Run gRPC and Connect servers                     |
+| make run          | Run gRPC and Connect servers                     |
 | make example      | Run example gRPC client                          |
 | make run-web      | Run the web UI locally                           |
 
@@ -17,7 +17,7 @@ Minimal event-driven webhook delivery system.
 
 1. `make docker-dev`      | Start database and queue in Docker
 2. `make migrate`         | Run migrations on the database
-3. `make run-connect`     | Start gRPC and Connect servers
+3. `make run`             | Start gRPC and Connect servers
 4. `make run-web`         | Launch the web UI for local development
 5. `make example`         | Run example client to test API
 6. `make docker-purge`    | Clean up all Docker resources
