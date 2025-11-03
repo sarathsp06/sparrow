@@ -1,4 +1,6 @@
 <script lang="ts">
+    import favicon from '$lib/assets/favicon.svg';
+
   import { page } from "$app/state";
   import { client } from "$lib/services";
   import { onMount } from "svelte";
@@ -112,7 +114,9 @@
       <div class="flex justify-center items-center h-40">
         <span
           class="material-symbols-outlined animate-spin text-4xl text-primary"
-          >autorenew</span
+          >
+          <img src={favicon} alt="favicon" class="inline-block w-8 h-8" />
+          </span
         >
       </div>
     {:else if error}

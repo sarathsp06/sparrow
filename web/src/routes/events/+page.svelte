@@ -1,5 +1,7 @@
 <script lang="ts">
+	import favicon from '$lib/assets/favicon.svg';
 	import { client } from '$lib/services';
+
 	import { onMount } from 'svelte';
 	import { JSONEditor, Mode, type Content } from 'svelte-jsoneditor';
 
@@ -66,7 +68,9 @@
 	<main class="p-6">
 		{#if loading}
 			<div class="flex justify-center items-center h-40">
-				<span class="material-symbols-outlined animate-spin text-4xl text-primary">autorenew</span>
+				<span class="material-symbols-outlined animate-spin text-4xl text-primary">
+					<img src={favicon} alt="favicon" class="inline-block w-8 h-8" />
+				</span>
 			</div>
 		{:else if error}
 			<div
