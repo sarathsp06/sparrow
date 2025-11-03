@@ -1,84 +1,35 @@
-
 # sparrow
 
-Event-driven webhook delivery system with reliable processing, retry logic, and comprehensive management capabilities.
+Minimal event-driven webhook delivery system.
 
-## Features
+## Usage & Makefile Commands
 
-### Core Webhook Operations
-- **Register/Unregister** webhooks for namespace/event pairs
-- **Push events** to trigger webhooks automatically
-- **List webhooks** with filtering by namespace and event
-- **Track delivery status** and retry attempts
+| Command           | Description                                      |
+|-------------------|--------------------------------------------------|
+| make docker-purge | Remove all Docker containers and volumes         |
+| make docker-dev   | Start dev setup (Postgres, River) except app     |
+| make migrate      | Run DB migrations (assumes docker-dev running)   |
+| make run-connect  | Run gRPC and Connect servers                     |
+| make example      | Run example gRPC client                          |
+| make run-web      | Run the web UI locally                           |
 
-### Advanced Management
-- **Pause/Resume webhooks** - Temporarily disable deliveries
-- **Resend failed deliveries** - Retry with force option
-- **Delivery history** - Paginated webhook delivery tracking
-- **Namespace isolation** - Secure multi-tenant operations
+### Typical Workflow
 
-### Architecture & APIs
-- **Clean service layer** - Protocol-agnostic business logic
-- **gRPC and Connect-RPC** (HTTP/JSON) APIs
-- **OpenTelemetry** metrics and distributed tracing
-- **Durable job queue** (River) with PostgreSQL backend
-- **Comprehensive error handling** and validation
+1. `make docker-dev`      | Start database and queue in Docker
+2. `make migrate`         | Run migrations on the database
+3. `make run-connect`     | Start gRPC and Connect servers
+4. `make run-web`         | Launch the web UI for local development
+5. `make example`         | Run example client to test API
+6. `make docker-purge`    | Clean up all Docker resources
 
-## Quick Start
+### Other Commands
 
-```bash
-# Full system with Docker Compose
-make grpc-up                    # Start all services (Postgres, River, server)
-make grpc-test                  # Run example client tests
-make grpc-logs                  # View server logs
-make grpc-down                  # Stop all services
+| make build   | Build the gRPC server binary
+| make test    | Run Go tests
+| make proto   | Regenerate gRPC/Connect code from proto
+| make clean   | Remove built binaries
 
-# Check job queue status
-make grpc-jobs                  # View River job queue
-make grpc-db-shell             # Connect to PostgreSQL
-```
-
-## Development Workflow
-
-```bash
-# Local development
-make docker-dev                 # Start only Postgres
-make migrate                    # Run database migrations
-go run main.go                  # Run server locally
-
-# API testing
-go run examples/grpc_client.go  # Test gRPC API
-go run examples/connect_client.go  # Test Connect-RPC API
-
-# Code generation and testing
-make proto                      # Regenerate gRPC/Connect code
-make test                       # Run tests
-make build                      # Build binaries
-```
-
-## API Endpoints
-
-### gRPC (Port 50051)
-- `RegisterWebhook` - Register webhook for events
-- `UnregisterWebhook` - Remove webhook registration  
-- `PushEvent` - Trigger event processing
-- `ListWebhooks` - List registered webhooks
-- `GetWebhookStatus` - Check delivery status
-
-### Connect-RPC HTTP/JSON (Port 8080)
-- Same methods as gRPC but over HTTP with JSON payloads
-- RESTful-style endpoints with Connect protocol
-
-### Event Management Endpoints
-
-Both gRPC and Connect-RPC support:
-
-- `RegisterEvent` - Register new event types
-- `ListEvents` - List all registered events
-- `UpdateEvent` - Update event information
-- `DeleteEvent` - Remove event registrations
-
-### Testing & Examples
+Refer to the Makefile for more details and options.
 
 ```bash
 # Test webhook operations

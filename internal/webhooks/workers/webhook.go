@@ -106,15 +106,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 
 	// Create webhook payload
 	webhookPayload := struct {
-		EventID   string          `json:"event_id"`
-		Namespace string          `json:"namespace"`
-		Event     string          `json:"event"`
-		Payload   json.RawMessage `json:"payload"`
+		EventID string          `json:"event_id"`
+		Event   string          `json:"event"`
+		Payload json.RawMessage `json:"payload"`
 	}{
-		EventID:   args.EventID,
-		Namespace: args.Namespace,
-		Event:     args.Event,
-		Payload:   json.RawMessage(eventRecord.Payload),
+		EventID: args.EventID,
+		Event:   args.Event,
+		Payload: json.RawMessage(eventRecord.Payload),
 	}
 	payloadBytes, err := json.Marshal(webhookPayload)
 	if err != nil {
