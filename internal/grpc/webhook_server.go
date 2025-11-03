@@ -18,7 +18,7 @@ type WebhookServer struct {
 }
 
 // NewWebhookServer creates a new WebhookServer instance
-func NewWebhookServer(queueManager *queue.Manager, webhookRepo *store.Repository) *WebhookServer {
+func NewWebhookServer(queueManager *queue.Manager, webhookRepo store.RepositoryInterface) *WebhookServer {
 	return &WebhookServer{
 		service: webhooks.NewWebhookService(queueManager, webhookRepo),
 	}

@@ -21,7 +21,7 @@ type WebhookConnectServer struct {
 }
 
 // NewWebhookConnectServer creates a new Connect-RPC server
-func NewWebhookConnectServer(queueManager *queue.Manager, webhookRepo *store.Repository) *WebhookConnectServer {
+func NewWebhookConnectServer(queueManager *queue.Manager, webhookRepo store.RepositoryInterface) *WebhookConnectServer {
 	return &WebhookConnectServer{
 		service: webhooks.NewWebhookService(queueManager, webhookRepo),
 	}
@@ -198,7 +198,6 @@ func (s *WebhookConnectServer) RegisterEvent(
 	return connect.NewResponse(result), nil
 }
 
-
 // ListEvents lists all registered event types
 func (s *WebhookConnectServer) ListEvents(
 	ctx context.Context,
@@ -313,7 +312,6 @@ func (s *WebhookConnectServer) GetWebhookHealth(
 	return connect.NewResponse(result), nil
 }
 
-
 // ListWebhooksByHealth lists webhooks filtered by health status
 func (s *WebhookConnectServer) ListWebhooksByHealth(
 	ctx context.Context,
@@ -381,7 +379,6 @@ func (s *WebhookConnectServer) GetHealthSummary(
 
 	return connect.NewResponse(result), nil
 }
-
 
 // ResubmitWebhook manually retries failed or pending webhook deliveries
 func (s *WebhookConnectServer) ResubmitWebhook(
