@@ -1,6 +1,13 @@
-# sparrow
 
-Minimal event-driven webhook delivery system.
+
+
+<div align="center">
+	<img src="https://upload.wikimedia.org/wikipedia/commons/1/1e/Emojione_1F426.svg" alt="Sparrow" width="120" height="120" />
+	<h1 style="font-family:monospace;font-weight:900;color:#222;">sparrow</h1>
+	<p style="font-size:1.2em;color:#555;">Minimal event-driven webhook delivery system</p>
+</div>
+
+
 
 ## Usage & Makefile Commands
 
@@ -31,17 +38,6 @@ Minimal event-driven webhook delivery system.
 
 Refer to the Makefile for more details and options.
 
-```bash
-# Test webhook operations
-go run examples/grpc_client.go
-go run examples/connect_client.go
-
-# Test event management
-./examples/test_event_management.sh
-go run examples/event_management_client.go
-```
-
-See `proto/webhook.proto` for complete API definitions.
 
 ## Core Management Methods
 
@@ -62,6 +58,7 @@ ResumeWebhook(webhook_id, namespace)
 ```
 
 ### Delivery Management
+
 ```go
 // Get delivery status
 GetWebhookDeliveryStatus(delivery_id, namespace)
@@ -74,6 +71,7 @@ GetWebhookDeliveryHistory(webhook_id, namespace, limit?, offset?)
 ```
 
 ### Event Type Management
+
 ```go
 // Register a new event type (namespace-independent)
 RegisterEvent(name, description, schema?, metadata?, active?)
@@ -89,6 +87,7 @@ DeleteEvent(name)
 ```
 
 #### Event Registration Features
+
 - **Schema Validation** - JSON Schema definitions for event payloads
 - **Metadata Support** - Custom key-value pairs for categorization
 - **Active/Inactive States** - Enable/disable event types
@@ -123,23 +122,17 @@ GetHealthSummary()
 - **Unhealthy**: 5+ consecutive failures or success rate < 80%
 - **Unknown**: No delivery attempts yet
 
-### Health Testing
-
-```bash
-# Test webhook health functionality
-./examples/test_webhook_health.sh
-go run examples/webhook_health_client.go
-```
-
 ## Configuration
 
 ### Environment Variables
+
 - `DATABASE_URL` - PostgreSQL connection string (required)
 - `GRPC_PORT` - gRPC server port (default: 50051)
 - `HTTP_PORT` - Connect-RPC HTTP server port (default: 8080)
 - `OTEL_EXPORTER_OTLP_ENDPOINT` - OpenTelemetry collector endpoint
 
 ### Example Configuration
+
 ```bash
 DATABASE_URL="postgres://user:pass@localhost:5432/sparrow?sslmode=disable"
 GRPC_PORT=50051
@@ -149,32 +142,23 @@ OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
 
 ## Observability & Monitoring
 
-### OpenTelemetry Integration
-```bash
-# Start observability stack
-make obs-up                     # OTEL Collector + backends
-```
-
-### Monitoring Capabilities
-- **Distributed tracing** - Request flows across services
-- **Metrics collection** - Webhook registrations, deliveries, failures
-- **Structured logging** - JSON logs with correlation IDs
-- **Job queue visibility** - River queue status and metrics
-
 ### Available Dashboards
-- River job queue metrics via `make grpc-jobs`  
-- Database connections via `make grpc-db-shell`
-- Application logs via `make grpc-logs`
+
+- River job queue metrics via `http://0.0.0.0:8082/jobs`
+- Web UI dashboard at `http://localhost:5173` (after running `make run-web`)
+
 
 ## Architecture
 
 ### Clean Service Layer
+
 - **Service Layer**: Protocol-agnostic business logic in `/internal/webhooks/`
 - **Transport Layer**: gRPC and Connect-RPC adapters in `/internal/grpc/` and `/internal/connect/`
 - **Repository Layer**: Database access abstraction in `/internal/webhooks/`
-- **Queue Layer**: River job processing in `/internal/queue/` and `/internal/workers/`
+- **Queue Layer**: River job processing in `/internal/webhook/queue/` and `/internal/webhook/workers/`
 
 ### Key Benefits
+
 - **Namespace isolation** - Multi-tenant security
 - **Protocol flexibility** - Same logic for gRPC and HTTP APIs
 - **Comprehensive testing** - Service layer is easily testable
