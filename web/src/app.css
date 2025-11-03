@@ -1,3 +1,16 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+@layer base {
+	html, body {
+		@apply font-mono bg-gray-50 text-gray-900 text-base;
+	}
+	h1, h2, h3, h4, h5, h6 {
+		@apply font-bold text-gray-800;
+	}
+		a {
+			@apply text-gray-700 hover:text-gray-900 transition-colors;
+			text-decoration: none;
+		}
+} 
