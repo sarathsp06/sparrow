@@ -1,6 +1,6 @@
 
 <div align="center">
-	<img src="https://upload.wikimedia.org/wikipedia/commons/1/1e/Emojione_1F426.svg" alt="Sparrow" width="120" height="120" />
+	<img src="./web/src/lib/assets/favicon.svg" alt="Sparrow" width="120" height="120" />
 	<h1 style="font-family:monospace;font-weight:900;color:#222;">sparrow</h1>
 	<p style="font-size:1.2em;color:#555;">Minimal event-driven webhook delivery system</p>
 </div>
