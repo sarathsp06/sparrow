@@ -26,7 +26,7 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 <header
-  class="flex items-center justify-between px-8 py-6 z-10 bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm"
+  class="sticky top-0 flex items-center justify-between px-8 py-6 z-999 bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm"
 >
   <div class="flex items-center gap-2">
     <a href="/" class="text-2xl font-bold text-gray-500 hover:text-blue-700/90">{getTitle()}</a>

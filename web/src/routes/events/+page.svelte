@@ -84,10 +84,10 @@
 				<p>Get started by registering a new event.</p>
 			</div>
 		{:else}
-			<div class="grid gap-5">
+			<div class="w-full grid md:grid-cols-1 gap-4">
 				{#each events as event}
 					<div
-						class="event-card bg-white rounded-lg shadow-sm border p-5 transition-all hover:shadow-lg hover:border-primary"
+						class="w-full event-card bg-white rounded-lg shadow-sm border p-5 transition-all hover:shadow-lg hover:border-primary"
 					>
 						<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
 							<div class="flex-1 mb-4 sm:mb-0">
