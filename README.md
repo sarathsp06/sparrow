@@ -33,20 +33,21 @@ Whether you're integrating webhooks, building event-driven systems, or just want
 
 ### Typical Workflow
 
-1. `make docker-dev`      | Start database and queue in Docker
-2. `make migrate`         | Run migrations on the database
-3. `make run`             | Start gRPC and Connect servers
-4. `make run-web`         | Launch the web UI for local development
-5. `make example`         | Run example client to test API
-6. `make docker-purge`    | Clean up all Docker resources
+1. `make docker-dev`      - Start database and queue in Docker
+2. `make migrate`         - Run migrations on the database
+3. `make run`             - Start gRPC and Connect servers
+4. `make run-web`         - Launch the web UI for local development
+5. `make example`         - Run example client to test API
+6. `make docker-purge`     Clean up all Docker resources
 
 ### Other Commands
+
 | Command           | Description                                      |
 |-------------------|--------------------------------------------------|
-| make build   | Build the gRPC server binary
-| make test    | Run Go tests
+| make build   | Build the gRPC server binary                          |
+| make test    | Run Go tests                                          |
 | make proto   | Regenerate gRPC/Connect code from proto
-| make clean   | Remove built binaries
+| make clean   | Remove built binaries and artifacts
 
 Refer to the Makefile for more details and options.
 

@@ -11,8 +11,7 @@ CREATE TABLE IF NOT EXISTS event_registrations (
 );
 
 -- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_event_registrations_name ON event_registrations(name);
-CREATE INDEX IF NOT EXISTS idx_event_registrations_active ON event_registrations(active);
+CREATE INDEX IF NOT EXISTS idx_event_registrations_name ON event_registrations(name,active);
 CREATE INDEX IF NOT EXISTS idx_event_registrations_created_at ON event_registrations(created_at);
 
 -- Add comment

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package webhook;
 
+import "google/protobuf/struct.proto";
+
 option go_package = "github.com/sarathsp06/sparrow/proto";
 
 // WebhookService handles webhook registration and event pushing
@@ -109,7 +111,7 @@ message UnregisterWebhookResponse {
 message PushEventRequest {
   string namespace = 1; // Namespace for the event
   string event = 2; // Event name
-  string payload = 3; // Event payload as JSON string
+  google.protobuf.Struct payload = 3; // Event payload as JSON struct
   int64 ttl_seconds = 4; // TTL for webhook retry attempts
   map<string, string> metadata = 5; // Additional event metadata
   optional string id = 6; // Optional id for idempotency 
@@ -118,24 +120,19 @@ message PushEventRequest {
 // PushEventResponse represents the response for event pushing
 message PushEventResponse {
   string event_id = 1; // Unique event identifier
-  int32 webhooks_triggered = 2; // Number of webhooks triggered
-  repeated string webhook_ids = 3; // IDs of triggered webhooks
-  bool success = 4; // Whether event was processed
-  string message = 5; // Success or error message
+  bool success = 2; // Whether event was processed
+  string message = 3; // Success or error message
 }
 
 // GetWebhookStatusRequest represents a request to get webhook status
 message GetWebhookStatusRequest {
-  oneof identifier {
-    string webhook_id = 1; // Get status for specific webhook
-    string event_id = 2; // Get status for specific event
-  }
-  string namespace = 3; // Optional namespace filter
+  string webhook_id = 1; // Get status for specific webhook
+  string namespace = 2; // Optional namespace filter
 }
 
 // WebhookDeliveryStatus represents the status of webhook delivery
 enum WebhookDeliveryStatus {
-  DELIVERY_UNKNOWN = 0;
+  DELIVERY_UNSPECIFIED = 0;
   DELIVERY_PENDING = 1;
   DELIVERY_SENDING = 2;
   DELIVERY_SUCCESS = 3;
@@ -271,7 +268,7 @@ message DeleteEventResponse {
 
 // WebhookHealth represents webhook health status
 enum WebhookHealth {
-  HEALTH_UNKNOWN = 0;
+  HEALTH_UNSPECIFIED = 0;
   HEALTH_HEALTHY = 1;
   HEALTH_DEGRADED = 2;
   HEALTH_UNHEALTHY = 3;

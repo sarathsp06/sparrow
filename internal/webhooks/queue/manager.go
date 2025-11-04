@@ -3,22 +3,22 @@ package queue
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
-	"github.com/riverqueue/river/rivertype"
 	"github.com/sarathsp06/sparrow/internal/logger"
-	"github.com/sarathsp06/sparrow/internal/webhooks/jobs"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	"github.com/sarathsp06/sparrow/internal/webhooks/workers"
 )
 
 // Manager handles the River queue management
 type Manager struct {
 	client      *river.Client[pgx.Tx]
 	dbPool      *pgxpool.Pool
+	logger      *slog.Logger
 	webhookRepo store.RepositoryInterface
 }
 
@@ -45,9 +45,9 @@ func NewManager(ctx context.Context, databaseURL string) (*Manager, error) {
 	// Create River client first (needed for workers)
 	riverClient, err := river.NewClient(riverpgxv5.New(dbPool), &river.Config{
 		Queues: map[string]river.QueueConfig{
-			river.QueueDefault: {MaxWorkers: 10},
-			"events":           {MaxWorkers: 5}, // Event processing queue
-			"webhooks":         {MaxWorkers: 8}, // Webhook delivery queue
+			QueueDefault:         {MaxWorkers: 5},
+			QueueEventProcessing: {MaxWorkers: 10, FetchPollInterval: time.Second * 30}, // Event processing queue
+			QueueWebhookDelivery: {MaxWorkers: 10, FetchPollInterval: time.Second * 30}, // Webhook delivery queue
 		},
 		Workers: riverWorkers,
 	})
@@ -57,8 +57,8 @@ func NewManager(ctx context.Context, databaseURL string) (*Manager, error) {
 	}
 
 	// Add workers with explicit generic types
-	river.AddWorker(riverWorkers, workers.NewWebhookWorker(webhookRepo))
-	river.AddWorker(riverWorkers, workers.NewEventProcessingWorker(webhookRepo, riverClient))
+	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo))
+	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, riverClient))
 
 	return &Manager{
 		client:      riverClient,
@@ -88,55 +88,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 	return nil
 }
 
-// GetClient returns the River client
-func (m *Manager) GetClient() *river.Client[pgx.Tx] {
-	return m.client
-}
-
 // GetWebhookRepo returns the webhook repository
 func (m *Manager) GetWebhookRepo() store.RepositoryInterface {
 	return m.webhookRepo
-}
-
-// InsertWebhookJob inserts a webhook job
-func (m *Manager) InsertWebhookJob(ctx context.Context, args jobs.WebhookArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error) {
-	return m.client.Insert(ctx, args, opts)
-}
-
-// InsertManyJobs inserts multiple jobs at once
-func (m *Manager) InsertManyJobs(ctx context.Context, params []river.InsertManyParams) ([]*rivertype.JobInsertResult, error) {
-	return m.client.InsertMany(ctx, params)
-}
-
-// JobInserter provides methods to insert jobs with examples
-type JobInserter struct {
-	manager *Manager
-}
-
-// NewJobInserter creates a new job inserter
-func (m *Manager) NewJobInserter() *JobInserter {
-	return &JobInserter{manager: m}
-}
-
-// QueueWebhook queues a webhook for delivery
-func (m *Manager) QueueWebhook(ctx context.Context, args *jobs.WebhookArgs) error {
-	opts := &river.InsertOpts{
-		Queue: "webhooks",
-	}
-	_, err := m.client.Insert(ctx, *args, opts)
-	return err
-}
-
-// Insert inserts a job into the queue.
-func (m *Manager) Insert(ctx context.Context, args river.JobArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error) {
-	return m.client.Insert(ctx, args, opts)
-}
-
-// QueueEvent queues an event for processing
-func (m *Manager) QueueEvent(ctx context.Context, args *jobs.EventArgs) error {
-	opts := &river.InsertOpts{
-		Queue: "events",
-	}
-	_, err := m.client.Insert(ctx, *args, opts)
-	return err
 }

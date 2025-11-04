@@ -34,7 +34,7 @@ type EventRecord struct {
 	ID        string            `json:"id" db:"id"`
 	Namespace string            `json:"namespace" db:"namespace"`
 	Event     string            `json:"event" db:"event"`
-	Payload   string            `json:"payload" db:"payload"`
+	Payload   map[string]any    `json:"payload" db:"payload"`
 	TTL       int64             `json:"ttl" db:"ttl"`
 	Metadata  map[string]string `json:"metadata" db:"metadata"`
 	CreatedAt time.Time         `json:"created_at" db:"created_at"`
@@ -117,7 +117,7 @@ type EventRegistration struct {
 	ID          string            `json:"id" db:"id"`
 	Name        string            `json:"name" db:"name"`
 	Description string            `json:"description" db:"description"`
-	Schema      string            `json:"schema" db:"schema"` // JSON schema for validation
+	Schema      map[string]any    `json:"schema" db:"schema"` // JSON schema for validation
 	Metadata    map[string]string `json:"metadata" db:"metadata"`
 	Active      bool              `json:"active" db:"active"`
 	CreatedAt   time.Time         `json:"created_at" db:"created_at"`

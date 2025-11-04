@@ -45,13 +45,16 @@ clean: ## Clean up build artifacts and Go module cache
 	rm -rf build
 	go clean -modcache
 
-proto: ## Generate protobuf code
+generate: ## Generate protobuf code
 	buf generate
+
+lint: ## Run golangci-lint for linting
+	golangci-lint run -v --timeout 15m ./...
 
 docker-dev: ## Run the development environment with Docker Compose
 	docker-compose -f docker-compose.dev.yml up -d
 
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-	
-.PHONY: build build-all build-custom run test clean proto docker-dev example
+
+.PHONY: build build-all run test clean generate docker-dev example docker-purge migrate

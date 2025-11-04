@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { preventDefault } from "svelte/legacy";
 
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
@@ -35,7 +34,8 @@
     }
   });
 
-  async function updateEvent() {
+  async function updateEvent(e: Event) {
+    e.preventDefault();
     error = "";
     try {
       const req = {
@@ -58,7 +58,7 @@
   <div class="p-6 max-w-lg mx-auto">
     <header class="text-2xl font-bold mb-4 text-primary">Update Event</header>
     <form
-      onsubmit={preventDefault(updateEvent)}
+      onsubmit={updateEvent}
       class="bg-white rounded-lg shadow p-6"
     >
       <div class="mb-4">

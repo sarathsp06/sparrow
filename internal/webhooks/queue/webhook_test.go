@@ -1,17 +1,15 @@
-package workers
+package queue
 
 import (
 	"testing"
-
-	"github.com/sarathsp06/sparrow/internal/webhooks/jobs"
 )
 
 func TestWebhookWorkerDefaults(t *testing.T) {
 	worker := WebhookWorker{}
 
-	args := jobs.WebhookArgs{
+	args := WebhookArgs{
 		URL:     "https://example.com",
-		Payload: `{"test": "data"}`,
+		Payload: map[string]any{"test": "data"}, // `{"test": "data"}`,
 		Timeout: 30,
 	}
 

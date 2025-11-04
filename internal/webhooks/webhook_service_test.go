@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
-	"github.com/sarathsp06/sparrow/internal/webhooks/jobs"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -350,18 +349,8 @@ type MockQueueManager struct {
 	mock.Mock
 }
 
-func (m *MockQueueManager) QueueWebhook(ctx context.Context, args *jobs.WebhookArgs) error {
+func (m *MockQueueManager) Insert(ctx context.Context, args river.JobArgs) (*rivertype.JobInsertResult, error) {
 	argsMock := m.Called(ctx, args)
-	return argsMock.Error(0)
-}
-
-func (m *MockQueueManager) QueueEvent(ctx context.Context, args *jobs.EventArgs) error {
-	argsMock := m.Called(ctx, args)
-	return argsMock.Error(0)
-}
-
-func (m *MockQueueManager) Insert(ctx context.Context, args river.JobArgs, opts *river.InsertOpts) (*rivertype.JobInsertResult, error) {
-	argsMock := m.Called(ctx, args, opts)
 	return argsMock.Get(0).(*rivertype.JobInsertResult), argsMock.Error(1)
 }
 

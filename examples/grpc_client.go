@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"time"
+
+	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -171,13 +172,15 @@ func MainGRPC() {
 		"plan":      "premium",
 		"source":    "web",
 	}
-
-	payloadJSON, _ := json.Marshal(eventPayload)
+	payload, err := structpb.NewStruct(eventPayload)
+	if err != nil {
+		log.Fatalf("Failed to create payload: %v", err)
+	}
 
 	pushReq := &pb.PushEventRequest{
 		Namespace:  "default",
 		Event:      "signup",
-		Payload:    string(payloadJSON),
+		Payload:    payload,
 		TtlSeconds: 3600, // 1 hour TTL
 		Metadata: map[string]string{
 			"source":   "api",
@@ -192,10 +195,8 @@ func MainGRPC() {
 	} else {
 		log.Printf("Event pushed successfully:")
 		log.Printf("  Event ID: %s", pushResp.EventId)
-		log.Printf("  Webhooks Triggered: %d", pushResp.WebhooksTriggered)
 		log.Printf("  Success: %t", pushResp.Success)
 		log.Printf("  Message: %s", pushResp.Message)
-		log.Printf("  Triggered Webhook IDs: %v", pushResp.WebhookIds)
 	}
 
 	// Example 6: Push an order created event
@@ -212,12 +213,15 @@ func MainGRPC() {
 		"created_at": time.Now().Unix(),
 	}
 
-	orderPayloadJSON, _ := json.Marshal(orderPayload)
+	payload, err = structpb.NewStruct(orderPayload)
+	if err != nil {
+		log.Fatalf("Failed to create payload: %v", err)
+	}
 
 	pushOrderReq := &pb.PushEventRequest{
 		Namespace:  "default",
 		Event:      "created",
-		Payload:    string(orderPayloadJSON),
+		Payload:    payload,
 		TtlSeconds: 1800, // 30 minutes TTL
 		Metadata: map[string]string{
 			"payment_method":  "credit_card",
@@ -231,7 +235,6 @@ func MainGRPC() {
 	} else {
 		log.Printf("Order event pushed successfully:")
 		log.Printf("  Event ID: %s", pushOrderResp.EventId)
-		log.Printf("  Webhooks Triggered: %d", pushOrderResp.WebhooksTriggered)
 		log.Printf("  Message: %s", pushOrderResp.Message)
 	}
 
@@ -242,9 +245,8 @@ func MainGRPC() {
 	log.Println("\n=== Example 7: Check Webhook Delivery Status ===")
 	if registerResp != nil && registerResp.Success {
 		statusReq := &pb.GetWebhookStatusRequest{
-			Identifier: &pb.GetWebhookStatusRequest_WebhookId{
-				WebhookId: registerResp.WebhookId,
-			},
+			WebhookId: registerResp.WebhookId,
+			Namespace: "default",
 		}
 
 		statusResp, err := client.GetWebhookStatus(ctx, statusReq)
@@ -416,11 +418,11 @@ func MainGRPC() {
 	// Push event with invalid payload (missing required field)
 	log.Println("\n=== Push user.created Event with Invalid Payload ===")
 	invalidPayload := map[string]interface{}{"userId": "user_002"} // missing email
-	invalidPayloadJSON, _ := json.Marshal(invalidPayload)
+	payload, _ = structpb.NewStruct(invalidPayload)
 	pushInvalidReq := &pb.PushEventRequest{
 		Namespace:  "default",
 		Event:      "user.created",
-		Payload:    string(invalidPayloadJSON),
+		Payload:    payload,
 		TtlSeconds: 600,
 	}
 	pushInvalidResp, err := client.PushEvent(ctx, pushInvalidReq)

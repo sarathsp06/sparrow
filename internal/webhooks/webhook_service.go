@@ -9,10 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	jsonschema "github.com/kaptinlin/jsonschema"
-	"github.com/riverqueue/river"
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/observability"
-	"github.com/sarathsp06/sparrow/internal/webhooks/jobs"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"go.opentelemetry.io/otel/attribute"
@@ -21,18 +19,18 @@ import (
 )
 
 type WebhookService struct {
-	queueManager queue.QueueManagerInterface
-	webhookRepo  store.RepositoryInterface
-	logger       *slog.Logger
-	tracer       trace.Tracer
-	metrics      *observability.SparrowMetrics
+	jobInserter queue.JobInserter
+	webhookRepo store.RepositoryInterface
+	logger      *slog.Logger
+	tracer      trace.Tracer
+	metrics     *observability.SparrowMetrics
 }
 
 type WebhookServiceInterface interface {
 	RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (string, int64, error)
 	UnregisterWebhook(ctx context.Context, webhookID string) error
-	PushEvent(ctx context.Context, namespace string, event string, payload string, ttlSeconds int64, metadata map[string]string) (string, int32, []string, error)
-	GetWebhookStatus(ctx context.Context, webhookID string, eventID string) ([]*store.WebhookDelivery, int32, error)
+	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string) (string, error)
+	GetWebhookStatus(ctx context.Context, namespace string, webhookID string) ([]*store.WebhookDelivery, int32, error)
 	ListWebhooks(ctx context.Context, namespace string, event string, activeOnly bool) ([]*store.WebhookRegistration, error)
 	GetRegisteredWebhooks(ctx context.Context, namespace string, webhookID string, activeOnly bool) ([]*store.WebhookRegistration, error)
 	ListRegisteredWebhooksByEvent(ctx context.Context, namespace string, event string, activeOnly bool) ([]*store.WebhookRegistration, error)
@@ -41,10 +39,10 @@ type WebhookServiceInterface interface {
 	PauseWebhook(ctx context.Context, webhookID string, namespace string, reason string) error
 	ResumeWebhook(ctx context.Context, webhookID string, namespace string) error
 	GetWebhookDeliveryHistory(ctx context.Context, webhookID string, namespace string, limit int32, offset int32) ([]*store.WebhookDelivery, int32, error)
-	RegisterEvent(ctx context.Context, name string, description string, schema string, metadata map[string]string, active bool) (string, int64, error)
+	RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, int64, error)
 	GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStatsData, error)
 	UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) error
-	UpdateEvent(ctx context.Context, name string, description string, schema string, metadata map[string]string, active bool) error
+	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error
 	DeleteEvent(ctx context.Context, name string) error
 	GetWebhookHealth(ctx context.Context, webhookID string, namespace string) (*WebhookHealthData, error)
 	GetHealthSummary(ctx context.Context) (*HealthSummaryData, error)
@@ -56,7 +54,7 @@ type WebhookServiceInterface interface {
 var _ WebhookServiceInterface = (*WebhookService)(nil)
 
 // NewWebhookService creates a new WebhookService instance
-func NewWebhookService(queueManager queue.QueueManagerInterface, webhookRepo store.RepositoryInterface) *WebhookService {
+func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.RepositoryInterface) *WebhookService {
 	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
@@ -65,11 +63,11 @@ func NewWebhookService(queueManager queue.QueueManagerInterface, webhookRepo sto
 	}
 
 	return &WebhookService{
-		queueManager: queueManager,
-		webhookRepo:  webhookRepo,
-		logger:       logger.NewLogger("webhook-service"),
-		tracer:       observability.GetTracer("sparrow.service.webhook"),
-		metrics:      metrics,
+		jobInserter: queueManager,
+		webhookRepo: webhookRepo,
+		logger:      logger.NewLogger("webhook-service"),
+		tracer:      observability.GetTracer("sparrow.service.webhook"),
+		metrics:     metrics,
 	}
 }
 
@@ -140,7 +138,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 
 // UnregisterWebhook removes a webhook registration
 func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string) error {
-	s.logger.Info("Processing webhook unregistration request",
+	s.logger.Info("Processing webhook un registration request",
 		"webhook_id", webhookID,
 	)
 	if webhookID == "" {
@@ -159,8 +157,7 @@ func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string
 	return nil
 }
 
-// PushEvent pushes an event that triggers registered webhooks
-func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event string, payload string, ttlSeconds int64, metadata map[string]string) (string, int32, []string, error) {
+func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string) (string, error) {
 	ctx, span := s.tracer.Start(ctx, "event.push",
 		trace.WithAttributes(
 			attribute.String("namespace", namespace),
@@ -179,13 +176,13 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		err := fmt.Errorf("namespace is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "namespace is required")
-		return "", 0, nil, err
+		return "", err
 	}
 	if event == "" {
 		err := fmt.Errorf("event is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event is required")
-		return "", 0, nil, err
+		return "", err
 	}
 
 	// Lookup registered event
@@ -194,42 +191,35 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event lookup failed")
 		s.logger.Error("Failed to lookup event registration", "event", event, "error", err)
-		return "", 0, nil, fmt.Errorf("failed to lookup event registration: %w", err)
+		return "", fmt.Errorf("failed to lookup event registration: %w", err)
 	}
 	if eventReg == nil || !eventReg.Active {
-		err := fmt.Errorf("event '%s' is not registered", event)
+		err := fmt.Errorf("event '%s' is not registered or inactive", event)
 		span.RecordError(err)
-		span.SetStatus(otelcodes.Error, "event not registered")
-		s.logger.Error("Event not registered", "event", event)
-		return "", 0, nil, err
+		span.SetStatus(otelcodes.Error, "event not registered or inactive")
+		s.logger.Error("Event not registered or inactive", "event", event)
+		return "", err
 	}
 
 	// Validate payload against event schema if present
-	if eventReg.Schema != "" && payload != "" {
-		var payloadObj interface{}
-		if err := json.Unmarshal([]byte(payload), &payloadObj); err != nil {
-			return "", 0, nil, fmt.Errorf("invalid JSON payload: %w", err)
-		}
-		// Validate against JSON schema
-		if eventReg.Schema != "" {
-			if err := ValidateJSONSchema(eventReg.Schema, payloadObj); err != nil {
-				s.logger.Error("Payload does not match event schema", "event", event, "error", err)
-				return "", 0, nil, fmt.Errorf("payload does not match event schema: %w", err)
-			}
+	if len(eventReg.Schema) != 0 && payload != nil {
+		if err := ValidateJSONSchema(eventReg.Schema, payload); err != nil {
+			s.logger.Error("Payload does not match event schema", "event", event, "error", err)
+			return "", fmt.Errorf("payload does not match event schema: %w", err)
 		}
 	}
 
 	// Set default TTL if not provided
 	ttl := ttlSeconds
 	if ttl <= 0 {
-		ttl = 3600 // Default 1 hour
+		ttl = 3600 * 24 // Default 1 day
 	}
 
 	// Generate event ID
 	eventID := uuid.New().String()
 
 	// Create event processing job
-	eventArgs := jobs.EventArgs{
+	eventArgs := queue.EventArgs{
 		EventID:    eventID,
 		Namespace:  namespace,
 		Event:      event,
@@ -239,33 +229,8 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		CreatedAt:  time.Now(),
 	}
 
-	// Find registered webhooks first to know how many will be triggered
-	registeredWebhooks, err := s.webhookRepo.GetWebhooksByEvent(ctx, namespace, event)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(otelcodes.Error, "failed to get registered webhooks")
-		s.logger.Error("Failed to get registered webhooks",
-			"namespace", namespace,
-			"event", event,
-			"error", err,
-		)
-		return "", 0, nil, fmt.Errorf("failed to get registered webhooks: %w", err)
-	}
-
-	span.SetAttributes(
-		attribute.String("event_id", eventID),
-		attribute.Int("webhooks_count", len(registeredWebhooks)),
-	)
-
-	webhookIDs := make([]string, len(registeredWebhooks))
-	for i, wh := range registeredWebhooks {
-		webhookIDs[i] = wh.ID
-	}
-
 	// Insert the event processing job
-	_, err = s.queueManager.Insert(ctx, eventArgs, &river.InsertOpts{
-		Queue: "events",
-	})
+	_, err = s.jobInserter.Insert(ctx, eventArgs)
 	if err != nil {
 		s.logger.Error("Failed to schedule event processing job",
 			"event_id", eventID,
@@ -273,7 +238,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 			"event", event,
 			"error", err,
 		)
-		return "", 0, nil, fmt.Errorf("failed to schedule event processing: %w", err)
+		return "", fmt.Errorf("failed to schedule event processing: %w", err)
 	}
 
 	// Record metrics
@@ -287,10 +252,8 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		"event_id", eventID,
 		"namespace", namespace,
 		"event", event,
-		"webhooks_to_trigger", len(registeredWebhooks),
 	)
-
-	return eventID, int32(len(registeredWebhooks)), webhookIDs, nil
+	return eventID, nil
 }
 
 // GetWebhookStatus gets the status of webhook deliveries
@@ -502,12 +465,12 @@ func (s *WebhookService) ResendWebhook(ctx context.Context, deliveryID string, n
 		s.logger.Error("Failed to create new delivery", "error", err)
 		return "", fmt.Errorf("failed to create resend delivery: %w", err)
 	}
-	err = s.queueManager.QueueWebhook(ctx, &jobs.WebhookArgs{
+	_, err = s.jobInserter.Insert(ctx, &queue.WebhookArgs{
 		DeliveryID: newDelivery.ID,
 		WebhookID:  newDelivery.WebhookID,
 		URL:        webhook.URL,
 		Headers:    webhook.Headers,
-		Payload:    "",
+		Payload:    map[string]any{"TODO": "fetch original payload"}, // TODO: fetch original payload
 		ExpiresAt:  newDelivery.ExpiresAt,
 		Namespace:  webhook.Namespace,
 	})
@@ -526,11 +489,7 @@ func (s *WebhookService) PauseWebhook(ctx context.Context, webhookID string, nam
 	ctx, span := s.tracer.Start(ctx, "WebhookService.PauseWebhook")
 	defer span.End()
 
-	s.logger.Info("Pausing webhook",
-		"webhook_id", webhookID,
-		"namespace", namespace,
-		"reason", reason)
-
+	s.logger.Info("Pausing webhook", "webhook_id", webhookID, "namespace", namespace, "reason", reason)
 	if webhookID == "" {
 		return fmt.Errorf("webhook ID is required")
 	}
@@ -669,7 +628,7 @@ type NamespaceStatsData struct {
 }
 
 // RegisterEvent registers a new event type
-func (s *WebhookService) RegisterEvent(ctx context.Context, name string, description string, schema string, metadata map[string]string, active bool) (string, int64, error) {
+func (s *WebhookService) RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, int64, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.RegisterEvent")
 	defer span.End()
 
@@ -731,7 +690,7 @@ func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool) ([]*st
 }
 
 // UpdateEvent updates an event registration
-func (s *WebhookService) UpdateEvent(ctx context.Context, name string, description string, schema string, metadata map[string]string, active bool) error {
+func (s *WebhookService) UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateEvent")
 	defer span.End()
 
@@ -1042,7 +1001,7 @@ func (s *WebhookService) ResubmitWebhook(ctx context.Context, deliveryID string,
 		}
 
 		// Queue the webhook for delivery
-		err = s.queueManager.QueueWebhook(ctx, &jobs.WebhookArgs{
+		err = s.jobInserter.QueueWebhook(ctx, &WebhookArgs{
 			DeliveryID: delivery.ID,
 			WebhookID:  delivery.WebhookID,
 			URL:        webhook.URL,
@@ -1187,9 +1146,9 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 }
 
 // ValidateJSONSchema validates a payload against a JSON schema string
-func ValidateJSONSchema(schema string, payload interface{}) error {
+func ValidateJSONSchema(schema []byte, payload map[string]any) error {
 	compiler := jsonschema.NewCompiler()
-	sch, err := compiler.Compile([]byte(schema))
+	sch, err := compiler.Compile(schema)
 	if err != nil {
 		return fmt.Errorf("invalid event schema: %w", err)
 	}

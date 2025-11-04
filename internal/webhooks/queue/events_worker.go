@@ -1,42 +1,50 @@
-package workers
+package queue
 
 import (
 	"context"
+	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 	"github.com/sarathsp06/sparrow/internal/logger"
-	"github.com/sarathsp06/sparrow/internal/webhooks/jobs"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 // EventProcessingWorker processes events and triggers webhook deliveries
 type EventProcessingWorker struct {
-	river.WorkerDefaults[jobs.EventArgs]
+	river.WorkerDefaults[EventArgs]
+	logger      *slog.Logger
 	webhookRepo store.RepositoryInterface
-	riverClient *river.Client[pgx.Tx]
+	jobInserter JobInserter
 }
 
 // NewEventProcessingWorker creates a new event processing worker with a river client
 func NewEventProcessingWorker(webhookRepo store.RepositoryInterface, riverClient *river.Client[pgx.Tx]) *EventProcessingWorker {
 	return &EventProcessingWorker{
 		webhookRepo: webhookRepo,
-		riverClient: riverClient,
+		logger:      logger.NewLogger("event-processing-worker"),
+		jobInserter: NewJobInserter(riverClient),
 	}
 }
 
 // Work processes an event and creates webhook delivery jobs
-func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[jobs.EventArgs]) error {
-	log := logger.NewLogger("event-worker")
+func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventArgs]) error {
 	args := job.Args
+	w.logger.Info("Processing event", "event_id", args.EventID, "namespace", args.Namespace, "event", args.Event)
 
-	log.Info("Processing event",
-		"event_id", args.EventID,
-		"namespace", args.Namespace,
-		"event", args.Event,
-	)
+	// get trace id and set that as metadata
+	carrier := make(propagation.MapCarrier)
+	err := json.Unmarshal(job.Metadata, &carrier)
+	if err != nil {
+		w.logger.Error("Failed to unmarshal job metadata", "error", err, "event_id", args.EventID)
+	}
+	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 
 	// Store the event record
 	eventRecord := &store.EventRecord{
@@ -50,26 +58,26 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[jobs.Ev
 	}
 
 	if err := w.webhookRepo.StoreEvent(ctx, eventRecord); err != nil {
-		log.Error("Failed to store event record", "error", err, "event_id", args.EventID)
+		w.logger.Error("Failed to store event record", "error", err, "event_id", args.EventID)
 		return err
 	}
 
 	// Find all registered webhooks for this namespace/event
 	registeredWebhooks, err := w.webhookRepo.GetWebhooksByEvent(ctx, args.Namespace, args.Event)
 	if err != nil {
-		log.Error("Failed to get registered webhooks", "error", err)
+		w.logger.Error("Failed to get registered webhooks", "error", err)
 		return err
 	}
 
 	if len(registeredWebhooks) == 0 {
-		log.Info("No webhooks registered for event",
+		w.logger.Info("No webhooks registered for event",
 			"namespace", args.Namespace,
 			"event", args.Event,
 		)
 		return nil
 	}
 
-	log.Info("Found registered webhooks",
+	w.logger.Info("Found registered webhooks",
 		"count", len(registeredWebhooks),
 		"namespace", args.Namespace,
 		"event", args.Event,
@@ -92,12 +100,12 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[jobs.Ev
 		}
 
 		if err := w.webhookRepo.CreateDelivery(ctx, delivery); err != nil {
-			log.Error("Failed to create delivery record", "error", err, "webhook_id", webhook.ID)
+			w.logger.Error("Failed to create delivery record", "error", err, "webhook_id", webhook.ID)
 			continue
 		}
 
 		// Create webhook delivery job
-		webhookArgs := jobs.WebhookArgs{
+		webhookArgs := WebhookArgs{
 			DeliveryID: deliveryID,
 			WebhookID:  webhook.ID,
 			EventID:    args.EventID,
@@ -110,11 +118,9 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[jobs.Ev
 			Event:      args.Event,
 		}
 
-		_, err := w.riverClient.Insert(ctx, webhookArgs, &river.InsertOpts{
-			Queue: "webhooks",
-		})
+		_, err := w.jobInserter.Insert(ctx, &webhookArgs)
 		if err != nil {
-			log.Error("Failed to schedule webhook delivery job",
+			w.logger.Error("Failed to schedule webhook delivery job",
 				"error", err,
 				"webhook_id", webhook.ID,
 				"delivery_id", deliveryID,
@@ -122,14 +128,14 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[jobs.Ev
 			continue
 		}
 
-		log.Info("Scheduled webhook delivery",
+		w.logger.Info("Scheduled webhook delivery",
 			"webhook_id", webhook.ID,
 			"delivery_id", deliveryID,
 			"url", webhook.URL,
 		)
 	}
 
-	log.Info("Event processing completed",
+	w.logger.Info("Event processing completed",
 		"event_id", args.EventID,
 		"webhooks_scheduled", len(registeredWebhooks),
 	)

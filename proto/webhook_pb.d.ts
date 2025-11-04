@@ -3,7 +3,7 @@
 /* eslint-disable */
 
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import type { Message } from "@bufbuild/protobuf";
+import type { JsonObject, Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file proto/webhook.proto.
@@ -181,11 +181,11 @@ export declare type PushEventRequest = Message<"webhook.PushEventRequest"> & {
   event: string;
 
   /**
-   * Event payload as JSON string
+   * Event payload as JSON struct
    *
-   * @generated from field: string payload = 3;
+   * @generated from field: google.protobuf.Struct payload = 3;
    */
-  payload: string;
+  payload?: JsonObject;
 
   /**
    * TTL for webhook retry attempts
@@ -229,30 +229,16 @@ export declare type PushEventResponse = Message<"webhook.PushEventResponse"> & {
   eventId: string;
 
   /**
-   * Number of webhooks triggered
-   *
-   * @generated from field: int32 webhooks_triggered = 2;
-   */
-  webhooksTriggered: number;
-
-  /**
-   * IDs of triggered webhooks
-   *
-   * @generated from field: repeated string webhook_ids = 3;
-   */
-  webhookIds: string[];
-
-  /**
    * Whether event was processed
    *
-   * @generated from field: bool success = 4;
+   * @generated from field: bool success = 2;
    */
   success: boolean;
 
   /**
    * Success or error message
    *
-   * @generated from field: string message = 5;
+   * @generated from field: string message = 3;
    */
   message: string;
 };
@@ -270,30 +256,16 @@ export declare const PushEventResponseSchema: GenMessage<PushEventResponse>;
  */
 export declare type GetWebhookStatusRequest = Message<"webhook.GetWebhookStatusRequest"> & {
   /**
-   * @generated from oneof webhook.GetWebhookStatusRequest.identifier
+   * Get status for specific webhook
+   *
+   * @generated from field: string webhook_id = 1;
    */
-  identifier: {
-    /**
-     * Get status for specific webhook
-     *
-     * @generated from field: string webhook_id = 1;
-     */
-    value: string;
-    case: "webhookId";
-  } | {
-    /**
-     * Get status for specific event
-     *
-     * @generated from field: string event_id = 2;
-     */
-    value: string;
-    case: "eventId";
-  } | { case: undefined; value?: undefined };
+  webhookId: string;
 
   /**
    * Optional namespace filter
    *
-   * @generated from field: string namespace = 3;
+   * @generated from field: string namespace = 2;
    */
   namespace: string;
 };

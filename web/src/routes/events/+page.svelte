@@ -91,7 +91,7 @@
 			<div class="w-full grid md:grid-cols-1 gap-4">
 				{#each events as event}
 					<div
-						class="w-full event-card bg-white rounded-lg shadow-sm border p-5 transition-all hover:shadow-lg hover:border-primary"
+						class="w-full bg-white rounded-lg shadow-sm border p-5 transition-all hover:shadow-lg hover:border-primary"
 					>
 						<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
 							<div class="flex-1 mb-4 sm:mb-0">
@@ -113,13 +113,13 @@
 								{#if event.schema}
 									<button
 										onclick={() => viewSchema(event.schema)}
-										class="text-gray-600 font-semibold px-4 py-2 rounded-lg hover:bg-gray-100 transition"
+										class="text-gray-600 font-semibold px-4 py-2 rounded-lg hover:bg-red-500/10 transition"
 										>View Schema</button
 									>
 								{/if}
 								<a
 									href={`/events/${event.eventId}/update`}
-									class="text-primary font-semibold px-4 py-2 rounded-lg hover:bg-primary/10 transition"
+									class="text-primary font-semibold px-4 py-2 rounded-lg hover:bg-red-500/10 transition"
 									>Update</a
 								>
 								<button
@@ -135,15 +135,15 @@
 		{/if}
 	</main>
 
-	<footer class="fixed bottom-0  w-full bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-sm p-4 flex justify-end">
+	<footer class="fixed bottom-0  w-full bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-sm p-4 gap-4 flex justify-end">
 			<a
 				href="/events/push"
-				class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:bg-blue-600 transition mr-4"
+				class="button"
 				>Push Test Event</a
 			>
 			<a
 				href="/events/register"
-				class="bg-primary text-white px-4 py-2 rounded-lg font-semibold shadow-md hover:bg-primary/90 transition"
+				class="button"
 				>+ Register Event</a
 			>
 	</footer>
@@ -167,15 +167,6 @@
 {/if}
 
 <style>
-	.bg-primary {
-		background-color: #1d4ed8;
-	}
-	.text-primary {
-		color: #1d4ed8;
-	}
-	.border-primary {
-		border-color: #1d4ed8;
-	}
 	.event-card:hover {
 		transform: translateY(-2px);
 	}

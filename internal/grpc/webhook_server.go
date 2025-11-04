@@ -52,37 +52,26 @@ func (s *WebhookServer) UnregisterWebhook(ctx context.Context, req *pb.Unregiste
 
 // PushEvent pushes an event that triggers registered webhooks
 func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest) (*pb.PushEventResponse, error) {
-	eventID, webhooksTriggered, webhookIDs, err := s.service.PushEvent(ctx, req.Namespace, req.Event, req.Payload, req.TtlSeconds, req.Metadata)
+	eventID, err := s.service.PushEvent(ctx, req.Namespace, req.Event, req.Payload.AsMap(), req.TtlSeconds, req.Metadata)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to push event: %v", err)
 	}
 	return &pb.PushEventResponse{
-		EventId:           eventID,
-		WebhooksTriggered: webhooksTriggered,
-		WebhookIds:        webhookIDs,
-		Success:           true,
-		Message:           "Event pushed successfully",
+		EventId: eventID,
+		Success: true,
+		Message: "Event pushed successfully",
 	}, nil
 }
 
 // GetWebhookStatus gets the status of webhook deliveries
 func (s *WebhookServer) GetWebhookStatus(ctx context.Context, req *pb.GetWebhookStatusRequest) (*pb.GetWebhookStatusResponse, error) {
-	var webhookID, eventID string
-	switch id := req.Identifier.(type) {
-	case *pb.GetWebhookStatusRequest_WebhookId:
-		if id.WebhookId == "" {
-			return nil, status.Error(codes.InvalidArgument, "webhook_id is required")
-		}
-		webhookID = id.WebhookId
-	case *pb.GetWebhookStatusRequest_EventId:
-		if id.EventId == "" {
-			return nil, status.Error(codes.InvalidArgument, "event_id is required")
-		}
-		eventID = id.EventId
-	default:
-		return nil, status.Error(codes.InvalidArgument, "either webhook_id or event_id is required")
+	if req.GetWebhookId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "webhook_id is required")
 	}
-	deliveries, totalDeliveries, err := s.service.GetWebhookStatus(ctx, webhookID, eventID)
+	if req.GetNamespace() == "" {
+		return nil, status.Error(codes.InvalidArgument, "namespace is required")
+	}
+	deliveries, totalDeliveries, err := s.service.GetWebhookStatus(ctx, req.GetNamespace(), req.GetWebhookId())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get webhook status: %v", err)
 	}

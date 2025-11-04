@@ -1,4 +1,4 @@
-package workers
+package queue
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -16,15 +17,15 @@ import (
 
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/observability"
-	"github.com/sarathsp06/sparrow/internal/webhooks/jobs"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
 // WebhookWorker handles webhook delivery jobs
 type WebhookWorker struct {
-	river.WorkerDefaults[jobs.WebhookArgs]
+	river.WorkerDefaults[WebhookArgs]
 	webhookRepo store.RepositoryInterface
 	tracer      trace.Tracer
+	logger      *slog.Logger
 	metrics     *observability.SparrowMetrics
 }
 
@@ -39,13 +40,15 @@ func NewWebhookWorker(webhookRepo store.RepositoryInterface) *WebhookWorker {
 
 	return &WebhookWorker{
 		webhookRepo: webhookRepo,
-		tracer:      observability.GetTracer("sparrow.workers.webhook"),
-		metrics:     metrics,
+		logger:      logger.NewLogger("event-processing-worker"),
+
+		tracer:  observability.GetTracer("sparrow.workers.webhook"),
+		metrics: metrics,
 	}
 }
 
 // Work processes the webhook delivery job
-func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArgs]) error {
+func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) error {
 	args := job.Args
 
 	ctx, span := w.tracer.Start(ctx, "webhook.delivery",
@@ -106,13 +109,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[jobs.WebhookArg
 
 	// Create webhook payload
 	webhookPayload := struct {
-		EventID string          `json:"event_id"`
-		Event   string          `json:"event"`
-		Payload json.RawMessage `json:"payload"`
+		EventID string         `json:"event_id"`
+		Event   string         `json:"event"`
+		Payload map[string]any `json:"payload"`
 	}{
 		EventID: args.EventID,
 		Event:   args.Event,
-		Payload: json.RawMessage(eventRecord.Payload),
+		Payload: eventRecord.Payload,
 	}
 	payloadBytes, err := json.Marshal(webhookPayload)
 	if err != nil {
