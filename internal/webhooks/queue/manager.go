@@ -16,29 +16,13 @@ import (
 
 // Manager handles the River queue management
 type Manager struct {
-	client      *river.Client[pgx.Tx]
-	dbPool      *pgxpool.Pool
-	logger      *slog.Logger
-	webhookRepo store.RepositoryInterface
+	client *river.Client[pgx.Tx]
+	dbPool *pgxpool.Pool
+	logger *slog.Logger
 }
 
 // NewManager creates a new queue manager
-func NewManager(ctx context.Context, databaseURL string) (*Manager, error) {
-	// Create database connection pool
-	dbPool, err := pgxpool.New(ctx, databaseURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create database pool: %w", err)
-	}
-
-	// Test database connection
-	if err := dbPool.Ping(ctx); err != nil {
-		dbPool.Close()
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
-	}
-
-	// Create webhook repository
-	webhookRepo := store.NewRepository(dbPool)
-
+func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, dbPool *pgxpool.Pool) (*Manager, error) {
 	// Initialize River workers
 	riverWorkers := river.NewWorkers()
 
@@ -61,9 +45,9 @@ func NewManager(ctx context.Context, databaseURL string) (*Manager, error) {
 	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, riverClient))
 
 	return &Manager{
-		client:      riverClient,
-		dbPool:      dbPool,
-		webhookRepo: webhookRepo,
+		client: riverClient,
+		dbPool: dbPool,
+		logger: logger.NewLogger("queue-manager"),
 	}, nil
 }
 
@@ -88,7 +72,6 @@ func (m *Manager) Stop(ctx context.Context) error {
 	return nil
 }
 
-// GetWebhookRepo returns the webhook repository
-func (m *Manager) GetWebhookRepo() store.RepositoryInterface {
-	return m.webhookRepo
+func (m *Manager) GetJobInserter() JobInserter {
+	return NewJobInserter(m.client)
 }

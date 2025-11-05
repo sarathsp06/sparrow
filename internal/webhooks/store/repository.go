@@ -9,7 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sarathsp06/sparrow/pkg/storage"
+	"github.com/sarathsp06/sparrow/pkg/types"
 )
 
 // UpdateWebhookHealthState updates or inserts health state and updates webhook status after a health event.
@@ -21,9 +22,9 @@ func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID str
 		consecutiveFailures = 0
 	} else {
 		// Get current consecutive failures
-		err = r.db.QueryRow(ctx, `SELECT COALESCE(consecutive_failures, 0) FROM webhook_health_state WHERE webhook_id = $1`, webhookID).Scan(&consecutiveFailures)
+		err = r.db.GetContext(ctx, &consecutiveFailures, `SELECT COALESCE(consecutive_failures, 0) FROM webhook_health_state WHERE webhook_id = $1`, webhookID)
 		if err != nil && err.Error() != "no rows in result set" {
-			return err
+			return storage.Error(err)
 		}
 		consecutiveFailures++
 	}
@@ -35,7 +36,7 @@ func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID str
 		lastFailureAt = &eventTimestamp
 	}
 	// Upsert health state
-	_, err = r.db.Exec(ctx, `
+	_, err = r.db.ExecContext(ctx, `
 		INSERT INTO webhook_health_state (webhook_id, consecutive_failures, last_success_at, last_failure_at, last_event_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, NOW())
 		ON CONFLICT (webhook_id) DO UPDATE SET
@@ -52,28 +53,18 @@ func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID str
 		eventTimestamp,
 	)
 	if err != nil {
-		return err
+		return storage.Error(err)
 	}
 
 	// Calculate health status
 	healthStatus, err := r.CalculateWebhookHealth(ctx, webhookID, 24)
 	if err != nil {
-		return err
+		return storage.Error(err)
 	}
 
 	// Update webhook_registrations health field
-	_, err = r.db.Exec(ctx, `UPDATE webhook_registrations SET health = $1, updated_at = NOW() WHERE id = $2`, healthStatus, webhookID)
-	return err
-}
-
-// ifThenElse returns the first argument if the condition is true, and the second argument otherwise.
-// It is a shorthand for a simple if-else statement.
-// Example: ifThenElse(x > 0, "positive", "negative") will return "positive" if x is greater than 0, and "negative" otherwise.
-func ifThenElse[T any](cond bool, a, b T) T {
-	if cond {
-		return a
-	}
-	return b
+	_, err = r.db.ExecContext(ctx, `UPDATE webhook_registrations SET health = $1, updated_at = NOW() WHERE id = $2`, healthStatus, webhookID)
+	return storage.Error(err)
 }
 
 // CalculateWebhookHealth computes the health status for a webhook based on recent events and failures.
@@ -84,18 +75,22 @@ func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID strin
 		FROM webhook_health_events
 		WHERE webhook_id = $1 AND timestamp >= NOW() - INTERVAL '1 hour' * $2
 	`
-	var recentEventsCount int
-	var recentSuccessRate float64
-	err := r.db.QueryRow(ctx, query, webhookID, lookbackHours).Scan(&recentEventsCount, &recentSuccessRate)
-	if err != nil {
-		return "unknown", err
+	var result struct {
+		EventsCount int     `db:"count"`
+		SuccessRate float64 `db:"coalesce"`
 	}
+	err := r.db.GetContext(ctx, &result, query, webhookID, lookbackHours)
+	if err != nil {
+		return "unknown", storage.Error(err)
+	}
+	recentEventsCount := result.EventsCount
+	recentSuccessRate := result.SuccessRate
 
 	// Get consecutive failures
 	var consecutiveFailuresCount int
-	err = r.db.QueryRow(ctx, `SELECT COALESCE(consecutive_failures, 0) FROM webhook_health_state WHERE webhook_id = $1`, webhookID).Scan(&consecutiveFailuresCount)
+	err = r.db.GetContext(ctx, &consecutiveFailuresCount, `SELECT COALESCE(consecutive_failures, 0) FROM webhook_health_state WHERE webhook_id = $1`, webhookID)
 	if err != nil && err.Error() != "no rows in result set" {
-		return "unknown", err
+		return "unknown", storage.Error(err)
 	}
 
 	// Calculate health status
@@ -115,55 +110,9 @@ func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID strin
 	}
 }
 
-// RepositoryInterface defines the interface for webhook storage operations.
-type RepositoryInterface interface {
-	UpdateWebhookHealthState(ctx context.Context, webhookID string, success bool, eventTimestamp time.Time) error
-	CalculateWebhookHealth(ctx context.Context, webhookID string, lookbackHours int) (string, error)
-	BeginTx(ctx context.Context) (pgx.Tx, error)
-	StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRecord) error
-	GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namespace, event string) ([]*WebhookRegistration, error)
-	CreateDeliveryTx(ctx context.Context, tx pgx.Tx, delivery *WebhookDelivery) error
-	RegisterWebhook(ctx context.Context, registration *WebhookRegistration) error
-	UnregisterWebhook(ctx context.Context, webhookID string) error
-	GetWebhooksByEvent(ctx context.Context, namespace, event string) ([]*WebhookRegistration, error)
-	ListWebhooks(ctx context.Context, namespace string, activeOnly bool) ([]*WebhookRegistration, error)
-	StoreEvent(ctx context.Context, event *EventRecord) error
-	CreateDelivery(ctx context.Context, delivery *WebhookDelivery) error
-	UpdateDeliveryStatus(ctx context.Context, deliveryID string, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage string) error
-	GetDeliveriesByWebhook(ctx context.Context, webhookID string) ([]*WebhookDelivery, error)
-	GetDeliveriesByEvent(ctx context.Context, eventID string) ([]*WebhookDelivery, error)
-	GetWebhookByID(ctx context.Context, webhookID, namespace string) (*WebhookRegistration, error)
-	GetWebhooksByNamespace(ctx context.Context, namespace string, activeOnly bool) ([]*WebhookRegistration, error)
-	UpdateWebhook(ctx context.Context, webhook *WebhookRegistration) error
-	GetDeliveryByID(ctx context.Context, deliveryID, namespace string) (*WebhookDelivery, error)
-	GetDeliveriesByWebhookID(ctx context.Context, webhookID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error)
-	RegisterEvent(ctx context.Context, event *EventRegistration) error
-	GetEventByName(ctx context.Context, eventName string) (*EventRegistration, error)
-	ListEvents(ctx context.Context, activeOnly bool) ([]*EventRegistration, error)
-	UpdateEvent(ctx context.Context, event *EventRegistration) error
-	DeleteEvent(ctx context.Context, eventName string) error
-	RecordWebhookHealthEvent(ctx context.Context, webhookID, deliveryID string, success bool, responseTime, responseCode int, errorMessage string) error
-	GetWebhookHealthState(ctx context.Context, webhookID string) (*WebhookHealthMetrics, error)
-	GetWebhookHealthSummary(ctx context.Context, webhookID string, hours int) (*WebhookHealthSummary, error)
-	GetWebhookHealthTimeSeries(ctx context.Context, webhookID string, hours int, bucketSize string) ([]*WebhookHealthEvent, error)
-	AggregateHealthSummaries(ctx context.Context) (int, error)
-	GetWebhooksByHealth(ctx context.Context, health WebhookHealth) ([]*WebhookRegistration, error)
-	GetHealthSummary(ctx context.Context) (map[WebhookHealth]int, error)
-	GetRetriableDeliveries(ctx context.Context, webhookID, namespace string, force bool) ([]*WebhookDelivery, error)
-	ResetDeliveryForRetry(ctx context.Context, deliveryID string) error
-	GetEventByID(ctx context.Context, eventID string) (*EventRecord, error)
-}
-
-var _ RepositoryInterface = (*Repository)(nil)
-
 // Repository handles webhook registration storage
 type Repository struct {
-	db *pgxpool.Pool
-}
-
-// BeginTx starts a new transaction
-func (r *Repository) BeginTx(ctx context.Context) (pgx.Tx, error) {
-	return r.db.Begin(ctx)
+	db storage.DB
 }
 
 // StoreEventTx stores an event record within a transaction
@@ -199,7 +148,7 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRe
 		event.CreatedAt,
 		event.ExpiresAt,
 	)
-	return err
+	return storage.Error(err)
 }
 
 // GetWebhooksByEventTx returns all active webhooks for a namespace/event within a transaction
@@ -212,7 +161,7 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 
 	rows, err := tx.Query(ctx, query, namespace, event)
 	if err != nil {
-		return nil, err
+		return nil, storage.Error(err)
 	}
 	defer rows.Close()
 
@@ -236,7 +185,7 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 			&wh.UpdatedAt,
 		)
 		if err != nil {
-			return nil, err
+			return nil, storage.Error(err)
 		}
 
 		if err := json.Unmarshal(headersJSON, &wh.Headers); err != nil {
@@ -279,12 +228,14 @@ func (r *Repository) CreateDeliveryTx(ctx context.Context, tx pgx.Tx, delivery *
 		delivery.ResponseBody,
 		delivery.ErrorMessage,
 	)
-	return err
+	return storage.Error(err)
 }
 
 // NewRepository creates a new webhook repository
-func NewRepository(db *pgxpool.Pool) *Repository {
-	return &Repository{db: db}
+func NewRepository(db storage.DB) *Repository {
+	return &Repository{
+		db: db,
+	}
 }
 
 // RegisterWebhook stores a new webhook registration
@@ -292,13 +243,13 @@ func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookR
 	// Check for existing webhook with same namespace and url
 	checkQuery := `SELECT id FROM webhook_registrations WHERE namespace = $1 AND url = $2 LIMIT 1`
 	var existingID string
-	err := r.db.QueryRow(ctx, checkQuery, registration.Namespace, registration.URL).Scan(&existingID)
+	err := r.db.GetContext(ctx, &existingID, checkQuery, registration.Namespace, registration.URL)
 	if err == nil && existingID != "" {
 		// Already exists, treat as success
 		return nil
 	} else if err != nil && err.Error() != "no rows in result set" {
 		// DB error
-		return err
+		return storage.Error(err)
 	}
 
 	registration.ID = uuid.New().String()
@@ -322,7 +273,7 @@ func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookR
 		return fmt.Errorf("failed to marshal events: %w", err)
 	}
 
-	_, err = r.db.Exec(ctx, query,
+	_, err = r.db.ExecContext(ctx, query,
 		registration.ID,
 		registration.Namespace,
 		eventsJSON,
@@ -335,14 +286,14 @@ func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookR
 		registration.CreatedAt,
 		registration.UpdatedAt,
 	)
-	return err
+	return storage.Error(err)
 }
 
 // UnregisterWebhook removes a webhook registration
 func (r *Repository) UnregisterWebhook(ctx context.Context, webhookID string) error {
 	query := `DELETE FROM webhook_registrations WHERE id = $1`
-	_, err := r.db.Exec(ctx, query, webhookID)
-	return err
+	_, err := r.db.ExecContext(ctx, query, webhookID)
+	return storage.Error(err)
 }
 
 // GetWebhooksByEvent returns all active webhooks for a namespace/event
@@ -352,47 +303,12 @@ func (r *Repository) GetWebhooksByEvent(ctx context.Context, namespace, event st
 		FROM webhook_registrations 
 		WHERE namespace = $1 AND active = true AND events::jsonb ? $2
 	`
-
-	rows, err := r.db.Query(ctx, query, namespace, event)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
 	var webhooks []*WebhookRegistration
-	for rows.Next() {
-		var wh WebhookRegistration
-		var headersJSON []byte
-		var eventsJSON []byte
 
-		err := rows.Scan(
-			&wh.ID,
-			&wh.Namespace,
-			&eventsJSON,
-			&wh.URL,
-			&headersJSON,
-			&wh.Timeout,
-			&wh.Active,
-			&wh.Description,
-			&wh.Health,
-			&wh.CreatedAt,
-			&wh.UpdatedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := json.Unmarshal(headersJSON, &wh.Headers); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal headers: %w", err)
-		}
-
-		if err := json.Unmarshal(eventsJSON, &wh.Events); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal events: %w", err)
-		}
-
-		webhooks = append(webhooks, &wh)
+	err := r.db.SelectContext(ctx, &webhooks, query, namespace, event)
+	if err != nil {
+		return nil, storage.Error(err)
 	}
-
 	return webhooks, nil
 }
 
@@ -411,44 +327,50 @@ func (r *Repository) ListWebhooks(ctx context.Context, namespace string, activeO
 
 	query += ` ORDER BY created_at DESC`
 
-	rows, err := r.db.Query(ctx, query, args...)
-	if err != nil {
-		return nil, err
+	// For complex queries with JSON unmarshalling, we need to use a temporary struct
+	type webhookRow struct {
+		ID          string    `db:"id"`
+		Namespace   string    `db:"namespace"`
+		EventsJSON  []byte    `db:"events"`
+		URL         string    `db:"url"`
+		HeadersJSON []byte    `db:"headers"`
+		Timeout     int       `db:"timeout"`
+		Active      bool      `db:"active"`
+		Description string    `db:"description"`
+		Health      string    `db:"health"`
+		CreatedAt   time.Time `db:"created_at"`
+		UpdatedAt   time.Time `db:"updated_at"`
 	}
-	defer rows.Close()
+
+	var rows []webhookRow
+	err := r.db.SelectContext(ctx, &rows, query, args...)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
 
 	var webhooks []*WebhookRegistration
-	for rows.Next() {
-		var wh WebhookRegistration
-		var headersJSON []byte
-		var eventsJSON []byte
-
-		err := rows.Scan(
-			&wh.ID,
-			&wh.Namespace,
-			&eventsJSON,
-			&wh.URL,
-			&headersJSON,
-			&wh.Timeout,
-			&wh.Active,
-			&wh.Description,
-			&wh.Health,
-			&wh.CreatedAt,
-			&wh.UpdatedAt,
-		)
-		if err != nil {
-			return nil, err
+	for _, row := range rows {
+		wh := &WebhookRegistration{
+			ID:          row.ID,
+			Namespace:   row.Namespace,
+			URL:         row.URL,
+			Timeout:     row.Timeout,
+			Active:      row.Active,
+			Description: row.Description,
+			Health:      WebhookHealth(row.Health),
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
 		}
 
-		if err := json.Unmarshal(headersJSON, &wh.Headers); err != nil {
+		if err := json.Unmarshal(row.HeadersJSON, &wh.Headers); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal headers: %w", err)
 		}
 
-		if err := json.Unmarshal(eventsJSON, &wh.Events); err != nil {
+		if err := json.Unmarshal(row.EventsJSON, &wh.Events); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal events: %w", err)
 		}
 
-		webhooks = append(webhooks, &wh)
+		webhooks = append(webhooks, wh)
 	}
 
 	return webhooks, nil
@@ -477,7 +399,7 @@ func (r *Repository) StoreEvent(ctx context.Context, event *EventRecord) error {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	_, err = r.db.Exec(ctx, query,
+	_, err = r.db.ExecContext(ctx, query,
 		event.ID,
 		event.Namespace,
 		event.Event,
@@ -487,23 +409,17 @@ func (r *Repository) StoreEvent(ctx context.Context, event *EventRecord) error {
 		event.CreatedAt,
 		event.ExpiresAt,
 	)
-	return err
+	return storage.Error(err)
 }
 
-// CreateDelivery creates a webhook delivery record
+// CreateDelivery creates a new delivery
 func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelivery) error {
-	delivery.ID = uuid.New().String()
-	delivery.CreatedAt = time.Now()
-	delivery.Status = StatusPending
-
 	query := `
-		INSERT INTO webhook_deliveries (
-			id, webhook_id, event_id, status, attempt_count, max_attempts, 
-			created_at, expires_at, response_code, response_body, error_message
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO deliveries (id, webhook_id, event_id, status, attempt_count, max_attempts, created_at, expires_at, response_code, response_body, error_message)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
-	_, err := r.db.Exec(ctx, query,
+	_, err := r.db.ExecContext(ctx, query,
 		delivery.ID,
 		delivery.WebhookID,
 		delivery.EventID,
@@ -516,7 +432,7 @@ func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelive
 		delivery.ResponseBody,
 		delivery.ErrorMessage,
 	)
-	return err
+	return storage.Error(err)
 }
 
 // UpdateDeliveryStatus updates the status of a webhook delivery
@@ -529,8 +445,8 @@ func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID string
 		WHERE id = $1
 	`
 
-	_, err := r.db.Exec(ctx, query, deliveryID, status, now, responseCode, responseBody, errorMessage)
-	return err
+	_, err := r.db.ExecContext(ctx, query, deliveryID, status, now, responseCode, responseBody, errorMessage)
+	return storage.Error(err)
 }
 
 // GetDeliveriesByWebhook returns deliveries for a specific webhook
@@ -562,36 +478,10 @@ func (r *Repository) GetDeliveriesByEvent(ctx context.Context, eventID string) (
 }
 
 func (r *Repository) getDeliveries(ctx context.Context, query string, arg interface{}) ([]*WebhookDelivery, error) {
-	rows, err := r.db.Query(ctx, query, arg)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
 	var deliveries []*WebhookDelivery
-	for rows.Next() {
-		var d WebhookDelivery
-
-		err := rows.Scan(
-			&d.ID,
-			&d.WebhookID,
-			&d.EventID,
-			&d.Status,
-			&d.AttemptCount,
-			&d.MaxAttempts,
-			&d.CreatedAt,
-			&d.LastAttemptedAt,
-			&d.NextRetryAt,
-			&d.ExpiresAt,
-			&d.ResponseCode,
-			&d.ResponseBody,
-			&d.ErrorMessage,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		deliveries = append(deliveries, &d)
+	err := r.db.SelectContext(ctx, &deliveries, query, arg)
+	if err != nil {
+		return nil, storage.Error(err)
 	}
 
 	return deliveries, nil
@@ -620,35 +510,45 @@ func (r *Repository) GetWebhookByID(ctx context.Context, webhookID, namespace st
 		WHERE id = $1 AND namespace = $2
 	`
 
-	var wh WebhookRegistration
-	var headersJSON []byte
-	var eventsJSON []byte
+	var webhookRow struct {
+		ID          string    `db:"id"`
+		Namespace   string    `db:"namespace"`
+		EventsJSON  []byte    `db:"events"`
+		URL         string    `db:"url"`
+		HeadersJSON []byte    `db:"headers"`
+		Timeout     int       `db:"timeout"`
+		Active      bool      `db:"active"`
+		Description string    `db:"description"`
+		Health      string    `db:"health"`
+		CreatedAt   time.Time `db:"created_at"`
+		UpdatedAt   time.Time `db:"updated_at"`
+	}
 
-	err := r.db.QueryRow(ctx, query, webhookID, namespace).Scan(
-		&wh.ID,
-		&wh.Namespace,
-		&eventsJSON,
-		&wh.URL,
-		&headersJSON,
-		&wh.Timeout,
-		&wh.Active,
-		&wh.Description,
-		&wh.Health,
-		&wh.CreatedAt,
-		&wh.UpdatedAt,
-	)
+	err := r.db.GetContext(ctx, &webhookRow, query, webhookID, namespace)
 	if err != nil {
 		if err.Error() == "no rows in result set" {
 			return nil, nil
 		}
-		return nil, err
+		return nil, storage.Error(err)
 	}
 
-	if err := json.Unmarshal(headersJSON, &wh.Headers); err != nil {
+	wh := WebhookRegistration{
+		ID:          webhookRow.ID,
+		Namespace:   webhookRow.Namespace,
+		URL:         webhookRow.URL,
+		Timeout:     webhookRow.Timeout,
+		Active:      webhookRow.Active,
+		Description: webhookRow.Description,
+		Health:      WebhookHealth(webhookRow.Health),
+		CreatedAt:   webhookRow.CreatedAt,
+		UpdatedAt:   webhookRow.UpdatedAt,
+	}
+
+	if err := json.Unmarshal(webhookRow.HeadersJSON, &wh.Headers); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal headers: %w", err)
 	}
 
-	if err := json.Unmarshal(eventsJSON, &wh.Events); err != nil {
+	if err := json.Unmarshal(webhookRow.EventsJSON, &wh.Events); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal events: %w", err)
 	}
 
@@ -681,7 +581,7 @@ func (r *Repository) UpdateWebhook(ctx context.Context, webhook *WebhookRegistra
 		return fmt.Errorf("failed to marshal events: %w", err)
 	}
 
-	_, err = r.db.Exec(ctx, query,
+	_, err = r.db.ExecContext(ctx, query,
 		webhook.ID,
 		eventsJSON,
 		webhook.URL,
@@ -692,7 +592,7 @@ func (r *Repository) UpdateWebhook(ctx context.Context, webhook *WebhookRegistra
 		webhook.UpdatedAt,
 		webhook.Namespace,
 	)
-	return err
+	return storage.Error(err)
 }
 
 // GetDeliveryByID gets a delivery by ID and namespace
@@ -707,26 +607,12 @@ func (r *Repository) GetDeliveryByID(ctx context.Context, deliveryID, namespace 
 	`
 
 	var d WebhookDelivery
-	err := r.db.QueryRow(ctx, query, deliveryID, namespace).Scan(
-		&d.ID,
-		&d.WebhookID,
-		&d.EventID,
-		&d.Status,
-		&d.AttemptCount,
-		&d.MaxAttempts,
-		&d.CreatedAt,
-		&d.LastAttemptedAt,
-		&d.NextRetryAt,
-		&d.ExpiresAt,
-		&d.ResponseCode,
-		&d.ResponseBody,
-		&d.ErrorMessage,
-	)
+	err := r.db.GetContext(ctx, &d, query, deliveryID, namespace)
 	if err != nil {
 		if err.Error() == "no rows in result set" {
 			return nil, nil
 		}
-		return nil, err
+		return nil, storage.Error(err)
 	}
 
 	return &d, nil
@@ -743,9 +629,9 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, webhookID, na
 	`
 
 	var totalCount int
-	err := r.db.QueryRow(ctx, countQuery, webhookID, namespace).Scan(&totalCount)
+	err := r.db.GetContext(ctx, &totalCount, countQuery, webhookID, namespace)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, storage.Error(err)
 	}
 
 	// Then get paginated results
@@ -760,34 +646,10 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, webhookID, na
 		LIMIT $3 OFFSET $4
 	`
 
-	rows, err := r.db.Query(ctx, query, webhookID, namespace, limit, offset)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
 	var deliveries []*WebhookDelivery
-	for rows.Next() {
-		var d WebhookDelivery
-		err := rows.Scan(
-			&d.ID,
-			&d.WebhookID,
-			&d.EventID,
-			&d.Status,
-			&d.AttemptCount,
-			&d.MaxAttempts,
-			&d.CreatedAt,
-			&d.LastAttemptedAt,
-			&d.NextRetryAt,
-			&d.ExpiresAt,
-			&d.ResponseCode,
-			&d.ResponseBody,
-			&d.ErrorMessage,
-		)
-		if err != nil {
-			return nil, 0, err
-		}
-		deliveries = append(deliveries, &d)
+	err = r.db.SelectContext(ctx, &deliveries, query, webhookID, namespace, limit, offset)
+	if err != nil {
+		return nil, 0, storage.Error(err)
 	}
 
 	return deliveries, totalCount, nil
@@ -810,7 +672,7 @@ func (r *Repository) RegisterEvent(ctx context.Context, event *EventRegistration
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	_, err = r.db.Exec(ctx, query,
+	_, err = r.db.ExecContext(ctx, query,
 		event.ID,
 		event.Name,
 		event.Description,
@@ -820,7 +682,7 @@ func (r *Repository) RegisterEvent(ctx context.Context, event *EventRegistration
 		event.CreatedAt,
 		event.UpdatedAt,
 	)
-	return err
+	return storage.Error(err)
 }
 
 // GetEventByName gets an event registration by name
@@ -831,27 +693,36 @@ func (r *Repository) GetEventByName(ctx context.Context, eventName string) (*Eve
 		WHERE name = $1
 	`
 
-	var event EventRegistration
-	var metadataJSON []byte
+	var eventRow struct {
+		ID           string                 `db:"id"`
+		Name         string                 `db:"name"`
+		Description  string                 `db:"description"`
+		Schema       types.Map[string, any] `db:"schema"`
+		MetadataJSON []byte                 `db:"metadata"`
+		Active       bool                   `db:"active"`
+		CreatedAt    time.Time              `db:"created_at"`
+		UpdatedAt    time.Time              `db:"updated_at"`
+	}
 
-	err := r.db.QueryRow(ctx, query, eventName).Scan(
-		&event.ID,
-		&event.Name,
-		&event.Description,
-		&event.Schema,
-		&metadataJSON,
-		&event.Active,
-		&event.CreatedAt,
-		&event.UpdatedAt,
-	)
+	err := r.db.GetContext(ctx, &eventRow, query, eventName)
 	if err != nil {
 		if err.Error() == "no rows in result set" {
 			return nil, nil
 		}
-		return nil, err
+		return nil, storage.Error(err)
 	}
 
-	if err := json.Unmarshal(metadataJSON, &event.Metadata); err != nil {
+	event := EventRegistration{
+		ID:          eventRow.ID,
+		Name:        eventRow.Name,
+		Description: eventRow.Description,
+		Schema:      eventRow.Schema,
+		Active:      eventRow.Active,
+		CreatedAt:   eventRow.CreatedAt,
+		UpdatedAt:   eventRow.UpdatedAt,
+	}
+
+	if err := json.Unmarshal(eventRow.MetadataJSON, &event.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 	}
 
@@ -872,36 +743,40 @@ func (r *Repository) ListEvents(ctx context.Context, activeOnly bool) ([]*EventR
 
 	query += ` ORDER BY name ASC`
 
-	rows, err := r.db.Query(ctx, query, args...)
-	if err != nil {
-		return nil, err
+	type eventRow struct {
+		ID           string                 `db:"id"`
+		Name         string                 `db:"name"`
+		Description  string                 `db:"description"`
+		Schema       types.Map[string, any] `db:"schema"`
+		MetadataJSON []byte                 `db:"metadata"`
+		Active       bool                   `db:"active"`
+		CreatedAt    time.Time              `db:"created_at"`
+		UpdatedAt    time.Time              `db:"updated_at"`
 	}
-	defer rows.Close()
+
+	var rows []eventRow
+	err := r.db.SelectContext(ctx, &rows, query, args...)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
 
 	var events []*EventRegistration
-	for rows.Next() {
-		var event EventRegistration
-		var metadataJSON []byte
-
-		err := rows.Scan(
-			&event.ID,
-			&event.Name,
-			&event.Description,
-			&event.Schema,
-			&metadataJSON,
-			&event.Active,
-			&event.CreatedAt,
-			&event.UpdatedAt,
-		)
-		if err != nil {
-			return nil, err
+	for _, row := range rows {
+		event := &EventRegistration{
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description,
+			Schema:      row.Schema,
+			Active:      row.Active,
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
 		}
 
-		if err := json.Unmarshal(metadataJSON, &event.Metadata); err != nil {
+		if err := json.Unmarshal(row.MetadataJSON, &event.Metadata); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
 		}
 
-		events = append(events, &event)
+		events = append(events, event)
 	}
 
 	return events, nil
@@ -922,7 +797,7 @@ func (r *Repository) UpdateEvent(ctx context.Context, event *EventRegistration) 
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	_, err = r.db.Exec(ctx, query,
+	_, err = r.db.ExecContext(ctx, query,
 		event.Name,
 		event.Description,
 		event.Schema,
@@ -930,14 +805,14 @@ func (r *Repository) UpdateEvent(ctx context.Context, event *EventRegistration) 
 		event.Active,
 		event.UpdatedAt,
 	)
-	return err
+	return storage.Error(err)
 }
 
 // DeleteEvent deletes an event registration
 func (r *Repository) DeleteEvent(ctx context.Context, eventName string) error {
 	query := `DELETE FROM event_registrations WHERE name = $1`
-	_, err := r.db.Exec(ctx, query, eventName)
-	return err
+	_, err := r.db.ExecContext(ctx, query, eventName)
+	return storage.Error(err)
 }
 
 // RecordWebhookHealthEvent records a health event for time-series tracking
@@ -947,7 +822,7 @@ func (r *Repository) RecordWebhookHealthEvent(ctx context.Context, webhookID, de
 		VALUES ($1, $2, $3, $4, $5, $6, NOW())
 	`
 
-	_, err := r.db.Exec(ctx, query, webhookID, deliveryID, success, responseTime, responseCode, errorMessage)
+	_, err := r.db.ExecContext(ctx, query, webhookID, deliveryID, success, responseTime, responseCode, errorMessage)
 	if err != nil {
 		return fmt.Errorf("failed to record health event: %w", err)
 	}
@@ -965,18 +840,9 @@ func (r *Repository) GetWebhookHealthState(ctx context.Context, webhookID string
 	`
 
 	var state WebhookHealthMetrics
-	err := r.db.QueryRow(ctx, query, webhookID).Scan(
-		&state.ID,
-		&state.WebhookID,
-		&state.ConsecutiveFailures,
-		&state.LastSuccessAt,
-		&state.LastFailureAt,
-		&state.LastEventAt,
-		&state.CreatedAt,
-		&state.UpdatedAt,
-	)
+	err := r.db.GetContext(ctx, &state, query, webhookID)
 	if err != nil {
-		return nil, err
+		return nil, storage.Error(err)
 	}
 
 	return &state, nil
@@ -997,22 +863,7 @@ func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID stri
 	`
 
 	var summary WebhookHealthSummary
-	err := r.db.QueryRow(ctx, query, webhookID, hours).Scan(
-		&summary.ID,
-		&summary.WebhookID,
-		&summary.WindowStart,
-		&summary.WindowEnd,
-		&summary.TotalDeliveries,
-		&summary.SuccessfulDeliveries,
-		&summary.FailedDeliveries,
-		&summary.SuccessRate,
-		&summary.AvgResponseTime,
-		&summary.MinResponseTime,
-		&summary.MaxResponseTime,
-		&summary.P95ResponseTime,
-		&summary.CreatedAt,
-		&summary.UpdatedAt,
-	)
+	err := r.db.GetContext(ctx, &summary, query, webhookID, hours)
 	if err == nil {
 		return &summary, nil
 	}
@@ -1038,23 +889,9 @@ func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID stri
 		  AND timestamp >= NOW() - INTERVAL '1 hour' * $2
 	`
 
-	err = r.db.QueryRow(ctx, realTimeQuery, webhookID, hours).Scan(
-		&summary.WebhookID,
-		&summary.WindowStart,
-		&summary.WindowEnd,
-		&summary.TotalDeliveries,
-		&summary.SuccessfulDeliveries,
-		&summary.FailedDeliveries,
-		&summary.SuccessRate,
-		&summary.AvgResponseTime,
-		&summary.MinResponseTime,
-		&summary.MaxResponseTime,
-		&summary.P95ResponseTime,
-		&summary.CreatedAt,
-		&summary.UpdatedAt,
-	)
+	err = r.db.GetContext(ctx, &summary, realTimeQuery, webhookID, hours)
 	if err != nil {
-		return nil, err
+		return nil, storage.Error(err)
 	}
 
 	// Generate a synthetic ID for the real-time summary
@@ -1075,29 +912,10 @@ func (r *Repository) GetWebhookHealthTimeSeries(ctx context.Context, webhookID s
 		LIMIT 1000
 	`
 
-	rows, err := r.db.Query(ctx, query, webhookID, hours)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
 	var events []*WebhookHealthEvent
-	for rows.Next() {
-		var event WebhookHealthEvent
-		err := rows.Scan(
-			&event.ID,
-			&event.WebhookID,
-			&event.DeliveryID,
-			&event.Success,
-			&event.ResponseTime,
-			&event.ResponseCode,
-			&event.ErrorMessage,
-			&event.Timestamp,
-		)
-		if err != nil {
-			return nil, err
-		}
-		events = append(events, &event)
+	err := r.db.SelectContext(ctx, &events, query, webhookID, hours)
+	if err != nil {
+		return nil, storage.Error(err)
 	}
 
 	return events, nil
@@ -1108,7 +926,7 @@ func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) 
 	query := `SELECT aggregate_webhook_health_hourly()`
 
 	var processedCount int
-	err := r.db.QueryRow(ctx, query).Scan(&processedCount)
+	err := r.db.GetContext(ctx, &processedCount, query)
 	if err != nil {
 		return 0, fmt.Errorf("failed to aggregate health summaries: %w", err)
 	}
@@ -1126,43 +944,49 @@ func (r *Repository) GetWebhooksByHealth(ctx context.Context, health WebhookHeal
 		ORDER BY wr.created_at DESC
 	`
 
-	rows, err := r.db.Query(ctx, query, string(health))
-	if err != nil {
-		return nil, err
+	type webhookRow struct {
+		ID          string    `db:"id"`
+		Namespace   string    `db:"namespace"`
+		EventsJSON  []byte    `db:"events"`
+		URL         string    `db:"url"`
+		HeadersJSON []byte    `db:"headers"`
+		Timeout     int       `db:"timeout"`
+		Active      bool      `db:"active"`
+		Description string    `db:"description"`
+		Health      string    `db:"health"`
+		CreatedAt   time.Time `db:"created_at"`
+		UpdatedAt   time.Time `db:"updated_at"`
 	}
-	defer rows.Close()
+
+	var rows []webhookRow
+	err := r.db.SelectContext(ctx, &rows, query, string(health))
+	if err != nil {
+		return nil, storage.Error(err)
+	}
 
 	var webhooks []*WebhookRegistration
-	for rows.Next() {
-		var webhook WebhookRegistration
-		var eventsJSON, headersJSON []byte
-
-		err := rows.Scan(
-			&webhook.ID,
-			&webhook.Namespace,
-			&eventsJSON,
-			&webhook.URL,
-			&headersJSON,
-			&webhook.Timeout,
-			&webhook.Active,
-			&webhook.Description,
-			&webhook.Health,
-			&webhook.CreatedAt,
-			&webhook.UpdatedAt,
-		)
-		if err != nil {
-			return nil, err
+	for _, row := range rows {
+		webhook := &WebhookRegistration{
+			ID:          row.ID,
+			Namespace:   row.Namespace,
+			URL:         row.URL,
+			Timeout:     row.Timeout,
+			Active:      row.Active,
+			Description: row.Description,
+			Health:      WebhookHealth(row.Health),
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
 		}
 
-		if err := json.Unmarshal(eventsJSON, &webhook.Events); err != nil {
+		if err := json.Unmarshal(row.EventsJSON, &webhook.Events); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal events: %w", err)
 		}
 
-		if err := json.Unmarshal(headersJSON, &webhook.Headers); err != nil {
+		if err := json.Unmarshal(row.HeadersJSON, &webhook.Headers); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal headers: %w", err)
 		}
 
-		webhooks = append(webhooks, &webhook)
+		webhooks = append(webhooks, webhook)
 	}
 
 	return webhooks, nil
@@ -1176,23 +1000,20 @@ func (r *Repository) GetHealthSummary(ctx context.Context) (map[WebhookHealth]in
 		GROUP BY health
 	`
 
-	rows, err := r.db.Query(ctx, query)
-	if err != nil {
-		return nil, err
+	type healthCount struct {
+		Health string `db:"health"`
+		Count  int    `db:"count"`
 	}
-	defer rows.Close()
+
+	var results []healthCount
+	err := r.db.SelectContext(ctx, &results, query)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
 
 	summary := make(map[WebhookHealth]int)
-	for rows.Next() {
-		var health string
-		var count int
-
-		err := rows.Scan(&health, &count)
-		if err != nil {
-			return nil, err
-		}
-
-		summary[WebhookHealth(health)] = count
+	for _, result := range results {
+		summary[WebhookHealth(result.Health)] = result.Count
 	}
 
 	return summary, nil
@@ -1216,34 +1037,10 @@ func (r *Repository) GetRetriableDeliveries(ctx context.Context, webhookID, name
 
 	query += ` ORDER BY wd.created_at DESC`
 
-	rows, err := r.db.Query(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
 	var deliveries []*WebhookDelivery
-	for rows.Next() {
-		var d WebhookDelivery
-		err := rows.Scan(
-			&d.ID,
-			&d.WebhookID,
-			&d.EventID,
-			&d.Status,
-			&d.AttemptCount,
-			&d.MaxAttempts,
-			&d.CreatedAt,
-			&d.LastAttemptedAt,
-			&d.NextRetryAt,
-			&d.ExpiresAt,
-			&d.ResponseCode,
-			&d.ResponseBody,
-			&d.ErrorMessage,
-		)
-		if err != nil {
-			return nil, err
-		}
-		deliveries = append(deliveries, &d)
+	err := r.db.SelectContext(ctx, &deliveries, query, args...)
+	if err != nil {
+		return nil, storage.Error(err)
 	}
 
 	return deliveries, nil
@@ -1262,8 +1059,8 @@ func (r *Repository) ResetDeliveryForRetry(ctx context.Context, deliveryID strin
 		WHERE id = $1
 	`
 
-	_, err := r.db.Exec(ctx, query, deliveryID)
-	return err
+	_, err := r.db.ExecContext(ctx, query, deliveryID)
+	return storage.Error(err)
 }
 
 // GetEventByID gets an event record by ID
@@ -1274,29 +1071,14 @@ func (r *Repository) GetEventByID(ctx context.Context, eventID string) (*EventRe
 		WHERE id = $1
 	`
 
-	var event EventRecord
-	var metadataJSON []byte
+	var eventRow EventRecord
 
-	err := r.db.QueryRow(ctx, query, eventID).Scan(
-		&event.ID,
-		&event.Namespace,
-		&event.Event,
-		&event.Payload,
-		&event.TTL,
-		&metadataJSON,
-		&event.CreatedAt,
-		&event.ExpiresAt,
-	)
+	err := r.db.GetContext(ctx, &eventRow, query, eventID)
 	if err != nil {
 		if err.Error() == "no rows in result set" {
 			return nil, nil
 		}
-		return nil, err
+		return nil, storage.Error(err)
 	}
-
-	if err := json.Unmarshal(metadataJSON, &event.Metadata); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
-	}
-
-	return &event, nil
+	return &eventRow, nil
 }

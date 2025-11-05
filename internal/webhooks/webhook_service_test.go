@@ -280,21 +280,21 @@ func TestUpdateEvent(t *testing.T) {
 	t.Run("successful update", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(&store.EventRegistration{}, nil).Once()
 		mockRepo.On("UpdateEvent", mock.Anything, mock.Anything).Return(nil).Once()
-		err := service.UpdateEvent(ctx, "event1", "new description", "", nil, true)
+		err := service.UpdateEvent(ctx, "event1", "new description", map[string]any{}, nil, true)
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("event not found", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(nil, nil).Once()
-		err := service.UpdateEvent(ctx, "event1", "new description", "", nil, true)
+		err := service.UpdateEvent(ctx, "event1", "new description", map[string]any{}, nil, true)
 		assert.Error(t, err)
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("repository error on get", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(nil, errors.New("db error")).Once()
-		err := service.UpdateEvent(ctx, "event1", "new description", "", nil, true)
+		err := service.UpdateEvent(ctx, "event1", "new description", map[string]any{}, nil, true)
 		assert.Error(t, err)
 		mockRepo.AssertExpectations(t)
 	})
@@ -302,7 +302,7 @@ func TestUpdateEvent(t *testing.T) {
 	t.Run("repository error on update", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(&store.EventRegistration{}, nil).Once()
 		mockRepo.On("UpdateEvent", mock.Anything, mock.Anything).Return(errors.New("db error")).Once()
-		err := service.UpdateEvent(ctx, "event1", "new description", "", nil, true)
+		err := service.UpdateEvent(ctx, "event1", "new description", map[string]any{}, nil, true)
 		assert.Error(t, err)
 		mockRepo.AssertExpectations(t)
 	})
@@ -316,21 +316,21 @@ func TestRegisterEvent(t *testing.T) {
 	t.Run("successful registration", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(nil, nil).Once()
 		mockRepo.On("RegisterEvent", mock.Anything, mock.Anything).Return(nil).Once()
-		_, _, err := service.RegisterEvent(ctx, "event1", "description", "", nil, true)
+		_, _, err := service.RegisterEvent(ctx, "event1", "description", map[string]any{}, nil, true)
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("event already exists", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(&store.EventRegistration{}, nil).Once()
-		_, _, err := service.RegisterEvent(ctx, "event1", "description", "", nil, true)
+		_, _, err := service.RegisterEvent(ctx, "event1", "description", map[string]any{}, nil, true)
 		assert.Error(t, err)
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("repository error on get", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(nil, errors.New("db error")).Once()
-		_, _, err := service.RegisterEvent(ctx, "event1", "description", "", nil, true)
+		_, _, err := service.RegisterEvent(ctx, "event1", "description", map[string]any{}, nil, true)
 		assert.Error(t, err)
 		mockRepo.AssertExpectations(t)
 	})
@@ -338,7 +338,7 @@ func TestRegisterEvent(t *testing.T) {
 	t.Run("repository error on register", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(nil, nil).Once()
 		mockRepo.On("RegisterEvent", mock.Anything, mock.Anything).Return(errors.New("db error")).Once()
-		_, _, err := service.RegisterEvent(ctx, "event1", "description", "", nil, true)
+		_, _, err := service.RegisterEvent(ctx, "event1", "description", map[string]any{}, nil, true)
 		assert.Error(t, err)
 		mockRepo.AssertExpectations(t)
 	})
@@ -363,31 +363,41 @@ func TestPushEvent(t *testing.T) {
 	t.Run("successful push", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(&store.EventRegistration{Active: true}, nil).Once()
 		mockRepo.On("GetWebhooksByEvent", mock.Anything, "test-namespace", "event1").Return([]*store.WebhookRegistration{}, nil).Once()
-		mockQueue.On("Insert", mock.Anything, mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil).Once()
+		mockQueue.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil).Once()
 
-		_, _, _, err := service.PushEvent(ctx, "test-namespace", "event1", `{"key":"value"}`, 3600, nil)
+		payload := map[string]any{"key": "value"}
+		_, err := service.PushEvent(ctx, "test-namespace", "event1", payload, 3600, nil)
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
 		mockQueue.AssertExpectations(t)
 	})
 
 	t.Run("missing namespace", func(t *testing.T) {
-		_, _, _, err := service.PushEvent(ctx, "", "event1", `{"key":"value"}`, 3600, nil)
+		payload := map[string]any{"key": "value"}
+		_, err := service.PushEvent(ctx, "", "event1", payload, 3600, nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("unregistered event", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(nil, errors.New("not found")).Once()
-		_, _, _, err := service.PushEvent(ctx, "test-namespace", "event1", `{"key":"value"}`, 3600, nil)
+		payload := map[string]any{"key": "value"}
+		_, err := service.PushEvent(ctx, "test-namespace", "event1", payload, 3600, nil)
 		assert.Error(t, err)
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("schema validation fail", func(t *testing.T) {
-		schema := `{"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}`
+		schema := map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"key": map[string]any{"type": "string"},
+			},
+			"required": []string{"key"},
+		}
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(&store.EventRegistration{Active: true, Schema: schema}, nil).Once()
 
-		_, _, _, err := service.PushEvent(ctx, "test-namespace", "event1", `{"key":123}`, 3600, nil)
+		payload := map[string]any{"key": 123}
+		_, err := service.PushEvent(ctx, "test-namespace", "event1", payload, 3600, nil)
 		assert.Error(t, err)
 		mockRepo.AssertExpectations(t)
 	})
@@ -395,9 +405,10 @@ func TestPushEvent(t *testing.T) {
 	t.Run("queue error", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(&store.EventRegistration{Active: true}, nil).Once()
 		mockRepo.On("GetWebhooksByEvent", mock.Anything, "test-namespace", "event1").Return([]*store.WebhookRegistration{}, nil).Once()
-		mockQueue.On("Insert", mock.Anything, mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, errors.New("queue error")).Once()
+		mockQueue.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, errors.New("queue error")).Once()
 
-		_, _, _, err := service.PushEvent(ctx, "test-namespace", "event1", `{"key":"value"}`, 3600, nil)
+		payload := map[string]any{"key": "value"}
+		_, err := service.PushEvent(ctx, "test-namespace", "event1", payload, 3600, nil)
 		assert.Error(t, err)
 		mockRepo.AssertExpectations(t)
 		mockQueue.AssertExpectations(t)

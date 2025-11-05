@@ -13,6 +13,8 @@
   let error = $state("");
   let namespace = $state("default");
 
+
+
   const healthColor: Record<WebhookHealth, string> = {
     [WebhookHealth.HEALTH_UNKNOWN]: "gray-500",
     [WebhookHealth.HEALTH_HEALTHY]: "green-500",

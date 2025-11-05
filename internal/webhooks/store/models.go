@@ -2,6 +2,8 @@ package store
 
 import (
 	"time"
+
+	"github.com/sarathsp06/sparrow/pkg/types"
 )
 
 // WebhookHealth represents the health status of a webhook
@@ -16,29 +18,29 @@ const (
 
 // WebhookRegistration represents a registered webhook
 type WebhookRegistration struct {
-	ID          string            `json:"id" db:"id"`
-	Namespace   string            `json:"namespace" db:"namespace"`
-	Events      []string          `json:"events" db:"events"` // Multiple events supported
-	URL         string            `json:"url" db:"url"`
-	Headers     map[string]string `json:"headers" db:"headers"`
-	Timeout     int               `json:"timeout" db:"timeout"`
-	Active      bool              `json:"active" db:"active"`
-	Description string            `json:"description" db:"description"`
-	Health      WebhookHealth     `json:"health" db:"health"`
-	CreatedAt   time.Time         `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at" db:"updated_at"`
+	ID          string                    `json:"id" db:"id"`
+	Namespace   string                    `json:"namespace" db:"namespace"`
+	Events      []string                  `json:"events" db:"events"` // Multiple events supported
+	URL         string                    `json:"url" db:"url"`
+	Headers     types.Map[string, string] `json:"headers" db:"headers"`
+	Timeout     int                       `json:"timeout" db:"timeout"`
+	Active      bool                      `json:"active" db:"active"`
+	Description string                    `json:"description" db:"description"`
+	Health      WebhookHealth             `json:"health" db:"health"`
+	CreatedAt   time.Time                 `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time                 `json:"updated_at" db:"updated_at"`
 }
 
 // EventRecord represents an event that was pushed
 type EventRecord struct {
-	ID        string            `json:"id" db:"id"`
-	Namespace string            `json:"namespace" db:"namespace"`
-	Event     string            `json:"event" db:"event"`
-	Payload   map[string]any    `json:"payload" db:"payload"`
-	TTL       int64             `json:"ttl" db:"ttl"`
-	Metadata  map[string]string `json:"metadata" db:"metadata"`
-	CreatedAt time.Time         `json:"created_at" db:"created_at"`
-	ExpiresAt time.Time         `json:"expires_at" db:"expires_at"`
+	ID        string                    `json:"id" db:"id"`
+	Namespace string                    `json:"namespace" db:"namespace"`
+	Event     string                    `json:"event" db:"event"`
+	Payload   types.Map[string, any]    `json:"payload" db:"payload"`
+	TTL       int64                     `json:"ttl" db:"ttl"`
+	Metadata  types.Map[string, string] `json:"metadata" db:"metadata"`
+	CreatedAt time.Time                 `json:"created_at" db:"created_at"`
+	ExpiresAt time.Time                 `json:"expires_at" db:"expires_at"`
 }
 
 // WebhookDelivery represents a webhook delivery attempt
@@ -114,22 +116,22 @@ type WebhookHealthMetrics struct {
 
 // EventRegistration represents a registered event type
 type EventRegistration struct {
-	ID          string            `json:"id" db:"id"`
-	Name        string            `json:"name" db:"name"`
-	Description string            `json:"description" db:"description"`
-	Schema      map[string]any    `json:"schema" db:"schema"` // JSON schema for validation
-	Metadata    map[string]string `json:"metadata" db:"metadata"`
-	Active      bool              `json:"active" db:"active"`
-	CreatedAt   time.Time         `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at" db:"updated_at"`
+	ID          string                    `json:"id" db:"id"`
+	Name        string                    `json:"name" db:"name"`
+	Description string                    `json:"description" db:"description"`
+	Schema      types.Map[string, any]    `json:"schema" db:"schema"` // JSON schema for validation
+	Metadata    types.Map[string, string] `json:"metadata" db:"metadata"`
+	Active      bool                      `json:"active" db:"active"`
+	CreatedAt   time.Time                 `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time                 `json:"updated_at" db:"updated_at"`
 }
 
 // WebhookUpdateFields represents fields that can be updated for a webhook
 type WebhookUpdateFields struct {
-	Events      []string          `json:"events"`
-	URL         string            `json:"url"`
-	Headers     map[string]string `json:"headers"`
-	Timeout     int               `json:"timeout"`
-	Active      bool              `json:"active"`
-	Description string            `json:"description"`
+	Events      []string                  `json:"events"`
+	URL         string                    `json:"url"`
+	Headers     types.Map[string, string] `json:"headers"`
+	Timeout     int                       `json:"timeout"`
+	Active      bool                      `json:"active"`
+	Description string                    `json:"description"`
 }

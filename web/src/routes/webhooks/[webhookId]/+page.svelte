@@ -59,7 +59,6 @@
       };
       const historyRes = await client.getWebhookDeliveryHistory(historyReq);
       deliveries = historyRes.deliveries || [];
-      console.log("Deliveries:", deliveries);
       const healthReq = {
         webhookId,
         namespace: "default",

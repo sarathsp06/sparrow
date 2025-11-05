@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
@@ -18,7 +19,7 @@ type WebhookServer struct {
 }
 
 // NewWebhookServer creates a new WebhookServer instance
-func NewWebhookServer(queueManager *queue.Manager, webhookRepo store.RepositoryInterface) *WebhookServer {
+func NewWebhookServer(queueManager queue.JobInserter, webhookRepo store.RepositoryInterface) *WebhookServer {
 	return &WebhookServer{
 		service: webhooks.NewWebhookService(queueManager, webhookRepo),
 	}
@@ -137,9 +138,17 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 
 // RegisterEvent registers a new event type
 func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEventRequest) (*pb.RegisterEventResponse, error) {
-	eventID, createdAt, err := s.service.RegisterEvent(ctx, req.Name, req.Description, req.Schema, req.Metadata, req.Active)
+	// Convert JSON schema string to map[string]any
+	var schema map[string]any
+	if req.Schema != "" {
+		if err := json.Unmarshal([]byte(req.Schema), &schema); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid schema JSON: %v", err)
+		}
+	}
+
+	eventID, createdAt, err := s.service.RegisterEvent(ctx, req.Name, req.Description, schema, req.Metadata, req.Active)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to register event: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to register event: %v", err)
 	}
 	return &pb.RegisterEventResponse{
 		EventId:   eventID,
@@ -151,7 +160,15 @@ func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEvent
 
 // UpdateEvent updates an event registration
 func (s *WebhookServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequest) (*pb.UpdateEventResponse, error) {
-	err := s.service.UpdateEvent(ctx, req.Name, req.Description, req.Schema, req.Metadata, req.Active)
+	// Convert JSON schema string to map[string]any
+	var schema map[string]any
+	if req.Schema != "" {
+		if err := json.Unmarshal([]byte(req.Schema), &schema); err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid schema JSON: %v", err)
+		}
+	}
+
+	err := s.service.UpdateEvent(ctx, req.Name, req.Description, schema, req.Metadata, req.Active)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to update event: %v", err)
 	}

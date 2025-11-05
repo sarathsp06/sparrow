@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -97,10 +98,8 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	if url == "" {
 		return "", 0, fmt.Errorf("URL is required")
 	}
-	for _, event := range events {
-		if event == "" {
-			return "", 0, fmt.Errorf("event names cannot be empty")
-		}
+	if !slices.Contains(events, "") {
+		return "", 0, fmt.Errorf("event names cannot be empty")
 	}
 	if timeout <= 0 {
 		timeout = 30
@@ -1001,12 +1000,12 @@ func (s *WebhookService) ResubmitWebhook(ctx context.Context, deliveryID string,
 		}
 
 		// Queue the webhook for delivery
-		err = s.jobInserter.QueueWebhook(ctx, &WebhookArgs{
+		_, err = s.jobInserter.Insert(ctx, &queue.WebhookArgs{
 			DeliveryID: delivery.ID,
 			WebhookID:  delivery.WebhookID,
 			URL:        webhook.URL,
 			Headers:    webhook.Headers,
-			Payload:    "", // Will be populated by the event data
+			Payload:    map[string]any{"TODO": "TODO"}, // Will be populated by the event data
 			ExpiresAt:  delivery.ExpiresAt,
 			Namespace:  webhook.Namespace,
 		})
@@ -1107,7 +1106,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		return fmt.Errorf("Webhook ID is required")
 	}
 	if namespace == "" {
-		return fmt.Errorf("Namespace is required")
+		return fmt.Errorf("namespace is required")
 	}
 	webhook, err := s.webhookRepo.GetWebhookByID(ctx, webhookID, namespace)
 	if err != nil {
@@ -1146,9 +1145,13 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 }
 
 // ValidateJSONSchema validates a payload against a JSON schema string
-func ValidateJSONSchema(schema []byte, payload map[string]any) error {
+func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
+	schemaJSON, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal schema: %w", err)
+	}
 	compiler := jsonschema.NewCompiler()
-	sch, err := compiler.Compile(schema)
+	sch, err := compiler.Compile(schemaJSON)
 	if err != nil {
 		return fmt.Errorf("invalid event schema: %w", err)
 	}

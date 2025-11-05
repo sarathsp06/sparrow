@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/cors"
 
 	"os/signal"
@@ -24,7 +25,10 @@ import (
 	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/pkg/storage/postgres"
 	pb "github.com/sarathsp06/sparrow/proto"
+	pbconnect "github.com/sarathsp06/sparrow/proto/protoconnect"
 )
 
 func main() {
@@ -66,8 +70,29 @@ func main() {
 		fmt.Println("🔧 Using default database URL. Set DATABASE_URL environment variable for custom connection.")
 	}
 
+	// Create database connection pool
+	dbPool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		log.Fatalf("Failed to create database pool: %v", err)
+	}
+
+	// Test database connection
+	if err := dbPool.Ping(ctx); err != nil {
+		dbPool.Close()
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	sqlxDB, err := postgres.Open(databaseURL, 3)
+	if err != nil {
+		log.Fatalf("Failed to open sqlx database: %v", err)
+	}
+	defer sqlxDB.Close()
+
+	// Create webhook repository
+	webhookRepo := store.NewRepository(sqlxDB)
+
 	// Initialize queue manager
-	queueManager, err := queue.NewManager(ctx, databaseURL)
+	queueManager, err := queue.NewManager(ctx, webhookRepo, dbPool)
 	if err != nil {
 		log.Fatalf("Failed to create queue manager: %v", err)
 	}
@@ -80,23 +105,19 @@ func main() {
 
 	fmt.Println("🚀 River queue started successfully")
 
-	// Get webhook repository from queue manager
-	webhookRepo := queueManager.GetWebhookRepo()
-
 	// Initialize gRPC server with OpenTelemetry instrumentation
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 	)
-	webhookGRPCServer := grpcserver.NewWebhookServer(queueManager, webhookRepo)
+	webhookGRPCServer := grpcserver.NewWebhookServer(queueManager.GetJobInserter(), webhookRepo)
 	pb.RegisterWebhookServiceServer(grpcServer, webhookGRPCServer)
 
 	// Initialize Connect-RPC server
-	webhookConnectServer := connectserver.NewWebhookConnectServer(queueManager, webhookRepo)
-	connectPath, connectHandler := webhookConnectServer.Handler()
+	webhookConnectServer := connectserver.NewWebhookConnectServer(webhookGRPCServer)
 
 	// Create HTTP mux for Connect-RPC
 	mux := http.NewServeMux()
-	mux.Handle(connectPath, connectHandler)
+	mux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer))
 
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
