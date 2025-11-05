@@ -1103,7 +1103,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		"namespace", namespace)
 
 	if webhookID == "" {
-		return fmt.Errorf("Webhook ID is required")
+		return fmt.Errorf("webhook ID is required")
 	}
 	if namespace == "" {
 		return fmt.Errorf("namespace is required")
@@ -1111,10 +1111,10 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	webhook, err := s.webhookRepo.GetWebhookByID(ctx, webhookID, namespace)
 	if err != nil {
 		s.logger.Error("Failed to get webhook", "error", err)
-		return fmt.Errorf("Failed to retrieve webhook: %w", err)
+		return fmt.Errorf("failed to retrieve webhook: %w", err)
 	}
 	if webhook == nil {
-		return fmt.Errorf("Webhook not found")
+		return fmt.Errorf("webhook not found")
 	}
 	if len(events) > 0 {
 		webhook.Events = events
@@ -1137,7 +1137,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		s.logger.Error("Failed to update webhook config",
 			"webhook_id", webhookID,
 			"error", err)
-		return fmt.Errorf("Failed to update webhook configuration: %w", err)
+		return fmt.Errorf("failed to update webhook configuration: %w", err)
 	}
 	s.logger.Info("Webhook configuration updated successfully",
 		"webhook_id", webhookID)

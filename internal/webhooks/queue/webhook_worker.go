@@ -134,7 +134,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			"error", err,
 		)
 
-		w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
 			store.StatusFailed, 0, "", fmt.Sprintf("Failed to create request: %v", err))
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -167,11 +167,11 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			"error", err,
 		)
 
-		w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
 			store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err))
 		return fmt.Errorf("failed to send webhook: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	// Read response body (limit to first 1000 chars for logging)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1000))

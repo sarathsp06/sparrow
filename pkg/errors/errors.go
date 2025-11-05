@@ -149,7 +149,7 @@ func (er Error) Format(s fmt.State, verb rune) {
 	switch verb {
 	case 'v':
 		if s.Flag('+') {
-			fmt.Fprintf(s, "%+v", er.error)
+			_, _ = fmt.Fprintf(s, "%+v", er.error)
 			return
 		}
 		fallthrough

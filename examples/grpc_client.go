@@ -15,11 +15,11 @@ import (
 
 func MainGRPC() {
 	// Connect to the gRPC server
-	conn, err := grpc.Dial("0.0.0.0:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("0.0.0.0:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
-	defer conn.Close()
+	defer conn.Close() //nolint:errcheck
 
 	client := pb.NewWebhookServiceClient(conn)
 	ctx := context.Background()

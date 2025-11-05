@@ -112,7 +112,7 @@ func runAppMigrations(databaseURL, direction string, steps int, targetVersion ui
 	if err != nil {
 		return fmt.Errorf("failed to open database connection: %w", err)
 	}
-	defer dbConn.Close()
+	defer dbConn.Close() //nolint:errcheck
 
 	// Test the connection
 	if err := dbConn.Ping(); err != nil {
@@ -133,7 +133,7 @@ func runAppMigrations(databaseURL, direction string, steps int, targetVersion ui
 	if err != nil {
 		return fmt.Errorf("failed to create migrate instance: %w", err)
 	}
-	defer m.Close()
+	defer m.Close() //nolint:errcheck
 
 	// Get current version and dirty state
 	currentVersion, dirty, err := m.Version()

@@ -86,7 +86,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to open sqlx database: %v", err)
 	}
-	defer sqlxDB.Close()
+	defer sqlxDB.Close() //nolint:errcheck
 
 	// Create webhook repository
 	webhookRepo := store.NewRepository(sqlxDB)
@@ -96,7 +96,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create queue manager: %v", err)
 	}
-	defer queueManager.Stop(ctx)
+	defer func() { _ = queueManager.Stop(ctx) }()
 
 	// Start the queue processing
 	if err := queueManager.Start(ctx); err != nil {
@@ -123,7 +123,7 @@ func main() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy","version":"1.0.0"}`))
+		_, _ = w.Write([]byte(`{"status":"healthy","version":"1.0.0"}`))
 	})
 
 	// Create HTTP server with OpenTelemetry instrumentation
@@ -189,6 +189,6 @@ func main() {
 
 	// Shutdown gRPC server
 	grpcServer.GracefulStop()
-	queueManager.Stop(shutdownCtx)
+	_ = queueManager.Stop(shutdownCtx)
 	fmt.Println("👋 Shutdown complete")
 }

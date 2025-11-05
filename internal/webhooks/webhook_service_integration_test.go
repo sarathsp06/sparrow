@@ -68,7 +68,7 @@ func TestPushEvent_Integration(t *testing.T) {
 	// Run river migrations
 	db, err := sql.Open("postgres", dsn)
 	require.NoError(t, err)
-	defer db.Close()
+	defer db.Close() //nolint:errcheck
 
 	// Create database connection pool
 	dbPool, err := pgxpool.New(ctx, dsn)
@@ -99,7 +99,7 @@ func TestPushEvent_Integration(t *testing.T) {
 		// This will fail because the river tables don't exist yet, but that's ok
 		_ = qm.Start(context.Background())
 	}()
-	defer qm.Stop(context.Background())
+	defer func() { _ = qm.Stop(context.Background()) }()
 
 	// Create a new webhook service
 	service := NewWebhookService(qm.GetJobInserter(), webhookRepo)

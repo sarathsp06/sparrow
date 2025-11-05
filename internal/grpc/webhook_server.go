@@ -506,19 +506,3 @@ func convertWebhookHealth(health store.WebhookHealth) pb.WebhookHealth {
 		return pb.WebhookHealth_HEALTH_UNKNOWN
 	}
 }
-
-// Helper function to convert protobuf health to internal
-func convertPbHealthToInternal(health pb.WebhookHealth) store.WebhookHealth {
-	switch health {
-	case pb.WebhookHealth_HEALTH_HEALTHY:
-		return store.HealthHealthy
-	case pb.WebhookHealth_HEALTH_DEGRADED:
-		return store.HealthDegraded
-	case pb.WebhookHealth_HEALTH_UNHEALTHY:
-		return store.HealthUnhealthy
-	case pb.WebhookHealth_HEALTH_UNKNOWN:
-		return store.HealthUnknown
-	default:
-		return store.HealthUnknown
-	}
-}

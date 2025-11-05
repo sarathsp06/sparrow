@@ -67,7 +67,7 @@ func (m *Manager) Start(ctx context.Context) error {
 
 // Stop stops the queue processing
 func (m *Manager) Stop(ctx context.Context) error {
-	m.client.Stop(ctx)
+	_ = m.client.Stop(ctx)
 	m.dbPool.Close()
 	return nil
 }
