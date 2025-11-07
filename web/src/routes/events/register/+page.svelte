@@ -21,10 +21,18 @@
   async function registerEvent() {
     error = '';
     try {
+      // Convert JSONContent to string for the API
+      let schemaString: string = "{}";
+      if ("text" in schema && typeof schema.text === "string") {
+        schemaString = schema.text;
+      } else if ("json" in schema && schema.json !== undefined) {
+        schemaString = JSON.stringify(schema.json);
+      }
+
       const req = {
         name,
         description,
-        schema,
+        schema: schemaString,
         active,
       };
       await client.registerEvent(req);

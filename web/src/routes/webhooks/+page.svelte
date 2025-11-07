@@ -16,14 +16,14 @@
 
 
   const healthColor: Record<WebhookHealth, string> = {
-    [WebhookHealth.HEALTH_UNKNOWN]: "gray-500",
+    [WebhookHealth.HEALTH_UNSPECIFIED]: "gray-500",
     [WebhookHealth.HEALTH_HEALTHY]: "green-500",
     [WebhookHealth.HEALTH_DEGRADED]: "yellow-500",
     [WebhookHealth.HEALTH_UNHEALTHY]: "red-500",
   };
 
   const healthText: Record<WebhookHealth, string> = {
-    [WebhookHealth.HEALTH_UNKNOWN]: "Unknown",
+    [WebhookHealth.HEALTH_UNSPECIFIED]: "Unknown",
     [WebhookHealth.HEALTH_HEALTHY]: "Healthy",
     [WebhookHealth.HEALTH_DEGRADED]: "Degraded",
     [WebhookHealth.HEALTH_UNHEALTHY]: "Unhealthy",

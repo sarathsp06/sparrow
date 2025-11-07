@@ -98,7 +98,9 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	if url == "" {
 		return "", 0, fmt.Errorf("URL is required")
 	}
-	if !slices.Contains(events, "") {
+	s.logger.Info("Validating event names", "events", events, "contains_empty", slices.Contains(events, ""))
+	if slices.Contains(events, "") {
+		s.logger.Error("Event names validation failed", "events", events)
 		return "", 0, fmt.Errorf("event names cannot be empty")
 	}
 	if timeout <= 0 {
@@ -225,7 +227,6 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		Payload:    payload,
 		TTLSeconds: ttl,
 		Metadata:   metadata,
-		CreatedAt:  time.Now(),
 	}
 
 	// Insert the event processing job
@@ -455,7 +456,6 @@ func (s *WebhookService) ResendWebhook(ctx context.Context, deliveryID string, n
 		WebhookID:   delivery.WebhookID,
 		EventID:     delivery.EventID,
 		Status:      store.StatusPending,
-		CreatedAt:   time.Now(),
 		ExpiresAt:   time.Now().Add(24 * time.Hour),
 		MaxAttempts: delivery.MaxAttempts,
 	}

@@ -18,6 +18,8 @@ type WebhookServer struct {
 	service webhooks.WebhookServiceInterface
 }
 
+var _ pb.WebhookServiceServer = (*WebhookServer)(nil)
+
 // NewWebhookServer creates a new WebhookServer instance
 func NewWebhookServer(queueManager queue.JobInserter, webhookRepo store.RepositoryInterface) *WebhookServer {
 	return &WebhookServer{
@@ -158,6 +160,44 @@ func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEvent
 	}, nil
 }
 
+// ListEvents lists all registered events
+func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
+	events, err := s.service.ListEvents(ctx, req.ActiveOnly)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to list events: %v", err)
+	}
+
+	pbEvents := make([]*pb.RegisteredEvent, len(events))
+	for i, event := range events {
+		pbEvents[i] = &pb.RegisteredEvent{
+			EventId:     event.ID,
+			Name:        event.Name,
+			Description: event.Description,
+			Active:      event.Active,
+			CreatedAt:   event.CreatedAt.Unix(),
+			UpdatedAt:   event.UpdatedAt.Unix(),
+		}
+
+		// Convert schema map to JSON string for protobuf
+		if event.Schema != nil {
+			schemaJSON, err := json.Marshal(event.Schema)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to marshal event schema: %v", err)
+			}
+			pbEvents[i].Schema = string(schemaJSON)
+		}
+
+		// Convert metadata to protobuf format
+		pbEvents[i].Metadata = event.Metadata
+	}
+
+	return &pb.ListEventsResponse{
+		Events:     pbEvents,
+		TotalCount: int32(len(pbEvents)),
+		Success:    true,
+	}, nil
+}
+
 // UpdateEvent updates an event registration
 func (s *WebhookServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequest) (*pb.UpdateEventResponse, error) {
 	// Convert JSON schema string to map[string]any
@@ -245,6 +285,92 @@ func (s *WebhookServer) GetHealthSummary(ctx context.Context, req *pb.GetHealthS
 		Success: true,
 		Message: "Health summary retrieved successfully",
 		Summary: pbSummary,
+	}, nil
+}
+
+// ResubmitWebhook manually retries failed or pending webhook deliveries
+func (s *WebhookServer) ResubmitWebhook(ctx context.Context, req *pb.ResubmitWebhookRequest) (*pb.ResubmitWebhookResponse, error) {
+	// Handle different identifier types
+	var identifier string
+	var isDeliveryID bool
+
+	switch id := req.Identifier.(type) {
+	case *pb.ResubmitWebhookRequest_WebhookId:
+		identifier = id.WebhookId
+		isDeliveryID = false
+	case *pb.ResubmitWebhookRequest_DeliveryId:
+		identifier = id.DeliveryId
+		isDeliveryID = true
+	default:
+		return nil, status.Error(codes.InvalidArgument, "identifier is required (webhook_id or delivery_id)")
+	}
+
+	if identifier == "" {
+		return nil, status.Error(codes.InvalidArgument, "identifier cannot be empty")
+	}
+
+	// For delivery-specific resubmission
+	if isDeliveryID {
+		newDeliveryID, err := s.service.ResendWebhook(ctx, identifier, req.Namespace, req.Force)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to resubmit delivery: %v", err)
+		}
+		return &pb.ResubmitWebhookResponse{
+			Success:          true,
+			Message:          "Delivery resubmitted successfully",
+			ResubmittedCount: 1,
+			DeliveryIds:      []string{newDeliveryID},
+		}, nil
+	}
+
+	// For webhook-level resubmission, we would need a method in the service to handle this
+	// For now, return an error indicating this is not implemented
+	return nil, status.Error(codes.Unimplemented, "webhook-level resubmission is not yet implemented")
+}
+
+// ListWebhooksByHealth lists webhooks filtered by health status
+func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWebhooksByHealthRequest) (*pb.ListWebhooksByHealthResponse, error) {
+	// Convert protobuf health enum to store health enum
+	var storeHealth store.WebhookHealth
+	switch req.Health {
+	case pb.WebhookHealth_HEALTH_HEALTHY:
+		storeHealth = store.HealthHealthy
+	case pb.WebhookHealth_HEALTH_DEGRADED:
+		storeHealth = store.HealthDegraded
+	case pb.WebhookHealth_HEALTH_UNHEALTHY:
+		storeHealth = store.HealthUnhealthy
+	case pb.WebhookHealth_HEALTH_UNSPECIFIED:
+		storeHealth = store.HealthUnknown
+	default:
+		storeHealth = store.HealthUnknown
+	}
+
+	webhooks, err := s.service.ListWebhooksByHealth(ctx, storeHealth)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to list webhooks by health: %v", err)
+	}
+
+	pbWebhooks := make([]*pb.RegisteredWebhook, len(webhooks))
+	for i, webhook := range webhooks {
+		pbWebhooks[i] = &pb.RegisteredWebhook{
+			WebhookId:   webhook.ID,
+			Namespace:   webhook.Namespace,
+			Events:      webhook.Events,
+			Url:         webhook.URL,
+			Headers:     webhook.Headers,
+			Timeout:     int32(webhook.Timeout),
+			Active:      webhook.Active,
+			Description: webhook.Description,
+			Health:      convertWebhookHealth(webhook.Health),
+			CreatedAt:   webhook.CreatedAt.Unix(),
+			UpdatedAt:   webhook.UpdatedAt.Unix(),
+		}
+	}
+
+	return &pb.ListWebhooksByHealthResponse{
+		Webhooks:   pbWebhooks,
+		TotalCount: int32(len(pbWebhooks)),
+		Success:    true,
 	}, nil
 }
 
@@ -487,7 +613,7 @@ func convertDeliveryStatus(status store.WebhookDeliveryStatus) pb.WebhookDeliver
 	case store.StatusExpired:
 		return pb.WebhookDeliveryStatus_DELIVERY_EXPIRED
 	default:
-		return pb.WebhookDeliveryStatus_DELIVERY_UNKNOWN
+		return pb.WebhookDeliveryStatus_DELIVERY_UNSPECIFIED
 	}
 }
 
@@ -501,8 +627,8 @@ func convertWebhookHealth(health store.WebhookHealth) pb.WebhookHealth {
 	case store.HealthUnhealthy:
 		return pb.WebhookHealth_HEALTH_UNHEALTHY
 	case store.HealthUnknown:
-		return pb.WebhookHealth_HEALTH_UNKNOWN
+		return pb.WebhookHealth_HEALTH_UNSPECIFIED
 	default:
-		return pb.WebhookHealth_HEALTH_UNKNOWN
+		return pb.WebhookHealth_HEALTH_UNSPECIFIED
 	}
 }

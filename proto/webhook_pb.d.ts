@@ -1949,9 +1949,9 @@ export declare const ResumeWebhookResponseSchema: GenMessage<ResumeWebhookRespon
  */
 export enum WebhookDeliveryStatus {
   /**
-   * @generated from enum value: DELIVERY_UNKNOWN = 0;
+   * @generated from enum value: DELIVERY_UNSPECIFIED = 0;
    */
-  DELIVERY_UNKNOWN = 0,
+  DELIVERY_UNSPECIFIED = 0,
 
   /**
    * @generated from enum value: DELIVERY_PENDING = 1;
@@ -1996,9 +1996,9 @@ export declare const WebhookDeliveryStatusSchema: GenEnum<WebhookDeliveryStatus>
  */
 export enum WebhookHealth {
   /**
-   * @generated from enum value: HEALTH_UNKNOWN = 0;
+   * @generated from enum value: HEALTH_UNSPECIFIED = 0;
    */
-  HEALTH_UNKNOWN = 0,
+  HEALTH_UNSPECIFIED = 0,
 
   /**
    * @generated from enum value: HEALTH_HEALTHY = 1;

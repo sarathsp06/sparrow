@@ -15,7 +15,7 @@ import (
 
 func MainGRPC() {
 	// Connect to the gRPC server
-	conn, err := grpc.NewClient("0.0.0.0:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
@@ -206,9 +206,9 @@ func MainGRPC() {
 		"customer_id":  "user_12345",
 		"total_amount": 99.99,
 		"currency":     "USD",
-		"items": []map[string]interface{}{
-			{"product_id": "prod_1", "quantity": 2, "price": 29.99},
-			{"product_id": "prod_2", "quantity": 1, "price": 39.99},
+		"items": []interface{}{
+			map[string]interface{}{"product_id": "prod_1", "quantity": 2, "price": 29.99},
+			map[string]interface{}{"product_id": "prod_2", "quantity": 1, "price": 39.99},
 		},
 		"created_at": time.Now().Unix(),
 	}

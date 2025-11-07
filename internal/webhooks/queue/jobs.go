@@ -106,6 +106,8 @@ func (j *jobInserter) Insert(ctx context.Context, args river.JobArgs) (*rivertyp
 }
 
 // QueueManagerInterface defines the interface for queue management.
+//
+//go:generate go tool github.com/hexdigest/gowrap/cmd/gowrap gen -i JobInserter -t opentelemetry  -o JobInserter_otel.go
 type JobInserter interface {
 	Insert(ctx context.Context, args river.JobArgs) (*rivertype.JobInsertResult, error)
 }

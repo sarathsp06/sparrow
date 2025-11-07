@@ -26,19 +26,19 @@ const (
 type WebhookDeliveryStatus int32
 
 const (
-	WebhookDeliveryStatus_DELIVERY_UNKNOWN  WebhookDeliveryStatus = 0
-	WebhookDeliveryStatus_DELIVERY_PENDING  WebhookDeliveryStatus = 1
-	WebhookDeliveryStatus_DELIVERY_SENDING  WebhookDeliveryStatus = 2
-	WebhookDeliveryStatus_DELIVERY_SUCCESS  WebhookDeliveryStatus = 3
-	WebhookDeliveryStatus_DELIVERY_FAILED   WebhookDeliveryStatus = 4
-	WebhookDeliveryStatus_DELIVERY_RETRYING WebhookDeliveryStatus = 5
-	WebhookDeliveryStatus_DELIVERY_EXPIRED  WebhookDeliveryStatus = 6
+	WebhookDeliveryStatus_DELIVERY_UNSPECIFIED WebhookDeliveryStatus = 0
+	WebhookDeliveryStatus_DELIVERY_PENDING     WebhookDeliveryStatus = 1
+	WebhookDeliveryStatus_DELIVERY_SENDING     WebhookDeliveryStatus = 2
+	WebhookDeliveryStatus_DELIVERY_SUCCESS     WebhookDeliveryStatus = 3
+	WebhookDeliveryStatus_DELIVERY_FAILED      WebhookDeliveryStatus = 4
+	WebhookDeliveryStatus_DELIVERY_RETRYING    WebhookDeliveryStatus = 5
+	WebhookDeliveryStatus_DELIVERY_EXPIRED     WebhookDeliveryStatus = 6
 )
 
 // Enum value maps for WebhookDeliveryStatus.
 var (
 	WebhookDeliveryStatus_name = map[int32]string{
-		0: "DELIVERY_UNKNOWN",
+		0: "DELIVERY_UNSPECIFIED",
 		1: "DELIVERY_PENDING",
 		2: "DELIVERY_SENDING",
 		3: "DELIVERY_SUCCESS",
@@ -47,13 +47,13 @@ var (
 		6: "DELIVERY_EXPIRED",
 	}
 	WebhookDeliveryStatus_value = map[string]int32{
-		"DELIVERY_UNKNOWN":  0,
-		"DELIVERY_PENDING":  1,
-		"DELIVERY_SENDING":  2,
-		"DELIVERY_SUCCESS":  3,
-		"DELIVERY_FAILED":   4,
-		"DELIVERY_RETRYING": 5,
-		"DELIVERY_EXPIRED":  6,
+		"DELIVERY_UNSPECIFIED": 0,
+		"DELIVERY_PENDING":     1,
+		"DELIVERY_SENDING":     2,
+		"DELIVERY_SUCCESS":     3,
+		"DELIVERY_FAILED":      4,
+		"DELIVERY_RETRYING":    5,
+		"DELIVERY_EXPIRED":     6,
 	}
 )
 
@@ -88,25 +88,25 @@ func (WebhookDeliveryStatus) EnumDescriptor() ([]byte, []int) {
 type WebhookHealth int32
 
 const (
-	WebhookHealth_HEALTH_UNKNOWN   WebhookHealth = 0
-	WebhookHealth_HEALTH_HEALTHY   WebhookHealth = 1
-	WebhookHealth_HEALTH_DEGRADED  WebhookHealth = 2
-	WebhookHealth_HEALTH_UNHEALTHY WebhookHealth = 3
+	WebhookHealth_HEALTH_UNSPECIFIED WebhookHealth = 0
+	WebhookHealth_HEALTH_HEALTHY     WebhookHealth = 1
+	WebhookHealth_HEALTH_DEGRADED    WebhookHealth = 2
+	WebhookHealth_HEALTH_UNHEALTHY   WebhookHealth = 3
 )
 
 // Enum value maps for WebhookHealth.
 var (
 	WebhookHealth_name = map[int32]string{
-		0: "HEALTH_UNKNOWN",
+		0: "HEALTH_UNSPECIFIED",
 		1: "HEALTH_HEALTHY",
 		2: "HEALTH_DEGRADED",
 		3: "HEALTH_UNHEALTHY",
 	}
 	WebhookHealth_value = map[string]int32{
-		"HEALTH_UNKNOWN":   0,
-		"HEALTH_HEALTHY":   1,
-		"HEALTH_DEGRADED":  2,
-		"HEALTH_UNHEALTHY": 3,
+		"HEALTH_UNSPECIFIED": 0,
+		"HEALTH_HEALTHY":     1,
+		"HEALTH_DEGRADED":    2,
+		"HEALTH_UNHEALTHY":   3,
 	}
 )
 
@@ -671,7 +671,7 @@ func (x *WebhookDelivery) GetStatus() WebhookDeliveryStatus {
 	if x != nil {
 		return x.Status
 	}
-	return WebhookDeliveryStatus_DELIVERY_UNKNOWN
+	return WebhookDeliveryStatus_DELIVERY_UNSPECIFIED
 }
 
 func (x *WebhookDelivery) GetAttemptCount() int32 {
@@ -975,7 +975,7 @@ func (x *RegisteredWebhook) GetHealth() WebhookHealth {
 	if x != nil {
 		return x.Health
 	}
-	return WebhookHealth_HEALTH_UNKNOWN
+	return WebhookHealth_HEALTH_UNSPECIFIED
 }
 
 func (x *RegisteredWebhook) GetCreatedAt() int64 {
@@ -1895,7 +1895,7 @@ func (x *GetWebhookHealthResponse) GetHealth() WebhookHealth {
 	if x != nil {
 		return x.Health
 	}
-	return WebhookHealth_HEALTH_UNKNOWN
+	return WebhookHealth_HEALTH_UNSPECIFIED
 }
 
 func (x *GetWebhookHealthResponse) GetMetrics() *WebhookHealthMetrics {
@@ -1947,7 +1947,7 @@ func (x *ListWebhooksByHealthRequest) GetHealth() WebhookHealth {
 	if x != nil {
 		return x.Health
 	}
-	return WebhookHealth_HEALTH_UNKNOWN
+	return WebhookHealth_HEALTH_UNSPECIFIED
 }
 
 // ListWebhooksByHealthResponse represents the response for listing webhooks by health
@@ -3971,17 +3971,17 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x06reason\x18\x03 \x01(\tR\x06reason\"K\n" +
 	"\x15ResumeWebhookResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage*\xb1\x01\n" +
-	"\x15WebhookDeliveryStatus\x12\x14\n" +
-	"\x10DELIVERY_UNKNOWN\x10\x00\x12\x14\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage*\xb5\x01\n" +
+	"\x15WebhookDeliveryStatus\x12\x18\n" +
+	"\x14DELIVERY_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10DELIVERY_PENDING\x10\x01\x12\x14\n" +
 	"\x10DELIVERY_SENDING\x10\x02\x12\x14\n" +
 	"\x10DELIVERY_SUCCESS\x10\x03\x12\x13\n" +
 	"\x0fDELIVERY_FAILED\x10\x04\x12\x15\n" +
 	"\x11DELIVERY_RETRYING\x10\x05\x12\x14\n" +
-	"\x10DELIVERY_EXPIRED\x10\x06*b\n" +
-	"\rWebhookHealth\x12\x12\n" +
-	"\x0eHEALTH_UNKNOWN\x10\x00\x12\x12\n" +
+	"\x10DELIVERY_EXPIRED\x10\x06*f\n" +
+	"\rWebhookHealth\x12\x16\n" +
+	"\x12HEALTH_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eHEALTH_HEALTHY\x10\x01\x12\x13\n" +
 	"\x0fHEALTH_DEGRADED\x10\x02\x12\x14\n" +
 	"\x10HEALTH_UNHEALTHY\x10\x032\xbc\x0f\n" +

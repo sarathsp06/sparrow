@@ -24,14 +24,14 @@
   const webhookId = page.params.webhookId;
 
   const healthColor: Record<WebhookHealth, string> = {
-    [WebhookHealth.HEALTH_UNKNOWN]: "bg-gray-400",
+    [WebhookHealth.HEALTH_UNSPECIFIED]: "bg-gray-400",
     [WebhookHealth.HEALTH_HEALTHY]: "bg-green-500",
     [WebhookHealth.HEALTH_DEGRADED]: "bg-yellow-500",
     [WebhookHealth.HEALTH_UNHEALTHY]: "bg-red-500",
   };
 
   const statusColor: Record<WebhookDeliveryStatus, string> = {
-    [WebhookDeliveryStatus.DELIVERY_UNKNOWN]: "text-gray-500",
+    [WebhookDeliveryStatus.DELIVERY_UNSPECIFIED]: "text-gray-500",
     [WebhookDeliveryStatus.DELIVERY_PENDING]: "text-yellow-500",
     [WebhookDeliveryStatus.DELIVERY_SENDING]: "text-blue-500",
     [WebhookDeliveryStatus.DELIVERY_SUCCESS]: "text-green-500",

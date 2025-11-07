@@ -8,12 +8,12 @@
   } from "svelte-jsoneditor";
 
   import { client } from "$lib/services";
-  import { stringifyContent } from "$lib/utils";
+  import { create } from "@bufbuild/protobuf";
   import { onMount } from "svelte";
   import type {
-    PushEventRequest,
-    RegisteredEvent,
+    RegisteredEvent
   } from "../../../../../proto/webhook_pb.js";
+  import { PushEventRequestSchema } from "../../../../../proto/webhook_pb.js";
 
   let namespace = $state("default");
   let event = $state("");
@@ -63,13 +63,21 @@
     error = "";
     successMessage = "";
     try {
-      const req: PushEventRequest = {
+      // Convert content to JSON object for protobuf Struct
+      let payloadObj: any = {};
+      if ("text" in payload && payload.text) {
+        payloadObj = JSON.parse(payload.text);
+      } else if ("json" in payload && payload.json !== undefined) {
+        payloadObj = payload.json;
+      }
+
+      const req = create(PushEventRequestSchema, {
         namespace,
         event,
-        payload: stringifyContent(payload),
-      };
+        payload: payloadObj,
+      });
       const res = await client.pushEvent(req);
-      successMessage = `Event pushed successfully! ${res.webhooksTriggered} webhooks triggered.`;
+      successMessage = `Event pushed successfully! Event ID: ${res.eventId}`;
     } catch (e: any) {
       error = `Failed to push event: ${e.message}`;
     } finally {

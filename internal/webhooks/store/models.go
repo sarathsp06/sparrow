@@ -3,6 +3,8 @@ package store
 import (
 	"time"
 
+	"github.com/lib/pq"
+
 	"github.com/sarathsp06/sparrow/pkg/types"
 )
 
@@ -20,7 +22,7 @@ const (
 type WebhookRegistration struct {
 	ID          string                    `json:"id" db:"id"`
 	Namespace   string                    `json:"namespace" db:"namespace"`
-	Events      []string                  `json:"events" db:"events"` // Multiple events supported
+	Events      pq.StringArray            `json:"events" db:"events"` // Multiple events supported
 	URL         string                    `json:"url" db:"url"`
 	Headers     types.Map[string, string] `json:"headers" db:"headers"`
 	Timeout     int                       `json:"timeout" db:"timeout"`

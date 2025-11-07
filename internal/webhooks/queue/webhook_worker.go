@@ -11,8 +11,10 @@ import (
 	"time"
 
 	"github.com/riverqueue/river"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	otelcodes "go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/sarathsp06/sparrow/internal/logger"
@@ -50,6 +52,14 @@ func NewWebhookWorker(webhookRepo store.RepositoryInterface) *WebhookWorker {
 // Work processes the webhook delivery job
 func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) error {
 	args := job.Args
+
+	// get trace id and set that as metadata
+	carrier := make(propagation.MapCarrier)
+	err := json.Unmarshal(job.Metadata, &carrier)
+	if err != nil {
+		w.logger.Error("Failed to unmarshal job metadata", "error", err, "event_id", args.EventID)
+	}
+	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 
 	ctx, span := w.tracer.Start(ctx, "webhook.delivery",
 		trace.WithAttributes(

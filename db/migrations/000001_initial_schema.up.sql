@@ -3,7 +3,7 @@
 CREATE TABLE webhook_registrations (
     id VARCHAR(255) PRIMARY KEY,
     namespace VARCHAR(255) NOT NULL,
-    events JSONB NOT NULL,           -- Array of events this webhook listens to
+    events TEXT[],           -- Array of events this webhook listens to
     url TEXT NOT NULL,
     headers JSONB DEFAULT '{}'::JSONB,      -- Custom headers as JSON
     timeout INTEGER DEFAULT 30,     -- Timeout in seconds
