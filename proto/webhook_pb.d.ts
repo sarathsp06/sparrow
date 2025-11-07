@@ -1943,6 +1943,178 @@ export declare type ResumeWebhookResponse = Message<"webhook.ResumeWebhookRespon
 export declare const ResumeWebhookResponseSchema: GenMessage<ResumeWebhookResponse>;
 
 /**
+ * EventReport represents detailed information about an event instance
+ *
+ * @generated from message webhook.EventReport
+ */
+export declare type EventReport = Message<"webhook.EventReport"> & {
+  /**
+   * Unique event identifier
+   *
+   * @generated from field: string event_id = 1;
+   */
+  eventId: string;
+
+  /**
+   * Event namespace
+   *
+   * @generated from field: string namespace = 2;
+   */
+  namespace: string;
+
+  /**
+   * Event type name
+   *
+   * @generated from field: string event_name = 3;
+   */
+  eventName: string;
+
+  /**
+   * Event payload
+   *
+   * @generated from field: google.protobuf.Struct payload = 4;
+   */
+  payload?: JsonObject;
+
+  /**
+   * Event metadata
+   *
+   * @generated from field: map<string, string> metadata = 5;
+   */
+  metadata: { [key: string]: string };
+
+  /**
+   * When the event was created (Unix timestamp)
+   *
+   * @generated from field: int64 created_at = 6;
+   */
+  createdAt: bigint;
+
+  /**
+   * TTL for webhook retry attempts
+   *
+   * @generated from field: int64 ttl_seconds = 7;
+   */
+  ttlSeconds: bigint;
+
+  /**
+   * Number of webhooks triggered by this event
+   *
+   * @generated from field: int32 webhook_count = 8;
+   */
+  webhookCount: number;
+
+  /**
+   * Number of successful deliveries
+   *
+   * @generated from field: int32 successful_deliveries = 9;
+   */
+  successfulDeliveries: number;
+
+  /**
+   * Number of failed deliveries
+   *
+   * @generated from field: int32 failed_deliveries = 10;
+   */
+  failedDeliveries: number;
+
+  /**
+   * Number of pending deliveries
+   *
+   * @generated from field: int32 pending_deliveries = 11;
+   */
+  pendingDeliveries: number;
+};
+
+/**
+ * Describes the message webhook.EventReport.
+ * Use `create(EventReportSchema)` to create a new message.
+ */
+export declare const EventReportSchema: GenMessage<EventReport>;
+
+/**
+ * ListEventReportsRequest represents a request to list event reports
+ *
+ * @generated from message webhook.ListEventReportsRequest
+ */
+export declare type ListEventReportsRequest = Message<"webhook.ListEventReportsRequest"> & {
+  /**
+   * Namespace to filter by (required)
+   *
+   * @generated from field: string namespace = 1;
+   */
+  namespace: string;
+
+  /**
+   * Optional event name filter
+   *
+   * @generated from field: optional string event_name = 2;
+   */
+  eventName?: string;
+
+  /**
+   * Maximum number of events to return (default: 50, max: 1000)
+   *
+   * @generated from field: int32 limit = 3;
+   */
+  limit: number;
+
+  /**
+   * Offset for pagination (default: 0)
+   *
+   * @generated from field: int32 offset = 4;
+   */
+  offset: number;
+};
+
+/**
+ * Describes the message webhook.ListEventReportsRequest.
+ * Use `create(ListEventReportsRequestSchema)` to create a new message.
+ */
+export declare const ListEventReportsRequestSchema: GenMessage<ListEventReportsRequest>;
+
+/**
+ * ListEventReportsResponse represents the response for listing event reports
+ *
+ * @generated from message webhook.ListEventReportsResponse
+ */
+export declare type ListEventReportsResponse = Message<"webhook.ListEventReportsResponse"> & {
+  /**
+   * List of events in descending order by created_at
+   *
+   * @generated from field: repeated webhook.EventReport events = 1;
+   */
+  events: EventReport[];
+
+  /**
+   * Total count of events matching the filter
+   *
+   * @generated from field: int32 total_count = 2;
+   */
+  totalCount: number;
+
+  /**
+   * Whether the request was successful
+   *
+   * @generated from field: bool success = 3;
+   */
+  success: boolean;
+
+  /**
+   * Success or error message
+   *
+   * @generated from field: string message = 4;
+   */
+  message: string;
+};
+
+/**
+ * Describes the message webhook.ListEventReportsResponse.
+ * Use `create(ListEventReportsResponseSchema)` to create a new message.
+ */
+export declare const ListEventReportsResponseSchema: GenMessage<ListEventReportsResponse>;
+
+/**
  * WebhookDeliveryStatus represents the status of webhook delivery
  *
  * @generated from enum webhook.WebhookDeliveryStatus
@@ -2248,6 +2420,16 @@ export declare const WebhookService: GenService<{
     methodKind: "unary";
     input: typeof ResumeWebhookRequestSchema;
     output: typeof ResumeWebhookResponseSchema;
+  },
+  /**
+   * ListEventReports lists all events in descending order for a given namespace
+   *
+   * @generated from rpc webhook.WebhookService.ListEventReports
+   */
+  listEventReports: {
+    methodKind: "unary";
+    input: typeof ListEventReportsRequestSchema;
+    output: typeof ListEventReportsResponseSchema;
   },
 }>;
 

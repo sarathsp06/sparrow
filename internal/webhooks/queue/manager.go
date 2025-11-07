@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
@@ -30,8 +31,8 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, dbPo
 	riverClient, err := river.NewClient(riverpgxv5.New(dbPool), &river.Config{
 		Queues: map[string]river.QueueConfig{
 			QueueDefault:         {MaxWorkers: 5},
-			QueueEventProcessing: {MaxWorkers: 10, FetchPollInterval: time.Second * 30}, // Event processing queue
-			QueueWebhookDelivery: {MaxWorkers: 10, FetchPollInterval: time.Second * 30}, // Webhook delivery queue
+			QueueEventProcessing: {MaxWorkers: 20, FetchPollInterval: time.Second * 30}, // Event processing queue
+			QueueWebhookDelivery: {MaxWorkers: 20, FetchPollInterval: time.Second * 30}, // Webhook delivery queue
 		},
 		Workers: riverWorkers,
 	})
@@ -72,6 +73,10 @@ func (m *Manager) Stop(ctx context.Context) error {
 	_ = m.client.Stop(ctx)
 	m.dbPool.Close()
 	return nil
+}
+
+func (m *Manager) GetClient() *river.Client[pgx.Tx] {
+	return m.client
 }
 
 func (m *Manager) GetJobInserter() JobInserter {

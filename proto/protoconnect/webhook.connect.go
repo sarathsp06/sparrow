@@ -99,6 +99,9 @@ const (
 	// WebhookServiceResumeWebhookProcedure is the fully-qualified name of the WebhookService's
 	// ResumeWebhook RPC.
 	WebhookServiceResumeWebhookProcedure = "/webhook.WebhookService/ResumeWebhook"
+	// WebhookServiceListEventReportsProcedure is the fully-qualified name of the WebhookService's
+	// ListEventReports RPC.
+	WebhookServiceListEventReportsProcedure = "/webhook.WebhookService/ListEventReports"
 )
 
 // WebhookServiceClient is a client for the webhook.WebhookService service.
@@ -149,6 +152,8 @@ type WebhookServiceClient interface {
 	PauseWebhook(context.Context, *connect.Request[proto.PauseWebhookRequest]) (*connect.Response[proto.PauseWebhookResponse], error)
 	// ResumeWebhook re-enables a paused webhook
 	ResumeWebhook(context.Context, *connect.Request[proto.ResumeWebhookRequest]) (*connect.Response[proto.ResumeWebhookResponse], error)
+	// ListEventReports lists all events in descending order for a given namespace
+	ListEventReports(context.Context, *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error)
 }
 
 // NewWebhookServiceClient constructs a client for the webhook.WebhookService service. By default,
@@ -294,6 +299,12 @@ func NewWebhookServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(webhookServiceMethods.ByName("ResumeWebhook")),
 			connect.WithClientOptions(opts...),
 		),
+		listEventReports: connect.NewClient[proto.ListEventReportsRequest, proto.ListEventReportsResponse](
+			httpClient,
+			baseURL+WebhookServiceListEventReportsProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("ListEventReports")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -321,6 +332,7 @@ type webhookServiceClient struct {
 	updateWebhookConfig           *connect.Client[proto.UpdateWebhookConfigRequest, proto.UpdateWebhookConfigResponse]
 	pauseWebhook                  *connect.Client[proto.PauseWebhookRequest, proto.PauseWebhookResponse]
 	resumeWebhook                 *connect.Client[proto.ResumeWebhookRequest, proto.ResumeWebhookResponse]
+	listEventReports              *connect.Client[proto.ListEventReportsRequest, proto.ListEventReportsResponse]
 }
 
 // RegisterWebhook calls webhook.WebhookService.RegisterWebhook.
@@ -433,6 +445,11 @@ func (c *webhookServiceClient) ResumeWebhook(ctx context.Context, req *connect.R
 	return c.resumeWebhook.CallUnary(ctx, req)
 }
 
+// ListEventReports calls webhook.WebhookService.ListEventReports.
+func (c *webhookServiceClient) ListEventReports(ctx context.Context, req *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error) {
+	return c.listEventReports.CallUnary(ctx, req)
+}
+
 // WebhookServiceHandler is an implementation of the webhook.WebhookService service.
 type WebhookServiceHandler interface {
 	// RegisterWebhook registers a URL for specific events in a namespace
@@ -481,6 +498,8 @@ type WebhookServiceHandler interface {
 	PauseWebhook(context.Context, *connect.Request[proto.PauseWebhookRequest]) (*connect.Response[proto.PauseWebhookResponse], error)
 	// ResumeWebhook re-enables a paused webhook
 	ResumeWebhook(context.Context, *connect.Request[proto.ResumeWebhookRequest]) (*connect.Response[proto.ResumeWebhookResponse], error)
+	// ListEventReports lists all events in descending order for a given namespace
+	ListEventReports(context.Context, *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error)
 }
 
 // NewWebhookServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -622,6 +641,12 @@ func NewWebhookServiceHandler(svc WebhookServiceHandler, opts ...connect.Handler
 		connect.WithSchema(webhookServiceMethods.ByName("ResumeWebhook")),
 		connect.WithHandlerOptions(opts...),
 	)
+	webhookServiceListEventReportsHandler := connect.NewUnaryHandler(
+		WebhookServiceListEventReportsProcedure,
+		svc.ListEventReports,
+		connect.WithSchema(webhookServiceMethods.ByName("ListEventReports")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/webhook.WebhookService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case WebhookServiceRegisterWebhookProcedure:
@@ -668,6 +693,8 @@ func NewWebhookServiceHandler(svc WebhookServiceHandler, opts ...connect.Handler
 			webhookServicePauseWebhookHandler.ServeHTTP(w, r)
 		case WebhookServiceResumeWebhookProcedure:
 			webhookServiceResumeWebhookHandler.ServeHTTP(w, r)
+		case WebhookServiceListEventReportsProcedure:
+			webhookServiceListEventReportsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -763,4 +790,8 @@ func (UnimplementedWebhookServiceHandler) PauseWebhook(context.Context, *connect
 
 func (UnimplementedWebhookServiceHandler) ResumeWebhook(context.Context, *connect.Request[proto.ResumeWebhookRequest]) (*connect.Response[proto.ResumeWebhookResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.ResumeWebhook is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) ListEventReports(context.Context, *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.ListEventReports is not implemented"))
 }

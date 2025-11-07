@@ -10,9 +10,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
-	"github.com/sarathsp06/sparrow/internal/logger"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
+
+	"github.com/sarathsp06/sparrow/internal/logger"
 )
 
 const (

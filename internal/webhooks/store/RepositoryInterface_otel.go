@@ -554,6 +554,34 @@ func (_d RepositoryInterfaceWithTracing) GetWebhooksByNamespace(ctx context.Cont
 	return _d.RepositoryInterface.GetWebhooksByNamespace(ctx, namespace, activeOnly)
 }
 
+// ListEventReports implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) ListEventReports(ctx context.Context, namespace string, eventName *string, limit int, offset int) (epa1 []*EventReportWithStats, i1 int, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListEventReports")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"namespace": namespace,
+				"eventName": eventName,
+				"limit":     limit,
+				"offset":    offset}, map[string]interface{}{
+				"epa1": epa1,
+				"i1":   i1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.ListEventReports(ctx, namespace, eventName, limit, offset)
+}
+
 // ListEvents implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) ListEvents(ctx context.Context, activeOnly bool) (epa1 []*EventRegistration, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListEvents")

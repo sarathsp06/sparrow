@@ -75,6 +75,11 @@ service WebhookService {
 
   // ResumeWebhook re-enables a paused webhook
   rpc ResumeWebhook(ResumeWebhookRequest) returns (ResumeWebhookResponse);
+
+  // ListEventReports lists all events in descending order for a given namespace
+  rpc ListEventReports(ListEventReportsRequest) returns (ListEventReportsResponse);
+
+  
 }
 
 // RegisterWebhookRequest represents a request to register a webhook URL
@@ -504,4 +509,35 @@ message ResumeWebhookRequest {
 message ResumeWebhookResponse {
   bool success = 1;
   string message = 2;
+}
+
+// EventReport represents detailed information about an event instance
+message EventReport {
+  string event_id = 1; // Unique event identifier
+  string namespace = 2; // Event namespace
+  string event_name = 3; // Event type name
+  google.protobuf.Struct payload = 4; // Event payload
+  map<string, string> metadata = 5; // Event metadata
+  int64 created_at = 6; // When the event was created (Unix timestamp)
+  int64 ttl_seconds = 7; // TTL for webhook retry attempts
+  int32 webhook_count = 8; // Number of webhooks triggered by this event
+  int32 successful_deliveries = 9; // Number of successful deliveries
+  int32 failed_deliveries = 10; // Number of failed deliveries
+  int32 pending_deliveries = 11; // Number of pending deliveries
+}
+
+// ListEventReportsRequest represents a request to list event reports
+message ListEventReportsRequest {
+  string namespace = 1; // Namespace to filter by (required)
+  optional string event_name = 2; // Optional event name filter
+  int32 limit = 3; // Maximum number of events to return (default: 50, max: 1000)
+  int32 offset = 4; // Offset for pagination (default: 0)
+}
+
+// ListEventReportsResponse represents the response for listing event reports
+message ListEventReportsResponse {
+  repeated EventReport events = 1; // List of events in descending order by created_at
+  int32 total_count = 2; // Total count of events matching the filter
+  bool success = 3; // Whether the request was successful
+  string message = 4; // Success or error message
 }

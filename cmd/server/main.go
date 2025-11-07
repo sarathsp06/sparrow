@@ -7,14 +7,12 @@ import (
 	"net"
 	"net/http"
 	"os"
-
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rs/cors"
-
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/net/http2"

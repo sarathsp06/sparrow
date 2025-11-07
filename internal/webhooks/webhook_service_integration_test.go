@@ -19,14 +19,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river/riverdriver/riverdatabasesql"
 	"github.com/riverqueue/river/rivermigrate"
-	"github.com/sarathsp06/sparrow/db"
-	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	storePostgres "github.com/sarathsp06/sparrow/pkg/storage/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
+
+	"github.com/sarathsp06/sparrow/db"
+	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	storePostgres "github.com/sarathsp06/sparrow/pkg/storage/postgres"
 )
 
 func TestPushEvent_Integration(t *testing.T) {

@@ -10,13 +10,14 @@ import (
 
 	"github.com/google/uuid"
 	jsonschema "github.com/kaptinlin/jsonschema"
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
-	"go.opentelemetry.io/otel/attribute"
-	otelcodes "go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/trace"
 )
 
 type WebhookService struct {
@@ -51,6 +52,7 @@ type WebhookServiceInterface interface {
 	ListEvents(ctx context.Context, activeOnly bool) ([]*store.EventRegistration, error)
 	ListWebhooksByHealth(ctx context.Context, health store.WebhookHealth) ([]*store.WebhookRegistration, error)
 	ResubmitWebhook(ctx context.Context, deliveryID string, webhookID string, namespace string, force bool) ([]string, int32, error)
+	ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int32) ([]*store.EventReportWithStats, int32, error)
 }
 
 var _ WebhookServiceInterface = (*WebhookService)(nil)
@@ -1164,4 +1166,62 @@ func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
 		return fmt.Errorf("payload validation failed: %v", result)
 	}
 	return nil
+}
+
+// ListEventReports lists event records with delivery statistics in descending order by creation time
+func (s *WebhookService) ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int32) ([]*store.EventReportWithStats, int32, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.ListEventReports")
+	defer span.End()
+
+	s.logger.Info("Processing list event reports request",
+		"namespace", namespace,
+		"event_name", eventName,
+		"limit", limit,
+		"offset", offset)
+
+	// Validate input parameters
+	if namespace == "" {
+		err := fmt.Errorf("namespace is required")
+		span.SetStatus(otelcodes.Error, err.Error())
+		return nil, 0, err
+	}
+
+	// Set default limit if not provided or out of range
+	if limit <= 0 {
+		limit = 50
+	} else if limit > 1000 {
+		limit = 1000
+	}
+
+	// Ensure offset is not negative
+	if offset < 0 {
+		offset = 0
+	}
+
+	events, totalCount, err := s.webhookRepo.ListEventReports(ctx, namespace, eventName, int(limit), int(offset))
+	if err != nil {
+		s.logger.Error("Failed to list event reports",
+			"namespace", namespace,
+			"event_name", eventName,
+			"error", err)
+		span.SetStatus(otelcodes.Error, err.Error())
+		return nil, 0, fmt.Errorf("failed to list event reports: %w", err)
+	}
+
+	s.logger.Info("Successfully listed event reports",
+		"namespace", namespace,
+		"event_name", eventName,
+		"count", len(events),
+		"total", totalCount)
+
+	span.SetAttributes(
+		attribute.String("namespace", namespace),
+		attribute.Int("count", len(events)),
+		attribute.Int("total", totalCount),
+	)
+	if eventName != nil {
+		span.SetAttributes(attribute.String("event_name", *eventName))
+	}
+
+	return events, int32(totalCount), nil
 }

@@ -9,10 +9,11 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/riverqueue/river"
-	"github.com/sarathsp06/sparrow/internal/logger"
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
+
+	"github.com/sarathsp06/sparrow/internal/logger"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
 // EventProcessingWorker processes events and triggers webhook deliveries

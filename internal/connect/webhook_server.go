@@ -4,13 +4,13 @@ import (
 	"context"
 
 	"connectrpc.com/connect"
+
 	pb "github.com/sarathsp06/sparrow/proto"
 	pbconnect "github.com/sarathsp06/sparrow/proto/protoconnect"
 )
 
 type WebhookConnectServer struct {
 	grpcService pb.WebhookServiceServer
-	pbconnect.UnimplementedWebhookServiceHandler
 }
 
 var _ pbconnect.WebhookServiceHandler = (*WebhookConnectServer)(nil)
@@ -20,6 +20,15 @@ func NewWebhookConnectServer(grpcService pb.WebhookServiceServer) *WebhookConnec
 	return &WebhookConnectServer{
 		grpcService: grpcService,
 	}
+}
+
+// ListEventReports
+func (s *WebhookConnectServer) ListEventReports(ctx context.Context, req *connect.Request[pb.ListEventReportsRequest]) (*connect.Response[pb.ListEventReportsResponse], error) {
+	res, err := s.grpcService.ListEventReports(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
 }
 
 // RegisterWebhook registers a URL for specific events in a namespace

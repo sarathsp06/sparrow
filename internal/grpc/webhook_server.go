@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
+
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // WebhookServer implements the WebhookService gRPC interface
@@ -630,4 +632,85 @@ func convertWebhookHealth(health store.WebhookHealth) pb.WebhookHealth {
 	default:
 		return pb.WebhookHealth_HEALTH_UNSPECIFIED
 	}
+}
+
+// ListEventReports lists all events in descending order for a given namespace
+func (s *WebhookServer) ListEventReports(ctx context.Context, req *pb.ListEventReportsRequest) (*pb.ListEventReportsResponse, error) {
+	// Validate request
+	if req.Namespace == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "namespace is required")
+	}
+
+	// Set default values
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 50
+	} else if limit > 1000 {
+		limit = 1000
+	}
+
+	offset := req.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	// Convert optional event name
+	var eventName *string
+	if req.EventName != nil {
+		eventName = req.EventName
+	}
+
+	// Call service method
+	events, totalCount, err := s.service.ListEventReports(ctx, req.Namespace, eventName, limit, offset)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to list event reports: %v", err)
+	}
+
+	// Convert events to protobuf format
+	var pbEvents []*pb.EventReport
+	for _, event := range events {
+		// Convert payload to protobuf Struct
+		payloadStruct, err := convertMapToStruct(event.Payload)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to convert payload: %v", err)
+		}
+
+		// Convert metadata to map[string]string
+		metadata := make(map[string]string)
+		for k, v := range event.Metadata {
+			metadata[k] = v
+		}
+
+		// Use the delivery statistics from the database query
+		pbEvent := &pb.EventReport{
+			EventId:              event.ID,
+			Namespace:            event.Namespace,
+			EventName:            event.Event,
+			Payload:              payloadStruct,
+			Metadata:             metadata,
+			CreatedAt:            event.CreatedAt.Unix(),
+			TtlSeconds:           event.TTL,
+			WebhookCount:         event.WebhookCount,
+			SuccessfulDeliveries: event.SuccessfulDeliveries,
+			FailedDeliveries:     event.FailedDeliveries,
+			PendingDeliveries:    event.PendingDeliveries,
+		}
+		pbEvents = append(pbEvents, pbEvent)
+	}
+
+	return &pb.ListEventReportsResponse{
+		Events:     pbEvents,
+		TotalCount: totalCount,
+		Success:    true,
+		Message:    "Event reports retrieved successfully",
+	}, nil
+}
+
+// Helper function to convert map[string]any to protobuf Struct
+func convertMapToStruct(m map[string]any) (*structpb.Struct, error) {
+	if m == nil {
+		return nil, nil
+	}
+
+	return structpb.NewStruct(m)
 }

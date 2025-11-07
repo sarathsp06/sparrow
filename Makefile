@@ -55,6 +55,9 @@ lint: ## Run golangci-lint for linting
 docker-dev: ## Run the development environment with Docker Compose
 	docker-compose -f docker-compose.dev.yml up -d
 
+fmt: ## Format the code
+	goimports -local github.com/sarathsp06/sparrow/  -w .
+
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 

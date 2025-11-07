@@ -45,6 +45,7 @@ type RepositoryInterface interface {
 	GetRetriableDeliveries(ctx context.Context, webhookID, namespace string, force bool) ([]*WebhookDelivery, error)
 	ResetDeliveryForRetry(ctx context.Context, deliveryID string) error
 	GetEventByID(ctx context.Context, eventID string) (*EventRecord, error)
+	ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
 }
 
 var _ RepositoryInterface = (*Repository)(nil)

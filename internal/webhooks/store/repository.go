@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/lib/pq"
+
 	"github.com/sarathsp06/sparrow/pkg/storage"
 	"github.com/sarathsp06/sparrow/pkg/types"
 )
@@ -977,4 +978,67 @@ func (r *Repository) GetEventByID(ctx context.Context, eventID string) (*EventRe
 		return nil, storage.Error(err)
 	}
 	return &eventRow, nil
+}
+
+// ListEventReports gets event records with delivery statistics in descending order by creation time
+func (r *Repository) ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
+	var args []interface{}
+	var whereClause string
+
+	// Build WHERE clause based on provided filters
+	if eventName != nil && *eventName != "" {
+		whereClause = "WHERE er.namespace = $1 AND er.event = $2"
+		args = append(args, namespace, *eventName)
+	} else {
+		whereClause = "WHERE er.namespace = $1"
+		args = append(args, namespace)
+	}
+
+	// Main query to get events with delivery statistics
+	query := fmt.Sprintf(`
+		SELECT 
+			er.id, er.namespace, er.event, er.payload, er.ttl, er.metadata, er.created_at, er.expires_at,
+			COALESCE(ds.webhook_count, 0) as webhook_count,
+			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
+			COALESCE(ds.failed_deliveries, 0) as failed_deliveries,
+			COALESCE(ds.pending_deliveries, 0) as pending_deliveries
+		FROM event_records er
+		LEFT JOIN (
+			SELECT 
+				wd.event_id,
+				COUNT(DISTINCT wd.webhook_id) as webhook_count,
+				COUNT(CASE WHEN wd.status = 'success' THEN 1 END) as successful_deliveries,
+				COUNT(CASE WHEN wd.status IN ('failed', 'expired') THEN 1 END) as failed_deliveries,
+				COUNT(CASE WHEN wd.status IN ('pending', 'sending', 'retrying') THEN 1 END) as pending_deliveries
+			FROM webhook_deliveries wd
+			GROUP BY wd.event_id
+		) ds ON er.id = ds.event_id
+		%s
+		ORDER BY er.created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, len(args)+1, len(args)+2)
+
+	args = append(args, limit, offset)
+
+	var events []*EventReportWithStats
+	err := r.db.SelectContext(ctx, &events, query, args...)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	// Get total count for pagination
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM event_records er
+		%s
+	`, whereClause)
+
+	var totalCount int
+	countArgs := args[:len(args)-2] // Remove LIMIT and OFFSET from count query
+	err = r.db.GetContext(ctx, &totalCount, countQuery, countArgs...)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	return events, totalCount, nil
 }

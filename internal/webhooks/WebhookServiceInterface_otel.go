@@ -237,6 +237,34 @@ func (_d WebhookServiceInterfaceWithTracing) GetWebhookStatus(ctx context.Contex
 	return _d.WebhookServiceInterface.GetWebhookStatus(ctx, namespace, webhookID)
 }
 
+// ListEventReports implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) ListEventReports(ctx context.Context, namespace string, eventName *string, limit int32, offset int32) (epa1 []*store.EventReportWithStats, i1 int32, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListEventReports")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"namespace": namespace,
+				"eventName": eventName,
+				"limit":     limit,
+				"offset":    offset}, map[string]interface{}{
+				"epa1": epa1,
+				"i1":   i1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.ListEventReports(ctx, namespace, eventName, limit, offset)
+}
+
 // ListEvents implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) ListEvents(ctx context.Context, activeOnly bool) (epa1 []*store.EventRegistration, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListEvents")

@@ -86,6 +86,15 @@ type WebhookHealthEvent struct {
 	Timestamp    time.Time `json:"timestamp" db:"timestamp"`
 }
 
+// EventReportWithStats represents an event with delivery statistics
+type EventReportWithStats struct {
+	EventRecord
+	WebhookCount         int32 `json:"webhook_count" db:"webhook_count"`
+	SuccessfulDeliveries int32 `json:"successful_deliveries" db:"successful_deliveries"`
+	FailedDeliveries     int32 `json:"failed_deliveries" db:"failed_deliveries"`
+	PendingDeliveries    int32 `json:"pending_deliveries" db:"pending_deliveries"`
+}
+
 // WebhookHealthSummary represents aggregated health metrics for a webhook
 type WebhookHealthSummary struct {
 	ID                   string    `json:"id" db:"id"`

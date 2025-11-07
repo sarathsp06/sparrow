@@ -17,6 +17,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
+
 	"github.com/sarathsp06/sparrow/db"
 	"github.com/sarathsp06/sparrow/internal/config"
 	"github.com/sarathsp06/sparrow/internal/logger"

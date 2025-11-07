@@ -9,9 +9,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
 // MockRepository is a mock implementation of the store.RepositoryInterface
@@ -199,6 +200,11 @@ func (m *MockRepository) GetEventByID(ctx context.Context, eventID string) (*sto
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*store.EventRecord), args.Error(1)
+}
+
+func (m *MockRepository) ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int) ([]*store.EventReportWithStats, int, error) {
+	args := m.Called(ctx, namespace, eventName, limit, offset)
+	return args.Get(0).([]*store.EventReportWithStats), args.Int(1), args.Error(2)
 }
 
 func TestRegisterWebhook(t *testing.T) {

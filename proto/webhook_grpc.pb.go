@@ -41,6 +41,7 @@ const (
 	WebhookService_UpdateWebhookConfig_FullMethodName           = "/webhook.WebhookService/UpdateWebhookConfig"
 	WebhookService_PauseWebhook_FullMethodName                  = "/webhook.WebhookService/PauseWebhook"
 	WebhookService_ResumeWebhook_FullMethodName                 = "/webhook.WebhookService/ResumeWebhook"
+	WebhookService_ListEventReports_FullMethodName              = "/webhook.WebhookService/ListEventReports"
 )
 
 // WebhookServiceClient is the client API for WebhookService service.
@@ -95,6 +96,8 @@ type WebhookServiceClient interface {
 	PauseWebhook(ctx context.Context, in *PauseWebhookRequest, opts ...grpc.CallOption) (*PauseWebhookResponse, error)
 	// ResumeWebhook re-enables a paused webhook
 	ResumeWebhook(ctx context.Context, in *ResumeWebhookRequest, opts ...grpc.CallOption) (*ResumeWebhookResponse, error)
+	// ListEventReports lists all events in descending order for a given namespace
+	ListEventReports(ctx context.Context, in *ListEventReportsRequest, opts ...grpc.CallOption) (*ListEventReportsResponse, error)
 }
 
 type webhookServiceClient struct {
@@ -325,6 +328,16 @@ func (c *webhookServiceClient) ResumeWebhook(ctx context.Context, in *ResumeWebh
 	return out, nil
 }
 
+func (c *webhookServiceClient) ListEventReports(ctx context.Context, in *ListEventReportsRequest, opts ...grpc.CallOption) (*ListEventReportsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListEventReportsResponse)
+	err := c.cc.Invoke(ctx, WebhookService_ListEventReports_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WebhookServiceServer is the server API for WebhookService service.
 // All implementations must embed UnimplementedWebhookServiceServer
 // for forward compatibility.
@@ -377,6 +390,8 @@ type WebhookServiceServer interface {
 	PauseWebhook(context.Context, *PauseWebhookRequest) (*PauseWebhookResponse, error)
 	// ResumeWebhook re-enables a paused webhook
 	ResumeWebhook(context.Context, *ResumeWebhookRequest) (*ResumeWebhookResponse, error)
+	// ListEventReports lists all events in descending order for a given namespace
+	ListEventReports(context.Context, *ListEventReportsRequest) (*ListEventReportsResponse, error)
 	mustEmbedUnimplementedWebhookServiceServer()
 }
 
@@ -452,6 +467,9 @@ func (UnimplementedWebhookServiceServer) PauseWebhook(context.Context, *PauseWeb
 }
 func (UnimplementedWebhookServiceServer) ResumeWebhook(context.Context, *ResumeWebhookRequest) (*ResumeWebhookResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResumeWebhook not implemented")
+}
+func (UnimplementedWebhookServiceServer) ListEventReports(context.Context, *ListEventReportsRequest) (*ListEventReportsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListEventReports not implemented")
 }
 func (UnimplementedWebhookServiceServer) mustEmbedUnimplementedWebhookServiceServer() {}
 func (UnimplementedWebhookServiceServer) testEmbeddedByValue()                        {}
@@ -870,6 +888,24 @@ func _WebhookService_ResumeWebhook_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WebhookService_ListEventReports_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEventReportsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).ListEventReports(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_ListEventReports_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).ListEventReports(ctx, req.(*ListEventReportsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WebhookService_ServiceDesc is the grpc.ServiceDesc for WebhookService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -964,6 +1000,10 @@ var WebhookService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResumeWebhook",
 			Handler:    _WebhookService_ResumeWebhook_Handler,
+		},
+		{
+			MethodName: "ListEventReports",
+			Handler:    _WebhookService_ListEventReports_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
