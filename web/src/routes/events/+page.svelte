@@ -91,7 +91,16 @@
 			<div class="w-full grid md:grid-cols-1 gap-4">
 				{#each events as event}
 					<div
-						class="w-full bg-white rounded-lg shadow-sm border p-5 transition-all hover:shadow-lg hover:border-primary"
+						class="w-full bg-white rounded-lg shadow-sm border p-5 transition-all hover:shadow-lg hover:border-primary cursor-pointer"
+						onclick={() => window.location.href = `/events/${encodeURIComponent(event.eventId)}/reports`}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								window.location.href = `/events/${encodeURIComponent(event.eventId)}/reports`;
+							}
+						}}
+						role="button"
+						tabindex="0"
+						aria-label={`View event instances for ${event.name}`}
 					>
 						<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
 							<div class="flex-1 mb-4 sm:mb-0">
@@ -112,18 +121,25 @@
 							<div class="flex gap-2 items-center">
 								{#if event.schema}
 									<button
-										onclick={() => viewSchema(event.schema)}
+										onclick={(e) => {
+											e.stopPropagation();
+											viewSchema(event.schema);
+										}}
 										class="text-gray-600 font-semibold px-4 py-2 rounded-lg hover:bg-red-500/10 transition"
 										>View Schema</button
 									>
 								{/if}
 								<a
 									href={`/events/${event.eventId}/update`}
+									onclick={(e) => e.stopPropagation()}
 									class="text-primary font-semibold px-4 py-2 rounded-lg hover:bg-red-500/10 transition"
 									>Update</a
 								>
 								<button
-									onclick={() => deleteEvent(event.name)}
+									onclick={(e) => {
+										e.stopPropagation();
+										deleteEvent(event.name);
+									}}
 									class="text-red-600 font-semibold px-4 py-2 rounded-lg hover:bg-red-500/10 transition"
 									>Delete</button
 								>

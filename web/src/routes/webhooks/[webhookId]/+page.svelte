@@ -20,6 +20,8 @@
   let healthMetrics: WebhookHealthMetrics | undefined = $state();
   let loading = $state(true);
   let error = $state("");
+  let expandedDeliveries: Set<string> = $state(new Set());
+  let deliveryDetails: Map<string, any> = $state(new Map());
 
   const webhookId = page.params.webhookId;
 
@@ -104,6 +106,31 @@
 
   function formatTimestamp(timestamp: bigint): string {
     return new Date(Number(timestamp) * 1000).toLocaleString();
+  }
+
+  async function toggleDeliveryExpansion(deliveryId: string) {
+    if (expandedDeliveries.has(deliveryId)) {
+      expandedDeliveries.delete(deliveryId);
+      expandedDeliveries = new Set(expandedDeliveries);
+    } else {
+      expandedDeliveries.add(deliveryId);
+      expandedDeliveries = new Set(expandedDeliveries);
+      
+      // Fetch detailed delivery information if not already loaded
+      if (!deliveryDetails.has(deliveryId)) {
+        try {
+          const detailRes = await client.getWebhookDeliveryStatus({
+            deliveryId,
+            namespace: "default"
+          });
+          deliveryDetails.set(deliveryId, detailRes.delivery);
+          deliveryDetails = new Map(deliveryDetails);
+        } catch (e: any) {
+          console.error('Failed to load delivery details:', e);
+          // Still show expanded view with available data
+        }
+      }
+    }
   }
 </script>
 
@@ -257,6 +284,7 @@
                   <th class="px-4 py-3">Status</th>
                   <th class="px-4 py-3">Attempts</th>
                   <th class="px-4 py-3">Last Attempt</th>
+                  <th class="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -282,7 +310,82 @@
                     <td class="px-4 py-3"
                       >{formatTimestamp(delivery.lastAttemptedAt)}</td
                     >
+                    <td class="px-4 py-3">
+                      <button
+                        onclick={() => toggleDeliveryExpansion(delivery.deliveryId)}
+                        class="text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        {expandedDeliveries.has(delivery.deliveryId) ? 'Hide' : 'Details'}
+                      </button>
+                    </td>
                   </tr>
+                  {#if expandedDeliveries.has(delivery.deliveryId)}
+                    <tr class="border-b bg-gray-50">
+                      <td colspan="6" class="px-4 py-6">
+                        <div class="space-y-4">
+                          {#if deliveryDetails.has(delivery.deliveryId)}
+                            {@const details = deliveryDetails.get(delivery.deliveryId)}
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                              <div>
+                                <p class="font-semibold text-gray-700">Response Code</p>
+                                <p class="font-mono bg-white px-2 py-1 rounded border"
+                                   class:text-green-600={details.responseCode >= 200 && details.responseCode < 300}
+                                   class:text-yellow-600={details.responseCode >= 300 && details.responseCode < 400}
+                                   class:text-red-600={details.responseCode >= 400}
+                                >{details.responseCode || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p class="font-semibold text-gray-700">Created At</p>
+                                <p class="bg-white px-2 py-1 rounded border">
+                                  {details.createdAt ? formatTimestamp(details.createdAt) : 'N/A'}
+                                </p>
+                              </div>
+                              <div>
+                                <p class="font-semibold text-gray-700">Scheduled At</p>
+                                <p class="bg-white px-2 py-1 rounded border">
+                                  {details.scheduledAt ? formatTimestamp(details.scheduledAt) : 'N/A'}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {#if details.responseBody}
+                              <div>
+                                <p class="font-semibold text-gray-700 mb-2">Response Body</p>
+                                <pre class="bg-white p-3 rounded border text-xs overflow-auto max-h-32 font-mono">{details.responseBody}</pre>
+                              </div>
+                            {/if}
+                            
+                            {#if details.responseHeaders && Object.keys(details.responseHeaders).length > 0}
+                              <div>
+                                <p class="font-semibold text-gray-700 mb-2">Response Headers</p>
+                                <div class="bg-white p-3 rounded border">
+                                  {#each Object.entries(details.responseHeaders) as [key, value]}
+                                    <div class="text-xs mb-1">
+                                      <span class="font-medium text-gray-600">{key}:</span>
+                                      <span class="font-mono ml-1">{value}</span>
+                                    </div>
+                                  {/each}
+                                </div>
+                              </div>
+                            {/if}
+                            
+                            {#if details.errorMessage}
+                              <div>
+                                <p class="font-semibold text-gray-700 mb-2">Error Message</p>
+                                <p class="bg-red-50 text-red-800 p-3 rounded border border-red-200 text-sm">
+                                  {details.errorMessage}
+                                </p>
+                              </div>
+                            {/if}
+                          {:else}
+                            <div class="text-center py-4">
+                              <p class="text-gray-500">Loading detailed information...</p>
+                            </div>
+                          {/if}
+                        </div>
+                      </td>
+                    </tr>
+                  {/if}
                 {/each}
               </tbody>
             </table>
