@@ -60,7 +60,6 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		w.logger.Error("Failed to unmarshal job metadata", "error", err, "event_id", args.EventID)
 	}
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
-
 	ctx, span := w.tracer.Start(ctx, "webhook.delivery",
 		trace.WithAttributes(
 			attribute.String("delivery_id", args.DeliveryID),

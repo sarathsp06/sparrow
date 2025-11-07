@@ -40,6 +40,8 @@ func Open(dsn string, maxRetries int, options ...OpenConnectionOption) (*SQLXDB,
 			return nil, err
 		}
 	}
+
+	otelsql.ReportDBStatsMetrics(db.DB)
 	return &SQLXDB{db}, nil
 }
 

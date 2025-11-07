@@ -151,7 +151,4 @@
   .bg-primary {
     background-color: #1d4ed8;
   }
-  .text-primary {
-    color: #1d4ed8;
-  }
 </style>
