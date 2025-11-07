@@ -7,7 +7,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// RepositoryInterface defines the interface for webhook storage operations.
+// RepositoryInterface defines the interface for webhook storage operations
+//
+//go:generate gowrap gen -i RepositoryInterface -t opentelemetry -o RepositoryInterface_otel.go
 type RepositoryInterface interface {
 	UpdateWebhookHealthState(ctx context.Context, webhookID string, success bool, eventTimestamp time.Time) error
 	CalculateWebhookHealth(ctx context.Context, webhookID string, lookbackHours int) (string, error)

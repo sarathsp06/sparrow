@@ -24,6 +24,7 @@ import (
 	connectserver "github.com/sarathsp06/sparrow/internal/connect"
 	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
 	"github.com/sarathsp06/sparrow/internal/observability"
+	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/storage/postgres"
@@ -59,8 +60,7 @@ func main() {
 				log.Printf("Failed to shutdown OpenTelemetry: %v", err)
 			}
 		}()
-		fmt.Printf("✅ OpenTelemetry initialized (endpoint: %s, env: %s)\n",
-			otelConfig.OTLPEndpoint, otelConfig.Environment)
+		fmt.Printf("✅ OpenTelemetry initialized (endpoint: %s, env: %s)\n", otelConfig.OTLPEndpoint, otelConfig.Environment)
 	}
 
 	// Database connection URL
@@ -89,7 +89,7 @@ func main() {
 	defer sqlxDB.Close() //nolint:errcheck
 
 	// Create webhook repository
-	webhookRepo := store.NewRepository(sqlxDB)
+	webhookRepo := store.NewRepositoryInterfaceWithTracing(store.NewRepository(sqlxDB), "")
 
 	// Initialize queue manager
 	queueManager, err := queue.NewManager(ctx, webhookRepo, dbPool)
@@ -109,7 +109,10 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 	)
-	webhookGRPCServer := grpcserver.NewWebhookServer(queueManager.GetJobInserter(), webhookRepo)
+
+	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo)
+
+	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, ""))
 	pb.RegisterWebhookServiceServer(grpcServer, webhookGRPCServer)
 
 	// Initialize Connect-RPC server

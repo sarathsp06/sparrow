@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
@@ -25,11 +24,11 @@ type EventProcessingWorker struct {
 }
 
 // NewEventProcessingWorker creates a new event processing worker with a river client
-func NewEventProcessingWorker(webhookRepo store.RepositoryInterface, riverClient *river.Client[pgx.Tx]) *EventProcessingWorker {
+func NewEventProcessingWorker(webhookRepo store.RepositoryInterface, jobInserter JobInserter) *EventProcessingWorker {
 	return &EventProcessingWorker{
 		webhookRepo: webhookRepo,
 		logger:      logger.NewLogger("event-processing-worker"),
-		jobInserter: NewJobInserter(riverClient),
+		jobInserter: jobInserter,
 	}
 }
 

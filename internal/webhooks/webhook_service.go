@@ -27,6 +27,7 @@ type WebhookService struct {
 	metrics     *observability.SparrowMetrics
 }
 
+//go:generate gowrap gen -i WebhookServiceInterface -t opentelemetry -o WebhookServiceInterface_otel.go
 type WebhookServiceInterface interface {
 	RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (string, int64, error)
 	UnregisterWebhook(ctx context.Context, webhookID string) error

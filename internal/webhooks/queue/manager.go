@@ -40,15 +40,17 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, dbPo
 		return nil, fmt.Errorf("failed to create River client: %w", err)
 	}
 
-	// Add workers with explicit generic types
-	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo))
-	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, riverClient))
-
-	return &Manager{
+	manager := &Manager{
 		client: riverClient,
 		dbPool: dbPool,
 		logger: logger.NewLogger("queue-manager"),
-	}, nil
+	}
+
+	// Add workers with explicit generic types
+	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo))
+	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, manager.GetJobInserter()))
+
+	return manager, nil
 }
 
 // Start starts the queue processing
@@ -73,5 +75,5 @@ func (m *Manager) Stop(ctx context.Context) error {
 }
 
 func (m *Manager) GetJobInserter() JobInserter {
-	return NewJobInserter(m.client)
+	return NewJobInserterWithTracing(NewJobInserter(m.client), "")
 }

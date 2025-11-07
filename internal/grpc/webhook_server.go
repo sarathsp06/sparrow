@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks"
-	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
 	"google.golang.org/grpc/codes"
@@ -21,9 +20,9 @@ type WebhookServer struct {
 var _ pb.WebhookServiceServer = (*WebhookServer)(nil)
 
 // NewWebhookServer creates a new WebhookServer instance
-func NewWebhookServer(queueManager queue.JobInserter, webhookRepo store.RepositoryInterface) *WebhookServer {
+func NewWebhookServer(service webhooks.WebhookServiceInterface) *WebhookServer {
 	return &WebhookServer{
-		service: webhooks.NewWebhookService(queueManager, webhookRepo),
+		service: service,
 	}
 }
 

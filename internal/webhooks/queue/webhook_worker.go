@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/riverqueue/river"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	otelcodes "go.opentelemetry.io/otel/codes"
@@ -72,17 +73,11 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	)
 	defer span.End()
 
-	log := logger.NewLogger("webhook-worker")
-
+	log := w.logger.With("job_id", job.ID, "delivery_id", args.DeliveryID, "webhook_id", args.WebhookID)
 	// Check if the delivery has expired
 	if time.Now().After(args.ExpiresAt) {
 		span.SetStatus(otelcodes.Error, "webhook delivery expired")
-		log.Warn("Webhook delivery expired",
-			"job_id", job.ID,
-			"delivery_id", args.DeliveryID,
-			"webhook_id", args.WebhookID,
-			"expires_at", args.ExpiresAt,
-		)
+		log.Warn("Webhook delivery expired", "expires_at", args.ExpiresAt)
 
 		err := w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
 			store.StatusExpired, 0, "", "Delivery expired")
@@ -92,13 +87,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		return nil
 	}
 
-	log.Info("Processing webhook delivery",
-		"job_id", job.ID,
-		"delivery_id", args.DeliveryID,
-		"webhook_id", args.WebhookID,
-		"event_id", args.EventID,
-		"url", args.URL,
-		"method", "POST",
+	log.Info("Processing webhook delivery", "event_id", args.EventID, "url", args.URL, "method", http.MethodPost,
 		"namespace", args.Namespace,
 		"event", args.Event,
 	)
@@ -158,7 +147,8 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 
 	// Create HTTP client with timeout
 	client := &http.Client{
-		Timeout: time.Duration(args.Timeout) * time.Second,
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+		Timeout:   time.Duration(args.Timeout) * time.Second,
 	}
 
 	// Send the request
