@@ -305,6 +305,33 @@ func (_d RepositoryInterfaceWithTracing) GetEventByName(ctx context.Context, eve
 	return _d.RepositoryInterface.GetEventByName(ctx, eventName)
 }
 
+// GetEventDeliveryStats implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) GetEventDeliveryStats(ctx context.Context, eventID string) (i1 int32, i2 int32, i3 int32, i4 int32, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetEventDeliveryStats")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":     ctx,
+				"eventID": eventID}, map[string]interface{}{
+				"i1":  i1,
+				"i2":  i2,
+				"i3":  i3,
+				"i4":  i4,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.GetEventDeliveryStats(ctx, eventID)
+}
+
 // GetHealthSummary implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) GetHealthSummary(ctx context.Context) (m1 map[WebhookHealth]int, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetHealthSummary")
@@ -580,6 +607,34 @@ func (_d RepositoryInterfaceWithTracing) ListEventReports(ctx context.Context, n
 		_span.End()
 	}()
 	return _d.RepositoryInterface.ListEventReports(ctx, namespace, eventName, limit, offset)
+}
+
+// ListEventReportsWithStats implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) ListEventReportsWithStats(ctx context.Context, namespace string, eventName *string, limit int, offset int) (epa1 []*EventReportWithStats, i1 int, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListEventReportsWithStats")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"namespace": namespace,
+				"eventName": eventName,
+				"limit":     limit,
+				"offset":    offset}, map[string]interface{}{
+				"epa1": epa1,
+				"i1":   i1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.ListEventReportsWithStats(ctx, namespace, eventName, limit, offset)
 }
 
 // ListEvents implements RepositoryInterface

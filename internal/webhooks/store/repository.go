@@ -388,14 +388,19 @@ func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelive
 // UpdateDeliveryStatus updates the status of a webhook delivery
 func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID string, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage string) error {
 	now := time.Now()
+	var attemptIncrement int = 0
+	if status == StatusFailed || status == StatusSuccess || status == StatusExpired {
+		attemptIncrement = 1
+	}
+
 	query := `
 		UPDATE webhook_deliveries 
 		SET status = $2, last_attempted_at = $3, response_code = $4, response_body = $5, error_message = $6,
-		    attempt_count = attempt_count + 1
+		    attempt_count = attempt_count + $7::integer
 		WHERE id = $1
 	`
 
-	_, err := r.db.ExecContext(ctx, query, deliveryID, status, now, responseCode, responseBody, errorMessage)
+	_, err := r.db.ExecContext(ctx, query, deliveryID, status, now, responseCode, responseBody, errorMessage, attemptIncrement)
 	return storage.Error(err)
 }
 
@@ -980,22 +985,73 @@ func (r *Repository) GetEventByID(ctx context.Context, eventID string) (*EventRe
 	return &eventRow, nil
 }
 
-// ListEventReports gets event records with delivery statistics in descending order by creation time
+// ListEventReports gets event records in descending order by creation time
 func (r *Repository) ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
-	var args []interface{}
-	var whereClause string
+	// Build base query
+	baseQuery := `
+		SELECT 
+			id, namespace, event, payload, ttl, metadata, created_at, expires_at
+		FROM event_records 
+		WHERE namespace = $1
+	`
 
-	// Build WHERE clause based on provided filters
+	countQuery := `
+		SELECT COUNT(*) 
+		FROM event_records 
+		WHERE namespace = $1
+	`
+
+	args := []interface{}{namespace}
+
+	// Add event name filter if provided
 	if eventName != nil && *eventName != "" {
-		whereClause = "WHERE er.namespace = $1 AND er.event = $2"
-		args = append(args, namespace, *eventName)
-	} else {
-		whereClause = "WHERE er.namespace = $1"
-		args = append(args, namespace)
+		baseQuery += ` AND event = $2`
+		countQuery += ` AND event = $2`
+		args = append(args, *eventName)
 	}
 
-	// Main query to get events with delivery statistics
-	query := fmt.Sprintf(`
+	// Add ordering and pagination
+	baseQuery += ` ORDER BY created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
+	args = append(args, limit, offset)
+
+	// Execute main query
+	var eventRows []EventRecord
+
+	err := r.db.SelectContext(ctx, &eventRows, baseQuery, args...)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	// Get total count
+	var totalCount int
+	countArgs := args[:len(args)-2] // Remove LIMIT and OFFSET
+	err = r.db.GetContext(ctx, &totalCount, countQuery, countArgs...)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	// Convert to EventReportWithStats format
+	var events []*EventReportWithStats
+	for _, row := range eventRows {
+		event := &EventReportWithStats{
+			EventRecord: row,
+			// Delivery stats can be loaded separately if needed
+			WebhookCount:         0,
+			SuccessfulDeliveries: 0,
+			FailedDeliveries:     0,
+			PendingDeliveries:    0,
+		}
+
+		events = append(events, event)
+	}
+
+	return events, totalCount, nil
+}
+
+// ListEventReportsWithStats gets event records with delivery statistics using health events
+func (r *Repository) ListEventReportsWithStats(ctx context.Context, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
+	// Build base query with delivery stats from health events
+	baseQuery := `
 		SELECT 
 			er.id, er.namespace, er.event, er.payload, er.ttl, er.metadata, er.created_at, er.expires_at,
 			COALESCE(ds.webhook_count, 0) as webhook_count,
@@ -1007,38 +1063,77 @@ func (r *Repository) ListEventReports(ctx context.Context, namespace string, eve
 			SELECT 
 				wd.event_id,
 				COUNT(DISTINCT wd.webhook_id) as webhook_count,
-				COUNT(CASE WHEN wd.status = 'success' THEN 1 END) as successful_deliveries,
-				COUNT(CASE WHEN wd.status IN ('failed', 'expired') THEN 1 END) as failed_deliveries,
+				SUM(CASE WHEN wh.success = true THEN 1 ELSE 0 END) as successful_deliveries,
+				SUM(CASE WHEN wh.success = false THEN 1 ELSE 0 END) as failed_deliveries,
 				COUNT(CASE WHEN wd.status IN ('pending', 'sending', 'retrying') THEN 1 END) as pending_deliveries
 			FROM webhook_deliveries wd
+			LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id::text
 			GROUP BY wd.event_id
 		) ds ON er.id = ds.event_id
-		%s
-		ORDER BY er.created_at DESC
-		LIMIT $%d OFFSET $%d
-	`, whereClause, len(args)+1, len(args)+2)
+		WHERE er.namespace = $1
+	`
 
+	countQuery := `
+		SELECT COUNT(*) 
+		FROM event_records 
+		WHERE namespace = $1
+	`
+
+	args := []interface{}{namespace}
+
+	// Add event name filter if provided
+	if eventName != nil && *eventName != "" {
+		baseQuery += ` AND er.event = $2`
+		countQuery += ` AND event = $2`
+		args = append(args, *eventName)
+	}
+
+	// Add ordering and pagination
+	baseQuery += ` ORDER BY er.created_at DESC LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
 	args = append(args, limit, offset)
 
+	// Execute main query
 	var events []*EventReportWithStats
-	err := r.db.SelectContext(ctx, &events, query, args...)
+	err := r.db.SelectContext(ctx, &events, baseQuery, args...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
-	// Get total count for pagination
-	countQuery := fmt.Sprintf(`
-		SELECT COUNT(*)
-		FROM event_records er
-		%s
-	`, whereClause)
-
+	// Get total count
 	var totalCount int
-	countArgs := args[:len(args)-2] // Remove LIMIT and OFFSET from count query
+	countArgs := args[:len(args)-2] // Remove LIMIT and OFFSET
 	err = r.db.GetContext(ctx, &totalCount, countQuery, countArgs...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
 	return events, totalCount, nil
+}
+
+// GetEventDeliveryStats gets delivery statistics for a specific event using health events
+func (r *Repository) GetEventDeliveryStats(ctx context.Context, eventID string) (int32, int32, int32, int32, error) {
+	query := `
+		SELECT 
+			COUNT(DISTINCT wd.webhook_id) as webhook_count,
+			SUM(CASE WHEN wh.success = true THEN 1 ELSE 0 END) as successful_deliveries,
+			SUM(CASE WHEN wh.success = false THEN 1 ELSE 0 END) as failed_deliveries,
+			COUNT(CASE WHEN wd.status IN ('pending', 'sending', 'retrying') THEN 1 END) as pending_deliveries
+		FROM webhook_deliveries wd
+		LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id
+		WHERE wd.event_id = $1
+	`
+
+	var result struct {
+		WebhookCount         int32 `db:"webhook_count"`
+		SuccessfulDeliveries int32 `db:"successful_deliveries"`
+		FailedDeliveries     int32 `db:"failed_deliveries"`
+		PendingDeliveries    int32 `db:"pending_deliveries"`
+	}
+
+	err := r.db.GetContext(ctx, &result, query, eventID)
+	if err != nil {
+		return 0, 0, 0, 0, storage.Error(err)
+	}
+
+	return result.WebhookCount, result.SuccessfulDeliveries, result.FailedDeliveries, result.PendingDeliveries, nil
 }

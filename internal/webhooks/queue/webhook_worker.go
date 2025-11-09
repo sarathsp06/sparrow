@@ -92,12 +92,6 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		"event", args.Event,
 	)
 
-	// Update delivery status to sending
-	if err := w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
-		store.StatusSending, 0, "", ""); err != nil {
-		log.Error("Failed to update delivery status to sending", "error", err)
-	}
-
 	// Get event payload
 	eventRecord, err := w.webhookRepo.GetEventByID(ctx, args.EventID)
 	if err != nil {
@@ -122,7 +116,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 
 	// Create HTTP request (always POST for webhooks)
-	req, err := http.NewRequestWithContext(ctx, "POST", args.URL, bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, args.URL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		log.Error("Failed to create request",
 			"job_id", job.ID,

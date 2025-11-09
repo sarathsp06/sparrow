@@ -1,14 +1,9 @@
 <script lang="ts">
 	import favicon from '$lib/assets/favicon.svg';
 	import { client } from '$lib/services';
-
 	import { onMount } from 'svelte';
 	import { JSONEditor, Mode, type Content } from 'svelte-jsoneditor';
-
-
-	import type {
-	  RegisteredEvent
-	} from '../../../../proto/webhook_pb.js';
+	import type { RegisteredEvent } from '../../../../proto/webhook_pb.js';
 
 	let events: RegisteredEvent[] = $state([]);
 	let loading = $state(true);

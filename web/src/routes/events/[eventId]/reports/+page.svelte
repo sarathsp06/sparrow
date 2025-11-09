@@ -89,13 +89,12 @@
                 <span class="text-gray-900 font-medium">{currentEvent?.name || 'Loading...'} Reports</span>
             </nav>
             
-            <div class="flex justify-between items-center">
+            <div class="flex justify-between items-center pb-1">
                 <div>
                     <p class="text-gray-600 mt-1">Event instances for "{currentEvent?.name || 'Loading...'}"</p>
                 </div>
                 <div class="text-sm text-gray-500">
                     Total: {totalCount} events
-                </div>
             </div>
         </div>
 
@@ -121,5 +120,6 @@
                 onPageChange={handlePageChange} 
             />
         {/if}
+        </div>
     </main>
 </div>

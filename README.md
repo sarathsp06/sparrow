@@ -2,21 +2,52 @@
 <div align="center">
 	<img src="./web/src/lib/assets/favicon.svg" alt="Sparrow" width="240" height="240" />
 	<h1 style="font-family:monospace;font-weight:900;color:#222;">sparrow</h1>
-	<p style="font-size:1.2em;color:#555;">Minimal event-driven webhook delivery system</p>
+	<p style="font-size:1.2em;color:#555;">Modern event-driven webhook delivery system with full observability</p>
 </div>
 
 ---
 
-##  Introduction
+## ✨ Introduction
 
-Sparrow is built for developers who value clarity, reliability, and speed. With a clean service layer, protocol-agnostic APIs, and instant observability, Sparrow makes webhook management effortless—whether you're building for scale or hacking on a side project.
+Sparrow is a production-ready webhook delivery system built for developers who value reliability, observability, and developer experience. With a clean service architecture, modern web UI, and comprehensive monitoring, Sparrow makes webhook management effortless—whether you're building for scale or prototyping.
 
-- **Minimal setup:** Get started in minutes with Makefile workflows and Docker support.
-- **Modern stack:** Go, Svelte, Tailwind, River queue, and OpenTelemetry for full-stack productivity.
-- **Built for reliability:** Automatic health tracking, retries, and delivery metrics out of the box.
-- **Developer experience first:** Simple configuration, clear API, and easy local development.
+- **Modern stack:** Go backend with gRPC/Connect-RPC APIs, SvelteKit web UI, PostgreSQL, River queue
+- **Built for reliability:** Automatic health tracking, intelligent retries, delivery metrics, and event reporting
+- **Full observability:** OpenTelemetry tracing, health monitoring, delivery statistics, and real-time dashboards
+- **Developer experience first:** Clean APIs, comprehensive web UI, simple setup, and easy local development
+- **Production ready:** Namespace isolation, event type management, pagination, and robust error handling
 
-Whether you're integrating webhooks, building event-driven systems, or just want a reliable queue, Sparrow is designed to help you ship faster and debug smarter.
+Whether you're integrating webhooks, building event-driven systems, or need a reliable message queue with monitoring, Sparrow provides everything you need out of the box.
+
+## 🚀 Features
+
+### Core Webhook Management
+- **Webhook Registration & Management** - Register, update, pause/resume webhooks
+- **Event Type Registry** - Global event schema management with validation
+- **Namespace Isolation** - Multi-tenant webhook management
+- **Automatic Retries** - Intelligent retry logic with exponential backoff
+- **Health Monitoring** - Real-time webhook health tracking and alerts
+
+### Advanced Event Reporting
+- **Event Reports** - Comprehensive event instance tracking with delivery statistics
+- **Delivery Analytics** - Success/failure rates, response times, and delivery status
+- **Event Filtering** - Search and filter events by type, namespace, and status
+- **Pagination** - Efficient browsing of large event datasets
+- **Export Capabilities** - JSON export of event data and delivery logs
+
+### Modern Web Interface
+- **Interactive Dashboard** - Real-time webhook and event management
+- **Event Instance Browser** - Paginated event reports with detailed delivery stats
+- **JSON Payload Viewer** - Expandable, formatted payload inspection
+- **Health Status Indicators** - Visual webhook health monitoring
+- **Responsive Design** - Mobile-friendly interface
+
+### Observability & Monitoring
+- **OpenTelemetry Integration** - Full distributed tracing support
+- **Health Metrics** - Automatic webhook health calculation
+- **Delivery Statistics** - Success rates, failure counts, response times
+- **Time-series Data** - Historical performance tracking
+- **Real-time Updates** - Live dashboard updates and notifications
 
 
 
@@ -52,41 +83,59 @@ Whether you're integrating webhooks, building event-driven systems, or just want
 Refer to the Makefile for more details and options.
 
 
-## Core Management Methods
+## 🔧 Core API Methods
 
 ### Webhook Operations
 
 ```go
+// Register a new webhook for specific events
+RegisterWebhook(namespace, events[], url, headers?, timeout?, description?)
+
 // Get webhooks by namespace
 GetRegisteredWebhooks(namespace, webhook_id?, active_only?)
 
 // List webhooks for specific events
 ListRegisteredWebhooksByEvent(namespace, event, active_only?)
 
+// Update existing webhook configuration
+UpdateWebhook(namespace, webhook_id, events?, url?, headers?, timeout?, description?, active?)
+
 // Pause webhook deliveries temporarily
 PauseWebhook(webhook_id, namespace, reason?)
 
 // Resume paused webhook deliveries  
 ResumeWebhook(webhook_id, namespace)
+
+// Unregister webhook completely
+UnregisterWebhook(webhook_id, namespace)
 ```
 
-### Delivery Management
+### Event & Delivery Management
 
 ```go
-// Get delivery status
+// Push events to registered webhooks
+PushEvent(namespace, event, payload, ttl?, metadata?)
+
+// Get delivery status and details
 GetWebhookDeliveryStatus(delivery_id, namespace)
 
-// Resend failed delivery
+// Resend failed or expired deliveries
 ResendWebhook(delivery_id, namespace, force_resend?)
 
 // Get delivery history with pagination
 GetWebhookDeliveryHistory(webhook_id, namespace, limit?, offset?)
+
+// List event instances with delivery statistics
+ListEventReports(namespace, event_name?, limit?, offset?)
+
+// Get detailed delivery statistics for specific event
+GetEventDeliveryStats(event_id) → (webhook_count, successful, failed, pending)
 ```
 
 ### Event Type Management
 
 ```go
-// Register a new event type (namespace-independent)
+// Register a new event type (global registry)
 RegisterEvent(name, description, schema?, metadata?, active?)
 
 // List all registered event types
@@ -97,15 +146,19 @@ UpdateEvent(name, description?, schema?, metadata?, active?)
 
 // Delete an event type registration
 DeleteEvent(name)
+
+// Get specific event type details
+GetEventByName(name)
 ```
 
 #### Event Registration Features
 
 - **Schema Validation** - JSON Schema definitions for event payloads
-- **Metadata Support** - Custom key-value pairs for categorization
-- **Active/Inactive States** - Enable/disable event types
-- **Namespace Independent** - Global event registry across all namespaces
+- **Metadata Support** - Custom key-value pairs for categorization and tagging
+- **Active/Inactive States** - Enable/disable event types without deletion
+- **Namespace Independent** - Global event registry shared across all namespaces
 - **Unique Names** - Prevent duplicate event type registrations
+- **Versioning Support** - Track event schema changes over time
 
 ### Webhook Health Management
 
@@ -153,7 +206,7 @@ HTTP_PORT=8080
 OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
 ```
 
-## Observability & Monitoring
+## 📊 Monitoring & Dashboards
 
 ### Available Dashboards
 
@@ -175,7 +228,66 @@ OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
 - **Namespace isolation** - Multi-tenant security
 - **Protocol flexibility** - Same logic for gRPC and HTTP APIs
 - **Comprehensive testing** - Service layer is easily testable
-- **Observability first** - Built-in tracing and metrics
+
+### Database Schema
+
+- **Webhooks** - Registration data with headers, timeouts, and active status
+- **Events** - Event instances with payloads and metadata
+- **Event Registrations** - Global event type registry with schema validation
+- **Webhook Health Events** - Delivery tracking with timestamps and response details
+- **Webhook Health Timeseries** - Aggregated health metrics for performance analysis
+
+## 🚀 Development Workflow
+
+### Quick Start
+
+```bash
+# Start backend services
+make docker-compose-up
+make migrate-up
+make run-grpc
+
+# Start web interface (separate terminal)
+make run-web
+```
+
+### Available Commands
+
+- **`make run-grpc`** - Start gRPC server on port 50051
+- **`make run-web`** - Start SvelteKit dev server on port 5173
+- **`make migrate-up`** - Apply database migrations
+- **`make migrate-down`** - Rollback database migrations
+- **`make docker-compose-up`** - Start PostgreSQL and OpenTelemetry
+- **`make buf-generate`** - Regenerate protobuf and gRPC code
+
+### Testing
+
+The system includes comprehensive test examples:
+
+- **`examples/full_api_test.go`** - Complete API workflow test
+- **`examples/test_event_management.sh`** - Event type management via Connect API
+- **`examples/test_webhook_health.sh`** - Webhook health monitoring tests
+
+## 📦 Production Deployment
+
+### Docker Build
+
+```bash
+docker build -t httpqueue .
+```
+
+### Environment Configuration
+
+Required environment variables for production:
+
+- `DATABASE_URL` - PostgreSQL connection string
+- `HTTP_PORT` - Web server port (default: 8080)
+- `GRPC_PORT` - gRPC server port (default: 50051)
+- `OTEL_EXPORTER_OTLP_ENDPOINT` - OpenTelemetry collector endpoint
+
+---
+
+**httpqueue** provides a complete webhook delivery platform with modern web UI, comprehensive monitoring, and production-ready reliability for managing event-driven communication at scale.
 
 ---
 

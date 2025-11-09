@@ -1198,7 +1198,7 @@ func (s *WebhookService) ListEventReports(ctx context.Context, namespace string,
 		offset = 0
 	}
 
-	events, totalCount, err := s.webhookRepo.ListEventReports(ctx, namespace, eventName, int(limit), int(offset))
+	events, totalCount, err := s.webhookRepo.ListEventReportsWithStats(ctx, namespace, eventName, int(limit), int(offset))
 	if err != nil {
 		s.logger.Error("Failed to list event reports",
 			"namespace", namespace,

@@ -46,6 +46,8 @@ type RepositoryInterface interface {
 	ResetDeliveryForRetry(ctx context.Context, deliveryID string) error
 	GetEventByID(ctx context.Context, eventID string) (*EventRecord, error)
 	ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
+	ListEventReportsWithStats(ctx context.Context, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
+	GetEventDeliveryStats(ctx context.Context, eventID string) (int32, int32, int32, int32, error)
 }
 
 var _ RepositoryInterface = (*Repository)(nil)
