@@ -93,6 +93,7 @@ func (s *WebhookServer) GetWebhookStatus(ctx context.Context, req *pb.GetWebhook
 			ResponseCode: int32(d.ResponseCode),
 			ResponseBody: d.ResponseBody,
 			ErrorMessage: d.ErrorMessage,
+			RequestBody:  d.RequestBody,
 		}
 		if d.LastAttemptedAt != nil {
 			pbDeliveries[i].LastAttemptedAt = d.LastAttemptedAt.Unix()
@@ -436,6 +437,7 @@ func (s *WebhookServer) GetWebhookDeliveryStatus(ctx context.Context, req *pb.Ge
 			ResponseCode: int32(delivery.ResponseCode),
 			ResponseBody: delivery.ResponseBody,
 			ErrorMessage: delivery.ErrorMessage,
+			RequestBody:  delivery.RequestBody,
 		}
 		if delivery.LastAttemptedAt != nil {
 			pbDelivery.LastAttemptedAt = delivery.LastAttemptedAt.Unix()
@@ -484,6 +486,7 @@ func (s *WebhookServer) GetWebhookDeliveryHistory(ctx context.Context, req *pb.G
 			ResponseCode: int32(delivery.ResponseCode),
 			ResponseBody: delivery.ResponseBody,
 			ErrorMessage: delivery.ErrorMessage,
+			RequestBody:  delivery.RequestBody,
 		}
 		if delivery.LastAttemptedAt != nil {
 			pbDelivery.LastAttemptedAt = delivery.LastAttemptedAt.Unix()

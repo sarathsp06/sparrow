@@ -143,6 +143,12 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
+	// Store the request body in the delivery record
+	if err := w.webhookRepo.UpdateDeliveryRequestBody(ctx, args.DeliveryID, string(payloadBytes)); err != nil {
+		log.Warn("Failed to store request body", "error", err, "delivery_id", args.DeliveryID)
+		// Don't fail the delivery for this, but log it
+	}
+
 	// Set default Content-Type
 	req.Header.Set("Content-Type", "application/json")
 

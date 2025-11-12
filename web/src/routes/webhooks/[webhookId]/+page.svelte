@@ -315,11 +315,11 @@
                   </tr>
                   {#if expandedDeliveries.has(delivery.deliveryId)}
                     <tr class="border-b bg-gray-50">
-                      <td colspan="6" class="px-4 py-6">
-                        <div class="space-y-4">
+                      <td colspan="6" class="px-1 py-6">
+                        <div class="space-y-2">
                           {#if deliveryDetails.has(delivery.deliveryId)}
                             {@const details = deliveryDetails.get(delivery.deliveryId)}
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
                               <div>
                                 <p class="font-semibold text-gray-700">Response Code</p>
                                 <p class="font-mono bg-white px-2 py-1 rounded border"
@@ -341,7 +341,10 @@
                                 </p>
                               </div>
                             </div>
-                            
+                             <div>
+                                <p class="font-semibold text-gray-700 mb-2">Request Body</p>
+                                <pre class="bg-white font-family-mono p-2 rounded border text-xs overflow-auto font-mono">{JSON.stringify(JSON.parse(details.requestBody), null, 2)}</pre>
+                              </div>
                             {#if details.responseBody}
                               <div>
                                 <p class="font-semibold text-gray-700 mb-2">Response Body</p>

@@ -23,6 +23,7 @@ type RepositoryInterface interface {
 	StoreEvent(ctx context.Context, event *EventRecord) error
 	CreateDelivery(ctx context.Context, delivery *WebhookDelivery) error
 	UpdateDeliveryStatus(ctx context.Context, deliveryID string, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage string) error
+	UpdateDeliveryRequestBody(ctx context.Context, deliveryID string, requestBody string) error
 	GetDeliveriesByWebhook(ctx context.Context, webhookID string) ([]*WebhookDelivery, error)
 	GetDeliveriesByEvent(ctx context.Context, eventID string) ([]*WebhookDelivery, error)
 	GetWebhookByID(ctx context.Context, webhookID, namespace string) (*WebhookRegistration, error)

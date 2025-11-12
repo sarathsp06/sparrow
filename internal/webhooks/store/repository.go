@@ -212,8 +212,8 @@ func (r *Repository) CreateDeliveryTx(ctx context.Context, tx pgx.Tx, delivery *
 	query := `
 		       INSERT INTO webhook_deliveries (
 			       id, webhook_id, event_id, status, attempt_count, max_attempts, 
-			       expires_at, response_code, response_body, error_message
-		       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			       expires_at, response_code, response_body, error_message, request_body
+		       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	       `
 
 	_, err := tx.Exec(ctx, query,
@@ -227,6 +227,7 @@ func (r *Repository) CreateDeliveryTx(ctx context.Context, tx pgx.Tx, delivery *
 		delivery.ResponseCode,
 		delivery.ResponseBody,
 		delivery.ErrorMessage,
+		delivery.RequestBody,
 	)
 	return storage.Error(err)
 }
@@ -362,8 +363,8 @@ func (r *Repository) StoreEvent(ctx context.Context, event *EventRecord) error {
 // CreateDelivery creates a new delivery
 func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelivery) error {
 	query := `
-		INSERT INTO webhook_deliveries (id, webhook_id, event_id, status, attempt_count, max_attempts, expires_at, response_code, response_body, error_message)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO webhook_deliveries (id, webhook_id, event_id, status, attempt_count, max_attempts, created_at, expires_at, response_code, response_body, error_message, request_body)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -373,10 +374,12 @@ func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelive
 		delivery.Status,
 		delivery.AttemptCount,
 		delivery.MaxAttempts,
+		delivery.CreatedAt,
 		delivery.ExpiresAt,
 		delivery.ResponseCode,
 		delivery.ResponseBody,
 		delivery.ErrorMessage,
+		delivery.RequestBody,
 	)
 	return storage.Error(err)
 }
@@ -400,12 +403,19 @@ func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID string
 	return storage.Error(err)
 }
 
+// UpdateDeliveryRequestBody updates the request body for a delivery
+func (r *Repository) UpdateDeliveryRequestBody(ctx context.Context, deliveryID string, requestBody string) error {
+	query := `UPDATE webhook_deliveries SET request_body = $2 WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, query, deliveryID, requestBody)
+	return storage.Error(err)
+}
+
 // GetDeliveriesByWebhook returns deliveries for a specific webhook
 func (r *Repository) GetDeliveriesByWebhook(ctx context.Context, webhookID string) ([]*WebhookDelivery, error) {
 	query := `
 		SELECT id, webhook_id, event_id, status, attempt_count, max_attempts, 
 		       created_at, last_attempted_at, next_retry_at, expires_at,
-		       response_code, response_body, error_message
+		       response_code, response_body, error_message, request_body
 		FROM webhook_deliveries 
 		WHERE webhook_id = $1 
 		ORDER BY created_at DESC
@@ -419,7 +429,7 @@ func (r *Repository) GetDeliveriesByEvent(ctx context.Context, eventID string) (
 	query := `
 		SELECT id, webhook_id, event_id, status, attempt_count, max_attempts, 
 		       created_at, last_attempted_at, next_retry_at, expires_at,
-		       response_code, response_body, error_message
+		       response_code, response_body, error_message, request_body
 		FROM webhook_deliveries 
 		WHERE event_id = $1 
 		ORDER BY created_at DESC
@@ -498,7 +508,7 @@ func (r *Repository) GetDeliveryByID(ctx context.Context, deliveryID, namespace 
 	query := `
 		SELECT wd.id, wd.webhook_id, wd.event_id, wd.status, wd.attempt_count, wd.max_attempts, 
 		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message
+		       wd.response_code, wd.response_body, wd.error_message, wd.request_body
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wd.id = $1 AND wr.namespace = $2
@@ -536,7 +546,7 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, webhookID, na
 	query := `
 		SELECT wd.id, wd.webhook_id, wd.event_id, wd.status, wd.attempt_count, wd.max_attempts, 
 		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message
+		       wd.response_code, wd.response_body, wd.error_message, wd.request_body
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wd.webhook_id = $1 AND wr.namespace = $2

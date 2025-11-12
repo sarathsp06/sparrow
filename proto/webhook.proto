@@ -161,6 +161,7 @@ message WebhookDelivery {
   int32 response_code = 11; // HTTP response code from last attempt
   string response_body = 12; // HTTP response body (truncated)
   string error_message = 13; // Error message if failed
+  string request_body = 14; // Request body sent to webhook
 }
 
 // GetWebhookStatusResponse represents the response for webhook status

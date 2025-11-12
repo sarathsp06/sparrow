@@ -372,6 +372,13 @@ export declare type WebhookDelivery = Message<"webhook.WebhookDelivery"> & {
    * @generated from field: string error_message = 13;
    */
   errorMessage: string;
+
+  /**
+   * Request body sent to webhook
+   *
+   * @generated from field: string request_body = 14;
+   */
+  requestBody: string;
 };
 
 /**

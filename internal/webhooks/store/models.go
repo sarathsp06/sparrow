@@ -60,6 +60,7 @@ type WebhookDelivery struct {
 	ResponseCode    int                   `json:"response_code" db:"response_code"`
 	ResponseBody    string                `json:"response_body" db:"response_body"`
 	ErrorMessage    string                `json:"error_message" db:"error_message"`
+	RequestBody     string                `json:"request_body" db:"request_body"`
 }
 
 // WebhookDeliveryStatus represents the status of a webhook delivery

@@ -612,6 +612,7 @@ type WebhookDelivery struct {
 	ResponseCode    int32                  `protobuf:"varint,11,opt,name=response_code,json=responseCode,proto3" json:"response_code,omitempty"`           // HTTP response code from last attempt
 	ResponseBody    string                 `protobuf:"bytes,12,opt,name=response_body,json=responseBody,proto3" json:"response_body,omitempty"`            // HTTP response body (truncated)
 	ErrorMessage    string                 `protobuf:"bytes,13,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`            // Error message if failed
+	RequestBody     string                 `protobuf:"bytes,14,opt,name=request_body,json=requestBody,proto3" json:"request_body,omitempty"`               // Request body sent to webhook
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -733,6 +734,13 @@ func (x *WebhookDelivery) GetResponseBody() string {
 func (x *WebhookDelivery) GetErrorMessage() string {
 	if x != nil {
 		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *WebhookDelivery) GetRequestBody() string {
+	if x != nil {
+		return x.RequestBody
 	}
 	return ""
 }
@@ -3919,7 +3927,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x17GetWebhookStatusRequest\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\xe9\x03\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\x8c\x04\n" +
 	"\x0fWebhookDelivery\x12\x1f\n" +
 	"\vdelivery_id\x18\x01 \x01(\tR\n" +
 	"deliveryId\x12\x1d\n" +
@@ -3938,7 +3946,8 @@ const file_proto_webhook_proto_rawDesc = "" +
 	" \x01(\x03R\texpiresAt\x12#\n" +
 	"\rresponse_code\x18\v \x01(\x05R\fresponseCode\x12#\n" +
 	"\rresponse_body\x18\f \x01(\tR\fresponseBody\x12#\n" +
-	"\rerror_message\x18\r \x01(\tR\ferrorMessage\"\xb3\x01\n" +
+	"\rerror_message\x18\r \x01(\tR\ferrorMessage\x12!\n" +
+	"\frequest_body\x18\x0e \x01(\tR\vrequestBody\"\xb3\x01\n" +
 	"\x18GetWebhookStatusResponse\x128\n" +
 	"\n" +
 	"deliveries\x18\x01 \x03(\v2\x18.webhook.WebhookDeliveryR\n" +

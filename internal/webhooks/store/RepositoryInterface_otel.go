@@ -853,6 +853,30 @@ func (_d RepositoryInterfaceWithTracing) UnregisterWebhook(ctx context.Context, 
 	return _d.RepositoryInterface.UnregisterWebhook(ctx, webhookID)
 }
 
+// UpdateDeliveryRequestBody implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) UpdateDeliveryRequestBody(ctx context.Context, deliveryID string, requestBody string) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.UpdateDeliveryRequestBody")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":         ctx,
+				"deliveryID":  deliveryID,
+				"requestBody": requestBody}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.UpdateDeliveryRequestBody(ctx, deliveryID, requestBody)
+}
+
 // UpdateDeliveryStatus implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) UpdateDeliveryStatus(ctx context.Context, deliveryID string, status WebhookDeliveryStatus, responseCode int, responseBody string, errorMessage string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.UpdateDeliveryStatus")
