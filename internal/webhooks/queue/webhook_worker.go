@@ -61,14 +61,33 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		w.logger.Error("Failed to unmarshal job metadata", "error", err, "event_id", args.EventID)
 	}
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
+
+	// Get webhook configuration from database
+	webhook, err := w.webhookRepo.GetWebhookByID(ctx, args.WebhookID, args.Namespace)
+	if err != nil {
+		w.logger.Error("Failed to get webhook configuration", "error", err, "webhook_id", args.WebhookID)
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
+			store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err))
+		return fmt.Errorf("failed to get webhook configuration: %w", err)
+	}
+
+	// Get event record from database
+	eventRecord, err := w.webhookRepo.GetEventByID(ctx, args.EventID)
+	if err != nil {
+		w.logger.Error("Failed to get event record", "error", err, "event_id", args.EventID)
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
+			store.StatusFailed, 0, "", fmt.Sprintf("Failed to get event record: %v", err))
+		return fmt.Errorf("failed to get event record: %w", err)
+	}
+
 	ctx, span := w.tracer.Start(ctx, "webhook.delivery",
 		trace.WithAttributes(
 			attribute.String("delivery_id", args.DeliveryID),
 			attribute.String("webhook_id", args.WebhookID),
 			attribute.String("event_id", args.EventID),
-			attribute.String("url", args.URL),
+			attribute.String("url", webhook.URL),
 			attribute.String("namespace", args.Namespace),
-			attribute.String("event", args.Event),
+			attribute.String("event", eventRecord.Event),
 		),
 	)
 	defer span.End()
@@ -87,26 +106,19 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		return nil
 	}
 
-	log.Info("Processing webhook delivery", "event_id", args.EventID, "url", args.URL, "method", http.MethodPost,
+	log.Info("Processing webhook delivery", "event_id", args.EventID, "url", webhook.URL, "method", http.MethodPost,
 		"namespace", args.Namespace,
-		"event", args.Event,
+		"event", eventRecord.Event,
 	)
 
-	// Get event payload
-	eventRecord, err := w.webhookRepo.GetEventByID(ctx, args.EventID)
-	if err != nil {
-		log.Error("Failed to get event record", "error", err)
-		return err
-	}
-
-	// Create webhook payload
+	// Create webhook payload using event data from database
 	webhookPayload := struct {
 		EventID string         `json:"event_id"`
 		Event   string         `json:"event"`
 		Payload map[string]any `json:"payload"`
 	}{
 		EventID: args.EventID,
-		Event:   args.Event,
+		Event:   eventRecord.Event,
 		Payload: eventRecord.Payload,
 	}
 	payloadBytes, err := json.Marshal(webhookPayload)
@@ -116,12 +128,12 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 
 	// Create HTTP request (always POST for webhooks)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, args.URL, bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhook.URL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		log.Error("Failed to create request",
 			"job_id", job.ID,
 			"delivery_id", args.DeliveryID,
-			"url", args.URL,
+			"url", webhook.URL,
 			"method", "POST",
 			"error", err,
 		)
@@ -134,15 +146,15 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	// Set default Content-Type
 	req.Header.Set("Content-Type", "application/json")
 
-	// Add custom headers
-	for key, value := range args.Headers {
+	// Add custom headers from webhook configuration
+	for key, value := range webhook.Headers {
 		req.Header.Set(key, value)
 	}
 
-	// Create HTTP client with timeout
+	// Create HTTP client with timeout from webhook configuration
 	client := &http.Client{
 		Transport: otelhttp.NewTransport(http.DefaultTransport),
-		Timeout:   time.Duration(args.Timeout) * time.Second,
+		Timeout:   time.Duration(webhook.Timeout) * time.Second,
 	}
 
 	// Send the request
@@ -154,7 +166,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		log.Error("Failed to send webhook",
 			"job_id", job.ID,
 			"delivery_id", args.DeliveryID,
-			"url", args.URL,
+			"url", webhook.URL,
 			"method", "POST",
 			"duration_ms", duration.Milliseconds(),
 			"error", err,
@@ -176,7 +188,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	log.Info("Webhook response received",
 		"job_id", job.ID,
 		"delivery_id", args.DeliveryID,
-		"url", args.URL,
+		"url", webhook.URL,
 		"method", "POST",
 		"status_code", resp.StatusCode,
 		"status", resp.Status,
@@ -200,7 +212,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		log.Info("Webhook delivered successfully",
 			"job_id", job.ID,
 			"delivery_id", args.DeliveryID,
-			"url", args.URL,
+			"url", webhook.URL,
 			"status_code", resp.StatusCode,
 			"duration_ms", duration.Milliseconds(),
 		)
@@ -238,7 +250,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	log.Warn("Webhook delivery failed",
 		"job_id", job.ID,
 		"delivery_id", args.DeliveryID,
-		"url", args.URL,
+		"url", webhook.URL,
 		"status_code", resp.StatusCode,
 		"status", resp.Status,
 		"duration_ms", duration.Milliseconds(),

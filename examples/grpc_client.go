@@ -297,35 +297,6 @@ func MainGRPC() {
 		}
 	}
 
-	// Example 9: Resubmit Failed Webhook Deliveries
-	log.Println("\n=== Example 9: Resubmit Failed Webhook Deliveries ===")
-	if registerResp != nil && registerResp.Success {
-		// First, try to resubmit all failed deliveries for the webhook
-		resubmitReq := &pb.ResubmitWebhookRequest{
-			Identifier: &pb.ResubmitWebhookRequest_WebhookId{
-				WebhookId: registerResp.WebhookId,
-			},
-			Namespace: "default",
-			Force:     false, // Only resubmit failed/pending deliveries
-		}
-
-		resubmitResp, err := client.ResubmitWebhook(ctx, resubmitReq)
-		if err != nil {
-			log.Printf("Failed to resubmit webhook deliveries: %v", err)
-		} else {
-			log.Printf("Webhook deliveries resubmitted:")
-			log.Printf("  Success: %t", resubmitResp.Success)
-			log.Printf("  Message: %s", resubmitResp.Message)
-			log.Printf("  Resubmitted Count: %d", resubmitResp.ResubmittedCount)
-			if len(resubmitResp.DeliveryIds) > 0 {
-				log.Printf("  Resubmitted Delivery IDs:")
-				for i, deliveryId := range resubmitResp.DeliveryIds {
-					log.Printf("    %d: %s", i+1, deliveryId)
-				}
-			}
-		}
-	}
-
 	// Example 10: Get Health Summary
 	log.Println("\n=== Example 10: Get Health Summary ===")
 	healthSummaryReq := &pb.GetHealthSummaryRequest{}

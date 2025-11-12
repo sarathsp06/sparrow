@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -46,20 +47,17 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	}
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 
-	// Store the event record
-	eventRecord := &store.EventRecord{
-		ID:        args.EventID,
-		Namespace: args.Namespace,
-		Event:     args.Event,
-		Payload:   args.Payload,
-		TTL:       args.TTLSeconds,
-		Metadata:  args.Metadata,
-		CreatedAt: args.CreatedAt,
+	// Store the event record - this should have already been stored by the service layer
+	// but let's verify and update if needed
+	existingEvent, err := w.webhookRepo.GetEventByID(ctx, args.EventID)
+	if err != nil {
+		w.logger.Error("Event record not found in database", "error", err, "event_id", args.EventID)
+		return fmt.Errorf("event record not found: %w", err)
 	}
 
-	if err := w.webhookRepo.StoreEvent(ctx, eventRecord); err != nil {
-		w.logger.Error("Failed to store event record", "error", err, "event_id", args.EventID)
-		return err
+	// Update metadata if provided in the job args (for consistency)
+	if len(args.Metadata) > 0 {
+		existingEvent.Metadata = args.Metadata
 	}
 
 	// Find all registered webhooks for this namespace/event
@@ -104,18 +102,13 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 			continue
 		}
 
-		// Create webhook delivery job
+		// Create webhook delivery job with minimal data
 		webhookArgs := WebhookArgs{
 			DeliveryID: deliveryID,
 			WebhookID:  webhook.ID,
 			EventID:    args.EventID,
-			URL:        webhook.URL,
-			Headers:    webhook.Headers,
-			Payload:    args.Payload,
-			Timeout:    webhook.Timeout,
 			ExpiresAt:  expiresAt,
 			Namespace:  args.Namespace,
-			Event:      args.Event,
 		}
 
 		_, err := w.jobInserter.Insert(ctx, &webhookArgs)
@@ -131,7 +124,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		w.logger.Info("Scheduled webhook delivery",
 			"webhook_id", webhook.ID,
 			"delivery_id", deliveryID,
-			"url", webhook.URL,
+			"webhook_url", webhook.URL,
 		)
 	}
 

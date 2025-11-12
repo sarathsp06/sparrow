@@ -7,13 +7,12 @@
 package proto
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -2197,14 +2196,10 @@ func (x *GetHealthSummaryResponse) GetSummary() *HealthSummary {
 
 // ResubmitWebhookRequest represents a request to manually retry webhook deliveries
 type ResubmitWebhookRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Identifier:
-	//
-	//	*ResubmitWebhookRequest_DeliveryId
-	//	*ResubmitWebhookRequest_WebhookId
-	Identifier    isResubmitWebhookRequest_Identifier `protobuf_oneof:"identifier"`
-	Namespace     string                              `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"` // Namespace for authorization
-	Force         bool                                `protobuf:"varint,4,opt,name=force,proto3" json:"force,omitempty"`        // Force retry even for non-failed deliveries (default: false)
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	DeliveryId    string                 `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"` // Resubmit specific delivery
+	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                     // Namespace for authorization
+	Force         bool                   `protobuf:"varint,3,opt,name=force,proto3" json:"force,omitempty"`                            // Force retry even for non-failed deliveries (default: false)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2239,27 +2234,9 @@ func (*ResubmitWebhookRequest) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{29}
 }
 
-func (x *ResubmitWebhookRequest) GetIdentifier() isResubmitWebhookRequest_Identifier {
-	if x != nil {
-		return x.Identifier
-	}
-	return nil
-}
-
 func (x *ResubmitWebhookRequest) GetDeliveryId() string {
 	if x != nil {
-		if x, ok := x.Identifier.(*ResubmitWebhookRequest_DeliveryId); ok {
-			return x.DeliveryId
-		}
-	}
-	return ""
-}
-
-func (x *ResubmitWebhookRequest) GetWebhookId() string {
-	if x != nil {
-		if x, ok := x.Identifier.(*ResubmitWebhookRequest_WebhookId); ok {
-			return x.WebhookId
-		}
+		return x.DeliveryId
 	}
 	return ""
 }
@@ -2277,22 +2254,6 @@ func (x *ResubmitWebhookRequest) GetForce() bool {
 	}
 	return false
 }
-
-type isResubmitWebhookRequest_Identifier interface {
-	isResubmitWebhookRequest_Identifier()
-}
-
-type ResubmitWebhookRequest_DeliveryId struct {
-	DeliveryId string `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3,oneof"` // Resubmit specific delivery
-}
-
-type ResubmitWebhookRequest_WebhookId struct {
-	WebhookId string `protobuf:"bytes,2,opt,name=webhook_id,json=webhookId,proto3,oneof"` // Resubmit all failed/pending deliveries for webhook
-}
-
-func (*ResubmitWebhookRequest_DeliveryId) isResubmitWebhookRequest_Identifier() {}
-
-func (*ResubmitWebhookRequest_WebhookId) isResubmitWebhookRequest_Identifier() {}
 
 // ResubmitWebhookResponse represents the response for webhook resubmission
 type ResubmitWebhookResponse struct {
@@ -4116,16 +4077,12 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x18GetHealthSummaryResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x120\n" +
-	"\asummary\x18\x03 \x01(\v2\x16.webhook.HealthSummaryR\asummary\"\x9e\x01\n" +
-	"\x16ResubmitWebhookRequest\x12!\n" +
-	"\vdelivery_id\x18\x01 \x01(\tH\x00R\n" +
-	"deliveryId\x12\x1f\n" +
-	"\n" +
-	"webhook_id\x18\x02 \x01(\tH\x00R\twebhookId\x12\x1c\n" +
-	"\tnamespace\x18\x03 \x01(\tR\tnamespace\x12\x14\n" +
-	"\x05force\x18\x04 \x01(\bR\x05forceB\f\n" +
-	"\n" +
-	"identifier\"\x9d\x01\n" +
+	"\asummary\x18\x03 \x01(\v2\x16.webhook.HealthSummaryR\asummary\"m\n" +
+	"\x16ResubmitWebhookRequest\x12\x1f\n" +
+	"\vdelivery_id\x18\x01 \x01(\tR\n" +
+	"deliveryId\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x14\n" +
+	"\x05force\x18\x03 \x01(\bR\x05force\"\x9d\x01\n" +
 	"\x17ResubmitWebhookResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12+\n" +
@@ -4475,10 +4432,6 @@ func file_proto_webhook_proto_init() {
 		return
 	}
 	file_proto_webhook_proto_msgTypes[4].OneofWrappers = []any{}
-	file_proto_webhook_proto_msgTypes[29].OneofWrappers = []any{
-		(*ResubmitWebhookRequest_DeliveryId)(nil),
-		(*ResubmitWebhookRequest_WebhookId)(nil),
-	}
 	file_proto_webhook_proto_msgTypes[52].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

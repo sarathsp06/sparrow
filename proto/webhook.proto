@@ -345,12 +345,9 @@ message GetHealthSummaryResponse {
 
 // ResubmitWebhookRequest represents a request to manually retry webhook deliveries
 message ResubmitWebhookRequest {
-  oneof identifier {
-    string delivery_id = 1; // Resubmit specific delivery
-    string webhook_id = 2; // Resubmit all failed/pending deliveries for webhook
-  }
-  string namespace = 3; // Namespace for authorization
-  bool force = 4; // Force retry even for non-failed deliveries (default: false)
+  string delivery_id = 1; // Resubmit specific delivery
+  string namespace = 2; // Namespace for authorization
+  bool force = 3; // Force retry even for non-failed deliveries (default: false)
 }
 
 // ResubmitWebhookResponse represents the response for webhook resubmission

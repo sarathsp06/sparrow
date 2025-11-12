@@ -222,14 +222,30 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 	// Generate event ID
 	eventID := uuid.New().String()
 
-	// Create event processing job
+	// Store the event record in database first
+	eventRecord := &store.EventRecord{
+		ID:        eventID,
+		Namespace: namespace,
+		Event:     event,
+		Payload:   payload,
+		TTL:       ttl,
+		Metadata:  metadata,
+		CreatedAt: time.Now(),
+	}
+
+	if err := s.webhookRepo.StoreEvent(ctx, eventRecord); err != nil {
+		s.logger.Error("Failed to store event record", "error", err, "event_id", eventID)
+		return "", fmt.Errorf("failed to store event record: %w", err)
+	}
+
+	// Create event processing job with minimal data
 	eventArgs := queue.EventArgs{
 		EventID:    eventID,
 		Namespace:  namespace,
 		Event:      event,
-		Payload:    payload,
 		TTLSeconds: ttl,
 		Metadata:   metadata,
+		CreatedAt:  eventRecord.CreatedAt,
 	}
 
 	// Insert the event processing job
@@ -470,9 +486,7 @@ func (s *WebhookService) ResendWebhook(ctx context.Context, deliveryID string, n
 	_, err = s.jobInserter.Insert(ctx, &queue.WebhookArgs{
 		DeliveryID: newDelivery.ID,
 		WebhookID:  newDelivery.WebhookID,
-		URL:        webhook.URL,
-		Headers:    webhook.Headers,
-		Payload:    map[string]any{"TODO": "fetch original payload"}, // TODO: fetch original payload
+		EventID:    newDelivery.EventID,
 		ExpiresAt:  newDelivery.ExpiresAt,
 		Namespace:  webhook.Namespace,
 	})
@@ -1006,9 +1020,7 @@ func (s *WebhookService) ResubmitWebhook(ctx context.Context, deliveryID string,
 		_, err = s.jobInserter.Insert(ctx, &queue.WebhookArgs{
 			DeliveryID: delivery.ID,
 			WebhookID:  delivery.WebhookID,
-			URL:        webhook.URL,
-			Headers:    webhook.Headers,
-			Payload:    map[string]any{"TODO": "TODO"}, // Will be populated by the event data
+			EventID:    delivery.EventID,
 			ExpiresAt:  delivery.ExpiresAt,
 			Namespace:  webhook.Namespace,
 		})

@@ -1,3 +1,4 @@
+BEGIN;
 -- Initial schema for sparrow webhook system
 -- Create webhook_registrations table
 CREATE TABLE webhook_registrations (
@@ -48,7 +49,7 @@ CREATE TABLE webhook_deliveries (
     status webhook_delivery_status DEFAULT 'pending',
     attempt_count INTEGER DEFAULT 0,
     max_attempts INTEGER DEFAULT 3,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP  WITH TIME ZONE DEFAULT NOW() NOT NULL,
     last_attempted_at TIMESTAMP WITH TIME ZONE,
     next_retry_at TIMESTAMP WITH TIME ZONE,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -77,3 +78,4 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_webhook_registrations_updated_at 
     BEFORE UPDATE ON webhook_registrations 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+COMMIT;

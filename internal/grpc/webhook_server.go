@@ -291,42 +291,21 @@ func (s *WebhookServer) GetHealthSummary(ctx context.Context, req *pb.GetHealthS
 
 // ResubmitWebhook manually retries failed or pending webhook deliveries
 func (s *WebhookServer) ResubmitWebhook(ctx context.Context, req *pb.ResubmitWebhookRequest) (*pb.ResubmitWebhookResponse, error) {
-	// Handle different identifier types
-	var identifier string
-	var isDeliveryID bool
 
-	switch id := req.Identifier.(type) {
-	case *pb.ResubmitWebhookRequest_WebhookId:
-		identifier = id.WebhookId
-		isDeliveryID = false
-	case *pb.ResubmitWebhookRequest_DeliveryId:
-		identifier = id.DeliveryId
-		isDeliveryID = true
-	default:
-		return nil, status.Error(codes.InvalidArgument, "identifier is required (webhook_id or delivery_id)")
-	}
-
-	if identifier == "" {
+	if req.GetDeliveryId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "identifier cannot be empty")
 	}
 
-	// For delivery-specific resubmission
-	if isDeliveryID {
-		newDeliveryID, err := s.service.ResendWebhook(ctx, identifier, req.Namespace, req.Force)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to resubmit delivery: %v", err)
-		}
-		return &pb.ResubmitWebhookResponse{
-			Success:          true,
-			Message:          "Delivery resubmitted successfully",
-			ResubmittedCount: 1,
-			DeliveryIds:      []string{newDeliveryID},
-		}, nil
+	newDeliveryID, err := s.service.ResendWebhook(ctx, req.GetDeliveryId(), req.Namespace, req.Force)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to resubmit delivery: %v", err)
 	}
-
-	// For webhook-level resubmission, we would need a method in the service to handle this
-	// For now, return an error indicating this is not implemented
-	return nil, status.Error(codes.Unimplemented, "webhook-level resubmission is not yet implemented")
+	return &pb.ResubmitWebhookResponse{
+		Success:          true,
+		Message:          "Delivery resubmitted successfully",
+		ResubmittedCount: 1,
+		DeliveryIds:      []string{newDeliveryID},
+	}, nil
 }
 
 // ListWebhooksByHealth lists webhooks filtered by health status

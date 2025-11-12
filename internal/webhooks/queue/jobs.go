@@ -28,11 +28,11 @@ const (
 )
 
 // EventArgs represents an event processing job
+// Contains only essential identifiers - the payload is stored in the database
 type EventArgs struct {
 	EventID    string            `json:"event_id"`
 	Namespace  string            `json:"namespace"`
 	Event      string            `json:"event"`
-	Payload    map[string]any    `json:"payload"`
 	TTLSeconds int64             `json:"ttl_seconds"`
 	Metadata   map[string]string `json:"metadata"`
 	CreatedAt  time.Time         `json:"created_at"`
@@ -52,17 +52,13 @@ func (EventArgs) Kind() string {
 }
 
 // WebhookArgs represents a webhook delivery job
+// Contains only essential identifiers - webhook config and event payload retrieved from database
 type WebhookArgs struct {
-	DeliveryID string            `json:"delivery_id"`
-	WebhookID  string            `json:"webhook_id"`
-	EventID    string            `json:"event_id"`
-	URL        string            `json:"url"`
-	Headers    map[string]string `json:"headers"`
-	Payload    map[string]any    `json:"payload"`
-	Timeout    int               `json:"timeout"`
-	ExpiresAt  time.Time         `json:"expires_at"`
-	Namespace  string            `json:"namespace"`
-	Event      string            `json:"event"`
+	DeliveryID string    `json:"delivery_id"`
+	WebhookID  string    `json:"webhook_id"`
+	EventID    string    `json:"event_id"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	Namespace  string    `json:"namespace"`
 }
 
 var _ river.JobArgsWithInsertOpts = (*WebhookArgs)(nil)
