@@ -1,4 +1,4 @@
-
+![Work in Progress](https://img.shields.io/badge/Status-Work%20in%20Progress-orange?style=for-the-badge)
 <div align="center">
 	<img src="./web/src/lib/assets/favicon.svg" alt="Sparrow" width="240" height="240" />
 	<h1 style="font-family:monospace;font-weight:900;color:#222;">sparrow</h1>
