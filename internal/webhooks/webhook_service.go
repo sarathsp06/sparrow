@@ -488,11 +488,12 @@ func (s *WebhookService) ResendWebhook(ctx context.Context, deliveryID string, n
 		return "", fmt.Errorf("failed to create resend delivery: %w", err)
 	}
 	_, err = s.jobInserter.Insert(ctx, &queue.WebhookArgs{
-		DeliveryID: newDelivery.ID,
-		WebhookID:  newDelivery.WebhookID,
-		EventID:    newDelivery.EventID,
-		ExpiresAt:  newDelivery.ExpiresAt,
-		Namespace:  webhook.Namespace,
+		DeliveryID:  newDelivery.ID,
+		WebhookID:   newDelivery.WebhookID,
+		EventID:     newDelivery.EventID,
+		ExpiresAt:   newDelivery.ExpiresAt,
+		Namespace:   webhook.Namespace,
+		MaxAttempts: 1, // since it's a resend, we try only once
 	})
 	if err != nil {
 		s.logger.Error("Failed to queue webhook", "error", err)
