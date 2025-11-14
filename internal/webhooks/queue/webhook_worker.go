@@ -66,8 +66,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	webhook, err := w.webhookRepo.GetWebhookByID(ctx, args.WebhookID, args.Namespace)
 	if err != nil {
 		w.logger.Error("Failed to get webhook configuration", "error", err, "webhook_id", args.WebhookID)
-		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
-			store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err))
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err))
 		return fmt.Errorf("failed to get webhook configuration: %w", err)
 	}
 
@@ -75,8 +74,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	eventRecord, err := w.webhookRepo.GetEventByID(ctx, args.EventID)
 	if err != nil {
 		w.logger.Error("Failed to get event record", "error", err, "event_id", args.EventID)
-		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
-			store.StatusFailed, 0, "", fmt.Sprintf("Failed to get event record: %v", err))
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Failed to get event record: %v", err))
 		return fmt.Errorf("failed to get event record: %w", err)
 	}
 
@@ -98,18 +96,14 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		span.SetStatus(otelcodes.Error, "webhook delivery expired")
 		log.Warn("Webhook delivery expired", "expires_at", args.ExpiresAt)
 
-		err := w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
-			store.StatusExpired, 0, "", "Delivery expired")
+		err := w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID, store.StatusExpired, 0, "", "Delivery expired")
 		if err != nil {
 			log.Error("Failed to update delivery status to expired", "error", err)
 		}
 		return nil
 	}
 
-	log.Info("Processing webhook delivery", "event_id", args.EventID, "url", webhook.URL, "method", http.MethodPost,
-		"namespace", args.Namespace,
-		"event", eventRecord.Event,
-	)
+	log.Info("Processing webhook delivery", "event_id", args.EventID, "url", webhook.URL, "method", http.MethodPost, "namespace", args.Namespace, "event", eventRecord.Event)
 
 	// Create webhook payload using event data from database
 	webhookPayload := struct {
@@ -130,23 +124,15 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	// Create HTTP request (always POST for webhooks)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhook.URL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		log.Error("Failed to create request",
-			"job_id", job.ID,
-			"delivery_id", args.DeliveryID,
-			"url", webhook.URL,
-			"method", "POST",
-			"error", err,
-		)
+		log.Error("Failed to create request", "url", webhook.URL, "error", err)
 
-		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
-			store.StatusFailed, 0, "", fmt.Sprintf("Failed to create request: %v", err))
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Failed to create request: %v", err))
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Store the request body in the delivery record
 	if err := w.webhookRepo.UpdateDeliveryRequestBody(ctx, args.DeliveryID, string(payloadBytes)); err != nil {
 		log.Warn("Failed to store request body", "error", err, "delivery_id", args.DeliveryID)
-		// Don't fail the delivery for this, but log it
 	}
 
 	// Set default Content-Type
@@ -178,8 +164,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			"error", err,
 		)
 
-		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
-			store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err))
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err))
 		return fmt.Errorf("failed to send webhook: %w", err)
 	}
 	defer resp.Body.Close() //nolint:errcheck

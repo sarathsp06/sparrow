@@ -54,18 +54,20 @@ func (EventArgs) Kind() string {
 // WebhookArgs represents a webhook delivery job
 // Contains only essential identifiers - webhook config and event payload retrieved from database
 type WebhookArgs struct {
-	DeliveryID string    `json:"delivery_id"`
-	WebhookID  string    `json:"webhook_id"`
-	EventID    string    `json:"event_id"`
-	ExpiresAt  time.Time `json:"expires_at"`
-	Namespace  string    `json:"namespace"`
+	DeliveryID  string    `json:"delivery_id"`
+	WebhookID   string    `json:"webhook_id"`
+	EventID     string    `json:"event_id"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	Namespace   string    `json:"namespace"`
+	MaxAttempts int       `json:"max_attempts"`
 }
 
 var _ river.JobArgsWithInsertOpts = (*WebhookArgs)(nil)
 
-func (WebhookArgs) InsertOpts() river.InsertOpts {
+func (w WebhookArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{
-		Queue: QueueWebhookDelivery,
+		Queue:       QueueWebhookDelivery,
+		MaxAttempts: w.MaxAttempts,
 	}
 }
 
@@ -89,17 +91,40 @@ func NewJobInserter(client *river.Client[pgx.Tx]) *jobInserter {
 
 // Insert inserts a job into the queue.
 func (j *jobInserter) Insert(ctx context.Context, args river.JobArgs) (*rivertype.JobInsertResult, error) {
+	return j.client.Insert(ctx, args, j.InsertOpts(ctx, args))
+}
+
+func (j *jobInserter) InsertOpts(ctx context.Context, args river.JobArgs) *river.InsertOpts {
 	// get trace id and set that as metadata
 	carrier := propagation.MapCarrier{}
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
 	carrierJSON, err := json.Marshal(carrier)
 	if err != nil {
 		j.logger.Error("Failed to marshal trace metadata", "error", err)
-		return nil, fmt.Errorf("failed to marshal trace metadata: %w", err)
 	}
-	return j.client.Insert(ctx, args, &river.InsertOpts{
+	return &river.InsertOpts{
 		Metadata: carrierJSON,
-	})
+	}
+}
+
+// BatchInsert inserts multiple jobs into the queue.
+// The trace id is set as metadata for each job.
+// If any errors occur during the batch insert, the entire operation is failed.
+func (j *jobInserter) BatchInsert(ctx context.Context, args []river.JobArgs) ([]*rivertype.JobInsertResult, error) {
+	j.client.InsertMany(ctx, []river.InsertManyParams{})
+	params := make([]river.InsertManyParams, 0, len(args))
+	for _, arg := range args {
+		params = append(params, river.InsertManyParams{
+			Args:       arg,
+			InsertOpts: j.InsertOpts(ctx, arg),
+		})
+	}
+	insertResults, err := j.client.InsertMany(ctx, params)
+	if err != nil {
+		j.logger.Error("Failed to batch insert jobs", "error", err)
+		return nil, fmt.Errorf("failed to batch insert jobs: %w", err)
+	}
+	return insertResults, nil
 }
 
 // QueueManagerInterface defines the interface for queue management.
@@ -107,6 +132,7 @@ func (j *jobInserter) Insert(ctx context.Context, args river.JobArgs) (*rivertyp
 //go:generate gowrap gen -i JobInserter -t opentelemetry  -o JobInserter_otel.go
 type JobInserter interface {
 	Insert(ctx context.Context, args river.JobArgs) (*rivertype.JobInsertResult, error)
+	BatchInsert(ctx context.Context, args []river.JobArgs) ([]*rivertype.JobInsertResult, error)
 }
 
 var _ JobInserter = (*jobInserter)(nil)

@@ -204,34 +204,6 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 	return webhooks, nil
 }
 
-// CreateDeliveryTx creates a webhook delivery record within a transaction
-func (r *Repository) CreateDeliveryTx(ctx context.Context, tx pgx.Tx, delivery *WebhookDelivery) error {
-	delivery.ID = uuid.New().String()
-	delivery.Status = StatusPending
-
-	query := `
-		       INSERT INTO webhook_deliveries (
-			       id, webhook_id, event_id, status, attempt_count, max_attempts, 
-			       expires_at, response_code, response_body, error_message, request_body
-		       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-	       `
-
-	_, err := tx.Exec(ctx, query,
-		delivery.ID,
-		delivery.WebhookID,
-		delivery.EventID,
-		delivery.Status,
-		delivery.AttemptCount,
-		delivery.MaxAttempts,
-		delivery.ExpiresAt,
-		delivery.ResponseCode,
-		delivery.ResponseBody,
-		delivery.ErrorMessage,
-		delivery.RequestBody,
-	)
-	return storage.Error(err)
-}
-
 // NewRepository creates a new webhook repository
 func NewRepository(db storage.DB) *Repository {
 	return &Repository{
@@ -363,8 +335,8 @@ func (r *Repository) StoreEvent(ctx context.Context, event *EventRecord) error {
 // CreateDelivery creates a new delivery
 func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelivery) error {
 	query := `
-		INSERT INTO webhook_deliveries (id, webhook_id, event_id, status, attempt_count, max_attempts, created_at, expires_at, response_code, response_body, error_message, request_body)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		INSERT INTO webhook_deliveries (id, webhook_id, event_id, status, attempt_count, max_attempts, expires_at, response_code, response_body, error_message, request_body)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -374,7 +346,6 @@ func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelive
 		delivery.Status,
 		delivery.AttemptCount,
 		delivery.MaxAttempts,
-		delivery.CreatedAt,
 		delivery.ExpiresAt,
 		delivery.ResponseCode,
 		delivery.ResponseBody,

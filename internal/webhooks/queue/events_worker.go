@@ -104,11 +104,12 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 
 		// Create webhook delivery job with minimal data
 		webhookArgs := WebhookArgs{
-			DeliveryID: deliveryID,
-			WebhookID:  webhook.ID,
-			EventID:    args.EventID,
-			ExpiresAt:  expiresAt,
-			Namespace:  args.Namespace,
+			DeliveryID:  deliveryID,
+			WebhookID:   webhook.ID,
+			EventID:     args.EventID,
+			ExpiresAt:   expiresAt,
+			Namespace:   args.Namespace,
+			MaxAttempts: delivery.MaxAttempts,
 		}
 
 		_, err := w.jobInserter.Insert(ctx, &webhookArgs)

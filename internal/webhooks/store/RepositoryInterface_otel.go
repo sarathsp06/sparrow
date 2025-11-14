@@ -10,7 +10,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
@@ -107,30 +106,6 @@ func (_d RepositoryInterfaceWithTracing) CreateDelivery(ctx context.Context, del
 		_span.End()
 	}()
 	return _d.RepositoryInterface.CreateDelivery(ctx, delivery)
-}
-
-// CreateDeliveryTx implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) CreateDeliveryTx(ctx context.Context, tx pgx.Tx, delivery *WebhookDelivery) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CreateDeliveryTx")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":      ctx,
-				"tx":       tx,
-				"delivery": delivery}, map[string]interface{}{
-				"err": err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.RepositoryInterface.CreateDeliveryTx(ctx, tx, delivery)
 }
 
 // DeleteEvent implements RepositoryInterface
@@ -506,32 +481,6 @@ func (_d RepositoryInterfaceWithTracing) GetWebhooksByEvent(ctx context.Context,
 	return _d.RepositoryInterface.GetWebhooksByEvent(ctx, namespace, event)
 }
 
-// GetWebhooksByEventTx implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namespace string, event string) (wpa1 []*WebhookRegistration, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetWebhooksByEventTx")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":       ctx,
-				"tx":        tx,
-				"namespace": namespace,
-				"event":     event}, map[string]interface{}{
-				"wpa1": wpa1,
-				"err":  err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.RepositoryInterface.GetWebhooksByEventTx(ctx, tx, namespace, event)
-}
-
 // GetWebhooksByHealth implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) GetWebhooksByHealth(ctx context.Context, health WebhookHealth) (wpa1 []*WebhookRegistration, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetWebhooksByHealth")
@@ -804,30 +753,6 @@ func (_d RepositoryInterfaceWithTracing) StoreEvent(ctx context.Context, event *
 		_span.End()
 	}()
 	return _d.RepositoryInterface.StoreEvent(ctx, event)
-}
-
-// StoreEventTx implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRecord) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.StoreEventTx")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":   ctx,
-				"tx":    tx,
-				"event": event}, map[string]interface{}{
-				"err": err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.RepositoryInterface.StoreEventTx(ctx, tx, event)
 }
 
 // UnregisterWebhook implements RepositoryInterface

@@ -3,8 +3,6 @@ package store
 import (
 	"context"
 	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
 // RepositoryInterface defines the interface for webhook storage operations
@@ -13,9 +11,6 @@ import (
 type RepositoryInterface interface {
 	UpdateWebhookHealthState(ctx context.Context, webhookID string, success bool, eventTimestamp time.Time) error
 	CalculateWebhookHealth(ctx context.Context, webhookID string, lookbackHours int) (string, error)
-	StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRecord) error
-	GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namespace, event string) ([]*WebhookRegistration, error)
-	CreateDeliveryTx(ctx context.Context, tx pgx.Tx, delivery *WebhookDelivery) error
 	RegisterWebhook(ctx context.Context, registration *WebhookRegistration) error
 	UnregisterWebhook(ctx context.Context, webhookID string) error
 	GetWebhooksByEvent(ctx context.Context, namespace, event string) ([]*WebhookRegistration, error)

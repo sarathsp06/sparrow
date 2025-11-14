@@ -292,11 +292,9 @@ func (s *WebhookServer) GetHealthSummary(ctx context.Context, req *pb.GetHealthS
 
 // ResubmitWebhook manually retries failed or pending webhook deliveries
 func (s *WebhookServer) ResubmitWebhook(ctx context.Context, req *pb.ResubmitWebhookRequest) (*pb.ResubmitWebhookResponse, error) {
-
 	if req.GetDeliveryId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "identifier cannot be empty")
 	}
-
 	newDeliveryID, err := s.service.ResendWebhook(ctx, req.GetDeliveryId(), req.Namespace, req.Force)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to resubmit delivery: %v", err)

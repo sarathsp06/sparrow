@@ -75,7 +75,6 @@ func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.Reposit
 	}
 }
 
-// RegisterWebhook registers a URL for specific events in a namespace
 func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (string, int64, error) {
 	ctx, span := s.tracer.Start(ctx, "webhook.register",
 		trace.WithAttributes(
@@ -161,6 +160,11 @@ func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string
 	return nil
 }
 
+// PushEvent pushes an event to a webhook service, given the namespace and event name.
+// It returns the event ID if successful, otherwise an error.
+// The payload is optional and should match the event schema if present.
+// The TTL is optional and defaults to 1 day if not provided.
+// The metadata is optional and is used to store additional information about the event.
 func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string) (string, error) {
 	ctx, span := s.tracer.Start(ctx, "event.push",
 		trace.WithAttributes(
@@ -494,9 +498,7 @@ func (s *WebhookService) ResendWebhook(ctx context.Context, deliveryID string, n
 		s.logger.Error("Failed to queue webhook", "error", err)
 		return "", fmt.Errorf("failed to queue webhook for delivery: %w", err)
 	}
-	s.logger.Info("Webhook resend queued successfully",
-		"original_delivery_id", deliveryID,
-		"new_delivery_id", newDelivery.ID)
+	s.logger.Info("Webhook resend queued successfully", "original_delivery_id", deliveryID, "new_delivery_id", newDelivery.ID)
 	return newDelivery.ID, nil
 }
 
