@@ -21,7 +21,7 @@ exporters:
   otlphttp:
     endpoint: https://otlp.nr-data.net
     headers:
-      api-key: 5e3b4e254c15831e392a3f88ef6b5a5bFFFFNRAL
+      api-key: 5e3b4e254c15831e392a3f88ef6b5a5bFFFFNRAL # Replace with your New Relic One API key
 
 service:
   pipelines:

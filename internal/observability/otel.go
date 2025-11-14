@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/sarathsp06/sparrow"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
@@ -38,7 +39,7 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		ServiceName:    "sparrow",
-		ServiceVersion: "1.0.0",
+		ServiceVersion: sparrow.Version,
 		Environment:    "development",
 		OTLPEndpoint:   "localhost:4318", // Default OTLP HTTP endpoint
 		EnableTracing:  true,
@@ -200,12 +201,12 @@ func setupMetrics(ctx context.Context, res *resource.Resource, config *Config) (
 
 // GetTracer returns a tracer for the given name
 func GetTracer(name string) trace.Tracer {
-	return otel.Tracer(name, trace.WithInstrumentationVersion("1.0.0"))
+	return otel.Tracer(name, trace.WithInstrumentationVersion(sparrow.Version))
 }
 
 // GetMeter returns a meter for the given name
 func GetMeter(name string) metric.Meter {
-	return otel.Meter(name, metric.WithInstrumentationVersion("1.0.0"))
+	return otel.Meter(name, metric.WithInstrumentationVersion(sparrow.Version))
 }
 
 // SparrowMetrics holds application-specific metrics

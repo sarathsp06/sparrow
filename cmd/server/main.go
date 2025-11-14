@@ -19,6 +19,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 
+	"github.com/sarathsp06/sparrow"
 	connectserver "github.com/sarathsp06/sparrow/internal/connect"
 	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
 	"github.com/sarathsp06/sparrow/internal/observability"
@@ -124,7 +125,7 @@ func main() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"healthy","version":"1.0.0"}`))
+		_, _ = w.Write([]byte(fmt.Sprintf(`{"status":"healthy","version":"%s"}`, sparrow.Version)))
 	})
 
 	// Create HTTP server with OpenTelemetry instrumentation
