@@ -12,7 +12,7 @@ export default defineConfig({
 		devtoolsJson()
 	],
 	server: {
-		allowedHosts:["210df3eb94e0.ngrok-free.app"],
+		allowedHosts:["cb58385c52c8.ngrok-free.app"]
 	},
 	resolve: {
 		alias: {
