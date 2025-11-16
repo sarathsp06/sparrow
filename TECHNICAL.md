@@ -2,6 +2,88 @@
 
 This document provides comprehensive technical details about Sparrow's architecture, implementation, and internal systems.
 
+## 🏗️ Technical Stack Overview
+
+### Backend Architecture
+
+**Go 1.24+**
+- High-performance, concurrent webhook processing with goroutines
+- Context-based request handling for graceful cancellation
+- Memory-efficient JSON processing and HTTP client pooling
+- Comprehensive error handling and circuit breaker patterns
+
+**PostgreSQL Database**
+- ACID compliance for reliable webhook and event storage
+- JSON/JSONB support for flexible event payloads and metadata
+- Advanced indexing strategies for high-performance queries
+- Database triggers for automatic health status calculations
+- Partitioning support for high-volume delivery logs
+
+**River Job Queue**
+- PostgreSQL-based job queue for consistency with main database
+- ACID job processing with guaranteed delivery semantics
+- Built-in retry logic with exponential backoff algorithms
+- Worker pool management with dynamic scaling capabilities
+- Job prioritization and scheduling for time-sensitive deliveries
+
+**Protocol Buffers + gRPC**
+- Type-safe API definitions with backward/forward compatibility
+- High-performance binary protocol for internal services
+- Auto-generated client libraries for multiple languages
+- Streaming support for real-time webhook status updates
+- Built-in authentication and authorization mechanisms
+
+**Connect-RPC**
+- HTTP/JSON compatibility layer over gRPC services
+- Standard REST-like endpoints for easy integration
+- Compatible with existing HTTP tooling and proxies
+- Browser and curl-friendly for development and debugging
+- OpenAPI documentation generation
+
+### Frontend Architecture
+
+**SvelteKit Framework**
+- Reactive component system with minimal runtime overhead
+- Server-side rendering for improved initial page load
+- Type-safe integration with auto-generated TypeScript bindings
+- Hot module replacement for rapid development cycles
+- Progressive enhancement for accessibility
+
+**TypeScript Integration**
+- Auto-generated API types from Protocol Buffer definitions
+- Compile-time type checking for reduced runtime errors
+- Enhanced developer experience with IntelliSense
+- Strict type safety across the entire frontend codebase
+
+**Vite Build System**
+- Lightning-fast development server with instant HMR
+- Optimized production builds with tree-shaking
+- Plugin ecosystem for extended functionality
+- Modern JavaScript/TypeScript support out of the box
+
+### Infrastructure Components
+
+**Docker Compose Development Environment**
+- Consistent development setup across team members
+- PostgreSQL with required extensions (pgcrypto, uuid-ossp)
+- OpenTelemetry collector for observability testing
+- Network isolation and service discovery
+- Volume persistence for database state
+
+**Database Migration System**
+- Version-controlled schema changes with migration files
+- Forward and backward migration support for rollbacks
+- Safe deployment practices with migration validation
+- Automated migration execution in CI/CD pipelines
+- Database seed data for development environments
+
+**Health Check System**
+- Kubernetes-compatible liveness and readiness probes
+- Database connectivity and transaction validation
+- Queue system health monitoring and worker status
+- Graceful degradation handling for partial outages
+- Custom health check endpoints for load balancers
+
 ## 🚀 Technical Features
 
 ### Webhook Lifecycle Management
@@ -69,57 +151,78 @@ This document provides comprehensive technical details about Sparrow's architect
 
 ## 🏗️ System Architecture
 
-### Layered Architecture Pattern
+### Layered Architecture Implementation
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Client Applications                       │
 ├─────────────────────────┬───────────────────────────────────────┤
 │       gRPC Clients      │         HTTP/JSON Clients            │
+│    (High Performance)   │        (Wide Compatibility)          │
 ├─────────────────────────┼───────────────────────────────────────┤
 │      gRPC Server        │        Connect-RPC Server            │
+│   (Binary Protocol)     │       (HTTP/JSON Protocol)           │
 ├─────────────────────────┴───────────────────────────────────────┤
 │                     Service Layer (Protocol Agnostic)          │
+│              Business Logic, Validation, Authorization         │
 ├─────────────────────────────────────────────────────────────────┤
 │        Repository Layer (Database Abstraction)                 │
+│           SQL Query Optimization, Transaction Management       │
 ├─────────────────────────────────────────────────────────────────┤
 │     PostgreSQL Database + River Job Queue                      │
+│        ACID Transactions, Indexing, Triggers, Partitioning     │
 ├─────────────────────────────────────────────────────────────────┤
 │              Background Workers (Webhook Delivery)             │
+│        Concurrent Processing, Retry Logic, Health Monitoring   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Core Components
+### Detailed Component Architecture
 
 **1. API Layer (`/internal/grpc/`, `/internal/connect/`)**
 
-- Protocol adapters that convert between gRPC/HTTP and internal service calls
-- Input validation, authentication, and protocol-specific error handling
-- Shared business logic ensures consistent behavior across protocols
+- **Protocol Adapters**: Convert between gRPC protobuf messages and HTTP JSON
+- **Input Validation**: Request payload validation using protocol-specific validators
+- **Authentication Handlers**: API key validation and rate limiting per client
+- **Error Translation**: Convert internal errors to appropriate protocol responses
+- **Middleware Pipeline**: Logging, metrics collection, and request tracing
+- **Content Negotiation**: Support for multiple content types and encodings
 
 **2. Service Layer (`/internal/webhooks/`)**
 
-- Protocol-agnostic business logic for webhook operations
-- Event processing, webhook registration, and health management
-- Dependency injection for easy testing and modularity
+- **Webhook Service**: Core business logic for webhook lifecycle management
+- **Event Service**: Event processing, routing, and delivery orchestration
+- **Health Service**: Endpoint health calculation and status management
+- **Validation Engine**: Input sanitization and business rule enforcement
+- **Authorization Logic**: Namespace-based access control and permission checking
+- **Integration Interfaces**: Clean abstractions for external service dependencies
 
 **3. Repository Layer (`/internal/webhooks/store/`)**
 
-- Database access abstraction with clean interfaces
-- SQL query optimization and transaction management
-- Model mapping between database and service domain objects
+- **Database Interfaces**: Abstract database operations with clean contracts
+- **Query Optimization**: Efficient SQL queries with proper indexing strategies
+- **Transaction Management**: ACID compliance for complex multi-table operations
+- **Model Mapping**: Translation between database rows and domain objects
+- **Connection Pooling**: Optimized database connection management
+- **Migration Support**: Schema versioning and backward compatibility
 
 **4. Queue System (`/internal/webhooks/queue/`, `/internal/webhooks/workers/`)**
 
-- River job queue integration for reliable webhook delivery
-- Optimized job payloads (minimal data, database lookups for full context)
-- Configurable worker pools with concurrent delivery processing
+- **Job Scheduling**: Event-triggered webhook delivery job creation
+- **Worker Pool Management**: Configurable concurrent webhook delivery workers
+- **Retry Logic**: Exponential backoff with jitter for failed deliveries
+- **Dead Letter Handling**: Failed job preservation for manual intervention
+- **Priority Queuing**: Support for urgent vs. standard delivery priorities
+- **Metrics Collection**: Queue depth, processing times, and success rates
 
-**5. Background Processing**
+**5. Background Processing Architecture**
 
-- Event-driven webhook delivery with retry logic
-- Health monitoring and automatic status updates
-- Performance metrics collection and aggregation
+- **Event-Driven Delivery**: Webhook jobs triggered by event creation
+- **Health Monitoring**: Automatic endpoint health updates based on delivery results
+- **Performance Analytics**: Real-time calculation of delivery metrics
+- **Circuit Breaker**: Automatic webhook disabling for consistently failing endpoints
+- **Batch Processing**: Efficient bulk operations for maintenance tasks
+- **Resource Management**: Memory and CPU usage optimization
 
 ### Data Flow Architecture
 
@@ -286,45 +389,203 @@ This document provides comprehensive technical details about Sparrow's architect
 - Queue system health monitoring
 - Graceful degradation handling
 
-## Configuration Management
+## 🔧 Comprehensive Configuration Management
 
-### Environment Variables
+### Complete Environment Variables
 
+**Database Configuration**
 ```bash
-# Database Configuration
-DATABASE_URL="postgres://user:pass@localhost:5432/sparrow"
-DB_MAX_OPEN_CONNS=25
-DB_MAX_IDLE_CONNS=5
+# Primary database connection
+DATABASE_URL="postgres://user:pass@localhost:5432/sparrow?sslmode=disable"
 
-# Server Configuration
-HTTP_PORT=8080
-GRPC_PORT=50051
-GRACEFUL_SHUTDOWN_TIMEOUT=30s
+# Connection pool settings
+DB_MAX_OPEN_CONNS=25              # Maximum open connections
+DB_MAX_IDLE_CONNS=5               # Maximum idle connections
+DB_CONN_MAX_LIFETIME=1h           # Connection lifetime
+DB_CONN_MAX_IDLE_TIME=15m         # Idle connection timeout
 
-# Queue Configuration
-RIVER_WORKERS=10
-RIVER_MAX_ATTEMPTS=6
-RIVER_RETRY_POLICY=exponential
+# Migration settings
+MIGRATION_TABLE="schema_migrations" # Migration tracking table
+MIGRATION_AUTO_RUN=true           # Auto-run migrations on startup
+```
 
-# Observability
+**Server Configuration**
+```bash
+# HTTP Server (Connect-RPC)
+HTTP_PORT=8080                    # HTTP server port
+HTTP_HOST=0.0.0.0                # HTTP bind address
+HTTP_READ_TIMEOUT=30s             # Request read timeout
+HTTP_WRITE_TIMEOUT=30s            # Response write timeout
+HTTP_IDLE_TIMEOUT=120s            # Keep-alive timeout
+HTTP_MAX_HEADER_SIZE=1MB          # Maximum header size
+
+# gRPC Server
+GRPC_PORT=50051                   # gRPC server port
+GRPC_HOST=0.0.0.0                # gRPC bind address
+GRPC_MAX_RECV_MSG_SIZE=4MB        # Maximum receive message size
+GRPC_MAX_SEND_MSG_SIZE=4MB        # Maximum send message size
+GRPC_KEEPALIVE_TIME=2h            # Client keepalive time
+GRPC_KEEPALIVE_TIMEOUT=20s        # Client keepalive timeout
+
+# Graceful shutdown
+GRACEFUL_SHUTDOWN_TIMEOUT=30s     # Shutdown timeout
+SHUTDOWN_DELAY=5s                 # Delay before shutdown starts
+```
+
+**Queue and Worker Configuration**
+```bash
+# River Job Queue Settings
+RIVER_WORKERS=10                  # Number of worker goroutines
+RIVER_MAX_ATTEMPTS=6              # Maximum retry attempts
+RIVER_RETRY_POLICY=exponential    # Retry policy (exponential, linear, fixed)
+RIVER_FETCH_COOLDOWN=100ms        # Worker fetch cooldown
+RIVER_FETCH_POLL_INTERVAL=1s      # Poll interval for new jobs
+RIVER_RESCUE_STUCK_JOBS_AFTER=1h  # Rescue jobs stuck for this duration
+
+# Webhook Delivery Settings
+WEBHOOK_TIMEOUT=30s               # Default webhook timeout
+WEBHOOK_MAX_RETRIES=5             # Default maximum retries
+WEBHOOK_RETRY_BACKOFF=60s         # Default retry backoff
+WEBHOOK_CONCURRENT_DELIVERIES=100 # Maximum concurrent deliveries
+
+# Queue Health
+QUEUE_HEALTH_CHECK_INTERVAL=30s   # Queue health check frequency
+QUEUE_MAX_DEPTH_WARNING=10000     # Warning threshold for queue depth
+QUEUE_MAX_DEPTH_CRITICAL=50000    # Critical threshold for queue depth
+```
+
+**Observability Configuration**
+```bash
+# OpenTelemetry
 OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
-OTEL_SERVICE_NAME="sparrow"
-LOG_LEVEL=info
+OTEL_EXPORTER_OTLP_HEADERS="api-key=your-key"  # Optional headers
+OTEL_SERVICE_NAME="sparrow"                     # Service name in traces
+OTEL_SERVICE_VERSION="1.0.0"                   # Service version
+OTEL_RESOURCE_ATTRIBUTES="environment=production,datacenter=us-west"
 
-# Security
-WEBHOOK_TIMEOUT=30s
-MAX_PAYLOAD_SIZE=1MB
-RATE_LIMIT_REQUESTS=1000
-RATE_LIMIT_WINDOW=1m
+# Logging
+LOG_LEVEL=info                    # Log level (debug, info, warn, error)
+LOG_FORMAT=json                   # Log format (json, text)
+LOG_OUTPUT=stdout                 # Log output (stdout, stderr, file)
+LOG_FILE_PATH="/var/log/sparrow.log"  # Log file path (if LOG_OUTPUT=file)
+LOG_MAX_SIZE=100MB                # Maximum log file size
+LOG_MAX_BACKUPS=3                 # Number of backup log files
+LOG_MAX_AGE=7d                    # Maximum age of log files
+
+# Metrics
+METRICS_ENABLED=true              # Enable metrics collection
+METRICS_PORT=9090                 # Prometheus metrics port
+METRICS_PATH="/metrics"           # Metrics endpoint path
+METRICS_NAMESPACE="sparrow"       # Metrics namespace
+
+# Tracing
+TRACING_ENABLED=true              # Enable distributed tracing
+TRACING_SAMPLE_RATE=0.1           # Trace sampling rate (0.0 to 1.0)
+TRACING_JAEGER_ENDPOINT="http://localhost:14268/api/traces"
+```
+
+**Security Configuration**
+```bash
+# Rate Limiting
+RATE_LIMIT_ENABLED=true           # Enable rate limiting
+RATE_LIMIT_REQUESTS=1000          # Requests per window
+RATE_LIMIT_WINDOW=1m              # Rate limit window
+RATE_LIMIT_BURST=100              # Burst allowance
+RATE_LIMIT_REDIS_URL="redis://localhost:6379"  # Redis for distributed rate limiting
+
+# Authentication
+API_KEY_HEADER="X-API-Key"         # API key header name
+API_KEY_REQUIRED=false            # Require API key for all requests
+JWT_SECRET="your-jwt-secret"      # JWT signing secret
+JWT_EXPIRY=24h                    # JWT token expiry
+
+# TLS Configuration
+TLS_ENABLED=false                 # Enable TLS for HTTP server
+TLS_CERT_FILE="/path/to/cert.pem" # TLS certificate file
+TLS_KEY_FILE="/path/to/key.pem"   # TLS private key file
+TLS_MIN_VERSION="1.2"             # Minimum TLS version
+
+# CORS
+CORS_ENABLED=true                 # Enable CORS
+CORS_ALLOWED_ORIGINS="*"          # Allowed origins (comma-separated)
+CORS_ALLOWED_METHODS="GET,POST,PUT,DELETE,OPTIONS"  # Allowed methods
+CORS_ALLOWED_HEADERS="*"          # Allowed headers
+CORS_MAX_AGE=3600                 # Preflight cache duration
+```
+
+**Application Limits**
+```bash
+# Payload Limits
+MAX_PAYLOAD_SIZE=1MB              # Maximum webhook payload size
+MAX_HEADER_SIZE=32KB              # Maximum header size
+MAX_URL_LENGTH=2048               # Maximum webhook URL length
+MAX_CUSTOM_HEADERS=50             # Maximum custom headers per webhook
+
+# Resource Limits
+MAX_CONCURRENT_WEBHOOKS=1000      # Maximum concurrent webhook deliveries
+MAX_EVENTS_PER_SECOND=10000       # Maximum events processed per second
+MAX_MEMORY_USAGE=2GB              # Maximum memory usage
+MAX_CPU_USAGE=80                  # Maximum CPU usage percentage
+
+# Retention Settings
+DELIVERY_LOG_RETENTION=30d        # Delivery log retention period
+EVENT_RETENTION=90d               # Event data retention period
+HEALTH_METRICS_RETENTION=365d     # Health metrics retention period
+AUDIT_LOG_RETENTION=1y            # Audit log retention period
 ```
 
 ### Configuration Validation
 
-- Environment variable validation at startup
-- Type checking for numeric values
-- Required vs optional configuration
-- Default value fallbacks
-- Configuration hot-reloading support
+Sparrow performs comprehensive configuration validation at startup:
+
+- **Type Checking**: Numeric values, durations, and boolean flags
+- **Range Validation**: Ports, percentages, and size limits
+- **Dependency Checks**: Database connectivity and external service availability
+- **Security Validation**: TLS certificate validity and encryption settings
+- **Performance Warnings**: Potentially problematic configuration combinations
+
+### Configuration Hot-Reloading
+
+Supported hot-reload configurations:
+- Log level changes via SIGHUP signal
+- Rate limiting adjustments via admin API
+- Webhook timeout modifications
+- Worker pool size adjustments
+- Health check threshold updates
+
+### Environment-Specific Configurations
+
+**Development Environment**
+```bash
+# Relaxed settings for local development
+LOG_LEVEL=debug
+RIVER_WORKERS=2
+RIVER_FETCH_COOLDOWN=10ms
+WEBHOOK_TIMEOUT=5s
+RATE_LIMIT_ENABLED=false
+```
+
+**Production Environment**
+```bash
+# Optimized settings for production
+LOG_LEVEL=info
+RIVER_WORKERS=20
+RIVER_FETCH_COOLDOWN=100ms
+WEBHOOK_TIMEOUT=30s
+RATE_LIMIT_ENABLED=true
+TLS_ENABLED=true
+METRICS_ENABLED=true
+```
+
+**High-Scale Environment**
+```bash
+# Settings for high-volume deployments
+RIVER_WORKERS=50
+DB_MAX_OPEN_CONNS=100
+WEBHOOK_CONCURRENT_DELIVERIES=500
+MAX_EVENTS_PER_SECOND=50000
+TRACING_SAMPLE_RATE=0.01
+```
 
 ## Security Implementation
 

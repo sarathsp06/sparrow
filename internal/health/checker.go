@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/sarathsp06/sparrow"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 )

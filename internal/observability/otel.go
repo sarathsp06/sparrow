@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sarathsp06/sparrow"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
@@ -20,6 +19,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/sarathsp06/sparrow"
 )
 
 // Config holds OpenTelemetry configuration

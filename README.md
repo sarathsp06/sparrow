@@ -21,40 +21,6 @@ When applications need to notify external systems about events (user signups, or
 - **Health Monitoring**: Automatic endpoint health tracking helps identify problematic integrations
 - **Multi-tenancy**: Namespace isolation allows serving multiple applications or customers
 
-### Technical Architecture
-
-**Backend Stack:**
-
-- **Go 1.24+** - High-performance, concurrent webhook processing
-- **PostgreSQL** - Persistent storage for webhooks, events, and delivery tracking
-- **River Job Queue** - PostgreSQL-based job queue for reliable background processing
-- **gRPC + Connect-RPC** - Dual protocol support (binary gRPC + HTTP/JSON)
-- **Protocol Buffers** - Type-safe API definitions with auto-generated clients
-- **OpenTelemetry** - Distributed tracing and metrics collection
-
-**Frontend Stack:**
-
-- **SvelteKit** - Modern reactive web UI for webhook management
-- **TypeScript** - Type-safe frontend with auto-generated API bindings
-- **Vite** - Fast development build system
-
-**Infrastructure:**
-
-- **Docker Compose** - Local development environment
-- **Database Migrations** - Version-controlled schema evolution
-- **Health Checks** - Kubernetes-ready health endpoints
-- **Observability** - Structured logging with correlation IDs
-
-### Key Technical Features
-
-- **Dual API Protocols**: Same business logic exposed via gRPC (high performance) and Connect-RPC (HTTP/JSON compatibility)
-- **Clean Architecture**: Service layer abstraction allows easy testing and protocol flexibility
-- **Request Body Storage**: Complete webhook payload preservation for audit and replay capabilities
-- **Optimized Queue Payloads**: Minimal data in job queue (80-95% size reduction) with database normalization
-- **Event Type Registry**: Global schema validation and event management across namespaces
-- **Health State Machine**: Automatic endpoint health calculation based on delivery success rates
-- **Zero-downtime Deployments**: Database migrations support backward compatibility
-
 Whether you're building microservices, integrating third-party APIs, or need reliable event-driven communication, Sparrow provides enterprise-grade webhook infrastructure out of the box.
 
 ## 🚀 Features
@@ -70,19 +36,17 @@ Whether you're building microservices, integrating third-party APIs, or need rel
 
 ## 🏗️ Architecture
 
-Sparrow uses a clean, layered architecture:
+Sparrow uses a clean, layered architecture with dual API protocols:
 
-- **API Layer**: gRPC and Connect-RPC servers with protocol adapters
+- **API Layer**: Both gRPC (high performance) and HTTP/JSON (compatibility) endpoints
 - **Service Layer**: Protocol-agnostic business logic for webhook operations
-- **Repository Layer**: Database abstraction with optimized queries
-- **Queue System**: River job queue for reliable background processing
-- **Storage**: PostgreSQL with comprehensive indexing and triggers
+- **Queue System**: Reliable background processing with intelligent retry logic
+- **Storage**: PostgreSQL with comprehensive auditing and health tracking
 
 **Tech Stack:** Go, PostgreSQL, River Queue, SvelteKit, TypeScript, OpenTelemetry
 
 📋 **For detailed technical documentation, see [TECHNICAL.md](TECHNICAL.md)**
 
-## 🚀 Technical Features
 
 ## 🚀 Quick Start
 
@@ -170,14 +134,13 @@ curl http://localhost:8080/webhook/health/{webhook_id}?namespace=my-app
 
 ## 🛠️ Configuration
 
-Key environment variables:
-
 ```bash
 DATABASE_URL="postgres://user:pass@localhost:5432/sparrow"
 HTTP_PORT=8080
 GRPC_PORT=50051
-OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
 ```
+
+See [TECHNICAL.md](TECHNICAL.md) for complete configuration options.
 
 ## 📚 Documentation
 
