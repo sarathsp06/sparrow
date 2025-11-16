@@ -11,6 +11,89 @@ import type { JsonObject, Message } from "@bufbuild/protobuf";
 export declare const file_proto_webhook: GenFile;
 
 /**
+ * WebhookHTTPConfig represents HTTP configuration for webhook delivery
+ *
+ * @generated from message webhook.WebhookHTTPConfig
+ */
+export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
+  /**
+   * Maximum retry attempts (0-10, default: 3)
+   *
+   * @generated from field: int32 max_retries = 1;
+   */
+  maxRetries: number;
+
+  /**
+   * Base backoff time between retries (1-3600s, default: 60)
+   *
+   * @generated from field: int32 retry_backoff_seconds = 2;
+   */
+  retryBackoffSeconds: number;
+
+  /**
+   * Whether to capture and store response body (default: false)
+   *
+   * @generated from field: bool capture_response_body = 3;
+   */
+  captureResponseBody: boolean;
+
+  /**
+   * Whether to follow HTTP redirects (default: true)
+   *
+   * @generated from field: bool follow_redirects = 4;
+   */
+  followRedirects: boolean;
+
+  /**
+   * Whether to verify SSL certificates (default: true)
+   *
+   * @generated from field: bool verify_ssl = 5;
+   */
+  verifySsl: boolean;
+
+  /**
+   * Per-request timeout (1-300s, default: 30)
+   *
+   * @generated from field: int32 request_timeout_seconds = 6;
+   */
+  requestTimeoutSeconds: number;
+
+  /**
+   * HTTP status codes considered successful (default: [200,201,202,204])
+   *
+   * @generated from field: repeated int32 expected_status_codes = 7;
+   */
+  expectedStatusCodes: number[];
+
+  /**
+   * Secret for webhook signature verification
+   *
+   * @generated from field: string webhook_secret = 8;
+   */
+  webhookSecret: string;
+
+  /**
+   * Custom User-Agent header (default: "Sparrow-Webhook/1.0")
+   *
+   * @generated from field: string user_agent = 9;
+   */
+  userAgent: string;
+
+  /**
+   * Content-Type for requests (default: "application/json")
+   *
+   * @generated from field: string content_type = 10;
+   */
+  contentType: string;
+};
+
+/**
+ * Describes the message webhook.WebhookHTTPConfig.
+ * Use `create(WebhookHTTPConfigSchema)` to create a new message.
+ */
+export declare const WebhookHTTPConfigSchema: GenMessage<WebhookHTTPConfig>;
+
+/**
  * RegisterWebhookRequest represents a request to register a webhook URL
  *
  * @generated from message webhook.RegisterWebhookRequest
@@ -45,7 +128,7 @@ export declare type RegisterWebhookRequest = Message<"webhook.RegisterWebhookReq
   headers: { [key: string]: string };
 
   /**
-   * Timeout in seconds (default: 30)
+   * Timeout in seconds (default: 30) - DEPRECATED, use http_config.request_timeout_seconds
    *
    * @generated from field: int32 timeout = 5;
    */
@@ -64,6 +147,13 @@ export declare type RegisterWebhookRequest = Message<"webhook.RegisterWebhookReq
    * @generated from field: string description = 7;
    */
   description: string;
+
+  /**
+   * HTTP configuration options (optional, defaults will be used if not provided)
+   *
+   * @generated from field: webhook.WebhookHTTPConfig http_config = 8;
+   */
+  httpConfig?: WebhookHTTPConfig;
 };
 
 /**
@@ -496,7 +586,7 @@ export declare type RegisteredWebhook = Message<"webhook.RegisteredWebhook"> & {
   headers: { [key: string]: string };
 
   /**
-   * Timeout in seconds
+   * Timeout in seconds - DEPRECATED, see http_config.request_timeout_seconds
    *
    * @generated from field: int32 timeout = 6;
    */
@@ -536,6 +626,13 @@ export declare type RegisteredWebhook = Message<"webhook.RegisteredWebhook"> & {
    * @generated from field: int64 updated_at = 11;
    */
   updatedAt: bigint;
+
+  /**
+   * HTTP configuration options
+   *
+   * @generated from field: webhook.WebhookHTTPConfig http_config = 12;
+   */
+  httpConfig?: WebhookHTTPConfig;
 };
 
 /**
@@ -1737,7 +1834,7 @@ export declare type WebhookUpdateFields = Message<"webhook.WebhookUpdateFields">
   headers: { [key: string]: string };
 
   /**
-   * Updated timeout
+   * Updated timeout - DEPRECATED, use http_config.request_timeout_seconds
    *
    * @generated from field: int32 timeout = 4;
    */
@@ -1756,6 +1853,13 @@ export declare type WebhookUpdateFields = Message<"webhook.WebhookUpdateFields">
    * @generated from field: string description = 6;
    */
   description: string;
+
+  /**
+   * Updated HTTP configuration options
+   *
+   * @generated from field: webhook.WebhookHTTPConfig http_config = 7;
+   */
+  httpConfig?: WebhookHTTPConfig;
 };
 
 /**

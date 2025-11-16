@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	jsonschema "github.com/kaptinlin/jsonschema"
+	"github.com/lib/pq"
 	"go.opentelemetry.io/otel/attribute"
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -31,6 +32,7 @@ type WebhookService struct {
 //go:generate gowrap gen -i WebhookServiceInterface -t opentelemetry -o WebhookServiceInterface_otel.go
 type WebhookServiceInterface interface {
 	RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (string, int64, error)
+	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error)
 	UnregisterWebhook(ctx context.Context, webhookID string) error
 	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string) (string, error)
 	GetWebhookStatus(ctx context.Context, namespace string, webhookID string) ([]*store.WebhookDelivery, int32, error)
@@ -137,6 +139,127 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 		"url", url,
 	)
 	return registration.ID, registration.CreatedAt.Unix(), nil
+}
+
+// CreateWebhook creates a webhook registration with HTTP configuration support
+func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error) {
+	ctx, span := s.tracer.Start(ctx, "webhook.create",
+		trace.WithAttributes(
+			attribute.String("namespace", req.Namespace),
+			attribute.StringSlice("events", req.Events),
+			attribute.String("url", req.URL),
+		),
+	)
+	defer span.End()
+
+	s.logger.Info("Processing enhanced webhook creation request",
+		"namespace", req.Namespace,
+		"events", req.Events,
+		"url", req.URL,
+	)
+
+	// Convert request to internal webhook registration
+	webhookReg, err := req.ToWebhookRegistration()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert webhook registration request: %w", err)
+	}
+
+	// Generate ID if not provided
+	if webhookReg.ID == "" {
+		webhookReg.ID = uuid.New().String()
+	}
+
+	// Validate event names exist
+	for _, event := range webhookReg.Events {
+		if event == "" {
+			return nil, fmt.Errorf("empty event name not allowed")
+		}
+		// Check if event is registered
+		events, err := s.webhookRepo.ListEvents(ctx, false)
+		if err != nil {
+			s.logger.Warn("Failed to validate event names", "error", err)
+		} else {
+			eventExists := false
+			for _, registeredEvent := range events {
+				if registeredEvent.Name == event {
+					eventExists = true
+					break
+				}
+			}
+			if !eventExists {
+				s.logger.Warn("Event not registered", "event", event, "namespace", req.Namespace)
+			}
+		}
+	}
+
+	// Convert internal webhook to store model for database operation
+	storeWebhook := &store.WebhookRegistration{
+		ID:                    webhookReg.ID,
+		Namespace:             webhookReg.Namespace,
+		Events:                pq.StringArray(webhookReg.Events),
+		URL:                   webhookReg.URL,
+		Timeout:               webhookReg.HTTPConfig.RequestTimeoutSeconds,
+		Active:                webhookReg.Active,
+		Description:           webhookReg.Description,
+		Health:                store.WebhookHealth(webhookReg.Health),
+		MaxRetries:            webhookReg.HTTPConfig.MaxRetries,
+		RetryBackoffSeconds:   webhookReg.HTTPConfig.RetryBackoffSeconds,
+		CaptureResponseBody:   webhookReg.HTTPConfig.CaptureResponseBody,
+		FollowRedirects:       webhookReg.HTTPConfig.FollowRedirects,
+		VerifySSL:             webhookReg.HTTPConfig.VerifySSL,
+		RequestTimeoutSeconds: webhookReg.HTTPConfig.RequestTimeoutSeconds,
+		WebhookSecret:         webhookReg.HTTPConfig.WebhookSecret,
+		UserAgent:             webhookReg.HTTPConfig.UserAgent,
+		ContentType:           webhookReg.HTTPConfig.ContentType,
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
+	}
+
+	// Convert headers to string map for store model
+	headersMap := make(map[string]string)
+	for k, v := range webhookReg.Headers {
+		if str, ok := v.(string); ok {
+			headersMap[k] = str
+		}
+	}
+	storeWebhook.Headers = headersMap
+
+	// Convert expected status codes
+	expectedCodes := make(pq.Int64Array, len(webhookReg.HTTPConfig.ExpectedStatusCodes))
+	for i, code := range webhookReg.HTTPConfig.ExpectedStatusCodes {
+		expectedCodes[i] = int64(code)
+	}
+	storeWebhook.ExpectedStatusCodes = expectedCodes
+
+	// Register the webhook
+	if err := s.webhookRepo.RegisterWebhook(ctx, storeWebhook); err != nil {
+		s.logger.Error("Failed to register webhook",
+			"namespace", req.Namespace,
+			"events", req.Events,
+			"url", req.URL,
+			"error", err,
+		)
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "failed to register webhook")
+		return nil, fmt.Errorf("failed to register webhook: %w", err)
+	}
+
+	// Update metrics
+	if s.metrics != nil {
+		s.metrics.WebhookRegistrations.Add(ctx, 1)
+		s.metrics.ActiveWebhooks.Add(ctx, 1)
+	}
+
+	s.logger.Info("Enhanced webhook registered successfully",
+		"webhook_id", webhookReg.ID,
+		"namespace", req.Namespace,
+		"events", req.Events,
+		"url", req.URL,
+		"http_config_provided", req.HTTPConfig != nil,
+	)
+
+	span.SetStatus(otelcodes.Ok, "webhook created successfully")
+	return webhookReg, nil
 }
 
 // UnregisterWebhook removes a webhook registration
@@ -813,6 +936,12 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 		span.SetStatus(otelcodes.Error, "Failed to get webhook")
 		s.logger.Error("Failed to get webhook", "error", err)
 		return nil, fmt.Errorf("webhook not found: %w", err)
+	}
+
+	if webhook == nil {
+		span.SetStatus(otelcodes.Error, "Webhook not found")
+		s.logger.Error("Webhook not found", "webhook_id", webhookID)
+		return nil, fmt.Errorf("webhook not found")
 	}
 
 	// Get health state (current status and consecutive failures)

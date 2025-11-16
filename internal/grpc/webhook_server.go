@@ -30,7 +30,34 @@ func NewWebhookServer(service webhooks.WebhookServiceInterface) *WebhookServer {
 
 // RegisterWebhook registers a URL for specific events in a namespace
 func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWebhookRequest) (*pb.RegisterWebhookResponse, error) {
-	webhookID, createdAt, err := s.service.RegisterWebhook(ctx, req.Namespace, req.Events, req.Url, req.Headers, int(req.Timeout), req.Active, req.Description)
+	// Use new service interface if it has CreateWebhook method (enhanced), fallback to legacy method
+	if enhancedService, ok := s.service.(interface {
+		CreateWebhook(ctx context.Context, req webhooks.WebhookRegistrationRequest) (*webhooks.WebhookRegistration, error)
+	}); ok {
+		// Use enhanced service with HTTP config support
+		webhookReq := CreateWebhookRegistrationRequest(req)
+		webhook, err := enhancedService.CreateWebhook(ctx, webhookReq)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to register webhook: %v", err)
+		}
+		return &pb.RegisterWebhookResponse{
+			WebhookId: webhook.ID,
+			Success:   true,
+			Message:   "Webhook registered successfully",
+			CreatedAt: webhook.CreatedAt.Unix(),
+		}, nil
+	}
+
+	// Fallback to legacy method for backward compatibility
+	timeout := int(req.Timeout)
+	if timeout == 0 && req.HttpConfig != nil && req.HttpConfig.RequestTimeoutSeconds > 0 {
+		timeout = int(req.HttpConfig.RequestTimeoutSeconds)
+	}
+	if timeout == 0 {
+		timeout = 30 // Default timeout
+	}
+
+	webhookID, createdAt, err := s.service.RegisterWebhook(ctx, req.Namespace, req.Events, req.Url, req.Headers, timeout, req.Active, req.Description)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to register webhook: %v", err)
 	}
@@ -130,6 +157,18 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 			Health:      convertWebhookHealth(reg.Health),
 			CreatedAt:   reg.CreatedAt.Unix(),
 			UpdatedAt:   reg.UpdatedAt.Unix(),
+			HttpConfig: &pb.WebhookHTTPConfig{
+				MaxRetries:            int32(reg.MaxRetries),
+				RetryBackoffSeconds:   int32(reg.RetryBackoffSeconds),
+				CaptureResponseBody:   reg.CaptureResponseBody,
+				FollowRedirects:       reg.FollowRedirects,
+				VerifySsl:             reg.VerifySSL,
+				RequestTimeoutSeconds: int32(reg.RequestTimeoutSeconds),
+				ExpectedStatusCodes:   convertExpectedStatusCodes(reg.ExpectedStatusCodes),
+				WebhookSecret:         reg.WebhookSecret,
+				UserAgent:             reg.UserAgent,
+				ContentType:           reg.ContentType,
+			},
 		}
 	}
 	return &pb.ListWebhooksResponse{

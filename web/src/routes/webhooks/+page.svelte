@@ -110,6 +110,7 @@
               <th>Namespace</th>
               <th>URL</th>
               <th>Events</th>
+              <th>HTTP Config</th>
               <th>Health</th>
               <th>Actions</th>
             </tr>
@@ -122,8 +123,39 @@
                 onclick={() => goto(`/webhooks/${wh.webhookId}`)}
               >
                 <td class="px-4 py-2">{wh.namespace}</td>
-                <td class="px-4 py-2">{wh.url}</td>
-                <td class="px-4 py-2">{wh.events.join(", ")}</td>
+                <td class="px-4 py-2 max-w-xs truncate" title={wh.url}>{wh.url}</td>
+                <td class="px-4 py-2">
+                  <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                    {wh.events.length} events
+                  </span>
+                </td>
+                <td class="px-4 py-2">
+                  {#if wh.httpConfig}
+                    <div class="text-xs space-y-1">
+                      <div class="flex items-center space-x-2">
+                        <span class="bg-green-100 text-green-800 px-1 py-0.5 rounded text-xs">
+                          Retries: {wh.httpConfig.maxRetries}
+                        </span>
+                        <span class="bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-xs">
+                          {wh.httpConfig.requestTimeoutSeconds}s timeout
+                        </span>
+                      </div>
+                      <div class="flex items-center space-x-1">
+                        {#if wh.httpConfig.webhookSecret}
+                          <span class="bg-purple-100 text-purple-800 px-1 py-0.5 rounded text-xs">🔒 Signed</span>
+                        {/if}
+                        {#if wh.httpConfig.captureResponseBody}
+                          <span class="bg-orange-100 text-orange-800 px-1 py-0.5 rounded text-xs">📝 Captures</span>
+                        {/if}
+                        {#if !wh.httpConfig.verifySsl}
+                          <span class="bg-red-100 text-red-800 px-1 py-0.5 rounded text-xs">⚠️ No SSL</span>
+                        {/if}
+                      </div>
+                    </div>
+                  {:else}
+                    <span class="text-xs text-gray-500">Default config</span>
+                  {/if}
+                </td>
                 <td class="px-4 py-2">
                   <span class="text-{healthColor[wh.health]}">
                     {healthText[wh.health]}

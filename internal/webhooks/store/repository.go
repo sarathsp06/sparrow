@@ -15,6 +15,11 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/types"
 )
 
+// Repository handles webhook registration storage
+type Repository struct {
+	db storage.DB
+}
+
 // UpdateWebhookHealthState updates or inserts health state and updates webhook status after a health event.
 func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID string, success bool, eventTimestamp time.Time) error {
 	// Upsert health state
@@ -112,11 +117,6 @@ func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID strin
 	}
 }
 
-// Repository handles webhook registration storage
-type Repository struct {
-	db storage.DB
-}
-
 // StoreEventTx stores an event record within a transaction
 func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRecord) error {
 	if event.ID == "" {
@@ -156,9 +156,12 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRe
 // GetWebhooksByEventTx returns all active webhooks for a namespace/event within a transaction
 func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namespace, event string) ([]*WebhookRegistration, error) {
 	query := `
-		       SELECT id, namespace, events, url, headers, timeout, active, description, health, created_at, updated_at
-		       FROM webhook_registrations 
-		       WHERE namespace = $1 AND active = true AND events::jsonb ? $2
+	       SELECT id, namespace, events, url, headers, timeout, active, description, health,
+	              max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
+	              verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
+	              user_agent, content_type, created_at, updated_at
+	       FROM webhook_registrations 
+	       WHERE namespace = $1 AND active = true AND events::jsonb ? $2
 	       `
 
 	rows, err := tx.Query(ctx, query, namespace, event)
@@ -172,6 +175,7 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 		var wh WebhookRegistration
 		var headersJSON []byte
 		var eventsJSON []byte
+		var expectedStatusCodesJSON []byte
 
 		err := rows.Scan(
 			&wh.ID,
@@ -183,6 +187,16 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 			&wh.Active,
 			&wh.Description,
 			&wh.Health,
+			&wh.MaxRetries,
+			&wh.RetryBackoffSeconds,
+			&wh.CaptureResponseBody,
+			&wh.FollowRedirects,
+			&wh.VerifySSL,
+			&wh.RequestTimeoutSeconds,
+			&expectedStatusCodesJSON,
+			&wh.WebhookSecret,
+			&wh.UserAgent,
+			&wh.ContentType,
 			&wh.CreatedAt,
 			&wh.UpdatedAt,
 		)
@@ -192,6 +206,14 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 
 		if err := json.Unmarshal(headersJSON, &wh.Headers); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal headers: %w", err)
+		}
+
+		if err := json.Unmarshal(eventsJSON, &wh.Events); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal events: %w", err)
+		}
+
+		if err := json.Unmarshal(expectedStatusCodesJSON, &wh.ExpectedStatusCodes); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal expected status codes: %w", err)
 		}
 
 		if err := json.Unmarshal(eventsJSON, &wh.Events); err != nil {
@@ -232,14 +254,24 @@ func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookR
 
 	query := `
 		INSERT INTO webhook_registrations (
-			id, namespace, events, url, headers, timeout, active, description, health
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			id, namespace, events, url, headers, timeout, active, description, health,
+			max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
+			verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
+			user_agent, content_type, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 	`
 
 	headersJSON, err := json.Marshal(registration.Headers)
 	if err != nil {
 		return fmt.Errorf("failed to marshal headers: %w", err)
 	}
+
+	// Set timestamps
+	now := time.Now()
+	if registration.CreatedAt.IsZero() {
+		registration.CreatedAt = now
+	}
+	registration.UpdatedAt = now
 
 	_, err = r.db.ExecContext(ctx, query,
 		registration.ID,
@@ -251,6 +283,18 @@ func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookR
 		registration.Active,
 		registration.Description,
 		registration.Health,
+		registration.MaxRetries,
+		registration.RetryBackoffSeconds,
+		registration.CaptureResponseBody,
+		registration.FollowRedirects,
+		registration.VerifySSL,
+		registration.RequestTimeoutSeconds,
+		pq.Array(registration.ExpectedStatusCodes),
+		registration.WebhookSecret,
+		registration.UserAgent,
+		registration.ContentType,
+		registration.CreatedAt,
+		registration.UpdatedAt,
 	)
 	return storage.Error(err)
 }
@@ -265,7 +309,10 @@ func (r *Repository) UnregisterWebhook(ctx context.Context, webhookID string) er
 // GetWebhooksByEvent returns all active webhooks for a namespace/event
 func (r *Repository) GetWebhooksByEvent(ctx context.Context, namespace, event string) ([]*WebhookRegistration, error) {
 	query := `
-		SELECT id, namespace, events, url, headers, timeout, active, description, health, created_at, updated_at
+		SELECT id, namespace, events, url, headers, timeout, active, description, health,
+		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
+		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
+		       user_agent, content_type, created_at, updated_at
 		FROM webhook_registrations 
 		WHERE namespace = $1 AND active = true AND $2 = ANY(events)
 	`
@@ -281,7 +328,10 @@ func (r *Repository) GetWebhooksByEvent(ctx context.Context, namespace, event st
 // ListWebhooks returns webhooks for a namespace
 func (r *Repository) ListWebhooks(ctx context.Context, namespace string, activeOnly bool) ([]*WebhookRegistration, error) {
 	query := `
-		SELECT id, namespace, events, url, headers, timeout, active, description, health, created_at, updated_at
+		SELECT id, namespace, events, url, headers, timeout, active, description, health,
+		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
+		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
+		       user_agent, content_type, created_at, updated_at
 		FROM webhook_registrations 
 		WHERE namespace = $1 AND ($2::boolean IS FALSE OR active = true)
 		ORDER BY created_at DESC
@@ -437,7 +487,10 @@ type HeadersMap map[string]string
 // GetWebhookByID gets a webhook by ID and namespace
 func (r *Repository) GetWebhookByID(ctx context.Context, webhookID, namespace string) (*WebhookRegistration, error) {
 	query := `
-		SELECT id, namespace, events, url, headers, timeout, active, description, health, created_at, updated_at
+		SELECT id, namespace, events, url, headers, timeout, active, description, health,
+		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
+		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
+		       user_agent, content_type, created_at, updated_at
 		FROM webhook_registrations 
 		WHERE id = $1 AND namespace = $2
 	`
@@ -817,24 +870,37 @@ func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) 
 func (r *Repository) GetWebhooksByHealth(ctx context.Context, health WebhookHealth) ([]*WebhookRegistration, error) {
 	query := `
 		SELECT wr.id, wr.namespace, wr.events, wr.url, wr.headers, wr.timeout, 
-		       wr.active, wr.description, wr.health, wr.created_at, wr.updated_at
+		       wr.active, wr.description, wr.health,
+		       wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
+		       wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
+		       wr.user_agent, wr.content_type, wr.created_at, wr.updated_at
 		FROM webhook_registrations wr
 		WHERE wr.health = $1
 		ORDER BY wr.created_at DESC
 	`
 
 	type webhookRow struct {
-		ID          string    `db:"id"`
-		Namespace   string    `db:"namespace"`
-		EventsJSON  []byte    `db:"events"`
-		URL         string    `db:"url"`
-		HeadersJSON []byte    `db:"headers"`
-		Timeout     int       `db:"timeout"`
-		Active      bool      `db:"active"`
-		Description string    `db:"description"`
-		Health      string    `db:"health"`
-		CreatedAt   time.Time `db:"created_at"`
-		UpdatedAt   time.Time `db:"updated_at"`
+		ID                    string    `db:"id"`
+		Namespace             string    `db:"namespace"`
+		EventsJSON            []byte    `db:"events"`
+		URL                   string    `db:"url"`
+		HeadersJSON           []byte    `db:"headers"`
+		Timeout               int       `db:"timeout"`
+		Active                bool      `db:"active"`
+		Description           string    `db:"description"`
+		Health                string    `db:"health"`
+		MaxRetries            int       `db:"max_retries"`
+		RetryBackoffSeconds   int       `db:"retry_backoff_seconds"`
+		CaptureResponseBody   bool      `db:"capture_response_body"`
+		FollowRedirects       bool      `db:"follow_redirects"`
+		VerifySSL             bool      `db:"verify_ssl"`
+		RequestTimeoutSeconds int       `db:"request_timeout_seconds"`
+		ExpectedStatusCodes   []byte    `db:"expected_status_codes"`
+		WebhookSecret         string    `db:"webhook_secret"`
+		UserAgent             string    `db:"user_agent"`
+		ContentType           string    `db:"content_type"`
+		CreatedAt             time.Time `db:"created_at"`
+		UpdatedAt             time.Time `db:"updated_at"`
 	}
 
 	var rows []webhookRow
@@ -846,15 +912,24 @@ func (r *Repository) GetWebhooksByHealth(ctx context.Context, health WebhookHeal
 	var webhooks []*WebhookRegistration
 	for _, row := range rows {
 		webhook := &WebhookRegistration{
-			ID:          row.ID,
-			Namespace:   row.Namespace,
-			URL:         row.URL,
-			Timeout:     row.Timeout,
-			Active:      row.Active,
-			Description: row.Description,
-			Health:      WebhookHealth(row.Health),
-			CreatedAt:   row.CreatedAt,
-			UpdatedAt:   row.UpdatedAt,
+			ID:                    row.ID,
+			Namespace:             row.Namespace,
+			URL:                   row.URL,
+			Timeout:               row.Timeout,
+			Active:                row.Active,
+			Description:           row.Description,
+			Health:                WebhookHealth(row.Health),
+			MaxRetries:            row.MaxRetries,
+			RetryBackoffSeconds:   row.RetryBackoffSeconds,
+			CaptureResponseBody:   row.CaptureResponseBody,
+			FollowRedirects:       row.FollowRedirects,
+			VerifySSL:             row.VerifySSL,
+			RequestTimeoutSeconds: row.RequestTimeoutSeconds,
+			WebhookSecret:         row.WebhookSecret,
+			UserAgent:             row.UserAgent,
+			ContentType:           row.ContentType,
+			CreatedAt:             row.CreatedAt,
+			UpdatedAt:             row.UpdatedAt,
 		}
 
 		if err := json.Unmarshal(row.EventsJSON, &webhook.Events); err != nil {
@@ -863,6 +938,10 @@ func (r *Repository) GetWebhooksByHealth(ctx context.Context, health WebhookHeal
 
 		if err := json.Unmarshal(row.HeadersJSON, &webhook.Headers); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal headers: %w", err)
+		}
+
+		if err := json.Unmarshal(row.ExpectedStatusCodes, &webhook.ExpectedStatusCodes); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal expected status codes: %w", err)
 		}
 
 		webhooks = append(webhooks, webhook)

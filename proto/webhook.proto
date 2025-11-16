@@ -82,15 +82,30 @@ service WebhookService {
   
 }
 
+// WebhookHTTPConfig represents HTTP configuration for webhook delivery
+message WebhookHTTPConfig {
+  int32 max_retries = 1; // Maximum retry attempts (0-10, default: 3)
+  int32 retry_backoff_seconds = 2; // Base backoff time between retries (1-3600s, default: 60)
+  bool capture_response_body = 3; // Whether to capture and store response body (default: false)
+  bool follow_redirects = 4; // Whether to follow HTTP redirects (default: true)
+  bool verify_ssl = 5; // Whether to verify SSL certificates (default: true)
+  int32 request_timeout_seconds = 6; // Per-request timeout (1-300s, default: 30)
+  repeated int32 expected_status_codes = 7; // HTTP status codes considered successful (default: [200,201,202,204])
+  string webhook_secret = 8; // Secret for webhook signature verification
+  string user_agent = 9; // Custom User-Agent header (default: "Sparrow-Webhook/1.0")
+  string content_type = 10; // Content-Type for requests (default: "application/json")
+}
+
 // RegisterWebhookRequest represents a request to register a webhook URL
 message RegisterWebhookRequest {
   string namespace = 1; // Namespace for grouping webhooks
   repeated string events = 2; // Event names to listen for (multiple events supported)
   string url = 3; // Target URL for the webhook
   map<string, string> headers = 4; // HTTP headers to include in requests
-  int32 timeout = 5; // Timeout in seconds (default: 30)
+  int32 timeout = 5; // Timeout in seconds (default: 30) - DEPRECATED, use http_config.request_timeout_seconds
   bool active = 6; // Whether webhook is active (default: true)
   string description = 7; // Optional description
+  WebhookHTTPConfig http_config = 8; // HTTP configuration options (optional, defaults will be used if not provided)
 }
 
 // RegisterWebhookResponse represents the response for webhook registration
@@ -186,12 +201,13 @@ message RegisteredWebhook {
   repeated string events = 3; // Events the webhook listens for
   string url = 4; // Target URL
   map<string, string> headers = 5; // HTTP headers
-  int32 timeout = 6; // Timeout in seconds
+  int32 timeout = 6; // Timeout in seconds - DEPRECATED, see http_config.request_timeout_seconds
   bool active = 7; // Whether webhook is active
   string description = 8; // Webhook description
   WebhookHealth health = 9; // Webhook health status
   int64 created_at = 10; // When webhook was registered
   int64 updated_at = 11; // When webhook was last updated
+  WebhookHTTPConfig http_config = 12; // HTTP configuration options
 }
 
 // ListWebhooksResponse represents the response for listing webhooks
@@ -465,9 +481,10 @@ message WebhookUpdateFields {
   repeated string events = 1; // Updated events list
   string url = 2; // Updated URL
   map<string, string> headers = 3; // Updated headers
-  int32 timeout = 4; // Updated timeout
+  int32 timeout = 4; // Updated timeout - DEPRECATED, use http_config.request_timeout_seconds
   bool active = 5; // Updated active status
   string description = 6; // Updated description
+  WebhookHTTPConfig http_config = 7; // Updated HTTP configuration options
 }
 
 // UpdateWebhookConfigRequest represents a request to update webhook configuration

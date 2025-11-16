@@ -11,12 +11,12 @@ import (
 	"syscall"
 	"time"
 
+	"connectrpc.com/connect"
+	"connectrpc.com/otelconnect"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 
 	connectserver "github.com/sarathsp06/sparrow/internal/connect"
@@ -120,7 +120,11 @@ func main() {
 
 	// Create HTTP mux for Connect-RPC
 	mux := http.NewServeMux()
-	mux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer))
+	otelInterceptor, err := otelconnect.NewInterceptor()
+	if err != nil {
+		log.Fatal(err)
+	}
+	mux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer, connect.WithInterceptors(otelInterceptor)))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, queueManager, startTime)
@@ -131,11 +135,8 @@ func main() {
 
 	// Create HTTP server with OpenTelemetry instrumentation
 	httpServer := &http.Server{
-		Addr: ":8080",
-		Handler: cors.AllowAll().Handler(otelhttp.NewHandler(
-			h2c.NewHandler(mux, &http2.Server{}),
-			"sparrow-connect",
-		)),
+		Addr:         ":8080",
+		Handler:      cors.AllowAll().Handler(mux),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,

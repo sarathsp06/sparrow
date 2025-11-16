@@ -87,13 +87,19 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	for _, webhook := range registeredWebhooks {
 		deliveryID := uuid.New().String()
 
+		// Calculate max attempts from webhook configuration (default 3)
+		maxAttempts := 3
+		if webhook.MaxRetries > 0 {
+			maxAttempts = webhook.MaxRetries + 1 // MaxRetries is retry count, so add 1 for initial attempt
+		}
+
 		// Create webhook delivery record
 		delivery := &store.WebhookDelivery{
 			ID:          deliveryID,
 			WebhookID:   webhook.ID,
 			EventID:     args.EventID,
 			Status:      store.StatusPending,
-			MaxAttempts: 3, // Default max attempts
+			MaxAttempts: maxAttempts,
 			ExpiresAt:   expiresAt,
 		}
 

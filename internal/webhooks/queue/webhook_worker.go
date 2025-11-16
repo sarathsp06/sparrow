@@ -3,11 +3,16 @@ package queue
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/tls"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/riverqueue/river"
@@ -56,9 +61,8 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 
 	// get trace id and set that as metadata
 	carrier := make(propagation.MapCarrier)
-	err := json.Unmarshal(job.Metadata, &carrier)
-	if err != nil {
-		w.logger.Error("Failed to unmarshal job metadata", "error", err, "event_id", args.EventID)
+	if unmarshallErr := json.Unmarshal(job.Metadata, &carrier); unmarshallErr != nil {
+		w.logger.Error("Failed to unmarshal job metadata", "error", unmarshallErr, "event_id", args.EventID)
 	}
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 
@@ -135,19 +139,36 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		log.Warn("Failed to store request body", "error", err, "delivery_id", args.DeliveryID)
 	}
 
-	// Set default Content-Type
-	req.Header.Set("Content-Type", "application/json")
+	// Set Content-Type from webhook configuration or default
+	contentType := "application/json"
+	if webhook.ContentType != "" {
+		contentType = webhook.ContentType
+	}
+	req.Header.Set("Content-Type", contentType)
+
+	// Set User-Agent from webhook configuration or default
+	userAgent := "Sparrow-Webhook/1.0"
+	if webhook.UserAgent != "" {
+		userAgent = webhook.UserAgent
+	}
+	req.Header.Set("User-Agent", userAgent)
+
+	// Add HMAC signature if webhook secret is configured
+	if webhook.WebhookSecret != "" {
+		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+		signature := w.generateHMACSignature(payloadBytes, webhook.WebhookSecret, timestamp)
+
+		req.Header.Set("X-Sparrow-Signature-256", "sha256="+signature)
+		req.Header.Set("X-Sparrow-Timestamp", timestamp)
+	}
 
 	// Add custom headers from webhook configuration
 	for key, value := range webhook.Headers {
 		req.Header.Set(key, value)
 	}
 
-	// Create HTTP client with timeout from webhook configuration
-	client := &http.Client{
-		Transport: otelhttp.NewTransport(http.DefaultTransport),
-		Timeout:   time.Duration(webhook.Timeout) * time.Second,
-	}
+	// Create HTTP client with advanced configuration from webhook settings
+	client := w.createConfiguredHTTPClient(webhook)
 
 	// Send the request
 	startTime := time.Now()
@@ -169,11 +190,23 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
-	// Read response body (limit to first 1000 chars for logging)
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1000))
-	if err != nil {
-		log.Warn("Failed to read response body", "error", err)
-		body = []byte("Failed to read response body")
+	// Read response body based on webhook configuration
+	var body []byte
+	var bodyErr error
+	if webhook.CaptureResponseBody {
+		// Read full response body when capture is enabled
+		body, bodyErr = io.ReadAll(resp.Body)
+		if bodyErr != nil {
+			log.Warn("Failed to read response body", "error", bodyErr)
+			body = []byte("Failed to read response body")
+		}
+	} else {
+		// Read limited response body for logging (first 1000 chars)
+		body, bodyErr = io.ReadAll(io.LimitReader(resp.Body, 1000))
+		if bodyErr != nil {
+			log.Warn("Failed to read response body", "error", bodyErr)
+			body = []byte("Failed to read response body")
+		}
 	}
 
 	log.Info("Webhook response received",
@@ -186,8 +219,9 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		"duration_ms", duration.Milliseconds(),
 	)
 
-	// Consider 2xx status codes as success
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	// Check if status code is in expected range from webhook configuration
+	isSuccess := w.isSuccessStatusCode(resp.StatusCode, webhook.ExpectedStatusCodes)
+	if isSuccess {
 		span.SetAttributes(
 			attribute.Int("status_code", resp.StatusCode),
 			attribute.Float64("duration_seconds", duration.Seconds()),
@@ -259,4 +293,98 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 
 	return fmt.Errorf("webhook delivery failed: %s", errorMessage)
+}
+
+// createConfiguredHTTPClient creates an HTTP client configured with webhook settings
+func (w *WebhookWorker) createConfiguredHTTPClient(webhook *store.WebhookRegistration) *http.Client {
+	// Create transport with webhook-specific configuration
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: !webhook.VerifySSL,
+		},
+		DisableCompression: false,
+		ForceAttemptHTTP2:  false,
+	}
+
+	// Configure redirect policy
+	var checkRedirect func(req *http.Request, via []*http.Request) error
+	if !webhook.FollowRedirects {
+		checkRedirect = func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
+	}
+
+	// Create client with timeout based on webhook configuration
+	timeout := time.Duration(webhook.Timeout) * time.Second
+	if webhook.RequestTimeoutSeconds > 0 {
+		timeout = time.Duration(webhook.RequestTimeoutSeconds) * time.Second
+	}
+
+	return &http.Client{
+		Transport:     otelhttp.NewTransport(transport),
+		Timeout:       timeout,
+		CheckRedirect: checkRedirect,
+	}
+}
+
+// isSuccessStatusCode checks if a status code is considered successful based on webhook configuration
+func (w *WebhookWorker) isSuccessStatusCode(statusCode int, expectedStatusCodes []int64) bool {
+	// If no expected status codes are configured, default to 2xx success
+	if len(expectedStatusCodes) == 0 {
+		return statusCode >= 200 && statusCode < 300
+	}
+
+	// Check if status code matches any of the expected codes
+	for _, expected := range expectedStatusCodes {
+		if statusCode == int(expected) {
+			return true
+		}
+	}
+
+	// Also check for ranges (e.g., 200-299)
+	for _, expected := range expectedStatusCodes {
+		expectedStr := strconv.FormatInt(expected, 10)
+		if len(expectedStr) == 3 {
+			// Single status code (e.g., 200)
+			if statusCode == int(expected) {
+				return true
+			}
+		} else if len(expectedStr) == 2 {
+			// Range check (e.g., 20 means 200-209)
+			rangeStart := int(expected) * 10
+			rangeEnd := rangeStart + 9
+			if statusCode >= rangeStart && statusCode <= rangeEnd {
+				return true
+			}
+		} else if len(expectedStr) == 1 {
+			// Broader range (e.g., 2 means 200-299)
+			rangeStart := int(expected) * 100
+			rangeEnd := rangeStart + 99
+			if statusCode >= rangeStart && statusCode <= rangeEnd {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// generateHMACSignature generates an HMAC-SHA256 signature for webhook payload verification
+// The signature is created by HMAC-SHA256(secret, timestamp.payload) and hex-encoded.
+// Webhook receivers should verify the signature using the same method:
+// 1. Extract timestamp from X-Sparrow-Timestamp header
+// 2. Extract signature from X-Sparrow-Signature-256 header (remove "sha256=" prefix)
+// 3. Compute HMAC-SHA256(secret, timestamp.payload)
+// 4. Compare computed signature with received signature (use constant-time comparison)
+// 5. Optionally check timestamp to prevent replay attacks (e.g., reject if older than 5 minutes)
+func (w *WebhookWorker) generateHMACSignature(payload []byte, secret, timestamp string) string {
+	// Create the message to sign: timestamp.payload
+	message := timestamp + "." + string(payload)
+
+	// Create HMAC hash
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(message))
+
+	// Return hex encoded signature
+	return hex.EncodeToString(h.Sum(nil))
 }

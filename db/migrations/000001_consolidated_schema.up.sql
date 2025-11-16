@@ -25,7 +25,7 @@ CREATE INDEX idx_event_registrations_created_at ON event_registrations(created_a
 -- Add comment
 COMMENT ON TABLE event_registrations IS 'Registry of available event types that can trigger webhooks';
 
--- Create webhook_registrations table with all columns including health
+-- Create webhook_registrations table with all columns including health and HTTP config
 CREATE TABLE webhook_registrations (
     id VARCHAR(255) PRIMARY KEY,
     namespace VARCHAR(255) NOT NULL,
@@ -36,10 +36,26 @@ CREATE TABLE webhook_registrations (
     active BOOLEAN DEFAULT true,
     description TEXT,
     health VARCHAR(20) DEFAULT 'unknown' NOT NULL,
+    
+    -- HTTP Configuration
+    max_retries INTEGER DEFAULT 3,
+    retry_backoff_seconds INTEGER DEFAULT 60,     -- Base backoff time between retries
+    capture_response_body BOOLEAN DEFAULT false,  -- Whether to capture and store response body
+    follow_redirects BOOLEAN DEFAULT true,        -- Whether to follow HTTP redirects
+    verify_ssl BOOLEAN DEFAULT true,              -- Whether to verify SSL certificates
+    request_timeout_seconds INTEGER DEFAULT 30,   -- Per-request timeout
+    expected_status_codes INTEGER[] DEFAULT '{200,201,202,204}'::INTEGER[], -- Expected success status codes
+    webhook_secret TEXT,                          -- Secret for webhook signature verification
+    user_agent TEXT DEFAULT 'Sparrow-Webhook/1.0', -- Custom User-Agent header
+    content_type TEXT DEFAULT 'application/json', -- Content-Type for requests
+    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     CONSTRAINT unique_namespace_url UNIQUE (namespace, url),
-    CONSTRAINT webhook_health_check CHECK (health IN ('healthy', 'degraded', 'unhealthy', 'unknown'))
+    CONSTRAINT webhook_health_check CHECK (health IN ('healthy', 'degraded', 'unhealthy', 'unknown')),
+    CONSTRAINT max_retries_check CHECK (max_retries >= 0 AND max_retries <= 10),
+    CONSTRAINT retry_backoff_check CHECK (retry_backoff_seconds > 0 AND retry_backoff_seconds <= 3600),
+    CONSTRAINT request_timeout_check CHECK (request_timeout_seconds > 0 AND request_timeout_seconds <= 300)
 );
 
 -- Create indexes for webhook_registrations

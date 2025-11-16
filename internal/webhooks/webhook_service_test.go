@@ -86,6 +86,11 @@ func (m *MockRepository) UpdateDeliveryStatus(ctx context.Context, deliveryID st
 	return args.Error(0)
 }
 
+func (m *MockRepository) UpdateDeliveryRequestBody(ctx context.Context, deliveryID string, requestBody string) error {
+	args := m.Called(ctx, deliveryID, requestBody)
+	return args.Error(0)
+}
+
 func (m *MockRepository) GetDeliveriesByWebhook(ctx context.Context, webhookID string) ([]*store.WebhookDelivery, error) {
 	args := m.Called(ctx, webhookID)
 	return args.Get(0).([]*store.WebhookDelivery), args.Error(1)
@@ -202,10 +207,22 @@ func (m *MockRepository) GetEventByID(ctx context.Context, eventID string) (*sto
 	return args.Get(0).(*store.EventRecord), args.Error(1)
 }
 
+func (m *MockRepository) ListEventReportsWithStats(ctx context.Context, namespace string, eventName *string, limit, offset int) ([]*store.EventReportWithStats, int, error) {
+	args := m.Called(ctx, namespace, eventName, limit, offset)
+	return args.Get(0).([]*store.EventReportWithStats), args.Int(1), args.Error(2)
+}
+
 func (m *MockRepository) ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int) ([]*store.EventReportWithStats, int, error) {
 	args := m.Called(ctx, namespace, eventName, limit, offset)
 	return args.Get(0).([]*store.EventReportWithStats), args.Int(1), args.Error(2)
 }
+
+func (m *MockRepository) GetEventDeliveryStats(ctx context.Context, eventID string) (int32, int32, int32, int32, error) {
+	args := m.Called(ctx, eventID)
+	return args.Get(0).(int32), args.Get(1).(int32), args.Get(2).(int32), args.Get(3).(int32), args.Error(4)
+}
+
+// MockQueueManager is a mock implementation of the queue.QueueManagerInterface
 
 func TestRegisterWebhook(t *testing.T) {
 	ctx := context.Background()
@@ -360,6 +377,11 @@ func (m *MockQueueManager) Insert(ctx context.Context, args river.JobArgs) (*riv
 	return argsMock.Get(0).(*rivertype.JobInsertResult), argsMock.Error(1)
 }
 
+func (m *MockQueueManager) BatchInsert(ctx context.Context, args []river.JobArgs) ([]*rivertype.JobInsertResult, error) {
+	argsMock := m.Called(ctx, args)
+	return argsMock.Get(0).([]*rivertype.JobInsertResult), argsMock.Error(1)
+}
+
 func TestPushEvent(t *testing.T) {
 	ctx := context.Background()
 	mockRepo := new(MockRepository)
@@ -368,7 +390,7 @@ func TestPushEvent(t *testing.T) {
 
 	t.Run("successful push", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(&store.EventRegistration{Active: true}, nil).Once()
-		mockRepo.On("GetWebhooksByEvent", mock.Anything, "test-namespace", "event1").Return([]*store.WebhookRegistration{}, nil).Once()
+		mockRepo.On("StoreEvent", mock.Anything, mock.Anything).Return(nil).Once()
 		mockQueue.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil).Once()
 
 		payload := map[string]any{"key": "value"}
@@ -410,7 +432,7 @@ func TestPushEvent(t *testing.T) {
 
 	t.Run("queue error", func(t *testing.T) {
 		mockRepo.On("GetEventByName", mock.Anything, "event1").Return(&store.EventRegistration{Active: true}, nil).Once()
-		mockRepo.On("GetWebhooksByEvent", mock.Anything, "test-namespace", "event1").Return([]*store.WebhookRegistration{}, nil).Once()
+		mockRepo.On("StoreEvent", mock.Anything, mock.Anything).Return(nil).Once()
 		mockQueue.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, errors.New("queue error")).Once()
 
 		payload := map[string]any{"key": "value"}

@@ -106,6 +106,48 @@ func (hsh *HealthServiceHandler) HandleWebhookHealthEvent(ctx context.Context, e
 	return nil
 }
 
+// HandleWebhookRegistrationChange processes webhook registration change notifications
+func (hsh *HealthServiceHandler) HandleWebhookRegistrationChange(ctx context.Context, change *WebhookRegistrationChangeNotification) error {
+	hsh.logger.Debug("Processing webhook registration change notification",
+		"operation", change.Operation,
+		"webhook_id", change.WebhookID,
+		"namespace", change.Namespace)
+
+	switch change.Operation {
+	case "INSERT":
+		// Initialize health state for new webhook
+		hsh.logger.Info("New webhook registered",
+			"webhook_id", change.WebhookID,
+			"namespace", change.Namespace,
+			"url", change.URL)
+
+		// Health state will be initialized automatically by the database
+
+	case "UPDATE":
+		if change.OldActive != nil && *change.OldActive != change.Active {
+			hsh.logger.Info("Webhook active status changed",
+				"webhook_id", change.WebhookID,
+				"old_active", *change.OldActive,
+				"new_active", change.Active)
+		}
+
+		if change.OldHealth != change.Health {
+			hsh.logger.Info("Webhook health status changed",
+				"webhook_id", change.WebhookID,
+				"old_health", change.OldHealth,
+				"new_health", change.Health)
+		}
+
+	case "DELETE":
+		hsh.logger.Info("Webhook unregistered",
+			"webhook_id", change.WebhookID,
+			"namespace", change.Namespace)
+		// Health state will be automatically deleted via CASCADE
+	}
+
+	return nil
+}
+
 // HealthMetrics provides aggregated health metrics for monitoring
 type HealthMetrics struct {
 	WebhookID           string    `json:"webhook_id"`
