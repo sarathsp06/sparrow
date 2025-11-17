@@ -7,6 +7,9 @@
     type Validator
   } from "svelte-jsoneditor";
 
+
+
+
   import { client } from "$lib/services";
   import { create } from "@bufbuild/protobuf";
   import { onMount } from "svelte";
@@ -30,16 +33,6 @@
       return createAjvValidator({ schema: JSON.parse(selectedEvent.schema) });
     }
     return createAjvValidator({ schema: {} });
-  }
-
-  function ValidatePayload(content: Content) {
-    const validationResult = validator()(content);
-    if (validationResult) {
-      error= `Invalid payload: ${validationResult?.map((e) => e.message).join(", ")}`;
-    }
-	else {
-	  error = "";
-	}
   }
 
   async function fetchEvents() {

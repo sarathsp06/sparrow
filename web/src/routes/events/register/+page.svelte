@@ -1,24 +1,28 @@
 <script lang="ts">
-  import { preventDefault } from 'svelte/legacy';
 
   import { goto } from '$app/navigation';
-  import { createClient } from "@connectrpc/connect";
-  import { createConnectTransport } from "@connectrpc/connect-web";
-  import { type JSONContent, JSONEditor, Mode } from "svelte-jsoneditor";
-  import { WebhookService } from '../../../../../proto/webhook_pb.js';
-
+  import { client, JSONSchemaMetaSchema } from '$lib';
+  import {
+    createAjvValidator,
+    JSONEditor,
+    Mode,
+    type JSONContent,
+    type Validator
+  } from "svelte-jsoneditor";
+  
   let name = $state('');
   let description = $state('');
   let schema = $state({ json: {} } as JSONContent);
   let active = $state(true);
   let error = $state('');
 
-  const transport = createConnectTransport({
-    baseUrl: "http://localhost:8080",
-  });
-  const client = createClient(WebhookService, transport);
 
-  async function registerEvent() {
+  function validator():Validator {
+      return createAjvValidator({ schema: JSONSchemaMetaSchema });
+  }
+
+  async function registerEvent(e: Event) {
+    e.preventDefault();
     error = '';
     try {
       // Convert JSONContent to string for the API
@@ -46,7 +50,7 @@
 <div class="min-h-screen bg-gradient-to-br from-white via-gray-50 to-gray-100 font-display">
   <div class="p-6 max-w-lg mx-auto">
     <h1 class="text-2xl font-bold mb-4">Register New Event</h1>
-    <form onsubmit={preventDefault(registerEvent)} class="bg-white rounded-lg shadow p-6">
+    <form onsubmit={registerEvent} class="bg-white rounded-lg shadow p-6">
       <div class="mb-4">
         <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
         <input type="text" id="name" bind:value={name} class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
@@ -57,7 +61,7 @@
       </div>
       <div class="mb-4">
         <label for="schema" class="block text-sm font-medium text-gray-700">Schema (JSON)</label>
-        <JSONEditor  bind:content={schema} mode={Mode.text} mainMenuBar={false} />
+        <JSONEditor  validator={validator()}  bind:content={schema} mode={Mode.text} mainMenuBar={false} />
       </div>
       <div class="mb-4">
         <label class="flex items-center">

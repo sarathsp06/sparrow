@@ -3,6 +3,7 @@
 	import { client } from '$lib/services';
 	import { onMount } from 'svelte';
 	import { JSONEditor, Mode, type Content } from 'svelte-jsoneditor';
+	
 	import type { RegisteredEvent } from '../../../../proto/webhook_pb.js';
 
 	let events: RegisteredEvent[] = $state([]);
@@ -10,7 +11,7 @@
 	let error = $state('');
 	let content: Content = $state({json: {} });
 	let isModalOpen = $state(false);
-	$inspect(events,content)
+
 
 	async function fetchEvents() {
 		loading = true;
@@ -176,9 +177,3 @@
 		</div>
 	</div>
 {/if}
-
-<style>
-	.event-card:hover {
-		transform: translateY(-2px);
-	}
-</style>
