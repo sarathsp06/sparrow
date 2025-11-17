@@ -774,9 +774,7 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 	ctx, span := s.tracer.Start(ctx, "WebhookService.RegisterEvent")
 	defer span.End()
 
-	s.logger.Info("Processing event registration request",
-		"name", name,
-		"description", description)
+	s.logger.Info("Processing event registration request", "name", name, "description", description)
 	if name == "" {
 		return "", 0, fmt.Errorf("event name is required")
 	}

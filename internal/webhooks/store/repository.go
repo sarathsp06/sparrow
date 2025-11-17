@@ -12,15 +12,20 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/sarathsp06/sparrow/pkg/storage"
-	"github.com/sarathsp06/sparrow/pkg/types"
 )
 
-// Repository handles webhook registration storage
+// Repository provides data access layer for webhook operations.
+// It handles CRUD operations for webhooks, events, deliveries, and health tracking.
+// All database interactions are performed through the storage.DB interface for testability.
 type Repository struct {
 	db storage.DB
 }
 
-// UpdateWebhookHealthState updates or inserts health state and updates webhook status after a health event.
+// UpdateWebhookHealthState records a webhook delivery outcome and updates health metrics.
+// For successful deliveries, it resets consecutive failures to 0 and updates last success timestamp.
+// For failed deliveries, it increments consecutive failures and updates last failure timestamp.
+// After updating health state, it recalculates the overall webhook health status (healthy/degraded/unhealthy).
+// This function performs upsert operations to handle both new webhooks and existing ones.
 func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID string, success bool, eventTimestamp time.Time) error {
 	// Upsert health state
 	var err error
@@ -74,7 +79,12 @@ func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID str
 	return storage.Error(err)
 }
 
-// CalculateWebhookHealth computes the health status for a webhook based on recent events and failures.
+// CalculateWebhookHealth determines webhook health status based on delivery patterns.
+// Health calculation considers: recent success rate within lookbackHours window, consecutive failures,
+// and minimum event threshold for statistical significance.
+// Returns: "healthy" (>90% success, <5 failures), "degraded" (80-90% success),
+//
+//	"unhealthy" (<80% success or >=5 consecutive failures), "unknown" (insufficient data).
 func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID string, lookbackHours int) (string, error) {
 	// Get recent event statistics
 	query := `
@@ -117,7 +127,10 @@ func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID strin
 	}
 }
 
-// StoreEventTx stores an event record within a transaction
+// StoreEventTx persists an event record within an existing database transaction.
+// Automatically generates UUID if event.ID is empty and sets created_at/expires_at timestamps.
+// The expires_at is calculated from TTL (time-to-live) in seconds from creation time.
+// This transactional version ensures atomic operations when creating events with related deliveries.
 func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRecord) error {
 	if event.ID == "" {
 		event.ID = uuid.New().String()
@@ -153,7 +166,10 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRe
 	return storage.Error(err)
 }
 
-// GetWebhooksByEventTx returns all active webhooks for a namespace/event within a transaction
+// GetWebhooksByEventTx retrieves all active webhooks subscribed to a specific event within a transaction.
+// Uses JSONB ? operator to efficiently query webhooks where the events array contains the specified event.
+// Only returns webhooks that are active=true and match the namespace for tenant isolation.
+// Includes complete webhook configuration including HTTP settings for delivery customization.
 func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namespace, event string) ([]*WebhookRegistration, error) {
 	query := `
 	       SELECT id, namespace, events, url, headers, timeout, active, description, health,
@@ -226,16 +242,19 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 	return webhooks, nil
 }
 
-// NewRepository creates a new webhook repository
+// NewRepository creates a new Repository instance with the provided database connection.
+// The storage.DB interface allows for dependency injection and easier testing with mock implementations.
 func NewRepository(db storage.DB) *Repository {
 	return &Repository{
 		db: db,
 	}
 }
 
-// RegisterWebhook registers a new webhook registration, returning an error if the registration already exists.
-// If the registration does not already exist, it is inserted into the database with an unknown health status.
-// The webhook ID is generated via UUID v4.
+// RegisterWebhook creates a new webhook registration with duplicate prevention.
+// Checks for existing webhook with same namespace+URL combination to prevent duplicates.
+// Generates a new UUID v4 for the webhook ID and initializes health status as "unknown".
+// Sets created_at and updated_at timestamps automatically.
+// Returns nil if webhook already exists (idempotent operation) or on successful creation.
 func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookRegistration) error {
 	// Check for existing webhook with same namespace and url
 	checkQuery := `SELECT id FROM webhook_registrations WHERE namespace = $1 AND url = $2 LIMIT 1`
@@ -299,14 +318,19 @@ func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookR
 	return storage.Error(err)
 }
 
-// UnregisterWebhook removes a webhook registration
+// UnregisterWebhook permanently deletes a webhook registration and all associated data.
+// This is a hard delete that removes the webhook from the database entirely.
+// Related delivery records and health events may be retained based on retention policies.
 func (r *Repository) UnregisterWebhook(ctx context.Context, webhookID string) error {
 	query := `DELETE FROM webhook_registrations WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, webhookID)
 	return storage.Error(err)
 }
 
-// GetWebhooksByEvent returns all active webhooks for a namespace/event
+// GetWebhooksByEvent finds all active webhooks subscribed to a specific event in a namespace.
+// Uses PostgreSQL array containment operator (= ANY) for efficient event subscription lookup.
+// Only returns webhooks with active=true to exclude paused or disabled webhooks.
+// Results include complete webhook configuration for immediate delivery processing.
 func (r *Repository) GetWebhooksByEvent(ctx context.Context, namespace, event string) ([]*WebhookRegistration, error) {
 	query := `
 		SELECT id, namespace, events, url, headers, timeout, active, description, health,
@@ -325,7 +349,10 @@ func (r *Repository) GetWebhooksByEvent(ctx context.Context, namespace, event st
 	return webhooks, nil
 }
 
-// ListWebhooks returns webhooks for a namespace
+// ListWebhooks retrieves webhooks for a namespace with optional active status filtering.
+// When activeOnly=true, returns only webhooks with active=true (excludes paused webhooks).
+// When activeOnly=false, returns all webhooks regardless of active status for management purposes.
+// Results are ordered by created_at DESC to show newest webhooks first.
 func (r *Repository) ListWebhooks(ctx context.Context, namespace string, activeOnly bool) ([]*WebhookRegistration, error) {
 	query := `
 		SELECT id, namespace, events, url, headers, timeout, active, description, health,
@@ -346,7 +373,10 @@ func (r *Repository) ListWebhooks(ctx context.Context, namespace string, activeO
 	return webhooks, nil
 }
 
-// StoreEvent stores an event record
+// StoreEvent persists an event record with automatic ID generation and timestamp management.
+// Generates UUID v4 for event.ID if not provided and sets created_at to current time.
+// Calculates expires_at based on TTL (time-to-live) seconds from creation time.
+// Marshals metadata map to JSON for database storage in JSONB column.
 func (r *Repository) StoreEvent(ctx context.Context, event *EventRecord) error {
 	if event.ID == "" {
 		event.ID = uuid.New().String()
@@ -382,7 +412,10 @@ func (r *Repository) StoreEvent(ctx context.Context, event *EventRecord) error {
 	return storage.Error(err)
 }
 
-// CreateDelivery creates a new delivery
+// CreateDelivery creates a new webhook delivery record for tracking delivery attempts.
+// Records initial delivery state including webhook_id, event_id, retry configuration,
+// and expiration time for delivery attempts. Used by the job queue system to track
+// webhook delivery lifecycle from creation through completion or failure.
 func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelivery) error {
 	query := `
 		INSERT INTO webhook_deliveries (id, webhook_id, event_id, status, attempt_count, max_attempts, expires_at, response_code, response_body, error_message, request_body)
@@ -405,7 +438,10 @@ func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelive
 	return storage.Error(err)
 }
 
-// UpdateDeliveryStatus updates the status of a webhook delivery
+// UpdateDeliveryStatus records the outcome of a webhook delivery attempt.
+// Updates status (pending/success/failed/expired), captures HTTP response details,
+// and increments attempt_count for failed/success/expired statuses.
+// Sets last_attempted_at timestamp and preserves complete response for audit trail.
 func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID string, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage string) error {
 	now := time.Now()
 	var attemptIncrement int = 0
@@ -590,26 +626,17 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, webhookID, na
 // RegisterEvent registers a new event type
 func (r *Repository) RegisterEvent(ctx context.Context, event *EventRegistration) error {
 	event.ID = uuid.New().String()
-	event.CreatedAt = time.Now()
-	event.UpdatedAt = time.Now()
-
 	query := `
 		INSERT INTO event_registrations (
-			id, name, description, schema, metadata, active, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			id, name, description, schema, metadata, active
+		) VALUES ($1, $2, $3, $4, $5, $6)
 	`
-
-	metadataJSON, err := json.Marshal(event.Metadata)
-	if err != nil {
-		return fmt.Errorf("failed to marshal metadata: %w", err)
-	}
-
-	_, err = r.db.ExecContext(ctx, query,
+	_, err := r.db.ExecContext(ctx, query,
 		event.ID,
 		event.Name,
 		event.Description,
 		event.Schema,
-		metadataJSON,
+		event.Metadata,
 		event.Active,
 		event.CreatedAt,
 		event.UpdatedAt,
@@ -624,40 +651,14 @@ func (r *Repository) GetEventByName(ctx context.Context, eventName string) (*Eve
 		FROM event_registrations 
 		WHERE name = $1
 	`
-
-	var eventRow struct {
-		ID           string                 `db:"id"`
-		Name         string                 `db:"name"`
-		Description  string                 `db:"description"`
-		Schema       types.Map[string, any] `db:"schema"`
-		MetadataJSON []byte                 `db:"metadata"`
-		Active       bool                   `db:"active"`
-		CreatedAt    time.Time              `db:"created_at"`
-		UpdatedAt    time.Time              `db:"updated_at"`
-	}
-
-	err := r.db.GetContext(ctx, &eventRow, query, eventName)
+	var event EventRegistration
+	err := r.db.GetContext(ctx, &event, query, eventName)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
 		}
 		return nil, storage.Error(err)
 	}
-
-	event := EventRegistration{
-		ID:          eventRow.ID,
-		Name:        eventRow.Name,
-		Description: eventRow.Description,
-		Schema:      eventRow.Schema,
-		Active:      eventRow.Active,
-		CreatedAt:   eventRow.CreatedAt,
-		UpdatedAt:   eventRow.UpdatedAt,
-	}
-
-	if err := json.Unmarshal(eventRow.MetadataJSON, &event.Metadata); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
-	}
-
 	return &event, nil
 }
 
@@ -666,74 +667,30 @@ func (r *Repository) ListEvents(ctx context.Context, activeOnly bool) ([]*EventR
 	query := `
 		SELECT id, name, description, schema, metadata, active, created_at, updated_at
 		FROM event_registrations
+		WHERE ( $1::boolean IS FALSE OR active = true )
+		ORDER BY name ASC
 	`
-	args := []interface{}{}
-
-	if activeOnly {
-		query += ` WHERE active = true`
-	}
-
-	query += ` ORDER BY name ASC`
-
-	type eventRow struct {
-		ID           string                 `db:"id"`
-		Name         string                 `db:"name"`
-		Description  string                 `db:"description"`
-		Schema       types.Map[string, any] `db:"schema"`
-		MetadataJSON []byte                 `db:"metadata"`
-		Active       bool                   `db:"active"`
-		CreatedAt    time.Time              `db:"created_at"`
-		UpdatedAt    time.Time              `db:"updated_at"`
-	}
-
-	var rows []eventRow
-	err := r.db.SelectContext(ctx, &rows, query, args...)
+	var events []*EventRegistration
+	err := r.db.SelectContext(ctx, &events, query, activeOnly)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
-
-	var events []*EventRegistration
-	for _, row := range rows {
-		event := &EventRegistration{
-			ID:          row.ID,
-			Name:        row.Name,
-			Description: row.Description,
-			Schema:      row.Schema,
-			Active:      row.Active,
-			CreatedAt:   row.CreatedAt,
-			UpdatedAt:   row.UpdatedAt,
-		}
-
-		if err := json.Unmarshal(row.MetadataJSON, &event.Metadata); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
-		}
-
-		events = append(events, event)
-	}
-
 	return events, nil
 }
 
 // UpdateEvent updates an event registration
 func (r *Repository) UpdateEvent(ctx context.Context, event *EventRegistration) error {
-	event.UpdatedAt = time.Now()
-
 	query := `
 		UPDATE event_registrations 
-		SET description = $2, schema = $3, metadata = $4, active = $5, updated_at = $6
+		SET description = $2, schema = $3, metadata = $4, active = $5
 		WHERE name = $1
 	`
 
-	metadataJSON, err := json.Marshal(event.Metadata)
-	if err != nil {
-		return fmt.Errorf("failed to marshal metadata: %w", err)
-	}
-
-	_, err = r.db.ExecContext(ctx, query,
+	_, err := r.db.ExecContext(ctx, query,
 		event.Name,
 		event.Description,
 		event.Schema,
-		metadataJSON,
+		event.Metadata,
 		event.Active,
 		event.UpdatedAt,
 	)
@@ -747,13 +704,15 @@ func (r *Repository) DeleteEvent(ctx context.Context, eventName string) error {
 	return storage.Error(err)
 }
 
-// RecordWebhookHealthEvent records a health event for time-series tracking
+// RecordWebhookHealthEvent creates a health tracking record for analytics and monitoring.
+// Captures delivery outcome, response time metrics, HTTP status codes, and error details.
+// These events feed into webhook health calculations and performance analytics.
+// Timestamp is set to NOW() for accurate time-series data collection.
 func (r *Repository) RecordWebhookHealthEvent(ctx context.Context, webhookID, deliveryID string, success bool, responseTime, responseCode int, errorMessage string) error {
 	query := `
 		INSERT INTO webhook_health_events (webhook_id, delivery_id, success, response_time, response_code, error_message, timestamp)
 		VALUES ($1, $2, $3, $4, $5, $6, NOW())
 	`
-
 	_, err := r.db.ExecContext(ctx, query, webhookID, deliveryID, success, responseTime, responseCode, errorMessage)
 	if err != nil {
 		return fmt.Errorf("failed to record health event: %w", err)
@@ -762,7 +721,10 @@ func (r *Repository) RecordWebhookHealthEvent(ctx context.Context, webhookID, de
 	return nil
 }
 
-// GetWebhookHealthMetrics retrieves current health state for a webhook
+// GetWebhookHealthState retrieves the current health tracking state for a webhook.
+// Returns metrics including consecutive failure count, timestamps of last success/failure,
+// and when the last delivery event occurred. Used for health status calculations
+// and determining when webhooks should be automatically disabled.
 func (r *Repository) GetWebhookHealthState(ctx context.Context, webhookID string) (*WebhookHealthMetrics, error) {
 	query := `
 		SELECT id, webhook_id, consecutive_failures, last_success_at, last_failure_at, 
@@ -780,7 +742,10 @@ func (r *Repository) GetWebhookHealthState(ctx context.Context, webhookID string
 	return &state, nil
 }
 
-// GetWebhookHealthSummary gets aggregated health metrics for a time window
+// GetWebhookHealthSummary provides aggregated performance metrics over a time window.
+// First attempts to retrieve pre-computed summaries from webhook_health_summaries table.
+// If no pre-computed data exists, calculates metrics on-the-fly from webhook_health_events.
+// Includes delivery counts, success rates, and response time percentiles (avg, min, max, p95).
 func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID string, hours int) (*WebhookHealthSummary, error) {
 	// First try to get from pre-computed summaries
 	query := `
@@ -977,7 +942,10 @@ func (r *Repository) GetHealthSummary(ctx context.Context) (map[WebhookHealth]in
 	return summary, nil
 }
 
-// GetRetriableDeliveries gets deliveries that can be retried for a webhook
+// GetRetriableDeliveries finds webhook deliveries eligible for retry attempts.
+// When force=false, only returns deliveries with status 'failed', 'pending', or 'retrying'.
+// When force=true, returns all deliveries regardless of status for administrative retry operations.
+// Results are namespace-isolated and ordered by creation time for consistent processing.
 func (r *Repository) GetRetriableDeliveries(ctx context.Context, webhookID, namespace string, force bool) ([]*WebhookDelivery, error) {
 	query := `
 		SELECT wd.id, wd.webhook_id, wd.event_id, wd.status, wd.attempt_count, wd.max_attempts, 
@@ -1104,7 +1072,11 @@ func (r *Repository) ListEventReports(ctx context.Context, namespace string, eve
 	return events, totalCount, nil
 }
 
-// ListEventReportsWithStats gets event records with delivery statistics using health events
+// ListEventReportsWithStats retrieves event records enriched with delivery statistics.
+// Joins event_records with webhook_deliveries and webhook_health_events to calculate:
+// - webhook_count: number of unique webhooks that received the event
+// - successful/failed/pending delivery counts based on health event outcomes
+// Supports optional event name filtering and pagination. Returns total count for UI pagination.
 func (r *Repository) ListEventReportsWithStats(ctx context.Context, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
 	// Build base query with delivery stats from health events
 	baseQuery := `

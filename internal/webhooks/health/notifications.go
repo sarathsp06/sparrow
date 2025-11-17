@@ -33,7 +33,6 @@ type WebhookRegistrationChangeNotification struct {
 // NotificationHandler handles different types of notifications
 type NotificationHandler interface {
 	HandleWebhookHealthEvent(ctx context.Context, event *WebhookHealthEventNotification) error
-	HandleWebhookRegistrationChange(ctx context.Context, change *WebhookRegistrationChangeNotification) error
 }
 
 // NotificationListener listens for PostgreSQL notifications

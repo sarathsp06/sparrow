@@ -89,60 +89,12 @@ func (hsh *HealthServiceHandler) HandleWebhookHealthEvent(ctx context.Context, e
 		"success", event.Success,
 		"response_code", event.ResponseCode)
 
-	// The event is already recorded in the database via the calculator
-	// This notification allows for additional processing like:
-	// - Updating in-memory caches
-	// - Sending real-time alerts
-	// - Triggering external integrations
-
 	// For now, just log the event
 	if !event.Success && event.ResponseCode >= 500 {
 		hsh.logger.Warn("Webhook delivery failed with server error",
 			"webhook_id", event.WebhookID,
 			"response_code", event.ResponseCode,
 			"response_time", event.ResponseTime)
-	}
-
-	return nil
-}
-
-// HandleWebhookRegistrationChange processes webhook registration change notifications
-func (hsh *HealthServiceHandler) HandleWebhookRegistrationChange(ctx context.Context, change *WebhookRegistrationChangeNotification) error {
-	hsh.logger.Debug("Processing webhook registration change notification",
-		"operation", change.Operation,
-		"webhook_id", change.WebhookID,
-		"namespace", change.Namespace)
-
-	switch change.Operation {
-	case "INSERT":
-		// Initialize health state for new webhook
-		hsh.logger.Info("New webhook registered",
-			"webhook_id", change.WebhookID,
-			"namespace", change.Namespace,
-			"url", change.URL)
-
-		// Health state will be initialized automatically by the database
-
-	case "UPDATE":
-		if change.OldActive != nil && *change.OldActive != change.Active {
-			hsh.logger.Info("Webhook active status changed",
-				"webhook_id", change.WebhookID,
-				"old_active", *change.OldActive,
-				"new_active", change.Active)
-		}
-
-		if change.OldHealth != change.Health {
-			hsh.logger.Info("Webhook health status changed",
-				"webhook_id", change.WebhookID,
-				"old_health", change.OldHealth,
-				"new_health", change.Health)
-		}
-
-	case "DELETE":
-		hsh.logger.Info("Webhook unregistered",
-			"webhook_id", change.WebhookID,
-			"namespace", change.Namespace)
-		// Health state will be automatically deleted via CASCADE
 	}
 
 	return nil
