@@ -33,6 +33,9 @@
 		"@connectrpc/connect-web": "^2.1.0",
 		"@kaifronsdal/svelte-json-viewer": "^0.1.0",
 		"@zerodevx/svelte-json-view": "^1.0.11",
+		"flowbite": "^4.0.1",
+		"flowbite-svelte": "^1.28.1",
+		"flowbite-svelte-icons": "^3.0.0",
 		"svelte-jsoneditor": "^3.10.0"
 	}
 }

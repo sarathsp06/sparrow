@@ -60,31 +60,42 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		existingEvent.Metadata = args.Metadata
 	}
 
-	// Find all registered webhooks for this namespace/event
-	registeredWebhooks, err := w.webhookRepo.GetWebhooksByEvent(ctx, args.Namespace, args.Event)
+	// Find all subscriptions for this namespace/event
+	subscriptions, err := w.webhookRepo.GetSubscriptionsByEvent(ctx, args.Namespace, args.Event)
 	if err != nil {
-		w.logger.Error("Failed to get registered webhooks", "error", err)
+		w.logger.Error("Failed to get event subscriptions", "error", err)
 		return err
 	}
 
-	if len(registeredWebhooks) == 0 {
-		w.logger.Info("No webhooks registered for event",
+	if len(subscriptions) == 0 {
+		w.logger.Info("No subscriptions found for event",
 			"namespace", args.Namespace,
 			"event", args.Event,
 		)
 		return nil
 	}
 
-	w.logger.Info("Found registered webhooks",
-		"count", len(registeredWebhooks),
+	w.logger.Info("Found subscriptions",
+		"count", len(subscriptions),
 		"namespace", args.Namespace,
 		"event", args.Event,
 	)
 
-	// Create webhook delivery jobs for each registered webhook
+	// Create webhook delivery jobs for each subscription
 	expiresAt := time.Now().Add(time.Duration(args.TTLSeconds) * time.Second)
 
-	for _, webhook := range registeredWebhooks {
+	for _, sub := range subscriptions {
+		// Fetch webhook details
+		webhook, err := w.webhookRepo.GetWebhookByID(ctx, sub.WebhookID, args.Namespace)
+		if err != nil {
+			w.logger.Error("Failed to get webhook for subscription", "error", err, "webhook_id", sub.WebhookID)
+			continue
+		}
+
+		if !webhook.Active {
+			continue
+		}
+
 		deliveryID := uuid.New().String()
 
 		// Calculate max attempts from webhook configuration (default 3)
@@ -95,12 +106,13 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 
 		// Create webhook delivery record
 		delivery := &store.WebhookDelivery{
-			ID:          deliveryID,
-			WebhookID:   webhook.ID,
-			EventID:     args.EventID,
-			Status:      store.StatusPending,
-			MaxAttempts: maxAttempts,
-			ExpiresAt:   expiresAt,
+			ID:             deliveryID,
+			WebhookID:      webhook.ID,
+			EventID:        args.EventID,
+			SubscriptionID: &sub.ID, // Link delivery to subscription
+			Status:         store.StatusPending,
+			MaxAttempts:    maxAttempts,
+			ExpiresAt:      expiresAt,
 		}
 
 		if err := w.webhookRepo.CreateDelivery(ctx, delivery); err != nil {
@@ -110,16 +122,16 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 
 		// Create webhook delivery job with minimal data
 		webhookArgs := WebhookArgs{
-			DeliveryID:  deliveryID,
-			WebhookID:   webhook.ID,
-			EventID:     args.EventID,
-			ExpiresAt:   expiresAt,
-			Namespace:   args.Namespace,
-			MaxAttempts: delivery.MaxAttempts,
+			DeliveryID:     deliveryID,
+			WebhookID:      webhook.ID,
+			SubscriptionID: sub.ID,
+			EventID:        args.EventID,
+			ExpiresAt:      expiresAt,
+			Namespace:      args.Namespace,
+			MaxAttempts:    delivery.MaxAttempts,
 		}
 
-		_, err := w.jobInserter.Insert(ctx, &webhookArgs)
-		if err != nil {
+		if _, err := w.jobInserter.Insert(ctx, &webhookArgs); err != nil {
 			w.logger.Error("Failed to schedule webhook delivery job",
 				"error", err,
 				"webhook_id", webhook.ID,
@@ -130,6 +142,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 
 		w.logger.Info("Scheduled webhook delivery",
 			"webhook_id", webhook.ID,
+			"subscription_id", sub.ID,
 			"delivery_id", deliveryID,
 			"webhook_url", webhook.URL,
 		)
@@ -137,7 +150,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 
 	w.logger.Info("Event processing completed",
 		"event_id", args.EventID,
-		"webhooks_scheduled", len(registeredWebhooks),
+		"webhooks_scheduled", len(subscriptions),
 	)
 
 	return nil

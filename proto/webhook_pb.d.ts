@@ -2212,6 +2212,518 @@ export declare type ListEventReportsResponse = Message<"webhook.ListEventReports
 export declare const ListEventReportsResponseSchema: GenMessage<ListEventReportsResponse>;
 
 /**
+ * EventSubscription represents a subscription linking a webhook to an event
+ *
+ * @generated from message webhook.EventSubscription
+ */
+export declare type EventSubscription = Message<"webhook.EventSubscription"> & {
+  /**
+   * Unique subscription identifier
+   *
+   * @generated from field: string subscription_id = 1;
+   */
+  subscriptionId: string;
+
+  /**
+   * Associated webhook ID
+   *
+   * @generated from field: string webhook_id = 2;
+   */
+  webhookId: string;
+
+  /**
+   * Event name to subscribe to
+   *
+   * @generated from field: string event_name = 3;
+   */
+  eventName: string;
+
+  /**
+   * Namespace
+   *
+   * @generated from field: string namespace = 4;
+   */
+  namespace: string;
+
+  /**
+   * Optional per-subscription headers (override webhook headers)
+   *
+   * @generated from field: map<string, string> headers = 5;
+   */
+  headers: { [key: string]: string };
+
+  /**
+   * Optional HTTP method override (default: POST)
+   *
+   * @generated from field: string method = 6;
+   */
+  method: string;
+
+  /**
+   * Optional timeout override in seconds
+   *
+   * @generated from field: int32 timeout = 7;
+   */
+  timeout: number;
+
+  /**
+   * Whether payload transformation is enabled
+   *
+   * @generated from field: bool transform_enabled = 8;
+   */
+  transformEnabled: boolean;
+
+  /**
+   * Go template for payload transformation
+   *
+   * @generated from field: string transform_template = 9;
+   */
+  transformTemplate: string;
+
+  /**
+   * When subscription was created (Unix timestamp)
+   *
+   * @generated from field: int64 created_at = 10;
+   */
+  createdAt: bigint;
+
+  /**
+   * When subscription was last updated (Unix timestamp)
+   *
+   * @generated from field: int64 updated_at = 11;
+   */
+  updatedAt: bigint;
+};
+
+/**
+ * Describes the message webhook.EventSubscription.
+ * Use `create(EventSubscriptionSchema)` to create a new message.
+ */
+export declare const EventSubscriptionSchema: GenMessage<EventSubscription>;
+
+/**
+ * CreateSubscriptionRequest represents a request to create a subscription
+ *
+ * @generated from message webhook.CreateSubscriptionRequest
+ */
+export declare type CreateSubscriptionRequest = Message<"webhook.CreateSubscriptionRequest"> & {
+  /**
+   * Webhook ID (required)
+   *
+   * @generated from field: string webhook_id = 1;
+   */
+  webhookId: string;
+
+  /**
+   * Event name (required)
+   *
+   * @generated from field: string event_name = 2;
+   */
+  eventName: string;
+
+  /**
+   * Namespace (required)
+   *
+   * @generated from field: string namespace = 3;
+   */
+  namespace: string;
+
+  /**
+   * Optional per-subscription headers
+   *
+   * @generated from field: map<string, string> headers = 4;
+   */
+  headers: { [key: string]: string };
+
+  /**
+   * Optional HTTP method (default: POST)
+   *
+   * @generated from field: string method = 5;
+   */
+  method: string;
+
+  /**
+   * Optional timeout in seconds
+   *
+   * @generated from field: int32 timeout = 6;
+   */
+  timeout: number;
+
+  /**
+   * Enable payload transformation
+   *
+   * @generated from field: bool transform_enabled = 7;
+   */
+  transformEnabled: boolean;
+
+  /**
+   * Go template for transformation
+   *
+   * @generated from field: string transform_template = 8;
+   */
+  transformTemplate: string;
+};
+
+/**
+ * Describes the message webhook.CreateSubscriptionRequest.
+ * Use `create(CreateSubscriptionRequestSchema)` to create a new message.
+ */
+export declare const CreateSubscriptionRequestSchema: GenMessage<CreateSubscriptionRequest>;
+
+/**
+ * CreateSubscriptionResponse represents the response for subscription creation
+ *
+ * @generated from message webhook.CreateSubscriptionResponse
+ */
+export declare type CreateSubscriptionResponse = Message<"webhook.CreateSubscriptionResponse"> & {
+  /**
+   * Created subscription ID
+   *
+   * @generated from field: string subscription_id = 1;
+   */
+  subscriptionId: string;
+
+  /**
+   * Whether creation was successful
+   *
+   * @generated from field: bool success = 2;
+   */
+  success: boolean;
+
+  /**
+   * Success or error message
+   *
+   * @generated from field: string message = 3;
+   */
+  message: string;
+
+  /**
+   * When subscription was created
+   *
+   * @generated from field: int64 created_at = 4;
+   */
+  createdAt: bigint;
+};
+
+/**
+ * Describes the message webhook.CreateSubscriptionResponse.
+ * Use `create(CreateSubscriptionResponseSchema)` to create a new message.
+ */
+export declare const CreateSubscriptionResponseSchema: GenMessage<CreateSubscriptionResponse>;
+
+/**
+ * GetSubscriptionRequest represents a request to get a subscription
+ *
+ * @generated from message webhook.GetSubscriptionRequest
+ */
+export declare type GetSubscriptionRequest = Message<"webhook.GetSubscriptionRequest"> & {
+  /**
+   * Subscription ID (required)
+   *
+   * @generated from field: string subscription_id = 1;
+   */
+  subscriptionId: string;
+};
+
+/**
+ * Describes the message webhook.GetSubscriptionRequest.
+ * Use `create(GetSubscriptionRequestSchema)` to create a new message.
+ */
+export declare const GetSubscriptionRequestSchema: GenMessage<GetSubscriptionRequest>;
+
+/**
+ * GetSubscriptionResponse represents the response for getting a subscription
+ *
+ * @generated from message webhook.GetSubscriptionResponse
+ */
+export declare type GetSubscriptionResponse = Message<"webhook.GetSubscriptionResponse"> & {
+  /**
+   * Subscription details
+   *
+   * @generated from field: webhook.EventSubscription subscription = 1;
+   */
+  subscription?: EventSubscription;
+
+  /**
+   * Whether request was successful
+   *
+   * @generated from field: bool success = 2;
+   */
+  success: boolean;
+
+  /**
+   * Success or error message
+   *
+   * @generated from field: string message = 3;
+   */
+  message: string;
+};
+
+/**
+ * Describes the message webhook.GetSubscriptionResponse.
+ * Use `create(GetSubscriptionResponseSchema)` to create a new message.
+ */
+export declare const GetSubscriptionResponseSchema: GenMessage<GetSubscriptionResponse>;
+
+/**
+ * ListSubscriptionsRequest represents a request to list subscriptions
+ *
+ * @generated from message webhook.ListSubscriptionsRequest
+ */
+export declare type ListSubscriptionsRequest = Message<"webhook.ListSubscriptionsRequest"> & {
+  /**
+   * Webhook ID to filter by (required)
+   *
+   * @generated from field: string webhook_id = 1;
+   */
+  webhookId: string;
+};
+
+/**
+ * Describes the message webhook.ListSubscriptionsRequest.
+ * Use `create(ListSubscriptionsRequestSchema)` to create a new message.
+ */
+export declare const ListSubscriptionsRequestSchema: GenMessage<ListSubscriptionsRequest>;
+
+/**
+ * ListSubscriptionsResponse represents the response for listing subscriptions
+ *
+ * @generated from message webhook.ListSubscriptionsResponse
+ */
+export declare type ListSubscriptionsResponse = Message<"webhook.ListSubscriptionsResponse"> & {
+  /**
+   * List of subscriptions
+   *
+   * @generated from field: repeated webhook.EventSubscription subscriptions = 1;
+   */
+  subscriptions: EventSubscription[];
+
+  /**
+   * Total count
+   *
+   * @generated from field: int32 total_count = 2;
+   */
+  totalCount: number;
+
+  /**
+   * Whether request was successful
+   *
+   * @generated from field: bool success = 3;
+   */
+  success: boolean;
+
+  /**
+   * Success or error message
+   *
+   * @generated from field: string message = 4;
+   */
+  message: string;
+};
+
+/**
+ * Describes the message webhook.ListSubscriptionsResponse.
+ * Use `create(ListSubscriptionsResponseSchema)` to create a new message.
+ */
+export declare const ListSubscriptionsResponseSchema: GenMessage<ListSubscriptionsResponse>;
+
+/**
+ * UpdateSubscriptionRequest represents a request to update a subscription
+ *
+ * @generated from message webhook.UpdateSubscriptionRequest
+ */
+export declare type UpdateSubscriptionRequest = Message<"webhook.UpdateSubscriptionRequest"> & {
+  /**
+   * Subscription ID (required)
+   *
+   * @generated from field: string subscription_id = 1;
+   */
+  subscriptionId: string;
+
+  /**
+   * Updated headers
+   *
+   * @generated from field: map<string, string> headers = 2;
+   */
+  headers: { [key: string]: string };
+
+  /**
+   * Updated HTTP method
+   *
+   * @generated from field: string method = 3;
+   */
+  method: string;
+
+  /**
+   * Updated timeout
+   *
+   * @generated from field: int32 timeout = 4;
+   */
+  timeout: number;
+
+  /**
+   * Updated transform enabled flag
+   *
+   * @generated from field: bool transform_enabled = 5;
+   */
+  transformEnabled: boolean;
+
+  /**
+   * Updated transform template
+   *
+   * @generated from field: string transform_template = 6;
+   */
+  transformTemplate: string;
+};
+
+/**
+ * Describes the message webhook.UpdateSubscriptionRequest.
+ * Use `create(UpdateSubscriptionRequestSchema)` to create a new message.
+ */
+export declare const UpdateSubscriptionRequestSchema: GenMessage<UpdateSubscriptionRequest>;
+
+/**
+ * UpdateSubscriptionResponse represents the response for updating a subscription
+ *
+ * @generated from message webhook.UpdateSubscriptionResponse
+ */
+export declare type UpdateSubscriptionResponse = Message<"webhook.UpdateSubscriptionResponse"> & {
+  /**
+   * Whether update was successful
+   *
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * Success or error message
+   *
+   * @generated from field: string message = 2;
+   */
+  message: string;
+};
+
+/**
+ * Describes the message webhook.UpdateSubscriptionResponse.
+ * Use `create(UpdateSubscriptionResponseSchema)` to create a new message.
+ */
+export declare const UpdateSubscriptionResponseSchema: GenMessage<UpdateSubscriptionResponse>;
+
+/**
+ * DeleteSubscriptionRequest represents a request to delete a subscription
+ *
+ * @generated from message webhook.DeleteSubscriptionRequest
+ */
+export declare type DeleteSubscriptionRequest = Message<"webhook.DeleteSubscriptionRequest"> & {
+  /**
+   * Subscription ID (required)
+   *
+   * @generated from field: string subscription_id = 1;
+   */
+  subscriptionId: string;
+};
+
+/**
+ * Describes the message webhook.DeleteSubscriptionRequest.
+ * Use `create(DeleteSubscriptionRequestSchema)` to create a new message.
+ */
+export declare const DeleteSubscriptionRequestSchema: GenMessage<DeleteSubscriptionRequest>;
+
+/**
+ * DeleteSubscriptionResponse represents the response for deleting a subscription
+ *
+ * @generated from message webhook.DeleteSubscriptionResponse
+ */
+export declare type DeleteSubscriptionResponse = Message<"webhook.DeleteSubscriptionResponse"> & {
+  /**
+   * Whether deletion was successful
+   *
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+
+  /**
+   * Success or error message
+   *
+   * @generated from field: string message = 2;
+   */
+  message: string;
+};
+
+/**
+ * Describes the message webhook.DeleteSubscriptionResponse.
+ * Use `create(DeleteSubscriptionResponseSchema)` to create a new message.
+ */
+export declare const DeleteSubscriptionResponseSchema: GenMessage<DeleteSubscriptionResponse>;
+
+/**
+ * ListSubscriptionsByEventRequest represents a request to list subscriptions by event
+ *
+ * @generated from message webhook.ListSubscriptionsByEventRequest
+ */
+export declare type ListSubscriptionsByEventRequest = Message<"webhook.ListSubscriptionsByEventRequest"> & {
+  /**
+   * Namespace (required)
+   *
+   * @generated from field: string namespace = 1;
+   */
+  namespace: string;
+
+  /**
+   * Event name (required)
+   *
+   * @generated from field: string event_name = 2;
+   */
+  eventName: string;
+};
+
+/**
+ * Describes the message webhook.ListSubscriptionsByEventRequest.
+ * Use `create(ListSubscriptionsByEventRequestSchema)` to create a new message.
+ */
+export declare const ListSubscriptionsByEventRequestSchema: GenMessage<ListSubscriptionsByEventRequest>;
+
+/**
+ * ListSubscriptionsByEventResponse represents the response for listing subscriptions by event
+ *
+ * @generated from message webhook.ListSubscriptionsByEventResponse
+ */
+export declare type ListSubscriptionsByEventResponse = Message<"webhook.ListSubscriptionsByEventResponse"> & {
+  /**
+   * List of subscriptions
+   *
+   * @generated from field: repeated webhook.EventSubscription subscriptions = 1;
+   */
+  subscriptions: EventSubscription[];
+
+  /**
+   * Total count
+   *
+   * @generated from field: int32 total_count = 2;
+   */
+  totalCount: number;
+
+  /**
+   * Whether request was successful
+   *
+   * @generated from field: bool success = 3;
+   */
+  success: boolean;
+
+  /**
+   * Success or error message
+   *
+   * @generated from field: string message = 4;
+   */
+  message: string;
+};
+
+/**
+ * Describes the message webhook.ListSubscriptionsByEventResponse.
+ * Use `create(ListSubscriptionsByEventResponseSchema)` to create a new message.
+ */
+export declare const ListSubscriptionsByEventResponseSchema: GenMessage<ListSubscriptionsByEventResponse>;
+
+/**
  * WebhookDeliveryStatus represents the status of webhook delivery
  *
  * @generated from enum webhook.WebhookDeliveryStatus
@@ -2527,6 +3039,67 @@ export declare const WebhookService: GenService<{
     methodKind: "unary";
     input: typeof ListEventReportsRequestSchema;
     output: typeof ListEventReportsResponseSchema;
+  },
+  /**
+   * Event Subscription Management
+   * CreateSubscription creates a new event subscription for a webhook
+   *
+   * @generated from rpc webhook.WebhookService.CreateSubscription
+   */
+  createSubscription: {
+    methodKind: "unary";
+    input: typeof CreateSubscriptionRequestSchema;
+    output: typeof CreateSubscriptionResponseSchema;
+  },
+  /**
+   * GetSubscription retrieves a specific subscription by ID
+   *
+   * @generated from rpc webhook.WebhookService.GetSubscription
+   */
+  getSubscription: {
+    methodKind: "unary";
+    input: typeof GetSubscriptionRequestSchema;
+    output: typeof GetSubscriptionResponseSchema;
+  },
+  /**
+   * ListSubscriptions lists all subscriptions for a webhook
+   *
+   * @generated from rpc webhook.WebhookService.ListSubscriptions
+   */
+  listSubscriptions: {
+    methodKind: "unary";
+    input: typeof ListSubscriptionsRequestSchema;
+    output: typeof ListSubscriptionsResponseSchema;
+  },
+  /**
+   * UpdateSubscription updates an existing subscription
+   *
+   * @generated from rpc webhook.WebhookService.UpdateSubscription
+   */
+  updateSubscription: {
+    methodKind: "unary";
+    input: typeof UpdateSubscriptionRequestSchema;
+    output: typeof UpdateSubscriptionResponseSchema;
+  },
+  /**
+   * DeleteSubscription deletes a subscription
+   *
+   * @generated from rpc webhook.WebhookService.DeleteSubscription
+   */
+  deleteSubscription: {
+    methodKind: "unary";
+    input: typeof DeleteSubscriptionRequestSchema;
+    output: typeof DeleteSubscriptionResponseSchema;
+  },
+  /**
+   * ListSubscriptionsByEvent lists all subscriptions for a specific event
+   *
+   * @generated from rpc webhook.WebhookService.ListSubscriptionsByEvent
+   */
+  listSubscriptionsByEvent: {
+    methodKind: "unary";
+    input: typeof ListSubscriptionsByEventRequestSchema;
+    output: typeof ListSubscriptionsByEventResponseSchema;
   },
 }>;
 

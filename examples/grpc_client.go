@@ -48,6 +48,14 @@ func MainGRPC() {
 				"category": "user",
 			},
 		},
+		{
+			name:        "order.created",
+			description: "Order created event",
+			schema:      `{"type": "object", "properties": {"order_id": {"type": "string"}, "total": {"type": "number"}}}`,
+			metadata: map[string]string{
+				"category": "order",
+			},
+		},
 	}
 
 	for _, event := range events {
@@ -65,11 +73,12 @@ func MainGRPC() {
 			log.Printf("Event %s registered: %s (ID: %s)", event.name, regEventResp.Message, regEventResp.EventId)
 		}
 	}
-	// Example 1: Register a webhook for multiple user events
-	log.Println("=== Example 1: Register Webhook for Multiple User Events ===")
+
+	// Example 1: Register a webhook (creates subscriptions automatically)
+	log.Println("\n=== Example 1: Register Webhook for Multiple User Events ===")
 	registerReq := &pb.RegisterWebhookRequest{
 		Namespace: "default",
-		Events:    []string{"signup", "login"},
+		Events:    []string{"signup", "login"}, // This creates 2 subscriptions
 		Url:       "https://webhooks.sarathsadasivan.com/65f3d9dc-e921-4154-8926-42e27f6e7058",
 		Headers: map[string]string{
 			"Authorization": "Bearer secret-token",
@@ -89,13 +98,90 @@ func MainGRPC() {
 		log.Printf("  Success: %t", registerResp.Success)
 		log.Printf("  Message: %s", registerResp.Message)
 		log.Printf("  Created At: %s", time.Unix(registerResp.CreatedAt, 0))
+		log.Printf("  Note: Created 2 event subscriptions (signup, login)")
 	}
 
-	// Example 2: Register another webhook for order events
-	log.Println("\n=== Example 2: Register Webhook for Order Events ===")
+	// Example 1b: Create a direct subscription with template transformation
+	log.Println("\n=== Example 1b: Create Subscription with Template Transformation ===")
+	if registerResp != nil && registerResp.Success {
+		// Create a subscription with Slack BlockKit template
+		slackTemplate := `{
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "🎉 New User Signup"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        {
+          "type": "mrkdwn",
+          "text": "*User ID:*\n{{ .Payload.user_id }}"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Email:*\n{{ .Payload.email }}"
+        }
+      ]
+    }
+  ]
+}`
+
+		createSubReq := &pb.CreateSubscriptionRequest{
+			WebhookId:         registerResp.WebhookId,
+			EventName:         "user.premium_signup",
+			Namespace:         "default",
+			TransformEnabled:  true,
+			TransformTemplate: slackTemplate,
+			Headers: map[string]string{
+				"Content-Type": "application/json",
+			},
+		}
+
+		createSubResp, err := client.CreateSubscription(ctx, createSubReq)
+		if err != nil {
+			log.Printf("Failed to create subscription: %v", err)
+		} else {
+			log.Printf("Subscription created successfully:")
+			log.Printf("  Subscription ID: %s", createSubResp.SubscriptionId)
+			log.Printf("  Success: %t", createSubResp.Success)
+			log.Printf("  Message: %s", createSubResp.Message)
+			log.Printf("  Features: Template transformation to Slack BlockKit format")
+		}
+	}
+
+	// Example 1c: List subscriptions for a webhook
+	log.Println("\n=== Example 1c: List Subscriptions for Webhook ===")
+	if registerResp != nil && registerResp.Success {
+		listSubsReq := &pb.ListSubscriptionsRequest{
+			WebhookId: registerResp.WebhookId,
+		}
+
+		listSubsResp, err := client.ListSubscriptions(ctx, listSubsReq)
+		if err != nil {
+			log.Printf("Failed to list subscriptions: %v", err)
+		} else {
+			log.Printf("Found %d subscriptions:", listSubsResp.TotalCount)
+			for i, sub := range listSubsResp.Subscriptions {
+				log.Printf("  Subscription %d:", i+1)
+				log.Printf("    ID: %s", sub.SubscriptionId)
+				log.Printf("    Event: %s", sub.EventName)
+				log.Printf("    Transform Enabled: %t", sub.TransformEnabled)
+				if sub.TransformEnabled {
+					log.Printf("    Has Template: yes (%d chars)", len(sub.TransformTemplate))
+				}
+			}
+		}
+	}
+
+	// Example 2: Register webhook with advanced HTTP configuration
+	log.Println("\n=== Example 2: Register Webhook with Advanced HTTP Config ===")
 	registerReq2 := &pb.RegisterWebhookRequest{
 		Namespace: "default",
-		Events:    []string{"created", "updated", "cancelled"},
+		Events:    []string{"order.created"},
 		Url:       "https://webhooks.sarathsadasivan.com/32c5c978-30ed-49d6-aafc-fda9e7fcdc33",
 		Headers: map[string]string{
 			"Content-Type":   "application/json",
@@ -103,7 +189,19 @@ func MainGRPC() {
 		},
 		Timeout:     15,
 		Active:      true,
-		Description: "Webhook for order lifecycle events",
+		Description: "Webhook for order events with custom config",
+		HttpConfig: &pb.WebhookHTTPConfig{
+			MaxRetries:            3,
+			RetryBackoffSeconds:   5,
+			CaptureResponseBody:   true,
+			FollowRedirects:       false,
+			VerifySsl:             true,
+			RequestTimeoutSeconds: 15,
+			ExpectedStatusCodes:   []int32{200, 201, 202},
+			WebhookSecret:         "my-webhook-secret",
+			UserAgent:             "Sparrow-Webhook/2.0",
+			ContentType:           "application/json",
+		},
 	}
 
 	registerResp2, err := client.RegisterWebhook(ctx, registerReq2)
@@ -113,33 +211,11 @@ func MainGRPC() {
 		log.Printf("Order webhook registered successfully:")
 		log.Printf("  Webhook ID: %s", registerResp2.WebhookId)
 		log.Printf("  Success: %t", registerResp2.Success)
+		log.Printf("  Features: HMAC signing, custom retry logic, response capture")
 	}
 
-	// Example 3: Register webhook for payment events
-	log.Println("\n=== Example 3: Register Webhook for Payment Events ===")
-	registerReq3 := &pb.RegisterWebhookRequest{
-		Namespace: "default",
-		Events:    []string{"processed", "failed", "refunded"},
-		Url:       "https://webhooks.sarathsadasivan.com/32c5c978-30ed-49d6-aafc-fda9e7fcdc33",
-		Headers: map[string]string{
-			"X-Event-Type": "payment-events",
-			"X-Secret":     "payment-webhook-secret",
-		},
-		Timeout:     20,
-		Active:      true,
-		Description: "Webhook for payment processing events",
-	}
-
-	registerResp3, err := client.RegisterWebhook(ctx, registerReq3)
-	if err != nil {
-		log.Printf("Failed to register payment webhook: %v", err)
-	} else {
-		log.Printf("Payment webhook registered successfully:")
-		log.Printf("  Webhook ID: %s", registerResp3.WebhookId)
-	}
-
-	// Example 4: List registered webhooks
-	log.Println("\n=== Example 4: List Webhooks in User Namespace ===")
+	// Example 3: List registered webhooks (shows events from subscriptions)
+	log.Println("\n=== Example 3: List Webhooks in Namespace ===")
 	listReq := &pb.ListWebhooksRequest{
 		Namespace:  "default",
 		ActiveOnly: true,
@@ -149,11 +225,11 @@ func MainGRPC() {
 	if err != nil {
 		log.Printf("Failed to list webhooks: %v", err)
 	} else {
-		log.Printf("Found %d webhooks in user namespace:", listResp.TotalCount)
+		log.Printf("Found %d webhooks in default namespace:", listResp.TotalCount)
 		for i, webhook := range listResp.Webhooks {
 			log.Printf("  Webhook %d:", i+1)
 			log.Printf("    ID: %s", webhook.WebhookId)
-			log.Printf("    Events: %v", webhook.Events)
+			log.Printf("    Events (from subscriptions): %v", webhook.Events)
 			log.Printf("    URL: %s", webhook.Url)
 			log.Printf("    Active: %t", webhook.Active)
 		}
@@ -162,8 +238,8 @@ func MainGRPC() {
 	// Wait a moment before pushing events
 	time.Sleep(2 * time.Second)
 
-	// Example 5: Push a user signup event
-	log.Println("\n=== Example 5: Push User Signup Event ===")
+	// Example 4: Push a user signup event
+	log.Println("\n=== Example 4: Push User Signup Event ===")
 	eventPayload := map[string]interface{}{
 		"user_id":   "user_12345",
 		"email":     "john.doe@default.com",
@@ -197,10 +273,11 @@ func MainGRPC() {
 		log.Printf("  Event ID: %s", pushResp.EventId)
 		log.Printf("  Success: %t", pushResp.Success)
 		log.Printf("  Message: %s", pushResp.Message)
+		log.Printf("  Note: Webhook delivery uses subscription-specific config")
 	}
 
-	// Example 6: Push an order created event
-	log.Println("\n=== Example 6: Push Order Created Event ===")
+	// Example 5: Push an order created event
+	log.Println("\n=== Example 5: Push Order Created Event ===")
 	orderPayload := map[string]interface{}{
 		"order_id":     "order_67890",
 		"customer_id":  "user_12345",
@@ -220,7 +297,7 @@ func MainGRPC() {
 
 	pushOrderReq := &pb.PushEventRequest{
 		Namespace:  "default",
-		Event:      "created",
+		Event:      "order.created",
 		Payload:    payload,
 		TtlSeconds: 1800, // 30 minutes TTL
 		Metadata: map[string]string{
@@ -241,8 +318,8 @@ func MainGRPC() {
 	// Wait for webhook processing
 	time.Sleep(5 * time.Second)
 
-	// Example 7: Check webhook delivery status
-	log.Println("\n=== Example 7: Check Webhook Delivery Status ===")
+	// Example 6: Check webhook delivery status
+	log.Println("\n=== Example 6: Check Webhook Delivery Status ===")
 	if registerResp != nil && registerResp.Success {
 		statusReq := &pb.GetWebhookStatusRequest{
 			WebhookId: registerResp.WebhookId,
@@ -269,8 +346,8 @@ func MainGRPC() {
 		}
 	}
 
-	// Example 8: Get Webhook Health Metrics
-	log.Println("\n=== Example 8: Get Webhook Health Metrics ===")
+	// Example 7: Get Webhook Health Metrics
+	log.Println("\n=== Example 7: Get Webhook Health Metrics ===")
 	if registerResp != nil && registerResp.Success {
 		healthReq := &pb.GetWebhookHealthRequest{
 			WebhookId: registerResp.WebhookId,
@@ -297,8 +374,33 @@ func MainGRPC() {
 		}
 	}
 
-	// Example 10: Get Health Summary
-	log.Println("\n=== Example 10: Get Health Summary ===")
+	// Example 8: Update webhook configuration (updates subscriptions)
+	log.Println("\n=== Example 8: Update Webhook Configuration ===")
+	if registerResp != nil && registerResp.Success {
+		updateReq := &pb.UpdateWebhookConfigRequest{
+			WebhookId: registerResp.WebhookId,
+			Namespace: "default",
+			Updates: &pb.WebhookUpdateFields{
+				Events:      []string{"signup", "login", "order.created"}, // Add order.created subscription
+				Url:         "https://webhooks.sarathsadasivan.com/65f3d9dc-e921-4154-8926-42e27f6e7058",
+				Active:      true,
+				Description: "Updated webhook with order events",
+			},
+		}
+
+		updateResp, err := client.UpdateWebhookConfig(ctx, updateReq)
+		if err != nil {
+			log.Printf("Failed to update webhook: %v", err)
+		} else {
+			log.Printf("Webhook updated successfully:")
+			log.Printf("  Success: %t", updateResp.Success)
+			log.Printf("  Message: %s", updateResp.Message)
+			log.Printf("  Note: Old subscriptions deleted, new ones created")
+		}
+	}
+
+	// Example 9: Get Health Summary
+	log.Println("\n=== Example 9: Get Health Summary ===")
 	healthSummaryReq := &pb.GetHealthSummaryRequest{}
 
 	healthSummaryResp, err := client.GetHealthSummary(ctx, healthSummaryReq)
@@ -316,8 +418,8 @@ func MainGRPC() {
 		}
 	}
 
-	// Example 11: Unregister a webhook
-	log.Println("\n=== Example 11: Unregister Webhook ===")
+	// Example 10: Unregister a webhook (deletes subscriptions)
+	log.Println("\n=== Example 10: Unregister Webhook ===")
 	if registerResp2 != nil && registerResp2.Success {
 		unregisterReq := &pb.UnregisterWebhookRequest{
 			WebhookId: registerResp2.WebhookId,
@@ -330,80 +432,17 @@ func MainGRPC() {
 			log.Printf("Webhook unregistered successfully:")
 			log.Printf("  Success: %t", unregisterResp.Success)
 			log.Printf("  Message: %s", unregisterResp.Message)
+			log.Printf("  Note: Associated subscriptions also deleted")
 		}
 	}
 
-	// Register an event with JSON schema
-	log.Println("\n=== Register Event with JSON Schema ===")
-	eventDefs := []*pb.RegisterEventRequest{
-		&pb.RegisterEventRequest{
-			Name:        "user.created",
-			Description: "Triggered when a new user is created",
-			Schema:      `{"type": "object", "properties": {"userId": {"type": "string"}, "email": {"type": "string"}}, "required": ["userId", "email"]}`,
-			Metadata:    map[string]string{"category": "user"},
-			Active:      true,
-		},
-		&pb.RegisterEventRequest{
-			Name:        "user.deleted",
-			Description: "Triggered when a user is deleted",
-			Schema:      `{"type": "object", "properties": {"userId": {"type": "string"}}, "required": ["userId"]}`,
-			Metadata:    map[string]string{"category": "user"},
-			Active:      true,
-		},
-		&pb.RegisterEventRequest{
-			Name:        "user.updated",
-			Description: "Triggered when a user is updated",
-			Schema:      `{"type": "object", "properties": {"userId": {"type": "string"}, "email": {"type": "string"}}, "required": ["userId", "email"]}`,
-			Metadata:    map[string]string{"category": "user"},
-			Active:      true,
-		},
-	}
-
-	for _, eventDef := range eventDefs {
-		regEventResp, err := client.RegisterEvent(ctx, eventDef)
-		if err != nil {
-			log.Fatalf("Failed to register event: %v", err)
-		} else {
-			log.Printf("Event registered: %s (ID: %s)", regEventResp.Message, regEventResp.EventId)
-		}
-	}
-
-	// Register webhook for the registered event
-	log.Println("\n=== Register Webhook for Registered Event ===")
-	regWebhookReq := &pb.RegisterWebhookRequest{
-		Namespace:   "default",
-		Events:      []string{"user.created"},
-		Url:         "https://webhooks.sarathsadasivan.com/65f3d9dc-e921-4154-8926-42e27f6e7058",
-		Headers:     map[string]string{"X-Test": "true"},
-		Timeout:     10,
-		Active:      true,
-		Description: "Webhook for user.created event",
-	}
-	regWebhookResp, err := client.RegisterWebhook(ctx, regWebhookReq)
-	if err != nil {
-		log.Fatalf("Failed to register webhook: %v", err)
-	} else {
-		log.Printf("Webhook registered: %s (ID: %s)", regWebhookResp.Message, regWebhookResp.WebhookId)
-	}
-
-	// Push event with invalid payload (missing required field)
-	log.Println("\n=== Push user.created Event with Invalid Payload ===")
-	invalidPayload := map[string]interface{}{"userId": "user_002"} // missing email
-	payload, _ = structpb.NewStruct(invalidPayload)
-	pushInvalidReq := &pb.PushEventRequest{
-		Namespace:  "default",
-		Event:      "user.created",
-		Payload:    payload,
-		TtlSeconds: 600,
-	}
-	pushInvalidResp, err := client.PushEvent(ctx, pushInvalidReq)
-	if err != nil {
-		log.Printf("Expected failure for invalid event: %v", err)
-	} else {
-		log.Printf("Unexpected success for invalid event: %s", pushInvalidResp.Message)
-	}
-
-	log.Println("\n=== All defaults completed ===")
+	log.Println("\n=== All examples completed ===")
+	log.Println("\nKey Changes in Refactored System:")
+	log.Println("  - Webhooks and events are now decoupled via subscriptions")
+	log.Println("  - Each event subscription can have custom headers, method, timeout")
+	log.Println("  - Template-based payload transformation supported per subscription")
+	log.Println("  - Centralized HTTP client with consistent behavior")
+	log.Println("  - HMAC-SHA256 signing for webhook security")
 }
 
 func main() {

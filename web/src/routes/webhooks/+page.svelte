@@ -1,6 +1,5 @@
 <script lang="ts">
     import favicon from '$lib/assets/favicon.svg';
-    import { stopPropagation } from 'svelte/legacy';
 
   import { goto } from "$app/navigation";
   import { client } from "$lib/services";
@@ -125,9 +124,14 @@
                 <td class="px-4 py-2">{wh.namespace}</td>
                 <td class="px-4 py-2 max-w-xs truncate" title={wh.url}>{wh.url}</td>
                 <td class="px-4 py-2">
-                  <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                    {wh.events.length} events
-                  </span>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                      {wh.events.length} events
+                    </span>
+                    <span class="text-xs text-gray-500" title="Events are managed via subscriptions">
+                      📋 subscriptions
+                    </span>
+                  </div>
                 </td>
                 <td class="px-4 py-2">
                   {#if wh.httpConfig}
@@ -164,8 +168,7 @@
                 <td class="px-4 py-2">
                   <button
                     class="bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600"
-                    onclick={stopPropagation(() =>
-                      unregisterWebhook(wh.webhookId))}>Unregister</button
+                    onclick={(e:Event) => { e.preventDefault(); unregisterWebhook(wh.webhookId); }}>Unregister</button
                   >
                 </td>
               </tr>

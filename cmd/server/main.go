@@ -18,6 +18,7 @@ import (
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	connectserver "github.com/sarathsp06/sparrow/internal/connect"
 	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
@@ -151,6 +152,9 @@ func main() {
 	fmt.Println("🌐 Starting servers...")
 	fmt.Println("   gRPC server: localhost:50051")
 	fmt.Println("   Connect-RPC (HTTP): localhost:8080")
+
+	// Register reflection service on gRPC server.
+	reflection.Register(grpcServer)
 
 	// Start gRPC server in a goroutine
 	go func() {

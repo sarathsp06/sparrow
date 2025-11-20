@@ -79,6 +79,24 @@ service WebhookService {
   // ListEventReports lists all events in descending order for a given namespace
   rpc ListEventReports(ListEventReportsRequest) returns (ListEventReportsResponse);
 
+  // Event Subscription Management
+  // CreateSubscription creates a new event subscription for a webhook
+  rpc CreateSubscription(CreateSubscriptionRequest) returns (CreateSubscriptionResponse);
+
+  // GetSubscription retrieves a specific subscription by ID
+  rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
+
+  // ListSubscriptions lists all subscriptions for a webhook
+  rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
+
+  // UpdateSubscription updates an existing subscription
+  rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
+
+  // DeleteSubscription deletes a subscription
+  rpc DeleteSubscription(DeleteSubscriptionRequest) returns (DeleteSubscriptionResponse);
+
+  // ListSubscriptionsByEvent lists all subscriptions for a specific event
+  rpc ListSubscriptionsByEvent(ListSubscriptionsByEventRequest) returns (ListSubscriptionsByEventResponse);
   
 }
 
@@ -554,5 +572,108 @@ message ListEventReportsResponse {
   repeated EventReport events = 1; // List of events in descending order by created_at
   int32 total_count = 2; // Total count of events matching the filter
   bool success = 3; // Whether the request was successful
+  string message = 4; // Success or error message
+}
+
+// Event Subscription Messages
+
+// EventSubscription represents a subscription linking a webhook to an event
+message EventSubscription {
+  string subscription_id = 1; // Unique subscription identifier
+  string webhook_id = 2; // Associated webhook ID
+  string event_name = 3; // Event name to subscribe to
+  string namespace = 4; // Namespace
+  map<string, string> headers = 5; // Optional per-subscription headers (override webhook headers)
+  string method = 6; // Optional HTTP method override (default: POST)
+  int32 timeout = 7; // Optional timeout override in seconds
+  bool transform_enabled = 8; // Whether payload transformation is enabled
+  string transform_template = 9; // Go template for payload transformation
+  int64 created_at = 10; // When subscription was created (Unix timestamp)
+  int64 updated_at = 11; // When subscription was last updated (Unix timestamp)
+}
+
+// CreateSubscriptionRequest represents a request to create a subscription
+message CreateSubscriptionRequest {
+  string webhook_id = 1; // Webhook ID (required)
+  string event_name = 2; // Event name (required)
+  string namespace = 3; // Namespace (required)
+  map<string, string> headers = 4; // Optional per-subscription headers
+  string method = 5; // Optional HTTP method (default: POST)
+  int32 timeout = 6; // Optional timeout in seconds
+  bool transform_enabled = 7; // Enable payload transformation
+  string transform_template = 8; // Go template for transformation
+}
+
+// CreateSubscriptionResponse represents the response for subscription creation
+message CreateSubscriptionResponse {
+  string subscription_id = 1; // Created subscription ID
+  bool success = 2; // Whether creation was successful
+  string message = 3; // Success or error message
+  int64 created_at = 4; // When subscription was created
+}
+
+// GetSubscriptionRequest represents a request to get a subscription
+message GetSubscriptionRequest {
+  string subscription_id = 1; // Subscription ID (required)
+}
+
+// GetSubscriptionResponse represents the response for getting a subscription
+message GetSubscriptionResponse {
+  EventSubscription subscription = 1; // Subscription details
+  bool success = 2; // Whether request was successful
+  string message = 3; // Success or error message
+}
+
+// ListSubscriptionsRequest represents a request to list subscriptions
+message ListSubscriptionsRequest {
+  string webhook_id = 1; // Webhook ID to filter by (required)
+}
+
+// ListSubscriptionsResponse represents the response for listing subscriptions
+message ListSubscriptionsResponse {
+  repeated EventSubscription subscriptions = 1; // List of subscriptions
+  int32 total_count = 2; // Total count
+  bool success = 3; // Whether request was successful
+  string message = 4; // Success or error message
+}
+
+// UpdateSubscriptionRequest represents a request to update a subscription
+message UpdateSubscriptionRequest {
+  string subscription_id = 1; // Subscription ID (required)
+  map<string, string> headers = 2; // Updated headers
+  string method = 3; // Updated HTTP method
+  int32 timeout = 4; // Updated timeout
+  bool transform_enabled = 5; // Updated transform enabled flag
+  string transform_template = 6; // Updated transform template
+}
+
+// UpdateSubscriptionResponse represents the response for updating a subscription
+message UpdateSubscriptionResponse {
+  bool success = 1; // Whether update was successful
+  string message = 2; // Success or error message
+}
+
+// DeleteSubscriptionRequest represents a request to delete a subscription
+message DeleteSubscriptionRequest {
+  string subscription_id = 1; // Subscription ID (required)
+}
+
+// DeleteSubscriptionResponse represents the response for deleting a subscription
+message DeleteSubscriptionResponse {
+  bool success = 1; // Whether deletion was successful
+  string message = 2; // Success or error message
+}
+
+// ListSubscriptionsByEventRequest represents a request to list subscriptions by event
+message ListSubscriptionsByEventRequest {
+  string namespace = 1; // Namespace (required)
+  string event_name = 2; // Event name (required)
+}
+
+// ListSubscriptionsByEventResponse represents the response for listing subscriptions by event
+message ListSubscriptionsByEventResponse {
+  repeated EventSubscription subscriptions = 1; // List of subscriptions
+  int32 total_count = 2; // Total count
+  bool success = 3; // Whether request was successful
   string message = 4; // Success or error message
 }

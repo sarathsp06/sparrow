@@ -228,3 +228,57 @@ func (s *WebhookConnectServer) ResumeWebhook(ctx context.Context, req *connect.R
 	}
 	return connect.NewResponse(res), nil
 }
+
+// CreateSubscription creates a new event subscription for a webhook
+func (s *WebhookConnectServer) CreateSubscription(ctx context.Context, req *connect.Request[pb.CreateSubscriptionRequest]) (*connect.Response[pb.CreateSubscriptionResponse], error) {
+	res, err := s.grpcService.CreateSubscription(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
+// GetSubscription retrieves a specific subscription by ID
+func (s *WebhookConnectServer) GetSubscription(ctx context.Context, req *connect.Request[pb.GetSubscriptionRequest]) (*connect.Response[pb.GetSubscriptionResponse], error) {
+	res, err := s.grpcService.GetSubscription(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
+// ListSubscriptions lists all subscriptions for a webhook
+func (s *WebhookConnectServer) ListSubscriptions(ctx context.Context, req *connect.Request[pb.ListSubscriptionsRequest]) (*connect.Response[pb.ListSubscriptionsResponse], error) {
+	res, err := s.grpcService.ListSubscriptions(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
+// UpdateSubscription updates an existing subscription
+func (s *WebhookConnectServer) UpdateSubscription(ctx context.Context, req *connect.Request[pb.UpdateSubscriptionRequest]) (*connect.Response[pb.UpdateSubscriptionResponse], error) {
+	res, err := s.grpcService.UpdateSubscription(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
+// DeleteSubscription deletes a subscription
+func (s *WebhookConnectServer) DeleteSubscription(ctx context.Context, req *connect.Request[pb.DeleteSubscriptionRequest]) (*connect.Response[pb.DeleteSubscriptionResponse], error) {
+	res, err := s.grpcService.DeleteSubscription(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
+// ListSubscriptionsByEvent lists all subscriptions for a specific event
+func (s *WebhookConnectServer) ListSubscriptionsByEvent(ctx context.Context, req *connect.Request[pb.ListSubscriptionsByEventRequest]) (*connect.Response[pb.ListSubscriptionsByEventResponse], error) {
+	res, err := s.grpcService.ListSubscriptionsByEvent(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}

@@ -38,6 +38,30 @@ func NewWebhookServiceInterfaceWithTracing(base WebhookServiceInterface, instanc
 	return d
 }
 
+// CreateWebhook implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (wp1 *WebhookRegistration, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.CreateWebhook")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx": ctx,
+				"req": req}, map[string]interface{}{
+				"wp1": wp1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.CreateWebhook(ctx, req)
+}
+
 // DeleteEvent implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) DeleteEvent(ctx context.Context, name string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.DeleteEvent")

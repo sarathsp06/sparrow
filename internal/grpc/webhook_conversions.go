@@ -87,19 +87,6 @@ func ConvertInternalHTTPConfig(config *webhooks.WebhookHTTPConfig) *pb.WebhookHT
 	return protoConfig
 }
 
-// convertExpectedStatusCodes converts pq.Int64Array to []int32
-func convertExpectedStatusCodes(codes []int64) []int32 {
-	if len(codes) == 0 {
-		return nil
-	}
-
-	result := make([]int32, len(codes))
-	for i, code := range codes {
-		result[i] = int32(code)
-	}
-	return result
-}
-
 // CreateWebhookRegistrationRequest creates a WebhookRegistrationRequest from protobuf
 func CreateWebhookRegistrationRequest(req *pb.RegisterWebhookRequest) webhooks.WebhookRegistrationRequest {
 	// Convert headers map[string]string to map[string]interface{}

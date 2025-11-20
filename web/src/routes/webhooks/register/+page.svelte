@@ -254,6 +254,15 @@
         </div>
       {/if}
       
+      <!-- Template Info -->
+      <div class="p-4 bg-blue-50 border border-blue-200 rounded-md">
+        <h3 class="text-sm font-medium text-blue-800 mb-2">💡 Custom Payload Templates</h3>
+        <p class="text-blue-700 text-sm">
+          After registering your webhook, you can customize how event payloads are formatted by adding templates to individual event subscriptions. 
+          Visit the webhook detail page to configure templates for Slack, Discord, or custom API formats.
+        </p>
+      </div>
+      
       <div class="flex space-x-4">
         <button type="submit" 
                 class="flex-1 bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">

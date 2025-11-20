@@ -54,12 +54,13 @@ func (EventArgs) Kind() string {
 // WebhookArgs represents a webhook delivery job
 // Contains only essential identifiers - webhook config and event payload retrieved from database
 type WebhookArgs struct {
-	DeliveryID  string    `json:"delivery_id"`
-	WebhookID   string    `json:"webhook_id"`
-	EventID     string    `json:"event_id"`
-	ExpiresAt   time.Time `json:"expires_at"`
-	Namespace   string    `json:"namespace"`
-	MaxAttempts int       `json:"max_attempts"`
+	DeliveryID     string    `json:"delivery_id"`
+	WebhookID      string    `json:"webhook_id"`
+	SubscriptionID string    `json:"subscription_id"`
+	EventID        string    `json:"event_id"`
+	ExpiresAt      time.Time `json:"expires_at"`
+	Namespace      string    `json:"namespace"`
+	MaxAttempts    int       `json:"max_attempts"`
 }
 
 var _ river.JobArgsWithInsertOpts = (*WebhookArgs)(nil)

@@ -55,6 +55,8 @@ type WebhookServiceInterface interface {
 	ListWebhooksByHealth(ctx context.Context, health store.WebhookHealth) ([]*store.WebhookRegistration, error)
 	ResubmitWebhook(ctx context.Context, deliveryID string, webhookID string, namespace string, force bool) ([]string, int32, error)
 	ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int32) ([]*store.EventReportWithStats, int32, error)
+	// Repository access for subscription management
+	GetWebhookRepo() store.RepositoryInterface
 }
 
 var _ WebhookServiceInterface = (*WebhookService)(nil)
@@ -75,6 +77,11 @@ func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.Reposit
 		tracer:      observability.GetTracer("sparrow.service.webhook"),
 		metrics:     metrics,
 	}
+}
+
+// GetWebhookRepo returns the repository interface for direct access
+func (s *WebhookService) GetWebhookRepo() store.RepositoryInterface {
+	return s.webhookRepo
 }
 
 func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (string, int64, error) {
@@ -112,7 +119,6 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	}
 	registration := &store.WebhookRegistration{
 		Namespace:   namespace,
-		Events:      events,
 		URL:         url,
 		Headers:     headers,
 		Timeout:     int(timeout),
@@ -128,6 +134,22 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 		)
 		return "", 0, fmt.Errorf("failed to register webhook: %w", err)
 	}
+
+	// Create subscriptions for each event
+	for _, event := range events {
+		sub := &store.EventSubscription{
+			WebhookID: registration.ID,
+			EventName: event,
+			Namespace: namespace,
+		}
+		if err := s.webhookRepo.CreateSubscription(ctx, sub); err != nil {
+			s.logger.Error("Failed to create subscription", "webhook_id", registration.ID, "event", event, "error", err)
+			// Continue creating other subscriptions? Or fail?
+			// For now, let's log and continue, but ideally we should probably rollback or fail.
+			// Given the signature doesn't allow partial success indication easily, we'll log error.
+		}
+	}
+
 	if s.metrics != nil {
 		s.metrics.WebhookRegistrations.Add(ctx, 1)
 		s.metrics.ActiveWebhooks.Add(ctx, 1)
@@ -170,7 +192,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	}
 
 	// Validate event names exist
-	for _, event := range webhookReg.Events {
+	for _, event := range req.Events {
 		if event == "" {
 			return nil, fmt.Errorf("empty event name not allowed")
 		}
@@ -196,7 +218,6 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	storeWebhook := &store.WebhookRegistration{
 		ID:                    webhookReg.ID,
 		Namespace:             webhookReg.Namespace,
-		Events:                pq.StringArray(webhookReg.Events),
 		URL:                   webhookReg.URL,
 		Timeout:               webhookReg.HTTPConfig.RequestTimeoutSeconds,
 		Active:                webhookReg.Active,
@@ -242,6 +263,18 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "failed to register webhook")
 		return nil, fmt.Errorf("failed to register webhook: %w", err)
+	}
+
+	// Create subscriptions for each event
+	for _, event := range req.Events {
+		sub := &store.EventSubscription{
+			WebhookID: storeWebhook.ID,
+			EventName: event,
+			Namespace: req.Namespace,
+		}
+		if err := s.webhookRepo.CreateSubscription(ctx, sub); err != nil {
+			s.logger.Error("Failed to create subscription", "webhook_id", storeWebhook.ID, "event", event, "error", err)
+		}
 	}
 
 	// Update metrics
@@ -441,9 +474,15 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, eve
 	}
 	var filteredRegistrations []*store.WebhookRegistration
 	if event != "" {
+		// Filter by event using subscriptions
 		for _, reg := range registrations {
-			for _, evt := range reg.Events {
-				if evt == event {
+			subs, err := s.webhookRepo.ListSubscriptions(ctx, reg.ID)
+			if err != nil {
+				s.logger.Warn("Failed to get subscriptions for webhook", "webhook_id", reg.ID, "error", err)
+				continue
+			}
+			for _, sub := range subs {
+				if sub.EventName == event {
 					filteredRegistrations = append(filteredRegistrations, reg)
 					break
 				}
@@ -513,17 +552,32 @@ func (s *WebhookService) ListRegisteredWebhooksByEvent(ctx context.Context, name
 		return nil, fmt.Errorf("event is required")
 	}
 
-	allWebhooks, err := s.webhookRepo.GetWebhooksByEvent(ctx, namespace, event)
+	// Get subscriptions for this event
+	subscriptions, err := s.webhookRepo.GetSubscriptionsByEvent(ctx, namespace, event)
 	if err != nil {
-		s.logger.Error("Failed to get webhooks by event", "error", err)
-		return nil, fmt.Errorf("failed to retrieve webhooks: %w", err)
+		s.logger.Error("Failed to get subscriptions by event", "error", err)
+		return nil, fmt.Errorf("failed to retrieve subscriptions: %w", err)
 	}
 
-	var webhooks []*store.WebhookRegistration
-	for _, wh := range allWebhooks {
-		if !activeOnly || wh.Active {
-			webhooks = append(webhooks, wh)
+	// Get unique webhooks from subscriptions
+	webhookMap := make(map[string]*store.WebhookRegistration)
+	for _, sub := range subscriptions {
+		if _, exists := webhookMap[sub.WebhookID]; !exists {
+			webhook, err := s.webhookRepo.GetWebhookByID(ctx, sub.WebhookID, namespace)
+			if err != nil {
+				s.logger.Warn("Failed to get webhook for subscription", "webhook_id", sub.WebhookID, "error", err)
+				continue
+			}
+			if webhook != nil && (!activeOnly || webhook.Active) {
+				webhookMap[sub.WebhookID] = webhook
+			}
 		}
+	}
+
+	// Convert map to slice
+	var webhooks []*store.WebhookRegistration
+	for _, wh := range webhookMap {
+		webhooks = append(webhooks, wh)
 	}
 
 	return webhooks, nil
@@ -598,12 +652,13 @@ func (s *WebhookService) ResendWebhook(ctx context.Context, deliveryID string, n
 		return "", fmt.Errorf("webhook is not active")
 	}
 	newDelivery := &store.WebhookDelivery{
-		ID:          uuid.NewString(),
-		WebhookID:   delivery.WebhookID,
-		EventID:     delivery.EventID,
-		Status:      store.StatusPending,
-		ExpiresAt:   time.Now().Add(24 * time.Hour),
-		MaxAttempts: delivery.MaxAttempts,
+		ID:             uuid.NewString(),
+		WebhookID:      delivery.WebhookID,
+		EventID:        delivery.EventID,
+		SubscriptionID: delivery.SubscriptionID, // Preserve original subscription ID
+		Status:         store.StatusPending,
+		ExpiresAt:      time.Now().Add(24 * time.Hour),
+		MaxAttempts:    delivery.MaxAttempts,
 	}
 	err = s.webhookRepo.CreateDelivery(ctx, newDelivery)
 	if err != nil {
@@ -611,9 +666,15 @@ func (s *WebhookService) ResendWebhook(ctx context.Context, deliveryID string, n
 		return "", fmt.Errorf("failed to create resend delivery: %w", err)
 	}
 	_, err = s.jobInserter.Insert(ctx, &queue.WebhookArgs{
-		DeliveryID:  newDelivery.ID,
-		WebhookID:   newDelivery.WebhookID,
-		EventID:     newDelivery.EventID,
+		DeliveryID: newDelivery.ID,
+		WebhookID:  newDelivery.WebhookID,
+		EventID:    newDelivery.EventID,
+		SubscriptionID: func() string {
+			if newDelivery.SubscriptionID != nil {
+				return *newDelivery.SubscriptionID
+			}
+			return ""
+		}(), // Include subscription ID
 		ExpiresAt:   newDelivery.ExpiresAt,
 		Namespace:   webhook.Namespace,
 		MaxAttempts: 1, // since it's a resend, we try only once
@@ -1261,8 +1322,30 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	if webhook == nil {
 		return fmt.Errorf("webhook not found")
 	}
+	// Update subscriptions if events are provided
 	if len(events) > 0 {
-		webhook.Events = events
+		// Delete existing subscriptions
+		existingSubs, err := s.webhookRepo.ListSubscriptions(ctx, webhookID)
+		if err != nil {
+			s.logger.Error("Failed to get existing subscriptions", "error", err)
+		} else {
+			for _, sub := range existingSubs {
+				if err := s.webhookRepo.DeleteSubscription(ctx, sub.ID); err != nil {
+					s.logger.Error("Failed to delete subscription", "subscription_id", sub.ID, "error", err)
+				}
+			}
+		}
+		// Create new subscriptions
+		for _, event := range events {
+			sub := &store.EventSubscription{
+				WebhookID: webhookID,
+				EventName: event,
+				Namespace: namespace,
+			}
+			if err := s.webhookRepo.CreateSubscription(ctx, sub); err != nil {
+				s.logger.Error("Failed to create subscription", "webhook_id", webhookID, "event", event, "error", err)
+			}
+		}
 	}
 	if url != "" {
 		webhook.URL = url

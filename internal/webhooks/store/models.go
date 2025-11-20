@@ -20,9 +20,9 @@ const (
 
 // WebhookRegistration represents a registered webhook
 type WebhookRegistration struct {
-	ID          string                    `json:"id" db:"id"`
-	Namespace   string                    `json:"namespace" db:"namespace"`
-	Events      pq.StringArray            `json:"events" db:"events"` // Multiple events supported
+	ID        string `json:"id" db:"id"`
+	Namespace string `json:"namespace" db:"namespace"`
+	// Events removed in favor of EventSubscription
 	URL         string                    `json:"url" db:"url"`
 	Headers     types.Map[string, string] `json:"headers" db:"headers"`
 	Timeout     int                       `json:"timeout" db:"timeout"`
@@ -61,6 +61,7 @@ type WebhookDelivery struct {
 	ID              string                `json:"id" db:"id"`
 	WebhookID       string                `json:"webhook_id" db:"webhook_id"`
 	EventID         string                `json:"event_id" db:"event_id"`
+	SubscriptionID  *string               `json:"subscription_id,omitempty" db:"subscription_id"`
 	Status          WebhookDeliveryStatus `json:"status" db:"status"`
 	AttemptCount    int                   `json:"attempt_count" db:"attempt_count"`
 	MaxAttempts     int                   `json:"max_attempts" db:"max_attempts"`
@@ -157,4 +158,19 @@ type WebhookUpdateFields struct {
 	Timeout     int                       `json:"timeout"`
 	Active      bool                      `json:"active"`
 	Description string                    `json:"description"`
+}
+
+// EventSubscription represents a subscription to an event for a webhook
+type EventSubscription struct {
+	ID                string                    `json:"id" db:"id"`
+	WebhookID         string                    `json:"webhook_id" db:"webhook_id"`
+	EventName         string                    `json:"event_name" db:"event_name"`
+	Namespace         string                    `json:"namespace" db:"namespace"`
+	Headers           types.Map[string, string] `json:"headers" db:"headers"`
+	Method            string                    `json:"method" db:"method"`
+	TransformEnabled  bool                      `json:"transform_enabled" db:"transform_enabled"`
+	TransformTemplate string                    `json:"transform_template" db:"transform_template"`
+	Timeout           int                       `json:"timeout" db:"timeout"`
+	CreatedAt         time.Time                 `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time                 `json:"updated_at" db:"updated_at"`
 }

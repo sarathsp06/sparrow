@@ -172,15 +172,15 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRe
 // Includes complete webhook configuration including HTTP settings for delivery customization.
 func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namespace, event string) ([]*WebhookRegistration, error) {
 	query := `
-	       SELECT id, namespace, events, url, headers, timeout, active, description, health,
+	       SELECT id, namespace, url, headers, timeout, active, description, health,
 	              max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 	              verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
 	              user_agent, content_type, created_at, updated_at
 	       FROM webhook_registrations 
-	       WHERE namespace = $1 AND active = true AND events::jsonb ? $2
+	       WHERE namespace = $1 AND active = true
 	       `
 
-	rows, err := tx.Query(ctx, query, namespace, event)
+	rows, err := tx.Query(ctx, query, namespace)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -190,13 +190,11 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 	for rows.Next() {
 		var wh WebhookRegistration
 		var headersJSON []byte
-		var eventsJSON []byte
 		var expectedStatusCodesJSON []byte
 
 		err := rows.Scan(
 			&wh.ID,
 			&wh.Namespace,
-			&eventsJSON,
 			&wh.URL,
 			&headersJSON,
 			&wh.Timeout,
@@ -224,16 +222,8 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 			return nil, fmt.Errorf("failed to unmarshal headers: %w", err)
 		}
 
-		if err := json.Unmarshal(eventsJSON, &wh.Events); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal events: %w", err)
-		}
-
 		if err := json.Unmarshal(expectedStatusCodesJSON, &wh.ExpectedStatusCodes); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal expected status codes: %w", err)
-		}
-
-		if err := json.Unmarshal(eventsJSON, &wh.Events); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal events: %w", err)
 		}
 
 		webhooks = append(webhooks, &wh)
@@ -273,11 +263,11 @@ func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookR
 
 	query := `
 		INSERT INTO webhook_registrations (
-			id, namespace, events, url, headers, timeout, active, description, health,
+			id, namespace, url, headers, timeout, active, description, health,
 			max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
 			user_agent, content_type, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 	`
 
 	headersJSON, err := json.Marshal(registration.Headers)
@@ -295,7 +285,6 @@ func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookR
 	_, err = r.db.ExecContext(ctx, query,
 		registration.ID,
 		registration.Namespace,
-		pq.Array(registration.Events),
 		registration.URL,
 		headersJSON,
 		registration.Timeout,
@@ -327,26 +316,117 @@ func (r *Repository) UnregisterWebhook(ctx context.Context, webhookID string) er
 	return storage.Error(err)
 }
 
-// GetWebhooksByEvent finds all active webhooks subscribed to a specific event in a namespace.
-// Uses PostgreSQL array containment operator (= ANY) for efficient event subscription lookup.
-// Only returns webhooks with active=true to exclude paused or disabled webhooks.
-// Results include complete webhook configuration for immediate delivery processing.
-func (r *Repository) GetWebhooksByEvent(ctx context.Context, namespace, event string) ([]*WebhookRegistration, error) {
+// GetSubscriptionsByEvent finds all active subscriptions for a specific event in a namespace.
+func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, namespace, event string) ([]*EventSubscription, error) {
 	query := `
-		SELECT id, namespace, events, url, headers, timeout, active, description, health,
-		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
-		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-		       user_agent, content_type, created_at, updated_at
-		FROM webhook_registrations 
-		WHERE namespace = $1 AND active = true AND $2 = ANY(events)
+		SELECT es.id, es.webhook_id, es.event_name, es.namespace, es.headers, es.method, 
+		       es.transform_enabled, es.transform_template, es.timeout, es.created_at, es.updated_at
+		FROM event_subscriptions es
+		JOIN webhook_registrations wr ON es.webhook_id = wr.id
+		WHERE es.namespace = $1 AND es.event_name = $2 AND wr.active = true
 	`
-	var webhooks []*WebhookRegistration
+	var subscriptions []*EventSubscription
 
-	err := r.db.SelectContext(ctx, &webhooks, query, namespace, event)
+	err := r.db.SelectContext(ctx, &subscriptions, query, namespace, event)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
-	return webhooks, nil
+	return subscriptions, nil
+}
+
+// CreateSubscription creates a new event subscription
+func (r *Repository) CreateSubscription(ctx context.Context, sub *EventSubscription) error {
+	if sub.ID == "" {
+		sub.ID = uuid.New().String()
+	}
+	now := time.Now()
+	if sub.CreatedAt.IsZero() {
+		sub.CreatedAt = now
+	}
+	sub.UpdatedAt = now
+
+	query := `
+		INSERT INTO event_subscriptions (
+			id, webhook_id, event_name, namespace, headers, method,
+			transform_enabled, transform_template, timeout, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`
+
+	headersJSON, err := json.Marshal(sub.Headers)
+	if err != nil {
+		return fmt.Errorf("failed to marshal headers: %w", err)
+	}
+
+	_, err = r.db.ExecContext(ctx, query,
+		sub.ID,
+		sub.WebhookID,
+		sub.EventName,
+		sub.Namespace,
+		headersJSON,
+		sub.Method,
+		sub.TransformEnabled,
+		sub.TransformTemplate,
+		sub.Timeout,
+		sub.CreatedAt,
+		sub.UpdatedAt,
+	)
+	return storage.Error(err)
+}
+
+// GetSubscription gets a subscription by ID
+func (r *Repository) GetSubscription(ctx context.Context, id string) (*EventSubscription, error) {
+	query := `
+		SELECT id, webhook_id, event_name, namespace, headers, method,
+		       transform_enabled, transform_template, timeout, created_at, updated_at
+		FROM event_subscriptions
+		WHERE id = $1
+	`
+	var sub EventSubscription
+	err := r.db.GetContext(ctx, &sub, query, id)
+	if err != nil {
+		if storage.IsNotFound(storage.Error(err)) {
+			return nil, nil
+		}
+		return nil, storage.Error(err)
+	}
+	return &sub, nil
+}
+
+// UpdateSubscription updates a subscription
+func (r *Repository) UpdateSubscription(ctx context.Context, sub *EventSubscription) error {
+	sub.UpdatedAt = time.Now()
+	query := `
+		UPDATE event_subscriptions
+		SET headers = :headers, method = :method, transform_enabled = :transform_enabled,
+		    transform_template = :transform_template, timeout = :timeout, updated_at = :updated_at
+		WHERE id = :id
+	`
+	_, err := r.db.NamedExecContext(ctx, query, sub)
+	return storage.Error(err)
+}
+
+// DeleteSubscription deletes a subscription
+func (r *Repository) DeleteSubscription(ctx context.Context, id string) error {
+	query := `DELETE FROM event_subscriptions WHERE id = $1`
+	_, err := r.db.ExecContext(ctx, query, id)
+	return storage.Error(err)
+}
+
+// ListSubscriptions lists subscriptions for a webhook
+func (r *Repository) ListSubscriptions(ctx context.Context, webhookID string) ([]*EventSubscription, error) {
+	query := `
+		SELECT id, webhook_id, event_name, namespace, headers, method,
+		       transform_enabled, transform_template, timeout, created_at, updated_at
+		FROM event_subscriptions
+		WHERE webhook_id = $1
+		ORDER BY created_at DESC
+	`
+	var subs []*EventSubscription
+	err := r.db.SelectContext(ctx, &subs, query, webhookID)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
+	return subs, nil
 }
 
 // ListWebhooks retrieves webhooks for a namespace with optional active status filtering.
@@ -355,7 +435,7 @@ func (r *Repository) GetWebhooksByEvent(ctx context.Context, namespace, event st
 // Results are ordered by created_at DESC to show newest webhooks first.
 func (r *Repository) ListWebhooks(ctx context.Context, namespace string, activeOnly bool) ([]*WebhookRegistration, error) {
 	query := `
-		SELECT id, namespace, events, url, headers, timeout, active, description, health,
+		SELECT id, namespace, url, headers, timeout, active, description, health,
 		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
 		       user_agent, content_type, created_at, updated_at
@@ -418,14 +498,15 @@ func (r *Repository) StoreEvent(ctx context.Context, event *EventRecord) error {
 // webhook delivery lifecycle from creation through completion or failure.
 func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelivery) error {
 	query := `
-		INSERT INTO webhook_deliveries (id, webhook_id, event_id, status, attempt_count, max_attempts, expires_at, response_code, response_body, error_message, request_body)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		INSERT INTO webhook_deliveries (id, webhook_id, event_id, subscription_id, status, attempt_count, max_attempts, expires_at, response_code, response_body, error_message, request_body)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
 		delivery.ID,
 		delivery.WebhookID,
 		delivery.EventID,
+		delivery.SubscriptionID,
 		delivery.Status,
 		delivery.AttemptCount,
 		delivery.MaxAttempts,
@@ -470,7 +551,7 @@ func (r *Repository) UpdateDeliveryRequestBody(ctx context.Context, deliveryID s
 // GetDeliveriesByWebhook returns deliveries for a specific webhook
 func (r *Repository) GetDeliveriesByWebhook(ctx context.Context, webhookID string) ([]*WebhookDelivery, error) {
 	query := `
-		SELECT id, webhook_id, event_id, status, attempt_count, max_attempts, 
+		SELECT id, webhook_id, event_id, subscription_id, status, attempt_count, max_attempts, 
 		       created_at, last_attempted_at, next_retry_at, expires_at,
 		       response_code, response_body, error_message, request_body
 		FROM webhook_deliveries 
@@ -484,7 +565,7 @@ func (r *Repository) GetDeliveriesByWebhook(ctx context.Context, webhookID strin
 // GetDeliveriesByEvent returns deliveries for a specific event
 func (r *Repository) GetDeliveriesByEvent(ctx context.Context, eventID string) ([]*WebhookDelivery, error) {
 	query := `
-		SELECT id, webhook_id, event_id, status, attempt_count, max_attempts, 
+		SELECT id, webhook_id, event_id, subscription_id, status, attempt_count, max_attempts, 
 		       created_at, last_attempted_at, next_retry_at, expires_at,
 		       response_code, response_body, error_message, request_body
 		FROM webhook_deliveries 
@@ -523,7 +604,7 @@ type HeadersMap map[string]string
 // GetWebhookByID gets a webhook by ID and namespace
 func (r *Repository) GetWebhookByID(ctx context.Context, webhookID, namespace string) (*WebhookRegistration, error) {
 	query := `
-		SELECT id, namespace, events, url, headers, timeout, active, description, health,
+		SELECT id, namespace, url, headers, timeout, active, description, health,
 		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
 		       user_agent, content_type, created_at, updated_at
@@ -554,7 +635,7 @@ func (r *Repository) UpdateWebhook(ctx context.Context, webhook *WebhookRegistra
 
 	query := `
 		UPDATE webhook_registrations 
-		SET events = :events, url = :url, headers = :headers, timeout = :timeout, active = :active, 
+		SET url = :url, headers = :headers, timeout = :timeout, active = :active, 
 		    description = :description, updated_at = NOW()
 		WHERE id = :id AND namespace = :namespace
 	`
@@ -566,7 +647,7 @@ func (r *Repository) UpdateWebhook(ctx context.Context, webhook *WebhookRegistra
 // GetDeliveryByID gets a delivery by ID and namespace
 func (r *Repository) GetDeliveryByID(ctx context.Context, deliveryID, namespace string) (*WebhookDelivery, error) {
 	query := `
-		SELECT wd.id, wd.webhook_id, wd.event_id, wd.status, wd.attempt_count, wd.max_attempts, 
+		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts, 
 		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
 		       wd.response_code, wd.response_body, wd.error_message, wd.request_body
 		FROM webhook_deliveries wd
@@ -604,7 +685,7 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, webhookID, na
 
 	// Then get paginated results
 	query := `
-		SELECT wd.id, wd.webhook_id, wd.event_id, wd.status, wd.attempt_count, wd.max_attempts, 
+		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts, 
 		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
 		       wd.response_code, wd.response_body, wd.error_message, wd.request_body
 		FROM webhook_deliveries wd
@@ -638,8 +719,6 @@ func (r *Repository) RegisterEvent(ctx context.Context, event *EventRegistration
 		event.Schema,
 		event.Metadata,
 		event.Active,
-		event.CreatedAt,
-		event.UpdatedAt,
 	)
 	return storage.Error(err)
 }
@@ -895,10 +974,6 @@ func (r *Repository) GetWebhooksByHealth(ctx context.Context, health WebhookHeal
 			ContentType:           row.ContentType,
 			CreatedAt:             row.CreatedAt,
 			UpdatedAt:             row.UpdatedAt,
-		}
-
-		if err := json.Unmarshal(row.EventsJSON, &webhook.Events); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal events: %w", err)
 		}
 
 		if err := json.Unmarshal(row.HeadersJSON, &webhook.Headers); err != nil {

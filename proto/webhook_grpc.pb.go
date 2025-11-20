@@ -43,6 +43,12 @@ const (
 	WebhookService_PauseWebhook_FullMethodName                  = "/webhook.WebhookService/PauseWebhook"
 	WebhookService_ResumeWebhook_FullMethodName                 = "/webhook.WebhookService/ResumeWebhook"
 	WebhookService_ListEventReports_FullMethodName              = "/webhook.WebhookService/ListEventReports"
+	WebhookService_CreateSubscription_FullMethodName            = "/webhook.WebhookService/CreateSubscription"
+	WebhookService_GetSubscription_FullMethodName               = "/webhook.WebhookService/GetSubscription"
+	WebhookService_ListSubscriptions_FullMethodName             = "/webhook.WebhookService/ListSubscriptions"
+	WebhookService_UpdateSubscription_FullMethodName            = "/webhook.WebhookService/UpdateSubscription"
+	WebhookService_DeleteSubscription_FullMethodName            = "/webhook.WebhookService/DeleteSubscription"
+	WebhookService_ListSubscriptionsByEvent_FullMethodName      = "/webhook.WebhookService/ListSubscriptionsByEvent"
 )
 
 // WebhookServiceClient is the client API for WebhookService service.
@@ -99,6 +105,19 @@ type WebhookServiceClient interface {
 	ResumeWebhook(ctx context.Context, in *ResumeWebhookRequest, opts ...grpc.CallOption) (*ResumeWebhookResponse, error)
 	// ListEventReports lists all events in descending order for a given namespace
 	ListEventReports(ctx context.Context, in *ListEventReportsRequest, opts ...grpc.CallOption) (*ListEventReportsResponse, error)
+	// Event Subscription Management
+	// CreateSubscription creates a new event subscription for a webhook
+	CreateSubscription(ctx context.Context, in *CreateSubscriptionRequest, opts ...grpc.CallOption) (*CreateSubscriptionResponse, error)
+	// GetSubscription retrieves a specific subscription by ID
+	GetSubscription(ctx context.Context, in *GetSubscriptionRequest, opts ...grpc.CallOption) (*GetSubscriptionResponse, error)
+	// ListSubscriptions lists all subscriptions for a webhook
+	ListSubscriptions(ctx context.Context, in *ListSubscriptionsRequest, opts ...grpc.CallOption) (*ListSubscriptionsResponse, error)
+	// UpdateSubscription updates an existing subscription
+	UpdateSubscription(ctx context.Context, in *UpdateSubscriptionRequest, opts ...grpc.CallOption) (*UpdateSubscriptionResponse, error)
+	// DeleteSubscription deletes a subscription
+	DeleteSubscription(ctx context.Context, in *DeleteSubscriptionRequest, opts ...grpc.CallOption) (*DeleteSubscriptionResponse, error)
+	// ListSubscriptionsByEvent lists all subscriptions for a specific event
+	ListSubscriptionsByEvent(ctx context.Context, in *ListSubscriptionsByEventRequest, opts ...grpc.CallOption) (*ListSubscriptionsByEventResponse, error)
 }
 
 type webhookServiceClient struct {
@@ -339,6 +358,66 @@ func (c *webhookServiceClient) ListEventReports(ctx context.Context, in *ListEve
 	return out, nil
 }
 
+func (c *webhookServiceClient) CreateSubscription(ctx context.Context, in *CreateSubscriptionRequest, opts ...grpc.CallOption) (*CreateSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateSubscriptionResponse)
+	err := c.cc.Invoke(ctx, WebhookService_CreateSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) GetSubscription(ctx context.Context, in *GetSubscriptionRequest, opts ...grpc.CallOption) (*GetSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetSubscriptionResponse)
+	err := c.cc.Invoke(ctx, WebhookService_GetSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) ListSubscriptions(ctx context.Context, in *ListSubscriptionsRequest, opts ...grpc.CallOption) (*ListSubscriptionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSubscriptionsResponse)
+	err := c.cc.Invoke(ctx, WebhookService_ListSubscriptions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) UpdateSubscription(ctx context.Context, in *UpdateSubscriptionRequest, opts ...grpc.CallOption) (*UpdateSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateSubscriptionResponse)
+	err := c.cc.Invoke(ctx, WebhookService_UpdateSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) DeleteSubscription(ctx context.Context, in *DeleteSubscriptionRequest, opts ...grpc.CallOption) (*DeleteSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteSubscriptionResponse)
+	err := c.cc.Invoke(ctx, WebhookService_DeleteSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *webhookServiceClient) ListSubscriptionsByEvent(ctx context.Context, in *ListSubscriptionsByEventRequest, opts ...grpc.CallOption) (*ListSubscriptionsByEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSubscriptionsByEventResponse)
+	err := c.cc.Invoke(ctx, WebhookService_ListSubscriptionsByEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WebhookServiceServer is the server API for WebhookService service.
 // All implementations must embed UnimplementedWebhookServiceServer
 // for forward compatibility.
@@ -393,6 +472,19 @@ type WebhookServiceServer interface {
 	ResumeWebhook(context.Context, *ResumeWebhookRequest) (*ResumeWebhookResponse, error)
 	// ListEventReports lists all events in descending order for a given namespace
 	ListEventReports(context.Context, *ListEventReportsRequest) (*ListEventReportsResponse, error)
+	// Event Subscription Management
+	// CreateSubscription creates a new event subscription for a webhook
+	CreateSubscription(context.Context, *CreateSubscriptionRequest) (*CreateSubscriptionResponse, error)
+	// GetSubscription retrieves a specific subscription by ID
+	GetSubscription(context.Context, *GetSubscriptionRequest) (*GetSubscriptionResponse, error)
+	// ListSubscriptions lists all subscriptions for a webhook
+	ListSubscriptions(context.Context, *ListSubscriptionsRequest) (*ListSubscriptionsResponse, error)
+	// UpdateSubscription updates an existing subscription
+	UpdateSubscription(context.Context, *UpdateSubscriptionRequest) (*UpdateSubscriptionResponse, error)
+	// DeleteSubscription deletes a subscription
+	DeleteSubscription(context.Context, *DeleteSubscriptionRequest) (*DeleteSubscriptionResponse, error)
+	// ListSubscriptionsByEvent lists all subscriptions for a specific event
+	ListSubscriptionsByEvent(context.Context, *ListSubscriptionsByEventRequest) (*ListSubscriptionsByEventResponse, error)
 	mustEmbedUnimplementedWebhookServiceServer()
 }
 
@@ -471,6 +563,24 @@ func (UnimplementedWebhookServiceServer) ResumeWebhook(context.Context, *ResumeW
 }
 func (UnimplementedWebhookServiceServer) ListEventReports(context.Context, *ListEventReportsRequest) (*ListEventReportsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListEventReports not implemented")
+}
+func (UnimplementedWebhookServiceServer) CreateSubscription(context.Context, *CreateSubscriptionRequest) (*CreateSubscriptionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateSubscription not implemented")
+}
+func (UnimplementedWebhookServiceServer) GetSubscription(context.Context, *GetSubscriptionRequest) (*GetSubscriptionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSubscription not implemented")
+}
+func (UnimplementedWebhookServiceServer) ListSubscriptions(context.Context, *ListSubscriptionsRequest) (*ListSubscriptionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListSubscriptions not implemented")
+}
+func (UnimplementedWebhookServiceServer) UpdateSubscription(context.Context, *UpdateSubscriptionRequest) (*UpdateSubscriptionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateSubscription not implemented")
+}
+func (UnimplementedWebhookServiceServer) DeleteSubscription(context.Context, *DeleteSubscriptionRequest) (*DeleteSubscriptionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteSubscription not implemented")
+}
+func (UnimplementedWebhookServiceServer) ListSubscriptionsByEvent(context.Context, *ListSubscriptionsByEventRequest) (*ListSubscriptionsByEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListSubscriptionsByEvent not implemented")
 }
 func (UnimplementedWebhookServiceServer) mustEmbedUnimplementedWebhookServiceServer() {}
 func (UnimplementedWebhookServiceServer) testEmbeddedByValue()                        {}
@@ -907,6 +1017,114 @@ func _WebhookService_ListEventReports_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WebhookService_CreateSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).CreateSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_CreateSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).CreateSubscription(ctx, req.(*CreateSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_GetSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).GetSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_GetSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).GetSubscription(ctx, req.(*GetSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_ListSubscriptions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSubscriptionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).ListSubscriptions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_ListSubscriptions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).ListSubscriptions(ctx, req.(*ListSubscriptionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_UpdateSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).UpdateSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_UpdateSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).UpdateSubscription(ctx, req.(*UpdateSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_DeleteSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).DeleteSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_DeleteSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).DeleteSubscription(ctx, req.(*DeleteSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WebhookService_ListSubscriptionsByEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSubscriptionsByEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).ListSubscriptionsByEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_ListSubscriptionsByEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).ListSubscriptionsByEvent(ctx, req.(*ListSubscriptionsByEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WebhookService_ServiceDesc is the grpc.ServiceDesc for WebhookService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1005,6 +1223,30 @@ var WebhookService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListEventReports",
 			Handler:    _WebhookService_ListEventReports_Handler,
+		},
+		{
+			MethodName: "CreateSubscription",
+			Handler:    _WebhookService_CreateSubscription_Handler,
+		},
+		{
+			MethodName: "GetSubscription",
+			Handler:    _WebhookService_GetSubscription_Handler,
+		},
+		{
+			MethodName: "ListSubscriptions",
+			Handler:    _WebhookService_ListSubscriptions_Handler,
+		},
+		{
+			MethodName: "UpdateSubscription",
+			Handler:    _WebhookService_UpdateSubscription_Handler,
+		},
+		{
+			MethodName: "DeleteSubscription",
+			Handler:    _WebhookService_DeleteSubscription_Handler,
+		},
+		{
+			MethodName: "ListSubscriptionsByEvent",
+			Handler:    _WebhookService_ListSubscriptionsByEvent_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
