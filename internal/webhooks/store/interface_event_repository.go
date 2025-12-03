@@ -13,14 +13,15 @@ func (r *Repository) RegisterEvent(ctx context.Context, event *EventRegistration
 	event.ID = uuid.New()
 	query := `
 		INSERT INTO event_registrations (
-			id, name, description, schema, metadata, active
-		) VALUES ($1, $2, $3, $4, $5, $6)
+			id, name, description, schema, sample_payload, metadata, active
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err := r.db.ExecContext(ctx, query,
 		event.ID,
 		event.Name,
 		event.Description,
 		event.Schema,
+		event.SamplePayload,
 		event.Metadata,
 		event.Active,
 	)
@@ -30,7 +31,7 @@ func (r *Repository) RegisterEvent(ctx context.Context, event *EventRegistration
 // GetEventByName gets an event registration by name
 func (r *Repository) GetEventByName(ctx context.Context, eventName string) (*EventRegistration, error) {
 	query := `
-		SELECT id, name, description, schema, metadata, active, created_at, updated_at
+		SELECT id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
 		FROM event_registrations 
 		WHERE name = $1
 	`
@@ -48,7 +49,7 @@ func (r *Repository) GetEventByName(ctx context.Context, eventName string) (*Eve
 // ListEvents returns all registered events
 func (r *Repository) ListEvents(ctx context.Context, activeOnly bool) ([]*EventRegistration, error) {
 	query := `
-		SELECT id, name, description, schema, metadata, active, created_at, updated_at
+		SELECT id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
 		FROM event_registrations
 		WHERE ($1 IS FALSE OR active = true)
 		ORDER BY name ASC
@@ -65,7 +66,7 @@ func (r *Repository) ListEvents(ctx context.Context, activeOnly bool) ([]*EventR
 func (r *Repository) UpdateEvent(ctx context.Context, event *EventRegistration) error {
 	query := `
 		UPDATE event_registrations 
-		SET description = $2, schema = $3, metadata = $4, active = $5
+		SET description = $2, schema = $3, sample_payload = $4, metadata = $5, active = $6
 		WHERE name = $1
 	`
 
@@ -73,6 +74,7 @@ func (r *Repository) UpdateEvent(ctx context.Context, event *EventRegistration) 
 		event.Name,
 		event.Description,
 		event.Schema,
+		event.SamplePayload,
 		event.Metadata,
 		event.Active,
 	)

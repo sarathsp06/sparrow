@@ -146,7 +146,7 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, namespace st
 				SUM(CASE WHEN wh.success = false THEN 1 ELSE 0 END) as failed_deliveries,
 				COUNT(CASE WHEN wd.status IN ('pending', 'sending', 'retrying') THEN 1 END) as pending_deliveries
 			FROM webhook_deliveries wd
-			LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id::text
+			LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id
 			GROUP BY wd.event_id
 		) ds ON er.id = ds.event_id
 		WHERE er.namespace = $1

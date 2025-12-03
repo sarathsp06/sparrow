@@ -72,6 +72,15 @@ func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsReques
 			pbEvents[i].Schema = string(schemaJSON)
 		}
 
+		// Convert sample_payload to protobuf Struct
+		if event.SamplePayload != nil {
+			samplePayloadStruct, err := convertMapToStruct(event.SamplePayload)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, "failed to convert sample payload: %v", err)
+			}
+			pbEvents[i].SamplePayload = samplePayloadStruct
+		}
+
 		// Convert metadata to protobuf format
 		pbEvents[i].Metadata = event.Metadata
 	}

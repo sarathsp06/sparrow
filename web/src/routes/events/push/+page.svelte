@@ -26,6 +26,14 @@
   let successMessage = $state("");
   let availableEvents: RegisteredEvent[] = $state([]);
 
+  // Watch for event changes and update payload with sample_payload
+  $effect(() => {
+    const selectedEvent = availableEvents.find((e) => e.name === event);
+    if (selectedEvent && selectedEvent.samplePayload) {
+      payload = { json: selectedEvent.samplePayload };
+    }
+  });
+
   function validator():Validator {
     const selectedEvent = availableEvents.find((e) => e.name === event);
 	console.log("Selected Event:", selectedEvent?.schema);

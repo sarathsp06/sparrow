@@ -141,14 +141,15 @@ type WebhookHealthMetrics struct {
 
 // EventRegistration represents a registered event type
 type EventRegistration struct {
-	ID          uuid.UUID                 `json:"id" db:"id"`
-	Name        string                    `json:"name" db:"name"`
-	Description string                    `json:"description" db:"description"`
-	Schema      types.Map[string, any]    `json:"schema" db:"schema"` // JSON schema for validation
-	Metadata    types.Map[string, string] `json:"metadata" db:"metadata"`
-	Active      bool                      `json:"active" db:"active"`
-	CreatedAt   time.Time                 `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time                 `json:"updated_at" db:"updated_at"`
+	ID            uuid.UUID                 `json:"id" db:"id"`
+	Name          string                    `json:"name" db:"name"`
+	Description   string                    `json:"description" db:"description"`
+	Schema        types.Map[string, any]    `json:"schema" db:"schema"`                 // JSON schema for validation
+	SamplePayload types.Map[string, any]    `json:"sample_payload" db:"sample_payload"` // Auto-generated sample payload
+	Metadata      types.Map[string, string] `json:"metadata" db:"metadata"`
+	Active        bool                      `json:"active" db:"active"`
+	CreatedAt     time.Time                 `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time                 `json:"updated_at" db:"updated_at"`
 }
 
 // WebhookUpdateFields represents fields that can be updated for a webhook

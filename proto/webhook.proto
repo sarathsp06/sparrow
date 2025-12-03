@@ -266,6 +266,7 @@ message RegisteredEvent {
   string name = 2; // Event name
   string description = 3; // Event description
   string schema = 4; // JSON schema for validation
+  google.protobuf.Struct sample_payload = 9; // Auto-generated sample payload based on schema
   map<string, string> metadata = 5; // Additional metadata
   bool active = 6; // Whether event is active
   int64 created_at = 7; // When event was registered

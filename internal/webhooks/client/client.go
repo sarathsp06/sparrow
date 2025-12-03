@@ -73,6 +73,12 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 	return resp, duration, nil
 }
 
+type WebhookTemplateContext struct {
+	EventID   string
+	EventName string
+	Payload   map[string]any
+}
+
 // TransformPayload applies the template if enabled
 func (c *WebhookClient) TransformPayload(tmplStr string, data any) ([]byte, error) {
 	if tmplStr == "" {

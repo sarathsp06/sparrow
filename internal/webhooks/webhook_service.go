@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	jsonschema "github.com/kaptinlin/jsonschema"
 	"github.com/lib/pq"
+	"github.com/sarathsp06/schemagen"
 	"go.opentelemetry.io/otel/attribute"
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -827,6 +828,33 @@ type NamespaceStatsData struct {
 	SuccessRate          float64 `json:"success_rate"`
 }
 
+// generateSamplePayload generates a sample payload from the given schema using schemagen
+func generateSamplePayload(schema map[string]any) (map[string]any, error) {
+	if len(schema) == 0 {
+		return map[string]any{}, nil
+	}
+
+	// Convert schema to JSON bytes
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal schema: %w", err)
+	}
+
+	// Create generator and generate sample
+	generator := schemagen.NewGenerator().SetGenerateAllFields(true)
+	sample, err := generator.Generate(schemaBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate sample payload: %w", err)
+	}
+
+	// Convert to map[string]any
+	if sampleMap, ok := sample.(map[string]any); ok {
+		return sampleMap, nil
+	}
+
+	return map[string]any{}, nil
+}
+
 // RegisterEvent registers a new event type
 func (s *WebhookService) RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, int64, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.RegisterEvent")
@@ -844,12 +872,21 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 	if existingEvent != nil {
 		return "", 0, fmt.Errorf("event already exists")
 	}
+
+	// Generate sample payload from schema
+	samplePayload, err := generateSamplePayload(schema)
+	if err != nil {
+		s.logger.Warn("Failed to generate sample payload, using empty payload", "error", err)
+		samplePayload = map[string]any{}
+	}
+
 	event := &store.EventRegistration{
-		Name:        name,
-		Description: description,
-		Schema:      schema,
-		Metadata:    metadata,
-		Active:      active,
+		Name:          name,
+		Description:   description,
+		Schema:        schema,
+		SamplePayload: samplePayload,
+		Metadata:      metadata,
+		Active:        active,
 	}
 	if !active {
 		event.Active = true
@@ -917,6 +954,14 @@ func (s *WebhookService) UpdateEvent(ctx context.Context, name string, descripti
 	existingEvent.Schema = schema
 	existingEvent.Metadata = metadata
 	existingEvent.Active = active
+
+	// Generate sample payload from schema
+	samplePayload, err := generateSamplePayload(schema)
+	if err != nil {
+		s.logger.Warn("Failed to generate sample payload, using empty payload", "error", err)
+		samplePayload = map[string]any{}
+	}
+	existingEvent.SamplePayload = samplePayload
 
 	// Update the event
 	if err := s.webhookRepo.UpdateEvent(ctx, existingEvent); err != nil {

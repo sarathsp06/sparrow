@@ -818,6 +818,13 @@ export declare type RegisteredEvent = Message<"webhook.RegisteredEvent"> & {
   schema: string;
 
   /**
+   * Auto-generated sample payload based on schema
+   *
+   * @generated from field: google.protobuf.Struct sample_payload = 9;
+   */
+  samplePayload?: JsonObject;
+
+  /**
    * Additional metadata
    *
    * @generated from field: map<string, string> metadata = 5;
