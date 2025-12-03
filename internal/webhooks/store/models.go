@@ -3,6 +3,7 @@ package store
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 
 	"github.com/sarathsp06/sparrow/pkg/types"
@@ -20,8 +21,8 @@ const (
 
 // WebhookRegistration represents a registered webhook
 type WebhookRegistration struct {
-	ID        string `json:"id" db:"id"`
-	Namespace string `json:"namespace" db:"namespace"`
+	ID        uuid.UUID `json:"id" db:"id"`
+	Namespace string    `json:"namespace" db:"namespace"`
 	// Events removed in favor of EventSubscription
 	URL         string                    `json:"url" db:"url"`
 	Headers     types.Map[string, string] `json:"headers" db:"headers"`
@@ -46,7 +47,7 @@ type WebhookRegistration struct {
 
 // EventRecord represents an event that was pushed
 type EventRecord struct {
-	ID        string                    `json:"id" db:"id"`
+	ID        uuid.UUID                 `json:"id" db:"id"`
 	Namespace string                    `json:"namespace" db:"namespace"`
 	Event     string                    `json:"event" db:"event"`
 	Payload   types.Map[string, any]    `json:"payload" db:"payload"`
@@ -58,10 +59,10 @@ type EventRecord struct {
 
 // WebhookDelivery represents a webhook delivery attempt
 type WebhookDelivery struct {
-	ID              string                `json:"id" db:"id"`
-	WebhookID       string                `json:"webhook_id" db:"webhook_id"`
-	EventID         string                `json:"event_id" db:"event_id"`
-	SubscriptionID  *string               `json:"subscription_id,omitempty" db:"subscription_id"`
+	ID              uuid.UUID             `json:"id" db:"id"`
+	WebhookID       uuid.UUID             `json:"webhook_id" db:"webhook_id"`
+	EventID         uuid.UUID             `json:"event_id" db:"event_id"`
+	SubscriptionID  *uuid.UUID            `json:"subscription_id,omitempty" db:"subscription_id"`
 	Status          WebhookDeliveryStatus `json:"status" db:"status"`
 	AttemptCount    int                   `json:"attempt_count" db:"attempt_count"`
 	MaxAttempts     int                   `json:"max_attempts" db:"max_attempts"`
@@ -89,9 +90,9 @@ const (
 
 // WebhookHealthEvent represents a single delivery event for time-series tracking
 type WebhookHealthEvent struct {
-	ID           string    `json:"id" db:"id"`
-	WebhookID    string    `json:"webhook_id" db:"webhook_id"`
-	DeliveryID   string    `json:"delivery_id" db:"delivery_id"`
+	ID           uuid.UUID `json:"id" db:"id"`
+	WebhookID    uuid.UUID `json:"webhook_id" db:"webhook_id"`
+	DeliveryID   uuid.UUID `json:"delivery_id" db:"delivery_id"`
 	Success      bool      `json:"success" db:"success"`
 	ResponseTime int       `json:"response_time" db:"response_time"` // milliseconds
 	ResponseCode int       `json:"response_code" db:"response_code"`
@@ -110,8 +111,8 @@ type EventReportWithStats struct {
 
 // WebhookHealthSummary represents aggregated health metrics for a webhook
 type WebhookHealthSummary struct {
-	ID                   string    `json:"id" db:"id"`
-	WebhookID            string    `json:"webhook_id" db:"webhook_id"`
+	ID                   uuid.UUID `json:"id" db:"id"`
+	WebhookID            uuid.UUID `json:"webhook_id" db:"webhook_id"`
 	WindowStart          time.Time `json:"window_start" db:"window_start"`
 	WindowEnd            time.Time `json:"window_end" db:"window_end"`
 	TotalDeliveries      int       `json:"total_deliveries" db:"total_deliveries"`
@@ -128,8 +129,8 @@ type WebhookHealthSummary struct {
 
 // WebhookHealthMetrics represents current health state and recent metrics
 type WebhookHealthMetrics struct {
-	ID                  string     `json:"id" db:"id"`
-	WebhookID           string     `json:"webhook_id" db:"webhook_id"`
+	ID                  uuid.UUID  `json:"id" db:"id"`
+	WebhookID           uuid.UUID  `json:"webhook_id" db:"webhook_id"`
 	ConsecutiveFailures int        `json:"consecutive_failures" db:"consecutive_failures"`
 	LastSuccessAt       *time.Time `json:"last_success_at" db:"last_success_at"`
 	LastFailureAt       *time.Time `json:"last_failure_at" db:"last_failure_at"`
@@ -140,7 +141,7 @@ type WebhookHealthMetrics struct {
 
 // EventRegistration represents a registered event type
 type EventRegistration struct {
-	ID          string                    `json:"id" db:"id"`
+	ID          uuid.UUID                 `json:"id" db:"id"`
 	Name        string                    `json:"name" db:"name"`
 	Description string                    `json:"description" db:"description"`
 	Schema      types.Map[string, any]    `json:"schema" db:"schema"` // JSON schema for validation
@@ -162,8 +163,8 @@ type WebhookUpdateFields struct {
 
 // EventSubscription represents a subscription to an event for a webhook
 type EventSubscription struct {
-	ID                string                    `json:"id" db:"id"`
-	WebhookID         string                    `json:"webhook_id" db:"webhook_id"`
+	ID                uuid.UUID                 `json:"id" db:"id"`
+	WebhookID         uuid.UUID                 `json:"webhook_id" db:"webhook_id"`
 	EventName         string                    `json:"event_name" db:"event_name"`
 	Namespace         string                    `json:"namespace" db:"namespace"`
 	Headers           types.Map[string, string] `json:"headers" db:"headers"`

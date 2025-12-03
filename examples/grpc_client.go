@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -436,13 +437,48 @@ func MainGRPC() {
 		}
 	}
 
+	// Example 11: Get Template Functions
+	log.Println("\n=== Example 11: Get Template Functions ===")
+	templateFuncsReq := &pb.GetTemplateFunctionsRequest{}
+	templateFuncsResp, err := client.GetTemplateFunctions(ctx, templateFuncsReq)
+	if err != nil {
+		log.Printf("Failed to get template functions: %v", err)
+	} else {
+		log.Printf("Template functions retrieved successfully:")
+		log.Printf("  Success: %t", templateFuncsResp.Success)
+		log.Printf("  Message: %s", templateFuncsResp.Message)
+		log.Printf("  Total Functions: %d", templateFuncsResp.TotalCount)
+		log.Println("  Available Functions:")
+		for i, fn := range templateFuncsResp.Functions {
+			if i < 5 { // Show first 5 functions to keep output manageable
+				log.Printf("    - %s: %s", fn.Name, extractFirstLine(fn.Description))
+			}
+		}
+		if len(templateFuncsResp.Functions) > 5 {
+			log.Printf("    ... and %d more functions", len(templateFuncsResp.Functions)-5)
+		}
+	}
+
 	log.Println("\n=== All examples completed ===")
 	log.Println("\nKey Changes in Refactored System:")
 	log.Println("  - Webhooks and events are now decoupled via subscriptions")
 	log.Println("  - Each event subscription can have custom headers, method, timeout")
 	log.Println("  - Template-based payload transformation supported per subscription")
+	log.Println("  - Template functions available for payload transformation")
 	log.Println("  - Centralized HTTP client with consistent behavior")
 	log.Println("  - HMAC-SHA256 signing for webhook security")
+}
+
+// extractFirstLine extracts the first line from a multi-line description
+func extractFirstLine(description string) string {
+	lines := strings.Split(description, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
+			return trimmed
+		}
+	}
+	return "No description available"
 }
 
 func main() {

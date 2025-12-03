@@ -8,7 +8,7 @@ RUN apk add --no-cache git ca-certificates tzdata
 # Set working directory
 WORKDIR /build
 
-# Copy go mod files
+# Copy go mod files first for better layer caching
 COPY go.mod go.sum ./
 
 # Download dependencies
@@ -17,52 +17,41 @@ RUN go mod download
 # Copy source code
 COPY . .
 
+# Build with optimizations: stripped symbols, no debug info, smaller binary
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-w -s" \
+    -trimpath \
+    -o migrate ./cmd/migrate
 
-# Build the migration tool
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o migrate ./cmd/migrate
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-w -s" \
+    -trimpath \
+    -o server ./cmd/server
 
-# Build the gRPC server
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o grpc-server ./cmd/grpc-server
-
-# Final stage
-FROM alpine:latest
-
-# Install ca-certificates for HTTPS requests
-RUN apk --no-cache add ca-certificates tzdata
-
-# Create non-root user
-RUN addgroup -g 1001 appgroup && \
-    adduser -D -s /bin/sh -u 1001 -G appgroup appuser
+# Final stage - use distroless for minimal attack surface and size
+FROM gcr.io/distroless/static-debian12:nonroot
 
 # Set working directory
 WORKDIR /app
 
-# Create logs directory
-RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
+# Copy CA certificates and timezone data from builder
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
-
-# Copy the binaries from builder stage
-COPY --from=builder /build/migrate ./tools/migrate
-COPY --from=builder /build/grpc-server ./grpc-server
+# Copy binaries with correct ownership (distroless uses uid/gid 65532)
+COPY --from=builder --chown=65532:65532 /build/server /app/server
+COPY --from=builder --chown=65532:65532 /build/migrate /app/tools/migrate
 
 # Copy migrations directory
-COPY db/migrations ./db/migrations
+COPY --from=builder --chown=65532:65532 /build/db/migrations /app/db/migrations
 
+# Expose gRPC and HTTP ports
+EXPOSE 50051 8080
 
-# Use COPY --chown for correct permissions
-COPY --chown=appuser:appgroup --from=builder /build/grpc-server ./grpc-server
-COPY --chown=appuser:appgroup --from=builder /build/migrate ./tools/migrate
-
-# Switch to non-root user
-USER appuser
-
-# Expose gRPC port
-EXPOSE 50051
-
-
-# Health check for gRPC server
+# distroless doesn't have curl/wget, but we can use a simple TCP check
+# For production, consider using grpc-health-probe or adding a health binary
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD pidof grpc-server || exit 1
+    CMD ["/app/server"] || exit 1
 
-# Run the gRPC server by default
-CMD ["./grpc-server"]
+# Run the server (distroless doesn't have shell, use exec form)
+ENTRYPOINT ["/app/server"]

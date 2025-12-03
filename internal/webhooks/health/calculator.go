@@ -112,7 +112,7 @@ func (hc *HealthCalculator) RecordHealthEvent(ctx context.Context, event *Webhoo
 func (hc *HealthCalculator) insertHealthEvent(ctx context.Context, tx *sqlx.Tx, event *WebhookHealthEvent) error {
 	query := `
 		INSERT INTO webhook_health_events (id, webhook_id, delivery_id, success, response_time, response_code, error_message, timestamp)
-		VALUES (:id, :webhook_id, :delivery_id, :success, :response_time, :response_code, :error_message, :timestamp)`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
 	if event.ID == uuid.Nil {
 		event.ID = uuid.New()
@@ -121,7 +121,9 @@ func (hc *HealthCalculator) insertHealthEvent(ctx context.Context, tx *sqlx.Tx, 
 		event.Timestamp = time.Now()
 	}
 
-	_, err := tx.NamedExecContext(ctx, query, event)
+	_, err := tx.ExecContext(ctx, query,
+		event.ID, event.WebhookID, event.DeliveryID, event.Success,
+		event.ResponseTime, event.ResponseCode, event.ErrorMessage, event.Timestamp)
 	return err
 }
 

@@ -11,12 +11,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
 // DeliveryRequest represents the data needed to send a webhook
 type DeliveryRequest struct {
-	WebhookID  string
+	WebhookID  uuid.UUID
 	DeliveryID string
 	URL        string
 	Method     string
@@ -26,7 +27,7 @@ type DeliveryRequest struct {
 	Timeout    time.Duration
 	RetryCount int
 	MaxRetries int
-	EventID    string
+	EventID    uuid.UUID
 	EventName  string
 	Namespace  string
 }
@@ -41,9 +42,9 @@ func BuildRequest(ctx context.Context, dr *DeliveryRequest) (*http.Request, erro
 	// Set default headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "Sparrow-Webhook/1.0")
-	req.Header.Set("X-Sparrow-Event-ID", dr.EventID)
+	req.Header.Set("X-Sparrow-Event-ID", dr.EventID.String())
 	req.Header.Set("X-Sparrow-Delivery-ID", dr.DeliveryID)
-	req.Header.Set("X-Sparrow-Webhook-ID", dr.WebhookID)
+	req.Header.Set("X-Sparrow-Webhook-ID", dr.WebhookID.String())
 
 	// Set custom headers (overriding defaults if needed)
 	for k, v := range dr.Headers {

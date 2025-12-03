@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
@@ -34,7 +35,7 @@ func (s *WebhookServer) getWebhookEvents(ctx context.Context, webhookID string) 
 		return []string{}
 	}
 
-	subs, err := serviceWithRepo.GetWebhookRepo().ListSubscriptions(ctx, webhookID)
+	subs, err := serviceWithRepo.GetWebhookRepo().ListSubscriptions(ctx, uuid.MustParse(webhookID))
 	if err != nil {
 		return []string{}
 	}

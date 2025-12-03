@@ -2724,6 +2724,90 @@ export declare type ListSubscriptionsByEventResponse = Message<"webhook.ListSubs
 export declare const ListSubscriptionsByEventResponseSchema: GenMessage<ListSubscriptionsByEventResponse>;
 
 /**
+ * TemplateFunction represents a template function with its name and description
+ *
+ * @generated from message webhook.TemplateFunction
+ */
+export declare type TemplateFunction = Message<"webhook.TemplateFunction"> & {
+  /**
+   * Function name
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * Function description
+   *
+   * @generated from field: string description = 2;
+   */
+  description: string;
+};
+
+/**
+ * Describes the message webhook.TemplateFunction.
+ * Use `create(TemplateFunctionSchema)` to create a new message.
+ */
+export declare const TemplateFunctionSchema: GenMessage<TemplateFunction>;
+
+/**
+ * GetTemplateFunctionsRequest represents a request to get template functions
+ *
+ * No parameters needed for this request
+ *
+ * @generated from message webhook.GetTemplateFunctionsRequest
+ */
+export declare type GetTemplateFunctionsRequest = Message<"webhook.GetTemplateFunctionsRequest"> & {
+};
+
+/**
+ * Describes the message webhook.GetTemplateFunctionsRequest.
+ * Use `create(GetTemplateFunctionsRequestSchema)` to create a new message.
+ */
+export declare const GetTemplateFunctionsRequestSchema: GenMessage<GetTemplateFunctionsRequest>;
+
+/**
+ * GetTemplateFunctionsResponse represents the response for getting template functions
+ *
+ * @generated from message webhook.GetTemplateFunctionsResponse
+ */
+export declare type GetTemplateFunctionsResponse = Message<"webhook.GetTemplateFunctionsResponse"> & {
+  /**
+   * List of available template functions
+   *
+   * @generated from field: repeated webhook.TemplateFunction functions = 1;
+   */
+  functions: TemplateFunction[];
+
+  /**
+   * Total count of functions
+   *
+   * @generated from field: int32 total_count = 2;
+   */
+  totalCount: number;
+
+  /**
+   * Whether request was successful
+   *
+   * @generated from field: bool success = 3;
+   */
+  success: boolean;
+
+  /**
+   * Success or error message
+   *
+   * @generated from field: string message = 4;
+   */
+  message: string;
+};
+
+/**
+ * Describes the message webhook.GetTemplateFunctionsResponse.
+ * Use `create(GetTemplateFunctionsResponseSchema)` to create a new message.
+ */
+export declare const GetTemplateFunctionsResponseSchema: GenMessage<GetTemplateFunctionsResponse>;
+
+/**
  * WebhookDeliveryStatus represents the status of webhook delivery
  *
  * @generated from enum webhook.WebhookDeliveryStatus
@@ -3100,6 +3184,16 @@ export declare const WebhookService: GenService<{
     methodKind: "unary";
     input: typeof ListSubscriptionsByEventRequestSchema;
     output: typeof ListSubscriptionsByEventResponseSchema;
+  },
+  /**
+   * GetTemplateFunctions returns all available template functions with their descriptions
+   *
+   * @generated from rpc webhook.WebhookService.GetTemplateFunctions
+   */
+  getTemplateFunctions: {
+    methodKind: "unary";
+    input: typeof GetTemplateFunctionsRequestSchema;
+    output: typeof GetTemplateFunctionsResponseSchema;
   },
 }>;
 

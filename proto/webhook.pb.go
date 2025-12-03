@@ -4894,6 +4894,165 @@ func (x *ListSubscriptionsByEventResponse) GetMessage() string {
 	return ""
 }
 
+// TemplateFunction represents a template function with its name and description
+type TemplateFunction struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`               // Function name
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"` // Function description
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TemplateFunction) Reset() {
+	*x = TemplateFunction{}
+	mi := &file_proto_webhook_proto_msgTypes[68]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TemplateFunction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TemplateFunction) ProtoMessage() {}
+
+func (x *TemplateFunction) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[68]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TemplateFunction.ProtoReflect.Descriptor instead.
+func (*TemplateFunction) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{68}
+}
+
+func (x *TemplateFunction) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *TemplateFunction) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+// GetTemplateFunctionsRequest represents a request to get template functions
+type GetTemplateFunctionsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTemplateFunctionsRequest) Reset() {
+	*x = GetTemplateFunctionsRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTemplateFunctionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTemplateFunctionsRequest) ProtoMessage() {}
+
+func (x *GetTemplateFunctionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTemplateFunctionsRequest.ProtoReflect.Descriptor instead.
+func (*GetTemplateFunctionsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{69}
+}
+
+// GetTemplateFunctionsResponse represents the response for getting template functions
+type GetTemplateFunctionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Functions     []*TemplateFunction    `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`                      // List of available template functions
+	TotalCount    int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"` // Total count of functions
+	Success       bool                   `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`                         // Whether request was successful
+	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`                          // Success or error message
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTemplateFunctionsResponse) Reset() {
+	*x = GetTemplateFunctionsResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[70]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTemplateFunctionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTemplateFunctionsResponse) ProtoMessage() {}
+
+func (x *GetTemplateFunctionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[70]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTemplateFunctionsResponse.ProtoReflect.Descriptor instead.
+func (*GetTemplateFunctionsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{70}
+}
+
+func (x *GetTemplateFunctionsResponse) GetFunctions() []*TemplateFunction {
+	if x != nil {
+		return x.Functions
+	}
+	return nil
+}
+
+func (x *GetTemplateFunctionsResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+func (x *GetTemplateFunctionsResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *GetTemplateFunctionsResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_proto_webhook_proto protoreflect.FileDescriptor
 
 const file_proto_webhook_proto_rawDesc = "" +
@@ -5352,6 +5511,16 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
 	"totalCount\x12\x18\n" +
 	"\asuccess\x18\x03 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\"H\n" +
+	"\x10TemplateFunction\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\"\x1d\n" +
+	"\x1bGetTemplateFunctionsRequest\"\xac\x01\n" +
+	"\x1cGetTemplateFunctionsResponse\x127\n" +
+	"\tfunctions\x18\x01 \x03(\v2\x19.webhook.TemplateFunctionR\tfunctions\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x05R\n" +
+	"totalCount\x12\x18\n" +
+	"\asuccess\x18\x03 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x04 \x01(\tR\amessage*\xb5\x01\n" +
 	"\x15WebhookDeliveryStatus\x12\x18\n" +
 	"\x14DELIVERY_UNSPECIFIED\x10\x00\x12\x14\n" +
@@ -5365,7 +5534,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x12HEALTH_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eHEALTH_HEALTHY\x10\x01\x12\x13\n" +
 	"\x0fHEALTH_DEGRADED\x10\x02\x12\x14\n" +
-	"\x10HEALTH_UNHEALTHY\x10\x032\xd5\x14\n" +
+	"\x10HEALTH_UNHEALTHY\x10\x032\xba\x15\n" +
 	"\x0eWebhookService\x12T\n" +
 	"\x0fRegisterWebhook\x12\x1f.webhook.RegisterWebhookRequest\x1a .webhook.RegisterWebhookResponse\x12Z\n" +
 	"\x11UnregisterWebhook\x12!.webhook.UnregisterWebhookRequest\x1a\".webhook.UnregisterWebhookResponse\x12B\n" +
@@ -5396,7 +5565,8 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x11ListSubscriptions\x12!.webhook.ListSubscriptionsRequest\x1a\".webhook.ListSubscriptionsResponse\x12]\n" +
 	"\x12UpdateSubscription\x12\".webhook.UpdateSubscriptionRequest\x1a#.webhook.UpdateSubscriptionResponse\x12]\n" +
 	"\x12DeleteSubscription\x12\".webhook.DeleteSubscriptionRequest\x1a#.webhook.DeleteSubscriptionResponse\x12o\n" +
-	"\x18ListSubscriptionsByEvent\x12(.webhook.ListSubscriptionsByEventRequest\x1a).webhook.ListSubscriptionsByEventResponseB%Z#github.com/sarathsp06/sparrow/protob\x06proto3"
+	"\x18ListSubscriptionsByEvent\x12(.webhook.ListSubscriptionsByEventRequest\x1a).webhook.ListSubscriptionsByEventResponse\x12c\n" +
+	"\x14GetTemplateFunctions\x12$.webhook.GetTemplateFunctionsRequest\x1a%.webhook.GetTemplateFunctionsResponseB%Z#github.com/sarathsp06/sparrow/protob\x06proto3"
 
 var (
 	file_proto_webhook_proto_rawDescOnce sync.Once
@@ -5411,7 +5581,7 @@ func file_proto_webhook_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_webhook_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 79)
+var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 82)
 var file_proto_webhook_proto_goTypes = []any{
 	(WebhookDeliveryStatus)(0),                    // 0: webhook.WebhookDeliveryStatus
 	(WebhookHealth)(0),                            // 1: webhook.WebhookHealth
@@ -5483,34 +5653,37 @@ var file_proto_webhook_proto_goTypes = []any{
 	(*DeleteSubscriptionResponse)(nil),            // 67: webhook.DeleteSubscriptionResponse
 	(*ListSubscriptionsByEventRequest)(nil),       // 68: webhook.ListSubscriptionsByEventRequest
 	(*ListSubscriptionsByEventResponse)(nil),      // 69: webhook.ListSubscriptionsByEventResponse
-	nil,                                           // 70: webhook.RegisterWebhookRequest.HeadersEntry
-	nil,                                           // 71: webhook.PushEventRequest.MetadataEntry
-	nil,                                           // 72: webhook.RegisteredWebhook.HeadersEntry
-	nil,                                           // 73: webhook.RegisterEventRequest.MetadataEntry
-	nil,                                           // 74: webhook.RegisteredEvent.MetadataEntry
-	nil,                                           // 75: webhook.UpdateEventRequest.MetadataEntry
-	nil,                                           // 76: webhook.WebhookUpdateFields.HeadersEntry
-	nil,                                           // 77: webhook.EventReport.MetadataEntry
-	nil,                                           // 78: webhook.EventSubscription.HeadersEntry
-	nil,                                           // 79: webhook.CreateSubscriptionRequest.HeadersEntry
-	nil,                                           // 80: webhook.UpdateSubscriptionRequest.HeadersEntry
-	(*structpb.Struct)(nil),                       // 81: google.protobuf.Struct
+	(*TemplateFunction)(nil),                      // 70: webhook.TemplateFunction
+	(*GetTemplateFunctionsRequest)(nil),           // 71: webhook.GetTemplateFunctionsRequest
+	(*GetTemplateFunctionsResponse)(nil),          // 72: webhook.GetTemplateFunctionsResponse
+	nil,                                           // 73: webhook.RegisterWebhookRequest.HeadersEntry
+	nil,                                           // 74: webhook.PushEventRequest.MetadataEntry
+	nil,                                           // 75: webhook.RegisteredWebhook.HeadersEntry
+	nil,                                           // 76: webhook.RegisterEventRequest.MetadataEntry
+	nil,                                           // 77: webhook.RegisteredEvent.MetadataEntry
+	nil,                                           // 78: webhook.UpdateEventRequest.MetadataEntry
+	nil,                                           // 79: webhook.WebhookUpdateFields.HeadersEntry
+	nil,                                           // 80: webhook.EventReport.MetadataEntry
+	nil,                                           // 81: webhook.EventSubscription.HeadersEntry
+	nil,                                           // 82: webhook.CreateSubscriptionRequest.HeadersEntry
+	nil,                                           // 83: webhook.UpdateSubscriptionRequest.HeadersEntry
+	(*structpb.Struct)(nil),                       // 84: google.protobuf.Struct
 }
 var file_proto_webhook_proto_depIdxs = []int32{
-	70, // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
+	73, // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
 	2,  // 1: webhook.RegisterWebhookRequest.http_config:type_name -> webhook.WebhookHTTPConfig
-	81, // 2: webhook.PushEventRequest.payload:type_name -> google.protobuf.Struct
-	71, // 3: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
+	84, // 2: webhook.PushEventRequest.payload:type_name -> google.protobuf.Struct
+	74, // 3: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
 	0,  // 4: webhook.WebhookDelivery.status:type_name -> webhook.WebhookDeliveryStatus
 	10, // 5: webhook.GetWebhookStatusResponse.deliveries:type_name -> webhook.WebhookDelivery
-	72, // 6: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
+	75, // 6: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
 	1,  // 7: webhook.RegisteredWebhook.health:type_name -> webhook.WebhookHealth
 	2,  // 8: webhook.RegisteredWebhook.http_config:type_name -> webhook.WebhookHTTPConfig
 	13, // 9: webhook.ListWebhooksResponse.webhooks:type_name -> webhook.RegisteredWebhook
-	73, // 10: webhook.RegisterEventRequest.metadata:type_name -> webhook.RegisterEventRequest.MetadataEntry
-	74, // 11: webhook.RegisteredEvent.metadata:type_name -> webhook.RegisteredEvent.MetadataEntry
+	76, // 10: webhook.RegisterEventRequest.metadata:type_name -> webhook.RegisterEventRequest.MetadataEntry
+	77, // 11: webhook.RegisteredEvent.metadata:type_name -> webhook.RegisteredEvent.MetadataEntry
 	18, // 12: webhook.ListEventsResponse.events:type_name -> webhook.RegisteredEvent
-	75, // 13: webhook.UpdateEventRequest.metadata:type_name -> webhook.UpdateEventRequest.MetadataEntry
+	78, // 13: webhook.UpdateEventRequest.metadata:type_name -> webhook.UpdateEventRequest.MetadataEntry
 	1,  // 14: webhook.GetWebhookHealthResponse.health:type_name -> webhook.WebhookHealth
 	25, // 15: webhook.GetWebhookHealthResponse.metrics:type_name -> webhook.WebhookHealthMetrics
 	1,  // 16: webhook.ListWebhooksByHealthRequest.health:type_name -> webhook.WebhookHealth
@@ -5521,81 +5694,84 @@ var file_proto_webhook_proto_depIdxs = []int32{
 	10, // 21: webhook.GetWebhookDeliveryStatusResponse.delivery:type_name -> webhook.WebhookDelivery
 	10, // 22: webhook.GetWebhookDeliveryHistoryResponse.deliveries:type_name -> webhook.WebhookDelivery
 	45, // 23: webhook.GetNamespaceStatsResponse.stats:type_name -> webhook.NamespaceStats
-	76, // 24: webhook.WebhookUpdateFields.headers:type_name -> webhook.WebhookUpdateFields.HeadersEntry
+	79, // 24: webhook.WebhookUpdateFields.headers:type_name -> webhook.WebhookUpdateFields.HeadersEntry
 	2,  // 25: webhook.WebhookUpdateFields.http_config:type_name -> webhook.WebhookHTTPConfig
 	47, // 26: webhook.UpdateWebhookConfigRequest.updates:type_name -> webhook.WebhookUpdateFields
-	81, // 27: webhook.EventReport.payload:type_name -> google.protobuf.Struct
-	77, // 28: webhook.EventReport.metadata:type_name -> webhook.EventReport.MetadataEntry
+	84, // 27: webhook.EventReport.payload:type_name -> google.protobuf.Struct
+	80, // 28: webhook.EventReport.metadata:type_name -> webhook.EventReport.MetadataEntry
 	54, // 29: webhook.ListEventReportsResponse.events:type_name -> webhook.EventReport
-	78, // 30: webhook.EventSubscription.headers:type_name -> webhook.EventSubscription.HeadersEntry
-	79, // 31: webhook.CreateSubscriptionRequest.headers:type_name -> webhook.CreateSubscriptionRequest.HeadersEntry
+	81, // 30: webhook.EventSubscription.headers:type_name -> webhook.EventSubscription.HeadersEntry
+	82, // 31: webhook.CreateSubscriptionRequest.headers:type_name -> webhook.CreateSubscriptionRequest.HeadersEntry
 	57, // 32: webhook.GetSubscriptionResponse.subscription:type_name -> webhook.EventSubscription
 	57, // 33: webhook.ListSubscriptionsResponse.subscriptions:type_name -> webhook.EventSubscription
-	80, // 34: webhook.UpdateSubscriptionRequest.headers:type_name -> webhook.UpdateSubscriptionRequest.HeadersEntry
+	83, // 34: webhook.UpdateSubscriptionRequest.headers:type_name -> webhook.UpdateSubscriptionRequest.HeadersEntry
 	57, // 35: webhook.ListSubscriptionsByEventResponse.subscriptions:type_name -> webhook.EventSubscription
-	3,  // 36: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
-	5,  // 37: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
-	7,  // 38: webhook.WebhookService.PushEvent:input_type -> webhook.PushEventRequest
-	9,  // 39: webhook.WebhookService.GetWebhookStatus:input_type -> webhook.GetWebhookStatusRequest
-	12, // 40: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
-	15, // 41: webhook.WebhookService.RegisterEvent:input_type -> webhook.RegisterEventRequest
-	17, // 42: webhook.WebhookService.ListEvents:input_type -> webhook.ListEventsRequest
-	20, // 43: webhook.WebhookService.UpdateEvent:input_type -> webhook.UpdateEventRequest
-	22, // 44: webhook.WebhookService.DeleteEvent:input_type -> webhook.DeleteEventRequest
-	24, // 45: webhook.WebhookService.GetWebhookHealth:input_type -> webhook.GetWebhookHealthRequest
-	27, // 46: webhook.WebhookService.ListWebhooksByHealth:input_type -> webhook.ListWebhooksByHealthRequest
-	29, // 47: webhook.WebhookService.GetHealthSummary:input_type -> webhook.GetHealthSummaryRequest
-	32, // 48: webhook.WebhookService.ResubmitWebhook:input_type -> webhook.ResubmitWebhookRequest
-	34, // 49: webhook.WebhookService.GetRegisteredWebhooks:input_type -> webhook.GetRegisteredWebhooksRequest
-	36, // 50: webhook.WebhookService.ListRegisteredWebhooksByEvent:input_type -> webhook.ListRegisteredWebhooksByEventRequest
-	38, // 51: webhook.WebhookService.GetWebhookDeliveryStatus:input_type -> webhook.GetWebhookDeliveryStatusRequest
-	40, // 52: webhook.WebhookService.ResendWebhook:input_type -> webhook.ResendWebhookRequest
-	42, // 53: webhook.WebhookService.GetWebhookDeliveryHistory:input_type -> webhook.GetWebhookDeliveryHistoryRequest
-	44, // 54: webhook.WebhookService.GetNamespaceStats:input_type -> webhook.GetNamespaceStatsRequest
-	48, // 55: webhook.WebhookService.UpdateWebhookConfig:input_type -> webhook.UpdateWebhookConfigRequest
-	50, // 56: webhook.WebhookService.PauseWebhook:input_type -> webhook.PauseWebhookRequest
-	52, // 57: webhook.WebhookService.ResumeWebhook:input_type -> webhook.ResumeWebhookRequest
-	55, // 58: webhook.WebhookService.ListEventReports:input_type -> webhook.ListEventReportsRequest
-	58, // 59: webhook.WebhookService.CreateSubscription:input_type -> webhook.CreateSubscriptionRequest
-	60, // 60: webhook.WebhookService.GetSubscription:input_type -> webhook.GetSubscriptionRequest
-	62, // 61: webhook.WebhookService.ListSubscriptions:input_type -> webhook.ListSubscriptionsRequest
-	64, // 62: webhook.WebhookService.UpdateSubscription:input_type -> webhook.UpdateSubscriptionRequest
-	66, // 63: webhook.WebhookService.DeleteSubscription:input_type -> webhook.DeleteSubscriptionRequest
-	68, // 64: webhook.WebhookService.ListSubscriptionsByEvent:input_type -> webhook.ListSubscriptionsByEventRequest
-	4,  // 65: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
-	6,  // 66: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
-	8,  // 67: webhook.WebhookService.PushEvent:output_type -> webhook.PushEventResponse
-	11, // 68: webhook.WebhookService.GetWebhookStatus:output_type -> webhook.GetWebhookStatusResponse
-	14, // 69: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
-	16, // 70: webhook.WebhookService.RegisterEvent:output_type -> webhook.RegisterEventResponse
-	19, // 71: webhook.WebhookService.ListEvents:output_type -> webhook.ListEventsResponse
-	21, // 72: webhook.WebhookService.UpdateEvent:output_type -> webhook.UpdateEventResponse
-	23, // 73: webhook.WebhookService.DeleteEvent:output_type -> webhook.DeleteEventResponse
-	26, // 74: webhook.WebhookService.GetWebhookHealth:output_type -> webhook.GetWebhookHealthResponse
-	28, // 75: webhook.WebhookService.ListWebhooksByHealth:output_type -> webhook.ListWebhooksByHealthResponse
-	31, // 76: webhook.WebhookService.GetHealthSummary:output_type -> webhook.GetHealthSummaryResponse
-	33, // 77: webhook.WebhookService.ResubmitWebhook:output_type -> webhook.ResubmitWebhookResponse
-	35, // 78: webhook.WebhookService.GetRegisteredWebhooks:output_type -> webhook.GetRegisteredWebhooksResponse
-	37, // 79: webhook.WebhookService.ListRegisteredWebhooksByEvent:output_type -> webhook.ListRegisteredWebhooksByEventResponse
-	39, // 80: webhook.WebhookService.GetWebhookDeliveryStatus:output_type -> webhook.GetWebhookDeliveryStatusResponse
-	41, // 81: webhook.WebhookService.ResendWebhook:output_type -> webhook.ResendWebhookResponse
-	43, // 82: webhook.WebhookService.GetWebhookDeliveryHistory:output_type -> webhook.GetWebhookDeliveryHistoryResponse
-	46, // 83: webhook.WebhookService.GetNamespaceStats:output_type -> webhook.GetNamespaceStatsResponse
-	49, // 84: webhook.WebhookService.UpdateWebhookConfig:output_type -> webhook.UpdateWebhookConfigResponse
-	51, // 85: webhook.WebhookService.PauseWebhook:output_type -> webhook.PauseWebhookResponse
-	53, // 86: webhook.WebhookService.ResumeWebhook:output_type -> webhook.ResumeWebhookResponse
-	56, // 87: webhook.WebhookService.ListEventReports:output_type -> webhook.ListEventReportsResponse
-	59, // 88: webhook.WebhookService.CreateSubscription:output_type -> webhook.CreateSubscriptionResponse
-	61, // 89: webhook.WebhookService.GetSubscription:output_type -> webhook.GetSubscriptionResponse
-	63, // 90: webhook.WebhookService.ListSubscriptions:output_type -> webhook.ListSubscriptionsResponse
-	65, // 91: webhook.WebhookService.UpdateSubscription:output_type -> webhook.UpdateSubscriptionResponse
-	67, // 92: webhook.WebhookService.DeleteSubscription:output_type -> webhook.DeleteSubscriptionResponse
-	69, // 93: webhook.WebhookService.ListSubscriptionsByEvent:output_type -> webhook.ListSubscriptionsByEventResponse
-	65, // [65:94] is the sub-list for method output_type
-	36, // [36:65] is the sub-list for method input_type
-	36, // [36:36] is the sub-list for extension type_name
-	36, // [36:36] is the sub-list for extension extendee
-	0,  // [0:36] is the sub-list for field type_name
+	70, // 36: webhook.GetTemplateFunctionsResponse.functions:type_name -> webhook.TemplateFunction
+	3,  // 37: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
+	5,  // 38: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
+	7,  // 39: webhook.WebhookService.PushEvent:input_type -> webhook.PushEventRequest
+	9,  // 40: webhook.WebhookService.GetWebhookStatus:input_type -> webhook.GetWebhookStatusRequest
+	12, // 41: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
+	15, // 42: webhook.WebhookService.RegisterEvent:input_type -> webhook.RegisterEventRequest
+	17, // 43: webhook.WebhookService.ListEvents:input_type -> webhook.ListEventsRequest
+	20, // 44: webhook.WebhookService.UpdateEvent:input_type -> webhook.UpdateEventRequest
+	22, // 45: webhook.WebhookService.DeleteEvent:input_type -> webhook.DeleteEventRequest
+	24, // 46: webhook.WebhookService.GetWebhookHealth:input_type -> webhook.GetWebhookHealthRequest
+	27, // 47: webhook.WebhookService.ListWebhooksByHealth:input_type -> webhook.ListWebhooksByHealthRequest
+	29, // 48: webhook.WebhookService.GetHealthSummary:input_type -> webhook.GetHealthSummaryRequest
+	32, // 49: webhook.WebhookService.ResubmitWebhook:input_type -> webhook.ResubmitWebhookRequest
+	34, // 50: webhook.WebhookService.GetRegisteredWebhooks:input_type -> webhook.GetRegisteredWebhooksRequest
+	36, // 51: webhook.WebhookService.ListRegisteredWebhooksByEvent:input_type -> webhook.ListRegisteredWebhooksByEventRequest
+	38, // 52: webhook.WebhookService.GetWebhookDeliveryStatus:input_type -> webhook.GetWebhookDeliveryStatusRequest
+	40, // 53: webhook.WebhookService.ResendWebhook:input_type -> webhook.ResendWebhookRequest
+	42, // 54: webhook.WebhookService.GetWebhookDeliveryHistory:input_type -> webhook.GetWebhookDeliveryHistoryRequest
+	44, // 55: webhook.WebhookService.GetNamespaceStats:input_type -> webhook.GetNamespaceStatsRequest
+	48, // 56: webhook.WebhookService.UpdateWebhookConfig:input_type -> webhook.UpdateWebhookConfigRequest
+	50, // 57: webhook.WebhookService.PauseWebhook:input_type -> webhook.PauseWebhookRequest
+	52, // 58: webhook.WebhookService.ResumeWebhook:input_type -> webhook.ResumeWebhookRequest
+	55, // 59: webhook.WebhookService.ListEventReports:input_type -> webhook.ListEventReportsRequest
+	58, // 60: webhook.WebhookService.CreateSubscription:input_type -> webhook.CreateSubscriptionRequest
+	60, // 61: webhook.WebhookService.GetSubscription:input_type -> webhook.GetSubscriptionRequest
+	62, // 62: webhook.WebhookService.ListSubscriptions:input_type -> webhook.ListSubscriptionsRequest
+	64, // 63: webhook.WebhookService.UpdateSubscription:input_type -> webhook.UpdateSubscriptionRequest
+	66, // 64: webhook.WebhookService.DeleteSubscription:input_type -> webhook.DeleteSubscriptionRequest
+	68, // 65: webhook.WebhookService.ListSubscriptionsByEvent:input_type -> webhook.ListSubscriptionsByEventRequest
+	71, // 66: webhook.WebhookService.GetTemplateFunctions:input_type -> webhook.GetTemplateFunctionsRequest
+	4,  // 67: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
+	6,  // 68: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
+	8,  // 69: webhook.WebhookService.PushEvent:output_type -> webhook.PushEventResponse
+	11, // 70: webhook.WebhookService.GetWebhookStatus:output_type -> webhook.GetWebhookStatusResponse
+	14, // 71: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
+	16, // 72: webhook.WebhookService.RegisterEvent:output_type -> webhook.RegisterEventResponse
+	19, // 73: webhook.WebhookService.ListEvents:output_type -> webhook.ListEventsResponse
+	21, // 74: webhook.WebhookService.UpdateEvent:output_type -> webhook.UpdateEventResponse
+	23, // 75: webhook.WebhookService.DeleteEvent:output_type -> webhook.DeleteEventResponse
+	26, // 76: webhook.WebhookService.GetWebhookHealth:output_type -> webhook.GetWebhookHealthResponse
+	28, // 77: webhook.WebhookService.ListWebhooksByHealth:output_type -> webhook.ListWebhooksByHealthResponse
+	31, // 78: webhook.WebhookService.GetHealthSummary:output_type -> webhook.GetHealthSummaryResponse
+	33, // 79: webhook.WebhookService.ResubmitWebhook:output_type -> webhook.ResubmitWebhookResponse
+	35, // 80: webhook.WebhookService.GetRegisteredWebhooks:output_type -> webhook.GetRegisteredWebhooksResponse
+	37, // 81: webhook.WebhookService.ListRegisteredWebhooksByEvent:output_type -> webhook.ListRegisteredWebhooksByEventResponse
+	39, // 82: webhook.WebhookService.GetWebhookDeliveryStatus:output_type -> webhook.GetWebhookDeliveryStatusResponse
+	41, // 83: webhook.WebhookService.ResendWebhook:output_type -> webhook.ResendWebhookResponse
+	43, // 84: webhook.WebhookService.GetWebhookDeliveryHistory:output_type -> webhook.GetWebhookDeliveryHistoryResponse
+	46, // 85: webhook.WebhookService.GetNamespaceStats:output_type -> webhook.GetNamespaceStatsResponse
+	49, // 86: webhook.WebhookService.UpdateWebhookConfig:output_type -> webhook.UpdateWebhookConfigResponse
+	51, // 87: webhook.WebhookService.PauseWebhook:output_type -> webhook.PauseWebhookResponse
+	53, // 88: webhook.WebhookService.ResumeWebhook:output_type -> webhook.ResumeWebhookResponse
+	56, // 89: webhook.WebhookService.ListEventReports:output_type -> webhook.ListEventReportsResponse
+	59, // 90: webhook.WebhookService.CreateSubscription:output_type -> webhook.CreateSubscriptionResponse
+	61, // 91: webhook.WebhookService.GetSubscription:output_type -> webhook.GetSubscriptionResponse
+	63, // 92: webhook.WebhookService.ListSubscriptions:output_type -> webhook.ListSubscriptionsResponse
+	65, // 93: webhook.WebhookService.UpdateSubscription:output_type -> webhook.UpdateSubscriptionResponse
+	67, // 94: webhook.WebhookService.DeleteSubscription:output_type -> webhook.DeleteSubscriptionResponse
+	69, // 95: webhook.WebhookService.ListSubscriptionsByEvent:output_type -> webhook.ListSubscriptionsByEventResponse
+	72, // 96: webhook.WebhookService.GetTemplateFunctions:output_type -> webhook.GetTemplateFunctionsResponse
+	67, // [67:97] is the sub-list for method output_type
+	37, // [37:67] is the sub-list for method input_type
+	37, // [37:37] is the sub-list for extension type_name
+	37, // [37:37] is the sub-list for extension extendee
+	0,  // [0:37] is the sub-list for field type_name
 }
 
 func init() { file_proto_webhook_proto_init() }
@@ -5611,7 +5787,7 @@ func file_proto_webhook_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_webhook_proto_rawDesc), len(file_proto_webhook_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   79,
+			NumMessages:   82,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

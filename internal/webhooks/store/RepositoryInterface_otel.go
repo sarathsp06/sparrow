@@ -10,6 +10,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
@@ -61,7 +62,7 @@ func (_d RepositoryInterfaceWithTracing) AggregateHealthSummaries(ctx context.Co
 }
 
 // CalculateWebhookHealth implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) CalculateWebhookHealth(ctx context.Context, webhookID string, lookbackHours int) (s1 string, err error) {
+func (_d RepositoryInterfaceWithTracing) CalculateWebhookHealth(ctx context.Context, webhookID uuid.UUID, lookbackHours int) (s1 string, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CalculateWebhookHealth")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -155,7 +156,7 @@ func (_d RepositoryInterfaceWithTracing) DeleteEvent(ctx context.Context, eventN
 }
 
 // DeleteSubscription implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) DeleteSubscription(ctx context.Context, id string) (err error) {
+func (_d RepositoryInterfaceWithTracing) DeleteSubscription(ctx context.Context, id uuid.UUID) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.DeleteSubscription")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -178,7 +179,7 @@ func (_d RepositoryInterfaceWithTracing) DeleteSubscription(ctx context.Context,
 }
 
 // GetDeliveriesByEvent implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetDeliveriesByEvent(ctx context.Context, eventID string) (wpa1 []*WebhookDelivery, err error) {
+func (_d RepositoryInterfaceWithTracing) GetDeliveriesByEvent(ctx context.Context, eventID uuid.UUID) (wpa1 []*WebhookDelivery, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetDeliveriesByEvent")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -202,7 +203,7 @@ func (_d RepositoryInterfaceWithTracing) GetDeliveriesByEvent(ctx context.Contex
 }
 
 // GetDeliveriesByWebhook implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetDeliveriesByWebhook(ctx context.Context, webhookID string) (wpa1 []*WebhookDelivery, err error) {
+func (_d RepositoryInterfaceWithTracing) GetDeliveriesByWebhook(ctx context.Context, webhookID uuid.UUID) (wpa1 []*WebhookDelivery, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetDeliveriesByWebhook")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -226,7 +227,7 @@ func (_d RepositoryInterfaceWithTracing) GetDeliveriesByWebhook(ctx context.Cont
 }
 
 // GetDeliveriesByWebhookID implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetDeliveriesByWebhookID(ctx context.Context, webhookID string, namespace string, limit int, offset int) (wpa1 []*WebhookDelivery, i1 int, err error) {
+func (_d RepositoryInterfaceWithTracing) GetDeliveriesByWebhookID(ctx context.Context, webhookID uuid.UUID, namespace string, limit int, offset int) (wpa1 []*WebhookDelivery, i1 int, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetDeliveriesByWebhookID")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -254,7 +255,7 @@ func (_d RepositoryInterfaceWithTracing) GetDeliveriesByWebhookID(ctx context.Co
 }
 
 // GetDeliveryByID implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetDeliveryByID(ctx context.Context, deliveryID string, namespace string) (wp1 *WebhookDelivery, err error) {
+func (_d RepositoryInterfaceWithTracing) GetDeliveryByID(ctx context.Context, deliveryID uuid.UUID, namespace string) (wp1 *WebhookDelivery, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetDeliveryByID")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -279,7 +280,7 @@ func (_d RepositoryInterfaceWithTracing) GetDeliveryByID(ctx context.Context, de
 }
 
 // GetEventByID implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetEventByID(ctx context.Context, eventID string) (ep1 *EventRecord, err error) {
+func (_d RepositoryInterfaceWithTracing) GetEventByID(ctx context.Context, eventID uuid.UUID) (ep1 *EventRecord, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetEventByID")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -327,7 +328,7 @@ func (_d RepositoryInterfaceWithTracing) GetEventByName(ctx context.Context, eve
 }
 
 // GetEventDeliveryStats implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetEventDeliveryStats(ctx context.Context, eventID string) (i1 int32, i2 int32, i3 int32, i4 int32, err error) {
+func (_d RepositoryInterfaceWithTracing) GetEventDeliveryStats(ctx context.Context, eventID uuid.UUID) (i1 int32, i2 int32, i3 int32, i4 int32, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetEventDeliveryStats")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -377,7 +378,7 @@ func (_d RepositoryInterfaceWithTracing) GetHealthSummary(ctx context.Context) (
 }
 
 // GetRetriableDeliveries implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetRetriableDeliveries(ctx context.Context, webhookID string, namespace string, force bool) (wpa1 []*WebhookDelivery, err error) {
+func (_d RepositoryInterfaceWithTracing) GetRetriableDeliveries(ctx context.Context, webhookID uuid.UUID, namespace string, force bool) (wpa1 []*WebhookDelivery, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetRetriableDeliveries")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -403,7 +404,7 @@ func (_d RepositoryInterfaceWithTracing) GetRetriableDeliveries(ctx context.Cont
 }
 
 // GetSubscription implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetSubscription(ctx context.Context, id string) (ep1 *EventSubscription, err error) {
+func (_d RepositoryInterfaceWithTracing) GetSubscription(ctx context.Context, id uuid.UUID) (ep1 *EventSubscription, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetSubscription")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -452,7 +453,7 @@ func (_d RepositoryInterfaceWithTracing) GetSubscriptionsByEvent(ctx context.Con
 }
 
 // GetWebhookByID implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetWebhookByID(ctx context.Context, webhookID string, namespace string) (wp1 *WebhookRegistration, err error) {
+func (_d RepositoryInterfaceWithTracing) GetWebhookByID(ctx context.Context, webhookID uuid.UUID, namespace string) (wp1 *WebhookRegistration, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetWebhookByID")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -477,7 +478,7 @@ func (_d RepositoryInterfaceWithTracing) GetWebhookByID(ctx context.Context, web
 }
 
 // GetWebhookHealthState implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetWebhookHealthState(ctx context.Context, webhookID string) (wp1 *WebhookHealthMetrics, err error) {
+func (_d RepositoryInterfaceWithTracing) GetWebhookHealthState(ctx context.Context, webhookID uuid.UUID) (wp1 *WebhookHealthMetrics, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetWebhookHealthState")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -501,7 +502,7 @@ func (_d RepositoryInterfaceWithTracing) GetWebhookHealthState(ctx context.Conte
 }
 
 // GetWebhookHealthSummary implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetWebhookHealthSummary(ctx context.Context, webhookID string, hours int) (wp1 *WebhookHealthSummary, err error) {
+func (_d RepositoryInterfaceWithTracing) GetWebhookHealthSummary(ctx context.Context, webhookID uuid.UUID, hours int) (wp1 *WebhookHealthSummary, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetWebhookHealthSummary")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -526,7 +527,7 @@ func (_d RepositoryInterfaceWithTracing) GetWebhookHealthSummary(ctx context.Con
 }
 
 // GetWebhookHealthTimeSeries implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetWebhookHealthTimeSeries(ctx context.Context, webhookID string, hours int, bucketSize string) (wpa1 []*WebhookHealthEvent, err error) {
+func (_d RepositoryInterfaceWithTracing) GetWebhookHealthTimeSeries(ctx context.Context, webhookID uuid.UUID, hours int, bucketSize string) (wpa1 []*WebhookHealthEvent, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetWebhookHealthTimeSeries")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -681,7 +682,7 @@ func (_d RepositoryInterfaceWithTracing) ListEvents(ctx context.Context, activeO
 }
 
 // ListSubscriptions implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) ListSubscriptions(ctx context.Context, webhookID string) (epa1 []*EventSubscription, err error) {
+func (_d RepositoryInterfaceWithTracing) ListSubscriptions(ctx context.Context, webhookID uuid.UUID) (epa1 []*EventSubscription, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListSubscriptions")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -730,7 +731,7 @@ func (_d RepositoryInterfaceWithTracing) ListWebhooks(ctx context.Context, names
 }
 
 // RecordWebhookHealthEvent implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) RecordWebhookHealthEvent(ctx context.Context, webhookID string, deliveryID string, success bool, responseTime int, responseCode int, errorMessage string) (err error) {
+func (_d RepositoryInterfaceWithTracing) RecordWebhookHealthEvent(ctx context.Context, webhookID uuid.UUID, deliveryID uuid.UUID, success bool, responseTime int, responseCode int, errorMessage string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.RecordWebhookHealthEvent")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -804,7 +805,7 @@ func (_d RepositoryInterfaceWithTracing) RegisterWebhook(ctx context.Context, re
 }
 
 // ResetDeliveryForRetry implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) ResetDeliveryForRetry(ctx context.Context, deliveryID string) (err error) {
+func (_d RepositoryInterfaceWithTracing) ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UUID) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ResetDeliveryForRetry")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -850,7 +851,7 @@ func (_d RepositoryInterfaceWithTracing) StoreEvent(ctx context.Context, event *
 }
 
 // UnregisterWebhook implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) UnregisterWebhook(ctx context.Context, webhookID string) (err error) {
+func (_d RepositoryInterfaceWithTracing) UnregisterWebhook(ctx context.Context, webhookID uuid.UUID) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.UnregisterWebhook")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -873,7 +874,7 @@ func (_d RepositoryInterfaceWithTracing) UnregisterWebhook(ctx context.Context, 
 }
 
 // UpdateDeliveryRequestBody implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) UpdateDeliveryRequestBody(ctx context.Context, deliveryID string, requestBody string) (err error) {
+func (_d RepositoryInterfaceWithTracing) UpdateDeliveryRequestBody(ctx context.Context, deliveryID uuid.UUID, requestBody string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.UpdateDeliveryRequestBody")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -897,7 +898,7 @@ func (_d RepositoryInterfaceWithTracing) UpdateDeliveryRequestBody(ctx context.C
 }
 
 // UpdateDeliveryStatus implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) UpdateDeliveryStatus(ctx context.Context, deliveryID string, status WebhookDeliveryStatus, responseCode int, responseBody string, errorMessage string) (err error) {
+func (_d RepositoryInterfaceWithTracing) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody string, errorMessage string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.UpdateDeliveryStatus")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -993,7 +994,7 @@ func (_d RepositoryInterfaceWithTracing) UpdateWebhook(ctx context.Context, webh
 }
 
 // UpdateWebhookHealthState implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) UpdateWebhookHealthState(ctx context.Context, webhookID string, success bool, eventTimestamp time.Time) (err error) {
+func (_d RepositoryInterfaceWithTracing) UpdateWebhookHealthState(ctx context.Context, webhookID uuid.UUID, success bool, eventTimestamp time.Time) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.UpdateWebhookHealthState")
 	defer func() {
 		if _d._spanDecorator != nil {

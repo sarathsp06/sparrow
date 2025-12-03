@@ -1,27 +1,38 @@
 # Git
 .git
 .gitignore
+.github/
 
 # Documentation
 README.md
 *.md
+docs/
 
 # Build artifacts
-# Binaries (if built locally)
-grpc-server
+build/
+dist/
 *.exe
 *.dll
 *.so
 *.dylib
+server
+migrate
+server-*
+cmd/generate-docs/
 
 # Test files
 *_test.go
+**/*_test.go
+testdata/
+coverage.out
+coverage.html
 
 # IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+*.bak
 
 # OS files
 .DS_Store
@@ -33,13 +44,25 @@ logs/
 
 # Environment files
 .env
-.env.local
-.env.example
+.env.*
+!.env.example
 
-# Docker files (not needed in the image)
-Dockerfile
+# Docker files
+Dockerfile*
 .dockerignore
-docker-compose.yml
+docker-compose*.yml
+otel-collector-config.yml
 
-# Setup files
+# Development files
+Makefile
 setup.sh
+*.sh
+web/
+examples/
+pkg/testutils/
+
+# Generated files
+*.pb.go
+*.pb.d.ts
+*.pb.js
+protoconnect/

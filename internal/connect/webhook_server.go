@@ -282,3 +282,12 @@ func (s *WebhookConnectServer) ListSubscriptionsByEvent(ctx context.Context, req
 	}
 	return connect.NewResponse(res), nil
 }
+
+// GetTemplateFunctions returns all available template functions with their descriptions
+func (s *WebhookConnectServer) GetTemplateFunctions(ctx context.Context, req *connect.Request[pb.GetTemplateFunctionsRequest]) (*connect.Response[pb.GetTemplateFunctionsResponse], error) {
+	res, err := s.grpcService.GetTemplateFunctions(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}

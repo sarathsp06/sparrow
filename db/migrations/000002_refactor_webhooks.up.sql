@@ -5,8 +5,8 @@ ALTER TABLE webhook_registrations DROP COLUMN IF EXISTS events;
 
 -- Create event_subscriptions table
 CREATE TABLE IF NOT EXISTS event_subscriptions (
-    id VARCHAR(255) PRIMARY KEY,
-    webhook_id VARCHAR(255) NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    webhook_id UUID NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
     event_name VARCHAR(255) NOT NULL,
     namespace VARCHAR(255) NOT NULL,
     headers JSONB,

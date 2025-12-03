@@ -2,10 +2,7 @@ package client
 
 import (
 	"bytes"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"net/url"
 	"text/template"
 	"time"
 )
@@ -18,21 +15,7 @@ type TemplateEngine struct {
 // NewTemplateEngine creates a new template engine with default helpers
 func NewTemplateEngine() *TemplateEngine {
 	return &TemplateEngine{
-		funcs: template.FuncMap{
-			"json": func(v any) (string, error) {
-				b, err := json.Marshal(v)
-				return string(b), err
-			},
-			"urlencode": func(s string) string {
-				return url.QueryEscape(s)
-			},
-			"base64": func(s string) string {
-				return base64.StdEncoding.EncodeToString([]byte(s))
-			},
-			"now": func() time.Time {
-				return time.Now()
-			},
-		},
+		funcs: GetFunctionMap(),
 	}
 }
 

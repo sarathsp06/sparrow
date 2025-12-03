@@ -6,6 +6,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/google/uuid"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
@@ -17,16 +18,24 @@ func (s *WebhookServer) GetWebhookStatus(ctx context.Context, req *pb.GetWebhook
 	if req.GetNamespace() == "" {
 		return nil, status.Error(codes.InvalidArgument, "namespace is required")
 	}
-	deliveries, totalDeliveries, err := s.service.GetWebhookStatus(ctx, req.GetNamespace(), req.GetWebhookId())
+	webhookID, err := uuid.Parse(req.GetWebhookId())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid webhook_id: %v", err)
+	}
+	namespaceID, err := uuid.Parse(req.GetNamespace())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid namespace: %v", err)
+	}
+	deliveries, totalDeliveries, err := s.service.GetWebhookStatus(ctx, namespaceID, webhookID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get webhook status: %v", err)
 	}
 	pbDeliveries := make([]*pb.WebhookDelivery, len(deliveries))
 	for i, d := range deliveries {
 		pbDeliveries[i] = &pb.WebhookDelivery{
-			DeliveryId:   d.ID,
-			WebhookId:    d.WebhookID,
-			EventId:      d.EventID,
+			DeliveryId:   d.ID.String(),
+			WebhookId:    d.WebhookID.String(),
+			EventId:      d.EventID.String(),
 			Status:       convertDeliveryStatus(d.Status),
 			AttemptCount: int32(d.AttemptCount),
 			MaxAttempts:  int32(d.MaxAttempts),
@@ -61,9 +70,9 @@ func (s *WebhookServer) GetWebhookDeliveryStatus(ctx context.Context, req *pb.Ge
 	var pbDelivery *pb.WebhookDelivery
 	if delivery != nil {
 		pbDelivery = &pb.WebhookDelivery{
-			DeliveryId:   delivery.ID,
-			WebhookId:    delivery.WebhookID,
-			EventId:      delivery.EventID,
+			DeliveryId:   delivery.ID.String(),
+			WebhookId:    delivery.WebhookID.String(),
+			EventId:      delivery.EventID.String(),
 			Status:       convertDeliveryStatus(delivery.Status),
 			AttemptCount: int32(delivery.AttemptCount),
 			MaxAttempts:  int32(delivery.MaxAttempts),
@@ -110,9 +119,9 @@ func (s *WebhookServer) GetWebhookDeliveryHistory(ctx context.Context, req *pb.G
 	var pbDeliveries []*pb.WebhookDelivery
 	for _, delivery := range deliveries {
 		pbDelivery := &pb.WebhookDelivery{
-			DeliveryId:   delivery.ID,
-			WebhookId:    delivery.WebhookID,
-			EventId:      delivery.EventID,
+			DeliveryId:   delivery.ID.String(),
+			WebhookId:    delivery.WebhookID.String(),
+			EventId:      delivery.EventID.String(),
 			Status:       convertDeliveryStatus(delivery.Status),
 			AttemptCount: int32(delivery.AttemptCount),
 			MaxAttempts:  int32(delivery.MaxAttempts),

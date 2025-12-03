@@ -1,6 +1,7 @@
 <script lang="ts">
     import favicon from '$lib/assets/favicon.svg';
 
+  import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { client } from "$lib/services";
   import { onMount } from "svelte";
@@ -51,7 +52,7 @@
       const obj = JSON.parse(payload);
       return JSON.stringify(obj, null, 2);
     } catch {
-      return payload;
+      return payload
     }
   }
 
@@ -290,7 +291,7 @@
               class:text-blue-600={activeTab === 'subscriptions'}
               class:border-transparent={activeTab !== 'subscriptions'}
               class:text-gray-500={activeTab !== 'subscriptions'}
-              onclick={() => (activeTab = 'subscriptions')}
+              onclick={() => goto(`/webhooks/${webhookId}/subscriptions`)}
             >
               Event Subscriptions ({subscriptions.length})
             </button>
@@ -379,11 +380,7 @@
                             </div>
                              <div>
                                 <p class="font-semibold text-gray-700 mb-2">Request Body</p>
-                                <pre class="bg-white font-family-mono p-2 rounded border text-xs overflow-auto font-mono">
-                                  {
-                                  formatPayload(details.requestBody)
-                                  
-                                  }</pre>
+                                <pre class="bg-white font-family-mono p-2 rounded border text-xs overflow-auto font-mono">{formatPayload(details.requestBody)}</pre>
                               </div>
                             {#if details.responseBody}
                               <div>
@@ -435,96 +432,6 @@
           </div>
         {/if}
       </div>
-      {/if}
-
-      {#if activeTab === 'subscriptions'}
-        <!-- Subscriptions Section -->
-        <div class="bg-white rounded-lg shadow-sm border p-6">
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-gray-800">Event Subscriptions</h2>
-            <button
-              class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium"
-              onclick={() => {/* TODO: Add subscription modal */}}
-            >
-              + Add Subscription
-            </button>
-          </div>
-          
-          {#if subscriptions.length === 0}
-            <div class="text-center py-8 text-gray-500">
-              <p>No subscriptions found for this webhook.</p>
-              <p class="text-sm mt-2">Create subscriptions to define which events this webhook should receive and how to transform them.</p>
-            </div>
-          {:else}
-            <div class="space-y-4">
-              {#each subscriptions as subscription}
-                <div class="border border-gray-200 rounded-lg p-4">
-                  <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                      <div class="flex items-center gap-3 mb-2">
-                        <h3 class="font-semibold text-gray-800">{subscription.eventName}</h3>
-                        <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                          {subscription.namespace}
-                        </span>
-                        {#if subscription.transformEnabled}
-                          <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                            🎭 Template Enabled
-                          </span>
-                        {/if}
-                      </div>
-                      
-                      <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                        <div>
-                          <span class="font-medium">Method:</span>
-                          {subscription.method || 'POST'}
-                        </div>
-                        <div>
-                          <span class="font-medium">Timeout:</span>
-                          {subscription.timeout || 30}s
-                        </div>
-                      </div>
-                      
-                      {#if subscription.transformEnabled && subscription.transformTemplate}
-                        <div class="mt-3">
-                          <span class="text-sm font-medium text-gray-700">Template Preview:</span>
-                          <pre class="mt-1 bg-gray-50 p-2 rounded text-xs overflow-x-auto max-h-20">{subscription.transformTemplate.slice(0, 200)}{subscription.transformTemplate.length > 200 ? '...' : ''}</pre>
-                        </div>
-                      {/if}
-                      
-                      {#if Object.keys(subscription.headers).length > 0}
-                        <div class="mt-3">
-                          <span class="text-sm font-medium text-gray-700">Custom Headers:</span>
-                          <div class="mt-1 space-y-1">
-                            {#each Object.entries(subscription.headers) as [key, value]}
-                              <div class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded inline-block mr-2">
-                                {key}: {value}
-                              </div>
-                            {/each}
-                          </div>
-                        </div>
-                      {/if}
-                    </div>
-                    
-                    <div class="flex gap-2">
-                      <button
-                        class="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                        onclick={() => {/* TODO: Edit subscription */}}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        class="text-red-600 hover:text-red-800 text-sm font-medium"
-                        onclick={() => {/* TODO: Delete subscription */}}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              {/each}
-            </div>
-          {/if}
-        </div>
       {/if}
     {/if}
   </main>

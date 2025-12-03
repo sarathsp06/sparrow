@@ -55,7 +55,7 @@ func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsReques
 	pbEvents := make([]*pb.RegisteredEvent, len(events))
 	for i, event := range events {
 		pbEvents[i] = &pb.RegisteredEvent{
-			EventId:     event.ID,
+			EventId:     event.ID.String(),
 			Name:        event.Name,
 			Description: event.Description,
 			Active:      event.Active,
@@ -164,7 +164,7 @@ func (s *WebhookServer) ListEventReports(ctx context.Context, req *pb.ListEventR
 
 		// Use the delivery statistics from the database query
 		pbEvent := &pb.EventReport{
-			EventId:              event.ID,
+			EventId:              event.ID.String(),
 			Namespace:            event.Namespace,
 			EventName:            event.Event,
 			Payload:              payloadStruct,

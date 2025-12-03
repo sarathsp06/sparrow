@@ -6,6 +6,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/google/uuid"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
@@ -37,7 +38,7 @@ func (s *WebhookServer) CreateSubscription(ctx context.Context, req *pb.CreateSu
 
 	// Create subscription
 	sub := &store.EventSubscription{
-		WebhookID:         req.WebhookId,
+		WebhookID:         uuid.MustParse(req.WebhookId),
 		EventName:         req.EventName,
 		Namespace:         req.Namespace,
 		Headers:           req.Headers,
@@ -52,7 +53,7 @@ func (s *WebhookServer) CreateSubscription(ctx context.Context, req *pb.CreateSu
 	}
 
 	return &pb.CreateSubscriptionResponse{
-		SubscriptionId: sub.ID,
+		SubscriptionId: sub.ID.String(),
 		Success:        true,
 		Message:        "Subscription created successfully",
 		CreatedAt:      sub.CreatedAt.Unix(),
@@ -67,7 +68,7 @@ func (s *WebhookServer) GetSubscription(ctx context.Context, req *pb.GetSubscrip
 
 	repo := s.service.GetWebhookRepo()
 
-	sub, err := repo.GetSubscription(ctx, req.SubscriptionId)
+	sub, err := repo.GetSubscription(ctx, uuid.MustParse(req.SubscriptionId))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get subscription: %v", err)
 	}
@@ -90,7 +91,7 @@ func (s *WebhookServer) ListSubscriptions(ctx context.Context, req *pb.ListSubsc
 
 	repo := s.service.GetWebhookRepo()
 
-	subs, err := repo.ListSubscriptions(ctx, req.WebhookId)
+	subs, err := repo.ListSubscriptions(ctx, uuid.MustParse(req.WebhookId))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list subscriptions: %v", err)
 	}
@@ -125,7 +126,7 @@ func (s *WebhookServer) UpdateSubscription(ctx context.Context, req *pb.UpdateSu
 	repo := s.service.GetWebhookRepo()
 
 	// Get existing subscription
-	sub, err := repo.GetSubscription(ctx, req.SubscriptionId)
+	sub, err := repo.GetSubscription(ctx, uuid.MustParse(req.SubscriptionId))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get subscription: %v", err)
 	}
@@ -166,7 +167,7 @@ func (s *WebhookServer) DeleteSubscription(ctx context.Context, req *pb.DeleteSu
 
 	repo := s.service.GetWebhookRepo()
 
-	if err := repo.DeleteSubscription(ctx, req.SubscriptionId); err != nil {
+	if err := repo.DeleteSubscription(ctx, uuid.MustParse(req.SubscriptionId)); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to delete subscription: %v", err)
 	}
 
@@ -208,8 +209,8 @@ func (s *WebhookServer) ListSubscriptionsByEvent(ctx context.Context, req *pb.Li
 // Helper function to convert store.EventSubscription to protobuf
 func convertSubscriptionToProto(sub *store.EventSubscription) *pb.EventSubscription {
 	return &pb.EventSubscription{
-		SubscriptionId:    sub.ID,
-		WebhookId:         sub.WebhookID,
+		SubscriptionId:    sub.ID.String(),
+		WebhookId:         sub.WebhookID.String(),
 		EventName:         sub.EventName,
 		Namespace:         sub.Namespace,
 		Headers:           sub.Headers,

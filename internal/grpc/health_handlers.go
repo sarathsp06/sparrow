@@ -93,9 +93,9 @@ func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWe
 	pbWebhooks := make([]*pb.RegisteredWebhook, len(webhooks))
 	for i, webhook := range webhooks {
 		pbWebhooks[i] = &pb.RegisteredWebhook{
-			WebhookId:   webhook.ID,
+			WebhookId:   webhook.ID.String(),
 			Namespace:   webhook.Namespace,
-			Events:      s.getWebhookEvents(ctx, webhook.ID),
+			Events:      s.getWebhookEvents(ctx, webhook.ID.String()),
 			Url:         webhook.URL,
 			Headers:     webhook.Headers,
 			Timeout:     int32(webhook.Timeout),

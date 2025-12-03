@@ -49,6 +49,7 @@ const (
 	WebhookService_UpdateSubscription_FullMethodName            = "/webhook.WebhookService/UpdateSubscription"
 	WebhookService_DeleteSubscription_FullMethodName            = "/webhook.WebhookService/DeleteSubscription"
 	WebhookService_ListSubscriptionsByEvent_FullMethodName      = "/webhook.WebhookService/ListSubscriptionsByEvent"
+	WebhookService_GetTemplateFunctions_FullMethodName          = "/webhook.WebhookService/GetTemplateFunctions"
 )
 
 // WebhookServiceClient is the client API for WebhookService service.
@@ -118,6 +119,8 @@ type WebhookServiceClient interface {
 	DeleteSubscription(ctx context.Context, in *DeleteSubscriptionRequest, opts ...grpc.CallOption) (*DeleteSubscriptionResponse, error)
 	// ListSubscriptionsByEvent lists all subscriptions for a specific event
 	ListSubscriptionsByEvent(ctx context.Context, in *ListSubscriptionsByEventRequest, opts ...grpc.CallOption) (*ListSubscriptionsByEventResponse, error)
+	// GetTemplateFunctions returns all available template functions with their descriptions
+	GetTemplateFunctions(ctx context.Context, in *GetTemplateFunctionsRequest, opts ...grpc.CallOption) (*GetTemplateFunctionsResponse, error)
 }
 
 type webhookServiceClient struct {
@@ -418,6 +421,16 @@ func (c *webhookServiceClient) ListSubscriptionsByEvent(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *webhookServiceClient) GetTemplateFunctions(ctx context.Context, in *GetTemplateFunctionsRequest, opts ...grpc.CallOption) (*GetTemplateFunctionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTemplateFunctionsResponse)
+	err := c.cc.Invoke(ctx, WebhookService_GetTemplateFunctions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WebhookServiceServer is the server API for WebhookService service.
 // All implementations must embed UnimplementedWebhookServiceServer
 // for forward compatibility.
@@ -485,6 +498,8 @@ type WebhookServiceServer interface {
 	DeleteSubscription(context.Context, *DeleteSubscriptionRequest) (*DeleteSubscriptionResponse, error)
 	// ListSubscriptionsByEvent lists all subscriptions for a specific event
 	ListSubscriptionsByEvent(context.Context, *ListSubscriptionsByEventRequest) (*ListSubscriptionsByEventResponse, error)
+	// GetTemplateFunctions returns all available template functions with their descriptions
+	GetTemplateFunctions(context.Context, *GetTemplateFunctionsRequest) (*GetTemplateFunctionsResponse, error)
 	mustEmbedUnimplementedWebhookServiceServer()
 }
 
@@ -581,6 +596,9 @@ func (UnimplementedWebhookServiceServer) DeleteSubscription(context.Context, *De
 }
 func (UnimplementedWebhookServiceServer) ListSubscriptionsByEvent(context.Context, *ListSubscriptionsByEventRequest) (*ListSubscriptionsByEventResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListSubscriptionsByEvent not implemented")
+}
+func (UnimplementedWebhookServiceServer) GetTemplateFunctions(context.Context, *GetTemplateFunctionsRequest) (*GetTemplateFunctionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTemplateFunctions not implemented")
 }
 func (UnimplementedWebhookServiceServer) mustEmbedUnimplementedWebhookServiceServer() {}
 func (UnimplementedWebhookServiceServer) testEmbeddedByValue()                        {}
@@ -1125,6 +1143,24 @@ func _WebhookService_ListSubscriptionsByEvent_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WebhookService_GetTemplateFunctions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTemplateFunctionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WebhookServiceServer).GetTemplateFunctions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WebhookService_GetTemplateFunctions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WebhookServiceServer).GetTemplateFunctions(ctx, req.(*GetTemplateFunctionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WebhookService_ServiceDesc is the grpc.ServiceDesc for WebhookService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1247,6 +1283,10 @@ var WebhookService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListSubscriptionsByEvent",
 			Handler:    _WebhookService_ListSubscriptionsByEvent_Handler,
+		},
+		{
+			MethodName: "GetTemplateFunctions",
+			Handler:    _WebhookService_GetTemplateFunctions_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

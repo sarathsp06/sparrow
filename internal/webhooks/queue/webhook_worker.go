@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -64,25 +65,25 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 
 	// Get webhook configuration from database
-	webhook, err := w.webhookRepo.GetWebhookByID(ctx, args.WebhookID, args.Namespace)
+	webhook, err := w.webhookRepo.GetWebhookByID(ctx, uuid.MustParse(args.WebhookID), args.Namespace)
 	if err != nil {
 		w.logger.Error("Failed to get webhook configuration", "error", err, "webhook_id", args.WebhookID)
-		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err))
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err))
 		return fmt.Errorf("failed to get webhook configuration: %w", err)
 	}
 
 	// Get event record from database
-	eventRecord, err := w.webhookRepo.GetEventByID(ctx, args.EventID)
+	eventRecord, err := w.webhookRepo.GetEventByID(ctx, uuid.MustParse(args.EventID))
 	if err != nil {
 		w.logger.Error("Failed to get event record", "error", err, "event_id", args.EventID)
-		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Failed to get event record: %v", err))
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Failed to get event record: %v", err))
 		return fmt.Errorf("failed to get event record: %w", err)
 	}
 
 	// Get subscription if available
 	var subscription *store.EventSubscription
 	if args.SubscriptionID != "" {
-		subscription, err = w.webhookRepo.GetSubscription(ctx, args.SubscriptionID)
+		subscription, err = w.webhookRepo.GetSubscription(ctx, uuid.MustParse(args.SubscriptionID))
 		if err != nil {
 			// If subscription is missing, we might still want to proceed if it's a legacy delivery,
 			// but for now let's assume strict consistency or log warning.
@@ -111,7 +112,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		span.SetStatus(otelcodes.Error, "webhook delivery expired")
 		log.Warn("Webhook delivery expired", "expires_at", args.ExpiresAt)
 
-		err := w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID, store.StatusExpired, 0, "", "Delivery expired")
+		err := w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusExpired, 0, "", "Delivery expired")
 		if err != nil {
 			log.Error("Failed to update delivery status to expired", "error", err)
 		}
@@ -147,7 +148,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		payloadBytes, err = w.client.TransformPayload(subscription.TransformTemplate, tmplContext)
 		if err != nil {
 			log.Error("Failed to transform payload", "error", err)
-			_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Template transformation failed: %v", err))
+			_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Template transformation failed: %v", err))
 			return fmt.Errorf("template transformation failed: %w", err)
 		}
 	} else {
@@ -163,7 +164,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	deliveryReq := client.PrepareDeliveryRequest(webhook, subscription, eventRecord, args.DeliveryID, payloadBytes)
 
 	// Store the request body in the delivery record
-	if err := w.webhookRepo.UpdateDeliveryRequestBody(ctx, args.DeliveryID, string(payloadBytes)); err != nil {
+	if err := w.webhookRepo.UpdateDeliveryRequestBody(ctx, uuid.MustParse(args.DeliveryID), string(payloadBytes)); err != nil {
 		log.Warn("Failed to store request body", "error", err, "delivery_id", args.DeliveryID)
 	}
 
@@ -176,10 +177,10 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			"duration_ms", duration.Milliseconds(),
 		)
 
-		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err))
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err))
 
 		// Record health event
-		_ = w.webhookRepo.RecordWebhookHealthEvent(ctx, args.WebhookID, args.DeliveryID, false, int(duration.Milliseconds()), 0, err.Error())
+		_ = w.webhookRepo.RecordWebhookHealthEvent(ctx, uuid.MustParse(args.WebhookID), uuid.MustParse(args.DeliveryID), false, int(duration.Milliseconds()), 0, err.Error())
 
 		return fmt.Errorf("failed to send webhook: %w", err)
 	}
@@ -222,13 +223,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		// Metrics are already recorded by the client!
 		// But we might want to record worker-specific metrics if any.
 
-		err := w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
+		err := w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID),
 			store.StatusSuccess, resp.StatusCode, string(body), "")
 		if err != nil {
 			log.Error("Failed to update delivery status to success", "error", err)
 		}
 
-		_ = w.webhookRepo.RecordWebhookHealthEvent(ctx, args.WebhookID, args.DeliveryID, true, int(duration.Milliseconds()), resp.StatusCode, "")
+		_ = w.webhookRepo.RecordWebhookHealthEvent(ctx, uuid.MustParse(args.WebhookID), uuid.MustParse(args.DeliveryID), true, int(duration.Milliseconds()), resp.StatusCode, "")
 
 		return nil
 	}
@@ -237,13 +238,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	errorMessage := fmt.Sprintf("HTTP %d: %s", resp.StatusCode, resp.Status)
 	span.SetStatus(otelcodes.Error, "webhook delivery failed")
 
-	err = w.webhookRepo.UpdateDeliveryStatus(ctx, args.DeliveryID,
+	err = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID),
 		store.StatusFailed, resp.StatusCode, string(body), errorMessage)
 	if err != nil {
 		log.Error("Failed to update delivery status to failed", "error", err)
 	}
 
-	_ = w.webhookRepo.RecordWebhookHealthEvent(ctx, args.WebhookID, args.DeliveryID, false, int(duration.Milliseconds()), resp.StatusCode, errorMessage)
+	_ = w.webhookRepo.RecordWebhookHealthEvent(ctx, uuid.MustParse(args.WebhookID), uuid.MustParse(args.DeliveryID), false, int(duration.Milliseconds()), resp.StatusCode, errorMessage)
 
 	return fmt.Errorf("webhook delivery failed: %s", errorMessage)
 }

@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks"
+	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
@@ -72,9 +73,9 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 	pbWebhooks := make([]*pb.RegisteredWebhook, len(regs))
 	for i, reg := range regs {
 		pbWebhooks[i] = &pb.RegisteredWebhook{
-			WebhookId:   reg.ID,
+			WebhookId:   reg.ID.String(),
 			Namespace:   reg.Namespace,
-			Events:      s.getWebhookEvents(ctx, reg.ID),
+			Events:      s.getWebhookEvents(ctx, reg.ID.String()),
 			Url:         reg.URL,
 			Headers:     reg.Headers,
 			Timeout:     int32(reg.Timeout),
@@ -114,9 +115,9 @@ func (s *WebhookServer) GetRegisteredWebhooks(ctx context.Context, req *pb.GetRe
 	var webhooks []*pb.RegisteredWebhook
 	for _, webhook := range regs {
 		webhooks = append(webhooks, &pb.RegisteredWebhook{
-			WebhookId:   webhook.ID,
+			WebhookId:   webhook.ID.String(),
 			Namespace:   webhook.Namespace,
-			Events:      s.getWebhookEvents(ctx, webhook.ID),
+			Events:      s.getWebhookEvents(ctx, webhook.ID.String()),
 			Url:         webhook.URL,
 			Headers:     webhook.Headers,
 			Timeout:     int32(webhook.Timeout),
@@ -144,9 +145,9 @@ func (s *WebhookServer) ListRegisteredWebhooksByEvent(ctx context.Context, req *
 	var webhooks []*pb.RegisteredWebhook
 	for _, webhook := range regs {
 		webhooks = append(webhooks, &pb.RegisteredWebhook{
-			WebhookId:   webhook.ID,
+			WebhookId:   webhook.ID.String(),
 			Namespace:   webhook.Namespace,
-			Events:      s.getWebhookEvents(ctx, webhook.ID),
+			Events:      s.getWebhookEvents(ctx, webhook.ID.String()),
 			Url:         webhook.URL,
 			Headers:     webhook.Headers,
 			Timeout:     int32(webhook.Timeout),
@@ -214,5 +215,25 @@ func (s *WebhookServer) ResumeWebhook(ctx context.Context, req *pb.ResumeWebhook
 	return &pb.ResumeWebhookResponse{
 		Success: true,
 		Message: "Webhook resumed successfully",
+	}, nil
+}
+
+// GetTemplateFunctions returns all available template functions with their descriptions
+func (s *WebhookServer) GetTemplateFunctions(ctx context.Context, req *pb.GetTemplateFunctionsRequest) (*pb.GetTemplateFunctionsResponse, error) {
+	templateFunctions := client.GetTemplateFunctions()
+
+	var pbFunctions []*pb.TemplateFunction
+	for _, tf := range templateFunctions {
+		pbFunctions = append(pbFunctions, &pb.TemplateFunction{
+			Name:        tf.Name,
+			Description: tf.Description,
+		})
+	}
+
+	return &pb.GetTemplateFunctionsResponse{
+		Functions:  pbFunctions,
+		TotalCount: int32(len(pbFunctions)),
+		Success:    true,
+		Message:    "Template functions retrieved successfully",
 	}, nil
 }

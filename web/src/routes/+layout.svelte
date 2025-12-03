@@ -16,7 +16,7 @@
     "/events/push": "Push Event",
     "/webhooks/register": "Register Webhook",
     "/events/[eventId]/reports": "Event Reports",
-    "/subscriptions": "Subscriptions",
+    "/webhooks/[webhookId]/subscriptions": "Subscriptions"
   };
   function getTitle(): string {
     const path: string = page.route.id?.toString() || "/";
@@ -42,9 +42,11 @@
     class="px-2 flex items-center flex-wrap gap-2 md:gap-8 text-lg font-medium"
   >
     <a href="/webhooks" class="hover:text-primary transition">Webhooks</a>
-    <a href="/subscriptions" class="hover:text-primary transition">Subscriptions</a>
     <a href="/events" class="hover:text-primary transition">Events</a>
     <a href="/health" class="hover:text-primary transition">Health</a>
+    <a href="https://github.com/sarathsp06/sparrow" class="hover:text-primary transition">
+      <img src="https://logo.svgcdn.com/devicon/github-original.png" alt="github" class="inline-block hover:text-primary w-8 h-8">
+    </a>
   </nav>
 </header>
 {@render children?.()}

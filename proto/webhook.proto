@@ -98,6 +98,8 @@ service WebhookService {
   // ListSubscriptionsByEvent lists all subscriptions for a specific event
   rpc ListSubscriptionsByEvent(ListSubscriptionsByEventRequest) returns (ListSubscriptionsByEventResponse);
   
+  // GetTemplateFunctions returns all available template functions with their descriptions
+  rpc GetTemplateFunctions(GetTemplateFunctionsRequest) returns (GetTemplateFunctionsResponse);
 }
 
 // WebhookHTTPConfig represents HTTP configuration for webhook delivery
@@ -674,6 +676,25 @@ message ListSubscriptionsByEventRequest {
 message ListSubscriptionsByEventResponse {
   repeated EventSubscription subscriptions = 1; // List of subscriptions
   int32 total_count = 2; // Total count
+  bool success = 3; // Whether request was successful
+  string message = 4; // Success or error message
+}
+
+// TemplateFunction represents a template function with its name and description
+message TemplateFunction {
+  string name = 1; // Function name
+  string description = 2; // Function description
+}
+
+// GetTemplateFunctionsRequest represents a request to get template functions
+message GetTemplateFunctionsRequest {
+  // No parameters needed for this request
+}
+
+// GetTemplateFunctionsResponse represents the response for getting template functions
+message GetTemplateFunctionsResponse {
+  repeated TemplateFunction functions = 1; // List of available template functions
+  int32 total_count = 2; // Total count of functions
   bool success = 3; // Whether request was successful
   string message = 4; // Success or error message
 }

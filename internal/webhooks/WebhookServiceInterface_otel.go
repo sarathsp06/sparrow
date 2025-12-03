@@ -9,12 +9,12 @@ package webhooks
 import (
 	"context"
 
+	"github.com/google/uuid"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
 // WebhookServiceInterfaceWithTracing implements WebhookServiceInterface interface instrumented with open telemetry spans
@@ -237,14 +237,14 @@ func (_d WebhookServiceInterfaceWithTracing) GetWebhookHealth(ctx context.Contex
 }
 
 // GetWebhookStatus implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) GetWebhookStatus(ctx context.Context, namespace string, webhookID string) (wpa1 []*store.WebhookDelivery, i1 int32, err error) {
+func (_d WebhookServiceInterfaceWithTracing) GetWebhookStatus(ctx context.Context, webhookID uuid.UUID, eventID uuid.UUID) (wpa1 []*store.WebhookDelivery, i1 int32, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetWebhookStatus")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":       ctx,
-				"namespace": namespace,
-				"webhookID": webhookID}, map[string]interface{}{
+				"webhookID": webhookID,
+				"eventID":   eventID}, map[string]interface{}{
 				"wpa1": wpa1,
 				"i1":   i1,
 				"err":  err})
@@ -259,7 +259,7 @@ func (_d WebhookServiceInterfaceWithTracing) GetWebhookStatus(ctx context.Contex
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.GetWebhookStatus(ctx, namespace, webhookID)
+	return _d.WebhookServiceInterface.GetWebhookStatus(ctx, webhookID, eventID)
 }
 
 // ListEventReports implements WebhookServiceInterface

@@ -48,6 +48,7 @@ clean: ## Clean up build artifacts and Go module cache
 generate: ## Generate protobuf code
 	buf generate
 	go generate ./...
+	go run ./cmd/generate-docs
 
 lint: ## Run golangci-lint for linting
 	golangci-lint run -v --timeout 15m ./...

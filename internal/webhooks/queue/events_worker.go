@@ -49,7 +49,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 
 	// Store the event record - this should have already been stored by the service layer
 	// but let's verify and update if needed
-	existingEvent, err := w.webhookRepo.GetEventByID(ctx, args.EventID)
+	existingEvent, err := w.webhookRepo.GetEventByID(ctx, uuid.MustParse(args.EventID))
 	if err != nil {
 		w.logger.Error("Event record not found in database", "error", err, "event_id", args.EventID)
 		return fmt.Errorf("event record not found: %w", err)
@@ -106,9 +106,9 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 
 		// Create webhook delivery record
 		delivery := &store.WebhookDelivery{
-			ID:             deliveryID,
+			ID:             uuid.MustParse(deliveryID),
 			WebhookID:      webhook.ID,
-			EventID:        args.EventID,
+			EventID:        uuid.MustParse(args.EventID),
 			SubscriptionID: &sub.ID, // Link delivery to subscription
 			Status:         store.StatusPending,
 			MaxAttempts:    maxAttempts,
@@ -123,8 +123,8 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		// Create webhook delivery job with minimal data
 		webhookArgs := WebhookArgs{
 			DeliveryID:     deliveryID,
-			WebhookID:      webhook.ID,
-			SubscriptionID: sub.ID,
+			WebhookID:      webhook.ID.String(),
+			SubscriptionID: sub.ID.String(),
 			EventID:        args.EventID,
 			ExpiresAt:      expiresAt,
 			Namespace:      args.Namespace,

@@ -122,6 +122,9 @@ const (
 	// WebhookServiceListSubscriptionsByEventProcedure is the fully-qualified name of the
 	// WebhookService's ListSubscriptionsByEvent RPC.
 	WebhookServiceListSubscriptionsByEventProcedure = "/webhook.WebhookService/ListSubscriptionsByEvent"
+	// WebhookServiceGetTemplateFunctionsProcedure is the fully-qualified name of the WebhookService's
+	// GetTemplateFunctions RPC.
+	WebhookServiceGetTemplateFunctionsProcedure = "/webhook.WebhookService/GetTemplateFunctions"
 )
 
 // WebhookServiceClient is a client for the webhook.WebhookService service.
@@ -187,6 +190,8 @@ type WebhookServiceClient interface {
 	DeleteSubscription(context.Context, *connect.Request[proto.DeleteSubscriptionRequest]) (*connect.Response[proto.DeleteSubscriptionResponse], error)
 	// ListSubscriptionsByEvent lists all subscriptions for a specific event
 	ListSubscriptionsByEvent(context.Context, *connect.Request[proto.ListSubscriptionsByEventRequest]) (*connect.Response[proto.ListSubscriptionsByEventResponse], error)
+	// GetTemplateFunctions returns all available template functions with their descriptions
+	GetTemplateFunctions(context.Context, *connect.Request[proto.GetTemplateFunctionsRequest]) (*connect.Response[proto.GetTemplateFunctionsResponse], error)
 }
 
 // NewWebhookServiceClient constructs a client for the webhook.WebhookService service. By default,
@@ -374,6 +379,12 @@ func NewWebhookServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(webhookServiceMethods.ByName("ListSubscriptionsByEvent")),
 			connect.WithClientOptions(opts...),
 		),
+		getTemplateFunctions: connect.NewClient[proto.GetTemplateFunctionsRequest, proto.GetTemplateFunctionsResponse](
+			httpClient,
+			baseURL+WebhookServiceGetTemplateFunctionsProcedure,
+			connect.WithSchema(webhookServiceMethods.ByName("GetTemplateFunctions")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -408,6 +419,7 @@ type webhookServiceClient struct {
 	updateSubscription            *connect.Client[proto.UpdateSubscriptionRequest, proto.UpdateSubscriptionResponse]
 	deleteSubscription            *connect.Client[proto.DeleteSubscriptionRequest, proto.DeleteSubscriptionResponse]
 	listSubscriptionsByEvent      *connect.Client[proto.ListSubscriptionsByEventRequest, proto.ListSubscriptionsByEventResponse]
+	getTemplateFunctions          *connect.Client[proto.GetTemplateFunctionsRequest, proto.GetTemplateFunctionsResponse]
 }
 
 // RegisterWebhook calls webhook.WebhookService.RegisterWebhook.
@@ -555,6 +567,11 @@ func (c *webhookServiceClient) ListSubscriptionsByEvent(ctx context.Context, req
 	return c.listSubscriptionsByEvent.CallUnary(ctx, req)
 }
 
+// GetTemplateFunctions calls webhook.WebhookService.GetTemplateFunctions.
+func (c *webhookServiceClient) GetTemplateFunctions(ctx context.Context, req *connect.Request[proto.GetTemplateFunctionsRequest]) (*connect.Response[proto.GetTemplateFunctionsResponse], error) {
+	return c.getTemplateFunctions.CallUnary(ctx, req)
+}
+
 // WebhookServiceHandler is an implementation of the webhook.WebhookService service.
 type WebhookServiceHandler interface {
 	// RegisterWebhook registers a URL for specific events in a namespace
@@ -618,6 +635,8 @@ type WebhookServiceHandler interface {
 	DeleteSubscription(context.Context, *connect.Request[proto.DeleteSubscriptionRequest]) (*connect.Response[proto.DeleteSubscriptionResponse], error)
 	// ListSubscriptionsByEvent lists all subscriptions for a specific event
 	ListSubscriptionsByEvent(context.Context, *connect.Request[proto.ListSubscriptionsByEventRequest]) (*connect.Response[proto.ListSubscriptionsByEventResponse], error)
+	// GetTemplateFunctions returns all available template functions with their descriptions
+	GetTemplateFunctions(context.Context, *connect.Request[proto.GetTemplateFunctionsRequest]) (*connect.Response[proto.GetTemplateFunctionsResponse], error)
 }
 
 // NewWebhookServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -801,6 +820,12 @@ func NewWebhookServiceHandler(svc WebhookServiceHandler, opts ...connect.Handler
 		connect.WithSchema(webhookServiceMethods.ByName("ListSubscriptionsByEvent")),
 		connect.WithHandlerOptions(opts...),
 	)
+	webhookServiceGetTemplateFunctionsHandler := connect.NewUnaryHandler(
+		WebhookServiceGetTemplateFunctionsProcedure,
+		svc.GetTemplateFunctions,
+		connect.WithSchema(webhookServiceMethods.ByName("GetTemplateFunctions")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/webhook.WebhookService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case WebhookServiceRegisterWebhookProcedure:
@@ -861,6 +886,8 @@ func NewWebhookServiceHandler(svc WebhookServiceHandler, opts ...connect.Handler
 			webhookServiceDeleteSubscriptionHandler.ServeHTTP(w, r)
 		case WebhookServiceListSubscriptionsByEventProcedure:
 			webhookServiceListSubscriptionsByEventHandler.ServeHTTP(w, r)
+		case WebhookServiceGetTemplateFunctionsProcedure:
+			webhookServiceGetTemplateFunctionsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -984,4 +1011,8 @@ func (UnimplementedWebhookServiceHandler) DeleteSubscription(context.Context, *c
 
 func (UnimplementedWebhookServiceHandler) ListSubscriptionsByEvent(context.Context, *connect.Request[proto.ListSubscriptionsByEventRequest]) (*connect.Response[proto.ListSubscriptionsByEventResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.ListSubscriptionsByEvent is not implemented"))
+}
+
+func (UnimplementedWebhookServiceHandler) GetTemplateFunctions(context.Context, *connect.Request[proto.GetTemplateFunctionsRequest]) (*connect.Response[proto.GetTemplateFunctionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.WebhookService.GetTemplateFunctions is not implemented"))
 }

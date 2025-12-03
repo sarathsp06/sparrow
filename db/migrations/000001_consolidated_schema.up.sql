@@ -27,7 +27,7 @@ COMMENT ON TABLE event_registrations IS 'Registry of available event types that 
 
 -- Create webhook_registrations table with all columns including health and HTTP config
 CREATE TABLE webhook_registrations (
-    id VARCHAR(255) PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     namespace VARCHAR(255) NOT NULL,
     events TEXT[],           -- Array of events this webhook listens to
     url TEXT NOT NULL,
@@ -66,7 +66,7 @@ CREATE INDEX idx_webhook_registrations_health ON webhook_registrations(health);
 
 -- Create event_records table
 CREATE TABLE event_records (
-    id VARCHAR(255) PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     namespace VARCHAR(255) NOT NULL,
     event VARCHAR(255) NOT NULL,
     payload TEXT NOT NULL,           -- JSON payload
@@ -84,9 +84,9 @@ CREATE INDEX idx_event_records_expires_at ON event_records(expires_at);
 
 -- Create webhook_deliveries table with all columns including request_body
 CREATE TABLE webhook_deliveries (
-    id VARCHAR(255) PRIMARY KEY,
-    webhook_id VARCHAR(255) NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
-    event_id VARCHAR(255) NOT NULL REFERENCES event_records(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    webhook_id UUID NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
+    event_id UUID NOT NULL REFERENCES event_records(id) ON DELETE CASCADE,
     status webhook_delivery_status DEFAULT 'pending',
     attempt_count INTEGER DEFAULT 0,
     max_attempts INTEGER DEFAULT 3,
@@ -111,7 +111,7 @@ CREATE INDEX idx_webhook_deliveries_request_body_gin ON webhook_deliveries USING
 -- Create webhook health tracking tables
 CREATE TABLE webhook_health_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    webhook_id VARCHAR NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
+    webhook_id UUID NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
     delivery_id UUID NOT NULL,
     success BOOLEAN NOT NULL,
     response_time INTEGER NOT NULL DEFAULT 0, -- milliseconds
@@ -129,7 +129,7 @@ CREATE INDEX idx_webhook_health_events_delivery_id ON webhook_health_events(deli
 -- Create webhook health summaries table
 CREATE TABLE webhook_health_summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    webhook_id VARCHAR NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
+    webhook_id UUID NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
     window_start TIMESTAMP WITH TIME ZONE NOT NULL,
     window_end TIMESTAMP WITH TIME ZONE NOT NULL,
     total_deliveries INTEGER NOT NULL DEFAULT 0,
@@ -152,7 +152,7 @@ CREATE INDEX idx_webhook_health_summaries_window ON webhook_health_summaries(win
 -- Create webhook health state table
 CREATE TABLE webhook_health_state (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    webhook_id VARCHAR NOT NULL UNIQUE REFERENCES webhook_registrations(id) ON DELETE CASCADE,
+    webhook_id UUID NOT NULL UNIQUE REFERENCES webhook_registrations(id) ON DELETE CASCADE,
     consecutive_failures INTEGER NOT NULL DEFAULT 0,
     last_success_at TIMESTAMP WITH TIME ZONE,
     last_failure_at TIMESTAMP WITH TIME ZONE,
