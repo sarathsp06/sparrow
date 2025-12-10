@@ -145,8 +145,29 @@ See [TECHNICAL.md](TECHNICAL.md) for complete configuration options.
 ## 📚 Documentation
 
 - **[TECHNICAL.md](TECHNICAL.md)** - Comprehensive technical documentation
+- **[BENCHMARKING.md](docs/BENCHMARKING.md)** - Performance testing and capacity planning
 - **[API Examples](examples/)** - Ready-to-run client examples
 - **[Proto Definitions](proto/)** - gRPC service definitions
+
+## 🎯 Performance & Benchmarking
+
+Sparrow includes comprehensive benchmarking tools for capacity planning:
+
+```bash
+# Run performance benchmarks
+go test -bench=. -benchmem ./internal/benchmarks/
+
+# Run load test with custom parameters
+go build -o bin/benchmark ./cmd/benchmark/
+./bin/benchmark -duration=2m -rps=1000 -payload=10
+```
+
+**Resource Estimates** (with 50% safety margin):
+- **100 RPS**: 512 MB RAM, 1 CPU core, 10 Mbps bandwidth
+- **1,000 RPS**: 2 GB RAM, 2 CPU cores, 50 Mbps bandwidth
+- **10,000 RPS**: 16 GB RAM, 8 CPU cores, 500 Mbps bandwidth
+
+See [BENCHMARKING.md](docs/BENCHMARKING.md) for detailed profiling and optimization guides.
 
 ## 🤝 Contributing
 

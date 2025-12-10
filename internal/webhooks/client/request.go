@@ -36,7 +36,9 @@ type DeliveryRequest struct {
 
 // BuildRequest creates an HTTP request from the delivery request
 func BuildRequest(ctx context.Context, dr *DeliveryRequest) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, dr.Method, dr.URL, bytes.NewBuffer(dr.Payload))
+	// Use bytes.NewReader for zero-copy payload reading
+	// This avoids creating a new buffer while allowing http to read the payload
+	req, err := http.NewRequestWithContext(ctx, dr.Method, dr.URL, bytes.NewReader(dr.Payload))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -81,7 +83,8 @@ func PrepareDeliveryRequest(
 ) *DeliveryRequest {
 
 	// Merge headers: subscription headers override webhook headers
-	headers := make(map[string]string)
+	// Use header map from pool
+	headers := GetHeaderMap()
 	for k, v := range webhook.Headers {
 		headers[k] = v
 	}

@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"fmt"
 	"text/template"
 	"time"
@@ -38,12 +37,18 @@ func (e *TemplateEngine) Execute(tmplStr string, data any) ([]byte, error) {
 		return nil, err
 	}
 
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
+	// Get buffer from pool
+	buf := GetBuffer()
+	defer PutBuffer(buf)
+
+	if err := tmpl.Execute(buf, data); err != nil {
 		return nil, fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	return buf.Bytes(), nil
+	// Copy bytes since we're returning the buffer to the pool
+	result := make([]byte, buf.Len())
+	copy(result, buf.Bytes())
+	return result, nil
 }
 
 // getOrParseTemplate retrieves a cached template or parses and caches a new one

@@ -49,8 +49,8 @@ func TestBuildRequest(t *testing.T) {
 		t.Errorf("Expected Content-Type application/json, got %s", req.Header.Get("Content-Type"))
 	}
 
-	if req.Header.Get("User-Agent") != "Sparrow-Webhook/1.0" {
-		t.Errorf("Expected User-Agent Sparrow-Webhook/1.0, got %s", req.Header.Get("User-Agent"))
+	if req.Header.Get("User-Agent") != "Sparrow-Webhook/0.1.0" {
+		t.Errorf("Expected User-Agent Sparrow-Webhook/0.1.0, got %s", req.Header.Get("User-Agent"))
 	}
 
 	if req.Header.Get("X-Sparrow-Event-ID") != eventID.String() {

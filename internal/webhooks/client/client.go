@@ -96,15 +96,30 @@ func (c *WebhookClient) GetStats() map[string]interface{} {
 	return c.metrics.GetStats()
 }
 
-// ReadBody reads the response body safely
+// ReadBody reads the response body safely using a pooled buffer
 func ReadBody(resp *http.Response, limit int64) ([]byte, error) {
 	if resp == nil || resp.Body == nil {
 		return nil, nil
 	}
 	defer resp.Body.Close()
 
+	// Use buffer from pool for reading
+	buf := GetBuffer()
+	defer PutBuffer(buf)
+
+	var err error
 	if limit > 0 {
-		return io.ReadAll(io.LimitReader(resp.Body, limit))
+		_, err = buf.ReadFrom(io.LimitReader(resp.Body, limit))
+	} else {
+		_, err = buf.ReadFrom(resp.Body)
 	}
-	return io.ReadAll(resp.Body)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Copy to new slice since buffer goes back to pool
+	result := make([]byte, buf.Len())
+	copy(result, buf.Bytes())
+	return result, nil
 }
