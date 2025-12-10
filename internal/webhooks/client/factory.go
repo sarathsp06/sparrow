@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"sync"
 )
 
@@ -52,24 +51,6 @@ func (f *Factory) GetClient(configKey string) *WebhookClient {
 // GetDefaultClient returns the default webhook client
 func (f *Factory) GetDefaultClient() *WebhookClient {
 	return f.GetClient("default")
-}
-
-// PrewarmClients pre-establishes connections for all clients
-func (f *Factory) PrewarmClients(ctx context.Context, hosts []string) error {
-	f.mu.RLock()
-	clients := make([]*WebhookClient, 0, len(f.clients))
-	for _, client := range f.clients {
-		clients = append(clients, client)
-	}
-	f.mu.RUnlock()
-
-	for _, client := range clients {
-		if err := client.PrewarmConnections(ctx, hosts); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // Close shuts down all clients

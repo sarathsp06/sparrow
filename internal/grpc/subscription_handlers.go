@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/google/uuid"
+
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
@@ -28,8 +29,24 @@ func (s *WebhookServer) CreateSubscription(ctx context.Context, req *pb.CreateSu
 	// Validate template if transformation is enabled
 	if req.TransformEnabled && req.TransformTemplate != "" {
 		templateEngine := client.NewTemplateEngine()
-		if err := templateEngine.ValidateTemplateWithTestData(req.TransformTemplate); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid template: %v", err)
+
+		// Try to get event registration to validate with actual sample payload
+		repo := s.service.GetWebhookRepo()
+		eventReg, err := repo.GetEventByName(ctx, req.EventName)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to get event registration: %v", err)
+		}
+
+		// If event registration exists and has sample payload, validate with it
+		if eventReg != nil && eventReg.SamplePayload != nil && len(eventReg.SamplePayload) > 0 {
+			if err := templateEngine.ValidateTemplateWithPayload(req.TransformTemplate, eventReg.SamplePayload); err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid template: %v", err)
+			}
+		} else {
+			// Fall back to generic validation
+			if err := templateEngine.ValidateTemplateWithTestData(req.TransformTemplate); err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid template: %v", err)
+			}
 		}
 	}
 
@@ -115,23 +132,38 @@ func (s *WebhookServer) UpdateSubscription(ctx context.Context, req *pb.UpdateSu
 		return nil, status.Error(codes.InvalidArgument, "subscription_id is required")
 	}
 
-	// Validate template if transformation is enabled
-	if req.TransformEnabled && req.TransformTemplate != "" {
-		templateEngine := client.NewTemplateEngine()
-		if err := templateEngine.ValidateTemplateWithTestData(req.TransformTemplate); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid template: %v", err)
-		}
-	}
-
 	repo := s.service.GetWebhookRepo()
 
-	// Get existing subscription
+	// Get existing subscription first
 	sub, err := repo.GetSubscription(ctx, uuid.MustParse(req.SubscriptionId))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get subscription: %v", err)
 	}
 	if sub == nil {
 		return nil, status.Error(codes.NotFound, "subscription not found")
+	}
+
+	// Validate template if transformation is enabled
+	if req.TransformEnabled && req.TransformTemplate != "" {
+		templateEngine := client.NewTemplateEngine()
+
+		// Try to get event registration to validate with actual sample payload
+		eventReg, err := repo.GetEventByName(ctx, sub.EventName)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to get event registration: %v", err)
+		}
+
+		// If event registration exists and has sample payload, validate with it
+		if eventReg != nil && eventReg.SamplePayload != nil && len(eventReg.SamplePayload) > 0 {
+			if err := templateEngine.ValidateTemplateWithPayload(req.TransformTemplate, eventReg.SamplePayload); err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid template: %v", err)
+			}
+		} else {
+			// Fall back to generic validation
+			if err := templateEngine.ValidateTemplateWithTestData(req.TransformTemplate); err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid template: %v", err)
+			}
+		}
 	}
 
 	// Update fields

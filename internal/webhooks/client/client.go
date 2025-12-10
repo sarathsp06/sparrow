@@ -59,7 +59,6 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 	}
 
 	// TODO: Support per-request TLS settings if needed (e.g. overriding config)
-
 	start := time.Now()
 	resp, err := c.httpClient.Do(httpReq)
 	duration := time.Since(start)
@@ -71,20 +70,6 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 
 	c.metrics.RecordSuccess(duration)
 	return resp, duration, nil
-}
-
-type WebhookTemplateContext struct {
-	EventID   string
-	EventName string
-	Payload   map[string]any
-}
-
-// TransformPayload applies the template if enabled
-func (c *WebhookClient) TransformPayload(tmplStr string, data any) ([]byte, error) {
-	if tmplStr == "" {
-		return nil, nil
-	}
-	return c.tmpl.Execute(tmplStr, data)
 }
 
 // PrewarmConnections establishes connections to the given hosts

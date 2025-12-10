@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/sarathsp06/sparrow"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
@@ -41,11 +43,10 @@ func BuildRequest(ctx context.Context, dr *DeliveryRequest) (*http.Request, erro
 
 	// Set default headers
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "Sparrow-Webhook/1.0")
+	req.Header.Set("User-Agent", "Sparrow-Webhook/"+sparrow.Version)
 	req.Header.Set("X-Sparrow-Event-ID", dr.EventID.String())
 	req.Header.Set("X-Sparrow-Delivery-ID", dr.DeliveryID)
 	req.Header.Set("X-Sparrow-Webhook-ID", dr.WebhookID.String())
-
 	// Set custom headers (overriding defaults if needed)
 	for k, v := range dr.Headers {
 		req.Header.Set(k, v)
@@ -91,7 +92,7 @@ func PrepareDeliveryRequest(
 	}
 
 	// Determine method
-	method := "POST"
+	method := http.MethodPost
 	if sub != nil && sub.Method != "" {
 		method = sub.Method
 	}
