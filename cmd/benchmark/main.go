@@ -134,7 +134,6 @@ func (r *LatencyReservoir) GetAverage() time.Duration {
 type RateLimiter struct {
 	rate     float64 // requests per second
 	interval time.Duration
-	ticker   *time.Ticker
 	tokens   chan struct{}
 	ctx      context.Context
 	cancel   context.CancelFunc
