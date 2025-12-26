@@ -66,7 +66,7 @@
     </details>
 {/snippet}
 
-{#snippet emptyStateSnippet({ itemName }: { itemName: string })}
+{#snippet emptyStateSnippet({ }: { itemName: string })}
     <div class="bg-white border rounded-lg p-8 text-center text-gray-500 shadow-sm flex flex-col items-center gap-4">
         <span class="material-symbols-outlined text-5xl text-gray-300">event_note</span>
         <h3 class="text-xl font-semibold">No event instances found</h3>
