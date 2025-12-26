@@ -36,6 +36,7 @@
 		"flowbite": "^4.0.1",
 		"flowbite-svelte": "^1.28.1",
 		"flowbite-svelte-icons": "^3.0.0",
-		"svelte-jsoneditor": "^3.10.0"
+		"svelte-jsoneditor": "^3.10.0",
+		"yarn": "^1.22.22"
 	}
 }

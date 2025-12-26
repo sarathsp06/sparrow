@@ -64,7 +64,6 @@ func TestSumUint8(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := Sum(tt.args)
@@ -96,7 +95,6 @@ func TestSumInt8(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := Sum(tt.args)
