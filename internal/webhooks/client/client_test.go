@@ -79,7 +79,7 @@ func TestSend(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok"}`))
+		_, _ = w.Write([]byte(`{"status": "ok"}`))
 	}))
 	defer server.Close()
 
@@ -412,8 +412,8 @@ func BenchmarkTransformPayload(b *testing.B) {
 	}
 
 	// Shuffle the templates to ensure randomness
-	rand.Seed(time.Now().UnixNano())
-	rand.Shuffle(len(duplicatedTemplates), func(i, j int) {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	r.Shuffle(len(duplicatedTemplates), func(i, j int) {
 		duplicatedTemplates[i], duplicatedTemplates[j] = duplicatedTemplates[j], duplicatedTemplates[i]
 	})
 

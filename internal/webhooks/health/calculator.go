@@ -83,7 +83,7 @@ func (hc *HealthCalculator) RecordHealthEvent(ctx context.Context, event *Webhoo
 	if err != nil {
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Insert health event
 	if err := hc.insertHealthEvent(ctx, tx, event); err != nil {
@@ -228,7 +228,7 @@ func (hc *HealthCalculator) AggregateHealthHourly(ctx context.Context, lookbackH
 	if err != nil {
 		return 0, fmt.Errorf("failed to get webhooks with recent activity: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var webhookID string
@@ -265,7 +265,7 @@ func (hc *HealthCalculator) aggregateWebhookHours(ctx context.Context, webhookID
 	if err != nil {
 		return 0, fmt.Errorf("failed to get hourly windows: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	count := 0
 	for rows.Next() {

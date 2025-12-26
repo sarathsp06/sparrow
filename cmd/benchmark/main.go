@@ -262,7 +262,7 @@ func (w *Worker) ProcessRequest(ctx context.Context, targetURL string, payloadBy
 	if resp != nil && resp.Body != nil {
 		// Read and discard body to complete the request
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		w.metrics.totalBytes.Add(int64(len(bodyBytes)))
 	}
 
@@ -488,7 +488,7 @@ func (lt *LoadTester) handleTestRequest(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // generatePayload creates the test payload
@@ -557,7 +557,7 @@ cleanup:
 // Close cleans up resources
 func (lt *LoadTester) Close() {
 	if lt.webhookClient != nil {
-		lt.webhookClient.Close()
+		_ = lt.webhookClient.Close()
 	}
 	if lt.testServer != nil {
 		lt.testServer.Close()

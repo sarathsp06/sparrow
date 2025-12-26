@@ -96,12 +96,17 @@ func (c *WebhookClient) GetStats() map[string]interface{} {
 	return c.metrics.GetStats()
 }
 
+// TransformPayload transforms the webhook payload using a template
+func (c *WebhookClient) TransformPayload(tmplStr string, data WebhookTemplateContext) ([]byte, error) {
+	return c.tmpl.TransformPayload(tmplStr, data)
+}
+
 // ReadBody reads the response body safely using a pooled buffer
 func ReadBody(resp *http.Response, limit int64) ([]byte, error) {
 	if resp == nil || resp.Body == nil {
 		return nil, nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Use buffer from pool for reading
 	buf := GetBuffer()

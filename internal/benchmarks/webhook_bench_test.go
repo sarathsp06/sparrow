@@ -117,13 +117,13 @@ func benchmarkWebhookDelivery(b *testing.B, payloadSize int, concurrency int) {
 		bandwidthMu.Unlock()
 
 		w.WriteHeader(http.StatusOK)
-		w.Write(response)
+		_, _ = w.Write(response)
 	}))
 	defer server.Close()
 
 	// Create client
 	webhookClient := client.NewWebhookClient(nil)
-	defer webhookClient.Close()
+	defer func() { _ = webhookClient.Close() }()
 
 	// Generate test payload
 	payload := make(map[string]interface{})
@@ -249,13 +249,13 @@ func BenchmarkCachePerformance_Hits(b *testing.B) {
 	data := map[string]interface{}{"value": "test"}
 
 	// Warm up cache
-	engine.Execute(tmpl, data)
+	_, _ = engine.Execute(tmpl, data)
 
 	metrics := captureResourceMetrics()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		engine.Execute(tmpl, data)
+		_, _ = engine.Execute(tmpl, data)
 	}
 
 	b.StopTimer()
@@ -275,12 +275,12 @@ func BenchmarkMemoryProfile_SustainedLoad(b *testing.B) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	}))
 	defer server.Close()
 
 	webhookClient := client.NewWebhookClient(nil)
-	defer webhookClient.Close()
+	defer func() { _ = webhookClient.Close() }()
 
 	// Simulate sustained load
 	duration := 10 * time.Second
@@ -319,17 +319,17 @@ loop:
 				Timeout:    5 * time.Second,
 			}
 
-			webhookClient.Send(context.Background(), req)
-			atomic.AddInt64(&requestCount, 1)
-			sizeIndex = (sizeIndex + 1) % len(payloadSizes)
+		_, _, _ = webhookClient.Send(context.Background(), req)
+		atomic.AddInt64(&requestCount, 1)
+		sizeIndex = (sizeIndex + 1) % len(payloadSizes)
 
-		case <-done:
-			break loop
-		}
+	case <-done:
+		break loop
 	}
+}
 
-	b.StopTimer()
-	metrics.Stop()
+b.StopTimer()
+metrics.Stop()
 
 	// Force GC and get final stats
 	runtime.GC()

@@ -42,7 +42,7 @@ func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelive
 // Sets last_attempted_at timestamp and preserves complete response for audit trail.
 func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage string) error {
 	now := time.Now()
-	var attemptIncrement int = 0
+	attemptIncrement := 0
 	if status == StatusFailed || status == StatusSuccess || status == StatusExpired {
 		attemptIncrement = 1
 	}

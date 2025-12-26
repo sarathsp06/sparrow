@@ -112,7 +112,6 @@ func (j *jobInserter) InsertOpts(ctx context.Context, args river.JobArgs) *river
 // The trace id is set as metadata for each job.
 // If any errors occur during the batch insert, the entire operation is failed.
 func (j *jobInserter) BatchInsert(ctx context.Context, args []river.JobArgs) ([]*rivertype.JobInsertResult, error) {
-	j.client.InsertMany(ctx, []river.InsertManyParams{})
 	params := make([]river.InsertManyParams, 0, len(args))
 	for _, arg := range args {
 		params = append(params, river.InsertManyParams{
