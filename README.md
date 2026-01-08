@@ -65,6 +65,123 @@ make run-web       # SvelteKit web UI (localhost:5173)
 make example       # Run example client
 ```
 
+
+## � Basic Flow
+
+Sparrow follows a simple three-step workflow for webhook delivery:
+
+### 1. Register an Event
+
+Define the event type with its schema and metadata. This establishes what events your system can trigger.
+
+```bash
+curl -X POST http://localhost:8080/webhook.WebhookService/RegisterEvent \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "user.created",
+    "description": "Triggered when a new user is created",
+    "schema": "{\"type\":\"object\",\"properties\":{\"user_id\":{\"type\":\"string\"},\"email\":{\"type\":\"string\"},\"created_at\":{\"type\":\"string\",\"format\":\"date-time\"}}}",
+    "active": true
+  }'
+```
+
+### 2. Register a Webhook (Subscribe to Event)
+
+Configure an endpoint that should receive notifications when the event is triggered. Optionally use subscriptions with templates to customize headers and payload transformation.
+
+```bash
+# First, register the webhook endpoint
+curl -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "namespace": "default",
+    "url": "https://webhook.site/80157d07-decb-4d46-917c-1ff45ad2365c",
+    "events": ["user.created"],
+    "active": true
+  }'
+
+# Optionally, create a subscription with custom templates
+# (Use the webhook_id from the previous response)
+curl -X POST http://localhost:8080/webhook.WebhookService/CreateSubscription \
+  -H "Content-Type: application/json" \
+  -d '{
+    "webhookId": "<webhook_id>",
+    "eventName": "user.created",
+    "namespace": "default",
+    "headers": {
+      "X-Event-Type": "{{ .EventName }}",
+      "Authorization": "Bearer secret-token"
+    },
+    "transformEnabled": true,
+    "transformTemplate": "{\"event\":\"{{ .EventName }}\",\"data\":{{ .Payload | json }}}"
+  }'
+```
+
+### 3. Trigger the Event
+
+When the event occurs in your application, trigger it to notify all subscribed webhooks.
+
+```bash
+curl -X POST http://localhost:8080/webhook.WebhookService/PushEvent \
+  -H "Content-Type: application/json" \
+  -d '{
+    "namespace": "default",
+    "event": "user.created",
+    "payload": {
+      "user_id": "12345",
+      "email": "user@example.com",
+      "created_at": "2024-01-15T10:30:00Z"
+    }
+  }'
+```
+
+Sparrow then handles reliable delivery with retries, health tracking, and full audit logging.
+
+## �🔗 API Examples
+
+### Register a Webhook
+
+```bash
+# Using Connect-RPC (HTTP/JSON)
+curl -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \
+  -H "Content-Type: application/json" \
+  -d '{
+    "namespace": "my-app",
+    "url": "https://api.example.com/webhook",
+    "events": ["user.created", "user.updated"],
+    "active": true
+  }'
+```
+
+### Trigger an Event
+
+```bash
+# Push an event to trigger webhook deliveries
+curl -X POST http://localhost:8080/webhook.WebhookService/PushEvent \
+  -H "Content-Type: application/json" \
+  -d '{
+    "namespace": "my-app",
+    "event": "user.created",
+    "payload": {
+      "user_id": "12345",
+      "email": "user@example.com",
+      "created_at": "2024-01-15T10:30:00Z"
+    }
+  }'
+```
+
+### Check Webhook Health
+
+```bash
+# Get webhook health status
+curl -X POST http://localhost:8080/webhook.WebhookService/GetWebhookHealth \
+  -H "Content-Type: application/json" \
+  -d '{
+    "namespace": "my-app",
+    "webhookId": "{webhook_id}"
+  }'
+```
+
 ### Available Commands
 
 | Command | Description |
@@ -82,48 +199,6 @@ make example       # Run example client
 | `make fmt` | Format code |
 | `make clean` | Clean build artifacts |
 
-## 🔗 API Examples
-
-### Register a Webhook
-
-```bash
-# Using Connect-RPC (HTTP/JSON)
-curl -X POST http://localhost:8080/webhook/webhooks \
-  -H "Content-Type: application/json" \
-  -d '{
-    "webhook": {
-      "namespace": "my-app",
-      "url": "https://api.example.com/webhook",
-      "events": ["user.created", "user.updated"]
-    }
-  }'
-```
-
-### Trigger an Event
-
-```bash
-# Push an event to trigger webhook deliveries
-curl -X POST http://localhost:8080/webhook/events \
-  -H "Content-Type: application/json" \
-  -d '{
-    "event": {
-      "namespace": "my-app",
-      "name": "user.created",
-      "payload": {
-        "user_id": "12345",
-        "email": "user@example.com",
-        "created_at": "2024-01-15T10:30:00Z"
-      }
-    }
-  }'
-```
-
-### Check Webhook Health
-
-```bash
-# Get webhook health status
-curl http://localhost:8080/webhook/health/{webhook_id}?namespace=my-app
-```
 
 ## 📊 Monitoring
 
@@ -161,11 +236,6 @@ go test -bench=. -benchmem ./internal/benchmarks/
 go build -o bin/benchmark ./cmd/benchmark/
 ./bin/benchmark -duration=2m -rps=1000 -payload=10
 ```
-
-**Resource Estimates** (with 50% safety margin):
-- **100 RPS**: 512 MB RAM, 1 CPU core, 10 Mbps bandwidth
-- **1,000 RPS**: 2 GB RAM, 2 CPU cores, 50 Mbps bandwidth
-- **10,000 RPS**: 16 GB RAM, 8 CPU cores, 500 Mbps bandwidth
 
 See [BENCHMARKING.md](docs/BENCHMARKING.md) for detailed profiling and optimization guides.
 

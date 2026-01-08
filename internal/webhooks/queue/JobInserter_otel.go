@@ -12,6 +12,8 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"go.opentelemetry.io/otel"
+
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"

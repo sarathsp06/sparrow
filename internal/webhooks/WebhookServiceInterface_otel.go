@@ -10,12 +10,14 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	_codes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
 // WebhookServiceInterfaceWithTracing implements WebhookServiceInterface interface instrumented with open telemetry spans

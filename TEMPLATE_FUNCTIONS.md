@@ -33,7 +33,6 @@ URL encodes a string by escaping special characters for safe use in URLs.
 ## Example
 ```
 Input: "hello world@example.com"
-
 Output: "hello+world%40example.com"
 ```
 
@@ -425,13 +424,11 @@ Output: false
 
 ---
 
-## hasSuffix
-
+# hasSuffix
 
 Checks if string ends with the specified suffix (case-sensitive).
 
 ## Usage
-
 ```
 {{ if hasSuffix ".jpg" .filename }}
   Image file

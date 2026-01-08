@@ -40,7 +40,6 @@ migrate: ## Run database migrations
 	DATABASE_URL='postgres://riveruser:riverpass@0.0.0.0:5432/riverqueue?sslmode=disable' go run ./cmd/migrate
 
 
-
 clean: ## Clean up build artifacts and Go module cache
 	rm -rf build
 	go clean -modcache

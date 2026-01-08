@@ -184,30 +184,4 @@ CREATE TRIGGER update_event_registrations_updated_at
     BEFORE UPDATE ON event_registrations 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Create notification function for webhook health events
-CREATE OR REPLACE FUNCTION notify_webhook_health_event()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Send PostgreSQL notification for webhook health events
-    -- This allows Go applications to listen for real-time health updates
-    PERFORM pg_notify(
-        'webhook_health_event',
-        json_build_object(
-            'webhook_id', NEW.webhook_id,
-            'success', NEW.success,
-            'response_code', NEW.response_code,
-            'response_time', NEW.response_time,
-            'timestamp', NEW.timestamp
-        )::text
-    );
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Create notification trigger for webhook health events
-CREATE TRIGGER webhook_health_event_notification_trigger
-    AFTER INSERT ON webhook_health_events
-    FOR EACH ROW
-    EXECUTE FUNCTION notify_webhook_health_event();
 COMMIT;

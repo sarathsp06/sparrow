@@ -3,13 +3,13 @@ BEGIN;
 
 -- Drop triggers
 DROP TRIGGER IF EXISTS webhook_registration_change_notification_trigger ON webhook_registrations;
-DROP TRIGGER IF EXISTS webhook_health_event_notification_trigger ON webhook_health_events;
+
 DROP TRIGGER IF EXISTS update_event_registrations_updated_at ON event_registrations;
 DROP TRIGGER IF EXISTS update_webhook_registrations_updated_at ON webhook_registrations;
 
 -- Drop functions
 DROP FUNCTION IF EXISTS notify_webhook_registration_change();
-DROP FUNCTION IF EXISTS notify_webhook_health_event();
+
 DROP FUNCTION IF EXISTS update_updated_at_column();
 
 -- Drop tables in dependency order
