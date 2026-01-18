@@ -68,7 +68,9 @@ make example       # Run example client
 
 ## � Basic Flow
 
-Sparrow follows a simple three-step workflow for webhook delivery:
+Sparrow follows a clean four-step workflow for webhook delivery:
+
+**Note:** Webhooks are registered independently of events. Events are linked to webhooks through subscriptions, allowing per-event configuration.
 
 ### 1. Register an Event
 
@@ -85,39 +87,47 @@ curl -X POST http://localhost:8080/webhook.WebhookService/RegisterEvent \
   }'
 ```
 
-### 2. Register a Webhook (Subscribe to Event)
+### 2. Register a Webhook
 
-Configure an endpoint that should receive notifications when the event is triggered. Optionally use subscriptions with templates to customize headers and payload transformation.
+Configure a webhook endpoint that will receive event notifications.
 
 ```bash
-# First, register the webhook endpoint
+# Register the webhook endpoint (no events specified here)
 curl -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \
   -H "Content-Type: application/json" \
   -d '{
     "namespace": "default",
     "url": "https://webhook.site/80157d07-decb-4d46-917c-1ff45ad2365c",
-    "events": ["user.created"],
-    "active": true
+    "active": true,
+    "description": "My webhook endpoint"
   }'
 
-# Optionally, create a subscription with custom templates
-# (Use the webhook_id from the previous response)
+# Response: {"webhook_id": "wh_abc123", "success": true}
+```
+
+### 3. Subscribe to Events
+
+Create subscriptions to link the webhook to specific events. This is where you specify which events the webhook should receive.
+
+```bash
+# Create a subscription for the user.created event
 curl -X POST http://localhost:8080/webhook.WebhookService/CreateSubscription \
   -H "Content-Type: application/json" \
   -d '{
-    "webhookId": "<webhook_id>",
-    "eventName": "user.created",
+    "webhook_id": "cf3ec551-f6d7-42c3-bff8-80f567d8adcf",
+    "event_name": "user.created",
     "namespace": "default",
     "headers": {
-      "X-Event-Type": "{{ .EventName }}",
+      "X-Event-Type": "user.created",
       "Authorization": "Bearer secret-token"
     },
-    "transformEnabled": true,
-    "transformTemplate": "{\"event\":\"{{ .EventName }}\",\"data\":{{ .Payload | json }}}"
+    "method": "POST",
+    "transform_enabled": true,
+    "transform_template": "{\"event\":\"{{ .event_name }}\",\"data\":{{ .payload | json }}}"
   }'
 ```
 
-### 3. Trigger the Event
+### 4. Trigger the Event
 
 When the event occurs in your application, trigger it to notify all subscribed webhooks.
 
@@ -143,13 +153,41 @@ Sparrow then handles reliable delivery with retries, health tracking, and full a
 
 ```bash
 # Using Connect-RPC (HTTP/JSON)
+# Note: Events are not specified here, they are configured via subscriptions
 curl -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \
   -H "Content-Type: application/json" \
   -d '{
     "namespace": "my-app",
     "url": "https://api.example.com/webhook",
-    "events": ["user.created", "user.updated"],
-    "active": true
+    "active": true,
+    "description": "My application webhook"
+  }'
+
+# Response includes webhook_id needed for subscriptions
+# {"webhook_id": "wh_xyz789", "success": true}
+```
+
+### Create Event Subscriptions
+
+```bash
+# Subscribe the webhook to specific events
+curl -X POST http://localhost:8080/webhook.WebhookService/CreateSubscription \
+  -H "Content-Type: application/json" \
+  -d '{
+    "webhook_id": "wh_xyz789",
+    "event_name": "user.created",
+    "namespace": "my-app",
+    "method": "POST"
+  }'
+
+# Subscribe to another event with different configuration
+curl -X POST http://localhost:8080/webhook.WebhookService/CreateSubscription \
+  -H "Content-Type: application/json" \
+  -d '{
+    "webhook_id": "wh_xyz789",
+    "event_name": "user.updated",
+    "namespace": "my-app",
+    "method": "POST"
   }'
 ```
 

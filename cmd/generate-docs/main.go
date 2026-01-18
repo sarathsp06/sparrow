@@ -19,11 +19,4 @@ func main() {
 	}
 
 	fmt.Println("Template functions documentation generated: TEMPLATE_FUNCTIONS.md")
-
-	// List all available functions
-	fmt.Println("\nAvailable template functions:")
-	functions := client.ListAvailableFunctions()
-	for name := range functions {
-		fmt.Printf("- %s\n", name)
-	}
 }

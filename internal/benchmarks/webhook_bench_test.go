@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 )
 
@@ -319,17 +320,17 @@ loop:
 				Timeout:    5 * time.Second,
 			}
 
-		_, _, _ = webhookClient.Send(context.Background(), req)
-		atomic.AddInt64(&requestCount, 1)
-		sizeIndex = (sizeIndex + 1) % len(payloadSizes)
+			_, _, _ = webhookClient.Send(context.Background(), req)
+			atomic.AddInt64(&requestCount, 1)
+			sizeIndex = (sizeIndex + 1) % len(payloadSizes)
 
-	case <-done:
-		break loop
+		case <-done:
+			break loop
+		}
 	}
-}
 
-b.StopTimer()
-metrics.Stop()
+	b.StopTimer()
+	metrics.Stop()
 
 	// Force GC and get final stats
 	runtime.GC()

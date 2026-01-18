@@ -129,7 +129,7 @@ func (j *jobInserter) BatchInsert(ctx context.Context, args []river.JobArgs) ([]
 
 // QueueManagerInterface defines the interface for queue management.
 //
-//go:generate gowrap gen -i JobInserter -t opentelemetry  -o JobInserter_otel.go
+//go:generate gowrap gen -i JobInserter -t ../../../templates/opentelemetry.tmpl -o JobInserter_otel.go
 type JobInserter interface {
 	Insert(ctx context.Context, args river.JobArgs) (*rivertype.JobInsertResult, error)
 	BatchInsert(ctx context.Context, args []river.JobArgs) ([]*rivertype.JobInsertResult, error)

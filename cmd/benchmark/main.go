@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 )
 

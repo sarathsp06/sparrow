@@ -9,7 +9,7 @@ import (
 
 // RepositoryInterface defines the interface for webhook storage operations
 //
-//go:generate gowrap gen -i RepositoryInterface -t opentelemetry -o RepositoryInterface_otel.go
+//go:generate gowrap gen -i RepositoryInterface   -t ../../../templates/opentelemetry.tmpl --o RepositoryInterface_otel.go
 type RepositoryInterface interface {
 	RegisterWebhook(ctx context.Context, registration *WebhookRegistration) error
 	UnregisterWebhook(ctx context.Context, webhookID uuid.UUID) error
