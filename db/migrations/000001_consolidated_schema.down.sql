@@ -17,6 +17,7 @@ DROP TABLE IF EXISTS webhook_health_summaries;
 DROP TABLE IF EXISTS webhook_health_state;
 DROP TABLE IF EXISTS webhook_health_events;
 DROP TABLE IF EXISTS webhook_deliveries;
+DROP TABLE IF EXISTS event_subscriptions;
 DROP TABLE IF EXISTS event_records;
 DROP TABLE IF EXISTS webhook_registrations;
 DROP TABLE IF EXISTS event_registrations;

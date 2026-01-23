@@ -121,17 +121,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 
 	log.Info("Processing webhook delivery", "event_id", args.EventID, "url", webhook.URL)
 
-	// Prepare payload
-	// Default payload structure
-	defaultPayload := struct {
-		EventID string         `json:"event_id"`
-		Event   string         `json:"event"`
-		Payload map[string]any `json:"payload"`
-	}{
-		EventID: args.EventID,
-		Event:   eventRecord.Event,
-		Payload: eventRecord.Payload,
-	}
+	defaultPayload := eventRecord.Payload
 
 	var payloadBytes []byte
 

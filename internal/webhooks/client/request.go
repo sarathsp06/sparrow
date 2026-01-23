@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"net/http"
 	"strconv"
 	"time"
@@ -85,13 +86,9 @@ func PrepareDeliveryRequest(
 	// Merge headers: subscription headers override webhook headers
 	// Use header map from pool
 	headers := GetHeaderMap()
-	for k, v := range webhook.Headers {
-		headers[k] = v
-	}
+	maps.Copy(headers, webhook.Headers)
 	if sub != nil {
-		for k, v := range sub.Headers {
-			headers[k] = v
-		}
+		maps.Copy(headers, sub.Headers)
 	}
 
 	// Determine method

@@ -52,3 +52,4 @@ temp/
 
 # Buf cache
 .buf/
+otel-collector-config.yml.local

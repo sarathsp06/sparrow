@@ -12,6 +12,7 @@ CREATE TABLE event_registrations (
     name VARCHAR(255) NOT NULL UNIQUE,
     description TEXT,
     schema TEXT, -- JSON schema for payload validation
+    sample_payload JSONB DEFAULT '{}'::jsonb,
     metadata JSONB DEFAULT '{}'::jsonb,
     active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -22,14 +23,14 @@ CREATE TABLE event_registrations (
 CREATE INDEX idx_event_registrations_name ON event_registrations(name, active);
 CREATE INDEX idx_event_registrations_created_at ON event_registrations(created_at);
 
--- Add comment
+-- Add comments
 COMMENT ON TABLE event_registrations IS 'Registry of available event types that can trigger webhooks';
+COMMENT ON COLUMN event_registrations.sample_payload IS 'Auto-generated sample payload based on the event schema';
 
 -- Create webhook_registrations table with all columns including health and HTTP config
 CREATE TABLE webhook_registrations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     namespace VARCHAR(255) NOT NULL,
-    events TEXT[],           -- Array of events this webhook listens to
     url TEXT NOT NULL,
     headers JSONB DEFAULT '{}'::JSONB,      -- Custom headers as JSON
     timeout INTEGER DEFAULT 30,     -- Timeout in seconds
@@ -61,8 +62,25 @@ CREATE TABLE webhook_registrations (
 -- Create indexes for webhook_registrations
 CREATE INDEX idx_webhook_registrations_namespace ON webhook_registrations(namespace);
 CREATE INDEX idx_webhook_registrations_active ON webhook_registrations(active);
-CREATE INDEX idx_webhook_registrations_events ON webhook_registrations USING GIN(events);
 CREATE INDEX idx_webhook_registrations_health ON webhook_registrations(health);
+
+-- Create event_subscriptions table
+CREATE TABLE event_subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    webhook_id UUID NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
+    event_name VARCHAR(255) NOT NULL,
+    namespace VARCHAR(255) NOT NULL,
+    headers JSONB,
+    method VARCHAR(10) DEFAULT 'POST',
+    transform_enabled BOOLEAN DEFAULT FALSE,
+    transform_template TEXT,
+    timeout INT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(webhook_id, event_name, namespace)
+);
+
+CREATE INDEX idx_event_subscriptions_event ON event_subscriptions(namespace, event_name);
 
 -- Create event_records table
 CREATE TABLE event_records (
@@ -87,6 +105,7 @@ CREATE TABLE webhook_deliveries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     webhook_id UUID NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
     event_id UUID NOT NULL REFERENCES event_records(id) ON DELETE CASCADE,
+    subscription_id UUID REFERENCES event_subscriptions(id) ON DELETE SET NULL,
     status webhook_delivery_status DEFAULT 'pending',
     attempt_count INTEGER DEFAULT 0,
     max_attempts INTEGER DEFAULT 3,
@@ -103,6 +122,7 @@ CREATE TABLE webhook_deliveries (
 -- Create indexes for webhook_deliveries
 CREATE INDEX idx_webhook_deliveries_webhook_id ON webhook_deliveries(webhook_id);
 CREATE INDEX idx_webhook_deliveries_event_id ON webhook_deliveries(event_id);
+CREATE INDEX idx_webhook_deliveries_subscription_id ON webhook_deliveries(subscription_id);
 CREATE INDEX idx_webhook_deliveries_status ON webhook_deliveries(status);
 CREATE INDEX idx_webhook_deliveries_created_at ON webhook_deliveries(created_at);
 CREATE INDEX idx_webhook_deliveries_expires_at ON webhook_deliveries(expires_at);
