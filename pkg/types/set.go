@@ -1,8 +1,8 @@
 package types
 
-import "golang.org/x/exp/constraints"
+import "cmp"
 
-type Set[T constraints.Ordered] map[T]bool
+type Set[T cmp.Ordered] map[T]bool
 
 // Slice returns slice of strings
 func (ss Set[T]) Slice() []T {

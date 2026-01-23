@@ -23,10 +23,6 @@ func TestNewWebhookClient(t *testing.T) {
 
 	client := NewWebhookClient(config)
 
-	if client == nil {
-		t.Fatal("Expected non-nil client")
-	}
-
 	if client.httpClient == nil {
 		t.Error("Expected http client to be initialized")
 	}
@@ -46,10 +42,6 @@ func TestNewWebhookClient(t *testing.T) {
 
 func TestNewWebhookClientWithNilConfig(t *testing.T) {
 	client := NewWebhookClient(nil)
-
-	if client == nil {
-		t.Fatal("Expected non-nil client")
-	}
 
 	if client.config == nil {
 		t.Fatal("Expected default config to be set")
@@ -104,6 +96,7 @@ func TestSend(t *testing.T) {
 
 	if resp == nil {
 		t.Fatal("Expected non-nil response")
+		return
 	}
 
 	if resp.StatusCode != http.StatusOK {

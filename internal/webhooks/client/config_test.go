@@ -10,6 +10,7 @@ func TestDefaultConfig(t *testing.T) {
 
 	if config == nil {
 		t.Fatal("Expected non-nil config")
+		return
 	}
 
 	// Verify default values

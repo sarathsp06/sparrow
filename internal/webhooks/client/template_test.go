@@ -10,6 +10,7 @@ func TestNewTemplateEngine(t *testing.T) {
 
 	if engine == nil {
 		t.Fatal("Expected non-nil template engine")
+		return
 	}
 
 	if engine.cache == nil {

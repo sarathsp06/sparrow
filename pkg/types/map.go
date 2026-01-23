@@ -45,7 +45,7 @@ func (m Map[K, V]) Value() (driver.Value, error) {
 
 // Scan implements the Scanner interface for Map.
 // It scans the value into m.
-func (m Map[K, V]) Scan(src interface{}) error {
+func (m Map[K, V]) Scan(src any) error {
 	if m == nil {
 		return errors.New("types.Map: nil map passed to scan")
 	}
@@ -58,7 +58,7 @@ func (m Map[K, V]) Scan(src interface{}) error {
 	case nil:
 		return nil
 	default:
-		return errors.New("types.Map: ncompatible type for types.Map")
+		return errors.New("types.Map: not compatible type for types.Map")
 	}
 
 	return json.Unmarshal(source, &m)

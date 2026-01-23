@@ -11,6 +11,7 @@ func TestNewMetrics(t *testing.T) {
 
 	if m == nil {
 		t.Fatal("Expected non-nil metrics")
+		return
 	}
 
 	if m.TotalRequests != 0 {

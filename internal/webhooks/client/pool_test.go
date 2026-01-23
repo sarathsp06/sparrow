@@ -64,6 +64,7 @@ func TestByteSlicePool(t *testing.T) {
 		slice := GetByteSlice()
 		if slice == nil {
 			t.Fatal("GetByteSlice returned nil")
+			return
 		}
 		if len(*slice) != 0 {
 			t.Errorf("Expected empty slice, got length %d", len(*slice))

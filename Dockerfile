@@ -48,10 +48,6 @@ COPY --from=builder --chown=65532:65532 /build/db/migrations /app/db/migrations
 # Expose gRPC and HTTP ports
 EXPOSE 50051 8080
 
-# distroless doesn't have curl/wget, but we can use a simple TCP check
-# For production, consider using grpc-health-probe or adding a health binary
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["/app/server"] || exit 1
 
 # Run the server (distroless doesn't have shell, use exec form)
 ENTRYPOINT ["/app/server"]

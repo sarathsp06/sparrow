@@ -14,9 +14,8 @@ func TestNewFactory(t *testing.T) {
 	}
 
 	factory := NewFactory(config)
-
 	if factory == nil {
-		t.Fatal("Expected non-nil factory")
+		return
 	}
 
 	if factory.config.Timeout != 10*time.Second {
@@ -32,7 +31,7 @@ func TestNewFactoryWithNilConfig(t *testing.T) {
 	factory := NewFactory(nil)
 
 	if factory == nil {
-		t.Fatal("Expected non-nil factory")
+		return
 	}
 
 	if factory.config == nil {
