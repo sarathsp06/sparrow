@@ -3,6 +3,7 @@ syntax = "proto3";
 package webhook;
 
 import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/sarathsp06/sparrow/proto";
 
@@ -133,7 +134,7 @@ message RegisterWebhookResponse {
   string webhook_id = 1; // Unique webhook identifier
   bool success = 2; // Whether registration was successful
   string message = 3; // Success or error message
-  int64 created_at = 4; // When the webhook was registered
+  Timestamp created_at = 4; // When the webhook was registered
 }
 
 // UnregisterWebhookRequest represents a request to remove a webhook
@@ -242,7 +243,7 @@ message ListWebhooksResponse {
 message RegisterEventRequest {
   string name = 1; // Event name (required)
   string description = 2; // Event description
-  string schema = 3; // JSON schema for event payload validation
+  google.protobuf.Struct schema = 3; // JSON schema for event payload validation
   map<string, string> metadata = 4; // Additional metadata
   bool active = 5; // Whether event is active (default: true)
 }
