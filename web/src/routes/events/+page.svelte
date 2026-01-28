@@ -48,8 +48,8 @@
 		}
 	}
 
-	function viewSchema(schema: string) {
-		content = { json: JSON.parse(schema) };
+	function viewSchema(schema: any) {
+		content = { json: schema };
 		isModalOpen = true;
 	}
 

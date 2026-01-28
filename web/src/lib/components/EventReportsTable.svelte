@@ -13,8 +13,10 @@
 
     const headers = ['eventId', 'createdAt',  'deliveries', 'ttlSeconds', 'payload'];
 
-    function formatTimestamp(timestamp: number): string {
-        return new Date(timestamp * 1000).toLocaleString();
+    function formatTimestamp(timestamp: any): string {
+        if (!timestamp) return 'N/A';
+        const seconds = timestamp.seconds ? Number(timestamp.seconds) : Number(timestamp);
+        return new Date(seconds * 1000).toLocaleString();
     }
 
     function formatDeliveries(successful: number, failed: number): string {

@@ -73,7 +73,7 @@ func (s *WebhookServer) CreateSubscription(ctx context.Context, req *pb.CreateSu
 		SubscriptionId: sub.ID.String(),
 		Success:        true,
 		Message:        "Subscription created successfully",
-		CreatedAt:      sub.CreatedAt.Unix(),
+		CreatedAt:      convertTimeToProto(sub.CreatedAt),
 	}, nil
 }
 
@@ -250,7 +250,7 @@ func convertSubscriptionToProto(sub *store.EventSubscription) *pb.EventSubscript
 		Timeout:           int32(sub.Timeout),
 		TransformEnabled:  sub.TransformEnabled,
 		TransformTemplate: sub.TransformTemplate,
-		CreatedAt:         sub.CreatedAt.Unix(),
-		UpdatedAt:         sub.UpdatedAt.Unix(),
+		CreatedAt:         convertTimeToProto(sub.CreatedAt),
+		UpdatedAt:         convertTimeToProto(sub.UpdatedAt),
 	}
 }

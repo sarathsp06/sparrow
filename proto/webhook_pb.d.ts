@@ -4,6 +4,7 @@
 
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import type { JsonObject, Message } from "@bufbuild/protobuf";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
 
 /**
  * Describes the file proto/webhook.proto.
@@ -192,9 +193,9 @@ export declare type RegisterWebhookResponse = Message<"webhook.RegisterWebhookRe
   /**
    * When the webhook was registered
    *
-   * @generated from field: int64 created_at = 4;
+   * @generated from field: google.protobuf.Timestamp created_at = 4;
    */
-  createdAt: bigint;
+  createdAt?: Timestamp;
 };
 
 /**
@@ -417,30 +418,30 @@ export declare type WebhookDelivery = Message<"webhook.WebhookDelivery"> & {
   /**
    * When delivery was created
    *
-   * @generated from field: int64 created_at = 7;
+   * @generated from field: google.protobuf.Timestamp created_at = 7;
    */
-  createdAt: bigint;
+  createdAt?: Timestamp;
 
   /**
    * Last attempt timestamp
    *
-   * @generated from field: int64 last_attempted_at = 8;
+   * @generated from field: google.protobuf.Timestamp last_attempted_at = 8;
    */
-  lastAttemptedAt: bigint;
+  lastAttemptedAt?: Timestamp;
 
   /**
    * Next retry timestamp
    *
-   * @generated from field: int64 next_retry_at = 9;
+   * @generated from field: google.protobuf.Timestamp next_retry_at = 9;
    */
-  nextRetryAt: bigint;
+  nextRetryAt?: Timestamp;
 
   /**
    * When delivery expires (TTL)
    *
-   * @generated from field: int64 expires_at = 10;
+   * @generated from field: google.protobuf.Timestamp expires_at = 10;
    */
-  expiresAt: bigint;
+  expiresAt?: Timestamp;
 
   /**
    * HTTP response code from last attempt
@@ -616,16 +617,16 @@ export declare type RegisteredWebhook = Message<"webhook.RegisteredWebhook"> & {
   /**
    * When webhook was registered
    *
-   * @generated from field: int64 created_at = 10;
+   * @generated from field: google.protobuf.Timestamp created_at = 10;
    */
-  createdAt: bigint;
+  createdAt?: Timestamp;
 
   /**
    * When webhook was last updated
    *
-   * @generated from field: int64 updated_at = 11;
+   * @generated from field: google.protobuf.Timestamp updated_at = 11;
    */
-  updatedAt: bigint;
+  updatedAt?: Timestamp;
 
   /**
    * HTTP configuration options
@@ -697,9 +698,9 @@ export declare type RegisterEventRequest = Message<"webhook.RegisterEventRequest
   /**
    * JSON schema for event payload validation
    *
-   * @generated from field: string schema = 3;
+   * @generated from field: google.protobuf.Struct schema = 3;
    */
-  schema: string;
+  schema?: JsonObject;
 
   /**
    * Additional metadata
@@ -752,9 +753,9 @@ export declare type RegisterEventResponse = Message<"webhook.RegisterEventRespon
   /**
    * When the event was registered
    *
-   * @generated from field: int64 created_at = 4;
+   * @generated from field: google.protobuf.Timestamp created_at = 4;
    */
-  createdAt: bigint;
+  createdAt?: Timestamp;
 };
 
 /**
@@ -813,9 +814,9 @@ export declare type RegisteredEvent = Message<"webhook.RegisteredEvent"> & {
   /**
    * JSON schema for validation
    *
-   * @generated from field: string schema = 4;
+   * @generated from field: google.protobuf.Struct schema = 4;
    */
-  schema: string;
+  schema?: JsonObject;
 
   /**
    * Auto-generated sample payload based on schema
@@ -841,16 +842,16 @@ export declare type RegisteredEvent = Message<"webhook.RegisteredEvent"> & {
   /**
    * When event was registered
    *
-   * @generated from field: int64 created_at = 7;
+   * @generated from field: google.protobuf.Timestamp created_at = 7;
    */
-  createdAt: bigint;
+  createdAt?: Timestamp;
 
   /**
    * When event was last updated
    *
-   * @generated from field: int64 updated_at = 8;
+   * @generated from field: google.protobuf.Timestamp updated_at = 8;
    */
-  updatedAt: bigint;
+  updatedAt?: Timestamp;
 };
 
 /**
@@ -915,9 +916,9 @@ export declare type UpdateEventRequest = Message<"webhook.UpdateEventRequest"> &
   /**
    * JSON schema for event payload validation
    *
-   * @generated from field: string schema = 3;
+   * @generated from field: google.protobuf.Struct schema = 3;
    */
-  schema: string;
+  schema?: JsonObject;
 
   /**
    * Additional metadata
@@ -1073,18 +1074,18 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
   consecutiveFailures: number;
 
   /**
-   * Unix timestamp
+   * Last success timestamp
    *
-   * @generated from field: int64 last_success_at = 6;
+   * @generated from field: google.protobuf.Timestamp last_success_at = 6;
    */
-  lastSuccessAt: bigint;
+  lastSuccessAt?: Timestamp;
 
   /**
-   * Unix timestamp
+   * Last failure timestamp
    *
-   * @generated from field: int64 last_failure_at = 7;
+   * @generated from field: google.protobuf.Timestamp last_failure_at = 7;
    */
-  lastFailureAt: bigint;
+  lastFailureAt?: Timestamp;
 
   /**
    * 0.0 to 1.0
@@ -1101,18 +1102,18 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
   avgResponseTime: number;
 
   /**
-   * Unix timestamp
+   * Created timestamp
    *
-   * @generated from field: int64 created_at = 10;
+   * @generated from field: google.protobuf.Timestamp created_at = 10;
    */
-  createdAt: bigint;
+  createdAt?: Timestamp;
 
   /**
-   * Unix timestamp
+   * Updated timestamp
    *
-   * @generated from field: int64 updated_at = 11;
+   * @generated from field: google.protobuf.Timestamp updated_at = 11;
    */
-  updatedAt: bigint;
+  updatedAt?: Timestamp;
 };
 
 /**
@@ -2088,11 +2089,11 @@ export declare type EventReport = Message<"webhook.EventReport"> & {
   metadata: { [key: string]: string };
 
   /**
-   * When the event was created (Unix timestamp)
+   * When the event was created
    *
-   * @generated from field: int64 created_at = 6;
+   * @generated from field: google.protobuf.Timestamp created_at = 6;
    */
-  createdAt: bigint;
+  createdAt?: Timestamp;
 
   /**
    * TTL for webhook retry attempts
@@ -2288,18 +2289,18 @@ export declare type EventSubscription = Message<"webhook.EventSubscription"> & {
   transformTemplate: string;
 
   /**
-   * When subscription was created (Unix timestamp)
+   * When subscription was created
    *
-   * @generated from field: int64 created_at = 10;
+   * @generated from field: google.protobuf.Timestamp created_at = 10;
    */
-  createdAt: bigint;
+  createdAt?: Timestamp;
 
   /**
-   * When subscription was last updated (Unix timestamp)
+   * When subscription was last updated
    *
-   * @generated from field: int64 updated_at = 11;
+   * @generated from field: google.protobuf.Timestamp updated_at = 11;
    */
-  updatedAt: bigint;
+  updatedAt?: Timestamp;
 };
 
 /**
@@ -2407,9 +2408,9 @@ export declare type CreateSubscriptionResponse = Message<"webhook.CreateSubscrip
   /**
    * When subscription was created
    *
-   * @generated from field: int64 created_at = 4;
+   * @generated from field: google.protobuf.Timestamp created_at = 4;
    */
-  createdAt: bigint;
+  createdAt?: Timestamp;
 };
 
 /**

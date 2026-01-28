@@ -32,7 +32,7 @@ type WebhookService struct {
 
 //go:generate gowrap gen -i WebhookServiceInterface -t ../../templates/opentelemetry.tmpl -o WebhookServiceInterface_otel.go
 type WebhookServiceInterface interface {
-	RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (string, int64, error)
+	RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (string, time.Time, error)
 	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error)
 	UnregisterWebhook(ctx context.Context, webhookID string) error
 	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string) (string, error)
@@ -45,7 +45,7 @@ type WebhookServiceInterface interface {
 	PauseWebhook(ctx context.Context, webhookID string, namespace string, reason string) error
 	ResumeWebhook(ctx context.Context, webhookID string, namespace string) error
 	GetWebhookDeliveryHistory(ctx context.Context, webhookID string, namespace string, limit int32, offset int32) ([]*store.WebhookDelivery, int32, error)
-	RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, int64, error)
+	RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, time.Time, error)
 	GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStatsData, error)
 	UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) error
 	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error
@@ -85,7 +85,7 @@ func (s *WebhookService) GetWebhookRepo() store.RepositoryInterface {
 	return s.webhookRepo
 }
 
-func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (string, int64, error) {
+func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (string, time.Time, error) {
 	ctx, span := s.tracer.Start(ctx, "webhook.register",
 		trace.WithAttributes(
 			attribute.String("namespace", namespace),
@@ -102,18 +102,18 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	)
 
 	if namespace == "" {
-		return "", 0, fmt.Errorf("namespace is required")
+		return "", time.Time{}, fmt.Errorf("namespace is required")
 	}
 	if len(events) == 0 {
-		return "", 0, fmt.Errorf("at least one event is required")
+		return "", time.Time{}, fmt.Errorf("at least one event is required")
 	}
 	if url == "" {
-		return "", 0, fmt.Errorf("URL is required")
+		return "", time.Time{}, fmt.Errorf("URL is required")
 	}
 	s.logger.Info("Validating event names", "events", events, "contains_empty", slices.Contains(events, ""))
 	if slices.Contains(events, "") {
 		s.logger.Error("Event names validation failed", "events", events)
-		return "", 0, fmt.Errorf("event names cannot be empty")
+		return "", time.Time{}, fmt.Errorf("event names cannot be empty")
 	}
 	if timeout <= 0 {
 		timeout = 30
@@ -133,7 +133,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 			"url", url,
 			"error", err,
 		)
-		return "", 0, fmt.Errorf("failed to register webhook: %w", err)
+		return "", time.Time{}, fmt.Errorf("failed to register webhook: %w", err)
 	}
 
 	// Create subscriptions for each event
@@ -161,7 +161,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 		"events", events,
 		"url", url,
 	)
-	return registration.ID.String(), registration.CreatedAt.Unix(), nil
+	return registration.ID.String(), registration.CreatedAt, nil
 }
 
 // CreateWebhook creates a webhook registration with HTTP configuration support
@@ -856,21 +856,21 @@ func generateSamplePayload(schema map[string]any) (map[string]any, error) {
 }
 
 // RegisterEvent registers a new event type
-func (s *WebhookService) RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, int64, error) {
+func (s *WebhookService) RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, time.Time, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.RegisterEvent")
 	defer span.End()
 
 	s.logger.Info("Processing event registration request", "name", name, "description", description)
 	if name == "" {
-		return "", 0, fmt.Errorf("event name is required")
+		return "", time.Time{}, fmt.Errorf("event name is required")
 	}
 	existingEvent, err := s.webhookRepo.GetEventByName(ctx, name)
 	if err != nil {
 		s.logger.Error("Failed to check existing event", "error", err)
-		return "", 0, fmt.Errorf("failed to check existing event: %w", err)
+		return "", time.Time{}, fmt.Errorf("failed to check existing event: %w", err)
 	}
 	if existingEvent != nil {
-		return "", 0, fmt.Errorf("event already exists")
+		return "", time.Time{}, fmt.Errorf("event already exists")
 	}
 
 	// Generate sample payload from schema
@@ -896,14 +896,14 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 			"name", name,
 			"error", err,
 		)
-		return "", 0, fmt.Errorf("failed to register event: %w", err)
+		return "", time.Time{}, fmt.Errorf("failed to register event: %w", err)
 	}
 	s.logger.Info("Event registered successfully",
 		"event_id", event.ID,
 		"name", name,
 		"description", description,
 	)
-	return event.ID.String(), event.CreatedAt.Unix(), nil
+	return event.ID.String(), event.CreatedAt, nil
 }
 
 // ListEvents lists all registered events

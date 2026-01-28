@@ -134,7 +134,7 @@ message RegisterWebhookResponse {
   string webhook_id = 1; // Unique webhook identifier
   bool success = 2; // Whether registration was successful
   string message = 3; // Success or error message
-  Timestamp created_at = 4; // When the webhook was registered
+  google.protobuf.Timestamp created_at = 4; // When the webhook was registered
 }
 
 // UnregisterWebhookRequest represents a request to remove a webhook
@@ -190,10 +190,10 @@ message WebhookDelivery {
   WebhookDeliveryStatus status = 4; // Current delivery status
   int32 attempt_count = 5; // Number of delivery attempts
   int32 max_attempts = 6; // Maximum retry attempts
-  int64 created_at = 7; // When delivery was created
-  int64 last_attempted_at = 8; // Last attempt timestamp
-  int64 next_retry_at = 9; // Next retry timestamp
-  int64 expires_at = 10; // When delivery expires (TTL)
+  google.protobuf.Timestamp created_at = 7; // When delivery was created
+  google.protobuf.Timestamp last_attempted_at = 8; // Last attempt timestamp
+  google.protobuf.Timestamp next_retry_at = 9; // Next retry timestamp
+  google.protobuf.Timestamp expires_at = 10; // When delivery expires (TTL)
   int32 response_code = 11; // HTTP response code from last attempt
   string response_body = 12; // HTTP response body (truncated)
   string error_message = 13; // Error message if failed
@@ -226,8 +226,8 @@ message RegisteredWebhook {
   bool active = 7; // Whether webhook is active
   string description = 8; // Webhook description
   WebhookHealth health = 9; // Webhook health status
-  int64 created_at = 10; // When webhook was registered
-  int64 updated_at = 11; // When webhook was last updated
+  google.protobuf.Timestamp created_at = 10; // When webhook was registered
+  google.protobuf.Timestamp updated_at = 11; // When webhook was last updated
   WebhookHTTPConfig http_config = 12; // HTTP configuration options
 }
 
@@ -253,7 +253,7 @@ message RegisterEventResponse {
   string event_id = 1; // Unique event identifier
   bool success = 2; // Whether registration was successful
   string message = 3; // Success or error message
-  int64 created_at = 4; // When the event was registered
+  google.protobuf.Timestamp created_at = 4; // When the event was registered
 }
 
 // ListEventsRequest represents a request to list events
@@ -266,12 +266,12 @@ message RegisteredEvent {
   string event_id = 1; // Unique event identifier
   string name = 2; // Event name
   string description = 3; // Event description
-  string schema = 4; // JSON schema for validation
+  google.protobuf.Struct schema = 4; // JSON schema for validation
   google.protobuf.Struct sample_payload = 9; // Auto-generated sample payload based on schema
   map<string, string> metadata = 5; // Additional metadata
   bool active = 6; // Whether event is active
-  int64 created_at = 7; // When event was registered
-  int64 updated_at = 8; // When event was last updated
+  google.protobuf.Timestamp created_at = 7; // When event was registered
+  google.protobuf.Timestamp updated_at = 8; // When event was last updated
 }
 
 // ListEventsResponse represents the response for listing events
@@ -286,7 +286,7 @@ message ListEventsResponse {
 message UpdateEventRequest {
   string name = 1; // Event name (required)
   string description = 2; // Event description
-  string schema = 3; // JSON schema for event payload validation
+  google.protobuf.Struct schema = 3; // JSON schema for event payload validation
   map<string, string> metadata = 4; // Additional metadata
   bool active = 5; // Whether event is active
 }
@@ -331,12 +331,12 @@ message WebhookHealthMetrics {
   int32 successful_deliveries = 3;
   int32 failed_deliveries = 4;
   int32 consecutive_failures = 5;
-  int64 last_success_at = 6; // Unix timestamp
-  int64 last_failure_at = 7; // Unix timestamp
+  google.protobuf.Timestamp last_success_at = 6; // Last success timestamp
+  google.protobuf.Timestamp last_failure_at = 7; // Last failure timestamp
   double success_rate = 8; // 0.0 to 1.0
   int32 avg_response_time = 9; // milliseconds
-  int64 created_at = 10; // Unix timestamp
-  int64 updated_at = 11; // Unix timestamp
+  google.protobuf.Timestamp created_at = 10; // Created timestamp
+  google.protobuf.Timestamp updated_at = 11; // Updated timestamp
 }
 
 // GetWebhookHealthResponse represents the response for getting webhook health
@@ -555,7 +555,7 @@ message EventReport {
   string event_name = 3; // Event type name
   google.protobuf.Struct payload = 4; // Event payload
   map<string, string> metadata = 5; // Event metadata
-  int64 created_at = 6; // When the event was created (Unix timestamp)
+  google.protobuf.Timestamp created_at = 6; // When the event was created
   int64 ttl_seconds = 7; // TTL for webhook retry attempts
   int32 webhook_count = 8; // Number of webhooks triggered by this event
   int32 successful_deliveries = 9; // Number of successful deliveries
@@ -592,8 +592,8 @@ message EventSubscription {
   int32 timeout = 7; // Optional timeout override in seconds
   bool transform_enabled = 8; // Whether payload transformation is enabled
   string transform_template = 9; // Go template for payload transformation
-  int64 created_at = 10; // When subscription was created (Unix timestamp)
-  int64 updated_at = 11; // When subscription was last updated (Unix timestamp)
+  google.protobuf.Timestamp created_at = 10; // When subscription was created
+  google.protobuf.Timestamp updated_at = 11; // When subscription was last updated
 }
 
 // CreateSubscriptionRequest represents a request to create a subscription
@@ -613,7 +613,7 @@ message CreateSubscriptionResponse {
   string subscription_id = 1; // Created subscription ID
   bool success = 2; // Whether creation was successful
   string message = 3; // Success or error message
-  int64 created_at = 4; // When subscription was created
+  google.protobuf.Timestamp created_at = 4; // When subscription was created
 }
 
 // GetSubscriptionRequest represents a request to get a subscription

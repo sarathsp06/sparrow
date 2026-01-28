@@ -11,6 +11,7 @@
     WebhookDelivery,
     WebhookHealthMetrics,
   } from "../../../../../proto/webhook_pb.js";
+  import type { Timestamp } from "@bufbuild/protobuf/wkt";
 
   import {
     WebhookDeliveryStatus,
@@ -112,8 +113,9 @@
     }
   }
 
-  function formatTimestamp(timestamp: bigint): string {
-    return new Date(Number(timestamp) * 1000).toLocaleString();
+  function formatTimestamp(timestamp: Timestamp | undefined | null): string {
+    if (!timestamp) return "N/A";
+    return new Date(Number(timestamp.seconds) * 1000).toLocaleString();
   }
 
   async function toggleDeliveryExpansion(deliveryId: string) {

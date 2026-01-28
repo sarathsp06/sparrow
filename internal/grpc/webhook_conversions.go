@@ -1,6 +1,8 @@
 package grpc
 
 import (
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
@@ -135,8 +137,8 @@ func ConvertWebhookRegistrationToProto(webhook *webhooks.WebhookRegistration) *p
 		Timeout:     int32(webhook.Timeout), // Legacy field
 		Active:      webhook.Active,
 		Description: webhook.Description,
-		CreatedAt:   webhook.CreatedAt.Unix(),
-		UpdatedAt:   webhook.UpdatedAt.Unix(),
+		CreatedAt:   timestamppb.New(webhook.CreatedAt),
+		UpdatedAt:   timestamppb.New(webhook.UpdatedAt),
 		HttpConfig:  ConvertInternalHTTPConfig(&webhook.HTTPConfig),
 	}
 

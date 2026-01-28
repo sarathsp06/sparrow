@@ -26,14 +26,10 @@ func (s *WebhookServer) GetWebhookHealth(ctx context.Context, req *pb.GetWebhook
 			ConsecutiveFailures:  int32(healthData.ConsecutiveFailures),
 			SuccessRate:          healthData.SuccessRate,
 			AvgResponseTime:      int32(healthData.AvgResponseTime),
-			CreatedAt:            healthData.CreatedAt.Unix(),
-			UpdatedAt:            healthData.UpdatedAt.Unix(),
-		}
-		if healthData.LastSuccessAt != nil {
-			pbMetrics.LastSuccessAt = healthData.LastSuccessAt.Unix()
-		}
-		if healthData.LastFailureAt != nil {
-			pbMetrics.LastFailureAt = healthData.LastFailureAt.Unix()
+			CreatedAt:            convertTimeToProto(healthData.CreatedAt),
+			UpdatedAt:            convertTimeToProto(healthData.UpdatedAt),
+			LastSuccessAt:        convertPtrTimeToProto(healthData.LastSuccessAt),
+			LastFailureAt:        convertPtrTimeToProto(healthData.LastFailureAt),
 		}
 	}
 	return &pb.GetWebhookHealthResponse{
@@ -102,8 +98,8 @@ func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWe
 			Active:      webhook.Active,
 			Description: webhook.Description,
 			Health:      convertWebhookHealth(webhook.Health),
-			CreatedAt:   webhook.CreatedAt.Unix(),
-			UpdatedAt:   webhook.UpdatedAt.Unix(),
+			CreatedAt:   convertTimeToProto(webhook.CreatedAt),
+			UpdatedAt:   convertTimeToProto(webhook.UpdatedAt),
 		}
 	}
 

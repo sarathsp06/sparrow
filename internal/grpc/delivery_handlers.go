@@ -34,24 +34,20 @@ func (s *WebhookServer) GetWebhookStatus(ctx context.Context, req *pb.GetWebhook
 	pbDeliveries := make([]*pb.WebhookDelivery, len(deliveries))
 	for i, d := range deliveries {
 		pbDeliveries[i] = &pb.WebhookDelivery{
-			DeliveryId:   d.ID.String(),
-			WebhookId:    d.WebhookID.String(),
-			EventId:      d.EventID.String(),
-			Status:       convertDeliveryStatus(d.Status),
-			AttemptCount: int32(d.AttemptCount),
-			MaxAttempts:  int32(d.MaxAttempts),
-			CreatedAt:    d.CreatedAt.Unix(),
-			ExpiresAt:    d.ExpiresAt.Unix(),
-			ResponseCode: int32(d.ResponseCode),
-			ResponseBody: d.ResponseBody,
-			ErrorMessage: d.ErrorMessage,
-			RequestBody:  d.RequestBody,
-		}
-		if d.LastAttemptedAt != nil {
-			pbDeliveries[i].LastAttemptedAt = d.LastAttemptedAt.Unix()
-		}
-		if d.NextRetryAt != nil {
-			pbDeliveries[i].NextRetryAt = d.NextRetryAt.Unix()
+			DeliveryId:      d.ID.String(),
+			WebhookId:       d.WebhookID.String(),
+			EventId:         d.EventID.String(),
+			Status:          convertDeliveryStatus(d.Status),
+			AttemptCount:    int32(d.AttemptCount),
+			MaxAttempts:     int32(d.MaxAttempts),
+			CreatedAt:       convertTimeToProto(d.CreatedAt),
+			LastAttemptedAt: convertPtrTimeToProto(d.LastAttemptedAt),
+			NextRetryAt:     convertPtrTimeToProto(d.NextRetryAt),
+			ExpiresAt:       convertTimeToProto(d.ExpiresAt),
+			ResponseCode:    int32(d.ResponseCode),
+			ResponseBody:    d.ResponseBody,
+			ErrorMessage:    d.ErrorMessage,
+			RequestBody:     d.RequestBody,
 		}
 	}
 	return &pb.GetWebhookStatusResponse{
@@ -71,24 +67,20 @@ func (s *WebhookServer) GetWebhookDeliveryStatus(ctx context.Context, req *pb.Ge
 	var pbDelivery *pb.WebhookDelivery
 	if delivery != nil {
 		pbDelivery = &pb.WebhookDelivery{
-			DeliveryId:   delivery.ID.String(),
-			WebhookId:    delivery.WebhookID.String(),
-			EventId:      delivery.EventID.String(),
-			Status:       convertDeliveryStatus(delivery.Status),
-			AttemptCount: int32(delivery.AttemptCount),
-			MaxAttempts:  int32(delivery.MaxAttempts),
-			CreatedAt:    delivery.CreatedAt.Unix(),
-			ExpiresAt:    delivery.ExpiresAt.Unix(),
-			ResponseCode: int32(delivery.ResponseCode),
-			ResponseBody: delivery.ResponseBody,
-			ErrorMessage: delivery.ErrorMessage,
-			RequestBody:  delivery.RequestBody,
-		}
-		if delivery.LastAttemptedAt != nil {
-			pbDelivery.LastAttemptedAt = delivery.LastAttemptedAt.Unix()
-		}
-		if delivery.NextRetryAt != nil {
-			pbDelivery.NextRetryAt = delivery.NextRetryAt.Unix()
+			DeliveryId:      delivery.ID.String(),
+			WebhookId:       delivery.WebhookID.String(),
+			EventId:         delivery.EventID.String(),
+			Status:          convertDeliveryStatus(delivery.Status),
+			AttemptCount:    int32(delivery.AttemptCount),
+			MaxAttempts:     int32(delivery.MaxAttempts),
+			CreatedAt:       convertTimeToProto(delivery.CreatedAt),
+			LastAttemptedAt: convertPtrTimeToProto(delivery.LastAttemptedAt),
+			NextRetryAt:     convertPtrTimeToProto(delivery.NextRetryAt),
+			ExpiresAt:       convertTimeToProto(delivery.ExpiresAt),
+			ResponseCode:    int32(delivery.ResponseCode),
+			ResponseBody:    delivery.ResponseBody,
+			ErrorMessage:    delivery.ErrorMessage,
+			RequestBody:     delivery.RequestBody,
 		}
 	}
 	return &pb.GetWebhookDeliveryStatusResponse{
@@ -120,24 +112,20 @@ func (s *WebhookServer) GetWebhookDeliveryHistory(ctx context.Context, req *pb.G
 	var pbDeliveries []*pb.WebhookDelivery
 	for _, delivery := range deliveries {
 		pbDelivery := &pb.WebhookDelivery{
-			DeliveryId:   delivery.ID.String(),
-			WebhookId:    delivery.WebhookID.String(),
-			EventId:      delivery.EventID.String(),
-			Status:       convertDeliveryStatus(delivery.Status),
-			AttemptCount: int32(delivery.AttemptCount),
-			MaxAttempts:  int32(delivery.MaxAttempts),
-			CreatedAt:    delivery.CreatedAt.Unix(),
-			ExpiresAt:    delivery.ExpiresAt.Unix(),
-			ResponseCode: int32(delivery.ResponseCode),
-			ResponseBody: delivery.ResponseBody,
-			ErrorMessage: delivery.ErrorMessage,
-			RequestBody:  delivery.RequestBody,
-		}
-		if delivery.LastAttemptedAt != nil {
-			pbDelivery.LastAttemptedAt = delivery.LastAttemptedAt.Unix()
-		}
-		if delivery.NextRetryAt != nil {
-			pbDelivery.NextRetryAt = delivery.NextRetryAt.Unix()
+			DeliveryId:      delivery.ID.String(),
+			WebhookId:       delivery.WebhookID.String(),
+			EventId:         delivery.EventID.String(),
+			Status:          convertDeliveryStatus(delivery.Status),
+			AttemptCount:    int32(delivery.AttemptCount),
+			MaxAttempts:     int32(delivery.MaxAttempts),
+			CreatedAt:       convertTimeToProto(delivery.CreatedAt),
+			LastAttemptedAt: convertPtrTimeToProto(delivery.LastAttemptedAt),
+			NextRetryAt:     convertPtrTimeToProto(delivery.NextRetryAt),
+			ExpiresAt:       convertTimeToProto(delivery.ExpiresAt),
+			ResponseCode:    int32(delivery.ResponseCode),
+			ResponseBody:    delivery.ResponseBody,
+			ErrorMessage:    delivery.ErrorMessage,
+			RequestBody:     delivery.RequestBody,
 		}
 		pbDeliveries = append(pbDeliveries, pbDelivery)
 	}

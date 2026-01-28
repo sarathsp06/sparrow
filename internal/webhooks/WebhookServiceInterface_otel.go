@@ -8,6 +8,7 @@ package webhooks
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
@@ -445,7 +446,7 @@ func (_d WebhookServiceInterfaceWithTracing) PushEvent(ctx context.Context, name
 }
 
 // RegisterEvent implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (s1 string, i1 int64, err error) {
+func (_d WebhookServiceInterfaceWithTracing) RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (s1 string, t1 time.Time, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.RegisterEvent")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -457,7 +458,7 @@ func (_d WebhookServiceInterfaceWithTracing) RegisterEvent(ctx context.Context, 
 				"metadata":    metadata,
 				"active":      active}, map[string]interface{}{
 				"s1":  s1,
-				"i1":  i1,
+				"t1":  t1,
 				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)
@@ -474,7 +475,7 @@ func (_d WebhookServiceInterfaceWithTracing) RegisterEvent(ctx context.Context, 
 }
 
 // RegisterWebhook implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (s1 string, i1 int64, err error) {
+func (_d WebhookServiceInterfaceWithTracing) RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (s1 string, t1 time.Time, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.RegisterWebhook")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -488,7 +489,7 @@ func (_d WebhookServiceInterfaceWithTracing) RegisterWebhook(ctx context.Context
 				"active":      active,
 				"description": description}, map[string]interface{}{
 				"s1":  s1,
-				"i1":  i1,
+				"t1":  t1,
 				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)

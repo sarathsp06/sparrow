@@ -5,6 +5,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
@@ -27,7 +28,7 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 			WebhookId: webhook.ID,
 			Success:   true,
 			Message:   "Webhook registered successfully",
-			CreatedAt: webhook.CreatedAt.Unix(),
+			CreatedAt: convertTimeToProto(webhook.CreatedAt),
 		}, nil
 	}
 
@@ -48,7 +49,7 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 		WebhookId: webhookID,
 		Success:   true,
 		Message:   "Webhook registered successfully",
-		CreatedAt: createdAt,
+		CreatedAt: timestamppb.New(createdAt),
 	}, nil
 }
 
@@ -82,8 +83,8 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 			Active:      reg.Active,
 			Description: reg.Description,
 			Health:      convertWebhookHealth(reg.Health),
-			CreatedAt:   reg.CreatedAt.Unix(),
-			UpdatedAt:   reg.UpdatedAt.Unix(),
+			CreatedAt:   convertTimeToProto(reg.CreatedAt),
+			UpdatedAt:   convertTimeToProto(reg.UpdatedAt),
 			HttpConfig: &pb.WebhookHTTPConfig{
 				MaxRetries:            int32(reg.MaxRetries),
 				RetryBackoffSeconds:   int32(reg.RetryBackoffSeconds),
@@ -124,8 +125,8 @@ func (s *WebhookServer) GetRegisteredWebhooks(ctx context.Context, req *pb.GetRe
 			Active:      webhook.Active,
 			Description: webhook.Description,
 			Health:      convertWebhookHealth(webhook.Health),
-			CreatedAt:   webhook.CreatedAt.Unix(),
-			UpdatedAt:   webhook.UpdatedAt.Unix(),
+			CreatedAt:   convertTimeToProto(webhook.CreatedAt),
+			UpdatedAt:   convertTimeToProto(webhook.UpdatedAt),
 		})
 	}
 	return &pb.GetRegisteredWebhooksResponse{
@@ -154,8 +155,8 @@ func (s *WebhookServer) ListRegisteredWebhooksByEvent(ctx context.Context, req *
 			Active:      webhook.Active,
 			Description: webhook.Description,
 			Health:      convertWebhookHealth(webhook.Health),
-			CreatedAt:   webhook.CreatedAt.Unix(),
-			UpdatedAt:   webhook.UpdatedAt.Unix(),
+			CreatedAt:   convertTimeToProto(webhook.CreatedAt),
+			UpdatedAt:   convertTimeToProto(webhook.UpdatedAt),
 		})
 	}
 	return &pb.ListRegisteredWebhooksByEventResponse{

@@ -1,7 +1,10 @@
 package grpc
 
 import (
+	"time"
+
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
@@ -63,4 +66,20 @@ func convertMapToStruct(m map[string]any) (*structpb.Struct, error) {
 	}
 
 	return structpb.NewStruct(m)
+}
+
+// convertTimeToProto converts time.Time to timestamppb.Timestamp
+func convertTimeToProto(t time.Time) *timestamppb.Timestamp {
+	if t.IsZero() {
+		return nil
+	}
+	return timestamppb.New(t)
+}
+
+// convertPtrTimeToProto converts *time.Time to timestamppb.Timestamp
+func convertPtrTimeToProto(t *time.Time) *timestamppb.Timestamp {
+	if t == nil || t.IsZero() {
+		return nil
+	}
+	return timestamppb.New(*t)
 }

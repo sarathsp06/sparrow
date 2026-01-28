@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"strings"
 	"time"
@@ -60,10 +61,19 @@ func MainGRPC() {
 	}
 
 	for _, event := range events {
+		var schemaMap map[string]interface{}
+		if err := json.Unmarshal([]byte(event.schema), &schemaMap); err != nil {
+			log.Fatalf("Failed to parse schema for %s: %v", event.name, err)
+		}
+		schemaStruct, err := structpb.NewStruct(schemaMap)
+		if err != nil {
+			log.Fatalf("Failed to create schema struct for %s: %v", event.name, err)
+		}
+
 		regEventReq := &pb.RegisterEventRequest{
 			Name:        event.name,
 			Description: event.description,
-			Schema:      event.schema,
+			Schema:      schemaStruct,
 			Metadata:    event.metadata,
 			Active:      true,
 		}
@@ -98,7 +108,7 @@ func MainGRPC() {
 		log.Printf("  Webhook ID: %s", registerResp.WebhookId)
 		log.Printf("  Success: %t", registerResp.Success)
 		log.Printf("  Message: %s", registerResp.Message)
-		log.Printf("  Created At: %s", time.Unix(registerResp.CreatedAt, 0))
+		log.Printf("  Created At: %s", registerResp.CreatedAt.AsTime())
 		log.Printf("  Note: Created 2 event subscriptions (signup, login)")
 	}
 

@@ -38,7 +38,7 @@
     const selectedEvent = availableEvents.find((e) => e.name === event);
 	console.log("Selected Event:", selectedEvent?.schema);
     if (selectedEvent && selectedEvent.schema) {
-      return createAjvValidator({ schema: JSON.parse(selectedEvent.schema) });
+      return createAjvValidator({ schema: selectedEvent.schema as any });
     }
     return createAjvValidator({ schema: {} });
   }

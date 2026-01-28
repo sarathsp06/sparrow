@@ -48,7 +48,30 @@
 }
 
 
-export { JSONSchemaMetaSchema, stringifyContent };
+/**
+ * Returns a JSON object representation of the given content.
+ * If the content has a "text" property, it parses and returns that string as an object.
+ * If the content has a "json" property, it returns that JSON object.
+ * If neither of the above conditions are met, it returns an empty object as a fallback.
+ * @param {Content} content - The content to be converted to a JSON object.
+ * @returns {any} - The JSON object representation of the content.
+ */
+function toJSONObject(content: Content): any {
+  if ("text" in content && content.text) {
+    try {
+      return JSON.parse(content.text);
+    } catch (e) {
+      console.error("Failed to parse JSON text", e);
+      return {};
+    }
+  }
+  if ("json" in content && content.json !== undefined) {
+    return content.json;
+  }
+  return {};
+}
+
+export { JSONSchemaMetaSchema, stringifyContent, toJSONObject };
 
 
 

@@ -3,7 +3,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { client } from "$lib/services";
-  import { stringifyContent } from "$lib/utils";
+  import { toJSONObject } from "$lib/utils";
   import { onMount } from "svelte";
   import { type JSONContent, JSONEditor, Mode } from "svelte-jsoneditor";
 
@@ -26,7 +26,7 @@
       if (event) {
         name = event.name;
         description = event.description;
-        schema = { json: event.schema ? JSON.parse(event.schema) : {} };
+        schema = { json: event.schema || {} };
         active = event.active;
       }
     } catch (e: any) {
@@ -41,7 +41,7 @@
       const req = {
         name,
         description,
-        schema: stringifyContent(schema),
+        schema: toJSONObject(schema),
         active,
       };
       await client.updateEvent(req);

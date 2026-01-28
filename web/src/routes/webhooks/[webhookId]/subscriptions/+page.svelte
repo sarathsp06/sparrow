@@ -370,7 +370,7 @@
                       </div>
                       <div>
                         <span class="font-medium text-gray-700">Created:</span>
-                        <span class="ml-1">{new Date(Number(subscription.createdAt)).toLocaleDateString()}</span>
+                        <span class="ml-1">{subscription.createdAt ? new Date(Number(subscription.createdAt.seconds) * 1000).toLocaleDateString() : 'N/A'}</span>
                       </div>
                       <div>
                         <span class="font-medium text-gray-700">ID:</span>

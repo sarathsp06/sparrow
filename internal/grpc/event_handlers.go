@@ -2,10 +2,10 @@ package grpc
 
 import (
 	"context"
-	"encoding/json"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/sarathsp06/sparrow/proto"
 )
@@ -25,12 +25,10 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 
 // RegisterEvent registers a new event type
 func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEventRequest) (*pb.RegisterEventResponse, error) {
-	// Convert JSON schema string to map[string]any
+	// Convert JSON schema Struct to map[string]any
 	var schema map[string]any
-	if req.Schema != "" {
-		if err := json.Unmarshal([]byte(req.Schema), &schema); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid schema JSON: %v", err)
-		}
+	if req.Schema != nil {
+		schema = req.Schema.AsMap()
 	}
 
 	eventID, createdAt, err := s.service.RegisterEvent(ctx, req.Name, req.Description, schema, req.Metadata, req.Active)
@@ -41,7 +39,7 @@ func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEvent
 		EventId:   eventID,
 		Success:   true,
 		Message:   "Event registered successfully",
-		CreatedAt: createdAt,
+		CreatedAt: timestamppb.New(createdAt),
 	}, nil
 }
 
@@ -59,17 +57,17 @@ func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsReques
 			Name:        event.Name,
 			Description: event.Description,
 			Active:      event.Active,
-			CreatedAt:   event.CreatedAt.Unix(),
-			UpdatedAt:   event.UpdatedAt.Unix(),
+			CreatedAt:   convertTimeToProto(event.CreatedAt),
+			UpdatedAt:   convertTimeToProto(event.UpdatedAt),
 		}
 
-		// Convert schema map to JSON string for protobuf
+		// Convert schema map to Struct for protobuf
 		if event.Schema != nil {
-			schemaJSON, err := json.Marshal(event.Schema)
+			schemaStruct, err := convertMapToStruct(event.Schema)
 			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to marshal event schema: %v", err)
+				return nil, status.Errorf(codes.Internal, "failed to convert event schema: %v", err)
 			}
-			pbEvents[i].Schema = string(schemaJSON)
+			pbEvents[i].Schema = schemaStruct
 		}
 
 		// Convert sample_payload to protobuf Struct
@@ -94,12 +92,10 @@ func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsReques
 
 // UpdateEvent updates an event registration
 func (s *WebhookServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequest) (*pb.UpdateEventResponse, error) {
-	// Convert JSON schema string to map[string]any
+	// Convert JSON schema Struct to map[string]any
 	var schema map[string]any
-	if req.Schema != "" {
-		if err := json.Unmarshal([]byte(req.Schema), &schema); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "invalid schema JSON: %v", err)
-		}
+	if req.Schema != nil {
+		schema = req.Schema.AsMap()
 	}
 
 	err := s.service.UpdateEvent(ctx, req.Name, req.Description, schema, req.Metadata, req.Active)
@@ -178,7 +174,7 @@ func (s *WebhookServer) ListEventReports(ctx context.Context, req *pb.ListEventR
 			EventName:            event.Event,
 			Payload:              payloadStruct,
 			Metadata:             metadata,
-			CreatedAt:            event.CreatedAt.Unix(),
+			CreatedAt:            convertTimeToProto(event.CreatedAt),
 			TtlSeconds:           event.TTL,
 			WebhookCount:         event.WebhookCount,
 			SuccessfulDeliveries: event.SuccessfulDeliveries,
