@@ -27,6 +27,9 @@
   let expandedDeliveries: Set<string> = $state(new Set());
   let deliveryDetails: Map<string, any> = $state(new Map());
   let activeTab = $state("deliveries");
+  let editingUrl = $state(false);
+  let editedUrl = $state("");
+  let savingUrl = $state(false);
 
   const webhookId = page.params.webhookId;
 
@@ -110,6 +113,56 @@
       await fetchData(); // Refresh data
     } catch (e: any) {
       error = `Failed to resend webhooks: ${e.message}`;
+    }
+  }
+
+  function startEditUrl() {
+    if (!webhook) return;
+    editedUrl = webhook.url;
+    editingUrl = true;
+    error = "";
+  }
+
+  function cancelEditUrl() {
+    editingUrl = false;
+    editedUrl = "";
+  }
+
+  async function saveWebhookUrl() {
+    if (!webhook) return;
+
+    const trimmedUrl = editedUrl.trim();
+    if (!trimmedUrl) {
+      error = "URL is required";
+      return;
+    }
+
+    try {
+      new URL(trimmedUrl);
+    } catch {
+      error = "Please enter a valid URL";
+      return;
+    }
+
+    savingUrl = true;
+    error = "";
+
+    try {
+      await client.updateWebhookConfig({
+        webhookId,
+        namespace: "default",
+        updates: {
+          url: trimmedUrl,
+          active: webhook.active,
+        },
+      });
+
+      editingUrl = false;
+      await fetchData();
+    } catch (e: any) {
+      error = `Failed to update webhook URL: ${e.message}`;
+    } finally {
+      savingUrl = false;
     }
   }
 
@@ -215,6 +268,41 @@
           <div class="bg-white rounded-lg shadow-sm border p-6">
             <h2 class="text-xl font-bold text-gray-800 mb-4">Actions</h2>
             <div class="flex flex-col gap-3">
+              {#if editingUrl}
+                <div class="space-y-2">
+                  <label for="webhook-url" class="text-sm font-semibold text-gray-700">Webhook URL</label>
+                  <input
+                    id="webhook-url"
+                    type="url"
+                    bind:value={editedUrl}
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    placeholder="https://example.com/webhook"
+                  />
+                  <div class="flex gap-2">
+                    <button
+                      onclick={saveWebhookUrl}
+                      disabled={savingUrl}
+                      class="px-3 py-2 rounded-lg text-sm font-semibold bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-60"
+                    >
+                      {savingUrl ? 'Saving...' : 'Save URL'}
+                    </button>
+                    <button
+                      onclick={cancelEditUrl}
+                      disabled={savingUrl}
+                      class="px-3 py-2 rounded-lg text-sm font-semibold bg-gray-100 text-gray-800 hover:bg-gray-200 disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              {:else}
+                <button
+                  onclick={startEditUrl}
+                  class="w-full text-left font-semibold px-4 py-2 rounded-lg transition bg-blue-100 text-blue-800 hover:bg-blue-200"
+                >
+                  Edit Webhook URL
+                </button>
+              {/if}
               <button
                 onclick={toggleWebhookStatus}
                 class="w-full text-left font-semibold px-4 py-2 rounded-lg transition {webhook.active

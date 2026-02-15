@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	urlpkg "net/url"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -1356,7 +1358,12 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	if namespace == "" {
 		return fmt.Errorf("namespace is required")
 	}
-	webhook, err := s.webhookRepo.GetWebhookByID(ctx, uuid.MustParse(webhookID), namespace)
+	webhookUUID, err := uuid.Parse(webhookID)
+	if err != nil {
+		return fmt.Errorf("invalid webhook ID: %w", err)
+	}
+
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, webhookUUID, namespace)
 	if err != nil {
 		s.logger.Error("Failed to get webhook", "error", err)
 		return fmt.Errorf("failed to retrieve webhook: %w", err)
@@ -1367,7 +1374,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	// Update subscriptions if events are provided
 	if len(events) > 0 {
 		// Delete existing subscriptions
-		existingSubs, err := s.webhookRepo.ListSubscriptions(ctx, uuid.MustParse(webhookID))
+		existingSubs, err := s.webhookRepo.ListSubscriptions(ctx, webhookUUID)
 		if err != nil {
 			s.logger.Error("Failed to get existing subscriptions", "error", err)
 		} else {
@@ -1380,7 +1387,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		// Create new subscriptions
 		for _, event := range events {
 			sub := &store.EventSubscription{
-				WebhookID: uuid.MustParse(webhookID),
+				WebhookID: webhookUUID,
 				EventName: event,
 				Namespace: namespace,
 			}
@@ -1390,7 +1397,14 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		}
 	}
 	if url != "" {
-		webhook.URL = url
+		normalizedURL := strings.TrimSpace(url)
+		if normalizedURL == "" {
+			return fmt.Errorf("URL is required")
+		}
+		if _, err := urlpkg.ParseRequestURI(normalizedURL); err != nil {
+			return fmt.Errorf("invalid URL: %w", err)
+		}
+		webhook.URL = normalizedURL
 	}
 	if headers != nil {
 		webhook.Headers = headers
