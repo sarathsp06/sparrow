@@ -88,29 +88,76 @@ func (r *Repository) UnregisterWebhook(ctx context.Context, webhookID uuid.UUID)
 	return storage.Error(err)
 }
 
-// ListWebhooks retrieves webhooks for a namespace with optional active status filtering.
+// ListWebhooks retrieves webhooks for a namespace with optional active status filtering and event filtering.
 // When activeOnly=true, returns only webhooks with active=true (excludes paused webhooks).
 // When activeOnly=false, returns all webhooks regardless of active status for management purposes.
+// When event is not empty, returns only webhooks subscribed to that event.
 // Results are ordered by created_at DESC to show newest webhooks first.
-func (r *Repository) ListWebhooks(ctx context.Context, namespace string, activeOnly bool) ([]*WebhookRegistration, error) {
+func (r *Repository) ListWebhooks(ctx context.Context, namespace string, event string, activeOnly bool) ([]*WebhookRegistration, error) {
 	query := `
-		SELECT id, namespace, url, headers, timeout, active, description, health,
-		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
-		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-		       user_agent, content_type, created_at, updated_at
-		FROM webhook_registrations 
-		WHERE namespace = $1 
-		  AND ($2 IS FALSE OR active = true)
-		ORDER BY created_at DESC
+		SELECT DISTINCT wr.id, wr.namespace, wr.url, wr.headers, wr.timeout, wr.active, wr.description, wr.health,
+		       wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
+		       wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
+		       wr.user_agent, wr.content_type, wr.created_at, wr.updated_at
+		FROM webhook_registrations wr
+		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
+		WHERE wr.namespace = $1
+		  AND ($2 IS FALSE OR wr.active = true)
+		  AND ($3 = '' OR es.event_name = $3)
+		ORDER BY wr.created_at DESC
 	`
 
 	var webhooks []*WebhookRegistration
-	err := r.db.SelectContext(ctx, &webhooks, query, namespace, activeOnly)
+	err := r.db.SelectContext(ctx, &webhooks, query, namespace, activeOnly, event)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
 
 	return webhooks, nil
+}
+
+// GetNamespaceStats retrieves statistics for a namespace in a single query
+func (r *Repository) GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStats, error) {
+	query := `
+		WITH webhook_counts AS (
+			SELECT
+				COUNT(*) as total_webhooks,
+				COUNT(*) FILTER (WHERE active = true) as active_webhooks
+			FROM webhook_registrations
+			WHERE namespace = $1
+		),
+		delivery_stats AS (
+			SELECT
+				COUNT(wd.id) as total_deliveries,
+				COUNT(wd.id) FILTER (WHERE wd.status = 'success') as successful_deliveries,
+				COUNT(wd.id) FILTER (WHERE wd.status IN ('failed', 'expired')) as failed_deliveries,
+				COUNT(wd.id) FILTER (WHERE wd.status IN ('pending', 'sending', 'retrying')) as pending_deliveries
+			FROM webhook_deliveries wd
+			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+			WHERE wr.namespace = $1
+		)
+		SELECT
+			wc.total_webhooks,
+			wc.active_webhooks,
+			COALESCE(ds.total_deliveries, 0) as total_deliveries,
+			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
+			COALESCE(ds.failed_deliveries, 0) as failed_deliveries,
+			COALESCE(ds.pending_deliveries, 0) as pending_deliveries,
+			CASE
+				WHEN COALESCE(ds.total_deliveries, 0) > 0
+				THEN CAST(ds.successful_deliveries AS FLOAT) / ds.total_deliveries
+				ELSE 0
+			END as success_rate
+		FROM webhook_counts wc, delivery_stats ds
+	`
+
+	var stats NamespaceStats
+	err := r.db.GetContext(ctx, &stats, query, namespace)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
+
+	return &stats, nil
 }
 
 // GetWebhookByID gets a webhook by ID and namespace
@@ -138,7 +185,7 @@ func (r *Repository) GetWebhookByID(ctx context.Context, webhookID uuid.UUID, na
 
 // GetWebhooksByNamespace gets webhooks by namespace
 func (r *Repository) GetWebhooksByNamespace(ctx context.Context, namespace string, activeOnly bool) ([]*WebhookRegistration, error) {
-	return r.ListWebhooks(ctx, namespace, activeOnly)
+	return r.ListWebhooks(ctx, namespace, "", activeOnly)
 }
 
 // UpdateWebhook updates a webhook registration
@@ -166,7 +213,7 @@ func (r *Repository) UpdateWebhook(ctx context.Context, webhook *WebhookRegistra
 // GetWebhooksByHealth retrieves webhooks filtered by health status
 func (r *Repository) GetWebhooksByHealth(ctx context.Context, health WebhookHealth) ([]*WebhookRegistration, error) {
 	query := `
-		SELECT wr.id, wr.namespace, wr.events, wr.url, wr.headers, wr.timeout, 
+		SELECT wr.id, wr.namespace, wr.url, wr.headers, wr.timeout,
 		       wr.active, wr.description, wr.health,
 		       wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
 		       wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
@@ -179,7 +226,6 @@ func (r *Repository) GetWebhooksByHealth(ctx context.Context, health WebhookHeal
 	type webhookRow struct {
 		ID                    uuid.UUID `db:"id"`
 		Namespace             string    `db:"namespace"`
-		EventsJSON            []byte    `db:"events"`
 		URL                   string    `db:"url"`
 		HeadersJSON           []byte    `db:"headers"`
 		Timeout               int       `db:"timeout"`

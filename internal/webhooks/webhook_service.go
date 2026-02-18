@@ -467,7 +467,7 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, eve
 	if namespace == "" {
 		return nil, fmt.Errorf("namespace is required")
 	}
-	registrations, err := s.webhookRepo.ListWebhooks(ctx, namespace, activeOnly)
+	registrations, err := s.webhookRepo.ListWebhooks(ctx, namespace, event, activeOnly)
 	if err != nil {
 		s.logger.Error("Failed to list webhooks",
 			"namespace", namespace,
@@ -475,30 +475,12 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, eve
 		)
 		return nil, fmt.Errorf("failed to list webhooks: %w", err)
 	}
-	var filteredRegistrations []*store.WebhookRegistration
-	if event != "" {
-		// Filter by event using subscriptions
-		for _, reg := range registrations {
-			subs, err := s.webhookRepo.ListSubscriptions(ctx, reg.ID)
-			if err != nil {
-				s.logger.Warn("Failed to get subscriptions for webhook", "webhook_id", reg.ID, "error", err)
-				continue
-			}
-			for _, sub := range subs {
-				if sub.EventName == event {
-					filteredRegistrations = append(filteredRegistrations, reg)
-					break
-				}
-			}
-		}
-	} else {
-		filteredRegistrations = registrations
-	}
+
 	s.logger.Info("Listed webhooks successfully",
 		"namespace", namespace,
-		"total_count", len(filteredRegistrations),
+		"total_count", len(registrations),
 	)
-	return filteredRegistrations, nil
+	return registrations, nil
 }
 
 // GetRegisteredWebhooks gets registered webhooks by namespace and optional webhook ID
@@ -555,33 +537,10 @@ func (s *WebhookService) ListRegisteredWebhooksByEvent(ctx context.Context, name
 		return nil, fmt.Errorf("event is required")
 	}
 
-	// Get subscriptions for this event
-	subscriptions, err := s.webhookRepo.GetSubscriptionsByEvent(ctx, namespace, event)
+	webhooks, err := s.webhookRepo.ListWebhooks(ctx, namespace, event, activeOnly)
 	if err != nil {
-		s.logger.Error("Failed to get subscriptions by event", "error", err)
-		return nil, fmt.Errorf("failed to retrieve subscriptions: %w", err)
-	}
-
-	// Get unique webhooks from subscriptions
-	webhookMap := make(map[string]*store.WebhookRegistration)
-	for _, sub := range subscriptions {
-		webhookIDStr := sub.WebhookID.String()
-		if _, exists := webhookMap[webhookIDStr]; !exists {
-			webhook, err := s.webhookRepo.GetWebhookByID(ctx, sub.WebhookID, namespace)
-			if err != nil {
-				s.logger.Warn("Failed to get webhook for subscription", "webhook_id", sub.WebhookID, "error", err)
-				webhookMap[webhookIDStr] = webhook
-			}
-			if webhook != nil && (!activeOnly || webhook.Active) {
-				webhookMap[webhookIDStr] = webhook
-			}
-		}
-	}
-
-	// Convert map to slice
-	var webhooks []*store.WebhookRegistration
-	for _, wh := range webhookMap {
-		webhooks = append(webhooks, wh)
+		s.logger.Error("Failed to list webhooks by event", "error", err)
+		return nil, fmt.Errorf("failed to retrieve webhooks: %w", err)
 	}
 
 	return webhooks, nil
@@ -1291,56 +1250,29 @@ func (s *WebhookService) GetNamespaceStats(ctx context.Context, namespace string
 	if namespace == "" {
 		return nil, fmt.Errorf("namespace is required")
 	}
-	allWebhooks, err := s.webhookRepo.ListWebhooks(ctx, namespace, false)
+
+	stats, err := s.webhookRepo.GetNamespaceStats(ctx, namespace)
 	if err != nil {
-		s.logger.Error("Failed to get webhooks for stats", "error", err)
+		s.logger.Error("Failed to get namespace stats", "error", err)
 		return nil, err
 	}
-	activeWebhooks, err := s.webhookRepo.ListWebhooks(ctx, namespace, true)
-	if err != nil {
-		s.logger.Error("Failed to get active webhooks for stats", "error", err)
-		return nil, err
+
+	res := &NamespaceStatsData{
+		TotalWebhooks:        stats.TotalWebhooks,
+		ActiveWebhooks:       stats.ActiveWebhooks,
+		TotalDeliveries:      stats.TotalDeliveries,
+		SuccessfulDeliveries: stats.SuccessfulDeliveries,
+		FailedDeliveries:     stats.FailedDeliveries,
+		PendingDeliveries:    stats.PendingDeliveries,
+		SuccessRate:          stats.SuccessRate,
 	}
-	totalDeliveries := 0
-	successfulDeliveries := 0
-	failedDeliveries := 0
-	pendingDeliveries := 0
-	for _, webhook := range allWebhooks {
-		deliveries, err := s.webhookRepo.GetDeliveriesByWebhook(ctx, webhook.ID)
-		if err != nil {
-			continue
-		}
-		totalDeliveries += len(deliveries)
-		for _, delivery := range deliveries {
-			switch delivery.Status {
-			case store.StatusSuccess:
-				successfulDeliveries++
-			case store.StatusFailed, store.StatusExpired:
-				failedDeliveries++
-			case store.StatusPending, store.StatusSending, store.StatusRetrying:
-				pendingDeliveries++
-			}
-		}
-	}
-	var successRate float64
-	if totalDeliveries > 0 {
-		successRate = float64(successfulDeliveries) / float64(totalDeliveries)
-	}
-	stats := &NamespaceStatsData{
-		TotalWebhooks:        len(allWebhooks),
-		ActiveWebhooks:       len(activeWebhooks),
-		TotalDeliveries:      totalDeliveries,
-		SuccessfulDeliveries: successfulDeliveries,
-		FailedDeliveries:     failedDeliveries,
-		PendingDeliveries:    pendingDeliveries,
-		SuccessRate:          successRate,
-	}
+
 	s.logger.Info("Namespace stats retrieved successfully",
 		"namespace", namespace,
-		"total_webhooks", stats.TotalWebhooks,
-		"active_webhooks", stats.ActiveWebhooks,
-		"success_rate", successRate)
-	return stats, nil
+		"total_webhooks", res.TotalWebhooks,
+		"active_webhooks", res.ActiveWebhooks,
+		"success_rate", res.SuccessRate)
+	return res, nil
 }
 
 // UpdateWebhookConfig updates webhook configuration

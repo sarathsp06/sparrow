@@ -138,3 +138,118 @@ func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, namespace, eve
 	}
 	return subscriptions, nil
 }
+
+// GetSubscriptionsWithWebhooksByEvent finds all active subscriptions for a specific event in a namespace,
+// including the webhook configuration for each subscription.
+func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, namespace, event string) ([]*SubscriptionWithWebhook, error) {
+	query := `
+		SELECT
+			es.id, es.webhook_id, es.event_name, es.namespace, es.headers as es_headers, es.method,
+			es.transform_enabled, es.transform_template, es.timeout, es.created_at, es.updated_at,
+			wr.id as wr_id, wr.namespace as wr_namespace, wr.url, wr.headers as wr_headers,
+			wr.timeout as wr_timeout, wr.active, wr.description, wr.health,
+			wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
+			wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
+			wr.user_agent, wr.content_type, wr.created_at as wr_created_at, wr.updated_at as wr_updated_at
+		FROM event_subscriptions es
+		JOIN webhook_registrations wr ON es.webhook_id = wr.id
+		WHERE es.namespace = $1 AND es.event_name = $2 AND wr.active = true
+	`
+
+	type rowStruct struct {
+		// Subscription fields
+		ID                uuid.UUID `db:"id"`
+		WebhookID         uuid.UUID `db:"webhook_id"`
+		EventName         string    `db:"event_name"`
+		Namespace         string    `db:"namespace"`
+		HeadersJSON       []byte    `db:"es_headers"`
+		Method            string    `db:"method"`
+		TransformEnabled  bool      `db:"transform_enabled"`
+		TransformTemplate string    `db:"transform_template"`
+		Timeout           int       `db:"timeout"`
+		CreatedAt         time.Time `db:"created_at"`
+		UpdatedAt         time.Time `db:"updated_at"`
+
+		// Webhook fields
+		WRID                    uuid.UUID `db:"wr_id"`
+		WRNamespace             string    `db:"wr_namespace"`
+		URL                     string    `db:"url"`
+		WRHeadersJSON           []byte    `db:"wr_headers"`
+		WRTimeout               int       `db:"wr_timeout"`
+		Active                  bool      `db:"active"`
+		Description             string    `db:"description"`
+		Health                  string    `db:"health"`
+		MaxRetries              int       `db:"max_retries"`
+		RetryBackoffSeconds     int       `db:"retry_backoff_seconds"`
+		CaptureResponseBody     bool      `db:"capture_response_body"`
+		FollowRedirects         bool      `db:"follow_redirects"`
+		VerifySSL               bool      `db:"verify_ssl"`
+		RequestTimeoutSeconds   int       `db:"request_timeout_seconds"`
+		ExpectedStatusCodesJSON []byte    `db:"expected_status_codes"`
+		WebhookSecret           string    `db:"webhook_secret"`
+		UserAgent               string    `db:"user_agent"`
+		ContentType             string    `db:"content_type"`
+		WRCreatedAt             time.Time `db:"wr_created_at"`
+		WRUpdatedAt             time.Time `db:"wr_updated_at"`
+	}
+
+	var rows []rowStruct
+	err := r.db.SelectContext(ctx, &rows, query, namespace, event)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
+
+	var results []*SubscriptionWithWebhook
+	for _, row := range rows {
+		sub := &EventSubscription{
+			ID:                row.ID,
+			WebhookID:         row.WebhookID,
+			EventName:         row.EventName,
+			Namespace:         row.Namespace,
+			Method:            row.Method,
+			TransformEnabled:  row.TransformEnabled,
+			TransformTemplate: row.TransformTemplate,
+			Timeout:           row.Timeout,
+			CreatedAt:         row.CreatedAt,
+			UpdatedAt:         row.UpdatedAt,
+		}
+
+		wh := &WebhookRegistration{
+			ID:                    row.WRID,
+			Namespace:             row.WRNamespace,
+			URL:                   row.URL,
+			Timeout:               row.WRTimeout,
+			Active:                row.Active,
+			Description:           row.Description,
+			Health:                WebhookHealth(row.Health),
+			MaxRetries:            row.MaxRetries,
+			RetryBackoffSeconds:   row.RetryBackoffSeconds,
+			CaptureResponseBody:   row.CaptureResponseBody,
+			FollowRedirects:       row.FollowRedirects,
+			VerifySSL:             row.VerifySSL,
+			RequestTimeoutSeconds: row.RequestTimeoutSeconds,
+			WebhookSecret:         row.WebhookSecret,
+			UserAgent:             row.UserAgent,
+			ContentType:           row.ContentType,
+			CreatedAt:             row.WRCreatedAt,
+			UpdatedAt:             row.WRUpdatedAt,
+		}
+
+		if err := json.Unmarshal(row.HeadersJSON, &sub.Headers); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal subscription headers: %w", err)
+		}
+		if err := json.Unmarshal(row.WRHeadersJSON, &wh.Headers); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal webhook headers: %w", err)
+		}
+		if err := json.Unmarshal(row.ExpectedStatusCodesJSON, &wh.ExpectedStatusCodes); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal expected status codes: %w", err)
+		}
+
+		results = append(results, &SubscriptionWithWebhook{
+			Subscription: sub,
+			Webhook:      wh,
+		})
+	}
+
+	return results, nil
+}

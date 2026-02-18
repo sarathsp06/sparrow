@@ -13,7 +13,7 @@ import (
 type RepositoryInterface interface {
 	RegisterWebhook(ctx context.Context, registration *WebhookRegistration) error
 	UnregisterWebhook(ctx context.Context, webhookID uuid.UUID) error
-	ListWebhooks(ctx context.Context, namespace string, activeOnly bool) ([]*WebhookRegistration, error)
+	ListWebhooks(ctx context.Context, namespace string, event string, activeOnly bool) ([]*WebhookRegistration, error)
 	GetWebhookByID(ctx context.Context, webhookID uuid.UUID, namespace string) (*WebhookRegistration, error)
 	GetWebhooksByNamespace(ctx context.Context, namespace string, activeOnly bool) ([]*WebhookRegistration, error)
 	UpdateWebhook(ctx context.Context, webhook *WebhookRegistration) error
@@ -25,6 +25,7 @@ type RepositoryInterface interface {
 	DeleteSubscription(ctx context.Context, id uuid.UUID) error
 	ListSubscriptions(ctx context.Context, webhookID uuid.UUID) ([]*EventSubscription, error)
 	GetSubscriptionsByEvent(ctx context.Context, namespace, event string) ([]*EventSubscription, error)
+	GetSubscriptionsWithWebhooksByEvent(ctx context.Context, namespace, event string) ([]*SubscriptionWithWebhook, error)
 
 	// Event Management
 	RegisterEvent(ctx context.Context, event *EventRegistration) error
@@ -59,6 +60,7 @@ type RepositoryInterface interface {
 	AggregateHealthSummaries(ctx context.Context) (int, error)
 	GetWebhooksByHealth(ctx context.Context, health WebhookHealth) ([]*WebhookRegistration, error)
 	GetHealthSummary(ctx context.Context) (map[WebhookHealth]int, error)
+	GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStats, error)
 }
 
 var _ RepositoryInterface = (*Repository)(nil)

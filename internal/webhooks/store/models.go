@@ -176,3 +176,20 @@ type EventSubscription struct {
 	CreatedAt         time.Time                 `json:"created_at" db:"created_at"`
 	UpdatedAt         time.Time                 `json:"updated_at" db:"updated_at"`
 }
+
+// NamespaceStats represents statistics for a namespace
+type NamespaceStats struct {
+	TotalWebhooks        int     `db:"total_webhooks"`
+	ActiveWebhooks       int     `db:"active_webhooks"`
+	TotalDeliveries      int     `db:"total_deliveries"`
+	SuccessfulDeliveries int     `db:"successful_deliveries"`
+	FailedDeliveries     int     `db:"failed_deliveries"`
+	PendingDeliveries    int     `db:"pending_deliveries"`
+	SuccessRate          float64 `db:"success_rate"`
+}
+
+// SubscriptionWithWebhook represents a subscription joined with its webhook configuration
+type SubscriptionWithWebhook struct {
+	Subscription *EventSubscription
+	Webhook      *WebhookRegistration
+}

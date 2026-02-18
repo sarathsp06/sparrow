@@ -60,8 +60,8 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		existingEvent.Metadata = args.Metadata
 	}
 
-	// Find all subscriptions for this namespace/event
-	subscriptions, err := w.webhookRepo.GetSubscriptionsByEvent(ctx, args.Namespace, args.Event)
+	// Find all subscriptions for this namespace/event with webhook details
+	subscriptions, err := w.webhookRepo.GetSubscriptionsWithWebhooksByEvent(ctx, args.Namespace, args.Event)
 	if err != nil {
 		w.logger.Error("Failed to get event subscriptions", "error", err)
 		return err
@@ -84,17 +84,9 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	// Create webhook delivery jobs for each subscription
 	expiresAt := time.Now().Add(time.Duration(args.TTLSeconds) * time.Second)
 
-	for _, sub := range subscriptions {
-		// Fetch webhook details
-		webhook, err := w.webhookRepo.GetWebhookByID(ctx, sub.WebhookID, args.Namespace)
-		if err != nil {
-			w.logger.Error("Failed to get webhook for subscription", "error", err, "webhook_id", sub.WebhookID)
-			continue
-		}
-
-		if !webhook.Active {
-			continue
-		}
+	for _, result := range subscriptions {
+		sub := result.Subscription
+		webhook := result.Webhook
 
 		deliveryID := uuid.New().String()
 
