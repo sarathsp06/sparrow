@@ -23,7 +23,12 @@ func MainGRPC() {
 	}
 	defer conn.Close() //nolint:errcheck
 
-	client := pb.NewWebhookServiceClient(conn)
+	webhookClient := pb.NewWebhookServiceClient(conn)
+	eventClient := pb.NewEventServiceClient(conn)
+	subscriptionClient := pb.NewSubscriptionServiceClient(conn)
+	deliveryClient := pb.NewDeliveryServiceClient(conn)
+	healthClient := pb.NewHealthServiceClient(conn)
+
 	ctx := context.Background()
 
 	// Example 0: Register events
@@ -77,11 +82,11 @@ func MainGRPC() {
 			Metadata:    event.metadata,
 			Active:      true,
 		}
-		regEventResp, err := client.RegisterEvent(ctx, regEventReq)
+		regEventResp, err := eventClient.RegisterEvent(ctx, regEventReq)
 		if err != nil {
 			log.Printf("Failed to register event %s: %v", event.name, err)
 		} else {
-			log.Printf("Event %s registered: %s (ID: %s)", event.name, regEventResp.Message, regEventResp.EventId)
+			log.Printf("Event %s registered: (ID: %s)", event.name, regEventResp.EventId)
 		}
 	}
 
@@ -100,21 +105,19 @@ func MainGRPC() {
 		Description: "Webhook for user-related events",
 	}
 
-	registerResp, err := client.RegisterWebhook(ctx, registerReq)
+	registerResp, err := webhookClient.RegisterWebhook(ctx, registerReq)
 	if err != nil {
 		log.Printf("Failed to register webhook: %v", err)
 	} else {
 		log.Printf("Webhook registered successfully:")
 		log.Printf("  Webhook ID: %s", registerResp.WebhookId)
-		log.Printf("  Success: %t", registerResp.Success)
-		log.Printf("  Message: %s", registerResp.Message)
 		log.Printf("  Created At: %s", registerResp.CreatedAt.AsTime())
 		log.Printf("  Note: Created 2 event subscriptions (signup, login)")
 	}
 
 	// Example 1b: Create a direct subscription with template transformation
 	log.Println("\n=== Example 1b: Create Subscription with Template Transformation ===")
-	if registerResp != nil && registerResp.Success {
+	if registerResp != nil {
 		// Create a subscription with Slack BlockKit template
 		slackTemplate := `{
   "blocks": [
@@ -152,30 +155,29 @@ func MainGRPC() {
 			},
 		}
 
-		createSubResp, err := client.CreateSubscription(ctx, createSubReq)
+		createSubResp, err := subscriptionClient.CreateSubscription(ctx, createSubReq)
 		if err != nil {
 			log.Printf("Failed to create subscription: %v", err)
 		} else {
 			log.Printf("Subscription created successfully:")
 			log.Printf("  Subscription ID: %s", createSubResp.SubscriptionId)
-			log.Printf("  Success: %t", createSubResp.Success)
-			log.Printf("  Message: %s", createSubResp.Message)
 			log.Printf("  Features: Template transformation to Slack BlockKit format")
 		}
 	}
 
 	// Example 1c: List subscriptions for a webhook
 	log.Println("\n=== Example 1c: List Subscriptions for Webhook ===")
-	if registerResp != nil && registerResp.Success {
+	if registerResp != nil {
 		listSubsReq := &pb.ListSubscriptionsRequest{
 			WebhookId: registerResp.WebhookId,
+			Namespace: "default",
 		}
 
-		listSubsResp, err := client.ListSubscriptions(ctx, listSubsReq)
+		listSubsResp, err := subscriptionClient.ListSubscriptions(ctx, listSubsReq)
 		if err != nil {
 			log.Printf("Failed to list subscriptions: %v", err)
 		} else {
-			log.Printf("Found %d subscriptions:", listSubsResp.TotalCount)
+			log.Printf("Found %d subscriptions:", listSubsResp.Pagination.TotalCount)
 			for i, sub := range listSubsResp.Subscriptions {
 				log.Printf("  Subscription %d:", i+1)
 				log.Printf("    ID: %s", sub.SubscriptionId)
@@ -215,13 +217,12 @@ func MainGRPC() {
 		},
 	}
 
-	registerResp2, err := client.RegisterWebhook(ctx, registerReq2)
+	registerResp2, err := webhookClient.RegisterWebhook(ctx, registerReq2)
 	if err != nil {
 		log.Printf("Failed to register order webhook: %v", err)
 	} else {
 		log.Printf("Order webhook registered successfully:")
 		log.Printf("  Webhook ID: %s", registerResp2.WebhookId)
-		log.Printf("  Success: %t", registerResp2.Success)
 		log.Printf("  Features: HMAC signing, custom retry logic, response capture")
 	}
 
@@ -232,11 +233,11 @@ func MainGRPC() {
 		ActiveOnly: true,
 	}
 
-	listResp, err := client.ListWebhooks(ctx, listReq)
+	listResp, err := webhookClient.ListWebhooks(ctx, listReq)
 	if err != nil {
 		log.Printf("Failed to list webhooks: %v", err)
 	} else {
-		log.Printf("Found %d webhooks in default namespace:", listResp.TotalCount)
+		log.Printf("Found %d webhooks in default namespace:", listResp.Pagination.TotalCount)
 		for i, webhook := range listResp.Webhooks {
 			log.Printf("  Webhook %d:", i+1)
 			log.Printf("    ID: %s", webhook.WebhookId)
@@ -276,14 +277,12 @@ func MainGRPC() {
 		},
 	}
 
-	pushResp, err := client.PushEvent(ctx, pushReq)
+	pushResp, err := eventClient.PushEvent(ctx, pushReq)
 	if err != nil {
 		log.Printf("Failed to push event: %v", err)
 	} else {
 		log.Printf("Event pushed successfully:")
 		log.Printf("  Event ID: %s", pushResp.EventId)
-		log.Printf("  Success: %t", pushResp.Success)
-		log.Printf("  Message: %s", pushResp.Message)
 		log.Printf("  Note: Webhook delivery uses subscription-specific config")
 	}
 
@@ -317,33 +316,31 @@ func MainGRPC() {
 		},
 	}
 
-	pushOrderResp, err := client.PushEvent(ctx, pushOrderReq)
+	pushOrderResp, err := eventClient.PushEvent(ctx, pushOrderReq)
 	if err != nil {
 		log.Printf("Failed to push order event: %v", err)
 	} else {
 		log.Printf("Order event pushed successfully:")
 		log.Printf("  Event ID: %s", pushOrderResp.EventId)
-		log.Printf("  Message: %s", pushOrderResp.Message)
 	}
 
 	// Wait for webhook processing
 	time.Sleep(5 * time.Second)
 
-	// Example 6: Check webhook delivery status
-	log.Println("\n=== Example 6: Check Webhook Delivery Status ===")
-	if registerResp != nil && registerResp.Success {
-		statusReq := &pb.GetWebhookStatusRequest{
+	// Example 6: Check webhook delivery history
+	log.Println("\n=== Example 6: Check Webhook Delivery History ===")
+	if registerResp != nil {
+		statusReq := &pb.ListDeliveriesRequest{
 			WebhookId: registerResp.WebhookId,
 			Namespace: "default",
 		}
 
-		statusResp, err := client.GetWebhookStatus(ctx, statusReq)
+		statusResp, err := deliveryClient.ListDeliveries(ctx, statusReq)
 		if err != nil {
-			log.Printf("Failed to get webhook status: %v", err)
+			log.Printf("Failed to get deliveries: %v", err)
 		} else {
-			log.Printf("Webhook delivery status:")
-			log.Printf("  Total Deliveries: %d", statusResp.TotalDeliveries)
-			log.Printf("  Success: %t", statusResp.Success)
+			log.Printf("Webhook deliveries:")
+			log.Printf("  Total Deliveries: %d", statusResp.Pagination.TotalCount)
 			for i, delivery := range statusResp.Deliveries {
 				log.Printf("  Delivery %d:", i+1)
 				log.Printf("    ID: %s", delivery.DeliveryId)
@@ -359,20 +356,19 @@ func MainGRPC() {
 
 	// Example 7: Get Webhook Health Metrics
 	log.Println("\n=== Example 7: Get Webhook Health Metrics ===")
-	if registerResp != nil && registerResp.Success {
+	if registerResp != nil {
 		healthReq := &pb.GetWebhookHealthRequest{
 			WebhookId: registerResp.WebhookId,
 			Namespace: "default",
 		}
 
-		healthResp, err := client.GetWebhookHealth(ctx, healthReq)
+		healthResp, err := healthClient.GetWebhookHealth(ctx, healthReq)
 		if err != nil {
 			log.Printf("Failed to get webhook health: %v", err)
 		} else {
 			log.Printf("Webhook health status:")
 			log.Printf("  Webhook ID: %s", healthResp.WebhookId)
 			log.Printf("  Health: %s", healthResp.Health)
-			log.Printf("  Success: %t", healthResp.Success)
 			if healthResp.Metrics != nil {
 				log.Printf("  Health Metrics:")
 				log.Printf("    Total Deliveries: %d", healthResp.Metrics.TotalDeliveries)
@@ -387,7 +383,7 @@ func MainGRPC() {
 
 	// Example 8: Update webhook configuration (updates subscriptions)
 	log.Println("\n=== Example 8: Update Webhook Configuration ===")
-	if registerResp != nil && registerResp.Success {
+	if registerResp != nil {
 		updateReq := &pb.UpdateWebhookConfigRequest{
 			WebhookId: registerResp.WebhookId,
 			Namespace: "default",
@@ -399,13 +395,11 @@ func MainGRPC() {
 			},
 		}
 
-		updateResp, err := client.UpdateWebhookConfig(ctx, updateReq)
+		_, err := webhookClient.UpdateWebhookConfig(ctx, updateReq)
 		if err != nil {
 			log.Printf("Failed to update webhook: %v", err)
 		} else {
 			log.Printf("Webhook updated successfully:")
-			log.Printf("  Success: %t", updateResp.Success)
-			log.Printf("  Message: %s", updateResp.Message)
 			log.Printf("  Note: Old subscriptions deleted, new ones created")
 		}
 	}
@@ -414,12 +408,11 @@ func MainGRPC() {
 	log.Println("\n=== Example 9: Get Health Summary ===")
 	healthSummaryReq := &pb.GetHealthSummaryRequest{}
 
-	healthSummaryResp, err := client.GetHealthSummary(ctx, healthSummaryReq)
+	healthSummaryResp, err := healthClient.GetHealthSummary(ctx, healthSummaryReq)
 	if err != nil {
 		log.Printf("Failed to get health summary: %v", err)
 	} else {
 		log.Printf("Webhook health summary:")
-		log.Printf("  Success: %t", healthSummaryResp.Success)
 		if healthSummaryResp.Summary != nil {
 			log.Printf("  Total Webhooks: %d", healthSummaryResp.Summary.TotalCount)
 			log.Printf("  Healthy: %d", healthSummaryResp.Summary.HealthyCount)
@@ -431,18 +424,17 @@ func MainGRPC() {
 
 	// Example 10: Unregister a webhook (deletes subscriptions)
 	log.Println("\n=== Example 10: Unregister Webhook ===")
-	if registerResp2 != nil && registerResp2.Success {
+	if registerResp2 != nil {
 		unregisterReq := &pb.UnregisterWebhookRequest{
 			WebhookId: registerResp2.WebhookId,
+			Namespace: "default",
 		}
 
-		unregisterResp, err := client.UnregisterWebhook(ctx, unregisterReq)
+		_, err := webhookClient.UnregisterWebhook(ctx, unregisterReq)
 		if err != nil {
 			log.Printf("Failed to unregister webhook: %v", err)
 		} else {
 			log.Printf("Webhook unregistered successfully:")
-			log.Printf("  Success: %t", unregisterResp.Success)
-			log.Printf("  Message: %s", unregisterResp.Message)
 			log.Printf("  Note: Associated subscriptions also deleted")
 		}
 	}
@@ -450,13 +442,11 @@ func MainGRPC() {
 	// Example 11: Get Template Functions
 	log.Println("\n=== Example 11: Get Template Functions ===")
 	templateFuncsReq := &pb.GetTemplateFunctionsRequest{}
-	templateFuncsResp, err := client.GetTemplateFunctions(ctx, templateFuncsReq)
+	templateFuncsResp, err := webhookClient.GetTemplateFunctions(ctx, templateFuncsReq)
 	if err != nil {
 		log.Printf("Failed to get template functions: %v", err)
 	} else {
 		log.Printf("Template functions retrieved successfully:")
-		log.Printf("  Success: %t", templateFuncsResp.Success)
-		log.Printf("  Message: %s", templateFuncsResp.Message)
 		log.Printf("  Total Functions: %d", templateFuncsResp.TotalCount)
 		log.Println("  Available Functions:")
 		for i, fn := range templateFuncsResp.Functions {

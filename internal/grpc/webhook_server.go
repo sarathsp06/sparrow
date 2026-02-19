@@ -3,20 +3,25 @@ package grpc
 import (
 	"context"
 
-	"github.com/google/uuid"
-
 	"github.com/sarathsp06/sparrow/internal/webhooks"
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
-// WebhookServer implements the WebhookService gRPC interface
+// WebhookServer implements all gRPC services
 type WebhookServer struct {
 	pb.UnimplementedWebhookServiceServer
+	pb.UnimplementedEventServiceServer
+	pb.UnimplementedSubscriptionServiceServer
+	pb.UnimplementedDeliveryServiceServer
+	pb.UnimplementedHealthServiceServer
 	service webhooks.WebhookServiceInterface
 }
 
 var _ pb.WebhookServiceServer = (*WebhookServer)(nil)
+var _ pb.EventServiceServer = (*WebhookServer)(nil)
+var _ pb.SubscriptionServiceServer = (*WebhookServer)(nil)
+var _ pb.DeliveryServiceServer = (*WebhookServer)(nil)
+var _ pb.HealthServiceServer = (*WebhookServer)(nil)
 
 // NewWebhookServer creates a new WebhookServer instance
 func NewWebhookServer(service webhooks.WebhookServiceInterface) *WebhookServer {
@@ -27,16 +32,8 @@ func NewWebhookServer(service webhooks.WebhookServiceInterface) *WebhookServer {
 
 // Helper function to get events for a webhook from subscriptions
 // Used by webhook handlers in other files
-func (s *WebhookServer) getWebhookEvents(ctx context.Context, webhookID string) []string {
-	// Access repository through service interface
-	serviceWithRepo, ok := s.service.(interface {
-		GetWebhookRepo() store.RepositoryInterface
-	})
-	if !ok {
-		return []string{}
-	}
-
-	subs, err := serviceWithRepo.GetWebhookRepo().ListSubscriptions(ctx, uuid.MustParse(webhookID))
+func (s *WebhookServer) getWebhookEvents(ctx context.Context, webhookID string, namespace string) []string {
+	subs, _, err := s.service.ListSubscriptions(ctx, namespace, webhookID, "", 1000, 0)
 	if err != nil {
 		return []string{}
 	}

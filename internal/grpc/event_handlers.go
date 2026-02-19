@@ -18,8 +18,6 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 	}
 	return &pb.PushEventResponse{
 		EventId: eventID,
-		Success: true,
-		Message: "Event pushed successfully",
 	}, nil
 }
 
@@ -37,15 +35,19 @@ func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEvent
 	}
 	return &pb.RegisterEventResponse{
 		EventId:   eventID,
-		Success:   true,
-		Message:   "Event registered successfully",
 		CreatedAt: timestamppb.New(createdAt),
 	}, nil
 }
 
 // ListEvents lists all registered events
 func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
-	events, err := s.service.ListEvents(ctx, req.ActiveOnly)
+	var limit, offset int32
+	if req.Pagination != nil {
+		limit = req.Pagination.Limit
+		offset = req.Pagination.Offset
+	}
+
+	events, totalCount, err := s.service.ListEvents(ctx, req.ActiveOnly, limit, offset)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list events: %v", err)
 	}
@@ -84,9 +86,12 @@ func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsReques
 	}
 
 	return &pb.ListEventsResponse{
-		Events:     pbEvents,
-		TotalCount: int32(len(pbEvents)),
-		Success:    true,
+		Events: pbEvents,
+		Pagination: &pb.PaginationResponse{
+			TotalCount: totalCount,
+			Limit:      limit,
+			Offset:     offset,
+		},
 	}, nil
 }
 
@@ -102,10 +107,7 @@ func (s *WebhookServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequ
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to update event: %v", err)
 	}
-	return &pb.UpdateEventResponse{
-		Success: true,
-		Message: "Event updated successfully",
-	}, nil
+	return &pb.UpdateEventResponse{}, nil
 }
 
 // DeleteEvent deletes an event registration
@@ -114,10 +116,7 @@ func (s *WebhookServer) DeleteEvent(ctx context.Context, req *pb.DeleteEventRequ
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to delete event: %v", err)
 	}
-	return &pb.DeleteEventResponse{
-		Success: true,
-		Message: "Event deleted successfully",
-	}, nil
+	return &pb.DeleteEventResponse{}, nil
 }
 
 // ListEventReports lists all events in descending order for a given namespace
@@ -128,14 +127,21 @@ func (s *WebhookServer) ListEventReports(ctx context.Context, req *pb.ListEventR
 	}
 
 	// Set default values
-	limit := req.Limit
+	var limit, offset int32
+	if req.Pagination != nil {
+		limit = req.Pagination.Limit
+		offset = req.Pagination.Offset
+	} else {
+		limit = req.Limit
+		offset = req.Offset
+	}
+
 	if limit <= 0 {
 		limit = 50
 	} else if limit > 1000 {
 		limit = 1000
 	}
 
-	offset := req.Offset
 	if offset < 0 {
 		offset = 0
 	}
@@ -185,9 +191,11 @@ func (s *WebhookServer) ListEventReports(ctx context.Context, req *pb.ListEventR
 	}
 
 	return &pb.ListEventReportsResponse{
-		Events:     pbEvents,
-		TotalCount: totalCount,
-		Success:    true,
-		Message:    "Event reports retrieved successfully",
+		Events: pbEvents,
+		Pagination: &pb.PaginationResponse{
+			TotalCount: totalCount,
+			Limit:      limit,
+			Offset:     offset,
+		},
 	}, nil
 }

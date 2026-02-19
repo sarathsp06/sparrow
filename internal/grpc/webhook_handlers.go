@@ -8,7 +8,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks"
-	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
@@ -26,8 +25,6 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 		}
 		return &pb.RegisterWebhookResponse{
 			WebhookId: webhook.ID,
-			Success:   true,
-			Message:   "Webhook registered successfully",
 			CreatedAt: convertTimeToProto(webhook.CreatedAt),
 		}, nil
 	}
@@ -47,27 +44,28 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 	}
 	return &pb.RegisterWebhookResponse{
 		WebhookId: webhookID,
-		Success:   true,
-		Message:   "Webhook registered successfully",
 		CreatedAt: timestamppb.New(createdAt),
 	}, nil
 }
 
 // UnregisterWebhook removes a webhook registration
 func (s *WebhookServer) UnregisterWebhook(ctx context.Context, req *pb.UnregisterWebhookRequest) (*pb.UnregisterWebhookResponse, error) {
-	err := s.service.UnregisterWebhook(ctx, req.WebhookId)
+	err := s.service.UnregisterWebhook(ctx, req.WebhookId, req.Namespace)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to unregister webhook: %v", err)
 	}
-	return &pb.UnregisterWebhookResponse{
-		Success: true,
-		Message: "Webhook unregistered successfully",
-	}, nil
+	return &pb.UnregisterWebhookResponse{}, nil
 }
 
 // ListWebhooks lists all registered webhooks for a namespace
 func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRequest) (*pb.ListWebhooksResponse, error) {
-	regs, err := s.service.ListWebhooks(ctx, req.Namespace, req.Event, req.ActiveOnly)
+	var limit, offset int32
+	if req.Pagination != nil {
+		limit = req.Pagination.Limit
+		offset = req.Pagination.Offset
+	}
+
+	regs, totalCount, err := s.service.ListWebhooks(ctx, req.Namespace, req.WebhookId, req.Event, req.ActiveOnly, limit, offset)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list webhooks: %v", err)
 	}
@@ -76,7 +74,7 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 		pbWebhooks[i] = &pb.RegisteredWebhook{
 			WebhookId:   reg.ID.String(),
 			Namespace:   reg.Namespace,
-			Events:      s.getWebhookEvents(ctx, reg.ID.String()),
+			Events:      s.getWebhookEvents(ctx, reg.ID.String(), reg.Namespace),
 			Url:         reg.URL,
 			Headers:     reg.Headers,
 			Timeout:     int32(reg.Timeout),
@@ -100,72 +98,12 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 		}
 	}
 	return &pb.ListWebhooksResponse{
-		Webhooks:   pbWebhooks,
-		TotalCount: int32(len(pbWebhooks)),
-		Success:    true,
-		Message:    "Webhooks listed successfully",
-	}, nil
-}
-
-// GetRegisteredWebhooks retrieves registered webhooks by ID or namespace
-func (s *WebhookServer) GetRegisteredWebhooks(ctx context.Context, req *pb.GetRegisteredWebhooksRequest) (*pb.GetRegisteredWebhooksResponse, error) {
-	regs, err := s.service.GetRegisteredWebhooks(ctx, req.Namespace, req.WebhookId, req.ActiveOnly)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get registered webhooks: %v", err)
-	}
-	var webhooks []*pb.RegisteredWebhook
-	for _, webhook := range regs {
-		webhooks = append(webhooks, &pb.RegisteredWebhook{
-			WebhookId:   webhook.ID.String(),
-			Namespace:   webhook.Namespace,
-			Events:      s.getWebhookEvents(ctx, webhook.ID.String()),
-			Url:         webhook.URL,
-			Headers:     webhook.Headers,
-			Timeout:     int32(webhook.Timeout),
-			Active:      webhook.Active,
-			Description: webhook.Description,
-			Health:      convertWebhookHealth(webhook.Health),
-			CreatedAt:   convertTimeToProto(webhook.CreatedAt),
-			UpdatedAt:   convertTimeToProto(webhook.UpdatedAt),
-		})
-	}
-	return &pb.GetRegisteredWebhooksResponse{
-		Webhooks:   webhooks,
-		TotalCount: int32(len(webhooks)),
-		Success:    true,
-		Message:    "Webhooks retrieved successfully",
-	}, nil
-}
-
-// ListRegisteredWebhooksByEvent retrieves webhooks registered for specific events
-func (s *WebhookServer) ListRegisteredWebhooksByEvent(ctx context.Context, req *pb.ListRegisteredWebhooksByEventRequest) (*pb.ListRegisteredWebhooksByEventResponse, error) {
-	regs, err := s.service.ListRegisteredWebhooksByEvent(ctx, req.Namespace, req.Event, req.ActiveOnly)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to list webhooks by event: %v", err)
-	}
-	var webhooks []*pb.RegisteredWebhook
-	for _, webhook := range regs {
-		webhooks = append(webhooks, &pb.RegisteredWebhook{
-			WebhookId:   webhook.ID.String(),
-			Namespace:   webhook.Namespace,
-			Events:      s.getWebhookEvents(ctx, webhook.ID.String()),
-			Url:         webhook.URL,
-			Headers:     webhook.Headers,
-			Timeout:     int32(webhook.Timeout),
-			Active:      webhook.Active,
-			Description: webhook.Description,
-			Health:      convertWebhookHealth(webhook.Health),
-			CreatedAt:   convertTimeToProto(webhook.CreatedAt),
-			UpdatedAt:   convertTimeToProto(webhook.UpdatedAt),
-		})
-	}
-	return &pb.ListRegisteredWebhooksByEventResponse{
-		Webhooks:   webhooks,
-		Event:      req.Event,
-		Namespace:  req.Namespace,
-		TotalCount: int32(len(webhooks)),
-		Success:    true,
-		Message:    "Webhooks by event retrieved successfully",
+		Webhooks: pbWebhooks,
+		Pagination: &pb.PaginationResponse{
+			TotalCount: totalCount,
+			Limit:      limit,
+			Offset:     offset,
+		},
 	}, nil
 }
 
@@ -189,10 +127,7 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to update webhook config: %v", err)
 	}
-	return &pb.UpdateWebhookConfigResponse{
-		Success: true,
-		Message: "Webhook config updated successfully",
-	}, nil
+	return &pb.UpdateWebhookConfigResponse{}, nil
 }
 
 // PauseWebhook temporarily disables a webhook
@@ -201,10 +136,7 @@ func (s *WebhookServer) PauseWebhook(ctx context.Context, req *pb.PauseWebhookRe
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to pause webhook: %v", err)
 	}
-	return &pb.PauseWebhookResponse{
-		Success: true,
-		Message: "Webhook paused successfully",
-	}, nil
+	return &pb.PauseWebhookResponse{}, nil
 }
 
 // ResumeWebhook re-enables a paused webhook
@@ -213,15 +145,12 @@ func (s *WebhookServer) ResumeWebhook(ctx context.Context, req *pb.ResumeWebhook
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to resume webhook: %v", err)
 	}
-	return &pb.ResumeWebhookResponse{
-		Success: true,
-		Message: "Webhook resumed successfully",
-	}, nil
+	return &pb.ResumeWebhookResponse{}, nil
 }
 
 // GetTemplateFunctions returns all available template functions with their descriptions
 func (s *WebhookServer) GetTemplateFunctions(ctx context.Context, req *pb.GetTemplateFunctionsRequest) (*pb.GetTemplateFunctionsResponse, error) {
-	templateFunctions := client.GetTemplateFunctions()
+	templateFunctions := s.service.GetTemplateFunctions()
 
 	var pbFunctions []*pb.TemplateFunction
 	for _, tf := range templateFunctions {
@@ -234,7 +163,5 @@ func (s *WebhookServer) GetTemplateFunctions(ctx context.Context, req *pb.GetTem
 	return &pb.GetTemplateFunctionsResponse{
 		Functions:  pbFunctions,
 		TotalCount: int32(len(pbFunctions)),
-		Success:    true,
-		Message:    "Template functions retrieved successfully",
 	}, nil
 }

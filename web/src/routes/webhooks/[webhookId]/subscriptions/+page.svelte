@@ -1,7 +1,10 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { client } from "$lib/services";
+  import {
+    subscriptionClient as client,
+    webhookClient
+  } from "$lib/services";
   import { onMount } from "svelte";
   import { type EventSubscription, type TemplateFunction } from "../../../../../../proto/webhook_pb";
 
@@ -74,21 +77,25 @@
   }
 
   async function fetchWebhook() {
-    // Since getWebhook is not available, we'll just use the webhookId
-    // and display basic info. Alternatively, we could call a different API
-    webhook = { 
-      webhookId: webhookId,
-      url: `Webhook ${webhookId}`, // Placeholder until we have proper API
-      active: true,
-      events: []
-    };
+    try {
+      const res = await webhookClient.listWebhooks({
+        namespace: "default",
+        webhookId
+      });
+      webhook = res.webhooks?.[0];
+    } catch (e: any) {
+      console.error('Failed to fetch webhook:', e);
+    }
   }
 
   async function fetchSubscriptions() {
     if (!webhookId) return;
     try {
       loading = true;
-      const response = await client.listSubscriptions({ webhookId });
+      const response = await client.listSubscriptions({
+        webhookId,
+        namespace: "default"
+      });
       subscriptions = response.subscriptions
       console.log(subscriptions);
     } catch (e: any) {
@@ -133,6 +140,7 @@
     try {
       await client.updateSubscription({
         subscriptionId: editSubscription.subscriptionId,
+        namespace: editSubscription.namespace,
         headers: editSubscription.headers,
         method: editSubscription.method,
         timeout: editSubscription.timeout,
@@ -152,7 +160,10 @@
     if (!confirm("Are you sure you want to delete this subscription?")) return;
 
     try {
-      await client.deleteSubscription({ subscriptionId });
+      await client.deleteSubscription({
+        subscriptionId,
+        namespace: "default"
+      });
       await fetchSubscriptions();
     } catch (e: any) {
       error = `Failed to delete subscription: ${e.message}`;
@@ -190,7 +201,7 @@
     
     try {
       loadingTemplateFunctions = true;
-      const response = await client.getTemplateFunctions({});
+      const response = await webhookClient.getTemplateFunctions({});
       templateFunctions = response.functions;
       showTemplateDocs = true;
     } catch (e: any) {
@@ -374,7 +385,7 @@
                       </div>
                       <div>
                         <span class="font-medium text-gray-700">ID:</span>
-                        <code class="ml-1 text-xs bg-gray-100 px-1 py-0.5 rounded">--</code>
+                        <code class="ml-1 text-xs bg-gray-100 px-1 py-0.5 rounded">{subscription.subscriptionId.substring(0, 8)}...</code>
                       </div>
                     </div>
                     
@@ -644,6 +655,7 @@
               bind:value={editSubscription.eventName}
               placeholder="e.g., user.created, order.completed"
               class="w-full border border-gray-300 rounded-md px-3 py-2"
+              disabled
             />
           </div>
 
@@ -656,6 +668,7 @@
               bind:value={editSubscription.namespace}
               placeholder="default"
               class="w-full border border-gray-300 rounded-md px-3 py-2"
+              disabled
             />
           </div>
 

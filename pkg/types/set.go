@@ -1,8 +1,6 @@
 package types
 
-import "cmp"
-
-type Set[T cmp.Ordered] map[T]bool
+type Set[T comparable] map[T]bool
 
 // Slice returns slice of strings
 func (ss Set[T]) Slice() []T {

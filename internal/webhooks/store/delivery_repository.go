@@ -10,9 +10,6 @@ import (
 )
 
 // CreateDelivery creates a new webhook delivery record for tracking delivery attempts.
-// Records initial delivery state including webhook_id, event_id, retry configuration,
-// and expiration time for delivery attempts. Used by the job queue system to track
-// webhook delivery lifecycle from creation through completion or failure.
 func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelivery) error {
 	query := `
 		INSERT INTO webhook_deliveries (id, webhook_id, event_id, subscription_id, status, attempt_count, max_attempts, expires_at, response_code, response_body, error_message, request_body)
@@ -37,9 +34,6 @@ func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelive
 }
 
 // UpdateDeliveryStatus records the outcome of a webhook delivery attempt.
-// Updates status (pending/success/failed/expired), captures HTTP response details,
-// and increments attempt_count for failed/success/expired statuses.
-// Sets last_attempted_at timestamp and preserves complete response for audit trail.
 func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage string) error {
 	now := time.Now()
 	attemptIncrement := 0
@@ -129,8 +123,6 @@ func (r *Repository) GetDeliveryByID(ctx context.Context, deliveryID uuid.UUID, 
 }
 
 // GetDeliveriesByWebhookID retrieves webhook delivery records for a specific webhook
-// Supports pagination via limit and offset parameters. Returns a total count
-// for UI pagination and the paginated results.
 func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, webhookID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error) {
 	// First get total count
 	countQuery := `
@@ -167,10 +159,81 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, webhookID uui
 	return deliveries, totalCount, nil
 }
 
+// GetDeliveriesByEventPaginated retrieves webhook delivery records for a specific event
+func (r *Repository) GetDeliveriesByEventPaginated(ctx context.Context, eventID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error) {
+	// First get total count
+	countQuery := `
+		SELECT COUNT(*)
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE wd.event_id = $1 AND wr.namespace = $2
+	`
+
+	var totalCount int
+	err := r.db.GetContext(ctx, &totalCount, countQuery, eventID, namespace)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	// Then get paginated results
+	query := `
+		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
+		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
+		       wd.response_code, wd.response_body, wd.error_message, wd.request_body
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE wd.event_id = $1 AND wr.namespace = $2
+		ORDER BY wd.created_at DESC
+		LIMIT $3 OFFSET $4
+	`
+
+	var deliveries []*WebhookDelivery
+	err = r.db.SelectContext(ctx, &deliveries, query, eventID, namespace, limit, offset)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	return deliveries, totalCount, nil
+}
+
+// ListDeliveriesPaginated retrieves webhook delivery records for a namespace
+func (r *Repository) ListDeliveriesPaginated(ctx context.Context, namespace string, limit, offset int) ([]*WebhookDelivery, int, error) {
+	// First get total count
+	countQuery := `
+		SELECT COUNT(*)
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE wr.namespace = $1
+	`
+
+	var totalCount int
+	err := r.db.GetContext(ctx, &totalCount, countQuery, namespace)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	// Then get paginated results
+	query := `
+		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
+		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
+		       wd.response_code, wd.response_body, wd.error_message, wd.request_body
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE wr.namespace = $1
+		ORDER BY wd.created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	var deliveries []*WebhookDelivery
+	err = r.db.SelectContext(ctx, &deliveries, query, namespace, limit, offset)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	return deliveries, totalCount, nil
+}
+
 // GetRetriableDeliveries finds webhook deliveries eligible for retry attempts.
-// When force=false, only returns deliveries with status 'failed', 'pending', or 'retrying'.
-// When force=true, returns all deliveries regardless of status for administrative retry operations.
-// Results are namespace-isolated and ordered by creation time for consistent processing.
 func (r *Repository) GetRetriableDeliveries(ctx context.Context, webhookID uuid.UUID, namespace string, force bool) ([]*WebhookDelivery, error) {
 	query := `
 		SELECT wd.id, wd.webhook_id, wd.event_id, wd.status, wd.attempt_count, wd.max_attempts, 

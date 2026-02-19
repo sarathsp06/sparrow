@@ -1,7 +1,7 @@
 <script lang="ts">
 
   import { goto } from '$app/navigation';
-  import { client, JSONSchemaMetaSchema } from '$lib';
+  import { eventClient as client, JSONSchemaMetaSchema } from '$lib';
   import {
     createAjvValidator,
     JSONEditor,
@@ -33,16 +33,19 @@
         schemaString = JSON.stringify(schema.json);
       }
 
+      // Convert schema string back to Struct (it will be handled by the client if it's correct)
+      const schemaObj = JSON.parse(schemaString);
+
       const req = {
         name,
         description,
-        schema: schemaString,
+        schema: schemaObj,
         active,
       };
       await client.registerEvent(req);
       goto('/events');
-    } catch (e) {
-      error = 'Failed to register event';
+    } catch (e: any) {
+      error = 'Failed to register event: ' + e.message;
     }
   }
 </script>

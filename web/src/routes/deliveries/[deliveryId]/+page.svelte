@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { client } from "$lib";
+  import { deliveryClient as client } from "$lib";
 
   import { onMount } from 'svelte';
   import type { WebhookDelivery } from "../../../../../proto/webhook_pb.js";
@@ -15,11 +15,7 @@
   onMount(async () => {
     const deliveryId = page.params.deliveryId;
     try {
-      const req = {
-          deliveryId,
-          namespace: 'default',
-      };
-      const res = await client.getWebhookDeliveryStatus({
+      const res = await client.getDeliveryStatus({
         deliveryId: deliveryId, namespace: 'default',
       })
       delivery = res.delivery;

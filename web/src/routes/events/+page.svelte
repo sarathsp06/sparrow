@@ -1,6 +1,6 @@
 <script lang="ts">
 	import favicon from '$lib/assets/favicon.svg';
-	import { client } from '$lib/services';
+	import { eventClient as client } from '$lib/services';
 	import { onMount } from 'svelte';
 	import { JSONEditor, Mode, type Content } from 'svelte-jsoneditor';
 	
@@ -12,14 +12,19 @@
 	let content: Content = $state({json: {} });
 	let isModalOpen = $state(false);
 
+	// Pagination state
+	let limit = $state(50);
+	let offset = $state(0);
+	let totalCount = $state(0);
 
 	async function fetchEvents() {
 		loading = true;
 		error = '';
 		try {
-			const req = { activeOnly: false };
+			const req = { activeOnly: false, pagination: { limit, offset } };
 			const res = await client.listEvents(req);
 			events = res.events || [];
+			totalCount = res.pagination?.totalCount || 0;
 		} catch (e: any) {
 			error = `Failed to load events: ${e.message}`;
 		} finally {
@@ -57,11 +62,25 @@
 		isModalOpen = false;
 		content = { json: {} };
 	}
+
+	function nextPage() {
+		if (offset + limit < totalCount) {
+			offset += limit;
+			fetchEvents();
+		}
+	}
+
+	function prevPage() {
+		if (offset >= limit) {
+			offset -= limit;
+			fetchEvents();
+		}
+	}
 </script>
 
 <div class="min-h-screen bg-gray-50 font-display">
 	
-	<main class="p-6">
+	<main class="p-6 mb-20">
 		{#if loading}
 			<div class="flex justify-center items-center h-40">
 				<span class="material-symbols-outlined animate-spin text-4xl text-primary">
@@ -121,14 +140,14 @@
 											e.stopPropagation();
 											viewSchema(event.schema);
 										}}
-										class="text-gray-600 font-semibold px-4 py-2 rounded-lg hover:bg-red-500/10 transition"
+										class="text-gray-600 font-semibold px-4 py-2 rounded-lg hover:bg-gray-100 transition"
 										>View Schema</button
 									>
 								{/if}
 								<a
 									href={`/events/${event.eventId}/update`}
 									onclick={(e) => e.stopPropagation()}
-									class="text-primary font-semibold px-4 py-2 rounded-lg hover:bg-red-500/10 transition"
+									class="text-primary font-semibold px-4 py-2 rounded-lg hover:bg-primary/10 transition"
 									>Update</a
 								>
 								<button
@@ -144,10 +163,33 @@
 					</div>
 				{/each}
 			</div>
+
+			<!-- Pagination controls -->
+			<div class="mt-8 flex items-center justify-between bg-white p-4 rounded-lg border shadow-sm">
+				<div class="text-sm text-gray-500">
+					Showing {offset + 1} to {Math.min(offset + limit, totalCount)} of {totalCount} events
+				</div>
+				<div class="flex gap-2">
+					<button
+						class="px-4 py-2 border rounded-md text-sm disabled:opacity-50 hover:bg-gray-50"
+						onclick={prevPage}
+						disabled={offset === 0}
+					>
+						Previous
+					</button>
+					<button
+						class="px-4 py-2 border rounded-md text-sm disabled:opacity-50 hover:bg-gray-50"
+						onclick={nextPage}
+						disabled={offset + limit >= totalCount}
+					>
+						Next
+					</button>
+				</div>
+			</div>
 		{/if}
 	</main>
 
-	<footer class="fixed bottom-0  w-full bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-sm p-4 gap-4 flex justify-end">
+	<footer class="fixed bottom-0  w-full bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-sm p-4 gap-4 flex justify-end z-40">
 			<a
 				href="/events/push"
 				class="button"
@@ -177,3 +219,9 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.button {
+		@apply bg-primary text-white font-bold py-2 px-6 rounded-lg transition-all hover:bg-primary/90 shadow-md active:scale-95;
+	}
+</style>

@@ -7,16 +7,11 @@
     type Validator
   } from "svelte-jsoneditor";
 
-
-
-
-  import { client } from "$lib/services";
-  import { create } from "@bufbuild/protobuf";
+  import { eventClient as client } from "$lib/services";
   import { onMount } from "svelte";
   import type {
     RegisteredEvent
   } from "../../../../../proto/webhook_pb.js";
-  import { PushEventRequestSchema } from "../../../../../proto/webhook_pb.js";
 
   let namespace = $state("default");
   let event = $state("");
@@ -72,11 +67,11 @@
         payloadObj = payload.json;
       }
 
-      const req = create(PushEventRequestSchema, {
+      const req = {
         namespace,
         event,
         payload: payloadObj,
-      });
+      };
       const res = await client.pushEvent(req);
       successMessage = `Event pushed successfully! Event ID: ${res.eventId}`;
     } catch (e: any) {

@@ -6,10 +6,9 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"golang.org/x/exp/constraints"
 )
 
-type Map[K constraints.Ordered, V any] map[K]V
+type Map[K comparable, V any] map[K]V
 
 // Values returns values from the map
 func (m Map[_, V]) Values() []V {

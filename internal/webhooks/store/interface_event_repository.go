@@ -48,18 +48,32 @@ func (r *Repository) GetEventByName(ctx context.Context, eventName string) (*Eve
 
 // ListEvents returns all registered events
 func (r *Repository) ListEvents(ctx context.Context, activeOnly bool) ([]*EventRegistration, error) {
+	events, _, err := r.ListEventsPaginated(ctx, activeOnly, 1000, 0)
+	return events, err
+}
+
+// ListEventsPaginated returns registered events with pagination
+func (r *Repository) ListEventsPaginated(ctx context.Context, activeOnly bool, limit, offset int) ([]*EventRegistration, int, error) {
+	countQuery := `SELECT COUNT(*) FROM event_registrations WHERE ($1 IS FALSE OR active = true)`
+	var totalCount int
+	err := r.db.GetContext(ctx, &totalCount, countQuery, activeOnly)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
 	query := `
 		SELECT id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
 		FROM event_registrations
 		WHERE ($1 IS FALSE OR active = true)
 		ORDER BY name ASC
+		LIMIT $2 OFFSET $3
 	`
 	var events []*EventRegistration
-	err := r.db.SelectContext(ctx, &events, query, activeOnly)
+	err = r.db.SelectContext(ctx, &events, query, activeOnly, limit, offset)
 	if err != nil {
-		return nil, storage.Error(err)
+		return nil, 0, storage.Error(err)
 	}
-	return events, nil
+	return events, totalCount, nil
 }
 
 // UpdateEvent updates an event registration

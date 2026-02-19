@@ -13,10 +13,6 @@ import (
 )
 
 // RegisterWebhook creates a new webhook registration with duplicate prevention.
-// Checks for existing webhook with same namespace+URL combination to prevent duplicates.
-// Generates a new UUID v4 for the webhook ID and initializes health status as "unknown".
-// Sets created_at and updated_at timestamps automatically.
-// Returns nil if webhook already exists (idempotent operation) or on successful creation.
 func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookRegistration) error {
 	// Check for existing webhook with same namespace and url
 	checkQuery := `SELECT id FROM webhook_registrations WHERE namespace = $1 AND url = $2 LIMIT 1`
@@ -80,8 +76,6 @@ func (r *Repository) RegisterWebhook(ctx context.Context, registration *WebhookR
 }
 
 // UnregisterWebhook permanently deletes a webhook registration and all associated data.
-// This is a hard delete that removes the webhook from the database entirely.
-// Related delivery records and health events may be retained based on retention policies.
 func (r *Repository) UnregisterWebhook(ctx context.Context, webhookID uuid.UUID) error {
 	query := `DELETE FROM webhook_registrations WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, webhookID)
@@ -89,31 +83,47 @@ func (r *Repository) UnregisterWebhook(ctx context.Context, webhookID uuid.UUID)
 }
 
 // ListWebhooks retrieves webhooks for a namespace with optional active status filtering and event filtering.
-// When activeOnly=true, returns only webhooks with active=true (excludes paused webhooks).
-// When activeOnly=false, returns all webhooks regardless of active status for management purposes.
-// When event is not empty, returns only webhooks subscribed to that event.
-// Results are ordered by created_at DESC to show newest webhooks first.
 func (r *Repository) ListWebhooks(ctx context.Context, namespace string, event string, activeOnly bool) ([]*WebhookRegistration, error) {
-	query := `
+	webhooks, _, err := r.ListWebhooksPaginated(ctx, namespace, event, activeOnly, 1000, 0)
+	return webhooks, err
+}
+
+// ListWebhooksPaginated retrieves webhooks for a namespace with pagination.
+func (r *Repository) ListWebhooksPaginated(ctx context.Context, namespace string, event string, activeOnly bool, limit, offset int) ([]*WebhookRegistration, int, error) {
+	whereClause := `wr.namespace = $1 AND ($2 IS FALSE OR wr.active = true) AND ($3 = '' OR es.event_name = $3)`
+
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(DISTINCT wr.id)
+		FROM webhook_registrations wr
+		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
+		WHERE %s
+	`, whereClause)
+
+	var totalCount int
+	err := r.db.GetContext(ctx, &totalCount, countQuery, namespace, activeOnly, event)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	query := fmt.Sprintf(`
 		SELECT DISTINCT wr.id, wr.namespace, wr.url, wr.headers, wr.timeout, wr.active, wr.description, wr.health,
 		       wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
 		       wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
 		       wr.user_agent, wr.content_type, wr.created_at, wr.updated_at
 		FROM webhook_registrations wr
 		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
-		WHERE wr.namespace = $1
-		  AND ($2 IS FALSE OR wr.active = true)
-		  AND ($3 = '' OR es.event_name = $3)
+		WHERE %s
 		ORDER BY wr.created_at DESC
-	`
+		LIMIT $4 OFFSET $5
+	`, whereClause)
 
 	var webhooks []*WebhookRegistration
-	err := r.db.SelectContext(ctx, &webhooks, query, namespace, activeOnly, event)
+	err = r.db.SelectContext(ctx, &webhooks, query, namespace, activeOnly, event, limit, offset)
 	if err != nil {
-		return nil, storage.Error(err)
+		return nil, 0, storage.Error(err)
 	}
 
-	return webhooks, nil
+	return webhooks, totalCount, nil
 }
 
 // GetNamespaceStats retrieves statistics for a namespace in a single query
@@ -212,15 +222,29 @@ func (r *Repository) UpdateWebhook(ctx context.Context, webhook *WebhookRegistra
 
 // GetWebhooksByHealth retrieves webhooks filtered by health status
 func (r *Repository) GetWebhooksByHealth(ctx context.Context, health WebhookHealth) ([]*WebhookRegistration, error) {
+	webhooks, _, err := r.GetWebhooksByHealthPaginated(ctx, health, 1000, 0)
+	return webhooks, err
+}
+
+// GetWebhooksByHealthPaginated retrieves webhooks filtered by health status with pagination
+func (r *Repository) GetWebhooksByHealthPaginated(ctx context.Context, health WebhookHealth, limit, offset int) ([]*WebhookRegistration, int, error) {
+	countQuery := `SELECT COUNT(*) FROM webhook_registrations WHERE health = $1`
+	var totalCount int
+	err := r.db.GetContext(ctx, &totalCount, countQuery, string(health))
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
 	query := `
-		SELECT wr.id, wr.namespace, wr.url, wr.headers, wr.timeout,
-		       wr.active, wr.description, wr.health,
-		       wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
-		       wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
-		       wr.user_agent, wr.content_type, wr.created_at, wr.updated_at
-		FROM webhook_registrations wr
-		WHERE wr.health = $1
-		ORDER BY wr.created_at DESC
+		SELECT id, namespace, url, headers, timeout,
+		       active, description, health,
+		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
+		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
+		       user_agent, content_type, created_at, updated_at
+		FROM webhook_registrations
+		WHERE health = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
 	`
 
 	type webhookRow struct {
@@ -247,9 +271,9 @@ func (r *Repository) GetWebhooksByHealth(ctx context.Context, health WebhookHeal
 	}
 
 	var rows []webhookRow
-	err := r.db.SelectContext(ctx, &rows, query, string(health))
+	err = r.db.SelectContext(ctx, &rows, query, string(health), limit, offset)
 	if err != nil {
-		return nil, storage.Error(err)
+		return nil, 0, storage.Error(err)
 	}
 
 	var webhooks []*WebhookRegistration
@@ -276,15 +300,15 @@ func (r *Repository) GetWebhooksByHealth(ctx context.Context, health WebhookHeal
 		}
 
 		if err := json.Unmarshal(row.HeadersJSON, &webhook.Headers); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal headers: %w", err)
+			return nil, 0, fmt.Errorf("failed to unmarshal headers: %w", err)
 		}
 
 		if err := json.Unmarshal(row.ExpectedStatusCodes, &webhook.ExpectedStatusCodes); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal expected status codes: %w", err)
+			return nil, 0, fmt.Errorf("failed to unmarshal expected status codes: %w", err)
 		}
 
 		webhooks = append(webhooks, webhook)
 	}
 
-	return webhooks, nil
+	return webhooks, totalCount, nil
 }

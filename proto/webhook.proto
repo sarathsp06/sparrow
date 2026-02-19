@@ -7,7 +7,7 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/sarathsp06/sparrow/proto";
 
-// WebhookService handles webhook registration and event pushing
+// WebhookService handles webhook lifecycle management
 service WebhookService {
   // RegisterWebhook registers a URL for specific events in a namespace
   rpc RegisterWebhook(RegisterWebhookRequest) returns (RegisterWebhookResponse);
@@ -15,16 +15,28 @@ service WebhookService {
   // UnregisterWebhook removes a webhook registration
   rpc UnregisterWebhook(UnregisterWebhookRequest) returns (UnregisterWebhookResponse);
 
-  // PushEvent pushes an event that triggers registered webhooks
-  rpc PushEvent(PushEventRequest) returns (PushEventResponse);
-
-  // GetWebhookStatus gets the status of webhook deliveries
-  rpc GetWebhookStatus(GetWebhookStatusRequest) returns (GetWebhookStatusResponse);
-
-  // ListWebhooks lists all registered webhooks for a namespace
+  // ListWebhooks lists all registered webhooks for a namespace with filters
   rpc ListWebhooks(ListWebhooksRequest) returns (ListWebhooksResponse);
 
-  // RegisterEvent registers a new event type (no namespace required)
+  // UpdateWebhookConfig updates webhook configuration
+  rpc UpdateWebhookConfig(UpdateWebhookConfigRequest) returns (UpdateWebhookConfigResponse);
+
+  // PauseWebhook temporarily disables a webhook
+  rpc PauseWebhook(PauseWebhookRequest) returns (PauseWebhookResponse);
+
+  // ResumeWebhook re-enables a paused webhook
+  rpc ResumeWebhook(ResumeWebhookRequest) returns (ResumeWebhookResponse);
+
+  // GetNamespaceStats retrieves statistics for a namespace
+  rpc GetNamespaceStats(GetNamespaceStatsRequest) returns (GetNamespaceStatsResponse);
+
+  // GetTemplateFunctions returns all available template functions with their descriptions
+  rpc GetTemplateFunctions(GetTemplateFunctionsRequest) returns (GetTemplateFunctionsResponse);
+}
+
+// EventService handles event definitions and reports
+service EventService {
+  // RegisterEvent registers a new event type
   rpc RegisterEvent(RegisterEventRequest) returns (RegisterEventResponse);
 
   // ListEvents lists all registered event types
@@ -36,7 +48,45 @@ service WebhookService {
   // DeleteEvent deletes an event registration
   rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse);
 
-  // Health Management
+  // PushEvent pushes an event that triggers registered webhooks
+  rpc PushEvent(PushEventRequest) returns (PushEventResponse);
+
+  // ListEventReports lists all events in descending order for a given namespace
+  rpc ListEventReports(ListEventReportsRequest) returns (ListEventReportsResponse);
+}
+
+// SubscriptionService manages mapping of webhooks to events
+service SubscriptionService {
+  // CreateSubscription creates a new event subscription for a webhook
+  rpc CreateSubscription(CreateSubscriptionRequest) returns (CreateSubscriptionResponse);
+
+  // GetSubscription retrieves a specific subscription by ID
+  rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
+
+  // ListSubscriptions lists all subscriptions for a webhook or event
+  rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
+
+  // UpdateSubscription updates an existing subscription
+  rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
+
+  // DeleteSubscription deletes a subscription
+  rpc DeleteSubscription(DeleteSubscriptionRequest) returns (DeleteSubscriptionResponse);
+}
+
+// DeliveryService tracks history and handles retries
+service DeliveryService {
+  // GetDeliveryStatus retrieves delivery status for specific delivery
+  rpc GetDeliveryStatus(GetDeliveryStatusRequest) returns (GetDeliveryStatusResponse);
+
+  // ListDeliveries retrieves delivery history with filters
+  rpc ListDeliveries(ListDeliveriesRequest) returns (ListDeliveriesResponse);
+
+  // RetryDelivery manually retries failed or pending webhook deliveries
+  rpc RetryDelivery(RetryDeliveryRequest) returns (RetryDeliveryResponse);
+}
+
+// HealthService manages health metrics and summaries
+service HealthService {
   // GetWebhookHealth gets health metrics for a specific webhook
   rpc GetWebhookHealth(GetWebhookHealthRequest) returns (GetWebhookHealthResponse);
 
@@ -45,62 +95,6 @@ service WebhookService {
 
   // GetHealthSummary gets a summary of webhook health across all namespaces
   rpc GetHealthSummary(GetHealthSummaryRequest) returns (GetHealthSummaryResponse);
-
-  // ResubmitWebhook manually retries failed or pending webhook deliveries
-  rpc ResubmitWebhook(ResubmitWebhookRequest) returns (ResubmitWebhookResponse);
-
-  // Additional webhook management methods
-  // GetRegisteredWebhooks retrieves registered webhooks by ID or namespace
-  rpc GetRegisteredWebhooks(GetRegisteredWebhooksRequest) returns (GetRegisteredWebhooksResponse);
-
-  // ListRegisteredWebhooksByEvent retrieves webhooks registered for specific events
-  rpc ListRegisteredWebhooksByEvent(ListRegisteredWebhooksByEventRequest) returns (ListRegisteredWebhooksByEventResponse);
-
-  // GetWebhookDeliveryStatus retrieves delivery status for specific delivery
-  rpc GetWebhookDeliveryStatus(GetWebhookDeliveryStatusRequest) returns (GetWebhookDeliveryStatusResponse);
-
-  // ResendWebhook resends a failed webhook delivery
-  rpc ResendWebhook(ResendWebhookRequest) returns (ResendWebhookResponse);
-
-  // GetWebhookDeliveryHistory retrieves delivery history for a webhook
-  rpc GetWebhookDeliveryHistory(GetWebhookDeliveryHistoryRequest) returns (GetWebhookDeliveryHistoryResponse);
-
-  // GetNamespaceStats retrieves statistics for a namespace
-  rpc GetNamespaceStats(GetNamespaceStatsRequest) returns (GetNamespaceStatsResponse);
-
-  // UpdateWebhookConfig updates webhook configuration
-  rpc UpdateWebhookConfig(UpdateWebhookConfigRequest) returns (UpdateWebhookConfigResponse);
-
-  // PauseWebhook temporarily disables a webhook
-  rpc PauseWebhook(PauseWebhookRequest) returns (PauseWebhookResponse);
-
-  // ResumeWebhook re-enables a paused webhook
-  rpc ResumeWebhook(ResumeWebhookRequest) returns (ResumeWebhookResponse);
-
-  // ListEventReports lists all events in descending order for a given namespace
-  rpc ListEventReports(ListEventReportsRequest) returns (ListEventReportsResponse);
-
-  // Event Subscription Management
-  // CreateSubscription creates a new event subscription for a webhook
-  rpc CreateSubscription(CreateSubscriptionRequest) returns (CreateSubscriptionResponse);
-
-  // GetSubscription retrieves a specific subscription by ID
-  rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
-
-  // ListSubscriptions lists all subscriptions for a webhook
-  rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
-
-  // UpdateSubscription updates an existing subscription
-  rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
-
-  // DeleteSubscription deletes a subscription
-  rpc DeleteSubscription(DeleteSubscriptionRequest) returns (DeleteSubscriptionResponse);
-
-  // ListSubscriptionsByEvent lists all subscriptions for a specific event
-  rpc ListSubscriptionsByEvent(ListSubscriptionsByEventRequest) returns (ListSubscriptionsByEventResponse);
-  
-  // GetTemplateFunctions returns all available template functions with their descriptions
-  rpc GetTemplateFunctions(GetTemplateFunctionsRequest) returns (GetTemplateFunctionsResponse);
 }
 
 // WebhookHTTPConfig represents HTTP configuration for webhook delivery
@@ -132,20 +126,21 @@ message RegisterWebhookRequest {
 // RegisterWebhookResponse represents the response for webhook registration
 message RegisterWebhookResponse {
   string webhook_id = 1; // Unique webhook identifier
-  bool success = 2; // Whether registration was successful
-  string message = 3; // Success or error message
+  bool success = 2 [deprecated = true]; // Use gRPC status codes instead
+  string message = 3 [deprecated = true]; // Use gRPC status codes instead
   google.protobuf.Timestamp created_at = 4; // When the webhook was registered
 }
 
 // UnregisterWebhookRequest represents a request to remove a webhook
 message UnregisterWebhookRequest {
   string webhook_id = 1; // Webhook ID to remove
+  string namespace = 2; // Namespace (required)
 }
 
 // UnregisterWebhookResponse represents the response for webhook removal
 message UnregisterWebhookResponse {
-  bool success = 1; // Whether removal was successful
-  string message = 2; // Success or error message
+  bool success = 1 [deprecated = true]; // Use gRPC status codes instead
+  string message = 2 [deprecated = true]; // Use gRPC status codes instead
 }
 
 // PushEventRequest represents a request to push an event
@@ -161,14 +156,8 @@ message PushEventRequest {
 // PushEventResponse represents the response for event pushing
 message PushEventResponse {
   string event_id = 1; // Unique event identifier
-  bool success = 2; // Whether event was processed
-  string message = 3; // Success or error message
-}
-
-// GetWebhookStatusRequest represents a request to get webhook status
-message GetWebhookStatusRequest {
-  string webhook_id = 1; // Get status for specific webhook
-  string namespace = 2; // Optional namespace filter
+  bool success = 2 [deprecated = true]; // Use gRPC status codes instead
+  string message = 3 [deprecated = true]; // Use gRPC status codes instead
 }
 
 // WebhookDeliveryStatus represents the status of webhook delivery
@@ -200,19 +189,13 @@ message WebhookDelivery {
   string request_body = 14; // Request body sent to webhook
 }
 
-// GetWebhookStatusResponse represents the response for webhook status
-message GetWebhookStatusResponse {
-  repeated WebhookDelivery deliveries = 1;
-  int32 total_deliveries = 2;
-  bool success = 3;
-  string message = 4;
-}
-
 // ListWebhooksRequest represents a request to list webhooks
 message ListWebhooksRequest {
-  string namespace = 1; // Namespace to filter by
+  string namespace = 1; // Namespace to filter by (required)
   string event = 2; // Event to filter by (optional)
   bool active_only = 3; // Only return active webhooks
+  PaginationRequest pagination = 4; // Optional pagination
+  string webhook_id = 5; // Optional webhook ID filter
 }
 
 // RegisteredWebhook represents a registered webhook
@@ -234,9 +217,10 @@ message RegisteredWebhook {
 // ListWebhooksResponse represents the response for listing webhooks
 message ListWebhooksResponse {
   repeated RegisteredWebhook webhooks = 1;
-  int32 total_count = 2;
-  bool success = 3;
-  string message = 4;
+  PaginationResponse pagination = 2;
+  bool success = 3 [deprecated = true];
+  string message = 4 [deprecated = true];
+  int32 total_count = 5 [deprecated = true]; // Use pagination.total_count instead
 }
 
 // RegisterEventRequest represents a request to register an event type
@@ -251,14 +235,15 @@ message RegisterEventRequest {
 // RegisterEventResponse represents the response for event registration
 message RegisterEventResponse {
   string event_id = 1; // Unique event identifier
-  bool success = 2; // Whether registration was successful
-  string message = 3; // Success or error message
+  bool success = 2 [deprecated = true]; // Use gRPC status codes instead
+  string message = 3 [deprecated = true]; // Use gRPC status codes instead
   google.protobuf.Timestamp created_at = 4; // When the event was registered
 }
 
 // ListEventsRequest represents a request to list events
 message ListEventsRequest {
   bool active_only = 1; // Only return active events
+  PaginationRequest pagination = 2;
 }
 
 // RegisteredEvent represents a registered event type
@@ -277,9 +262,10 @@ message RegisteredEvent {
 // ListEventsResponse represents the response for listing events
 message ListEventsResponse {
   repeated RegisteredEvent events = 1;
-  int32 total_count = 2;
-  bool success = 3;
-  string message = 4;
+  PaginationResponse pagination = 2;
+  bool success = 3 [deprecated = true];
+  string message = 4 [deprecated = true];
+  int32 total_count = 5 [deprecated = true];
 }
 
 // UpdateEventRequest represents a request to update an event
@@ -293,8 +279,8 @@ message UpdateEventRequest {
 
 // UpdateEventResponse represents the response for event update
 message UpdateEventResponse {
-  bool success = 1; // Whether update was successful
-  string message = 2; // Success or error message
+  bool success = 1 [deprecated = true];
+  string message = 2 [deprecated = true];
 }
 
 // DeleteEventRequest represents a request to delete an event
@@ -304,8 +290,8 @@ message DeleteEventRequest {
 
 // DeleteEventResponse represents the response for event deletion
 message DeleteEventResponse {
-  bool success = 1; // Whether deletion was successful
-  string message = 2; // Success or error message
+  bool success = 1 [deprecated = true];
+  string message = 2 [deprecated = true];
 }
 
 // Health Management Messages
@@ -341,24 +327,26 @@ message WebhookHealthMetrics {
 
 // GetWebhookHealthResponse represents the response for getting webhook health
 message GetWebhookHealthResponse {
-  bool success = 1;
-  string message = 2;
   string webhook_id = 3;
   WebhookHealth health = 4;
   WebhookHealthMetrics metrics = 5;
+  bool success = 1 [deprecated = true];
+  string message = 2 [deprecated = true];
 }
 
 // ListWebhooksByHealthRequest represents a request to list webhooks by health
 message ListWebhooksByHealthRequest {
   WebhookHealth health = 1; // Health status to filter by
+  PaginationRequest pagination = 2;
 }
 
 // ListWebhooksByHealthResponse represents the response for listing webhooks by health
 message ListWebhooksByHealthResponse {
-  bool success = 1;
-  string message = 2;
   repeated RegisteredWebhook webhooks = 3;
-  int32 total_count = 4;
+  PaginationResponse pagination = 5;
+  bool success = 1 [deprecated = true];
+  string message = 2 [deprecated = true];
+  int32 total_count = 4 [deprecated = true];
 }
 
 // GetHealthSummaryRequest represents a request to get health summary
@@ -377,101 +365,54 @@ message HealthSummary {
 
 // GetHealthSummaryResponse represents the response for getting health summary
 message GetHealthSummaryResponse {
-  bool success = 1;
-  string message = 2;
   HealthSummary summary = 3;
+  bool success = 1 [deprecated = true];
+  string message = 2 [deprecated = true];
 }
 
-// ResubmitWebhookRequest represents a request to manually retry webhook deliveries
-message ResubmitWebhookRequest {
-  string delivery_id = 1; // Resubmit specific delivery
-  string namespace = 2; // Namespace for authorization
-  bool force = 3; // Force retry even for non-failed deliveries (default: false)
-}
-
-// ResubmitWebhookResponse represents the response for webhook resubmission
-message ResubmitWebhookResponse {
-  bool success = 1; // Whether resubmission was successful
-  string message = 2; // Success or error message
-  int32 resubmitted_count = 3; // Number of deliveries resubmitted
-  repeated string delivery_ids = 4; // IDs of deliveries that were resubmitted
-}
-
-// Additional message definitions for extended webhook management
-
-// GetRegisteredWebhooksRequest represents a request to get registered webhooks
-message GetRegisteredWebhooksRequest {
-  string webhook_id = 1; // Optional webhook ID filter
-  string namespace = 2; // Namespace (required for security)
-  bool active_only = 3; // Only return active webhooks
-}
-
-// GetRegisteredWebhooksResponse represents the response for getting registered webhooks
-message GetRegisteredWebhooksResponse {
-  repeated RegisteredWebhook webhooks = 1;
-  int32 total_count = 2;
-  bool success = 3;
-  string message = 4;
-}
-
-// ListRegisteredWebhooksByEventRequest represents a request to list webhooks by event
-message ListRegisteredWebhooksByEventRequest {
+// RetryDeliveryRequest represents a request to manually retry webhook deliveries
+message RetryDeliveryRequest {
   string namespace = 1; // Namespace (required)
-  string event = 2; // Event name (required)
-  bool active_only = 3; // Only return active webhooks
+  string delivery_id = 2; // Optional: Retry specific delivery
+  string webhook_id = 3; // Optional: Retry all failed/pending for webhook
+  bool force = 4; // Force retry even for successful deliveries (default: false)
 }
 
-// ListRegisteredWebhooksByEventResponse represents the response for listing webhooks by event
-message ListRegisteredWebhooksByEventResponse {
-  repeated RegisteredWebhook webhooks = 1;
-  string event = 2; // Event name
-  string namespace = 3; // Namespace
-  int32 total_count = 4;
-  bool success = 5;
-  string message = 6;
+// RetryDeliveryResponse represents the response for delivery retry
+message RetryDeliveryResponse {
+  int32 retried_count = 1; // Number of deliveries retried
+  repeated string delivery_ids = 2; // IDs of deliveries that were retried
+  bool success = 3 [deprecated = true];
+  string message = 4 [deprecated = true];
 }
 
-// GetWebhookDeliveryStatusRequest represents a request to get delivery status
-message GetWebhookDeliveryStatusRequest {
+// GetDeliveryStatusRequest represents a request to get delivery status
+message GetDeliveryStatusRequest {
   string delivery_id = 1; // Delivery ID (required)
   string namespace = 2; // Namespace (required for security)
 }
 
-// GetWebhookDeliveryStatusResponse represents the response for getting delivery status
-message GetWebhookDeliveryStatusResponse {
+// GetDeliveryStatusResponse represents the response for getting delivery status
+message GetDeliveryStatusResponse {
   WebhookDelivery delivery = 1;
-  bool success = 2;
-  string message = 3;
+  bool success = 2 [deprecated = true];
+  string message = 3 [deprecated = true];
 }
 
-// ResendWebhookRequest represents a request to resend a webhook
-message ResendWebhookRequest {
-  string delivery_id = 1; // Delivery ID to resend (required)
-  string namespace = 2; // Namespace (required for security)
-  bool force_resend = 3; // Force resend even if already successful
+// ListDeliveriesRequest represents a request to list deliveries
+message ListDeliveriesRequest {
+  string namespace = 1; // Namespace (required)
+  string webhook_id = 2; // Optional: filter by webhook
+  string event_id = 3; // Optional: filter by event
+  PaginationRequest pagination = 4;
 }
 
-// ResendWebhookResponse represents the response for resending a webhook
-message ResendWebhookResponse {
-  string new_delivery_id = 1; // New delivery ID created for resend
-  bool success = 2;
-  string message = 3;
-}
-
-// GetWebhookDeliveryHistoryRequest represents a request to get delivery history
-message GetWebhookDeliveryHistoryRequest {
-  string webhook_id = 1; // Webhook ID (required)
-  string namespace = 2; // Namespace (required for security)
-  int32 limit = 3; // Maximum number of deliveries to return (default: 50)
-  int32 offset = 4; // Offset for pagination (default: 0)
-}
-
-// GetWebhookDeliveryHistoryResponse represents the response for getting delivery history
-message GetWebhookDeliveryHistoryResponse {
+// ListDeliveriesResponse represents the response for listing deliveries
+message ListDeliveriesResponse {
   repeated WebhookDelivery deliveries = 1;
-  int32 total_count = 2;
-  bool success = 3;
-  string message = 4;
+  PaginationResponse pagination = 2;
+  bool success = 3 [deprecated = true];
+  string message = 4 [deprecated = true];
 }
 
 // GetNamespaceStatsRequest represents a request to get namespace statistics
@@ -494,8 +435,8 @@ message NamespaceStats {
 message GetNamespaceStatsResponse {
   string namespace = 1;
   NamespaceStats stats = 2;
-  bool success = 3;
-  string message = 4;
+  bool success = 3 [deprecated = true];
+  string message = 4 [deprecated = true];
 }
 
 // WebhookUpdateFields represents fields that can be updated for a webhook
@@ -518,8 +459,8 @@ message UpdateWebhookConfigRequest {
 
 // UpdateWebhookConfigResponse represents the response for updating webhook configuration
 message UpdateWebhookConfigResponse {
-  bool success = 1;
-  string message = 2;
+  bool success = 1 [deprecated = true];
+  string message = 2 [deprecated = true];
 }
 
 // PauseWebhookRequest represents a request to pause a webhook
@@ -531,8 +472,8 @@ message PauseWebhookRequest {
 
 // PauseWebhookResponse represents the response for pausing a webhook
 message PauseWebhookResponse {
-  bool success = 1;
-  string message = 2;
+  bool success = 1 [deprecated = true];
+  string message = 2 [deprecated = true];
 }
 
 // ResumeWebhookRequest represents a request to resume a webhook
@@ -544,8 +485,8 @@ message ResumeWebhookRequest {
 
 // ResumeWebhookResponse represents the response for resuming a webhook
 message ResumeWebhookResponse {
-  bool success = 1;
-  string message = 2;
+  bool success = 1 [deprecated = true];
+  string message = 2 [deprecated = true];
 }
 
 // EventReport represents detailed information about an event instance
@@ -567,16 +508,18 @@ message EventReport {
 message ListEventReportsRequest {
   string namespace = 1; // Namespace to filter by (required)
   optional string event_name = 2; // Optional event name filter
-  int32 limit = 3; // Maximum number of events to return (default: 50, max: 1000)
-  int32 offset = 4; // Offset for pagination (default: 0)
+  PaginationRequest pagination = 3;
+  int32 limit = 4 [deprecated = true];
+  int32 offset = 5 [deprecated = true];
 }
 
 // ListEventReportsResponse represents the response for listing event reports
 message ListEventReportsResponse {
   repeated EventReport events = 1; // List of events in descending order by created_at
-  int32 total_count = 2; // Total count of events matching the filter
-  bool success = 3; // Whether the request was successful
-  string message = 4; // Success or error message
+  PaginationResponse pagination = 5;
+  int32 total_count = 2 [deprecated = true]; // Total count of events matching the filter
+  bool success = 3 [deprecated = true]; // Whether the request was successful
+  string message = 4 [deprecated = true]; // Success or error message
 }
 
 // Event Subscription Messages
@@ -611,39 +554,45 @@ message CreateSubscriptionRequest {
 // CreateSubscriptionResponse represents the response for subscription creation
 message CreateSubscriptionResponse {
   string subscription_id = 1; // Created subscription ID
-  bool success = 2; // Whether creation was successful
-  string message = 3; // Success or error message
   google.protobuf.Timestamp created_at = 4; // When subscription was created
+  bool success = 2 [deprecated = true];
+  string message = 3 [deprecated = true];
 }
 
 // GetSubscriptionRequest represents a request to get a subscription
 message GetSubscriptionRequest {
   string subscription_id = 1; // Subscription ID (required)
+  string namespace = 2; // Namespace (required)
 }
 
 // GetSubscriptionResponse represents the response for getting a subscription
 message GetSubscriptionResponse {
   EventSubscription subscription = 1; // Subscription details
-  bool success = 2; // Whether request was successful
-  string message = 3; // Success or error message
+  bool success = 2 [deprecated = true];
+  string message = 3 [deprecated = true];
 }
 
 // ListSubscriptionsRequest represents a request to list subscriptions
 message ListSubscriptionsRequest {
-  string webhook_id = 1; // Webhook ID to filter by (required)
+  string webhook_id = 1; // Webhook ID to filter by (optional)
+  string event_name = 4; // Event name to filter by (optional)
+  string namespace = 2; // Namespace (required)
+  PaginationRequest pagination = 3;
 }
 
 // ListSubscriptionsResponse represents the response for listing subscriptions
 message ListSubscriptionsResponse {
   repeated EventSubscription subscriptions = 1; // List of subscriptions
-  int32 total_count = 2; // Total count
-  bool success = 3; // Whether request was successful
-  string message = 4; // Success or error message
+  PaginationResponse pagination = 5;
+  int32 total_count = 2 [deprecated = true];
+  bool success = 3 [deprecated = true];
+  string message = 4 [deprecated = true];
 }
 
 // UpdateSubscriptionRequest represents a request to update a subscription
 message UpdateSubscriptionRequest {
   string subscription_id = 1; // Subscription ID (required)
+  string namespace = 7; // Namespace (required)
   map<string, string> headers = 2; // Updated headers
   string method = 3; // Updated HTTP method
   int32 timeout = 4; // Updated timeout
@@ -653,19 +602,20 @@ message UpdateSubscriptionRequest {
 
 // UpdateSubscriptionResponse represents the response for updating a subscription
 message UpdateSubscriptionResponse {
-  bool success = 1; // Whether update was successful
-  string message = 2; // Success or error message
+  bool success = 1 [deprecated = true];
+  string message = 2 [deprecated = true];
 }
 
 // DeleteSubscriptionRequest represents a request to delete a subscription
 message DeleteSubscriptionRequest {
   string subscription_id = 1; // Subscription ID (required)
+  string namespace = 2; // Namespace (required)
 }
 
 // DeleteSubscriptionResponse represents the response for deleting a subscription
 message DeleteSubscriptionResponse {
-  bool success = 1; // Whether deletion was successful
-  string message = 2; // Success or error message
+  bool success = 1 [deprecated = true];
+  string message = 2 [deprecated = true];
 }
 
 // ListSubscriptionsByEventRequest represents a request to list subscriptions by event
@@ -677,9 +627,10 @@ message ListSubscriptionsByEventRequest {
 // ListSubscriptionsByEventResponse represents the response for listing subscriptions by event
 message ListSubscriptionsByEventResponse {
   repeated EventSubscription subscriptions = 1; // List of subscriptions
-  int32 total_count = 2; // Total count
-  bool success = 3; // Whether request was successful
-  string message = 4; // Success or error message
+  PaginationResponse pagination = 5;
+  int32 total_count = 2 [deprecated = true];
+  bool success = 3 [deprecated = true];
+  string message = 4 [deprecated = true];
 }
 
 // TemplateFunction represents a template function with its name and description
@@ -697,6 +648,19 @@ message GetTemplateFunctionsRequest {
 message GetTemplateFunctionsResponse {
   repeated TemplateFunction functions = 1; // List of available template functions
   int32 total_count = 2; // Total count of functions
-  bool success = 3; // Whether request was successful
-  string message = 4; // Success or error message
+  bool success = 3 [deprecated = true];
+  string message = 4 [deprecated = true];
+}
+
+// PaginationRequest represents a request for paginated results
+message PaginationRequest {
+  int32 limit = 1; // Maximum number of items to return (default: 50)
+  int32 offset = 2; // Number of items to skip (default: 0)
+}
+
+// PaginationResponse represents metadata for paginated results
+message PaginationResponse {
+  int32 total_count = 1; // Total number of items available
+  int32 limit = 2; // Limit used for the request
+  int32 offset = 3; // Offset used for the request
 }

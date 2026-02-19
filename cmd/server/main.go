@@ -115,9 +115,13 @@ func main() {
 
 	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, ""))
 	pb.RegisterWebhookServiceServer(grpcServer, webhookGRPCServer)
+	pb.RegisterEventServiceServer(grpcServer, webhookGRPCServer)
+	pb.RegisterSubscriptionServiceServer(grpcServer, webhookGRPCServer)
+	pb.RegisterDeliveryServiceServer(grpcServer, webhookGRPCServer)
+	pb.RegisterHealthServiceServer(grpcServer, webhookGRPCServer)
 
 	// Initialize Connect-RPC server
-	webhookConnectServer := connectserver.NewWebhookConnectServer(webhookGRPCServer)
+	webhookConnectServer := connectserver.NewWebhookConnectServer(webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer)
 
 	// Create HTTP mux for Connect-RPC
 	mux := http.NewServeMux()
@@ -125,7 +129,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	mux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer, connect.WithInterceptors(otelInterceptor)))
+
+	options := connect.WithInterceptors(otelInterceptor)
+	mux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer, options))
+	mux.Handle(pbconnect.NewEventServiceHandler(webhookConnectServer, options))
+	mux.Handle(pbconnect.NewSubscriptionServiceHandler(webhookConnectServer, options))
+	mux.Handle(pbconnect.NewDeliveryServiceHandler(webhookConnectServer, options))
+	mux.Handle(pbconnect.NewHealthServiceHandler(webhookConnectServer, options))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, queueManager, startTime)

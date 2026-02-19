@@ -2,7 +2,7 @@
     import favicon from '$lib/assets/favicon.svg';
 
   import { goto } from "$app/navigation";
-  import { client } from "$lib/services";
+  import { webhookClient as client } from "$lib/services";
   import { onMount } from "svelte";
   import type { RegisteredWebhook } from "../../../../proto/webhook_pb.js";
   import { WebhookHealth } from "../../../../proto/webhook_pb.js";
@@ -12,7 +12,10 @@
   let error = $state("");
   let namespace = $state("default");
 
-
+  // Pagination state
+  let limit = $state(50);
+  let offset = $state(0);
+  let totalCount = $state(0);
 
   const healthColor: Record<WebhookHealth, string> = {
     [WebhookHealth.HEALTH_UNSPECIFIED]: "gray-500",
@@ -35,9 +38,14 @@
       if (namespace.trim() === "") {
         error = "Namespace cannot be empty.";
         webhooks = [];
+        totalCount = 0;
       } else {
-        const res = await client.listWebhooks({ namespace: namespace.trim() });
+        const res = await client.listWebhooks({
+          namespace: namespace.trim(),
+          pagination: { limit, offset }
+        });
         webhooks = res.webhooks || [];
+        totalCount = res.pagination?.totalCount || 0;
       }
     } catch (e: any) {
       console.error(e);
@@ -51,18 +59,32 @@
 
   async function unregisterWebhook(webhookId: string) {
     try {
-      const req = { webhookId };
+      const req = { webhookId, namespace: namespace.trim() };
       await client.unregisterWebhook(req);
       await fetchWebhooks(); // Refresh the list
     } catch (e: any) {
       error = `Failed to unregister webhook: ${e.message}`;
     }
   }
+
+  function nextPage() {
+    if (offset + limit < totalCount) {
+      offset += limit;
+      fetchWebhooks();
+    }
+  }
+
+  function prevPage() {
+    if (offset >= limit) {
+      offset -= limit;
+      fetchWebhooks();
+    }
+  }
 </script>
 
 <div class="min-h-screen bg-gray-50 font-display">
   <main class="p-6">
-    <div class="mb-6">
+    <div class="mb-6 flex gap-4">
       <input
         type="text"
         placeholder="Filter by namespace..."
@@ -70,10 +92,17 @@
         class="border border-gray-300 rounded-md px-4 py-2 w-full max-w-sm"
         onkeydown={(e) => {
           if (e.key === "Enter") {
+            offset = 0;
             fetchWebhooks();
           }
         }}
       />
+      <button
+        class="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90"
+        onclick={() => { offset = 0; fetchWebhooks(); }}
+      >
+        Search
+      </button>
     </div>
     {#if loading}
       <div class="flex justify-center items-center h-40">
@@ -102,7 +131,7 @@
         <p>Get started by registering a new webhook.</p>
       </div>
     {:else}
-      <div class="overflow-x-auto rounded-lg border border-gray-400 p-4">
+      <div class="overflow-x-auto rounded-lg border border-gray-400 p-4 bg-white">
         <table class="w-full text-sm text-left">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50">
             <tr class="text-center">
@@ -123,13 +152,10 @@
               >
                 <td class="px-4 py-2">{wh.namespace}</td>
                 <td class="px-4 py-2 max-w-xs truncate" title={wh.url}>{wh.url}</td>
-                <td class="px-4 py-2">
-                  <div class="flex items-center gap-2">
+                <td class="px-4 py-2 text-center">
+                  <div class="flex items-center justify-center gap-2">
                     <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                       {wh.events.length} events
-                    </span>
-                    <span class="text-xs text-gray-500" title="Events are managed via subscriptions">
-                      📋 subscriptions
                     </span>
                   </div>
                 </td>
@@ -144,43 +170,55 @@
                           {wh.httpConfig.requestTimeoutSeconds}s timeout
                         </span>
                       </div>
-                      <div class="flex items-center space-x-1">
-                        {#if wh.httpConfig.webhookSecret}
-                          <span class="bg-purple-100 text-purple-800 px-1 py-0.5 rounded text-xs">🔒 Signed</span>
-                        {/if}
-                        {#if wh.httpConfig.captureResponseBody}
-                          <span class="bg-orange-100 text-orange-800 px-1 py-0.5 rounded text-xs">📝 Captures</span>
-                        {/if}
-                        {#if !wh.httpConfig.verifySsl}
-                          <span class="bg-red-100 text-red-800 px-1 py-0.5 rounded text-xs">⚠️ No SSL</span>
-                        {/if}
-                      </div>
                     </div>
                   {:else}
                     <span class="text-xs text-gray-500">Default config</span>
                   {/if}
                 </td>
-                <td class="px-4 py-2">
+                <td class="px-4 py-2 text-center">
                   <span class="text-{healthColor[wh.health]}">
                     {healthText[wh.health]}
                   </span>
                 </td>
-                <td class="px-4 py-2">
+                <td class="px-4 py-2 text-center">
                   <button
-                    class="bg-red-500 text-white px-3 py-2 rounded-md hover:bg-red-600"
-                    onclick={(e:Event) => { e.preventDefault(); unregisterWebhook(wh.webhookId); }}>Unregister</button
+                    class="bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 text-xs"
+                    onclick={(e:Event) => { e.stopPropagation(); unregisterWebhook(wh.webhookId); }}>Unregister</button
                   >
                 </td>
               </tr>
             {/each}
           </tbody>
         </table> 
+
+        <!-- Pagination controls -->
+        <div class="mt-4 flex items-center justify-between border-t pt-4">
+          <div class="text-xs text-gray-500">
+            Showing {offset + 1} to {Math.min(offset + limit, totalCount)} of {totalCount} webhooks
+          </div>
+          <div class="flex gap-2">
+            <button
+              class="px-3 py-1 border rounded-md text-xs disabled:opacity-50"
+              onclick={prevPage}
+              disabled={offset === 0}
+            >
+              Previous
+            </button>
+            <button
+              class="px-3 py-1 border rounded-md text-xs disabled:opacity-50"
+              onclick={nextPage}
+              disabled={offset + limit >= totalCount}
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
     {/if}
   </main>
 <a
   href="/webhooks/register"
-  class="fixed bottom-4 right-4 hover:bg-primary/10 bg-primary text-white font-semibold p-2 rounded-lg"
+  class="fixed bottom-4 right-4 hover:bg-primary/10 bg-primary text-white font-semibold p-2 rounded-lg shadow-lg"
 >
   + Register Webhook
 </a>

@@ -33,8 +33,6 @@ func (s *WebhookServer) GetWebhookHealth(ctx context.Context, req *pb.GetWebhook
 		}
 	}
 	return &pb.GetWebhookHealthResponse{
-		Success:   true,
-		Message:   "Webhook health retrieved successfully",
 		WebhookId: req.WebhookId,
 		Health:    convertWebhookHealth(healthData.Health),
 		Metrics:   pbMetrics,
@@ -58,8 +56,6 @@ func (s *WebhookServer) GetHealthSummary(ctx context.Context, req *pb.GetHealthS
 		}
 	}
 	return &pb.GetHealthSummaryResponse{
-		Success: true,
-		Message: "Health summary retrieved successfully",
 		Summary: pbSummary,
 	}, nil
 }
@@ -81,7 +77,13 @@ func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWe
 		storeHealth = store.HealthUnknown
 	}
 
-	webhooks, err := s.service.ListWebhooksByHealth(ctx, storeHealth)
+	var limit, offset int32
+	if req.Pagination != nil {
+		limit = req.Pagination.Limit
+		offset = req.Pagination.Offset
+	}
+
+	webhooks, totalCount, err := s.service.ListWebhooksByHealth(ctx, storeHealth, limit, offset)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list webhooks by health: %v", err)
 	}
@@ -91,7 +93,7 @@ func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWe
 		pbWebhooks[i] = &pb.RegisteredWebhook{
 			WebhookId:   webhook.ID.String(),
 			Namespace:   webhook.Namespace,
-			Events:      s.getWebhookEvents(ctx, webhook.ID.String()),
+			Events:      s.getWebhookEvents(ctx, webhook.ID.String(), webhook.Namespace),
 			Url:         webhook.URL,
 			Headers:     webhook.Headers,
 			Timeout:     int32(webhook.Timeout),
@@ -104,9 +106,12 @@ func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWe
 	}
 
 	return &pb.ListWebhooksByHealthResponse{
-		Webhooks:   pbWebhooks,
-		TotalCount: int32(len(pbWebhooks)),
-		Success:    true,
+		Webhooks: pbWebhooks,
+		Pagination: &pb.PaginationResponse{
+			TotalCount: totalCount,
+			Limit:      limit,
+			Offset:     offset,
+		},
 	}, nil
 }
 
@@ -131,7 +136,5 @@ func (s *WebhookServer) GetNamespaceStats(ctx context.Context, req *pb.GetNamesp
 	return &pb.GetNamespaceStatsResponse{
 		Namespace: req.Namespace,
 		Stats:     pbStats,
-		Success:   true,
-		Message:   "Namespace stats retrieved successfully",
 	}, nil
 }

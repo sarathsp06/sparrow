@@ -1,10 +1,23 @@
 import { PUBLIC_API_URL } from "$env/static/public";
 import { createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { WebhookService } from "../../../proto/webhook_pb.js";
+import {
+  WebhookService,
+  EventService,
+  SubscriptionService,
+  DeliveryService,
+  HealthService
+} from "../../../proto/webhook_pb.js";
 
 const transport = createConnectTransport({
   baseUrl: PUBLIC_API_URL as string || "http://localhost:8080",
 });
 
-export const client = createClient(WebhookService, transport);
+export const webhookClient = createClient(WebhookService, transport);
+export const eventClient = createClient(EventService, transport);
+export const subscriptionClient = createClient(SubscriptionService, transport);
+export const deliveryClient = createClient(DeliveryService, transport);
+export const healthClient = createClient(HealthService, transport);
+
+// Backward compatibility
+export const client = webhookClient;

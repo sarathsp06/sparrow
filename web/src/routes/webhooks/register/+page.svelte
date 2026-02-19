@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { client } from '$lib/services';
+	import { eventClient, webhookClient as client } from '$lib/services';
 	import { onMount } from 'svelte';
 	import type {
 	  RegisteredEvent
@@ -33,7 +33,7 @@
 	onMount(async () => {
 		try {
 			const req = { activeOnly: true };
-			const res = await client.listEvents(req);
+			const res = await eventClient.listEvents(req);
 			allEvents = res.events || [];
 		} catch (e: any) {
 			error = `Failed to load events: ${e.message}`;

@@ -3,7 +3,12 @@
 
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { client } from "$lib/services";
+  import {
+    webhookClient,
+    deliveryClient,
+    healthClient,
+    subscriptionClient
+  } from "$lib/services";
   import { onMount } from "svelte";
   import type {
     EventSubscription,
@@ -30,6 +35,11 @@
   let editingUrl = $state(false);
   let editedUrl = $state("");
   let savingUrl = $state(false);
+
+  // Pagination state
+  let limit = $state(50);
+  let offset = $state(0);
+  let totalCount = $state(0);
 
   const webhookId = page.params.webhookId;
 
@@ -65,19 +75,19 @@
     if (!webhookId) return;
     try {
       const [webhookRes, deliveriesRes, healthRes, subscriptionsRes] = await Promise.all([
-        client.listWebhooks({ namespace: "default" }),
-        client.getWebhookDeliveryHistory({
+        webhookClient.listWebhooks({ namespace: "default", webhookId }),
+        deliveryClient.listDeliveries({
           webhookId,
           namespace: "default",
-          limit: 50,
-          offset: 0,
+          pagination: { limit, offset },
         }),
-        client.getWebhookHealth({ webhookId, namespace: "default" }),
-        client.listSubscriptions({ webhookId }),
+        healthClient.getWebhookHealth({ webhookId, namespace: "default" }),
+        subscriptionClient.listSubscriptions({ webhookId, namespace: "default" }),
       ]);
 
-      webhook = webhookRes.webhooks?.find((w) => w.webhookId === webhookId);
+      webhook = webhookRes.webhooks?.[0];
       deliveries = deliveriesRes.deliveries || [];
+      totalCount = deliveriesRes.pagination?.totalCount || 0;
       healthMetrics = healthRes.metrics;
       subscriptions = subscriptionsRes.subscriptions || [];
     } catch (e: any) {
@@ -93,9 +103,9 @@
     if (!webhook) return;
     try {
       if (webhook.active) {
-        await client.pauseWebhook({ webhookId, namespace: "default" });
+        await webhookClient.pauseWebhook({ webhookId, namespace: "default" });
       } else {
-        await client.resumeWebhook({ webhookId, namespace: "default" });
+        await webhookClient.resumeWebhook({ webhookId, namespace: "default" });
       }
       await fetchData(); // Refresh data
     } catch (e: any) {
@@ -106,7 +116,7 @@
   async function resendThisDelivery(identifier: string) {
     if (!webhookId) return;
     try {
-      await client.resubmitWebhook({
+      await deliveryClient.retryDelivery({
         deliveryId: identifier,
         namespace: "default",
       });
@@ -148,7 +158,7 @@
     error = "";
 
     try {
-      await client.updateWebhookConfig({
+      await webhookClient.updateWebhookConfig({
         webhookId,
         namespace: "default",
         updates: {
@@ -182,7 +192,7 @@
       // Fetch detailed delivery information if not already loaded
       if (!deliveryDetails.has(deliveryId)) {
         try {
-          const detailRes = await client.getWebhookDeliveryStatus({
+          const detailRes = await deliveryClient.getDeliveryStatus({
             deliveryId,
             namespace: "default"
           });
@@ -193,6 +203,20 @@
           // Still show expanded view with available data
         }
       }
+    }
+  }
+
+  function nextPage() {
+    if (offset + limit < totalCount) {
+      offset += limit;
+      fetchData();
+    }
+  }
+
+  function prevPage() {
+    if (offset >= limit) {
+      offset -= limit;
+      fetchData();
     }
   }
 </script>
@@ -226,7 +250,7 @@
               >
               </span>
               <h1 class="text-2xl font-bold text-gray-800">
-                {webhook.description}
+                {webhook.description || 'Webhook Details'}
               </h1>
             </div>
             <p class="text-gray-500 font-mono text-sm break-all mb-4">
@@ -373,7 +397,7 @@
               class:text-gray-500={activeTab !== 'deliveries'}
               onclick={() => (activeTab = 'deliveries')}
             >
-              Deliveries ({deliveries.length})
+              Deliveries
             </button>
             <button
               class="py-2 px-4 border-b-2 font-medium text-sm"
@@ -461,12 +485,6 @@
                                   {details.createdAt ? formatTimestamp(details.createdAt) : 'N/A'}
                                 </p>
                               </div>
-                              <div>
-                                <p class="font-semibold text-gray-700">Scheduled At</p>
-                                <p class="bg-white px-2 py-1 rounded border">
-                                  {details.scheduledAt ? formatTimestamp(details.scheduledAt) : 'N/A'}
-                                </p>
-                              </div>
                             </div>
                              <div>
                                 <p class="font-semibold text-gray-700 mb-2">Request Body</p>
@@ -476,20 +494,6 @@
                               <div>
                                 <p class="font-semibold text-gray-700 mb-2">Response Body</p>
                                 <pre class="bg-white p-3 rounded border text-xs overflow-auto max-h-32 font-mono">{details.responseBody}</pre>
-                              </div>
-                            {/if}
-                            
-                            {#if details.responseHeaders && Object.keys(details.responseHeaders).length > 0}
-                              <div>
-                                <p class="font-semibold text-gray-700 mb-2">Response Headers</p>
-                                <div class="bg-white p-3 rounded border">
-                                  {#each Object.entries(details.responseHeaders) as [key, value]}
-                                    <div class="text-xs mb-1">
-                                      <span class="font-medium text-gray-600">{key}:</span>
-                                      <span class="font-mono ml-1">{value}</span>
-                                    </div>
-                                  {/each}
-                                </div>
                               </div>
                             {/if}
                             
@@ -519,6 +523,29 @@
                 {/each}
               </tbody>
             </table>
+          </div>
+
+          <!-- Pagination controls -->
+          <div class="mt-6 flex items-center justify-between border-t pt-4">
+            <div class="text-sm text-gray-500">
+              Showing {offset + 1} to {Math.min(offset + limit, totalCount)} of {totalCount} deliveries
+            </div>
+            <div class="flex gap-2">
+              <button
+                class="px-4 py-2 border rounded-md text-sm disabled:opacity-50 hover:bg-gray-50"
+                onclick={prevPage}
+                disabled={offset === 0}
+              >
+                Previous
+              </button>
+              <button
+                class="px-4 py-2 border rounded-md text-sm disabled:opacity-50 hover:bg-gray-50"
+                onclick={nextPage}
+                disabled={offset + limit >= totalCount}
+              >
+                Next
+              </button>
+            </div>
           </div>
         {/if}
       </div>

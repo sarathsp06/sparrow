@@ -1,6 +1,6 @@
 <script lang="ts">
   import favicon from "$lib/assets/favicon.svg";
-  import { client } from "$lib/services";
+  import { healthClient, webhookClient } from "$lib/services";
 
   import { onMount } from "svelte";
   import type {
@@ -18,11 +18,11 @@
     error = "";
     try {
       const summaryReq = {};
-      const summaryRes = await client.getHealthSummary(summaryReq);
+      const summaryRes = await healthClient.getHealthSummary(summaryReq);
       healthSummary = summaryRes.summary;
 
       const statsReq = { namespace: "default" };
-      const statsRes = await client.getNamespaceStats(statsReq);
+      const statsRes = await webhookClient.getNamespaceStats(statsReq);
       namespaceStats = statsRes.stats;
     } catch (e: any) {
       error = `Failed to load health data: ${e.message}`;

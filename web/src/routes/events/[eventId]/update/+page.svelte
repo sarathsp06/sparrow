@@ -2,7 +2,7 @@
 
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
-  import { client } from "$lib/services";
+  import { eventClient as client } from "$lib/services";
   import { toJSONObject } from "$lib/utils";
   import { onMount } from "svelte";
   import { type JSONContent, JSONEditor, Mode } from "svelte-jsoneditor";

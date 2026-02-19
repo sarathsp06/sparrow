@@ -2,7 +2,7 @@
     import { page } from '$app/state';
     import { EventReportsTable, Pagination } from '$lib';
     import favicon from '$lib/assets/favicon.svg';
-    import { client } from '$lib/services';
+    import { eventClient as client } from '$lib/services';
     import { onMount } from 'svelte';
     import type { EventReport, RegisteredEvent } from '../../../../../../proto/webhook_pb.js';
 
@@ -51,13 +51,15 @@
             const req = {
                 namespace: 'default', // TODO: Get from context or make configurable
                 eventName: currentEvent.name, // Use the event name for filtering
-                limit: pageSize,
-                offset: offset
+                pagination: {
+                    limit: pageSize,
+                    offset: offset
+                }
             };
             
             const res = await client.listEventReports(req);
             eventReports = res.events || [];
-            totalCount = res.totalCount || 0;
+            totalCount = res.pagination?.totalCount || 0;
             totalPages = Math.ceil(totalCount / pageSize);
             currentPage = pageNum;
         } catch (e: any) {
@@ -95,6 +97,7 @@
                 </div>
                 <div class="text-sm text-gray-500">
                     Total: {totalCount} events
+                </div>
             </div>
         </div>
 
@@ -120,6 +123,5 @@
                 onPageChange={handlePageChange} 
             />
         {/if}
-        </div>
     </main>
 </div>

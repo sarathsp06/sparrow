@@ -177,16 +177,18 @@ export declare type RegisterWebhookResponse = Message<"webhook.RegisterWebhookRe
   webhookId: string;
 
   /**
-   * Whether registration was successful
+   * Use gRPC status codes instead
    *
-   * @generated from field: bool success = 2;
+   * @generated from field: bool success = 2 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * Success or error message
+   * Use gRPC status codes instead
    *
-   * @generated from field: string message = 3;
+   * @generated from field: string message = 3 [deprecated = true];
+   * @deprecated
    */
   message: string;
 
@@ -216,6 +218,13 @@ export declare type UnregisterWebhookRequest = Message<"webhook.UnregisterWebhoo
    * @generated from field: string webhook_id = 1;
    */
   webhookId: string;
+
+  /**
+   * Namespace (required)
+   *
+   * @generated from field: string namespace = 2;
+   */
+  namespace: string;
 };
 
 /**
@@ -231,16 +240,18 @@ export declare const UnregisterWebhookRequestSchema: GenMessage<UnregisterWebhoo
  */
 export declare type UnregisterWebhookResponse = Message<"webhook.UnregisterWebhookResponse"> & {
   /**
-   * Whether removal was successful
+   * Use gRPC status codes instead
    *
-   * @generated from field: bool success = 1;
+   * @generated from field: bool success = 1 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * Success or error message
+   * Use gRPC status codes instead
    *
-   * @generated from field: string message = 2;
+   * @generated from field: string message = 2 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -320,16 +331,18 @@ export declare type PushEventResponse = Message<"webhook.PushEventResponse"> & {
   eventId: string;
 
   /**
-   * Whether event was processed
+   * Use gRPC status codes instead
    *
-   * @generated from field: bool success = 2;
+   * @generated from field: bool success = 2 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * Success or error message
+   * Use gRPC status codes instead
    *
-   * @generated from field: string message = 3;
+   * @generated from field: string message = 3 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -339,33 +352,6 @@ export declare type PushEventResponse = Message<"webhook.PushEventResponse"> & {
  * Use `create(PushEventResponseSchema)` to create a new message.
  */
 export declare const PushEventResponseSchema: GenMessage<PushEventResponse>;
-
-/**
- * GetWebhookStatusRequest represents a request to get webhook status
- *
- * @generated from message webhook.GetWebhookStatusRequest
- */
-export declare type GetWebhookStatusRequest = Message<"webhook.GetWebhookStatusRequest"> & {
-  /**
-   * Get status for specific webhook
-   *
-   * @generated from field: string webhook_id = 1;
-   */
-  webhookId: string;
-
-  /**
-   * Optional namespace filter
-   *
-   * @generated from field: string namespace = 2;
-   */
-  namespace: string;
-};
-
-/**
- * Describes the message webhook.GetWebhookStatusRequest.
- * Use `create(GetWebhookStatusRequestSchema)` to create a new message.
- */
-export declare const GetWebhookStatusRequestSchema: GenMessage<GetWebhookStatusRequest>;
 
 /**
  * WebhookDelivery represents a single webhook delivery attempt
@@ -479,46 +465,13 @@ export declare type WebhookDelivery = Message<"webhook.WebhookDelivery"> & {
 export declare const WebhookDeliverySchema: GenMessage<WebhookDelivery>;
 
 /**
- * GetWebhookStatusResponse represents the response for webhook status
- *
- * @generated from message webhook.GetWebhookStatusResponse
- */
-export declare type GetWebhookStatusResponse = Message<"webhook.GetWebhookStatusResponse"> & {
-  /**
-   * @generated from field: repeated webhook.WebhookDelivery deliveries = 1;
-   */
-  deliveries: WebhookDelivery[];
-
-  /**
-   * @generated from field: int32 total_deliveries = 2;
-   */
-  totalDeliveries: number;
-
-  /**
-   * @generated from field: bool success = 3;
-   */
-  success: boolean;
-
-  /**
-   * @generated from field: string message = 4;
-   */
-  message: string;
-};
-
-/**
- * Describes the message webhook.GetWebhookStatusResponse.
- * Use `create(GetWebhookStatusResponseSchema)` to create a new message.
- */
-export declare const GetWebhookStatusResponseSchema: GenMessage<GetWebhookStatusResponse>;
-
-/**
  * ListWebhooksRequest represents a request to list webhooks
  *
  * @generated from message webhook.ListWebhooksRequest
  */
 export declare type ListWebhooksRequest = Message<"webhook.ListWebhooksRequest"> & {
   /**
-   * Namespace to filter by
+   * Namespace to filter by (required)
    *
    * @generated from field: string namespace = 1;
    */
@@ -537,6 +490,20 @@ export declare type ListWebhooksRequest = Message<"webhook.ListWebhooksRequest">
    * @generated from field: bool active_only = 3;
    */
   activeOnly: boolean;
+
+  /**
+   * Optional pagination
+   *
+   * @generated from field: webhook.PaginationRequest pagination = 4;
+   */
+  pagination?: PaginationRequest;
+
+  /**
+   * Optional webhook ID filter
+   *
+   * @generated from field: string webhook_id = 5;
+   */
+  webhookId: string;
 };
 
 /**
@@ -654,19 +621,29 @@ export declare type ListWebhooksResponse = Message<"webhook.ListWebhooksResponse
   webhooks: RegisteredWebhook[];
 
   /**
-   * @generated from field: int32 total_count = 2;
+   * @generated from field: webhook.PaginationResponse pagination = 2;
    */
-  totalCount: number;
+  pagination?: PaginationResponse;
 
   /**
-   * @generated from field: bool success = 3;
+   * @generated from field: bool success = 3 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * @generated from field: string message = 4;
+   * @generated from field: string message = 4 [deprecated = true];
+   * @deprecated
    */
   message: string;
+
+  /**
+   * Use pagination.total_count instead
+   *
+   * @generated from field: int32 total_count = 5 [deprecated = true];
+   * @deprecated
+   */
+  totalCount: number;
 };
 
 /**
@@ -737,16 +714,18 @@ export declare type RegisterEventResponse = Message<"webhook.RegisterEventRespon
   eventId: string;
 
   /**
-   * Whether registration was successful
+   * Use gRPC status codes instead
    *
-   * @generated from field: bool success = 2;
+   * @generated from field: bool success = 2 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * Success or error message
+   * Use gRPC status codes instead
    *
-   * @generated from field: string message = 3;
+   * @generated from field: string message = 3 [deprecated = true];
+   * @deprecated
    */
   message: string;
 
@@ -776,6 +755,11 @@ export declare type ListEventsRequest = Message<"webhook.ListEventsRequest"> & {
    * @generated from field: bool active_only = 1;
    */
   activeOnly: boolean;
+
+  /**
+   * @generated from field: webhook.PaginationRequest pagination = 2;
+   */
+  pagination?: PaginationRequest;
 };
 
 /**
@@ -872,19 +856,27 @@ export declare type ListEventsResponse = Message<"webhook.ListEventsResponse"> &
   events: RegisteredEvent[];
 
   /**
-   * @generated from field: int32 total_count = 2;
+   * @generated from field: webhook.PaginationResponse pagination = 2;
    */
-  totalCount: number;
+  pagination?: PaginationResponse;
 
   /**
-   * @generated from field: bool success = 3;
+   * @generated from field: bool success = 3 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * @generated from field: string message = 4;
+   * @generated from field: string message = 4 [deprecated = true];
+   * @deprecated
    */
   message: string;
+
+  /**
+   * @generated from field: int32 total_count = 5 [deprecated = true];
+   * @deprecated
+   */
+  totalCount: number;
 };
 
 /**
@@ -948,16 +940,14 @@ export declare const UpdateEventRequestSchema: GenMessage<UpdateEventRequest>;
  */
 export declare type UpdateEventResponse = Message<"webhook.UpdateEventResponse"> & {
   /**
-   * Whether update was successful
-   *
-   * @generated from field: bool success = 1;
+   * @generated from field: bool success = 1 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * Success or error message
-   *
-   * @generated from field: string message = 2;
+   * @generated from field: string message = 2 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -995,16 +985,14 @@ export declare const DeleteEventRequestSchema: GenMessage<DeleteEventRequest>;
  */
 export declare type DeleteEventResponse = Message<"webhook.DeleteEventResponse"> & {
   /**
-   * Whether deletion was successful
-   *
-   * @generated from field: bool success = 1;
+   * @generated from field: bool success = 1 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * Success or error message
-   *
-   * @generated from field: string message = 2;
+   * @generated from field: string message = 2 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -1129,16 +1117,6 @@ export declare const WebhookHealthMetricsSchema: GenMessage<WebhookHealthMetrics
  */
 export declare type GetWebhookHealthResponse = Message<"webhook.GetWebhookHealthResponse"> & {
   /**
-   * @generated from field: bool success = 1;
-   */
-  success: boolean;
-
-  /**
-   * @generated from field: string message = 2;
-   */
-  message: string;
-
-  /**
    * @generated from field: string webhook_id = 3;
    */
   webhookId: string;
@@ -1152,6 +1130,18 @@ export declare type GetWebhookHealthResponse = Message<"webhook.GetWebhookHealth
    * @generated from field: webhook.WebhookHealthMetrics metrics = 5;
    */
   metrics?: WebhookHealthMetrics;
+
+  /**
+   * @generated from field: bool success = 1 [deprecated = true];
+   * @deprecated
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string message = 2 [deprecated = true];
+   * @deprecated
+   */
+  message: string;
 };
 
 /**
@@ -1172,6 +1162,11 @@ export declare type ListWebhooksByHealthRequest = Message<"webhook.ListWebhooksB
    * @generated from field: webhook.WebhookHealth health = 1;
    */
   health: WebhookHealth;
+
+  /**
+   * @generated from field: webhook.PaginationRequest pagination = 2;
+   */
+  pagination?: PaginationRequest;
 };
 
 /**
@@ -1187,22 +1182,30 @@ export declare const ListWebhooksByHealthRequestSchema: GenMessage<ListWebhooksB
  */
 export declare type ListWebhooksByHealthResponse = Message<"webhook.ListWebhooksByHealthResponse"> & {
   /**
-   * @generated from field: bool success = 1;
-   */
-  success: boolean;
-
-  /**
-   * @generated from field: string message = 2;
-   */
-  message: string;
-
-  /**
    * @generated from field: repeated webhook.RegisteredWebhook webhooks = 3;
    */
   webhooks: RegisteredWebhook[];
 
   /**
-   * @generated from field: int32 total_count = 4;
+   * @generated from field: webhook.PaginationResponse pagination = 5;
+   */
+  pagination?: PaginationResponse;
+
+  /**
+   * @generated from field: bool success = 1 [deprecated = true];
+   * @deprecated
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string message = 2 [deprecated = true];
+   * @deprecated
+   */
+  message: string;
+
+  /**
+   * @generated from field: int32 total_count = 4 [deprecated = true];
+   * @deprecated
    */
   totalCount: number;
 };
@@ -1274,19 +1277,21 @@ export declare const HealthSummarySchema: GenMessage<HealthSummary>;
  */
 export declare type GetHealthSummaryResponse = Message<"webhook.GetHealthSummaryResponse"> & {
   /**
-   * @generated from field: bool success = 1;
+   * @generated from field: webhook.HealthSummary summary = 3;
+   */
+  summary?: HealthSummary;
+
+  /**
+   * @generated from field: bool success = 1 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * @generated from field: string message = 2;
+   * @generated from field: string message = 2 [deprecated = true];
+   * @deprecated
    */
   message: string;
-
-  /**
-   * @generated from field: webhook.HealthSummary summary = 3;
-   */
-  summary?: HealthSummary;
 };
 
 /**
@@ -1296,153 +1301,11 @@ export declare type GetHealthSummaryResponse = Message<"webhook.GetHealthSummary
 export declare const GetHealthSummaryResponseSchema: GenMessage<GetHealthSummaryResponse>;
 
 /**
- * ResubmitWebhookRequest represents a request to manually retry webhook deliveries
+ * RetryDeliveryRequest represents a request to manually retry webhook deliveries
  *
- * @generated from message webhook.ResubmitWebhookRequest
+ * @generated from message webhook.RetryDeliveryRequest
  */
-export declare type ResubmitWebhookRequest = Message<"webhook.ResubmitWebhookRequest"> & {
-  /**
-   * Resubmit specific delivery
-   *
-   * @generated from field: string delivery_id = 1;
-   */
-  deliveryId: string;
-
-  /**
-   * Namespace for authorization
-   *
-   * @generated from field: string namespace = 2;
-   */
-  namespace: string;
-
-  /**
-   * Force retry even for non-failed deliveries (default: false)
-   *
-   * @generated from field: bool force = 3;
-   */
-  force: boolean;
-};
-
-/**
- * Describes the message webhook.ResubmitWebhookRequest.
- * Use `create(ResubmitWebhookRequestSchema)` to create a new message.
- */
-export declare const ResubmitWebhookRequestSchema: GenMessage<ResubmitWebhookRequest>;
-
-/**
- * ResubmitWebhookResponse represents the response for webhook resubmission
- *
- * @generated from message webhook.ResubmitWebhookResponse
- */
-export declare type ResubmitWebhookResponse = Message<"webhook.ResubmitWebhookResponse"> & {
-  /**
-   * Whether resubmission was successful
-   *
-   * @generated from field: bool success = 1;
-   */
-  success: boolean;
-
-  /**
-   * Success or error message
-   *
-   * @generated from field: string message = 2;
-   */
-  message: string;
-
-  /**
-   * Number of deliveries resubmitted
-   *
-   * @generated from field: int32 resubmitted_count = 3;
-   */
-  resubmittedCount: number;
-
-  /**
-   * IDs of deliveries that were resubmitted
-   *
-   * @generated from field: repeated string delivery_ids = 4;
-   */
-  deliveryIds: string[];
-};
-
-/**
- * Describes the message webhook.ResubmitWebhookResponse.
- * Use `create(ResubmitWebhookResponseSchema)` to create a new message.
- */
-export declare const ResubmitWebhookResponseSchema: GenMessage<ResubmitWebhookResponse>;
-
-/**
- * GetRegisteredWebhooksRequest represents a request to get registered webhooks
- *
- * @generated from message webhook.GetRegisteredWebhooksRequest
- */
-export declare type GetRegisteredWebhooksRequest = Message<"webhook.GetRegisteredWebhooksRequest"> & {
-  /**
-   * Optional webhook ID filter
-   *
-   * @generated from field: string webhook_id = 1;
-   */
-  webhookId: string;
-
-  /**
-   * Namespace (required for security)
-   *
-   * @generated from field: string namespace = 2;
-   */
-  namespace: string;
-
-  /**
-   * Only return active webhooks
-   *
-   * @generated from field: bool active_only = 3;
-   */
-  activeOnly: boolean;
-};
-
-/**
- * Describes the message webhook.GetRegisteredWebhooksRequest.
- * Use `create(GetRegisteredWebhooksRequestSchema)` to create a new message.
- */
-export declare const GetRegisteredWebhooksRequestSchema: GenMessage<GetRegisteredWebhooksRequest>;
-
-/**
- * GetRegisteredWebhooksResponse represents the response for getting registered webhooks
- *
- * @generated from message webhook.GetRegisteredWebhooksResponse
- */
-export declare type GetRegisteredWebhooksResponse = Message<"webhook.GetRegisteredWebhooksResponse"> & {
-  /**
-   * @generated from field: repeated webhook.RegisteredWebhook webhooks = 1;
-   */
-  webhooks: RegisteredWebhook[];
-
-  /**
-   * @generated from field: int32 total_count = 2;
-   */
-  totalCount: number;
-
-  /**
-   * @generated from field: bool success = 3;
-   */
-  success: boolean;
-
-  /**
-   * @generated from field: string message = 4;
-   */
-  message: string;
-};
-
-/**
- * Describes the message webhook.GetRegisteredWebhooksResponse.
- * Use `create(GetRegisteredWebhooksResponseSchema)` to create a new message.
- */
-export declare const GetRegisteredWebhooksResponseSchema: GenMessage<GetRegisteredWebhooksResponse>;
-
-/**
- * ListRegisteredWebhooksByEventRequest represents a request to list webhooks by event
- *
- * @generated from message webhook.ListRegisteredWebhooksByEventRequest
- */
-export declare type ListRegisteredWebhooksByEventRequest = Message<"webhook.ListRegisteredWebhooksByEventRequest"> & {
+export declare type RetryDeliveryRequest = Message<"webhook.RetryDeliveryRequest"> & {
   /**
    * Namespace (required)
    *
@@ -1451,79 +1314,78 @@ export declare type ListRegisteredWebhooksByEventRequest = Message<"webhook.List
   namespace: string;
 
   /**
-   * Event name (required)
+   * Optional: Retry specific delivery
    *
-   * @generated from field: string event = 2;
+   * @generated from field: string delivery_id = 2;
    */
-  event: string;
+  deliveryId: string;
 
   /**
-   * Only return active webhooks
+   * Optional: Retry all failed/pending for webhook
    *
-   * @generated from field: bool active_only = 3;
+   * @generated from field: string webhook_id = 3;
    */
-  activeOnly: boolean;
+  webhookId: string;
+
+  /**
+   * Force retry even for successful deliveries (default: false)
+   *
+   * @generated from field: bool force = 4;
+   */
+  force: boolean;
 };
 
 /**
- * Describes the message webhook.ListRegisteredWebhooksByEventRequest.
- * Use `create(ListRegisteredWebhooksByEventRequestSchema)` to create a new message.
+ * Describes the message webhook.RetryDeliveryRequest.
+ * Use `create(RetryDeliveryRequestSchema)` to create a new message.
  */
-export declare const ListRegisteredWebhooksByEventRequestSchema: GenMessage<ListRegisteredWebhooksByEventRequest>;
+export declare const RetryDeliveryRequestSchema: GenMessage<RetryDeliveryRequest>;
 
 /**
- * ListRegisteredWebhooksByEventResponse represents the response for listing webhooks by event
+ * RetryDeliveryResponse represents the response for delivery retry
  *
- * @generated from message webhook.ListRegisteredWebhooksByEventResponse
+ * @generated from message webhook.RetryDeliveryResponse
  */
-export declare type ListRegisteredWebhooksByEventResponse = Message<"webhook.ListRegisteredWebhooksByEventResponse"> & {
+export declare type RetryDeliveryResponse = Message<"webhook.RetryDeliveryResponse"> & {
   /**
-   * @generated from field: repeated webhook.RegisteredWebhook webhooks = 1;
-   */
-  webhooks: RegisteredWebhook[];
-
-  /**
-   * Event name
+   * Number of deliveries retried
    *
-   * @generated from field: string event = 2;
+   * @generated from field: int32 retried_count = 1;
    */
-  event: string;
+  retriedCount: number;
 
   /**
-   * Namespace
+   * IDs of deliveries that were retried
    *
-   * @generated from field: string namespace = 3;
+   * @generated from field: repeated string delivery_ids = 2;
    */
-  namespace: string;
+  deliveryIds: string[];
 
   /**
-   * @generated from field: int32 total_count = 4;
-   */
-  totalCount: number;
-
-  /**
-   * @generated from field: bool success = 5;
+   * @generated from field: bool success = 3 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * @generated from field: string message = 6;
+   * @generated from field: string message = 4 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
 
 /**
- * Describes the message webhook.ListRegisteredWebhooksByEventResponse.
- * Use `create(ListRegisteredWebhooksByEventResponseSchema)` to create a new message.
+ * Describes the message webhook.RetryDeliveryResponse.
+ * Use `create(RetryDeliveryResponseSchema)` to create a new message.
  */
-export declare const ListRegisteredWebhooksByEventResponseSchema: GenMessage<ListRegisteredWebhooksByEventResponse>;
+export declare const RetryDeliveryResponseSchema: GenMessage<RetryDeliveryResponse>;
 
 /**
- * GetWebhookDeliveryStatusRequest represents a request to get delivery status
+ * GetDeliveryStatusRequest represents a request to get delivery status
  *
- * @generated from message webhook.GetWebhookDeliveryStatusRequest
+ * @generated from message webhook.GetDeliveryStatusRequest
  */
-export declare type GetWebhookDeliveryStatusRequest = Message<"webhook.GetWebhookDeliveryStatusRequest"> & {
+export declare type GetDeliveryStatusRequest = Message<"webhook.GetDeliveryStatusRequest"> & {
   /**
    * Delivery ID (required)
    *
@@ -1540,176 +1402,114 @@ export declare type GetWebhookDeliveryStatusRequest = Message<"webhook.GetWebhoo
 };
 
 /**
- * Describes the message webhook.GetWebhookDeliveryStatusRequest.
- * Use `create(GetWebhookDeliveryStatusRequestSchema)` to create a new message.
+ * Describes the message webhook.GetDeliveryStatusRequest.
+ * Use `create(GetDeliveryStatusRequestSchema)` to create a new message.
  */
-export declare const GetWebhookDeliveryStatusRequestSchema: GenMessage<GetWebhookDeliveryStatusRequest>;
+export declare const GetDeliveryStatusRequestSchema: GenMessage<GetDeliveryStatusRequest>;
 
 /**
- * GetWebhookDeliveryStatusResponse represents the response for getting delivery status
+ * GetDeliveryStatusResponse represents the response for getting delivery status
  *
- * @generated from message webhook.GetWebhookDeliveryStatusResponse
+ * @generated from message webhook.GetDeliveryStatusResponse
  */
-export declare type GetWebhookDeliveryStatusResponse = Message<"webhook.GetWebhookDeliveryStatusResponse"> & {
+export declare type GetDeliveryStatusResponse = Message<"webhook.GetDeliveryStatusResponse"> & {
   /**
    * @generated from field: webhook.WebhookDelivery delivery = 1;
    */
   delivery?: WebhookDelivery;
 
   /**
-   * @generated from field: bool success = 2;
+   * @generated from field: bool success = 2 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * @generated from field: string message = 3;
+   * @generated from field: string message = 3 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
 
 /**
- * Describes the message webhook.GetWebhookDeliveryStatusResponse.
- * Use `create(GetWebhookDeliveryStatusResponseSchema)` to create a new message.
+ * Describes the message webhook.GetDeliveryStatusResponse.
+ * Use `create(GetDeliveryStatusResponseSchema)` to create a new message.
  */
-export declare const GetWebhookDeliveryStatusResponseSchema: GenMessage<GetWebhookDeliveryStatusResponse>;
+export declare const GetDeliveryStatusResponseSchema: GenMessage<GetDeliveryStatusResponse>;
 
 /**
- * ResendWebhookRequest represents a request to resend a webhook
+ * ListDeliveriesRequest represents a request to list deliveries
  *
- * @generated from message webhook.ResendWebhookRequest
+ * @generated from message webhook.ListDeliveriesRequest
  */
-export declare type ResendWebhookRequest = Message<"webhook.ResendWebhookRequest"> & {
+export declare type ListDeliveriesRequest = Message<"webhook.ListDeliveriesRequest"> & {
   /**
-   * Delivery ID to resend (required)
+   * Namespace (required)
    *
-   * @generated from field: string delivery_id = 1;
-   */
-  deliveryId: string;
-
-  /**
-   * Namespace (required for security)
-   *
-   * @generated from field: string namespace = 2;
+   * @generated from field: string namespace = 1;
    */
   namespace: string;
 
   /**
-   * Force resend even if already successful
+   * Optional: filter by webhook
    *
-   * @generated from field: bool force_resend = 3;
-   */
-  forceResend: boolean;
-};
-
-/**
- * Describes the message webhook.ResendWebhookRequest.
- * Use `create(ResendWebhookRequestSchema)` to create a new message.
- */
-export declare const ResendWebhookRequestSchema: GenMessage<ResendWebhookRequest>;
-
-/**
- * ResendWebhookResponse represents the response for resending a webhook
- *
- * @generated from message webhook.ResendWebhookResponse
- */
-export declare type ResendWebhookResponse = Message<"webhook.ResendWebhookResponse"> & {
-  /**
-   * New delivery ID created for resend
-   *
-   * @generated from field: string new_delivery_id = 1;
-   */
-  newDeliveryId: string;
-
-  /**
-   * @generated from field: bool success = 2;
-   */
-  success: boolean;
-
-  /**
-   * @generated from field: string message = 3;
-   */
-  message: string;
-};
-
-/**
- * Describes the message webhook.ResendWebhookResponse.
- * Use `create(ResendWebhookResponseSchema)` to create a new message.
- */
-export declare const ResendWebhookResponseSchema: GenMessage<ResendWebhookResponse>;
-
-/**
- * GetWebhookDeliveryHistoryRequest represents a request to get delivery history
- *
- * @generated from message webhook.GetWebhookDeliveryHistoryRequest
- */
-export declare type GetWebhookDeliveryHistoryRequest = Message<"webhook.GetWebhookDeliveryHistoryRequest"> & {
-  /**
-   * Webhook ID (required)
-   *
-   * @generated from field: string webhook_id = 1;
+   * @generated from field: string webhook_id = 2;
    */
   webhookId: string;
 
   /**
-   * Namespace (required for security)
+   * Optional: filter by event
    *
-   * @generated from field: string namespace = 2;
+   * @generated from field: string event_id = 3;
    */
-  namespace: string;
+  eventId: string;
 
   /**
-   * Maximum number of deliveries to return (default: 50)
-   *
-   * @generated from field: int32 limit = 3;
+   * @generated from field: webhook.PaginationRequest pagination = 4;
    */
-  limit: number;
-
-  /**
-   * Offset for pagination (default: 0)
-   *
-   * @generated from field: int32 offset = 4;
-   */
-  offset: number;
+  pagination?: PaginationRequest;
 };
 
 /**
- * Describes the message webhook.GetWebhookDeliveryHistoryRequest.
- * Use `create(GetWebhookDeliveryHistoryRequestSchema)` to create a new message.
+ * Describes the message webhook.ListDeliveriesRequest.
+ * Use `create(ListDeliveriesRequestSchema)` to create a new message.
  */
-export declare const GetWebhookDeliveryHistoryRequestSchema: GenMessage<GetWebhookDeliveryHistoryRequest>;
+export declare const ListDeliveriesRequestSchema: GenMessage<ListDeliveriesRequest>;
 
 /**
- * GetWebhookDeliveryHistoryResponse represents the response for getting delivery history
+ * ListDeliveriesResponse represents the response for listing deliveries
  *
- * @generated from message webhook.GetWebhookDeliveryHistoryResponse
+ * @generated from message webhook.ListDeliveriesResponse
  */
-export declare type GetWebhookDeliveryHistoryResponse = Message<"webhook.GetWebhookDeliveryHistoryResponse"> & {
+export declare type ListDeliveriesResponse = Message<"webhook.ListDeliveriesResponse"> & {
   /**
    * @generated from field: repeated webhook.WebhookDelivery deliveries = 1;
    */
   deliveries: WebhookDelivery[];
 
   /**
-   * @generated from field: int32 total_count = 2;
+   * @generated from field: webhook.PaginationResponse pagination = 2;
    */
-  totalCount: number;
+  pagination?: PaginationResponse;
 
   /**
-   * @generated from field: bool success = 3;
+   * @generated from field: bool success = 3 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * @generated from field: string message = 4;
+   * @generated from field: string message = 4 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
 
 /**
- * Describes the message webhook.GetWebhookDeliveryHistoryResponse.
- * Use `create(GetWebhookDeliveryHistoryResponseSchema)` to create a new message.
+ * Describes the message webhook.ListDeliveriesResponse.
+ * Use `create(ListDeliveriesResponseSchema)` to create a new message.
  */
-export declare const GetWebhookDeliveryHistoryResponseSchema: GenMessage<GetWebhookDeliveryHistoryResponse>;
+export declare const ListDeliveriesResponseSchema: GenMessage<ListDeliveriesResponse>;
 
 /**
  * GetNamespaceStatsRequest represents a request to get namespace statistics
@@ -1798,12 +1598,14 @@ export declare type GetNamespaceStatsResponse = Message<"webhook.GetNamespaceSta
   stats?: NamespaceStats;
 
   /**
-   * @generated from field: bool success = 3;
+   * @generated from field: bool success = 3 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * @generated from field: string message = 4;
+   * @generated from field: string message = 4 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -1917,12 +1719,14 @@ export declare const UpdateWebhookConfigRequestSchema: GenMessage<UpdateWebhookC
  */
 export declare type UpdateWebhookConfigResponse = Message<"webhook.UpdateWebhookConfigResponse"> & {
   /**
-   * @generated from field: bool success = 1;
+   * @generated from field: bool success = 1 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * @generated from field: string message = 2;
+   * @generated from field: string message = 2 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -1974,12 +1778,14 @@ export declare const PauseWebhookRequestSchema: GenMessage<PauseWebhookRequest>;
  */
 export declare type PauseWebhookResponse = Message<"webhook.PauseWebhookResponse"> & {
   /**
-   * @generated from field: bool success = 1;
+   * @generated from field: bool success = 1 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * @generated from field: string message = 2;
+   * @generated from field: string message = 2 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -2031,12 +1837,14 @@ export declare const ResumeWebhookRequestSchema: GenMessage<ResumeWebhookRequest
  */
 export declare type ResumeWebhookResponse = Message<"webhook.ResumeWebhookResponse"> & {
   /**
-   * @generated from field: bool success = 1;
+   * @generated from field: bool success = 1 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * @generated from field: string message = 2;
+   * @generated from field: string message = 2 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -2158,16 +1966,19 @@ export declare type ListEventReportsRequest = Message<"webhook.ListEventReportsR
   eventName?: string;
 
   /**
-   * Maximum number of events to return (default: 50, max: 1000)
-   *
-   * @generated from field: int32 limit = 3;
+   * @generated from field: webhook.PaginationRequest pagination = 3;
+   */
+  pagination?: PaginationRequest;
+
+  /**
+   * @generated from field: int32 limit = 4 [deprecated = true];
+   * @deprecated
    */
   limit: number;
 
   /**
-   * Offset for pagination (default: 0)
-   *
-   * @generated from field: int32 offset = 4;
+   * @generated from field: int32 offset = 5 [deprecated = true];
+   * @deprecated
    */
   offset: number;
 };
@@ -2192,23 +2003,31 @@ export declare type ListEventReportsResponse = Message<"webhook.ListEventReports
   events: EventReport[];
 
   /**
+   * @generated from field: webhook.PaginationResponse pagination = 5;
+   */
+  pagination?: PaginationResponse;
+
+  /**
    * Total count of events matching the filter
    *
-   * @generated from field: int32 total_count = 2;
+   * @generated from field: int32 total_count = 2 [deprecated = true];
+   * @deprecated
    */
   totalCount: number;
 
   /**
    * Whether the request was successful
    *
-   * @generated from field: bool success = 3;
+   * @generated from field: bool success = 3 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
    * Success or error message
    *
-   * @generated from field: string message = 4;
+   * @generated from field: string message = 4 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -2392,25 +2211,23 @@ export declare type CreateSubscriptionResponse = Message<"webhook.CreateSubscrip
   subscriptionId: string;
 
   /**
-   * Whether creation was successful
-   *
-   * @generated from field: bool success = 2;
-   */
-  success: boolean;
-
-  /**
-   * Success or error message
-   *
-   * @generated from field: string message = 3;
-   */
-  message: string;
-
-  /**
    * When subscription was created
    *
    * @generated from field: google.protobuf.Timestamp created_at = 4;
    */
   createdAt?: Timestamp;
+
+  /**
+   * @generated from field: bool success = 2 [deprecated = true];
+   * @deprecated
+   */
+  success: boolean;
+
+  /**
+   * @generated from field: string message = 3 [deprecated = true];
+   * @deprecated
+   */
+  message: string;
 };
 
 /**
@@ -2431,6 +2248,13 @@ export declare type GetSubscriptionRequest = Message<"webhook.GetSubscriptionReq
    * @generated from field: string subscription_id = 1;
    */
   subscriptionId: string;
+
+  /**
+   * Namespace (required)
+   *
+   * @generated from field: string namespace = 2;
+   */
+  namespace: string;
 };
 
 /**
@@ -2453,16 +2277,14 @@ export declare type GetSubscriptionResponse = Message<"webhook.GetSubscriptionRe
   subscription?: EventSubscription;
 
   /**
-   * Whether request was successful
-   *
-   * @generated from field: bool success = 2;
+   * @generated from field: bool success = 2 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * Success or error message
-   *
-   * @generated from field: string message = 3;
+   * @generated from field: string message = 3 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -2480,11 +2302,30 @@ export declare const GetSubscriptionResponseSchema: GenMessage<GetSubscriptionRe
  */
 export declare type ListSubscriptionsRequest = Message<"webhook.ListSubscriptionsRequest"> & {
   /**
-   * Webhook ID to filter by (required)
+   * Webhook ID to filter by (optional)
    *
    * @generated from field: string webhook_id = 1;
    */
   webhookId: string;
+
+  /**
+   * Event name to filter by (optional)
+   *
+   * @generated from field: string event_name = 4;
+   */
+  eventName: string;
+
+  /**
+   * Namespace (required)
+   *
+   * @generated from field: string namespace = 2;
+   */
+  namespace: string;
+
+  /**
+   * @generated from field: webhook.PaginationRequest pagination = 3;
+   */
+  pagination?: PaginationRequest;
 };
 
 /**
@@ -2507,23 +2348,25 @@ export declare type ListSubscriptionsResponse = Message<"webhook.ListSubscriptio
   subscriptions: EventSubscription[];
 
   /**
-   * Total count
-   *
-   * @generated from field: int32 total_count = 2;
+   * @generated from field: webhook.PaginationResponse pagination = 5;
+   */
+  pagination?: PaginationResponse;
+
+  /**
+   * @generated from field: int32 total_count = 2 [deprecated = true];
+   * @deprecated
    */
   totalCount: number;
 
   /**
-   * Whether request was successful
-   *
-   * @generated from field: bool success = 3;
+   * @generated from field: bool success = 3 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * Success or error message
-   *
-   * @generated from field: string message = 4;
+   * @generated from field: string message = 4 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -2546,6 +2389,13 @@ export declare type UpdateSubscriptionRequest = Message<"webhook.UpdateSubscript
    * @generated from field: string subscription_id = 1;
    */
   subscriptionId: string;
+
+  /**
+   * Namespace (required)
+   *
+   * @generated from field: string namespace = 7;
+   */
+  namespace: string;
 
   /**
    * Updated headers
@@ -2596,16 +2446,14 @@ export declare const UpdateSubscriptionRequestSchema: GenMessage<UpdateSubscript
  */
 export declare type UpdateSubscriptionResponse = Message<"webhook.UpdateSubscriptionResponse"> & {
   /**
-   * Whether update was successful
-   *
-   * @generated from field: bool success = 1;
+   * @generated from field: bool success = 1 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * Success or error message
-   *
-   * @generated from field: string message = 2;
+   * @generated from field: string message = 2 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -2628,6 +2476,13 @@ export declare type DeleteSubscriptionRequest = Message<"webhook.DeleteSubscript
    * @generated from field: string subscription_id = 1;
    */
   subscriptionId: string;
+
+  /**
+   * Namespace (required)
+   *
+   * @generated from field: string namespace = 2;
+   */
+  namespace: string;
 };
 
 /**
@@ -2643,16 +2498,14 @@ export declare const DeleteSubscriptionRequestSchema: GenMessage<DeleteSubscript
  */
 export declare type DeleteSubscriptionResponse = Message<"webhook.DeleteSubscriptionResponse"> & {
   /**
-   * Whether deletion was successful
-   *
-   * @generated from field: bool success = 1;
+   * @generated from field: bool success = 1 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * Success or error message
-   *
-   * @generated from field: string message = 2;
+   * @generated from field: string message = 2 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -2704,23 +2557,25 @@ export declare type ListSubscriptionsByEventResponse = Message<"webhook.ListSubs
   subscriptions: EventSubscription[];
 
   /**
-   * Total count
-   *
-   * @generated from field: int32 total_count = 2;
+   * @generated from field: webhook.PaginationResponse pagination = 5;
+   */
+  pagination?: PaginationResponse;
+
+  /**
+   * @generated from field: int32 total_count = 2 [deprecated = true];
+   * @deprecated
    */
   totalCount: number;
 
   /**
-   * Whether request was successful
-   *
-   * @generated from field: bool success = 3;
+   * @generated from field: bool success = 3 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * Success or error message
-   *
-   * @generated from field: string message = 4;
+   * @generated from field: string message = 4 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -2795,16 +2650,14 @@ export declare type GetTemplateFunctionsResponse = Message<"webhook.GetTemplateF
   totalCount: number;
 
   /**
-   * Whether request was successful
-   *
-   * @generated from field: bool success = 3;
+   * @generated from field: bool success = 3 [deprecated = true];
+   * @deprecated
    */
   success: boolean;
 
   /**
-   * Success or error message
-   *
-   * @generated from field: string message = 4;
+   * @generated from field: string message = 4 [deprecated = true];
+   * @deprecated
    */
   message: string;
 };
@@ -2814,6 +2667,67 @@ export declare type GetTemplateFunctionsResponse = Message<"webhook.GetTemplateF
  * Use `create(GetTemplateFunctionsResponseSchema)` to create a new message.
  */
 export declare const GetTemplateFunctionsResponseSchema: GenMessage<GetTemplateFunctionsResponse>;
+
+/**
+ * PaginationRequest represents a request for paginated results
+ *
+ * @generated from message webhook.PaginationRequest
+ */
+export declare type PaginationRequest = Message<"webhook.PaginationRequest"> & {
+  /**
+   * Maximum number of items to return (default: 50)
+   *
+   * @generated from field: int32 limit = 1;
+   */
+  limit: number;
+
+  /**
+   * Number of items to skip (default: 0)
+   *
+   * @generated from field: int32 offset = 2;
+   */
+  offset: number;
+};
+
+/**
+ * Describes the message webhook.PaginationRequest.
+ * Use `create(PaginationRequestSchema)` to create a new message.
+ */
+export declare const PaginationRequestSchema: GenMessage<PaginationRequest>;
+
+/**
+ * PaginationResponse represents metadata for paginated results
+ *
+ * @generated from message webhook.PaginationResponse
+ */
+export declare type PaginationResponse = Message<"webhook.PaginationResponse"> & {
+  /**
+   * Total number of items available
+   *
+   * @generated from field: int32 total_count = 1;
+   */
+  totalCount: number;
+
+  /**
+   * Limit used for the request
+   *
+   * @generated from field: int32 limit = 2;
+   */
+  limit: number;
+
+  /**
+   * Offset used for the request
+   *
+   * @generated from field: int32 offset = 3;
+   */
+  offset: number;
+};
+
+/**
+ * Describes the message webhook.PaginationResponse.
+ * Use `create(PaginationResponseSchema)` to create a new message.
+ */
+export declare const PaginationResponseSchema: GenMessage<PaginationResponse>;
 
 /**
  * WebhookDeliveryStatus represents the status of webhook delivery
@@ -2895,7 +2809,7 @@ export enum WebhookHealth {
 export declare const WebhookHealthSchema: GenEnum<WebhookHealth>;
 
 /**
- * WebhookService handles webhook registration and event pushing
+ * WebhookService handles webhook lifecycle management
  *
  * @generated from service webhook.WebhookService
  */
@@ -2921,27 +2835,7 @@ export declare const WebhookService: GenService<{
     output: typeof UnregisterWebhookResponseSchema;
   },
   /**
-   * PushEvent pushes an event that triggers registered webhooks
-   *
-   * @generated from rpc webhook.WebhookService.PushEvent
-   */
-  pushEvent: {
-    methodKind: "unary";
-    input: typeof PushEventRequestSchema;
-    output: typeof PushEventResponseSchema;
-  },
-  /**
-   * GetWebhookStatus gets the status of webhook deliveries
-   *
-   * @generated from rpc webhook.WebhookService.GetWebhookStatus
-   */
-  getWebhookStatus: {
-    methodKind: "unary";
-    input: typeof GetWebhookStatusRequestSchema;
-    output: typeof GetWebhookStatusResponseSchema;
-  },
-  /**
-   * ListWebhooks lists all registered webhooks for a namespace
+   * ListWebhooks lists all registered webhooks for a namespace with filters
    *
    * @generated from rpc webhook.WebhookService.ListWebhooks
    */
@@ -2949,148 +2843,6 @@ export declare const WebhookService: GenService<{
     methodKind: "unary";
     input: typeof ListWebhooksRequestSchema;
     output: typeof ListWebhooksResponseSchema;
-  },
-  /**
-   * RegisterEvent registers a new event type (no namespace required)
-   *
-   * @generated from rpc webhook.WebhookService.RegisterEvent
-   */
-  registerEvent: {
-    methodKind: "unary";
-    input: typeof RegisterEventRequestSchema;
-    output: typeof RegisterEventResponseSchema;
-  },
-  /**
-   * ListEvents lists all registered event types
-   *
-   * @generated from rpc webhook.WebhookService.ListEvents
-   */
-  listEvents: {
-    methodKind: "unary";
-    input: typeof ListEventsRequestSchema;
-    output: typeof ListEventsResponseSchema;
-  },
-  /**
-   * UpdateEvent updates an event registration
-   *
-   * @generated from rpc webhook.WebhookService.UpdateEvent
-   */
-  updateEvent: {
-    methodKind: "unary";
-    input: typeof UpdateEventRequestSchema;
-    output: typeof UpdateEventResponseSchema;
-  },
-  /**
-   * DeleteEvent deletes an event registration
-   *
-   * @generated from rpc webhook.WebhookService.DeleteEvent
-   */
-  deleteEvent: {
-    methodKind: "unary";
-    input: typeof DeleteEventRequestSchema;
-    output: typeof DeleteEventResponseSchema;
-  },
-  /**
-   * Health Management
-   * GetWebhookHealth gets health metrics for a specific webhook
-   *
-   * @generated from rpc webhook.WebhookService.GetWebhookHealth
-   */
-  getWebhookHealth: {
-    methodKind: "unary";
-    input: typeof GetWebhookHealthRequestSchema;
-    output: typeof GetWebhookHealthResponseSchema;
-  },
-  /**
-   * ListWebhooksByHealth lists webhooks filtered by health status
-   *
-   * @generated from rpc webhook.WebhookService.ListWebhooksByHealth
-   */
-  listWebhooksByHealth: {
-    methodKind: "unary";
-    input: typeof ListWebhooksByHealthRequestSchema;
-    output: typeof ListWebhooksByHealthResponseSchema;
-  },
-  /**
-   * GetHealthSummary gets a summary of webhook health across all namespaces
-   *
-   * @generated from rpc webhook.WebhookService.GetHealthSummary
-   */
-  getHealthSummary: {
-    methodKind: "unary";
-    input: typeof GetHealthSummaryRequestSchema;
-    output: typeof GetHealthSummaryResponseSchema;
-  },
-  /**
-   * ResubmitWebhook manually retries failed or pending webhook deliveries
-   *
-   * @generated from rpc webhook.WebhookService.ResubmitWebhook
-   */
-  resubmitWebhook: {
-    methodKind: "unary";
-    input: typeof ResubmitWebhookRequestSchema;
-    output: typeof ResubmitWebhookResponseSchema;
-  },
-  /**
-   * Additional webhook management methods
-   * GetRegisteredWebhooks retrieves registered webhooks by ID or namespace
-   *
-   * @generated from rpc webhook.WebhookService.GetRegisteredWebhooks
-   */
-  getRegisteredWebhooks: {
-    methodKind: "unary";
-    input: typeof GetRegisteredWebhooksRequestSchema;
-    output: typeof GetRegisteredWebhooksResponseSchema;
-  },
-  /**
-   * ListRegisteredWebhooksByEvent retrieves webhooks registered for specific events
-   *
-   * @generated from rpc webhook.WebhookService.ListRegisteredWebhooksByEvent
-   */
-  listRegisteredWebhooksByEvent: {
-    methodKind: "unary";
-    input: typeof ListRegisteredWebhooksByEventRequestSchema;
-    output: typeof ListRegisteredWebhooksByEventResponseSchema;
-  },
-  /**
-   * GetWebhookDeliveryStatus retrieves delivery status for specific delivery
-   *
-   * @generated from rpc webhook.WebhookService.GetWebhookDeliveryStatus
-   */
-  getWebhookDeliveryStatus: {
-    methodKind: "unary";
-    input: typeof GetWebhookDeliveryStatusRequestSchema;
-    output: typeof GetWebhookDeliveryStatusResponseSchema;
-  },
-  /**
-   * ResendWebhook resends a failed webhook delivery
-   *
-   * @generated from rpc webhook.WebhookService.ResendWebhook
-   */
-  resendWebhook: {
-    methodKind: "unary";
-    input: typeof ResendWebhookRequestSchema;
-    output: typeof ResendWebhookResponseSchema;
-  },
-  /**
-   * GetWebhookDeliveryHistory retrieves delivery history for a webhook
-   *
-   * @generated from rpc webhook.WebhookService.GetWebhookDeliveryHistory
-   */
-  getWebhookDeliveryHistory: {
-    methodKind: "unary";
-    input: typeof GetWebhookDeliveryHistoryRequestSchema;
-    output: typeof GetWebhookDeliveryHistoryResponseSchema;
-  },
-  /**
-   * GetNamespaceStats retrieves statistics for a namespace
-   *
-   * @generated from rpc webhook.WebhookService.GetNamespaceStats
-   */
-  getNamespaceStats: {
-    methodKind: "unary";
-    input: typeof GetNamespaceStatsRequestSchema;
-    output: typeof GetNamespaceStatsResponseSchema;
   },
   /**
    * UpdateWebhookConfig updates webhook configuration
@@ -3123,75 +2875,14 @@ export declare const WebhookService: GenService<{
     output: typeof ResumeWebhookResponseSchema;
   },
   /**
-   * ListEventReports lists all events in descending order for a given namespace
+   * GetNamespaceStats retrieves statistics for a namespace
    *
-   * @generated from rpc webhook.WebhookService.ListEventReports
+   * @generated from rpc webhook.WebhookService.GetNamespaceStats
    */
-  listEventReports: {
+  getNamespaceStats: {
     methodKind: "unary";
-    input: typeof ListEventReportsRequestSchema;
-    output: typeof ListEventReportsResponseSchema;
-  },
-  /**
-   * Event Subscription Management
-   * CreateSubscription creates a new event subscription for a webhook
-   *
-   * @generated from rpc webhook.WebhookService.CreateSubscription
-   */
-  createSubscription: {
-    methodKind: "unary";
-    input: typeof CreateSubscriptionRequestSchema;
-    output: typeof CreateSubscriptionResponseSchema;
-  },
-  /**
-   * GetSubscription retrieves a specific subscription by ID
-   *
-   * @generated from rpc webhook.WebhookService.GetSubscription
-   */
-  getSubscription: {
-    methodKind: "unary";
-    input: typeof GetSubscriptionRequestSchema;
-    output: typeof GetSubscriptionResponseSchema;
-  },
-  /**
-   * ListSubscriptions lists all subscriptions for a webhook
-   *
-   * @generated from rpc webhook.WebhookService.ListSubscriptions
-   */
-  listSubscriptions: {
-    methodKind: "unary";
-    input: typeof ListSubscriptionsRequestSchema;
-    output: typeof ListSubscriptionsResponseSchema;
-  },
-  /**
-   * UpdateSubscription updates an existing subscription
-   *
-   * @generated from rpc webhook.WebhookService.UpdateSubscription
-   */
-  updateSubscription: {
-    methodKind: "unary";
-    input: typeof UpdateSubscriptionRequestSchema;
-    output: typeof UpdateSubscriptionResponseSchema;
-  },
-  /**
-   * DeleteSubscription deletes a subscription
-   *
-   * @generated from rpc webhook.WebhookService.DeleteSubscription
-   */
-  deleteSubscription: {
-    methodKind: "unary";
-    input: typeof DeleteSubscriptionRequestSchema;
-    output: typeof DeleteSubscriptionResponseSchema;
-  },
-  /**
-   * ListSubscriptionsByEvent lists all subscriptions for a specific event
-   *
-   * @generated from rpc webhook.WebhookService.ListSubscriptionsByEvent
-   */
-  listSubscriptionsByEvent: {
-    methodKind: "unary";
-    input: typeof ListSubscriptionsByEventRequestSchema;
-    output: typeof ListSubscriptionsByEventResponseSchema;
+    input: typeof GetNamespaceStatsRequestSchema;
+    output: typeof GetNamespaceStatsResponseSchema;
   },
   /**
    * GetTemplateFunctions returns all available template functions with their descriptions
@@ -3202,6 +2893,208 @@ export declare const WebhookService: GenService<{
     methodKind: "unary";
     input: typeof GetTemplateFunctionsRequestSchema;
     output: typeof GetTemplateFunctionsResponseSchema;
+  },
+}>;
+
+/**
+ * EventService handles event definitions and reports
+ *
+ * @generated from service webhook.EventService
+ */
+export declare const EventService: GenService<{
+  /**
+   * RegisterEvent registers a new event type
+   *
+   * @generated from rpc webhook.EventService.RegisterEvent
+   */
+  registerEvent: {
+    methodKind: "unary";
+    input: typeof RegisterEventRequestSchema;
+    output: typeof RegisterEventResponseSchema;
+  },
+  /**
+   * ListEvents lists all registered event types
+   *
+   * @generated from rpc webhook.EventService.ListEvents
+   */
+  listEvents: {
+    methodKind: "unary";
+    input: typeof ListEventsRequestSchema;
+    output: typeof ListEventsResponseSchema;
+  },
+  /**
+   * UpdateEvent updates an event registration
+   *
+   * @generated from rpc webhook.EventService.UpdateEvent
+   */
+  updateEvent: {
+    methodKind: "unary";
+    input: typeof UpdateEventRequestSchema;
+    output: typeof UpdateEventResponseSchema;
+  },
+  /**
+   * DeleteEvent deletes an event registration
+   *
+   * @generated from rpc webhook.EventService.DeleteEvent
+   */
+  deleteEvent: {
+    methodKind: "unary";
+    input: typeof DeleteEventRequestSchema;
+    output: typeof DeleteEventResponseSchema;
+  },
+  /**
+   * PushEvent pushes an event that triggers registered webhooks
+   *
+   * @generated from rpc webhook.EventService.PushEvent
+   */
+  pushEvent: {
+    methodKind: "unary";
+    input: typeof PushEventRequestSchema;
+    output: typeof PushEventResponseSchema;
+  },
+  /**
+   * ListEventReports lists all events in descending order for a given namespace
+   *
+   * @generated from rpc webhook.EventService.ListEventReports
+   */
+  listEventReports: {
+    methodKind: "unary";
+    input: typeof ListEventReportsRequestSchema;
+    output: typeof ListEventReportsResponseSchema;
+  },
+}>;
+
+/**
+ * SubscriptionService manages mapping of webhooks to events
+ *
+ * @generated from service webhook.SubscriptionService
+ */
+export declare const SubscriptionService: GenService<{
+  /**
+   * CreateSubscription creates a new event subscription for a webhook
+   *
+   * @generated from rpc webhook.SubscriptionService.CreateSubscription
+   */
+  createSubscription: {
+    methodKind: "unary";
+    input: typeof CreateSubscriptionRequestSchema;
+    output: typeof CreateSubscriptionResponseSchema;
+  },
+  /**
+   * GetSubscription retrieves a specific subscription by ID
+   *
+   * @generated from rpc webhook.SubscriptionService.GetSubscription
+   */
+  getSubscription: {
+    methodKind: "unary";
+    input: typeof GetSubscriptionRequestSchema;
+    output: typeof GetSubscriptionResponseSchema;
+  },
+  /**
+   * ListSubscriptions lists all subscriptions for a webhook or event
+   *
+   * @generated from rpc webhook.SubscriptionService.ListSubscriptions
+   */
+  listSubscriptions: {
+    methodKind: "unary";
+    input: typeof ListSubscriptionsRequestSchema;
+    output: typeof ListSubscriptionsResponseSchema;
+  },
+  /**
+   * UpdateSubscription updates an existing subscription
+   *
+   * @generated from rpc webhook.SubscriptionService.UpdateSubscription
+   */
+  updateSubscription: {
+    methodKind: "unary";
+    input: typeof UpdateSubscriptionRequestSchema;
+    output: typeof UpdateSubscriptionResponseSchema;
+  },
+  /**
+   * DeleteSubscription deletes a subscription
+   *
+   * @generated from rpc webhook.SubscriptionService.DeleteSubscription
+   */
+  deleteSubscription: {
+    methodKind: "unary";
+    input: typeof DeleteSubscriptionRequestSchema;
+    output: typeof DeleteSubscriptionResponseSchema;
+  },
+}>;
+
+/**
+ * DeliveryService tracks history and handles retries
+ *
+ * @generated from service webhook.DeliveryService
+ */
+export declare const DeliveryService: GenService<{
+  /**
+   * GetDeliveryStatus retrieves delivery status for specific delivery
+   *
+   * @generated from rpc webhook.DeliveryService.GetDeliveryStatus
+   */
+  getDeliveryStatus: {
+    methodKind: "unary";
+    input: typeof GetDeliveryStatusRequestSchema;
+    output: typeof GetDeliveryStatusResponseSchema;
+  },
+  /**
+   * ListDeliveries retrieves delivery history with filters
+   *
+   * @generated from rpc webhook.DeliveryService.ListDeliveries
+   */
+  listDeliveries: {
+    methodKind: "unary";
+    input: typeof ListDeliveriesRequestSchema;
+    output: typeof ListDeliveriesResponseSchema;
+  },
+  /**
+   * RetryDelivery manually retries failed or pending webhook deliveries
+   *
+   * @generated from rpc webhook.DeliveryService.RetryDelivery
+   */
+  retryDelivery: {
+    methodKind: "unary";
+    input: typeof RetryDeliveryRequestSchema;
+    output: typeof RetryDeliveryResponseSchema;
+  },
+}>;
+
+/**
+ * HealthService manages health metrics and summaries
+ *
+ * @generated from service webhook.HealthService
+ */
+export declare const HealthService: GenService<{
+  /**
+   * GetWebhookHealth gets health metrics for a specific webhook
+   *
+   * @generated from rpc webhook.HealthService.GetWebhookHealth
+   */
+  getWebhookHealth: {
+    methodKind: "unary";
+    input: typeof GetWebhookHealthRequestSchema;
+    output: typeof GetWebhookHealthResponseSchema;
+  },
+  /**
+   * ListWebhooksByHealth lists webhooks filtered by health status
+   *
+   * @generated from rpc webhook.HealthService.ListWebhooksByHealth
+   */
+  listWebhooksByHealth: {
+    methodKind: "unary";
+    input: typeof ListWebhooksByHealthRequestSchema;
+    output: typeof ListWebhooksByHealthResponseSchema;
+  },
+  /**
+   * GetHealthSummary gets a summary of webhook health across all namespaces
+   *
+   * @generated from rpc webhook.HealthService.GetHealthSummary
+   */
+  getHealthSummary: {
+    methodKind: "unary";
+    input: typeof GetHealthSummaryRequestSchema;
+    output: typeof GetHealthSummaryResponseSchema;
   },
 }>;
 
