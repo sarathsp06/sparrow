@@ -86,6 +86,18 @@ func (s *WebhookServer) DeleteSubscription(ctx context.Context, req *pb.DeleteSu
 	return &pb.DeleteSubscriptionResponse{}, nil
 }
 
+// TestSubscriptionTemplate dry-runs a transformation template with sample data
+func (s *WebhookServer) TestSubscriptionTemplate(ctx context.Context, req *pb.TestSubscriptionTemplateRequest) (*pb.TestSubscriptionTemplateResponse, error) {
+	result, err := s.service.TestSubscriptionTemplate(ctx, req.EventName, req.TransformTemplate, req.Namespace)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to test subscription template: %v", err)
+	}
+
+	return &pb.TestSubscriptionTemplateResponse{
+		TransformedPayload: result,
+	}, nil
+}
+
 // Helper function to convert store.EventSubscription to protobuf
 func convertSubscriptionToProto(sub *store.EventSubscription) *pb.EventSubscription {
 	if sub == nil {

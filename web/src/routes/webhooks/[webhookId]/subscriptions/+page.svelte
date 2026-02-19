@@ -3,10 +3,11 @@
   import { page } from "$app/state";
   import {
     subscriptionClient as client,
-    webhookClient
+    webhookClient,
+    eventClient
   } from "$lib/services";
   import { onMount } from "svelte";
-  import { type EventSubscription, type TemplateFunction } from "../../../../../../proto/webhook_pb";
+  import { type EventSubscription, type TemplateFunction, type RegisteredEvent } from "../../../../../../proto/webhook_pb";
 
   let webhookId: string = "";
   let webhook: any = null;
@@ -20,6 +21,12 @@
   let templateFunctions: TemplateFunction[] = [];
   let loadingTemplateFunctions = false;
   let selectedFunction: TemplateFunction | null = null;
+
+  let availableEvents: RegisteredEvent[] = [];
+  let selectedEventDetails: RegisteredEvent | null = null;
+  let previewLoading = false;
+  let dryRunResult = "";
+  let dryRunError = "";
 
   let newSubscription = {
     eventName: "",
@@ -88,6 +95,56 @@
     }
   }
 
+  async function fetchAvailableEvents() {
+    try {
+      const response = await eventClient.listEvents({
+        activeOnly: true,
+      });
+      availableEvents = response.events;
+    } catch (e: any) {
+      console.error('Failed to fetch events:', e);
+    }
+  }
+
+  async function handleEventChange(eventName: string) {
+    if (!eventName) {
+      selectedEventDetails = null;
+      return;
+    }
+    const event = availableEvents.find(e => e.name === eventName);
+    if (event) {
+      selectedEventDetails = event;
+    } else {
+      try {
+        const res = await eventClient.getEvent({ name: eventName });
+        selectedEventDetails = res.event || null;
+      } catch (e) {
+        selectedEventDetails = null;
+      }
+    }
+    dryRunResult = "";
+    dryRunError = "";
+  }
+
+  async function testTemplate(eventName: string, template: string, namespace: string) {
+    if (!eventName || !template) return;
+    try {
+      previewLoading = true;
+      dryRunError = "";
+      dryRunResult = "";
+      const response = await client.testSubscriptionTemplate({
+        eventName,
+        transformTemplate: template,
+        namespace
+      });
+      dryRunResult = response.transformedPayload;
+    } catch (e: any) {
+      dryRunError = e.message;
+    } finally {
+      previewLoading = false;
+    }
+  }
+
   async function fetchSubscriptions() {
     if (!webhookId) return;
     try {
@@ -131,6 +188,9 @@
         timeout: 30,
         headers: {},
       };
+      selectedEventDetails = null;
+      dryRunResult = "";
+      dryRunError = "";
     } catch (e: any) {
       error = `Failed to create subscription: ${e.message}`;
     }
@@ -182,6 +242,7 @@
       timeout: subscription.timeout || 30,
       headers: subscription.headers || {},
     };
+    handleEventChange(subscription.eventName);
     showEditModal = true;
   }
 
@@ -255,7 +316,7 @@
   onMount(async () => {
     webhookId = page.params.webhookId || "";
     if (webhookId) {
-      await Promise.all([fetchWebhook(), fetchSubscriptions()]);
+      await Promise.all([fetchWebhook(), fetchSubscriptions(), fetchAvailableEvents()]);
     } else {
       error = "No webhook ID provided";
     }
@@ -445,13 +506,26 @@
           <!-- Event Name -->
           <div>
             <label for="create-event-name" class="block text-sm font-medium text-gray-700 mb-1">Event Name</label>
-            <input
-              id="create-event-name"
-              type="text"
-              bind:value={newSubscription.eventName}
-              placeholder="e.g., user.created, order.completed"
-              class="w-full border border-gray-300 rounded-md px-3 py-2"
-            />
+            <div class="flex gap-2">
+              <select
+                id="create-event-name"
+                bind:value={newSubscription.eventName}
+                onchange={() => handleEventChange(newSubscription.eventName)}
+                class="flex-1 border border-gray-300 rounded-md px-3 py-2"
+              >
+                <option value="">Select an event...</option>
+                {#each availableEvents as event}
+                  <option value={event.name}>{event.name}</option>
+                {/each}
+              </select>
+              <input
+                type="text"
+                bind:value={newSubscription.eventName}
+                oninput={() => handleEventChange(newSubscription.eventName)}
+                placeholder="Or type event name"
+                class="flex-1 border border-gray-300 rounded-md px-3 py-2"
+              />
+            </div>
           </div>
 
           <!-- Namespace -->
@@ -515,6 +589,40 @@
                   {showTemplateDocs ? '✕ Hide' : '📖 Show'} Template Functions
                 </button>
               </div>
+
+              {#if selectedEventDetails}
+                <div class="mb-4 bg-gray-50 border border-gray-200 rounded-md p-3">
+                  <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-semibold text-gray-700 uppercase tracking-wider">Sample Payload</span>
+                    <button
+                      type="button"
+                      onclick={() => testTemplate(newSubscription.eventName, newSubscription.transformTemplate, newSubscription.namespace)}
+                      disabled={previewLoading || !newSubscription.transformTemplate}
+                      class="bg-green-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-700 disabled:bg-gray-400 transition"
+                    >
+                      {previewLoading ? 'Executing...' : '▶ Preview Transformation'}
+                    </button>
+                  </div>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <p class="text-[10px] text-gray-500 mb-1">Input (Sample Data)</p>
+                      <pre class="bg-white p-2 border rounded text-[10px] overflow-auto max-h-40">{JSON.stringify(selectedEventDetails.samplePayload, null, 2)}</pre>
+                    </div>
+                    <div>
+                      <p class="text-[10px] text-gray-500 mb-1">Output (Transformed)</p>
+                      <div class="bg-white p-2 border rounded text-[10px] overflow-auto max-h-40 min-h-[40px]">
+                        {#if dryRunResult}
+                          <pre>{dryRunResult}</pre>
+                        {:else if dryRunError}
+                          <pre class="text-red-600">{dryRunError}</pre>
+                        {:else}
+                          <span class="text-gray-400 italic">Click preview to see results</span>
+                        {/if}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {/if}
               
               <div class="grid gap-4" style="grid-template-columns: {showTemplateDocs ? '1fr 1fr' : '1fr'}">
                 <div>
@@ -721,6 +829,40 @@
                   {showTemplateDocs ? '✕ Hide' : '📖 Show'} Template Functions
                 </button>
               </div>
+
+              {#if selectedEventDetails}
+                <div class="mb-4 bg-gray-50 border border-gray-200 rounded-md p-3">
+                  <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-semibold text-gray-700 uppercase tracking-wider">Sample Payload</span>
+                    <button
+                      type="button"
+                      onclick={() => testTemplate(editSubscription.eventName, editSubscription.transformTemplate, editSubscription.namespace)}
+                      disabled={previewLoading || !editSubscription.transformTemplate}
+                      class="bg-green-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-700 disabled:bg-gray-400 transition"
+                    >
+                      {previewLoading ? 'Executing...' : '▶ Preview Transformation'}
+                    </button>
+                  </div>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <p class="text-[10px] text-gray-500 mb-1">Input (Sample Data)</p>
+                      <pre class="bg-white p-2 border rounded text-[10px] overflow-auto max-h-40">{JSON.stringify(selectedEventDetails.samplePayload, null, 2)}</pre>
+                    </div>
+                    <div>
+                      <p class="text-[10px] text-gray-500 mb-1">Output (Transformed)</p>
+                      <div class="bg-white p-2 border rounded text-[10px] overflow-auto max-h-40 min-h-[40px]">
+                        {#if dryRunResult}
+                          <pre>{dryRunResult}</pre>
+                        {:else if dryRunError}
+                          <pre class="text-red-600">{dryRunError}</pre>
+                        {:else}
+                          <span class="text-gray-400 italic">Click preview to see results</span>
+                        {/if}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {/if}
               
               <div class="grid gap-4" style="grid-template-columns: {showTemplateDocs ? '1fr 1fr' : '1fr'}">
                 <div>

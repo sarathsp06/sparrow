@@ -54,35 +54,11 @@ func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsReques
 
 	pbEvents := make([]*pb.RegisteredEvent, len(events))
 	for i, event := range events {
-		pbEvents[i] = &pb.RegisteredEvent{
-			EventId:     event.ID.String(),
-			Name:        event.Name,
-			Description: event.Description,
-			Active:      event.Active,
-			CreatedAt:   convertTimeToProto(event.CreatedAt),
-			UpdatedAt:   convertTimeToProto(event.UpdatedAt),
+		pbEv, err := convertEventToProto(event)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to convert event: %v", err)
 		}
-
-		// Convert schema map to Struct for protobuf
-		if event.Schema != nil {
-			schemaStruct, err := convertMapToStruct(event.Schema)
-			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to convert event schema: %v", err)
-			}
-			pbEvents[i].Schema = schemaStruct
-		}
-
-		// Convert sample_payload to protobuf Struct
-		if event.SamplePayload != nil {
-			samplePayloadStruct, err := convertMapToStruct(event.SamplePayload)
-			if err != nil {
-				return nil, status.Errorf(codes.Internal, "failed to convert sample payload: %v", err)
-			}
-			pbEvents[i].SamplePayload = samplePayloadStruct
-		}
-
-		// Convert metadata to protobuf format
-		pbEvents[i].Metadata = event.Metadata
+		pbEvents[i] = pbEv
 	}
 
 	return &pb.ListEventsResponse{
@@ -117,6 +93,26 @@ func (s *WebhookServer) DeleteEvent(ctx context.Context, req *pb.DeleteEventRequ
 		return nil, status.Errorf(codes.Internal, "Failed to delete event: %v", err)
 	}
 	return &pb.DeleteEventResponse{}, nil
+}
+
+// GetEvent retrieves an event type by name
+func (s *WebhookServer) GetEvent(ctx context.Context, req *pb.GetEventRequest) (*pb.GetEventResponse, error) {
+	event, err := s.service.GetEvent(ctx, req.Name)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get event: %v", err)
+	}
+	if event == nil {
+		return nil, status.Error(codes.NotFound, "event not found")
+	}
+
+	pbEvent, err := convertEventToProto(event)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to convert event: %v", err)
+	}
+
+	return &pb.GetEventResponse{
+		Event: pbEvent,
+	}, nil
 }
 
 // ListEventReports lists all events in descending order for a given namespace

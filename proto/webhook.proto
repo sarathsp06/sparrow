@@ -48,6 +48,9 @@ service EventService {
   // DeleteEvent deletes an event registration
   rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse);
 
+  // GetEvent retrieves an event type by name
+  rpc GetEvent(GetEventRequest) returns (GetEventResponse);
+
   // PushEvent pushes an event that triggers registered webhooks
   rpc PushEvent(PushEventRequest) returns (PushEventResponse);
 
@@ -71,6 +74,9 @@ service SubscriptionService {
 
   // DeleteSubscription deletes a subscription
   rpc DeleteSubscription(DeleteSubscriptionRequest) returns (DeleteSubscriptionResponse);
+
+  // TestSubscriptionTemplate dry-runs a transformation template with sample data
+  rpc TestSubscriptionTemplate(TestSubscriptionTemplateRequest) returns (TestSubscriptionTemplateResponse);
 }
 
 // DeliveryService tracks history and handles retries
@@ -283,6 +289,16 @@ message UpdateEventResponse {
   string message = 2 [deprecated = true];
 }
 
+// GetEventRequest represents a request to get an event by name
+message GetEventRequest {
+  string name = 1; // Event name (required)
+}
+
+// GetEventResponse represents the response for getting an event
+message GetEventResponse {
+  RegisteredEvent event = 1;
+}
+
 // DeleteEventRequest represents a request to delete an event
 message DeleteEventRequest {
   string name = 1; // Event name to delete
@@ -292,6 +308,18 @@ message DeleteEventRequest {
 message DeleteEventResponse {
   bool success = 1 [deprecated = true];
   string message = 2 [deprecated = true];
+}
+
+// TestSubscriptionTemplateRequest represents a request to test a transformation template
+message TestSubscriptionTemplateRequest {
+  string event_name = 1; // Event name to get sample data from
+  string transform_template = 2; // Template to test
+  string namespace = 3; // Namespace
+}
+
+// TestSubscriptionTemplateResponse represents the result of a template test
+message TestSubscriptionTemplateResponse {
+  string transformed_payload = 1; // Resulting transformed payload
 }
 
 // Health Management Messages

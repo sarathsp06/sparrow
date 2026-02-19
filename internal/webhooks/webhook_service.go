@@ -50,6 +50,7 @@ type WebhookServiceInterface interface {
 	ListEvents(ctx context.Context, activeOnly bool, limit, offset int32) ([]*store.EventRegistration, int32, error)
 	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error
 	DeleteEvent(ctx context.Context, name string) error
+	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
 	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string) (string, error)
 	ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int32) ([]*store.EventReportWithStats, int32, error)
 
@@ -59,6 +60,7 @@ type WebhookServiceInterface interface {
 	ListSubscriptions(ctx context.Context, namespace string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
 	UpdateSubscription(ctx context.Context, subscriptionID string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string) error
 	DeleteSubscription(ctx context.Context, subscriptionID string, namespace string) error
+	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, namespace string) (string, error)
 
 	// Delivery Management
 	GetDeliveryStatus(ctx context.Context, deliveryID string, namespace string) (*store.WebhookDelivery, error)
@@ -1055,6 +1057,25 @@ func (s *WebhookService) DeleteEvent(ctx context.Context, name string) error {
 	return nil
 }
 
+// GetEvent retrieves an event registration by name
+func (s *WebhookService) GetEvent(ctx context.Context, name string) (*store.EventRegistration, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.GetEvent")
+	defer span.End()
+
+	s.logger.Info("Processing get event request", "name", name)
+	if name == "" {
+		return nil, fmt.Errorf("event name is required")
+	}
+
+	event, err := s.webhookRepo.GetEventByName(ctx, name)
+	if err != nil {
+		s.logger.Error("Failed to get event", "error", err)
+		return nil, fmt.Errorf("failed to retrieve event: %w", err)
+	}
+
+	return event, nil
+}
+
 // GetWebhookHealth retrieves health metrics for a webhook
 func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string, namespace string) (*WebhookHealthData, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.GetWebhookHealth")
@@ -1542,6 +1563,41 @@ func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID 
 	}
 
 	return s.webhookRepo.DeleteSubscription(ctx, sub.ID)
+}
+
+func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, namespace string) (string, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.TestSubscriptionTemplate")
+	defer span.End()
+
+	s.logger.Info("Processing test subscription template request", "event_name", eventName, "namespace", namespace)
+
+	if eventName == "" {
+		return "", fmt.Errorf("event name is required")
+	}
+
+	event, err := s.webhookRepo.GetEventByName(ctx, eventName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get event: %w", err)
+	}
+	if event == nil {
+		return "", fmt.Errorf("event not found")
+	}
+
+	engine := client.NewTemplateEngine()
+
+	// Create context for template
+	data := client.WebhookTemplateContext{
+		EventID:   "dry-run-event-id",
+		EventName: eventName,
+		Payload:   event.SamplePayload,
+	}
+
+	result, err := engine.TransformPayload(transformTemplate, data)
+	if err != nil {
+		return "", fmt.Errorf("template transformation failed: %w", err)
+	}
+
+	return string(result), nil
 }
 
 func (s *WebhookService) GetTemplateFunctions() []TemplateFunctionInfo {

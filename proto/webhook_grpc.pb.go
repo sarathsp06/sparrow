@@ -411,6 +411,7 @@ const (
 	EventService_ListEvents_FullMethodName       = "/webhook.EventService/ListEvents"
 	EventService_UpdateEvent_FullMethodName      = "/webhook.EventService/UpdateEvent"
 	EventService_DeleteEvent_FullMethodName      = "/webhook.EventService/DeleteEvent"
+	EventService_GetEvent_FullMethodName         = "/webhook.EventService/GetEvent"
 	EventService_PushEvent_FullMethodName        = "/webhook.EventService/PushEvent"
 	EventService_ListEventReports_FullMethodName = "/webhook.EventService/ListEventReports"
 )
@@ -429,6 +430,8 @@ type EventServiceClient interface {
 	UpdateEvent(ctx context.Context, in *UpdateEventRequest, opts ...grpc.CallOption) (*UpdateEventResponse, error)
 	// DeleteEvent deletes an event registration
 	DeleteEvent(ctx context.Context, in *DeleteEventRequest, opts ...grpc.CallOption) (*DeleteEventResponse, error)
+	// GetEvent retrieves an event type by name
+	GetEvent(ctx context.Context, in *GetEventRequest, opts ...grpc.CallOption) (*GetEventResponse, error)
 	// PushEvent pushes an event that triggers registered webhooks
 	PushEvent(ctx context.Context, in *PushEventRequest, opts ...grpc.CallOption) (*PushEventResponse, error)
 	// ListEventReports lists all events in descending order for a given namespace
@@ -483,6 +486,16 @@ func (c *eventServiceClient) DeleteEvent(ctx context.Context, in *DeleteEventReq
 	return out, nil
 }
 
+func (c *eventServiceClient) GetEvent(ctx context.Context, in *GetEventRequest, opts ...grpc.CallOption) (*GetEventResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetEventResponse)
+	err := c.cc.Invoke(ctx, EventService_GetEvent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *eventServiceClient) PushEvent(ctx context.Context, in *PushEventRequest, opts ...grpc.CallOption) (*PushEventResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PushEventResponse)
@@ -517,6 +530,8 @@ type EventServiceServer interface {
 	UpdateEvent(context.Context, *UpdateEventRequest) (*UpdateEventResponse, error)
 	// DeleteEvent deletes an event registration
 	DeleteEvent(context.Context, *DeleteEventRequest) (*DeleteEventResponse, error)
+	// GetEvent retrieves an event type by name
+	GetEvent(context.Context, *GetEventRequest) (*GetEventResponse, error)
 	// PushEvent pushes an event that triggers registered webhooks
 	PushEvent(context.Context, *PushEventRequest) (*PushEventResponse, error)
 	// ListEventReports lists all events in descending order for a given namespace
@@ -542,6 +557,9 @@ func (UnimplementedEventServiceServer) UpdateEvent(context.Context, *UpdateEvent
 }
 func (UnimplementedEventServiceServer) DeleteEvent(context.Context, *DeleteEventRequest) (*DeleteEventResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteEvent not implemented")
+}
+func (UnimplementedEventServiceServer) GetEvent(context.Context, *GetEventRequest) (*GetEventResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetEvent not implemented")
 }
 func (UnimplementedEventServiceServer) PushEvent(context.Context, *PushEventRequest) (*PushEventResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PushEvent not implemented")
@@ -642,6 +660,24 @@ func _EventService_DeleteEvent_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EventService_GetEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EventServiceServer).GetEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EventService_GetEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EventServiceServer).GetEvent(ctx, req.(*GetEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _EventService_PushEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PushEventRequest)
 	if err := dec(in); err != nil {
@@ -702,6 +738,10 @@ var EventService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _EventService_DeleteEvent_Handler,
 		},
 		{
+			MethodName: "GetEvent",
+			Handler:    _EventService_GetEvent_Handler,
+		},
+		{
 			MethodName: "PushEvent",
 			Handler:    _EventService_PushEvent_Handler,
 		},
@@ -715,11 +755,12 @@ var EventService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	SubscriptionService_CreateSubscription_FullMethodName = "/webhook.SubscriptionService/CreateSubscription"
-	SubscriptionService_GetSubscription_FullMethodName    = "/webhook.SubscriptionService/GetSubscription"
-	SubscriptionService_ListSubscriptions_FullMethodName  = "/webhook.SubscriptionService/ListSubscriptions"
-	SubscriptionService_UpdateSubscription_FullMethodName = "/webhook.SubscriptionService/UpdateSubscription"
-	SubscriptionService_DeleteSubscription_FullMethodName = "/webhook.SubscriptionService/DeleteSubscription"
+	SubscriptionService_CreateSubscription_FullMethodName       = "/webhook.SubscriptionService/CreateSubscription"
+	SubscriptionService_GetSubscription_FullMethodName          = "/webhook.SubscriptionService/GetSubscription"
+	SubscriptionService_ListSubscriptions_FullMethodName        = "/webhook.SubscriptionService/ListSubscriptions"
+	SubscriptionService_UpdateSubscription_FullMethodName       = "/webhook.SubscriptionService/UpdateSubscription"
+	SubscriptionService_DeleteSubscription_FullMethodName       = "/webhook.SubscriptionService/DeleteSubscription"
+	SubscriptionService_TestSubscriptionTemplate_FullMethodName = "/webhook.SubscriptionService/TestSubscriptionTemplate"
 )
 
 // SubscriptionServiceClient is the client API for SubscriptionService service.
@@ -738,6 +779,8 @@ type SubscriptionServiceClient interface {
 	UpdateSubscription(ctx context.Context, in *UpdateSubscriptionRequest, opts ...grpc.CallOption) (*UpdateSubscriptionResponse, error)
 	// DeleteSubscription deletes a subscription
 	DeleteSubscription(ctx context.Context, in *DeleteSubscriptionRequest, opts ...grpc.CallOption) (*DeleteSubscriptionResponse, error)
+	// TestSubscriptionTemplate dry-runs a transformation template with sample data
+	TestSubscriptionTemplate(ctx context.Context, in *TestSubscriptionTemplateRequest, opts ...grpc.CallOption) (*TestSubscriptionTemplateResponse, error)
 }
 
 type subscriptionServiceClient struct {
@@ -798,6 +841,16 @@ func (c *subscriptionServiceClient) DeleteSubscription(ctx context.Context, in *
 	return out, nil
 }
 
+func (c *subscriptionServiceClient) TestSubscriptionTemplate(ctx context.Context, in *TestSubscriptionTemplateRequest, opts ...grpc.CallOption) (*TestSubscriptionTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestSubscriptionTemplateResponse)
+	err := c.cc.Invoke(ctx, SubscriptionService_TestSubscriptionTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SubscriptionServiceServer is the server API for SubscriptionService service.
 // All implementations must embed UnimplementedSubscriptionServiceServer
 // for forward compatibility.
@@ -814,6 +867,8 @@ type SubscriptionServiceServer interface {
 	UpdateSubscription(context.Context, *UpdateSubscriptionRequest) (*UpdateSubscriptionResponse, error)
 	// DeleteSubscription deletes a subscription
 	DeleteSubscription(context.Context, *DeleteSubscriptionRequest) (*DeleteSubscriptionResponse, error)
+	// TestSubscriptionTemplate dry-runs a transformation template with sample data
+	TestSubscriptionTemplate(context.Context, *TestSubscriptionTemplateRequest) (*TestSubscriptionTemplateResponse, error)
 	mustEmbedUnimplementedSubscriptionServiceServer()
 }
 
@@ -838,6 +893,9 @@ func (UnimplementedSubscriptionServiceServer) UpdateSubscription(context.Context
 }
 func (UnimplementedSubscriptionServiceServer) DeleteSubscription(context.Context, *DeleteSubscriptionRequest) (*DeleteSubscriptionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteSubscription not implemented")
+}
+func (UnimplementedSubscriptionServiceServer) TestSubscriptionTemplate(context.Context, *TestSubscriptionTemplateRequest) (*TestSubscriptionTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TestSubscriptionTemplate not implemented")
 }
 func (UnimplementedSubscriptionServiceServer) mustEmbedUnimplementedSubscriptionServiceServer() {}
 func (UnimplementedSubscriptionServiceServer) testEmbeddedByValue()                             {}
@@ -950,6 +1008,24 @@ func _SubscriptionService_DeleteSubscription_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SubscriptionService_TestSubscriptionTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestSubscriptionTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SubscriptionServiceServer).TestSubscriptionTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SubscriptionService_TestSubscriptionTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SubscriptionServiceServer).TestSubscriptionTemplate(ctx, req.(*TestSubscriptionTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SubscriptionService_ServiceDesc is the grpc.ServiceDesc for SubscriptionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -976,6 +1052,10 @@ var SubscriptionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteSubscription",
 			Handler:    _SubscriptionService_DeleteSubscription_Handler,
+		},
+		{
+			MethodName: "TestSubscriptionTemplate",
+			Handler:    _SubscriptionService_TestSubscriptionTemplate_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

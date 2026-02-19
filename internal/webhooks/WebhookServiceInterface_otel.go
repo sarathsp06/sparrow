@@ -167,6 +167,30 @@ func (_d WebhookServiceInterfaceWithTracing) GetDeliveryStatus(ctx context.Conte
 	return _d.WebhookServiceInterface.GetDeliveryStatus(ctx, deliveryID, namespace)
 }
 
+// GetEvent implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) GetEvent(ctx context.Context, name string) (ep1 *store.EventRegistration, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetEvent")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":  ctx,
+				"name": name}, map[string]interface{}{
+				"ep1": ep1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.GetEvent(ctx, name)
+}
+
 // GetHealthSummary implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) GetHealthSummary(ctx context.Context) (hp1 *HealthSummaryData, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetHealthSummary")
@@ -597,6 +621,32 @@ func (_d WebhookServiceInterfaceWithTracing) RetryDelivery(ctx context.Context, 
 		_span.End()
 	}()
 	return _d.WebhookServiceInterface.RetryDelivery(ctx, namespace, deliveryID, webhookID, force)
+}
+
+// TestSubscriptionTemplate implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) TestSubscriptionTemplate(ctx context.Context, eventName string, transformTemplate string, namespace string) (s1 string, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.TestSubscriptionTemplate")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":               ctx,
+				"eventName":         eventName,
+				"transformTemplate": transformTemplate,
+				"namespace":         namespace}, map[string]interface{}{
+				"s1":  s1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.TestSubscriptionTemplate(ctx, eventName, transformTemplate, namespace)
 }
 
 // UnregisterWebhook implements WebhookServiceInterface

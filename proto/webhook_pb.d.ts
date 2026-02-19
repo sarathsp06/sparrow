@@ -959,6 +959,44 @@ export declare type UpdateEventResponse = Message<"webhook.UpdateEventResponse">
 export declare const UpdateEventResponseSchema: GenMessage<UpdateEventResponse>;
 
 /**
+ * GetEventRequest represents a request to get an event by name
+ *
+ * @generated from message webhook.GetEventRequest
+ */
+export declare type GetEventRequest = Message<"webhook.GetEventRequest"> & {
+  /**
+   * Event name (required)
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message webhook.GetEventRequest.
+ * Use `create(GetEventRequestSchema)` to create a new message.
+ */
+export declare const GetEventRequestSchema: GenMessage<GetEventRequest>;
+
+/**
+ * GetEventResponse represents the response for getting an event
+ *
+ * @generated from message webhook.GetEventResponse
+ */
+export declare type GetEventResponse = Message<"webhook.GetEventResponse"> & {
+  /**
+   * @generated from field: webhook.RegisteredEvent event = 1;
+   */
+  event?: RegisteredEvent;
+};
+
+/**
+ * Describes the message webhook.GetEventResponse.
+ * Use `create(GetEventResponseSchema)` to create a new message.
+ */
+export declare const GetEventResponseSchema: GenMessage<GetEventResponse>;
+
+/**
  * DeleteEventRequest represents a request to delete an event
  *
  * @generated from message webhook.DeleteEventRequest
@@ -1002,6 +1040,60 @@ export declare type DeleteEventResponse = Message<"webhook.DeleteEventResponse">
  * Use `create(DeleteEventResponseSchema)` to create a new message.
  */
 export declare const DeleteEventResponseSchema: GenMessage<DeleteEventResponse>;
+
+/**
+ * TestSubscriptionTemplateRequest represents a request to test a transformation template
+ *
+ * @generated from message webhook.TestSubscriptionTemplateRequest
+ */
+export declare type TestSubscriptionTemplateRequest = Message<"webhook.TestSubscriptionTemplateRequest"> & {
+  /**
+   * Event name to get sample data from
+   *
+   * @generated from field: string event_name = 1;
+   */
+  eventName: string;
+
+  /**
+   * Template to test
+   *
+   * @generated from field: string transform_template = 2;
+   */
+  transformTemplate: string;
+
+  /**
+   * Namespace
+   *
+   * @generated from field: string namespace = 3;
+   */
+  namespace: string;
+};
+
+/**
+ * Describes the message webhook.TestSubscriptionTemplateRequest.
+ * Use `create(TestSubscriptionTemplateRequestSchema)` to create a new message.
+ */
+export declare const TestSubscriptionTemplateRequestSchema: GenMessage<TestSubscriptionTemplateRequest>;
+
+/**
+ * TestSubscriptionTemplateResponse represents the result of a template test
+ *
+ * @generated from message webhook.TestSubscriptionTemplateResponse
+ */
+export declare type TestSubscriptionTemplateResponse = Message<"webhook.TestSubscriptionTemplateResponse"> & {
+  /**
+   * Resulting transformed payload
+   *
+   * @generated from field: string transformed_payload = 1;
+   */
+  transformedPayload: string;
+};
+
+/**
+ * Describes the message webhook.TestSubscriptionTemplateResponse.
+ * Use `create(TestSubscriptionTemplateResponseSchema)` to create a new message.
+ */
+export declare const TestSubscriptionTemplateResponseSchema: GenMessage<TestSubscriptionTemplateResponse>;
 
 /**
  * GetWebhookHealthRequest represents a request to get webhook health
@@ -2943,6 +3035,16 @@ export declare const EventService: GenService<{
     output: typeof DeleteEventResponseSchema;
   },
   /**
+   * GetEvent retrieves an event type by name
+   *
+   * @generated from rpc webhook.EventService.GetEvent
+   */
+  getEvent: {
+    methodKind: "unary";
+    input: typeof GetEventRequestSchema;
+    output: typeof GetEventResponseSchema;
+  },
+  /**
    * PushEvent pushes an event that triggers registered webhooks
    *
    * @generated from rpc webhook.EventService.PushEvent
@@ -3019,6 +3121,16 @@ export declare const SubscriptionService: GenService<{
     methodKind: "unary";
     input: typeof DeleteSubscriptionRequestSchema;
     output: typeof DeleteSubscriptionResponseSchema;
+  },
+  /**
+   * TestSubscriptionTemplate dry-runs a transformation template with sample data
+   *
+   * @generated from rpc webhook.SubscriptionService.TestSubscriptionTemplate
+   */
+  testSubscriptionTemplate: {
+    methodKind: "unary";
+    input: typeof TestSubscriptionTemplateRequestSchema;
+    output: typeof TestSubscriptionTemplateResponseSchema;
   },
 }>;
 

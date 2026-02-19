@@ -83,3 +83,37 @@ func convertPtrTimeToProto(t *time.Time) *timestamppb.Timestamp {
 	}
 	return timestamppb.New(*t)
 }
+
+// convertEventToProto converts store.EventRegistration to protobuf RegisteredEvent
+func convertEventToProto(event *store.EventRegistration) (*pb.RegisteredEvent, error) {
+	if event == nil {
+		return nil, nil
+	}
+	pbEvent := &pb.RegisteredEvent{
+		EventId:     event.ID.String(),
+		Name:        event.Name,
+		Description: event.Description,
+		Active:      event.Active,
+		CreatedAt:   convertTimeToProto(event.CreatedAt),
+		UpdatedAt:   convertTimeToProto(event.UpdatedAt),
+		Metadata:    event.Metadata,
+	}
+
+	if event.Schema != nil {
+		schemaStruct, err := convertMapToStruct(event.Schema)
+		if err != nil {
+			return nil, err
+		}
+		pbEvent.Schema = schemaStruct
+	}
+
+	if event.SamplePayload != nil {
+		samplePayloadStruct, err := convertMapToStruct(event.SamplePayload)
+		if err != nil {
+			return nil, err
+		}
+		pbEvent.SamplePayload = samplePayloadStruct
+	}
+
+	return pbEvent, nil
+}

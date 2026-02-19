@@ -146,6 +146,14 @@ func (s *WebhookConnectServer) PushEvent(ctx context.Context, req *connect.Reque
 	return connect.NewResponse(res), nil
 }
 
+func (s *WebhookConnectServer) GetEvent(ctx context.Context, req *connect.Request[pb.GetEventRequest]) (*connect.Response[pb.GetEventResponse], error) {
+	res, err := s.grpcService.EventServiceServer.GetEvent(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
 func (s *WebhookConnectServer) ListEventReports(ctx context.Context, req *connect.Request[pb.ListEventReportsRequest]) (*connect.Response[pb.ListEventReportsResponse], error) {
 	res, err := s.grpcService.EventServiceServer.ListEventReports(ctx, req.Msg)
 	if err != nil {
@@ -189,6 +197,14 @@ func (s *WebhookConnectServer) UpdateSubscription(ctx context.Context, req *conn
 
 func (s *WebhookConnectServer) DeleteSubscription(ctx context.Context, req *connect.Request[pb.DeleteSubscriptionRequest]) (*connect.Response[pb.DeleteSubscriptionResponse], error) {
 	res, err := s.grpcService.SubscriptionServiceServer.DeleteSubscription(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
+func (s *WebhookConnectServer) TestSubscriptionTemplate(ctx context.Context, req *connect.Request[pb.TestSubscriptionTemplateRequest]) (*connect.Response[pb.TestSubscriptionTemplateResponse], error) {
+	res, err := s.grpcService.SubscriptionServiceServer.TestSubscriptionTemplate(ctx, req.Msg)
 	if err != nil {
 		return nil, err
 	}

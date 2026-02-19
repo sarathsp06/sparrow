@@ -76,6 +76,8 @@ const (
 	// EventServiceDeleteEventProcedure is the fully-qualified name of the EventService's DeleteEvent
 	// RPC.
 	EventServiceDeleteEventProcedure = "/webhook.EventService/DeleteEvent"
+	// EventServiceGetEventProcedure is the fully-qualified name of the EventService's GetEvent RPC.
+	EventServiceGetEventProcedure = "/webhook.EventService/GetEvent"
 	// EventServicePushEventProcedure is the fully-qualified name of the EventService's PushEvent RPC.
 	EventServicePushEventProcedure = "/webhook.EventService/PushEvent"
 	// EventServiceListEventReportsProcedure is the fully-qualified name of the EventService's
@@ -96,6 +98,9 @@ const (
 	// SubscriptionServiceDeleteSubscriptionProcedure is the fully-qualified name of the
 	// SubscriptionService's DeleteSubscription RPC.
 	SubscriptionServiceDeleteSubscriptionProcedure = "/webhook.SubscriptionService/DeleteSubscription"
+	// SubscriptionServiceTestSubscriptionTemplateProcedure is the fully-qualified name of the
+	// SubscriptionService's TestSubscriptionTemplate RPC.
+	SubscriptionServiceTestSubscriptionTemplateProcedure = "/webhook.SubscriptionService/TestSubscriptionTemplate"
 	// DeliveryServiceGetDeliveryStatusProcedure is the fully-qualified name of the DeliveryService's
 	// GetDeliveryStatus RPC.
 	DeliveryServiceGetDeliveryStatusProcedure = "/webhook.DeliveryService/GetDeliveryStatus"
@@ -394,6 +399,8 @@ type EventServiceClient interface {
 	UpdateEvent(context.Context, *connect.Request[proto.UpdateEventRequest]) (*connect.Response[proto.UpdateEventResponse], error)
 	// DeleteEvent deletes an event registration
 	DeleteEvent(context.Context, *connect.Request[proto.DeleteEventRequest]) (*connect.Response[proto.DeleteEventResponse], error)
+	// GetEvent retrieves an event type by name
+	GetEvent(context.Context, *connect.Request[proto.GetEventRequest]) (*connect.Response[proto.GetEventResponse], error)
 	// PushEvent pushes an event that triggers registered webhooks
 	PushEvent(context.Context, *connect.Request[proto.PushEventRequest]) (*connect.Response[proto.PushEventResponse], error)
 	// ListEventReports lists all events in descending order for a given namespace
@@ -435,6 +442,12 @@ func NewEventServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(eventServiceMethods.ByName("DeleteEvent")),
 			connect.WithClientOptions(opts...),
 		),
+		getEvent: connect.NewClient[proto.GetEventRequest, proto.GetEventResponse](
+			httpClient,
+			baseURL+EventServiceGetEventProcedure,
+			connect.WithSchema(eventServiceMethods.ByName("GetEvent")),
+			connect.WithClientOptions(opts...),
+		),
 		pushEvent: connect.NewClient[proto.PushEventRequest, proto.PushEventResponse](
 			httpClient,
 			baseURL+EventServicePushEventProcedure,
@@ -456,6 +469,7 @@ type eventServiceClient struct {
 	listEvents       *connect.Client[proto.ListEventsRequest, proto.ListEventsResponse]
 	updateEvent      *connect.Client[proto.UpdateEventRequest, proto.UpdateEventResponse]
 	deleteEvent      *connect.Client[proto.DeleteEventRequest, proto.DeleteEventResponse]
+	getEvent         *connect.Client[proto.GetEventRequest, proto.GetEventResponse]
 	pushEvent        *connect.Client[proto.PushEventRequest, proto.PushEventResponse]
 	listEventReports *connect.Client[proto.ListEventReportsRequest, proto.ListEventReportsResponse]
 }
@@ -480,6 +494,11 @@ func (c *eventServiceClient) DeleteEvent(ctx context.Context, req *connect.Reque
 	return c.deleteEvent.CallUnary(ctx, req)
 }
 
+// GetEvent calls webhook.EventService.GetEvent.
+func (c *eventServiceClient) GetEvent(ctx context.Context, req *connect.Request[proto.GetEventRequest]) (*connect.Response[proto.GetEventResponse], error) {
+	return c.getEvent.CallUnary(ctx, req)
+}
+
 // PushEvent calls webhook.EventService.PushEvent.
 func (c *eventServiceClient) PushEvent(ctx context.Context, req *connect.Request[proto.PushEventRequest]) (*connect.Response[proto.PushEventResponse], error) {
 	return c.pushEvent.CallUnary(ctx, req)
@@ -500,6 +519,8 @@ type EventServiceHandler interface {
 	UpdateEvent(context.Context, *connect.Request[proto.UpdateEventRequest]) (*connect.Response[proto.UpdateEventResponse], error)
 	// DeleteEvent deletes an event registration
 	DeleteEvent(context.Context, *connect.Request[proto.DeleteEventRequest]) (*connect.Response[proto.DeleteEventResponse], error)
+	// GetEvent retrieves an event type by name
+	GetEvent(context.Context, *connect.Request[proto.GetEventRequest]) (*connect.Response[proto.GetEventResponse], error)
 	// PushEvent pushes an event that triggers registered webhooks
 	PushEvent(context.Context, *connect.Request[proto.PushEventRequest]) (*connect.Response[proto.PushEventResponse], error)
 	// ListEventReports lists all events in descending order for a given namespace
@@ -537,6 +558,12 @@ func NewEventServiceHandler(svc EventServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(eventServiceMethods.ByName("DeleteEvent")),
 		connect.WithHandlerOptions(opts...),
 	)
+	eventServiceGetEventHandler := connect.NewUnaryHandler(
+		EventServiceGetEventProcedure,
+		svc.GetEvent,
+		connect.WithSchema(eventServiceMethods.ByName("GetEvent")),
+		connect.WithHandlerOptions(opts...),
+	)
 	eventServicePushEventHandler := connect.NewUnaryHandler(
 		EventServicePushEventProcedure,
 		svc.PushEvent,
@@ -559,6 +586,8 @@ func NewEventServiceHandler(svc EventServiceHandler, opts ...connect.HandlerOpti
 			eventServiceUpdateEventHandler.ServeHTTP(w, r)
 		case EventServiceDeleteEventProcedure:
 			eventServiceDeleteEventHandler.ServeHTTP(w, r)
+		case EventServiceGetEventProcedure:
+			eventServiceGetEventHandler.ServeHTTP(w, r)
 		case EventServicePushEventProcedure:
 			eventServicePushEventHandler.ServeHTTP(w, r)
 		case EventServiceListEventReportsProcedure:
@@ -588,6 +617,10 @@ func (UnimplementedEventServiceHandler) DeleteEvent(context.Context, *connect.Re
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.EventService.DeleteEvent is not implemented"))
 }
 
+func (UnimplementedEventServiceHandler) GetEvent(context.Context, *connect.Request[proto.GetEventRequest]) (*connect.Response[proto.GetEventResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.EventService.GetEvent is not implemented"))
+}
+
 func (UnimplementedEventServiceHandler) PushEvent(context.Context, *connect.Request[proto.PushEventRequest]) (*connect.Response[proto.PushEventResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.EventService.PushEvent is not implemented"))
 }
@@ -608,6 +641,8 @@ type SubscriptionServiceClient interface {
 	UpdateSubscription(context.Context, *connect.Request[proto.UpdateSubscriptionRequest]) (*connect.Response[proto.UpdateSubscriptionResponse], error)
 	// DeleteSubscription deletes a subscription
 	DeleteSubscription(context.Context, *connect.Request[proto.DeleteSubscriptionRequest]) (*connect.Response[proto.DeleteSubscriptionResponse], error)
+	// TestSubscriptionTemplate dry-runs a transformation template with sample data
+	TestSubscriptionTemplate(context.Context, *connect.Request[proto.TestSubscriptionTemplateRequest]) (*connect.Response[proto.TestSubscriptionTemplateResponse], error)
 }
 
 // NewSubscriptionServiceClient constructs a client for the webhook.SubscriptionService service. By
@@ -651,16 +686,23 @@ func NewSubscriptionServiceClient(httpClient connect.HTTPClient, baseURL string,
 			connect.WithSchema(subscriptionServiceMethods.ByName("DeleteSubscription")),
 			connect.WithClientOptions(opts...),
 		),
+		testSubscriptionTemplate: connect.NewClient[proto.TestSubscriptionTemplateRequest, proto.TestSubscriptionTemplateResponse](
+			httpClient,
+			baseURL+SubscriptionServiceTestSubscriptionTemplateProcedure,
+			connect.WithSchema(subscriptionServiceMethods.ByName("TestSubscriptionTemplate")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // subscriptionServiceClient implements SubscriptionServiceClient.
 type subscriptionServiceClient struct {
-	createSubscription *connect.Client[proto.CreateSubscriptionRequest, proto.CreateSubscriptionResponse]
-	getSubscription    *connect.Client[proto.GetSubscriptionRequest, proto.GetSubscriptionResponse]
-	listSubscriptions  *connect.Client[proto.ListSubscriptionsRequest, proto.ListSubscriptionsResponse]
-	updateSubscription *connect.Client[proto.UpdateSubscriptionRequest, proto.UpdateSubscriptionResponse]
-	deleteSubscription *connect.Client[proto.DeleteSubscriptionRequest, proto.DeleteSubscriptionResponse]
+	createSubscription       *connect.Client[proto.CreateSubscriptionRequest, proto.CreateSubscriptionResponse]
+	getSubscription          *connect.Client[proto.GetSubscriptionRequest, proto.GetSubscriptionResponse]
+	listSubscriptions        *connect.Client[proto.ListSubscriptionsRequest, proto.ListSubscriptionsResponse]
+	updateSubscription       *connect.Client[proto.UpdateSubscriptionRequest, proto.UpdateSubscriptionResponse]
+	deleteSubscription       *connect.Client[proto.DeleteSubscriptionRequest, proto.DeleteSubscriptionResponse]
+	testSubscriptionTemplate *connect.Client[proto.TestSubscriptionTemplateRequest, proto.TestSubscriptionTemplateResponse]
 }
 
 // CreateSubscription calls webhook.SubscriptionService.CreateSubscription.
@@ -688,6 +730,11 @@ func (c *subscriptionServiceClient) DeleteSubscription(ctx context.Context, req 
 	return c.deleteSubscription.CallUnary(ctx, req)
 }
 
+// TestSubscriptionTemplate calls webhook.SubscriptionService.TestSubscriptionTemplate.
+func (c *subscriptionServiceClient) TestSubscriptionTemplate(ctx context.Context, req *connect.Request[proto.TestSubscriptionTemplateRequest]) (*connect.Response[proto.TestSubscriptionTemplateResponse], error) {
+	return c.testSubscriptionTemplate.CallUnary(ctx, req)
+}
+
 // SubscriptionServiceHandler is an implementation of the webhook.SubscriptionService service.
 type SubscriptionServiceHandler interface {
 	// CreateSubscription creates a new event subscription for a webhook
@@ -700,6 +747,8 @@ type SubscriptionServiceHandler interface {
 	UpdateSubscription(context.Context, *connect.Request[proto.UpdateSubscriptionRequest]) (*connect.Response[proto.UpdateSubscriptionResponse], error)
 	// DeleteSubscription deletes a subscription
 	DeleteSubscription(context.Context, *connect.Request[proto.DeleteSubscriptionRequest]) (*connect.Response[proto.DeleteSubscriptionResponse], error)
+	// TestSubscriptionTemplate dry-runs a transformation template with sample data
+	TestSubscriptionTemplate(context.Context, *connect.Request[proto.TestSubscriptionTemplateRequest]) (*connect.Response[proto.TestSubscriptionTemplateResponse], error)
 }
 
 // NewSubscriptionServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -739,6 +788,12 @@ func NewSubscriptionServiceHandler(svc SubscriptionServiceHandler, opts ...conne
 		connect.WithSchema(subscriptionServiceMethods.ByName("DeleteSubscription")),
 		connect.WithHandlerOptions(opts...),
 	)
+	subscriptionServiceTestSubscriptionTemplateHandler := connect.NewUnaryHandler(
+		SubscriptionServiceTestSubscriptionTemplateProcedure,
+		svc.TestSubscriptionTemplate,
+		connect.WithSchema(subscriptionServiceMethods.ByName("TestSubscriptionTemplate")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/webhook.SubscriptionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SubscriptionServiceCreateSubscriptionProcedure:
@@ -751,6 +806,8 @@ func NewSubscriptionServiceHandler(svc SubscriptionServiceHandler, opts ...conne
 			subscriptionServiceUpdateSubscriptionHandler.ServeHTTP(w, r)
 		case SubscriptionServiceDeleteSubscriptionProcedure:
 			subscriptionServiceDeleteSubscriptionHandler.ServeHTTP(w, r)
+		case SubscriptionServiceTestSubscriptionTemplateProcedure:
+			subscriptionServiceTestSubscriptionTemplateHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -778,6 +835,10 @@ func (UnimplementedSubscriptionServiceHandler) UpdateSubscription(context.Contex
 
 func (UnimplementedSubscriptionServiceHandler) DeleteSubscription(context.Context, *connect.Request[proto.DeleteSubscriptionRequest]) (*connect.Response[proto.DeleteSubscriptionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.SubscriptionService.DeleteSubscription is not implemented"))
+}
+
+func (UnimplementedSubscriptionServiceHandler) TestSubscriptionTemplate(context.Context, *connect.Request[proto.TestSubscriptionTemplateRequest]) (*connect.Response[proto.TestSubscriptionTemplateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.SubscriptionService.TestSubscriptionTemplate is not implemented"))
 }
 
 // DeliveryServiceClient is a client for the webhook.DeliveryService service.

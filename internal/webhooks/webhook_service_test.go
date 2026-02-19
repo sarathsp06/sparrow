@@ -101,6 +101,15 @@ func (m *mockRepo) CreateSubscription(ctx context.Context, sub *store.EventSubsc
 	return args.Error(0)
 }
 
+func (m *mockRepo) GetEventByName(ctx context.Context, name string) (*store.EventRegistration, error) {
+	args := m.Called(ctx, name)
+	res := args.Get(0)
+	if res == nil {
+		return nil, args.Error(1)
+	}
+	return res.(*store.EventRegistration), args.Error(1)
+}
+
 func TestWebhookService_ListWebhooks_Pagination(t *testing.T) {
 	repo := new(mockRepo)
 	inserter := new(mockJobInserter)
@@ -205,5 +214,47 @@ func TestWebhookService_CreateSubscription(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
 	assert.False(t, createdAt.IsZero())
+	repo.AssertExpectations(t)
+}
+
+func TestWebhookService_GetEvent(t *testing.T) {
+	repo := new(mockRepo)
+	service := NewWebhookService(nil, repo)
+
+	ctx := context.Background()
+	eventName := "test.event"
+	event := &store.EventRegistration{
+		ID:   uuid.New(),
+		Name: eventName,
+	}
+
+	repo.On("GetEventByName", mock.Anything, eventName).Return(event, nil)
+
+	res, err := service.GetEvent(ctx, eventName)
+	assert.NoError(t, err)
+	assert.Equal(t, event, res)
+	repo.AssertExpectations(t)
+}
+
+func TestWebhookService_TestSubscriptionTemplate(t *testing.T) {
+	repo := new(mockRepo)
+	service := NewWebhookService(nil, repo)
+
+	ctx := context.Background()
+	eventName := "test.event"
+	event := &store.EventRegistration{
+		ID:   uuid.New(),
+		Name: eventName,
+		SamplePayload: map[string]any{
+			"id": "123",
+		},
+	}
+
+	repo.On("GetEventByName", mock.Anything, eventName).Return(event, nil)
+
+	template := `{"new_id": "{{ .Payload.id }}"}`
+	res, err := service.TestSubscriptionTemplate(ctx, eventName, template, "default")
+	assert.NoError(t, err)
+	assert.Equal(t, `{"new_id": "123"}`, res)
 	repo.AssertExpectations(t)
 }

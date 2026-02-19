@@ -1660,6 +1660,96 @@ func (x *UpdateEventResponse) GetMessage() string {
 	return ""
 }
 
+// GetEventRequest represents a request to get an event by name
+type GetEventRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // Event name (required)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEventRequest) Reset() {
+	*x = GetEventRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEventRequest) ProtoMessage() {}
+
+func (x *GetEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEventRequest.ProtoReflect.Descriptor instead.
+func (*GetEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *GetEventRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+// GetEventResponse represents the response for getting an event
+type GetEventResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Event         *RegisteredEvent       `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEventResponse) Reset() {
+	*x = GetEventResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEventResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEventResponse) ProtoMessage() {}
+
+func (x *GetEventResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEventResponse.ProtoReflect.Descriptor instead.
+func (*GetEventResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *GetEventResponse) GetEvent() *RegisteredEvent {
+	if x != nil {
+		return x.Event
+	}
+	return nil
+}
+
 // DeleteEventRequest represents a request to delete an event
 type DeleteEventRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1670,7 +1760,7 @@ type DeleteEventRequest struct {
 
 func (x *DeleteEventRequest) Reset() {
 	*x = DeleteEventRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[18]
+	mi := &file_proto_webhook_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1682,7 +1772,7 @@ func (x *DeleteEventRequest) String() string {
 func (*DeleteEventRequest) ProtoMessage() {}
 
 func (x *DeleteEventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[18]
+	mi := &file_proto_webhook_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1695,7 +1785,7 @@ func (x *DeleteEventRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteEventRequest.ProtoReflect.Descriptor instead.
 func (*DeleteEventRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{18}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DeleteEventRequest) GetName() string {
@@ -1718,7 +1808,7 @@ type DeleteEventResponse struct {
 
 func (x *DeleteEventResponse) Reset() {
 	*x = DeleteEventResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[19]
+	mi := &file_proto_webhook_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1730,7 +1820,7 @@ func (x *DeleteEventResponse) String() string {
 func (*DeleteEventResponse) ProtoMessage() {}
 
 func (x *DeleteEventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[19]
+	mi := &file_proto_webhook_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1743,7 +1833,7 @@ func (x *DeleteEventResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteEventResponse.ProtoReflect.Descriptor instead.
 func (*DeleteEventResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{19}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{21}
 }
 
 // Deprecated: Marked as deprecated in proto/webhook.proto.
@@ -1762,6 +1852,112 @@ func (x *DeleteEventResponse) GetMessage() string {
 	return ""
 }
 
+// TestSubscriptionTemplateRequest represents a request to test a transformation template
+type TestSubscriptionTemplateRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	EventName         string                 `protobuf:"bytes,1,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`                         // Event name to get sample data from
+	TransformTemplate string                 `protobuf:"bytes,2,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"` // Template to test
+	Namespace         string                 `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`                                          // Namespace
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *TestSubscriptionTemplateRequest) Reset() {
+	*x = TestSubscriptionTemplateRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestSubscriptionTemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestSubscriptionTemplateRequest) ProtoMessage() {}
+
+func (x *TestSubscriptionTemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestSubscriptionTemplateRequest.ProtoReflect.Descriptor instead.
+func (*TestSubscriptionTemplateRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *TestSubscriptionTemplateRequest) GetEventName() string {
+	if x != nil {
+		return x.EventName
+	}
+	return ""
+}
+
+func (x *TestSubscriptionTemplateRequest) GetTransformTemplate() string {
+	if x != nil {
+		return x.TransformTemplate
+	}
+	return ""
+}
+
+func (x *TestSubscriptionTemplateRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+// TestSubscriptionTemplateResponse represents the result of a template test
+type TestSubscriptionTemplateResponse struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	TransformedPayload string                 `protobuf:"bytes,1,opt,name=transformed_payload,json=transformedPayload,proto3" json:"transformed_payload,omitempty"` // Resulting transformed payload
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *TestSubscriptionTemplateResponse) Reset() {
+	*x = TestSubscriptionTemplateResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestSubscriptionTemplateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestSubscriptionTemplateResponse) ProtoMessage() {}
+
+func (x *TestSubscriptionTemplateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestSubscriptionTemplateResponse.ProtoReflect.Descriptor instead.
+func (*TestSubscriptionTemplateResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *TestSubscriptionTemplateResponse) GetTransformedPayload() string {
+	if x != nil {
+		return x.TransformedPayload
+	}
+	return ""
+}
+
 // GetWebhookHealthRequest represents a request to get webhook health
 type GetWebhookHealthRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1773,7 +1969,7 @@ type GetWebhookHealthRequest struct {
 
 func (x *GetWebhookHealthRequest) Reset() {
 	*x = GetWebhookHealthRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[20]
+	mi := &file_proto_webhook_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1785,7 +1981,7 @@ func (x *GetWebhookHealthRequest) String() string {
 func (*GetWebhookHealthRequest) ProtoMessage() {}
 
 func (x *GetWebhookHealthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[20]
+	mi := &file_proto_webhook_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1798,7 +1994,7 @@ func (x *GetWebhookHealthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWebhookHealthRequest.ProtoReflect.Descriptor instead.
 func (*GetWebhookHealthRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{20}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GetWebhookHealthRequest) GetWebhookId() string {
@@ -1835,7 +2031,7 @@ type WebhookHealthMetrics struct {
 
 func (x *WebhookHealthMetrics) Reset() {
 	*x = WebhookHealthMetrics{}
-	mi := &file_proto_webhook_proto_msgTypes[21]
+	mi := &file_proto_webhook_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1847,7 +2043,7 @@ func (x *WebhookHealthMetrics) String() string {
 func (*WebhookHealthMetrics) ProtoMessage() {}
 
 func (x *WebhookHealthMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[21]
+	mi := &file_proto_webhook_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1860,7 +2056,7 @@ func (x *WebhookHealthMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookHealthMetrics.ProtoReflect.Descriptor instead.
 func (*WebhookHealthMetrics) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{21}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *WebhookHealthMetrics) GetWebhookId() string {
@@ -1956,7 +2152,7 @@ type GetWebhookHealthResponse struct {
 
 func (x *GetWebhookHealthResponse) Reset() {
 	*x = GetWebhookHealthResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[22]
+	mi := &file_proto_webhook_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1968,7 +2164,7 @@ func (x *GetWebhookHealthResponse) String() string {
 func (*GetWebhookHealthResponse) ProtoMessage() {}
 
 func (x *GetWebhookHealthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[22]
+	mi := &file_proto_webhook_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1981,7 +2177,7 @@ func (x *GetWebhookHealthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWebhookHealthResponse.ProtoReflect.Descriptor instead.
 func (*GetWebhookHealthResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{22}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetWebhookHealthResponse) GetWebhookId() string {
@@ -2032,7 +2228,7 @@ type ListWebhooksByHealthRequest struct {
 
 func (x *ListWebhooksByHealthRequest) Reset() {
 	*x = ListWebhooksByHealthRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[23]
+	mi := &file_proto_webhook_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2044,7 +2240,7 @@ func (x *ListWebhooksByHealthRequest) String() string {
 func (*ListWebhooksByHealthRequest) ProtoMessage() {}
 
 func (x *ListWebhooksByHealthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[23]
+	mi := &file_proto_webhook_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2057,7 +2253,7 @@ func (x *ListWebhooksByHealthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWebhooksByHealthRequest.ProtoReflect.Descriptor instead.
 func (*ListWebhooksByHealthRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{23}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListWebhooksByHealthRequest) GetHealth() WebhookHealth {
@@ -2091,7 +2287,7 @@ type ListWebhooksByHealthResponse struct {
 
 func (x *ListWebhooksByHealthResponse) Reset() {
 	*x = ListWebhooksByHealthResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[24]
+	mi := &file_proto_webhook_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2103,7 +2299,7 @@ func (x *ListWebhooksByHealthResponse) String() string {
 func (*ListWebhooksByHealthResponse) ProtoMessage() {}
 
 func (x *ListWebhooksByHealthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[24]
+	mi := &file_proto_webhook_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2116,7 +2312,7 @@ func (x *ListWebhooksByHealthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWebhooksByHealthResponse.ProtoReflect.Descriptor instead.
 func (*ListWebhooksByHealthResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{24}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ListWebhooksByHealthResponse) GetWebhooks() []*RegisteredWebhook {
@@ -2166,7 +2362,7 @@ type GetHealthSummaryRequest struct {
 
 func (x *GetHealthSummaryRequest) Reset() {
 	*x = GetHealthSummaryRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[25]
+	mi := &file_proto_webhook_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2178,7 +2374,7 @@ func (x *GetHealthSummaryRequest) String() string {
 func (*GetHealthSummaryRequest) ProtoMessage() {}
 
 func (x *GetHealthSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[25]
+	mi := &file_proto_webhook_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2191,7 +2387,7 @@ func (x *GetHealthSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHealthSummaryRequest.ProtoReflect.Descriptor instead.
 func (*GetHealthSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{25}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{29}
 }
 
 // HealthSummary represents summary of webhook health
@@ -2208,7 +2404,7 @@ type HealthSummary struct {
 
 func (x *HealthSummary) Reset() {
 	*x = HealthSummary{}
-	mi := &file_proto_webhook_proto_msgTypes[26]
+	mi := &file_proto_webhook_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2220,7 +2416,7 @@ func (x *HealthSummary) String() string {
 func (*HealthSummary) ProtoMessage() {}
 
 func (x *HealthSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[26]
+	mi := &file_proto_webhook_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2233,7 +2429,7 @@ func (x *HealthSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthSummary.ProtoReflect.Descriptor instead.
 func (*HealthSummary) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{26}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *HealthSummary) GetHealthyCount() int32 {
@@ -2285,7 +2481,7 @@ type GetHealthSummaryResponse struct {
 
 func (x *GetHealthSummaryResponse) Reset() {
 	*x = GetHealthSummaryResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[27]
+	mi := &file_proto_webhook_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2297,7 +2493,7 @@ func (x *GetHealthSummaryResponse) String() string {
 func (*GetHealthSummaryResponse) ProtoMessage() {}
 
 func (x *GetHealthSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[27]
+	mi := &file_proto_webhook_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2310,7 +2506,7 @@ func (x *GetHealthSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHealthSummaryResponse.ProtoReflect.Descriptor instead.
 func (*GetHealthSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{27}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *GetHealthSummaryResponse) GetSummary() *HealthSummary {
@@ -2349,7 +2545,7 @@ type RetryDeliveryRequest struct {
 
 func (x *RetryDeliveryRequest) Reset() {
 	*x = RetryDeliveryRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[28]
+	mi := &file_proto_webhook_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2361,7 +2557,7 @@ func (x *RetryDeliveryRequest) String() string {
 func (*RetryDeliveryRequest) ProtoMessage() {}
 
 func (x *RetryDeliveryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[28]
+	mi := &file_proto_webhook_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2374,7 +2570,7 @@ func (x *RetryDeliveryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetryDeliveryRequest.ProtoReflect.Descriptor instead.
 func (*RetryDeliveryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{28}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *RetryDeliveryRequest) GetNamespace() string {
@@ -2420,7 +2616,7 @@ type RetryDeliveryResponse struct {
 
 func (x *RetryDeliveryResponse) Reset() {
 	*x = RetryDeliveryResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[29]
+	mi := &file_proto_webhook_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2432,7 +2628,7 @@ func (x *RetryDeliveryResponse) String() string {
 func (*RetryDeliveryResponse) ProtoMessage() {}
 
 func (x *RetryDeliveryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[29]
+	mi := &file_proto_webhook_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2445,7 +2641,7 @@ func (x *RetryDeliveryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetryDeliveryResponse.ProtoReflect.Descriptor instead.
 func (*RetryDeliveryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{29}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *RetryDeliveryResponse) GetRetriedCount() int32 {
@@ -2489,7 +2685,7 @@ type GetDeliveryStatusRequest struct {
 
 func (x *GetDeliveryStatusRequest) Reset() {
 	*x = GetDeliveryStatusRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[30]
+	mi := &file_proto_webhook_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2501,7 +2697,7 @@ func (x *GetDeliveryStatusRequest) String() string {
 func (*GetDeliveryStatusRequest) ProtoMessage() {}
 
 func (x *GetDeliveryStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[30]
+	mi := &file_proto_webhook_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2514,7 +2710,7 @@ func (x *GetDeliveryStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDeliveryStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetDeliveryStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{30}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GetDeliveryStatusRequest) GetDeliveryId() string {
@@ -2545,7 +2741,7 @@ type GetDeliveryStatusResponse struct {
 
 func (x *GetDeliveryStatusResponse) Reset() {
 	*x = GetDeliveryStatusResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[31]
+	mi := &file_proto_webhook_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2557,7 +2753,7 @@ func (x *GetDeliveryStatusResponse) String() string {
 func (*GetDeliveryStatusResponse) ProtoMessage() {}
 
 func (x *GetDeliveryStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[31]
+	mi := &file_proto_webhook_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2570,7 +2766,7 @@ func (x *GetDeliveryStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDeliveryStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetDeliveryStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{31}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *GetDeliveryStatusResponse) GetDelivery() *WebhookDelivery {
@@ -2609,7 +2805,7 @@ type ListDeliveriesRequest struct {
 
 func (x *ListDeliveriesRequest) Reset() {
 	*x = ListDeliveriesRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[32]
+	mi := &file_proto_webhook_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2621,7 +2817,7 @@ func (x *ListDeliveriesRequest) String() string {
 func (*ListDeliveriesRequest) ProtoMessage() {}
 
 func (x *ListDeliveriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[32]
+	mi := &file_proto_webhook_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2634,7 +2830,7 @@ func (x *ListDeliveriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDeliveriesRequest.ProtoReflect.Descriptor instead.
 func (*ListDeliveriesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{32}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ListDeliveriesRequest) GetNamespace() string {
@@ -2680,7 +2876,7 @@ type ListDeliveriesResponse struct {
 
 func (x *ListDeliveriesResponse) Reset() {
 	*x = ListDeliveriesResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[33]
+	mi := &file_proto_webhook_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2692,7 +2888,7 @@ func (x *ListDeliveriesResponse) String() string {
 func (*ListDeliveriesResponse) ProtoMessage() {}
 
 func (x *ListDeliveriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[33]
+	mi := &file_proto_webhook_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2705,7 +2901,7 @@ func (x *ListDeliveriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDeliveriesResponse.ProtoReflect.Descriptor instead.
 func (*ListDeliveriesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{33}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ListDeliveriesResponse) GetDeliveries() []*WebhookDelivery {
@@ -2748,7 +2944,7 @@ type GetNamespaceStatsRequest struct {
 
 func (x *GetNamespaceStatsRequest) Reset() {
 	*x = GetNamespaceStatsRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[34]
+	mi := &file_proto_webhook_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2760,7 +2956,7 @@ func (x *GetNamespaceStatsRequest) String() string {
 func (*GetNamespaceStatsRequest) ProtoMessage() {}
 
 func (x *GetNamespaceStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[34]
+	mi := &file_proto_webhook_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2773,7 +2969,7 @@ func (x *GetNamespaceStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNamespaceStatsRequest.ProtoReflect.Descriptor instead.
 func (*GetNamespaceStatsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{34}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *GetNamespaceStatsRequest) GetNamespace() string {
@@ -2799,7 +2995,7 @@ type NamespaceStats struct {
 
 func (x *NamespaceStats) Reset() {
 	*x = NamespaceStats{}
-	mi := &file_proto_webhook_proto_msgTypes[35]
+	mi := &file_proto_webhook_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2811,7 +3007,7 @@ func (x *NamespaceStats) String() string {
 func (*NamespaceStats) ProtoMessage() {}
 
 func (x *NamespaceStats) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[35]
+	mi := &file_proto_webhook_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2824,7 +3020,7 @@ func (x *NamespaceStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamespaceStats.ProtoReflect.Descriptor instead.
 func (*NamespaceStats) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{35}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *NamespaceStats) GetTotalWebhooks() int32 {
@@ -2891,7 +3087,7 @@ type GetNamespaceStatsResponse struct {
 
 func (x *GetNamespaceStatsResponse) Reset() {
 	*x = GetNamespaceStatsResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[36]
+	mi := &file_proto_webhook_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2903,7 +3099,7 @@ func (x *GetNamespaceStatsResponse) String() string {
 func (*GetNamespaceStatsResponse) ProtoMessage() {}
 
 func (x *GetNamespaceStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[36]
+	mi := &file_proto_webhook_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2916,7 +3112,7 @@ func (x *GetNamespaceStatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNamespaceStatsResponse.ProtoReflect.Descriptor instead.
 func (*GetNamespaceStatsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{36}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *GetNamespaceStatsResponse) GetNamespace() string {
@@ -2965,7 +3161,7 @@ type WebhookUpdateFields struct {
 
 func (x *WebhookUpdateFields) Reset() {
 	*x = WebhookUpdateFields{}
-	mi := &file_proto_webhook_proto_msgTypes[37]
+	mi := &file_proto_webhook_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2977,7 +3173,7 @@ func (x *WebhookUpdateFields) String() string {
 func (*WebhookUpdateFields) ProtoMessage() {}
 
 func (x *WebhookUpdateFields) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[37]
+	mi := &file_proto_webhook_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2990,7 +3186,7 @@ func (x *WebhookUpdateFields) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookUpdateFields.ProtoReflect.Descriptor instead.
 func (*WebhookUpdateFields) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{37}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *WebhookUpdateFields) GetEvents() []string {
@@ -3054,7 +3250,7 @@ type UpdateWebhookConfigRequest struct {
 
 func (x *UpdateWebhookConfigRequest) Reset() {
 	*x = UpdateWebhookConfigRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[38]
+	mi := &file_proto_webhook_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3066,7 +3262,7 @@ func (x *UpdateWebhookConfigRequest) String() string {
 func (*UpdateWebhookConfigRequest) ProtoMessage() {}
 
 func (x *UpdateWebhookConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[38]
+	mi := &file_proto_webhook_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3079,7 +3275,7 @@ func (x *UpdateWebhookConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWebhookConfigRequest.ProtoReflect.Descriptor instead.
 func (*UpdateWebhookConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{38}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *UpdateWebhookConfigRequest) GetWebhookId() string {
@@ -3116,7 +3312,7 @@ type UpdateWebhookConfigResponse struct {
 
 func (x *UpdateWebhookConfigResponse) Reset() {
 	*x = UpdateWebhookConfigResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[39]
+	mi := &file_proto_webhook_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3128,7 +3324,7 @@ func (x *UpdateWebhookConfigResponse) String() string {
 func (*UpdateWebhookConfigResponse) ProtoMessage() {}
 
 func (x *UpdateWebhookConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[39]
+	mi := &file_proto_webhook_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3141,7 +3337,7 @@ func (x *UpdateWebhookConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateWebhookConfigResponse.ProtoReflect.Descriptor instead.
 func (*UpdateWebhookConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{39}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{43}
 }
 
 // Deprecated: Marked as deprecated in proto/webhook.proto.
@@ -3172,7 +3368,7 @@ type PauseWebhookRequest struct {
 
 func (x *PauseWebhookRequest) Reset() {
 	*x = PauseWebhookRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[40]
+	mi := &file_proto_webhook_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3184,7 +3380,7 @@ func (x *PauseWebhookRequest) String() string {
 func (*PauseWebhookRequest) ProtoMessage() {}
 
 func (x *PauseWebhookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[40]
+	mi := &file_proto_webhook_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3197,7 +3393,7 @@ func (x *PauseWebhookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PauseWebhookRequest.ProtoReflect.Descriptor instead.
 func (*PauseWebhookRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{40}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *PauseWebhookRequest) GetWebhookId() string {
@@ -3234,7 +3430,7 @@ type PauseWebhookResponse struct {
 
 func (x *PauseWebhookResponse) Reset() {
 	*x = PauseWebhookResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[41]
+	mi := &file_proto_webhook_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3246,7 +3442,7 @@ func (x *PauseWebhookResponse) String() string {
 func (*PauseWebhookResponse) ProtoMessage() {}
 
 func (x *PauseWebhookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[41]
+	mi := &file_proto_webhook_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3259,7 +3455,7 @@ func (x *PauseWebhookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PauseWebhookResponse.ProtoReflect.Descriptor instead.
 func (*PauseWebhookResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{41}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{45}
 }
 
 // Deprecated: Marked as deprecated in proto/webhook.proto.
@@ -3290,7 +3486,7 @@ type ResumeWebhookRequest struct {
 
 func (x *ResumeWebhookRequest) Reset() {
 	*x = ResumeWebhookRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[42]
+	mi := &file_proto_webhook_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3302,7 +3498,7 @@ func (x *ResumeWebhookRequest) String() string {
 func (*ResumeWebhookRequest) ProtoMessage() {}
 
 func (x *ResumeWebhookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[42]
+	mi := &file_proto_webhook_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3315,7 +3511,7 @@ func (x *ResumeWebhookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeWebhookRequest.ProtoReflect.Descriptor instead.
 func (*ResumeWebhookRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{42}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ResumeWebhookRequest) GetWebhookId() string {
@@ -3352,7 +3548,7 @@ type ResumeWebhookResponse struct {
 
 func (x *ResumeWebhookResponse) Reset() {
 	*x = ResumeWebhookResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[43]
+	mi := &file_proto_webhook_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3364,7 +3560,7 @@ func (x *ResumeWebhookResponse) String() string {
 func (*ResumeWebhookResponse) ProtoMessage() {}
 
 func (x *ResumeWebhookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[43]
+	mi := &file_proto_webhook_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3377,7 +3573,7 @@ func (x *ResumeWebhookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResumeWebhookResponse.ProtoReflect.Descriptor instead.
 func (*ResumeWebhookResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{43}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{47}
 }
 
 // Deprecated: Marked as deprecated in proto/webhook.proto.
@@ -3416,7 +3612,7 @@ type EventReport struct {
 
 func (x *EventReport) Reset() {
 	*x = EventReport{}
-	mi := &file_proto_webhook_proto_msgTypes[44]
+	mi := &file_proto_webhook_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3428,7 +3624,7 @@ func (x *EventReport) String() string {
 func (*EventReport) ProtoMessage() {}
 
 func (x *EventReport) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[44]
+	mi := &file_proto_webhook_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3441,7 +3637,7 @@ func (x *EventReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventReport.ProtoReflect.Descriptor instead.
 func (*EventReport) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{44}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *EventReport) GetEventId() string {
@@ -3537,7 +3733,7 @@ type ListEventReportsRequest struct {
 
 func (x *ListEventReportsRequest) Reset() {
 	*x = ListEventReportsRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[45]
+	mi := &file_proto_webhook_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3549,7 +3745,7 @@ func (x *ListEventReportsRequest) String() string {
 func (*ListEventReportsRequest) ProtoMessage() {}
 
 func (x *ListEventReportsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[45]
+	mi := &file_proto_webhook_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3562,7 +3758,7 @@ func (x *ListEventReportsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEventReportsRequest.ProtoReflect.Descriptor instead.
 func (*ListEventReportsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{45}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *ListEventReportsRequest) GetNamespace() string {
@@ -3619,7 +3815,7 @@ type ListEventReportsResponse struct {
 
 func (x *ListEventReportsResponse) Reset() {
 	*x = ListEventReportsResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[46]
+	mi := &file_proto_webhook_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3631,7 +3827,7 @@ func (x *ListEventReportsResponse) String() string {
 func (*ListEventReportsResponse) ProtoMessage() {}
 
 func (x *ListEventReportsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[46]
+	mi := &file_proto_webhook_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3644,7 +3840,7 @@ func (x *ListEventReportsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListEventReportsResponse.ProtoReflect.Descriptor instead.
 func (*ListEventReportsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{46}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *ListEventReportsResponse) GetEvents() []*EventReport {
@@ -3705,7 +3901,7 @@ type EventSubscription struct {
 
 func (x *EventSubscription) Reset() {
 	*x = EventSubscription{}
-	mi := &file_proto_webhook_proto_msgTypes[47]
+	mi := &file_proto_webhook_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3717,7 +3913,7 @@ func (x *EventSubscription) String() string {
 func (*EventSubscription) ProtoMessage() {}
 
 func (x *EventSubscription) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[47]
+	mi := &file_proto_webhook_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3730,7 +3926,7 @@ func (x *EventSubscription) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventSubscription.ProtoReflect.Descriptor instead.
 func (*EventSubscription) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{47}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *EventSubscription) GetSubscriptionId() string {
@@ -3827,7 +4023,7 @@ type CreateSubscriptionRequest struct {
 
 func (x *CreateSubscriptionRequest) Reset() {
 	*x = CreateSubscriptionRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[48]
+	mi := &file_proto_webhook_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3839,7 +4035,7 @@ func (x *CreateSubscriptionRequest) String() string {
 func (*CreateSubscriptionRequest) ProtoMessage() {}
 
 func (x *CreateSubscriptionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[48]
+	mi := &file_proto_webhook_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3852,7 +4048,7 @@ func (x *CreateSubscriptionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSubscriptionRequest.ProtoReflect.Descriptor instead.
 func (*CreateSubscriptionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{48}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *CreateSubscriptionRequest) GetWebhookId() string {
@@ -3926,7 +4122,7 @@ type CreateSubscriptionResponse struct {
 
 func (x *CreateSubscriptionResponse) Reset() {
 	*x = CreateSubscriptionResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[49]
+	mi := &file_proto_webhook_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3938,7 +4134,7 @@ func (x *CreateSubscriptionResponse) String() string {
 func (*CreateSubscriptionResponse) ProtoMessage() {}
 
 func (x *CreateSubscriptionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[49]
+	mi := &file_proto_webhook_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3951,7 +4147,7 @@ func (x *CreateSubscriptionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSubscriptionResponse.ProtoReflect.Descriptor instead.
 func (*CreateSubscriptionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{49}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *CreateSubscriptionResponse) GetSubscriptionId() string {
@@ -3995,7 +4191,7 @@ type GetSubscriptionRequest struct {
 
 func (x *GetSubscriptionRequest) Reset() {
 	*x = GetSubscriptionRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[50]
+	mi := &file_proto_webhook_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4007,7 +4203,7 @@ func (x *GetSubscriptionRequest) String() string {
 func (*GetSubscriptionRequest) ProtoMessage() {}
 
 func (x *GetSubscriptionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[50]
+	mi := &file_proto_webhook_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4020,7 +4216,7 @@ func (x *GetSubscriptionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSubscriptionRequest.ProtoReflect.Descriptor instead.
 func (*GetSubscriptionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{50}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *GetSubscriptionRequest) GetSubscriptionId() string {
@@ -4051,7 +4247,7 @@ type GetSubscriptionResponse struct {
 
 func (x *GetSubscriptionResponse) Reset() {
 	*x = GetSubscriptionResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[51]
+	mi := &file_proto_webhook_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4063,7 +4259,7 @@ func (x *GetSubscriptionResponse) String() string {
 func (*GetSubscriptionResponse) ProtoMessage() {}
 
 func (x *GetSubscriptionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[51]
+	mi := &file_proto_webhook_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4076,7 +4272,7 @@ func (x *GetSubscriptionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSubscriptionResponse.ProtoReflect.Descriptor instead.
 func (*GetSubscriptionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{51}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *GetSubscriptionResponse) GetSubscription() *EventSubscription {
@@ -4115,7 +4311,7 @@ type ListSubscriptionsRequest struct {
 
 func (x *ListSubscriptionsRequest) Reset() {
 	*x = ListSubscriptionsRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[52]
+	mi := &file_proto_webhook_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4127,7 +4323,7 @@ func (x *ListSubscriptionsRequest) String() string {
 func (*ListSubscriptionsRequest) ProtoMessage() {}
 
 func (x *ListSubscriptionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[52]
+	mi := &file_proto_webhook_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4140,7 +4336,7 @@ func (x *ListSubscriptionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSubscriptionsRequest.ProtoReflect.Descriptor instead.
 func (*ListSubscriptionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{52}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ListSubscriptionsRequest) GetWebhookId() string {
@@ -4188,7 +4384,7 @@ type ListSubscriptionsResponse struct {
 
 func (x *ListSubscriptionsResponse) Reset() {
 	*x = ListSubscriptionsResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[53]
+	mi := &file_proto_webhook_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4200,7 +4396,7 @@ func (x *ListSubscriptionsResponse) String() string {
 func (*ListSubscriptionsResponse) ProtoMessage() {}
 
 func (x *ListSubscriptionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[53]
+	mi := &file_proto_webhook_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4213,7 +4409,7 @@ func (x *ListSubscriptionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSubscriptionsResponse.ProtoReflect.Descriptor instead.
 func (*ListSubscriptionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{53}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *ListSubscriptionsResponse) GetSubscriptions() []*EventSubscription {
@@ -4270,7 +4466,7 @@ type UpdateSubscriptionRequest struct {
 
 func (x *UpdateSubscriptionRequest) Reset() {
 	*x = UpdateSubscriptionRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[54]
+	mi := &file_proto_webhook_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4282,7 +4478,7 @@ func (x *UpdateSubscriptionRequest) String() string {
 func (*UpdateSubscriptionRequest) ProtoMessage() {}
 
 func (x *UpdateSubscriptionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[54]
+	mi := &file_proto_webhook_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4295,7 +4491,7 @@ func (x *UpdateSubscriptionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSubscriptionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSubscriptionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{54}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *UpdateSubscriptionRequest) GetSubscriptionId() string {
@@ -4360,7 +4556,7 @@ type UpdateSubscriptionResponse struct {
 
 func (x *UpdateSubscriptionResponse) Reset() {
 	*x = UpdateSubscriptionResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[55]
+	mi := &file_proto_webhook_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4372,7 +4568,7 @@ func (x *UpdateSubscriptionResponse) String() string {
 func (*UpdateSubscriptionResponse) ProtoMessage() {}
 
 func (x *UpdateSubscriptionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[55]
+	mi := &file_proto_webhook_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4385,7 +4581,7 @@ func (x *UpdateSubscriptionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSubscriptionResponse.ProtoReflect.Descriptor instead.
 func (*UpdateSubscriptionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{55}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{59}
 }
 
 // Deprecated: Marked as deprecated in proto/webhook.proto.
@@ -4415,7 +4611,7 @@ type DeleteSubscriptionRequest struct {
 
 func (x *DeleteSubscriptionRequest) Reset() {
 	*x = DeleteSubscriptionRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[56]
+	mi := &file_proto_webhook_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4427,7 +4623,7 @@ func (x *DeleteSubscriptionRequest) String() string {
 func (*DeleteSubscriptionRequest) ProtoMessage() {}
 
 func (x *DeleteSubscriptionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[56]
+	mi := &file_proto_webhook_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4440,7 +4636,7 @@ func (x *DeleteSubscriptionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSubscriptionRequest.ProtoReflect.Descriptor instead.
 func (*DeleteSubscriptionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{56}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *DeleteSubscriptionRequest) GetSubscriptionId() string {
@@ -4470,7 +4666,7 @@ type DeleteSubscriptionResponse struct {
 
 func (x *DeleteSubscriptionResponse) Reset() {
 	*x = DeleteSubscriptionResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[57]
+	mi := &file_proto_webhook_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4482,7 +4678,7 @@ func (x *DeleteSubscriptionResponse) String() string {
 func (*DeleteSubscriptionResponse) ProtoMessage() {}
 
 func (x *DeleteSubscriptionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[57]
+	mi := &file_proto_webhook_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4495,7 +4691,7 @@ func (x *DeleteSubscriptionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteSubscriptionResponse.ProtoReflect.Descriptor instead.
 func (*DeleteSubscriptionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{57}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{61}
 }
 
 // Deprecated: Marked as deprecated in proto/webhook.proto.
@@ -4525,7 +4721,7 @@ type ListSubscriptionsByEventRequest struct {
 
 func (x *ListSubscriptionsByEventRequest) Reset() {
 	*x = ListSubscriptionsByEventRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[58]
+	mi := &file_proto_webhook_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4537,7 +4733,7 @@ func (x *ListSubscriptionsByEventRequest) String() string {
 func (*ListSubscriptionsByEventRequest) ProtoMessage() {}
 
 func (x *ListSubscriptionsByEventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[58]
+	mi := &file_proto_webhook_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4550,7 +4746,7 @@ func (x *ListSubscriptionsByEventRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSubscriptionsByEventRequest.ProtoReflect.Descriptor instead.
 func (*ListSubscriptionsByEventRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{58}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *ListSubscriptionsByEventRequest) GetNamespace() string {
@@ -4584,7 +4780,7 @@ type ListSubscriptionsByEventResponse struct {
 
 func (x *ListSubscriptionsByEventResponse) Reset() {
 	*x = ListSubscriptionsByEventResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[59]
+	mi := &file_proto_webhook_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4596,7 +4792,7 @@ func (x *ListSubscriptionsByEventResponse) String() string {
 func (*ListSubscriptionsByEventResponse) ProtoMessage() {}
 
 func (x *ListSubscriptionsByEventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[59]
+	mi := &file_proto_webhook_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4609,7 +4805,7 @@ func (x *ListSubscriptionsByEventResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListSubscriptionsByEventResponse.ProtoReflect.Descriptor instead.
 func (*ListSubscriptionsByEventResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{59}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *ListSubscriptionsByEventResponse) GetSubscriptions() []*EventSubscription {
@@ -4661,7 +4857,7 @@ type TemplateFunction struct {
 
 func (x *TemplateFunction) Reset() {
 	*x = TemplateFunction{}
-	mi := &file_proto_webhook_proto_msgTypes[60]
+	mi := &file_proto_webhook_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4673,7 +4869,7 @@ func (x *TemplateFunction) String() string {
 func (*TemplateFunction) ProtoMessage() {}
 
 func (x *TemplateFunction) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[60]
+	mi := &file_proto_webhook_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4686,7 +4882,7 @@ func (x *TemplateFunction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TemplateFunction.ProtoReflect.Descriptor instead.
 func (*TemplateFunction) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{60}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *TemplateFunction) GetName() string {
@@ -4712,7 +4908,7 @@ type GetTemplateFunctionsRequest struct {
 
 func (x *GetTemplateFunctionsRequest) Reset() {
 	*x = GetTemplateFunctionsRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[61]
+	mi := &file_proto_webhook_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4724,7 +4920,7 @@ func (x *GetTemplateFunctionsRequest) String() string {
 func (*GetTemplateFunctionsRequest) ProtoMessage() {}
 
 func (x *GetTemplateFunctionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[61]
+	mi := &file_proto_webhook_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4737,7 +4933,7 @@ func (x *GetTemplateFunctionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTemplateFunctionsRequest.ProtoReflect.Descriptor instead.
 func (*GetTemplateFunctionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{61}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{65}
 }
 
 // GetTemplateFunctionsResponse represents the response for getting template functions
@@ -4755,7 +4951,7 @@ type GetTemplateFunctionsResponse struct {
 
 func (x *GetTemplateFunctionsResponse) Reset() {
 	*x = GetTemplateFunctionsResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[62]
+	mi := &file_proto_webhook_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4767,7 +4963,7 @@ func (x *GetTemplateFunctionsResponse) String() string {
 func (*GetTemplateFunctionsResponse) ProtoMessage() {}
 
 func (x *GetTemplateFunctionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[62]
+	mi := &file_proto_webhook_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4780,7 +4976,7 @@ func (x *GetTemplateFunctionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTemplateFunctionsResponse.ProtoReflect.Descriptor instead.
 func (*GetTemplateFunctionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{62}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *GetTemplateFunctionsResponse) GetFunctions() []*TemplateFunction {
@@ -4824,7 +5020,7 @@ type PaginationRequest struct {
 
 func (x *PaginationRequest) Reset() {
 	*x = PaginationRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[63]
+	mi := &file_proto_webhook_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4836,7 +5032,7 @@ func (x *PaginationRequest) String() string {
 func (*PaginationRequest) ProtoMessage() {}
 
 func (x *PaginationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[63]
+	mi := &file_proto_webhook_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4849,7 +5045,7 @@ func (x *PaginationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PaginationRequest.ProtoReflect.Descriptor instead.
 func (*PaginationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{63}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *PaginationRequest) GetLimit() int32 {
@@ -4878,7 +5074,7 @@ type PaginationResponse struct {
 
 func (x *PaginationResponse) Reset() {
 	*x = PaginationResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[64]
+	mi := &file_proto_webhook_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4890,7 +5086,7 @@ func (x *PaginationResponse) String() string {
 func (*PaginationResponse) ProtoMessage() {}
 
 func (x *PaginationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[64]
+	mi := &file_proto_webhook_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4903,7 +5099,7 @@ func (x *PaginationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PaginationResponse.ProtoReflect.Descriptor instead.
 func (*PaginationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{64}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *PaginationResponse) GetTotalCount() int32 {
@@ -5106,12 +5302,23 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"Q\n" +
 	"\x13UpdateEventResponse\x12\x1c\n" +
 	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"(\n" +
+	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"%\n" +
+	"\x0fGetEventRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"B\n" +
+	"\x10GetEventResponse\x12.\n" +
+	"\x05event\x18\x01 \x01(\v2\x18.webhook.RegisteredEventR\x05event\"(\n" +
 	"\x12DeleteEventRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"Q\n" +
 	"\x13DeleteEventResponse\x12\x1c\n" +
 	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"V\n" +
+	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\x8d\x01\n" +
+	"\x1fTestSubscriptionTemplateRequest\x12\x1d\n" +
+	"\n" +
+	"event_name\x18\x01 \x01(\tR\teventName\x12-\n" +
+	"\x12transform_template\x18\x02 \x01(\tR\x11transformTemplate\x12\x1c\n" +
+	"\tnamespace\x18\x03 \x01(\tR\tnamespace\"S\n" +
+	" TestSubscriptionTemplateResponse\x12/\n" +
+	"\x13transformed_payload\x18\x01 \x01(\tR\x12transformedPayload\"V\n" +
 	"\x17GetWebhookHealthRequest\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
@@ -5428,21 +5635,23 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\fPauseWebhook\x12\x1c.webhook.PauseWebhookRequest\x1a\x1d.webhook.PauseWebhookResponse\x12N\n" +
 	"\rResumeWebhook\x12\x1d.webhook.ResumeWebhookRequest\x1a\x1e.webhook.ResumeWebhookResponse\x12Z\n" +
 	"\x11GetNamespaceStats\x12!.webhook.GetNamespaceStatsRequest\x1a\".webhook.GetNamespaceStatsResponse\x12c\n" +
-	"\x14GetTemplateFunctions\x12$.webhook.GetTemplateFunctionsRequest\x1a%.webhook.GetTemplateFunctionsResponse2\xd6\x03\n" +
+	"\x14GetTemplateFunctions\x12$.webhook.GetTemplateFunctionsRequest\x1a%.webhook.GetTemplateFunctionsResponse2\x97\x04\n" +
 	"\fEventService\x12N\n" +
 	"\rRegisterEvent\x12\x1d.webhook.RegisterEventRequest\x1a\x1e.webhook.RegisterEventResponse\x12E\n" +
 	"\n" +
 	"ListEvents\x12\x1a.webhook.ListEventsRequest\x1a\x1b.webhook.ListEventsResponse\x12H\n" +
 	"\vUpdateEvent\x12\x1b.webhook.UpdateEventRequest\x1a\x1c.webhook.UpdateEventResponse\x12H\n" +
-	"\vDeleteEvent\x12\x1b.webhook.DeleteEventRequest\x1a\x1c.webhook.DeleteEventResponse\x12B\n" +
+	"\vDeleteEvent\x12\x1b.webhook.DeleteEventRequest\x1a\x1c.webhook.DeleteEventResponse\x12?\n" +
+	"\bGetEvent\x12\x18.webhook.GetEventRequest\x1a\x19.webhook.GetEventResponse\x12B\n" +
 	"\tPushEvent\x12\x19.webhook.PushEventRequest\x1a\x1a.webhook.PushEventResponse\x12W\n" +
-	"\x10ListEventReports\x12 .webhook.ListEventReportsRequest\x1a!.webhook.ListEventReportsResponse2\xe4\x03\n" +
+	"\x10ListEventReports\x12 .webhook.ListEventReportsRequest\x1a!.webhook.ListEventReportsResponse2\xd5\x04\n" +
 	"\x13SubscriptionService\x12]\n" +
 	"\x12CreateSubscription\x12\".webhook.CreateSubscriptionRequest\x1a#.webhook.CreateSubscriptionResponse\x12T\n" +
 	"\x0fGetSubscription\x12\x1f.webhook.GetSubscriptionRequest\x1a .webhook.GetSubscriptionResponse\x12Z\n" +
 	"\x11ListSubscriptions\x12!.webhook.ListSubscriptionsRequest\x1a\".webhook.ListSubscriptionsResponse\x12]\n" +
 	"\x12UpdateSubscription\x12\".webhook.UpdateSubscriptionRequest\x1a#.webhook.UpdateSubscriptionResponse\x12]\n" +
-	"\x12DeleteSubscription\x12\".webhook.DeleteSubscriptionRequest\x1a#.webhook.DeleteSubscriptionResponse2\x90\x02\n" +
+	"\x12DeleteSubscription\x12\".webhook.DeleteSubscriptionRequest\x1a#.webhook.DeleteSubscriptionResponse\x12o\n" +
+	"\x18TestSubscriptionTemplate\x12(.webhook.TestSubscriptionTemplateRequest\x1a).webhook.TestSubscriptionTemplateResponse2\x90\x02\n" +
 	"\x0fDeliveryService\x12Z\n" +
 	"\x11GetDeliveryStatus\x12!.webhook.GetDeliveryStatusRequest\x1a\".webhook.GetDeliveryStatusResponse\x12Q\n" +
 	"\x0eListDeliveries\x12\x1e.webhook.ListDeliveriesRequest\x1a\x1f.webhook.ListDeliveriesResponse\x12N\n" +
@@ -5465,7 +5674,7 @@ func file_proto_webhook_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_webhook_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 76)
+var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 80)
 var file_proto_webhook_proto_goTypes = []any{
 	(WebhookDeliveryStatus)(0),               // 0: webhook.WebhookDeliveryStatus
 	(WebhookHealth)(0),                       // 1: webhook.WebhookHealth
@@ -5487,192 +5696,201 @@ var file_proto_webhook_proto_goTypes = []any{
 	(*ListEventsResponse)(nil),               // 17: webhook.ListEventsResponse
 	(*UpdateEventRequest)(nil),               // 18: webhook.UpdateEventRequest
 	(*UpdateEventResponse)(nil),              // 19: webhook.UpdateEventResponse
-	(*DeleteEventRequest)(nil),               // 20: webhook.DeleteEventRequest
-	(*DeleteEventResponse)(nil),              // 21: webhook.DeleteEventResponse
-	(*GetWebhookHealthRequest)(nil),          // 22: webhook.GetWebhookHealthRequest
-	(*WebhookHealthMetrics)(nil),             // 23: webhook.WebhookHealthMetrics
-	(*GetWebhookHealthResponse)(nil),         // 24: webhook.GetWebhookHealthResponse
-	(*ListWebhooksByHealthRequest)(nil),      // 25: webhook.ListWebhooksByHealthRequest
-	(*ListWebhooksByHealthResponse)(nil),     // 26: webhook.ListWebhooksByHealthResponse
-	(*GetHealthSummaryRequest)(nil),          // 27: webhook.GetHealthSummaryRequest
-	(*HealthSummary)(nil),                    // 28: webhook.HealthSummary
-	(*GetHealthSummaryResponse)(nil),         // 29: webhook.GetHealthSummaryResponse
-	(*RetryDeliveryRequest)(nil),             // 30: webhook.RetryDeliveryRequest
-	(*RetryDeliveryResponse)(nil),            // 31: webhook.RetryDeliveryResponse
-	(*GetDeliveryStatusRequest)(nil),         // 32: webhook.GetDeliveryStatusRequest
-	(*GetDeliveryStatusResponse)(nil),        // 33: webhook.GetDeliveryStatusResponse
-	(*ListDeliveriesRequest)(nil),            // 34: webhook.ListDeliveriesRequest
-	(*ListDeliveriesResponse)(nil),           // 35: webhook.ListDeliveriesResponse
-	(*GetNamespaceStatsRequest)(nil),         // 36: webhook.GetNamespaceStatsRequest
-	(*NamespaceStats)(nil),                   // 37: webhook.NamespaceStats
-	(*GetNamespaceStatsResponse)(nil),        // 38: webhook.GetNamespaceStatsResponse
-	(*WebhookUpdateFields)(nil),              // 39: webhook.WebhookUpdateFields
-	(*UpdateWebhookConfigRequest)(nil),       // 40: webhook.UpdateWebhookConfigRequest
-	(*UpdateWebhookConfigResponse)(nil),      // 41: webhook.UpdateWebhookConfigResponse
-	(*PauseWebhookRequest)(nil),              // 42: webhook.PauseWebhookRequest
-	(*PauseWebhookResponse)(nil),             // 43: webhook.PauseWebhookResponse
-	(*ResumeWebhookRequest)(nil),             // 44: webhook.ResumeWebhookRequest
-	(*ResumeWebhookResponse)(nil),            // 45: webhook.ResumeWebhookResponse
-	(*EventReport)(nil),                      // 46: webhook.EventReport
-	(*ListEventReportsRequest)(nil),          // 47: webhook.ListEventReportsRequest
-	(*ListEventReportsResponse)(nil),         // 48: webhook.ListEventReportsResponse
-	(*EventSubscription)(nil),                // 49: webhook.EventSubscription
-	(*CreateSubscriptionRequest)(nil),        // 50: webhook.CreateSubscriptionRequest
-	(*CreateSubscriptionResponse)(nil),       // 51: webhook.CreateSubscriptionResponse
-	(*GetSubscriptionRequest)(nil),           // 52: webhook.GetSubscriptionRequest
-	(*GetSubscriptionResponse)(nil),          // 53: webhook.GetSubscriptionResponse
-	(*ListSubscriptionsRequest)(nil),         // 54: webhook.ListSubscriptionsRequest
-	(*ListSubscriptionsResponse)(nil),        // 55: webhook.ListSubscriptionsResponse
-	(*UpdateSubscriptionRequest)(nil),        // 56: webhook.UpdateSubscriptionRequest
-	(*UpdateSubscriptionResponse)(nil),       // 57: webhook.UpdateSubscriptionResponse
-	(*DeleteSubscriptionRequest)(nil),        // 58: webhook.DeleteSubscriptionRequest
-	(*DeleteSubscriptionResponse)(nil),       // 59: webhook.DeleteSubscriptionResponse
-	(*ListSubscriptionsByEventRequest)(nil),  // 60: webhook.ListSubscriptionsByEventRequest
-	(*ListSubscriptionsByEventResponse)(nil), // 61: webhook.ListSubscriptionsByEventResponse
-	(*TemplateFunction)(nil),                 // 62: webhook.TemplateFunction
-	(*GetTemplateFunctionsRequest)(nil),      // 63: webhook.GetTemplateFunctionsRequest
-	(*GetTemplateFunctionsResponse)(nil),     // 64: webhook.GetTemplateFunctionsResponse
-	(*PaginationRequest)(nil),                // 65: webhook.PaginationRequest
-	(*PaginationResponse)(nil),               // 66: webhook.PaginationResponse
-	nil,                                      // 67: webhook.RegisterWebhookRequest.HeadersEntry
-	nil,                                      // 68: webhook.PushEventRequest.MetadataEntry
-	nil,                                      // 69: webhook.RegisteredWebhook.HeadersEntry
-	nil,                                      // 70: webhook.RegisterEventRequest.MetadataEntry
-	nil,                                      // 71: webhook.RegisteredEvent.MetadataEntry
-	nil,                                      // 72: webhook.UpdateEventRequest.MetadataEntry
-	nil,                                      // 73: webhook.WebhookUpdateFields.HeadersEntry
-	nil,                                      // 74: webhook.EventReport.MetadataEntry
-	nil,                                      // 75: webhook.EventSubscription.HeadersEntry
-	nil,                                      // 76: webhook.CreateSubscriptionRequest.HeadersEntry
-	nil,                                      // 77: webhook.UpdateSubscriptionRequest.HeadersEntry
-	(*timestamppb.Timestamp)(nil),            // 78: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),                  // 79: google.protobuf.Struct
+	(*GetEventRequest)(nil),                  // 20: webhook.GetEventRequest
+	(*GetEventResponse)(nil),                 // 21: webhook.GetEventResponse
+	(*DeleteEventRequest)(nil),               // 22: webhook.DeleteEventRequest
+	(*DeleteEventResponse)(nil),              // 23: webhook.DeleteEventResponse
+	(*TestSubscriptionTemplateRequest)(nil),  // 24: webhook.TestSubscriptionTemplateRequest
+	(*TestSubscriptionTemplateResponse)(nil), // 25: webhook.TestSubscriptionTemplateResponse
+	(*GetWebhookHealthRequest)(nil),          // 26: webhook.GetWebhookHealthRequest
+	(*WebhookHealthMetrics)(nil),             // 27: webhook.WebhookHealthMetrics
+	(*GetWebhookHealthResponse)(nil),         // 28: webhook.GetWebhookHealthResponse
+	(*ListWebhooksByHealthRequest)(nil),      // 29: webhook.ListWebhooksByHealthRequest
+	(*ListWebhooksByHealthResponse)(nil),     // 30: webhook.ListWebhooksByHealthResponse
+	(*GetHealthSummaryRequest)(nil),          // 31: webhook.GetHealthSummaryRequest
+	(*HealthSummary)(nil),                    // 32: webhook.HealthSummary
+	(*GetHealthSummaryResponse)(nil),         // 33: webhook.GetHealthSummaryResponse
+	(*RetryDeliveryRequest)(nil),             // 34: webhook.RetryDeliveryRequest
+	(*RetryDeliveryResponse)(nil),            // 35: webhook.RetryDeliveryResponse
+	(*GetDeliveryStatusRequest)(nil),         // 36: webhook.GetDeliveryStatusRequest
+	(*GetDeliveryStatusResponse)(nil),        // 37: webhook.GetDeliveryStatusResponse
+	(*ListDeliveriesRequest)(nil),            // 38: webhook.ListDeliveriesRequest
+	(*ListDeliveriesResponse)(nil),           // 39: webhook.ListDeliveriesResponse
+	(*GetNamespaceStatsRequest)(nil),         // 40: webhook.GetNamespaceStatsRequest
+	(*NamespaceStats)(nil),                   // 41: webhook.NamespaceStats
+	(*GetNamespaceStatsResponse)(nil),        // 42: webhook.GetNamespaceStatsResponse
+	(*WebhookUpdateFields)(nil),              // 43: webhook.WebhookUpdateFields
+	(*UpdateWebhookConfigRequest)(nil),       // 44: webhook.UpdateWebhookConfigRequest
+	(*UpdateWebhookConfigResponse)(nil),      // 45: webhook.UpdateWebhookConfigResponse
+	(*PauseWebhookRequest)(nil),              // 46: webhook.PauseWebhookRequest
+	(*PauseWebhookResponse)(nil),             // 47: webhook.PauseWebhookResponse
+	(*ResumeWebhookRequest)(nil),             // 48: webhook.ResumeWebhookRequest
+	(*ResumeWebhookResponse)(nil),            // 49: webhook.ResumeWebhookResponse
+	(*EventReport)(nil),                      // 50: webhook.EventReport
+	(*ListEventReportsRequest)(nil),          // 51: webhook.ListEventReportsRequest
+	(*ListEventReportsResponse)(nil),         // 52: webhook.ListEventReportsResponse
+	(*EventSubscription)(nil),                // 53: webhook.EventSubscription
+	(*CreateSubscriptionRequest)(nil),        // 54: webhook.CreateSubscriptionRequest
+	(*CreateSubscriptionResponse)(nil),       // 55: webhook.CreateSubscriptionResponse
+	(*GetSubscriptionRequest)(nil),           // 56: webhook.GetSubscriptionRequest
+	(*GetSubscriptionResponse)(nil),          // 57: webhook.GetSubscriptionResponse
+	(*ListSubscriptionsRequest)(nil),         // 58: webhook.ListSubscriptionsRequest
+	(*ListSubscriptionsResponse)(nil),        // 59: webhook.ListSubscriptionsResponse
+	(*UpdateSubscriptionRequest)(nil),        // 60: webhook.UpdateSubscriptionRequest
+	(*UpdateSubscriptionResponse)(nil),       // 61: webhook.UpdateSubscriptionResponse
+	(*DeleteSubscriptionRequest)(nil),        // 62: webhook.DeleteSubscriptionRequest
+	(*DeleteSubscriptionResponse)(nil),       // 63: webhook.DeleteSubscriptionResponse
+	(*ListSubscriptionsByEventRequest)(nil),  // 64: webhook.ListSubscriptionsByEventRequest
+	(*ListSubscriptionsByEventResponse)(nil), // 65: webhook.ListSubscriptionsByEventResponse
+	(*TemplateFunction)(nil),                 // 66: webhook.TemplateFunction
+	(*GetTemplateFunctionsRequest)(nil),      // 67: webhook.GetTemplateFunctionsRequest
+	(*GetTemplateFunctionsResponse)(nil),     // 68: webhook.GetTemplateFunctionsResponse
+	(*PaginationRequest)(nil),                // 69: webhook.PaginationRequest
+	(*PaginationResponse)(nil),               // 70: webhook.PaginationResponse
+	nil,                                      // 71: webhook.RegisterWebhookRequest.HeadersEntry
+	nil,                                      // 72: webhook.PushEventRequest.MetadataEntry
+	nil,                                      // 73: webhook.RegisteredWebhook.HeadersEntry
+	nil,                                      // 74: webhook.RegisterEventRequest.MetadataEntry
+	nil,                                      // 75: webhook.RegisteredEvent.MetadataEntry
+	nil,                                      // 76: webhook.UpdateEventRequest.MetadataEntry
+	nil,                                      // 77: webhook.WebhookUpdateFields.HeadersEntry
+	nil,                                      // 78: webhook.EventReport.MetadataEntry
+	nil,                                      // 79: webhook.EventSubscription.HeadersEntry
+	nil,                                      // 80: webhook.CreateSubscriptionRequest.HeadersEntry
+	nil,                                      // 81: webhook.UpdateSubscriptionRequest.HeadersEntry
+	(*timestamppb.Timestamp)(nil),            // 82: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),                  // 83: google.protobuf.Struct
 }
 var file_proto_webhook_proto_depIdxs = []int32{
-	67, // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
+	71, // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
 	2,  // 1: webhook.RegisterWebhookRequest.http_config:type_name -> webhook.WebhookHTTPConfig
-	78, // 2: webhook.RegisterWebhookResponse.created_at:type_name -> google.protobuf.Timestamp
-	79, // 3: webhook.PushEventRequest.payload:type_name -> google.protobuf.Struct
-	68, // 4: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
+	82, // 2: webhook.RegisterWebhookResponse.created_at:type_name -> google.protobuf.Timestamp
+	83, // 3: webhook.PushEventRequest.payload:type_name -> google.protobuf.Struct
+	72, // 4: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
 	0,  // 5: webhook.WebhookDelivery.status:type_name -> webhook.WebhookDeliveryStatus
-	78, // 6: webhook.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
-	78, // 7: webhook.WebhookDelivery.last_attempted_at:type_name -> google.protobuf.Timestamp
-	78, // 8: webhook.WebhookDelivery.next_retry_at:type_name -> google.protobuf.Timestamp
-	78, // 9: webhook.WebhookDelivery.expires_at:type_name -> google.protobuf.Timestamp
-	65, // 10: webhook.ListWebhooksRequest.pagination:type_name -> webhook.PaginationRequest
-	69, // 11: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
+	82, // 6: webhook.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
+	82, // 7: webhook.WebhookDelivery.last_attempted_at:type_name -> google.protobuf.Timestamp
+	82, // 8: webhook.WebhookDelivery.next_retry_at:type_name -> google.protobuf.Timestamp
+	82, // 9: webhook.WebhookDelivery.expires_at:type_name -> google.protobuf.Timestamp
+	69, // 10: webhook.ListWebhooksRequest.pagination:type_name -> webhook.PaginationRequest
+	73, // 11: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
 	1,  // 12: webhook.RegisteredWebhook.health:type_name -> webhook.WebhookHealth
-	78, // 13: webhook.RegisteredWebhook.created_at:type_name -> google.protobuf.Timestamp
-	78, // 14: webhook.RegisteredWebhook.updated_at:type_name -> google.protobuf.Timestamp
+	82, // 13: webhook.RegisteredWebhook.created_at:type_name -> google.protobuf.Timestamp
+	82, // 14: webhook.RegisteredWebhook.updated_at:type_name -> google.protobuf.Timestamp
 	2,  // 15: webhook.RegisteredWebhook.http_config:type_name -> webhook.WebhookHTTPConfig
 	11, // 16: webhook.ListWebhooksResponse.webhooks:type_name -> webhook.RegisteredWebhook
-	66, // 17: webhook.ListWebhooksResponse.pagination:type_name -> webhook.PaginationResponse
-	79, // 18: webhook.RegisterEventRequest.schema:type_name -> google.protobuf.Struct
-	70, // 19: webhook.RegisterEventRequest.metadata:type_name -> webhook.RegisterEventRequest.MetadataEntry
-	78, // 20: webhook.RegisterEventResponse.created_at:type_name -> google.protobuf.Timestamp
-	65, // 21: webhook.ListEventsRequest.pagination:type_name -> webhook.PaginationRequest
-	79, // 22: webhook.RegisteredEvent.schema:type_name -> google.protobuf.Struct
-	79, // 23: webhook.RegisteredEvent.sample_payload:type_name -> google.protobuf.Struct
-	71, // 24: webhook.RegisteredEvent.metadata:type_name -> webhook.RegisteredEvent.MetadataEntry
-	78, // 25: webhook.RegisteredEvent.created_at:type_name -> google.protobuf.Timestamp
-	78, // 26: webhook.RegisteredEvent.updated_at:type_name -> google.protobuf.Timestamp
+	70, // 17: webhook.ListWebhooksResponse.pagination:type_name -> webhook.PaginationResponse
+	83, // 18: webhook.RegisterEventRequest.schema:type_name -> google.protobuf.Struct
+	74, // 19: webhook.RegisterEventRequest.metadata:type_name -> webhook.RegisterEventRequest.MetadataEntry
+	82, // 20: webhook.RegisterEventResponse.created_at:type_name -> google.protobuf.Timestamp
+	69, // 21: webhook.ListEventsRequest.pagination:type_name -> webhook.PaginationRequest
+	83, // 22: webhook.RegisteredEvent.schema:type_name -> google.protobuf.Struct
+	83, // 23: webhook.RegisteredEvent.sample_payload:type_name -> google.protobuf.Struct
+	75, // 24: webhook.RegisteredEvent.metadata:type_name -> webhook.RegisteredEvent.MetadataEntry
+	82, // 25: webhook.RegisteredEvent.created_at:type_name -> google.protobuf.Timestamp
+	82, // 26: webhook.RegisteredEvent.updated_at:type_name -> google.protobuf.Timestamp
 	16, // 27: webhook.ListEventsResponse.events:type_name -> webhook.RegisteredEvent
-	66, // 28: webhook.ListEventsResponse.pagination:type_name -> webhook.PaginationResponse
-	79, // 29: webhook.UpdateEventRequest.schema:type_name -> google.protobuf.Struct
-	72, // 30: webhook.UpdateEventRequest.metadata:type_name -> webhook.UpdateEventRequest.MetadataEntry
-	78, // 31: webhook.WebhookHealthMetrics.last_success_at:type_name -> google.protobuf.Timestamp
-	78, // 32: webhook.WebhookHealthMetrics.last_failure_at:type_name -> google.protobuf.Timestamp
-	78, // 33: webhook.WebhookHealthMetrics.created_at:type_name -> google.protobuf.Timestamp
-	78, // 34: webhook.WebhookHealthMetrics.updated_at:type_name -> google.protobuf.Timestamp
-	1,  // 35: webhook.GetWebhookHealthResponse.health:type_name -> webhook.WebhookHealth
-	23, // 36: webhook.GetWebhookHealthResponse.metrics:type_name -> webhook.WebhookHealthMetrics
-	1,  // 37: webhook.ListWebhooksByHealthRequest.health:type_name -> webhook.WebhookHealth
-	65, // 38: webhook.ListWebhooksByHealthRequest.pagination:type_name -> webhook.PaginationRequest
-	11, // 39: webhook.ListWebhooksByHealthResponse.webhooks:type_name -> webhook.RegisteredWebhook
-	66, // 40: webhook.ListWebhooksByHealthResponse.pagination:type_name -> webhook.PaginationResponse
-	28, // 41: webhook.GetHealthSummaryResponse.summary:type_name -> webhook.HealthSummary
-	9,  // 42: webhook.GetDeliveryStatusResponse.delivery:type_name -> webhook.WebhookDelivery
-	65, // 43: webhook.ListDeliveriesRequest.pagination:type_name -> webhook.PaginationRequest
-	9,  // 44: webhook.ListDeliveriesResponse.deliveries:type_name -> webhook.WebhookDelivery
-	66, // 45: webhook.ListDeliveriesResponse.pagination:type_name -> webhook.PaginationResponse
-	37, // 46: webhook.GetNamespaceStatsResponse.stats:type_name -> webhook.NamespaceStats
-	73, // 47: webhook.WebhookUpdateFields.headers:type_name -> webhook.WebhookUpdateFields.HeadersEntry
-	2,  // 48: webhook.WebhookUpdateFields.http_config:type_name -> webhook.WebhookHTTPConfig
-	39, // 49: webhook.UpdateWebhookConfigRequest.updates:type_name -> webhook.WebhookUpdateFields
-	79, // 50: webhook.EventReport.payload:type_name -> google.protobuf.Struct
-	74, // 51: webhook.EventReport.metadata:type_name -> webhook.EventReport.MetadataEntry
-	78, // 52: webhook.EventReport.created_at:type_name -> google.protobuf.Timestamp
-	65, // 53: webhook.ListEventReportsRequest.pagination:type_name -> webhook.PaginationRequest
-	46, // 54: webhook.ListEventReportsResponse.events:type_name -> webhook.EventReport
-	66, // 55: webhook.ListEventReportsResponse.pagination:type_name -> webhook.PaginationResponse
-	75, // 56: webhook.EventSubscription.headers:type_name -> webhook.EventSubscription.HeadersEntry
-	78, // 57: webhook.EventSubscription.created_at:type_name -> google.protobuf.Timestamp
-	78, // 58: webhook.EventSubscription.updated_at:type_name -> google.protobuf.Timestamp
-	76, // 59: webhook.CreateSubscriptionRequest.headers:type_name -> webhook.CreateSubscriptionRequest.HeadersEntry
-	78, // 60: webhook.CreateSubscriptionResponse.created_at:type_name -> google.protobuf.Timestamp
-	49, // 61: webhook.GetSubscriptionResponse.subscription:type_name -> webhook.EventSubscription
-	65, // 62: webhook.ListSubscriptionsRequest.pagination:type_name -> webhook.PaginationRequest
-	49, // 63: webhook.ListSubscriptionsResponse.subscriptions:type_name -> webhook.EventSubscription
-	66, // 64: webhook.ListSubscriptionsResponse.pagination:type_name -> webhook.PaginationResponse
-	77, // 65: webhook.UpdateSubscriptionRequest.headers:type_name -> webhook.UpdateSubscriptionRequest.HeadersEntry
-	49, // 66: webhook.ListSubscriptionsByEventResponse.subscriptions:type_name -> webhook.EventSubscription
-	66, // 67: webhook.ListSubscriptionsByEventResponse.pagination:type_name -> webhook.PaginationResponse
-	62, // 68: webhook.GetTemplateFunctionsResponse.functions:type_name -> webhook.TemplateFunction
-	3,  // 69: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
-	5,  // 70: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
-	10, // 71: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
-	40, // 72: webhook.WebhookService.UpdateWebhookConfig:input_type -> webhook.UpdateWebhookConfigRequest
-	42, // 73: webhook.WebhookService.PauseWebhook:input_type -> webhook.PauseWebhookRequest
-	44, // 74: webhook.WebhookService.ResumeWebhook:input_type -> webhook.ResumeWebhookRequest
-	36, // 75: webhook.WebhookService.GetNamespaceStats:input_type -> webhook.GetNamespaceStatsRequest
-	63, // 76: webhook.WebhookService.GetTemplateFunctions:input_type -> webhook.GetTemplateFunctionsRequest
-	13, // 77: webhook.EventService.RegisterEvent:input_type -> webhook.RegisterEventRequest
-	15, // 78: webhook.EventService.ListEvents:input_type -> webhook.ListEventsRequest
-	18, // 79: webhook.EventService.UpdateEvent:input_type -> webhook.UpdateEventRequest
-	20, // 80: webhook.EventService.DeleteEvent:input_type -> webhook.DeleteEventRequest
-	7,  // 81: webhook.EventService.PushEvent:input_type -> webhook.PushEventRequest
-	47, // 82: webhook.EventService.ListEventReports:input_type -> webhook.ListEventReportsRequest
-	50, // 83: webhook.SubscriptionService.CreateSubscription:input_type -> webhook.CreateSubscriptionRequest
-	52, // 84: webhook.SubscriptionService.GetSubscription:input_type -> webhook.GetSubscriptionRequest
-	54, // 85: webhook.SubscriptionService.ListSubscriptions:input_type -> webhook.ListSubscriptionsRequest
-	56, // 86: webhook.SubscriptionService.UpdateSubscription:input_type -> webhook.UpdateSubscriptionRequest
-	58, // 87: webhook.SubscriptionService.DeleteSubscription:input_type -> webhook.DeleteSubscriptionRequest
-	32, // 88: webhook.DeliveryService.GetDeliveryStatus:input_type -> webhook.GetDeliveryStatusRequest
-	34, // 89: webhook.DeliveryService.ListDeliveries:input_type -> webhook.ListDeliveriesRequest
-	30, // 90: webhook.DeliveryService.RetryDelivery:input_type -> webhook.RetryDeliveryRequest
-	22, // 91: webhook.HealthService.GetWebhookHealth:input_type -> webhook.GetWebhookHealthRequest
-	25, // 92: webhook.HealthService.ListWebhooksByHealth:input_type -> webhook.ListWebhooksByHealthRequest
-	27, // 93: webhook.HealthService.GetHealthSummary:input_type -> webhook.GetHealthSummaryRequest
-	4,  // 94: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
-	6,  // 95: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
-	12, // 96: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
-	41, // 97: webhook.WebhookService.UpdateWebhookConfig:output_type -> webhook.UpdateWebhookConfigResponse
-	43, // 98: webhook.WebhookService.PauseWebhook:output_type -> webhook.PauseWebhookResponse
-	45, // 99: webhook.WebhookService.ResumeWebhook:output_type -> webhook.ResumeWebhookResponse
-	38, // 100: webhook.WebhookService.GetNamespaceStats:output_type -> webhook.GetNamespaceStatsResponse
-	64, // 101: webhook.WebhookService.GetTemplateFunctions:output_type -> webhook.GetTemplateFunctionsResponse
-	14, // 102: webhook.EventService.RegisterEvent:output_type -> webhook.RegisterEventResponse
-	17, // 103: webhook.EventService.ListEvents:output_type -> webhook.ListEventsResponse
-	19, // 104: webhook.EventService.UpdateEvent:output_type -> webhook.UpdateEventResponse
-	21, // 105: webhook.EventService.DeleteEvent:output_type -> webhook.DeleteEventResponse
-	8,  // 106: webhook.EventService.PushEvent:output_type -> webhook.PushEventResponse
-	48, // 107: webhook.EventService.ListEventReports:output_type -> webhook.ListEventReportsResponse
-	51, // 108: webhook.SubscriptionService.CreateSubscription:output_type -> webhook.CreateSubscriptionResponse
-	53, // 109: webhook.SubscriptionService.GetSubscription:output_type -> webhook.GetSubscriptionResponse
-	55, // 110: webhook.SubscriptionService.ListSubscriptions:output_type -> webhook.ListSubscriptionsResponse
-	57, // 111: webhook.SubscriptionService.UpdateSubscription:output_type -> webhook.UpdateSubscriptionResponse
-	59, // 112: webhook.SubscriptionService.DeleteSubscription:output_type -> webhook.DeleteSubscriptionResponse
-	33, // 113: webhook.DeliveryService.GetDeliveryStatus:output_type -> webhook.GetDeliveryStatusResponse
-	35, // 114: webhook.DeliveryService.ListDeliveries:output_type -> webhook.ListDeliveriesResponse
-	31, // 115: webhook.DeliveryService.RetryDelivery:output_type -> webhook.RetryDeliveryResponse
-	24, // 116: webhook.HealthService.GetWebhookHealth:output_type -> webhook.GetWebhookHealthResponse
-	26, // 117: webhook.HealthService.ListWebhooksByHealth:output_type -> webhook.ListWebhooksByHealthResponse
-	29, // 118: webhook.HealthService.GetHealthSummary:output_type -> webhook.GetHealthSummaryResponse
-	94, // [94:119] is the sub-list for method output_type
-	69, // [69:94] is the sub-list for method input_type
-	69, // [69:69] is the sub-list for extension type_name
-	69, // [69:69] is the sub-list for extension extendee
-	0,  // [0:69] is the sub-list for field type_name
+	70, // 28: webhook.ListEventsResponse.pagination:type_name -> webhook.PaginationResponse
+	83, // 29: webhook.UpdateEventRequest.schema:type_name -> google.protobuf.Struct
+	76, // 30: webhook.UpdateEventRequest.metadata:type_name -> webhook.UpdateEventRequest.MetadataEntry
+	16, // 31: webhook.GetEventResponse.event:type_name -> webhook.RegisteredEvent
+	82, // 32: webhook.WebhookHealthMetrics.last_success_at:type_name -> google.protobuf.Timestamp
+	82, // 33: webhook.WebhookHealthMetrics.last_failure_at:type_name -> google.protobuf.Timestamp
+	82, // 34: webhook.WebhookHealthMetrics.created_at:type_name -> google.protobuf.Timestamp
+	82, // 35: webhook.WebhookHealthMetrics.updated_at:type_name -> google.protobuf.Timestamp
+	1,  // 36: webhook.GetWebhookHealthResponse.health:type_name -> webhook.WebhookHealth
+	27, // 37: webhook.GetWebhookHealthResponse.metrics:type_name -> webhook.WebhookHealthMetrics
+	1,  // 38: webhook.ListWebhooksByHealthRequest.health:type_name -> webhook.WebhookHealth
+	69, // 39: webhook.ListWebhooksByHealthRequest.pagination:type_name -> webhook.PaginationRequest
+	11, // 40: webhook.ListWebhooksByHealthResponse.webhooks:type_name -> webhook.RegisteredWebhook
+	70, // 41: webhook.ListWebhooksByHealthResponse.pagination:type_name -> webhook.PaginationResponse
+	32, // 42: webhook.GetHealthSummaryResponse.summary:type_name -> webhook.HealthSummary
+	9,  // 43: webhook.GetDeliveryStatusResponse.delivery:type_name -> webhook.WebhookDelivery
+	69, // 44: webhook.ListDeliveriesRequest.pagination:type_name -> webhook.PaginationRequest
+	9,  // 45: webhook.ListDeliveriesResponse.deliveries:type_name -> webhook.WebhookDelivery
+	70, // 46: webhook.ListDeliveriesResponse.pagination:type_name -> webhook.PaginationResponse
+	41, // 47: webhook.GetNamespaceStatsResponse.stats:type_name -> webhook.NamespaceStats
+	77, // 48: webhook.WebhookUpdateFields.headers:type_name -> webhook.WebhookUpdateFields.HeadersEntry
+	2,  // 49: webhook.WebhookUpdateFields.http_config:type_name -> webhook.WebhookHTTPConfig
+	43, // 50: webhook.UpdateWebhookConfigRequest.updates:type_name -> webhook.WebhookUpdateFields
+	83, // 51: webhook.EventReport.payload:type_name -> google.protobuf.Struct
+	78, // 52: webhook.EventReport.metadata:type_name -> webhook.EventReport.MetadataEntry
+	82, // 53: webhook.EventReport.created_at:type_name -> google.protobuf.Timestamp
+	69, // 54: webhook.ListEventReportsRequest.pagination:type_name -> webhook.PaginationRequest
+	50, // 55: webhook.ListEventReportsResponse.events:type_name -> webhook.EventReport
+	70, // 56: webhook.ListEventReportsResponse.pagination:type_name -> webhook.PaginationResponse
+	79, // 57: webhook.EventSubscription.headers:type_name -> webhook.EventSubscription.HeadersEntry
+	82, // 58: webhook.EventSubscription.created_at:type_name -> google.protobuf.Timestamp
+	82, // 59: webhook.EventSubscription.updated_at:type_name -> google.protobuf.Timestamp
+	80, // 60: webhook.CreateSubscriptionRequest.headers:type_name -> webhook.CreateSubscriptionRequest.HeadersEntry
+	82, // 61: webhook.CreateSubscriptionResponse.created_at:type_name -> google.protobuf.Timestamp
+	53, // 62: webhook.GetSubscriptionResponse.subscription:type_name -> webhook.EventSubscription
+	69, // 63: webhook.ListSubscriptionsRequest.pagination:type_name -> webhook.PaginationRequest
+	53, // 64: webhook.ListSubscriptionsResponse.subscriptions:type_name -> webhook.EventSubscription
+	70, // 65: webhook.ListSubscriptionsResponse.pagination:type_name -> webhook.PaginationResponse
+	81, // 66: webhook.UpdateSubscriptionRequest.headers:type_name -> webhook.UpdateSubscriptionRequest.HeadersEntry
+	53, // 67: webhook.ListSubscriptionsByEventResponse.subscriptions:type_name -> webhook.EventSubscription
+	70, // 68: webhook.ListSubscriptionsByEventResponse.pagination:type_name -> webhook.PaginationResponse
+	66, // 69: webhook.GetTemplateFunctionsResponse.functions:type_name -> webhook.TemplateFunction
+	3,  // 70: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
+	5,  // 71: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
+	10, // 72: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
+	44, // 73: webhook.WebhookService.UpdateWebhookConfig:input_type -> webhook.UpdateWebhookConfigRequest
+	46, // 74: webhook.WebhookService.PauseWebhook:input_type -> webhook.PauseWebhookRequest
+	48, // 75: webhook.WebhookService.ResumeWebhook:input_type -> webhook.ResumeWebhookRequest
+	40, // 76: webhook.WebhookService.GetNamespaceStats:input_type -> webhook.GetNamespaceStatsRequest
+	67, // 77: webhook.WebhookService.GetTemplateFunctions:input_type -> webhook.GetTemplateFunctionsRequest
+	13, // 78: webhook.EventService.RegisterEvent:input_type -> webhook.RegisterEventRequest
+	15, // 79: webhook.EventService.ListEvents:input_type -> webhook.ListEventsRequest
+	18, // 80: webhook.EventService.UpdateEvent:input_type -> webhook.UpdateEventRequest
+	22, // 81: webhook.EventService.DeleteEvent:input_type -> webhook.DeleteEventRequest
+	20, // 82: webhook.EventService.GetEvent:input_type -> webhook.GetEventRequest
+	7,  // 83: webhook.EventService.PushEvent:input_type -> webhook.PushEventRequest
+	51, // 84: webhook.EventService.ListEventReports:input_type -> webhook.ListEventReportsRequest
+	54, // 85: webhook.SubscriptionService.CreateSubscription:input_type -> webhook.CreateSubscriptionRequest
+	56, // 86: webhook.SubscriptionService.GetSubscription:input_type -> webhook.GetSubscriptionRequest
+	58, // 87: webhook.SubscriptionService.ListSubscriptions:input_type -> webhook.ListSubscriptionsRequest
+	60, // 88: webhook.SubscriptionService.UpdateSubscription:input_type -> webhook.UpdateSubscriptionRequest
+	62, // 89: webhook.SubscriptionService.DeleteSubscription:input_type -> webhook.DeleteSubscriptionRequest
+	24, // 90: webhook.SubscriptionService.TestSubscriptionTemplate:input_type -> webhook.TestSubscriptionTemplateRequest
+	36, // 91: webhook.DeliveryService.GetDeliveryStatus:input_type -> webhook.GetDeliveryStatusRequest
+	38, // 92: webhook.DeliveryService.ListDeliveries:input_type -> webhook.ListDeliveriesRequest
+	34, // 93: webhook.DeliveryService.RetryDelivery:input_type -> webhook.RetryDeliveryRequest
+	26, // 94: webhook.HealthService.GetWebhookHealth:input_type -> webhook.GetWebhookHealthRequest
+	29, // 95: webhook.HealthService.ListWebhooksByHealth:input_type -> webhook.ListWebhooksByHealthRequest
+	31, // 96: webhook.HealthService.GetHealthSummary:input_type -> webhook.GetHealthSummaryRequest
+	4,  // 97: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
+	6,  // 98: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
+	12, // 99: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
+	45, // 100: webhook.WebhookService.UpdateWebhookConfig:output_type -> webhook.UpdateWebhookConfigResponse
+	47, // 101: webhook.WebhookService.PauseWebhook:output_type -> webhook.PauseWebhookResponse
+	49, // 102: webhook.WebhookService.ResumeWebhook:output_type -> webhook.ResumeWebhookResponse
+	42, // 103: webhook.WebhookService.GetNamespaceStats:output_type -> webhook.GetNamespaceStatsResponse
+	68, // 104: webhook.WebhookService.GetTemplateFunctions:output_type -> webhook.GetTemplateFunctionsResponse
+	14, // 105: webhook.EventService.RegisterEvent:output_type -> webhook.RegisterEventResponse
+	17, // 106: webhook.EventService.ListEvents:output_type -> webhook.ListEventsResponse
+	19, // 107: webhook.EventService.UpdateEvent:output_type -> webhook.UpdateEventResponse
+	23, // 108: webhook.EventService.DeleteEvent:output_type -> webhook.DeleteEventResponse
+	21, // 109: webhook.EventService.GetEvent:output_type -> webhook.GetEventResponse
+	8,  // 110: webhook.EventService.PushEvent:output_type -> webhook.PushEventResponse
+	52, // 111: webhook.EventService.ListEventReports:output_type -> webhook.ListEventReportsResponse
+	55, // 112: webhook.SubscriptionService.CreateSubscription:output_type -> webhook.CreateSubscriptionResponse
+	57, // 113: webhook.SubscriptionService.GetSubscription:output_type -> webhook.GetSubscriptionResponse
+	59, // 114: webhook.SubscriptionService.ListSubscriptions:output_type -> webhook.ListSubscriptionsResponse
+	61, // 115: webhook.SubscriptionService.UpdateSubscription:output_type -> webhook.UpdateSubscriptionResponse
+	63, // 116: webhook.SubscriptionService.DeleteSubscription:output_type -> webhook.DeleteSubscriptionResponse
+	25, // 117: webhook.SubscriptionService.TestSubscriptionTemplate:output_type -> webhook.TestSubscriptionTemplateResponse
+	37, // 118: webhook.DeliveryService.GetDeliveryStatus:output_type -> webhook.GetDeliveryStatusResponse
+	39, // 119: webhook.DeliveryService.ListDeliveries:output_type -> webhook.ListDeliveriesResponse
+	35, // 120: webhook.DeliveryService.RetryDelivery:output_type -> webhook.RetryDeliveryResponse
+	28, // 121: webhook.HealthService.GetWebhookHealth:output_type -> webhook.GetWebhookHealthResponse
+	30, // 122: webhook.HealthService.ListWebhooksByHealth:output_type -> webhook.ListWebhooksByHealthResponse
+	33, // 123: webhook.HealthService.GetHealthSummary:output_type -> webhook.GetHealthSummaryResponse
+	97, // [97:124] is the sub-list for method output_type
+	70, // [70:97] is the sub-list for method input_type
+	70, // [70:70] is the sub-list for extension type_name
+	70, // [70:70] is the sub-list for extension extendee
+	0,  // [0:70] is the sub-list for field type_name
 }
 
 func init() { file_proto_webhook_proto_init() }
@@ -5681,14 +5899,14 @@ func file_proto_webhook_proto_init() {
 		return
 	}
 	file_proto_webhook_proto_msgTypes[5].OneofWrappers = []any{}
-	file_proto_webhook_proto_msgTypes[45].OneofWrappers = []any{}
+	file_proto_webhook_proto_msgTypes[49].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_webhook_proto_rawDesc), len(file_proto_webhook_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   76,
+			NumMessages:   80,
 			NumExtensions: 0,
 			NumServices:   5,
 		},
