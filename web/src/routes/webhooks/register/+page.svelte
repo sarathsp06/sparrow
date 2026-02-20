@@ -2,11 +2,12 @@
 	import { goto } from '$app/navigation';
 	import { eventClient, webhookClient as client } from '$lib/services';
 	import { onMount } from 'svelte';
+	import { namespaceState } from '$lib/namespace.svelte';
 	import type {
 	  RegisteredEvent
 	} from '../../../../../proto/webhook_pb.js';
 
-	let namespace = $state('default');
+	let namespace = $state(namespaceState.current);
 	let events: string[] = $state([]);
 	let url = $state('');
 	let description = $state('');
@@ -88,6 +89,7 @@
 			};
 			
 			await client.registerWebhook(req);
+			namespaceState.setNamespace(namespace);
 			goto('/webhooks');
 		} catch (e: any) {
 			error = `Failed to register webhook: ${e.message}`;

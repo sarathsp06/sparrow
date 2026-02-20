@@ -7,6 +7,7 @@
     eventClient
   } from "$lib/services";
   import { onMount } from "svelte";
+  import { namespaceState } from "$lib/namespace.svelte";
   import { type EventSubscription, type TemplateFunction, type RegisteredEvent } from "../../../../../../proto/webhook_pb";
 
   let webhookId: string = "";
@@ -30,7 +31,7 @@
 
   let newSubscription = {
     eventName: "",
-    namespace: "default",
+    namespace: namespaceState.current,
     transformEnabled: false,
     transformTemplate: "",
     method: "POST",
@@ -41,7 +42,7 @@
   let editSubscription = {
     subscriptionId: "",
     eventName: "",
-    namespace: "default",
+    namespace: namespaceState.current,
     transformEnabled: false,
     transformTemplate: "",
     method: "POST",
@@ -86,7 +87,7 @@
   async function fetchWebhook() {
     try {
       const res = await webhookClient.listWebhooks({
-        namespace: "default",
+        namespace: namespaceState.current,
         webhookId
       });
       webhook = res.webhooks?.[0];
@@ -151,7 +152,7 @@
       loading = true;
       const response = await client.listSubscriptions({
         webhookId,
-        namespace: "default"
+        namespace: namespaceState.current
       });
       subscriptions = response.subscriptions
       console.log(subscriptions);
@@ -181,7 +182,7 @@
       // Reset form
       newSubscription = {
         eventName: "",
-        namespace: "default",
+        namespace: namespaceState.current,
         transformEnabled: false,
         transformTemplate: "",
         method: "POST",
@@ -222,7 +223,7 @@
     try {
       await client.deleteSubscription({
         subscriptionId,
-        namespace: "default"
+        namespace: namespaceState.current
       });
       await fetchSubscriptions();
     } catch (e: any) {
@@ -535,7 +536,7 @@
               id="create-namespace"
               type="text"
               bind:value={newSubscription.namespace}
-              placeholder="default"
+              placeholder={namespaceState.current}
               class="w-full border border-gray-300 rounded-md px-3 py-2"
             />
           </div>

@@ -9,11 +9,12 @@
 
   import { eventClient as client } from "$lib/services";
   import { onMount } from "svelte";
+  import { namespaceState } from "$lib/namespace.svelte";
   import type {
     RegisteredEvent
   } from "../../../../../proto/webhook_pb.js";
 
-  let namespace = $state("default");
+  let namespace = $state(namespaceState.current);
   let event = $state("");
   let payload = $state({ json: {} } as Content);
   let loading = $state(false);
@@ -73,6 +74,7 @@
         payload: payloadObj,
       };
       const res = await client.pushEvent(req);
+      namespaceState.setNamespace(namespace);
       successMessage = `Event pushed successfully! Event ID: ${res.eventId}`;
     } catch (e: any) {
       error = `Failed to push event: ${e.message}`;

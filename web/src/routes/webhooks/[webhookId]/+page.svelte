@@ -10,6 +10,7 @@
     subscriptionClient
   } from "$lib/services";
   import { onMount } from "svelte";
+  import { namespaceState } from "$lib/namespace.svelte";
   import type {
     EventSubscription,
     RegisteredWebhook,
@@ -75,14 +76,14 @@
     if (!webhookId) return;
     try {
       const [webhookRes, deliveriesRes, healthRes, subscriptionsRes] = await Promise.all([
-        webhookClient.listWebhooks({ namespace: "default", webhookId }),
+        webhookClient.listWebhooks({ namespace: namespaceState.current, webhookId }),
         deliveryClient.listDeliveries({
           webhookId,
-          namespace: "default",
+          namespace: namespaceState.current,
           pagination: { limit, offset },
         }),
-        healthClient.getWebhookHealth({ webhookId, namespace: "default" }),
-        subscriptionClient.listSubscriptions({ webhookId, namespace: "default" }),
+        healthClient.getWebhookHealth({ webhookId, namespace: namespaceState.current }),
+        subscriptionClient.listSubscriptions({ webhookId, namespace: namespaceState.current }),
       ]);
 
       webhook = webhookRes.webhooks?.[0];
@@ -103,9 +104,9 @@
     if (!webhook) return;
     try {
       if (webhook.active) {
-        await webhookClient.pauseWebhook({ webhookId, namespace: "default" });
+        await webhookClient.pauseWebhook({ webhookId, namespace: namespaceState.current });
       } else {
-        await webhookClient.resumeWebhook({ webhookId, namespace: "default" });
+        await webhookClient.resumeWebhook({ webhookId, namespace: namespaceState.current });
       }
       await fetchData(); // Refresh data
     } catch (e: any) {
@@ -118,7 +119,7 @@
     try {
       await deliveryClient.retryDelivery({
         deliveryId: identifier,
-        namespace: "default",
+        namespace: namespaceState.current,
       });
       await fetchData(); // Refresh data
     } catch (e: any) {
@@ -160,7 +161,7 @@
     try {
       await webhookClient.updateWebhookConfig({
         webhookId,
-        namespace: "default",
+        namespace: namespaceState.current,
         updates: {
           url: trimmedUrl,
           active: webhook.active,
@@ -194,7 +195,7 @@
         try {
           const detailRes = await deliveryClient.getDeliveryStatus({
             deliveryId,
-            namespace: "default"
+            namespace: namespaceState.current
           });
           deliveryDetails.set(deliveryId, detailRes.delivery);
           deliveryDetails = new Map(deliveryDetails);

@@ -1,5 +1,14 @@
 <script>
   import favicon from "$lib/assets/favicon.svg";
+  import { namespaceState } from "$lib/namespace.svelte";
+  import { goto } from "$app/navigation";
+
+  let namespaceInput = $state(namespaceState.current);
+
+  function startWithNamespace() {
+    namespaceState.setNamespace(namespaceInput);
+    goto("/webhooks");
+  }
 </script>
 
 <!-- Paper-inspired Light Theme Landing Page -->
@@ -33,19 +42,32 @@
           >Open source. Built for developers.</span
         >
       </p>
-      <div
-        class="flex flex-col md:flex-row gap-4 justify-center mb-10 animate-fade-in delay-200"
-      >
-        <a
-          href="/webhooks"
-          class="bg-gray-900 text-white font-bold py-3 px-8 rounded-lg shadow hover:scale-105 hover:bg-gray-800 transition text-lg"
-          >Get Started</a
-        >
-        <a
-          href="/events"
-          class="bg-white border border-gray-900 text-gray-900 font-bold py-3 px-8 rounded-lg shadow hover:bg-gray-900 hover:text-white transition text-lg"
-          >View Events</a
-        >
+      <div class="mb-10 animate-fade-in delay-200">
+        <div class="flex flex-col md:flex-row gap-4 justify-center items-center">
+          <div class="relative w-full max-w-sm">
+            <input
+              type="text"
+              bind:value={namespaceInput}
+              placeholder="Enter namespace..."
+              class="w-full bg-white border-2 border-gray-900 text-gray-900 font-bold py-3 px-6 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition text-lg"
+              onkeydown={(e) => e.key === "Enter" && startWithNamespace()}
+            />
+          </div>
+          <button
+            onclick={startWithNamespace}
+            class="bg-gray-900 text-white font-bold py-3 px-8 rounded-lg shadow hover:scale-105 hover:bg-gray-800 transition text-lg w-full md:w-auto"
+          >
+            Get Started
+          </button>
+        </div>
+        <div class="mt-4">
+          <a
+            href="/events"
+            class="text-gray-500 hover:text-gray-900 transition font-bold"
+          >
+            View Events →
+          </a>
+        </div>
       </div>
     </div>
   </main>

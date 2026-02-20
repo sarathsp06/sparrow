@@ -3,14 +3,15 @@
 
   import { goto } from "$app/navigation";
   import { webhookClient as client } from "$lib/services";
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
+  import { namespaceState } from "$lib/namespace.svelte";
   import type { RegisteredWebhook } from "../../../../proto/webhook_pb.js";
   import { WebhookHealth } from "../../../../proto/webhook_pb.js";
 
   let webhooks: RegisteredWebhook[] = $state([]);
   let loading = $state(true);
   let error = $state("");
-  let namespace = $state("default");
+  let namespace = $state(namespaceState.current);
 
   // Pagination state
   let limit = $state(50);
@@ -35,13 +36,18 @@
     loading = true;
     error = "";
     try {
-      if (namespace.trim() === "") {
+      const trimmedNamespace = namespace.trim();
+      if (trimmedNamespace === "") {
         error = "Namespace cannot be empty.";
         webhooks = [];
         totalCount = 0;
       } else {
+        // Update global namespace state if it's different
+        if (namespaceState.current !== trimmedNamespace) {
+          namespaceState.setNamespace(trimmedNamespace);
+        }
         const res = await client.listWebhooks({
-          namespace: namespace.trim(),
+          namespace: trimmedNamespace,
           pagination: { limit, offset }
         });
         webhooks = res.webhooks || [];
@@ -56,6 +62,17 @@
   }
 
   onMount(fetchWebhooks);
+
+  $effect(() => {
+    const globalNamespace = namespaceState.current;
+    untrack(() => {
+      if (globalNamespace !== namespace) {
+        namespace = globalNamespace;
+        offset = 0;
+        fetchWebhooks();
+      }
+    });
+  });
 
   async function unregisterWebhook(webhookId: string) {
     try {

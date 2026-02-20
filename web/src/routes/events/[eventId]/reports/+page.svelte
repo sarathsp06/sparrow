@@ -4,6 +4,7 @@
     import favicon from '$lib/assets/favicon.svg';
     import { eventClient as client } from '$lib/services';
     import { onMount } from 'svelte';
+    import { namespaceState } from '$lib/namespace.svelte';
     import type { EventReport, RegisteredEvent } from '../../../../../../proto/webhook_pb.js';
 
     let eventReports: EventReport[] = $state([]);
@@ -49,7 +50,7 @@
         try {
             const offset = (pageNum - 1) * pageSize;
             const req = {
-                namespace: 'default', // TODO: Get from context or make configurable
+                namespace: namespaceState.current,
                 eventName: currentEvent.name, // Use the event name for filtering
                 pagination: {
                     limit: pageSize,

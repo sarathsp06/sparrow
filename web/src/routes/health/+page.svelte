@@ -1,6 +1,7 @@
 <script lang="ts">
   import favicon from "$lib/assets/favicon.svg";
   import { healthClient, webhookClient } from "$lib/services";
+  import { namespaceState } from "$lib/namespace.svelte";
 
   import { onMount } from "svelte";
   import type {
@@ -21,7 +22,7 @@
       const summaryRes = await healthClient.getHealthSummary(summaryReq);
       healthSummary = summaryRes.summary;
 
-      const statsReq = { namespace: "default" };
+      const statsReq = { namespace: namespaceState.current };
       const statsRes = await webhookClient.getNamespaceStats(statsReq);
       namespaceStats = statsRes.stats;
     } catch (e: any) {
@@ -85,7 +86,7 @@
       {#if namespaceStats}
         <div>
           <h2 class="text-xl font-bold text-gray-800 mb-4">
-            Namespace: <span class="font-mono text-primary">default</span>
+            Namespace: <span class="font-mono text-primary">{namespaceState.current}</span>
           </h2>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div class="bg-white p-4 rounded-lg shadow-sm border">
