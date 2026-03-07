@@ -864,6 +864,33 @@ func (_d RepositoryInterfaceWithTracing) ListSubscriptions(ctx context.Context, 
 	return _d.RepositoryInterface.ListSubscriptions(ctx, webhookID)
 }
 
+// ListSubscriptionsByNamespace implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) ListSubscriptionsByNamespace(ctx context.Context, namespace string, limit int, offset int) (epa1 []*EventSubscription, i1 int, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListSubscriptionsByNamespace")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"namespace": namespace,
+				"limit":     limit,
+				"offset":    offset}, map[string]interface{}{
+				"epa1": epa1,
+				"i1":   i1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.ListSubscriptionsByNamespace(ctx, namespace, limit, offset)
+}
+
 // ListWebhooks implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) ListWebhooks(ctx context.Context, namespace string, event string, activeOnly bool) (wpa1 []*WebhookRegistration, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListWebhooks")

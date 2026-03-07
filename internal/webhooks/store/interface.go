@@ -25,6 +25,7 @@ type RepositoryInterface interface {
 	UpdateSubscription(ctx context.Context, sub *EventSubscription) error
 	DeleteSubscription(ctx context.Context, id uuid.UUID) error
 	ListSubscriptions(ctx context.Context, webhookID uuid.UUID) ([]*EventSubscription, error)
+	ListSubscriptionsByNamespace(ctx context.Context, namespace string, limit, offset int) ([]*EventSubscription, int, error)
 	GetSubscriptionsByEvent(ctx context.Context, namespace, event string) ([]*EventSubscription, error)
 	GetSubscriptionsWithWebhooksByEvent(ctx context.Context, namespace, event string) ([]*SubscriptionWithWebhook, error)
 

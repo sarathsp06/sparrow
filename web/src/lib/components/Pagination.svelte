@@ -5,9 +5,10 @@
         totalCount: number;
         pageSize: number;
         onPageChange: (pageNum: number) => void;
+        itemLabel?: string;
     }
 
-    let { currentPage, totalPages, totalCount, pageSize, onPageChange }: Props = $props();
+    let { currentPage, totalPages, totalCount, pageSize, onPageChange, itemLabel = 'items' }: Props = $props();
 
     function nextPage() {
         if (currentPage < totalPages) {
@@ -27,7 +28,7 @@
 {#if totalPages > 1}
     <div class="mt-6 flex justify-between items-center">
         <div class="text-sm text-gray-500">
-            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} events
+            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} {itemLabel}
         </div>
         
         <div class="flex items-center gap-2">

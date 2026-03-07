@@ -121,6 +121,30 @@ func (r *Repository) ListSubscriptions(ctx context.Context, webhookID uuid.UUID)
 	return subs, nil
 }
 
+// ListSubscriptionsByNamespace lists all subscriptions in a namespace with pagination.
+func (r *Repository) ListSubscriptionsByNamespace(ctx context.Context, namespace string, limit, offset int) ([]*EventSubscription, int, error) {
+	countQuery := `SELECT COUNT(*) FROM event_subscriptions WHERE namespace = $1`
+	var totalCount int
+	if err := r.db.GetContext(ctx, &totalCount, countQuery, namespace); err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	query := `
+		SELECT id, webhook_id, event_name, namespace, headers, method,
+		       transform_enabled, transform_template, timeout, created_at, updated_at
+		FROM event_subscriptions
+		WHERE namespace = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+	var subs []*EventSubscription
+	err := r.db.SelectContext(ctx, &subs, query, namespace, limit, offset)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+	return subs, totalCount, nil
+}
+
 // GetSubscriptionsByEvent finds all active subscriptions for a specific event in a namespace.
 func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, namespace, event string) ([]*EventSubscription, error) {
 	query := `

@@ -165,8 +165,14 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 
 		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err))
 
-		// Record health event
-		_ = w.webhookRepo.RecordWebhookHealthEvent(ctx, uuid.MustParse(args.WebhookID), uuid.MustParse(args.DeliveryID), false, int(duration.Milliseconds()), 0, err.Error())
+		// Record health event and update health state
+		webhookUUID := uuid.MustParse(args.WebhookID)
+		if healthErr := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, uuid.MustParse(args.DeliveryID), false, int(duration.Milliseconds()), 0, err.Error()); healthErr != nil {
+			log.Error("Failed to record health event", "error", healthErr)
+		}
+		if healthErr := w.webhookRepo.UpdateWebhookHealthState(ctx, webhookUUID, false, time.Now()); healthErr != nil {
+			log.Error("Failed to update webhook health state", "error", healthErr)
+		}
 
 		return fmt.Errorf("failed to send webhook: %w", err)
 	}
@@ -215,7 +221,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			log.Error("Failed to update delivery status to success", "error", err)
 		}
 
-		_ = w.webhookRepo.RecordWebhookHealthEvent(ctx, uuid.MustParse(args.WebhookID), uuid.MustParse(args.DeliveryID), true, int(duration.Milliseconds()), resp.StatusCode, "")
+		webhookUUID := uuid.MustParse(args.WebhookID)
+		if healthErr := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, uuid.MustParse(args.DeliveryID), true, int(duration.Milliseconds()), resp.StatusCode, ""); healthErr != nil {
+			log.Error("Failed to record health event", "error", healthErr)
+		}
+		if healthErr := w.webhookRepo.UpdateWebhookHealthState(ctx, webhookUUID, true, time.Now()); healthErr != nil {
+			log.Error("Failed to update webhook health state", "error", healthErr)
+		}
 
 		return nil
 	}
@@ -230,7 +242,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		log.Error("Failed to update delivery status to failed", "error", err)
 	}
 
-	_ = w.webhookRepo.RecordWebhookHealthEvent(ctx, uuid.MustParse(args.WebhookID), uuid.MustParse(args.DeliveryID), false, int(duration.Milliseconds()), resp.StatusCode, errorMessage)
+	webhookUUID := uuid.MustParse(args.WebhookID)
+	if healthErr := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, uuid.MustParse(args.DeliveryID), false, int(duration.Milliseconds()), resp.StatusCode, errorMessage); healthErr != nil {
+		log.Error("Failed to record health event", "error", healthErr)
+	}
+	if healthErr := w.webhookRepo.UpdateWebhookHealthState(ctx, webhookUUID, false, time.Now()); healthErr != nil {
+		log.Error("Failed to update webhook health state", "error", healthErr)
+	}
 
 	return fmt.Errorf("webhook delivery failed: %s", errorMessage)
 }

@@ -128,16 +128,15 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	if namespace == "" {
 		return "", time.Time{}, fmt.Errorf("namespace is required")
 	}
-	if len(events) == 0 {
-		return "", time.Time{}, fmt.Errorf("at least one event is required")
-	}
 	if url == "" {
 		return "", time.Time{}, fmt.Errorf("URL is required")
 	}
-	s.logger.Info("Validating event names", "events", events, "contains_empty", slices.Contains(events, ""))
-	if slices.Contains(events, "") {
-		s.logger.Error("Event names validation failed", "events", events)
-		return "", time.Time{}, fmt.Errorf("event names cannot be empty")
+	if len(events) > 0 {
+		s.logger.Info("Validating event names", "events", events, "contains_empty", slices.Contains(events, ""))
+		if slices.Contains(events, "") {
+			s.logger.Error("Event names validation failed", "events", events)
+			return "", time.Time{}, fmt.Errorf("event names cannot be empty")
+		}
 	}
 	if timeout <= 0 {
 		timeout = 30
@@ -924,9 +923,6 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 		Metadata:      metadata,
 		Active:        active,
 	}
-	if !active {
-		event.Active = true
-	}
 	if err := s.webhookRepo.RegisterEvent(ctx, event); err != nil {
 		s.logger.Error("Failed to register event",
 			"name", name,
@@ -1518,8 +1514,11 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 			subs = []*store.EventSubscription{}
 		}
 	} else {
-		// This might need a new repo method for listing all subs in namespace
-		return nil, 0, fmt.Errorf("either webhook_id or event_name is required")
+		// List all subscriptions in namespace
+		subs, totalCount, err = s.webhookRepo.ListSubscriptionsByNamespace(ctx, namespace, int(limit), int(offset))
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to list subscriptions: %w", err)
+		}
 	}
 
 	return subs, int32(totalCount), err

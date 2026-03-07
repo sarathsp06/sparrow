@@ -1,94 +1,101 @@
 <script lang="ts">
-  import { goto } from "$app/navigation";
-  import { page } from "$app/state";
+  import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import {
     subscriptionClient as client,
     webhookClient,
-    eventClient
-  } from "$lib/services";
-  import { onMount } from "svelte";
-  import { namespaceState } from "$lib/namespace.svelte";
-  import { type EventSubscription, type TemplateFunction, type RegisteredEvent } from "../../../../../../proto/webhook_pb";
+    eventClient,
+  } from '$lib/services';
+  import { onMount } from 'svelte';
+  import { namespaceState } from '$lib/namespace.svelte';
+  import {
+    type EventSubscription,
+    type TemplateFunction,
+    type RegisteredEvent,
+  } from '../../../../../../proto/webhook_pb';
+  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+  import EmptyState from '$lib/components/EmptyState.svelte';
 
-  let webhookId: string = "";
-  let webhook: any = null;
-  let subscriptions: EventSubscription[] = [];
-  let error: string = "";
-  let loading = false;
-  let showCreateModal = false;
-  let editingSubscription: any = null;
-  let showEditModal = false;
-  let showTemplateDocs = false;
-  let templateFunctions: TemplateFunction[] = [];
-  let loadingTemplateFunctions = false;
-  let selectedFunction: TemplateFunction | null = null;
+  let webhookId = $state('');
+  let webhook: any = $state(null);
+  let subscriptions: EventSubscription[] = $state([]);
+  let error: string = $state('');
+  let loading = $state(true);
 
-  let availableEvents: RegisteredEvent[] = [];
-  let selectedEventDetails: RegisteredEvent | null = null;
-  let previewLoading = false;
-  let dryRunResult = "";
-  let dryRunError = "";
+  // Modal state
+  let modalOpen = $state(false);
+  let modalMode = $state<'create' | 'edit'>('create');
 
-  let newSubscription = {
-    eventName: "",
+  // Delete confirmation
+  let confirmDeleteOpen = $state(false);
+  let subscriptionToDelete = $state<string | null>(null);
+
+  // Template docs
+  let showTemplateDocs = $state(false);
+  let templateFunctions: TemplateFunction[] = $state([]);
+  let loadingTemplateFunctions = $state(false);
+  let selectedFunction: TemplateFunction | null = $state(null);
+
+  // Event data
+  let availableEvents: RegisteredEvent[] = $state([]);
+  let selectedEventDetails: RegisteredEvent | null = $state(null);
+  let previewLoading = $state(false);
+  let dryRunResult = $state('');
+  let dryRunError = $state('');
+
+  // Form state (shared for create/edit)
+  let form = $state({
+    subscriptionId: '',
+    eventName: '',
     namespace: namespaceState.current,
     transformEnabled: false,
-    transformTemplate: "",
-    method: "POST",
+    transformTemplate: '',
+    method: 'POST',
     timeout: 30,
     headers: {} as Record<string, string>,
-  };
+  });
 
-  let editSubscription = {
-    subscriptionId: "",
-    eventName: "",
-    namespace: namespaceState.current,
-    transformEnabled: false,
-    transformTemplate: "",
-    method: "POST",
-    timeout: 30,
-    headers: {} as Record<string, string>,
-  };
+  let newHeaderKey = $state('');
+  let newHeaderValue = $state('');
 
-  // Header management for forms
-  let newHeaderKey = "";
-  let newHeaderValue = "";
-  let editHeaderKey = "";
-  let editHeaderValue = "";
+  function resetForm() {
+    form = {
+      subscriptionId: '',
+      eventName: '',
+      namespace: namespaceState.current,
+      transformEnabled: false,
+      transformTemplate: '',
+      method: 'POST',
+      timeout: 30,
+      headers: {},
+    };
+    newHeaderKey = '';
+    newHeaderValue = '';
+    selectedEventDetails = null;
+    dryRunResult = '';
+    dryRunError = '';
+    showTemplateDocs = false;
+    selectedFunction = null;
+  }
 
-  function addHeaderToNew() {
-    if (newHeaderKey && newHeaderValue) {
-      newSubscription.headers[newHeaderKey] = newHeaderValue;
-      newHeaderKey = "";
-      newHeaderValue = "";
-      newSubscription = { ...newSubscription }; // Trigger reactivity
+  function addHeader() {
+    if (newHeaderKey.trim() && newHeaderValue.trim()) {
+      form.headers = { ...form.headers, [newHeaderKey.trim()]: newHeaderValue.trim() };
+      newHeaderKey = '';
+      newHeaderValue = '';
     }
   }
 
-  function removeHeaderFromNew(key: string) {
-    delete newSubscription.headers[key];
-    newSubscription = { ...newSubscription };
-  }
-
-  function addHeaderToEdit() {
-    if (editHeaderKey && editHeaderValue) {
-      editSubscription.headers[editHeaderKey] = editHeaderValue;
-      editHeaderKey = "";
-      editHeaderValue = "";
-      editSubscription = { ...editSubscription };
-    }
-  }
-
-  function removeHeaderFromEdit(key: string) {
-    delete editSubscription.headers[key];
-    editSubscription = { ...editSubscription };
+  function removeHeader(key: string) {
+    const { [key]: _, ...rest } = form.headers;
+    form.headers = rest;
   }
 
   async function fetchWebhook() {
     try {
       const res = await webhookClient.listWebhooks({
         namespace: namespaceState.current,
-        webhookId
+        webhookId,
       });
       webhook = res.webhooks?.[0];
     } catch (e: any) {
@@ -98,9 +105,7 @@
 
   async function fetchAvailableEvents() {
     try {
-      const response = await eventClient.listEvents({
-        activeOnly: true,
-      });
+      const response = await eventClient.listEvents({ activeOnly: true });
       availableEvents = response.events;
     } catch (e: any) {
       console.error('Failed to fetch events:', e);
@@ -112,31 +117,31 @@
       selectedEventDetails = null;
       return;
     }
-    const event = availableEvents.find(e => e.name === eventName);
+    const event = availableEvents.find((e) => e.name === eventName);
     if (event) {
       selectedEventDetails = event;
     } else {
       try {
         const res = await eventClient.getEvent({ name: eventName });
         selectedEventDetails = res.event || null;
-      } catch (e) {
+      } catch {
         selectedEventDetails = null;
       }
     }
-    dryRunResult = "";
-    dryRunError = "";
+    dryRunResult = '';
+    dryRunError = '';
   }
 
-  async function testTemplate(eventName: string, template: string, namespace: string) {
-    if (!eventName || !template) return;
+  async function testTemplate() {
+    if (!form.eventName || !form.transformTemplate) return;
     try {
       previewLoading = true;
-      dryRunError = "";
-      dryRunResult = "";
+      dryRunError = '';
+      dryRunResult = '';
       const response = await client.testSubscriptionTemplate({
-        eventName,
-        transformTemplate: template,
-        namespace
+        eventName: form.eventName,
+        transformTemplate: form.transformTemplate,
+        namespace: form.namespace,
       });
       dryRunResult = response.transformedPayload;
     } catch (e: any) {
@@ -152,10 +157,9 @@
       loading = true;
       const response = await client.listSubscriptions({
         webhookId,
-        namespace: namespaceState.current
+        namespace: namespaceState.current,
       });
-      subscriptions = response.subscriptions
-      console.log(subscriptions);
+      subscriptions = response.subscriptions;
     } catch (e: any) {
       error = `Failed to fetch subscriptions: ${e.message}`;
     } finally {
@@ -163,88 +167,80 @@
     }
   }
 
-  async function createSubscription() {
+  async function saveSubscription() {
+    error = '';
     try {
-      await client.createSubscription({
-        webhookId,
-        eventName: newSubscription.eventName,
-        namespace: newSubscription.namespace,
-        transformEnabled: newSubscription.transformEnabled,
-        transformTemplate: newSubscription.transformTemplate,
-        method: newSubscription.method,
-        timeout: newSubscription.timeout,
-        headers: newSubscription.headers,
-      });
-
-      showCreateModal = false;
+      if (modalMode === 'create') {
+        await client.createSubscription({
+          webhookId,
+          eventName: form.eventName,
+          namespace: form.namespace,
+          transformEnabled: form.transformEnabled,
+          transformTemplate: form.transformTemplate,
+          method: form.method,
+          timeout: form.timeout,
+          headers: form.headers,
+        });
+      } else {
+        await client.updateSubscription({
+          subscriptionId: form.subscriptionId,
+          namespace: form.namespace,
+          headers: form.headers,
+          method: form.method,
+          timeout: form.timeout,
+          transformEnabled: form.transformEnabled,
+          transformTemplate: form.transformTemplate,
+        });
+      }
+      modalOpen = false;
+      resetForm();
       await fetchSubscriptions();
-
-      // Reset form
-      newSubscription = {
-        eventName: "",
-        namespace: namespaceState.current,
-        transformEnabled: false,
-        transformTemplate: "",
-        method: "POST",
-        timeout: 30,
-        headers: {},
-      };
-      selectedEventDetails = null;
-      dryRunResult = "";
-      dryRunError = "";
     } catch (e: any) {
-      error = `Failed to create subscription: ${e.message}`;
+      error = `Failed to ${modalMode === 'create' ? 'create' : 'update'} subscription: ${e.message}`;
     }
   }
 
-  async function updateSubscription() {
-    try {
-      await client.updateSubscription({
-        subscriptionId: editSubscription.subscriptionId,
-        namespace: editSubscription.namespace,
-        headers: editSubscription.headers,
-        method: editSubscription.method,
-        timeout: editSubscription.timeout,
-        transformEnabled: editSubscription.transformEnabled,
-        transformTemplate: editSubscription.transformTemplate,
-      });
-
-      showEditModal = false;
-      editingSubscription = null;
-      await fetchSubscriptions();
-    } catch (e: any) {
-      error = `Failed to update subscription: ${e.message}`;
-    }
+  function openCreateModal() {
+    resetForm();
+    modalMode = 'create';
+    modalOpen = true;
   }
 
-  async function deleteSubscription(subscriptionId: string) {
-    if (!confirm("Are you sure you want to delete this subscription?")) return;
-
-    try {
-      await client.deleteSubscription({
-        subscriptionId,
-        namespace: namespaceState.current
-      });
-      await fetchSubscriptions();
-    } catch (e: any) {
-      error = `Failed to delete subscription: ${e.message}`;
-    }
-  }
-
-  function openEditModal(subscription: any) {
-    editingSubscription = subscription;
-    editSubscription = {
+  function openEditModal(subscription: EventSubscription) {
+    form = {
       subscriptionId: subscription.subscriptionId,
       eventName: subscription.eventName,
       namespace: subscription.namespace,
       transformEnabled: subscription.transformEnabled,
-      transformTemplate: subscription.transformTemplate || "",
-      method: subscription.method || "POST",
+      transformTemplate: subscription.transformTemplate || '',
+      method: subscription.method || 'POST',
       timeout: subscription.timeout || 30,
-      headers: subscription.headers || {},
+      headers: { ...subscription.headers } || {},
     };
     handleEventChange(subscription.eventName);
-    showEditModal = true;
+    modalMode = 'edit';
+    modalOpen = true;
+  }
+
+  function promptDelete(subscriptionId: string) {
+    subscriptionToDelete = subscriptionId;
+    confirmDeleteOpen = true;
+  }
+
+  async function executeDelete() {
+    if (!subscriptionToDelete) return;
+    try {
+      await client.deleteSubscription({
+        subscriptionId: subscriptionToDelete,
+        namespace: namespaceState.current,
+      });
+      confirmDeleteOpen = false;
+      subscriptionToDelete = null;
+      await fetchSubscriptions();
+    } catch (e: any) {
+      error = `Failed to delete subscription: ${e.message}`;
+      confirmDeleteOpen = false;
+    }
   }
 
   function formatTemplate(template: string) {
@@ -260,7 +256,6 @@
       showTemplateDocs = !showTemplateDocs;
       return;
     }
-    
     try {
       loadingTemplateFunctions = true;
       const response = await webhookClient.getTemplateFunctions({});
@@ -273,15 +268,19 @@
     }
   }
 
-  function parseMarkdown(description: string): { title: string; summary: string; usage: string; example: string } {
+  function parseMarkdown(description: string): {
+    title: string;
+    summary: string;
+    usage: string;
+    example: string;
+  } {
     const lines = description.split('\n');
     let title = '';
     let summary = '';
     let usage = '';
     let example = '';
     let currentSection = '';
-    let inCodeBlock = false;
-    
+
     for (const line of lines) {
       if (line.trim().startsWith('# ')) {
         title = line.replace(/^#\s*/, '').trim();
@@ -290,7 +289,6 @@
       } else if (line.trim().startsWith('## Example')) {
         currentSection = 'example';
       } else if (line.trim() === '```') {
-        inCodeBlock = !inCodeBlock;
         if (currentSection === 'usage') usage += '\n';
         if (currentSection === 'example') example += '\n';
       } else if (line.trim().startsWith('##')) {
@@ -305,684 +303,484 @@
         }
       }
     }
-    
+
     return {
       title: title || 'Function',
       summary: summary.trim(),
       usage: usage.trim(),
-      example: example.trim()
+      example: example.trim(),
     };
   }
 
   onMount(async () => {
-    webhookId = page.params.webhookId || "";
+    webhookId = page.params.webhookId || '';
     if (webhookId) {
       await Promise.all([fetchWebhook(), fetchSubscriptions(), fetchAvailableEvents()]);
     } else {
-      error = "No webhook ID provided";
+      error = 'No webhook ID provided';
+      loading = false;
     }
   });
 </script>
 
 <svelte:head>
-  <title>Subscriptions - {webhookId} | HTTPQueue</title>
+  <title>Subscriptions - {webhookId} | Sparrow</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50 font-display">
-  <main class="p-6">
+<div class="min-h-screen bg-gray-50">
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     <!-- Breadcrumb -->
-    <nav class="mb-6">
-      <ol class="flex items-center space-x-2 text-sm text-gray-500">
-        <li><a href="/" class="hover:text-blue-600">Dashboard</a></li>
-        <li>›</li>
-        <li><a href="/webhooks/{webhookId}" class="hover:text-blue-600">Webhook {webhookId}</a></li>
-        <li>›</li>
+    <nav class="mb-4">
+      <ol class="flex items-center gap-1.5 text-sm text-gray-500">
+        <li><a href="/webhooks" class="hover:text-gray-700 transition">Webhooks</a></li>
+        <li class="text-gray-300">/</li>
+        <li>
+          <a href="/webhooks/{webhookId}" class="hover:text-gray-700 transition">
+            {webhookId.substring(0, 8)}...
+          </a>
+        </li>
+        <li class="text-gray-300">/</li>
         <li class="text-gray-800 font-medium">Subscriptions</li>
       </ol>
     </nav>
 
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold text-gray-800 mb-2">Event Subscriptions</h1>
-      {#if webhook}
-        <p class="text-gray-600">
-          Manage event subscriptions for webhook: <code class="bg-gray-100 px-2 py-1 rounded text-sm">{webhook.url}</code>
-        </p>
-      {/if}
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Event Subscriptions</h1>
+        {#if webhook}
+          <p class="text-sm text-gray-500 mt-0.5">
+            <span class="font-mono">{webhook.url}</span>
+          </p>
+        {/if}
+      </div>
+      <div class="flex items-center gap-2">
+        <a
+          href="/webhooks/{webhookId}"
+          class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+        >
+          &larr; Back
+        </a>
+        <button
+          onclick={openCreateModal}
+          class="inline-flex items-center gap-1.5 bg-gray-900 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition shadow-sm"
+        >
+          <span class="text-lg leading-none">+</span>
+          Add Subscription
+        </button>
+      </div>
     </div>
 
     {#if error}
-      <div class="bg-red-100 border border-red-300 text-red-700 rounded-lg p-4 mb-6">
-        <p>{error}</p>
+      <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-start justify-between">
+        <p class="text-sm text-red-700">{error}</p>
+        <button onclick={() => { error = ''; }} class="text-red-400 hover:text-red-600 ml-3 shrink-0" aria-label="Dismiss error">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
     {/if}
 
     {#if loading}
-      <div class="bg-white rounded-lg shadow-sm border p-12 text-center">
-        <p class="text-gray-500">Loading...</p>
-      </div>
-    {:else if webhook}
-      <!-- Webhook Info -->
-      <div class="bg-white rounded-lg shadow-sm border p-6 mb-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-gray-800">Webhook Details</h2>
-            <p class="text-sm text-gray-600 mt-1">{webhook.url}</p>
-            <div class="mt-2 flex items-center gap-4">
-              <span class="text-sm font-medium text-gray-700">Status:</span>
-              <span class={`text-sm px-2 py-1 rounded ${webhook.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                {webhook.active ? 'Active' : 'Inactive'}
-              </span>
-              {#if webhook.events && webhook.events.length > 0}
-                <span class="text-sm font-medium text-gray-700">Events:</span>
-                <div class="flex gap-1">
-                  {#each webhook.events as event}
-                    <span class="bg-gray-100 text-gray-600 px-2 py-1 text-xs rounded-md">{event}</span>
-                  {/each}
-                </div>
-              {/if}
+      <!-- Loading skeleton -->
+      <div class="space-y-3">
+        {#each Array(3) as _}
+          <div class="bg-white rounded-lg border border-gray-200 p-4 animate-pulse">
+            <div class="flex items-center gap-2 mb-2">
+              <div class="h-4 bg-gray-200 rounded w-32"></div>
+              <div class="h-4 bg-gray-100 rounded w-16"></div>
+              <div class="h-4 bg-gray-100 rounded w-12"></div>
+            </div>
+            <div class="flex gap-4">
+              <div class="h-3 bg-gray-100 rounded w-24"></div>
+              <div class="h-3 bg-gray-100 rounded w-32"></div>
             </div>
           </div>
-          <button
-            onclick={() => goto(`/webhooks/${webhookId}`)}
-            class="text-blue-600 hover:text-blue-800 text-sm font-medium"
-          >
-            ← Back to Webhook
-          </button>
-        </div>
+        {/each}
       </div>
-
-      <!-- Subscriptions -->
-      <div class="bg-white rounded-lg shadow-sm border p-6">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-xl font-bold text-gray-800">Subscriptions ({subscriptions.length})</h2>
-          <button
-            onclick={() => (showCreateModal = true)}
-            class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm font-medium"
-          >
-            + Add Subscription
-          </button>
-        </div>
-
-        {#if subscriptions.length === 0}
-          <div class="text-center py-12 text-gray-500">
-            <p class="text-lg font-medium">No subscriptions yet</p>
-            <p class="text-sm mt-2">Create subscriptions to define which events this webhook should receive and how to transform them.</p>
+    {:else if subscriptions.length === 0}
+      <div class="bg-white rounded-lg border border-gray-200">
+        <EmptyState
+          icon="link"
+          title="No subscriptions yet"
+          description="Create subscriptions to define which events this webhook receives and how payloads are transformed."
+        >
+          {#snippet action()}
             <button
-              onclick={() => (showCreateModal = true)}
-              class="mt-4 bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 font-medium"
+              onclick={openCreateModal}
+              class="inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition"
             >
               Create First Subscription
             </button>
-          </div>
-        {:else}
-          <div class="space-y-4">
-            {#each subscriptions as subscription}
-              <div class="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition">
-                <div class="flex items-start justify-between">
-                  <div class="flex-1">
-                    <div class="flex items-center gap-3 mb-3">
-                      <h3 class="font-semibold text-gray-800 text-lg">{subscription.eventName}</h3>
-                      <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded font-medium">
-                        {subscription.namespace}
+          {/snippet}
+        </EmptyState>
+      </div>
+    {:else}
+      <!-- Subscription cards -->
+      <div class="space-y-3">
+        {#each subscriptions as subscription}
+          <div class="bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition">
+            <div class="p-4">
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                  <!-- Title row -->
+                  <div class="flex items-center gap-2 mb-2">
+                    <h3 class="text-sm font-semibold text-gray-900">{subscription.eventName}</h3>
+                    <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">
+                      {subscription.namespace}
+                    </span>
+                    <span class="px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded">
+                      {subscription.method || 'POST'}
+                    </span>
+                    {#if subscription.transformEnabled}
+                      <span class="px-1.5 py-0.5 text-xs font-medium bg-green-50 text-green-700 rounded">
+                        Template
                       </span>
-                      {#if subscription.transformEnabled}
-                        <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">
-                          🎭 Template Enabled
+                    {/if}
+                  </div>
+
+                  <!-- Details row -->
+                  <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                    <span>Timeout: {subscription.timeout || 30}s</span>
+                    <span>Created: {subscription.createdAt ? new Date(Number(subscription.createdAt.seconds) * 1000).toLocaleDateString() : 'N/A'}</span>
+                    <span class="font-mono text-gray-400">{subscription.subscriptionId.substring(0, 12)}...</span>
+                  </div>
+
+                  <!-- Template preview -->
+                  {#if subscription.transformEnabled && subscription.transformTemplate}
+                    <details class="mt-3">
+                      <summary class="text-xs font-medium text-gray-600 cursor-pointer hover:text-gray-800 select-none">
+                        View Template
+                      </summary>
+                      <pre class="mt-1.5 bg-gray-50 p-3 rounded-lg text-xs overflow-x-auto max-h-32 border border-gray-200 font-mono">{formatTemplate(subscription.transformTemplate)}</pre>
+                    </details>
+                  {/if}
+
+                  <!-- Custom headers -->
+                  {#if Object.keys(subscription.headers || {}).length > 0}
+                    <div class="mt-2 flex flex-wrap gap-1">
+                      {#each Object.entries(subscription.headers) as [key, value]}
+                        <span class="text-xs bg-gray-50 text-gray-600 px-2 py-0.5 rounded border border-gray-200 font-mono">
+                          {key}: {value}
                         </span>
-                      {/if}
+                      {/each}
                     </div>
-                    
-                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
-                      <div>
-                        <span class="font-medium text-gray-700">Method:</span>
-                        <span class="ml-1">{subscription.method || 'POST'}</span>
-                      </div>
-                      <div>
-                        <span class="font-medium text-gray-700">Timeout:</span>
-                        <span class="ml-1">{subscription.timeout || 30}s</span>
-                      </div>
-                      <div>
-                        <span class="font-medium text-gray-700">Created:</span>
-                        <span class="ml-1">{subscription.createdAt ? new Date(Number(subscription.createdAt.seconds) * 1000).toLocaleDateString() : 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span class="font-medium text-gray-700">ID:</span>
-                        <code class="ml-1 text-xs bg-gray-100 px-1 py-0.5 rounded">{subscription.subscriptionId.substring(0, 8)}...</code>
-                      </div>
-                    </div>
-                    
-                    {#if subscription.transformEnabled && subscription.transformTemplate}
-                      <div class="mt-3">
-                        <span class="text-sm font-medium text-gray-700">Template:</span>
-                        <pre class="mt-1 bg-gray-50 p-3 rounded text-xs overflow-x-auto max-h-32 border">{formatTemplate(subscription.transformTemplate)}</pre>
-                      </div>
-                    {/if}
-                    
-                    {#if Object.keys(subscription.headers || {}).length > 0}
-                      <div class="mt-3">
-                        <span class="text-sm font-medium text-gray-700">Custom Headers:</span>
-                        <div class="mt-1 space-y-1">
-                          {#each Object.entries(subscription.headers) as [key, value]}
-                            <div class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded inline-block mr-2">
-                              <span class="font-medium">{key}:</span> {value}
-                            </div>
-                          {/each}
-                        </div>
-                      </div>
-                    {/if}
-                  </div>
-                  
-                  <div class="flex gap-2 ml-4">
-                    <button
-                      onclick={() => openEditModal(subscription)}
-                      class="bg-blue-100 text-blue-800 hover:bg-blue-200 px-3 py-1 rounded text-sm font-medium transition"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onclick={() => deleteSubscription(subscription.subscriptionId)}
-                      class="bg-red-100 text-red-800 hover:bg-red-200 px-3 py-1 rounded text-sm font-medium transition"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  {/if}
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onclick={() => openEditModal(subscription)}
+                    class="px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onclick={() => promptDelete(subscription.subscriptionId)}
+                    class="px-2.5 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
-            {/each}
+            </div>
           </div>
-        {/if}
+        {/each}
       </div>
     {/if}
   </main>
 </div>
 
-<!-- Create Subscription Modal -->
-{#if showCreateModal}
-  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
-      <div class="mt-3">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Create New Subscription</h3>
-        
-        <div class="space-y-4">
-          <!-- Event Name -->
-          <div>
-            <label for="create-event-name" class="block text-sm font-medium text-gray-700 mb-1">Event Name</label>
+<!-- Create/Edit Subscription Modal -->
+{#if modalOpen}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" role="presentation" onclick={() => { modalOpen = false; resetForm(); }}></div>
+    <div class="relative w-full max-w-2xl mx-4 my-12 bg-white rounded-xl shadow-2xl">
+      <!-- Modal header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">
+          {modalMode === 'create' ? 'Create Subscription' : 'Edit Subscription'}
+        </h3>
+        <button
+          onclick={() => { modalOpen = false; resetForm(); }}
+          class="p-1 text-gray-400 hover:text-gray-600 rounded transition"
+          aria-label="Close modal"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal body -->
+      <div class="px-6 py-4 space-y-4 max-h-[calc(100vh-12rem)] overflow-y-auto">
+        <!-- Event Name -->
+        <div>
+          <label for="modal-event-name" class="block text-sm font-medium text-gray-700 mb-1">Event Name</label>
+          {#if modalMode === 'create'}
             <div class="flex gap-2">
               <select
-                id="create-event-name"
-                bind:value={newSubscription.eventName}
-                onchange={() => handleEventChange(newSubscription.eventName)}
-                class="flex-1 border border-gray-300 rounded-md px-3 py-2"
+                id="modal-event-name"
+                bind:value={form.eventName}
+                onchange={() => handleEventChange(form.eventName)}
+                class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
               >
                 <option value="">Select an event...</option>
                 {#each availableEvents as event}
                   <option value={event.name}>{event.name}</option>
                 {/each}
               </select>
+              <span class="text-xs text-gray-400 self-center">or</span>
               <input
                 type="text"
-                bind:value={newSubscription.eventName}
-                oninput={() => handleEventChange(newSubscription.eventName)}
-                placeholder="Or type event name"
-                class="flex-1 border border-gray-300 rounded-md px-3 py-2"
+                bind:value={form.eventName}
+                oninput={() => handleEventChange(form.eventName)}
+                placeholder="Type event name"
+                class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
               />
             </div>
-          </div>
-
-          <!-- Namespace -->
-          <div>
-            <label for="create-namespace" class="block text-sm font-medium text-gray-700 mb-1">Namespace</label>
+          {:else}
             <input
-              id="create-namespace"
               type="text"
-              bind:value={newSubscription.namespace}
-              placeholder={namespaceState.current}
-              class="w-full border border-gray-300 rounded-md px-3 py-2"
+              value={form.eventName}
+              disabled
+              class="w-full text-sm rounded-lg border-gray-300 bg-gray-50 text-gray-500"
             />
-          </div>
+          {/if}
+        </div>
 
-          <!-- Method and Timeout -->
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label for="create-method" class="block text-sm font-medium text-gray-700 mb-1">Method</label>
-              <select id="create-method" bind:value={newSubscription.method} class="w-full border border-gray-300 rounded-md px-3 py-2">
-                <option value="POST">POST</option>
-                <option value="PUT">PUT</option>
-                <option value="PATCH">PATCH</option>
-              </select>
-            </div>
-            <div>
-              <label for="create-timeout" class="block text-sm font-medium text-gray-700 mb-1">Timeout (seconds)</label>
-              <input
-                id="create-timeout"
-                type="number"
-                bind:value={newSubscription.timeout}
-                min="1"
-                max="300"
-                class="w-full border border-gray-300 rounded-md px-3 py-2"
-              />
-            </div>
-          </div>
+        <!-- Namespace -->
+        <div>
+          <label for="modal-namespace" class="block text-sm font-medium text-gray-700 mb-1">Namespace</label>
+          <input
+            id="modal-namespace"
+            type="text"
+            bind:value={form.namespace}
+            disabled={modalMode === 'edit'}
+            class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 {modalMode === 'edit' ? 'bg-gray-50 text-gray-500' : ''}"
+          />
+        </div>
 
-          <!-- Transform Toggle -->
-          <div class="flex items-center">
+        <!-- Method + Timeout -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="modal-method" class="block text-sm font-medium text-gray-700 mb-1">Method</label>
+            <select id="modal-method" bind:value={form.method} class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900">
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+            </select>
+          </div>
+          <div>
+            <label for="modal-timeout" class="block text-sm font-medium text-gray-700 mb-1">Timeout (seconds)</label>
             <input
-              type="checkbox"
-              id="transform-enabled"
-              bind:checked={newSubscription.transformEnabled}
-              class="h-4 w-4 text-blue-600 border-gray-300 rounded"
+              id="modal-timeout"
+              type="number"
+              bind:value={form.timeout}
+              min="1"
+              max="300"
+              class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
             />
-            <label for="transform-enabled" class="ml-2 text-sm font-medium text-gray-700">
-              Enable Payload Transformation
-            </label>
           </div>
+        </div>
 
-          <!-- Transform Template -->
-          {#if newSubscription.transformEnabled}
-            <div>
-              <div class="flex justify-between items-center mb-1">
-                <label for="create-template" class="block text-sm font-medium text-gray-700">Transform Template (Go Template)</label>
-                <button
-                  type="button"
-                  onclick={fetchTemplateFunctions}
-                  class="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  {showTemplateDocs ? '✕ Hide' : '📖 Show'} Template Functions
-                </button>
-              </div>
+        <!-- Transform toggle -->
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            onclick={() => { form.transformEnabled = !form.transformEnabled; }}
+            aria-label="Toggle payload transformation"
+            class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {form.transformEnabled ? 'bg-green-500' : 'bg-gray-300'}"
+          >
+            <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {form.transformEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
+          </button>
+          <span class="text-sm font-medium text-gray-700">Enable Payload Transformation</span>
+        </div>
 
-              {#if selectedEventDetails}
-                <div class="mb-4 bg-gray-50 border border-gray-200 rounded-md p-3">
-                  <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs font-semibold text-gray-700 uppercase tracking-wider">Sample Payload</span>
-                    <button
-                      type="button"
-                      onclick={() => testTemplate(newSubscription.eventName, newSubscription.transformTemplate, newSubscription.namespace)}
-                      disabled={previewLoading || !newSubscription.transformTemplate}
-                      class="bg-green-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-700 disabled:bg-gray-400 transition"
-                    >
-                      {previewLoading ? 'Executing...' : '▶ Preview Transformation'}
-                    </button>
-                  </div>
-                  <div class="grid grid-cols-2 gap-4">
-                    <div>
-                      <p class="text-[10px] text-gray-500 mb-1">Input (Sample Data)</p>
-                      <pre class="bg-white p-2 border rounded text-[10px] overflow-auto max-h-40">{JSON.stringify(selectedEventDetails.samplePayload, null, 2)}</pre>
-                    </div>
-                    <div>
-                      <p class="text-[10px] text-gray-500 mb-1">Output (Transformed)</p>
-                      <div class="bg-white p-2 border rounded text-[10px] overflow-auto max-h-40 min-h-[40px]">
-                        {#if dryRunResult}
-                          <pre>{dryRunResult}</pre>
-                        {:else if dryRunError}
-                          <pre class="text-red-600">{dryRunError}</pre>
-                        {:else}
-                          <span class="text-gray-400 italic">Click preview to see results</span>
-                        {/if}
-                      </div>
-                    </div>
-                  </div>
+        <!-- Transform template -->
+        {#if form.transformEnabled}
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label for="modal-template" class="block text-sm font-medium text-gray-700">Transform Template</label>
+              <button
+                type="button"
+                onclick={fetchTemplateFunctions}
+                class="text-xs font-medium text-gray-600 hover:text-gray-900 transition"
+              >
+                {showTemplateDocs ? 'Hide' : 'Show'} Functions Reference
+              </button>
+            </div>
+
+            <!-- Sample payload preview -->
+            {#if selectedEventDetails}
+              <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Preview</span>
+                  <button
+                    type="button"
+                    onclick={testTemplate}
+                    disabled={previewLoading || !form.transformTemplate}
+                    class="px-3 py-1 text-xs font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:bg-gray-400 transition"
+                  >
+                    {previewLoading ? 'Running...' : 'Run Preview'}
+                  </button>
                 </div>
-              {/if}
-              
-              <div class="grid gap-4" style="grid-template-columns: {showTemplateDocs ? '1fr 1fr' : '1fr'}">
-                <div>
-                  <textarea
-                    id="create-template"
-                    bind:value={newSubscription.transformTemplate}
-                    rows="10"
-                    placeholder={'{\n  "user_id": "{{ .Payload.id }}",\n  "email": "{{ .Payload.email | urlencode }}",\n  "timestamp": "{{ now | formatTime \\"2006-01-02T15:04:05Z07:00\\" }}"\n}'}
-                    class="w-full border border-gray-300 rounded-md px-3 py-2 font-mono text-sm"
-                  ></textarea>
-                  <p class="text-xs text-gray-500 mt-1">Use Go template syntax to transform the webhook payload</p>
-                </div>
-                
-                {#if showTemplateDocs}
-                  <div class="border border-gray-200 rounded-md overflow-hidden">
-                    <div class="bg-gray-50 p-3 border-b border-gray-200">
-                      <h4 class="font-semibold text-sm text-gray-800">Available Template Functions</h4>
-                      <p class="text-xs text-gray-600 mt-1">Click on a function to see details</p>
-                    </div>
-                    <div class="overflow-y-auto" style="max-height: 400px;">
-                      {#if loadingTemplateFunctions}
-                        <div class="p-4 text-center text-gray-500 text-sm">Loading...</div>
-                      {:else if templateFunctions.length > 0}
-                        <div class="divide-y divide-gray-100">
-                          {#each templateFunctions as func}
-                            {@const parsed = parseMarkdown(func.description)}
-                            <button
-                              type="button"
-                              onclick={() => selectedFunction = selectedFunction?.name === func.name ? null : func}
-                              class="w-full text-left p-3 hover:bg-blue-50 transition"
-                            >
-                              <div class="flex justify-between items-start">
-                                <div class="flex-1">
-                                  <code class="text-sm font-semibold text-blue-600">{func.name}</code>
-                                  {#if selectedFunction?.name === func.name}
-                                    <div class="mt-2 space-y-2">
-                                      <p class="text-xs text-gray-600">{parsed.summary}</p>
-                                      {#if parsed.usage}
-                                        <div>
-                                          <span class="text-xs font-medium text-gray-700">Usage:</span>
-                                          <pre class="mt-1 text-xs bg-gray-800 text-gray-100 p-2 rounded overflow-x-auto">{parsed.usage}</pre>
-                                        </div>
-                                      {/if}
-                                      {#if parsed.example}
-                                        <div>
-                                          <span class="text-xs font-medium text-gray-700">Example:</span>
-                                          <pre class="mt-1 text-xs bg-gray-800 text-gray-100 p-2 rounded overflow-x-auto">{parsed.example}</pre>
-                                        </div>
-                                      {/if}
-                                    </div>
-                                  {:else}
-                                    <p class="text-xs text-gray-500 mt-0.5">{parsed.summary}</p>
-                                  {/if}
-                                </div>
-                                <span class="text-gray-400 text-xs ml-2">{selectedFunction?.name === func.name ? '▼' : '▶'}</span>
-                              </div>
-                            </button>
-                          {/each}
-                        </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <p class="text-[10px] text-gray-500 mb-1 font-medium">Input (Sample)</p>
+                    <pre class="bg-white p-2 border border-gray-200 rounded text-[10px] overflow-auto max-h-32 font-mono">{JSON.stringify(selectedEventDetails.samplePayload, null, 2)}</pre>
+                  </div>
+                  <div>
+                    <p class="text-[10px] text-gray-500 mb-1 font-medium">Output (Transformed)</p>
+                    <div class="bg-white p-2 border border-gray-200 rounded text-[10px] overflow-auto max-h-32 min-h-[40px] font-mono">
+                      {#if dryRunResult}
+                        <pre>{dryRunResult}</pre>
+                      {:else if dryRunError}
+                        <pre class="text-red-600">{dryRunError}</pre>
+                      {:else}
+                        <span class="text-gray-400 italic">Click "Run Preview" to see results</span>
                       {/if}
                     </div>
                   </div>
-                {/if}
+                </div>
               </div>
+            {/if}
+
+            <div class="grid gap-3" style="grid-template-columns: {showTemplateDocs ? '1fr 1fr' : '1fr'}">
+              <div>
+                <textarea
+                  id="modal-template"
+                  bind:value={form.transformTemplate}
+                  rows="8"
+                  placeholder={'{\n  "user_id": "{{ .Payload.id }}",\n  "email": "{{ .Payload.email | urlencode }}"\n}'}
+                  class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 font-mono"
+                ></textarea>
+                <p class="text-xs text-gray-400 mt-1">Go template syntax for payload transformation</p>
+              </div>
+
+              {#if showTemplateDocs}
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                  <div class="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                    <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wide">Template Functions</h4>
+                  </div>
+                  <div class="overflow-y-auto max-h-72">
+                    {#if loadingTemplateFunctions}
+                      <div class="p-4 text-center text-sm text-gray-500">Loading...</div>
+                    {:else}
+                      <div class="divide-y divide-gray-100">
+                        {#each templateFunctions as func}
+                          {@const parsed = parseMarkdown(func.description)}
+                          <button
+                            type="button"
+                            onclick={() => (selectedFunction = selectedFunction?.name === func.name ? null : func)}
+                            class="w-full text-left px-3 py-2 hover:bg-gray-50 transition"
+                          >
+                            <code class="text-xs font-semibold text-blue-600">{func.name}</code>
+                            {#if selectedFunction?.name === func.name}
+                              <div class="mt-1.5 space-y-1.5">
+                                <p class="text-xs text-gray-600">{parsed.summary}</p>
+                                {#if parsed.usage}
+                                  <pre class="text-[10px] bg-gray-800 text-gray-100 p-2 rounded overflow-x-auto">{parsed.usage}</pre>
+                                {/if}
+                                {#if parsed.example}
+                                  <pre class="text-[10px] bg-gray-800 text-gray-100 p-2 rounded overflow-x-auto">{parsed.example}</pre>
+                                {/if}
+                              </div>
+                            {:else}
+                              <p class="text-[10px] text-gray-500 mt-0.5 truncate">{parsed.summary}</p>
+                            {/if}
+                          </button>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Headers -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-700">Custom Headers</span>
+          </div>
+
+          {#if Object.keys(form.headers).length > 0}
+            <div class="space-y-1.5 mb-2">
+              {#each Object.entries(form.headers) as [key, value]}
+                <div class="flex items-center gap-2">
+                  <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{key}</span>
+                  <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{value}</span>
+                  <button
+                    onclick={() => removeHeader(key)}
+                    class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition"
+                    aria-label="Remove header {key}"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              {/each}
             </div>
           {/if}
 
-          <!-- Headers -->
-          <div>
-            <span class="block text-sm font-medium text-gray-700 mb-1">Custom Headers</span>
-            <div class="space-y-2">
-              {#each Object.entries(newSubscription.headers) as [key, value]}
-                <div class="flex items-center gap-2">
-                  <input type="text" value={key} disabled class="flex-1 border border-gray-300 rounded-md px-3 py-2 bg-gray-50" />
-                  <input type="text" value={value} disabled class="flex-1 border border-gray-300 rounded-md px-3 py-2 bg-gray-50" />
-                  <button onclick={() => removeHeaderFromNew(key)} class="text-red-600 hover:text-red-800">✕</button>
-                </div>
-              {/each}
-              
-              <div class="flex items-center gap-2">
-                <input
-                  type="text"
-                  bind:value={newHeaderKey}
-                  placeholder="Header name"
-                  class="flex-1 border border-gray-300 rounded-md px-3 py-2"
-                />
-                <input
-                  type="text"
-                  bind:value={newHeaderValue}
-                  placeholder="Header value"
-                  class="flex-1 border border-gray-300 rounded-md px-3 py-2"
-                />
-                <button
-                  onclick={addHeaderToNew}
-                  class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700"
-                >
-                  Add
-                </button>
-              </div>
-            </div>
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              bind:value={newHeaderKey}
+              placeholder="Header name"
+              class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+            />
+            <input
+              type="text"
+              bind:value={newHeaderValue}
+              placeholder="Header value"
+              class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+            />
+            <button
+              onclick={addHeader}
+              disabled={!newHeaderKey.trim() || !newHeaderValue.trim()}
+              class="shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition"
+            >
+              Add
+            </button>
           </div>
         </div>
+      </div>
 
-        <div class="flex justify-end gap-3 mt-6">
-          <button
-            onclick={() => (showCreateModal = false)}
-            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            onclick={createSubscription}
-            disabled={!newSubscription.eventName}
-            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-          >
-            Create Subscription
-          </button>
-        </div>
+      <!-- Modal footer -->
+      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+        <button
+          onclick={() => { modalOpen = false; resetForm(); }}
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+        >
+          Cancel
+        </button>
+        <button
+          onclick={saveSubscription}
+          disabled={!form.eventName}
+          class="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition shadow-sm"
+        >
+          {modalMode === 'create' ? 'Create Subscription' : 'Update Subscription'}
+        </button>
       </div>
     </div>
   </div>
 {/if}
 
-<!-- Edit Subscription Modal -->
-{#if showEditModal}
-  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
-      <div class="mt-3">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">Edit Subscription</h3>
-        
-        <div class="space-y-4">
-          <!-- Event Name -->
-          <div>
-            <label for="edit-event-name" class="block text-sm font-medium text-gray-700 mb-1">Event Name</label>
-            <input
-              id="edit-event-name"
-              type="text"
-              bind:value={editSubscription.eventName}
-              placeholder="e.g., user.created, order.completed"
-              class="w-full border border-gray-300 rounded-md px-3 py-2"
-              disabled
-            />
-          </div>
-
-          <!-- Namespace -->
-          <div>
-            <label for="edit-namespace" class="block text-sm font-medium text-gray-700 mb-1">Namespace</label>
-            <input
-              id="edit-namespace"
-              type="text"
-              bind:value={editSubscription.namespace}
-              placeholder="default"
-              class="w-full border border-gray-300 rounded-md px-3 py-2"
-              disabled
-            />
-          </div>
-
-          <!-- Method and Timeout -->
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label for="edit-method" class="block text-sm font-medium text-gray-700 mb-1">Method</label>
-              <select id="edit-method" bind:value={editSubscription.method} class="w-full border border-gray-300 rounded-md px-3 py-2">
-                <option value="POST">POST</option>
-                <option value="PUT">PUT</option>
-                <option value="PATCH">PATCH</option>
-              </select>
-            </div>
-            <div>
-              <label for="edit-timeout" class="block text-sm font-medium text-gray-700 mb-1">Timeout (seconds)</label>
-              <input
-                id="edit-timeout"
-                type="number"
-                bind:value={editSubscription.timeout}
-                min="1"
-                max="300"
-                class="w-full border border-gray-300 rounded-md px-3 py-2"
-              />
-            </div>
-          </div>
-
-          <!-- Transform Toggle -->
-          <div class="flex items-center">
-            <input
-              type="checkbox"
-              id="edit-transform-enabled"
-              bind:checked={editSubscription.transformEnabled}
-              class="h-4 w-4 text-blue-600 border-gray-300 rounded"
-            />
-            <label for="edit-transform-enabled" class="ml-2 text-sm font-medium text-gray-700">
-              Enable Payload Transformation
-            </label>
-          </div>
-
-          <!-- Transform Template -->
-          {#if editSubscription.transformEnabled}
-            <div>
-              <div class="flex justify-between items-center mb-1">
-                <label for="edit-template" class="block text-sm font-medium text-gray-700">Transform Template (Go Template)</label>
-                <button
-                  type="button"
-                  onclick={fetchTemplateFunctions}
-                  class="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  {showTemplateDocs ? '✕ Hide' : '📖 Show'} Template Functions
-                </button>
-              </div>
-
-              {#if selectedEventDetails}
-                <div class="mb-4 bg-gray-50 border border-gray-200 rounded-md p-3">
-                  <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs font-semibold text-gray-700 uppercase tracking-wider">Sample Payload</span>
-                    <button
-                      type="button"
-                      onclick={() => testTemplate(editSubscription.eventName, editSubscription.transformTemplate, editSubscription.namespace)}
-                      disabled={previewLoading || !editSubscription.transformTemplate}
-                      class="bg-green-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-green-700 disabled:bg-gray-400 transition"
-                    >
-                      {previewLoading ? 'Executing...' : '▶ Preview Transformation'}
-                    </button>
-                  </div>
-                  <div class="grid grid-cols-2 gap-4">
-                    <div>
-                      <p class="text-[10px] text-gray-500 mb-1">Input (Sample Data)</p>
-                      <pre class="bg-white p-2 border rounded text-[10px] overflow-auto max-h-40">{JSON.stringify(selectedEventDetails.samplePayload, null, 2)}</pre>
-                    </div>
-                    <div>
-                      <p class="text-[10px] text-gray-500 mb-1">Output (Transformed)</p>
-                      <div class="bg-white p-2 border rounded text-[10px] overflow-auto max-h-40 min-h-[40px]">
-                        {#if dryRunResult}
-                          <pre>{dryRunResult}</pre>
-                        {:else if dryRunError}
-                          <pre class="text-red-600">{dryRunError}</pre>
-                        {:else}
-                          <span class="text-gray-400 italic">Click preview to see results</span>
-                        {/if}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              {/if}
-              
-              <div class="grid gap-4" style="grid-template-columns: {showTemplateDocs ? '1fr 1fr' : '1fr'}">
-                <div>
-                  <textarea
-                    id="edit-template"
-                    bind:value={editSubscription.transformTemplate}
-                    rows="10"
-                    placeholder={'{\n  "user_id": "{{ .Payload.id }}",\n  "email": "{{ .Payload.email | urlencode }}",\n  "timestamp": "{{ now | formatTime \\"2006-01-02T15:04:05Z07:00\\" }}"\n}'}
-                    class="w-full border border-gray-300 rounded-md px-3 py-2 font-mono text-sm"
-                  ></textarea>
-                  <p class="text-xs text-gray-500 mt-1">Use Go template syntax to transform the webhook payload</p>
-                </div>
-                
-                {#if showTemplateDocs}
-                  <div class="border border-gray-200 rounded-md overflow-hidden">
-                    <div class="bg-gray-50 p-3 border-b border-gray-200">
-                      <h4 class="font-semibold text-sm text-gray-800">Available Template Functions</h4>
-                      <p class="text-xs text-gray-600 mt-1">Click on a function to see details</p>
-                    </div>
-                    <div class="overflow-y-auto" style="max-height: 400px;">
-                      {#if loadingTemplateFunctions}
-                        <div class="p-4 text-center text-gray-500 text-sm">Loading...</div>
-                      {:else if templateFunctions.length > 0}
-                        <div class="divide-y divide-gray-100">
-                          {#each templateFunctions as func}
-                            {@const parsed = parseMarkdown(func.description)}
-                            <button
-                              type="button"
-                              onclick={() => selectedFunction = selectedFunction?.name === func.name ? null : func}
-                              class="w-full text-left p-3 hover:bg-blue-50 transition"
-                            >
-                              <div class="flex justify-between items-start">
-                                <div class="flex-1">
-                                  <code class="text-sm font-semibold text-blue-600">{func.name}</code>
-                                  {#if selectedFunction?.name === func.name}
-                                    <div class="mt-2 space-y-2">
-                                      <p class="text-xs text-gray-600">{parsed.summary}</p>
-                                      {#if parsed.usage}
-                                        <div>
-                                          <span class="text-xs font-medium text-gray-700">Usage:</span>
-                                          <pre class="mt-1 text-xs bg-gray-800 text-gray-100 p-2 rounded overflow-x-auto">{parsed.usage}</pre>
-                                        </div>
-                                      {/if}
-                                      {#if parsed.example}
-                                        <div>
-                                          <span class="text-xs font-medium text-gray-700">Example:</span>
-                                          <pre class="mt-1 text-xs bg-gray-800 text-gray-100 p-2 rounded overflow-x-auto">{parsed.example}</pre>
-                                        </div>
-                                      {/if}
-                                    </div>
-                                  {:else}
-                                    <p class="text-xs text-gray-500 mt-0.5">{parsed.summary}</p>
-                                  {/if}
-                                </div>
-                                <span class="text-gray-400 text-xs ml-2">{selectedFunction?.name === func.name ? '▼' : '▶'}</span>
-                              </div>
-                            </button>
-                          {/each}
-                        </div>
-                      {/if}
-                    </div>
-                  </div>
-                {/if}
-              </div>
-            </div>
-          {/if}
-
-          <!-- Headers -->
-          <div>
-            <span class="block text-sm font-medium text-gray-700 mb-1">Custom Headers</span>
-            <div class="space-y-2">
-              {#each Object.entries(editSubscription.headers) as [key, value]}
-                <div class="flex items-center gap-2">
-                  <input type="text" value={key} disabled class="flex-1 border border-gray-300 rounded-md px-3 py-2 bg-gray-50" />
-                  <input type="text" value={value} disabled class="flex-1 border border-gray-300 rounded-md px-3 py-2 bg-gray-50" />
-                  <button onclick={() => removeHeaderFromEdit(key)} class="text-red-600 hover:text-red-800">✕</button>
-                </div>
-              {/each}
-              
-              <div class="flex items-center gap-2">
-                <input
-                  type="text"
-                  bind:value={editHeaderKey}
-                  placeholder="Header name"
-                  class="flex-1 border border-gray-300 rounded-md px-3 py-2"
-                />
-                <input
-                  type="text"
-                  bind:value={editHeaderValue}
-                  placeholder="Header value"
-                  class="flex-1 border border-gray-300 rounded-md px-3 py-2"
-                />
-                <button
-                  onclick={addHeaderToEdit}
-                  class="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700"
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex justify-end gap-3 mt-6">
-          <button
-            onclick={() => (showEditModal = false)}
-            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            onclick={updateSubscription}
-            disabled={!editSubscription.eventName}
-            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-          >
-            Update Subscription
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-{/if}
+<!-- Delete Confirmation -->
+<ConfirmDialog
+  open={confirmDeleteOpen}
+  title="Delete Subscription"
+  message="This will permanently remove this event subscription. The webhook will no longer receive events for this subscription."
+  confirmLabel="Delete"
+  variant="danger"
+  onconfirm={executeDelete}
+  oncancel={() => { confirmDeleteOpen = false; subscriptionToDelete = null; }}
+/>

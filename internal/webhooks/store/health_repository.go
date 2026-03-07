@@ -230,17 +230,58 @@ func (r *Repository) GetWebhookHealthTimeSeries(ctx context.Context, webhookID u
 	return events, nil
 }
 
-// AggregateHealthSummaries runs the aggregation function for health summaries
+// AggregateHealthSummaries computes hourly health summaries from raw health events
+// and inserts them into the webhook_health_summaries table.
+// Returns the number of summaries processed.
 func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) {
-	query := `SELECT aggregate_webhook_health_hourly()`
+	query := `
+		INSERT INTO webhook_health_summaries (
+			id, webhook_id, window_start, window_end,
+			total_deliveries, successful_deliveries, failed_deliveries,
+			success_rate, avg_response_time, min_response_time, max_response_time, p95_response_time,
+			created_at, updated_at
+		)
+		SELECT
+			gen_random_uuid(),
+			webhook_id,
+			date_trunc('hour', timestamp) AS window_start,
+			date_trunc('hour', timestamp) + INTERVAL '1 hour' AS window_end,
+			COUNT(*) AS total_deliveries,
+			SUM(CASE WHEN success THEN 1 ELSE 0 END) AS successful_deliveries,
+			SUM(CASE WHEN success THEN 0 ELSE 1 END) AS failed_deliveries,
+			COALESCE(AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END), 0) AS success_rate,
+			COALESCE(AVG(response_time), 0)::INTEGER AS avg_response_time,
+			COALESCE(MIN(response_time), 0) AS min_response_time,
+			COALESCE(MAX(response_time), 0) AS max_response_time,
+			COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time), 0)::INTEGER AS p95_response_time,
+			NOW(),
+			NOW()
+		FROM webhook_health_events
+		WHERE timestamp >= NOW() - INTERVAL '24 hours'
+		GROUP BY webhook_id, date_trunc('hour', timestamp)
+		ON CONFLICT (webhook_id, window_start, window_end) DO UPDATE SET
+			total_deliveries = EXCLUDED.total_deliveries,
+			successful_deliveries = EXCLUDED.successful_deliveries,
+			failed_deliveries = EXCLUDED.failed_deliveries,
+			success_rate = EXCLUDED.success_rate,
+			avg_response_time = EXCLUDED.avg_response_time,
+			min_response_time = EXCLUDED.min_response_time,
+			max_response_time = EXCLUDED.max_response_time,
+			p95_response_time = EXCLUDED.p95_response_time,
+			updated_at = NOW()
+	`
 
-	var processedCount int
-	err := r.db.GetContext(ctx, &processedCount, query)
+	result, err := r.db.ExecContext(ctx, query)
 	if err != nil {
 		return 0, fmt.Errorf("failed to aggregate health summaries: %w", err)
 	}
 
-	return processedCount, nil
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	return int(rowsAffected), nil
 }
 
 // GetHealthSummary returns a summary of webhook health across all namespaces

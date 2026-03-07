@@ -12,7 +12,11 @@ import (
 
 // PushEvent pushes an event that triggers registered webhooks
 func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest) (*pb.PushEventResponse, error) {
-	eventID, err := s.service.PushEvent(ctx, req.Namespace, req.Event, req.Payload.AsMap(), req.TtlSeconds, req.Metadata)
+	var payload map[string]any
+	if req.Payload != nil {
+		payload = req.Payload.AsMap()
+	}
+	eventID, err := s.service.PushEvent(ctx, req.Namespace, req.Event, payload, req.TtlSeconds, req.Metadata)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to push event: %v", err)
 	}

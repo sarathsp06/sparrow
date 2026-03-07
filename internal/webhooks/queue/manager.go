@@ -31,8 +31,8 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, dbPo
 	riverClient, err := river.NewClient(riverpgxv5.New(dbPool), &river.Config{
 		Queues: map[string]river.QueueConfig{
 			QueueDefault:         {MaxWorkers: 5},
-			QueueEventProcessing: {MaxWorkers: 20, FetchPollInterval: time.Second * 30}, // Event processing queue
-			QueueWebhookDelivery: {MaxWorkers: 20, FetchPollInterval: time.Second * 30}, // Webhook delivery queue
+			QueueEventProcessing: {MaxWorkers: 20, FetchPollInterval: time.Second * 2}, // Event processing queue
+			QueueWebhookDelivery: {MaxWorkers: 20, FetchPollInterval: time.Second * 2}, // Webhook delivery queue
 		},
 		Workers: riverWorkers,
 	})

@@ -471,8 +471,8 @@ func MainGRPC() {
 
 // extractFirstLine extracts the first line from a multi-line description
 func extractFirstLine(description string) string {
-	lines := strings.Split(description, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(description, "\n")
+	for line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
 			return trimmed
