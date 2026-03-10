@@ -2,11 +2,13 @@ package grpc
 
 import (
 	"context"
+	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/sarathsp06/sparrow/internal/webhooks"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
@@ -18,6 +20,12 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 	}
 	eventID, err := s.service.PushEvent(ctx, req.Namespace, req.Event, payload, req.TtlSeconds, req.Metadata)
 	if err != nil {
+		// Return InvalidArgument for schema validation errors so the client
+		// gets actionable feedback instead of a generic Internal error.
+		var schemaErr *webhooks.SchemaValidationError
+		if errors.As(err, &schemaErr) {
+			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
+		}
 		return nil, status.Errorf(codes.Internal, "failed to push event: %v", err)
 	}
 	return &pb.PushEventResponse{

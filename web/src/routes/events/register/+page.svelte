@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { eventClient as client, JSONSchemaMetaSchema } from '$lib';
+  import { eventClient as client, JSONSchemaMetaSchema, jsonToJsonSchema } from '$lib';
   import {
     createAjvValidator,
     JSONEditor,
@@ -15,9 +15,34 @@
   let active = $state(true);
   let error = $state('');
   let submitting = $state(false);
+  let showSchemaHelper = $state(false);
+  let sampleJson = $state({ json: {} } as JSONContent);
+  let schemaHelperError = $state('');
 
   function validator(): Validator {
     return createAjvValidator({ schema: JSONSchemaMetaSchema });
+  }
+
+  function generateSchemaFromSample() {
+    schemaHelperError = '';
+    try {
+      let sampleObj: any;
+      if ("text" in sampleJson && typeof sampleJson.text === "string") {
+        sampleObj = JSON.parse(sampleJson.text);
+      } else if ("json" in sampleJson && sampleJson.json !== undefined) {
+        sampleObj = sampleJson.json;
+      } else {
+        schemaHelperError = 'Please enter a valid JSON sample.';
+        return;
+      }
+
+      const generatedSchema = jsonToJsonSchema(sampleObj);
+      schema = { json: generatedSchema };
+      showSchemaHelper = false;
+      sampleJson = { json: {} };
+    } catch (e: any) {
+      schemaHelperError = `Invalid JSON: ${e.message}`;
+    }
   }
 
   async function registerEvent(e: Event) {
@@ -91,8 +116,44 @@
         </div>
 
         <div>
-          <label for="schema" class="block text-sm font-medium text-gray-700 mb-1">Schema (JSON)</label>
-          <p class="text-xs text-gray-500 mb-2">Define the expected payload structure for validation.</p>
+          <div class="flex items-center justify-between mb-1">
+            <label for="schema" class="block text-sm font-medium text-gray-700">Schema (JSON Schema)</label>
+            <button
+              type="button"
+              onclick={() => { showSchemaHelper = !showSchemaHelper; schemaHelperError = ''; }}
+              class="text-xs font-medium text-blue-600 hover:text-blue-800 transition"
+            >
+              {showSchemaHelper ? 'Close helper' : 'Generate from sample JSON'}
+            </button>
+          </div>
+          <p class="text-xs text-gray-500 mb-2">
+            Define the expected payload structure for validation. Any valid JSON Schema is accepted — leave as <code class="bg-gray-100 px-1 rounded">{'{}'}</code> to allow any payload.
+          </p>
+
+          {#if showSchemaHelper}
+            <div class="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+              <div>
+                <p class="text-sm font-medium text-blue-900 mb-1">Paste a sample JSON payload</p>
+                <p class="text-xs text-blue-700 mb-2">
+                  A schema will be inferred from the structure. You can then refine it — add <code class="bg-blue-100 px-1 rounded">enum</code>, <code class="bg-blue-100 px-1 rounded">minLength</code>, <code class="bg-blue-100 px-1 rounded">pattern</code>, remove <code class="bg-blue-100 px-1 rounded">required</code> fields, etc.
+                </p>
+                <div class="border border-blue-300 rounded-lg overflow-hidden">
+                  <JSONEditor bind:content={sampleJson} mode={Mode.text} mainMenuBar={false} />
+                </div>
+              </div>
+              {#if schemaHelperError}
+                <p class="text-xs text-red-600">{schemaHelperError}</p>
+              {/if}
+              <button
+                type="button"
+                onclick={generateSchemaFromSample}
+                class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition"
+              >
+                Generate Schema
+              </button>
+            </div>
+          {/if}
+
           <div class="border border-gray-300 rounded-lg overflow-hidden">
             <JSONEditor validator={validator()} bind:content={schema} mode={Mode.text} mainMenuBar={false} />
           </div>

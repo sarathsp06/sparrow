@@ -3,4 +3,4 @@ export { default as EventReportsTable } from './components/EventReportsTable.sve
 export { default as Pagination } from './components/Pagination.svelte';
 export { default as Table } from './components/table.svelte';
 export * from './services';
-export { JSONSchemaMetaSchema } from './utils';
+export { JSONSchemaMetaSchema, jsonToJsonSchema } from './utils';

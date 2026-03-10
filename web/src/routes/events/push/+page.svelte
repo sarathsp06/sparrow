@@ -17,6 +17,7 @@
   let loading = $state(false);
   let loadingEvents = $state(true);
   let error = $state("");
+  let validationDetails = $state<string[]>([]);
   let successMessage = $state("");
   let availableEvents: RegisteredEvent[] = $state([]);
 
@@ -30,10 +31,15 @@
 
   function validator(): Validator {
     const selectedEvent = availableEvents.find((e) => e.name === event);
-    if (selectedEvent && selectedEvent.schema) {
+    if (selectedEvent && selectedEvent.schema && Object.keys(selectedEvent.schema).length > 0) {
       return createAjvValidator({ schema: selectedEvent.schema as any });
     }
     return createAjvValidator({ schema: {} });
+  }
+
+  function hasSchema(): boolean {
+    const selectedEvent = availableEvents.find((e) => e.name === event);
+    return !!(selectedEvent && selectedEvent.schema && Object.keys(selectedEvent.schema).length > 0);
   }
 
   async function fetchEvents() {
@@ -54,10 +60,36 @@
 
   onMount(fetchEvents);
 
+  /**
+   * Parse structured validation details from server error messages.
+   * The backend returns errors like: "payload validation failed: /field/path: error message; /other: msg"
+   */
+  function parseValidationError(message: string): { summary: string; details: string[] } {
+    const details: string[] = [];
+
+    // Match patterns like "field_path: error description" separated by "; "
+    const schemaMatch = message.match(/payload does not match event schema: payload validation failed: (.+)$/);
+    if (schemaMatch) {
+      const detailStr = schemaMatch[1];
+      // Split on "; " to get individual field errors
+      const parts = detailStr.split("; ");
+      for (const part of parts) {
+        details.push(part.trim());
+      }
+      return {
+        summary: "Payload does not match the event schema",
+        details
+      };
+    }
+
+    return { summary: message, details: [] };
+  }
+
   async function pushEvent(e: Event) {
     e.preventDefault();
     loading = true;
     error = "";
+    validationDetails = [];
     successMessage = "";
     try {
       let payloadObj: any = {};
@@ -75,7 +107,9 @@
       const res = await client.pushEvent(req);
       successMessage = `Event pushed successfully! Event ID: ${res.eventId}`;
     } catch (e: any) {
-      error = `Failed to push event: ${e.message}`;
+      const parsed = parseValidationError(e.message);
+      error = parsed.summary;
+      validationDetails = parsed.details;
     } finally {
       loading = false;
     }
@@ -159,6 +193,11 @@
             <label for="payload" class="block text-sm font-medium text-gray-700 mb-1">
               Payload (JSON)
             </label>
+            {#if !hasSchema()}
+              <p class="text-xs text-amber-600 mb-2">
+                This event has no schema defined — any JSON payload will be accepted.
+              </p>
+            {/if}
             <div class="border border-gray-300 rounded-lg overflow-hidden">
               <JSONEditor
                 validator={validator()}
@@ -196,8 +235,17 @@
             </svg>
             <div class="flex-1">
               <p class="text-sm font-medium text-red-800">{error}</p>
+              {#if validationDetails.length > 0}
+                <ul class="mt-2 space-y-1">
+                  {#each validationDetails as detail}
+                    <li class="text-xs text-red-700 font-mono bg-red-100 rounded px-2 py-1">
+                      {detail}
+                    </li>
+                  {/each}
+                </ul>
+              {/if}
             </div>
-            <button onclick={() => error = ''} class="text-red-400 hover:text-red-600 transition" aria-label="Dismiss error">
+            <button onclick={() => { error = ''; validationDetails = []; }} class="text-red-400 hover:text-red-600 transition" aria-label="Dismiss error">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>

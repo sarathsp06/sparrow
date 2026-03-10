@@ -1377,7 +1377,30 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	return nil
 }
 
-// ValidateJSONSchema validates a payload against a JSON schema string
+// SchemaValidationError represents a structured schema validation failure
+// with per-field error details that can be displayed to the user.
+type SchemaValidationError struct {
+	Message string            `json:"message"`
+	Details map[string]string `json:"details"` // field path -> error message
+}
+
+func (e *SchemaValidationError) Error() string {
+	if len(e.Details) == 0 {
+		return e.Message
+	}
+	var parts []string
+	for field, msg := range e.Details {
+		if field == "" {
+			parts = append(parts, msg)
+		} else {
+			parts = append(parts, fmt.Sprintf("%s: %s", field, msg))
+		}
+	}
+	return fmt.Sprintf("%s: %s", e.Message, strings.Join(parts, "; "))
+}
+
+// ValidateJSONSchema validates a payload against a JSON schema string.
+// Returns a SchemaValidationError with detailed per-field errors on failure.
 func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
 	schemaJSON, err := json.Marshal(schema)
 	if err != nil {
@@ -1392,10 +1415,18 @@ func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
-	if result := sch.ValidateJSON(payloadBytes); result != nil && !result.Valid {
-		return fmt.Errorf("payload validation failed: %v", result)
+	result := sch.ValidateJSON(payloadBytes)
+	if result == nil || result.Valid {
+		return nil
 	}
-	return nil
+
+	// Extract detailed per-field errors from the evaluation result
+	details := result.GetDetailedErrors()
+
+	return &SchemaValidationError{
+		Message: "payload validation failed",
+		Details: details,
+	}
 }
 
 // ListEventReports lists event records with delivery statistics in descending order by creation time.
