@@ -1,4 +1,4 @@
-# Sparrow - Technical Documentation
+# Sparrow - Technical Architecture
 
 ## What Is Sparrow?
 
@@ -35,172 +35,222 @@ Your App                    Sparrow                         External Endpoints
 
 | Component | Technology |
 |-----------|-----------|
-| Backend | Go |
-| Database | PostgreSQL |
+| Backend | Go 1.25 |
+| Database | PostgreSQL 15 |
 | Job Queue | River (Postgres-based) |
-| API Protocols | gRPC (:50051) + Connect-RPC/HTTP (:8080) |
-| Web UI | SvelteKit 5 + TypeScript (:5173) |
-| Observability | OpenTelemetry (traces, metrics, logs) |
+| API Protocols | gRPC (`:50051`) + Connect-RPC/HTTP (`:8080`) |
 | Protobuf | buf.build toolchain |
+| Web UI | SvelteKit 5 + TypeScript + Tailwind CSS 4 (`:5173`) |
+| Observability | OpenTelemetry (traces, metrics, logs via OTLP) |
+| DB Access | pgx/v5 + sqlx (OTel-instrumented) |
+| CI | GitHub Actions (lint, test with Postgres, build) |
+| Container | Multi-stage Dockerfile (distroless nonroot) |
 
-## Core Concepts
+---
 
-### 1. Events
-Event types that your system can produce (e.g., `user.created`, `order.completed`). Each event has:
-- **Name**: Unique identifier (e.g., `user.created`)
-- **Schema**: Optional JSON Schema for payload validation
-- **Sample Payload**: Auto-generated from schema for testing templates
+## Core Domain Model
 
-### 2. Webhooks
-HTTP endpoints registered to receive event notifications. Each webhook has:
-- **Namespace**: Logical isolation for multi-tenancy (e.g., `production`, `staging`)
-- **URL**: Target HTTP endpoint
-- **HTTP Config**: Retries, timeouts, SSL settings, expected status codes, etc.
-- **Health**: Automatically tracked (healthy/degraded/unhealthy/unknown)
+Five concepts, eight database tables:
 
-### 3. Subscriptions
-The link between webhooks and events. A subscription defines:
-- Which **event** a **webhook** should receive
-- Per-event **headers**, **HTTP method**, **timeout** overrides
-- **Payload transformation** via Go templates
+1. **Events** - Event types your system produces (e.g., `user.created`). Support optional JSON Schema validation and sample payload generation.
+2. **Webhooks** - Registered HTTP endpoints with namespace-based multi-tenancy, configurable retries, timeouts, SSL settings, and HMAC signing.
+3. **Subscriptions** - Link webhooks to events. Each subscription can override headers, HTTP method, timeout, and apply a Go template payload transformation.
+4. **Deliveries** - Individual delivery attempts with full lifecycle tracking (pending -> sending -> success/failed/retrying/expired) and request/response audit.
+5. **Health** - Automatic per-webhook health state (healthy/degraded/unhealthy/unknown) computed from delivery outcomes.
 
-### 4. Deliveries
-Individual delivery attempts. Each delivery tracks:
-- Status (pending/sending/success/failed/retrying/expired)
-- Request/response bodies
-- HTTP status codes and error messages
-- Attempt count and retry schedule
+---
 
-## The Delivery Flow
+## Dual-Protocol API
 
-1. **Register Event** - Define event types with optional JSON schemas
-2. **Register Webhook** - Configure an HTTP endpoint with delivery settings
-3. **Create Subscription** - Link a webhook to specific events (with optional transformations)
-4. **Push Event** - Trigger an event with a payload
-5. **Automatic Processing**:
-   - Event is stored in `event_records` table
-   - `EventArgs` job is queued on the `events` River queue
-   - `EventProcessingWorker` finds all matching subscriptions
-   - Creates `webhook_deliveries` records
-   - Queues `WebhookArgs` jobs on the `webhooks` River queue
-   - `WebhookWorker` applies transformations, sends HTTP request
-   - Records delivery status, response, and health metrics
-   - River handles retries with configurable max attempts
+The same gRPC service implementations back both protocols - no code duplication:
 
-## API Surface
+- **gRPC** on `:50051` for high-performance programmatic access
+- **Connect-RPC (HTTP/JSON)** on `:8080` for curl, browsers, and any HTTP client
 
-### Services & RPCs (22 total)
+Five domain services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`. Service definitions live in `proto/webhook.proto`.
 
-**WebhookService** (8 RPCs)
-| RPC | Purpose |
-|-----|---------|
-| `RegisterWebhook` | Register a webhook URL with events and HTTP config |
-| `UnregisterWebhook` | Remove a webhook |
-| `ListWebhooks` | List webhooks with namespace/event/ID filters |
-| `UpdateWebhookConfig` | Update webhook URL, headers, events, etc. |
-| `PauseWebhook` | Temporarily disable a webhook |
-| `ResumeWebhook` | Re-enable a paused webhook |
-| `GetNamespaceStats` | Get delivery statistics for a namespace |
-| `GetTemplateFunctions` | List available Go template functions |
+Connect-RPC URL pattern: `POST http://localhost:8080/webhook.{Service}/{Method}`
 
-**EventService** (7 RPCs)
-| RPC | Purpose |
-|-----|---------|
-| `RegisterEvent` | Register a new event type with schema |
-| `ListEvents` | List all event types |
-| `GetEvent` | Get a single event by name |
-| `UpdateEvent` | Update event schema/description/status |
-| `DeleteEvent` | Delete an event type |
-| `PushEvent` | Trigger an event (the main action) |
-| `ListEventReports` | List pushed event instances with delivery stats |
+---
 
-**SubscriptionService** (6 RPCs)
-| RPC | Purpose |
-|-----|---------|
-| `CreateSubscription` | Link a webhook to an event |
-| `GetSubscription` | Get subscription details |
-| `ListSubscriptions` | List subscriptions by webhook or event |
-| `UpdateSubscription` | Update subscription config/template |
-| `DeleteSubscription` | Remove a subscription |
-| `TestSubscriptionTemplate` | Dry-run a Go template transformation |
+## Two-Stage Queue Pipeline
 
-**DeliveryService** (3 RPCs)
-| RPC | Purpose |
-|-----|---------|
-| `GetDeliveryStatus` | Get details of a specific delivery |
-| `ListDeliveries` | List deliveries with webhook/event filters |
-| `RetryDelivery` | Manually retry failed deliveries |
+Uses River (Postgres-based job queue) with a fan-out architecture:
 
-**HealthService** (3 RPCs)
-| RPC | Purpose |
-|-----|---------|
-| `GetWebhookHealth` | Get health metrics for a webhook |
-| `ListWebhooksByHealth` | List webhooks by health status |
-| `GetHealthSummary` | Get system-wide health counts |
-
-### API Access
-
-All RPCs are accessible via two protocols:
-- **gRPC** on `:50051` (for high-performance programmatic access)
-- **Connect-RPC (HTTP/JSON)** on `:8080` (for curl, browsers, any HTTP client)
-
-Connect-RPC URLs follow the pattern: `POST http://localhost:8080/{service}/{method}`
-
-Example: `POST http://localhost:8080/webhook.EventService/PushEvent`
-
-## Database Schema (8 tables)
-
-| Table | Purpose |
-|-------|---------|
-| `event_registrations` | Registered event types with schemas |
-| `webhook_registrations` | Registered webhooks with HTTP config |
-| `event_subscriptions` | Webhook-to-event mappings with per-subscription config |
-| `event_records` | Pushed event instances (payloads stored here) |
-| `webhook_deliveries` | Individual delivery attempts with status/response |
-| `webhook_health_events` | Per-delivery health events |
-| `webhook_health_summaries` | Aggregated health stats over time windows |
-| `webhook_health_state` | Current health state per webhook (consecutive failures, etc.) |
-
-## Queue Architecture
-
-Uses River (Postgres-based job queue) with 3 queues:
-- **`default`**: General purpose (5 max workers)
-- **`events`**: Event processing (20 max workers, 30s poll)
-- **`webhooks`**: Webhook delivery (20 max workers, 30s poll)
-
-Retry behavior is controlled per-webhook via `max_retries` (0-10, default 3) and `retry_backoff_seconds` (1-3600, default 60). River handles the retry scheduling.
-
-## Web UI Pages (13 routes)
-
-| Route | Purpose |
-|-------|---------|
-| `/` | Landing page with namespace input |
-| `/webhooks` | List all webhooks (with namespace filter) |
-| `/webhooks/register` | Register a new webhook with full config |
-| `/webhooks/[id]` | Webhook detail: health, deliveries, pause/resume |
-| `/webhooks/[id]/subscriptions` | Manage event subscriptions & templates |
-| `/events` | List all event types |
-| `/events/register` | Register a new event type |
-| `/events/push` | Push a test event with JSON payload |
-| `/events/[id]/reports` | View pushed event instances & delivery stats |
-| `/events/[id]/update` | Update event schema/description |
-| `/deliveries/[id]` | View delivery details |
-| `/health` | System-wide health dashboard |
-
-## Quick Start
-
-```bash
-# 1. Start infrastructure
-make docker-dev     # PostgreSQL + River + OpenTelemetry
-make migrate        # Run database migrations
-
-# 2. Start servers
-make run            # Go server (gRPC :50051, HTTP :8080)
-make run-web        # SvelteKit UI (:5173)
-
-# 3. Test the system
-make example        # Run example gRPC client
 ```
+PushEvent
+   |
+   v
+[events queue] --> EventProcessingWorker
+                      |
+                      |--> Find matching subscriptions
+                      |--> Create delivery records
+                      |--> Fan out: one WebhookArgs job per subscription
+                              |
+                              v
+                   [webhooks queue] --> WebhookWorker
+                                          |
+                                          |--> Fetch webhook config + event payload from DB
+                                          |--> Transform payload via Go templates
+                                          |--> Send HTTP request (with HMAC signing)
+                                          |--> Classify result -> update delivery status
+                                          |--> Record health event
+                                          |--> Return error to River if retryable
+```
+
+**Queue configuration:**
+
+| Queue | Max Workers | Purpose |
+|-------|-------------|---------|
+| `events` | 20 | Event fan-out to subscriptions |
+| `webhooks` | 20 | Webhook HTTP delivery |
+| `default` | 5 | General purpose |
+
+**Design decisions:**
+- Job payloads are lightweight references (IDs only). Heavy data (webhook config, event payload) is fetched from the DB at work time. This keeps the queue lean.
+- OTel trace context is propagated through job metadata using W3C TraceContext injection/extraction.
+- Retry behavior is controlled per-webhook via `max_retries` (0-10, default 3) and `retry_backoff_seconds` (1-3600, default 60).
+
+---
+
+## Error Classification & Retry Logic
+
+The `pkg/errors/` package implements a taxonomy-based error classifier that inspects Go errors to determine retryability:
+
+| Category | Example | Retried? |
+|----------|---------|----------|
+| `server_error` | 5xx HTTP response | Yes |
+| `timeout` | Connection/request timeout | Yes |
+| `connection_refused` | ECONNREFUSED | Yes (service may be restarting) |
+| `network_error` | ECONNRESET, EPIPE, EHOSTUNREACH | Yes |
+| `client_error` | 4xx HTTP response | **No** (permanent) |
+| `dns_error` | DNS resolution failure | **No** (configuration problem) |
+| `tls_error` | TLS/SSL handshake failure | **No** (certificate/config problem) |
+
+The classifier unwraps layered Go errors through: `*url.Error` -> `net.Error` (timeout) -> TLS type assertions -> `*net.DNSError` -> `*net.OpError` -> `*os.SyscallError` -> `syscall.Errno` -> string pattern fallback.
+
+Non-retryable errors return `nil` to River (stopping retries); retryable errors return an `error` to trigger River's built-in retry mechanism.
+
+---
+
+## Health State Machine
+
+Event-sourced health calculation with a 24-hour lookback window:
+
+| State | Condition |
+|-------|-----------|
+| `unknown` | No recent delivery events |
+| `healthy` | Success rate >= 90% with 3+ events |
+| `degraded` | Success rate < 90% with 5+ events |
+| `unhealthy` | 5+ consecutive failures, OR success rate < 80% with 10+ events |
+
+**How it works:**
+1. Each delivery outcome is recorded as a `webhook_health_events` row
+2. `webhook_health_state` is atomically upserted (tracks consecutive failures, last success/failure timestamps)
+3. Health status is recalculated and written to `webhook_registrations.health`
+4. Hourly aggregation computes per-webhook summaries (p95 response time, error category breakdown) via bulk SQL
+
+**Real-time reactivity:** PostgreSQL `LISTEN/NOTIFY` on the `webhook_health_event` channel pushes health events to a `NotificationHandler` interface for async processing.
+
+---
+
+## HTTP Client Design
+
+A centralized, OTel-instrumented HTTP client (`internal/webhooks/client/`):
+
+- **Connection pooling**: 100 max idle connections, 10 per host, 90s idle timeout
+- **HMAC signing**: `X-Sparrow-Signature-256` header using `HMAC-SHA256(timestamp + "." + payload, secret)` (Stripe/GitHub pattern)
+- **Template engine**: Go `text/template` with LRU cache (100 entries, SHA-256 keyed), ~20 built-in helper functions (json, base64, urlencode, string manipulation, etc.)
+- **Object pooling**: `sync.Pool` for `bytes.Buffer`, `[]byte` slices, and header maps to reduce GC pressure
+- **Header merging**: Subscription-level headers override webhook-level defaults
+- **In-process metrics**: Lock-free atomic counters for request totals, error categories, cache hit rates, and response time statistics
+
+---
+
+## Observability
+
+Full OpenTelemetry stack with OTLP export:
+
+**Three pillars:**
+- **Traces**: OTLP HTTP exporter, configurable sampler (ratio/always/never), batch processor
+- **Metrics**: OTLP HTTP periodic reader (default 30s export interval)
+- **Logs**: OTLP HTTP exporter with batch processor, bridged to Go `slog`
+
+**Custom application metrics:**
+
+| Metric | Type |
+|--------|------|
+| `sparrow_webhook_registrations_total` | Counter |
+| `sparrow_events_pushed_total` | Counter |
+| `sparrow_webhook_deliveries_total` | Counter |
+| `sparrow_webhook_delivery_duration_seconds` | Histogram |
+| `sparrow_queue_depth` | UpDownCounter |
+| `sparrow_active_webhooks` | UpDownCounter |
+
+**What's instrumented:** HTTP transport (`otelhttp`), gRPC server (`otelgrpc`), Connect-RPC interceptors (`otelconnect`), job inserter (code-generated tracing wrapper via `gowrap`), webhook delivery worker (manual spans), and all repository calls (generated tracing wrapper).
+
+---
+
+## Codebase Structure
+
+```
+cmd/
+  server/          - Main entry point (dual-protocol server with graceful shutdown)
+  migrate/         - Database migration runner
+  benchmark/       - Performance benchmarks
+  generate-docs/   - Template function doc generator
+internal/
+  grpc/            - gRPC service handlers (5 services)
+  connect/         - Connect-RPC adapter (wraps gRPC handlers for HTTP/JSON)
+  webhooks/
+    webhook_service.go  - Central service layer (~25 methods)
+    queue/              - River queue manager, workers, job types
+    client/             - HTTP client, HMAC signing, template engine, object pools
+    store/              - Repository pattern (~40 methods), split by domain
+    health/             - Health calculator, aggregation, LISTEN/NOTIFY listener
+  observability/   - OTel setup (traces, metrics, logs, custom metrics)
+pkg/
+  errors/          - Error classification, retryability, stack traces
+  storage/         - DB interface + OTel-instrumented Postgres driver
+  types/           - Generic utilities (Map, Set, Slice, Pointer, Secret)
+proto/             - Protobuf service definitions (buf.build)
+db/migrations/     - PostgreSQL migration files
+web/               - SvelteKit 5 UI
+```
+
+---
+
+## Server Boot Sequence
+
+1. **OTel** - Initialize tracing, metrics, logging (non-fatal if fails)
+2. **Database** - Create `pgxpool` (for River) + `sqlx` (for app queries), ping to verify
+3. **Repository** - `store.NewRepository` wrapped with auto-generated OTel tracing decorator
+4. **Queue** - Create River client with 3 queues, register workers, start processing
+5. **gRPC server** (`:50051`) - Register 5 services with `otelgrpc` stats handler, enable reflection
+6. **HTTP server** (`:8080`) - Connect-RPC adapter with CORS, `otelconnect` interceptor, `/health` and `/ready` endpoints
+7. **Signal handling** - Wait for SIGINT/SIGTERM, graceful shutdown (HTTP 10s timeout, gRPC graceful stop, queue drain)
+
+---
+
+## Database Schema
+
+Eight tables across three migrations:
+
+**Core tables:**
+- `event_registrations` - Event type registry (unique name, optional JSON schema)
+- `webhook_registrations` - Webhook endpoints (unique namespace+url, health status, HTTP config with constraints: retries 0-10, backoff 1-3600s, timeout 1-300s)
+- `event_subscriptions` - Webhook-to-event mappings with per-subscription overrides (CASCADE on webhook delete)
+- `event_records` - Immutable event instances (payload as TEXT, metadata as JSONB)
+- `webhook_deliveries` - Delivery tracking with status, attempts, request/response data (CASCADE on webhook/event delete, SET NULL on subscription delete)
+
+**Health tables:**
+- `webhook_health_events` - Individual health data points (event-sourced)
+- `webhook_health_summaries` - Hourly rollup (p95/min/max/avg response times, error category breakdown)
+- `webhook_health_state` - Current state per webhook (consecutive failures, timestamps)
+
+**Indexing:** Composite indexes on namespace, active status, health status, timestamps (DESC), webhook+category+timestamp for aggregation, GIN full-text index on delivery request bodies.
+
+---
 
 ## Configuration
 
@@ -210,5 +260,15 @@ make example        # Run example gRPC client
 | `HTTP_PORT` | `8080` | Connect-RPC HTTP port |
 | `GRPC_PORT` | `50051` | gRPC port |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | OpenTelemetry collector |
-| `ENVIRONMENT` | `development` | Environment name for OTEL |
+| `ENVIRONMENT` | `development` | Environment name for OTel resource |
 | `PUBLIC_API_URL` | `http://localhost:8080` | API URL for web UI |
+
+## Quick Start
+
+```bash
+make docker-dev     # PostgreSQL + River UI + OpenTelemetry Collector
+make migrate        # Run database migrations
+make run            # Go server (gRPC :50051, HTTP :8080)
+make run-web        # SvelteKit UI (:5173)
+make example        # Run example gRPC client
+```
