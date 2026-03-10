@@ -52,15 +52,16 @@ func (s *Service) Stop() error {
 }
 
 // RecordDeliveryResult records the result of a webhook delivery
-func (s *Service) RecordDeliveryResult(ctx context.Context, webhookID string, deliveryID uuid.UUID, success bool, responseCode int, responseTimeMs int, errorMessage string) error {
+func (s *Service) RecordDeliveryResult(ctx context.Context, webhookID string, deliveryID uuid.UUID, success bool, responseCode int, responseTimeMs int, errorMessage string, errorCategory string) error {
 	event := &WebhookHealthEvent{
-		WebhookID:    webhookID,
-		DeliveryID:   deliveryID,
-		Success:      success,
-		ResponseTime: responseTimeMs,
-		ResponseCode: responseCode,
-		ErrorMessage: errorMessage,
-		Timestamp:    time.Now(),
+		WebhookID:     webhookID,
+		DeliveryID:    deliveryID,
+		Success:       success,
+		ResponseTime:  responseTimeMs,
+		ResponseCode:  responseCode,
+		ErrorMessage:  errorMessage,
+		ErrorCategory: errorCategory,
+		Timestamp:     time.Now(),
 	}
 
 	return s.calculator.RecordHealthEvent(ctx, event)
@@ -111,6 +112,12 @@ type HealthMetrics struct {
 	ConsecutiveFailures int       `json:"consecutive_failures"`
 	LastEventAt         time.Time `json:"last_event_at"`
 	Health              string    `json:"health"`
+
+	// Error category breakdown
+	ClientErrors  int `json:"client_errors"`
+	ServerErrors  int `json:"server_errors"`
+	TimeoutErrors int `json:"timeout_errors"`
+	NetworkErrors int `json:"network_errors"` // includes dns, tls, connection_refused, network_error
 }
 
 // GetHealthMetrics returns aggregated health metrics for a webhook
@@ -123,14 +130,19 @@ func (s *Service) GetHealthMetrics(ctx context.Context, webhookID string, hours 
 			SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful_events,
 			SUM(CASE WHEN success THEN 0 ELSE 1 END) as failed_events,
 			COALESCE(AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END), 0) as success_rate,
-			COALESCE(AVG(response_time), 0) as avg_response_time
+			COALESCE(AVG(response_time), 0) as avg_response_time,
+			SUM(CASE WHEN error_category = 'client_error' THEN 1 ELSE 0 END) as client_errors,
+			SUM(CASE WHEN error_category = 'server_error' THEN 1 ELSE 0 END) as server_errors,
+			SUM(CASE WHEN error_category = 'timeout' THEN 1 ELSE 0 END) as timeout_errors,
+			SUM(CASE WHEN error_category IN ('network_error', 'dns_error', 'tls_error', 'connection_refused') THEN 1 ELSE 0 END) as network_errors
 		FROM webhook_health_events 
 		WHERE webhook_id = $1 
-		  AND timestamp >= NOW() - INTERVAL '%d hours'`
+		  AND timestamp >= NOW() - INTERVAL '1 hour' * $2`
 
 	row := s.calculator.db.QueryRowContext(ctx, eventQuery, webhookID, hours)
 	err := row.Scan(&metrics.TotalEvents, &metrics.SuccessfulEvents, &metrics.FailedEvents,
-		&metrics.SuccessRate, &metrics.AvgResponseTime)
+		&metrics.SuccessRate, &metrics.AvgResponseTime,
+		&metrics.ClientErrors, &metrics.ServerErrors, &metrics.TimeoutErrors, &metrics.NetworkErrors)
 	if err != nil {
 		return nil, err
 	}

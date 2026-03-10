@@ -64,6 +64,7 @@ type WebhookServiceInterface interface {
 
 	// Delivery Management
 	GetDeliveryStatus(ctx context.Context, deliveryID string, namespace string) (*store.WebhookDelivery, error)
+	GetDeliveryAttempts(ctx context.Context, deliveryID string) ([]*store.WebhookHealthEvent, error)
 	ListDeliveries(ctx context.Context, namespace string, webhookID string, eventID string, limit, offset int32) ([]*store.WebhookDelivery, int32, error)
 	RetryDelivery(ctx context.Context, namespace string, deliveryID string, webhookID string, force bool) ([]string, int32, error)
 
@@ -358,7 +359,8 @@ func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string
 	return nil
 }
 
-// ListWebhooks lists all registered webhooks for a namespace with optional filters
+// ListWebhooks lists all registered webhooks with optional namespace and other filters.
+// When namespace is empty, returns webhooks across all namespaces.
 func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, webhookID string, event string, activeOnly bool, limit, offset int32) ([]*store.WebhookRegistration, int32, error) {
 	s.logger.Info("Processing list webhooks request",
 		"namespace", namespace,
@@ -368,9 +370,6 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 		"limit", limit,
 		"offset", offset,
 	)
-	if namespace == "" {
-		return nil, 0, fmt.Errorf("namespace is required")
-	}
 
 	if limit <= 0 {
 		limit = 50
@@ -385,14 +384,18 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 			return nil, 0, fmt.Errorf("invalid webhook ID: %w", err)
 		}
 
-		reg, err := s.webhookRepo.GetWebhookByID(ctx, id, namespace)
-		if err != nil {
-			return nil, 0, fmt.Errorf("failed to retrieve webhook: %w", err)
+		// When looking up by ID, namespace can be empty — try without namespace filter
+		if namespace != "" {
+			reg, err := s.webhookRepo.GetWebhookByID(ctx, id, namespace)
+			if err != nil {
+				return nil, 0, fmt.Errorf("failed to retrieve webhook: %w", err)
+			}
+			if reg == nil || (activeOnly && !reg.Active) {
+				return []*store.WebhookRegistration{}, 0, nil
+			}
+			return []*store.WebhookRegistration{reg}, 1, nil
 		}
-		if reg == nil || (activeOnly && !reg.Active) {
-			return []*store.WebhookRegistration{}, 0, nil
-		}
-		return []*store.WebhookRegistration{reg}, 1, nil
+		// Without namespace, fall through to paginated list which will find it
 	}
 
 	registrations, totalCount, err := s.webhookRepo.ListWebhooksPaginated(ctx, namespace, event, activeOnly, int(limit), int(offset))
@@ -527,7 +530,8 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 	return eventID, nil
 }
 
-// GetDeliveryStatus gets the status of a webhook delivery
+// GetDeliveryStatus gets the status of a webhook delivery.
+// When namespace is empty, looks up by delivery ID alone.
 func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID string, namespace string) (*store.WebhookDelivery, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.GetDeliveryStatus")
 	defer span.End()
@@ -538,9 +542,6 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 
 	if deliveryID == "" {
 		return nil, fmt.Errorf("delivery ID is required")
-	}
-	if namespace == "" {
-		return nil, fmt.Errorf("namespace is required")
 	}
 
 	id, err := uuid.Parse(deliveryID)
@@ -559,16 +560,39 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 	return delivery, nil
 }
 
-// ListDeliveries retrieves delivery history with filters
+// GetDeliveryAttempts retrieves individual attempt history for a delivery.
+// Returns all recorded health events for the delivery, ordered by timestamp ascending.
+func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID string) ([]*store.WebhookHealthEvent, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.GetDeliveryAttempts")
+	defer span.End()
+
+	s.logger.Info("Getting delivery attempts", "delivery_id", deliveryID)
+
+	if deliveryID == "" {
+		return nil, fmt.Errorf("delivery ID is required")
+	}
+
+	id, err := uuid.Parse(deliveryID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid delivery ID: %w", err)
+	}
+
+	attempts, err := s.webhookRepo.GetDeliveryAttempts(ctx, id)
+	if err != nil {
+		s.logger.Error("Failed to get delivery attempts", "error", err)
+		return nil, fmt.Errorf("failed to retrieve delivery attempts: %w", err)
+	}
+
+	return attempts, nil
+}
+
+// ListDeliveries retrieves delivery history with filters.
+// When namespace is empty, returns deliveries across all namespaces.
 func (s *WebhookService) ListDeliveries(ctx context.Context, namespace string, webhookID string, eventID string, limit, offset int32) ([]*store.WebhookDelivery, int32, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.ListDeliveries")
 	defer span.End()
 
 	s.logger.Info("Listing deliveries", "namespace", namespace, "webhook_id", webhookID, "event_id", eventID, "limit", limit, "offset", offset)
-
-	if namespace == "" {
-		return nil, 0, fmt.Errorf("namespace is required")
-	}
 
 	if limit <= 0 {
 		limit = 50
@@ -582,19 +606,21 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, namespace string, w
 	var err error
 
 	if webhookID != "" {
-		id, err := uuid.Parse(webhookID)
+		var id uuid.UUID
+		id, err = uuid.Parse(webhookID)
 		if err != nil {
 			return nil, 0, fmt.Errorf("invalid webhook ID: %w", err)
 		}
 		deliveries, totalCount, err = s.webhookRepo.GetDeliveriesByWebhookID(ctx, id, namespace, int(limit), int(offset))
 	} else if eventID != "" {
-		id, err := uuid.Parse(eventID)
+		var id uuid.UUID
+		id, err = uuid.Parse(eventID)
 		if err != nil {
 			return nil, 0, fmt.Errorf("invalid event ID: %w", err)
 		}
 		deliveries, totalCount, err = s.webhookRepo.GetDeliveriesByEventPaginated(ctx, id, namespace, int(limit), int(offset))
 	} else {
-		// List all deliveries for namespace
+		// List all deliveries, optionally filtered by namespace
 		deliveries, totalCount, err = s.webhookRepo.ListDeliveriesPaginated(ctx, namespace, int(limit), int(offset))
 	}
 
@@ -841,6 +867,12 @@ type WebhookHealthData struct {
 	AvgResponseTime      int                 `json:"avg_response_time"` // milliseconds
 	CreatedAt            time.Time           `json:"created_at"`
 	UpdatedAt            time.Time           `json:"updated_at"`
+
+	// Error category breakdown
+	ClientErrors  int `json:"client_errors"`  // 4xx responses
+	ServerErrors  int `json:"server_errors"`  // 5xx responses
+	TimeoutErrors int `json:"timeout_errors"` // Timeouts
+	NetworkErrors int `json:"network_errors"` // DNS, TLS, connection refused, and other network errors
 }
 
 // HealthSummaryData represents health summary information
@@ -1146,6 +1178,10 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 		healthData.FailedDeliveries = healthSummary.FailedDeliveries
 		healthData.SuccessRate = healthSummary.SuccessRate
 		healthData.AvgResponseTime = healthSummary.AvgResponseTime
+		healthData.ClientErrors = healthSummary.ClientErrors
+		healthData.ServerErrors = healthSummary.ServerErrors
+		healthData.TimeoutErrors = healthSummary.TimeoutErrors
+		healthData.NetworkErrors = healthSummary.NetworkErrors
 	}
 
 	s.logger.Info("Webhook health retrieved successfully",
@@ -1225,15 +1261,12 @@ func (s *WebhookService) GetHealthSummary(ctx context.Context) (*HealthSummaryDa
 	return healthSummary, nil
 }
 
-// GetNamespaceStats retrieves statistics for a namespace
+// GetNamespaceStats retrieves statistics for a namespace, or across all namespaces if empty
 func (s *WebhookService) GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStatsData, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.GetNamespaceStats")
 	defer span.End()
 
 	s.logger.Info("Processing get namespace stats request", "namespace", namespace)
-	if namespace == "" {
-		return nil, fmt.Errorf("namespace is required")
-	}
 
 	stats, err := s.webhookRepo.GetNamespaceStats(ctx, namespace)
 	if err != nil {
@@ -1365,7 +1398,8 @@ func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
 	return nil
 }
 
-// ListEventReports lists event records with delivery statistics in descending order by creation time
+// ListEventReports lists event records with delivery statistics in descending order by creation time.
+// When namespace is empty, returns reports across all namespaces.
 func (s *WebhookService) ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int32) ([]*store.EventReportWithStats, int32, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.ListEventReports")
 	defer span.End()
@@ -1375,13 +1409,6 @@ func (s *WebhookService) ListEventReports(ctx context.Context, namespace string,
 		"event_name", eventName,
 		"limit", limit,
 		"offset", offset)
-
-	// Validate input parameters
-	if namespace == "" {
-		err := fmt.Errorf("namespace is required")
-		span.SetStatus(otelcodes.Error, err.Error())
-		return nil, 0, err
-	}
 
 	// Set default limit if not provided or out of range
 	if limit <= 0 {
@@ -1485,7 +1512,8 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 	var err error
 
 	if webhookID != "" {
-		id, err := uuid.Parse(webhookID)
+		var id uuid.UUID
+		id, err = uuid.Parse(webhookID)
 		if err != nil {
 			return nil, 0, fmt.Errorf("invalid webhook ID: %w", err)
 		}

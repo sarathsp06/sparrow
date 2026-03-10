@@ -1,8 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { webhookClient as client, healthClient } from '$lib/services';
-  import { onMount, untrack } from 'svelte';
-  import { namespaceState } from '$lib/namespace.svelte';
+  import { onMount } from 'svelte';
   import type { RegisteredWebhook } from '../../../../proto/webhook_pb.js';
   import { WebhookHealth } from '../../../../proto/webhook_pb.js';
   import HealthBadge from '$lib/components/HealthBadge.svelte';
@@ -13,7 +12,7 @@
   let webhooks: RegisteredWebhook[] = $state([]);
   let loading = $state(true);
   let error = $state('');
-  let namespace = $state(namespaceState.current);
+  let namespace = $state('');
 
   // Filtering
   let healthFilter = $state<WebhookHealth | null>(null);
@@ -48,7 +47,8 @@
       result = result.filter(w =>
         w.url.toLowerCase().includes(q) ||
         w.description.toLowerCase().includes(q) ||
-        w.webhookId.toLowerCase().includes(q)
+        w.webhookId.toLowerCase().includes(q) ||
+        w.namespace.toLowerCase().includes(q)
       );
     }
     return result;
@@ -62,16 +62,6 @@
     error = '';
     try {
       const trimmedNamespace = namespace.trim();
-      if (!trimmedNamespace) {
-        error = 'Namespace is required. Set one in the header bar.';
-        webhooks = [];
-        totalCount = 0;
-        return;
-      }
-
-      if (namespaceState.current !== trimmedNamespace) {
-        namespaceState.setNamespace(trimmedNamespace);
-      }
 
       // Use server-side health filtering when a health filter is active
       if (healthFilter !== null) {
@@ -107,16 +97,10 @@
 
   onMount(fetchWebhooks);
 
-  $effect(() => {
-    const globalNamespace = namespaceState.current;
-    untrack(() => {
-      if (globalNamespace !== namespace) {
-        namespace = globalNamespace;
-        offset = 0;
-        fetchWebhooks();
-      }
-    });
-  });
+  function handleNamespaceFilter() {
+    offset = 0;
+    fetchWebhooks();
+  }
 
   function handlePageChange(pageNum: number) {
     offset = (pageNum - 1) * limit;
@@ -140,7 +124,7 @@
     try {
       await client.unregisterWebhook({
         webhookId: webhookToUnregister.webhookId,
-        namespace: namespace.trim(),
+        namespace: webhookToUnregister.namespace,
       });
       confirmUnregister = false;
       webhookToUnregister = null;
@@ -155,9 +139,9 @@
     e.stopPropagation();
     try {
       if (wh.active) {
-        await client.pauseWebhook({ webhookId: wh.webhookId, namespace: namespace.trim() });
+        await client.pauseWebhook({ webhookId: wh.webhookId, namespace: wh.namespace });
       } else {
-        await client.resumeWebhook({ webhookId: wh.webhookId, namespace: namespace.trim() });
+        await client.resumeWebhook({ webhookId: wh.webhookId, namespace: wh.namespace });
       }
       await fetchWebhooks();
     } catch (e: any) {
@@ -167,7 +151,7 @@
 </script>
 
 <svelte:head>
-  <title>Webhooks - {namespaceState.current} | Sparrow</title>
+  <title>Webhooks | Sparrow</title>
 </svelte:head>
 
 <div class="min-h-screen bg-gray-50">
@@ -177,7 +161,7 @@
       <div>
         <h1 class="text-2xl font-bold text-gray-900">Webhooks</h1>
         <p class="text-sm text-gray-500 mt-0.5">
-          Namespace: <span class="font-semibold text-gray-700">{namespaceState.current}</span>
+          {namespace.trim() ? `Namespace: ${namespace.trim()}` : 'All Namespaces'}
         </p>
       </div>
       <a
@@ -211,8 +195,29 @@
       </div>
     {/if}
 
-    <!-- Toolbar: Search + Health filter pills -->
+    <!-- Toolbar: Namespace filter + Search + Health filter pills -->
     <div class="flex flex-col sm:flex-row gap-3 mb-4">
+      <div class="relative flex-none w-full sm:w-48">
+        <input
+          type="text"
+          placeholder="Filter by namespace..."
+          bind:value={namespace}
+          onkeydown={(e) => e.key === 'Enter' && handleNamespaceFilter()}
+          onblur={handleNamespaceFilter}
+          class="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+        />
+        {#if namespace.trim()}
+          <button
+            onclick={() => { namespace = ''; handleNamespaceFilter(); }}
+            class="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
+            title="Clear namespace filter"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        {/if}
+      </div>
       <div class="relative flex-1 max-w-md">
         <input
           type="text"
@@ -245,6 +250,7 @@
             <thead>
               <tr class="border-b border-gray-200 bg-gray-50/50">
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Webhook</th>
+                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Namespace</th>
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Events</th>
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Config</th>
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Health</th>
@@ -256,6 +262,7 @@
               {#each Array(5) as _}
                 <tr class="animate-pulse">
                   <td class="px-4 py-3"><div class="space-y-2"><div class="h-4 bg-gray-200 rounded w-48"></div><div class="h-3 bg-gray-100 rounded w-32"></div></div></td>
+                  <td class="px-4 py-3 hidden md:table-cell"><div class="h-4 bg-gray-200 rounded w-20"></div></td>
                   <td class="px-4 py-3 hidden sm:table-cell"><div class="flex gap-1"><div class="h-5 bg-gray-200 rounded w-16"></div><div class="h-5 bg-gray-200 rounded w-16"></div></div></td>
                   <td class="px-4 py-3 hidden lg:table-cell"><div class="h-4 bg-gray-100 rounded w-20"></div></td>
                   <td class="px-4 py-3"><div class="h-5 bg-gray-200 rounded-full w-20"></div></td>
@@ -318,6 +325,7 @@
             <thead>
               <tr class="border-b border-gray-200 bg-gray-50/50">
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Webhook</th>
+                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Namespace</th>
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Events</th>
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Config</th>
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Health</th>
@@ -340,7 +348,8 @@
                         <span class="text-xs text-gray-500 truncate max-w-xs">{wh.description}</span>
                       {/if}
                       <span class="text-xs text-gray-400 font-mono">{wh.webhookId.substring(0, 8)}...</span>
-                      <!-- Show events inline on mobile -->
+                      <!-- Show namespace + events inline on mobile -->
+                      <span class="text-xs text-gray-400 md:hidden">ns: {wh.namespace}</span>
                       <div class="flex flex-wrap gap-1 mt-1 sm:hidden">
                         {#each wh.events.slice(0, 2) as event}
                           <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
@@ -354,6 +363,11 @@
                         {/if}
                       </div>
                     </div>
+                  </td>
+                  <td class="px-4 py-3 hidden md:table-cell">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                      {wh.namespace}
+                    </span>
                   </td>
                   <td class="px-4 py-3 hidden sm:table-cell">
                     <div class="flex flex-wrap gap-1">

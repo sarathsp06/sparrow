@@ -142,6 +142,30 @@ func (_d WebhookServiceInterfaceWithTracing) DeleteSubscription(ctx context.Cont
 	return _d.WebhookServiceInterface.DeleteSubscription(ctx, subscriptionID, namespace)
 }
 
+// GetDeliveryAttempts implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) GetDeliveryAttempts(ctx context.Context, deliveryID string) (wpa1 []*store.WebhookHealthEvent, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetDeliveryAttempts")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":        ctx,
+				"deliveryID": deliveryID}, map[string]interface{}{
+				"wpa1": wpa1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.GetDeliveryAttempts(ctx, deliveryID)
+}
+
 // GetDeliveryStatus implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) GetDeliveryStatus(ctx context.Context, deliveryID string, namespace string) (wp1 *store.WebhookDelivery, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetDeliveryStatus")

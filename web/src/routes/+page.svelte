@@ -1,15 +1,5 @@
 <script>
   import favicon from "$lib/assets/favicon.svg";
-  import { namespaceState } from "$lib/namespace.svelte";
-  import { goto } from "$app/navigation";
-
-  let namespaceInput = $state(namespaceState.current);
-
-  function startWithNamespace() {
-    if (!namespaceInput.trim()) return;
-    namespaceState.setNamespace(namespaceInput.trim());
-    goto("/webhooks");
-  }
 </script>
 
 <svelte:head>
@@ -40,19 +30,18 @@
 
       <div class="mb-8">
         <div class="flex flex-col sm:flex-row gap-3 justify-center items-center max-w-md mx-auto">
-          <input
-            type="text"
-            bind:value={namespaceInput}
-            placeholder="Enter namespace..."
-            class="w-full sm:flex-1 px-4 py-3 text-sm border-2 border-gray-900 rounded-lg bg-white text-gray-900 font-medium focus:ring-2 focus:ring-gray-900 focus:outline-none transition"
-            onkeydown={(e) => e.key === "Enter" && startWithNamespace()}
-          />
-          <button
-            onclick={startWithNamespace}
-            class="w-full sm:w-auto bg-gray-900 text-white font-medium py-3 px-8 rounded-lg shadow hover:bg-gray-800 transition text-sm"
+          <a
+            href="/webhooks"
+            class="w-full sm:w-auto bg-gray-900 text-white font-medium py-3 px-8 rounded-lg shadow hover:bg-gray-800 transition text-sm text-center"
           >
-            Get Started
-          </button>
+            View Webhooks
+          </a>
+          <a
+            href="/webhooks/register"
+            class="w-full sm:w-auto bg-white text-gray-900 font-medium py-3 px-8 rounded-lg shadow border border-gray-300 hover:bg-gray-50 transition text-sm text-center"
+          >
+            Register Webhook
+          </a>
         </div>
         <div class="mt-4 flex items-center justify-center gap-4 text-sm">
           <a href="/events" class="text-gray-500 hover:text-gray-900 transition font-medium">

@@ -23,14 +23,15 @@ const (
 
 // WebhookHealthEvent represents a single health event for a webhook
 type WebhookHealthEvent struct {
-	ID           uuid.UUID `db:"id"`
-	WebhookID    string    `db:"webhook_id"`
-	DeliveryID   uuid.UUID `db:"delivery_id"`
-	Success      bool      `db:"success"`
-	ResponseTime int       `db:"response_time"` // milliseconds
-	ResponseCode int       `db:"response_code"`
-	ErrorMessage string    `db:"error_message"`
-	Timestamp    time.Time `db:"timestamp"`
+	ID            uuid.UUID `db:"id"`
+	WebhookID     string    `db:"webhook_id"`
+	DeliveryID    uuid.UUID `db:"delivery_id"`
+	Success       bool      `db:"success"`
+	ResponseTime  int       `db:"response_time"` // milliseconds
+	ResponseCode  int       `db:"response_code"`
+	ErrorMessage  string    `db:"error_message"`
+	ErrorCategory string    `db:"error_category"` // success, client_error, server_error, timeout, dns_error, tls_error, connection_refused, network_error, unknown
+	Timestamp     time.Time `db:"timestamp"`
 }
 
 // WebhookHealthState represents the current health state of a webhook
@@ -111,8 +112,8 @@ func (hc *HealthCalculator) RecordHealthEvent(ctx context.Context, event *Webhoo
 // insertHealthEvent inserts a new health event record
 func (hc *HealthCalculator) insertHealthEvent(ctx context.Context, tx *sqlx.Tx, event *WebhookHealthEvent) error {
 	query := `
-		INSERT INTO webhook_health_events (id, webhook_id, delivery_id, success, response_time, response_code, error_message, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+		INSERT INTO webhook_health_events (id, webhook_id, delivery_id, success, response_time, response_code, error_message, error_category, timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 	if event.ID == uuid.Nil {
 		event.ID = uuid.New()
@@ -120,10 +121,17 @@ func (hc *HealthCalculator) insertHealthEvent(ctx context.Context, tx *sqlx.Tx, 
 	if event.Timestamp.IsZero() {
 		event.Timestamp = time.Now()
 	}
+	if event.ErrorCategory == "" {
+		if event.Success {
+			event.ErrorCategory = "success"
+		} else {
+			event.ErrorCategory = "unknown"
+		}
+	}
 
 	_, err := tx.ExecContext(ctx, query,
 		event.ID, event.WebhookID, event.DeliveryID, event.Success,
-		event.ResponseTime, event.ResponseCode, event.ErrorMessage, event.Timestamp)
+		event.ResponseTime, event.ResponseCode, event.ErrorMessage, event.ErrorCategory, event.Timestamp)
 	return err
 }
 
@@ -175,9 +183,9 @@ func (hc *HealthCalculator) calculateWebhookHealth(ctx context.Context, tx *sqlx
 			COALESCE(AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END), 0)
 		FROM webhook_health_events 
 		WHERE webhook_id = $1 
-		  AND timestamp >= NOW() - INTERVAL '%d hours'`
+		  AND timestamp >= NOW() - INTERVAL '1 hour' * $2`
 
-	err := tx.QueryRowContext(ctx, fmt.Sprintf(eventQuery, lookbackHours), webhookID).
+	err := tx.QueryRowContext(ctx, eventQuery, webhookID, lookbackHours).
 		Scan(&recentEventsCount, &recentSuccessRate)
 	if err != nil {
 		return StatusUnknown, fmt.Errorf("failed to get recent events: %w", err)
@@ -214,106 +222,40 @@ func (hc *HealthCalculator) updateWebhookHealth(ctx context.Context, tx *sqlx.Tx
 	return err
 }
 
-// AggregateHealthHourly aggregates webhook health data for the specified time range
+// AggregateHealthHourly aggregates webhook health data for the specified time range.
+// Uses a single bulk SQL statement to compute and upsert all hourly summaries at once,
+// avoiding the N+1 query problem of iterating per-webhook and per-hour.
+// Includes error category breakdown (client_errors, server_errors, timeout_errors, network_errors).
 func (hc *HealthCalculator) AggregateHealthHourly(ctx context.Context, lookbackHours int) (int, error) {
-	processedCount := 0
-
-	// Get webhooks with recent activity
-	webhookQuery := `
-		SELECT DISTINCT webhook_id 
-		FROM webhook_health_events 
-		WHERE timestamp >= NOW() - INTERVAL '%d hours'`
-
-	rows, err := hc.db.QueryContext(ctx, fmt.Sprintf(webhookQuery, lookbackHours))
-	if err != nil {
-		return 0, fmt.Errorf("failed to get webhooks with recent activity: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	for rows.Next() {
-		var webhookID string
-		if err := rows.Scan(&webhookID); err != nil {
-			hc.logger.Error("Failed to scan webhook ID", "error", err)
-			continue
-		}
-
-		count, err := hc.aggregateWebhookHours(ctx, webhookID, lookbackHours)
-		if err != nil {
-			hc.logger.Error("Failed to aggregate webhook hours", "webhook_id", webhookID, "error", err)
-			continue
-		}
-
-		processedCount += count
-	}
-
-	return processedCount, nil
-}
-
-// aggregateWebhookHours aggregates health data for a specific webhook
-func (hc *HealthCalculator) aggregateWebhookHours(ctx context.Context, webhookID string, lookbackHours int) (int, error) {
-	// Get hourly windows with activity for this webhook
-	windowQuery := `
-		SELECT 
-			date_trunc('hour', timestamp) as hour_start,
-			date_trunc('hour', timestamp) + INTERVAL '1 hour' as hour_end
-		FROM webhook_health_events 
-		WHERE webhook_id = $1
-		  AND timestamp >= NOW() - INTERVAL '%d hours'
-		GROUP BY date_trunc('hour', timestamp)`
-
-	rows, err := hc.db.QueryContext(ctx, fmt.Sprintf(windowQuery, lookbackHours), webhookID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get hourly windows: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	count := 0
-	for rows.Next() {
-		var windowStart, windowEnd time.Time
-		if err := rows.Scan(&windowStart, &windowEnd); err != nil {
-			continue
-		}
-
-		if err := hc.upsertHourlySummary(ctx, webhookID, windowStart, windowEnd); err != nil {
-			hc.logger.Error("Failed to upsert hourly summary",
-				"webhook_id", webhookID,
-				"window_start", windowStart,
-				"error", err)
-			continue
-		}
-
-		count++
-	}
-
-	return count, nil
-}
-
-// upsertHourlySummary creates or updates an hourly summary for a webhook
-func (hc *HealthCalculator) upsertHourlySummary(ctx context.Context, webhookID string, windowStart, windowEnd time.Time) error {
 	query := `
 		INSERT INTO webhook_health_summaries (
 			webhook_id, window_start, window_end,
 			total_deliveries, successful_deliveries, failed_deliveries,
-			success_rate, avg_response_time, min_response_time, 
-			max_response_time, p95_response_time, updated_at
+			success_rate, avg_response_time, min_response_time,
+			max_response_time, p95_response_time,
+			client_errors, server_errors, timeout_errors, network_errors,
+			updated_at
 		)
-		SELECT 
-			$1,
-			$2,
-			$3,
-			COUNT(*),
-			SUM(CASE WHEN success THEN 1 ELSE 0 END),
-			SUM(CASE WHEN success THEN 0 ELSE 1 END),
-			AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END),
-			AVG(response_time)::INTEGER,
-			MIN(response_time),
-			MAX(response_time),
-			PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time)::INTEGER,
+		SELECT
+			webhook_id,
+			date_trunc('hour', timestamp) AS window_start,
+			date_trunc('hour', timestamp) + INTERVAL '1 hour' AS window_end,
+			COUNT(*) AS total_deliveries,
+			SUM(CASE WHEN success THEN 1 ELSE 0 END) AS successful_deliveries,
+			SUM(CASE WHEN success THEN 0 ELSE 1 END) AS failed_deliveries,
+			AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END) AS success_rate,
+			AVG(response_time)::INTEGER AS avg_response_time,
+			MIN(response_time) AS min_response_time,
+			MAX(response_time) AS max_response_time,
+			PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time)::INTEGER AS p95_response_time,
+			SUM(CASE WHEN error_category = 'client_error' THEN 1 ELSE 0 END) AS client_errors,
+			SUM(CASE WHEN error_category = 'server_error' THEN 1 ELSE 0 END) AS server_errors,
+			SUM(CASE WHEN error_category = 'timeout' THEN 1 ELSE 0 END) AS timeout_errors,
+			SUM(CASE WHEN error_category IN ('network_error', 'dns_error', 'tls_error', 'connection_refused') THEN 1 ELSE 0 END) AS network_errors,
 			NOW()
 		FROM webhook_health_events
-		WHERE webhook_id = $1
-		  AND timestamp >= $2
-		  AND timestamp < $3
+		WHERE timestamp >= NOW() - INTERVAL '1 hour' * $1
+		GROUP BY webhook_id, date_trunc('hour', timestamp)
 		ON CONFLICT (webhook_id, window_start, window_end) DO UPDATE SET
 			total_deliveries = EXCLUDED.total_deliveries,
 			successful_deliveries = EXCLUDED.successful_deliveries,
@@ -323,10 +265,23 @@ func (hc *HealthCalculator) upsertHourlySummary(ctx context.Context, webhookID s
 			min_response_time = EXCLUDED.min_response_time,
 			max_response_time = EXCLUDED.max_response_time,
 			p95_response_time = EXCLUDED.p95_response_time,
+			client_errors = EXCLUDED.client_errors,
+			server_errors = EXCLUDED.server_errors,
+			timeout_errors = EXCLUDED.timeout_errors,
+			network_errors = EXCLUDED.network_errors,
 			updated_at = NOW()`
 
-	_, err := hc.db.ExecContext(ctx, query, webhookID, windowStart, windowEnd)
-	return err
+	result, err := hc.db.ExecContext(ctx, query, lookbackHours)
+	if err != nil {
+		return 0, fmt.Errorf("failed to aggregate hourly health summaries: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	return int(rowsAffected), nil
 }
 
 // GetWebhookHealthState gets the current health state for a webhook

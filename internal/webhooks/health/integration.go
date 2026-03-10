@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	sparrowerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
 // Example integration with webhook workers
@@ -36,8 +38,14 @@ func (wwi *WebhookWorkerIntegration) ProcessWebhookDelivery(ctx context.Context,
 
 	// Record the health event
 	var errorMessage string
+	var errorCategory string
 	if err != nil {
 		errorMessage = err.Error()
+		errorCategory = string(sparrowerrors.ClassifyError(err))
+	} else if responseCode > 0 {
+		errorCategory = string(sparrowerrors.ClassifyHTTPStatus(responseCode))
+	} else {
+		errorCategory = string(sparrowerrors.CategorySuccess)
 	}
 
 	// Parse delivery ID to UUID
@@ -49,7 +57,7 @@ func (wwi *WebhookWorkerIntegration) ProcessWebhookDelivery(ctx context.Context,
 	}
 
 	// Record the health result - this will trigger health calculation and notifications
-	healthErr := wwi.healthService.RecordDeliveryResult(ctx, webhookID, deliveryUUID, success, responseCode, responseTime, errorMessage)
+	healthErr := wwi.healthService.RecordDeliveryResult(ctx, webhookID, deliveryUUID, success, responseCode, responseTime, errorMessage, errorCategory)
 	if healthErr != nil {
 		wwi.logger.Error("Failed to record health result",
 			"webhook_id", webhookID,

@@ -16,21 +16,28 @@ func (s *WebhookServer) GetWebhookHealth(ctx context.Context, req *pb.GetWebhook
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to get webhook health: %v", err)
 	}
-	var pbMetrics *pb.WebhookHealthMetrics
-	if healthData != nil {
-		pbMetrics = &pb.WebhookHealthMetrics{
-			WebhookId:            healthData.WebhookID,
-			TotalDeliveries:      int32(healthData.TotalDeliveries),
-			SuccessfulDeliveries: int32(healthData.SuccessfulDeliveries),
-			FailedDeliveries:     int32(healthData.FailedDeliveries),
-			ConsecutiveFailures:  int32(healthData.ConsecutiveFailures),
-			SuccessRate:          healthData.SuccessRate,
-			AvgResponseTime:      int32(healthData.AvgResponseTime),
-			CreatedAt:            convertTimeToProto(healthData.CreatedAt),
-			UpdatedAt:            convertTimeToProto(healthData.UpdatedAt),
-			LastSuccessAt:        convertPtrTimeToProto(healthData.LastSuccessAt),
-			LastFailureAt:        convertPtrTimeToProto(healthData.LastFailureAt),
-		}
+	if healthData == nil {
+		return &pb.GetWebhookHealthResponse{
+			WebhookId: req.WebhookId,
+			Health:    pb.WebhookHealth_HEALTH_UNSPECIFIED,
+		}, nil
+	}
+	pbMetrics := &pb.WebhookHealthMetrics{
+		WebhookId:            healthData.WebhookID,
+		TotalDeliveries:      int32(healthData.TotalDeliveries),
+		SuccessfulDeliveries: int32(healthData.SuccessfulDeliveries),
+		FailedDeliveries:     int32(healthData.FailedDeliveries),
+		ConsecutiveFailures:  int32(healthData.ConsecutiveFailures),
+		SuccessRate:          healthData.SuccessRate,
+		AvgResponseTime:      int32(healthData.AvgResponseTime),
+		CreatedAt:            convertTimeToProto(healthData.CreatedAt),
+		UpdatedAt:            convertTimeToProto(healthData.UpdatedAt),
+		LastSuccessAt:        convertPtrTimeToProto(healthData.LastSuccessAt),
+		LastFailureAt:        convertPtrTimeToProto(healthData.LastFailureAt),
+		ClientErrors:         int32(healthData.ClientErrors),
+		ServerErrors:         int32(healthData.ServerErrors),
+		TimeoutErrors:        int32(healthData.TimeoutErrors),
+		NetworkErrors:        int32(healthData.NetworkErrors),
 	}
 	return &pb.GetWebhookHealthResponse{
 		WebhookId: req.WebhookId,

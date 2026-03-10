@@ -34,7 +34,7 @@ func (r *Repository) CreateDelivery(ctx context.Context, delivery *WebhookDelive
 }
 
 // UpdateDeliveryStatus records the outcome of a webhook delivery attempt.
-func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage string) error {
+func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error {
 	now := time.Now()
 	attemptIncrement := 0
 	if status == StatusFailed || status == StatusSuccess || status == StatusExpired {
@@ -44,11 +44,11 @@ func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.U
 	query := `
 		UPDATE webhook_deliveries 
 		SET status = $2, last_attempted_at = $3, response_code = $4, response_body = $5, error_message = $6,
-		    attempt_count = attempt_count + $7::integer
+		    attempt_count = attempt_count + $7::integer, error_category = $8
 		WHERE id = $1
 	`
 
-	_, err := r.db.ExecContext(ctx, query, deliveryID, status, now, responseCode, responseBody, errorMessage, attemptIncrement)
+	_, err := r.db.ExecContext(ctx, query, deliveryID, status, now, responseCode, responseBody, errorMessage, attemptIncrement, errorCategory)
 	return storage.Error(err)
 }
 
@@ -64,7 +64,7 @@ func (r *Repository) GetDeliveriesByWebhook(ctx context.Context, webhookID uuid.
 	query := `
 		SELECT id, webhook_id, event_id, subscription_id, status, attempt_count, max_attempts, 
 		       created_at, last_attempted_at, next_retry_at, expires_at,
-		       response_code, response_body, error_message, request_body
+		       response_code, response_body, error_message, request_body, error_category
 		FROM webhook_deliveries 
 		WHERE webhook_id = $1 
 		ORDER BY created_at DESC
@@ -84,7 +84,7 @@ func (r *Repository) GetDeliveriesByEvent(ctx context.Context, eventID uuid.UUID
 	query := `
 		SELECT id, webhook_id, event_id, subscription_id, status, attempt_count, max_attempts, 
 		       created_at, last_attempted_at, next_retry_at, expires_at,
-		       response_code, response_body, error_message, request_body
+		       response_code, response_body, error_message, request_body, error_category
 		FROM webhook_deliveries 
 		WHERE event_id = $1 
 		ORDER BY created_at DESC
@@ -99,19 +99,35 @@ func (r *Repository) GetDeliveriesByEvent(ctx context.Context, eventID uuid.UUID
 	return deliveries, nil
 }
 
-// GetDeliveryByID gets a delivery by ID and namespace
+// GetDeliveryByID gets a delivery by ID, optionally filtered by namespace.
+// When namespace is empty, looks up by delivery ID alone.
 func (r *Repository) GetDeliveryByID(ctx context.Context, deliveryID uuid.UUID, namespace string) (*WebhookDelivery, error) {
-	query := `
-		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts, 
-		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message, wd.request_body
-		FROM webhook_deliveries wd
-		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE wd.id = $1 AND wr.namespace = $2
-	`
+	var query string
+	var args []interface{}
+
+	if namespace != "" {
+		query = `
+			SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts, 
+			       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
+			       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
+			FROM webhook_deliveries wd
+			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+			WHERE wd.id = $1 AND wr.namespace = $2
+		`
+		args = []interface{}{deliveryID, namespace}
+	} else {
+		query = `
+			SELECT id, webhook_id, event_id, subscription_id, status, attempt_count, max_attempts, 
+			       created_at, last_attempted_at, next_retry_at, expires_at,
+			       response_code, response_body, error_message, request_body, error_category
+			FROM webhook_deliveries
+			WHERE id = $1
+		`
+		args = []interface{}{deliveryID}
+	}
 
 	var d WebhookDelivery
-	err := r.db.GetContext(ctx, &d, query, deliveryID, namespace)
+	err := r.db.GetContext(ctx, &d, query, args...)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
@@ -142,7 +158,7 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, webhookID uui
 	query := `
 		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts, 
 		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message, wd.request_body
+		       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wd.webhook_id = $1 AND wr.namespace = $2
@@ -179,7 +195,7 @@ func (r *Repository) GetDeliveriesByEventPaginated(ctx context.Context, eventID 
 	query := `
 		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
 		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message, wd.request_body
+		       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wd.event_id = $1 AND wr.namespace = $2
@@ -196,36 +212,68 @@ func (r *Repository) GetDeliveriesByEventPaginated(ctx context.Context, eventID 
 	return deliveries, totalCount, nil
 }
 
-// ListDeliveriesPaginated retrieves webhook delivery records for a namespace
+// ListDeliveriesPaginated retrieves webhook delivery records, optionally filtered by namespace.
+// When namespace is empty, returns deliveries across all namespaces.
 func (r *Repository) ListDeliveriesPaginated(ctx context.Context, namespace string, limit, offset int) ([]*WebhookDelivery, int, error) {
-	// First get total count
-	countQuery := `
-		SELECT COUNT(*)
-		FROM webhook_deliveries wd
-		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE wr.namespace = $1
-	`
+	var countQuery, query string
+	var args []interface{}
 
+	if namespace != "" {
+		// First get total count
+		countQuery = `
+			SELECT COUNT(*)
+			FROM webhook_deliveries wd
+			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+			WHERE wr.namespace = $1
+		`
+		args = []interface{}{namespace}
+
+		var totalCount int
+		err := r.db.GetContext(ctx, &totalCount, countQuery, args...)
+		if err != nil {
+			return nil, 0, storage.Error(err)
+		}
+
+		// Then get paginated results
+		query = `
+			SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
+			       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
+			       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
+			FROM webhook_deliveries wd
+			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+			WHERE wr.namespace = $1
+			ORDER BY wd.created_at DESC
+			LIMIT $2 OFFSET $3
+		`
+
+		var deliveries []*WebhookDelivery
+		err = r.db.SelectContext(ctx, &deliveries, query, namespace, limit, offset)
+		if err != nil {
+			return nil, 0, storage.Error(err)
+		}
+
+		return deliveries, totalCount, nil
+	}
+
+	// No namespace filter - return all deliveries
+	countQuery = `SELECT COUNT(*) FROM webhook_deliveries`
 	var totalCount int
-	err := r.db.GetContext(ctx, &totalCount, countQuery, namespace)
+	err := r.db.GetContext(ctx, &totalCount, countQuery)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
-	// Then get paginated results
-	query := `
+	query = `
 		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
 		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message, wd.request_body
+		       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
 		FROM webhook_deliveries wd
-		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE wr.namespace = $1
 		ORDER BY wd.created_at DESC
-		LIMIT $2 OFFSET $3
+		LIMIT $1 OFFSET $2
 	`
 
 	var deliveries []*WebhookDelivery
-	err = r.db.SelectContext(ctx, &deliveries, query, namespace, limit, offset)
+	err = r.db.SelectContext(ctx, &deliveries, query, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -238,7 +286,7 @@ func (r *Repository) GetRetriableDeliveries(ctx context.Context, webhookID uuid.
 	query := `
 		SELECT wd.id, wd.webhook_id, wd.event_id, wd.status, wd.attempt_count, wd.max_attempts, 
 		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message
+		       wd.response_code, wd.response_body, wd.error_message, wd.error_category
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wd.webhook_id = $1 
@@ -265,7 +313,8 @@ func (r *Repository) ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.
 		    next_retry_at = NULL,
 		    response_code = 0,
 		    response_body = '',
-		    error_message = ''
+		    error_message = '',
+		    error_category = ''
 		WHERE id = $1
 	`
 

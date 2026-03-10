@@ -16,32 +16,28 @@ import (
 // After updating health state, it recalculates the overall webhook health status (healthy/degraded/unhealthy).
 // This function performs upsert operations to handle both new webhooks and existing ones.
 func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID uuid.UUID, success bool, eventTimestamp time.Time) error {
-	// Upsert health state
-	var err error
-	var consecutiveFailures int
-	if success {
-		consecutiveFailures = 0
-	} else {
-		// Get current consecutive failures
-		err = r.db.GetContext(ctx, &consecutiveFailures, `SELECT COALESCE(consecutive_failures, 0) FROM webhook_health_state WHERE webhook_id = $1`, webhookID)
-		if err != nil && !storage.IsNotFound(storage.Error(err)) {
-			return storage.Error(err)
-		}
-		consecutiveFailures++
-	}
-
 	var lastSuccessAt, lastFailureAt *time.Time
 	if success {
 		lastSuccessAt = &eventTimestamp
 	} else {
 		lastFailureAt = &eventTimestamp
 	}
-	// Upsert health state
-	_, err = r.db.ExecContext(ctx, `
+
+	// Atomic upsert: use a single SQL statement to avoid read-then-write race conditions.
+	// For failures, increment consecutive_failures atomically in the ON CONFLICT clause.
+	// For successes, reset to 0.
+	var consecutiveFailures int
+	if success {
+		consecutiveFailures = 0
+	} else {
+		consecutiveFailures = 1
+	}
+
+	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO webhook_health_state (webhook_id, consecutive_failures, last_success_at, last_failure_at, last_event_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, NOW())
 		ON CONFLICT (webhook_id) DO UPDATE SET
-			consecutive_failures = $2,
+			consecutive_failures = CASE WHEN $6 THEN 0 ELSE webhook_health_state.consecutive_failures + 1 END,
 			last_success_at = COALESCE($3, webhook_health_state.last_success_at),
 			last_failure_at = COALESCE($4, webhook_health_state.last_failure_at),
 			last_event_at = $5,
@@ -52,6 +48,7 @@ func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID uui
 		lastSuccessAt,
 		lastFailureAt,
 		eventTimestamp,
+		success,
 	)
 	if err != nil {
 		return storage.Error(err)
@@ -117,20 +114,39 @@ func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID uuid.
 }
 
 // RecordWebhookHealthEvent creates a health tracking record for analytics and monitoring.
-// Captures delivery outcome, response time metrics, HTTP status codes, and error details.
-// These events feed into webhook health calculations and performance analytics.
+// Captures delivery outcome, response time metrics, HTTP status codes, error details,
+// and error category for classifying failures (client_error, server_error, timeout, etc.).
 // Timestamp is set to NOW() for accurate time-series data collection.
-func (r *Repository) RecordWebhookHealthEvent(ctx context.Context, webhookID, deliveryID uuid.UUID, success bool, responseTime, responseCode int, errorMessage string) error {
+func (r *Repository) RecordWebhookHealthEvent(ctx context.Context, webhookID, deliveryID uuid.UUID, success bool, responseTime, responseCode int, errorMessage string, errorCategory string) error {
 	query := `
-		INSERT INTO webhook_health_events (webhook_id, delivery_id, success, response_time, response_code, error_message, timestamp)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+		INSERT INTO webhook_health_events (webhook_id, delivery_id, success, response_time, response_code, error_message, error_category, timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
 	`
-	_, err := r.db.ExecContext(ctx, query, webhookID, deliveryID, success, responseTime, responseCode, errorMessage)
+	_, err := r.db.ExecContext(ctx, query, webhookID, deliveryID, success, responseTime, responseCode, errorMessage, errorCategory)
 	if err != nil {
 		return fmt.Errorf("failed to record health event: %w", err)
 	}
 
 	return nil
+}
+
+// GetDeliveryAttempts retrieves all health events for a specific delivery, ordered by timestamp.
+// Each health event represents an individual delivery attempt with response details.
+func (r *Repository) GetDeliveryAttempts(ctx context.Context, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error) {
+	query := `
+		SELECT id, webhook_id, delivery_id, success, response_time, response_code, error_message, error_category, timestamp
+		FROM webhook_health_events
+		WHERE delivery_id = $1
+		ORDER BY timestamp ASC
+	`
+
+	var events []*WebhookHealthEvent
+	err := r.db.SelectContext(ctx, &events, query, deliveryID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get delivery attempts: %w", err)
+	}
+
+	return events, nil
 }
 
 // GetWebhookHealthState retrieves the current health tracking state for a webhook.
@@ -191,6 +207,10 @@ func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID uuid
 			COALESCE(MIN(response_time), 0) as min_response_time,
 			COALESCE(MAX(response_time), 0) as max_response_time,
 			COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time), 0)::INTEGER as p95_response_time,
+			SUM(CASE WHEN error_category = 'client_error' THEN 1 ELSE 0 END) as client_errors,
+			SUM(CASE WHEN error_category = 'server_error' THEN 1 ELSE 0 END) as server_errors,
+			SUM(CASE WHEN error_category = 'timeout' THEN 1 ELSE 0 END) as timeout_errors,
+			SUM(CASE WHEN error_category IN ('network_error', 'dns_error', 'tls_error', 'connection_refused') THEN 1 ELSE 0 END) as network_errors,
 			NOW() as created_at,
 			NOW() as updated_at
 		FROM webhook_health_events
@@ -209,17 +229,69 @@ func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID uuid
 	return &summary, nil
 }
 
-// GetWebhookHealthTimeSeries gets health events over time for analytics
+// GetWebhookHealthTimeSeries gets health events over time for analytics.
+// bucketSize controls time bucketing: valid values are "1 minute", "5 minutes", "1 hour", "1 day".
+// If empty, raw events are returned (up to 1000).
 func (r *Repository) GetWebhookHealthTimeSeries(ctx context.Context, webhookID uuid.UUID, hours int, bucketSize string) ([]*WebhookHealthEvent, error) {
-	// bucketSize can be "1 minute", "5 minute", "1 hour", "1 day"
-	query := `
-		SELECT id, webhook_id, delivery_id, success, response_time, response_code, error_message, timestamp
+	if bucketSize == "" {
+		// Return raw events when no bucket size specified
+		query := `
+			SELECT id, webhook_id, delivery_id, success, response_time, response_code, error_message, timestamp
+			FROM webhook_health_events
+			WHERE webhook_id = $1 
+			  AND timestamp >= NOW() - INTERVAL '1 hour' * $2
+			ORDER BY timestamp DESC
+			LIMIT 1000
+		`
+		var events []*WebhookHealthEvent
+		err := r.db.SelectContext(ctx, &events, query, webhookID, hours)
+		if err != nil {
+			return nil, storage.Error(err)
+		}
+		return events, nil
+	}
+
+	// Validate and map bucketSize to a date_trunc precision to prevent SQL injection.
+	var truncPrecision string
+	switch bucketSize {
+	case "1 minute":
+		truncPrecision = "minute"
+	case "5 minutes":
+		truncPrecision = "minute" // We'll use 5-minute flooring below
+	case "1 hour":
+		truncPrecision = "hour"
+	case "1 day":
+		truncPrecision = "day"
+	default:
+		return nil, fmt.Errorf("invalid bucket size: %q (valid: \"1 minute\", \"5 minutes\", \"1 hour\", \"1 day\")", bucketSize)
+	}
+
+	// For 5-minute buckets, floor to 5-minute intervals using epoch arithmetic.
+	// For all others, date_trunc with the precision is sufficient.
+	var bucketExpr string
+	if bucketSize == "5 minutes" {
+		bucketExpr = "to_timestamp(floor(extract(epoch from timestamp) / 300) * 300)"
+	} else {
+		bucketExpr = fmt.Sprintf("date_trunc('%s', timestamp)", truncPrecision)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT 
+			gen_random_uuid() AS id,
+			webhook_id,
+			'00000000-0000-0000-0000-000000000000'::uuid AS delivery_id,
+			(AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END) >= 0.5) AS success,
+			COALESCE(AVG(response_time), 0)::INTEGER AS response_time,
+			0 AS response_code,
+			'' AS error_message,
+			%s AS timestamp
 		FROM webhook_health_events
-		WHERE webhook_id = $1 
+		WHERE webhook_id = $1
 		  AND timestamp >= NOW() - INTERVAL '1 hour' * $2
-		ORDER BY timestamp DESC
+		GROUP BY %s, webhook_id
+		ORDER BY %s DESC
 		LIMIT 1000
-	`
+	`, bucketExpr, bucketExpr, bucketExpr)
 
 	var events []*WebhookHealthEvent
 	err := r.db.SelectContext(ctx, &events, query, webhookID, hours)
@@ -232,6 +304,7 @@ func (r *Repository) GetWebhookHealthTimeSeries(ctx context.Context, webhookID u
 
 // AggregateHealthSummaries computes hourly health summaries from raw health events
 // and inserts them into the webhook_health_summaries table.
+// Includes error category breakdown (client_errors, server_errors, timeout_errors, network_errors).
 // Returns the number of summaries processed.
 func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) {
 	query := `
@@ -239,6 +312,7 @@ func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) 
 			id, webhook_id, window_start, window_end,
 			total_deliveries, successful_deliveries, failed_deliveries,
 			success_rate, avg_response_time, min_response_time, max_response_time, p95_response_time,
+			client_errors, server_errors, timeout_errors, network_errors,
 			created_at, updated_at
 		)
 		SELECT
@@ -254,6 +328,10 @@ func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) 
 			COALESCE(MIN(response_time), 0) AS min_response_time,
 			COALESCE(MAX(response_time), 0) AS max_response_time,
 			COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time), 0)::INTEGER AS p95_response_time,
+			SUM(CASE WHEN error_category = 'client_error' THEN 1 ELSE 0 END) AS client_errors,
+			SUM(CASE WHEN error_category = 'server_error' THEN 1 ELSE 0 END) AS server_errors,
+			SUM(CASE WHEN error_category = 'timeout' THEN 1 ELSE 0 END) AS timeout_errors,
+			SUM(CASE WHEN error_category IN ('network_error', 'dns_error', 'tls_error', 'connection_refused') THEN 1 ELSE 0 END) AS network_errors,
 			NOW(),
 			NOW()
 		FROM webhook_health_events
@@ -268,6 +346,10 @@ func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) 
 			min_response_time = EXCLUDED.min_response_time,
 			max_response_time = EXCLUDED.max_response_time,
 			p95_response_time = EXCLUDED.p95_response_time,
+			client_errors = EXCLUDED.client_errors,
+			server_errors = EXCLUDED.server_errors,
+			timeout_errors = EXCLUDED.timeout_errors,
+			network_errors = EXCLUDED.network_errors,
 			updated_at = NOW()
 	`
 

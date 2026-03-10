@@ -15,6 +15,8 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
+	sparrowerrors "github.com/sarathsp06/sparrow/pkg/errors"
+
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
@@ -68,7 +70,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	webhook, err := w.webhookRepo.GetWebhookByID(ctx, uuid.MustParse(args.WebhookID), args.Namespace)
 	if err != nil {
 		w.logger.Error("Failed to get webhook configuration", "error", err, "webhook_id", args.WebhookID)
-		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err))
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err), "unknown")
 		return fmt.Errorf("failed to get webhook configuration: %w", err)
 	}
 
@@ -76,7 +78,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	eventRecord, err := w.webhookRepo.GetEventByID(ctx, uuid.MustParse(args.EventID))
 	if err != nil {
 		w.logger.Error("Failed to get event record", "error", err, "event_id", args.EventID)
-		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Failed to get event record: %v", err))
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Failed to get event record: %v", err), "unknown")
 		return fmt.Errorf("failed to get event record: %w", err)
 	}
 
@@ -112,7 +114,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		span.SetStatus(otelcodes.Error, "webhook delivery expired")
 		log.Warn("Webhook delivery expired", "expires_at", args.ExpiresAt)
 
-		err := w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusExpired, 0, "", "Delivery expired")
+		err := w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusExpired, 0, "", "Delivery expired", "unknown")
 		if err != nil {
 			log.Error("Failed to update delivery status to expired", "error", err)
 		}
@@ -134,7 +136,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		})
 		if err != nil {
 			log.Error("Failed to transform payload", "error", err)
-			_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Template transformation failed: %v", err))
+			_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Template transformation failed: %v", err), "unknown")
 			return fmt.Errorf("template transformation failed: %w", err)
 		}
 	} else {
@@ -158,20 +160,33 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	resp, duration, err := w.client.Send(ctx, deliveryReq)
 
 	if err != nil {
+		// Classify the network/transport error
+		errorCategory := sparrowerrors.ClassifyError(err)
+
 		log.Error("Failed to send webhook",
 			"error", err,
 			"duration_ms", duration.Milliseconds(),
+			"error_category", string(errorCategory),
 		)
 
-		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err))
+		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err), string(errorCategory))
 
 		// Record health event and update health state
 		webhookUUID := uuid.MustParse(args.WebhookID)
-		if healthErr := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, uuid.MustParse(args.DeliveryID), false, int(duration.Milliseconds()), 0, err.Error()); healthErr != nil {
+		if healthErr := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, uuid.MustParse(args.DeliveryID), false, int(duration.Milliseconds()), 0, err.Error(), string(errorCategory)); healthErr != nil {
 			log.Error("Failed to record health event", "error", healthErr)
 		}
 		if healthErr := w.webhookRepo.UpdateWebhookHealthState(ctx, webhookUUID, false, time.Now()); healthErr != nil {
 			log.Error("Failed to update webhook health state", "error", healthErr)
+		}
+
+		// For non-retryable error categories (DNS, TLS), cancel River retries
+		// by returning nil instead of an error. The delivery is already marked failed.
+		if !sparrowerrors.IsRetryableCategory(errorCategory) {
+			log.Warn("Non-retryable error category, cancelling retries",
+				"error_category", string(errorCategory),
+			)
+			return nil
 		}
 
 		return fmt.Errorf("failed to send webhook: %w", err)
@@ -216,13 +231,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		// But we might want to record worker-specific metrics if any.
 
 		err := w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID),
-			store.StatusSuccess, resp.StatusCode, string(body), "")
+			store.StatusSuccess, resp.StatusCode, string(body), "", string(sparrowerrors.CategorySuccess))
 		if err != nil {
 			log.Error("Failed to update delivery status to success", "error", err)
 		}
 
 		webhookUUID := uuid.MustParse(args.WebhookID)
-		if healthErr := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, uuid.MustParse(args.DeliveryID), true, int(duration.Milliseconds()), resp.StatusCode, ""); healthErr != nil {
+		if healthErr := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, uuid.MustParse(args.DeliveryID), true, int(duration.Milliseconds()), resp.StatusCode, "", string(sparrowerrors.CategorySuccess)); healthErr != nil {
 			log.Error("Failed to record health event", "error", healthErr)
 		}
 		if healthErr := w.webhookRepo.UpdateWebhookHealthState(ctx, webhookUUID, true, time.Now()); healthErr != nil {
@@ -232,22 +247,40 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		return nil
 	}
 
-	// Failure case
+	// Failure case - classify the HTTP status code error
+	errorCategory := sparrowerrors.ClassifyHTTPStatus(resp.StatusCode)
 	errorMessage := fmt.Sprintf("HTTP %d: %s", resp.StatusCode, resp.Status)
 	span.SetStatus(otelcodes.Error, "webhook delivery failed")
+	span.SetAttributes(attribute.String("error_category", string(errorCategory)))
 
 	err = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID),
-		store.StatusFailed, resp.StatusCode, string(body), errorMessage)
+		store.StatusFailed, resp.StatusCode, string(body), errorMessage, string(errorCategory))
 	if err != nil {
 		log.Error("Failed to update delivery status to failed", "error", err)
 	}
 
 	webhookUUID := uuid.MustParse(args.WebhookID)
-	if healthErr := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, uuid.MustParse(args.DeliveryID), false, int(duration.Milliseconds()), resp.StatusCode, errorMessage); healthErr != nil {
+	if healthErr := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, uuid.MustParse(args.DeliveryID), false, int(duration.Milliseconds()), resp.StatusCode, errorMessage, string(errorCategory)); healthErr != nil {
 		log.Error("Failed to record health event", "error", healthErr)
 	}
 	if healthErr := w.webhookRepo.UpdateWebhookHealthState(ctx, webhookUUID, false, time.Now()); healthErr != nil {
 		log.Error("Failed to update webhook health state", "error", healthErr)
+	}
+
+	log.Warn("Webhook delivery failed",
+		"status_code", resp.StatusCode,
+		"error_category", string(errorCategory),
+		"duration_ms", duration.Milliseconds(),
+	)
+
+	// For client errors (4xx), do not retry - return nil to cancel River retries.
+	// The delivery is already marked as failed with the appropriate error category.
+	if !sparrowerrors.IsRetryableCategory(errorCategory) {
+		log.Warn("Non-retryable HTTP status, cancelling retries",
+			"status_code", resp.StatusCode,
+			"error_category", string(errorCategory),
+		)
+		return nil
 	}
 
 	return fmt.Errorf("webhook delivery failed: %s", errorMessage)

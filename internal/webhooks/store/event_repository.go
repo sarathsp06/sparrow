@@ -70,37 +70,55 @@ func (r *Repository) GetEventByID(ctx context.Context, eventID uuid.UUID) (*Even
 	return &eventRow, nil
 }
 
-// ListEventReports gets event records in descending order by creation time
+// ListEventReports gets event records in descending order by creation time.
+// When namespace is empty, returns reports across all namespaces.
 func (r *Repository) ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
+	var namespaceCondition string
+	var args []interface{}
+	argIdx := 1
+
+	if namespace != "" {
+		namespaceCondition = fmt.Sprintf("namespace = $%d", argIdx)
+		args = append(args, namespace)
+		argIdx++
+	} else {
+		namespaceCondition = "1=1"
+	}
+
+	eventArgIdx := argIdx
+	args = append(args, eventName)
+	argIdx++
+
 	// Build base query
-	baseQuery := `
+	baseQuery := fmt.Sprintf(`
 		SELECT 
 			id, namespace, event, payload, ttl, metadata, created_at, expires_at
 		FROM event_records 
-		WHERE namespace = $1
-		  AND ($2 IS NULL OR event = $2)
+		WHERE %s
+		  AND ($%d IS NULL OR event = $%d)
 		ORDER BY created_at DESC
-		LIMIT $3 OFFSET $4
-	`
+		LIMIT $%d OFFSET $%d
+	`, namespaceCondition, eventArgIdx, eventArgIdx, argIdx, argIdx+1)
 
-	countQuery := `
+	countQuery := fmt.Sprintf(`
 		SELECT COUNT(*) 
 		FROM event_records 
-		WHERE namespace = $1
-		  AND ($2 IS NULL OR event = $2)
-	`
+		WHERE %s
+		  AND ($%d IS NULL OR event = $%d)
+	`, namespaceCondition, eventArgIdx, eventArgIdx)
+
+	queryArgs := append(args, limit, offset)
 
 	// Execute main query
 	var eventRows []EventRecord
-
-	err := r.db.SelectContext(ctx, &eventRows, baseQuery, namespace, eventName, limit, offset)
+	err := r.db.SelectContext(ctx, &eventRows, baseQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
 	// Get total count
 	var totalCount int
-	err = r.db.GetContext(ctx, &totalCount, countQuery, namespace, eventName)
+	err = r.db.GetContext(ctx, &totalCount, countQuery, args...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -124,13 +142,30 @@ func (r *Repository) ListEventReports(ctx context.Context, namespace string, eve
 }
 
 // ListEventReportsWithStats retrieves event records enriched with delivery statistics.
+// When namespace is empty, returns reports across all namespaces.
 // Joins event_records with webhook_deliveries and webhook_health_events to calculate:
 // - webhook_count: number of unique webhooks that received the event
 // - successful/failed/pending delivery counts based on health event outcomes
 // Supports optional event name filtering and pagination. Returns total count for UI pagination.
 func (r *Repository) ListEventReportsWithStats(ctx context.Context, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
+	var namespaceCondition string
+	var args []interface{}
+	argIdx := 1
+
+	if namespace != "" {
+		namespaceCondition = fmt.Sprintf("er.namespace = $%d", argIdx)
+		args = append(args, namespace)
+		argIdx++
+	} else {
+		namespaceCondition = "1=1"
+	}
+
+	eventArgIdx := argIdx
+	args = append(args, eventName)
+	argIdx++
+
 	// Build base query with delivery stats from health events
-	baseQuery := `
+	baseQuery := fmt.Sprintf(`
 		SELECT 
 			er.id, er.namespace, er.event, er.payload, er.ttl, er.metadata, er.created_at, er.expires_at,
 			COALESCE(ds.webhook_count, 0) as webhook_count,
@@ -149,29 +184,39 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, namespace st
 			LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id
 			GROUP BY wd.event_id
 		) ds ON er.id = ds.event_id
-		WHERE er.namespace = $1
-		  AND ($2::text IS NULL OR er.event = $2::text)
+		WHERE %s
+		  AND ($%d::text IS NULL OR er.event = $%d::text)
 		ORDER BY er.created_at DESC
-		LIMIT $3 OFFSET $4
-	`
+		LIMIT $%d OFFSET $%d
+	`, namespaceCondition, eventArgIdx, eventArgIdx, argIdx, argIdx+1)
 
-	countQuery := `
+	countCondition := namespaceCondition
+	if namespace != "" {
+		// For count query, use "namespace" instead of "er.namespace" since no alias
+		countCondition = fmt.Sprintf("namespace = $1")
+	} else {
+		countCondition = "1=1"
+	}
+
+	countQuery := fmt.Sprintf(`
 		SELECT COUNT(*) 
 		FROM event_records 
-		WHERE namespace = $1
-		  AND ($2::text IS NULL OR event = $2::text)
-	`
+		WHERE %s
+		  AND ($%d::text IS NULL OR event = $%d::text)
+	`, countCondition, eventArgIdx, eventArgIdx)
+
+	queryArgs := append(args, limit, offset)
 
 	// Execute main query
 	var events []*EventReportWithStats
-	err := r.db.SelectContext(ctx, &events, baseQuery, namespace, eventName, limit, offset)
+	err := r.db.SelectContext(ctx, &events, baseQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
 	// Get total count
 	var totalCount int
-	err = r.db.GetContext(ctx, &totalCount, countQuery, namespace, eventName)
+	err = r.db.GetContext(ctx, &totalCount, countQuery, args...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}

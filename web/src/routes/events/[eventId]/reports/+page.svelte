@@ -2,8 +2,7 @@
     import { page } from '$app/state';
     import { EventReportsTable, Pagination } from '$lib';
     import { eventClient as client } from '$lib/services';
-    import { onMount, untrack } from 'svelte';
-    import { namespaceState } from '$lib/namespace.svelte';
+    import { onMount } from 'svelte';
     import type { EventReport, RegisteredEvent } from '../../../../../../proto/webhook_pb.js';
 
     let eventReports: EventReport[] = $state([]);
@@ -14,6 +13,9 @@
     let totalCount = $state(0);
     let pageSize = $state(20);
     let totalPages = $derived(Math.max(1, Math.ceil(totalCount / pageSize)));
+
+    // Namespace filter (empty = all namespaces)
+    let namespaceFilter = $state('');
 
     const eventId = page.params.eventId || '';
 
@@ -48,7 +50,7 @@
         try {
             const offset = (pageNum - 1) * pageSize;
             const req = {
-                namespace: namespaceState.current,
+                namespace: namespaceFilter.trim(),
                 eventName: currentEvent.name,
                 pagination: {
                     limit: pageSize,
@@ -74,17 +76,13 @@
         }
     }
 
+    function handleNamespaceFilter() {
+        currentPage = 1;
+        fetchEventReports(1);
+    }
+
     onMount(() => {
         fetchEventReports();
-    });
-
-    // Re-fetch when namespace changes
-    $effect(() => {
-        const ns = namespaceState.current;
-        untrack(() => {
-            currentPage = 1;
-            fetchEventReports(1);
-        });
     });
 </script>
 
@@ -106,14 +104,43 @@
                 <div>
                     <h1 class="text-2xl font-bold text-gray-900">Event Reports</h1>
                     <p class="text-sm text-gray-500 mt-0.5">
-                        Instances of "{currentEvent?.name || 'Loading...'}" in namespace
-                        <span class="font-semibold text-gray-700">{namespaceState.current}</span>
+                        Instances of "{currentEvent?.name || 'Loading...'}"
+                        {#if namespaceFilter.trim()}
+                            in namespace <span class="font-semibold text-gray-700">{namespaceFilter.trim()}</span>
+                        {:else}
+                            across all namespaces
+                        {/if}
                     </p>
                 </div>
                 {#if !loading}
                     <div class="text-sm text-gray-500">
                         {totalCount} report{totalCount !== 1 ? 's' : ''}
                     </div>
+                {/if}
+            </div>
+        </div>
+
+        <!-- Namespace filter -->
+        <div class="flex gap-3 mb-4">
+            <div class="relative flex-none w-full sm:w-48">
+                <input
+                    type="text"
+                    placeholder="Filter by namespace..."
+                    bind:value={namespaceFilter}
+                    onkeydown={(e) => e.key === 'Enter' && handleNamespaceFilter()}
+                    onblur={handleNamespaceFilter}
+                    class="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                />
+                {#if namespaceFilter.trim()}
+                    <button
+                        onclick={() => { namespaceFilter = ''; handleNamespaceFilter(); }}
+                        class="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
+                        title="Clear namespace filter"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 {/if}
             </div>
         </div>
@@ -126,6 +153,7 @@
                         <thead>
                             <tr class="border-b border-gray-200 bg-gray-50/50">
                                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Event ID</th>
+                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Namespace</th>
                                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Created At</th>
                                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Deliveries</th>
                                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">TTL</th>

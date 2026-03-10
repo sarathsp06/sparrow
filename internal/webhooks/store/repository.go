@@ -98,7 +98,6 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 	for rows.Next() {
 		var wh WebhookRegistration
 		var headersJSON []byte
-		var expectedStatusCodesJSON []byte
 
 		err := rows.Scan(
 			&wh.ID,
@@ -115,7 +114,7 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 			&wh.FollowRedirects,
 			&wh.VerifySSL,
 			&wh.RequestTimeoutSeconds,
-			&expectedStatusCodesJSON,
+			&wh.ExpectedStatusCodes,
 			&wh.WebhookSecret,
 			&wh.UserAgent,
 			&wh.ContentType,
@@ -128,10 +127,6 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 
 		if err := json.Unmarshal(headersJSON, &wh.Headers); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal headers: %w", err)
-		}
-
-		if err := json.Unmarshal(expectedStatusCodesJSON, &wh.ExpectedStatusCodes); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal expected status codes: %w", err)
 		}
 
 		webhooks = append(webhooks, &wh)

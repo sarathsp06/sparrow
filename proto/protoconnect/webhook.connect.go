@@ -110,6 +110,9 @@ const (
 	// DeliveryServiceRetryDeliveryProcedure is the fully-qualified name of the DeliveryService's
 	// RetryDelivery RPC.
 	DeliveryServiceRetryDeliveryProcedure = "/webhook.DeliveryService/RetryDelivery"
+	// DeliveryServiceGetDeliveryAttemptsProcedure is the fully-qualified name of the DeliveryService's
+	// GetDeliveryAttempts RPC.
+	DeliveryServiceGetDeliveryAttemptsProcedure = "/webhook.DeliveryService/GetDeliveryAttempts"
 	// HealthServiceGetWebhookHealthProcedure is the fully-qualified name of the HealthService's
 	// GetWebhookHealth RPC.
 	HealthServiceGetWebhookHealthProcedure = "/webhook.HealthService/GetWebhookHealth"
@@ -849,6 +852,8 @@ type DeliveryServiceClient interface {
 	ListDeliveries(context.Context, *connect.Request[proto.ListDeliveriesRequest]) (*connect.Response[proto.ListDeliveriesResponse], error)
 	// RetryDelivery manually retries failed or pending webhook deliveries
 	RetryDelivery(context.Context, *connect.Request[proto.RetryDeliveryRequest]) (*connect.Response[proto.RetryDeliveryResponse], error)
+	// GetDeliveryAttempts retrieves individual attempt history for a delivery
+	GetDeliveryAttempts(context.Context, *connect.Request[proto.GetDeliveryAttemptsRequest]) (*connect.Response[proto.GetDeliveryAttemptsResponse], error)
 }
 
 // NewDeliveryServiceClient constructs a client for the webhook.DeliveryService service. By default,
@@ -880,14 +885,21 @@ func NewDeliveryServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(deliveryServiceMethods.ByName("RetryDelivery")),
 			connect.WithClientOptions(opts...),
 		),
+		getDeliveryAttempts: connect.NewClient[proto.GetDeliveryAttemptsRequest, proto.GetDeliveryAttemptsResponse](
+			httpClient,
+			baseURL+DeliveryServiceGetDeliveryAttemptsProcedure,
+			connect.WithSchema(deliveryServiceMethods.ByName("GetDeliveryAttempts")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // deliveryServiceClient implements DeliveryServiceClient.
 type deliveryServiceClient struct {
-	getDeliveryStatus *connect.Client[proto.GetDeliveryStatusRequest, proto.GetDeliveryStatusResponse]
-	listDeliveries    *connect.Client[proto.ListDeliveriesRequest, proto.ListDeliveriesResponse]
-	retryDelivery     *connect.Client[proto.RetryDeliveryRequest, proto.RetryDeliveryResponse]
+	getDeliveryStatus   *connect.Client[proto.GetDeliveryStatusRequest, proto.GetDeliveryStatusResponse]
+	listDeliveries      *connect.Client[proto.ListDeliveriesRequest, proto.ListDeliveriesResponse]
+	retryDelivery       *connect.Client[proto.RetryDeliveryRequest, proto.RetryDeliveryResponse]
+	getDeliveryAttempts *connect.Client[proto.GetDeliveryAttemptsRequest, proto.GetDeliveryAttemptsResponse]
 }
 
 // GetDeliveryStatus calls webhook.DeliveryService.GetDeliveryStatus.
@@ -905,6 +917,11 @@ func (c *deliveryServiceClient) RetryDelivery(ctx context.Context, req *connect.
 	return c.retryDelivery.CallUnary(ctx, req)
 }
 
+// GetDeliveryAttempts calls webhook.DeliveryService.GetDeliveryAttempts.
+func (c *deliveryServiceClient) GetDeliveryAttempts(ctx context.Context, req *connect.Request[proto.GetDeliveryAttemptsRequest]) (*connect.Response[proto.GetDeliveryAttemptsResponse], error) {
+	return c.getDeliveryAttempts.CallUnary(ctx, req)
+}
+
 // DeliveryServiceHandler is an implementation of the webhook.DeliveryService service.
 type DeliveryServiceHandler interface {
 	// GetDeliveryStatus retrieves delivery status for specific delivery
@@ -913,6 +930,8 @@ type DeliveryServiceHandler interface {
 	ListDeliveries(context.Context, *connect.Request[proto.ListDeliveriesRequest]) (*connect.Response[proto.ListDeliveriesResponse], error)
 	// RetryDelivery manually retries failed or pending webhook deliveries
 	RetryDelivery(context.Context, *connect.Request[proto.RetryDeliveryRequest]) (*connect.Response[proto.RetryDeliveryResponse], error)
+	// GetDeliveryAttempts retrieves individual attempt history for a delivery
+	GetDeliveryAttempts(context.Context, *connect.Request[proto.GetDeliveryAttemptsRequest]) (*connect.Response[proto.GetDeliveryAttemptsResponse], error)
 }
 
 // NewDeliveryServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -940,6 +959,12 @@ func NewDeliveryServiceHandler(svc DeliveryServiceHandler, opts ...connect.Handl
 		connect.WithSchema(deliveryServiceMethods.ByName("RetryDelivery")),
 		connect.WithHandlerOptions(opts...),
 	)
+	deliveryServiceGetDeliveryAttemptsHandler := connect.NewUnaryHandler(
+		DeliveryServiceGetDeliveryAttemptsProcedure,
+		svc.GetDeliveryAttempts,
+		connect.WithSchema(deliveryServiceMethods.ByName("GetDeliveryAttempts")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/webhook.DeliveryService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DeliveryServiceGetDeliveryStatusProcedure:
@@ -948,6 +973,8 @@ func NewDeliveryServiceHandler(svc DeliveryServiceHandler, opts ...connect.Handl
 			deliveryServiceListDeliveriesHandler.ServeHTTP(w, r)
 		case DeliveryServiceRetryDeliveryProcedure:
 			deliveryServiceRetryDeliveryHandler.ServeHTTP(w, r)
+		case DeliveryServiceGetDeliveryAttemptsProcedure:
+			deliveryServiceGetDeliveryAttemptsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -967,6 +994,10 @@ func (UnimplementedDeliveryServiceHandler) ListDeliveries(context.Context, *conn
 
 func (UnimplementedDeliveryServiceHandler) RetryDelivery(context.Context, *connect.Request[proto.RetryDeliveryRequest]) (*connect.Response[proto.RetryDeliveryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.DeliveryService.RetryDelivery is not implemented"))
+}
+
+func (UnimplementedDeliveryServiceHandler) GetDeliveryAttempts(context.Context, *connect.Request[proto.GetDeliveryAttemptsRequest]) (*connect.Response[proto.GetDeliveryAttemptsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.DeliveryService.GetDeliveryAttempts is not implemented"))
 }
 
 // HealthServiceClient is a client for the webhook.HealthService service.

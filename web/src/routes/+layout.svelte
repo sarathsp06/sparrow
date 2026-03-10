@@ -1,20 +1,9 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { goto } from "$app/navigation";
   import favicon from "$lib/assets/favicon.svg";
-  import { namespaceState } from "$lib/namespace.svelte";
   import "../app.css";
 
   let { children } = $props();
-  let editingNamespace = $state(false);
-  let namespaceInput = $state(namespaceState.current);
-
-  function handleNamespaceSubmit() {
-    namespaceState.setNamespace(namespaceInput);
-    editingNamespace = false;
-    // Redirect to webhooks page when namespace changes to refresh context
-    goto("/webhooks");
-  }
 
   const titles: Record<string, string> = {
     "/": "Home",
@@ -26,8 +15,7 @@
     "/deliveries": "Deliveries",
     "/events/push": "Push Event",
     "/webhooks/register": "Register Webhook",
-    "/events/[eventId]/reports": "Event Reports",
-    "/webhooks/[webhookId]/subscriptions": "Subscriptions"
+    "/events/[eventId]/reports": "Event Reports"
   };
   function getTitle(): string {
     const path: string = page.route.id?.toString() || "/";
@@ -48,29 +36,6 @@
     <h2 class="text-gray-500 font-bold text-2xl hover:text-blue-700/90">
       {getTitle()}
     </h2>
-  </div>
-  <div class="flex items-center gap-4 bg-gray-100 px-3 py-1 rounded-full border border-gray-200 shadow-inner">
-    <span class="text-xs font-bold text-gray-400 uppercase tracking-tighter">Namespace:</span>
-    {#if editingNamespace}
-      <input
-        type="text"
-        bind:value={namespaceInput}
-        onkeydown={(e) => e.key === "Enter" && handleNamespaceSubmit()}
-        onblur={() => (editingNamespace = false)}
-        class="bg-transparent border-none text-sm font-bold text-primary focus:ring-0 p-0 w-24"
-        autofocus
-      />
-    {:else}
-      <button
-        onclick={() => {
-          namespaceInput = namespaceState.current;
-          editingNamespace = true;
-        }}
-        class="text-sm font-bold text-primary hover:text-blue-700 transition cursor-pointer"
-      >
-        {namespaceState.current}
-      </button>
-    {/if}
   </div>
   <nav
     class="px-2 flex items-center flex-wrap gap-2 md:gap-8 text-lg font-medium"

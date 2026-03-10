@@ -456,6 +456,13 @@ export declare type WebhookDelivery = Message<"webhook.WebhookDelivery"> & {
    * @generated from field: string request_body = 14;
    */
   requestBody: string;
+
+  /**
+   * Classified error category (e.g. client_error, server_error, timeout, network_error)
+   *
+   * @generated from field: string error_category = 15;
+   */
+  errorCategory: string;
 };
 
 /**
@@ -1194,6 +1201,36 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
    * @generated from field: google.protobuf.Timestamp updated_at = 11;
    */
   updatedAt?: Timestamp;
+
+  /**
+   * Error category breakdown (last 24 hours)
+   *
+   * 4xx responses (never retried)
+   *
+   * @generated from field: int32 client_errors = 12;
+   */
+  clientErrors: number;
+
+  /**
+   * 5xx responses (retried)
+   *
+   * @generated from field: int32 server_errors = 13;
+   */
+  serverErrors: number;
+
+  /**
+   * Timeouts (retried)
+   *
+   * @generated from field: int32 timeout_errors = 14;
+   */
+  timeoutErrors: number;
+
+  /**
+   * DNS, TLS, connection refused, and other network errors
+   *
+   * @generated from field: int32 network_errors = 15;
+   */
+  networkErrors: number;
 };
 
 /**
@@ -2822,6 +2859,122 @@ export declare type PaginationResponse = Message<"webhook.PaginationResponse"> &
 export declare const PaginationResponseSchema: GenMessage<PaginationResponse>;
 
 /**
+ * DeliveryAttempt represents a single attempt to deliver a webhook
+ *
+ * @generated from message webhook.DeliveryAttempt
+ */
+export declare type DeliveryAttempt = Message<"webhook.DeliveryAttempt"> & {
+  /**
+   * Unique attempt identifier
+   *
+   * @generated from field: string attempt_id = 1;
+   */
+  attemptId: string;
+
+  /**
+   * Associated delivery ID
+   *
+   * @generated from field: string delivery_id = 2;
+   */
+  deliveryId: string;
+
+  /**
+   * Associated webhook ID
+   *
+   * @generated from field: string webhook_id = 3;
+   */
+  webhookId: string;
+
+  /**
+   * Whether this attempt succeeded
+   *
+   * @generated from field: bool success = 4;
+   */
+  success: boolean;
+
+  /**
+   * Response time in milliseconds
+   *
+   * @generated from field: int32 response_time = 5;
+   */
+  responseTime: number;
+
+  /**
+   * HTTP response code (0 if no response)
+   *
+   * @generated from field: int32 response_code = 6;
+   */
+  responseCode: number;
+
+  /**
+   * Error message (empty on success)
+   *
+   * @generated from field: string error_message = 7;
+   */
+  errorMessage: string;
+
+  /**
+   * Error category (success, client_error, server_error, timeout, etc.)
+   *
+   * @generated from field: string error_category = 8;
+   */
+  errorCategory: string;
+
+  /**
+   * When this attempt occurred
+   *
+   * @generated from field: google.protobuf.Timestamp timestamp = 9;
+   */
+  timestamp?: Timestamp;
+};
+
+/**
+ * Describes the message webhook.DeliveryAttempt.
+ * Use `create(DeliveryAttemptSchema)` to create a new message.
+ */
+export declare const DeliveryAttemptSchema: GenMessage<DeliveryAttempt>;
+
+/**
+ * GetDeliveryAttemptsRequest represents a request to get delivery attempt history
+ *
+ * @generated from message webhook.GetDeliveryAttemptsRequest
+ */
+export declare type GetDeliveryAttemptsRequest = Message<"webhook.GetDeliveryAttemptsRequest"> & {
+  /**
+   * Delivery ID (required)
+   *
+   * @generated from field: string delivery_id = 1;
+   */
+  deliveryId: string;
+};
+
+/**
+ * Describes the message webhook.GetDeliveryAttemptsRequest.
+ * Use `create(GetDeliveryAttemptsRequestSchema)` to create a new message.
+ */
+export declare const GetDeliveryAttemptsRequestSchema: GenMessage<GetDeliveryAttemptsRequest>;
+
+/**
+ * GetDeliveryAttemptsResponse represents the response for getting delivery attempts
+ *
+ * @generated from message webhook.GetDeliveryAttemptsResponse
+ */
+export declare type GetDeliveryAttemptsResponse = Message<"webhook.GetDeliveryAttemptsResponse"> & {
+  /**
+   * List of delivery attempts ordered by timestamp
+   *
+   * @generated from field: repeated webhook.DeliveryAttempt attempts = 1;
+   */
+  attempts: DeliveryAttempt[];
+};
+
+/**
+ * Describes the message webhook.GetDeliveryAttemptsResponse.
+ * Use `create(GetDeliveryAttemptsResponseSchema)` to create a new message.
+ */
+export declare const GetDeliveryAttemptsResponseSchema: GenMessage<GetDeliveryAttemptsResponse>;
+
+/**
  * WebhookDeliveryStatus represents the status of webhook delivery
  *
  * @generated from enum webhook.WebhookDeliveryStatus
@@ -3169,6 +3322,16 @@ export declare const DeliveryService: GenService<{
     methodKind: "unary";
     input: typeof RetryDeliveryRequestSchema;
     output: typeof RetryDeliveryResponseSchema;
+  },
+  /**
+   * GetDeliveryAttempts retrieves individual attempt history for a delivery
+   *
+   * @generated from rpc webhook.DeliveryService.GetDeliveryAttempts
+   */
+  getDeliveryAttempts: {
+    methodKind: "unary";
+    input: typeof GetDeliveryAttemptsRequestSchema;
+    output: typeof GetDeliveryAttemptsResponseSchema;
   },
 }>;
 

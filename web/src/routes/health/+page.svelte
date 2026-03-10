@@ -1,26 +1,61 @@
 <script lang="ts">
   import { healthClient, webhookClient } from "$lib/services";
-  import { namespaceState } from "$lib/namespace.svelte";
-  import { onMount, untrack } from "svelte";
+  import { onMount } from "svelte";
   import type {
     HealthSummary,
     NamespaceStats,
+    RegisteredWebhook,
+    WebhookHealthMetrics,
   } from "../../../../proto/webhook_pb.js";
+  import { WebhookHealth } from "../../../../proto/webhook_pb.js";
+  import HealthBadge from "$lib/components/HealthBadge.svelte";
 
   let healthSummary: HealthSummary | undefined = $state();
   let namespaceStats: NamespaceStats | undefined = $state();
+  let unhealthyWebhooks: RegisteredWebhook[] = $state([]);
+  let unhealthyMetrics: Map<string, WebhookHealthMetrics> = $state(new Map());
   let loading = $state(true);
   let error = $state("");
+
+  // Namespace filter (empty = all namespaces)
+  let namespaceFilter = $state('');
 
   async function fetchData() {
     loading = true;
     error = "";
     try {
-      const summaryRes = await healthClient.getHealthSummary({});
+      const [summaryRes, statsRes] = await Promise.all([
+        healthClient.getHealthSummary({}),
+        webhookClient.getNamespaceStats({ namespace: namespaceFilter.trim() }),
+      ]);
       healthSummary = summaryRes.summary;
-
-      const statsRes = await webhookClient.getNamespaceStats({ namespace: namespaceState.current });
       namespaceStats = statsRes.stats;
+
+      // Fetch unhealthy webhooks with their health metrics
+      const unhealthyRes = await healthClient.listWebhooksByHealth({
+        health: WebhookHealth.HEALTH_UNHEALTHY,
+        pagination: { limit: 10, offset: 0 },
+      });
+      unhealthyWebhooks = unhealthyRes.webhooks || [];
+
+      // Fetch health metrics for each unhealthy webhook
+      const metricsMap = new Map<string, WebhookHealthMetrics>();
+      await Promise.all(
+        unhealthyWebhooks.map(async (wh) => {
+          try {
+            const healthRes = await healthClient.getWebhookHealth({
+              webhookId: wh.webhookId,
+              namespace: wh.namespace,
+            });
+            if (healthRes.metrics) {
+              metricsMap.set(wh.webhookId, healthRes.metrics);
+            }
+          } catch {
+            // Ignore individual fetch failures
+          }
+        })
+      );
+      unhealthyMetrics = metricsMap;
     } catch (e: any) {
       error = `Failed to load health data: ${e.message}`;
     } finally {
@@ -30,13 +65,9 @@
 
   onMount(fetchData);
 
-  // Re-fetch when namespace changes
-  $effect(() => {
-    const ns = namespaceState.current;
-    untrack(() => {
-      fetchData();
-    });
-  });
+  function handleNamespaceFilter() {
+    fetchData();
+  }
 </script>
 
 <svelte:head>
@@ -134,11 +165,34 @@
         {#if namespaceStats}
           <div>
             <h2 class="text-lg font-semibold text-gray-900 mb-1">
-              Namespace Statistics
+              {namespaceFilter.trim() ? 'Namespace Statistics' : 'Statistics'}
             </h2>
-            <p class="text-sm text-gray-500 mb-4">
-              Namespace: <span class="font-semibold text-gray-700">{namespaceState.current}</span>
-            </p>
+            <div class="flex items-center gap-3 mb-4">
+              <p class="text-sm text-gray-500">
+                {namespaceFilter.trim() ? `Namespace: ${namespaceFilter.trim()}` : 'All Namespaces'}
+              </p>
+              <div class="relative flex-none w-48">
+                <input
+                  type="text"
+                  placeholder="Filter by namespace..."
+                  bind:value={namespaceFilter}
+                  onkeydown={(e) => e.key === 'Enter' && handleNamespaceFilter()}
+                  onblur={handleNamespaceFilter}
+                  class="w-full pl-3 pr-8 py-1.5 text-xs border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                />
+                {#if namespaceFilter.trim()}
+                  <button
+                    onclick={() => { namespaceFilter = ''; handleNamespaceFilter(); }}
+                    class="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                    title="Clear namespace filter"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                {/if}
+              </div>
+            </div>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4">
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Webhooks</p>
@@ -166,6 +220,67 @@
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Deliveries</p>
                 <p class="text-2xl font-bold text-yellow-600 mt-1">{namespaceStats.pendingDeliveries}</p>
               </div>
+            </div>
+          </div>
+        {/if}
+
+        <!-- Unhealthy Webhooks with Error Breakdown -->
+        {#if unhealthyWebhooks.length > 0}
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900 mb-1">Unhealthy Webhooks</h2>
+            <p class="text-sm text-gray-500 mb-4">Webhooks with delivery failures (last 24 hours)</p>
+            <div class="space-y-3">
+              {#each unhealthyWebhooks as wh}
+                {@const metrics = unhealthyMetrics.get(wh.webhookId)}
+                <a
+                  href="/webhooks/{wh.webhookId}"
+                  class="block bg-white rounded-lg border border-gray-200 px-4 py-4 hover:border-gray-300 hover:shadow-sm transition"
+                >
+                  <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <span class="text-sm font-medium text-gray-900 truncate">{wh.description || 'Webhook'}</span>
+                      <HealthBadge health={wh.health} size="sm" />
+                      <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{wh.namespace}</span>
+                    </div>
+                    <span class="text-xs font-mono text-gray-400 shrink-0 ml-2">{wh.webhookId.substring(0, 8)}...</span>
+                  </div>
+
+                  {#if metrics}
+                    <div class="flex items-center gap-4 text-xs text-gray-500 mb-2">
+                      <span>Success rate: <span class="font-medium {metrics.successRate >= 0.8 ? 'text-yellow-600' : 'text-red-600'}">{(metrics.successRate * 100).toFixed(1)}%</span></span>
+                      <span>Failed: <span class="font-medium text-red-600">{metrics.failedDeliveries}</span></span>
+                      <span>Consecutive: <span class="font-medium text-red-600">{metrics.consecutiveFailures}</span></span>
+                    </div>
+
+                    <!-- Error category breakdown bar -->
+                    {@const totalErrors = (metrics.clientErrors || 0) + (metrics.serverErrors || 0) + (metrics.timeoutErrors || 0) + (metrics.networkErrors || 0)}
+                    {#if totalErrors > 0}
+                      <div class="flex items-center gap-3">
+                        <div class="flex-1 h-2 rounded-full overflow-hidden flex bg-gray-100">
+                          {#if metrics.clientErrors > 0}
+                            <div class="bg-orange-400 h-full" style="width: {(metrics.clientErrors / totalErrors) * 100}%"></div>
+                          {/if}
+                          {#if metrics.serverErrors > 0}
+                            <div class="bg-red-400 h-full" style="width: {(metrics.serverErrors / totalErrors) * 100}%"></div>
+                          {/if}
+                          {#if metrics.timeoutErrors > 0}
+                            <div class="bg-yellow-400 h-full" style="width: {(metrics.timeoutErrors / totalErrors) * 100}%"></div>
+                          {/if}
+                          {#if metrics.networkErrors > 0}
+                            <div class="bg-purple-400 h-full" style="width: {(metrics.networkErrors / totalErrors) * 100}%"></div>
+                          {/if}
+                        </div>
+                        <div class="flex items-center gap-2 text-[10px] text-gray-500 shrink-0">
+                          {#if metrics.clientErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>{metrics.clientErrors} 4xx</span>{/if}
+                          {#if metrics.serverErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>{metrics.serverErrors} 5xx</span>{/if}
+                          {#if metrics.timeoutErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>{metrics.timeoutErrors} timeout</span>{/if}
+                          {#if metrics.networkErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>{metrics.networkErrors} network</span>{/if}
+                        </div>
+                      </div>
+                    {/if}
+                  {/if}
+                </a>
+              {/each}
             </div>
           </div>
         {/if}

@@ -1063,9 +1063,10 @@ var SubscriptionService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	DeliveryService_GetDeliveryStatus_FullMethodName = "/webhook.DeliveryService/GetDeliveryStatus"
-	DeliveryService_ListDeliveries_FullMethodName    = "/webhook.DeliveryService/ListDeliveries"
-	DeliveryService_RetryDelivery_FullMethodName     = "/webhook.DeliveryService/RetryDelivery"
+	DeliveryService_GetDeliveryStatus_FullMethodName   = "/webhook.DeliveryService/GetDeliveryStatus"
+	DeliveryService_ListDeliveries_FullMethodName      = "/webhook.DeliveryService/ListDeliveries"
+	DeliveryService_RetryDelivery_FullMethodName       = "/webhook.DeliveryService/RetryDelivery"
+	DeliveryService_GetDeliveryAttempts_FullMethodName = "/webhook.DeliveryService/GetDeliveryAttempts"
 )
 
 // DeliveryServiceClient is the client API for DeliveryService service.
@@ -1080,6 +1081,8 @@ type DeliveryServiceClient interface {
 	ListDeliveries(ctx context.Context, in *ListDeliveriesRequest, opts ...grpc.CallOption) (*ListDeliveriesResponse, error)
 	// RetryDelivery manually retries failed or pending webhook deliveries
 	RetryDelivery(ctx context.Context, in *RetryDeliveryRequest, opts ...grpc.CallOption) (*RetryDeliveryResponse, error)
+	// GetDeliveryAttempts retrieves individual attempt history for a delivery
+	GetDeliveryAttempts(ctx context.Context, in *GetDeliveryAttemptsRequest, opts ...grpc.CallOption) (*GetDeliveryAttemptsResponse, error)
 }
 
 type deliveryServiceClient struct {
@@ -1120,6 +1123,16 @@ func (c *deliveryServiceClient) RetryDelivery(ctx context.Context, in *RetryDeli
 	return out, nil
 }
 
+func (c *deliveryServiceClient) GetDeliveryAttempts(ctx context.Context, in *GetDeliveryAttemptsRequest, opts ...grpc.CallOption) (*GetDeliveryAttemptsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetDeliveryAttemptsResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_GetDeliveryAttempts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DeliveryServiceServer is the server API for DeliveryService service.
 // All implementations must embed UnimplementedDeliveryServiceServer
 // for forward compatibility.
@@ -1132,6 +1145,8 @@ type DeliveryServiceServer interface {
 	ListDeliveries(context.Context, *ListDeliveriesRequest) (*ListDeliveriesResponse, error)
 	// RetryDelivery manually retries failed or pending webhook deliveries
 	RetryDelivery(context.Context, *RetryDeliveryRequest) (*RetryDeliveryResponse, error)
+	// GetDeliveryAttempts retrieves individual attempt history for a delivery
+	GetDeliveryAttempts(context.Context, *GetDeliveryAttemptsRequest) (*GetDeliveryAttemptsResponse, error)
 	mustEmbedUnimplementedDeliveryServiceServer()
 }
 
@@ -1150,6 +1165,9 @@ func (UnimplementedDeliveryServiceServer) ListDeliveries(context.Context, *ListD
 }
 func (UnimplementedDeliveryServiceServer) RetryDelivery(context.Context, *RetryDeliveryRequest) (*RetryDeliveryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RetryDelivery not implemented")
+}
+func (UnimplementedDeliveryServiceServer) GetDeliveryAttempts(context.Context, *GetDeliveryAttemptsRequest) (*GetDeliveryAttemptsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetDeliveryAttempts not implemented")
 }
 func (UnimplementedDeliveryServiceServer) mustEmbedUnimplementedDeliveryServiceServer() {}
 func (UnimplementedDeliveryServiceServer) testEmbeddedByValue()                         {}
@@ -1226,6 +1244,24 @@ func _DeliveryService_RetryDelivery_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DeliveryService_GetDeliveryAttempts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDeliveryAttemptsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).GetDeliveryAttempts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_GetDeliveryAttempts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).GetDeliveryAttempts(ctx, req.(*GetDeliveryAttemptsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DeliveryService_ServiceDesc is the grpc.ServiceDesc for DeliveryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1244,6 +1280,10 @@ var DeliveryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RetryDelivery",
 			Handler:    _DeliveryService_RetryDelivery_Handler,
+		},
+		{
+			MethodName: "GetDeliveryAttempts",
+			Handler:    _DeliveryService_GetDeliveryAttempts_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

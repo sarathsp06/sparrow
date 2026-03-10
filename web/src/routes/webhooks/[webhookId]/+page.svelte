@@ -9,7 +9,7 @@
     subscriptionClient,
   } from '$lib/services';
   import { onMount } from 'svelte';
-  import { namespaceState } from '$lib/namespace.svelte';
+
   import type {
     EventSubscription,
     RegisteredWebhook,
@@ -23,6 +23,7 @@
   import Pagination from '$lib/components/Pagination.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+  import SubscriptionManager from '$lib/components/SubscriptionManager.svelte';
 
   let webhook: RegisteredWebhook | undefined = $state();
   let deliveries: WebhookDelivery[] = $state([]);
@@ -32,7 +33,7 @@
   let error = $state('');
   let expandedDeliveries: Set<string> = $state(new Set());
   let deliveryDetails: Map<string, any> = $state(new Map());
-  let activeTab = $state<'deliveries' | 'config'>('deliveries');
+  let activeTab = $state<'deliveries' | 'config' | 'subscriptions'>('deliveries');
 
   // Inline URL editing
   let editingUrl = $state(false);
@@ -65,18 +66,27 @@
   async function fetchData() {
     if (!webhookId) return;
     try {
-      const [webhookRes, deliveriesRes, healthRes, subscriptionsRes] = await Promise.all([
-        webhookClient.listWebhooks({ namespace: namespaceState.current, webhookId }),
+      // Fetch webhook first with empty namespace (backend looks up by ID)
+      const webhookRes = await webhookClient.listWebhooks({ namespace: '', webhookId });
+      webhook = webhookRes.webhooks?.[0];
+
+      if (!webhook) {
+        error = 'Webhook not found';
+        return;
+      }
+
+      // Use the webhook's own namespace for related data
+      const ns = webhook.namespace;
+      const [deliveriesRes, healthRes, subscriptionsRes] = await Promise.all([
         deliveryClient.listDeliveries({
           webhookId,
-          namespace: namespaceState.current,
+          namespace: ns,
           pagination: { limit, offset },
         }),
-        healthClient.getWebhookHealth({ webhookId, namespace: namespaceState.current }),
-        subscriptionClient.listSubscriptions({ webhookId, namespace: namespaceState.current }),
+        healthClient.getWebhookHealth({ webhookId, namespace: ns }),
+        subscriptionClient.listSubscriptions({ webhookId, namespace: ns }),
       ]);
 
-      webhook = webhookRes.webhooks?.[0];
       deliveries = deliveriesRes.deliveries || [];
       totalCount = deliveriesRes.pagination?.totalCount || 0;
       healthMetrics = healthRes.metrics;
@@ -94,9 +104,9 @@
     if (!webhook) return;
     try {
       if (webhook.active) {
-        await webhookClient.pauseWebhook({ webhookId, namespace: namespaceState.current });
+        await webhookClient.pauseWebhook({ webhookId, namespace: webhook.namespace });
       } else {
-        await webhookClient.resumeWebhook({ webhookId, namespace: namespaceState.current });
+        await webhookClient.resumeWebhook({ webhookId, namespace: webhook.namespace });
       }
       await fetchData();
     } catch (e: any) {
@@ -109,7 +119,7 @@
     try {
       await webhookClient.unregisterWebhook({
         webhookId,
-        namespace: namespaceState.current,
+        namespace: webhook.namespace,
       });
       confirmUnregister = false;
       goto('/webhooks');
@@ -123,7 +133,7 @@
     try {
       await deliveryClient.retryDelivery({
         deliveryId,
-        namespace: namespaceState.current,
+        namespace: webhook?.namespace || '',
       });
       await fetchData();
     } catch (e: any) {
@@ -154,7 +164,7 @@
     try {
       await webhookClient.updateWebhookConfig({
         webhookId,
-        namespace: namespaceState.current,
+        namespace: webhook.namespace,
         updates: { url: trimmedUrl, active: webhook.active },
       });
       editingUrl = false;
@@ -178,7 +188,7 @@
         try {
           const detailRes = await deliveryClient.getDeliveryStatus({
             deliveryId,
-            namespace: namespaceState.current,
+            namespace: webhook?.namespace || '',
           });
           deliveryDetails.set(deliveryId, detailRes.delivery);
           deliveryDetails = new Map(deliveryDetails);
@@ -202,6 +212,19 @@
     if (healthMetrics.successRate >= 0.8) return 'text-yellow-600';
     return 'text-red-600';
   });
+
+  function getCategoryBadge(category: string): { label: string; classes: string } {
+    switch (category) {
+      case 'client_error': return { label: '4xx', classes: 'bg-orange-50 text-orange-700 border-orange-200' };
+      case 'server_error': return { label: '5xx', classes: 'bg-red-50 text-red-700 border-red-200' };
+      case 'timeout': return { label: 'Timeout', classes: 'bg-yellow-50 text-yellow-700 border-yellow-200' };
+      case 'dns_error': return { label: 'DNS', classes: 'bg-purple-50 text-purple-700 border-purple-200' };
+      case 'tls_error': return { label: 'TLS', classes: 'bg-purple-50 text-purple-700 border-purple-200' };
+      case 'connection_refused': return { label: 'Conn Refused', classes: 'bg-purple-50 text-purple-700 border-purple-200' };
+      case 'network_error': return { label: 'Network', classes: 'bg-purple-50 text-purple-700 border-purple-200' };
+      default: return { label: category || 'Unknown', classes: 'bg-gray-50 text-gray-700 border-gray-200' };
+    }
+  }
 </script>
 
 <svelte:head>
@@ -397,6 +420,54 @@
               </div>
             </div>
           {/if}
+
+          <!-- Error Category Breakdown -->
+          {#if healthMetrics.failedDeliveries > 0}
+            <div class="mt-4 pt-4 border-t border-gray-100">
+              <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Error Breakdown</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="bg-orange-50 rounded-lg px-3 py-2">
+                  <p class="text-xs text-orange-600 font-medium">Client (4xx)</p>
+                  <p class="text-lg font-bold text-orange-700">{healthMetrics.clientErrors}</p>
+                  <p class="text-[10px] text-orange-500">Not retried</p>
+                </div>
+                <div class="bg-red-50 rounded-lg px-3 py-2">
+                  <p class="text-xs text-red-600 font-medium">Server (5xx)</p>
+                  <p class="text-lg font-bold text-red-700">{healthMetrics.serverErrors}</p>
+                  <p class="text-[10px] text-red-500">Retried</p>
+                </div>
+                <div class="bg-yellow-50 rounded-lg px-3 py-2">
+                  <p class="text-xs text-yellow-600 font-medium">Timeout</p>
+                  <p class="text-lg font-bold text-yellow-700">{healthMetrics.timeoutErrors}</p>
+                  <p class="text-[10px] text-yellow-500">Retried</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg px-3 py-2">
+                  <p class="text-xs text-purple-600 font-medium">Network</p>
+                  <p class="text-lg font-bold text-purple-700">{healthMetrics.networkErrors}</p>
+                  <p class="text-[10px] text-purple-500">DNS / TLS / Conn</p>
+                </div>
+              </div>
+
+              <!-- Error distribution bar -->
+              {#if (healthMetrics.clientErrors || 0) + (healthMetrics.serverErrors || 0) + (healthMetrics.timeoutErrors || 0) + (healthMetrics.networkErrors || 0) > 0}
+                {@const totalErrors = (healthMetrics.clientErrors || 0) + (healthMetrics.serverErrors || 0) + (healthMetrics.timeoutErrors || 0) + (healthMetrics.networkErrors || 0)}
+                <div class="mt-3 w-full h-2 rounded-full overflow-hidden flex">
+                  {#if healthMetrics.clientErrors > 0}
+                    <div class="bg-orange-400 h-full" style="width: {(healthMetrics.clientErrors / totalErrors) * 100}%" title="Client errors: {healthMetrics.clientErrors}"></div>
+                  {/if}
+                  {#if healthMetrics.serverErrors > 0}
+                    <div class="bg-red-400 h-full" style="width: {(healthMetrics.serverErrors / totalErrors) * 100}%" title="Server errors: {healthMetrics.serverErrors}"></div>
+                  {/if}
+                  {#if healthMetrics.timeoutErrors > 0}
+                    <div class="bg-yellow-400 h-full" style="width: {(healthMetrics.timeoutErrors / totalErrors) * 100}%" title="Timeouts: {healthMetrics.timeoutErrors}"></div>
+                  {/if}
+                  {#if healthMetrics.networkErrors > 0}
+                    <div class="bg-purple-400 h-full" style="width: {(healthMetrics.networkErrors / totalErrors) * 100}%" title="Network errors: {healthMetrics.networkErrors}"></div>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+          {/if}
         </div>
       {/if}
 
@@ -421,8 +492,10 @@
             Configuration
           </button>
           <button
-            class="pb-3 text-sm font-medium border-b-2 transition border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            onclick={() => goto(`/webhooks/${webhookId}/subscriptions`)}
+            class="pb-3 text-sm font-medium border-b-2 transition {activeTab === 'subscriptions'
+              ? 'border-gray-900 text-gray-900'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
+            onclick={() => (activeTab = 'subscriptions')}
           >
             Subscriptions
             <span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">{subscriptions.length}</span>
@@ -462,7 +535,13 @@
                       </td>
                       <td class="px-4 py-3 font-mono text-xs text-gray-700 hidden sm:table-cell">{delivery.eventId.substring(0, 16)}...</td>
                       <td class="px-4 py-3">
-                        <StatusBadge status={delivery.status} />
+                        <div class="flex items-center gap-1.5">
+                          <StatusBadge status={delivery.status} />
+                          {#if delivery.errorCategory && delivery.errorCategory !== '' && delivery.errorCategory !== 'success'}
+                            {@const badge = getCategoryBadge(delivery.errorCategory)}
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
+                          {/if}
+                        </div>
                       </td>
                       <td class="px-4 py-3 text-gray-700 hidden md:table-cell">{delivery.attemptCount}</td>
                       <td class="px-4 py-3 text-xs text-gray-500 hidden lg:table-cell">{formatTimestamp(delivery.lastAttemptedAt)}</td>
@@ -487,6 +566,15 @@
                                   <span class="font-mono text-sm {details.responseCode >= 200 && details.responseCode < 300 ? 'text-green-600' : details.responseCode >= 400 ? 'text-red-600' : 'text-gray-700'}">
                                     {details.responseCode || 'N/A'}
                                   </span>
+                                </div>
+                                <div>
+                                  <p class="text-xs font-medium text-gray-500 mb-0.5">Error Category</p>
+                                  {#if details.errorCategory && details.errorCategory !== '' && details.errorCategory !== 'success'}
+                                    {@const badge = getCategoryBadge(details.errorCategory)}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border {badge.classes}">{badge.label}</span>
+                                  {:else}
+                                    <span class="text-sm text-gray-400">—</span>
+                                  {/if}
                                 </div>
                                 <div>
                                   <p class="text-xs font-medium text-gray-500 mb-0.5">Attempts</p>
@@ -655,6 +743,16 @@
             {/if}
           </div>
         </div>
+      {/if}
+
+      <!-- Subscriptions Tab -->
+      {#if activeTab === 'subscriptions'}
+        <SubscriptionManager
+          {webhookId}
+          namespace={webhook.namespace}
+          bind:subscriptions
+          onRefresh={fetchData}
+        />
       {/if}
     {/if}
   </main>

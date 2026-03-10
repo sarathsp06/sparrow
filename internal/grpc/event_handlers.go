@@ -119,22 +119,16 @@ func (s *WebhookServer) GetEvent(ctx context.Context, req *pb.GetEventRequest) (
 	}, nil
 }
 
-// ListEventReports lists all events in descending order for a given namespace
+// ListEventReports lists all events in descending order, optionally filtered by namespace
 func (s *WebhookServer) ListEventReports(ctx context.Context, req *pb.ListEventReportsRequest) (*pb.ListEventReportsResponse, error) {
-	// Validate request
-	if req.Namespace == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "namespace is required")
-	}
-
 	// Set default values
 	var limit, offset int32
 	if req.Pagination != nil {
 		limit = req.Pagination.Limit
 		offset = req.Pagination.Offset
-	} else {
-		limit = req.Limit
-		offset = req.Offset
 	}
+	// Deprecated req.Limit/req.Offset fields are intentionally not read.
+	// Clients should migrate to the pagination field.
 
 	if limit <= 0 {
 		limit = 50

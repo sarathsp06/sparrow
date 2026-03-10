@@ -89,6 +89,9 @@ service DeliveryService {
 
   // RetryDelivery manually retries failed or pending webhook deliveries
   rpc RetryDelivery(RetryDeliveryRequest) returns (RetryDeliveryResponse);
+
+  // GetDeliveryAttempts retrieves individual attempt history for a delivery
+  rpc GetDeliveryAttempts(GetDeliveryAttemptsRequest) returns (GetDeliveryAttemptsResponse);
 }
 
 // HealthService manages health metrics and summaries
@@ -193,6 +196,7 @@ message WebhookDelivery {
   string response_body = 12; // HTTP response body (truncated)
   string error_message = 13; // Error message if failed
   string request_body = 14; // Request body sent to webhook
+  string error_category = 15; // Classified error category (e.g. client_error, server_error, timeout, network_error)
 }
 
 // ListWebhooksRequest represents a request to list webhooks
@@ -351,6 +355,12 @@ message WebhookHealthMetrics {
   int32 avg_response_time = 9; // milliseconds
   google.protobuf.Timestamp created_at = 10; // Created timestamp
   google.protobuf.Timestamp updated_at = 11; // Updated timestamp
+
+  // Error category breakdown (last 24 hours)
+  int32 client_errors = 12; // 4xx responses (never retried)
+  int32 server_errors = 13; // 5xx responses (retried)
+  int32 timeout_errors = 14; // Timeouts (retried)
+  int32 network_errors = 15; // DNS, TLS, connection refused, and other network errors
 }
 
 // GetWebhookHealthResponse represents the response for getting webhook health
@@ -691,4 +701,27 @@ message PaginationResponse {
   int32 total_count = 1; // Total number of items available
   int32 limit = 2; // Limit used for the request
   int32 offset = 3; // Offset used for the request
+}
+
+// DeliveryAttempt represents a single attempt to deliver a webhook
+message DeliveryAttempt {
+  string attempt_id = 1; // Unique attempt identifier
+  string delivery_id = 2; // Associated delivery ID
+  string webhook_id = 3; // Associated webhook ID
+  bool success = 4; // Whether this attempt succeeded
+  int32 response_time = 5; // Response time in milliseconds
+  int32 response_code = 6; // HTTP response code (0 if no response)
+  string error_message = 7; // Error message (empty on success)
+  string error_category = 8; // Error category (success, client_error, server_error, timeout, etc.)
+  google.protobuf.Timestamp timestamp = 9; // When this attempt occurred
+}
+
+// GetDeliveryAttemptsRequest represents a request to get delivery attempt history
+message GetDeliveryAttemptsRequest {
+  string delivery_id = 1; // Delivery ID (required)
+}
+
+// GetDeliveryAttemptsResponse represents the response for getting delivery attempts
+message GetDeliveryAttemptsResponse {
+  repeated DeliveryAttempt attempts = 1; // List of delivery attempts ordered by timestamp
 }

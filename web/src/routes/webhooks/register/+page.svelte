@@ -2,10 +2,9 @@
   import { goto } from '$app/navigation';
   import { eventClient, webhookClient as client } from '$lib/services';
   import { onMount } from 'svelte';
-  import { namespaceState } from '$lib/namespace.svelte';
   import type { RegisteredEvent } from '../../../../../proto/webhook_pb.js';
 
-  let namespace = $state(namespaceState.current);
+  let namespace = $state('');
   let events: string[] = $state([]);
   let url = $state('');
   let description = $state('');
@@ -119,7 +118,6 @@
       };
 
       await client.registerWebhook(req);
-      namespaceState.setNamespace(namespace);
       goto('/webhooks');
     } catch (e: any) {
       error = `Failed to register webhook: ${e.message}`;
@@ -159,6 +157,7 @@
               id="namespace"
               bind:value={namespace}
               oninput={() => validateNamespace(namespace)}
+              placeholder="Enter namespace..."
               class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900 {namespaceError ? 'border-red-300' : ''}"
             />
             {#if namespaceError}

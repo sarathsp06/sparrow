@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
@@ -195,26 +196,26 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, na
 		UpdatedAt         time.Time `db:"updated_at"`
 
 		// Webhook fields
-		WRID                    uuid.UUID `db:"wr_id"`
-		WRNamespace             string    `db:"wr_namespace"`
-		URL                     string    `db:"url"`
-		WRHeadersJSON           []byte    `db:"wr_headers"`
-		WRTimeout               int       `db:"wr_timeout"`
-		Active                  bool      `db:"active"`
-		Description             string    `db:"description"`
-		Health                  string    `db:"health"`
-		MaxRetries              int       `db:"max_retries"`
-		RetryBackoffSeconds     int       `db:"retry_backoff_seconds"`
-		CaptureResponseBody     bool      `db:"capture_response_body"`
-		FollowRedirects         bool      `db:"follow_redirects"`
-		VerifySSL               bool      `db:"verify_ssl"`
-		RequestTimeoutSeconds   int       `db:"request_timeout_seconds"`
-		ExpectedStatusCodesJSON []byte    `db:"expected_status_codes"`
-		WebhookSecret           string    `db:"webhook_secret"`
-		UserAgent               string    `db:"user_agent"`
-		ContentType             string    `db:"content_type"`
-		WRCreatedAt             time.Time `db:"wr_created_at"`
-		WRUpdatedAt             time.Time `db:"wr_updated_at"`
+		WRID                    uuid.UUID     `db:"wr_id"`
+		WRNamespace             string        `db:"wr_namespace"`
+		URL                     string        `db:"url"`
+		WRHeadersJSON           []byte        `db:"wr_headers"`
+		WRTimeout               int           `db:"wr_timeout"`
+		Active                  bool          `db:"active"`
+		Description             string        `db:"description"`
+		Health                  string        `db:"health"`
+		MaxRetries              int           `db:"max_retries"`
+		RetryBackoffSeconds     int           `db:"retry_backoff_seconds"`
+		CaptureResponseBody     bool          `db:"capture_response_body"`
+		FollowRedirects         bool          `db:"follow_redirects"`
+		VerifySSL               bool          `db:"verify_ssl"`
+		RequestTimeoutSeconds   int           `db:"request_timeout_seconds"`
+		ExpectedStatusCodesJSON pq.Int64Array `db:"expected_status_codes"`
+		WebhookSecret           string        `db:"webhook_secret"`
+		UserAgent               string        `db:"user_agent"`
+		ContentType             string        `db:"content_type"`
+		WRCreatedAt             time.Time     `db:"wr_created_at"`
+		WRUpdatedAt             time.Time     `db:"wr_updated_at"`
 	}
 
 	var rows []rowStruct
@@ -265,9 +266,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, na
 		if err := json.Unmarshal(row.WRHeadersJSON, &wh.Headers); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal webhook headers: %w", err)
 		}
-		if err := json.Unmarshal(row.ExpectedStatusCodesJSON, &wh.ExpectedStatusCodes); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal expected status codes: %w", err)
-		}
+		wh.ExpectedStatusCodes = row.ExpectedStatusCodesJSON
 
 		results = append(results, &SubscriptionWithWebhook{
 			Subscription: sub,

@@ -283,6 +283,30 @@ func (_d RepositoryInterfaceWithTracing) GetDeliveriesByWebhookID(ctx context.Co
 	return _d.RepositoryInterface.GetDeliveriesByWebhookID(ctx, webhookID, namespace, limit, offset)
 }
 
+// GetDeliveryAttempts implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) GetDeliveryAttempts(ctx context.Context, deliveryID uuid.UUID) (wpa1 []*WebhookHealthEvent, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetDeliveryAttempts")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":        ctx,
+				"deliveryID": deliveryID}, map[string]interface{}{
+				"wpa1": wpa1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.GetDeliveryAttempts(ctx, deliveryID)
+}
+
 // GetDeliveryByID implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) GetDeliveryByID(ctx context.Context, deliveryID uuid.UUID, namespace string) (wp1 *WebhookDelivery, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetDeliveryByID")
@@ -947,18 +971,19 @@ func (_d RepositoryInterfaceWithTracing) ListWebhooksPaginated(ctx context.Conte
 }
 
 // RecordWebhookHealthEvent implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) RecordWebhookHealthEvent(ctx context.Context, webhookID uuid.UUID, deliveryID uuid.UUID, success bool, responseTime int, responseCode int, errorMessage string) (err error) {
+func (_d RepositoryInterfaceWithTracing) RecordWebhookHealthEvent(ctx context.Context, webhookID uuid.UUID, deliveryID uuid.UUID, success bool, responseTime int, responseCode int, errorMessage string, errorCategory string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.RecordWebhookHealthEvent")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":          ctx,
-				"webhookID":    webhookID,
-				"deliveryID":   deliveryID,
-				"success":      success,
-				"responseTime": responseTime,
-				"responseCode": responseCode,
-				"errorMessage": errorMessage}, map[string]interface{}{
+				"ctx":           ctx,
+				"webhookID":     webhookID,
+				"deliveryID":    deliveryID,
+				"success":       success,
+				"responseTime":  responseTime,
+				"responseCode":  responseCode,
+				"errorMessage":  errorMessage,
+				"errorCategory": errorCategory}, map[string]interface{}{
 				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)
@@ -971,7 +996,7 @@ func (_d RepositoryInterfaceWithTracing) RecordWebhookHealthEvent(ctx context.Co
 
 		_span.End()
 	}()
-	return _d.RepositoryInterface.RecordWebhookHealthEvent(ctx, webhookID, deliveryID, success, responseTime, responseCode, errorMessage)
+	return _d.RepositoryInterface.RecordWebhookHealthEvent(ctx, webhookID, deliveryID, success, responseTime, responseCode, errorMessage, errorCategory)
 }
 
 // RegisterEvent implements RepositoryInterface
@@ -1114,17 +1139,18 @@ func (_d RepositoryInterfaceWithTracing) UpdateDeliveryRequestBody(ctx context.C
 }
 
 // UpdateDeliveryStatus implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody string, errorMessage string) (err error) {
+func (_d RepositoryInterfaceWithTracing) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody string, errorMessage string, errorCategory string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.UpdateDeliveryStatus")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":          ctx,
-				"deliveryID":   deliveryID,
-				"status":       status,
-				"responseCode": responseCode,
-				"responseBody": responseBody,
-				"errorMessage": errorMessage}, map[string]interface{}{
+				"ctx":           ctx,
+				"deliveryID":    deliveryID,
+				"status":        status,
+				"responseCode":  responseCode,
+				"responseBody":  responseBody,
+				"errorMessage":  errorMessage,
+				"errorCategory": errorCategory}, map[string]interface{}{
 				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)
@@ -1137,7 +1163,7 @@ func (_d RepositoryInterfaceWithTracing) UpdateDeliveryStatus(ctx context.Contex
 
 		_span.End()
 	}()
-	return _d.RepositoryInterface.UpdateDeliveryStatus(ctx, deliveryID, status, responseCode, responseBody, errorMessage)
+	return _d.RepositoryInterface.UpdateDeliveryStatus(ctx, deliveryID, status, responseCode, responseBody, errorMessage, errorCategory)
 }
 
 // UpdateEvent implements RepositoryInterface

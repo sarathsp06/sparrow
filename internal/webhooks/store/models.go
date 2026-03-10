@@ -74,6 +74,7 @@ type WebhookDelivery struct {
 	ResponseBody    string                `json:"response_body" db:"response_body"`
 	ErrorMessage    string                `json:"error_message" db:"error_message"`
 	RequestBody     string                `json:"request_body" db:"request_body"`
+	ErrorCategory   string                `json:"error_category" db:"error_category"`
 }
 
 // WebhookDeliveryStatus represents the status of a webhook delivery
@@ -90,14 +91,15 @@ const (
 
 // WebhookHealthEvent represents a single delivery event for time-series tracking
 type WebhookHealthEvent struct {
-	ID           uuid.UUID `json:"id" db:"id"`
-	WebhookID    uuid.UUID `json:"webhook_id" db:"webhook_id"`
-	DeliveryID   uuid.UUID `json:"delivery_id" db:"delivery_id"`
-	Success      bool      `json:"success" db:"success"`
-	ResponseTime int       `json:"response_time" db:"response_time"` // milliseconds
-	ResponseCode int       `json:"response_code" db:"response_code"`
-	ErrorMessage string    `json:"error_message" db:"error_message"`
-	Timestamp    time.Time `json:"timestamp" db:"timestamp"`
+	ID            uuid.UUID `json:"id" db:"id"`
+	WebhookID     uuid.UUID `json:"webhook_id" db:"webhook_id"`
+	DeliveryID    uuid.UUID `json:"delivery_id" db:"delivery_id"`
+	Success       bool      `json:"success" db:"success"`
+	ResponseTime  int       `json:"response_time" db:"response_time"` // milliseconds
+	ResponseCode  int       `json:"response_code" db:"response_code"`
+	ErrorMessage  string    `json:"error_message" db:"error_message"`
+	ErrorCategory string    `json:"error_category" db:"error_category"` // success, client_error, server_error, timeout, dns_error, tls_error, connection_refused, network_error, unknown
+	Timestamp     time.Time `json:"timestamp" db:"timestamp"`
 }
 
 // EventReportWithStats represents an event with delivery statistics
@@ -123,6 +125,10 @@ type WebhookHealthSummary struct {
 	MinResponseTime      int       `json:"min_response_time" db:"min_response_time"` // milliseconds
 	MaxResponseTime      int       `json:"max_response_time" db:"max_response_time"` // milliseconds
 	P95ResponseTime      int       `json:"p95_response_time" db:"p95_response_time"` // milliseconds
+	ClientErrors         int       `json:"client_errors" db:"client_errors"`         // 4xx error count
+	ServerErrors         int       `json:"server_errors" db:"server_errors"`         // 5xx error count
+	TimeoutErrors        int       `json:"timeout_errors" db:"timeout_errors"`       // timeout error count
+	NetworkErrors        int       `json:"network_errors" db:"network_errors"`       // network/dns/tls/connection error count
 	CreatedAt            time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt            time.Time `json:"updated_at" db:"updated_at"`
 }

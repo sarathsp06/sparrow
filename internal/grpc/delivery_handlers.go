@@ -5,6 +5,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/sarathsp06/sparrow/proto"
 )
@@ -32,6 +33,7 @@ func (s *WebhookServer) GetDeliveryStatus(ctx context.Context, req *pb.GetDelive
 			ResponseBody:    delivery.ResponseBody,
 			ErrorMessage:    delivery.ErrorMessage,
 			RequestBody:     delivery.RequestBody,
+			ErrorCategory:   delivery.ErrorCategory,
 		}
 	}
 	return &pb.GetDeliveryStatusResponse{
@@ -68,6 +70,7 @@ func (s *WebhookServer) ListDeliveries(ctx context.Context, req *pb.ListDeliveri
 			ResponseBody:    delivery.ResponseBody,
 			ErrorMessage:    delivery.ErrorMessage,
 			RequestBody:     delivery.RequestBody,
+			ErrorCategory:   delivery.ErrorCategory,
 		}
 		pbDeliveries = append(pbDeliveries, pbDelivery)
 	}
@@ -90,5 +93,37 @@ func (s *WebhookServer) RetryDelivery(ctx context.Context, req *pb.RetryDelivery
 	return &pb.RetryDeliveryResponse{
 		RetriedCount: resubmittedCount,
 		DeliveryIds:  resubmittedIDs,
+	}, nil
+}
+
+// GetDeliveryAttempts retrieves individual attempt history for a delivery
+func (s *WebhookServer) GetDeliveryAttempts(ctx context.Context, req *pb.GetDeliveryAttemptsRequest) (*pb.GetDeliveryAttemptsResponse, error) {
+	if req.DeliveryId == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "delivery_id is required")
+	}
+
+	attempts, err := s.service.GetDeliveryAttempts(ctx, req.DeliveryId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get delivery attempts: %v", err)
+	}
+
+	var pbAttempts []*pb.DeliveryAttempt
+	for _, attempt := range attempts {
+		pbAttempt := &pb.DeliveryAttempt{
+			AttemptId:     attempt.ID.String(),
+			DeliveryId:    attempt.DeliveryID.String(),
+			WebhookId:     attempt.WebhookID.String(),
+			Success:       attempt.Success,
+			ResponseTime:  int32(attempt.ResponseTime),
+			ResponseCode:  int32(attempt.ResponseCode),
+			ErrorMessage:  attempt.ErrorMessage,
+			ErrorCategory: attempt.ErrorCategory,
+			Timestamp:     timestamppb.New(attempt.Timestamp),
+		}
+		pbAttempts = append(pbAttempts, pbAttempt)
+	}
+
+	return &pb.GetDeliveryAttemptsResponse{
+		Attempts: pbAttempts,
 	}, nil
 }
