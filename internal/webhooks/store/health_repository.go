@@ -366,11 +366,12 @@ func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) 
 	return int(rowsAffected), nil
 }
 
-// GetHealthSummary returns a summary of webhook health across all namespaces
-func (r *Repository) GetHealthSummary(ctx context.Context) (map[WebhookHealth]int, error) {
+// GetHealthSummary returns a summary of webhook health within a tenant
+func (r *Repository) GetHealthSummary(ctx context.Context, tenantID uuid.UUID) (map[WebhookHealth]int, error) {
 	query := `
 		SELECT health, COUNT(*) as count
 		FROM webhook_registrations
+		WHERE tenant_id = $1
 		GROUP BY health
 	`
 
@@ -380,7 +381,7 @@ func (r *Repository) GetHealthSummary(ctx context.Context) (map[WebhookHealth]in
 	}
 
 	var results []healthCount
-	err := r.db.SelectContext(ctx, &results, query)
+	err := r.db.SelectContext(ctx, &results, query, tenantID)
 	if err != nil {
 		return nil, storage.Error(err)
 	}

@@ -1477,3 +1477,499 @@ var HealthService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/webhook.proto",
 }
+
+const (
+	TenantService_CreateTenant_FullMethodName = "/webhook.TenantService/CreateTenant"
+	TenantService_GetTenant_FullMethodName    = "/webhook.TenantService/GetTenant"
+	TenantService_ListTenants_FullMethodName  = "/webhook.TenantService/ListTenants"
+	TenantService_UpdateTenant_FullMethodName = "/webhook.TenantService/UpdateTenant"
+	TenantService_DeleteTenant_FullMethodName = "/webhook.TenantService/DeleteTenant"
+)
+
+// TenantServiceClient is the client API for TenantService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// TenantService manages tenant lifecycle
+type TenantServiceClient interface {
+	// CreateTenant creates a new tenant
+	CreateTenant(ctx context.Context, in *CreateTenantRequest, opts ...grpc.CallOption) (*CreateTenantResponse, error)
+	// GetTenant retrieves a tenant by ID
+	GetTenant(ctx context.Context, in *GetTenantRequest, opts ...grpc.CallOption) (*GetTenantResponse, error)
+	// ListTenants lists all tenants with pagination
+	ListTenants(ctx context.Context, in *ListTenantsRequest, opts ...grpc.CallOption) (*ListTenantsResponse, error)
+	// UpdateTenant updates a tenant's name or status
+	UpdateTenant(ctx context.Context, in *UpdateTenantRequest, opts ...grpc.CallOption) (*UpdateTenantResponse, error)
+	// DeleteTenant deletes a tenant (cascades to all related data)
+	DeleteTenant(ctx context.Context, in *DeleteTenantRequest, opts ...grpc.CallOption) (*DeleteTenantResponse, error)
+}
+
+type tenantServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewTenantServiceClient(cc grpc.ClientConnInterface) TenantServiceClient {
+	return &tenantServiceClient{cc}
+}
+
+func (c *tenantServiceClient) CreateTenant(ctx context.Context, in *CreateTenantRequest, opts ...grpc.CallOption) (*CreateTenantResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateTenantResponse)
+	err := c.cc.Invoke(ctx, TenantService_CreateTenant_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tenantServiceClient) GetTenant(ctx context.Context, in *GetTenantRequest, opts ...grpc.CallOption) (*GetTenantResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTenantResponse)
+	err := c.cc.Invoke(ctx, TenantService_GetTenant_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tenantServiceClient) ListTenants(ctx context.Context, in *ListTenantsRequest, opts ...grpc.CallOption) (*ListTenantsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTenantsResponse)
+	err := c.cc.Invoke(ctx, TenantService_ListTenants_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tenantServiceClient) UpdateTenant(ctx context.Context, in *UpdateTenantRequest, opts ...grpc.CallOption) (*UpdateTenantResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateTenantResponse)
+	err := c.cc.Invoke(ctx, TenantService_UpdateTenant_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *tenantServiceClient) DeleteTenant(ctx context.Context, in *DeleteTenantRequest, opts ...grpc.CallOption) (*DeleteTenantResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteTenantResponse)
+	err := c.cc.Invoke(ctx, TenantService_DeleteTenant_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TenantServiceServer is the server API for TenantService service.
+// All implementations must embed UnimplementedTenantServiceServer
+// for forward compatibility.
+//
+// TenantService manages tenant lifecycle
+type TenantServiceServer interface {
+	// CreateTenant creates a new tenant
+	CreateTenant(context.Context, *CreateTenantRequest) (*CreateTenantResponse, error)
+	// GetTenant retrieves a tenant by ID
+	GetTenant(context.Context, *GetTenantRequest) (*GetTenantResponse, error)
+	// ListTenants lists all tenants with pagination
+	ListTenants(context.Context, *ListTenantsRequest) (*ListTenantsResponse, error)
+	// UpdateTenant updates a tenant's name or status
+	UpdateTenant(context.Context, *UpdateTenantRequest) (*UpdateTenantResponse, error)
+	// DeleteTenant deletes a tenant (cascades to all related data)
+	DeleteTenant(context.Context, *DeleteTenantRequest) (*DeleteTenantResponse, error)
+	mustEmbedUnimplementedTenantServiceServer()
+}
+
+// UnimplementedTenantServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedTenantServiceServer struct{}
+
+func (UnimplementedTenantServiceServer) CreateTenant(context.Context, *CreateTenantRequest) (*CreateTenantResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateTenant not implemented")
+}
+func (UnimplementedTenantServiceServer) GetTenant(context.Context, *GetTenantRequest) (*GetTenantResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTenant not implemented")
+}
+func (UnimplementedTenantServiceServer) ListTenants(context.Context, *ListTenantsRequest) (*ListTenantsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTenants not implemented")
+}
+func (UnimplementedTenantServiceServer) UpdateTenant(context.Context, *UpdateTenantRequest) (*UpdateTenantResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTenant not implemented")
+}
+func (UnimplementedTenantServiceServer) DeleteTenant(context.Context, *DeleteTenantRequest) (*DeleteTenantResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteTenant not implemented")
+}
+func (UnimplementedTenantServiceServer) mustEmbedUnimplementedTenantServiceServer() {}
+func (UnimplementedTenantServiceServer) testEmbeddedByValue()                       {}
+
+// UnsafeTenantServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to TenantServiceServer will
+// result in compilation errors.
+type UnsafeTenantServiceServer interface {
+	mustEmbedUnimplementedTenantServiceServer()
+}
+
+func RegisterTenantServiceServer(s grpc.ServiceRegistrar, srv TenantServiceServer) {
+	// If the following call panics, it indicates UnimplementedTenantServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&TenantService_ServiceDesc, srv)
+}
+
+func _TenantService_CreateTenant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTenantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TenantServiceServer).CreateTenant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TenantService_CreateTenant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TenantServiceServer).CreateTenant(ctx, req.(*CreateTenantRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TenantService_GetTenant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTenantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TenantServiceServer).GetTenant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TenantService_GetTenant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TenantServiceServer).GetTenant(ctx, req.(*GetTenantRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TenantService_ListTenants_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTenantsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TenantServiceServer).ListTenants(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TenantService_ListTenants_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TenantServiceServer).ListTenants(ctx, req.(*ListTenantsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TenantService_UpdateTenant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTenantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TenantServiceServer).UpdateTenant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TenantService_UpdateTenant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TenantServiceServer).UpdateTenant(ctx, req.(*UpdateTenantRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TenantService_DeleteTenant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteTenantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TenantServiceServer).DeleteTenant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TenantService_DeleteTenant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TenantServiceServer).DeleteTenant(ctx, req.(*DeleteTenantRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// TenantService_ServiceDesc is the grpc.ServiceDesc for TenantService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var TenantService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "webhook.TenantService",
+	HandlerType: (*TenantServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateTenant",
+			Handler:    _TenantService_CreateTenant_Handler,
+		},
+		{
+			MethodName: "GetTenant",
+			Handler:    _TenantService_GetTenant_Handler,
+		},
+		{
+			MethodName: "ListTenants",
+			Handler:    _TenantService_ListTenants_Handler,
+		},
+		{
+			MethodName: "UpdateTenant",
+			Handler:    _TenantService_UpdateTenant_Handler,
+		},
+		{
+			MethodName: "DeleteTenant",
+			Handler:    _TenantService_DeleteTenant_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/webhook.proto",
+}
+
+const (
+	APIKeyService_CreateAPIKey_FullMethodName = "/webhook.APIKeyService/CreateAPIKey"
+	APIKeyService_GetAPIKey_FullMethodName    = "/webhook.APIKeyService/GetAPIKey"
+	APIKeyService_ListAPIKeys_FullMethodName  = "/webhook.APIKeyService/ListAPIKeys"
+	APIKeyService_RevokeAPIKey_FullMethodName = "/webhook.APIKeyService/RevokeAPIKey"
+)
+
+// APIKeyServiceClient is the client API for APIKeyService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// APIKeyService manages API key lifecycle
+type APIKeyServiceClient interface {
+	// CreateAPIKey generates a new API key for a tenant
+	CreateAPIKey(ctx context.Context, in *CreateAPIKeyRequest, opts ...grpc.CallOption) (*CreateAPIKeyResponse, error)
+	// GetAPIKey retrieves an API key by ID (does not return the secret)
+	GetAPIKey(ctx context.Context, in *GetAPIKeyRequest, opts ...grpc.CallOption) (*GetAPIKeyResponse, error)
+	// ListAPIKeys lists API keys for a tenant with pagination
+	ListAPIKeys(ctx context.Context, in *ListAPIKeysRequest, opts ...grpc.CallOption) (*ListAPIKeysResponse, error)
+	// RevokeAPIKey revokes an API key, preventing further use
+	RevokeAPIKey(ctx context.Context, in *RevokeAPIKeyRequest, opts ...grpc.CallOption) (*RevokeAPIKeyResponse, error)
+}
+
+type aPIKeyServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAPIKeyServiceClient(cc grpc.ClientConnInterface) APIKeyServiceClient {
+	return &aPIKeyServiceClient{cc}
+}
+
+func (c *aPIKeyServiceClient) CreateAPIKey(ctx context.Context, in *CreateAPIKeyRequest, opts ...grpc.CallOption) (*CreateAPIKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateAPIKeyResponse)
+	err := c.cc.Invoke(ctx, APIKeyService_CreateAPIKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIKeyServiceClient) GetAPIKey(ctx context.Context, in *GetAPIKeyRequest, opts ...grpc.CallOption) (*GetAPIKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAPIKeyResponse)
+	err := c.cc.Invoke(ctx, APIKeyService_GetAPIKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIKeyServiceClient) ListAPIKeys(ctx context.Context, in *ListAPIKeysRequest, opts ...grpc.CallOption) (*ListAPIKeysResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAPIKeysResponse)
+	err := c.cc.Invoke(ctx, APIKeyService_ListAPIKeys_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIKeyServiceClient) RevokeAPIKey(ctx context.Context, in *RevokeAPIKeyRequest, opts ...grpc.CallOption) (*RevokeAPIKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeAPIKeyResponse)
+	err := c.cc.Invoke(ctx, APIKeyService_RevokeAPIKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// APIKeyServiceServer is the server API for APIKeyService service.
+// All implementations must embed UnimplementedAPIKeyServiceServer
+// for forward compatibility.
+//
+// APIKeyService manages API key lifecycle
+type APIKeyServiceServer interface {
+	// CreateAPIKey generates a new API key for a tenant
+	CreateAPIKey(context.Context, *CreateAPIKeyRequest) (*CreateAPIKeyResponse, error)
+	// GetAPIKey retrieves an API key by ID (does not return the secret)
+	GetAPIKey(context.Context, *GetAPIKeyRequest) (*GetAPIKeyResponse, error)
+	// ListAPIKeys lists API keys for a tenant with pagination
+	ListAPIKeys(context.Context, *ListAPIKeysRequest) (*ListAPIKeysResponse, error)
+	// RevokeAPIKey revokes an API key, preventing further use
+	RevokeAPIKey(context.Context, *RevokeAPIKeyRequest) (*RevokeAPIKeyResponse, error)
+	mustEmbedUnimplementedAPIKeyServiceServer()
+}
+
+// UnimplementedAPIKeyServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAPIKeyServiceServer struct{}
+
+func (UnimplementedAPIKeyServiceServer) CreateAPIKey(context.Context, *CreateAPIKeyRequest) (*CreateAPIKeyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateAPIKey not implemented")
+}
+func (UnimplementedAPIKeyServiceServer) GetAPIKey(context.Context, *GetAPIKeyRequest) (*GetAPIKeyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAPIKey not implemented")
+}
+func (UnimplementedAPIKeyServiceServer) ListAPIKeys(context.Context, *ListAPIKeysRequest) (*ListAPIKeysResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAPIKeys not implemented")
+}
+func (UnimplementedAPIKeyServiceServer) RevokeAPIKey(context.Context, *RevokeAPIKeyRequest) (*RevokeAPIKeyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeAPIKey not implemented")
+}
+func (UnimplementedAPIKeyServiceServer) mustEmbedUnimplementedAPIKeyServiceServer() {}
+func (UnimplementedAPIKeyServiceServer) testEmbeddedByValue()                       {}
+
+// UnsafeAPIKeyServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to APIKeyServiceServer will
+// result in compilation errors.
+type UnsafeAPIKeyServiceServer interface {
+	mustEmbedUnimplementedAPIKeyServiceServer()
+}
+
+func RegisterAPIKeyServiceServer(s grpc.ServiceRegistrar, srv APIKeyServiceServer) {
+	// If the following call panics, it indicates UnimplementedAPIKeyServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&APIKeyService_ServiceDesc, srv)
+}
+
+func _APIKeyService_CreateAPIKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAPIKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIKeyServiceServer).CreateAPIKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: APIKeyService_CreateAPIKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIKeyServiceServer).CreateAPIKey(ctx, req.(*CreateAPIKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _APIKeyService_GetAPIKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAPIKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIKeyServiceServer).GetAPIKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: APIKeyService_GetAPIKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIKeyServiceServer).GetAPIKey(ctx, req.(*GetAPIKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _APIKeyService_ListAPIKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAPIKeysRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIKeyServiceServer).ListAPIKeys(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: APIKeyService_ListAPIKeys_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIKeyServiceServer).ListAPIKeys(ctx, req.(*ListAPIKeysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _APIKeyService_RevokeAPIKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeAPIKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIKeyServiceServer).RevokeAPIKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: APIKeyService_RevokeAPIKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIKeyServiceServer).RevokeAPIKey(ctx, req.(*RevokeAPIKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// APIKeyService_ServiceDesc is the grpc.ServiceDesc for APIKeyService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var APIKeyService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "webhook.APIKeyService",
+	HandlerType: (*APIKeyServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateAPIKey",
+			Handler:    _APIKeyService_CreateAPIKey_Handler,
+		},
+		{
+			MethodName: "GetAPIKey",
+			Handler:    _APIKeyService_GetAPIKey_Handler,
+		},
+		{
+			MethodName: "ListAPIKeys",
+			Handler:    _APIKeyService_ListAPIKeys_Handler,
+		},
+		{
+			MethodName: "RevokeAPIKey",
+			Handler:    _APIKeyService_RevokeAPIKey_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/webhook.proto",
+}

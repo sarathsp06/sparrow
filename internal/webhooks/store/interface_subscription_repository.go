@@ -12,11 +12,12 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
-// CreateSubscription creates a new event subscription
-func (r *Repository) CreateSubscription(ctx context.Context, sub *EventSubscription) error {
+// CreateSubscription creates a new event subscription within a tenant
+func (r *Repository) CreateSubscription(ctx context.Context, tenantID uuid.UUID, sub *EventSubscription) error {
 	if sub.ID == uuid.Nil {
 		sub.ID = uuid.New()
 	}
+	sub.TenantID = tenantID
 	now := time.Now()
 	if sub.CreatedAt.IsZero() {
 		sub.CreatedAt = now
@@ -25,9 +26,9 @@ func (r *Repository) CreateSubscription(ctx context.Context, sub *EventSubscript
 
 	query := `
 		INSERT INTO event_subscriptions (
-			id, webhook_id, event_name, namespace, headers, method,
+			id, tenant_id, webhook_id, event_name, namespace, headers, method,
 			transform_enabled, transform_template, timeout, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 
 	headersJSON, err := json.Marshal(sub.Headers)
@@ -37,6 +38,7 @@ func (r *Repository) CreateSubscription(ctx context.Context, sub *EventSubscript
 
 	_, err = r.db.ExecContext(ctx, query,
 		sub.ID,
+		sub.TenantID,
 		sub.WebhookID,
 		sub.EventName,
 		sub.Namespace,
@@ -51,16 +53,16 @@ func (r *Repository) CreateSubscription(ctx context.Context, sub *EventSubscript
 	return storage.Error(err)
 }
 
-// GetSubscription gets a subscription by ID
-func (r *Repository) GetSubscription(ctx context.Context, id uuid.UUID) (*EventSubscription, error) {
+// GetSubscription gets a subscription by ID within a tenant
+func (r *Repository) GetSubscription(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*EventSubscription, error) {
 	query := `
-		SELECT id, webhook_id, event_name, namespace, headers, method,
+		SELECT id, tenant_id, webhook_id, event_name, namespace, headers, method,
 		       transform_enabled, transform_template, timeout, created_at, updated_at
 		FROM event_subscriptions
-		WHERE id = $1
+		WHERE tenant_id = $1 AND id = $2
 	`
 	var sub EventSubscription
-	err := r.db.GetContext(ctx, &sub, query, id)
+	err := r.db.GetContext(ctx, &sub, query, tenantID, id)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
@@ -70,8 +72,8 @@ func (r *Repository) GetSubscription(ctx context.Context, id uuid.UUID) (*EventS
 	return &sub, nil
 }
 
-// UpdateSubscription updates a subscription
-func (r *Repository) UpdateSubscription(ctx context.Context, sub *EventSubscription) error {
+// UpdateSubscription updates a subscription within a tenant
+func (r *Repository) UpdateSubscription(ctx context.Context, tenantID uuid.UUID, sub *EventSubscription) error {
 	sub.UpdatedAt = time.Now()
 
 	headersJSON, err := json.Marshal(sub.Headers)
@@ -81,12 +83,13 @@ func (r *Repository) UpdateSubscription(ctx context.Context, sub *EventSubscript
 
 	query := `
 		UPDATE event_subscriptions
-		SET headers = $2, method = $3, transform_enabled = $4,
-		    transform_template = $5, timeout = $6, updated_at = $7
-		WHERE id = $1
+		SET headers = $3, method = $4, transform_enabled = $5,
+		    transform_template = $6, timeout = $7, updated_at = $8
+		WHERE tenant_id = $1 AND id = $2
 	`
 
 	_, err = r.db.ExecContext(ctx, query,
+		tenantID,
 		sub.ID,
 		headersJSON,
 		sub.Method,
@@ -98,75 +101,75 @@ func (r *Repository) UpdateSubscription(ctx context.Context, sub *EventSubscript
 	return storage.Error(err)
 }
 
-// DeleteSubscription deletes a subscription
-func (r *Repository) DeleteSubscription(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM event_subscriptions WHERE id = $1`
-	_, err := r.db.ExecContext(ctx, query, id)
+// DeleteSubscription deletes a subscription within a tenant
+func (r *Repository) DeleteSubscription(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error {
+	query := `DELETE FROM event_subscriptions WHERE tenant_id = $1 AND id = $2`
+	_, err := r.db.ExecContext(ctx, query, tenantID, id)
 	return storage.Error(err)
 }
 
-// ListSubscriptions lists subscriptions for a webhook
-func (r *Repository) ListSubscriptions(ctx context.Context, webhookID uuid.UUID) ([]*EventSubscription, error) {
+// ListSubscriptions lists subscriptions for a webhook within a tenant
+func (r *Repository) ListSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) ([]*EventSubscription, error) {
 	query := `
-		SELECT id, webhook_id, event_name, namespace, headers, method,
+		SELECT id, tenant_id, webhook_id, event_name, namespace, headers, method,
 		       transform_enabled, transform_template, timeout, created_at, updated_at
 		FROM event_subscriptions
-		WHERE webhook_id = $1
+		WHERE tenant_id = $1 AND webhook_id = $2
 		ORDER BY created_at DESC
 	`
 	var subs []*EventSubscription
-	err := r.db.SelectContext(ctx, &subs, query, webhookID)
+	err := r.db.SelectContext(ctx, &subs, query, tenantID, webhookID)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
 	return subs, nil
 }
 
-// ListSubscriptionsByNamespace lists all subscriptions in a namespace with pagination.
-func (r *Repository) ListSubscriptionsByNamespace(ctx context.Context, namespace string, limit, offset int) ([]*EventSubscription, int, error) {
-	countQuery := `SELECT COUNT(*) FROM event_subscriptions WHERE namespace = $1`
+// ListSubscriptionsByNamespace lists all subscriptions in a namespace within a tenant with pagination.
+func (r *Repository) ListSubscriptionsByNamespace(ctx context.Context, tenantID uuid.UUID, namespace string, limit, offset int) ([]*EventSubscription, int, error) {
+	countQuery := `SELECT COUNT(*) FROM event_subscriptions WHERE tenant_id = $1 AND namespace = $2`
 	var totalCount int
-	if err := r.db.GetContext(ctx, &totalCount, countQuery, namespace); err != nil {
+	if err := r.db.GetContext(ctx, &totalCount, countQuery, tenantID, namespace); err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
 	query := `
-		SELECT id, webhook_id, event_name, namespace, headers, method,
+		SELECT id, tenant_id, webhook_id, event_name, namespace, headers, method,
 		       transform_enabled, transform_template, timeout, created_at, updated_at
 		FROM event_subscriptions
-		WHERE namespace = $1
+		WHERE tenant_id = $1 AND namespace = $2
 		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3
+		LIMIT $3 OFFSET $4
 	`
 	var subs []*EventSubscription
-	err := r.db.SelectContext(ctx, &subs, query, namespace, limit, offset)
+	err := r.db.SelectContext(ctx, &subs, query, tenantID, namespace, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 	return subs, totalCount, nil
 }
 
-// GetSubscriptionsByEvent finds all active subscriptions for a specific event in a namespace.
-func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, namespace, event string) ([]*EventSubscription, error) {
+// GetSubscriptionsByEvent finds all active subscriptions for a specific event in a namespace within a tenant.
+func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string) ([]*EventSubscription, error) {
 	query := `
-		SELECT es.id, es.webhook_id, es.event_name, es.namespace, es.headers, es.method, 
+		SELECT es.id, es.tenant_id, es.webhook_id, es.event_name, es.namespace, es.headers, es.method, 
 		       es.transform_enabled, es.transform_template, es.timeout, es.created_at, es.updated_at
 		FROM event_subscriptions es
 		JOIN webhook_registrations wr ON es.webhook_id = wr.id
-		WHERE es.namespace = $1 AND es.event_name = $2 AND wr.active = true
+		WHERE es.tenant_id = $1 AND es.namespace = $2 AND es.event_name = $3 AND wr.active = true
 	`
 	var subscriptions []*EventSubscription
 
-	err := r.db.SelectContext(ctx, &subscriptions, query, namespace, event)
+	err := r.db.SelectContext(ctx, &subscriptions, query, tenantID, namespace, event)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
 	return subscriptions, nil
 }
 
-// GetSubscriptionsWithWebhooksByEvent finds all active subscriptions for a specific event in a namespace,
+// GetSubscriptionsWithWebhooksByEvent finds all active subscriptions for a specific event in a namespace within a tenant,
 // including the webhook configuration for each subscription.
-func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, namespace, event string) ([]*SubscriptionWithWebhook, error) {
+func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string) ([]*SubscriptionWithWebhook, error) {
 	query := `
 		SELECT
 			es.id, es.webhook_id, es.event_name, es.namespace, es.headers as es_headers, es.method,
@@ -178,7 +181,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, na
 			wr.user_agent, wr.content_type, wr.created_at as wr_created_at, wr.updated_at as wr_updated_at
 		FROM event_subscriptions es
 		JOIN webhook_registrations wr ON es.webhook_id = wr.id
-		WHERE es.namespace = $1 AND es.event_name = $2 AND wr.active = true
+		WHERE es.tenant_id = $1 AND es.namespace = $2 AND es.event_name = $3 AND wr.active = true
 	`
 
 	type rowStruct struct {
@@ -219,7 +222,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, na
 	}
 
 	var rows []rowStruct
-	err := r.db.SelectContext(ctx, &rows, query, namespace, event)
+	err := r.db.SelectContext(ctx, &rows, query, tenantID, namespace, event)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -228,6 +231,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, na
 	for _, row := range rows {
 		sub := &EventSubscription{
 			ID:                row.ID,
+			TenantID:          tenantID,
 			WebhookID:         row.WebhookID,
 			EventName:         row.EventName,
 			Namespace:         row.Namespace,
@@ -241,6 +245,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, na
 
 		wh := &WebhookRegistration{
 			ID:                    row.WRID,
+			TenantID:              tenantID,
 			Namespace:             row.WRNamespace,
 			URL:                   row.URL,
 			Timeout:               row.WRTimeout,

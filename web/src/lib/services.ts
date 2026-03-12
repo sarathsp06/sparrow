@@ -8,9 +8,23 @@ import {
   DeliveryService,
   HealthService
 } from "../../../proto/webhook_pb.js";
+import { getSessionToken } from "./auth.js";
 
+// Create a transport that automatically injects the auth session token
+// as a Bearer token on every request. If no auth provider is active or
+// the user is not signed in, requests are sent without an Authorization
+// header (backwards compatible).
 const transport = createConnectTransport({
-  baseUrl: PUBLIC_API_URL as string || "http://localhost:8080",
+  baseUrl: PUBLIC_API_URL || "/",
+  interceptors: [
+    (next) => async (req) => {
+      const token = await getSessionToken();
+      if (token) {
+        req.header.set("Authorization", `Bearer ${token}`);
+      }
+      return next(req);
+    },
+  ],
 });
 
 export const webhookClient = createClient(WebhookService, transport);

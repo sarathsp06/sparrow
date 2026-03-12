@@ -31,6 +31,10 @@ const (
 	DeliveryServiceName = "webhook.DeliveryService"
 	// HealthServiceName is the fully-qualified name of the HealthService service.
 	HealthServiceName = "webhook.HealthService"
+	// TenantServiceName is the fully-qualified name of the TenantService service.
+	TenantServiceName = "webhook.TenantService"
+	// APIKeyServiceName is the fully-qualified name of the APIKeyService service.
+	APIKeyServiceName = "webhook.APIKeyService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -122,6 +126,31 @@ const (
 	// HealthServiceGetHealthSummaryProcedure is the fully-qualified name of the HealthService's
 	// GetHealthSummary RPC.
 	HealthServiceGetHealthSummaryProcedure = "/webhook.HealthService/GetHealthSummary"
+	// TenantServiceCreateTenantProcedure is the fully-qualified name of the TenantService's
+	// CreateTenant RPC.
+	TenantServiceCreateTenantProcedure = "/webhook.TenantService/CreateTenant"
+	// TenantServiceGetTenantProcedure is the fully-qualified name of the TenantService's GetTenant RPC.
+	TenantServiceGetTenantProcedure = "/webhook.TenantService/GetTenant"
+	// TenantServiceListTenantsProcedure is the fully-qualified name of the TenantService's ListTenants
+	// RPC.
+	TenantServiceListTenantsProcedure = "/webhook.TenantService/ListTenants"
+	// TenantServiceUpdateTenantProcedure is the fully-qualified name of the TenantService's
+	// UpdateTenant RPC.
+	TenantServiceUpdateTenantProcedure = "/webhook.TenantService/UpdateTenant"
+	// TenantServiceDeleteTenantProcedure is the fully-qualified name of the TenantService's
+	// DeleteTenant RPC.
+	TenantServiceDeleteTenantProcedure = "/webhook.TenantService/DeleteTenant"
+	// APIKeyServiceCreateAPIKeyProcedure is the fully-qualified name of the APIKeyService's
+	// CreateAPIKey RPC.
+	APIKeyServiceCreateAPIKeyProcedure = "/webhook.APIKeyService/CreateAPIKey"
+	// APIKeyServiceGetAPIKeyProcedure is the fully-qualified name of the APIKeyService's GetAPIKey RPC.
+	APIKeyServiceGetAPIKeyProcedure = "/webhook.APIKeyService/GetAPIKey"
+	// APIKeyServiceListAPIKeysProcedure is the fully-qualified name of the APIKeyService's ListAPIKeys
+	// RPC.
+	APIKeyServiceListAPIKeysProcedure = "/webhook.APIKeyService/ListAPIKeys"
+	// APIKeyServiceRevokeAPIKeyProcedure is the fully-qualified name of the APIKeyService's
+	// RevokeAPIKey RPC.
+	APIKeyServiceRevokeAPIKeyProcedure = "/webhook.APIKeyService/RevokeAPIKey"
 )
 
 // WebhookServiceClient is a client for the webhook.WebhookService service.
@@ -1126,4 +1155,344 @@ func (UnimplementedHealthServiceHandler) ListWebhooksByHealth(context.Context, *
 
 func (UnimplementedHealthServiceHandler) GetHealthSummary(context.Context, *connect.Request[proto.GetHealthSummaryRequest]) (*connect.Response[proto.GetHealthSummaryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.HealthService.GetHealthSummary is not implemented"))
+}
+
+// TenantServiceClient is a client for the webhook.TenantService service.
+type TenantServiceClient interface {
+	// CreateTenant creates a new tenant
+	CreateTenant(context.Context, *connect.Request[proto.CreateTenantRequest]) (*connect.Response[proto.CreateTenantResponse], error)
+	// GetTenant retrieves a tenant by ID
+	GetTenant(context.Context, *connect.Request[proto.GetTenantRequest]) (*connect.Response[proto.GetTenantResponse], error)
+	// ListTenants lists all tenants with pagination
+	ListTenants(context.Context, *connect.Request[proto.ListTenantsRequest]) (*connect.Response[proto.ListTenantsResponse], error)
+	// UpdateTenant updates a tenant's name or status
+	UpdateTenant(context.Context, *connect.Request[proto.UpdateTenantRequest]) (*connect.Response[proto.UpdateTenantResponse], error)
+	// DeleteTenant deletes a tenant (cascades to all related data)
+	DeleteTenant(context.Context, *connect.Request[proto.DeleteTenantRequest]) (*connect.Response[proto.DeleteTenantResponse], error)
+}
+
+// NewTenantServiceClient constructs a client for the webhook.TenantService service. By default, it
+// uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses, and sends
+// uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the connect.WithGRPC() or
+// connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewTenantServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) TenantServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	tenantServiceMethods := proto.File_proto_webhook_proto.Services().ByName("TenantService").Methods()
+	return &tenantServiceClient{
+		createTenant: connect.NewClient[proto.CreateTenantRequest, proto.CreateTenantResponse](
+			httpClient,
+			baseURL+TenantServiceCreateTenantProcedure,
+			connect.WithSchema(tenantServiceMethods.ByName("CreateTenant")),
+			connect.WithClientOptions(opts...),
+		),
+		getTenant: connect.NewClient[proto.GetTenantRequest, proto.GetTenantResponse](
+			httpClient,
+			baseURL+TenantServiceGetTenantProcedure,
+			connect.WithSchema(tenantServiceMethods.ByName("GetTenant")),
+			connect.WithClientOptions(opts...),
+		),
+		listTenants: connect.NewClient[proto.ListTenantsRequest, proto.ListTenantsResponse](
+			httpClient,
+			baseURL+TenantServiceListTenantsProcedure,
+			connect.WithSchema(tenantServiceMethods.ByName("ListTenants")),
+			connect.WithClientOptions(opts...),
+		),
+		updateTenant: connect.NewClient[proto.UpdateTenantRequest, proto.UpdateTenantResponse](
+			httpClient,
+			baseURL+TenantServiceUpdateTenantProcedure,
+			connect.WithSchema(tenantServiceMethods.ByName("UpdateTenant")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteTenant: connect.NewClient[proto.DeleteTenantRequest, proto.DeleteTenantResponse](
+			httpClient,
+			baseURL+TenantServiceDeleteTenantProcedure,
+			connect.WithSchema(tenantServiceMethods.ByName("DeleteTenant")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// tenantServiceClient implements TenantServiceClient.
+type tenantServiceClient struct {
+	createTenant *connect.Client[proto.CreateTenantRequest, proto.CreateTenantResponse]
+	getTenant    *connect.Client[proto.GetTenantRequest, proto.GetTenantResponse]
+	listTenants  *connect.Client[proto.ListTenantsRequest, proto.ListTenantsResponse]
+	updateTenant *connect.Client[proto.UpdateTenantRequest, proto.UpdateTenantResponse]
+	deleteTenant *connect.Client[proto.DeleteTenantRequest, proto.DeleteTenantResponse]
+}
+
+// CreateTenant calls webhook.TenantService.CreateTenant.
+func (c *tenantServiceClient) CreateTenant(ctx context.Context, req *connect.Request[proto.CreateTenantRequest]) (*connect.Response[proto.CreateTenantResponse], error) {
+	return c.createTenant.CallUnary(ctx, req)
+}
+
+// GetTenant calls webhook.TenantService.GetTenant.
+func (c *tenantServiceClient) GetTenant(ctx context.Context, req *connect.Request[proto.GetTenantRequest]) (*connect.Response[proto.GetTenantResponse], error) {
+	return c.getTenant.CallUnary(ctx, req)
+}
+
+// ListTenants calls webhook.TenantService.ListTenants.
+func (c *tenantServiceClient) ListTenants(ctx context.Context, req *connect.Request[proto.ListTenantsRequest]) (*connect.Response[proto.ListTenantsResponse], error) {
+	return c.listTenants.CallUnary(ctx, req)
+}
+
+// UpdateTenant calls webhook.TenantService.UpdateTenant.
+func (c *tenantServiceClient) UpdateTenant(ctx context.Context, req *connect.Request[proto.UpdateTenantRequest]) (*connect.Response[proto.UpdateTenantResponse], error) {
+	return c.updateTenant.CallUnary(ctx, req)
+}
+
+// DeleteTenant calls webhook.TenantService.DeleteTenant.
+func (c *tenantServiceClient) DeleteTenant(ctx context.Context, req *connect.Request[proto.DeleteTenantRequest]) (*connect.Response[proto.DeleteTenantResponse], error) {
+	return c.deleteTenant.CallUnary(ctx, req)
+}
+
+// TenantServiceHandler is an implementation of the webhook.TenantService service.
+type TenantServiceHandler interface {
+	// CreateTenant creates a new tenant
+	CreateTenant(context.Context, *connect.Request[proto.CreateTenantRequest]) (*connect.Response[proto.CreateTenantResponse], error)
+	// GetTenant retrieves a tenant by ID
+	GetTenant(context.Context, *connect.Request[proto.GetTenantRequest]) (*connect.Response[proto.GetTenantResponse], error)
+	// ListTenants lists all tenants with pagination
+	ListTenants(context.Context, *connect.Request[proto.ListTenantsRequest]) (*connect.Response[proto.ListTenantsResponse], error)
+	// UpdateTenant updates a tenant's name or status
+	UpdateTenant(context.Context, *connect.Request[proto.UpdateTenantRequest]) (*connect.Response[proto.UpdateTenantResponse], error)
+	// DeleteTenant deletes a tenant (cascades to all related data)
+	DeleteTenant(context.Context, *connect.Request[proto.DeleteTenantRequest]) (*connect.Response[proto.DeleteTenantResponse], error)
+}
+
+// NewTenantServiceHandler builds an HTTP handler from the service implementation. It returns the
+// path on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewTenantServiceHandler(svc TenantServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	tenantServiceMethods := proto.File_proto_webhook_proto.Services().ByName("TenantService").Methods()
+	tenantServiceCreateTenantHandler := connect.NewUnaryHandler(
+		TenantServiceCreateTenantProcedure,
+		svc.CreateTenant,
+		connect.WithSchema(tenantServiceMethods.ByName("CreateTenant")),
+		connect.WithHandlerOptions(opts...),
+	)
+	tenantServiceGetTenantHandler := connect.NewUnaryHandler(
+		TenantServiceGetTenantProcedure,
+		svc.GetTenant,
+		connect.WithSchema(tenantServiceMethods.ByName("GetTenant")),
+		connect.WithHandlerOptions(opts...),
+	)
+	tenantServiceListTenantsHandler := connect.NewUnaryHandler(
+		TenantServiceListTenantsProcedure,
+		svc.ListTenants,
+		connect.WithSchema(tenantServiceMethods.ByName("ListTenants")),
+		connect.WithHandlerOptions(opts...),
+	)
+	tenantServiceUpdateTenantHandler := connect.NewUnaryHandler(
+		TenantServiceUpdateTenantProcedure,
+		svc.UpdateTenant,
+		connect.WithSchema(tenantServiceMethods.ByName("UpdateTenant")),
+		connect.WithHandlerOptions(opts...),
+	)
+	tenantServiceDeleteTenantHandler := connect.NewUnaryHandler(
+		TenantServiceDeleteTenantProcedure,
+		svc.DeleteTenant,
+		connect.WithSchema(tenantServiceMethods.ByName("DeleteTenant")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/webhook.TenantService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case TenantServiceCreateTenantProcedure:
+			tenantServiceCreateTenantHandler.ServeHTTP(w, r)
+		case TenantServiceGetTenantProcedure:
+			tenantServiceGetTenantHandler.ServeHTTP(w, r)
+		case TenantServiceListTenantsProcedure:
+			tenantServiceListTenantsHandler.ServeHTTP(w, r)
+		case TenantServiceUpdateTenantProcedure:
+			tenantServiceUpdateTenantHandler.ServeHTTP(w, r)
+		case TenantServiceDeleteTenantProcedure:
+			tenantServiceDeleteTenantHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedTenantServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedTenantServiceHandler struct{}
+
+func (UnimplementedTenantServiceHandler) CreateTenant(context.Context, *connect.Request[proto.CreateTenantRequest]) (*connect.Response[proto.CreateTenantResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.TenantService.CreateTenant is not implemented"))
+}
+
+func (UnimplementedTenantServiceHandler) GetTenant(context.Context, *connect.Request[proto.GetTenantRequest]) (*connect.Response[proto.GetTenantResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.TenantService.GetTenant is not implemented"))
+}
+
+func (UnimplementedTenantServiceHandler) ListTenants(context.Context, *connect.Request[proto.ListTenantsRequest]) (*connect.Response[proto.ListTenantsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.TenantService.ListTenants is not implemented"))
+}
+
+func (UnimplementedTenantServiceHandler) UpdateTenant(context.Context, *connect.Request[proto.UpdateTenantRequest]) (*connect.Response[proto.UpdateTenantResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.TenantService.UpdateTenant is not implemented"))
+}
+
+func (UnimplementedTenantServiceHandler) DeleteTenant(context.Context, *connect.Request[proto.DeleteTenantRequest]) (*connect.Response[proto.DeleteTenantResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.TenantService.DeleteTenant is not implemented"))
+}
+
+// APIKeyServiceClient is a client for the webhook.APIKeyService service.
+type APIKeyServiceClient interface {
+	// CreateAPIKey generates a new API key for a tenant
+	CreateAPIKey(context.Context, *connect.Request[proto.CreateAPIKeyRequest]) (*connect.Response[proto.CreateAPIKeyResponse], error)
+	// GetAPIKey retrieves an API key by ID (does not return the secret)
+	GetAPIKey(context.Context, *connect.Request[proto.GetAPIKeyRequest]) (*connect.Response[proto.GetAPIKeyResponse], error)
+	// ListAPIKeys lists API keys for a tenant with pagination
+	ListAPIKeys(context.Context, *connect.Request[proto.ListAPIKeysRequest]) (*connect.Response[proto.ListAPIKeysResponse], error)
+	// RevokeAPIKey revokes an API key, preventing further use
+	RevokeAPIKey(context.Context, *connect.Request[proto.RevokeAPIKeyRequest]) (*connect.Response[proto.RevokeAPIKeyResponse], error)
+}
+
+// NewAPIKeyServiceClient constructs a client for the webhook.APIKeyService service. By default, it
+// uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses, and sends
+// uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the connect.WithGRPC() or
+// connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewAPIKeyServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) APIKeyServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	aPIKeyServiceMethods := proto.File_proto_webhook_proto.Services().ByName("APIKeyService").Methods()
+	return &aPIKeyServiceClient{
+		createAPIKey: connect.NewClient[proto.CreateAPIKeyRequest, proto.CreateAPIKeyResponse](
+			httpClient,
+			baseURL+APIKeyServiceCreateAPIKeyProcedure,
+			connect.WithSchema(aPIKeyServiceMethods.ByName("CreateAPIKey")),
+			connect.WithClientOptions(opts...),
+		),
+		getAPIKey: connect.NewClient[proto.GetAPIKeyRequest, proto.GetAPIKeyResponse](
+			httpClient,
+			baseURL+APIKeyServiceGetAPIKeyProcedure,
+			connect.WithSchema(aPIKeyServiceMethods.ByName("GetAPIKey")),
+			connect.WithClientOptions(opts...),
+		),
+		listAPIKeys: connect.NewClient[proto.ListAPIKeysRequest, proto.ListAPIKeysResponse](
+			httpClient,
+			baseURL+APIKeyServiceListAPIKeysProcedure,
+			connect.WithSchema(aPIKeyServiceMethods.ByName("ListAPIKeys")),
+			connect.WithClientOptions(opts...),
+		),
+		revokeAPIKey: connect.NewClient[proto.RevokeAPIKeyRequest, proto.RevokeAPIKeyResponse](
+			httpClient,
+			baseURL+APIKeyServiceRevokeAPIKeyProcedure,
+			connect.WithSchema(aPIKeyServiceMethods.ByName("RevokeAPIKey")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// aPIKeyServiceClient implements APIKeyServiceClient.
+type aPIKeyServiceClient struct {
+	createAPIKey *connect.Client[proto.CreateAPIKeyRequest, proto.CreateAPIKeyResponse]
+	getAPIKey    *connect.Client[proto.GetAPIKeyRequest, proto.GetAPIKeyResponse]
+	listAPIKeys  *connect.Client[proto.ListAPIKeysRequest, proto.ListAPIKeysResponse]
+	revokeAPIKey *connect.Client[proto.RevokeAPIKeyRequest, proto.RevokeAPIKeyResponse]
+}
+
+// CreateAPIKey calls webhook.APIKeyService.CreateAPIKey.
+func (c *aPIKeyServiceClient) CreateAPIKey(ctx context.Context, req *connect.Request[proto.CreateAPIKeyRequest]) (*connect.Response[proto.CreateAPIKeyResponse], error) {
+	return c.createAPIKey.CallUnary(ctx, req)
+}
+
+// GetAPIKey calls webhook.APIKeyService.GetAPIKey.
+func (c *aPIKeyServiceClient) GetAPIKey(ctx context.Context, req *connect.Request[proto.GetAPIKeyRequest]) (*connect.Response[proto.GetAPIKeyResponse], error) {
+	return c.getAPIKey.CallUnary(ctx, req)
+}
+
+// ListAPIKeys calls webhook.APIKeyService.ListAPIKeys.
+func (c *aPIKeyServiceClient) ListAPIKeys(ctx context.Context, req *connect.Request[proto.ListAPIKeysRequest]) (*connect.Response[proto.ListAPIKeysResponse], error) {
+	return c.listAPIKeys.CallUnary(ctx, req)
+}
+
+// RevokeAPIKey calls webhook.APIKeyService.RevokeAPIKey.
+func (c *aPIKeyServiceClient) RevokeAPIKey(ctx context.Context, req *connect.Request[proto.RevokeAPIKeyRequest]) (*connect.Response[proto.RevokeAPIKeyResponse], error) {
+	return c.revokeAPIKey.CallUnary(ctx, req)
+}
+
+// APIKeyServiceHandler is an implementation of the webhook.APIKeyService service.
+type APIKeyServiceHandler interface {
+	// CreateAPIKey generates a new API key for a tenant
+	CreateAPIKey(context.Context, *connect.Request[proto.CreateAPIKeyRequest]) (*connect.Response[proto.CreateAPIKeyResponse], error)
+	// GetAPIKey retrieves an API key by ID (does not return the secret)
+	GetAPIKey(context.Context, *connect.Request[proto.GetAPIKeyRequest]) (*connect.Response[proto.GetAPIKeyResponse], error)
+	// ListAPIKeys lists API keys for a tenant with pagination
+	ListAPIKeys(context.Context, *connect.Request[proto.ListAPIKeysRequest]) (*connect.Response[proto.ListAPIKeysResponse], error)
+	// RevokeAPIKey revokes an API key, preventing further use
+	RevokeAPIKey(context.Context, *connect.Request[proto.RevokeAPIKeyRequest]) (*connect.Response[proto.RevokeAPIKeyResponse], error)
+}
+
+// NewAPIKeyServiceHandler builds an HTTP handler from the service implementation. It returns the
+// path on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewAPIKeyServiceHandler(svc APIKeyServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	aPIKeyServiceMethods := proto.File_proto_webhook_proto.Services().ByName("APIKeyService").Methods()
+	aPIKeyServiceCreateAPIKeyHandler := connect.NewUnaryHandler(
+		APIKeyServiceCreateAPIKeyProcedure,
+		svc.CreateAPIKey,
+		connect.WithSchema(aPIKeyServiceMethods.ByName("CreateAPIKey")),
+		connect.WithHandlerOptions(opts...),
+	)
+	aPIKeyServiceGetAPIKeyHandler := connect.NewUnaryHandler(
+		APIKeyServiceGetAPIKeyProcedure,
+		svc.GetAPIKey,
+		connect.WithSchema(aPIKeyServiceMethods.ByName("GetAPIKey")),
+		connect.WithHandlerOptions(opts...),
+	)
+	aPIKeyServiceListAPIKeysHandler := connect.NewUnaryHandler(
+		APIKeyServiceListAPIKeysProcedure,
+		svc.ListAPIKeys,
+		connect.WithSchema(aPIKeyServiceMethods.ByName("ListAPIKeys")),
+		connect.WithHandlerOptions(opts...),
+	)
+	aPIKeyServiceRevokeAPIKeyHandler := connect.NewUnaryHandler(
+		APIKeyServiceRevokeAPIKeyProcedure,
+		svc.RevokeAPIKey,
+		connect.WithSchema(aPIKeyServiceMethods.ByName("RevokeAPIKey")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/webhook.APIKeyService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case APIKeyServiceCreateAPIKeyProcedure:
+			aPIKeyServiceCreateAPIKeyHandler.ServeHTTP(w, r)
+		case APIKeyServiceGetAPIKeyProcedure:
+			aPIKeyServiceGetAPIKeyHandler.ServeHTTP(w, r)
+		case APIKeyServiceListAPIKeysProcedure:
+			aPIKeyServiceListAPIKeysHandler.ServeHTTP(w, r)
+		case APIKeyServiceRevokeAPIKeyProcedure:
+			aPIKeyServiceRevokeAPIKeyHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedAPIKeyServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedAPIKeyServiceHandler struct{}
+
+func (UnimplementedAPIKeyServiceHandler) CreateAPIKey(context.Context, *connect.Request[proto.CreateAPIKeyRequest]) (*connect.Response[proto.CreateAPIKeyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.APIKeyService.CreateAPIKey is not implemented"))
+}
+
+func (UnimplementedAPIKeyServiceHandler) GetAPIKey(context.Context, *connect.Request[proto.GetAPIKeyRequest]) (*connect.Response[proto.GetAPIKeyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.APIKeyService.GetAPIKey is not implemented"))
+}
+
+func (UnimplementedAPIKeyServiceHandler) ListAPIKeys(context.Context, *connect.Request[proto.ListAPIKeysRequest]) (*connect.Response[proto.ListAPIKeysResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.APIKeyService.ListAPIKeys is not implemented"))
+}
+
+func (UnimplementedAPIKeyServiceHandler) RevokeAPIKey(context.Context, *connect.Request[proto.RevokeAPIKeyRequest]) (*connect.Response[proto.RevokeAPIKeyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.APIKeyService.RevokeAPIKey is not implemented"))
 }

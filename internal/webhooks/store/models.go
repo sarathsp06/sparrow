@@ -22,6 +22,7 @@ const (
 // WebhookRegistration represents a registered webhook
 type WebhookRegistration struct {
 	ID        uuid.UUID `json:"id" db:"id"`
+	TenantID  uuid.UUID `json:"tenant_id" db:"tenant_id"`
 	Namespace string    `json:"namespace" db:"namespace"`
 	// Events removed in favor of EventSubscription
 	URL         string                    `json:"url" db:"url"`
@@ -48,6 +49,7 @@ type WebhookRegistration struct {
 // EventRecord represents an event that was pushed
 type EventRecord struct {
 	ID        uuid.UUID                 `json:"id" db:"id"`
+	TenantID  uuid.UUID                 `json:"tenant_id" db:"tenant_id"`
 	Namespace string                    `json:"namespace" db:"namespace"`
 	Event     string                    `json:"event" db:"event"`
 	Payload   types.Map[string, any]    `json:"payload" db:"payload"`
@@ -148,6 +150,7 @@ type WebhookHealthMetrics struct {
 // EventRegistration represents a registered event type
 type EventRegistration struct {
 	ID            uuid.UUID                 `json:"id" db:"id"`
+	TenantID      uuid.UUID                 `json:"tenant_id" db:"tenant_id"`
 	Name          string                    `json:"name" db:"name"`
 	Description   string                    `json:"description" db:"description"`
 	Schema        types.Map[string, any]    `json:"schema" db:"schema"`                 // JSON schema for validation
@@ -171,6 +174,7 @@ type WebhookUpdateFields struct {
 // EventSubscription represents a subscription to an event for a webhook
 type EventSubscription struct {
 	ID                uuid.UUID                 `json:"id" db:"id"`
+	TenantID          uuid.UUID                 `json:"tenant_id" db:"tenant_id"`
 	WebhookID         uuid.UUID                 `json:"webhook_id" db:"webhook_id"`
 	EventName         string                    `json:"event_name" db:"event_name"`
 	Namespace         string                    `json:"namespace" db:"namespace"`

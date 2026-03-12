@@ -30,6 +30,7 @@ const (
 // EventArgs represents an event processing job
 // Contains only essential identifiers - the payload is stored in the database
 type EventArgs struct {
+	TenantID   string            `json:"tenant_id"`
 	EventID    string            `json:"event_id"`
 	Namespace  string            `json:"namespace"`
 	Event      string            `json:"event"`
@@ -54,6 +55,7 @@ func (EventArgs) Kind() string {
 // WebhookArgs represents a webhook delivery job
 // Contains only essential identifiers - webhook config and event payload retrieved from database
 type WebhookArgs struct {
+	TenantID       string    `json:"tenant_id"`
 	DeliveryID     string    `json:"delivery_id"`
 	WebhookID      string    `json:"webhook_id"`
 	SubscriptionID string    `json:"subscription_id"`

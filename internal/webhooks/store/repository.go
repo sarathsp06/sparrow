@@ -40,10 +40,11 @@ func NewRepository(db storage.DB) *Repository {
 // Automatically generates UUID if event.ID is empty and sets created_at/expires_at timestamps.
 // The expires_at is calculated from TTL (time-to-live) in seconds from creation time.
 // This transactional version ensures atomic operations when creating events with related deliveries.
-func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRecord) error {
+func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, event *EventRecord) error {
 	if event.ID == uuid.Nil {
 		event.ID = uuid.New()
 	}
+	event.TenantID = tenantID
 	if event.CreatedAt.IsZero() {
 		event.CreatedAt = time.Now()
 	}
@@ -53,8 +54,8 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRe
 
 	query := `
 		INSERT INTO event_records (
-			id, namespace, event, payload, ttl, metadata, created_at, expires_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			id, tenant_id, namespace, event, payload, ttl, metadata, created_at, expires_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 
 	metadataJSON, err := json.Marshal(event.Metadata)
@@ -64,6 +65,7 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRe
 
 	_, err = tx.Exec(ctx, query,
 		event.ID,
+		event.TenantID,
 		event.Namespace,
 		event.Event,
 		event.Payload,
@@ -76,19 +78,19 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, event *EventRe
 }
 
 // GetWebhooksByEventTx retrieves all active webhooks subscribed to a specific event within a transaction.
-// Only returns webhooks that are active=true and match the namespace for tenant isolation.
+// Only returns webhooks that are active=true and match the tenant and namespace for tenant isolation.
 // Includes complete webhook configuration including HTTP settings for delivery customization.
-func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namespace, event string) ([]*WebhookRegistration, error) {
+func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, namespace, event string) ([]*WebhookRegistration, error) {
 	query := `
-		SELECT id, namespace, url, headers, timeout, active, description, health,
+		SELECT id, tenant_id, namespace, url, headers, timeout, active, description, health,
 		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
 		       user_agent, content_type, created_at, updated_at
 		FROM webhook_registrations 
-		WHERE namespace = $1 AND active = true
+		WHERE tenant_id = $1 AND namespace = $2 AND active = true
 	`
 
-	rows, err := tx.Query(ctx, query, namespace)
+	rows, err := tx.Query(ctx, query, tenantID, namespace)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -101,6 +103,7 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, namesp
 
 		err := rows.Scan(
 			&wh.ID,
+			&wh.TenantID,
 			&wh.Namespace,
 			&wh.URL,
 			&headersJSON,

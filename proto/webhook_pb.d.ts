@@ -2975,6 +2975,554 @@ export declare type GetDeliveryAttemptsResponse = Message<"webhook.GetDeliveryAt
 export declare const GetDeliveryAttemptsResponseSchema: GenMessage<GetDeliveryAttemptsResponse>;
 
 /**
+ * Tenant represents an organization/team using Sparrow
+ *
+ * @generated from message webhook.Tenant
+ */
+export declare type Tenant = Message<"webhook.Tenant"> & {
+  /**
+   * Tenant UUID
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Display name
+   *
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * URL-safe identifier (derived from name)
+   *
+   * @generated from field: string slug = 3;
+   */
+  slug: string;
+
+  /**
+   * active, suspended, archived
+   *
+   * @generated from field: string status = 4;
+   */
+  status: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 5;
+   */
+  createdAt?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp updated_at = 6;
+   */
+  updatedAt?: Timestamp;
+};
+
+/**
+ * Describes the message webhook.Tenant.
+ * Use `create(TenantSchema)` to create a new message.
+ */
+export declare const TenantSchema: GenMessage<Tenant>;
+
+/**
+ * CreateTenantRequest represents a request to create a tenant
+ *
+ * @generated from message webhook.CreateTenantRequest
+ */
+export declare type CreateTenantRequest = Message<"webhook.CreateTenantRequest"> & {
+  /**
+   * Tenant name (required)
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message webhook.CreateTenantRequest.
+ * Use `create(CreateTenantRequestSchema)` to create a new message.
+ */
+export declare const CreateTenantRequestSchema: GenMessage<CreateTenantRequest>;
+
+/**
+ * CreateTenantResponse represents the response for tenant creation
+ *
+ * @generated from message webhook.CreateTenantResponse
+ */
+export declare type CreateTenantResponse = Message<"webhook.CreateTenantResponse"> & {
+  /**
+   * @generated from field: webhook.Tenant tenant = 1;
+   */
+  tenant?: Tenant;
+};
+
+/**
+ * Describes the message webhook.CreateTenantResponse.
+ * Use `create(CreateTenantResponseSchema)` to create a new message.
+ */
+export declare const CreateTenantResponseSchema: GenMessage<CreateTenantResponse>;
+
+/**
+ * GetTenantRequest represents a request to get a tenant
+ *
+ * @generated from message webhook.GetTenantRequest
+ */
+export declare type GetTenantRequest = Message<"webhook.GetTenantRequest"> & {
+  /**
+   * Tenant ID (UUID)
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message webhook.GetTenantRequest.
+ * Use `create(GetTenantRequestSchema)` to create a new message.
+ */
+export declare const GetTenantRequestSchema: GenMessage<GetTenantRequest>;
+
+/**
+ * GetTenantResponse represents the response for getting a tenant
+ *
+ * @generated from message webhook.GetTenantResponse
+ */
+export declare type GetTenantResponse = Message<"webhook.GetTenantResponse"> & {
+  /**
+   * @generated from field: webhook.Tenant tenant = 1;
+   */
+  tenant?: Tenant;
+};
+
+/**
+ * Describes the message webhook.GetTenantResponse.
+ * Use `create(GetTenantResponseSchema)` to create a new message.
+ */
+export declare const GetTenantResponseSchema: GenMessage<GetTenantResponse>;
+
+/**
+ * ListTenantsRequest represents a request to list tenants
+ *
+ * @generated from message webhook.ListTenantsRequest
+ */
+export declare type ListTenantsRequest = Message<"webhook.ListTenantsRequest"> & {
+  /**
+   * @generated from field: webhook.PaginationRequest pagination = 1;
+   */
+  pagination?: PaginationRequest;
+};
+
+/**
+ * Describes the message webhook.ListTenantsRequest.
+ * Use `create(ListTenantsRequestSchema)` to create a new message.
+ */
+export declare const ListTenantsRequestSchema: GenMessage<ListTenantsRequest>;
+
+/**
+ * ListTenantsResponse represents the response for listing tenants
+ *
+ * @generated from message webhook.ListTenantsResponse
+ */
+export declare type ListTenantsResponse = Message<"webhook.ListTenantsResponse"> & {
+  /**
+   * @generated from field: repeated webhook.Tenant tenants = 1;
+   */
+  tenants: Tenant[];
+
+  /**
+   * @generated from field: webhook.PaginationResponse pagination = 2;
+   */
+  pagination?: PaginationResponse;
+};
+
+/**
+ * Describes the message webhook.ListTenantsResponse.
+ * Use `create(ListTenantsResponseSchema)` to create a new message.
+ */
+export declare const ListTenantsResponseSchema: GenMessage<ListTenantsResponse>;
+
+/**
+ * UpdateTenantRequest represents a request to update a tenant
+ *
+ * @generated from message webhook.UpdateTenantRequest
+ */
+export declare type UpdateTenantRequest = Message<"webhook.UpdateTenantRequest"> & {
+  /**
+   * Tenant ID (UUID, required)
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Updated name (optional, empty = no change)
+   *
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * Updated status (optional, empty = no change)
+   *
+   * @generated from field: string status = 3;
+   */
+  status: string;
+};
+
+/**
+ * Describes the message webhook.UpdateTenantRequest.
+ * Use `create(UpdateTenantRequestSchema)` to create a new message.
+ */
+export declare const UpdateTenantRequestSchema: GenMessage<UpdateTenantRequest>;
+
+/**
+ * UpdateTenantResponse represents the response for updating a tenant
+ *
+ * @generated from message webhook.UpdateTenantResponse
+ */
+export declare type UpdateTenantResponse = Message<"webhook.UpdateTenantResponse"> & {
+  /**
+   * @generated from field: webhook.Tenant tenant = 1;
+   */
+  tenant?: Tenant;
+};
+
+/**
+ * Describes the message webhook.UpdateTenantResponse.
+ * Use `create(UpdateTenantResponseSchema)` to create a new message.
+ */
+export declare const UpdateTenantResponseSchema: GenMessage<UpdateTenantResponse>;
+
+/**
+ * DeleteTenantRequest represents a request to delete a tenant
+ *
+ * @generated from message webhook.DeleteTenantRequest
+ */
+export declare type DeleteTenantRequest = Message<"webhook.DeleteTenantRequest"> & {
+  /**
+   * Tenant ID (UUID)
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message webhook.DeleteTenantRequest.
+ * Use `create(DeleteTenantRequestSchema)` to create a new message.
+ */
+export declare const DeleteTenantRequestSchema: GenMessage<DeleteTenantRequest>;
+
+/**
+ * DeleteTenantResponse represents the response for tenant deletion
+ *
+ * Empty on success; errors use gRPC status codes
+ *
+ * @generated from message webhook.DeleteTenantResponse
+ */
+export declare type DeleteTenantResponse = Message<"webhook.DeleteTenantResponse"> & {
+};
+
+/**
+ * Describes the message webhook.DeleteTenantResponse.
+ * Use `create(DeleteTenantResponseSchema)` to create a new message.
+ */
+export declare const DeleteTenantResponseSchema: GenMessage<DeleteTenantResponse>;
+
+/**
+ * APIKey represents a stored API key (secret is never returned after creation)
+ *
+ * @generated from message webhook.APIKey
+ */
+export declare type APIKey = Message<"webhook.APIKey"> & {
+  /**
+   * API key UUID
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Owning tenant UUID
+   *
+   * @generated from field: string tenant_id = 2;
+   */
+  tenantId: string;
+
+  /**
+   * Human-readable label
+   *
+   * @generated from field: string name = 3;
+   */
+  name: string;
+
+  /**
+   * Key prefix (e.g., "sk_acme_") for identification
+   *
+   * @generated from field: string key_prefix = 4;
+   */
+  keyPrefix: string;
+
+  /**
+   * Role: tenant:admin, tenant:member, namespace:admin, namespace:member, namespace:viewer
+   *
+   * @generated from field: string role = 5;
+   */
+  role: string;
+
+  /**
+   * Namespace scope (required for namespace roles)
+   *
+   * @generated from field: optional string namespace_scope = 6;
+   */
+  namespaceScope?: string;
+
+  /**
+   * Whether this key has cross-tenant access
+   *
+   * @generated from field: bool is_platform_admin = 7;
+   */
+  isPlatformAdmin: boolean;
+
+  /**
+   * Expiration time (null = never)
+   *
+   * @generated from field: optional google.protobuf.Timestamp expires_at = 8;
+   */
+  expiresAt?: Timestamp;
+
+  /**
+   * Last usage timestamp
+   *
+   * @generated from field: optional google.protobuf.Timestamp last_used_at = 9;
+   */
+  lastUsedAt?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 10;
+   */
+  createdAt?: Timestamp;
+
+  /**
+   * Revocation timestamp (null = active)
+   *
+   * @generated from field: optional google.protobuf.Timestamp revoked_at = 11;
+   */
+  revokedAt?: Timestamp;
+};
+
+/**
+ * Describes the message webhook.APIKey.
+ * Use `create(APIKeySchema)` to create a new message.
+ */
+export declare const APIKeySchema: GenMessage<APIKey>;
+
+/**
+ * CreateAPIKeyRequest represents a request to create an API key
+ *
+ * @generated from message webhook.CreateAPIKeyRequest
+ */
+export declare type CreateAPIKeyRequest = Message<"webhook.CreateAPIKeyRequest"> & {
+  /**
+   * Tenant UUID (required)
+   *
+   * @generated from field: string tenant_id = 1;
+   */
+  tenantId: string;
+
+  /**
+   * Human-readable label (required)
+   *
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * Role (required)
+   *
+   * @generated from field: string role = 3;
+   */
+  role: string;
+
+  /**
+   * Namespace scope (required for namespace roles)
+   *
+   * @generated from field: optional string namespace_scope = 4;
+   */
+  namespaceScope?: string;
+
+  /**
+   * Grant cross-tenant access
+   *
+   * @generated from field: bool is_platform_admin = 5;
+   */
+  isPlatformAdmin: boolean;
+
+  /**
+   * Optional expiration
+   *
+   * @generated from field: optional google.protobuf.Timestamp expires_at = 6;
+   */
+  expiresAt?: Timestamp;
+};
+
+/**
+ * Describes the message webhook.CreateAPIKeyRequest.
+ * Use `create(CreateAPIKeyRequestSchema)` to create a new message.
+ */
+export declare const CreateAPIKeyRequestSchema: GenMessage<CreateAPIKeyRequest>;
+
+/**
+ * CreateAPIKeyResponse returns the key details including the raw secret (shown only once)
+ *
+ * @generated from message webhook.CreateAPIKeyResponse
+ */
+export declare type CreateAPIKeyResponse = Message<"webhook.CreateAPIKeyResponse"> & {
+  /**
+   * Key metadata
+   *
+   * @generated from field: webhook.APIKey key = 1;
+   */
+  key?: APIKey;
+
+  /**
+   * Plaintext API key — save this, it won't be shown again
+   *
+   * @generated from field: string raw_key = 2;
+   */
+  rawKey: string;
+};
+
+/**
+ * Describes the message webhook.CreateAPIKeyResponse.
+ * Use `create(CreateAPIKeyResponseSchema)` to create a new message.
+ */
+export declare const CreateAPIKeyResponseSchema: GenMessage<CreateAPIKeyResponse>;
+
+/**
+ * GetAPIKeyRequest represents a request to get an API key
+ *
+ * @generated from message webhook.GetAPIKeyRequest
+ */
+export declare type GetAPIKeyRequest = Message<"webhook.GetAPIKeyRequest"> & {
+  /**
+   * API key UUID
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message webhook.GetAPIKeyRequest.
+ * Use `create(GetAPIKeyRequestSchema)` to create a new message.
+ */
+export declare const GetAPIKeyRequestSchema: GenMessage<GetAPIKeyRequest>;
+
+/**
+ * GetAPIKeyResponse represents the response for getting an API key
+ *
+ * @generated from message webhook.GetAPIKeyResponse
+ */
+export declare type GetAPIKeyResponse = Message<"webhook.GetAPIKeyResponse"> & {
+  /**
+   * @generated from field: webhook.APIKey key = 1;
+   */
+  key?: APIKey;
+};
+
+/**
+ * Describes the message webhook.GetAPIKeyResponse.
+ * Use `create(GetAPIKeyResponseSchema)` to create a new message.
+ */
+export declare const GetAPIKeyResponseSchema: GenMessage<GetAPIKeyResponse>;
+
+/**
+ * ListAPIKeysRequest represents a request to list API keys for a tenant
+ *
+ * @generated from message webhook.ListAPIKeysRequest
+ */
+export declare type ListAPIKeysRequest = Message<"webhook.ListAPIKeysRequest"> & {
+  /**
+   * Tenant UUID (required)
+   *
+   * @generated from field: string tenant_id = 1;
+   */
+  tenantId: string;
+
+  /**
+   * @generated from field: webhook.PaginationRequest pagination = 2;
+   */
+  pagination?: PaginationRequest;
+};
+
+/**
+ * Describes the message webhook.ListAPIKeysRequest.
+ * Use `create(ListAPIKeysRequestSchema)` to create a new message.
+ */
+export declare const ListAPIKeysRequestSchema: GenMessage<ListAPIKeysRequest>;
+
+/**
+ * ListAPIKeysResponse represents the response for listing API keys
+ *
+ * @generated from message webhook.ListAPIKeysResponse
+ */
+export declare type ListAPIKeysResponse = Message<"webhook.ListAPIKeysResponse"> & {
+  /**
+   * @generated from field: repeated webhook.APIKey keys = 1;
+   */
+  keys: APIKey[];
+
+  /**
+   * @generated from field: webhook.PaginationResponse pagination = 2;
+   */
+  pagination?: PaginationResponse;
+};
+
+/**
+ * Describes the message webhook.ListAPIKeysResponse.
+ * Use `create(ListAPIKeysResponseSchema)` to create a new message.
+ */
+export declare const ListAPIKeysResponseSchema: GenMessage<ListAPIKeysResponse>;
+
+/**
+ * RevokeAPIKeyRequest represents a request to revoke an API key
+ *
+ * @generated from message webhook.RevokeAPIKeyRequest
+ */
+export declare type RevokeAPIKeyRequest = Message<"webhook.RevokeAPIKeyRequest"> & {
+  /**
+   * API key UUID
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message webhook.RevokeAPIKeyRequest.
+ * Use `create(RevokeAPIKeyRequestSchema)` to create a new message.
+ */
+export declare const RevokeAPIKeyRequestSchema: GenMessage<RevokeAPIKeyRequest>;
+
+/**
+ * RevokeAPIKeyResponse represents the response for revoking an API key
+ *
+ * Empty on success; errors use gRPC status codes
+ *
+ * @generated from message webhook.RevokeAPIKeyResponse
+ */
+export declare type RevokeAPIKeyResponse = Message<"webhook.RevokeAPIKeyResponse"> & {
+};
+
+/**
+ * Describes the message webhook.RevokeAPIKeyResponse.
+ * Use `create(RevokeAPIKeyResponseSchema)` to create a new message.
+ */
+export declare const RevokeAPIKeyResponseSchema: GenMessage<RevokeAPIKeyResponse>;
+
+/**
  * WebhookDeliveryStatus represents the status of webhook delivery
  *
  * @generated from enum webhook.WebhookDeliveryStatus
@@ -3370,6 +3918,112 @@ export declare const HealthService: GenService<{
     methodKind: "unary";
     input: typeof GetHealthSummaryRequestSchema;
     output: typeof GetHealthSummaryResponseSchema;
+  },
+}>;
+
+/**
+ * TenantService manages tenant lifecycle
+ *
+ * @generated from service webhook.TenantService
+ */
+export declare const TenantService: GenService<{
+  /**
+   * CreateTenant creates a new tenant
+   *
+   * @generated from rpc webhook.TenantService.CreateTenant
+   */
+  createTenant: {
+    methodKind: "unary";
+    input: typeof CreateTenantRequestSchema;
+    output: typeof CreateTenantResponseSchema;
+  },
+  /**
+   * GetTenant retrieves a tenant by ID
+   *
+   * @generated from rpc webhook.TenantService.GetTenant
+   */
+  getTenant: {
+    methodKind: "unary";
+    input: typeof GetTenantRequestSchema;
+    output: typeof GetTenantResponseSchema;
+  },
+  /**
+   * ListTenants lists all tenants with pagination
+   *
+   * @generated from rpc webhook.TenantService.ListTenants
+   */
+  listTenants: {
+    methodKind: "unary";
+    input: typeof ListTenantsRequestSchema;
+    output: typeof ListTenantsResponseSchema;
+  },
+  /**
+   * UpdateTenant updates a tenant's name or status
+   *
+   * @generated from rpc webhook.TenantService.UpdateTenant
+   */
+  updateTenant: {
+    methodKind: "unary";
+    input: typeof UpdateTenantRequestSchema;
+    output: typeof UpdateTenantResponseSchema;
+  },
+  /**
+   * DeleteTenant deletes a tenant (cascades to all related data)
+   *
+   * @generated from rpc webhook.TenantService.DeleteTenant
+   */
+  deleteTenant: {
+    methodKind: "unary";
+    input: typeof DeleteTenantRequestSchema;
+    output: typeof DeleteTenantResponseSchema;
+  },
+}>;
+
+/**
+ * APIKeyService manages API key lifecycle
+ *
+ * @generated from service webhook.APIKeyService
+ */
+export declare const APIKeyService: GenService<{
+  /**
+   * CreateAPIKey generates a new API key for a tenant
+   *
+   * @generated from rpc webhook.APIKeyService.CreateAPIKey
+   */
+  createAPIKey: {
+    methodKind: "unary";
+    input: typeof CreateAPIKeyRequestSchema;
+    output: typeof CreateAPIKeyResponseSchema;
+  },
+  /**
+   * GetAPIKey retrieves an API key by ID (does not return the secret)
+   *
+   * @generated from rpc webhook.APIKeyService.GetAPIKey
+   */
+  getAPIKey: {
+    methodKind: "unary";
+    input: typeof GetAPIKeyRequestSchema;
+    output: typeof GetAPIKeyResponseSchema;
+  },
+  /**
+   * ListAPIKeys lists API keys for a tenant with pagination
+   *
+   * @generated from rpc webhook.APIKeyService.ListAPIKeys
+   */
+  listAPIKeys: {
+    methodKind: "unary";
+    input: typeof ListAPIKeysRequestSchema;
+    output: typeof ListAPIKeysResponseSchema;
+  },
+  /**
+   * RevokeAPIKey revokes an API key, preventing further use
+   *
+   * @generated from rpc webhook.APIKeyService.RevokeAPIKey
+   */
+  revokeAPIKey: {
+    methodKind: "unary";
+    input: typeof RevokeAPIKeyRequestSchema;
+    output: typeof RevokeAPIKeyResponseSchema;
   },
 }>;
 

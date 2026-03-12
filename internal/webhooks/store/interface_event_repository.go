@@ -8,16 +8,18 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
-// RegisterEvent registers a new event type
-func (r *Repository) RegisterEvent(ctx context.Context, event *EventRegistration) error {
+// RegisterEvent registers a new event type within a tenant
+func (r *Repository) RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error {
 	event.ID = uuid.New()
+	event.TenantID = tenantID
 	query := `
 		INSERT INTO event_registrations (
-			id, name, description, schema, sample_payload, metadata, active
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+			id, tenant_id, name, description, schema, sample_payload, metadata, active
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err := r.db.ExecContext(ctx, query,
 		event.ID,
+		event.TenantID,
 		event.Name,
 		event.Description,
 		event.Schema,
@@ -28,15 +30,15 @@ func (r *Repository) RegisterEvent(ctx context.Context, event *EventRegistration
 	return storage.Error(err)
 }
 
-// GetEventByName gets an event registration by name
-func (r *Repository) GetEventByName(ctx context.Context, eventName string) (*EventRegistration, error) {
+// GetEventByName gets an event registration by name within a tenant
+func (r *Repository) GetEventByName(ctx context.Context, tenantID uuid.UUID, eventName string) (*EventRegistration, error) {
 	query := `
-		SELECT id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
+		SELECT id, tenant_id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
 		FROM event_registrations 
-		WHERE name = $1
+		WHERE tenant_id = $1 AND name = $2
 	`
 	var event EventRegistration
-	err := r.db.GetContext(ctx, &event, query, eventName)
+	err := r.db.GetContext(ctx, &event, query, tenantID, eventName)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
@@ -46,45 +48,46 @@ func (r *Repository) GetEventByName(ctx context.Context, eventName string) (*Eve
 	return &event, nil
 }
 
-// ListEvents returns all registered events
-func (r *Repository) ListEvents(ctx context.Context, activeOnly bool) ([]*EventRegistration, error) {
-	events, _, err := r.ListEventsPaginated(ctx, activeOnly, 1000, 0)
+// ListEvents returns all registered events for a tenant
+func (r *Repository) ListEvents(ctx context.Context, tenantID uuid.UUID, activeOnly bool) ([]*EventRegistration, error) {
+	events, _, err := r.ListEventsPaginated(ctx, tenantID, activeOnly, 1000, 0)
 	return events, err
 }
 
-// ListEventsPaginated returns registered events with pagination
-func (r *Repository) ListEventsPaginated(ctx context.Context, activeOnly bool, limit, offset int) ([]*EventRegistration, int, error) {
-	countQuery := `SELECT COUNT(*) FROM event_registrations WHERE ($1 IS FALSE OR active = true)`
+// ListEventsPaginated returns registered events for a tenant with pagination
+func (r *Repository) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID, activeOnly bool, limit, offset int) ([]*EventRegistration, int, error) {
+	countQuery := `SELECT COUNT(*) FROM event_registrations WHERE tenant_id = $1 AND ($2 IS FALSE OR active = true)`
 	var totalCount int
-	err := r.db.GetContext(ctx, &totalCount, countQuery, activeOnly)
+	err := r.db.GetContext(ctx, &totalCount, countQuery, tenantID, activeOnly)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
 	query := `
-		SELECT id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
+		SELECT id, tenant_id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
 		FROM event_registrations
-		WHERE ($1 IS FALSE OR active = true)
+		WHERE tenant_id = $1 AND ($2 IS FALSE OR active = true)
 		ORDER BY name ASC
-		LIMIT $2 OFFSET $3
+		LIMIT $3 OFFSET $4
 	`
 	var events []*EventRegistration
-	err = r.db.SelectContext(ctx, &events, query, activeOnly, limit, offset)
+	err = r.db.SelectContext(ctx, &events, query, tenantID, activeOnly, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 	return events, totalCount, nil
 }
 
-// UpdateEvent updates an event registration
-func (r *Repository) UpdateEvent(ctx context.Context, event *EventRegistration) error {
+// UpdateEvent updates an event registration within a tenant
+func (r *Repository) UpdateEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error {
 	query := `
 		UPDATE event_registrations 
-		SET description = $2, schema = $3, sample_payload = $4, metadata = $5, active = $6
-		WHERE name = $1
+		SET description = $3, schema = $4, sample_payload = $5, metadata = $6, active = $7
+		WHERE tenant_id = $1 AND name = $2
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
+		tenantID,
 		event.Name,
 		event.Description,
 		event.Schema,
@@ -95,9 +98,9 @@ func (r *Repository) UpdateEvent(ctx context.Context, event *EventRegistration) 
 	return storage.Error(err)
 }
 
-// DeleteEvent deletes an event registration
-func (r *Repository) DeleteEvent(ctx context.Context, eventName string) error {
-	query := `DELETE FROM event_registrations WHERE name = $1`
-	_, err := r.db.ExecContext(ctx, query, eventName)
+// DeleteEvent deletes an event registration within a tenant
+func (r *Repository) DeleteEvent(ctx context.Context, tenantID uuid.UUID, eventName string) error {
+	query := `DELETE FROM event_registrations WHERE tenant_id = $1 AND name = $2`
+	_, err := r.db.ExecContext(ctx, query, tenantID, eventName)
 	return storage.Error(err)
 }

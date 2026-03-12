@@ -18,6 +18,7 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/sarathsp06/sparrow/internal/auth"
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
@@ -120,6 +121,9 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	)
 	defer span.End()
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	s.logger.Info("Processing webhook registration request",
 		"namespace", namespace,
 		"events", events,
@@ -150,7 +154,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 		Active:      active,
 		Description: description,
 	}
-	if err := s.webhookRepo.RegisterWebhook(ctx, registration); err != nil {
+	if err := s.webhookRepo.RegisterWebhook(ctx, tenantID, registration); err != nil {
 		s.logger.Error("Failed to register webhook",
 			"namespace", namespace,
 			"events", events,
@@ -167,7 +171,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 			EventName: event,
 			Namespace: namespace,
 		}
-		if err := s.webhookRepo.CreateSubscription(ctx, sub); err != nil {
+		if err := s.webhookRepo.CreateSubscription(ctx, tenantID, sub); err != nil {
 			s.logger.Error("Failed to create subscription", "webhook_id", registration.ID, "event", event, "error", err)
 		}
 	}
@@ -202,6 +206,9 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		"url", req.URL,
 	)
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	// Convert request to internal webhook registration
 	webhookReg, err := req.ToWebhookRegistration()
 	if err != nil {
@@ -219,7 +226,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 			return nil, fmt.Errorf("empty event name not allowed")
 		}
 		// Check if event is registered
-		events, _, err := s.webhookRepo.ListEventsPaginated(ctx, false, 1000, 0)
+		events, _, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, false, 1000, 0)
 		if err != nil {
 			s.logger.Warn("Failed to validate event names", "error", err)
 		} else {
@@ -280,7 +287,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	storeWebhook.ExpectedStatusCodes = expectedCodes
 
 	// Register the webhook
-	if err := s.webhookRepo.RegisterWebhook(ctx, storeWebhook); err != nil {
+	if err := s.webhookRepo.RegisterWebhook(ctx, tenantID, storeWebhook); err != nil {
 		s.logger.Error("Failed to register webhook",
 			"namespace", req.Namespace,
 			"events", req.Events,
@@ -299,7 +306,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 			EventName: event,
 			Namespace: req.Namespace,
 		}
-		if err := s.webhookRepo.CreateSubscription(ctx, sub); err != nil {
+		if err := s.webhookRepo.CreateSubscription(ctx, tenantID, sub); err != nil {
 			s.logger.Error("Failed to create subscription", "webhook_id", storeWebhook.ID, "event", event, "error", err)
 		}
 	}
@@ -335,18 +342,21 @@ func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string
 		return fmt.Errorf("namespace is required")
 	}
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
 		return fmt.Errorf("invalid webhook ID: %w", err)
 	}
 
 	// Check if webhook exists in namespace
-	_, err = s.webhookRepo.GetWebhookByID(ctx, id, namespace)
+	_, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve webhook: %w", err)
 	}
 
-	if err := s.webhookRepo.UnregisterWebhook(ctx, id); err != nil {
+	if err := s.webhookRepo.UnregisterWebhook(ctx, tenantID, id); err != nil {
 		s.logger.Error("Failed to unregister webhook",
 			"webhook_id", webhookID,
 			"error", err,
@@ -371,6 +381,9 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 		"offset", offset,
 	)
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	if limit <= 0 {
 		limit = 50
 	}
@@ -386,7 +399,7 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 
 		// When looking up by ID, namespace can be empty — try without namespace filter
 		if namespace != "" {
-			reg, err := s.webhookRepo.GetWebhookByID(ctx, id, namespace)
+			reg, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
 			if err != nil {
 				return nil, 0, fmt.Errorf("failed to retrieve webhook: %w", err)
 			}
@@ -398,7 +411,7 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 		// Without namespace, fall through to paginated list which will find it
 	}
 
-	registrations, totalCount, err := s.webhookRepo.ListWebhooksPaginated(ctx, namespace, event, activeOnly, int(limit), int(offset))
+	registrations, totalCount, err := s.webhookRepo.ListWebhooksPaginated(ctx, tenantID, namespace, event, activeOnly, int(limit), int(offset))
 	if err != nil {
 		s.logger.Error("Failed to list webhooks",
 			"namespace", namespace,
@@ -430,6 +443,9 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		"event", event,
 	)
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	// Validate required fields
 	if namespace == "" {
 		err := fmt.Errorf("namespace is required")
@@ -445,7 +461,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 	}
 
 	// Lookup registered event
-	eventReg, err := s.webhookRepo.GetEventByName(ctx, event)
+	eventReg, err := s.webhookRepo.GetEventByName(ctx, tenantID, event)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event lookup failed")
@@ -488,7 +504,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		CreatedAt: time.Now(),
 	}
 
-	if err := s.webhookRepo.StoreEvent(ctx, eventRecord); err != nil {
+	if err := s.webhookRepo.StoreEvent(ctx, tenantID, eventRecord); err != nil {
 		s.logger.Error("Failed to store event record", "error", err, "event_id", eventID)
 		return "", fmt.Errorf("failed to store event record: %w", err)
 	}
@@ -501,6 +517,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		TTLSeconds: ttl,
 		Metadata:   metadata,
 		CreatedAt:  eventRecord.CreatedAt,
+		TenantID:   tenantID.String(),
 	}
 
 	// Insert the event processing job
@@ -544,12 +561,15 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 		return nil, fmt.Errorf("delivery ID is required")
 	}
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	id, err := uuid.Parse(deliveryID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid delivery ID: %w", err)
 	}
 
-	delivery, err := s.webhookRepo.GetDeliveryByID(ctx, id, namespace)
+	delivery, err := s.webhookRepo.GetDeliveryByID(ctx, tenantID, id, namespace)
 	if err != nil {
 		s.logger.Error("Failed to get delivery by ID", "error", err)
 		return nil, fmt.Errorf("failed to retrieve delivery status: %w", err)
@@ -594,6 +614,9 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, namespace string, w
 
 	s.logger.Info("Listing deliveries", "namespace", namespace, "webhook_id", webhookID, "event_id", eventID, "limit", limit, "offset", offset)
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	if limit <= 0 {
 		limit = 50
 	}
@@ -611,17 +634,17 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, namespace string, w
 		if err != nil {
 			return nil, 0, fmt.Errorf("invalid webhook ID: %w", err)
 		}
-		deliveries, totalCount, err = s.webhookRepo.GetDeliveriesByWebhookID(ctx, id, namespace, int(limit), int(offset))
+		deliveries, totalCount, err = s.webhookRepo.GetDeliveriesByWebhookID(ctx, tenantID, id, namespace, int(limit), int(offset))
 	} else if eventID != "" {
 		var id uuid.UUID
 		id, err = uuid.Parse(eventID)
 		if err != nil {
 			return nil, 0, fmt.Errorf("invalid event ID: %w", err)
 		}
-		deliveries, totalCount, err = s.webhookRepo.GetDeliveriesByEventPaginated(ctx, id, namespace, int(limit), int(offset))
+		deliveries, totalCount, err = s.webhookRepo.GetDeliveriesByEventPaginated(ctx, tenantID, id, namespace, int(limit), int(offset))
 	} else {
 		// List all deliveries, optionally filtered by namespace
-		deliveries, totalCount, err = s.webhookRepo.ListDeliveriesPaginated(ctx, namespace, int(limit), int(offset))
+		deliveries, totalCount, err = s.webhookRepo.ListDeliveriesPaginated(ctx, tenantID, namespace, int(limit), int(offset))
 	}
 
 	if err != nil {
@@ -642,6 +665,9 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		"webhook_id", webhookID,
 		"namespace", namespace,
 		"force", force)
+
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
 
 	// Validate required fields
 	if namespace == "" {
@@ -665,7 +691,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		}
 
 		// Resubmit specific delivery
-		delivery, err := s.webhookRepo.GetDeliveryByID(ctx, id, namespace)
+		delivery, err := s.webhookRepo.GetDeliveryByID(ctx, tenantID, id, namespace)
 		if err != nil {
 			s.logger.Error("Failed to get delivery", "error", err)
 			return nil, 0, fmt.Errorf("failed to retrieve delivery: %w", err)
@@ -688,7 +714,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		}
 
 		// Resubmit all failed/pending deliveries for webhook
-		webhook, err := s.webhookRepo.GetWebhookByID(ctx, id, namespace)
+		webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
 		if err != nil {
 			s.logger.Error("Failed to get webhook", "error", err)
 			return nil, 0, fmt.Errorf("failed to retrieve webhook: %w", err)
@@ -699,7 +725,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		}
 
 		// Get retriable deliveries
-		deliveriesToResubmit, err = s.webhookRepo.GetRetriableDeliveries(ctx, id, namespace, force)
+		deliveriesToResubmit, err = s.webhookRepo.GetRetriableDeliveries(ctx, tenantID, id, namespace, force)
 		if err != nil {
 			s.logger.Error("Failed to get retriable deliveries", "error", err)
 			return nil, 0, fmt.Errorf("failed to retrieve deliveries: %w", err)
@@ -730,7 +756,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		}
 
 		// Get webhook info for queuing
-		webhook, err := s.webhookRepo.GetWebhookByID(ctx, delivery.WebhookID, namespace)
+		webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, delivery.WebhookID, namespace)
 		if err != nil {
 			s.logger.Error("Failed to get webhook for delivery",
 				"webhook_id", delivery.WebhookID,
@@ -746,6 +772,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 			EventID:    delivery.EventID.String(),
 			ExpiresAt:  delivery.ExpiresAt,
 			Namespace:  webhook.Namespace,
+			TenantID:   tenantID.String(),
 		})
 		if err != nil {
 			s.logger.Error("Failed to queue webhook for resubmission",
@@ -783,12 +810,15 @@ func (s *WebhookService) PauseWebhook(ctx context.Context, webhookID string, nam
 		return fmt.Errorf("namespace is required")
 	}
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
 		return fmt.Errorf("invalid webhook ID: %w", err)
 	}
 
-	webhook, err := s.webhookRepo.GetWebhookByID(ctx, id, namespace)
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
 	if err != nil {
 		s.logger.Error("Failed to get webhook", "error", err)
 		return fmt.Errorf("failed to retrieve webhook: %w", err)
@@ -801,7 +831,7 @@ func (s *WebhookService) PauseWebhook(ctx context.Context, webhookID string, nam
 	}
 	webhook.Active = false
 	webhook.UpdatedAt = time.Now()
-	err = s.webhookRepo.UpdateWebhook(ctx, webhook)
+	err = s.webhookRepo.UpdateWebhook(ctx, tenantID, webhook)
 	if err != nil {
 		s.logger.Error("Failed to pause webhook", "error", err)
 		return fmt.Errorf("failed to pause webhook: %w", err)
@@ -826,12 +856,15 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, na
 		return fmt.Errorf("namespace is required")
 	}
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
 		return fmt.Errorf("invalid webhook ID: %w", err)
 	}
 
-	webhook, err := s.webhookRepo.GetWebhookByID(ctx, id, namespace)
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
 	if err != nil {
 		s.logger.Error("Failed to get webhook", "error", err)
 		return fmt.Errorf("failed to retrieve webhook: %w", err)
@@ -844,7 +877,7 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, na
 	}
 	webhook.Active = true
 	webhook.UpdatedAt = time.Now()
-	err = s.webhookRepo.UpdateWebhook(ctx, webhook)
+	err = s.webhookRepo.UpdateWebhook(ctx, tenantID, webhook)
 	if err != nil {
 		s.logger.Error("Failed to resume webhook", "error", err)
 		return fmt.Errorf("failed to resume webhook: %w", err)
@@ -931,7 +964,11 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 	if name == "" {
 		return "", time.Time{}, fmt.Errorf("event name is required")
 	}
-	existingEvent, err := s.webhookRepo.GetEventByName(ctx, name)
+
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
+	existingEvent, err := s.webhookRepo.GetEventByName(ctx, tenantID, name)
 	if err != nil {
 		s.logger.Error("Failed to check existing event", "error", err)
 		return "", time.Time{}, fmt.Errorf("failed to check existing event: %w", err)
@@ -955,7 +992,7 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 		Metadata:      metadata,
 		Active:        active,
 	}
-	if err := s.webhookRepo.RegisterEvent(ctx, event); err != nil {
+	if err := s.webhookRepo.RegisterEvent(ctx, tenantID, event); err != nil {
 		s.logger.Error("Failed to register event",
 			"name", name,
 			"error", err,
@@ -978,6 +1015,9 @@ func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, limit,
 	s.logger.Info("Processing list events request",
 		"active_only", activeOnly, "limit", limit, "offset", offset)
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	if limit <= 0 {
 		limit = 50
 	}
@@ -985,7 +1025,7 @@ func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, limit,
 		offset = 0
 	}
 
-	events, totalCount, err := s.webhookRepo.ListEventsPaginated(ctx, activeOnly, int(limit), int(offset))
+	events, totalCount, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, activeOnly, int(limit), int(offset))
 	if err != nil {
 		s.logger.Error("Failed to list events", "error", err)
 		return nil, 0, fmt.Errorf("failed to retrieve events: %w", err)
@@ -1011,8 +1051,11 @@ func (s *WebhookService) UpdateEvent(ctx context.Context, name string, descripti
 		return fmt.Errorf("event name is required")
 	}
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	// Check if event exists
-	existingEvent, err := s.webhookRepo.GetEventByName(ctx, name)
+	existingEvent, err := s.webhookRepo.GetEventByName(ctx, tenantID, name)
 	if err != nil {
 		s.logger.Error("Failed to get event", "error", err)
 		return fmt.Errorf("failed to retrieve event: %w", err)
@@ -1037,7 +1080,7 @@ func (s *WebhookService) UpdateEvent(ctx context.Context, name string, descripti
 	existingEvent.SamplePayload = samplePayload
 
 	// Update the event
-	if err := s.webhookRepo.UpdateEvent(ctx, existingEvent); err != nil {
+	if err := s.webhookRepo.UpdateEvent(ctx, tenantID, existingEvent); err != nil {
 		s.logger.Error("Failed to update event",
 			"name", name,
 			"error", err,
@@ -1061,8 +1104,11 @@ func (s *WebhookService) DeleteEvent(ctx context.Context, name string) error {
 		return fmt.Errorf("event name is required")
 	}
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	// Check if event exists
-	existingEvent, err := s.webhookRepo.GetEventByName(ctx, name)
+	existingEvent, err := s.webhookRepo.GetEventByName(ctx, tenantID, name)
 	if err != nil {
 		s.logger.Error("Failed to get event", "error", err)
 		return fmt.Errorf("failed to retrieve event: %w", err)
@@ -1073,7 +1119,7 @@ func (s *WebhookService) DeleteEvent(ctx context.Context, name string) error {
 	}
 
 	// Delete the event
-	if err := s.webhookRepo.DeleteEvent(ctx, name); err != nil {
+	if err := s.webhookRepo.DeleteEvent(ctx, tenantID, name); err != nil {
 		s.logger.Error("Failed to delete event",
 			"name", name,
 			"error", err,
@@ -1095,7 +1141,10 @@ func (s *WebhookService) GetEvent(ctx context.Context, name string) (*store.Even
 		return nil, fmt.Errorf("event name is required")
 	}
 
-	event, err := s.webhookRepo.GetEventByName(ctx, name)
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
+	event, err := s.webhookRepo.GetEventByName(ctx, tenantID, name)
 	if err != nil {
 		s.logger.Error("Failed to get event", "error", err)
 		return nil, fmt.Errorf("failed to retrieve event: %w", err)
@@ -1122,13 +1171,16 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 		return nil, fmt.Errorf("namespace is required")
 	}
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid webhook ID: %w", err)
 	}
 
 	// Get webhook to verify it exists and get current health
-	webhook, err := s.webhookRepo.GetWebhookByID(ctx, id, namespace)
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "Failed to get webhook")
@@ -1199,6 +1251,9 @@ func (s *WebhookService) ListWebhooksByHealth(ctx context.Context, health store.
 
 	s.logger.Info("Processing list webhooks by health request", "health", health, "limit", limit, "offset", offset)
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	if limit <= 0 {
 		limit = 50
 	}
@@ -1207,7 +1262,7 @@ func (s *WebhookService) ListWebhooksByHealth(ctx context.Context, health store.
 	}
 
 	// Get webhooks by health status
-	webhooksList, totalCount, err := s.webhookRepo.GetWebhooksByHealthPaginated(ctx, health, int(limit), int(offset))
+	webhooksList, totalCount, err := s.webhookRepo.GetWebhooksByHealthPaginated(ctx, tenantID, health, int(limit), int(offset))
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "Failed to get webhooks by health")
@@ -1230,8 +1285,11 @@ func (s *WebhookService) GetHealthSummary(ctx context.Context) (*HealthSummaryDa
 
 	s.logger.Info("Processing get health summary request")
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	// Get health summary from repository
-	summary, err := s.webhookRepo.GetHealthSummary(ctx)
+	summary, err := s.webhookRepo.GetHealthSummary(ctx, tenantID)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "Failed to get health summary")
@@ -1268,7 +1326,10 @@ func (s *WebhookService) GetNamespaceStats(ctx context.Context, namespace string
 
 	s.logger.Info("Processing get namespace stats request", "namespace", namespace)
 
-	stats, err := s.webhookRepo.GetNamespaceStats(ctx, namespace)
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
+	stats, err := s.webhookRepo.GetNamespaceStats(ctx, tenantID, namespace)
 	if err != nil {
 		s.logger.Error("Failed to get namespace stats", "error", err)
 		return nil, err
@@ -1307,12 +1368,16 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	if namespace == "" {
 		return fmt.Errorf("namespace is required")
 	}
+
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	webhookUUID, err := uuid.Parse(webhookID)
 	if err != nil {
 		return fmt.Errorf("invalid webhook ID: %w", err)
 	}
 
-	webhook, err := s.webhookRepo.GetWebhookByID(ctx, webhookUUID, namespace)
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, webhookUUID, namespace)
 	if err != nil {
 		s.logger.Error("Failed to get webhook", "error", err)
 		return fmt.Errorf("failed to retrieve webhook: %w", err)
@@ -1323,12 +1388,12 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	// Update subscriptions if events are provided
 	if len(events) > 0 {
 		// Delete existing subscriptions
-		existingSubs, err := s.webhookRepo.ListSubscriptions(ctx, webhookUUID)
+		existingSubs, err := s.webhookRepo.ListSubscriptions(ctx, tenantID, webhookUUID)
 		if err != nil {
 			s.logger.Error("Failed to get existing subscriptions", "error", err)
 		} else {
 			for _, sub := range existingSubs {
-				if err := s.webhookRepo.DeleteSubscription(ctx, sub.ID); err != nil {
+				if err := s.webhookRepo.DeleteSubscription(ctx, tenantID, sub.ID); err != nil {
 					s.logger.Error("Failed to delete subscription", "subscription_id", sub.ID, "error", err)
 				}
 			}
@@ -1340,7 +1405,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 				EventName: event,
 				Namespace: namespace,
 			}
-			if err := s.webhookRepo.CreateSubscription(ctx, sub); err != nil {
+			if err := s.webhookRepo.CreateSubscription(ctx, tenantID, sub); err != nil {
 				s.logger.Error("Failed to create subscription", "webhook_id", webhookID, "event", event, "error", err)
 			}
 		}
@@ -1365,7 +1430,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	if description != "" {
 		webhook.Description = description
 	}
-	err = s.webhookRepo.UpdateWebhook(ctx, webhook)
+	err = s.webhookRepo.UpdateWebhook(ctx, tenantID, webhook)
 	if err != nil {
 		s.logger.Error("Failed to update webhook config",
 			"webhook_id", webhookID,
@@ -1441,6 +1506,9 @@ func (s *WebhookService) ListEventReports(ctx context.Context, namespace string,
 		"limit", limit,
 		"offset", offset)
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	// Set default limit if not provided or out of range
 	if limit <= 0 {
 		limit = 50
@@ -1453,7 +1521,7 @@ func (s *WebhookService) ListEventReports(ctx context.Context, namespace string,
 		offset = 0
 	}
 
-	events, totalCount, err := s.webhookRepo.ListEventReportsWithStats(ctx, namespace, eventName, int(limit), int(offset))
+	events, totalCount, err := s.webhookRepo.ListEventReportsWithStats(ctx, tenantID, namespace, eventName, int(limit), int(offset))
 	if err != nil {
 		s.logger.Error("Failed to list event reports", "namespace", namespace, "event_name", eventName, "error", err)
 		span.SetStatus(otelcodes.Error, err.Error())
@@ -1487,6 +1555,9 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 		return "", time.Time{}, fmt.Errorf("namespace is required")
 	}
 
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("invalid webhook ID: %w", err)
@@ -1503,7 +1574,7 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 		TransformTemplate: transformTemplate,
 	}
 
-	if err := s.webhookRepo.CreateSubscription(ctx, sub); err != nil {
+	if err := s.webhookRepo.CreateSubscription(ctx, tenantID, sub); err != nil {
 		return "", time.Time{}, err
 	}
 
@@ -1511,12 +1582,15 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 }
 
 func (s *WebhookService) GetSubscription(ctx context.Context, subscriptionID string, namespace string) (*store.EventSubscription, error) {
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	id, err := uuid.Parse(subscriptionID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid subscription ID: %w", err)
 	}
 
-	sub, err := s.webhookRepo.GetSubscription(ctx, id)
+	sub, err := s.webhookRepo.GetSubscription(ctx, tenantID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -1530,6 +1604,9 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 	if namespace == "" {
 		return nil, 0, fmt.Errorf("namespace is required")
 	}
+
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
 
 	if limit <= 0 {
 		limit = 50
@@ -1548,7 +1625,7 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 		if err != nil {
 			return nil, 0, fmt.Errorf("invalid webhook ID: %w", err)
 		}
-		subs, err = s.webhookRepo.ListSubscriptions(ctx, id)
+		subs, err = s.webhookRepo.ListSubscriptions(ctx, tenantID, id)
 		totalCount = len(subs)
 		// Apply pagination manually for now if repo doesn't support it for ListSubscriptions
 		if int(offset) < len(subs) {
@@ -1561,7 +1638,7 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 			subs = []*store.EventSubscription{}
 		}
 	} else if eventName != "" {
-		subs, err = s.webhookRepo.GetSubscriptionsByEvent(ctx, namespace, eventName)
+		subs, err = s.webhookRepo.GetSubscriptionsByEvent(ctx, tenantID, namespace, eventName)
 		totalCount = len(subs)
 		if int(offset) < len(subs) {
 			end := int(offset + limit)
@@ -1574,7 +1651,7 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 		}
 	} else {
 		// List all subscriptions in namespace
-		subs, totalCount, err = s.webhookRepo.ListSubscriptionsByNamespace(ctx, namespace, int(limit), int(offset))
+		subs, totalCount, err = s.webhookRepo.ListSubscriptionsByNamespace(ctx, tenantID, namespace, int(limit), int(offset))
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to list subscriptions: %w", err)
 		}
@@ -1584,12 +1661,15 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 }
 
 func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string) error {
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	id, err := uuid.Parse(subscriptionID)
 	if err != nil {
 		return fmt.Errorf("invalid subscription ID: %w", err)
 	}
 
-	sub, err := s.webhookRepo.GetSubscription(ctx, id)
+	sub, err := s.webhookRepo.GetSubscription(ctx, tenantID, id)
 	if err != nil {
 		return err
 	}
@@ -1603,16 +1683,19 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 	sub.TransformEnabled = transformEnabled
 	sub.TransformTemplate = transformTemplate
 
-	return s.webhookRepo.UpdateSubscription(ctx, sub)
+	return s.webhookRepo.UpdateSubscription(ctx, tenantID, sub)
 }
 
 func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID string, namespace string) error {
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
 	id, err := uuid.Parse(subscriptionID)
 	if err != nil {
 		return fmt.Errorf("invalid subscription ID: %w", err)
 	}
 
-	sub, err := s.webhookRepo.GetSubscription(ctx, id)
+	sub, err := s.webhookRepo.GetSubscription(ctx, tenantID, id)
 	if err != nil {
 		return err
 	}
@@ -1620,7 +1703,7 @@ func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID 
 		return fmt.Errorf("subscription not found in namespace")
 	}
 
-	return s.webhookRepo.DeleteSubscription(ctx, sub.ID)
+	return s.webhookRepo.DeleteSubscription(ctx, tenantID, sub.ID)
 }
 
 func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, namespace string) (string, error) {
@@ -1633,7 +1716,10 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		return "", fmt.Errorf("event name is required")
 	}
 
-	event, err := s.webhookRepo.GetEventByName(ctx, eventName)
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
+	event, err := s.webhookRepo.GetEventByName(ctx, tenantID, eventName)
 	if err != nil {
 		return "", fmt.Errorf("failed to get event: %w", err)
 	}

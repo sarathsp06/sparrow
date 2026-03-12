@@ -47,9 +47,12 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	}
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 
+	// Parse tenant ID from job args
+	tenantID := uuid.MustParse(args.TenantID)
+
 	// Store the event record - this should have already been stored by the service layer
 	// but let's verify and update if needed
-	existingEvent, err := w.webhookRepo.GetEventByID(ctx, uuid.MustParse(args.EventID))
+	existingEvent, err := w.webhookRepo.GetEventByID(ctx, tenantID, uuid.MustParse(args.EventID))
 	if err != nil {
 		w.logger.Error("Event record not found in database", "error", err, "event_id", args.EventID)
 		return fmt.Errorf("event record not found: %w", err)
@@ -61,7 +64,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	}
 
 	// Find all subscriptions for this namespace/event with webhook details
-	subscriptions, err := w.webhookRepo.GetSubscriptionsWithWebhooksByEvent(ctx, args.Namespace, args.Event)
+	subscriptions, err := w.webhookRepo.GetSubscriptionsWithWebhooksByEvent(ctx, tenantID, args.Namespace, args.Event)
 	if err != nil {
 		w.logger.Error("Failed to get event subscriptions", "error", err)
 		return err
@@ -107,13 +110,14 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 			ExpiresAt:      expiresAt,
 		}
 
-		if err := w.webhookRepo.CreateDelivery(ctx, delivery); err != nil {
+		if err := w.webhookRepo.CreateDelivery(ctx, tenantID, delivery); err != nil {
 			w.logger.Error("Failed to create delivery record", "error", err, "webhook_id", webhook.ID)
 			continue
 		}
 
 		// Create webhook delivery job with minimal data
 		webhookArgs := WebhookArgs{
+			TenantID:       args.TenantID,
 			DeliveryID:     deliveryID,
 			WebhookID:      webhook.ID.String(),
 			SubscriptionID: sub.ID.String(),

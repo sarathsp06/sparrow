@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -20,10 +21,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/sarathsp06/sparrow/internal/auth"
 	connectserver "github.com/sarathsp06/sparrow/internal/connect"
 	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
 	"github.com/sarathsp06/sparrow/internal/health"
 	"github.com/sarathsp06/sparrow/internal/observability"
+	"github.com/sarathsp06/sparrow/internal/tenant"
+	"github.com/sarathsp06/sparrow/internal/ui"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
@@ -89,6 +93,73 @@ func main() {
 	}
 	defer sqlxDB.Close() //nolint:errcheck
 
+	// ---- Auth configuration ----
+	authEnabled := os.Getenv("SPARROW_AUTH_ENABLED") == "true" || os.Getenv("SPARROW_AUTH_ENABLED") == "1"
+	logger := slog.Default()
+
+	// Create tenant repository and service
+	tenantRepo := tenant.NewRepository(sqlxDB)
+	tenantSvc := tenant.NewService(tenantRepo)
+
+	// Bootstrap default tenant and root API key
+	bootstrapCfg := tenant.DefaultBootstrapConfig()
+	bootstrapCfg.Logger = logger
+	if err := tenant.Bootstrap(ctx, tenantSvc, bootstrapCfg); err != nil {
+		log.Fatalf("Failed to bootstrap: %v", err)
+	}
+
+	// Build auth interceptor config
+	authInterceptorCfg := auth.AuthInterceptorConfig{
+		Enabled: authEnabled,
+		SkipProcedures: map[string]bool{
+			"/sparrow.HealthService/Check":       true,
+			"/sparrow.HealthService/CheckHealth": true,
+		},
+		Logger: logger,
+	}
+
+	if authEnabled {
+		apiKeyAuthenticator := auth.NewAPIKeyAuthenticator(tenantRepo)
+		authenticators := []auth.Authenticator{apiKeyAuthenticator}
+
+		// If a JWKS URL is configured, add JWT authentication alongside API keys.
+		// This enables OIDC-based auth (Clerk, Auth0, Keycloak, etc.) for the
+		// web UI while keeping API keys for programmatic/M2M access.
+		if jwksURL := os.Getenv("SPARROW_JWKS_URL"); jwksURL != "" {
+			jwksProvider := auth.NewJWKSProvider(jwksURL)
+
+			// Build claims config from env vars with Clerk-compatible defaults
+			claimsCfg := auth.DefaultJWTClaimsConfig()
+			if v := os.Getenv("SPARROW_JWT_TENANT_CLAIM"); v != "" {
+				claimsCfg.TenantClaim = v
+			}
+			if v := os.Getenv("SPARROW_JWT_ROLE_CLAIM"); v != "" {
+				claimsCfg.RoleClaim = v
+			}
+			if v := os.Getenv("SPARROW_JWT_ISSUER"); v != "" {
+				claimsCfg.Issuer = v
+			}
+
+			// Create tenant resolver with caching
+			tenantResolver := auth.NewCachingTenantResolver(tenantRepo)
+
+			jwtAuthenticator := auth.NewJWTAuthenticator(
+				jwksProvider,
+				auth.WithClaimsConfig(claimsCfg),
+				auth.WithTenantResolver(tenantResolver),
+			)
+
+			// JWT authenticator goes first — API keys are tried if JWT fails
+			authenticators = append([]auth.Authenticator{jwtAuthenticator}, authenticators...)
+			fmt.Printf("🔑 JWT authentication enabled (JWKS: %s)\n", jwksURL)
+		}
+
+		authInterceptorCfg.Authenticators = authenticators
+		fmt.Println("🔒 Authentication enabled")
+	} else {
+		fmt.Println("🔓 Authentication disabled (all requests use default tenant)")
+	}
+
 	// Create webhook repository
 	webhookRepo := store.NewRepositoryInterfaceWithTracing(store.NewRepository(sqlxDB), "")
 
@@ -106,9 +177,10 @@ func main() {
 
 	fmt.Println("🚀 River queue started successfully")
 
-	// Initialize gRPC server with OpenTelemetry instrumentation
+	// Initialize gRPC server with OpenTelemetry instrumentation and auth
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.ChainUnaryInterceptor(auth.NewGRPCUnaryInterceptor(authInterceptorCfg)),
 	)
 
 	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo)
@@ -120,8 +192,16 @@ func main() {
 	pb.RegisterDeliveryServiceServer(grpcServer, webhookGRPCServer)
 	pb.RegisterHealthServiceServer(grpcServer, webhookGRPCServer)
 
+	// Register Tenant and API Key gRPC services
+	tenantGRPCServer := grpcserver.NewTenantServer(tenantSvc)
+	pb.RegisterTenantServiceServer(grpcServer, tenantGRPCServer)
+	pb.RegisterAPIKeyServiceServer(grpcServer, tenantGRPCServer)
+
 	// Initialize Connect-RPC server
 	webhookConnectServer := connectserver.NewWebhookConnectServer(webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer)
+
+	// Create Connect-RPC adapter for tenant/API key services
+	tenantConnectServer := connectserver.NewTenantConnectServer(tenantGRPCServer, tenantGRPCServer)
 
 	// Create HTTP mux for Connect-RPC
 	mux := http.NewServeMux()
@@ -130,12 +210,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	options := connect.WithInterceptors(otelInterceptor)
+	authConnectInterceptor := auth.NewConnectInterceptor(authInterceptorCfg)
+	options := connect.WithInterceptors(otelInterceptor, authConnectInterceptor)
 	mux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer, options))
 	mux.Handle(pbconnect.NewEventServiceHandler(webhookConnectServer, options))
 	mux.Handle(pbconnect.NewSubscriptionServiceHandler(webhookConnectServer, options))
 	mux.Handle(pbconnect.NewDeliveryServiceHandler(webhookConnectServer, options))
 	mux.Handle(pbconnect.NewHealthServiceHandler(webhookConnectServer, options))
+	mux.Handle(pbconnect.NewTenantServiceHandler(tenantConnectServer, options))
+	mux.Handle(pbconnect.NewAPIKeyServiceHandler(tenantConnectServer, options))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, queueManager, startTime)
@@ -143,6 +226,17 @@ func main() {
 	// Add health and readiness endpoints
 	mux.HandleFunc("/health", healthChecker.HealthHandler())
 	mux.HandleFunc("/ready", healthChecker.ReadyHandler())
+
+	// Serve embedded web UI if enabled
+	serveUI := os.Getenv("SPARROW_SERVE_UI") == "true" || os.Getenv("SPARROW_SERVE_UI") == "1"
+	if serveUI {
+		if ui.Available() {
+			mux.Handle("/", ui.Handler(logger, nil))
+			fmt.Println("🖥️  Embedded web UI enabled at http://localhost:8080/")
+		} else {
+			fmt.Println("⚠️  SPARROW_SERVE_UI=true but no frontend build found. Build with: cd web && npm run build:static")
+		}
+	}
 
 	// Create HTTP server with OpenTelemetry instrumentation
 	httpServer := &http.Server{
@@ -189,6 +283,9 @@ func main() {
 	fmt.Println("   Connect-RPC (HTTP): localhost:8080")
 	fmt.Println("   Health check: http://localhost:8080/health")
 	fmt.Println("   Readiness check: http://localhost:8080/ready")
+	if serveUI && ui.Available() {
+		fmt.Println("   Web UI: http://localhost:8080/")
+	}
 	if otelShutdown != nil {
 		fmt.Printf("   OTLP endpoint: %s\n", otelConfig.OTLPEndpoint)
 	}

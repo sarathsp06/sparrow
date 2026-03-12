@@ -5363,6 +5363,1098 @@ func (x *GetDeliveryAttemptsResponse) GetAttempts() []*DeliveryAttempt {
 	return nil
 }
 
+// Tenant represents an organization/team using Sparrow
+type Tenant struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`         // Tenant UUID
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`     // Display name
+	Slug          string                 `protobuf:"bytes,3,opt,name=slug,proto3" json:"slug,omitempty"`     // URL-safe identifier (derived from name)
+	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // active, suspended, archived
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Tenant) Reset() {
+	*x = Tenant{}
+	mi := &file_proto_webhook_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Tenant) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Tenant) ProtoMessage() {}
+
+func (x *Tenant) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Tenant.ProtoReflect.Descriptor instead.
+func (*Tenant) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *Tenant) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Tenant) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Tenant) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *Tenant) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *Tenant) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *Tenant) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+// CreateTenantRequest represents a request to create a tenant
+type CreateTenantRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // Tenant name (required)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateTenantRequest) Reset() {
+	*x = CreateTenantRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateTenantRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateTenantRequest) ProtoMessage() {}
+
+func (x *CreateTenantRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateTenantRequest.ProtoReflect.Descriptor instead.
+func (*CreateTenantRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *CreateTenantRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+// CreateTenantResponse represents the response for tenant creation
+type CreateTenantResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tenant        *Tenant                `protobuf:"bytes,1,opt,name=tenant,proto3" json:"tenant,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateTenantResponse) Reset() {
+	*x = CreateTenantResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateTenantResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateTenantResponse) ProtoMessage() {}
+
+func (x *CreateTenantResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateTenantResponse.ProtoReflect.Descriptor instead.
+func (*CreateTenantResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *CreateTenantResponse) GetTenant() *Tenant {
+	if x != nil {
+		return x.Tenant
+	}
+	return nil
+}
+
+// GetTenantRequest represents a request to get a tenant
+type GetTenantRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // Tenant ID (UUID)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTenantRequest) Reset() {
+	*x = GetTenantRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTenantRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTenantRequest) ProtoMessage() {}
+
+func (x *GetTenantRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTenantRequest.ProtoReflect.Descriptor instead.
+func (*GetTenantRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *GetTenantRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+// GetTenantResponse represents the response for getting a tenant
+type GetTenantResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tenant        *Tenant                `protobuf:"bytes,1,opt,name=tenant,proto3" json:"tenant,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTenantResponse) Reset() {
+	*x = GetTenantResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[76]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTenantResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTenantResponse) ProtoMessage() {}
+
+func (x *GetTenantResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[76]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTenantResponse.ProtoReflect.Descriptor instead.
+func (*GetTenantResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{76}
+}
+
+func (x *GetTenantResponse) GetTenant() *Tenant {
+	if x != nil {
+		return x.Tenant
+	}
+	return nil
+}
+
+// ListTenantsRequest represents a request to list tenants
+type ListTenantsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pagination    *PaginationRequest     `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTenantsRequest) Reset() {
+	*x = ListTenantsRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[77]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTenantsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTenantsRequest) ProtoMessage() {}
+
+func (x *ListTenantsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[77]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTenantsRequest.ProtoReflect.Descriptor instead.
+func (*ListTenantsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *ListTenantsRequest) GetPagination() *PaginationRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// ListTenantsResponse represents the response for listing tenants
+type ListTenantsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tenants       []*Tenant              `protobuf:"bytes,1,rep,name=tenants,proto3" json:"tenants,omitempty"`
+	Pagination    *PaginationResponse    `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTenantsResponse) Reset() {
+	*x = ListTenantsResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[78]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTenantsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTenantsResponse) ProtoMessage() {}
+
+func (x *ListTenantsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[78]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTenantsResponse.ProtoReflect.Descriptor instead.
+func (*ListTenantsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *ListTenantsResponse) GetTenants() []*Tenant {
+	if x != nil {
+		return x.Tenants
+	}
+	return nil
+}
+
+func (x *ListTenantsResponse) GetPagination() *PaginationResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// UpdateTenantRequest represents a request to update a tenant
+type UpdateTenantRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`         // Tenant ID (UUID, required)
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`     // Updated name (optional, empty = no change)
+	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"` // Updated status (optional, empty = no change)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateTenantRequest) Reset() {
+	*x = UpdateTenantRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[79]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateTenantRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateTenantRequest) ProtoMessage() {}
+
+func (x *UpdateTenantRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[79]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateTenantRequest.ProtoReflect.Descriptor instead.
+func (*UpdateTenantRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{79}
+}
+
+func (x *UpdateTenantRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateTenantRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateTenantRequest) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+// UpdateTenantResponse represents the response for updating a tenant
+type UpdateTenantResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tenant        *Tenant                `protobuf:"bytes,1,opt,name=tenant,proto3" json:"tenant,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateTenantResponse) Reset() {
+	*x = UpdateTenantResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[80]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateTenantResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateTenantResponse) ProtoMessage() {}
+
+func (x *UpdateTenantResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[80]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateTenantResponse.ProtoReflect.Descriptor instead.
+func (*UpdateTenantResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{80}
+}
+
+func (x *UpdateTenantResponse) GetTenant() *Tenant {
+	if x != nil {
+		return x.Tenant
+	}
+	return nil
+}
+
+// DeleteTenantRequest represents a request to delete a tenant
+type DeleteTenantRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // Tenant ID (UUID)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteTenantRequest) Reset() {
+	*x = DeleteTenantRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[81]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteTenantRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteTenantRequest) ProtoMessage() {}
+
+func (x *DeleteTenantRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[81]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteTenantRequest.ProtoReflect.Descriptor instead.
+func (*DeleteTenantRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{81}
+}
+
+func (x *DeleteTenantRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+// DeleteTenantResponse represents the response for tenant deletion
+type DeleteTenantResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteTenantResponse) Reset() {
+	*x = DeleteTenantResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[82]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteTenantResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteTenantResponse) ProtoMessage() {}
+
+func (x *DeleteTenantResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[82]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteTenantResponse.ProtoReflect.Descriptor instead.
+func (*DeleteTenantResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{82}
+}
+
+// APIKey represents a stored API key (secret is never returned after creation)
+type APIKey struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                                     // API key UUID
+	TenantId        string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`                         // Owning tenant UUID
+	Name            string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`                                                 // Human-readable label
+	KeyPrefix       string                 `protobuf:"bytes,4,opt,name=key_prefix,json=keyPrefix,proto3" json:"key_prefix,omitempty"`                      // Key prefix (e.g., "sk_acme_") for identification
+	Role            string                 `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`                                                 // Role: tenant:admin, tenant:member, namespace:admin, namespace:member, namespace:viewer
+	NamespaceScope  *string                `protobuf:"bytes,6,opt,name=namespace_scope,json=namespaceScope,proto3,oneof" json:"namespace_scope,omitempty"` // Namespace scope (required for namespace roles)
+	IsPlatformAdmin bool                   `protobuf:"varint,7,opt,name=is_platform_admin,json=isPlatformAdmin,proto3" json:"is_platform_admin,omitempty"` // Whether this key has cross-tenant access
+	ExpiresAt       *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`                // Expiration time (null = never)
+	LastUsedAt      *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=last_used_at,json=lastUsedAt,proto3,oneof" json:"last_used_at,omitempty"`           // Last usage timestamp
+	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	RevokedAt       *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=revoked_at,json=revokedAt,proto3,oneof" json:"revoked_at,omitempty"` // Revocation timestamp (null = active)
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *APIKey) Reset() {
+	*x = APIKey{}
+	mi := &file_proto_webhook_proto_msgTypes[83]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *APIKey) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*APIKey) ProtoMessage() {}
+
+func (x *APIKey) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[83]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use APIKey.ProtoReflect.Descriptor instead.
+func (*APIKey) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{83}
+}
+
+func (x *APIKey) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *APIKey) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *APIKey) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *APIKey) GetKeyPrefix() string {
+	if x != nil {
+		return x.KeyPrefix
+	}
+	return ""
+}
+
+func (x *APIKey) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *APIKey) GetNamespaceScope() string {
+	if x != nil && x.NamespaceScope != nil {
+		return *x.NamespaceScope
+	}
+	return ""
+}
+
+func (x *APIKey) GetIsPlatformAdmin() bool {
+	if x != nil {
+		return x.IsPlatformAdmin
+	}
+	return false
+}
+
+func (x *APIKey) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+func (x *APIKey) GetLastUsedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastUsedAt
+	}
+	return nil
+}
+
+func (x *APIKey) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *APIKey) GetRevokedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.RevokedAt
+	}
+	return nil
+}
+
+// CreateAPIKeyRequest represents a request to create an API key
+type CreateAPIKeyRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TenantId        string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`                         // Tenant UUID (required)
+	Name            string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                 // Human-readable label (required)
+	Role            string                 `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`                                                 // Role (required)
+	NamespaceScope  *string                `protobuf:"bytes,4,opt,name=namespace_scope,json=namespaceScope,proto3,oneof" json:"namespace_scope,omitempty"` // Namespace scope (required for namespace roles)
+	IsPlatformAdmin bool                   `protobuf:"varint,5,opt,name=is_platform_admin,json=isPlatformAdmin,proto3" json:"is_platform_admin,omitempty"` // Grant cross-tenant access
+	ExpiresAt       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`                // Optional expiration
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *CreateAPIKeyRequest) Reset() {
+	*x = CreateAPIKeyRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[84]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAPIKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAPIKeyRequest) ProtoMessage() {}
+
+func (x *CreateAPIKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[84]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAPIKeyRequest.ProtoReflect.Descriptor instead.
+func (*CreateAPIKeyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{84}
+}
+
+func (x *CreateAPIKeyRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *CreateAPIKeyRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateAPIKeyRequest) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *CreateAPIKeyRequest) GetNamespaceScope() string {
+	if x != nil && x.NamespaceScope != nil {
+		return *x.NamespaceScope
+	}
+	return ""
+}
+
+func (x *CreateAPIKeyRequest) GetIsPlatformAdmin() bool {
+	if x != nil {
+		return x.IsPlatformAdmin
+	}
+	return false
+}
+
+func (x *CreateAPIKeyRequest) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+// CreateAPIKeyResponse returns the key details including the raw secret (shown only once)
+type CreateAPIKeyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           *APIKey                `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`                     // Key metadata
+	RawKey        string                 `protobuf:"bytes,2,opt,name=raw_key,json=rawKey,proto3" json:"raw_key,omitempty"` // Plaintext API key — save this, it won't be shown again
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAPIKeyResponse) Reset() {
+	*x = CreateAPIKeyResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[85]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAPIKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAPIKeyResponse) ProtoMessage() {}
+
+func (x *CreateAPIKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[85]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAPIKeyResponse.ProtoReflect.Descriptor instead.
+func (*CreateAPIKeyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{85}
+}
+
+func (x *CreateAPIKeyResponse) GetKey() *APIKey {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *CreateAPIKeyResponse) GetRawKey() string {
+	if x != nil {
+		return x.RawKey
+	}
+	return ""
+}
+
+// GetAPIKeyRequest represents a request to get an API key
+type GetAPIKeyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // API key UUID
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAPIKeyRequest) Reset() {
+	*x = GetAPIKeyRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[86]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAPIKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAPIKeyRequest) ProtoMessage() {}
+
+func (x *GetAPIKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[86]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAPIKeyRequest.ProtoReflect.Descriptor instead.
+func (*GetAPIKeyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{86}
+}
+
+func (x *GetAPIKeyRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+// GetAPIKeyResponse represents the response for getting an API key
+type GetAPIKeyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           *APIKey                `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAPIKeyResponse) Reset() {
+	*x = GetAPIKeyResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[87]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAPIKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAPIKeyResponse) ProtoMessage() {}
+
+func (x *GetAPIKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[87]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAPIKeyResponse.ProtoReflect.Descriptor instead.
+func (*GetAPIKeyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{87}
+}
+
+func (x *GetAPIKeyResponse) GetKey() *APIKey {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+// ListAPIKeysRequest represents a request to list API keys for a tenant
+type ListAPIKeysRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"` // Tenant UUID (required)
+	Pagination    *PaginationRequest     `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAPIKeysRequest) Reset() {
+	*x = ListAPIKeysRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[88]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAPIKeysRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAPIKeysRequest) ProtoMessage() {}
+
+func (x *ListAPIKeysRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[88]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAPIKeysRequest.ProtoReflect.Descriptor instead.
+func (*ListAPIKeysRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{88}
+}
+
+func (x *ListAPIKeysRequest) GetTenantId() string {
+	if x != nil {
+		return x.TenantId
+	}
+	return ""
+}
+
+func (x *ListAPIKeysRequest) GetPagination() *PaginationRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// ListAPIKeysResponse represents the response for listing API keys
+type ListAPIKeysResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Keys          []*APIKey              `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
+	Pagination    *PaginationResponse    `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAPIKeysResponse) Reset() {
+	*x = ListAPIKeysResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[89]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAPIKeysResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAPIKeysResponse) ProtoMessage() {}
+
+func (x *ListAPIKeysResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[89]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAPIKeysResponse.ProtoReflect.Descriptor instead.
+func (*ListAPIKeysResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{89}
+}
+
+func (x *ListAPIKeysResponse) GetKeys() []*APIKey {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
+func (x *ListAPIKeysResponse) GetPagination() *PaginationResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// RevokeAPIKeyRequest represents a request to revoke an API key
+type RevokeAPIKeyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // API key UUID
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeAPIKeyRequest) Reset() {
+	*x = RevokeAPIKeyRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[90]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeAPIKeyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeAPIKeyRequest) ProtoMessage() {}
+
+func (x *RevokeAPIKeyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[90]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeAPIKeyRequest.ProtoReflect.Descriptor instead.
+func (*RevokeAPIKeyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{90}
+}
+
+func (x *RevokeAPIKeyRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+// RevokeAPIKeyResponse represents the response for revoking an API key
+type RevokeAPIKeyResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RevokeAPIKeyResponse) Reset() {
+	*x = RevokeAPIKeyResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[91]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RevokeAPIKeyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RevokeAPIKeyResponse) ProtoMessage() {}
+
+func (x *RevokeAPIKeyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[91]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RevokeAPIKeyResponse.ProtoReflect.Descriptor instead.
+func (*RevokeAPIKeyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{91}
+}
+
 var File_proto_webhook_proto protoreflect.FileDescriptor
 
 const file_proto_webhook_proto_rawDesc = "" +
@@ -5876,7 +6968,94 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vdelivery_id\x18\x01 \x01(\tR\n" +
 	"deliveryId\"S\n" +
 	"\x1bGetDeliveryAttemptsResponse\x124\n" +
-	"\battempts\x18\x01 \x03(\v2\x18.webhook.DeliveryAttemptR\battempts*\xb5\x01\n" +
+	"\battempts\x18\x01 \x03(\v2\x18.webhook.DeliveryAttemptR\battempts\"\xce\x01\n" +
+	"\x06Tenant\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04slug\x18\x03 \x01(\tR\x04slug\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x129\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\")\n" +
+	"\x13CreateTenantRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"?\n" +
+	"\x14CreateTenantResponse\x12'\n" +
+	"\x06tenant\x18\x01 \x01(\v2\x0f.webhook.TenantR\x06tenant\"\"\n" +
+	"\x10GetTenantRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"<\n" +
+	"\x11GetTenantResponse\x12'\n" +
+	"\x06tenant\x18\x01 \x01(\v2\x0f.webhook.TenantR\x06tenant\"P\n" +
+	"\x12ListTenantsRequest\x12:\n" +
+	"\n" +
+	"pagination\x18\x01 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
+	"pagination\"}\n" +
+	"\x13ListTenantsResponse\x12)\n" +
+	"\atenants\x18\x01 \x03(\v2\x0f.webhook.TenantR\atenants\x12;\n" +
+	"\n" +
+	"pagination\x18\x02 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
+	"pagination\"Q\n" +
+	"\x13UpdateTenantRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\"?\n" +
+	"\x14UpdateTenantResponse\x12'\n" +
+	"\x06tenant\x18\x01 \x01(\v2\x0f.webhook.TenantR\x06tenant\"%\n" +
+	"\x13DeleteTenantRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x16\n" +
+	"\x14DeleteTenantResponse\"\x97\x04\n" +
+	"\x06APIKey\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"key_prefix\x18\x04 \x01(\tR\tkeyPrefix\x12\x12\n" +
+	"\x04role\x18\x05 \x01(\tR\x04role\x12,\n" +
+	"\x0fnamespace_scope\x18\x06 \x01(\tH\x00R\x0enamespaceScope\x88\x01\x01\x12*\n" +
+	"\x11is_platform_admin\x18\a \x01(\bR\x0fisPlatformAdmin\x12>\n" +
+	"\n" +
+	"expires_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampH\x01R\texpiresAt\x88\x01\x01\x12A\n" +
+	"\flast_used_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampH\x02R\n" +
+	"lastUsedAt\x88\x01\x01\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12>\n" +
+	"\n" +
+	"revoked_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x03R\trevokedAt\x88\x01\x01B\x12\n" +
+	"\x10_namespace_scopeB\r\n" +
+	"\v_expires_atB\x0f\n" +
+	"\r_last_used_atB\r\n" +
+	"\v_revoked_at\"\x97\x02\n" +
+	"\x13CreateAPIKeyRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
+	"\x04role\x18\x03 \x01(\tR\x04role\x12,\n" +
+	"\x0fnamespace_scope\x18\x04 \x01(\tH\x00R\x0enamespaceScope\x88\x01\x01\x12*\n" +
+	"\x11is_platform_admin\x18\x05 \x01(\bR\x0fisPlatformAdmin\x12>\n" +
+	"\n" +
+	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\texpiresAt\x88\x01\x01B\x12\n" +
+	"\x10_namespace_scopeB\r\n" +
+	"\v_expires_at\"R\n" +
+	"\x14CreateAPIKeyResponse\x12!\n" +
+	"\x03key\x18\x01 \x01(\v2\x0f.webhook.APIKeyR\x03key\x12\x17\n" +
+	"\araw_key\x18\x02 \x01(\tR\x06rawKey\"\"\n" +
+	"\x10GetAPIKeyRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"6\n" +
+	"\x11GetAPIKeyResponse\x12!\n" +
+	"\x03key\x18\x01 \x01(\v2\x0f.webhook.APIKeyR\x03key\"m\n" +
+	"\x12ListAPIKeysRequest\x12\x1b\n" +
+	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12:\n" +
+	"\n" +
+	"pagination\x18\x02 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
+	"pagination\"w\n" +
+	"\x13ListAPIKeysResponse\x12#\n" +
+	"\x04keys\x18\x01 \x03(\v2\x0f.webhook.APIKeyR\x04keys\x12;\n" +
+	"\n" +
+	"pagination\x18\x02 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
+	"pagination\"%\n" +
+	"\x13RevokeAPIKeyRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x16\n" +
+	"\x14RevokeAPIKeyResponse*\xb5\x01\n" +
 	"\x15WebhookDeliveryStatus\x12\x18\n" +
 	"\x14DELIVERY_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10DELIVERY_PENDING\x10\x01\x12\x14\n" +
@@ -5923,7 +7102,18 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\rHealthService\x12W\n" +
 	"\x10GetWebhookHealth\x12 .webhook.GetWebhookHealthRequest\x1a!.webhook.GetWebhookHealthResponse\x12c\n" +
 	"\x14ListWebhooksByHealth\x12$.webhook.ListWebhooksByHealthRequest\x1a%.webhook.ListWebhooksByHealthResponse\x12W\n" +
-	"\x10GetHealthSummary\x12 .webhook.GetHealthSummaryRequest\x1a!.webhook.GetHealthSummaryResponseB%Z#github.com/sarathsp06/sparrow/protob\x06proto3"
+	"\x10GetHealthSummary\x12 .webhook.GetHealthSummaryRequest\x1a!.webhook.GetHealthSummaryResponse2\x84\x03\n" +
+	"\rTenantService\x12K\n" +
+	"\fCreateTenant\x12\x1c.webhook.CreateTenantRequest\x1a\x1d.webhook.CreateTenantResponse\x12B\n" +
+	"\tGetTenant\x12\x19.webhook.GetTenantRequest\x1a\x1a.webhook.GetTenantResponse\x12H\n" +
+	"\vListTenants\x12\x1b.webhook.ListTenantsRequest\x1a\x1c.webhook.ListTenantsResponse\x12K\n" +
+	"\fUpdateTenant\x12\x1c.webhook.UpdateTenantRequest\x1a\x1d.webhook.UpdateTenantResponse\x12K\n" +
+	"\fDeleteTenant\x12\x1c.webhook.DeleteTenantRequest\x1a\x1d.webhook.DeleteTenantResponse2\xb7\x02\n" +
+	"\rAPIKeyService\x12K\n" +
+	"\fCreateAPIKey\x12\x1c.webhook.CreateAPIKeyRequest\x1a\x1d.webhook.CreateAPIKeyResponse\x12B\n" +
+	"\tGetAPIKey\x12\x19.webhook.GetAPIKeyRequest\x1a\x1a.webhook.GetAPIKeyResponse\x12H\n" +
+	"\vListAPIKeys\x12\x1b.webhook.ListAPIKeysRequest\x1a\x1c.webhook.ListAPIKeysResponse\x12K\n" +
+	"\fRevokeAPIKey\x12\x1c.webhook.RevokeAPIKeyRequest\x1a\x1d.webhook.RevokeAPIKeyResponseB%Z#github.com/sarathsp06/sparrow/protob\x06proto3"
 
 var (
 	file_proto_webhook_proto_rawDescOnce sync.Once
@@ -5938,7 +7128,7 @@ func file_proto_webhook_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_webhook_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 83)
+var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 103)
 var file_proto_webhook_proto_goTypes = []any{
 	(WebhookDeliveryStatus)(0),               // 0: webhook.WebhookDeliveryStatus
 	(WebhookHealth)(0),                       // 1: webhook.WebhookHealth
@@ -6014,57 +7204,77 @@ var file_proto_webhook_proto_goTypes = []any{
 	(*DeliveryAttempt)(nil),                  // 71: webhook.DeliveryAttempt
 	(*GetDeliveryAttemptsRequest)(nil),       // 72: webhook.GetDeliveryAttemptsRequest
 	(*GetDeliveryAttemptsResponse)(nil),      // 73: webhook.GetDeliveryAttemptsResponse
-	nil,                                      // 74: webhook.RegisterWebhookRequest.HeadersEntry
-	nil,                                      // 75: webhook.PushEventRequest.MetadataEntry
-	nil,                                      // 76: webhook.RegisteredWebhook.HeadersEntry
-	nil,                                      // 77: webhook.RegisterEventRequest.MetadataEntry
-	nil,                                      // 78: webhook.RegisteredEvent.MetadataEntry
-	nil,                                      // 79: webhook.UpdateEventRequest.MetadataEntry
-	nil,                                      // 80: webhook.WebhookUpdateFields.HeadersEntry
-	nil,                                      // 81: webhook.EventReport.MetadataEntry
-	nil,                                      // 82: webhook.EventSubscription.HeadersEntry
-	nil,                                      // 83: webhook.CreateSubscriptionRequest.HeadersEntry
-	nil,                                      // 84: webhook.UpdateSubscriptionRequest.HeadersEntry
-	(*timestamppb.Timestamp)(nil),            // 85: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),                  // 86: google.protobuf.Struct
+	(*Tenant)(nil),                           // 74: webhook.Tenant
+	(*CreateTenantRequest)(nil),              // 75: webhook.CreateTenantRequest
+	(*CreateTenantResponse)(nil),             // 76: webhook.CreateTenantResponse
+	(*GetTenantRequest)(nil),                 // 77: webhook.GetTenantRequest
+	(*GetTenantResponse)(nil),                // 78: webhook.GetTenantResponse
+	(*ListTenantsRequest)(nil),               // 79: webhook.ListTenantsRequest
+	(*ListTenantsResponse)(nil),              // 80: webhook.ListTenantsResponse
+	(*UpdateTenantRequest)(nil),              // 81: webhook.UpdateTenantRequest
+	(*UpdateTenantResponse)(nil),             // 82: webhook.UpdateTenantResponse
+	(*DeleteTenantRequest)(nil),              // 83: webhook.DeleteTenantRequest
+	(*DeleteTenantResponse)(nil),             // 84: webhook.DeleteTenantResponse
+	(*APIKey)(nil),                           // 85: webhook.APIKey
+	(*CreateAPIKeyRequest)(nil),              // 86: webhook.CreateAPIKeyRequest
+	(*CreateAPIKeyResponse)(nil),             // 87: webhook.CreateAPIKeyResponse
+	(*GetAPIKeyRequest)(nil),                 // 88: webhook.GetAPIKeyRequest
+	(*GetAPIKeyResponse)(nil),                // 89: webhook.GetAPIKeyResponse
+	(*ListAPIKeysRequest)(nil),               // 90: webhook.ListAPIKeysRequest
+	(*ListAPIKeysResponse)(nil),              // 91: webhook.ListAPIKeysResponse
+	(*RevokeAPIKeyRequest)(nil),              // 92: webhook.RevokeAPIKeyRequest
+	(*RevokeAPIKeyResponse)(nil),             // 93: webhook.RevokeAPIKeyResponse
+	nil,                                      // 94: webhook.RegisterWebhookRequest.HeadersEntry
+	nil,                                      // 95: webhook.PushEventRequest.MetadataEntry
+	nil,                                      // 96: webhook.RegisteredWebhook.HeadersEntry
+	nil,                                      // 97: webhook.RegisterEventRequest.MetadataEntry
+	nil,                                      // 98: webhook.RegisteredEvent.MetadataEntry
+	nil,                                      // 99: webhook.UpdateEventRequest.MetadataEntry
+	nil,                                      // 100: webhook.WebhookUpdateFields.HeadersEntry
+	nil,                                      // 101: webhook.EventReport.MetadataEntry
+	nil,                                      // 102: webhook.EventSubscription.HeadersEntry
+	nil,                                      // 103: webhook.CreateSubscriptionRequest.HeadersEntry
+	nil,                                      // 104: webhook.UpdateSubscriptionRequest.HeadersEntry
+	(*timestamppb.Timestamp)(nil),            // 105: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),                  // 106: google.protobuf.Struct
 }
 var file_proto_webhook_proto_depIdxs = []int32{
-	74,  // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
+	94,  // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
 	2,   // 1: webhook.RegisterWebhookRequest.http_config:type_name -> webhook.WebhookHTTPConfig
-	85,  // 2: webhook.RegisterWebhookResponse.created_at:type_name -> google.protobuf.Timestamp
-	86,  // 3: webhook.PushEventRequest.payload:type_name -> google.protobuf.Struct
-	75,  // 4: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
+	105, // 2: webhook.RegisterWebhookResponse.created_at:type_name -> google.protobuf.Timestamp
+	106, // 3: webhook.PushEventRequest.payload:type_name -> google.protobuf.Struct
+	95,  // 4: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
 	0,   // 5: webhook.WebhookDelivery.status:type_name -> webhook.WebhookDeliveryStatus
-	85,  // 6: webhook.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
-	85,  // 7: webhook.WebhookDelivery.last_attempted_at:type_name -> google.protobuf.Timestamp
-	85,  // 8: webhook.WebhookDelivery.next_retry_at:type_name -> google.protobuf.Timestamp
-	85,  // 9: webhook.WebhookDelivery.expires_at:type_name -> google.protobuf.Timestamp
+	105, // 6: webhook.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
+	105, // 7: webhook.WebhookDelivery.last_attempted_at:type_name -> google.protobuf.Timestamp
+	105, // 8: webhook.WebhookDelivery.next_retry_at:type_name -> google.protobuf.Timestamp
+	105, // 9: webhook.WebhookDelivery.expires_at:type_name -> google.protobuf.Timestamp
 	69,  // 10: webhook.ListWebhooksRequest.pagination:type_name -> webhook.PaginationRequest
-	76,  // 11: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
+	96,  // 11: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
 	1,   // 12: webhook.RegisteredWebhook.health:type_name -> webhook.WebhookHealth
-	85,  // 13: webhook.RegisteredWebhook.created_at:type_name -> google.protobuf.Timestamp
-	85,  // 14: webhook.RegisteredWebhook.updated_at:type_name -> google.protobuf.Timestamp
+	105, // 13: webhook.RegisteredWebhook.created_at:type_name -> google.protobuf.Timestamp
+	105, // 14: webhook.RegisteredWebhook.updated_at:type_name -> google.protobuf.Timestamp
 	2,   // 15: webhook.RegisteredWebhook.http_config:type_name -> webhook.WebhookHTTPConfig
 	11,  // 16: webhook.ListWebhooksResponse.webhooks:type_name -> webhook.RegisteredWebhook
 	70,  // 17: webhook.ListWebhooksResponse.pagination:type_name -> webhook.PaginationResponse
-	86,  // 18: webhook.RegisterEventRequest.schema:type_name -> google.protobuf.Struct
-	77,  // 19: webhook.RegisterEventRequest.metadata:type_name -> webhook.RegisterEventRequest.MetadataEntry
-	85,  // 20: webhook.RegisterEventResponse.created_at:type_name -> google.protobuf.Timestamp
+	106, // 18: webhook.RegisterEventRequest.schema:type_name -> google.protobuf.Struct
+	97,  // 19: webhook.RegisterEventRequest.metadata:type_name -> webhook.RegisterEventRequest.MetadataEntry
+	105, // 20: webhook.RegisterEventResponse.created_at:type_name -> google.protobuf.Timestamp
 	69,  // 21: webhook.ListEventsRequest.pagination:type_name -> webhook.PaginationRequest
-	86,  // 22: webhook.RegisteredEvent.schema:type_name -> google.protobuf.Struct
-	86,  // 23: webhook.RegisteredEvent.sample_payload:type_name -> google.protobuf.Struct
-	78,  // 24: webhook.RegisteredEvent.metadata:type_name -> webhook.RegisteredEvent.MetadataEntry
-	85,  // 25: webhook.RegisteredEvent.created_at:type_name -> google.protobuf.Timestamp
-	85,  // 26: webhook.RegisteredEvent.updated_at:type_name -> google.protobuf.Timestamp
+	106, // 22: webhook.RegisteredEvent.schema:type_name -> google.protobuf.Struct
+	106, // 23: webhook.RegisteredEvent.sample_payload:type_name -> google.protobuf.Struct
+	98,  // 24: webhook.RegisteredEvent.metadata:type_name -> webhook.RegisteredEvent.MetadataEntry
+	105, // 25: webhook.RegisteredEvent.created_at:type_name -> google.protobuf.Timestamp
+	105, // 26: webhook.RegisteredEvent.updated_at:type_name -> google.protobuf.Timestamp
 	16,  // 27: webhook.ListEventsResponse.events:type_name -> webhook.RegisteredEvent
 	70,  // 28: webhook.ListEventsResponse.pagination:type_name -> webhook.PaginationResponse
-	86,  // 29: webhook.UpdateEventRequest.schema:type_name -> google.protobuf.Struct
-	79,  // 30: webhook.UpdateEventRequest.metadata:type_name -> webhook.UpdateEventRequest.MetadataEntry
+	106, // 29: webhook.UpdateEventRequest.schema:type_name -> google.protobuf.Struct
+	99,  // 30: webhook.UpdateEventRequest.metadata:type_name -> webhook.UpdateEventRequest.MetadataEntry
 	16,  // 31: webhook.GetEventResponse.event:type_name -> webhook.RegisteredEvent
-	85,  // 32: webhook.WebhookHealthMetrics.last_success_at:type_name -> google.protobuf.Timestamp
-	85,  // 33: webhook.WebhookHealthMetrics.last_failure_at:type_name -> google.protobuf.Timestamp
-	85,  // 34: webhook.WebhookHealthMetrics.created_at:type_name -> google.protobuf.Timestamp
-	85,  // 35: webhook.WebhookHealthMetrics.updated_at:type_name -> google.protobuf.Timestamp
+	105, // 32: webhook.WebhookHealthMetrics.last_success_at:type_name -> google.protobuf.Timestamp
+	105, // 33: webhook.WebhookHealthMetrics.last_failure_at:type_name -> google.protobuf.Timestamp
+	105, // 34: webhook.WebhookHealthMetrics.created_at:type_name -> google.protobuf.Timestamp
+	105, // 35: webhook.WebhookHealthMetrics.updated_at:type_name -> google.protobuf.Timestamp
 	1,   // 36: webhook.GetWebhookHealthResponse.health:type_name -> webhook.WebhookHealth
 	27,  // 37: webhook.GetWebhookHealthResponse.metrics:type_name -> webhook.WebhookHealthMetrics
 	1,   // 38: webhook.ListWebhooksByHealthRequest.health:type_name -> webhook.WebhookHealth
@@ -6077,91 +7287,127 @@ var file_proto_webhook_proto_depIdxs = []int32{
 	9,   // 45: webhook.ListDeliveriesResponse.deliveries:type_name -> webhook.WebhookDelivery
 	70,  // 46: webhook.ListDeliveriesResponse.pagination:type_name -> webhook.PaginationResponse
 	41,  // 47: webhook.GetNamespaceStatsResponse.stats:type_name -> webhook.NamespaceStats
-	80,  // 48: webhook.WebhookUpdateFields.headers:type_name -> webhook.WebhookUpdateFields.HeadersEntry
+	100, // 48: webhook.WebhookUpdateFields.headers:type_name -> webhook.WebhookUpdateFields.HeadersEntry
 	2,   // 49: webhook.WebhookUpdateFields.http_config:type_name -> webhook.WebhookHTTPConfig
 	43,  // 50: webhook.UpdateWebhookConfigRequest.updates:type_name -> webhook.WebhookUpdateFields
-	86,  // 51: webhook.EventReport.payload:type_name -> google.protobuf.Struct
-	81,  // 52: webhook.EventReport.metadata:type_name -> webhook.EventReport.MetadataEntry
-	85,  // 53: webhook.EventReport.created_at:type_name -> google.protobuf.Timestamp
+	106, // 51: webhook.EventReport.payload:type_name -> google.protobuf.Struct
+	101, // 52: webhook.EventReport.metadata:type_name -> webhook.EventReport.MetadataEntry
+	105, // 53: webhook.EventReport.created_at:type_name -> google.protobuf.Timestamp
 	69,  // 54: webhook.ListEventReportsRequest.pagination:type_name -> webhook.PaginationRequest
 	50,  // 55: webhook.ListEventReportsResponse.events:type_name -> webhook.EventReport
 	70,  // 56: webhook.ListEventReportsResponse.pagination:type_name -> webhook.PaginationResponse
-	82,  // 57: webhook.EventSubscription.headers:type_name -> webhook.EventSubscription.HeadersEntry
-	85,  // 58: webhook.EventSubscription.created_at:type_name -> google.protobuf.Timestamp
-	85,  // 59: webhook.EventSubscription.updated_at:type_name -> google.protobuf.Timestamp
-	83,  // 60: webhook.CreateSubscriptionRequest.headers:type_name -> webhook.CreateSubscriptionRequest.HeadersEntry
-	85,  // 61: webhook.CreateSubscriptionResponse.created_at:type_name -> google.protobuf.Timestamp
+	102, // 57: webhook.EventSubscription.headers:type_name -> webhook.EventSubscription.HeadersEntry
+	105, // 58: webhook.EventSubscription.created_at:type_name -> google.protobuf.Timestamp
+	105, // 59: webhook.EventSubscription.updated_at:type_name -> google.protobuf.Timestamp
+	103, // 60: webhook.CreateSubscriptionRequest.headers:type_name -> webhook.CreateSubscriptionRequest.HeadersEntry
+	105, // 61: webhook.CreateSubscriptionResponse.created_at:type_name -> google.protobuf.Timestamp
 	53,  // 62: webhook.GetSubscriptionResponse.subscription:type_name -> webhook.EventSubscription
 	69,  // 63: webhook.ListSubscriptionsRequest.pagination:type_name -> webhook.PaginationRequest
 	53,  // 64: webhook.ListSubscriptionsResponse.subscriptions:type_name -> webhook.EventSubscription
 	70,  // 65: webhook.ListSubscriptionsResponse.pagination:type_name -> webhook.PaginationResponse
-	84,  // 66: webhook.UpdateSubscriptionRequest.headers:type_name -> webhook.UpdateSubscriptionRequest.HeadersEntry
+	104, // 66: webhook.UpdateSubscriptionRequest.headers:type_name -> webhook.UpdateSubscriptionRequest.HeadersEntry
 	53,  // 67: webhook.ListSubscriptionsByEventResponse.subscriptions:type_name -> webhook.EventSubscription
 	70,  // 68: webhook.ListSubscriptionsByEventResponse.pagination:type_name -> webhook.PaginationResponse
 	66,  // 69: webhook.GetTemplateFunctionsResponse.functions:type_name -> webhook.TemplateFunction
-	85,  // 70: webhook.DeliveryAttempt.timestamp:type_name -> google.protobuf.Timestamp
+	105, // 70: webhook.DeliveryAttempt.timestamp:type_name -> google.protobuf.Timestamp
 	71,  // 71: webhook.GetDeliveryAttemptsResponse.attempts:type_name -> webhook.DeliveryAttempt
-	3,   // 72: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
-	5,   // 73: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
-	10,  // 74: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
-	44,  // 75: webhook.WebhookService.UpdateWebhookConfig:input_type -> webhook.UpdateWebhookConfigRequest
-	46,  // 76: webhook.WebhookService.PauseWebhook:input_type -> webhook.PauseWebhookRequest
-	48,  // 77: webhook.WebhookService.ResumeWebhook:input_type -> webhook.ResumeWebhookRequest
-	40,  // 78: webhook.WebhookService.GetNamespaceStats:input_type -> webhook.GetNamespaceStatsRequest
-	67,  // 79: webhook.WebhookService.GetTemplateFunctions:input_type -> webhook.GetTemplateFunctionsRequest
-	13,  // 80: webhook.EventService.RegisterEvent:input_type -> webhook.RegisterEventRequest
-	15,  // 81: webhook.EventService.ListEvents:input_type -> webhook.ListEventsRequest
-	18,  // 82: webhook.EventService.UpdateEvent:input_type -> webhook.UpdateEventRequest
-	22,  // 83: webhook.EventService.DeleteEvent:input_type -> webhook.DeleteEventRequest
-	20,  // 84: webhook.EventService.GetEvent:input_type -> webhook.GetEventRequest
-	7,   // 85: webhook.EventService.PushEvent:input_type -> webhook.PushEventRequest
-	51,  // 86: webhook.EventService.ListEventReports:input_type -> webhook.ListEventReportsRequest
-	54,  // 87: webhook.SubscriptionService.CreateSubscription:input_type -> webhook.CreateSubscriptionRequest
-	56,  // 88: webhook.SubscriptionService.GetSubscription:input_type -> webhook.GetSubscriptionRequest
-	58,  // 89: webhook.SubscriptionService.ListSubscriptions:input_type -> webhook.ListSubscriptionsRequest
-	60,  // 90: webhook.SubscriptionService.UpdateSubscription:input_type -> webhook.UpdateSubscriptionRequest
-	62,  // 91: webhook.SubscriptionService.DeleteSubscription:input_type -> webhook.DeleteSubscriptionRequest
-	24,  // 92: webhook.SubscriptionService.TestSubscriptionTemplate:input_type -> webhook.TestSubscriptionTemplateRequest
-	36,  // 93: webhook.DeliveryService.GetDeliveryStatus:input_type -> webhook.GetDeliveryStatusRequest
-	38,  // 94: webhook.DeliveryService.ListDeliveries:input_type -> webhook.ListDeliveriesRequest
-	34,  // 95: webhook.DeliveryService.RetryDelivery:input_type -> webhook.RetryDeliveryRequest
-	72,  // 96: webhook.DeliveryService.GetDeliveryAttempts:input_type -> webhook.GetDeliveryAttemptsRequest
-	26,  // 97: webhook.HealthService.GetWebhookHealth:input_type -> webhook.GetWebhookHealthRequest
-	29,  // 98: webhook.HealthService.ListWebhooksByHealth:input_type -> webhook.ListWebhooksByHealthRequest
-	31,  // 99: webhook.HealthService.GetHealthSummary:input_type -> webhook.GetHealthSummaryRequest
-	4,   // 100: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
-	6,   // 101: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
-	12,  // 102: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
-	45,  // 103: webhook.WebhookService.UpdateWebhookConfig:output_type -> webhook.UpdateWebhookConfigResponse
-	47,  // 104: webhook.WebhookService.PauseWebhook:output_type -> webhook.PauseWebhookResponse
-	49,  // 105: webhook.WebhookService.ResumeWebhook:output_type -> webhook.ResumeWebhookResponse
-	42,  // 106: webhook.WebhookService.GetNamespaceStats:output_type -> webhook.GetNamespaceStatsResponse
-	68,  // 107: webhook.WebhookService.GetTemplateFunctions:output_type -> webhook.GetTemplateFunctionsResponse
-	14,  // 108: webhook.EventService.RegisterEvent:output_type -> webhook.RegisterEventResponse
-	17,  // 109: webhook.EventService.ListEvents:output_type -> webhook.ListEventsResponse
-	19,  // 110: webhook.EventService.UpdateEvent:output_type -> webhook.UpdateEventResponse
-	23,  // 111: webhook.EventService.DeleteEvent:output_type -> webhook.DeleteEventResponse
-	21,  // 112: webhook.EventService.GetEvent:output_type -> webhook.GetEventResponse
-	8,   // 113: webhook.EventService.PushEvent:output_type -> webhook.PushEventResponse
-	52,  // 114: webhook.EventService.ListEventReports:output_type -> webhook.ListEventReportsResponse
-	55,  // 115: webhook.SubscriptionService.CreateSubscription:output_type -> webhook.CreateSubscriptionResponse
-	57,  // 116: webhook.SubscriptionService.GetSubscription:output_type -> webhook.GetSubscriptionResponse
-	59,  // 117: webhook.SubscriptionService.ListSubscriptions:output_type -> webhook.ListSubscriptionsResponse
-	61,  // 118: webhook.SubscriptionService.UpdateSubscription:output_type -> webhook.UpdateSubscriptionResponse
-	63,  // 119: webhook.SubscriptionService.DeleteSubscription:output_type -> webhook.DeleteSubscriptionResponse
-	25,  // 120: webhook.SubscriptionService.TestSubscriptionTemplate:output_type -> webhook.TestSubscriptionTemplateResponse
-	37,  // 121: webhook.DeliveryService.GetDeliveryStatus:output_type -> webhook.GetDeliveryStatusResponse
-	39,  // 122: webhook.DeliveryService.ListDeliveries:output_type -> webhook.ListDeliveriesResponse
-	35,  // 123: webhook.DeliveryService.RetryDelivery:output_type -> webhook.RetryDeliveryResponse
-	73,  // 124: webhook.DeliveryService.GetDeliveryAttempts:output_type -> webhook.GetDeliveryAttemptsResponse
-	28,  // 125: webhook.HealthService.GetWebhookHealth:output_type -> webhook.GetWebhookHealthResponse
-	30,  // 126: webhook.HealthService.ListWebhooksByHealth:output_type -> webhook.ListWebhooksByHealthResponse
-	33,  // 127: webhook.HealthService.GetHealthSummary:output_type -> webhook.GetHealthSummaryResponse
-	100, // [100:128] is the sub-list for method output_type
-	72,  // [72:100] is the sub-list for method input_type
-	72,  // [72:72] is the sub-list for extension type_name
-	72,  // [72:72] is the sub-list for extension extendee
-	0,   // [0:72] is the sub-list for field type_name
+	105, // 72: webhook.Tenant.created_at:type_name -> google.protobuf.Timestamp
+	105, // 73: webhook.Tenant.updated_at:type_name -> google.protobuf.Timestamp
+	74,  // 74: webhook.CreateTenantResponse.tenant:type_name -> webhook.Tenant
+	74,  // 75: webhook.GetTenantResponse.tenant:type_name -> webhook.Tenant
+	69,  // 76: webhook.ListTenantsRequest.pagination:type_name -> webhook.PaginationRequest
+	74,  // 77: webhook.ListTenantsResponse.tenants:type_name -> webhook.Tenant
+	70,  // 78: webhook.ListTenantsResponse.pagination:type_name -> webhook.PaginationResponse
+	74,  // 79: webhook.UpdateTenantResponse.tenant:type_name -> webhook.Tenant
+	105, // 80: webhook.APIKey.expires_at:type_name -> google.protobuf.Timestamp
+	105, // 81: webhook.APIKey.last_used_at:type_name -> google.protobuf.Timestamp
+	105, // 82: webhook.APIKey.created_at:type_name -> google.protobuf.Timestamp
+	105, // 83: webhook.APIKey.revoked_at:type_name -> google.protobuf.Timestamp
+	105, // 84: webhook.CreateAPIKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	85,  // 85: webhook.CreateAPIKeyResponse.key:type_name -> webhook.APIKey
+	85,  // 86: webhook.GetAPIKeyResponse.key:type_name -> webhook.APIKey
+	69,  // 87: webhook.ListAPIKeysRequest.pagination:type_name -> webhook.PaginationRequest
+	85,  // 88: webhook.ListAPIKeysResponse.keys:type_name -> webhook.APIKey
+	70,  // 89: webhook.ListAPIKeysResponse.pagination:type_name -> webhook.PaginationResponse
+	3,   // 90: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
+	5,   // 91: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
+	10,  // 92: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
+	44,  // 93: webhook.WebhookService.UpdateWebhookConfig:input_type -> webhook.UpdateWebhookConfigRequest
+	46,  // 94: webhook.WebhookService.PauseWebhook:input_type -> webhook.PauseWebhookRequest
+	48,  // 95: webhook.WebhookService.ResumeWebhook:input_type -> webhook.ResumeWebhookRequest
+	40,  // 96: webhook.WebhookService.GetNamespaceStats:input_type -> webhook.GetNamespaceStatsRequest
+	67,  // 97: webhook.WebhookService.GetTemplateFunctions:input_type -> webhook.GetTemplateFunctionsRequest
+	13,  // 98: webhook.EventService.RegisterEvent:input_type -> webhook.RegisterEventRequest
+	15,  // 99: webhook.EventService.ListEvents:input_type -> webhook.ListEventsRequest
+	18,  // 100: webhook.EventService.UpdateEvent:input_type -> webhook.UpdateEventRequest
+	22,  // 101: webhook.EventService.DeleteEvent:input_type -> webhook.DeleteEventRequest
+	20,  // 102: webhook.EventService.GetEvent:input_type -> webhook.GetEventRequest
+	7,   // 103: webhook.EventService.PushEvent:input_type -> webhook.PushEventRequest
+	51,  // 104: webhook.EventService.ListEventReports:input_type -> webhook.ListEventReportsRequest
+	54,  // 105: webhook.SubscriptionService.CreateSubscription:input_type -> webhook.CreateSubscriptionRequest
+	56,  // 106: webhook.SubscriptionService.GetSubscription:input_type -> webhook.GetSubscriptionRequest
+	58,  // 107: webhook.SubscriptionService.ListSubscriptions:input_type -> webhook.ListSubscriptionsRequest
+	60,  // 108: webhook.SubscriptionService.UpdateSubscription:input_type -> webhook.UpdateSubscriptionRequest
+	62,  // 109: webhook.SubscriptionService.DeleteSubscription:input_type -> webhook.DeleteSubscriptionRequest
+	24,  // 110: webhook.SubscriptionService.TestSubscriptionTemplate:input_type -> webhook.TestSubscriptionTemplateRequest
+	36,  // 111: webhook.DeliveryService.GetDeliveryStatus:input_type -> webhook.GetDeliveryStatusRequest
+	38,  // 112: webhook.DeliveryService.ListDeliveries:input_type -> webhook.ListDeliveriesRequest
+	34,  // 113: webhook.DeliveryService.RetryDelivery:input_type -> webhook.RetryDeliveryRequest
+	72,  // 114: webhook.DeliveryService.GetDeliveryAttempts:input_type -> webhook.GetDeliveryAttemptsRequest
+	26,  // 115: webhook.HealthService.GetWebhookHealth:input_type -> webhook.GetWebhookHealthRequest
+	29,  // 116: webhook.HealthService.ListWebhooksByHealth:input_type -> webhook.ListWebhooksByHealthRequest
+	31,  // 117: webhook.HealthService.GetHealthSummary:input_type -> webhook.GetHealthSummaryRequest
+	75,  // 118: webhook.TenantService.CreateTenant:input_type -> webhook.CreateTenantRequest
+	77,  // 119: webhook.TenantService.GetTenant:input_type -> webhook.GetTenantRequest
+	79,  // 120: webhook.TenantService.ListTenants:input_type -> webhook.ListTenantsRequest
+	81,  // 121: webhook.TenantService.UpdateTenant:input_type -> webhook.UpdateTenantRequest
+	83,  // 122: webhook.TenantService.DeleteTenant:input_type -> webhook.DeleteTenantRequest
+	86,  // 123: webhook.APIKeyService.CreateAPIKey:input_type -> webhook.CreateAPIKeyRequest
+	88,  // 124: webhook.APIKeyService.GetAPIKey:input_type -> webhook.GetAPIKeyRequest
+	90,  // 125: webhook.APIKeyService.ListAPIKeys:input_type -> webhook.ListAPIKeysRequest
+	92,  // 126: webhook.APIKeyService.RevokeAPIKey:input_type -> webhook.RevokeAPIKeyRequest
+	4,   // 127: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
+	6,   // 128: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
+	12,  // 129: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
+	45,  // 130: webhook.WebhookService.UpdateWebhookConfig:output_type -> webhook.UpdateWebhookConfigResponse
+	47,  // 131: webhook.WebhookService.PauseWebhook:output_type -> webhook.PauseWebhookResponse
+	49,  // 132: webhook.WebhookService.ResumeWebhook:output_type -> webhook.ResumeWebhookResponse
+	42,  // 133: webhook.WebhookService.GetNamespaceStats:output_type -> webhook.GetNamespaceStatsResponse
+	68,  // 134: webhook.WebhookService.GetTemplateFunctions:output_type -> webhook.GetTemplateFunctionsResponse
+	14,  // 135: webhook.EventService.RegisterEvent:output_type -> webhook.RegisterEventResponse
+	17,  // 136: webhook.EventService.ListEvents:output_type -> webhook.ListEventsResponse
+	19,  // 137: webhook.EventService.UpdateEvent:output_type -> webhook.UpdateEventResponse
+	23,  // 138: webhook.EventService.DeleteEvent:output_type -> webhook.DeleteEventResponse
+	21,  // 139: webhook.EventService.GetEvent:output_type -> webhook.GetEventResponse
+	8,   // 140: webhook.EventService.PushEvent:output_type -> webhook.PushEventResponse
+	52,  // 141: webhook.EventService.ListEventReports:output_type -> webhook.ListEventReportsResponse
+	55,  // 142: webhook.SubscriptionService.CreateSubscription:output_type -> webhook.CreateSubscriptionResponse
+	57,  // 143: webhook.SubscriptionService.GetSubscription:output_type -> webhook.GetSubscriptionResponse
+	59,  // 144: webhook.SubscriptionService.ListSubscriptions:output_type -> webhook.ListSubscriptionsResponse
+	61,  // 145: webhook.SubscriptionService.UpdateSubscription:output_type -> webhook.UpdateSubscriptionResponse
+	63,  // 146: webhook.SubscriptionService.DeleteSubscription:output_type -> webhook.DeleteSubscriptionResponse
+	25,  // 147: webhook.SubscriptionService.TestSubscriptionTemplate:output_type -> webhook.TestSubscriptionTemplateResponse
+	37,  // 148: webhook.DeliveryService.GetDeliveryStatus:output_type -> webhook.GetDeliveryStatusResponse
+	39,  // 149: webhook.DeliveryService.ListDeliveries:output_type -> webhook.ListDeliveriesResponse
+	35,  // 150: webhook.DeliveryService.RetryDelivery:output_type -> webhook.RetryDeliveryResponse
+	73,  // 151: webhook.DeliveryService.GetDeliveryAttempts:output_type -> webhook.GetDeliveryAttemptsResponse
+	28,  // 152: webhook.HealthService.GetWebhookHealth:output_type -> webhook.GetWebhookHealthResponse
+	30,  // 153: webhook.HealthService.ListWebhooksByHealth:output_type -> webhook.ListWebhooksByHealthResponse
+	33,  // 154: webhook.HealthService.GetHealthSummary:output_type -> webhook.GetHealthSummaryResponse
+	76,  // 155: webhook.TenantService.CreateTenant:output_type -> webhook.CreateTenantResponse
+	78,  // 156: webhook.TenantService.GetTenant:output_type -> webhook.GetTenantResponse
+	80,  // 157: webhook.TenantService.ListTenants:output_type -> webhook.ListTenantsResponse
+	82,  // 158: webhook.TenantService.UpdateTenant:output_type -> webhook.UpdateTenantResponse
+	84,  // 159: webhook.TenantService.DeleteTenant:output_type -> webhook.DeleteTenantResponse
+	87,  // 160: webhook.APIKeyService.CreateAPIKey:output_type -> webhook.CreateAPIKeyResponse
+	89,  // 161: webhook.APIKeyService.GetAPIKey:output_type -> webhook.GetAPIKeyResponse
+	91,  // 162: webhook.APIKeyService.ListAPIKeys:output_type -> webhook.ListAPIKeysResponse
+	93,  // 163: webhook.APIKeyService.RevokeAPIKey:output_type -> webhook.RevokeAPIKeyResponse
+	127, // [127:164] is the sub-list for method output_type
+	90,  // [90:127] is the sub-list for method input_type
+	90,  // [90:90] is the sub-list for extension type_name
+	90,  // [90:90] is the sub-list for extension extendee
+	0,   // [0:90] is the sub-list for field type_name
 }
 
 func init() { file_proto_webhook_proto_init() }
@@ -6171,15 +7417,17 @@ func file_proto_webhook_proto_init() {
 	}
 	file_proto_webhook_proto_msgTypes[5].OneofWrappers = []any{}
 	file_proto_webhook_proto_msgTypes[49].OneofWrappers = []any{}
+	file_proto_webhook_proto_msgTypes[83].OneofWrappers = []any{}
+	file_proto_webhook_proto_msgTypes[84].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_webhook_proto_rawDesc), len(file_proto_webhook_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   83,
+			NumMessages:   103,
 			NumExtensions: 0,
-			NumServices:   5,
+			NumServices:   7,
 		},
 		GoTypes:           file_proto_webhook_proto_goTypes,
 		DependencyIndexes: file_proto_webhook_proto_depIdxs,

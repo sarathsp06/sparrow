@@ -725,3 +725,170 @@ message GetDeliveryAttemptsRequest {
 message GetDeliveryAttemptsResponse {
   repeated DeliveryAttempt attempts = 1; // List of delivery attempts ordered by timestamp
 }
+
+// ============================================================
+// Tenant & API Key Management
+// ============================================================
+
+// TenantService manages tenant lifecycle
+service TenantService {
+  // CreateTenant creates a new tenant
+  rpc CreateTenant(CreateTenantRequest) returns (CreateTenantResponse);
+
+  // GetTenant retrieves a tenant by ID
+  rpc GetTenant(GetTenantRequest) returns (GetTenantResponse);
+
+  // ListTenants lists all tenants with pagination
+  rpc ListTenants(ListTenantsRequest) returns (ListTenantsResponse);
+
+  // UpdateTenant updates a tenant's name or status
+  rpc UpdateTenant(UpdateTenantRequest) returns (UpdateTenantResponse);
+
+  // DeleteTenant deletes a tenant (cascades to all related data)
+  rpc DeleteTenant(DeleteTenantRequest) returns (DeleteTenantResponse);
+}
+
+// APIKeyService manages API key lifecycle
+service APIKeyService {
+  // CreateAPIKey generates a new API key for a tenant
+  rpc CreateAPIKey(CreateAPIKeyRequest) returns (CreateAPIKeyResponse);
+
+  // GetAPIKey retrieves an API key by ID (does not return the secret)
+  rpc GetAPIKey(GetAPIKeyRequest) returns (GetAPIKeyResponse);
+
+  // ListAPIKeys lists API keys for a tenant with pagination
+  rpc ListAPIKeys(ListAPIKeysRequest) returns (ListAPIKeysResponse);
+
+  // RevokeAPIKey revokes an API key, preventing further use
+  rpc RevokeAPIKey(RevokeAPIKeyRequest) returns (RevokeAPIKeyResponse);
+}
+
+// ---- Tenant Messages ----
+
+// Tenant represents an organization/team using Sparrow
+message Tenant {
+  string id = 1; // Tenant UUID
+  string name = 2; // Display name
+  string slug = 3; // URL-safe identifier (derived from name)
+  string status = 4; // active, suspended, archived
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+// CreateTenantRequest represents a request to create a tenant
+message CreateTenantRequest {
+  string name = 1; // Tenant name (required)
+}
+
+// CreateTenantResponse represents the response for tenant creation
+message CreateTenantResponse {
+  Tenant tenant = 1;
+}
+
+// GetTenantRequest represents a request to get a tenant
+message GetTenantRequest {
+  string id = 1; // Tenant ID (UUID)
+}
+
+// GetTenantResponse represents the response for getting a tenant
+message GetTenantResponse {
+  Tenant tenant = 1;
+}
+
+// ListTenantsRequest represents a request to list tenants
+message ListTenantsRequest {
+  PaginationRequest pagination = 1;
+}
+
+// ListTenantsResponse represents the response for listing tenants
+message ListTenantsResponse {
+  repeated Tenant tenants = 1;
+  PaginationResponse pagination = 2;
+}
+
+// UpdateTenantRequest represents a request to update a tenant
+message UpdateTenantRequest {
+  string id = 1; // Tenant ID (UUID, required)
+  string name = 2; // Updated name (optional, empty = no change)
+  string status = 3; // Updated status (optional, empty = no change)
+}
+
+// UpdateTenantResponse represents the response for updating a tenant
+message UpdateTenantResponse {
+  Tenant tenant = 1;
+}
+
+// DeleteTenantRequest represents a request to delete a tenant
+message DeleteTenantRequest {
+  string id = 1; // Tenant ID (UUID)
+}
+
+// DeleteTenantResponse represents the response for tenant deletion
+message DeleteTenantResponse {
+  // Empty on success; errors use gRPC status codes
+}
+
+// ---- API Key Messages ----
+
+// APIKey represents a stored API key (secret is never returned after creation)
+message APIKey {
+  string id = 1; // API key UUID
+  string tenant_id = 2; // Owning tenant UUID
+  string name = 3; // Human-readable label
+  string key_prefix = 4; // Key prefix (e.g., "sk_acme_") for identification
+  string role = 5; // Role: tenant:admin, tenant:member, namespace:admin, namespace:member, namespace:viewer
+  optional string namespace_scope = 6; // Namespace scope (required for namespace roles)
+  bool is_platform_admin = 7; // Whether this key has cross-tenant access
+  optional google.protobuf.Timestamp expires_at = 8; // Expiration time (null = never)
+  optional google.protobuf.Timestamp last_used_at = 9; // Last usage timestamp
+  google.protobuf.Timestamp created_at = 10;
+  optional google.protobuf.Timestamp revoked_at = 11; // Revocation timestamp (null = active)
+}
+
+// CreateAPIKeyRequest represents a request to create an API key
+message CreateAPIKeyRequest {
+  string tenant_id = 1; // Tenant UUID (required)
+  string name = 2; // Human-readable label (required)
+  string role = 3; // Role (required)
+  optional string namespace_scope = 4; // Namespace scope (required for namespace roles)
+  bool is_platform_admin = 5; // Grant cross-tenant access
+  optional google.protobuf.Timestamp expires_at = 6; // Optional expiration
+}
+
+// CreateAPIKeyResponse returns the key details including the raw secret (shown only once)
+message CreateAPIKeyResponse {
+  APIKey key = 1; // Key metadata
+  string raw_key = 2; // Plaintext API key — save this, it won't be shown again
+}
+
+// GetAPIKeyRequest represents a request to get an API key
+message GetAPIKeyRequest {
+  string id = 1; // API key UUID
+}
+
+// GetAPIKeyResponse represents the response for getting an API key
+message GetAPIKeyResponse {
+  APIKey key = 1;
+}
+
+// ListAPIKeysRequest represents a request to list API keys for a tenant
+message ListAPIKeysRequest {
+  string tenant_id = 1; // Tenant UUID (required)
+  PaginationRequest pagination = 2;
+}
+
+// ListAPIKeysResponse represents the response for listing API keys
+message ListAPIKeysResponse {
+  repeated APIKey keys = 1;
+  PaginationResponse pagination = 2;
+}
+
+// RevokeAPIKeyRequest represents a request to revoke an API key
+message RevokeAPIKeyRequest {
+  string id = 1; // API key UUID
+}
+
+// RevokeAPIKeyResponse represents the response for revoking an API key
+message RevokeAPIKeyResponse {
+  // Empty on success; errors use gRPC status codes
+}

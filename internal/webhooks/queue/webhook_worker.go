@@ -66,8 +66,11 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 
+	// Parse tenant ID from job args
+	tenantID := uuid.MustParse(args.TenantID)
+
 	// Get webhook configuration from database
-	webhook, err := w.webhookRepo.GetWebhookByID(ctx, uuid.MustParse(args.WebhookID), args.Namespace)
+	webhook, err := w.webhookRepo.GetWebhookByID(ctx, tenantID, uuid.MustParse(args.WebhookID), args.Namespace)
 	if err != nil {
 		w.logger.Error("Failed to get webhook configuration", "error", err, "webhook_id", args.WebhookID)
 		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err), "unknown")
@@ -75,7 +78,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 
 	// Get event record from database
-	eventRecord, err := w.webhookRepo.GetEventByID(ctx, uuid.MustParse(args.EventID))
+	eventRecord, err := w.webhookRepo.GetEventByID(ctx, tenantID, uuid.MustParse(args.EventID))
 	if err != nil {
 		w.logger.Error("Failed to get event record", "error", err, "event_id", args.EventID)
 		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Failed to get event record: %v", err), "unknown")
@@ -85,7 +88,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	// Get subscription if available
 	var subscription *store.EventSubscription
 	if args.SubscriptionID != "" {
-		subscription, err = w.webhookRepo.GetSubscription(ctx, uuid.MustParse(args.SubscriptionID))
+		subscription, err = w.webhookRepo.GetSubscription(ctx, tenantID, uuid.MustParse(args.SubscriptionID))
 		if err != nil {
 			// If subscription is missing, we might still want to proceed if it's a legacy delivery,
 			// but for now let's assume strict consistency or log warning.
