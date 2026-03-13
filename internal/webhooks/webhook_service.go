@@ -603,7 +603,10 @@ func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID str
 	ctx, span := s.tracer.Start(ctx, "WebhookService.GetDeliveryAttempts")
 	defer span.End()
 
-	s.logger.Info("Getting delivery attempts", "delivery_id", deliveryID)
+	authInfo := auth.MustFromContext(ctx)
+	tenantID := authInfo.TenantID
+
+	s.logger.Info("Getting delivery attempts", "delivery_id", deliveryID, "tenant_id", tenantID.String())
 
 	if deliveryID == "" {
 		return nil, fmt.Errorf("delivery ID is required")
@@ -614,7 +617,7 @@ func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID str
 		return nil, fmt.Errorf("invalid delivery ID: %w", err)
 	}
 
-	attempts, err := s.webhookRepo.GetDeliveryAttempts(ctx, id)
+	attempts, err := s.webhookRepo.GetDeliveryAttempts(ctx, tenantID, id)
 	if err != nil {
 		s.logger.Error("Failed to get delivery attempts", "error", err)
 		return nil, fmt.Errorf("failed to retrieve delivery attempts: %w", err)

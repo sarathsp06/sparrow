@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -84,6 +85,7 @@ type JWTAuthenticator struct {
 	jwks           *JWKSProvider
 	claimsConfig   JWTClaimsConfig
 	tenantResolver TenantResolver
+	logger         *slog.Logger
 }
 
 // JWTAuthenticatorOption configures the JWT authenticator.
@@ -104,11 +106,19 @@ func WithTenantResolver(resolver TenantResolver) JWTAuthenticatorOption {
 	}
 }
 
+// WithJWTLogger sets the logger for the JWT authenticator.
+func WithJWTLogger(logger *slog.Logger) JWTAuthenticatorOption {
+	return func(a *JWTAuthenticator) {
+		a.logger = logger
+	}
+}
+
 // NewJWTAuthenticator creates a JWT authenticator backed by the given JWKS provider.
 func NewJWTAuthenticator(jwks *JWKSProvider, opts ...JWTAuthenticatorOption) *JWTAuthenticator {
 	a := &JWTAuthenticator{
 		jwks:         jwks,
 		claimsConfig: DefaultJWTClaimsConfig(),
+		logger:       slog.Default(),
 	}
 	for _, opt := range opts {
 		opt(a)
@@ -196,6 +206,14 @@ func (a *JWTAuthenticator) Authenticate(ctx context.Context, credential string) 
 		t := time.Unix(int64(exp), 0)
 		info.ExpiresAt = &t
 	}
+
+	// Log extracted JWT claims for debugging tenant isolation
+	a.logger.InfoContext(ctx, "jwt claims extracted",
+		slog.String("external_tenant_id", tenantExtID),
+		slog.String("resolved_tenant_id", tenantID.String()),
+		slog.String("subject_id", subjectID),
+		slog.String("role", string(role)),
+	)
 
 	return info, nil
 }

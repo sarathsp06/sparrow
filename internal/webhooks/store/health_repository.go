@@ -132,16 +132,19 @@ func (r *Repository) RecordWebhookHealthEvent(ctx context.Context, webhookID, de
 
 // GetDeliveryAttempts retrieves all health events for a specific delivery, ordered by timestamp.
 // Each health event represents an individual delivery attempt with response details.
-func (r *Repository) GetDeliveryAttempts(ctx context.Context, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error) {
+// Filters by tenant_id via a JOIN on webhook_registrations to enforce tenant isolation.
+func (r *Repository) GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error) {
 	query := `
-		SELECT id, webhook_id, delivery_id, success, response_time, response_code, error_message, error_category, timestamp
-		FROM webhook_health_events
-		WHERE delivery_id = $1
-		ORDER BY timestamp ASC
+		SELECT whe.id, whe.webhook_id, whe.delivery_id, whe.success, whe.response_time, whe.response_code, whe.error_message, whe.error_category, whe.timestamp
+		FROM webhook_health_events whe
+		JOIN webhook_registrations wr ON wr.id = whe.webhook_id
+		WHERE whe.delivery_id = $1
+		  AND wr.tenant_id = $2
+		ORDER BY whe.timestamp ASC
 	`
 
 	var events []*WebhookHealthEvent
-	err := r.db.SelectContext(ctx, &events, query, deliveryID)
+	err := r.db.SelectContext(ctx, &events, query, deliveryID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get delivery attempts: %w", err)
 	}

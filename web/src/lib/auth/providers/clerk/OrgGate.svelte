@@ -60,6 +60,7 @@
       <a href="/webhooks" class="hover:text-primary transition">Webhooks</a>
       <a href="/events" class="hover:text-primary transition">Events</a>
       <a href="/health" class="hover:text-primary transition">Health</a>
+      <a href="/team" class="hover:text-primary transition">Team</a>
       <OrganizationSwitcher hidePersonal={true} />
       <UserButton />
     </nav>

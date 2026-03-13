@@ -100,11 +100,19 @@ func (r *CachingTenantResolver) ResolveTenant(ctx context.Context, externalID st
 	r.cacheMu.RUnlock()
 
 	if ok && time.Now().Before(entry.expiresAt) {
+		r.logger.InfoContext(ctx, "tenant resolved from cache",
+			slog.String("external_id", externalID),
+			slog.String("tenant_id", entry.tenantID.String()),
+		)
 		return entry.tenantID, nil
 	}
 
 	// Try parsing as UUID first (direct tenant ID)
 	if id, err := uuid.Parse(externalID); err == nil {
+		r.logger.InfoContext(ctx, "tenant resolved as direct UUID",
+			slog.String("external_id", externalID),
+			slog.String("tenant_id", id.String()),
+		)
 		r.cacheResult(externalID, id)
 		return id, nil
 	}
@@ -112,6 +120,10 @@ func (r *CachingTenantResolver) ResolveTenant(ctx context.Context, externalID st
 	// Look up via the store
 	id, err := r.lookup.LookupTenantIDByExternalID(ctx, externalID)
 	if err == nil {
+		r.logger.InfoContext(ctx, "tenant resolved from database",
+			slog.String("external_id", externalID),
+			slog.String("tenant_id", id.String()),
+		)
 		r.cacheResult(externalID, id)
 		return id, nil
 	}

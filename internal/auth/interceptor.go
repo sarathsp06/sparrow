@@ -78,9 +78,12 @@ func NewConnectInterceptor(cfg AuthInterceptorConfig) connect.Interceptor {
 				return nil, connect.NewError(connect.CodeUnauthenticated, err)
 			}
 
-			logger.DebugContext(ctx, "authenticated",
+			logger.InfoContext(ctx, "authenticated",
 				slog.String("procedure", req.Spec().Procedure),
 				slog.String("tenant_id", info.TenantID.String()),
+				slog.String("subject_id", info.SubjectID),
+				slog.String("tenant_role", string(info.TenantRole)),
+				slog.String("scheme", scheme),
 				slog.Bool("platform_admin", info.IsPlatformAdmin),
 			)
 
@@ -141,9 +144,12 @@ func NewGRPCUnaryInterceptor(cfg AuthInterceptorConfig) grpc.UnaryServerIntercep
 			return nil, status.Error(codes.Unauthenticated, err.Error())
 		}
 
-		logger.DebugContext(ctx, "authenticated",
+		logger.InfoContext(ctx, "authenticated",
 			slog.String("method", info.FullMethod),
 			slog.String("tenant_id", authInfo.TenantID.String()),
+			slog.String("subject_id", authInfo.SubjectID),
+			slog.String("tenant_role", string(authInfo.TenantRole)),
+			slog.String("scheme", scheme),
 			slog.Bool("platform_admin", authInfo.IsPlatformAdmin),
 		)
 

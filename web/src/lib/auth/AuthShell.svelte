@@ -19,14 +19,16 @@
   let {
     header,
     children,
+    isPublicRoute = false,
   }: {
     header: Snippet;
     children: Snippet;
+    isPublicRoute?: boolean;
   } = $props();
 </script>
 
 {#if authConfig.type === "clerk"}
-  <ClerkAuthShell publishableKey={authConfig.options.publishableKey} {header}>
+  <ClerkAuthShell publishableKey={authConfig.options.publishableKey} {header} {isPublicRoute}>
     {@render children()}
   </ClerkAuthShell>
 {:else}

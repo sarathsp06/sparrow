@@ -13,23 +13,29 @@
     "/events/[eventName]/update": "Update Event",
     "/events": "Events",
     "/health": "Health",
+    "/team": "Team",
     "/deliveries": "Deliveries",
     "/events/push": "Push Event",
     "/webhooks/register": "Register Webhook",
     "/events/[eventName]/reports": "Event Reports"
   };
 
+  // Routes that are accessible without authentication
+  const publicRoutes = new Set(["/"]);
+
   function getTitle(): string {
     const path: string = page.route.id?.toString() || "/";
     return titles[path] || path;
   }
+
+  const isPublicRoute = $derived(publicRoutes.has(page.route.id?.toString() || "/"));
 </script>
 
 <svelte:head>
   <link rel="icon" href={favicon} />
 </svelte:head>
 
-<AuthShell>
+<AuthShell {isPublicRoute}>
   {#snippet header()}
     <div class="flex items-center gap-2">
       <a href="/" class="text-2xl font-bold text-gray-500 hover:text-blue-700/90">

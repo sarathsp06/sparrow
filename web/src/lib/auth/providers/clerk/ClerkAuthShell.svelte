@@ -4,6 +4,10 @@
   Provides sign-in/sign-out UI and gates content behind authentication
   via Clerk's <Show> component.
 
+  When isPublicRoute is true, signed-out users can still see the page
+  content (e.g., the landing page) with a sign-in button in the header.
+  Protected routes always require authentication.
+
   When a signed-in user has no active Organization, OrgGate prompts them
   to create or select one before accessing the app. Each Organization
   represents a tenant — org-scoped JWTs ensure data isolation.
@@ -25,10 +29,12 @@
     publishableKey,
     header,
     children,
+    isPublicRoute = false,
   }: {
     publishableKey: string;
     header: Snippet;
     children: Snippet;
+    isPublicRoute?: boolean;
   } = $props();
 </script>
 
@@ -50,12 +56,19 @@
         <SignInButton />
       </nav>
     </header>
-    <div class="flex items-center justify-center min-h-[60vh]">
-      <div class="text-center">
-        <h1 class="text-3xl font-bold text-gray-700 mb-4">Welcome to Sparrow</h1>
-        <p class="text-gray-500 mb-6">Sign in to manage your webhooks and events.</p>
-        <SignInButton />
+
+    {#if isPublicRoute}
+      <!-- Public route: show page content without authentication -->
+      {@render children()}
+    {:else}
+      <!-- Protected route: prompt sign-in -->
+      <div class="flex items-center justify-center min-h-[60vh]">
+        <div class="text-center">
+          <h1 class="text-3xl font-bold text-gray-700 mb-4">Welcome to Sparrow</h1>
+          <p class="text-gray-500 mb-6">Sign in to manage your webhooks and events.</p>
+          <SignInButton />
+        </div>
       </div>
-    </div>
+    {/if}
   </Show>
 </ClerkProvider>

@@ -292,12 +292,13 @@ func (_d RepositoryInterfaceWithTracing) GetDeliveriesByWebhookID(ctx context.Co
 }
 
 // GetDeliveryAttempts implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetDeliveryAttempts(ctx context.Context, deliveryID uuid.UUID) (wpa1 []*WebhookHealthEvent, err error) {
+func (_d RepositoryInterfaceWithTracing) GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) (wpa1 []*WebhookHealthEvent, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetDeliveryAttempts")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":        ctx,
+				"tenantID":   tenantID,
 				"deliveryID": deliveryID}, map[string]interface{}{
 				"wpa1": wpa1,
 				"err":  err})
@@ -312,7 +313,7 @@ func (_d RepositoryInterfaceWithTracing) GetDeliveryAttempts(ctx context.Context
 
 		_span.End()
 	}()
-	return _d.RepositoryInterface.GetDeliveryAttempts(ctx, deliveryID)
+	return _d.RepositoryInterface.GetDeliveryAttempts(ctx, tenantID, deliveryID)
 }
 
 // GetDeliveryByID implements RepositoryInterface
