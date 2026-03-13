@@ -111,6 +111,19 @@ func (m *mockRepo) GetEventByName(ctx context.Context, tenantID uuid.UUID, event
 	return res.(*store.EventRegistration), args.Error(1)
 }
 
+func (m *mockRepo) RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *store.EventRegistration) error {
+	args := m.Called(ctx, tenantID, event)
+	event.TenantID = tenantID
+	event.CreatedAt = time.Now()
+	event.UpdatedAt = time.Now()
+	return args.Error(0)
+}
+
+func (m *mockRepo) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *store.EventRecord) error {
+	args := m.Called(ctx, tenantID, event)
+	return args.Error(0)
+}
+
 // testContext returns a context with default auth info injected.
 func testContext() context.Context {
 	return auth.NewContext(context.Background(), auth.DefaultAuthInfo())
@@ -230,7 +243,6 @@ func TestWebhookService_GetEvent(t *testing.T) {
 	ctx := testContext()
 	eventName := "test.event"
 	event := &store.EventRegistration{
-		ID:   uuid.New(),
 		Name: eventName,
 	}
 
@@ -249,7 +261,6 @@ func TestWebhookService_TestSubscriptionTemplate(t *testing.T) {
 	ctx := testContext()
 	eventName := "test.event"
 	event := &store.EventRegistration{
-		ID:   uuid.New(),
 		Name: eventName,
 		SamplePayload: map[string]any{
 			"id": "123",
@@ -262,5 +273,100 @@ func TestWebhookService_TestSubscriptionTemplate(t *testing.T) {
 	res, err := service.TestSubscriptionTemplate(ctx, eventName, template, "default")
 	assert.NoError(t, err)
 	assert.Equal(t, `{"new_id": "123"}`, res)
+	repo.AssertExpectations(t)
+}
+
+func TestWebhookService_PushEvent_AutoRegister(t *testing.T) {
+	repo := new(mockRepo)
+	inserter := new(mockJobInserter)
+	service := NewWebhookService(inserter, repo)
+
+	ctx := testContext()
+	namespace := "default"
+	eventName := "user.signup"
+	payload := map[string]any{"user_id": "123"}
+
+	// Event does not exist — should be auto-registered
+	repo.On("GetEventByName", mock.Anything, mock.Anything, eventName).Return(nil, nil)
+	repo.On("RegisterEvent", mock.Anything, mock.Anything, mock.MatchedBy(func(e *store.EventRegistration) bool {
+		return e.Name == eventName && e.Active == true
+	})).Return(nil)
+	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
+
+	eventID, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil)
+
+	assert.NoError(t, err)
+	assert.NotEmpty(t, eventID)
+	repo.AssertExpectations(t)
+	inserter.AssertExpectations(t)
+}
+
+func TestWebhookService_PushEvent_ExistingEvent(t *testing.T) {
+	repo := new(mockRepo)
+	inserter := new(mockJobInserter)
+	service := NewWebhookService(inserter, repo)
+
+	ctx := testContext()
+	namespace := "default"
+	eventName := "user.created"
+	payload := map[string]any{"user_id": "456"}
+
+	// Event already registered and active
+	repo.On("GetEventByName", mock.Anything, mock.Anything, eventName).Return(&store.EventRegistration{
+		Name:   eventName,
+		Active: true,
+	}, nil)
+	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
+
+	eventID, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil)
+
+	assert.NoError(t, err)
+	assert.NotEmpty(t, eventID)
+	// RegisterEvent should NOT be called since event already exists
+	repo.AssertNotCalled(t, "RegisterEvent", mock.Anything, mock.Anything, mock.Anything)
+	repo.AssertExpectations(t)
+	inserter.AssertExpectations(t)
+}
+
+func TestWebhookService_PushEvent_InactiveEvent(t *testing.T) {
+	repo := new(mockRepo)
+	inserter := new(mockJobInserter)
+	service := NewWebhookService(inserter, repo)
+
+	ctx := testContext()
+
+	// Event exists but inactive
+	repo.On("GetEventByName", mock.Anything, mock.Anything, "user.deleted").Return(&store.EventRegistration{
+		Name:   "user.deleted",
+		Active: false,
+	}, nil)
+
+	_, err := service.PushEvent(ctx, "default", "user.deleted", nil, 0, nil)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "inactive")
+	repo.AssertExpectations(t)
+}
+
+func TestWebhookService_CreateSubscription_CatchAll(t *testing.T) {
+	repo := new(mockRepo)
+	inserter := new(mockJobInserter)
+	service := NewWebhookService(inserter, repo)
+
+	ctx := testContext()
+	webhookID := uuid.New().String()
+	namespace := "default"
+
+	repo.On("CreateSubscription", mock.Anything, mock.Anything, mock.MatchedBy(func(sub *store.EventSubscription) bool {
+		return sub.EventName == store.CatchAllEventName
+	})).Return(nil)
+
+	id, createdAt, err := service.CreateSubscription(ctx, webhookID, store.CatchAllEventName, namespace, nil, "POST", 30, false, "")
+
+	assert.NoError(t, err)
+	assert.NotEmpty(t, id)
+	assert.False(t, createdAt.IsZero())
 	repo.AssertExpectations(t)
 }

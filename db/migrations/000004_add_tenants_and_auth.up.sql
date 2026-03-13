@@ -1,5 +1,3 @@
-BEGIN;
-
 -- ============================================================================
 -- Phase 1: Create tenants table
 -- ============================================================================
@@ -131,5 +129,3 @@ CREATE INDEX idx_event_subscriptions_tenant ON event_subscriptions(tenant_id);
 CREATE INDEX idx_event_subscriptions_tenant_namespace ON event_subscriptions(tenant_id, namespace);
 CREATE INDEX idx_event_records_tenant ON event_records(tenant_id);
 CREATE INDEX idx_event_records_tenant_namespace ON event_records(tenant_id, namespace);
-
-COMMIT;

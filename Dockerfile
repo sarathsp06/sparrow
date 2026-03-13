@@ -1,53 +1,66 @@
 
-# Build stage
+# Frontend build stage
+FROM node:22-alpine AS frontend
+
+WORKDIR /build/web
+
+# Copy package files first for better layer caching
+COPY web/package.json web/package-lock.json* web/yarn.lock* ./
+
+# Install dependencies
+RUN npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
+
+# Copy frontend source
+COPY web/ .
+
+# Copy generated proto JS/TS files (frontend imports them via relative paths)
+COPY proto/webhook_pb.js proto/webhook_pb.d.ts /build/proto/
+
+# Build static frontend
+# adapter-static outputs to ../internal/ui/dist (i.e. /build/internal/ui/dist)
+RUN PUBLIC_API_URL=/ npm run build
+
+# Go build stage
 FROM golang:1.25-alpine AS builder
 
-# Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
 
-# Set working directory
 WORKDIR /build
 
 # Copy go mod files first for better layer caching
 COPY go.mod go.sum ./
-
-# Download dependencies
 RUN go mod download
 
 # Copy source code
 COPY . .
 
-# Build with optimizations: stripped symbols, no debug info, smaller binary
+# Copy built frontend into the embedded UI directory
+COPY --from=frontend /build/internal/ui/dist/ /build/internal/ui/dist/
+
+# Build migrate tool
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-w -s" \
     -trimpath \
     -o migrate ./cmd/migrate
 
+# Build server (includes embedded UI via go:embed)
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-w -s" \
     -trimpath \
     -o server ./cmd/server
 
-# Final stage - use distroless for minimal attack surface and size
+# Final stage - distroless for minimal attack surface
 FROM gcr.io/distroless/static-debian12:nonroot
 
-# Set working directory
 WORKDIR /app
 
-# Copy CA certificates and timezone data from builder
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
-# Copy binaries with correct ownership (distroless uses uid/gid 65532)
 COPY --from=builder --chown=65532:65532 /build/server /app/server
 COPY --from=builder --chown=65532:65532 /build/migrate /app/tools/migrate
-
-# Copy migrations directory
 COPY --from=builder --chown=65532:65532 /build/db/migrations /app/db/migrations
 
-# Expose gRPC and HTTP ports
 EXPOSE 50051 8080
 
-
-# Run the server (distroless doesn't have shell, use exec form)
 ENTRYPOINT ["/app/server"]

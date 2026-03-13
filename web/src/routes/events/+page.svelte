@@ -33,8 +33,7 @@
 		return events.filter(
 			(e) =>
 				e.name.toLowerCase().includes(q) ||
-				e.description.toLowerCase().includes(q) ||
-				e.eventId.toLowerCase().includes(q)
+				e.description.toLowerCase().includes(q)
 		);
 	});
 
@@ -135,7 +134,7 @@
 				<div class="relative flex-1 max-w-md">
 					<input
 						type="text"
-						placeholder="Search by name, description, or ID..."
+						placeholder="Search by name or description..."
 						bind:value={searchQuery}
 						class="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
 					/>
@@ -246,12 +245,11 @@
 							{#each filteredEvents as event}
 								<tr
 									class="hover:bg-gray-50 cursor-pointer transition"
-									onclick={() => goto(`/events/${encodeURIComponent(event.eventId)}/reports`)}
+									onclick={() => goto(`/events/${encodeURIComponent(event.name)}/reports`)}
 								>
 									<td class="px-4 py-3">
 										<div class="flex flex-col gap-0.5">
 											<span class="font-medium text-gray-900">{event.name}</span>
-											<span class="text-xs text-gray-400 font-mono">{event.eventId.substring(0, 8)}...</span>
 											<!-- Show description inline on mobile -->
 											{#if event.description}
 												<span class="text-xs text-gray-500 sm:hidden mt-0.5">{event.description}</span>
@@ -279,7 +277,7 @@
 												</button>
 											{/if}
 											<a
-												href={`/events/${event.eventId}/update`}
+												href={`/events/${encodeURIComponent(event.name)}/update`}
 												onclick={(e) => e.stopPropagation()}
 												class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition"
 											>

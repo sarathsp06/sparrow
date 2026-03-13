@@ -140,8 +140,13 @@ func main() {
 				claimsCfg.Issuer = v
 			}
 
-			// Create tenant resolver with caching
-			tenantResolver := auth.NewCachingTenantResolver(tenantRepo)
+			// Create tenant resolver with caching and auto-provisioning
+			provisioner := tenant.NewAutoProvisioner(tenantSvc, logger)
+			tenantResolver := auth.NewCachingTenantResolver(
+				tenantRepo,
+				auth.WithTenantProvisioner(provisioner),
+				auth.WithTenantResolverLogger(logger),
+			)
 
 			jwtAuthenticator := auth.NewJWTAuthenticator(
 				jwksProvider,

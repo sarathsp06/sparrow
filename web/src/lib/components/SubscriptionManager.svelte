@@ -50,6 +50,9 @@
   let dryRunResult = $state('');
   let dryRunError = $state('');
 
+  // Catch-all constant
+  const CATCH_ALL_EVENT = '*';
+
   // Form state (shared for create/edit)
   let form = $state({
     subscriptionId: '',
@@ -61,6 +64,9 @@
     timeout: 30,
     headers: {} as Record<string, string>,
   });
+
+  // Whether the catch-all toggle is on (controls eventName = '*')
+  let catchAllEnabled = $state(false);
 
   let newHeaderKey = $state('');
   let newHeaderValue = $state('');
@@ -76,6 +82,7 @@
       timeout: 30,
       headers: {},
     };
+    catchAllEnabled = false;
     newHeaderKey = '';
     newHeaderValue = '';
     selectedEventDetails = null;
@@ -166,10 +173,11 @@
   async function saveSubscription() {
     error = '';
     try {
+      const eventName = catchAllEnabled ? CATCH_ALL_EVENT : form.eventName;
       if (modalMode === 'create') {
         await client.createSubscription({
           webhookId,
-          eventName: form.eventName,
+          eventName,
           namespace: form.namespace,
           transformEnabled: form.transformEnabled,
           transformTemplate: form.transformTemplate,
@@ -203,6 +211,7 @@
   }
 
   function openEditModal(subscription: EventSubscription) {
+    catchAllEnabled = subscription.eventName === CATCH_ALL_EVENT;
     form = {
       subscriptionId: subscription.subscriptionId,
       eventName: subscription.eventName,
@@ -381,7 +390,18 @@
               <div class="flex-1 min-w-0">
                 <!-- Title row -->
                 <div class="flex items-center gap-2 mb-2">
-                  <h3 class="text-sm font-semibold text-gray-900">{subscription.eventName}</h3>
+                  <h3 class="text-sm font-semibold text-gray-900">
+                    {#if subscription.eventName === CATCH_ALL_EVENT}
+                      All Events
+                    {:else}
+                      {subscription.eventName}
+                    {/if}
+                  </h3>
+                  {#if subscription.eventName === CATCH_ALL_EVENT}
+                    <span class="px-1.5 py-0.5 text-xs font-medium bg-purple-50 text-purple-700 rounded border border-purple-200">
+                      Catch-All
+                    </span>
+                  {/if}
                   <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">
                     {subscription.namespace}
                   </span>
@@ -476,31 +496,62 @@
         <div>
           <label for="modal-event-name" class="block text-sm font-medium text-gray-700 mb-1">Event Name</label>
           {#if modalMode === 'create'}
-            <div class="flex gap-2">
-              <select
-                id="modal-event-name"
-                bind:value={form.eventName}
-                onchange={() => handleEventChange(form.eventName)}
-                class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+            <!-- Catch-all toggle -->
+            <div class="flex items-center gap-3 mb-3">
+              <button
+                type="button"
+                onclick={() => {
+                  catchAllEnabled = !catchAllEnabled;
+                  if (catchAllEnabled) {
+                    form.eventName = CATCH_ALL_EVENT;
+                    selectedEventDetails = null;
+                  } else {
+                    form.eventName = '';
+                  }
+                }}
+                aria-label="Toggle catch-all subscription"
+                class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {catchAllEnabled ? 'bg-purple-500' : 'bg-gray-300'}"
               >
-                <option value="">Select an event...</option>
-                {#each availableEvents as event}
-                  <option value={event.name}>{event.name}</option>
-                {/each}
-              </select>
-              <span class="text-xs text-gray-400 self-center">or</span>
-              <input
-                type="text"
-                bind:value={form.eventName}
-                oninput={() => handleEventChange(form.eventName)}
-                placeholder="Type event name"
-                class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
-              />
+                <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {catchAllEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
+              </button>
+              <div>
+                <span class="text-sm font-medium text-gray-700">Catch-All Subscription</span>
+                <p class="text-xs text-gray-500">Receive every event in this namespace</p>
+              </div>
             </div>
+
+            {#if !catchAllEnabled}
+              <div class="flex gap-2">
+                <select
+                  id="modal-event-name"
+                  bind:value={form.eventName}
+                  onchange={() => handleEventChange(form.eventName)}
+                  class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                >
+                  <option value="">Select an event...</option>
+                  {#each availableEvents as event}
+                    <option value={event.name}>{event.name}</option>
+                  {/each}
+                </select>
+                <span class="text-xs text-gray-400 self-center">or</span>
+                <input
+                  type="text"
+                  bind:value={form.eventName}
+                  oninput={() => handleEventChange(form.eventName)}
+                  placeholder="Type event name"
+                  class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                />
+              </div>
+            {:else}
+              <div class="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+                <p class="text-sm text-purple-700 font-medium">This subscription will receive all events in the namespace.</p>
+                <p class="text-xs text-purple-600 mt-1">Use template variables <code class="bg-purple-100 px-1 rounded">{'{{.EventName}}'}</code>, <code class="bg-purple-100 px-1 rounded">{'{{.EventID}}'}</code>, <code class="bg-purple-100 px-1 rounded">{'{{.Payload}}'}</code> for dynamic payloads.</p>
+              </div>
+            {/if}
           {:else}
             <input
               type="text"
-              value={form.eventName}
+              value={form.eventName === CATCH_ALL_EVENT ? 'All Events (Catch-All)' : form.eventName}
               disabled
               class="w-full text-sm rounded-lg border-gray-300 bg-gray-50 text-gray-500"
             />
@@ -524,6 +575,7 @@
           <div>
             <label for="modal-method" class="block text-sm font-medium text-gray-700 mb-1">Method</label>
             <select id="modal-method" bind:value={form.method} class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900">
+              <option value="GET">GET</option>
               <option value="POST">POST</option>
               <option value="PUT">PUT</option>
               <option value="PATCH">PATCH</option>

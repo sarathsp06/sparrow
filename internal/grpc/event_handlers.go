@@ -41,12 +41,12 @@ func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEvent
 		schema = req.Schema.AsMap()
 	}
 
-	eventID, createdAt, err := s.service.RegisterEvent(ctx, req.Name, req.Description, schema, req.Metadata, req.Active)
+	eventName, createdAt, err := s.service.RegisterEvent(ctx, req.Name, req.Description, schema, req.Metadata, req.Active)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to register event: %v", err)
 	}
 	return &pb.RegisterEventResponse{
-		EventId:   eventID,
+		EventId:   eventName, // Deprecated field — now carries the event name
 		CreatedAt: timestamppb.New(createdAt),
 	}, nil
 }

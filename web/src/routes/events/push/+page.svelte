@@ -171,22 +171,30 @@
             <label for="event" class="block text-sm font-medium text-gray-700 mb-1">
               Event Type
             </label>
-            {#if availableEvents.length === 0}
-              <div class="text-sm text-gray-500 bg-gray-50 rounded-lg p-3 border border-gray-200">
-                No active events found. <a href="/events/register" class="text-blue-600 hover:text-blue-800 underline">Register one first</a>.
-              </div>
-            {:else}
-              <select
+            <div class="flex gap-2">
+              {#if availableEvents.length > 0}
+                <select
+                  id="event-select"
+                  bind:value={event}
+                  class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 bg-white"
+                >
+                  <option value="">Select an event...</option>
+                  {#each availableEvents as e}
+                    <option value={e.name}>{e.name}</option>
+                  {/each}
+                </select>
+                <span class="text-xs text-gray-400 self-center">or</span>
+              {/if}
+              <input
                 id="event"
+                type="text"
                 bind:value={event}
-                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 bg-white"
+                placeholder="Type event name"
+                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
                 required
-              >
-                {#each availableEvents as e}
-                  <option value={e.name}>{e.name}</option>
-                {/each}
-              </select>
-            {/if}
+              />
+            </div>
+            <p class="text-xs text-gray-500 mt-1">New event names will be auto-registered when pushed.</p>
           </div>
 
           <div>
@@ -212,7 +220,7 @@
             <button
               type="submit"
               class="inline-flex items-center px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loading || availableEvents.length === 0}
+              disabled={loading || !event.trim()}
             >
               {loading ? "Pushing..." : "Push Event"}
             </button>

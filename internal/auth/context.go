@@ -19,6 +19,10 @@ type AuthInfo struct {
 	// TenantID is the tenant this identity belongs to.
 	TenantID uuid.UUID
 
+	// SubjectID is the unique user identifier from the identity provider
+	// (JWT "sub" claim). Empty for API key auth.
+	SubjectID string
+
 	// IsPlatformAdmin grants cross-tenant access for SaaS operations.
 	IsPlatformAdmin bool
 

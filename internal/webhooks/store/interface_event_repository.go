@@ -10,15 +10,13 @@ import (
 
 // RegisterEvent registers a new event type within a tenant
 func (r *Repository) RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error {
-	event.ID = uuid.New()
 	event.TenantID = tenantID
 	query := `
 		INSERT INTO event_registrations (
-			id, tenant_id, name, description, schema, sample_payload, metadata, active
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			tenant_id, name, description, schema, sample_payload, metadata, active
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err := r.db.ExecContext(ctx, query,
-		event.ID,
 		event.TenantID,
 		event.Name,
 		event.Description,
@@ -33,7 +31,7 @@ func (r *Repository) RegisterEvent(ctx context.Context, tenantID uuid.UUID, even
 // GetEventByName gets an event registration by name within a tenant
 func (r *Repository) GetEventByName(ctx context.Context, tenantID uuid.UUID, eventName string) (*EventRegistration, error) {
 	query := `
-		SELECT id, tenant_id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
+		SELECT tenant_id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
 		FROM event_registrations 
 		WHERE tenant_id = $1 AND name = $2
 	`
@@ -64,7 +62,7 @@ func (r *Repository) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID
 	}
 
 	query := `
-		SELECT id, tenant_id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
+		SELECT tenant_id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
 		FROM event_registrations
 		WHERE tenant_id = $1 AND ($2 IS FALSE OR active = true)
 		ORDER BY name ASC

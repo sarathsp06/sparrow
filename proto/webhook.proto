@@ -244,7 +244,7 @@ message RegisterEventRequest {
 
 // RegisterEventResponse represents the response for event registration
 message RegisterEventResponse {
-  string event_id = 1; // Unique event identifier
+  string event_id = 1 [deprecated = true]; // Deprecated: now returns the event name (same as the name in the request). Use name field instead.
   bool success = 2 [deprecated = true]; // Use gRPC status codes instead
   string message = 3 [deprecated = true]; // Use gRPC status codes instead
   google.protobuf.Timestamp created_at = 4; // When the event was registered
@@ -258,8 +258,8 @@ message ListEventsRequest {
 
 // RegisteredEvent represents a registered event type
 message RegisteredEvent {
-  string event_id = 1; // Unique event identifier
-  string name = 2; // Event name
+  string event_id = 1 [deprecated = true]; // Deprecated: now returns the event name. Use the name field (field 2) instead.
+  string name = 2; // Event name (unique per tenant — this is the primary identifier)
   string description = 3; // Event description
   google.protobuf.Struct schema = 4; // JSON schema for validation
   google.protobuf.Struct sample_payload = 9; // Auto-generated sample payload based on schema
@@ -773,11 +773,13 @@ message Tenant {
   string status = 4; // active, suspended, archived
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp updated_at = 6;
+  optional string external_id = 7; // External identity provider org ID (e.g., Clerk org_id)
 }
 
 // CreateTenantRequest represents a request to create a tenant
 message CreateTenantRequest {
   string name = 1; // Tenant name (required)
+  optional string external_id = 2; // External identity provider org ID (e.g., Clerk org_id)
 }
 
 // CreateTenantResponse represents the response for tenant creation

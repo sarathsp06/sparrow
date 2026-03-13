@@ -1,5 +1,3 @@
-BEGIN;
-
 -- Remove tenant_id from existing tables
 DROP INDEX IF EXISTS idx_event_records_tenant_namespace;
 DROP INDEX IF EXISTS idx_event_records_tenant;
@@ -29,5 +27,3 @@ ALTER TABLE event_registrations DROP COLUMN IF EXISTS tenant_id;
 DROP TABLE IF EXISTS api_keys;
 DROP TRIGGER IF EXISTS update_tenants_updated_at ON tenants;
 DROP TABLE IF EXISTS tenants;
-
-COMMIT;

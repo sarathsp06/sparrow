@@ -1,5 +1,3 @@
-BEGIN;
-
 -- Add error_category column to webhook_health_events for error classification
 -- Categories: success, client_error, server_error, timeout, dns_error, tls_error, connection_refused, network_error, unknown
 ALTER TABLE webhook_health_events
@@ -32,5 +30,3 @@ ALTER TABLE webhook_health_summaries
     ADD COLUMN server_errors INTEGER NOT NULL DEFAULT 0,
     ADD COLUMN timeout_errors INTEGER NOT NULL DEFAULT 0,
     ADD COLUMN network_errors INTEGER NOT NULL DEFAULT 0;
-
-COMMIT;

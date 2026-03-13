@@ -16,6 +16,7 @@ type Tenant struct {
 	Status     string    `json:"status" db:"status"`
 	Settings   string    `json:"settings" db:"settings"`                 // JSONB stored as string
 	ExternalID *string   `json:"external_id,omitempty" db:"external_id"` // OIDC provider org ID (e.g., Clerk org_id)
+	CreatedBy  *string   `json:"created_by,omitempty" db:"created_by"`   // OIDC user ID (JWT sub) who created this tenant
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
 }

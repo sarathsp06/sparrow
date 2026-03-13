@@ -19,6 +19,10 @@ const (
 	HealthUnknown   WebhookHealth = "unknown"   // No recent delivery attempts
 )
 
+// CatchAllEventName is the special event_name value used in event_subscriptions
+// to indicate a catch-all subscription that receives every event in the namespace.
+const CatchAllEventName = "*"
+
 // WebhookRegistration represents a registered webhook
 type WebhookRegistration struct {
 	ID        uuid.UUID `json:"id" db:"id"`
@@ -147,9 +151,9 @@ type WebhookHealthMetrics struct {
 	UpdatedAt           time.Time  `json:"updated_at" db:"updated_at"`
 }
 
-// EventRegistration represents a registered event type
+// EventRegistration represents a registered event type.
+// The natural key is (TenantID, Name) — there is no surrogate UUID.
 type EventRegistration struct {
-	ID            uuid.UUID                 `json:"id" db:"id"`
 	TenantID      uuid.UUID                 `json:"tenant_id" db:"tenant_id"`
 	Name          string                    `json:"name" db:"name"`
 	Description   string                    `json:"description" db:"description"`

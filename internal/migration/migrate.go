@@ -104,8 +104,19 @@ func RunAppMigrations(databaseURL, direction string, steps int, targetVersion ui
 	}
 
 	if dirty {
-		log.Warn("Database is in dirty state, forcing version", "version", currentVersion)
-		if err := m.Force(int(currentVersion)); err != nil {
+		// When a migration fails, golang-migrate marks the version as dirty.
+		// We force the version to (current - 1) so the failed migration will be
+		// re-attempted on the next Up(). If current is 1, we force to -1 which
+		// tells golang-migrate that no version has been applied (NilVersion).
+		prev := int(currentVersion) - 1
+		if prev < 0 {
+			prev = -1 // NilVersion — nothing applied yet
+		}
+		log.Warn("Database is in dirty state, resetting to previous version so the failed migration can be retried",
+			"dirty_version", currentVersion,
+			"reset_to", prev,
+		)
+		if err := m.Force(prev); err != nil {
 			return fmt.Errorf("failed to force version: %w", err)
 		}
 	}

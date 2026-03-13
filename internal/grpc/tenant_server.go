@@ -38,7 +38,13 @@ func (s *TenantServer) CreateTenant(ctx context.Context, req *pb.CreateTenantReq
 		return nil, status.Error(codes.PermissionDenied, err.Error())
 	}
 
-	t, err := s.svc.CreateTenant(ctx, req.GetName())
+	var opts []tenant.CreateTenantOpts
+	if req.ExternalId != nil {
+		extID := req.GetExternalId()
+		opts = append(opts, tenant.CreateTenantOpts{ExternalID: &extID})
+	}
+
+	t, err := s.svc.CreateTenant(ctx, req.GetName(), opts...)
 	if err != nil {
 		if errors.Is(err, storage.ErrAlreadyExists) {
 			return nil, status.Errorf(codes.AlreadyExists, "tenant with this name already exists")
@@ -318,7 +324,7 @@ func tenantToProto(t *tenant.Tenant) *pb.Tenant {
 	if t == nil {
 		return nil
 	}
-	return &pb.Tenant{
+	p := &pb.Tenant{
 		Id:        t.ID.String(),
 		Name:      t.Name,
 		Slug:      t.Slug,
@@ -326,6 +332,10 @@ func tenantToProto(t *tenant.Tenant) *pb.Tenant {
 		CreatedAt: timestamppb.New(t.CreatedAt),
 		UpdatedAt: timestamppb.New(t.UpdatedAt),
 	}
+	if t.ExternalID != nil {
+		p.ExternalId = t.ExternalID
+	}
+	return p
 }
 
 func apiKeyToProto(k *tenant.APIKey) *pb.APIKey {

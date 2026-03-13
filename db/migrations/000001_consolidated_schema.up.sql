@@ -1,5 +1,3 @@
-BEGIN;
-
 -- Consolidated schema for sparrow webhook system
 -- This migration creates all tables with their final structure to avoid ALTER TABLE statements
 
@@ -203,5 +201,3 @@ CREATE TRIGGER update_webhook_registrations_updated_at
 CREATE TRIGGER update_event_registrations_updated_at 
     BEFORE UPDATE ON event_registrations 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-COMMIT;

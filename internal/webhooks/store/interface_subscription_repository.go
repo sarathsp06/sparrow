@@ -150,13 +150,16 @@ func (r *Repository) ListSubscriptionsByNamespace(ctx context.Context, tenantID 
 }
 
 // GetSubscriptionsByEvent finds all active subscriptions for a specific event in a namespace within a tenant.
+// Also includes catch-all subscriptions (event_name = '*') for the same namespace.
 func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string) ([]*EventSubscription, error) {
 	query := `
 		SELECT es.id, es.tenant_id, es.webhook_id, es.event_name, es.namespace, es.headers, es.method, 
 		       es.transform_enabled, es.transform_template, es.timeout, es.created_at, es.updated_at
 		FROM event_subscriptions es
 		JOIN webhook_registrations wr ON es.webhook_id = wr.id
-		WHERE es.tenant_id = $1 AND es.namespace = $2 AND es.event_name = $3 AND wr.active = true
+		WHERE es.tenant_id = $1 AND es.namespace = $2
+		  AND (es.event_name = $3 OR es.event_name = '*')
+		  AND wr.active = true
 	`
 	var subscriptions []*EventSubscription
 
@@ -181,7 +184,9 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 			wr.user_agent, wr.content_type, wr.created_at as wr_created_at, wr.updated_at as wr_updated_at
 		FROM event_subscriptions es
 		JOIN webhook_registrations wr ON es.webhook_id = wr.id
-		WHERE es.tenant_id = $1 AND es.namespace = $2 AND es.event_name = $3 AND wr.active = true
+		WHERE es.tenant_id = $1 AND es.namespace = $2
+		  AND (es.event_name = $3 OR es.event_name = '*')
+		  AND wr.active = true
 	`
 
 	type rowStruct struct {

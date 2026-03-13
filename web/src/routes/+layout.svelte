@@ -10,13 +10,13 @@
     "/": "Home",
     "/webhooks": "Webhooks",
     "/webhooks/[webhookId]": "Webhook",
-    "/events/[eventId]/update": "Update Event",
+    "/events/[eventName]/update": "Update Event",
     "/events": "Events",
     "/health": "Health",
     "/deliveries": "Deliveries",
     "/events/push": "Push Event",
     "/webhooks/register": "Register Webhook",
-    "/events/[eventId]/reports": "Event Reports"
+    "/events/[eventName]/reports": "Event Reports"
   };
 
   function getTitle(): string {

@@ -17,13 +17,12 @@
     // Namespace filter (empty = all namespaces)
     let namespaceFilter = $state('');
 
-    const eventId = page.params.eventId || '';
+    const eventName = decodeURIComponent(page.params.eventName || '');
 
     async function fetchEventDetails() {
         try {
-            const req = { activeOnly: false };
-            const res = await client.listEvents(req);
-            currentEvent = res.events?.find(event => event.eventId === eventId);
+            const res = await client.getEvent({ name: eventName });
+            currentEvent = res.event;
             
             if (!currentEvent) {
                 error = 'Event not found';

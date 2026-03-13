@@ -21,8 +21,10 @@ import (
 type TenantResolver interface {
 	// ResolveTenant maps an external tenant identifier (e.g., Clerk org_id,
 	// Auth0 org_id, or a UUID string) to an internal tenant UUID.
+	// subjectID is the authenticated user's identity (JWT "sub" claim),
+	// used for auto-provisioning with per-user limits.
 	// Returns an error if the tenant is unknown or inactive.
-	ResolveTenant(ctx context.Context, externalID string) (uuid.UUID, error)
+	ResolveTenant(ctx context.Context, externalID string, subjectID string) (uuid.UUID, error)
 }
 
 // JWTClaimsConfig defines which JWT claims to read for tenant and role info.
@@ -153,10 +155,13 @@ func (a *JWTAuthenticator) Authenticate(ctx context.Context, credential string) 
 		return nil, fmt.Errorf("jwt missing required claim %q", a.claimsConfig.TenantClaim)
 	}
 
+	// Extract subject (user ID) from claims
+	subjectID, _ := claims[a.claimsConfig.SubjectClaim].(string)
+
 	// Resolve tenant ID
 	var tenantID uuid.UUID
 	if a.tenantResolver != nil {
-		tenantID, err = a.tenantResolver.ResolveTenant(ctx, tenantExtID)
+		tenantID, err = a.tenantResolver.ResolveTenant(ctx, tenantExtID, subjectID)
 		if err != nil {
 			return nil, fmt.Errorf("tenant resolution failed: %w", err)
 		}
@@ -178,7 +183,8 @@ func (a *JWTAuthenticator) Authenticate(ctx context.Context, credential string) 
 
 	// Build AuthInfo
 	info := &AuthInfo{
-		TenantID: tenantID,
+		TenantID:  tenantID,
+		SubjectID: subjectID,
 	}
 
 	if IsTenantRole(role) {

@@ -196,7 +196,7 @@ func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID uuid
 	// If no pre-computed summary exists, compute on-the-fly
 	realTimeQuery := `
 		SELECT 
-			$1 as webhook_id,
+			$1::uuid as webhook_id,
 			NOW() - INTERVAL '1 hour' * $2 as window_start,
 			NOW() as window_end,
 			COUNT(*) as total_deliveries,

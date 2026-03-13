@@ -1,6 +1,32 @@
-# Sparrow - Technical Architecture
+# Sparrow -- Technical Reference
 
-This document covers Sparrow's internal architecture. For setup, usage, and configuration, see [README.md](README.md).
+This document covers Sparrow's internal architecture, deployment guides, and detailed configuration. For quick start and basic usage, see [README.md](README.md).
+
+---
+
+## Table of Contents
+
+- [Architecture Overview](#architecture-overview)
+- [Deployment Guide](#deployment-guide)
+  - [Docker Compose (Recommended)](#docker-compose-recommended)
+  - [Binary Deployment](#binary-deployment)
+  - [Enabling Authentication](#enabling-authentication)
+  - [Setting Up Clerk](#setting-up-clerk)
+  - [Setting Up Other OIDC Providers](#setting-up-other-oidc-providers)
+- [Auth Architecture](#auth-architecture)
+  - [API Key Authentication](#api-key-authentication)
+  - [JWT Authentication](#jwt-authentication)
+  - [RBAC Model](#rbac-model)
+  - [Web UI Auth Providers](#web-ui-auth-providers)
+- [Architecture Deep Dive](#architecture-deep-dive)
+  - [Data Model](#data-model)
+  - [Tenant Isolation](#tenant-isolation)
+  - [Error Classification & Retry Logic](#error-classification--retry-logic)
+  - [Health State Machine](#health-state-machine)
+  - [HTTP Client Design](#http-client-design)
+  - [Observability](#observability)
+  - [Server Boot Sequence](#server-boot-sequence)
+  - [Web UI Architecture](#web-ui-architecture)
 
 ---
 
@@ -39,7 +65,7 @@ graph LR
     UI[Embedded SvelteKit UI] -->|Connect-RPC| API
 ```
 
-## Tech Stack
+### Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -51,97 +77,176 @@ graph LR
 | Web UI | SvelteKit 5 + TypeScript + Tailwind CSS 4 (embedded static build) |
 | Observability | OpenTelemetry (traces, metrics, logs via OTLP) |
 | DB Access | pgx/v5 + sqlx (OTel-instrumented) |
-| CI | GitHub Actions |
 | Container | Multi-stage Dockerfile (distroless nonroot) |
 
 ---
 
-## Dual-Protocol API
+## Deployment Guide
 
-The same gRPC service implementations back both protocols -- no code duplication:
+### Docker Compose (Recommended)
 
-- **gRPC** on `:50051` for high-performance programmatic access
-- **Connect-RPC (HTTP/JSON)** on `:8080` for curl, browsers, and any HTTP client
+The simplest way to run Sparrow. This starts PostgreSQL, runs migrations, and launches the server with the embedded web UI.
 
-Seven domain services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`, `TenantService`, `APIKeyService`.
-
----
-
-## Data Model
-
-```mermaid
-erDiagram
-    tenants ||--o{ api_keys : "has"
-    tenants ||--o{ event_registrations : "owns"
-    tenants ||--o{ webhook_registrations : "owns"
-    tenants ||--o{ event_subscriptions : "owns"
-    tenants ||--o{ event_records : "owns"
-
-    tenants {
-        uuid id PK
-        string name
-        string slug UK
-        string external_id UK
-        string status
-        jsonb settings
-        timestamp created_at
-        timestamp updated_at
-    }
-
-    api_keys {
-        uuid id PK
-        uuid tenant_id FK
-        string key_prefix
-        bytes key_hash
-        string role
-        string namespace_scope
-        bool is_platform_admin
-        timestamp expires_at
-        timestamp last_used_at
-        timestamp revoked_at
-    }
+```bash
+docker compose up -d
 ```
 
-### Tenant Isolation
+That's it. The server is available at:
+- **Web UI:** http://localhost:8080
+- **HTTP API (Connect-RPC):** http://localhost:8080
+- **gRPC API:** localhost:50051
 
-Every domain table (`event_registrations`, `webhook_registrations`, `event_subscriptions`, `event_records`) has a `tenant_id` column with a foreign key to `tenants`. All queries are scoped by tenant ID, extracted from the authenticated context (API key or JWT).
+On first boot, a root API key is printed to the logs:
 
-- **External ID mapping:** Tenants can have an `external_id` that maps to an identity provider's organization ID (e.g., Clerk `org_id`). JWT-authenticated requests are scoped to the correct tenant via this mapping.
-- **Default tenant:** Auto-created on first boot with UUID `00000000-0000-0000-0000-000000000001`
-- **Tenant slugs:** URL-safe identifiers derived from tenant name (e.g., "Acme Corp" -> "acme-corp")
-- **Tenant settings:** JSONB column for per-tenant configuration
+```bash
+docker compose logs sparrow
+```
 
-### Bootstrap Sequence
+To stop:
 
-On startup, the bootstrap process:
+```bash
+docker compose down        # stop containers
+docker compose down -v     # stop and delete data
+```
 
-1. Ensures the default tenant exists (creates if missing)
-2. Generates a root API key with `tenant:admin` + `is_platform_admin` (if no keys exist)
-3. Prints the root API key to stdout on first boot
-4. Supports `SPARROW_ROOT_API_KEY` env var for deterministic key generation
+### Binary Deployment
+
+Build from source and run directly:
+
+```bash
+# Build with embedded UI
+make build-with-ui
+
+# Start infrastructure (or provide your own Postgres)
+export DATABASE_URL=postgres://user:pass@localhost:5432/sparrow?sslmode=disable
+
+# Run migrations
+./build/server-* migrate  # or: make migrate
+
+# Start the server
+SPARROW_SERVE_UI=true ./build/server-*
+```
+
+### Enabling Authentication
+
+By default, Sparrow runs without authentication. To enable it:
+
+**1. API keys only (simplest):**
+
+```bash
+# docker-compose.yml or environment
+SPARROW_AUTH_ENABLED=true
+```
+
+On first boot, Sparrow prints a root API key. Use it to create additional keys:
+
+```bash
+curl -s -X POST http://localhost:8080/webhook.APIKeyService/CreateAPIKey \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_default_<root_key>" \
+  -d '{
+    "tenant_id": "<tenant_id>",
+    "name": "Production Key",
+    "role": "tenant:admin"
+  }'
+```
+
+**2. API keys + JWT (for web UI with identity provider):**
+
+```bash
+SPARROW_AUTH_ENABLED=true
+SPARROW_JWKS_URL=https://your-provider.example.com/.well-known/jwks.json
+SPARROW_JWT_TENANT_CLAIM=org_id
+SPARROW_JWT_ROLE_CLAIM=org_role
+```
+
+When both are enabled, the interceptor tries JWT first, then API key. This lets the web UI use JWTs while scripts use API keys.
+
+### Setting Up Clerk
+
+Clerk is a managed identity provider. Sparrow auto-provisions tenants when users create Clerk organizations -- no webhooks or manual setup needed.
+
+**1. Create a Clerk application** at [clerk.com](https://clerk.com) and enable Organizations.
+
+**2. Create a JWT template** in Clerk Dashboard > JWT Templates:
+
+- Template name: `sparrow` (or any name)
+- Claims (JSON):
+  ```json
+  {
+    "org_id": "{{org.id}}",
+    "org_role": "{{org_membership.role}}"
+  }
+  ```
+
+**3. Configure the backend:**
+
+```bash
+SPARROW_AUTH_ENABLED=true
+SPARROW_JWKS_URL=https://<your-instance>.clerk.accounts.dev/.well-known/jwks.json
+SPARROW_JWT_TENANT_CLAIM=org_id
+SPARROW_JWT_ROLE_CLAIM=org_role
+SPARROW_JWT_ISSUER=https://<your-instance>.clerk.accounts.dev
+```
+
+**4. Configure the frontend** (in `web/.env` or environment):
+
+```bash
+PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your-key-here
+PUBLIC_API_URL=http://localhost:8080   # or your deployment URL
+```
+
+**How auto-provisioning works:**
+
+1. User creates an organization in Clerk
+2. Their next API request carries a JWT with the new `org_id`
+3. Sparrow's `CachingTenantResolver` doesn't find a matching tenant
+4. The `AutoProvisioner` creates one automatically (with the org_id as `external_id`)
+5. A per-user limit of 2 tenants is enforced via the JWT `sub` claim
+
+No Clerk webhooks, no manual tenant creation. Users must always operate within an organization (`hidePersonal={true}`).
+
+**Role mapping:**
+
+| Clerk role | Sparrow role |
+|---|---|
+| `org:admin` | `tenant:admin` |
+| `org:member` | `tenant:member` |
+
+### Setting Up Other OIDC Providers
+
+Sparrow's backend is **provider-agnostic**. It validates JWTs using standard JWKS and reads configurable claims. No provider SDK is linked into the Go binary.
+
+**Auth0:**
+
+```bash
+SPARROW_JWKS_URL=https://your-tenant.auth0.com/.well-known/jwks.json
+SPARROW_JWT_TENANT_CLAIM=org_id           # Auth0 organization ID claim
+SPARROW_JWT_ROLE_CLAIM=permissions         # or your custom role claim
+SPARROW_JWT_ISSUER=https://your-tenant.auth0.com/
+```
+
+**Keycloak:**
+
+```bash
+SPARROW_JWKS_URL=https://keycloak.example.com/realms/your-realm/protocol/openid-connect/certs
+SPARROW_JWT_TENANT_CLAIM=organization      # depends on your Keycloak config
+SPARROW_JWT_ROLE_CLAIM=realm_access.roles  # or resource_access roles
+SPARROW_JWT_ISSUER=https://keycloak.example.com/realms/your-realm
+```
+
+**Any OIDC provider** works as long as it:
+1. Publishes a JWKS endpoint with RS256 keys
+2. Includes a tenant/org identifier claim in the JWT
+3. Optionally includes a role claim
 
 ---
 
 ## Auth Architecture
 
-Sparrow's auth system supports two authenticator types (API key and JWT) via a common `Authenticator` interface. The interceptor tries each registered authenticator in order -- the first one to succeed determines the identity.
+### API Key Authentication
 
-### Interceptor Chain
-
-Auth is implemented as dual interceptors (gRPC unary + Connect-RPC) that:
-
-1. Extract the bearer token from `Authorization` header
-2. Try each registered authenticator in order (JWT first, then API key)
-3. The first authenticator that succeeds determines the identity
-4. If all authenticators fail, the request is rejected
-5. Build `AuthInfo` (TenantID, roles, permissions) and inject into request context
-6. Downstream service methods call `auth.MustFromContext(ctx)` to get the tenant ID
-
-Certain procedures (e.g., health checks) are skipped from auth via a configurable allowlist.
-
-### API Key Authenticator
-
-Uses SHA-256 hashing with an in-memory cache (5-minute TTL) for performance.
+API keys use the format `sk_<tenant_slug>_<random>` and are verified via SHA-256 hash lookup with an in-memory cache (5-minute TTL).
 
 ```mermaid
 sequenceDiagram
@@ -164,7 +269,29 @@ sequenceDiagram
     Note over Interceptor: Request proceeds with tenant scope
 ```
 
-### JWT Authenticator
+**API key management:**
+
+```bash
+# Create a key
+curl -s -X POST http://localhost:8080/webhook.APIKeyService/CreateAPIKey \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_default_<root_key>" \
+  -d '{"tenant_id": "<id>", "name": "CI Key", "role": "tenant:member"}'
+
+# List keys for a tenant
+curl -s -X POST http://localhost:8080/webhook.APIKeyService/ListAPIKeys \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_default_<root_key>" \
+  -d '{"tenant_id": "<id>"}'
+
+# Revoke a key
+curl -s -X POST http://localhost:8080/webhook.APIKeyService/RevokeAPIKey \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_default_<root_key>" \
+  -d '{"id": "<api_key_id>"}'
+```
+
+### JWT Authentication
 
 Provider-agnostic RS256 JWT verification. No external JWT library -- verification is implemented with Go's `crypto/rsa` stdlib.
 
@@ -190,9 +317,14 @@ sequenceDiagram
     API->>API: Verify RS256 signature
     API->>API: Validate exp, nbf, iss, aud
     API->>API: Extract tenant claim (org_id)
-    API->>Resolver: ResolveTenant(org_id)
-    Resolver->>DB: Lookup by external_id (cached 5min)
-    DB-->>Resolver: Internal tenant UUID
+    API->>Resolver: ResolveTenant(org_id, sub)
+    alt Tenant exists
+        Resolver->>DB: Lookup by external_id (cached 5min)
+        DB-->>Resolver: Internal tenant UUID
+    else Unknown org_id + provisioner configured
+        Resolver->>DB: Auto-provision new tenant
+        DB-->>Resolver: New tenant UUID
+    end
     Resolver-->>API: Tenant ID
     API->>API: Map role claim -> Sparrow role
     API->>API: Inject AuthInfo into context
@@ -206,17 +338,137 @@ sequenceDiagram
 | `JWKSProvider` | `internal/auth/jwks.go` | Fetches and caches RSA public keys from a JWKS URL |
 | `JWTAuthenticator` | `internal/auth/jwt.go` | Validates JWT signature and claims, maps to AuthInfo |
 | `CachingTenantResolver` | `internal/auth/tenant_resolver.go` | Maps external org IDs to internal tenant UUIDs with caching |
+| `AutoProvisioner` | `internal/tenant/provisioner.go` | Creates tenants on first JWT login, enforces per-user limits |
 | `JWTClaimsConfig` | `internal/auth/jwt.go` | Configurable claim names, role mapping, issuer/audience |
 
 ### RBAC Model
 
-The authorization system defines 5 roles and 25 permissions. `auth.Authorize(authInfo, permission)` checks whether the authenticated identity has a specific permission. See the [RBAC Roles table in README.md](README.md#rbac-roles) for the full role/scope breakdown.
+5 roles and 25 permissions. `auth.Authorize(authInfo, permission)` checks whether the authenticated identity has a specific permission.
 
-Platform admin keys (`is_platform_admin: true`) bypass tenant scoping entirely, allowing cross-tenant management operations.
+| Role | Scope | Description |
+|---|---|---|
+| `tenant:admin` | Tenant-wide | Full access to all resources within the tenant |
+| `tenant:member` | Tenant-wide | Read/write access to webhooks, events, subscriptions |
+| `namespace:admin` | Single namespace | Full access within a specific namespace |
+| `namespace:member` | Single namespace | Read/write access within a specific namespace |
+| `namespace:viewer` | Single namespace | Read-only access within a specific namespace |
+
+**JWT role mapping (configurable):** `org:admin` -> `tenant:admin`, `org:member` -> `tenant:member`.
+
+**Platform admin keys** (`is_platform_admin: true`) bypass tenant scoping entirely, allowing cross-tenant management operations.
+
+### Web UI Auth Providers
+
+The SvelteKit web dashboard has a pluggable auth provider system. The active provider is selected via environment variables.
+
+**Provider selection** (via `PUBLIC_AUTH_PROVIDER` or auto-detected from provider-specific keys):
+
+| `PUBLIC_AUTH_PROVIDER` | Provider-Specific Key | Result |
+|---|---|---|
+| *(unset)* | *(unset)* | No authentication (open access) |
+| *(unset)* | `PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...` | Clerk (auto-detected) |
+| `clerk` | `PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...` | Clerk (explicit) |
+| `none` | *(any)* | No authentication (forced) |
+
+**Component dispatch:**
+
+```
++layout.svelte  ->  AuthShell.svelte  ->  ClerkAuthShell.svelte  (or)
+                                      ->  NoAuthShell.svelte
+                                      ->  (your custom provider)
+```
+
+Each auth shell implements a snippet contract (`header`, `children`), controls when page content renders, and calls `registerTokenProvider()` to inject JWTs into API requests. The services layer (`services.ts`) only calls `getSessionToken()` -- it never imports any provider SDK.
+
+**Adding a new auth provider** (e.g., Auth0):
+
+1. Create `web/src/lib/auth/providers/auth0/Auth0AuthShell.svelte` with the same snippet contract
+2. Call `registerTokenProvider()` from `web/src/lib/auth.ts` with your provider's token getter
+3. Add `"auth0"` to `AuthProviderType` in `web/src/lib/auth/types.ts`
+4. Add detection logic in `web/src/lib/auth/provider.ts`
+5. Add a case in `web/src/lib/auth/AuthShell.svelte`
+
+The services layer and backend remain completely unchanged -- they only see JWTs.
+
+**Key files:**
+
+| File | Purpose |
+|------|---------|
+| `web/src/lib/auth.ts` | Provider-agnostic token abstraction |
+| `web/src/lib/auth/types.ts` | `AuthProviderType` and `AuthProviderConfig` types |
+| `web/src/lib/auth/provider.ts` | Detects active provider from env vars |
+| `web/src/lib/auth/AuthShell.svelte` | Dispatches to the correct provider shell |
+| `web/src/lib/auth/providers/clerk/` | Clerk-specific shell + bridge |
+| `web/src/lib/auth/providers/none/` | No-auth fallback shell |
+| `web/src/lib/services.ts` | Connect-RPC transport with Bearer token interceptor |
 
 ---
 
-## Error Classification & Retry Logic
+## Architecture Deep Dive
+
+### Dual-Protocol API
+
+The same gRPC service implementations back both protocols -- no code duplication:
+
+- **gRPC** on `:50051` for high-performance programmatic access
+- **Connect-RPC (HTTP/JSON)** on `:8080` for curl, browsers, and any HTTP client
+
+Seven domain services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`, `TenantService`, `APIKeyService`.
+
+### Data Model
+
+```mermaid
+erDiagram
+    tenants ||--o{ api_keys : "has"
+    tenants ||--o{ event_registrations : "owns"
+    tenants ||--o{ webhook_registrations : "owns"
+    tenants ||--o{ event_subscriptions : "owns"
+    tenants ||--o{ event_records : "owns"
+
+    tenants {
+        uuid id PK
+        string name
+        string slug UK
+        string external_id UK
+        string created_by
+        string status
+        jsonb settings
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    api_keys {
+        uuid id PK
+        uuid tenant_id FK
+        string key_prefix
+        bytes key_hash
+        string role
+        string namespace_scope
+        bool is_platform_admin
+        timestamp expires_at
+        timestamp last_used_at
+        timestamp revoked_at
+    }
+```
+
+### Tenant Isolation
+
+Every domain table (`event_registrations`, `webhook_registrations`, `event_subscriptions`, `event_records`) has a `tenant_id` column with a foreign key to `tenants`. All queries are scoped by tenant ID, extracted from the authenticated context (API key or JWT).
+
+- **External ID mapping:** Tenants have an `external_id` that maps to an identity provider's organization ID (e.g., Clerk `org_id`). JWT-authenticated requests are scoped to the correct tenant via this mapping.
+- **Auto-provisioning:** When a JWT contains an unknown `org_id`, the `AutoProvisioner` creates a new tenant automatically. A per-user limit of 2 tenants is enforced via the `created_by` column (JWT `sub` claim).
+- **Default tenant:** Auto-created on first boot with UUID `00000000-0000-0000-0000-000000000001`.
+
+**Bootstrap sequence** on startup:
+
+1. Ensures the default tenant exists (creates if missing)
+2. Generates a root API key with `tenant:admin` + `is_platform_admin` (if no keys exist)
+3. Prints the root API key to stdout on first boot
+4. Supports `SPARROW_ROOT_API_KEY` env var for deterministic key generation
+
+---
+
+### Error Classification & Retry Logic
 
 The `pkg/errors/` package implements a taxonomy-based error classifier that inspects Go errors to determine retryability:
 
@@ -254,7 +506,7 @@ Non-retryable errors return `nil` to River (stopping retries); retryable errors 
 
 ---
 
-## Health State Machine
+### Health State Machine
 
 Event-sourced health calculation with a 24-hour lookback window:
 
@@ -290,7 +542,7 @@ stateDiagram-v2
 
 ---
 
-## HTTP Client Design
+### HTTP Client Design
 
 A centralized, OTel-instrumented HTTP client (`internal/webhooks/client/`):
 
@@ -303,7 +555,7 @@ A centralized, OTel-instrumented HTTP client (`internal/webhooks/client/`):
 
 ---
 
-## Observability
+### Observability
 
 Full OpenTelemetry stack with OTLP export:
 
@@ -327,7 +579,7 @@ Full OpenTelemetry stack with OTLP export:
 
 ---
 
-## Server Boot Sequence
+### Server Boot Sequence
 
 ```mermaid
 flowchart TD
@@ -345,7 +597,7 @@ flowchart TD
 
 ---
 
-## Web UI Architecture
+### Web UI Architecture
 
 The web dashboard is a SvelteKit application that compiles to static files and is embedded into the Go binary via `go:embed`. See [web/README.md](web/README.md) for development setup.
 
@@ -354,28 +606,4 @@ The web dashboard is a SvelteKit application that compiles to static files and i
 2. `go build ./cmd/server` -- embeds `internal/ui/dist/` via `go:embed`
 3. At runtime, `internal/ui/embed.go` serves the SPA with proper fallback routing
 
-### Pluggable Auth Providers
-
-The frontend uses a pluggable auth provider system. See [README.md](README.md#web-ui-authentication-pluggable-providers) for usage and setup instructions.
-
-**Component dispatch:**
-
-```
-+layout.svelte  ->  AuthShell.svelte  ->  ClerkAuthShell.svelte  (or)
-                                      ->  NoAuthShell.svelte
-                                      ->  (your custom provider)
-```
-
-Each auth shell implements a snippet contract (`header`, `children`), controls when page content renders, and calls `registerTokenProvider()` to inject JWTs into API requests. The services layer (`services.ts`) only calls `getSessionToken()` -- it never imports any provider SDK.
-
-**Key files:**
-
-| File | Purpose |
-|------|---------|
-| `web/src/lib/auth.ts` | Provider-agnostic token abstraction |
-| `web/src/lib/auth/types.ts` | `AuthProviderType` and `AuthProviderConfig` types |
-| `web/src/lib/auth/provider.ts` | Detects active provider from env vars |
-| `web/src/lib/auth/AuthShell.svelte` | Dispatches to the correct provider shell |
-| `web/src/lib/auth/providers/clerk/` | Clerk-specific shell + bridge |
-| `web/src/lib/auth/providers/none/` | No-auth fallback shell |
-| `web/src/lib/services.ts` | Connect-RPC transport with Bearer token interceptor |
+The Docker image builds the frontend automatically -- no manual build step needed.

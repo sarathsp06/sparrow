@@ -3,12 +3,10 @@
 .gitignore
 .github/
 
-# Documentation
-README.md
-*.md
+# Documentation (not needed for build)
 docs/
 
-# Build artifacts
+# Prebuilt binaries (we compile in Docker)
 build/
 dist/
 *.exe
@@ -19,13 +17,6 @@ server
 migrate
 server-*
 cmd/generate-docs/
-
-# Test files
-*_test.go
-**/*_test.go
-testdata/
-coverage.out
-coverage.html
 
 # IDE files
 .vscode/
@@ -47,22 +38,22 @@ logs/
 .env.*
 !.env.example
 
-# Docker files
+# Docker files (prevent recursive context)
 Dockerfile*
 .dockerignore
 docker-compose*.yml
 otel-collector-config.yml
 
-# Development files
-Makefile
+# Development-only files
 setup.sh
-*.sh
-web/
 examples/
 pkg/testutils/
 
-# Generated files
-*.pb.go
-*.pb.d.ts
-*.pb.js
-protoconnect/
+# Frontend dependencies (installed fresh in Docker)
+web/node_modules/
+web/.svelte-kit/
+
+# Test coverage
+coverage.out
+coverage.html
+testdata/

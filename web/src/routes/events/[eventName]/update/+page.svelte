@@ -28,12 +28,10 @@
   }
 
   onMount(async () => {
-    const eventId = page.params.eventId;
+    const eventName = decodeURIComponent(page.params.eventName);
     try {
-      const req = { activeOnly: false };
-      // TODO(sarath): expose get event endpoint
-      const res = await client.listEvents(req);
-      const event = res.events.find((e) => e.eventId === eventId);
+      const res = await client.getEvent({ name: eventName });
+      const event = res.event;
       if (event) {
         name = event.name;
         description = event.description;

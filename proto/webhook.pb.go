@@ -1218,8 +1218,9 @@ func (x *RegisterEventRequest) GetActive() bool {
 
 // RegisterEventResponse represents the response for event registration
 type RegisterEventResponse struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	EventId string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"` // Unique event identifier
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	EventId string `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"` // Deprecated: now returns the event name (same as the name in the request). Use name field instead.
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"` // Use gRPC status codes instead
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
@@ -1259,6 +1260,7 @@ func (*RegisterEventResponse) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{12}
 }
 
+// Deprecated: Marked as deprecated in proto/webhook.proto.
 func (x *RegisterEventResponse) GetEventId() string {
 	if x != nil {
 		return x.EventId
@@ -1344,9 +1346,10 @@ func (x *ListEventsRequest) GetPagination() *PaginationRequest {
 
 // RegisteredEvent represents a registered event type
 type RegisteredEvent struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	EventId       string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`                                                              // Unique event identifier
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                                                   // Event name
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	EventId       string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`                                                              // Deprecated: now returns the event name. Use the name field (field 2) instead.
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                                                   // Event name (unique per tenant — this is the primary identifier)
 	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`                                                                     // Event description
 	Schema        *structpb.Struct       `protobuf:"bytes,4,opt,name=schema,proto3" json:"schema,omitempty"`                                                                               // JSON schema for validation
 	SamplePayload *structpb.Struct       `protobuf:"bytes,9,opt,name=sample_payload,json=samplePayload,proto3" json:"sample_payload,omitempty"`                                            // Auto-generated sample payload based on schema
@@ -1388,6 +1391,7 @@ func (*RegisteredEvent) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{14}
 }
 
+// Deprecated: Marked as deprecated in proto/webhook.proto.
 func (x *RegisteredEvent) GetEventId() string {
 	if x != nil {
 		return x.EventId
@@ -5372,6 +5376,7 @@ type Tenant struct {
 	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // active, suspended, archived
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	ExternalId    *string                `protobuf:"bytes,7,opt,name=external_id,json=externalId,proto3,oneof" json:"external_id,omitempty"` // External identity provider org ID (e.g., Clerk org_id)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5448,10 +5453,18 @@ func (x *Tenant) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Tenant) GetExternalId() string {
+	if x != nil && x.ExternalId != nil {
+		return *x.ExternalId
+	}
+	return ""
+}
+
 // CreateTenantRequest represents a request to create a tenant
 type CreateTenantRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // Tenant name (required)
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                     // Tenant name (required)
+	ExternalId    *string                `protobuf:"bytes,2,opt,name=external_id,json=externalId,proto3,oneof" json:"external_id,omitempty"` // External identity provider org ID (e.g., Clerk org_id)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5489,6 +5502,13 @@ func (*CreateTenantRequest) Descriptor() ([]byte, []int) {
 func (x *CreateTenantRequest) GetName() string {
 	if x != nil {
 		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateTenantRequest) GetExternalId() string {
+	if x != nil && x.ExternalId != nil {
+		return *x.ExternalId
 	}
 	return ""
 }
@@ -6587,9 +6607,9 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x06active\x18\x05 \x01(\bR\x06active\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa9\x01\n" +
-	"\x15RegisterEventResponse\x12\x19\n" +
-	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1c\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xad\x01\n" +
+	"\x15RegisterEventResponse\x12\x1d\n" +
+	"\bevent_id\x18\x01 \x01(\tB\x02\x18\x01R\aeventId\x12\x1c\n" +
 	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
 	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\x129\n" +
 	"\n" +
@@ -6599,9 +6619,9 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"activeOnly\x12:\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\"\xe2\x03\n" +
-	"\x0fRegisteredEvent\x12\x19\n" +
-	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x12\n" +
+	"pagination\"\xe6\x03\n" +
+	"\x0fRegisteredEvent\x12\x1d\n" +
+	"\bevent_id\x18\x01 \x01(\tB\x02\x18\x01R\aeventId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12/\n" +
 	"\x06schema\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06schema\x12>\n" +
@@ -6968,7 +6988,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vdelivery_id\x18\x01 \x01(\tR\n" +
 	"deliveryId\"S\n" +
 	"\x1bGetDeliveryAttemptsResponse\x124\n" +
-	"\battempts\x18\x01 \x03(\v2\x18.webhook.DeliveryAttemptR\battempts\"\xce\x01\n" +
+	"\battempts\x18\x01 \x03(\v2\x18.webhook.DeliveryAttemptR\battempts\"\x84\x02\n" +
 	"\x06Tenant\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -6977,9 +6997,15 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\")\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12$\n" +
+	"\vexternal_id\x18\a \x01(\tH\x00R\n" +
+	"externalId\x88\x01\x01B\x0e\n" +
+	"\f_external_id\"_\n" +
 	"\x13CreateTenantRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"?\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12$\n" +
+	"\vexternal_id\x18\x02 \x01(\tH\x00R\n" +
+	"externalId\x88\x01\x01B\x0e\n" +
+	"\f_external_id\"?\n" +
 	"\x14CreateTenantResponse\x12'\n" +
 	"\x06tenant\x18\x01 \x01(\v2\x0f.webhook.TenantR\x06tenant\"\"\n" +
 	"\x10GetTenantRequest\x12\x0e\n" +
@@ -7417,6 +7443,8 @@ func file_proto_webhook_proto_init() {
 	}
 	file_proto_webhook_proto_msgTypes[5].OneofWrappers = []any{}
 	file_proto_webhook_proto_msgTypes[49].OneofWrappers = []any{}
+	file_proto_webhook_proto_msgTypes[72].OneofWrappers = []any{}
+	file_proto_webhook_proto_msgTypes[73].OneofWrappers = []any{}
 	file_proto_webhook_proto_msgTypes[83].OneofWrappers = []any{}
 	file_proto_webhook_proto_msgTypes[84].OneofWrappers = []any{}
 	type x struct{}

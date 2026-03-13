@@ -92,7 +92,7 @@ type mockTenantResolver struct {
 	tenants map[string]uuid.UUID
 }
 
-func (r *mockTenantResolver) ResolveTenant(_ context.Context, externalID string) (uuid.UUID, error) {
+func (r *mockTenantResolver) ResolveTenant(_ context.Context, externalID string, _ string) (uuid.UUID, error) {
 	id, ok := r.tenants[externalID]
 	if !ok {
 		return uuid.Nil, fmt.Errorf("unknown tenant %q", externalID)
@@ -562,14 +562,14 @@ func TestCachingTenantResolver(t *testing.T) {
 	resolver := NewCachingTenantResolver(lookup, WithTenantCacheTTL(100*time.Millisecond))
 
 	t.Run("resolves external ID via lookup", func(t *testing.T) {
-		id, err := resolver.ResolveTenant(context.Background(), "org_ext_123")
+		id, err := resolver.ResolveTenant(context.Background(), "org_ext_123", "user_1")
 		require.NoError(t, err)
 		assert.Equal(t, tenantID, id)
 		assert.Equal(t, 1, lookup.callCount)
 	})
 
 	t.Run("caches result", func(t *testing.T) {
-		id, err := resolver.ResolveTenant(context.Background(), "org_ext_123")
+		id, err := resolver.ResolveTenant(context.Background(), "org_ext_123", "user_1")
 		require.NoError(t, err)
 		assert.Equal(t, tenantID, id)
 		assert.Equal(t, 1, lookup.callCount, "should use cache")
@@ -578,7 +578,7 @@ func TestCachingTenantResolver(t *testing.T) {
 	t.Run("cache expires", func(t *testing.T) {
 		time.Sleep(110 * time.Millisecond)
 		// After expiry, it should try UUID parse first (fails), then call lookup
-		id, err := resolver.ResolveTenant(context.Background(), "org_ext_123")
+		id, err := resolver.ResolveTenant(context.Background(), "org_ext_123", "user_1")
 		require.NoError(t, err)
 		assert.Equal(t, tenantID, id)
 		assert.Equal(t, 2, lookup.callCount)
@@ -586,14 +586,14 @@ func TestCachingTenantResolver(t *testing.T) {
 
 	t.Run("resolves UUID directly without lookup", func(t *testing.T) {
 		directID := uuid.New()
-		id, err := resolver.ResolveTenant(context.Background(), directID.String())
+		id, err := resolver.ResolveTenant(context.Background(), directID.String(), "user_1")
 		require.NoError(t, err)
 		assert.Equal(t, directID, id)
 		assert.Equal(t, 2, lookup.callCount, "should not call lookup for valid UUID")
 	})
 
 	t.Run("unknown tenant returns error", func(t *testing.T) {
-		_, err := resolver.ResolveTenant(context.Background(), "org_unknown")
+		_, err := resolver.ResolveTenant(context.Background(), "org_unknown", "user_1")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown tenant")
 	})

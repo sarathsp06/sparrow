@@ -1,5 +1,4 @@
 -- Rollback consolidated schema
-BEGIN;
 
 -- Drop triggers
 DROP TRIGGER IF EXISTS webhook_registration_change_notification_trigger ON webhook_registrations;
@@ -24,5 +23,3 @@ DROP TABLE IF EXISTS event_registrations;
 
 -- Drop types
 DROP TYPE IF EXISTS webhook_delivery_status;
-
-COMMIT;

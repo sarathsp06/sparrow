@@ -59,6 +59,19 @@ func convertExpectedStatusCodes(codes []int64) []int32 {
 	return result
 }
 
+// convertStatusCodesToInt converts []int32 to []int for use in HTTPConfigUpdate
+func convertStatusCodesToInt(codes []int32) []int {
+	if len(codes) == 0 {
+		return nil
+	}
+
+	result := make([]int, len(codes))
+	for i, code := range codes {
+		result[i] = int(code)
+	}
+	return result
+}
+
 // Helper function to convert map[string]any to protobuf Struct
 func convertMapToStruct(m map[string]any) (*structpb.Struct, error) {
 	if m == nil {
@@ -90,7 +103,7 @@ func convertEventToProto(event *store.EventRegistration) (*pb.RegisteredEvent, e
 		return nil, nil
 	}
 	pbEvent := &pb.RegisteredEvent{
-		EventId:     event.ID.String(),
+		EventId:     event.Name, // Deprecated field — now carries the event name for backward compat
 		Name:        event.Name,
 		Description: event.Description,
 		Active:      event.Active,

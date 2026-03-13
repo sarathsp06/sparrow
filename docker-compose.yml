@@ -1,0 +1,65 @@
+# Full Sparrow deployment: Postgres + migrations + server with embedded UI.
+#
+# Usage:
+#   docker compose up -d
+#
+# The server starts on:
+#   - HTTP (Connect-RPC + Web UI): http://localhost:8080
+#   - gRPC: localhost:50051
+#
+# On first boot, the root API key is printed to the server logs:
+#   docker compose logs sparrow
+#
+# To enable authentication, set SPARROW_AUTH_ENABLED=true in the
+# environment section below (or via a .env file).
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sparrow
+      POSTGRES_USER: sparrow
+      POSTGRES_PASSWORD: sparrow
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sparrow -d sparrow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: .
+    entrypoint: ["/app/tools/migrate"]
+    environment:
+      DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  sparrow:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50051:50051"
+    environment:
+      DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
+      SPARROW_SERVE_UI: "true"
+      SPARROW_AUTH_ENABLED: "false"
+      # --- Uncomment to enable authentication ---
+      # SPARROW_AUTH_ENABLED: "true"
+      # SPARROW_JWKS_URL: https://your-clerk-instance.clerk.accounts.dev/.well-known/jwks.json
+      # SPARROW_JWT_TENANT_CLAIM: org_id
+      # SPARROW_JWT_ROLE_CLAIM: org_role
+      # SPARROW_JWT_ISSUER: https://your-clerk-instance.clerk.accounts.dev
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+    driver: local

@@ -115,6 +115,7 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 	var timeout int
 	var active bool
 	var description string
+	var httpConfig *webhooks.HTTPConfigUpdate
 	if req.Updates != nil {
 		events = req.Updates.Events
 		url = req.Updates.Url
@@ -122,8 +123,22 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 		timeout = int(req.Updates.Timeout)
 		active = req.Updates.Active
 		description = req.Updates.Description
+		if req.Updates.HttpConfig != nil {
+			httpConfig = &webhooks.HTTPConfigUpdate{
+				MaxRetries:            int(req.Updates.HttpConfig.MaxRetries),
+				RetryBackoffSeconds:   int(req.Updates.HttpConfig.RetryBackoffSeconds),
+				CaptureResponseBody:   req.Updates.HttpConfig.CaptureResponseBody,
+				FollowRedirects:       req.Updates.HttpConfig.FollowRedirects,
+				VerifySSL:             req.Updates.HttpConfig.VerifySsl,
+				RequestTimeoutSeconds: int(req.Updates.HttpConfig.RequestTimeoutSeconds),
+				ExpectedStatusCodes:   convertStatusCodesToInt(req.Updates.HttpConfig.ExpectedStatusCodes),
+				WebhookSecret:         req.Updates.HttpConfig.WebhookSecret,
+				UserAgent:             req.Updates.HttpConfig.UserAgent,
+				ContentType:           req.Updates.HttpConfig.ContentType,
+			}
+		}
 	}
-	err := s.service.UpdateWebhookConfig(ctx, req.WebhookId, req.Namespace, events, url, headers, timeout, active, description)
+	err := s.service.UpdateWebhookConfig(ctx, req.WebhookId, req.Namespace, events, url, headers, timeout, active, description, httpConfig)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to update webhook config: %v", err)
 	}

@@ -9,39 +9,40 @@
 
 ## Quick Start
 
-### Prerequisites
-
-- Go 1.25+
-- Docker & Docker Compose
-- Node.js + npm (for the web UI, optional)
-
-### 1. Start Infrastructure
+### Option A: Docker Compose (Recommended)
 
 ```bash
-make docker-dev   # PostgreSQL, River UI, OpenTelemetry Collector
-make migrate      # Run database migrations
+docker compose up -d
 ```
 
-### 2. Start the Server
+That's it. Postgres, migrations, and the server with the web UI all start automatically. Open `http://localhost:8080/`.
+
+On first boot a root API key is printed to the logs:
 
 ```bash
-make run          # gRPC (:50051) + HTTP/JSON (:8080)
+docker compose logs sparrow
 ```
 
-That's it. No authentication is required by default -- everything just works out of the box.
+### Option B: From Source
 
-### 3. Open the Web Dashboard
-
-Build and run with the embedded UI:
+Requires Go 1.25+, Node.js, Docker.
 
 ```bash
-make build-with-ui    # Builds frontend + server with embedded UI
+make docker-dev       # Start PostgreSQL + River UI + OTel Collector
+make migrate          # Run database migrations
+make run              # gRPC (:50051) + HTTP/JSON (:8080)
+```
+
+To include the web dashboard:
+
+```bash
+make build-with-ui    # Builds frontend + server binary
 SPARROW_SERVE_UI=true ./build/server-*
 ```
 
-Open `http://localhost:8080/`. For development with hot-reload, use `make run-web` (Vite dev server on `:5173`).
+Open `http://localhost:8080/`. For frontend development with hot-reload, use `make run-web`.
 
-### 4. End-to-End Walkthrough
+### End-to-End Walkthrough
 
 Register an event, a webhook, subscribe, and push -- all from curl.
 
@@ -110,7 +111,7 @@ curl -s -X POST http://localhost:8080/webhook.DeliveryService/ListDeliveries \
   -d '{"namespace": "default"}'
 ```
 
-Or open the web dashboard, or the River queue UI at `http://localhost:8082`.
+Or open the web dashboard at `http://localhost:8080`. If running the dev stack (`docker-compose.dev.yml`), the River queue UI is at `http://localhost:8082`.
 
 ---
 
@@ -139,10 +140,106 @@ All endpoints are available via both gRPC (`:50051`) and Connect-RPC HTTP/JSON (
 | `SubscriptionService` | CreateSubscription, ListSubscriptions, TestSubscriptionTemplate |
 | `DeliveryService` | ListDeliveries, GetDeliveryStatus, RetryDelivery |
 | `HealthService` | GetWebhookHealth, GetHealthSummary |
-| `TenantService` | CreateTenant, GetTenant, ListTenants, UpdateTenant, DeleteTenant |
-| `APIKeyService` | CreateAPIKey, ListAPIKeys, RevokeAPIKey |
 
 HTTP endpoint pattern: `POST http://localhost:8080/webhook.<Service>/<Method>`
+
+---
+
+## Authentication
+
+Sparrow supports two authentication methods that can be used independently or together:
+
+1. **API keys** -- for programmatic / machine-to-machine access
+2. **JWT (OIDC)** -- for browser-based access via any identity provider (Clerk, Auth0, Keycloak, etc.)
+
+Both are optional. When `SPARROW_AUTH_ENABLED=false` (the default), all requests use the default tenant with admin access.
+
+### Enabling Authentication
+
+```bash
+export SPARROW_AUTH_ENABLED=true
+```
+
+On first boot, Sparrow creates a default tenant and prints a root API key to stdout. Use this key to create additional tenants and keys.
+
+### API Keys
+
+API keys use the format `sk_<tenant_slug>_<random>` and are passed via the `Authorization: Bearer` header.
+
+```bash
+# Use the root key to create a new API key
+curl -s -X POST http://localhost:8080/webhook.APIKeyService/CreateAPIKey \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk_default_<root_key>" \
+  -d '{
+    "tenant_id": "<tenant_id>",
+    "name": "Production Key",
+    "role": "tenant:admin"
+  }'
+# Save the raw_key from the response -- it is only shown once
+```
+
+### JWT / OIDC
+
+Sparrow verifies RS256 JWTs from any OIDC-compliant identity provider. Set `SPARROW_JWKS_URL` to enable:
+
+```bash
+export SPARROW_AUTH_ENABLED=true
+export SPARROW_JWKS_URL=https://your-provider.example.com/.well-known/jwks.json
+```
+
+When both JWT and API key auth are enabled, the interceptor tries each in order -- a request can authenticate with either method. See [TECHNICAL.md](TECHNICAL.md) for JWT claim configuration, RBAC role details, and provider-specific setup (Clerk, Auth0, etc.).
+
+---
+
+## Configuration
+
+### Backend
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | `postgres://localhost/riverqueue?sslmode=disable` | PostgreSQL connection string |
+| `SPARROW_AUTH_ENABLED` | `false` | Enable authentication |
+| `SPARROW_JWKS_URL` | *(unset)* | JWKS endpoint URL (enables JWT auth) |
+| `SPARROW_JWT_TENANT_CLAIM` | `org_id` | JWT claim containing the tenant/org identifier |
+| `SPARROW_JWT_ROLE_CLAIM` | `org_role` | JWT claim containing the user's role |
+| `SPARROW_JWT_ISSUER` | *(unset)* | Expected JWT issuer |
+| `SPARROW_SERVE_UI` | `false` | Serve embedded web UI on the HTTP port |
+| `SPARROW_AUTO_BOOTSTRAP` | `true` | Auto-create default tenant and root API key |
+| `SPARROW_ROOT_API_KEY` | *(auto-generated)* | Pre-defined root API key (for deterministic deploys) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | OpenTelemetry collector |
+| `ENVIRONMENT` | `development` | Environment name for OTel resource |
+
+### Frontend
+
+| Variable | Default | Description |
+|---|---|---|
+| `PUBLIC_API_URL` | `http://localhost:8080` | Sparrow backend URL |
+| `PUBLIC_AUTH_PROVIDER` | *(auto-detect)* | Auth provider: `clerk`, `none`, or unset for auto-detect |
+| `PUBLIC_CLERK_PUBLISHABLE_KEY` | *(unset)* | Clerk publishable key (enables Clerk auth) |
+
+---
+
+## Docker Deployment
+
+```bash
+docker build -t sparrow .
+docker run -p 8080:8080 -p 50051:50051 \
+  -e DATABASE_URL=postgres://user:pass@host:5432/sparrow \
+  -e SPARROW_AUTH_ENABLED=true \
+  -e SPARROW_SERVE_UI=true \
+  sparrow
+```
+
+The image is based on distroless (nonroot) and includes both the server and migration tool. Run migrations with:
+
+```bash
+docker run --entrypoint /app/tools/migrate \
+  -e DATABASE_URL=postgres://user:pass@host:5432/sparrow \
+  sparrow
+```
+
+---
 
 ## Useful Commands
 
@@ -153,205 +250,20 @@ HTTP endpoint pattern: `POST http://localhost:8080/webhook.<Service>/<Method>`
 | `make run` | Start the server |
 | `make run-web` | Start the web dashboard dev server |
 | `make build` | Build server binary |
-| `make build-ui` | Build frontend for embedding |
 | `make build-with-ui` | Build frontend + server binary with embedded UI |
-| `make example` | Run the example gRPC client |
 | `make test` | Run tests |
 | `make lint` | Run linter |
 | `make docker-purge` | Tear down dev infrastructure |
 
 ---
 
-# Advanced Usage
-
-Everything below is optional. Sparrow works without authentication, multi-tenancy configuration, or a separate UI process. These features are for production deployments and teams that need access control.
-
----
-
-## Multi-Tenancy
-
-Sparrow supports full multi-tenancy with data isolation at the database level. Every resource (webhooks, events, subscriptions, deliveries) is scoped to a tenant.
-
-- On first boot, Sparrow auto-creates a **default tenant** and a **root API key** (printed to stdout)
-- All data is scoped to a tenant ID -- queries never leak across tenants
-- Tenants are identified by UUID and have a URL-safe slug derived from their name
-- Tenant status can be `active`, `suspended`, or `archived`
-
-### Managing Tenants
-
-```bash
-# Create a new tenant
-curl -s -X POST http://localhost:8080/webhook.TenantService/CreateTenant \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk_default_<root_key>" \
-  -d '{"name": "Acme Corp"}'
-
-# List all tenants
-curl -s -X POST http://localhost:8080/webhook.TenantService/ListTenants \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk_default_<root_key>" \
-  -d '{}'
-```
-
----
-
-## Authentication & Authorization
-
-Sparrow supports two authentication methods that can be used independently or together:
-
-1. **API keys** -- for programmatic / machine-to-machine access
-2. **JWT (OIDC)** -- for browser-based access via any identity provider (Clerk, Auth0, Keycloak, etc.)
-
-Both are optional. When `SPARROW_AUTH_ENABLED=false` (the default), all requests use the default tenant with admin access.
-
-### API Key Authentication
-
-Set `SPARROW_AUTH_ENABLED=true` to require authentication. API keys use the format `sk_<tenant_slug>_<random>` and are passed via the `Authorization: Bearer` header.
-
-```bash
-# Create an API key for a tenant
-curl -s -X POST http://localhost:8080/webhook.APIKeyService/CreateAPIKey \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk_default_<root_key>" \
-  -d '{
-    "tenant_id": "<tenant_id>",
-    "name": "Production Key",
-    "role": "tenant:admin"
-  }'
-# Save the raw_key from the response -- it is only shown once
-
-# List API keys
-curl -s -X POST http://localhost:8080/webhook.APIKeyService/ListAPIKeys \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk_default_<root_key>" \
-  -d '{"tenant_id": "<tenant_id>"}'
-
-# Revoke an API key
-curl -s -X POST http://localhost:8080/webhook.APIKeyService/RevokeAPIKey \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk_default_<root_key>" \
-  -d '{"id": "<api_key_id>"}'
-```
-
-### JWT / OIDC Authentication
-
-Sparrow can verify RS256 JWTs from any OIDC-compliant identity provider. The backend is **provider-agnostic** -- it validates tokens using standard JWKS and reads configurable claims. No Clerk, Auth0, or Keycloak SDK is linked into the Go binary.
-
-**Enable JWT auth** by setting `SPARROW_JWKS_URL` alongside `SPARROW_AUTH_ENABLED=true`:
-
-```bash
-export SPARROW_AUTH_ENABLED=true
-export SPARROW_JWKS_URL=https://your-provider.example.com/.well-known/jwks.json
-
-# Optional -- defaults are Clerk-compatible
-export SPARROW_JWT_TENANT_CLAIM=org_id      # claim containing the tenant/org identifier
-export SPARROW_JWT_ROLE_CLAIM=org_role       # claim containing the user's role
-export SPARROW_JWT_ISSUER=https://your-provider.example.com  # reject tokens from other issuers
-```
-
-When both JWT and API key authentication are enabled, the interceptor tries each authenticator in order -- a request can authenticate with either method. This lets the web UI use JWTs while scripts and CI pipelines use API keys.
-
-**Tenant mapping:** JWT tokens contain an external org identifier (e.g., Clerk `org_id`). Sparrow maps this to an internal tenant via the `external_id` column on the `tenants` table. You must create the tenant and set its `external_id` before users can authenticate:
-
-```bash
-curl -s -X POST http://localhost:8080/webhook.TenantService/CreateTenant \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk_default_<root_key>" \
-  -d '{"name": "Acme Corp", "external_id": "org_2xYz..."}'
-```
-
-Unknown external IDs are rejected (no auto-provisioning).
-
-### RBAC Roles
-
-| Role | Scope | Description |
-|---|---|---|
-| `tenant:admin` | Tenant-wide | Full access to all resources within the tenant |
-| `tenant:member` | Tenant-wide | Read/write access to webhooks, events, subscriptions |
-| `namespace:admin` | Single namespace | Full access within a specific namespace |
-| `namespace:member` | Single namespace | Read/write access within a specific namespace |
-| `namespace:viewer` | Single namespace | Read-only access within a specific namespace |
-
-JWT role mapping (configurable): `org:admin` -> `tenant:admin`, `org:member` -> `tenant:member`.
-
-Platform admin keys (`is_platform_admin: true`) have cross-tenant access for management operations.
-
----
-
-## Web UI Authentication (Pluggable Providers)
-
-The SvelteKit web dashboard has a pluggable auth provider system. The active provider is selected via environment variables -- Clerk is included out of the box, and adding new providers requires no changes to the layout or services layer.
-
-**Provider selection** (via `PUBLIC_AUTH_PROVIDER` or auto-detected from provider-specific keys):
-
-| `PUBLIC_AUTH_PROVIDER` | Provider-Specific Key | Result |
-|---|---|---|
-| *(unset)* | *(unset)* | No authentication (open access) |
-| *(unset)* | `PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...` | Clerk (auto-detected) |
-| `clerk` | `PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...` | Clerk (explicit) |
-| `none` | *(any)* | No authentication (forced) |
-
-**To enable Clerk:**
-
-```bash
-# In web/.env
-PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your-key-here
-```
-
-When no provider is active, the frontend runs without authentication (backwards compatible). When Clerk is active, users must sign in before accessing the dashboard, and session JWTs are automatically attached to all API requests.
-
-**Adding a new auth provider** (e.g., Auth0):
-
-1. Create `web/src/lib/auth/providers/auth0/Auth0AuthShell.svelte` with the same snippet contract (`header`, `children`)
-2. Call `registerTokenProvider()` from `web/src/lib/auth.ts` with your provider's token getter
-3. Add `"auth0"` to `AuthProviderType` in `web/src/lib/auth/types.ts`
-4. Add detection logic in `web/src/lib/auth/provider.ts`
-5. Add a case in `web/src/lib/auth/AuthShell.svelte`
-
-The services layer (`services.ts`) and backend remain completely unchanged -- they only see JWTs.
-
----
-
-## Configuration Reference
-
-All environment variables in one place.
-
-### Backend
-
-| Variable | Default | Description |
-|---|---|---|
-| `DATABASE_URL` | `postgres://localhost/riverqueue?sslmode=disable` | PostgreSQL connection string |
-| `HTTP_PORT` | `8080` | Connect-RPC HTTP server port |
-| `GRPC_PORT` | `50051` | gRPC server port |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | OpenTelemetry collector |
-| `ENVIRONMENT` | `development` | Environment name for OTel resource |
-| `SPARROW_AUTH_ENABLED` | `false` | Enable authentication (API keys and/or JWT) |
-| `SPARROW_AUTO_BOOTSTRAP` | `true` | Auto-create default tenant and root API key on startup |
-| `SPARROW_ROOT_API_KEY` | *(auto-generated)* | Pre-defined root API key (for deterministic deploys) |
-| `SPARROW_SERVE_UI` | `false` | Serve embedded web UI on the HTTP port |
-| `SPARROW_JWKS_URL` | *(unset)* | JWKS endpoint URL for JWT verification (enables JWT auth) |
-| `SPARROW_JWT_TENANT_CLAIM` | `org_id` | JWT claim containing the tenant/org identifier |
-| `SPARROW_JWT_ROLE_CLAIM` | `org_role` | JWT claim containing the user's role |
-| `SPARROW_JWT_ISSUER` | *(unset)* | Expected JWT issuer (rejects tokens from other issuers) |
-
-### Frontend
-
-| Variable | Default | Description |
-|---|---|---|
-| `PUBLIC_API_URL` | `http://localhost:8080` | Sparrow backend API URL (Connect-RPC HTTP/JSON) |
-| `PUBLIC_AUTH_PROVIDER` | *(auto-detect)* | Auth provider: `clerk`, `none`, or unset for auto-detect |
-| `PUBLIC_CLERK_PUBLISHABLE_KEY` | *(unset)* | Clerk publishable key (enables Clerk auth when set) |
-
----
-
 ## Further Reading
 
-- [TECHNICAL.md](TECHNICAL.md) -- Architecture deep-dive: database schema, queue design, error classification, health state machine, HTTP client internals, boot sequence
+- [TECHNICAL.md](TECHNICAL.md) -- Architecture deep-dive, auth internals, Clerk/OIDC deployment guide, RBAC details, queue design, health state machine
 - [web/README.md](web/README.md) -- Web dashboard development guide
 - [docs/TEMPLATE_FUNCTIONS.md](docs/TEMPLATE_FUNCTIONS.md) -- Payload transformation reference
-- [examples/grpc_client.go](examples/grpc_client.go) -- Full gRPC client example
 - [proto/webhook.proto](proto/webhook.proto) -- Service and message definitions
 
 ## License
 
-MIT
+Business Source License 1.1 -- see [LICENSE](LICENSE) for details. Self-hosting is permitted; offering Sparrow as a commercial service requires a separate license.

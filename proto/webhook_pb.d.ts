@@ -714,9 +714,10 @@ export declare const RegisterEventRequestSchema: GenMessage<RegisterEventRequest
  */
 export declare type RegisterEventResponse = Message<"webhook.RegisterEventResponse"> & {
   /**
-   * Unique event identifier
+   * Deprecated: now returns the event name (same as the name in the request). Use name field instead.
    *
-   * @generated from field: string event_id = 1;
+   * @generated from field: string event_id = 1 [deprecated = true];
+   * @deprecated
    */
   eventId: string;
 
@@ -782,14 +783,15 @@ export declare const ListEventsRequestSchema: GenMessage<ListEventsRequest>;
  */
 export declare type RegisteredEvent = Message<"webhook.RegisteredEvent"> & {
   /**
-   * Unique event identifier
+   * Deprecated: now returns the event name. Use the name field (field 2) instead.
    *
-   * @generated from field: string event_id = 1;
+   * @generated from field: string event_id = 1 [deprecated = true];
+   * @deprecated
    */
   eventId: string;
 
   /**
-   * Event name
+   * Event name (unique per tenant — this is the primary identifier)
    *
    * @generated from field: string name = 2;
    */
@@ -3017,6 +3019,13 @@ export declare type Tenant = Message<"webhook.Tenant"> & {
    * @generated from field: google.protobuf.Timestamp updated_at = 6;
    */
   updatedAt?: Timestamp;
+
+  /**
+   * External identity provider org ID (e.g., Clerk org_id)
+   *
+   * @generated from field: optional string external_id = 7;
+   */
+  externalId?: string;
 };
 
 /**
@@ -3037,6 +3046,13 @@ export declare type CreateTenantRequest = Message<"webhook.CreateTenantRequest">
    * @generated from field: string name = 1;
    */
   name: string;
+
+  /**
+   * External identity provider org ID (e.g., Clerk org_id)
+   *
+   * @generated from field: optional string external_id = 2;
+   */
+  externalId?: string;
 };
 
 /**

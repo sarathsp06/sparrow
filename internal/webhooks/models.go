@@ -250,6 +250,21 @@ func (m JSONBMap) Value() (driver.Value, error) {
 	return json.Marshal(m)
 }
 
+// HTTPConfigUpdate represents HTTP configuration fields that can be updated.
+// Used as an optional parameter in UpdateWebhookConfig to apply http_config changes.
+type HTTPConfigUpdate struct {
+	MaxRetries            int
+	RetryBackoffSeconds   int
+	CaptureResponseBody   bool
+	FollowRedirects       bool
+	VerifySSL             bool
+	RequestTimeoutSeconds int
+	ExpectedStatusCodes   []int
+	WebhookSecret         string
+	UserAgent             string
+	ContentType           string
+}
+
 // WebhookRegistrationRequest represents a request to create/update a webhook registration
 type WebhookRegistrationRequest struct {
 	ID          string                 `json:"id,omitempty"`

@@ -17,6 +17,7 @@ type Repository interface {
 	GetTenantByID(ctx context.Context, id uuid.UUID) (*Tenant, error)
 	GetTenantBySlug(ctx context.Context, slug string) (*Tenant, error)
 	GetTenantByExternalID(ctx context.Context, externalID string) (*Tenant, error)
+	CountTenantsByCreator(ctx context.Context, createdBy string) (int, error)
 	ListTenants(ctx context.Context, limit, offset int) ([]*Tenant, int, error)
 	UpdateTenant(ctx context.Context, t *Tenant) error
 	DeleteTenant(ctx context.Context, id uuid.UUID) error
@@ -61,18 +62,18 @@ func (r *pgRepository) CreateTenant(ctx context.Context, t *Tenant) error {
 	t.UpdatedAt = now
 
 	query := `
-		INSERT INTO tenants (id, name, slug, status, settings, external_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)
+		INSERT INTO tenants (id, name, slug, status, settings, external_id, created_by, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
 	`
 	_, err := r.db.ExecContext(ctx, query,
-		t.ID, t.Name, t.Slug, t.Status, t.Settings, t.ExternalID, t.CreatedAt, t.UpdatedAt,
+		t.ID, t.Name, t.Slug, t.Status, t.Settings, t.ExternalID, t.CreatedBy, t.CreatedAt, t.UpdatedAt,
 	)
 	return storage.Error(err)
 }
 
 func (r *pgRepository) GetTenantByID(ctx context.Context, id uuid.UUID) (*Tenant, error) {
 	var t Tenant
-	query := `SELECT id, name, slug, status, settings, external_id, created_at, updated_at FROM tenants WHERE id = $1`
+	query := `SELECT id, name, slug, status, settings, external_id, created_by, created_at, updated_at FROM tenants WHERE id = $1`
 	err := r.db.GetContext(ctx, &t, query, id)
 	if err != nil {
 		return nil, storage.Error(err)
@@ -82,7 +83,7 @@ func (r *pgRepository) GetTenantByID(ctx context.Context, id uuid.UUID) (*Tenant
 
 func (r *pgRepository) GetTenantBySlug(ctx context.Context, slug string) (*Tenant, error) {
 	var t Tenant
-	query := `SELECT id, name, slug, status, settings, external_id, created_at, updated_at FROM tenants WHERE slug = $1`
+	query := `SELECT id, name, slug, status, settings, external_id, created_by, created_at, updated_at FROM tenants WHERE slug = $1`
 	err := r.db.GetContext(ctx, &t, query, slug)
 	if err != nil {
 		return nil, storage.Error(err)
@@ -92,12 +93,22 @@ func (r *pgRepository) GetTenantBySlug(ctx context.Context, slug string) (*Tenan
 
 func (r *pgRepository) GetTenantByExternalID(ctx context.Context, externalID string) (*Tenant, error) {
 	var t Tenant
-	query := `SELECT id, name, slug, status, settings, external_id, created_at, updated_at FROM tenants WHERE external_id = $1`
+	query := `SELECT id, name, slug, status, settings, external_id, created_by, created_at, updated_at FROM tenants WHERE external_id = $1`
 	err := r.db.GetContext(ctx, &t, query, externalID)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
 	return &t, nil
+}
+
+func (r *pgRepository) CountTenantsByCreator(ctx context.Context, createdBy string) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM tenants WHERE created_by = $1`
+	err := r.db.GetContext(ctx, &count, query, createdBy)
+	if err != nil {
+		return 0, storage.Error(err)
+	}
+	return count, nil
 }
 
 func (r *pgRepository) ListTenants(ctx context.Context, limit, offset int) ([]*Tenant, int, error) {
@@ -108,7 +119,7 @@ func (r *pgRepository) ListTenants(ctx context.Context, limit, offset int) ([]*T
 	}
 
 	var tenants []*Tenant
-	query := `SELECT id, name, slug, status, settings, external_id, created_at, updated_at FROM tenants ORDER BY created_at DESC LIMIT $1 OFFSET $2`
+	query := `SELECT id, name, slug, status, settings, external_id, created_by, created_at, updated_at FROM tenants ORDER BY created_at DESC LIMIT $1 OFFSET $2`
 	err = r.db.SelectContext(ctx, &tenants, query, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
@@ -119,10 +130,10 @@ func (r *pgRepository) ListTenants(ctx context.Context, limit, offset int) ([]*T
 func (r *pgRepository) UpdateTenant(ctx context.Context, t *Tenant) error {
 	t.UpdatedAt = time.Now()
 	query := `
-		UPDATE tenants SET name = $1, slug = $2, status = $3, settings = $4::jsonb, external_id = $5, updated_at = $6
-		WHERE id = $7
+		UPDATE tenants SET name = $1, slug = $2, status = $3, settings = $4::jsonb, external_id = $5, created_by = $6, updated_at = $7
+		WHERE id = $8
 	`
-	_, err := r.db.ExecContext(ctx, query, t.Name, t.Slug, t.Status, t.Settings, t.ExternalID, t.UpdatedAt, t.ID)
+	_, err := r.db.ExecContext(ctx, query, t.Name, t.Slug, t.Status, t.Settings, t.ExternalID, t.CreatedBy, t.UpdatedAt, t.ID)
 	return storage.Error(err)
 }
 

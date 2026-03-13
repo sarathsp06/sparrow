@@ -25,9 +25,15 @@ func NewService(repo Repository) *Service {
 
 // ---- Tenant operations ----
 
+// CreateTenantOpts holds optional parameters for tenant creation.
+type CreateTenantOpts struct {
+	ExternalID *string // External identity provider org ID (e.g., Clerk org_id)
+	CreatedBy  *string // Identity provider user ID (JWT sub) who is creating this tenant
+}
+
 // CreateTenant creates a new tenant with the given name.
 // The slug is derived from the name (lowercased, non-alphanumeric replaced with hyphens).
-func (s *Service) CreateTenant(ctx context.Context, name string) (*Tenant, error) {
+func (s *Service) CreateTenant(ctx context.Context, name string, opts ...CreateTenantOpts) (*Tenant, error) {
 	if name == "" {
 		return nil, fmt.Errorf("tenant name is required")
 	}
@@ -42,6 +48,16 @@ func (s *Service) CreateTenant(ctx context.Context, name string) (*Tenant, error
 		Slug:   slug,
 		Status: StatusActive,
 	}
+
+	if len(opts) > 0 {
+		if opts[0].ExternalID != nil {
+			t.ExternalID = opts[0].ExternalID
+		}
+		if opts[0].CreatedBy != nil {
+			t.CreatedBy = opts[0].CreatedBy
+		}
+	}
+
 	if err := s.repo.CreateTenant(ctx, t); err != nil {
 		return nil, fmt.Errorf("create tenant: %w", err)
 	}

@@ -41,7 +41,7 @@ type WebhookServiceInterface interface {
 	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error)
 	UnregisterWebhook(ctx context.Context, webhookID string, namespace string) error
 	ListWebhooks(ctx context.Context, namespace string, webhookID string, event string, activeOnly bool, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
-	UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) error
+	UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate) error
 	PauseWebhook(ctx context.Context, webhookID string, namespace string, reason string) error
 	ResumeWebhook(ctx context.Context, webhookID string, namespace string) error
 	GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStatsData, error)
@@ -460,7 +460,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		return "", err
 	}
 
-	// Lookup registered event
+	// Lookup registered event, auto-registering if it doesn't exist yet.
 	eventReg, err := s.webhookRepo.GetEventByName(ctx, tenantID, event)
 	if err != nil {
 		span.RecordError(err)
@@ -468,11 +468,28 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		s.logger.Error("Failed to lookup event registration", "event", event, "error", err)
 		return "", fmt.Errorf("failed to lookup event registration: %w", err)
 	}
-	if eventReg == nil || !eventReg.Active {
-		err := fmt.Errorf("event '%s' is not registered or inactive", event)
+	if eventReg == nil {
+		// Auto-register the event so callers don't have to pre-register every
+		// event type. The registration is created without a schema, so any
+		// payload is accepted. Users can later update it with a description and
+		// JSON schema via the RegisterEvent / UpdateEvent API.
+		eventReg = &store.EventRegistration{
+			Name:   event,
+			Active: true,
+		}
+		if err := s.webhookRepo.RegisterEvent(ctx, tenantID, eventReg); err != nil {
+			span.RecordError(err)
+			span.SetStatus(otelcodes.Error, "auto-registration failed")
+			s.logger.Error("Failed to auto-register event", "event", event, "error", err)
+			return "", fmt.Errorf("failed to auto-register event: %w", err)
+		}
+		s.logger.Info("Auto-registered new event type", "event", event)
+	}
+	if !eventReg.Active {
+		err := fmt.Errorf("event '%s' is inactive", event)
 		span.RecordError(err)
-		span.SetStatus(otelcodes.Error, "event not registered or inactive")
-		s.logger.Error("Event not registered or inactive", "event", event)
+		span.SetStatus(otelcodes.Error, "event inactive")
+		s.logger.Error("Event is inactive", "event", event)
 		return "", err
 	}
 
@@ -1000,11 +1017,10 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 		return "", time.Time{}, fmt.Errorf("failed to register event: %w", err)
 	}
 	s.logger.Info("Event registered successfully",
-		"event_id", event.ID,
 		"name", name,
 		"description", description,
 	)
-	return event.ID.String(), event.CreatedAt, nil
+	return event.Name, event.CreatedAt, nil
 }
 
 // ListEvents lists all registered events
@@ -1354,7 +1370,7 @@ func (s *WebhookService) GetNamespaceStats(ctx context.Context, namespace string
 }
 
 // UpdateWebhookConfig updates webhook configuration
-func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) error {
+func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate) error {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateWebhookConfig")
 	defer span.End()
 
@@ -1429,6 +1445,38 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	webhook.Active = active
 	if description != "" {
 		webhook.Description = description
+	}
+	// Apply HTTP config updates if provided
+	if httpConfig != nil {
+		if httpConfig.MaxRetries > 0 {
+			webhook.MaxRetries = httpConfig.MaxRetries
+		}
+		if httpConfig.RetryBackoffSeconds > 0 {
+			webhook.RetryBackoffSeconds = httpConfig.RetryBackoffSeconds
+		}
+		if httpConfig.RequestTimeoutSeconds > 0 {
+			webhook.RequestTimeoutSeconds = httpConfig.RequestTimeoutSeconds
+		}
+		if len(httpConfig.ExpectedStatusCodes) > 0 {
+			int64Codes := make([]int64, len(httpConfig.ExpectedStatusCodes))
+			for i, c := range httpConfig.ExpectedStatusCodes {
+				int64Codes[i] = int64(c)
+			}
+			webhook.ExpectedStatusCodes = int64Codes
+		}
+		if httpConfig.WebhookSecret != "" {
+			webhook.WebhookSecret = httpConfig.WebhookSecret
+		}
+		if httpConfig.UserAgent != "" {
+			webhook.UserAgent = httpConfig.UserAgent
+		}
+		if httpConfig.ContentType != "" {
+			webhook.ContentType = httpConfig.ContentType
+		}
+		// Booleans are applied directly (can't distinguish "not set" from "set to false")
+		webhook.CaptureResponseBody = httpConfig.CaptureResponseBody
+		webhook.FollowRedirects = httpConfig.FollowRedirects
+		webhook.VerifySSL = httpConfig.VerifySSL
 	}
 	err = s.webhookRepo.UpdateWebhook(ctx, tenantID, webhook)
 	if err != nil {
