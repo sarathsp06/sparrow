@@ -77,6 +77,9 @@ const (
 	PermNamespaceUpdate Permission = "namespace:update"
 	PermNamespaceDelete Permission = "namespace:delete"
 
+	// Namespace membership management (assigning users to namespaces)
+	PermNamespaceMembershipManage Permission = "namespace:manage_members"
+
 	// Webhook management (namespace-scoped)
 	PermWebhookCreate Permission = "webhook:create"
 	PermWebhookRead   Permission = "webhook:read"
@@ -120,10 +123,11 @@ var rolePermissions = map[Role]map[Permission]bool{
 		PermEventTypeUpdate: true,
 		PermEventTypeDelete: true,
 
-		PermNamespaceCreate: true,
-		PermNamespaceRead:   true,
-		PermNamespaceUpdate: true,
-		PermNamespaceDelete: true,
+		PermNamespaceCreate:           true,
+		PermNamespaceRead:             true,
+		PermNamespaceUpdate:           true,
+		PermNamespaceDelete:           true,
+		PermNamespaceMembershipManage: true,
 
 		PermWebhookCreate: true,
 		PermWebhookRead:   true,
@@ -175,8 +179,9 @@ var rolePermissions = map[Role]map[Permission]bool{
 	RoleNamespaceAdmin: {
 		PermEventTypeRead: true,
 
-		PermNamespaceRead:   true,
-		PermNamespaceUpdate: true,
+		PermNamespaceRead:             true,
+		PermNamespaceUpdate:           true,
+		PermNamespaceMembershipManage: true,
 
 		PermWebhookCreate: true,
 		PermWebhookRead:   true,
@@ -203,14 +208,22 @@ var rolePermissions = map[Role]map[Permission]bool{
 
 		PermNamespaceRead: true,
 
-		PermWebhookRead: true,
+		PermWebhookCreate: true,
+		PermWebhookRead:   true,
+		PermWebhookUpdate: true,
+		PermWebhookDelete: true,
+		PermWebhookPause:  true,
 
-		PermSubscriptionRead: true,
+		PermSubscriptionCreate: true,
+		PermSubscriptionRead:   true,
+		PermSubscriptionUpdate: true,
+		PermSubscriptionDelete: true,
 
 		PermEventPush: true,
 		PermEventRead: true,
 
-		PermDeliveryRead: true,
+		PermDeliveryRead:  true,
+		PermDeliveryRetry: true,
 
 		PermHealthRead: true,
 	},
@@ -241,19 +254,6 @@ func RoleHasPermission(r Role, p Permission) bool {
 	return perms[p]
 }
 
-// RolePermissions returns all permissions granted by a role.
-func RolePermissions(r Role) []Permission {
-	perms, ok := rolePermissions[r]
-	if !ok {
-		return nil
-	}
-	result := make([]Permission, 0, len(perms))
-	for p := range perms {
-		result = append(result, p)
-	}
-	return result
-}
-
 // --- Authorization ---
 
 // Authorize checks whether the given AuthInfo has the required permission,
@@ -261,10 +261,13 @@ func RolePermissions(r Role) []Permission {
 //
 // Authorization logic:
 //  1. Platform admins are always authorized.
-//  2. If the identity has a tenant-level role that grants the permission, allow.
-//  3. If a namespace is specified and the identity has a namespace-level role
-//     on that namespace that grants the permission, allow.
-//  4. Otherwise, deny.
+//  2. If a namespace is specified and the identity has namespace memberships:
+//     only the membership role on that specific namespace is checked (tenant role
+//     is NOT used as a fallback for namespace-scoped operations).
+//  3. If a namespace is specified but the identity has NO namespace memberships:
+//     the tenant role is used (backward-compatible: tenant-wide access).
+//  4. For tenant-level operations (namespace == ""), the tenant role is checked.
+//  5. Otherwise, deny.
 func Authorize(info *AuthInfo, perm Permission, namespace string) error {
 	if info == nil {
 		return fmt.Errorf("unauthorized: no auth context")
@@ -275,18 +278,37 @@ func Authorize(info *AuthInfo, perm Permission, namespace string) error {
 		return nil
 	}
 
-	// Check tenant-level role
-	if info.TenantRole != "" && RoleHasPermission(info.TenantRole, perm) {
-		return nil
-	}
-
-	// Check namespace-level role (only if a namespace is specified)
-	if namespace != "" && len(info.NamespaceRoles) > 0 {
-		if role, ok := info.NamespaceRoles[namespace]; ok {
-			if RoleHasPermission(role, perm) {
-				return nil
+	// Namespace-scoped operation
+	if namespace != "" {
+		// If the identity has namespace memberships, ONLY check the membership
+		// role for this namespace — tenant role does not grant namespace access
+		// when memberships exist.
+		if len(info.NamespaceRoles) > 0 {
+			if role, ok := info.NamespaceRoles[namespace]; ok {
+				if RoleHasPermission(role, perm) {
+					return nil
+				}
+			}
+			return &PermissionDeniedError{
+				Permission: perm,
+				Namespace:  namespace,
 			}
 		}
+
+		// No namespace memberships — fall back to tenant role (tenant-wide access)
+		if info.TenantRole != "" && RoleHasPermission(info.TenantRole, perm) {
+			return nil
+		}
+
+		return &PermissionDeniedError{
+			Permission: perm,
+			Namespace:  namespace,
+		}
+	}
+
+	// Tenant-level operation (namespace == "")
+	if info.TenantRole != "" && RoleHasPermission(info.TenantRole, perm) {
+		return nil
 	}
 
 	return &PermissionDeniedError{

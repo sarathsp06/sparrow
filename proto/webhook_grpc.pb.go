@@ -1973,3 +1973,504 @@ var APIKeyService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/webhook.proto",
 }
+
+const (
+	NamespaceService_CreateNamespace_FullMethodName = "/webhook.NamespaceService/CreateNamespace"
+	NamespaceService_GetNamespace_FullMethodName    = "/webhook.NamespaceService/GetNamespace"
+	NamespaceService_ListNamespaces_FullMethodName  = "/webhook.NamespaceService/ListNamespaces"
+	NamespaceService_UpdateNamespace_FullMethodName = "/webhook.NamespaceService/UpdateNamespace"
+	NamespaceService_DeleteNamespace_FullMethodName = "/webhook.NamespaceService/DeleteNamespace"
+)
+
+// NamespaceServiceClient is the client API for NamespaceService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// NamespaceService manages namespace lifecycle within a tenant.
+// Namespaces are sub-tenant scopes used to isolate webhooks, subscriptions,
+// deliveries, and other resources.
+type NamespaceServiceClient interface {
+	// CreateNamespace creates a new namespace within the caller's tenant
+	CreateNamespace(ctx context.Context, in *CreateNamespaceRequest, opts ...grpc.CallOption) (*CreateNamespaceResponse, error)
+	// GetNamespace retrieves a namespace by ID
+	GetNamespace(ctx context.Context, in *GetNamespaceRequest, opts ...grpc.CallOption) (*GetNamespaceResponse, error)
+	// ListNamespaces lists namespaces for the caller's tenant
+	ListNamespaces(ctx context.Context, in *ListNamespacesRequest, opts ...grpc.CallOption) (*ListNamespacesResponse, error)
+	// UpdateNamespace updates a namespace's name or description
+	UpdateNamespace(ctx context.Context, in *UpdateNamespaceRequest2, opts ...grpc.CallOption) (*UpdateNamespaceResponse2, error)
+	// DeleteNamespace deletes a namespace
+	DeleteNamespace(ctx context.Context, in *DeleteNamespaceRequest, opts ...grpc.CallOption) (*DeleteNamespaceResponse2, error)
+}
+
+type namespaceServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewNamespaceServiceClient(cc grpc.ClientConnInterface) NamespaceServiceClient {
+	return &namespaceServiceClient{cc}
+}
+
+func (c *namespaceServiceClient) CreateNamespace(ctx context.Context, in *CreateNamespaceRequest, opts ...grpc.CallOption) (*CreateNamespaceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateNamespaceResponse)
+	err := c.cc.Invoke(ctx, NamespaceService_CreateNamespace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *namespaceServiceClient) GetNamespace(ctx context.Context, in *GetNamespaceRequest, opts ...grpc.CallOption) (*GetNamespaceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetNamespaceResponse)
+	err := c.cc.Invoke(ctx, NamespaceService_GetNamespace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *namespaceServiceClient) ListNamespaces(ctx context.Context, in *ListNamespacesRequest, opts ...grpc.CallOption) (*ListNamespacesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNamespacesResponse)
+	err := c.cc.Invoke(ctx, NamespaceService_ListNamespaces_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *namespaceServiceClient) UpdateNamespace(ctx context.Context, in *UpdateNamespaceRequest2, opts ...grpc.CallOption) (*UpdateNamespaceResponse2, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateNamespaceResponse2)
+	err := c.cc.Invoke(ctx, NamespaceService_UpdateNamespace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *namespaceServiceClient) DeleteNamespace(ctx context.Context, in *DeleteNamespaceRequest, opts ...grpc.CallOption) (*DeleteNamespaceResponse2, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteNamespaceResponse2)
+	err := c.cc.Invoke(ctx, NamespaceService_DeleteNamespace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NamespaceServiceServer is the server API for NamespaceService service.
+// All implementations must embed UnimplementedNamespaceServiceServer
+// for forward compatibility.
+//
+// NamespaceService manages namespace lifecycle within a tenant.
+// Namespaces are sub-tenant scopes used to isolate webhooks, subscriptions,
+// deliveries, and other resources.
+type NamespaceServiceServer interface {
+	// CreateNamespace creates a new namespace within the caller's tenant
+	CreateNamespace(context.Context, *CreateNamespaceRequest) (*CreateNamespaceResponse, error)
+	// GetNamespace retrieves a namespace by ID
+	GetNamespace(context.Context, *GetNamespaceRequest) (*GetNamespaceResponse, error)
+	// ListNamespaces lists namespaces for the caller's tenant
+	ListNamespaces(context.Context, *ListNamespacesRequest) (*ListNamespacesResponse, error)
+	// UpdateNamespace updates a namespace's name or description
+	UpdateNamespace(context.Context, *UpdateNamespaceRequest2) (*UpdateNamespaceResponse2, error)
+	// DeleteNamespace deletes a namespace
+	DeleteNamespace(context.Context, *DeleteNamespaceRequest) (*DeleteNamespaceResponse2, error)
+	mustEmbedUnimplementedNamespaceServiceServer()
+}
+
+// UnimplementedNamespaceServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedNamespaceServiceServer struct{}
+
+func (UnimplementedNamespaceServiceServer) CreateNamespace(context.Context, *CreateNamespaceRequest) (*CreateNamespaceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateNamespace not implemented")
+}
+func (UnimplementedNamespaceServiceServer) GetNamespace(context.Context, *GetNamespaceRequest) (*GetNamespaceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetNamespace not implemented")
+}
+func (UnimplementedNamespaceServiceServer) ListNamespaces(context.Context, *ListNamespacesRequest) (*ListNamespacesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListNamespaces not implemented")
+}
+func (UnimplementedNamespaceServiceServer) UpdateNamespace(context.Context, *UpdateNamespaceRequest2) (*UpdateNamespaceResponse2, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateNamespace not implemented")
+}
+func (UnimplementedNamespaceServiceServer) DeleteNamespace(context.Context, *DeleteNamespaceRequest) (*DeleteNamespaceResponse2, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteNamespace not implemented")
+}
+func (UnimplementedNamespaceServiceServer) mustEmbedUnimplementedNamespaceServiceServer() {}
+func (UnimplementedNamespaceServiceServer) testEmbeddedByValue()                          {}
+
+// UnsafeNamespaceServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NamespaceServiceServer will
+// result in compilation errors.
+type UnsafeNamespaceServiceServer interface {
+	mustEmbedUnimplementedNamespaceServiceServer()
+}
+
+func RegisterNamespaceServiceServer(s grpc.ServiceRegistrar, srv NamespaceServiceServer) {
+	// If the following call panics, it indicates UnimplementedNamespaceServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&NamespaceService_ServiceDesc, srv)
+}
+
+func _NamespaceService_CreateNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateNamespaceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceServiceServer).CreateNamespace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceService_CreateNamespace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceServiceServer).CreateNamespace(ctx, req.(*CreateNamespaceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NamespaceService_GetNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNamespaceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceServiceServer).GetNamespace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceService_GetNamespace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceServiceServer).GetNamespace(ctx, req.(*GetNamespaceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NamespaceService_ListNamespaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNamespacesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceServiceServer).ListNamespaces(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceService_ListNamespaces_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceServiceServer).ListNamespaces(ctx, req.(*ListNamespacesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NamespaceService_UpdateNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateNamespaceRequest2)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceServiceServer).UpdateNamespace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceService_UpdateNamespace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceServiceServer).UpdateNamespace(ctx, req.(*UpdateNamespaceRequest2))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NamespaceService_DeleteNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteNamespaceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceServiceServer).DeleteNamespace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceService_DeleteNamespace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceServiceServer).DeleteNamespace(ctx, req.(*DeleteNamespaceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NamespaceService_ServiceDesc is the grpc.ServiceDesc for NamespaceService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var NamespaceService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "webhook.NamespaceService",
+	HandlerType: (*NamespaceServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateNamespace",
+			Handler:    _NamespaceService_CreateNamespace_Handler,
+		},
+		{
+			MethodName: "GetNamespace",
+			Handler:    _NamespaceService_GetNamespace_Handler,
+		},
+		{
+			MethodName: "ListNamespaces",
+			Handler:    _NamespaceService_ListNamespaces_Handler,
+		},
+		{
+			MethodName: "UpdateNamespace",
+			Handler:    _NamespaceService_UpdateNamespace_Handler,
+		},
+		{
+			MethodName: "DeleteNamespace",
+			Handler:    _NamespaceService_DeleteNamespace_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/webhook.proto",
+}
+
+const (
+	NamespaceMembershipService_AssignNamespaceRole_FullMethodName  = "/webhook.NamespaceMembershipService/AssignNamespaceRole"
+	NamespaceMembershipService_RemoveNamespaceRole_FullMethodName  = "/webhook.NamespaceMembershipService/RemoveNamespaceRole"
+	NamespaceMembershipService_ListNamespaceMembers_FullMethodName = "/webhook.NamespaceMembershipService/ListNamespaceMembers"
+	NamespaceMembershipService_GetUserNamespaces_FullMethodName    = "/webhook.NamespaceMembershipService/GetUserNamespaces"
+)
+
+// NamespaceMembershipServiceClient is the client API for NamespaceMembershipService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// NamespaceMembershipService manages user-to-namespace role assignments.
+type NamespaceMembershipServiceClient interface {
+	// AssignNamespaceRole assigns or updates a user's role on a namespace
+	AssignNamespaceRole(ctx context.Context, in *AssignNamespaceRoleRequest, opts ...grpc.CallOption) (*AssignNamespaceRoleResponse, error)
+	// RemoveNamespaceRole removes a user's role from a namespace
+	RemoveNamespaceRole(ctx context.Context, in *RemoveNamespaceRoleRequest, opts ...grpc.CallOption) (*RemoveNamespaceRoleResponse, error)
+	// ListNamespaceMembers lists all members of a namespace
+	ListNamespaceMembers(ctx context.Context, in *ListNamespaceMembersRequest, opts ...grpc.CallOption) (*ListNamespaceMembersResponse, error)
+	// GetUserNamespaces returns all namespace memberships for a user
+	GetUserNamespaces(ctx context.Context, in *GetUserNamespacesRequest, opts ...grpc.CallOption) (*GetUserNamespacesResponse, error)
+}
+
+type namespaceMembershipServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewNamespaceMembershipServiceClient(cc grpc.ClientConnInterface) NamespaceMembershipServiceClient {
+	return &namespaceMembershipServiceClient{cc}
+}
+
+func (c *namespaceMembershipServiceClient) AssignNamespaceRole(ctx context.Context, in *AssignNamespaceRoleRequest, opts ...grpc.CallOption) (*AssignNamespaceRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AssignNamespaceRoleResponse)
+	err := c.cc.Invoke(ctx, NamespaceMembershipService_AssignNamespaceRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *namespaceMembershipServiceClient) RemoveNamespaceRole(ctx context.Context, in *RemoveNamespaceRoleRequest, opts ...grpc.CallOption) (*RemoveNamespaceRoleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveNamespaceRoleResponse)
+	err := c.cc.Invoke(ctx, NamespaceMembershipService_RemoveNamespaceRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *namespaceMembershipServiceClient) ListNamespaceMembers(ctx context.Context, in *ListNamespaceMembersRequest, opts ...grpc.CallOption) (*ListNamespaceMembersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNamespaceMembersResponse)
+	err := c.cc.Invoke(ctx, NamespaceMembershipService_ListNamespaceMembers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *namespaceMembershipServiceClient) GetUserNamespaces(ctx context.Context, in *GetUserNamespacesRequest, opts ...grpc.CallOption) (*GetUserNamespacesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUserNamespacesResponse)
+	err := c.cc.Invoke(ctx, NamespaceMembershipService_GetUserNamespaces_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NamespaceMembershipServiceServer is the server API for NamespaceMembershipService service.
+// All implementations must embed UnimplementedNamespaceMembershipServiceServer
+// for forward compatibility.
+//
+// NamespaceMembershipService manages user-to-namespace role assignments.
+type NamespaceMembershipServiceServer interface {
+	// AssignNamespaceRole assigns or updates a user's role on a namespace
+	AssignNamespaceRole(context.Context, *AssignNamespaceRoleRequest) (*AssignNamespaceRoleResponse, error)
+	// RemoveNamespaceRole removes a user's role from a namespace
+	RemoveNamespaceRole(context.Context, *RemoveNamespaceRoleRequest) (*RemoveNamespaceRoleResponse, error)
+	// ListNamespaceMembers lists all members of a namespace
+	ListNamespaceMembers(context.Context, *ListNamespaceMembersRequest) (*ListNamespaceMembersResponse, error)
+	// GetUserNamespaces returns all namespace memberships for a user
+	GetUserNamespaces(context.Context, *GetUserNamespacesRequest) (*GetUserNamespacesResponse, error)
+	mustEmbedUnimplementedNamespaceMembershipServiceServer()
+}
+
+// UnimplementedNamespaceMembershipServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedNamespaceMembershipServiceServer struct{}
+
+func (UnimplementedNamespaceMembershipServiceServer) AssignNamespaceRole(context.Context, *AssignNamespaceRoleRequest) (*AssignNamespaceRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AssignNamespaceRole not implemented")
+}
+func (UnimplementedNamespaceMembershipServiceServer) RemoveNamespaceRole(context.Context, *RemoveNamespaceRoleRequest) (*RemoveNamespaceRoleResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveNamespaceRole not implemented")
+}
+func (UnimplementedNamespaceMembershipServiceServer) ListNamespaceMembers(context.Context, *ListNamespaceMembersRequest) (*ListNamespaceMembersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListNamespaceMembers not implemented")
+}
+func (UnimplementedNamespaceMembershipServiceServer) GetUserNamespaces(context.Context, *GetUserNamespacesRequest) (*GetUserNamespacesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserNamespaces not implemented")
+}
+func (UnimplementedNamespaceMembershipServiceServer) mustEmbedUnimplementedNamespaceMembershipServiceServer() {
+}
+func (UnimplementedNamespaceMembershipServiceServer) testEmbeddedByValue() {}
+
+// UnsafeNamespaceMembershipServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NamespaceMembershipServiceServer will
+// result in compilation errors.
+type UnsafeNamespaceMembershipServiceServer interface {
+	mustEmbedUnimplementedNamespaceMembershipServiceServer()
+}
+
+func RegisterNamespaceMembershipServiceServer(s grpc.ServiceRegistrar, srv NamespaceMembershipServiceServer) {
+	// If the following call panics, it indicates UnimplementedNamespaceMembershipServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&NamespaceMembershipService_ServiceDesc, srv)
+}
+
+func _NamespaceMembershipService_AssignNamespaceRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignNamespaceRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceMembershipServiceServer).AssignNamespaceRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceMembershipService_AssignNamespaceRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceMembershipServiceServer).AssignNamespaceRole(ctx, req.(*AssignNamespaceRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NamespaceMembershipService_RemoveNamespaceRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveNamespaceRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceMembershipServiceServer).RemoveNamespaceRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceMembershipService_RemoveNamespaceRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceMembershipServiceServer).RemoveNamespaceRole(ctx, req.(*RemoveNamespaceRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NamespaceMembershipService_ListNamespaceMembers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNamespaceMembersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceMembershipServiceServer).ListNamespaceMembers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceMembershipService_ListNamespaceMembers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceMembershipServiceServer).ListNamespaceMembers(ctx, req.(*ListNamespaceMembersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NamespaceMembershipService_GetUserNamespaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserNamespacesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NamespaceMembershipServiceServer).GetUserNamespaces(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NamespaceMembershipService_GetUserNamespaces_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NamespaceMembershipServiceServer).GetUserNamespaces(ctx, req.(*GetUserNamespacesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NamespaceMembershipService_ServiceDesc is the grpc.ServiceDesc for NamespaceMembershipService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var NamespaceMembershipService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "webhook.NamespaceMembershipService",
+	HandlerType: (*NamespaceMembershipServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "AssignNamespaceRole",
+			Handler:    _NamespaceMembershipService_AssignNamespaceRole_Handler,
+		},
+		{
+			MethodName: "RemoveNamespaceRole",
+			Handler:    _NamespaceMembershipService_RemoveNamespaceRole_Handler,
+		},
+		{
+			MethodName: "ListNamespaceMembers",
+			Handler:    _NamespaceMembershipService_ListNamespaceMembers_Handler,
+		},
+		{
+			MethodName: "GetUserNamespaces",
+			Handler:    _NamespaceMembershipService_GetUserNamespaces_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/webhook.proto",
+}

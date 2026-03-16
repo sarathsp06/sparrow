@@ -5,8 +5,11 @@ go 1.25
 require (
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/otelconnect v0.9.0
+	github.com/MicahParks/keyfunc/v3 v3.8.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/kaptinlin/jsonschema v0.6.6
@@ -33,12 +36,12 @@ require (
 	go.opentelemetry.io/otel/sdk/log v0.15.0
 	go.opentelemetry.io/otel/sdk/metric v1.39.0
 	go.opentelemetry.io/otel/trace v1.39.0
-	golang.org/x/exp v0.0.0-20260112195511-716be5621a96
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
 )
 
 require (
+	github.com/MicahParks/jwkset v0.11.0 // indirect
 	github.com/brianvoe/gofakeit/v7 v7.14.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -74,6 +77,7 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
+	golang.org/x/time v0.12.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260122232226-8e98ce8d340d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260122232226-8e98ce8d340d // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

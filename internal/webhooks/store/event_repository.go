@@ -74,7 +74,7 @@ func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, event
 // When namespace is empty, returns reports across all namespaces within the tenant.
 func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
 	var conditions []string
-	var args []interface{}
+	var args []any
 	argIdx := 1
 
 	// Always filter by tenant
@@ -96,9 +96,9 @@ func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, n
 
 	// Build base query
 	baseQuery := fmt.Sprintf(`
-		SELECT 
+		SELECT
 			id, tenant_id, namespace, event, payload, ttl, metadata, created_at, expires_at
-		FROM event_records 
+		FROM event_records
 		WHERE %s
 		  AND ($%d IS NULL OR event = $%d)
 		ORDER BY created_at DESC
@@ -106,8 +106,8 @@ func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, n
 	`, whereClause, eventArgIdx, eventArgIdx, argIdx, argIdx+1)
 
 	countQuery := fmt.Sprintf(`
-		SELECT COUNT(*) 
-		FROM event_records 
+		SELECT COUNT(*)
+		FROM event_records
 		WHERE %s
 		  AND ($%d IS NULL OR event = $%d)
 	`, whereClause, eventArgIdx, eventArgIdx)
@@ -150,7 +150,7 @@ func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, n
 // When namespace is empty, returns reports across all namespaces within the tenant.
 func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uuid.UUID, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
 	var conditions []string
-	var args []interface{}
+	var args []any
 	argIdx := 1
 
 	// Always filter by tenant
@@ -172,7 +172,7 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 
 	// Build base query with delivery stats from health events
 	baseQuery := fmt.Sprintf(`
-		SELECT 
+		SELECT
 			er.id, er.tenant_id, er.namespace, er.event, er.payload, er.ttl, er.metadata, er.created_at, er.expires_at,
 			COALESCE(ds.webhook_count, 0) as webhook_count,
 			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
@@ -180,7 +180,7 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 			COALESCE(ds.pending_deliveries, 0) as pending_deliveries
 		FROM event_records er
 		LEFT JOIN (
-			SELECT 
+			SELECT
 				wd.event_id,
 				COUNT(DISTINCT wd.webhook_id) as webhook_count,
 				SUM(CASE WHEN wh.success = true THEN 1 ELSE 0 END) as successful_deliveries,
@@ -207,8 +207,8 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 	countWhereClause := strings.Join(countConditions, " AND ")
 
 	countQuery := fmt.Sprintf(`
-		SELECT COUNT(*) 
-		FROM event_records 
+		SELECT COUNT(*)
+		FROM event_records
 		WHERE %s
 		  AND ($%d::text IS NULL OR event = $%d::text)
 	`, countWhereClause, eventArgIdx, eventArgIdx)
@@ -235,7 +235,7 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 // GetEventDeliveryStats gets delivery statistics for a specific event within a tenant
 func (r *Repository) GetEventDeliveryStats(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (int32, int32, int32, int32, error) {
 	query := `
-		SELECT 
+		SELECT
 			COUNT(DISTINCT wd.webhook_id) as webhook_count,
 			SUM(CASE WHEN wh.success = true THEN 1 ELSE 0 END) as successful_deliveries,
 			SUM(CASE WHEN wh.success = false THEN 1 ELSE 0 END) as failed_deliveries,

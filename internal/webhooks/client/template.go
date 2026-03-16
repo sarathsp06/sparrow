@@ -3,8 +3,36 @@ package client
 import (
 	"fmt"
 	"text/template"
-	"time"
 )
+
+// MaxTemplateOutputBytes is the maximum allowed output size from a template
+// execution. Templates producing output larger than this are aborted to
+// prevent denial-of-service via crafted templates.
+const MaxTemplateOutputBytes = 1 * 1024 * 1024 // 1 MB
+
+// limitedWriter wraps a bytes.Buffer and enforces a maximum write size.
+// Once the limit is exceeded, all subsequent writes return an error.
+type limitedWriter struct {
+	buf     writerWithBytes
+	limit   int
+	written int
+}
+
+// writerWithBytes is the write interface needed from bytes.Buffer.
+type writerWithBytes interface {
+	Write(p []byte) (int, error)
+	Len() int
+	Bytes() []byte
+}
+
+func (w *limitedWriter) Write(p []byte) (int, error) {
+	if w.written+len(p) > w.limit {
+		return 0, fmt.Errorf("template output exceeds maximum size of %d bytes", w.limit)
+	}
+	n, err := w.buf.Write(p)
+	w.written += n
+	return n, err
+}
 
 // TemplateEngine handles payload transformations using Go templates
 type TemplateEngine struct {
@@ -25,7 +53,8 @@ func NewTemplateEngineWithCacheSize(maxSize int) *TemplateEngine {
 	}
 }
 
-// Execute processes a template with the given data
+// Execute processes a template with the given data.
+// Output is limited to MaxTemplateOutputBytes to prevent DoS.
 func (e *TemplateEngine) Execute(tmplStr string, data any) ([]byte, error) {
 	if tmplStr == "" {
 		return nil, nil
@@ -41,7 +70,10 @@ func (e *TemplateEngine) Execute(tmplStr string, data any) ([]byte, error) {
 	buf := GetBuffer()
 	defer PutBuffer(buf)
 
-	if err := tmpl.Execute(buf, data); err != nil {
+	// Wrap with a size-limited writer to prevent runaway output
+	lw := &limitedWriter{buf: buf, limit: MaxTemplateOutputBytes}
+
+	if err := tmpl.Execute(lw, data); err != nil {
 		return nil, fmt.Errorf("failed to execute template: %w", err)
 	}
 
@@ -72,16 +104,6 @@ func (e *TemplateEngine) getOrParseTemplate(tmplStr string) (*template.Template,
 	return tmpl, nil
 }
 
-// CacheStats returns current cache statistics
-func (e *TemplateEngine) CacheStats() (size, maxSize int) {
-	return e.cache.Stats()
-}
-
-// ClearCache removes all cached templates
-func (e *TemplateEngine) ClearCache() {
-	e.cache.Clear()
-}
-
 // ValidateTemplate validates a template string without executing it
 func (e *TemplateEngine) ValidateTemplate(tmplStr string) error {
 	if tmplStr == "" {
@@ -91,69 +113,6 @@ func (e *TemplateEngine) ValidateTemplate(tmplStr string) error {
 	_, err := template.New("webhook_validation").Funcs(e.funcs).Parse(tmplStr)
 	if err != nil {
 		return fmt.Errorf("invalid template syntax: %w", err)
-	}
-
-	return nil
-}
-
-// ValidateTemplateWithTestData validates a template by executing it with sample test data
-func (e *TemplateEngine) ValidateTemplateWithTestData(tmplStr string) error {
-	if tmplStr == "" {
-		return nil
-	}
-
-	// Create sample test data that matches the template context structure
-	testData := map[string]any{
-		"Event": map[string]any{
-			"ID":        "test-event-id",
-			"Namespace": "default",
-			"Event":     "user.signup",
-			"CreatedAt": time.Now().Format(time.RFC3339),
-		},
-		"Webhook": map[string]any{
-			"ID":  "test-webhook-id",
-			"URL": "https://example.com/webhook",
-		},
-		"Payload": map[string]any{
-			"user_id": "12345",
-			"email":   "test@example.com",
-			"name":    "Test User",
-			"plan":    "premium",
-		},
-	}
-
-	_, err := e.Execute(tmplStr, testData)
-	if err != nil {
-		return fmt.Errorf("template validation failed with test data: %w", err)
-	}
-
-	return nil
-}
-
-// ValidateTemplateWithPayload validates a template by executing it with a specific payload
-func (e *TemplateEngine) ValidateTemplateWithPayload(tmplStr string, payload map[string]any) error {
-	if tmplStr == "" {
-		return nil
-	}
-
-	// Create test data using the provided payload
-	testData := map[string]any{
-		"Event": map[string]any{
-			"ID":        "test-event-id",
-			"Namespace": "default",
-			"Event":     "test.event",
-			"CreatedAt": time.Now().Format(time.RFC3339),
-		},
-		"Webhook": map[string]any{
-			"ID":  "test-webhook-id",
-			"URL": "https://example.com/webhook",
-		},
-		"Payload": payload,
-	}
-
-	_, err := e.Execute(tmplStr, testData)
-	if err != nil {
-		return fmt.Errorf("template validation failed with payload: %w", err)
 	}
 
 	return nil

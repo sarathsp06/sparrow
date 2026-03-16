@@ -96,7 +96,7 @@ func (r *Repository) ListWebhooks(ctx context.Context, tenantID uuid.UUID, names
 func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool, limit, offset int) ([]*WebhookRegistration, int, error) {
 	// Build WHERE clause and args dynamically
 	var conditions []string
-	var args []interface{}
+	var args []any
 	argIdx := 1
 
 	// Always filter by tenant
@@ -160,7 +160,7 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 func (r *Repository) GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, namespace string) (*NamespaceStats, error) {
 	var conditions []string
 	var deliveryConditions []string
-	var args []interface{}
+	var args []any
 	argIdx := 1
 
 	// Always filter by tenant
@@ -225,7 +225,7 @@ func (r *Repository) GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, 
 // When namespace is empty, looks up by webhook ID within the tenant.
 func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string) (*WebhookRegistration, error) {
 	var query string
-	var args []interface{}
+	var args []any
 
 	if namespace != "" {
 		query = `
@@ -233,20 +233,20 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
 			       user_agent, content_type, created_at, updated_at
-			FROM webhook_registrations 
+			FROM webhook_registrations
 			WHERE id = $1 AND tenant_id = $2 AND namespace = $3
 		`
-		args = []interface{}{webhookID, tenantID, namespace}
+		args = []any{webhookID, tenantID, namespace}
 	} else {
 		query = `
 			SELECT id, tenant_id, namespace, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
 			       user_agent, content_type, created_at, updated_at
-			FROM webhook_registrations 
+			FROM webhook_registrations
 			WHERE id = $1 AND tenant_id = $2
 		`
-		args = []interface{}{webhookID, tenantID}
+		args = []any{webhookID, tenantID}
 	}
 
 	var result WebhookRegistration
@@ -261,11 +261,6 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 	return &result, nil
 }
 
-// GetWebhooksByNamespace gets webhooks by namespace within a tenant
-func (r *Repository) GetWebhooksByNamespace(ctx context.Context, tenantID uuid.UUID, namespace string, activeOnly bool) ([]*WebhookRegistration, error) {
-	return r.ListWebhooks(ctx, tenantID, namespace, "", activeOnly)
-}
-
 // UpdateWebhook updates a webhook registration within a tenant
 func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webhook *WebhookRegistration) error {
 	webhook.UpdatedAt = time.Now()
@@ -276,8 +271,8 @@ func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webh
 	}
 
 	query := `
-		UPDATE webhook_registrations 
-		SET url = $4, headers = $5, timeout = $6, active = $7, 
+		UPDATE webhook_registrations
+		SET url = $4, headers = $5, timeout = $6, active = $7,
 		    description = $8, updated_at = NOW()
 		WHERE id = $1 AND tenant_id = $2 AND namespace = $3
 	`

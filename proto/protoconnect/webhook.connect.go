@@ -35,6 +35,11 @@ const (
 	TenantServiceName = "webhook.TenantService"
 	// APIKeyServiceName is the fully-qualified name of the APIKeyService service.
 	APIKeyServiceName = "webhook.APIKeyService"
+	// NamespaceServiceName is the fully-qualified name of the NamespaceService service.
+	NamespaceServiceName = "webhook.NamespaceService"
+	// NamespaceMembershipServiceName is the fully-qualified name of the NamespaceMembershipService
+	// service.
+	NamespaceMembershipServiceName = "webhook.NamespaceMembershipService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -151,6 +156,33 @@ const (
 	// APIKeyServiceRevokeAPIKeyProcedure is the fully-qualified name of the APIKeyService's
 	// RevokeAPIKey RPC.
 	APIKeyServiceRevokeAPIKeyProcedure = "/webhook.APIKeyService/RevokeAPIKey"
+	// NamespaceServiceCreateNamespaceProcedure is the fully-qualified name of the NamespaceService's
+	// CreateNamespace RPC.
+	NamespaceServiceCreateNamespaceProcedure = "/webhook.NamespaceService/CreateNamespace"
+	// NamespaceServiceGetNamespaceProcedure is the fully-qualified name of the NamespaceService's
+	// GetNamespace RPC.
+	NamespaceServiceGetNamespaceProcedure = "/webhook.NamespaceService/GetNamespace"
+	// NamespaceServiceListNamespacesProcedure is the fully-qualified name of the NamespaceService's
+	// ListNamespaces RPC.
+	NamespaceServiceListNamespacesProcedure = "/webhook.NamespaceService/ListNamespaces"
+	// NamespaceServiceUpdateNamespaceProcedure is the fully-qualified name of the NamespaceService's
+	// UpdateNamespace RPC.
+	NamespaceServiceUpdateNamespaceProcedure = "/webhook.NamespaceService/UpdateNamespace"
+	// NamespaceServiceDeleteNamespaceProcedure is the fully-qualified name of the NamespaceService's
+	// DeleteNamespace RPC.
+	NamespaceServiceDeleteNamespaceProcedure = "/webhook.NamespaceService/DeleteNamespace"
+	// NamespaceMembershipServiceAssignNamespaceRoleProcedure is the fully-qualified name of the
+	// NamespaceMembershipService's AssignNamespaceRole RPC.
+	NamespaceMembershipServiceAssignNamespaceRoleProcedure = "/webhook.NamespaceMembershipService/AssignNamespaceRole"
+	// NamespaceMembershipServiceRemoveNamespaceRoleProcedure is the fully-qualified name of the
+	// NamespaceMembershipService's RemoveNamespaceRole RPC.
+	NamespaceMembershipServiceRemoveNamespaceRoleProcedure = "/webhook.NamespaceMembershipService/RemoveNamespaceRole"
+	// NamespaceMembershipServiceListNamespaceMembersProcedure is the fully-qualified name of the
+	// NamespaceMembershipService's ListNamespaceMembers RPC.
+	NamespaceMembershipServiceListNamespaceMembersProcedure = "/webhook.NamespaceMembershipService/ListNamespaceMembers"
+	// NamespaceMembershipServiceGetUserNamespacesProcedure is the fully-qualified name of the
+	// NamespaceMembershipService's GetUserNamespaces RPC.
+	NamespaceMembershipServiceGetUserNamespacesProcedure = "/webhook.NamespaceMembershipService/GetUserNamespaces"
 )
 
 // WebhookServiceClient is a client for the webhook.WebhookService service.
@@ -1495,4 +1527,345 @@ func (UnimplementedAPIKeyServiceHandler) ListAPIKeys(context.Context, *connect.R
 
 func (UnimplementedAPIKeyServiceHandler) RevokeAPIKey(context.Context, *connect.Request[proto.RevokeAPIKeyRequest]) (*connect.Response[proto.RevokeAPIKeyResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.APIKeyService.RevokeAPIKey is not implemented"))
+}
+
+// NamespaceServiceClient is a client for the webhook.NamespaceService service.
+type NamespaceServiceClient interface {
+	// CreateNamespace creates a new namespace within the caller's tenant
+	CreateNamespace(context.Context, *connect.Request[proto.CreateNamespaceRequest]) (*connect.Response[proto.CreateNamespaceResponse], error)
+	// GetNamespace retrieves a namespace by ID
+	GetNamespace(context.Context, *connect.Request[proto.GetNamespaceRequest]) (*connect.Response[proto.GetNamespaceResponse], error)
+	// ListNamespaces lists namespaces for the caller's tenant
+	ListNamespaces(context.Context, *connect.Request[proto.ListNamespacesRequest]) (*connect.Response[proto.ListNamespacesResponse], error)
+	// UpdateNamespace updates a namespace's name or description
+	UpdateNamespace(context.Context, *connect.Request[proto.UpdateNamespaceRequest2]) (*connect.Response[proto.UpdateNamespaceResponse2], error)
+	// DeleteNamespace deletes a namespace
+	DeleteNamespace(context.Context, *connect.Request[proto.DeleteNamespaceRequest]) (*connect.Response[proto.DeleteNamespaceResponse2], error)
+}
+
+// NewNamespaceServiceClient constructs a client for the webhook.NamespaceService service. By
+// default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
+// and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
+// connect.WithGRPC() or connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewNamespaceServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) NamespaceServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	namespaceServiceMethods := proto.File_proto_webhook_proto.Services().ByName("NamespaceService").Methods()
+	return &namespaceServiceClient{
+		createNamespace: connect.NewClient[proto.CreateNamespaceRequest, proto.CreateNamespaceResponse](
+			httpClient,
+			baseURL+NamespaceServiceCreateNamespaceProcedure,
+			connect.WithSchema(namespaceServiceMethods.ByName("CreateNamespace")),
+			connect.WithClientOptions(opts...),
+		),
+		getNamespace: connect.NewClient[proto.GetNamespaceRequest, proto.GetNamespaceResponse](
+			httpClient,
+			baseURL+NamespaceServiceGetNamespaceProcedure,
+			connect.WithSchema(namespaceServiceMethods.ByName("GetNamespace")),
+			connect.WithClientOptions(opts...),
+		),
+		listNamespaces: connect.NewClient[proto.ListNamespacesRequest, proto.ListNamespacesResponse](
+			httpClient,
+			baseURL+NamespaceServiceListNamespacesProcedure,
+			connect.WithSchema(namespaceServiceMethods.ByName("ListNamespaces")),
+			connect.WithClientOptions(opts...),
+		),
+		updateNamespace: connect.NewClient[proto.UpdateNamespaceRequest2, proto.UpdateNamespaceResponse2](
+			httpClient,
+			baseURL+NamespaceServiceUpdateNamespaceProcedure,
+			connect.WithSchema(namespaceServiceMethods.ByName("UpdateNamespace")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteNamespace: connect.NewClient[proto.DeleteNamespaceRequest, proto.DeleteNamespaceResponse2](
+			httpClient,
+			baseURL+NamespaceServiceDeleteNamespaceProcedure,
+			connect.WithSchema(namespaceServiceMethods.ByName("DeleteNamespace")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// namespaceServiceClient implements NamespaceServiceClient.
+type namespaceServiceClient struct {
+	createNamespace *connect.Client[proto.CreateNamespaceRequest, proto.CreateNamespaceResponse]
+	getNamespace    *connect.Client[proto.GetNamespaceRequest, proto.GetNamespaceResponse]
+	listNamespaces  *connect.Client[proto.ListNamespacesRequest, proto.ListNamespacesResponse]
+	updateNamespace *connect.Client[proto.UpdateNamespaceRequest2, proto.UpdateNamespaceResponse2]
+	deleteNamespace *connect.Client[proto.DeleteNamespaceRequest, proto.DeleteNamespaceResponse2]
+}
+
+// CreateNamespace calls webhook.NamespaceService.CreateNamespace.
+func (c *namespaceServiceClient) CreateNamespace(ctx context.Context, req *connect.Request[proto.CreateNamespaceRequest]) (*connect.Response[proto.CreateNamespaceResponse], error) {
+	return c.createNamespace.CallUnary(ctx, req)
+}
+
+// GetNamespace calls webhook.NamespaceService.GetNamespace.
+func (c *namespaceServiceClient) GetNamespace(ctx context.Context, req *connect.Request[proto.GetNamespaceRequest]) (*connect.Response[proto.GetNamespaceResponse], error) {
+	return c.getNamespace.CallUnary(ctx, req)
+}
+
+// ListNamespaces calls webhook.NamespaceService.ListNamespaces.
+func (c *namespaceServiceClient) ListNamespaces(ctx context.Context, req *connect.Request[proto.ListNamespacesRequest]) (*connect.Response[proto.ListNamespacesResponse], error) {
+	return c.listNamespaces.CallUnary(ctx, req)
+}
+
+// UpdateNamespace calls webhook.NamespaceService.UpdateNamespace.
+func (c *namespaceServiceClient) UpdateNamespace(ctx context.Context, req *connect.Request[proto.UpdateNamespaceRequest2]) (*connect.Response[proto.UpdateNamespaceResponse2], error) {
+	return c.updateNamespace.CallUnary(ctx, req)
+}
+
+// DeleteNamespace calls webhook.NamespaceService.DeleteNamespace.
+func (c *namespaceServiceClient) DeleteNamespace(ctx context.Context, req *connect.Request[proto.DeleteNamespaceRequest]) (*connect.Response[proto.DeleteNamespaceResponse2], error) {
+	return c.deleteNamespace.CallUnary(ctx, req)
+}
+
+// NamespaceServiceHandler is an implementation of the webhook.NamespaceService service.
+type NamespaceServiceHandler interface {
+	// CreateNamespace creates a new namespace within the caller's tenant
+	CreateNamespace(context.Context, *connect.Request[proto.CreateNamespaceRequest]) (*connect.Response[proto.CreateNamespaceResponse], error)
+	// GetNamespace retrieves a namespace by ID
+	GetNamespace(context.Context, *connect.Request[proto.GetNamespaceRequest]) (*connect.Response[proto.GetNamespaceResponse], error)
+	// ListNamespaces lists namespaces for the caller's tenant
+	ListNamespaces(context.Context, *connect.Request[proto.ListNamespacesRequest]) (*connect.Response[proto.ListNamespacesResponse], error)
+	// UpdateNamespace updates a namespace's name or description
+	UpdateNamespace(context.Context, *connect.Request[proto.UpdateNamespaceRequest2]) (*connect.Response[proto.UpdateNamespaceResponse2], error)
+	// DeleteNamespace deletes a namespace
+	DeleteNamespace(context.Context, *connect.Request[proto.DeleteNamespaceRequest]) (*connect.Response[proto.DeleteNamespaceResponse2], error)
+}
+
+// NewNamespaceServiceHandler builds an HTTP handler from the service implementation. It returns the
+// path on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewNamespaceServiceHandler(svc NamespaceServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	namespaceServiceMethods := proto.File_proto_webhook_proto.Services().ByName("NamespaceService").Methods()
+	namespaceServiceCreateNamespaceHandler := connect.NewUnaryHandler(
+		NamespaceServiceCreateNamespaceProcedure,
+		svc.CreateNamespace,
+		connect.WithSchema(namespaceServiceMethods.ByName("CreateNamespace")),
+		connect.WithHandlerOptions(opts...),
+	)
+	namespaceServiceGetNamespaceHandler := connect.NewUnaryHandler(
+		NamespaceServiceGetNamespaceProcedure,
+		svc.GetNamespace,
+		connect.WithSchema(namespaceServiceMethods.ByName("GetNamespace")),
+		connect.WithHandlerOptions(opts...),
+	)
+	namespaceServiceListNamespacesHandler := connect.NewUnaryHandler(
+		NamespaceServiceListNamespacesProcedure,
+		svc.ListNamespaces,
+		connect.WithSchema(namespaceServiceMethods.ByName("ListNamespaces")),
+		connect.WithHandlerOptions(opts...),
+	)
+	namespaceServiceUpdateNamespaceHandler := connect.NewUnaryHandler(
+		NamespaceServiceUpdateNamespaceProcedure,
+		svc.UpdateNamespace,
+		connect.WithSchema(namespaceServiceMethods.ByName("UpdateNamespace")),
+		connect.WithHandlerOptions(opts...),
+	)
+	namespaceServiceDeleteNamespaceHandler := connect.NewUnaryHandler(
+		NamespaceServiceDeleteNamespaceProcedure,
+		svc.DeleteNamespace,
+		connect.WithSchema(namespaceServiceMethods.ByName("DeleteNamespace")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/webhook.NamespaceService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case NamespaceServiceCreateNamespaceProcedure:
+			namespaceServiceCreateNamespaceHandler.ServeHTTP(w, r)
+		case NamespaceServiceGetNamespaceProcedure:
+			namespaceServiceGetNamespaceHandler.ServeHTTP(w, r)
+		case NamespaceServiceListNamespacesProcedure:
+			namespaceServiceListNamespacesHandler.ServeHTTP(w, r)
+		case NamespaceServiceUpdateNamespaceProcedure:
+			namespaceServiceUpdateNamespaceHandler.ServeHTTP(w, r)
+		case NamespaceServiceDeleteNamespaceProcedure:
+			namespaceServiceDeleteNamespaceHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedNamespaceServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedNamespaceServiceHandler struct{}
+
+func (UnimplementedNamespaceServiceHandler) CreateNamespace(context.Context, *connect.Request[proto.CreateNamespaceRequest]) (*connect.Response[proto.CreateNamespaceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceService.CreateNamespace is not implemented"))
+}
+
+func (UnimplementedNamespaceServiceHandler) GetNamespace(context.Context, *connect.Request[proto.GetNamespaceRequest]) (*connect.Response[proto.GetNamespaceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceService.GetNamespace is not implemented"))
+}
+
+func (UnimplementedNamespaceServiceHandler) ListNamespaces(context.Context, *connect.Request[proto.ListNamespacesRequest]) (*connect.Response[proto.ListNamespacesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceService.ListNamespaces is not implemented"))
+}
+
+func (UnimplementedNamespaceServiceHandler) UpdateNamespace(context.Context, *connect.Request[proto.UpdateNamespaceRequest2]) (*connect.Response[proto.UpdateNamespaceResponse2], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceService.UpdateNamespace is not implemented"))
+}
+
+func (UnimplementedNamespaceServiceHandler) DeleteNamespace(context.Context, *connect.Request[proto.DeleteNamespaceRequest]) (*connect.Response[proto.DeleteNamespaceResponse2], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceService.DeleteNamespace is not implemented"))
+}
+
+// NamespaceMembershipServiceClient is a client for the webhook.NamespaceMembershipService service.
+type NamespaceMembershipServiceClient interface {
+	// AssignNamespaceRole assigns or updates a user's role on a namespace
+	AssignNamespaceRole(context.Context, *connect.Request[proto.AssignNamespaceRoleRequest]) (*connect.Response[proto.AssignNamespaceRoleResponse], error)
+	// RemoveNamespaceRole removes a user's role from a namespace
+	RemoveNamespaceRole(context.Context, *connect.Request[proto.RemoveNamespaceRoleRequest]) (*connect.Response[proto.RemoveNamespaceRoleResponse], error)
+	// ListNamespaceMembers lists all members of a namespace
+	ListNamespaceMembers(context.Context, *connect.Request[proto.ListNamespaceMembersRequest]) (*connect.Response[proto.ListNamespaceMembersResponse], error)
+	// GetUserNamespaces returns all namespace memberships for a user
+	GetUserNamespaces(context.Context, *connect.Request[proto.GetUserNamespacesRequest]) (*connect.Response[proto.GetUserNamespacesResponse], error)
+}
+
+// NewNamespaceMembershipServiceClient constructs a client for the
+// webhook.NamespaceMembershipService service. By default, it uses the Connect protocol with the
+// binary Protobuf Codec, asks for gzipped responses, and sends uncompressed requests. To use the
+// gRPC or gRPC-Web protocols, supply the connect.WithGRPC() or connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewNamespaceMembershipServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) NamespaceMembershipServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	namespaceMembershipServiceMethods := proto.File_proto_webhook_proto.Services().ByName("NamespaceMembershipService").Methods()
+	return &namespaceMembershipServiceClient{
+		assignNamespaceRole: connect.NewClient[proto.AssignNamespaceRoleRequest, proto.AssignNamespaceRoleResponse](
+			httpClient,
+			baseURL+NamespaceMembershipServiceAssignNamespaceRoleProcedure,
+			connect.WithSchema(namespaceMembershipServiceMethods.ByName("AssignNamespaceRole")),
+			connect.WithClientOptions(opts...),
+		),
+		removeNamespaceRole: connect.NewClient[proto.RemoveNamespaceRoleRequest, proto.RemoveNamespaceRoleResponse](
+			httpClient,
+			baseURL+NamespaceMembershipServiceRemoveNamespaceRoleProcedure,
+			connect.WithSchema(namespaceMembershipServiceMethods.ByName("RemoveNamespaceRole")),
+			connect.WithClientOptions(opts...),
+		),
+		listNamespaceMembers: connect.NewClient[proto.ListNamespaceMembersRequest, proto.ListNamespaceMembersResponse](
+			httpClient,
+			baseURL+NamespaceMembershipServiceListNamespaceMembersProcedure,
+			connect.WithSchema(namespaceMembershipServiceMethods.ByName("ListNamespaceMembers")),
+			connect.WithClientOptions(opts...),
+		),
+		getUserNamespaces: connect.NewClient[proto.GetUserNamespacesRequest, proto.GetUserNamespacesResponse](
+			httpClient,
+			baseURL+NamespaceMembershipServiceGetUserNamespacesProcedure,
+			connect.WithSchema(namespaceMembershipServiceMethods.ByName("GetUserNamespaces")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// namespaceMembershipServiceClient implements NamespaceMembershipServiceClient.
+type namespaceMembershipServiceClient struct {
+	assignNamespaceRole  *connect.Client[proto.AssignNamespaceRoleRequest, proto.AssignNamespaceRoleResponse]
+	removeNamespaceRole  *connect.Client[proto.RemoveNamespaceRoleRequest, proto.RemoveNamespaceRoleResponse]
+	listNamespaceMembers *connect.Client[proto.ListNamespaceMembersRequest, proto.ListNamespaceMembersResponse]
+	getUserNamespaces    *connect.Client[proto.GetUserNamespacesRequest, proto.GetUserNamespacesResponse]
+}
+
+// AssignNamespaceRole calls webhook.NamespaceMembershipService.AssignNamespaceRole.
+func (c *namespaceMembershipServiceClient) AssignNamespaceRole(ctx context.Context, req *connect.Request[proto.AssignNamespaceRoleRequest]) (*connect.Response[proto.AssignNamespaceRoleResponse], error) {
+	return c.assignNamespaceRole.CallUnary(ctx, req)
+}
+
+// RemoveNamespaceRole calls webhook.NamespaceMembershipService.RemoveNamespaceRole.
+func (c *namespaceMembershipServiceClient) RemoveNamespaceRole(ctx context.Context, req *connect.Request[proto.RemoveNamespaceRoleRequest]) (*connect.Response[proto.RemoveNamespaceRoleResponse], error) {
+	return c.removeNamespaceRole.CallUnary(ctx, req)
+}
+
+// ListNamespaceMembers calls webhook.NamespaceMembershipService.ListNamespaceMembers.
+func (c *namespaceMembershipServiceClient) ListNamespaceMembers(ctx context.Context, req *connect.Request[proto.ListNamespaceMembersRequest]) (*connect.Response[proto.ListNamespaceMembersResponse], error) {
+	return c.listNamespaceMembers.CallUnary(ctx, req)
+}
+
+// GetUserNamespaces calls webhook.NamespaceMembershipService.GetUserNamespaces.
+func (c *namespaceMembershipServiceClient) GetUserNamespaces(ctx context.Context, req *connect.Request[proto.GetUserNamespacesRequest]) (*connect.Response[proto.GetUserNamespacesResponse], error) {
+	return c.getUserNamespaces.CallUnary(ctx, req)
+}
+
+// NamespaceMembershipServiceHandler is an implementation of the webhook.NamespaceMembershipService
+// service.
+type NamespaceMembershipServiceHandler interface {
+	// AssignNamespaceRole assigns or updates a user's role on a namespace
+	AssignNamespaceRole(context.Context, *connect.Request[proto.AssignNamespaceRoleRequest]) (*connect.Response[proto.AssignNamespaceRoleResponse], error)
+	// RemoveNamespaceRole removes a user's role from a namespace
+	RemoveNamespaceRole(context.Context, *connect.Request[proto.RemoveNamespaceRoleRequest]) (*connect.Response[proto.RemoveNamespaceRoleResponse], error)
+	// ListNamespaceMembers lists all members of a namespace
+	ListNamespaceMembers(context.Context, *connect.Request[proto.ListNamespaceMembersRequest]) (*connect.Response[proto.ListNamespaceMembersResponse], error)
+	// GetUserNamespaces returns all namespace memberships for a user
+	GetUserNamespaces(context.Context, *connect.Request[proto.GetUserNamespacesRequest]) (*connect.Response[proto.GetUserNamespacesResponse], error)
+}
+
+// NewNamespaceMembershipServiceHandler builds an HTTP handler from the service implementation. It
+// returns the path on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewNamespaceMembershipServiceHandler(svc NamespaceMembershipServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	namespaceMembershipServiceMethods := proto.File_proto_webhook_proto.Services().ByName("NamespaceMembershipService").Methods()
+	namespaceMembershipServiceAssignNamespaceRoleHandler := connect.NewUnaryHandler(
+		NamespaceMembershipServiceAssignNamespaceRoleProcedure,
+		svc.AssignNamespaceRole,
+		connect.WithSchema(namespaceMembershipServiceMethods.ByName("AssignNamespaceRole")),
+		connect.WithHandlerOptions(opts...),
+	)
+	namespaceMembershipServiceRemoveNamespaceRoleHandler := connect.NewUnaryHandler(
+		NamespaceMembershipServiceRemoveNamespaceRoleProcedure,
+		svc.RemoveNamespaceRole,
+		connect.WithSchema(namespaceMembershipServiceMethods.ByName("RemoveNamespaceRole")),
+		connect.WithHandlerOptions(opts...),
+	)
+	namespaceMembershipServiceListNamespaceMembersHandler := connect.NewUnaryHandler(
+		NamespaceMembershipServiceListNamespaceMembersProcedure,
+		svc.ListNamespaceMembers,
+		connect.WithSchema(namespaceMembershipServiceMethods.ByName("ListNamespaceMembers")),
+		connect.WithHandlerOptions(opts...),
+	)
+	namespaceMembershipServiceGetUserNamespacesHandler := connect.NewUnaryHandler(
+		NamespaceMembershipServiceGetUserNamespacesProcedure,
+		svc.GetUserNamespaces,
+		connect.WithSchema(namespaceMembershipServiceMethods.ByName("GetUserNamespaces")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/webhook.NamespaceMembershipService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case NamespaceMembershipServiceAssignNamespaceRoleProcedure:
+			namespaceMembershipServiceAssignNamespaceRoleHandler.ServeHTTP(w, r)
+		case NamespaceMembershipServiceRemoveNamespaceRoleProcedure:
+			namespaceMembershipServiceRemoveNamespaceRoleHandler.ServeHTTP(w, r)
+		case NamespaceMembershipServiceListNamespaceMembersProcedure:
+			namespaceMembershipServiceListNamespaceMembersHandler.ServeHTTP(w, r)
+		case NamespaceMembershipServiceGetUserNamespacesProcedure:
+			namespaceMembershipServiceGetUserNamespacesHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedNamespaceMembershipServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedNamespaceMembershipServiceHandler struct{}
+
+func (UnimplementedNamespaceMembershipServiceHandler) AssignNamespaceRole(context.Context, *connect.Request[proto.AssignNamespaceRoleRequest]) (*connect.Response[proto.AssignNamespaceRoleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceMembershipService.AssignNamespaceRole is not implemented"))
+}
+
+func (UnimplementedNamespaceMembershipServiceHandler) RemoveNamespaceRole(context.Context, *connect.Request[proto.RemoveNamespaceRoleRequest]) (*connect.Response[proto.RemoveNamespaceRoleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceMembershipService.RemoveNamespaceRole is not implemented"))
+}
+
+func (UnimplementedNamespaceMembershipServiceHandler) ListNamespaceMembers(context.Context, *connect.Request[proto.ListNamespaceMembersRequest]) (*connect.Response[proto.ListNamespaceMembersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceMembershipService.ListNamespaceMembers is not implemented"))
+}
+
+func (UnimplementedNamespaceMembershipServiceHandler) GetUserNamespaces(context.Context, *connect.Request[proto.GetUserNamespacesRequest]) (*connect.Response[proto.GetUserNamespacesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceMembershipService.GetUserNamespaces is not implemented"))
 }

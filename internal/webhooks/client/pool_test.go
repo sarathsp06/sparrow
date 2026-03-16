@@ -59,47 +59,6 @@ func TestBufferPool(t *testing.T) {
 	})
 }
 
-func TestByteSlicePool(t *testing.T) {
-	t.Run("GetByteSlice returns clean slice", func(t *testing.T) {
-		slice := GetByteSlice()
-		if slice == nil {
-			t.Fatal("GetByteSlice returned nil")
-			return
-		}
-		if len(*slice) != 0 {
-			t.Errorf("Expected empty slice, got length %d", len(*slice))
-		}
-		if cap(*slice) < 4096 {
-			t.Errorf("Expected at least 4KB capacity, got %d", cap(*slice))
-		}
-	})
-
-	t.Run("PutByteSlice returns slice to pool", func(t *testing.T) {
-		slice1 := GetByteSlice()
-		*slice1 = append(*slice1, []byte("test data")...)
-		PutByteSlice(slice1)
-
-		slice2 := GetByteSlice()
-		if len(*slice2) != 0 {
-			t.Errorf("Expected slice to be reset, got length %d", len(*slice2))
-		}
-		PutByteSlice(slice2)
-	})
-
-	t.Run("Large slices not returned to pool", func(t *testing.T) {
-		slice := GetByteSlice()
-		// Create a slice larger than 64KB
-		largeData := make([]byte, 65*1024)
-		*slice = append(*slice, largeData...)
-
-		PutByteSlice(slice) // Should not panic, just not pool it
-	})
-
-	t.Run("Nil slice handled safely", func(t *testing.T) {
-		PutByteSlice(nil) // Should not panic
-	})
-}
-
 func TestHeaderMapPool(t *testing.T) {
 	t.Run("GetHeaderMap returns clean map", func(t *testing.T) {
 		headers := GetHeaderMap()
@@ -158,29 +117,6 @@ func BenchmarkBufferPool(b *testing.B) {
 			buf := new(bytes.Buffer)
 			buf.WriteString("test data for benchmark")
 			_ = buf.Bytes()
-		}
-	})
-}
-
-func BenchmarkByteSlicePool(b *testing.B) {
-	data := []byte("test data for benchmark")
-
-	b.Run("WithPool", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			slice := GetByteSlice()
-			*slice = append(*slice, data...)
-			_ = *slice
-			PutByteSlice(slice)
-		}
-	})
-
-	b.Run("WithoutPool", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			slice := make([]byte, 0, 4096)
-			slice = append(slice, data...)
-			_ = slice
 		}
 	})
 }

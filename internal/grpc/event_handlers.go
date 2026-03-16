@@ -26,7 +26,7 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 		if errors.As(err, &schemaErr) {
 			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 		}
-		return nil, status.Errorf(codes.Internal, "failed to push event: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to push event")
 	}
 	return &pb.PushEventResponse{
 		EventId: eventID,
@@ -43,7 +43,7 @@ func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEvent
 
 	eventName, createdAt, err := s.service.RegisterEvent(ctx, req.Name, req.Description, schema, req.Metadata, req.Active)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to register event: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to register event")
 	}
 	return &pb.RegisterEventResponse{
 		EventId:   eventName, // Deprecated field — now carries the event name
@@ -61,7 +61,7 @@ func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsReques
 
 	events, totalCount, err := s.service.ListEvents(ctx, req.ActiveOnly, limit, offset)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to list events: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to list events")
 	}
 
 	pbEvents := make([]*pb.RegisteredEvent, len(events))
@@ -93,7 +93,7 @@ func (s *WebhookServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequ
 
 	err := s.service.UpdateEvent(ctx, req.Name, req.Description, schema, req.Metadata, req.Active)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to update event: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to update event")
 	}
 	return &pb.UpdateEventResponse{}, nil
 }
@@ -102,7 +102,7 @@ func (s *WebhookServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequ
 func (s *WebhookServer) DeleteEvent(ctx context.Context, req *pb.DeleteEventRequest) (*pb.DeleteEventResponse, error) {
 	err := s.service.DeleteEvent(ctx, req.Name)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to delete event: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to delete event")
 	}
 	return &pb.DeleteEventResponse{}, nil
 }
@@ -111,7 +111,7 @@ func (s *WebhookServer) DeleteEvent(ctx context.Context, req *pb.DeleteEventRequ
 func (s *WebhookServer) GetEvent(ctx context.Context, req *pb.GetEventRequest) (*pb.GetEventResponse, error) {
 	event, err := s.service.GetEvent(ctx, req.Name)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get event: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to get event")
 	}
 	if event == nil {
 		return nil, status.Error(codes.NotFound, "event not found")
@@ -157,7 +157,7 @@ func (s *WebhookServer) ListEventReports(ctx context.Context, req *pb.ListEventR
 	// Call service method
 	events, totalCount, err := s.service.ListEventReports(ctx, req.Namespace, eventName, limit, offset)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to list event reports: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to list event reports")
 	}
 
 	// Convert events to protobuf format

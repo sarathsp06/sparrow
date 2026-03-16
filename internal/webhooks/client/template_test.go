@@ -114,51 +114,19 @@ func TestTemplateCaching(t *testing.T) {
 	data := map[string]any{"Name": "World"}
 
 	// First execution - should cache
-	_, err := engine.Execute(tmpl, data)
+	result1, err := engine.Execute(tmpl, data)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	size, _ := engine.CacheStats()
-	if size != 1 {
-		t.Errorf("Expected cache size 1, got %d", size)
-	}
-
-	// Second execution - should use cache
-	_, err = engine.Execute(tmpl, data)
+	// Second execution - should use cache and produce same result
+	result2, err := engine.Execute(tmpl, data)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	size, _ = engine.CacheStats()
-	if size != 1 {
-		t.Errorf("Expected cache size still 1, got %d", size)
-	}
-}
-
-func TestClearCache(t *testing.T) {
-	engine := NewTemplateEngine()
-
-	tmpl := `Hello {{.Name}}`
-	data := map[string]any{"Name": "World"}
-
-	// Execute to populate cache
-	_, err := engine.Execute(tmpl, data)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-
-	size, _ := engine.CacheStats()
-	if size != 1 {
-		t.Errorf("Expected cache size 1, got %d", size)
-	}
-
-	// Clear cache
-	engine.ClearCache()
-
-	size, _ = engine.CacheStats()
-	if size != 0 {
-		t.Errorf("Expected cache size 0 after clear, got %d", size)
+	if string(result1) != string(result2) {
+		t.Errorf("Expected same result from cached execution, got %q and %q", string(result1), string(result2))
 	}
 }
 
@@ -202,122 +170,6 @@ func TestValidateTemplate(t *testing.T) {
 	}
 }
 
-func TestValidateTemplateWithTestData(t *testing.T) {
-	engine := NewTemplateEngine()
-
-	tests := []struct {
-		name      string
-		template  string
-		expectErr bool
-	}{
-		{
-			name:      "valid template with event data",
-			template:  `Event ID: {{.Event.ID}}`,
-			expectErr: false,
-		},
-		{
-			name:      "valid template with payload",
-			template:  `User: {{.Payload.user_id}}`,
-			expectErr: false,
-		},
-		{
-			name:      "empty template",
-			template:  "",
-			expectErr: false,
-		},
-		{
-			name:      "invalid syntax",
-			template:  `{{.Event.ID}`,
-			expectErr: true,
-		},
-		{
-			name:      "template with functions",
-			template:  `{{.Event.Event | upper}}`,
-			expectErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := engine.ValidateTemplateWithTestData(tt.template)
-			if (err != nil) != tt.expectErr {
-				t.Errorf("Expected error=%v, got error=%v", tt.expectErr, err)
-			}
-		})
-	}
-}
-
-func TestValidateTemplateWithPayload(t *testing.T) {
-	engine := NewTemplateEngine()
-
-	tests := []struct {
-		name      string
-		template  string
-		payload   map[string]any
-		expectErr bool
-	}{
-		{
-			name:     "valid template with custom payload",
-			template: `User ID: {{.Payload.user_id}}, Email: {{.Payload.email}}`,
-			payload: map[string]any{
-				"user_id": "12345",
-				"email":   "test@example.com",
-			},
-			expectErr: false,
-		},
-		{
-			name:     "valid template with nested payload",
-			template: `Name: {{.Payload.user.name}}, Age: {{.Payload.user.age}}`,
-			payload: map[string]any{
-				"user": map[string]any{
-					"name": "John Doe",
-					"age":  30,
-				},
-			},
-			expectErr: false,
-		},
-		{
-			name:      "empty template",
-			template:  "",
-			payload:   map[string]any{},
-			expectErr: false,
-		},
-		{
-			name:     "invalid syntax",
-			template: `{{.Payload.user_id}`,
-			payload: map[string]any{
-				"user_id": "12345",
-			},
-			expectErr: true,
-		},
-		{
-			name:     "template with functions on custom payload",
-			template: `{{.Payload.email | upper}}`,
-			payload: map[string]any{
-				"email": "test@example.com",
-			},
-			expectErr: false,
-		},
-		{
-			name:     "accessing missing field should not error during validation",
-			template: `{{.Payload.missing_field}}`,
-			payload: map[string]any{
-				"user_id": "12345",
-			},
-			expectErr: false, // Go templates return empty string for missing fields
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := engine.ValidateTemplateWithPayload(tt.template, tt.payload)
-			if (err != nil) != tt.expectErr {
-				t.Errorf("Expected error=%v, got error=%v", tt.expectErr, err)
-			}
-		})
-	}
-}
-
 func TestNewTemplateEngineWithCacheSize(t *testing.T) {
 	maxSize := 50
 	engine := NewTemplateEngineWithCacheSize(maxSize)
@@ -326,9 +178,13 @@ func TestNewTemplateEngineWithCacheSize(t *testing.T) {
 		t.Fatal("Expected non-nil template engine")
 	}
 
-	_, max := engine.CacheStats()
-	if max != maxSize {
-		t.Errorf("Expected max cache size %d, got %d", maxSize, max)
+	// Verify engine works with custom cache size
+	result, err := engine.Execute(`Hello {{.Name}}`, map[string]any{"Name": "World"})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if string(result) != "Hello World" {
+		t.Errorf("Expected 'Hello World', got %q", string(result))
 	}
 }
 

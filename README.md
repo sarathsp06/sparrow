@@ -220,27 +220,6 @@ When both JWT and API key auth are enabled, the interceptor tries each in order 
 
 ---
 
-## Docker Deployment
-
-```bash
-docker build -t sparrow .
-docker run -p 8080:8080 -p 50051:50051 \
-  -e DATABASE_URL=postgres://user:pass@host:5432/sparrow \
-  -e SPARROW_AUTH_ENABLED=true \
-  -e SPARROW_SERVE_UI=true \
-  sparrow
-```
-
-The image is based on distroless (nonroot) and includes both the server and migration tool. Run migrations with:
-
-```bash
-docker run --entrypoint /app/tools/migrate \
-  -e DATABASE_URL=postgres://user:pass@host:5432/sparrow \
-  sparrow
-```
-
----
-
 ## Useful Commands
 
 | Command | Description |

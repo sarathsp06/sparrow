@@ -3,9 +3,6 @@ package grpc
 import (
 	"context"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
@@ -14,7 +11,7 @@ import (
 func (s *WebhookServer) GetWebhookHealth(ctx context.Context, req *pb.GetWebhookHealthRequest) (*pb.GetWebhookHealthResponse, error) {
 	healthData, err := s.service.GetWebhookHealth(ctx, req.WebhookId, req.Namespace)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to get webhook health: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to get webhook health")
 	}
 	if healthData == nil {
 		return &pb.GetWebhookHealthResponse{
@@ -50,7 +47,7 @@ func (s *WebhookServer) GetWebhookHealth(ctx context.Context, req *pb.GetWebhook
 func (s *WebhookServer) GetHealthSummary(ctx context.Context, req *pb.GetHealthSummaryRequest) (*pb.GetHealthSummaryResponse, error) {
 	summaryData, err := s.service.GetHealthSummary(ctx)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Failed to get health summary: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to get health summary")
 	}
 	var pbSummary *pb.HealthSummary
 	if summaryData != nil {
@@ -92,7 +89,7 @@ func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWe
 
 	webhooks, totalCount, err := s.service.ListWebhooksByHealth(ctx, storeHealth, limit, offset)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to list webhooks by health: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to list webhooks by health")
 	}
 
 	pbWebhooks := make([]*pb.RegisteredWebhook, len(webhooks))
@@ -126,7 +123,7 @@ func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWe
 func (s *WebhookServer) GetNamespaceStats(ctx context.Context, req *pb.GetNamespaceStatsRequest) (*pb.GetNamespaceStatsResponse, error) {
 	stats, err := s.service.GetNamespaceStats(ctx, req.Namespace)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get namespace stats: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to get namespace stats")
 	}
 	var pbStats *pb.NamespaceStats
 	if stats != nil {

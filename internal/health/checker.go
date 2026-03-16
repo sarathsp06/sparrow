@@ -31,12 +31,12 @@ func NewChecker(dbPool *pgxpool.Pool, queueManager *queue.Manager, startTime tim
 
 // HealthResponse represents the health check response structure
 type HealthResponse struct {
-	Status    string                 `json:"status"`
-	Version   string                 `json:"version"`
-	Timestamp string                 `json:"timestamp"`
-	Uptime    string                 `json:"uptime"`
-	Checks    map[string]interface{} `json:"checks"`
-	Service   map[string]interface{} `json:"service"`
+	Status    string         `json:"status"`
+	Version   string         `json:"version"`
+	Timestamp string         `json:"timestamp"`
+	Uptime    string         `json:"uptime"`
+	Checks    map[string]any `json:"checks"`
+	Service   map[string]any `json:"service"`
 }
 
 // ReadyResponse represents the readiness check response structure
@@ -85,20 +85,20 @@ func (hc *Checker) Health(ctx context.Context) (HealthResponse, int) {
 		Version:   sparrow.Version,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 		Uptime:    time.Since(hc.startTime).Round(time.Second).String(),
-		Checks: map[string]interface{}{
-			"database": map[string]interface{}{
+		Checks: map[string]any{
+			"database": map[string]any{
 				"status": dbStatus,
 				"type":   "postgres",
 			},
-			"queue": map[string]interface{}{
+			"queue": map[string]any{
 				"status": queueStatus,
 				"type":   "river",
 			},
 		},
-		Service: map[string]interface{}{
+		Service: map[string]any{
 			"name":        "sparrow",
 			"description": "Webhook delivery system",
-			"endpoints": map[string]interface{}{
+			"endpoints": map[string]any{
 				"grpc":   "localhost:50051",
 				"http":   "localhost:8080",
 				"health": "localhost:8080/health",
@@ -109,7 +109,7 @@ func (hc *Checker) Health(ctx context.Context) (HealthResponse, int) {
 
 	// Add database error if present
 	if dbError != "" {
-		healthResponse.Checks["database"].(map[string]interface{})["error"] = dbError
+		healthResponse.Checks["database"].(map[string]any)["error"] = dbError
 	}
 
 	return healthResponse, httpStatus

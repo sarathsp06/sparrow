@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strings"
 	"text/template"
@@ -182,8 +183,15 @@ func GetTemplateFunctions() []TemplateFunc {
 		},
 		{
 			Name: "repeat",
-			Func: func(count int, s string) string {
-				return strings.Repeat(s, count)
+			Func: func(count int, s string) (string, error) {
+				const maxRepeat = 1000
+				if count < 0 {
+					count = 0
+				}
+				if count > maxRepeat {
+					return "", fmt.Errorf("repeat count %d exceeds maximum of %d", count, maxRepeat)
+				}
+				return strings.Repeat(s, count), nil
 			},
 			Description: "# repeat\n\nRepeats string specified number of times.\n\n## Usage\n```\n{{ repeat 3 \"*\" }}\n{{ .pattern | repeat 5 }}\n```\n\n## Example\n```\nInput: 3, \"*\"\nOutput: \"***\"\n\nInput: 2, \"hello\"\nOutput: \"hellohello\"\n```",
 		},
@@ -232,15 +240,6 @@ func GetFunctionMap() template.FuncMap {
 		funcMap[tf.Name] = tf.Func
 	}
 	return funcMap
-}
-
-// ListAvailableFunctions returns a map of function names to their descriptions
-func ListAvailableFunctions() map[string]string {
-	functions := make(map[string]string)
-	for _, tf := range GetTemplateFunctions() {
-		functions[tf.Name] = tf.Description
-	}
-	return functions
 }
 
 // GetFunctionDocumentation returns markdown documentation for all template functions

@@ -3539,6 +3539,516 @@ export declare type RevokeAPIKeyResponse = Message<"webhook.RevokeAPIKeyResponse
 export declare const RevokeAPIKeyResponseSchema: GenMessage<RevokeAPIKeyResponse>;
 
 /**
+ * NamespaceResource represents a namespace entity
+ *
+ * @generated from message webhook.NamespaceResource
+ */
+export declare type NamespaceResource = Message<"webhook.NamespaceResource"> & {
+  /**
+   * Namespace UUID
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Owning tenant UUID
+   *
+   * @generated from field: string tenant_id = 2;
+   */
+  tenantId: string;
+
+  /**
+   * Namespace name (unique per tenant)
+   *
+   * @generated from field: string name = 3;
+   */
+  name: string;
+
+  /**
+   * Human-readable description
+   *
+   * @generated from field: string description = 4;
+   */
+  description: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 5;
+   */
+  createdAt?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp updated_at = 6;
+   */
+  updatedAt?: Timestamp;
+};
+
+/**
+ * Describes the message webhook.NamespaceResource.
+ * Use `create(NamespaceResourceSchema)` to create a new message.
+ */
+export declare const NamespaceResourceSchema: GenMessage<NamespaceResource>;
+
+/**
+ * CreateNamespaceRequest represents a request to create a namespace
+ *
+ * @generated from message webhook.CreateNamespaceRequest
+ */
+export declare type CreateNamespaceRequest = Message<"webhook.CreateNamespaceRequest"> & {
+  /**
+   * Namespace name (required, lowercase alphanumeric with hyphens/underscores)
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * Optional description
+   *
+   * @generated from field: string description = 2;
+   */
+  description: string;
+};
+
+/**
+ * Describes the message webhook.CreateNamespaceRequest.
+ * Use `create(CreateNamespaceRequestSchema)` to create a new message.
+ */
+export declare const CreateNamespaceRequestSchema: GenMessage<CreateNamespaceRequest>;
+
+/**
+ * CreateNamespaceResponse represents the response for namespace creation
+ *
+ * @generated from message webhook.CreateNamespaceResponse
+ */
+export declare type CreateNamespaceResponse = Message<"webhook.CreateNamespaceResponse"> & {
+  /**
+   * @generated from field: webhook.NamespaceResource namespace = 1;
+   */
+  namespace?: NamespaceResource;
+};
+
+/**
+ * Describes the message webhook.CreateNamespaceResponse.
+ * Use `create(CreateNamespaceResponseSchema)` to create a new message.
+ */
+export declare const CreateNamespaceResponseSchema: GenMessage<CreateNamespaceResponse>;
+
+/**
+ * GetNamespaceRequest represents a request to get a namespace
+ *
+ * @generated from message webhook.GetNamespaceRequest
+ */
+export declare type GetNamespaceRequest = Message<"webhook.GetNamespaceRequest"> & {
+  /**
+   * Namespace UUID (one of id or name required)
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Namespace name (alternative to id)
+   *
+   * @generated from field: string name = 2;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message webhook.GetNamespaceRequest.
+ * Use `create(GetNamespaceRequestSchema)` to create a new message.
+ */
+export declare const GetNamespaceRequestSchema: GenMessage<GetNamespaceRequest>;
+
+/**
+ * GetNamespaceResponse represents the response for getting a namespace
+ *
+ * @generated from message webhook.GetNamespaceResponse
+ */
+export declare type GetNamespaceResponse = Message<"webhook.GetNamespaceResponse"> & {
+  /**
+   * @generated from field: webhook.NamespaceResource namespace = 1;
+   */
+  namespace?: NamespaceResource;
+};
+
+/**
+ * Describes the message webhook.GetNamespaceResponse.
+ * Use `create(GetNamespaceResponseSchema)` to create a new message.
+ */
+export declare const GetNamespaceResponseSchema: GenMessage<GetNamespaceResponse>;
+
+/**
+ * ListNamespacesRequest represents a request to list namespaces
+ *
+ * @generated from message webhook.ListNamespacesRequest
+ */
+export declare type ListNamespacesRequest = Message<"webhook.ListNamespacesRequest"> & {
+  /**
+   * @generated from field: webhook.PaginationRequest pagination = 1;
+   */
+  pagination?: PaginationRequest;
+};
+
+/**
+ * Describes the message webhook.ListNamespacesRequest.
+ * Use `create(ListNamespacesRequestSchema)` to create a new message.
+ */
+export declare const ListNamespacesRequestSchema: GenMessage<ListNamespacesRequest>;
+
+/**
+ * ListNamespacesResponse represents the response for listing namespaces
+ *
+ * @generated from message webhook.ListNamespacesResponse
+ */
+export declare type ListNamespacesResponse = Message<"webhook.ListNamespacesResponse"> & {
+  /**
+   * @generated from field: repeated webhook.NamespaceResource namespaces = 1;
+   */
+  namespaces: NamespaceResource[];
+
+  /**
+   * @generated from field: webhook.PaginationResponse pagination = 2;
+   */
+  pagination?: PaginationResponse;
+};
+
+/**
+ * Describes the message webhook.ListNamespacesResponse.
+ * Use `create(ListNamespacesResponseSchema)` to create a new message.
+ */
+export declare const ListNamespacesResponseSchema: GenMessage<ListNamespacesResponse>;
+
+/**
+ * UpdateNamespaceRequest2 represents a request to update a namespace
+ * (suffixed with "2" to avoid conflict with existing UpdateNamespaceRequest in internal package)
+ *
+ * @generated from message webhook.UpdateNamespaceRequest2
+ */
+export declare type UpdateNamespaceRequest2 = Message<"webhook.UpdateNamespaceRequest2"> & {
+  /**
+   * Namespace UUID (required)
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Updated name (optional, empty = no change)
+   *
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * Updated description (optional, empty = no change)
+   *
+   * @generated from field: string description = 3;
+   */
+  description: string;
+};
+
+/**
+ * Describes the message webhook.UpdateNamespaceRequest2.
+ * Use `create(UpdateNamespaceRequest2Schema)` to create a new message.
+ */
+export declare const UpdateNamespaceRequest2Schema: GenMessage<UpdateNamespaceRequest2>;
+
+/**
+ * UpdateNamespaceResponse2 represents the response for updating a namespace
+ *
+ * @generated from message webhook.UpdateNamespaceResponse2
+ */
+export declare type UpdateNamespaceResponse2 = Message<"webhook.UpdateNamespaceResponse2"> & {
+  /**
+   * @generated from field: webhook.NamespaceResource namespace = 1;
+   */
+  namespace?: NamespaceResource;
+};
+
+/**
+ * Describes the message webhook.UpdateNamespaceResponse2.
+ * Use `create(UpdateNamespaceResponse2Schema)` to create a new message.
+ */
+export declare const UpdateNamespaceResponse2Schema: GenMessage<UpdateNamespaceResponse2>;
+
+/**
+ * DeleteNamespaceRequest represents a request to delete a namespace
+ *
+ * @generated from message webhook.DeleteNamespaceRequest
+ */
+export declare type DeleteNamespaceRequest = Message<"webhook.DeleteNamespaceRequest"> & {
+  /**
+   * Namespace UUID
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message webhook.DeleteNamespaceRequest.
+ * Use `create(DeleteNamespaceRequestSchema)` to create a new message.
+ */
+export declare const DeleteNamespaceRequestSchema: GenMessage<DeleteNamespaceRequest>;
+
+/**
+ * DeleteNamespaceResponse2 represents the response for namespace deletion
+ *
+ * Empty on success; errors use gRPC status codes
+ *
+ * @generated from message webhook.DeleteNamespaceResponse2
+ */
+export declare type DeleteNamespaceResponse2 = Message<"webhook.DeleteNamespaceResponse2"> & {
+};
+
+/**
+ * Describes the message webhook.DeleteNamespaceResponse2.
+ * Use `create(DeleteNamespaceResponse2Schema)` to create a new message.
+ */
+export declare const DeleteNamespaceResponse2Schema: GenMessage<DeleteNamespaceResponse2>;
+
+/**
+ * NamespaceMembership represents a user's role on a namespace
+ *
+ * @generated from message webhook.NamespaceMembership
+ */
+export declare type NamespaceMembership = Message<"webhook.NamespaceMembership"> & {
+  /**
+   * Membership UUID
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Tenant UUID
+   *
+   * @generated from field: string tenant_id = 2;
+   */
+  tenantId: string;
+
+  /**
+   * User subject ID (JWT sub claim)
+   *
+   * @generated from field: string subject_id = 3;
+   */
+  subjectId: string;
+
+  /**
+   * Namespace name
+   *
+   * @generated from field: string namespace = 4;
+   */
+  namespace: string;
+
+  /**
+   * Role: namespace:admin, namespace:member, namespace:viewer
+   *
+   * @generated from field: string role = 5;
+   */
+  role: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 6;
+   */
+  createdAt?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp updated_at = 7;
+   */
+  updatedAt?: Timestamp;
+};
+
+/**
+ * Describes the message webhook.NamespaceMembership.
+ * Use `create(NamespaceMembershipSchema)` to create a new message.
+ */
+export declare const NamespaceMembershipSchema: GenMessage<NamespaceMembership>;
+
+/**
+ * AssignNamespaceRoleRequest represents a request to assign a namespace role
+ *
+ * @generated from message webhook.AssignNamespaceRoleRequest
+ */
+export declare type AssignNamespaceRoleRequest = Message<"webhook.AssignNamespaceRoleRequest"> & {
+  /**
+   * User subject ID (required)
+   *
+   * @generated from field: string subject_id = 1;
+   */
+  subjectId: string;
+
+  /**
+   * Namespace name (required)
+   *
+   * @generated from field: string namespace = 2;
+   */
+  namespace: string;
+
+  /**
+   * Role to assign (required)
+   *
+   * @generated from field: string role = 3;
+   */
+  role: string;
+};
+
+/**
+ * Describes the message webhook.AssignNamespaceRoleRequest.
+ * Use `create(AssignNamespaceRoleRequestSchema)` to create a new message.
+ */
+export declare const AssignNamespaceRoleRequestSchema: GenMessage<AssignNamespaceRoleRequest>;
+
+/**
+ * AssignNamespaceRoleResponse represents the response for assigning a namespace role
+ *
+ * @generated from message webhook.AssignNamespaceRoleResponse
+ */
+export declare type AssignNamespaceRoleResponse = Message<"webhook.AssignNamespaceRoleResponse"> & {
+  /**
+   * @generated from field: webhook.NamespaceMembership membership = 1;
+   */
+  membership?: NamespaceMembership;
+};
+
+/**
+ * Describes the message webhook.AssignNamespaceRoleResponse.
+ * Use `create(AssignNamespaceRoleResponseSchema)` to create a new message.
+ */
+export declare const AssignNamespaceRoleResponseSchema: GenMessage<AssignNamespaceRoleResponse>;
+
+/**
+ * RemoveNamespaceRoleRequest represents a request to remove a namespace role
+ *
+ * @generated from message webhook.RemoveNamespaceRoleRequest
+ */
+export declare type RemoveNamespaceRoleRequest = Message<"webhook.RemoveNamespaceRoleRequest"> & {
+  /**
+   * User subject ID (required)
+   *
+   * @generated from field: string subject_id = 1;
+   */
+  subjectId: string;
+
+  /**
+   * Namespace name (required)
+   *
+   * @generated from field: string namespace = 2;
+   */
+  namespace: string;
+};
+
+/**
+ * Describes the message webhook.RemoveNamespaceRoleRequest.
+ * Use `create(RemoveNamespaceRoleRequestSchema)` to create a new message.
+ */
+export declare const RemoveNamespaceRoleRequestSchema: GenMessage<RemoveNamespaceRoleRequest>;
+
+/**
+ * RemoveNamespaceRoleResponse represents the response for removing a namespace role
+ *
+ * Empty on success; errors use gRPC status codes
+ *
+ * @generated from message webhook.RemoveNamespaceRoleResponse
+ */
+export declare type RemoveNamespaceRoleResponse = Message<"webhook.RemoveNamespaceRoleResponse"> & {
+};
+
+/**
+ * Describes the message webhook.RemoveNamespaceRoleResponse.
+ * Use `create(RemoveNamespaceRoleResponseSchema)` to create a new message.
+ */
+export declare const RemoveNamespaceRoleResponseSchema: GenMessage<RemoveNamespaceRoleResponse>;
+
+/**
+ * ListNamespaceMembersRequest represents a request to list members of a namespace
+ *
+ * @generated from message webhook.ListNamespaceMembersRequest
+ */
+export declare type ListNamespaceMembersRequest = Message<"webhook.ListNamespaceMembersRequest"> & {
+  /**
+   * Namespace name (required)
+   *
+   * @generated from field: string namespace = 1;
+   */
+  namespace: string;
+
+  /**
+   * @generated from field: webhook.PaginationRequest pagination = 2;
+   */
+  pagination?: PaginationRequest;
+};
+
+/**
+ * Describes the message webhook.ListNamespaceMembersRequest.
+ * Use `create(ListNamespaceMembersRequestSchema)` to create a new message.
+ */
+export declare const ListNamespaceMembersRequestSchema: GenMessage<ListNamespaceMembersRequest>;
+
+/**
+ * ListNamespaceMembersResponse represents the response for listing namespace members
+ *
+ * @generated from message webhook.ListNamespaceMembersResponse
+ */
+export declare type ListNamespaceMembersResponse = Message<"webhook.ListNamespaceMembersResponse"> & {
+  /**
+   * @generated from field: repeated webhook.NamespaceMembership members = 1;
+   */
+  members: NamespaceMembership[];
+
+  /**
+   * @generated from field: webhook.PaginationResponse pagination = 2;
+   */
+  pagination?: PaginationResponse;
+};
+
+/**
+ * Describes the message webhook.ListNamespaceMembersResponse.
+ * Use `create(ListNamespaceMembersResponseSchema)` to create a new message.
+ */
+export declare const ListNamespaceMembersResponseSchema: GenMessage<ListNamespaceMembersResponse>;
+
+/**
+ * GetUserNamespacesRequest represents a request to get a user's namespace memberships
+ *
+ * @generated from message webhook.GetUserNamespacesRequest
+ */
+export declare type GetUserNamespacesRequest = Message<"webhook.GetUserNamespacesRequest"> & {
+  /**
+   * User subject ID (required, empty = caller's own)
+   *
+   * @generated from field: string subject_id = 1;
+   */
+  subjectId: string;
+};
+
+/**
+ * Describes the message webhook.GetUserNamespacesRequest.
+ * Use `create(GetUserNamespacesRequestSchema)` to create a new message.
+ */
+export declare const GetUserNamespacesRequestSchema: GenMessage<GetUserNamespacesRequest>;
+
+/**
+ * GetUserNamespacesResponse represents the response for getting user namespaces
+ *
+ * @generated from message webhook.GetUserNamespacesResponse
+ */
+export declare type GetUserNamespacesResponse = Message<"webhook.GetUserNamespacesResponse"> & {
+  /**
+   * @generated from field: repeated webhook.NamespaceMembership memberships = 1;
+   */
+  memberships: NamespaceMembership[];
+};
+
+/**
+ * Describes the message webhook.GetUserNamespacesResponse.
+ * Use `create(GetUserNamespacesResponseSchema)` to create a new message.
+ */
+export declare const GetUserNamespacesResponseSchema: GenMessage<GetUserNamespacesResponse>;
+
+/**
  * WebhookDeliveryStatus represents the status of webhook delivery
  *
  * @generated from enum webhook.WebhookDeliveryStatus
@@ -4040,6 +4550,114 @@ export declare const APIKeyService: GenService<{
     methodKind: "unary";
     input: typeof RevokeAPIKeyRequestSchema;
     output: typeof RevokeAPIKeyResponseSchema;
+  },
+}>;
+
+/**
+ * NamespaceService manages namespace lifecycle within a tenant.
+ * Namespaces are sub-tenant scopes used to isolate webhooks, subscriptions,
+ * deliveries, and other resources.
+ *
+ * @generated from service webhook.NamespaceService
+ */
+export declare const NamespaceService: GenService<{
+  /**
+   * CreateNamespace creates a new namespace within the caller's tenant
+   *
+   * @generated from rpc webhook.NamespaceService.CreateNamespace
+   */
+  createNamespace: {
+    methodKind: "unary";
+    input: typeof CreateNamespaceRequestSchema;
+    output: typeof CreateNamespaceResponseSchema;
+  },
+  /**
+   * GetNamespace retrieves a namespace by ID
+   *
+   * @generated from rpc webhook.NamespaceService.GetNamespace
+   */
+  getNamespace: {
+    methodKind: "unary";
+    input: typeof GetNamespaceRequestSchema;
+    output: typeof GetNamespaceResponseSchema;
+  },
+  /**
+   * ListNamespaces lists namespaces for the caller's tenant
+   *
+   * @generated from rpc webhook.NamespaceService.ListNamespaces
+   */
+  listNamespaces: {
+    methodKind: "unary";
+    input: typeof ListNamespacesRequestSchema;
+    output: typeof ListNamespacesResponseSchema;
+  },
+  /**
+   * UpdateNamespace updates a namespace's name or description
+   *
+   * @generated from rpc webhook.NamespaceService.UpdateNamespace
+   */
+  updateNamespace: {
+    methodKind: "unary";
+    input: typeof UpdateNamespaceRequest2Schema;
+    output: typeof UpdateNamespaceResponse2Schema;
+  },
+  /**
+   * DeleteNamespace deletes a namespace
+   *
+   * @generated from rpc webhook.NamespaceService.DeleteNamespace
+   */
+  deleteNamespace: {
+    methodKind: "unary";
+    input: typeof DeleteNamespaceRequestSchema;
+    output: typeof DeleteNamespaceResponse2Schema;
+  },
+}>;
+
+/**
+ * NamespaceMembershipService manages user-to-namespace role assignments.
+ *
+ * @generated from service webhook.NamespaceMembershipService
+ */
+export declare const NamespaceMembershipService: GenService<{
+  /**
+   * AssignNamespaceRole assigns or updates a user's role on a namespace
+   *
+   * @generated from rpc webhook.NamespaceMembershipService.AssignNamespaceRole
+   */
+  assignNamespaceRole: {
+    methodKind: "unary";
+    input: typeof AssignNamespaceRoleRequestSchema;
+    output: typeof AssignNamespaceRoleResponseSchema;
+  },
+  /**
+   * RemoveNamespaceRole removes a user's role from a namespace
+   *
+   * @generated from rpc webhook.NamespaceMembershipService.RemoveNamespaceRole
+   */
+  removeNamespaceRole: {
+    methodKind: "unary";
+    input: typeof RemoveNamespaceRoleRequestSchema;
+    output: typeof RemoveNamespaceRoleResponseSchema;
+  },
+  /**
+   * ListNamespaceMembers lists all members of a namespace
+   *
+   * @generated from rpc webhook.NamespaceMembershipService.ListNamespaceMembers
+   */
+  listNamespaceMembers: {
+    methodKind: "unary";
+    input: typeof ListNamespaceMembersRequestSchema;
+    output: typeof ListNamespaceMembersResponseSchema;
+  },
+  /**
+   * GetUserNamespaces returns all namespace memberships for a user
+   *
+   * @generated from rpc webhook.NamespaceMembershipService.GetUserNamespaces
+   */
+  getUserNamespaces: {
+    methodKind: "unary";
+    input: typeof GetUserNamespacesRequestSchema;
+    output: typeof GetUserNamespacesResponseSchema;
   },
 }>;
 

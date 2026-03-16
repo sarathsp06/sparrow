@@ -196,46 +196,12 @@ PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your-key-here
 PUBLIC_API_URL=http://localhost:8080   # or your deployment URL
 ```
 
-**How auto-provisioning works:**
-
-1. User creates an organization in Clerk
-2. Their next API request carries a JWT with the new `org_id`
-3. Sparrow's `CachingTenantResolver` doesn't find a matching tenant
-4. The `AutoProvisioner` creates one automatically (with the org_id as `external_id`)
-5. A per-user limit of 2 tenants is enforced via the JWT `sub` claim
-
-No Clerk webhooks, no manual tenant creation. Users must always operate within an organization (`hidePersonal={true}`).
-
-**Role mapping:**
-
-| Clerk role | Sparrow role |
-|---|---|
-| `org:admin` | `tenant:admin` |
-| `org:member` | `tenant:member` |
-
 ### Setting Up Other OIDC Providers
 
 Sparrow's backend is **provider-agnostic**. It validates JWTs using standard JWKS and reads configurable claims. No provider SDK is linked into the Go binary.
 
-**Auth0:**
-
-```bash
-SPARROW_JWKS_URL=https://your-tenant.auth0.com/.well-known/jwks.json
-SPARROW_JWT_TENANT_CLAIM=org_id           # Auth0 organization ID claim
-SPARROW_JWT_ROLE_CLAIM=permissions         # or your custom role claim
-SPARROW_JWT_ISSUER=https://your-tenant.auth0.com/
-```
-
-**Keycloak:**
-
-```bash
-SPARROW_JWKS_URL=https://keycloak.example.com/realms/your-realm/protocol/openid-connect/certs
-SPARROW_JWT_TENANT_CLAIM=organization      # depends on your Keycloak config
-SPARROW_JWT_ROLE_CLAIM=realm_access.roles  # or resource_access roles
-SPARROW_JWT_ISSUER=https://keycloak.example.com/realms/your-realm
-```
-
 **Any OIDC provider** works as long as it:
+
 1. Publishes a JWKS endpoint with RS256 keys
 2. Includes a tenant/org identifier claim in the JWT
 3. Optionally includes a role claim
@@ -370,15 +336,6 @@ The SvelteKit web dashboard has a pluggable auth provider system. The active pro
 | `clerk` | `PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...` | Clerk (explicit) |
 | `none` | *(any)* | No authentication (forced) |
 
-**Component dispatch:**
-
-```
-+layout.svelte  ->  AuthShell.svelte  ->  ClerkAuthShell.svelte  (or)
-                                      ->  NoAuthShell.svelte
-                                      ->  (your custom provider)
-```
-
-Each auth shell implements a snippet contract (`header`, `children`), controls when page content renders, and calls `registerTokenProvider()` to inject JWTs into API requests. The services layer (`services.ts`) only calls `getSessionToken()` -- it never imports any provider SDK.
 
 **Adding a new auth provider** (e.g., Auth0):
 
@@ -389,20 +346,6 @@ Each auth shell implements a snippet contract (`header`, `children`), controls w
 5. Add a case in `web/src/lib/auth/AuthShell.svelte`
 
 The services layer and backend remain completely unchanged -- they only see JWTs.
-
-**Key files:**
-
-| File | Purpose |
-|------|---------|
-| `web/src/lib/auth.ts` | Provider-agnostic token abstraction |
-| `web/src/lib/auth/types.ts` | `AuthProviderType` and `AuthProviderConfig` types |
-| `web/src/lib/auth/provider.ts` | Detects active provider from env vars |
-| `web/src/lib/auth/AuthShell.svelte` | Dispatches to the correct provider shell |
-| `web/src/lib/auth/providers/clerk/` | Clerk-specific shell + bridge |
-| `web/src/lib/auth/providers/none/` | No-auth fallback shell |
-| `web/src/lib/services.ts` | Connect-RPC transport with Bearer token interceptor |
-
----
 
 ## Architecture Deep Dive
 
@@ -458,13 +401,6 @@ Every domain table (`event_registrations`, `webhook_registrations`, `event_subsc
 - **External ID mapping:** Tenants have an `external_id` that maps to an identity provider's organization ID (e.g., Clerk `org_id`). JWT-authenticated requests are scoped to the correct tenant via this mapping.
 - **Auto-provisioning:** When a JWT contains an unknown `org_id`, the `AutoProvisioner` creates a new tenant automatically. A per-user limit of 2 tenants is enforced via the `created_by` column (JWT `sub` claim).
 - **Default tenant:** Auto-created on first boot with UUID `00000000-0000-0000-0000-000000000001`.
-
-**Bootstrap sequence** on startup:
-
-1. Ensures the default tenant exists (creates if missing)
-2. Generates a root API key with `tenant:admin` + `is_platform_admin` (if no keys exist)
-3. Prints the root API key to stdout on first boot
-4. Supports `SPARROW_ROOT_API_KEY` env var for deterministic key generation
 
 ---
 
@@ -552,50 +488,6 @@ A centralized, OTel-instrumented HTTP client (`internal/webhooks/client/`):
 - **Object pooling**: `sync.Pool` for `bytes.Buffer`, `[]byte` slices, and header maps to reduce GC pressure
 - **Header merging**: Subscription-level headers override webhook-level defaults
 - **In-process metrics**: Lock-free atomic counters for request totals, error categories, cache hit rates, and response time statistics
-
----
-
-### Observability
-
-Full OpenTelemetry stack with OTLP export:
-
-**Three pillars:**
-- **Traces**: OTLP HTTP exporter, configurable sampler (ratio/always/never), batch processor
-- **Metrics**: OTLP HTTP periodic reader (default 30s export interval)
-- **Logs**: OTLP HTTP exporter with batch processor, bridged to Go `slog`
-
-**Custom application metrics:**
-
-| Metric | Type |
-|--------|------|
-| `sparrow_webhook_registrations_total` | Counter |
-| `sparrow_events_pushed_total` | Counter |
-| `sparrow_webhook_deliveries_total` | Counter |
-| `sparrow_webhook_delivery_duration_seconds` | Histogram |
-| `sparrow_queue_depth` | UpDownCounter |
-| `sparrow_active_webhooks` | UpDownCounter |
-
-**Instrumented layers:** HTTP transport (`otelhttp`), gRPC server (`otelgrpc`), Connect-RPC (`otelconnect`), job queue inserter (generated via `gowrap`), webhook delivery worker, and all repository calls.
-
----
-
-### Server Boot Sequence
-
-```mermaid
-flowchart TD
-    Start([Start]) --> OTel[1. Initialize OTel<br>traces / metrics / logs]
-    OTel --> DB[2. Connect PostgreSQL<br>pgxpool + sqlx]
-    DB --> Tenant[3. Bootstrap Tenants<br>default tenant + root API key]
-    Tenant --> Auth[4. Configure Auth<br>API key authenticator + optional JWT/JWKS]
-    Auth --> Repo[5. Create Repository<br>with OTel tracing decorator]
-    Repo --> Queue[6. Start River Queue<br>3 queues / register workers]
-    Queue --> GRPC[7. gRPC server :50051<br>7 services / reflection]
-    Queue --> HTTP[8. HTTP server :8080<br>Connect-RPC / CORS / health / ready / UI]
-    GRPC & HTTP --> Signal[9. Wait for SIGINT/SIGTERM]
-    Signal --> Shutdown[Graceful shutdown<br>HTTP 10s -> gRPC stop -> queue drain]
-```
-
----
 
 ### Web UI Architecture
 

@@ -2,17 +2,19 @@ package auth
 
 import (
 	"context"
-	"crypto"
-	"crypto/rsa"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+)
+
+var (
+	// ErrJWKSNotAvailable is returned when the JWKS provider failed to initialize.
+	ErrJWKSNotAvailable = errors.New("JWKS provider not available")
 )
 
 // TenantResolver resolves a tenant ID string from a JWT claim into a
@@ -62,6 +64,10 @@ type JWTClaimsConfig struct {
 	// DefaultRole is assigned when the JWT contains no role claim or the
 	// role is not in the RoleMapping. Default: RoleTenantMember.
 	DefaultRole Role
+
+	// ClockSkew is the maximum acceptable clock skew for exp/nbf validation.
+	// Default: 30 seconds.
+	ClockSkew time.Duration
 }
 
 // DefaultJWTClaimsConfig returns a claims config with Clerk-compatible defaults.
@@ -71,6 +77,7 @@ func DefaultJWTClaimsConfig() JWTClaimsConfig {
 		RoleClaim:    "org_role",
 		SubjectClaim: "sub",
 		DefaultRole:  RoleTenantMember,
+		ClockSkew:    30 * time.Second,
 		RoleMapping: map[string]Role{
 			"org:admin":  RoleTenantAdmin,
 			"org:member": RoleTenantMember,
@@ -81,11 +88,15 @@ func DefaultJWTClaimsConfig() JWTClaimsConfig {
 // JWTAuthenticator validates JWTs using JWKS and maps claims to AuthInfo.
 // It is completely provider-agnostic — it works with any identity provider
 // that issues RS256 JWTs and publishes a JWKS endpoint.
+//
+// Uses github.com/golang-jwt/jwt/v5 for parsing and signature verification,
+// and github.com/MicahParks/keyfunc/v3 for JWKS key management.
 type JWTAuthenticator struct {
-	jwks           *JWKSProvider
-	claimsConfig   JWTClaimsConfig
-	tenantResolver TenantResolver
-	logger         *slog.Logger
+	jwks               *JWKSProvider
+	claimsConfig       JWTClaimsConfig
+	tenantResolver     TenantResolver
+	membershipResolver MembershipResolver
+	logger             *slog.Logger
 }
 
 // JWTAuthenticatorOption configures the JWT authenticator.
@@ -113,6 +124,14 @@ func WithJWTLogger(logger *slog.Logger) JWTAuthenticatorOption {
 	}
 }
 
+// WithMembershipResolver sets the membership resolver for populating
+// namespace roles from the database after JWT authentication.
+func WithMembershipResolver(resolver MembershipResolver) JWTAuthenticatorOption {
+	return func(a *JWTAuthenticator) {
+		a.membershipResolver = resolver
+	}
+}
+
 // NewJWTAuthenticator creates a JWT authenticator backed by the given JWKS provider.
 func NewJWTAuthenticator(jwks *JWKSProvider, opts ...JWTAuthenticatorOption) *JWTAuthenticator {
 	a := &JWTAuthenticator{
@@ -134,29 +153,44 @@ func (a *JWTAuthenticator) Scheme() string {
 // Authenticate validates a JWT and returns the corresponding AuthInfo.
 //
 // The authentication flow:
-//  1. Parse the JWT header to get the key ID (kid) and algorithm
-//  2. Fetch the corresponding public key from the JWKS provider
-//  3. Verify the JWT signature
-//  4. Validate standard claims (exp, nbf, iat, iss, aud)
-//  5. Extract tenant and role from configured claims
-//  6. Resolve the tenant ID (via TenantResolver or direct UUID parse)
-//  7. Map the role string to a Sparrow Role
-//  8. Build and return AuthInfo
+//  1. Parse and verify the JWT using golang-jwt/jwt with JWKS keyfunc
+//  2. Validate standard claims (exp, nbf, iss, aud) with clock skew tolerance
+//  3. Extract tenant and role from configured claims
+//  4. Resolve the tenant ID (via TenantResolver or direct UUID parse)
+//  5. Map the role string to a Sparrow Role
+//  6. Build and return AuthInfo
 func (a *JWTAuthenticator) Authenticate(ctx context.Context, credential string) (*AuthInfo, error) {
 	// Don't try to authenticate API keys
 	if strings.HasPrefix(credential, "sk_") {
 		return nil, fmt.Errorf("not a JWT")
 	}
 
+	// Build parser options for standard claim validation
+	parserOpts := []jwt.ParserOption{
+		jwt.WithValidMethods([]string{"RS256"}),
+		jwt.WithLeeway(a.claimsConfig.ClockSkew),
+		jwt.WithExpirationRequired(),
+	}
+	if a.claimsConfig.Issuer != "" {
+		parserOpts = append(parserOpts, jwt.WithIssuer(a.claimsConfig.Issuer))
+	}
+	if len(a.claimsConfig.Audiences) > 0 {
+		// jwt.WithAudience checks if ANY of the token's audiences match
+		for _, aud := range a.claimsConfig.Audiences {
+			parserOpts = append(parserOpts, jwt.WithAudience(aud))
+			break // jwt library checks "at least one matches"
+		}
+	}
+
 	// Parse and verify the JWT
-	claims, err := a.verifyJWT(ctx, credential)
+	token, err := jwt.Parse(credential, a.jwks.Keyfunc(), parserOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("jwt verification failed: %w", err)
 	}
 
-	// Validate standard claims
-	if err := a.validateStandardClaims(claims); err != nil {
-		return nil, err
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return nil, fmt.Errorf("invalid JWT claims")
 	}
 
 	// Extract tenant identifier from claims
@@ -215,144 +249,26 @@ func (a *JWTAuthenticator) Authenticate(ctx context.Context, credential string) 
 		slog.String("role", string(role)),
 	)
 
+	// Resolve namespace memberships from database (if resolver is configured)
+	if a.membershipResolver != nil && subjectID != "" {
+		nsRoles, err := a.membershipResolver.ResolveNamespaceMemberships(ctx, tenantID, subjectID)
+		if err != nil {
+			a.logger.WarnContext(ctx, "failed to resolve namespace memberships",
+				slog.String("subject_id", subjectID),
+				slog.String("tenant_id", tenantID.String()),
+				slog.String("error", err.Error()),
+			)
+			// Non-fatal: fall back to tenant-level access
+		} else if len(nsRoles) > 0 {
+			info.NamespaceRoles = nsRoles
+			a.logger.InfoContext(ctx, "namespace memberships resolved",
+				slog.String("subject_id", subjectID),
+				slog.Int("namespace_count", len(nsRoles)),
+			)
+		}
+	}
+
 	return info, nil
-}
-
-// verifyJWT parses a JWT, verifies its signature using the JWKS, and returns
-// the payload claims. Only RS256 is supported.
-func (a *JWTAuthenticator) verifyJWT(ctx context.Context, tokenString string) (map[string]any, error) {
-	parts := strings.Split(tokenString, ".")
-	if len(parts) != 3 {
-		return nil, fmt.Errorf("malformed JWT: expected 3 parts, got %d", len(parts))
-	}
-
-	// Decode header
-	headerBytes, err := base64.RawURLEncoding.DecodeString(parts[0])
-	if err != nil {
-		return nil, fmt.Errorf("decode JWT header: %w", err)
-	}
-
-	var header jwtHeader
-	if err := json.Unmarshal(headerBytes, &header); err != nil {
-		return nil, fmt.Errorf("parse JWT header: %w", err)
-	}
-
-	if header.Alg != "RS256" {
-		return nil, fmt.Errorf("unsupported JWT algorithm %q (only RS256 is supported)", header.Alg)
-	}
-
-	if header.Kid == "" {
-		return nil, fmt.Errorf("JWT header missing kid")
-	}
-
-	// Get the public key
-	pubKey, err := a.jwks.GetKey(ctx, header.Kid)
-	if err != nil {
-		return nil, fmt.Errorf("get signing key: %w", err)
-	}
-
-	// Verify signature: RS256 = RSASSA-PKCS1-v1_5 with SHA-256
-	signingInput := parts[0] + "." + parts[1]
-	signatureBytes, err := base64.RawURLEncoding.DecodeString(parts[2])
-	if err != nil {
-		return nil, fmt.Errorf("decode JWT signature: %w", err)
-	}
-
-	hash := sha256.Sum256([]byte(signingInput))
-	if err := rsa.VerifyPKCS1v15(pubKey, crypto.SHA256, hash[:], signatureBytes); err != nil {
-		return nil, fmt.Errorf("invalid JWT signature")
-	}
-
-	// Decode and return payload claims
-	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return nil, fmt.Errorf("decode JWT payload: %w", err)
-	}
-
-	var claims map[string]any
-	if err := json.Unmarshal(payloadBytes, &claims); err != nil {
-		return nil, fmt.Errorf("parse JWT payload: %w", err)
-	}
-
-	return claims, nil
-}
-
-// validateStandardClaims checks exp, nbf, iss, and aud.
-func (a *JWTAuthenticator) validateStandardClaims(claims map[string]any) error {
-	now := time.Now()
-
-	// Check expiration (required)
-	exp, ok := claims["exp"].(float64)
-	if !ok {
-		return fmt.Errorf("jwt missing required exp claim")
-	}
-	if time.Unix(int64(exp), 0).Before(now) {
-		return fmt.Errorf("jwt has expired")
-	}
-
-	// Check not-before (optional)
-	if nbf, ok := claims["nbf"].(float64); ok {
-		if time.Unix(int64(nbf), 0).After(now) {
-			return fmt.Errorf("jwt is not yet valid (nbf)")
-		}
-	}
-
-	// Check issuer (if configured)
-	if a.claimsConfig.Issuer != "" {
-		iss, _ := claims["iss"].(string)
-		if iss != a.claimsConfig.Issuer {
-			return fmt.Errorf("jwt issuer %q does not match expected %q", iss, a.claimsConfig.Issuer)
-		}
-	}
-
-	// Check audience (if configured)
-	if len(a.claimsConfig.Audiences) > 0 {
-		if !a.audienceMatches(claims) {
-			return fmt.Errorf("jwt audience does not match any expected audience")
-		}
-	}
-
-	return nil
-}
-
-// audienceMatches checks if any of the token's audiences match the configured ones.
-func (a *JWTAuthenticator) audienceMatches(claims map[string]any) bool {
-	audClaim, ok := claims["aud"]
-	if !ok {
-		return false
-	}
-
-	// aud can be a string or an array of strings
-	var tokenAudiences []string
-	switch v := audClaim.(type) {
-	case string:
-		tokenAudiences = []string{v}
-	case []any:
-		for _, item := range v {
-			if s, ok := item.(string); ok {
-				tokenAudiences = append(tokenAudiences, s)
-			}
-		}
-	default:
-		return false
-	}
-
-	for _, expected := range a.claimsConfig.Audiences {
-		for _, actual := range tokenAudiences {
-			if expected == actual {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// ---- JWT structures ----
-
-type jwtHeader struct {
-	Alg string `json:"alg"`
-	Typ string `json:"typ"`
-	Kid string `json:"kid"`
 }
 
 // Compile-time check

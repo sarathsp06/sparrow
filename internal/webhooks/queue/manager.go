@@ -59,12 +59,12 @@ func (m *Manager) Start(ctx context.Context) error {
 	log := logger.NewLogger("queue-manager")
 
 	if err := m.client.Start(ctx); err != nil {
-		log.Error("Failed to start River client", "error", err)
+		log.ErrorContext(ctx, "Failed to start River client", "error", err)
 		return fmt.Errorf("failed to start River client: %w", err)
 	}
 
-	log.Info("Connected to database")
-	log.Info("River queue started successfully")
+	log.InfoContext(ctx, "Connected to database")
+	log.InfoContext(ctx, "River queue started successfully")
 	return nil
 }
 
@@ -73,10 +73,6 @@ func (m *Manager) Stop(ctx context.Context) error {
 	_ = m.client.Stop(ctx)
 	m.dbPool.Close()
 	return nil
-}
-
-func (m *Manager) GetClient() *river.Client[pgx.Tx] {
-	return m.client
 }
 
 func (m *Manager) GetJobInserter() JobInserter {

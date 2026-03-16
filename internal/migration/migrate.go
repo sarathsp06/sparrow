@@ -20,7 +20,7 @@ import (
 
 // RunRiverMigrations runs River queue migrations
 func RunRiverMigrations(ctx context.Context, databaseURL string, log *slog.Logger) error {
-	log.Info("Running River queue migrations...")
+	log.InfoContext(ctx, "Running River queue migrations...")
 
 	// Connect to database
 	dbPool, err := pgxpool.New(ctx, databaseURL)
@@ -46,28 +46,28 @@ func RunRiverMigrations(ctx context.Context, databaseURL string, log *slog.Logge
 		return fmt.Errorf("failed to run River migrations: %w", err)
 	}
 
-	log.Info("River migrations completed",
+	log.InfoContext(ctx, "River migrations completed",
 		"migrations_run", len(res.Versions),
 	)
 
 	// Log each migration that was applied
 	for _, version := range res.Versions {
-		log.Info("Applied River migration",
+		log.InfoContext(ctx, "Applied River migration",
 			"version", version.Version,
 			"name", version.Name,
 		)
 	}
 
 	if len(res.Versions) == 0 {
-		log.Info("No River migrations needed - database is already up to date")
+		log.InfoContext(ctx, "No River migrations needed - database is already up to date")
 	}
 
 	return nil
 }
 
 // RunAppMigrations runs application schema migrations
-func RunAppMigrations(databaseURL, direction string, steps int, targetVersion uint, log *slog.Logger) error {
-	log.Info("Running application migrations...")
+func RunAppMigrations(ctx context.Context, databaseURL, direction string, steps int, targetVersion uint, log *slog.Logger) error {
+	log.InfoContext(ctx, "Running application migrations...")
 
 	// Create database connection for golang-migrate using stdlib
 	dbConn, err := sql.Open("pgx", databaseURL)
@@ -112,7 +112,7 @@ func RunAppMigrations(databaseURL, direction string, steps int, targetVersion ui
 		if prev < 0 {
 			prev = -1 // NilVersion — nothing applied yet
 		}
-		log.Warn("Database is in dirty state, resetting to previous version so the failed migration can be retried",
+		log.WarnContext(ctx, "Database is in dirty state, resetting to previous version so the failed migration can be retried",
 			"dirty_version", currentVersion,
 			"reset_to", prev,
 		)
@@ -121,7 +121,7 @@ func RunAppMigrations(databaseURL, direction string, steps int, targetVersion ui
 		}
 	}
 
-	log.Info("Current migration state",
+	log.InfoContext(ctx, "Current migration state",
 		"version", currentVersion,
 		"dirty", dirty,
 	)
@@ -130,17 +130,17 @@ func RunAppMigrations(databaseURL, direction string, steps int, targetVersion ui
 	switch direction {
 	case "up":
 		if targetVersion > 0 {
-			log.Info("Migrating to specific version", "target_version", targetVersion)
+			log.InfoContext(ctx, "Migrating to specific version", "target_version", targetVersion)
 			if err := m.Migrate(targetVersion); err != nil && err != migrate.ErrNoChange {
 				return fmt.Errorf("failed to migrate to version %d: %w", targetVersion, err)
 			}
 		} else if steps > 0 {
-			log.Info("Migrating up with steps", "steps", steps)
+			log.InfoContext(ctx, "Migrating up with steps", "steps", steps)
 			if err := m.Steps(steps); err != nil && err != migrate.ErrNoChange {
 				return fmt.Errorf("failed to migrate %d steps up: %w", steps, err)
 			}
 		} else {
-			log.Info("Migrating to latest version")
+			log.InfoContext(ctx, "Migrating to latest version")
 			if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 				return fmt.Errorf("failed to migrate up: %w", err)
 			}
@@ -148,17 +148,17 @@ func RunAppMigrations(databaseURL, direction string, steps int, targetVersion ui
 
 	case "down":
 		if targetVersion > 0 {
-			log.Info("Migrating down to specific version", "target_version", targetVersion)
+			log.InfoContext(ctx, "Migrating down to specific version", "target_version", targetVersion)
 			if err := m.Migrate(targetVersion); err != nil && err != migrate.ErrNoChange {
 				return fmt.Errorf("failed to migrate to version %d: %w", targetVersion, err)
 			}
 		} else if steps > 0 {
-			log.Info("Migrating down with steps", "steps", steps)
+			log.InfoContext(ctx, "Migrating down with steps", "steps", steps)
 			if err := m.Steps(-steps); err != nil && err != migrate.ErrNoChange {
 				return fmt.Errorf("failed to migrate %d steps down: %w", steps, err)
 			}
 		} else {
-			log.Info("Migrating down one step")
+			log.InfoContext(ctx, "Migrating down one step")
 			if err := m.Steps(-1); err != nil && err != migrate.ErrNoChange {
 				return fmt.Errorf("failed to migrate down: %w", err)
 			}
@@ -174,7 +174,7 @@ func RunAppMigrations(databaseURL, direction string, steps int, targetVersion ui
 		return fmt.Errorf("failed to get final migration version: %w", err)
 	}
 
-	log.Info("Application migrations completed",
+	log.InfoContext(ctx, "Application migrations completed",
 		"final_version", finalVersion,
 		"dirty", dirty,
 	)
@@ -190,7 +190,7 @@ func RunAllMigrations(ctx context.Context, databaseURL, direction string, steps 
 	}
 
 	// Run application migrations
-	if err := RunAppMigrations(databaseURL, direction, steps, targetVersion, log); err != nil {
+	if err := RunAppMigrations(ctx, databaseURL, direction, steps, targetVersion, log); err != nil {
 		return fmt.Errorf("failed to run application migrations: %w", err)
 	}
 

@@ -39,6 +39,7 @@ logs/
 # Environment files
 .env
 .env.local
+.env.docker
 .env.*.local
 
 # Docker volumes (if using local volumes)

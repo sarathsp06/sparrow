@@ -14,7 +14,7 @@ import (
 func (s *WebhookServer) CreateSubscription(ctx context.Context, req *pb.CreateSubscriptionRequest) (*pb.CreateSubscriptionResponse, error) {
 	subscriptionID, createdAt, err := s.service.CreateSubscription(ctx, req.WebhookId, req.EventName, req.Namespace, req.Headers, req.Method, int(req.Timeout), req.TransformEnabled, req.TransformTemplate)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to create subscription: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to create subscription")
 	}
 
 	return &pb.CreateSubscriptionResponse{
@@ -27,7 +27,7 @@ func (s *WebhookServer) CreateSubscription(ctx context.Context, req *pb.CreateSu
 func (s *WebhookServer) GetSubscription(ctx context.Context, req *pb.GetSubscriptionRequest) (*pb.GetSubscriptionResponse, error) {
 	sub, err := s.service.GetSubscription(ctx, req.SubscriptionId, req.Namespace)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get subscription: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to get subscription")
 	}
 	if sub == nil {
 		return nil, status.Error(codes.NotFound, "subscription not found")
@@ -48,7 +48,7 @@ func (s *WebhookServer) ListSubscriptions(ctx context.Context, req *pb.ListSubsc
 
 	subs, totalCount, err := s.service.ListSubscriptions(ctx, req.Namespace, req.WebhookId, req.EventName, limit, offset)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to list subscriptions: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to list subscriptions")
 	}
 
 	pbSubs := make([]*pb.EventSubscription, len(subs))
@@ -70,7 +70,7 @@ func (s *WebhookServer) ListSubscriptions(ctx context.Context, req *pb.ListSubsc
 func (s *WebhookServer) UpdateSubscription(ctx context.Context, req *pb.UpdateSubscriptionRequest) (*pb.UpdateSubscriptionResponse, error) {
 	err := s.service.UpdateSubscription(ctx, req.SubscriptionId, req.Namespace, req.Headers, req.Method, int(req.Timeout), req.TransformEnabled, req.TransformTemplate)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to update subscription: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to update subscription")
 	}
 
 	return &pb.UpdateSubscriptionResponse{}, nil
@@ -80,7 +80,7 @@ func (s *WebhookServer) UpdateSubscription(ctx context.Context, req *pb.UpdateSu
 func (s *WebhookServer) DeleteSubscription(ctx context.Context, req *pb.DeleteSubscriptionRequest) (*pb.DeleteSubscriptionResponse, error) {
 	err := s.service.DeleteSubscription(ctx, req.SubscriptionId, req.Namespace)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to delete subscription: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to delete subscription")
 	}
 
 	return &pb.DeleteSubscriptionResponse{}, nil
@@ -90,7 +90,7 @@ func (s *WebhookServer) DeleteSubscription(ctx context.Context, req *pb.DeleteSu
 func (s *WebhookServer) TestSubscriptionTemplate(ctx context.Context, req *pb.TestSubscriptionTemplateRequest) (*pb.TestSubscriptionTemplateResponse, error) {
 	result, err := s.service.TestSubscriptionTemplate(ctx, req.EventName, req.TransformTemplate, req.Namespace)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to test subscription template: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to test subscription template")
 	}
 
 	return &pb.TestSubscriptionTemplateResponse{

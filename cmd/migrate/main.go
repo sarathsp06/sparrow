@@ -19,23 +19,23 @@ func main() {
 	)
 	flag.Parse()
 
+	ctx := context.Background()
+
 	// Initialize logger
 	log := logger.NewLogger("migration")
 
 	// Load configuration
 	cfg := config.Load()
-	log.Info("Starting database migration",
+	log.InfoContext(ctx, "Starting database migration",
 		"database_url", cfg.DatabaseURL,
 		"direction", *direction,
 	)
 
-	ctx := context.Background()
-
 	// Run all migrations using the migration package
 	if err := migration.RunAllMigrations(ctx, cfg.DatabaseURL, *direction, *steps, *version, log); err != nil {
-		log.Error("Failed to run migrations", "error", err)
+		log.ErrorContext(ctx, "Failed to run migrations", "error", err)
 		os.Exit(1)
 	}
 
-	log.Info("All migrations completed successfully")
+	log.InfoContext(ctx, "All migrations completed successfully")
 }

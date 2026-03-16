@@ -68,7 +68,7 @@ func Handler(logger *slog.Logger, apiPrefixes []string) http.Handler {
 		// File doesn't exist — serve index.html for SPA client-side routing.
 		indexBytes, err := fs.ReadFile(staticFS, "index.html")
 		if err != nil {
-			logger.Error("ui: index.html not found in embedded filesystem — was the frontend built?")
+			logger.ErrorContext(r.Context(), "ui: index.html not found in embedded filesystem — was the frontend built?")
 			http.Error(w, "UI not available. Build the frontend with: cd web && npm run build:static", http.StatusNotFound)
 			return
 		}

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"syscall"
 )
@@ -174,10 +175,10 @@ func isTLSError(err error) bool {
 		"ssl", "CERTIFICATE_VERIFY_FAILED",
 	}
 	lower := strings.ToLower(msg)
-	for _, p := range tlsPatterns {
-		if strings.Contains(lower, strings.ToLower(p)) {
-			return true
-		}
+	if slices.ContainsFunc(tlsPatterns, func(p string) bool {
+		return strings.Contains(lower, strings.ToLower(p))
+	}) {
+		return true
 	}
 
 	return false

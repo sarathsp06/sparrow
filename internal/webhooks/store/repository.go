@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -137,18 +136,3 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, tenant
 
 	return webhooks, nil
 }
-
-// Ensure we can store map[string]string as JSON in the database
-func (h HeadersMap) Value() (driver.Value, error) {
-	return json.Marshal(h)
-}
-
-func (h *HeadersMap) Scan(value interface{}) error {
-	if value == nil {
-		*h = make(map[string]string)
-		return nil
-	}
-	return json.Unmarshal(value.([]byte), h)
-}
-
-type HeadersMap map[string]string

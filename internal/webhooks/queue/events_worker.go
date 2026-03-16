@@ -37,13 +37,13 @@ func NewEventProcessingWorker(webhookRepo store.RepositoryInterface, jobInserter
 // Work processes an event and creates webhook delivery jobs
 func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventArgs]) error {
 	args := job.Args
-	w.logger.Info("Processing event", "event_id", args.EventID, "namespace", args.Namespace, "event", args.Event)
+	w.logger.InfoContext(ctx, "Processing event", "event_id", args.EventID, "namespace", args.Namespace, "event", args.Event)
 
 	// get trace id and set that as metadata
 	carrier := make(propagation.MapCarrier)
 	err := json.Unmarshal(job.Metadata, &carrier)
 	if err != nil {
-		w.logger.Error("Failed to unmarshal job metadata", "error", err, "event_id", args.EventID)
+		w.logger.ErrorContext(ctx, "Failed to unmarshal job metadata", "error", err, "event_id", args.EventID)
 	}
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 
@@ -54,7 +54,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	// but let's verify and update if needed
 	existingEvent, err := w.webhookRepo.GetEventByID(ctx, tenantID, uuid.MustParse(args.EventID))
 	if err != nil {
-		w.logger.Error("Event record not found in database", "error", err, "event_id", args.EventID)
+		w.logger.ErrorContext(ctx, "Event record not found in database", "error", err, "event_id", args.EventID)
 		return fmt.Errorf("event record not found: %w", err)
 	}
 
@@ -66,19 +66,19 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	// Find all subscriptions for this namespace/event with webhook details
 	subscriptions, err := w.webhookRepo.GetSubscriptionsWithWebhooksByEvent(ctx, tenantID, args.Namespace, args.Event)
 	if err != nil {
-		w.logger.Error("Failed to get event subscriptions", "error", err)
+		w.logger.ErrorContext(ctx, "Failed to get event subscriptions", "error", err)
 		return err
 	}
 
 	if len(subscriptions) == 0 {
-		w.logger.Info("No subscriptions found for event",
+		w.logger.InfoContext(ctx, "No subscriptions found for event",
 			"namespace", args.Namespace,
 			"event", args.Event,
 		)
 		return nil
 	}
 
-	w.logger.Info("Found subscriptions",
+	w.logger.InfoContext(ctx, "Found subscriptions",
 		"count", len(subscriptions),
 		"namespace", args.Namespace,
 		"event", args.Event,
@@ -111,7 +111,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		}
 
 		if err := w.webhookRepo.CreateDelivery(ctx, tenantID, delivery); err != nil {
-			w.logger.Error("Failed to create delivery record", "error", err, "webhook_id", webhook.ID)
+			w.logger.ErrorContext(ctx, "Failed to create delivery record", "error", err, "webhook_id", webhook.ID)
 			continue
 		}
 
@@ -128,7 +128,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		}
 
 		if _, err := w.jobInserter.Insert(ctx, &webhookArgs); err != nil {
-			w.logger.Error("Failed to schedule webhook delivery job",
+			w.logger.ErrorContext(ctx, "Failed to schedule webhook delivery job",
 				"error", err,
 				"webhook_id", webhook.ID,
 				"delivery_id", deliveryID,
@@ -136,7 +136,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 			continue
 		}
 
-		w.logger.Info("Scheduled webhook delivery",
+		w.logger.InfoContext(ctx, "Scheduled webhook delivery",
 			"webhook_id", webhook.ID,
 			"subscription_id", sub.ID,
 			"delivery_id", deliveryID,
@@ -144,7 +144,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		)
 	}
 
-	w.logger.Info("Event processing completed",
+	w.logger.InfoContext(ctx, "Event processing completed",
 		"event_id", args.EventID,
 		"webhooks_scheduled", len(subscriptions),
 	)

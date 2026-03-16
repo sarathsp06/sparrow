@@ -57,7 +57,7 @@ func DefaultBootstrapConfig() BootstrapConfig {
 //   - If they do, skips key creation (already bootstrapped)
 func Bootstrap(ctx context.Context, svc *Service, cfg BootstrapConfig) error {
 	if !cfg.AutoBootstrap {
-		cfg.Logger.Info("auto-bootstrap disabled, skipping")
+		cfg.Logger.InfoContext(ctx, "auto-bootstrap disabled, skipping")
 		return nil
 	}
 
@@ -67,7 +67,7 @@ func Bootstrap(ctx context.Context, svc *Service, cfg BootstrapConfig) error {
 	_, err := svc.repo.GetTenantByID(ctx, auth.DefaultTenantID)
 	if err != nil {
 		if storage.IsNotFound(err) {
-			logger.Warn("default tenant not found — run migrations first")
+			logger.WarnContext(ctx, "default tenant not found — run migrations first")
 			return fmt.Errorf("bootstrap: default tenant %s not found; run database migrations", auth.DefaultTenantID)
 		}
 		return fmt.Errorf("bootstrap: check default tenant: %w", err)
@@ -80,7 +80,7 @@ func Bootstrap(ctx context.Context, svc *Service, cfg BootstrapConfig) error {
 	}
 	_ = keys
 	if total > 0 {
-		logger.Info("bootstrap: default tenant already has API keys, skipping key creation")
+		logger.InfoContext(ctx, "bootstrap: default tenant already has API keys, skipping key creation")
 		return nil
 	}
 
@@ -103,10 +103,10 @@ func Bootstrap(ctx context.Context, svc *Service, cfg BootstrapConfig) error {
 	}
 
 	// Print the key — this is the only time it's shown
-	logger.Info("========================================================")
-	logger.Info("  ROOT API KEY CREATED (save this — it won't be shown again)")
-	logger.Info("  " + result.RawKey)
-	logger.Info("========================================================")
+	logger.InfoContext(ctx, "========================================================")
+	logger.InfoContext(ctx, "  ROOT API KEY CREATED (save this — it won't be shown again)")
+	logger.InfoContext(ctx, "  "+result.RawKey)
+	logger.InfoContext(ctx, "========================================================")
 
 	return nil
 }

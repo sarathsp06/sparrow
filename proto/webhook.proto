@@ -894,3 +894,168 @@ message RevokeAPIKeyRequest {
 message RevokeAPIKeyResponse {
   // Empty on success; errors use gRPC status codes
 }
+
+// ============================================================
+// Namespace & Membership Management
+// ============================================================
+
+// NamespaceService manages namespace lifecycle within a tenant.
+// Namespaces are sub-tenant scopes used to isolate webhooks, subscriptions,
+// deliveries, and other resources.
+service NamespaceService {
+  // CreateNamespace creates a new namespace within the caller's tenant
+  rpc CreateNamespace(CreateNamespaceRequest) returns (CreateNamespaceResponse);
+
+  // GetNamespace retrieves a namespace by ID
+  rpc GetNamespace(GetNamespaceRequest) returns (GetNamespaceResponse);
+
+  // ListNamespaces lists namespaces for the caller's tenant
+  rpc ListNamespaces(ListNamespacesRequest) returns (ListNamespacesResponse);
+
+  // UpdateNamespace updates a namespace's name or description
+  rpc UpdateNamespace(UpdateNamespaceRequest2) returns (UpdateNamespaceResponse2);
+
+  // DeleteNamespace deletes a namespace
+  rpc DeleteNamespace(DeleteNamespaceRequest) returns (DeleteNamespaceResponse2);
+}
+
+// NamespaceMembershipService manages user-to-namespace role assignments.
+service NamespaceMembershipService {
+  // AssignNamespaceRole assigns or updates a user's role on a namespace
+  rpc AssignNamespaceRole(AssignNamespaceRoleRequest) returns (AssignNamespaceRoleResponse);
+
+  // RemoveNamespaceRole removes a user's role from a namespace
+  rpc RemoveNamespaceRole(RemoveNamespaceRoleRequest) returns (RemoveNamespaceRoleResponse);
+
+  // ListNamespaceMembers lists all members of a namespace
+  rpc ListNamespaceMembers(ListNamespaceMembersRequest) returns (ListNamespaceMembersResponse);
+
+  // GetUserNamespaces returns all namespace memberships for a user
+  rpc GetUserNamespaces(GetUserNamespacesRequest) returns (GetUserNamespacesResponse);
+}
+
+// ---- Namespace Messages ----
+
+// NamespaceResource represents a namespace entity
+message NamespaceResource {
+  string id = 1;                          // Namespace UUID
+  string tenant_id = 2;                   // Owning tenant UUID
+  string name = 3;                        // Namespace name (unique per tenant)
+  string description = 4;                 // Human-readable description
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+// CreateNamespaceRequest represents a request to create a namespace
+message CreateNamespaceRequest {
+  string name = 1;                        // Namespace name (required, lowercase alphanumeric with hyphens/underscores)
+  string description = 2;                 // Optional description
+}
+
+// CreateNamespaceResponse represents the response for namespace creation
+message CreateNamespaceResponse {
+  NamespaceResource namespace = 1;
+}
+
+// GetNamespaceRequest represents a request to get a namespace
+message GetNamespaceRequest {
+  string id = 1;                          // Namespace UUID (one of id or name required)
+  string name = 2;                        // Namespace name (alternative to id)
+}
+
+// GetNamespaceResponse represents the response for getting a namespace
+message GetNamespaceResponse {
+  NamespaceResource namespace = 1;
+}
+
+// ListNamespacesRequest represents a request to list namespaces
+message ListNamespacesRequest {
+  PaginationRequest pagination = 1;
+}
+
+// ListNamespacesResponse represents the response for listing namespaces
+message ListNamespacesResponse {
+  repeated NamespaceResource namespaces = 1;
+  PaginationResponse pagination = 2;
+}
+
+// UpdateNamespaceRequest2 represents a request to update a namespace
+// (suffixed with "2" to avoid conflict with existing UpdateNamespaceRequest in internal package)
+message UpdateNamespaceRequest2 {
+  string id = 1;                          // Namespace UUID (required)
+  string name = 2;                        // Updated name (optional, empty = no change)
+  string description = 3;                 // Updated description (optional, empty = no change)
+}
+
+// UpdateNamespaceResponse2 represents the response for updating a namespace
+message UpdateNamespaceResponse2 {
+  NamespaceResource namespace = 1;
+}
+
+// DeleteNamespaceRequest represents a request to delete a namespace
+message DeleteNamespaceRequest {
+  string id = 1;                          // Namespace UUID
+}
+
+// DeleteNamespaceResponse2 represents the response for namespace deletion
+message DeleteNamespaceResponse2 {
+  // Empty on success; errors use gRPC status codes
+}
+
+// ---- Namespace Membership Messages ----
+
+// NamespaceMembership represents a user's role on a namespace
+message NamespaceMembership {
+  string id = 1;                          // Membership UUID
+  string tenant_id = 2;                   // Tenant UUID
+  string subject_id = 3;                  // User subject ID (JWT sub claim)
+  string namespace = 4;                   // Namespace name
+  string role = 5;                        // Role: namespace:admin, namespace:member, namespace:viewer
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// AssignNamespaceRoleRequest represents a request to assign a namespace role
+message AssignNamespaceRoleRequest {
+  string subject_id = 1;                  // User subject ID (required)
+  string namespace = 2;                   // Namespace name (required)
+  string role = 3;                        // Role to assign (required)
+}
+
+// AssignNamespaceRoleResponse represents the response for assigning a namespace role
+message AssignNamespaceRoleResponse {
+  NamespaceMembership membership = 1;
+}
+
+// RemoveNamespaceRoleRequest represents a request to remove a namespace role
+message RemoveNamespaceRoleRequest {
+  string subject_id = 1;                  // User subject ID (required)
+  string namespace = 2;                   // Namespace name (required)
+}
+
+// RemoveNamespaceRoleResponse represents the response for removing a namespace role
+message RemoveNamespaceRoleResponse {
+  // Empty on success; errors use gRPC status codes
+}
+
+// ListNamespaceMembersRequest represents a request to list members of a namespace
+message ListNamespaceMembersRequest {
+  string namespace = 1;                   // Namespace name (required)
+  PaginationRequest pagination = 2;
+}
+
+// ListNamespaceMembersResponse represents the response for listing namespace members
+message ListNamespaceMembersResponse {
+  repeated NamespaceMembership members = 1;
+  PaginationResponse pagination = 2;
+}
+
+// GetUserNamespacesRequest represents a request to get a user's namespace memberships
+message GetUserNamespacesRequest {
+  string subject_id = 1;                  // User subject ID (required, empty = caller's own)
+}
+
+// GetUserNamespacesResponse represents the response for getting user namespaces
+message GetUserNamespacesResponse {
+  repeated NamespaceMembership memberships = 1;
+}

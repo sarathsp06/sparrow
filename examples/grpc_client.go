@@ -66,7 +66,7 @@ func MainGRPC() {
 	}
 
 	for _, event := range events {
-		var schemaMap map[string]interface{}
+		var schemaMap map[string]any
 		if err := json.Unmarshal([]byte(event.schema), &schemaMap); err != nil {
 			log.Fatalf("Failed to parse schema for %s: %v", event.name, err)
 		}
@@ -252,7 +252,7 @@ func MainGRPC() {
 
 	// Example 4: Push a user signup event
 	log.Println("\n=== Example 4: Push User Signup Event ===")
-	eventPayload := map[string]interface{}{
+	eventPayload := map[string]any{
 		"user_id":   "user_12345",
 		"email":     "john.doe@default.com",
 		"name":      "John Doe",
@@ -288,14 +288,14 @@ func MainGRPC() {
 
 	// Example 5: Push an order created event
 	log.Println("\n=== Example 5: Push Order Created Event ===")
-	orderPayload := map[string]interface{}{
+	orderPayload := map[string]any{
 		"order_id":     "order_67890",
 		"customer_id":  "user_12345",
 		"total_amount": 99.99,
 		"currency":     "USD",
-		"items": []interface{}{
-			map[string]interface{}{"product_id": "prod_1", "quantity": 2, "price": 29.99},
-			map[string]interface{}{"product_id": "prod_2", "quantity": 1, "price": 39.99},
+		"items": []any{
+			map[string]any{"product_id": "prod_1", "quantity": 2, "price": 29.99},
+			map[string]any{"product_id": "prod_2", "quantity": 1, "price": 39.99},
 		},
 		"created_at": time.Now().Unix(),
 	}

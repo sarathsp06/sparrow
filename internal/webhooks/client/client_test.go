@@ -239,37 +239,6 @@ func TestClientClose(t *testing.T) {
 	}
 }
 
-func TestClientGetStats(t *testing.T) {
-	client := NewWebhookClient(nil)
-
-	// Make a successful request first
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	req := &DeliveryRequest{
-		WebhookID:  uuid.New(),
-		DeliveryID: "delivery-123",
-		URL:        server.URL,
-		Method:     http.MethodPost,
-		Payload:    []byte(`{}`),
-		EventID:    uuid.New(),
-	}
-
-	_, _, _ = client.Send(context.Background(), req)
-
-	stats := client.GetStats()
-
-	if stats == nil {
-		t.Fatal("Expected non-nil stats")
-	}
-
-	if stats["total_requests"].(int64) != 1 {
-		t.Errorf("Expected total_requests 1, got %v", stats["total_requests"])
-	}
-}
-
 func TestReadBody(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -336,18 +305,6 @@ func TestReadBodyNilBody(t *testing.T) {
 
 	if result != nil {
 		t.Error("Expected nil result for nil body")
-	}
-}
-
-func TestPrewarmConnections(t *testing.T) {
-	client := NewWebhookClient(nil)
-	ctx := context.Background()
-
-	hosts := []string{"example.com", "test.com"}
-
-	err := client.PrewarmConnections(ctx, hosts)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
 	}
 }
 

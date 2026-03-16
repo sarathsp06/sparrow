@@ -17,10 +17,6 @@ import (
 )
 
 const (
-	// Job kinds
-	JobKindEventProcessing = "event_processing"
-	JobKindWebhookDelivery = "webhook_delivery"
-
 	// Queue names
 	QueueEventProcessing = "events"
 	QueueWebhookDelivery = "webhooks"
@@ -103,7 +99,7 @@ func (j *jobInserter) InsertOpts(ctx context.Context, args river.JobArgs) *river
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
 	carrierJSON, err := json.Marshal(carrier)
 	if err != nil {
-		j.logger.Error("Failed to marshal trace metadata", "error", err)
+		j.logger.ErrorContext(ctx, "Failed to marshal trace metadata", "error", err)
 	}
 	return &river.InsertOpts{
 		Metadata: carrierJSON,
@@ -123,7 +119,7 @@ func (j *jobInserter) BatchInsert(ctx context.Context, args []river.JobArgs) ([]
 	}
 	insertResults, err := j.client.InsertMany(ctx, params)
 	if err != nil {
-		j.logger.Error("Failed to batch insert jobs", "error", err)
+		j.logger.ErrorContext(ctx, "Failed to batch insert jobs", "error", err)
 		return nil, fmt.Errorf("failed to batch insert jobs: %w", err)
 	}
 	return insertResults, nil

@@ -17,7 +17,6 @@ type RepositoryInterface interface {
 	ListWebhooks(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool) ([]*WebhookRegistration, error)
 	ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool, limit, offset int) ([]*WebhookRegistration, int, error)
 	GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string) (*WebhookRegistration, error)
-	GetWebhooksByNamespace(ctx context.Context, tenantID uuid.UUID, namespace string, activeOnly bool) ([]*WebhookRegistration, error)
 	UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webhook *WebhookRegistration) error
 
 	// Subscription Management
@@ -43,8 +42,6 @@ type RepositoryInterface interface {
 	CreateDelivery(ctx context.Context, tenantID uuid.UUID, delivery *WebhookDelivery) error
 	UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error
 	UpdateDeliveryRequestBody(ctx context.Context, deliveryID uuid.UUID, requestBody string) error
-	GetDeliveriesByWebhook(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) ([]*WebhookDelivery, error)
-	GetDeliveriesByEvent(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) ([]*WebhookDelivery, error)
 	GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, namespace string) (*WebhookDelivery, error)
 	GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error)
 	GetDeliveriesByEventPaginated(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error)

@@ -14,7 +14,7 @@ import (
 func (s *WebhookServer) GetDeliveryStatus(ctx context.Context, req *pb.GetDeliveryStatusRequest) (*pb.GetDeliveryStatusResponse, error) {
 	delivery, err := s.service.GetDeliveryStatus(ctx, req.DeliveryId, req.Namespace)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get delivery status: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to get delivery status")
 	}
 	var pbDelivery *pb.WebhookDelivery
 	if delivery != nil {
@@ -51,7 +51,7 @@ func (s *WebhookServer) ListDeliveries(ctx context.Context, req *pb.ListDeliveri
 
 	deliveries, totalCount, err := s.service.ListDeliveries(ctx, req.Namespace, req.WebhookId, req.EventId, limit, offset)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to list deliveries: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to list deliveries")
 	}
 	var pbDeliveries []*pb.WebhookDelivery
 	for _, delivery := range deliveries {
@@ -88,7 +88,7 @@ func (s *WebhookServer) ListDeliveries(ctx context.Context, req *pb.ListDeliveri
 func (s *WebhookServer) RetryDelivery(ctx context.Context, req *pb.RetryDeliveryRequest) (*pb.RetryDeliveryResponse, error) {
 	resubmittedIDs, resubmittedCount, err := s.service.RetryDelivery(ctx, req.Namespace, req.DeliveryId, req.WebhookId, req.Force)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to retry delivery: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to retry delivery")
 	}
 	return &pb.RetryDeliveryResponse{
 		RetriedCount: resubmittedCount,
@@ -104,7 +104,7 @@ func (s *WebhookServer) GetDeliveryAttempts(ctx context.Context, req *pb.GetDeli
 
 	attempts, err := s.service.GetDeliveryAttempts(ctx, req.DeliveryId)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to get delivery attempts: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to get delivery attempts")
 	}
 
 	var pbAttempts []*pb.DeliveryAttempt

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	connectserver "github.com/sarathsp06/sparrow/internal/connect"
 	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
 	"github.com/sarathsp06/sparrow/internal/health"
+	"github.com/sarathsp06/sparrow/internal/namespace"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/ui"
@@ -108,6 +110,10 @@ func main() {
 		log.Fatalf("Failed to bootstrap: %v", err)
 	}
 
+	// Create namespace repository and service
+	namespaceRepo := namespace.NewRepository(sqlxDB)
+	namespaceSvc := namespace.NewService(namespaceRepo)
+
 	// Build auth interceptor config
 	authInterceptorCfg := auth.AuthInterceptorConfig{
 		Enabled: authEnabled,
@@ -152,6 +158,7 @@ func main() {
 				jwksProvider,
 				auth.WithClaimsConfig(claimsCfg),
 				auth.WithTenantResolver(tenantResolver),
+				auth.WithMembershipResolver(namespaceRepo),
 			)
 
 			// JWT authenticator goes first — API keys are tried if JWT fails
@@ -202,11 +209,19 @@ func main() {
 	pb.RegisterTenantServiceServer(grpcServer, tenantGRPCServer)
 	pb.RegisterAPIKeyServiceServer(grpcServer, tenantGRPCServer)
 
+	// Register Namespace and Membership gRPC services
+	namespaceGRPCServer := grpcserver.NewNamespaceServer(namespaceSvc)
+	pb.RegisterNamespaceServiceServer(grpcServer, namespaceGRPCServer)
+	pb.RegisterNamespaceMembershipServiceServer(grpcServer, namespaceGRPCServer)
+
 	// Initialize Connect-RPC server
 	webhookConnectServer := connectserver.NewWebhookConnectServer(webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer)
 
 	// Create Connect-RPC adapter for tenant/API key services
 	tenantConnectServer := connectserver.NewTenantConnectServer(tenantGRPCServer, tenantGRPCServer)
+
+	// Create Connect-RPC adapter for namespace/membership services
+	namespaceConnectServer := connectserver.NewNamespaceConnectServer(namespaceGRPCServer, namespaceGRPCServer)
 
 	// Create HTTP mux for Connect-RPC
 	mux := http.NewServeMux()
@@ -224,6 +239,8 @@ func main() {
 	mux.Handle(pbconnect.NewHealthServiceHandler(webhookConnectServer, options))
 	mux.Handle(pbconnect.NewTenantServiceHandler(tenantConnectServer, options))
 	mux.Handle(pbconnect.NewAPIKeyServiceHandler(tenantConnectServer, options))
+	mux.Handle(pbconnect.NewNamespaceServiceHandler(namespaceConnectServer, options))
+	mux.Handle(pbconnect.NewNamespaceMembershipServiceHandler(namespaceConnectServer, options))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, queueManager, startTime)
@@ -244,9 +261,10 @@ func main() {
 	}
 
 	// Create HTTP server with OpenTelemetry instrumentation
+	corsHandler := buildCORSHandler()
 	httpServer := &http.Server{
 		Addr:         ":8080",
-		Handler:      cors.AllowAll().Handler(mux),
+		Handler:      corsHandler.Handler(mux),
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  120 * time.Second,
@@ -312,4 +330,37 @@ func main() {
 	grpcServer.GracefulStop()
 	_ = queueManager.Stop(shutdownCtx)
 	fmt.Println("👋 Shutdown complete")
+}
+
+// buildCORSHandler creates a CORS handler configured via the CORS_ALLOWED_ORIGINS
+// environment variable. When set, only the listed origins (comma-separated) are
+// allowed. When unset or empty, all origins are allowed (development mode).
+func buildCORSHandler() *cors.Cors {
+	originsEnv := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if originsEnv == "" {
+		fmt.Println("⚠️  CORS_ALLOWED_ORIGINS not set — allowing all origins (not recommended for production)")
+		return cors.AllowAll()
+	}
+
+	var origins []string
+	for _, o := range strings.Split(originsEnv, ",") {
+		o = strings.TrimSpace(o)
+		if o != "" {
+			origins = append(origins, o)
+		}
+	}
+
+	if len(origins) == 0 {
+		fmt.Println("⚠️  CORS_ALLOWED_ORIGINS is empty — allowing all origins (not recommended for production)")
+		return cors.AllowAll()
+	}
+
+	fmt.Printf("🔒 CORS allowed origins: %v\n", origins)
+	return cors.New(cors.Options{
+		AllowedOrigins:   origins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", "Connect-Protocol-Version", "Connect-Timeout-Ms", "Grpc-Timeout", "X-Grpc-Web", "X-User-Agent"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	})
 }

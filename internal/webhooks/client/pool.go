@@ -7,7 +7,7 @@ import (
 
 // bufferPool is a sync.Pool for reusing byte buffers
 var bufferPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return new(bytes.Buffer)
 	},
 }
@@ -32,35 +32,9 @@ func PutBuffer(buf *bytes.Buffer) {
 	bufferPool.Put(buf)
 }
 
-// byteSlicePool is a sync.Pool for reusing byte slices
-var byteSlicePool = sync.Pool{
-	New: func() interface{} {
-		b := make([]byte, 0, 4096) // 4KB default capacity
-		return &b
-	},
-}
-
-// GetByteSlice retrieves a byte slice from the pool
-func GetByteSlice() *[]byte {
-	return byteSlicePool.Get().(*[]byte)
-}
-
-// PutByteSlice returns a byte slice to the pool
-func PutByteSlice(b *[]byte) {
-	if b == nil {
-		return
-	}
-	// Don't pool excessively large slices (>64KB)
-	if cap(*b) > 64*1024 {
-		return
-	}
-	*b = (*b)[:0]
-	byteSlicePool.Put(b)
-}
-
 // headerMapPool is a sync.Pool for reusing header maps
 var headerMapPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return make(map[string]string, 8) // 8 headers typical capacity
 	},
 }

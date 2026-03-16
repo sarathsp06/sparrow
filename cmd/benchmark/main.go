@@ -435,7 +435,7 @@ func NewLoadTester(config *Config) *LoadTester {
 
 	// Create payload pool to reduce allocations
 	payloadPool := &sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return make([]byte, 0, config.PayloadSizeKB*1024)
 		},
 	}
@@ -481,7 +481,7 @@ func NewLoadTester(config *Config) *LoadTester {
 // handleTestRequest handles test server requests
 func (lt *LoadTester) handleTestRequest(w http.ResponseWriter, r *http.Request) {
 	// Simulate realistic server behavior
-	response := map[string]interface{}{
+	response := map[string]any{
 		"status":    "success",
 		"timestamp": time.Now().Unix(),
 		"id":        uuid.New().String(),
@@ -494,10 +494,10 @@ func (lt *LoadTester) handleTestRequest(w http.ResponseWriter, r *http.Request) 
 
 // generatePayload creates the test payload
 func (lt *LoadTester) generatePayload() []byte {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"data":      string(make([]byte, lt.config.PayloadSizeKB*1024)),
 		"timestamp": time.Now().Unix(),
-		"metadata": map[string]interface{}{
+		"metadata": map[string]any{
 			"source":  "load-test",
 			"type":    "benchmark",
 			"version": "2.0",

@@ -66,7 +66,7 @@ func (p *AutoProvisioner) ProvisionTenant(ctx context.Context, externalID string
 		return uuid.Nil, fmt.Errorf("auto-provision tenant: %w", err)
 	}
 
-	p.logger.Info("auto-provisioned tenant",
+	p.logger.InfoContext(ctx, "auto-provisioned tenant",
 		"tenant_id", t.ID.String(),
 		"external_id", externalID,
 		"created_by", createdBy,

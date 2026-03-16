@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"crypto/sha256"
-	"crypto/subtle"
 	"database/sql"
 	"encoding/hex"
 	"fmt"
@@ -24,6 +23,14 @@ type Authenticator interface {
 	// Scheme returns the authentication scheme this authenticator handles
 	// (e.g., "Bearer", "ApiKey").
 	Scheme() string
+}
+
+// MembershipResolver resolves namespace memberships for a user within a tenant.
+// Used by the JWT authenticator to populate NamespaceRoles after authentication.
+type MembershipResolver interface {
+	// ResolveNamespaceMemberships returns the namespace→role map for a user.
+	// Returns nil if the user has no namespace memberships (tenant-wide access applies).
+	ResolveNamespaceMemberships(ctx context.Context, tenantID uuid.UUID, subjectID string) (map[string]Role, error)
 }
 
 // ---- API Key types ----
@@ -77,7 +84,7 @@ type cacheEntry struct {
 // APIKeyAuthenticatorOption configures the API key authenticator.
 type APIKeyAuthenticatorOption func(*APIKeyAuthenticator)
 
-// WithCacheTTL sets the TTL for cached API key lookups. Default is 5 minutes.
+// WithCacheTTL sets the TTL for cached API key lookups. Default is 30 seconds.
 // Set to 0 to disable caching.
 func WithCacheTTL(ttl time.Duration) APIKeyAuthenticatorOption {
 	return func(a *APIKeyAuthenticator) {
@@ -90,7 +97,7 @@ func NewAPIKeyAuthenticator(store APIKeyStore, opts ...APIKeyAuthenticatorOption
 	a := &APIKeyAuthenticator{
 		store:    store,
 		cache:    make(map[string]*cacheEntry),
-		cacheTTL: 5 * time.Minute,
+		cacheTTL: 30 * time.Second,
 	}
 	for _, opt := range opts {
 		opt(a)
@@ -181,21 +188,6 @@ func (a *APIKeyAuthenticator) Authenticate(ctx context.Context, credential strin
 	return info, nil
 }
 
-// InvalidateKey removes a key from the cache by its hash.
-// Call this when a key is revoked or modified.
-func (a *APIKeyAuthenticator) InvalidateKey(keyHash string) {
-	a.cacheMu.Lock()
-	defer a.cacheMu.Unlock()
-	delete(a.cache, keyHash)
-}
-
-// InvalidateAll clears the entire cache.
-func (a *APIKeyAuthenticator) InvalidateAll() {
-	a.cacheMu.Lock()
-	defer a.cacheMu.Unlock()
-	a.cache = make(map[string]*cacheEntry)
-}
-
 func (a *APIKeyAuthenticator) fromCache(keyHash string) *AuthInfo {
 	a.cacheMu.RLock()
 	defer a.cacheMu.RUnlock()
@@ -218,10 +210,26 @@ func (a *APIKeyAuthenticator) toCache(keyHash string, info *AuthInfo) {
 		expiresAt: time.Now().Add(a.cacheTTL),
 	}
 
-	// Simple cache eviction: if cache is too large, drop everything.
-	// A proper LRU would be better but this is sufficient for now.
+	// Evict expired entries when cache grows large, rather than dropping everything.
+	// This prevents a thundering-herd of DB lookups that "drop all" causes.
 	if len(a.cache) > 10000 {
-		a.cache = make(map[string]*cacheEntry)
+		now := time.Now()
+		for k, e := range a.cache {
+			if now.After(e.expiresAt) {
+				delete(a.cache, k)
+			}
+		}
+		// If still over limit after expiry sweep, drop the oldest half
+		if len(a.cache) > 10000 {
+			count := 0
+			for k := range a.cache {
+				if count >= len(a.cache)/2 {
+					break
+				}
+				delete(a.cache, k)
+				count++
+			}
+		}
 	}
 }
 
@@ -231,13 +239,6 @@ func (a *APIKeyAuthenticator) toCache(keyHash string, info *AuthInfo) {
 func HashAPIKey(rawKey string) string {
 	h := sha256.Sum256([]byte(rawKey))
 	return hex.EncodeToString(h[:])
-}
-
-// ConstantTimeCompareHash compares a raw key against a stored hash
-// in constant time to prevent timing attacks.
-func ConstantTimeCompareHash(rawKey, storedHash string) bool {
-	computed := HashAPIKey(rawKey)
-	return subtle.ConstantTimeCompare([]byte(computed), []byte(storedHash)) == 1
 }
 
 // GenerateAPIKeyPrefix creates the prefix portion of an API key.

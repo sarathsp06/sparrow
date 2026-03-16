@@ -1,11 +1,18 @@
 package grpc
 
 import (
+	"context"
+	"errors"
+	"log/slog"
+	"strings"
 	"time"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/sarathsp06/sparrow/internal/auth"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
@@ -129,4 +136,67 @@ func convertEventToProto(event *store.EventRegistration) (*pb.RegisteredEvent, e
 	}
 
 	return pbEvent, nil
+}
+
+// maskSecret masks a secret string for safe display in API responses.
+// It shows the first 4 characters followed by asterisks.
+// Returns an empty string if the input is empty.
+func maskSecret(secret string) string {
+	if secret == "" {
+		return ""
+	}
+	if len(secret) <= 4 {
+		return strings.Repeat("*", len(secret))
+	}
+	return secret[:4] + strings.Repeat("*", len(secret)-4)
+}
+
+// toGRPCError maps service-layer errors to appropriate gRPC status codes.
+// It checks for known error types (permission denied, not found, validation)
+// and returns a properly-coded gRPC status error.
+// Internal errors are logged server-side but NOT exposed to the client —
+// only the fallbackMsg is returned to prevent leaking implementation details.
+func toGRPCError(ctx context.Context, err error, fallbackMsg string) error {
+	if err == nil {
+		return nil
+	}
+
+	// Check for permission denied errors from the auth package
+	var permErr *auth.PermissionDeniedError
+	if errors.As(err, &permErr) {
+		return status.Error(codes.PermissionDenied, permErr.Error())
+	}
+
+	// Check for common error message patterns
+	errMsg := err.Error()
+
+	// "not found" errors — safe to include in response
+	if strings.Contains(errMsg, "not found") {
+		return status.Errorf(codes.NotFound, "%s: %v", fallbackMsg, err)
+	}
+
+	// Validation / input errors — safe to include in response
+	if strings.HasPrefix(errMsg, "namespace is required") ||
+		strings.HasPrefix(errMsg, "webhook_id is required") ||
+		strings.HasPrefix(errMsg, "webhook ID is required") ||
+		strings.HasPrefix(errMsg, "delivery ID is required") ||
+		strings.HasPrefix(errMsg, "event name is required") ||
+		strings.HasPrefix(errMsg, "event names cannot be empty") ||
+		strings.HasPrefix(errMsg, "empty event name not allowed") ||
+		strings.HasPrefix(errMsg, "URL is required") ||
+		strings.HasPrefix(errMsg, "event is required") ||
+		strings.Contains(errMsg, "invalid webhook ID") ||
+		strings.Contains(errMsg, "invalid delivery ID") ||
+		strings.Contains(errMsg, "invalid subscription ID") ||
+		strings.Contains(errMsg, "already exists") ||
+		strings.Contains(errMsg, "already paused") ||
+		strings.Contains(errMsg, "already active") ||
+		strings.Contains(errMsg, "namespace is required for namespace-scoped access") {
+		return status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	// Default to internal error — log the real error but do NOT expose it to the client.
+	// Returning internal error details (SQL errors, stack traces, etc.) is a security risk.
+	slog.ErrorContext(ctx, "internal error", "fallback_msg", fallbackMsg, "error", err)
+	return status.Errorf(codes.Internal, "%s", fallbackMsg)
 }

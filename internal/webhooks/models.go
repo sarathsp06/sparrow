@@ -156,7 +156,7 @@ func (config *WebhookHTTPConfig) ApplyConfig(other *WebhookHTTPConfig) {
 type StringArray []string
 
 // Scan implements the sql.Scanner interface
-func (a *StringArray) Scan(value interface{}) error {
+func (a *StringArray) Scan(value any) error {
 	if value == nil {
 		*a = nil
 		return nil
@@ -187,7 +187,7 @@ func (a StringArray) Value() (driver.Value, error) {
 type IntArray []int
 
 // Scan implements the sql.Scanner interface
-func (a *IntArray) Scan(value interface{}) error {
+func (a *IntArray) Scan(value any) error {
 	if value == nil {
 		*a = nil
 		return nil
@@ -223,10 +223,10 @@ func (a IntArray) Value() (driver.Value, error) {
 }
 
 // JSONBMap is a wrapper for PostgreSQL JSONB maps
-type JSONBMap map[string]interface{}
+type JSONBMap map[string]any
 
 // Scan implements the sql.Scanner interface
-func (m *JSONBMap) Scan(value interface{}) error {
+func (m *JSONBMap) Scan(value any) error {
 	if value == nil {
 		*m = nil
 		return nil
@@ -267,14 +267,14 @@ type HTTPConfigUpdate struct {
 
 // WebhookRegistrationRequest represents a request to create/update a webhook registration
 type WebhookRegistrationRequest struct {
-	ID          string                 `json:"id,omitempty"`
-	Namespace   string                 `json:"namespace" validate:"required"`
-	Events      []string               `json:"events" validate:"required,min=1"`
-	URL         string                 `json:"url" validate:"required,url"`
-	Headers     map[string]interface{} `json:"headers,omitempty"`
-	Active      *bool                  `json:"active,omitempty"`
-	Description string                 `json:"description,omitempty"`
-	HTTPConfig  *WebhookHTTPConfig     `json:"http_config,omitempty"`
+	ID          string             `json:"id,omitempty"`
+	Namespace   string             `json:"namespace" validate:"required"`
+	Events      []string           `json:"events" validate:"required,min=1"`
+	URL         string             `json:"url" validate:"required,url"`
+	Headers     map[string]any     `json:"headers,omitempty"`
+	Active      *bool              `json:"active,omitempty"`
+	Description string             `json:"description,omitempty"`
+	HTTPConfig  *WebhookHTTPConfig `json:"http_config,omitempty"`
 }
 
 // ToWebhookRegistration converts the request to a WebhookRegistration

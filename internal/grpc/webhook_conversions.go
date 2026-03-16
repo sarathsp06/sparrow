@@ -91,8 +91,8 @@ func ConvertInternalHTTPConfig(config *webhooks.WebhookHTTPConfig) *pb.WebhookHT
 
 // CreateWebhookRegistrationRequest creates a WebhookRegistrationRequest from protobuf
 func CreateWebhookRegistrationRequest(req *pb.RegisterWebhookRequest) webhooks.WebhookRegistrationRequest {
-	// Convert headers map[string]string to map[string]interface{}
-	headers := make(map[string]interface{})
+	// Convert headers map[string]string to map[string]any
+	headers := make(map[string]any)
 	for k, v := range req.Headers {
 		headers[k] = v
 	}
@@ -120,7 +120,7 @@ func ConvertWebhookRegistrationToProto(webhook *webhooks.WebhookRegistration) *p
 		return nil
 	}
 
-	// Convert headers map[string]interface{} to map[string]string
+	// Convert headers map[string]any to map[string]string
 	headers := make(map[string]string)
 	for k, v := range webhook.Headers {
 		if str, ok := v.(string); ok {

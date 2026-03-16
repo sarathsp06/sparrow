@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -102,72 +103,34 @@ func (r *mockTenantResolver) ResolveTenant(_ context.Context, externalID string,
 
 // ---- JWKS Provider Tests ----
 
-func TestJWKSProvider_GetKey(t *testing.T) {
+func TestJWKSProvider_Keyfunc(t *testing.T) {
 	key := generateTestKeyPair(t)
 	kid := "test-key-1"
 	srv := serveJWKS(t, &key.PublicKey, kid)
 
 	provider := NewJWKSProvider(srv.URL)
 
-	t.Run("fetches key on first access", func(t *testing.T) {
-		pubKey, err := provider.GetKey(context.Background(), kid)
+	t.Run("validates a signed token", func(t *testing.T) {
+		token := signJWT(t, key, kid, map[string]any{
+			"sub": "user_1",
+			"exp": float64(time.Now().Add(1 * time.Hour).Unix()),
+		})
+
+		parsed, err := jwt.Parse(token, provider.Keyfunc(), jwt.WithValidMethods([]string{"RS256"}))
 		require.NoError(t, err)
-		assert.NotNil(t, pubKey)
-		assert.Equal(t, key.PublicKey.N.Cmp(pubKey.N), 0)
-		assert.Equal(t, key.PublicKey.E, pubKey.E)
+		assert.True(t, parsed.Valid)
 	})
 
-	t.Run("returns cached key on subsequent access", func(t *testing.T) {
-		pubKey, err := provider.GetKey(context.Background(), kid)
-		require.NoError(t, err)
-		assert.NotNil(t, pubKey)
-	})
+	t.Run("rejects token signed with wrong key", func(t *testing.T) {
+		wrongKey := generateTestKeyPair(t)
+		token := signJWT(t, wrongKey, kid, map[string]any{
+			"sub": "user_1",
+			"exp": float64(time.Now().Add(1 * time.Hour).Unix()),
+		})
 
-	t.Run("returns error for unknown kid", func(t *testing.T) {
-		_, err := provider.GetKey(context.Background(), "unknown-kid")
+		_, err := jwt.Parse(token, provider.Keyfunc(), jwt.WithValidMethods([]string{"RS256"}))
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unknown key ID")
 	})
-}
-
-func TestJWKSProvider_CacheExpiry(t *testing.T) {
-	key := generateTestKeyPair(t)
-	kid := "test-key-1"
-
-	fetchCount := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fetchCount++
-		nB64 := base64.RawURLEncoding.EncodeToString(key.PublicKey.N.Bytes())
-		eB64 := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(key.PublicKey.E)).Bytes())
-		jwks := map[string]any{
-			"keys": []map[string]string{
-				{"kty": "RSA", "use": "sig", "kid": kid, "alg": "RS256", "n": nB64, "e": eB64},
-			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(jwks) //nolint:errcheck
-	}))
-	t.Cleanup(srv.Close)
-
-	provider := NewJWKSProvider(srv.URL, WithJWKSCacheTTL(50*time.Millisecond))
-
-	// First fetch
-	_, err := provider.GetKey(context.Background(), kid)
-	require.NoError(t, err)
-	assert.Equal(t, 1, fetchCount)
-
-	// Cached access
-	_, err = provider.GetKey(context.Background(), kid)
-	require.NoError(t, err)
-	assert.Equal(t, 1, fetchCount, "should use cache")
-
-	// Wait for cache to expire
-	time.Sleep(60 * time.Millisecond)
-
-	// Should refetch
-	_, err = provider.GetKey(context.Background(), kid)
-	require.NoError(t, err)
-	assert.Equal(t, 2, fetchCount, "should refetch after cache expiry")
 }
 
 // ---- JWT Authenticator Tests ----
@@ -318,7 +281,7 @@ func TestJWTAuthenticator_Authenticate(t *testing.T) {
 
 		_, err := authn.Authenticate(context.Background(), token)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid JWT signature")
+		assert.Contains(t, err.Error(), "jwt verification failed")
 	})
 }
 
@@ -342,6 +305,7 @@ func TestJWTAuthenticator_IssuerValidation(t *testing.T) {
 			SubjectClaim: "sub",
 			Issuer:       "https://clerk.example.com",
 			DefaultRole:  RoleTenantMember,
+			ClockSkew:    30 * time.Second,
 			RoleMapping:  map[string]Role{"org:admin": RoleTenantAdmin, "org:member": RoleTenantMember},
 		}),
 	)
@@ -393,6 +357,7 @@ func TestJWTAuthenticator_AudienceValidation(t *testing.T) {
 			SubjectClaim: "sub",
 			Audiences:    []string{"https://api.sparrow.dev"},
 			DefaultRole:  RoleTenantMember,
+			ClockSkew:    30 * time.Second,
 			RoleMapping:  map[string]Role{},
 		}),
 	)
@@ -431,7 +396,7 @@ func TestJWTAuthenticator_AudienceValidation(t *testing.T) {
 
 		_, err := authn.Authenticate(context.Background(), token)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "audience")
+		assert.Contains(t, err.Error(), "aud")
 	})
 }
 
@@ -475,7 +440,7 @@ func TestJWTAuthenticator_NbfValidation(t *testing.T) {
 
 		_, err := authn.Authenticate(context.Background(), token)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "nbf")
+		assert.Contains(t, err.Error(), "not valid yet")
 	})
 
 	t.Run("past nbf passes", func(t *testing.T) {
@@ -584,12 +549,14 @@ func TestCachingTenantResolver(t *testing.T) {
 		assert.Equal(t, 2, lookup.callCount)
 	})
 
-	t.Run("resolves UUID directly without lookup", func(t *testing.T) {
+	t.Run("UUID external ID requires database validation", func(t *testing.T) {
+		// Previously, passing a valid UUID would bypass DB lookup entirely.
+		// After the security fix, ALL external IDs must be validated via the database.
 		directID := uuid.New()
-		id, err := resolver.ResolveTenant(context.Background(), directID.String(), "user_1")
-		require.NoError(t, err)
-		assert.Equal(t, directID, id)
-		assert.Equal(t, 2, lookup.callCount, "should not call lookup for valid UUID")
+		_, err := resolver.ResolveTenant(context.Background(), directID.String(), "user_1")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown tenant")
+		assert.Equal(t, 3, lookup.callCount, "should call lookup even for valid UUID")
 	})
 
 	t.Run("unknown tenant returns error", func(t *testing.T) {

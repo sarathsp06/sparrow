@@ -72,28 +72,10 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 	return resp, duration, nil
 }
 
-// PrewarmConnections establishes connections to the given hosts
-func (c *WebhookClient) PrewarmConnections(ctx context.Context, hosts []string) error {
-	// Simple implementation: just resolve IPs or make a HEAD request?
-	// For now, let's just resolve IPs to warm up DNS
-	for _, host := range hosts {
-		// This is a placeholder. Real prewarming would involve creating connections.
-		// But since we don't have a list of URLs, just hosts, we can only do DNS or TCP dial.
-		// Let's skip actual implementation for now as it's an optimization.
-		_ = host
-	}
-	return nil
-}
-
 // Close shuts down the client
 func (c *WebhookClient) Close() error {
 	c.httpClient.CloseIdleConnections()
 	return nil
-}
-
-// GetStats returns client metrics
-func (c *WebhookClient) GetStats() map[string]interface{} {
-	return c.metrics.GetStats()
 }
 
 // TransformPayload transforms the webhook payload using a template

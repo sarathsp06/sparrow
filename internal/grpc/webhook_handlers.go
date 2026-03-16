@@ -3,8 +3,6 @@ package grpc
 import (
 	"context"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks"
@@ -21,7 +19,7 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 		webhookReq := CreateWebhookRegistrationRequest(req)
 		webhook, err := enhancedService.CreateWebhook(ctx, webhookReq)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to register webhook: %v", err)
+			return nil, toGRPCError(ctx, err, "failed to register webhook")
 		}
 		return &pb.RegisterWebhookResponse{
 			WebhookId: webhook.ID,
@@ -40,7 +38,7 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 
 	webhookID, createdAt, err := s.service.RegisterWebhook(ctx, req.Namespace, req.Events, req.Url, req.Headers, timeout, req.Active, req.Description)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to register webhook: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to register webhook")
 	}
 	return &pb.RegisterWebhookResponse{
 		WebhookId: webhookID,
@@ -52,7 +50,7 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 func (s *WebhookServer) UnregisterWebhook(ctx context.Context, req *pb.UnregisterWebhookRequest) (*pb.UnregisterWebhookResponse, error) {
 	err := s.service.UnregisterWebhook(ctx, req.WebhookId, req.Namespace)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to unregister webhook: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to unregister webhook")
 	}
 	return &pb.UnregisterWebhookResponse{}, nil
 }
@@ -67,7 +65,7 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 
 	regs, totalCount, err := s.service.ListWebhooks(ctx, req.Namespace, req.WebhookId, req.Event, req.ActiveOnly, limit, offset)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to list webhooks: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to list webhooks")
 	}
 	pbWebhooks := make([]*pb.RegisteredWebhook, len(regs))
 	for i, reg := range regs {
@@ -91,7 +89,7 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 				VerifySsl:             reg.VerifySSL,
 				RequestTimeoutSeconds: int32(reg.RequestTimeoutSeconds),
 				ExpectedStatusCodes:   convertExpectedStatusCodes(reg.ExpectedStatusCodes),
-				WebhookSecret:         reg.WebhookSecret,
+				WebhookSecret:         maskSecret(reg.WebhookSecret),
 				UserAgent:             reg.UserAgent,
 				ContentType:           reg.ContentType,
 			},
@@ -140,7 +138,7 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 	}
 	err := s.service.UpdateWebhookConfig(ctx, req.WebhookId, req.Namespace, events, url, headers, timeout, active, description, httpConfig)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to update webhook config: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to update webhook config")
 	}
 	return &pb.UpdateWebhookConfigResponse{}, nil
 }
@@ -149,7 +147,7 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 func (s *WebhookServer) PauseWebhook(ctx context.Context, req *pb.PauseWebhookRequest) (*pb.PauseWebhookResponse, error) {
 	err := s.service.PauseWebhook(ctx, req.WebhookId, req.Namespace, req.Reason)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to pause webhook: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to pause webhook")
 	}
 	return &pb.PauseWebhookResponse{}, nil
 }
@@ -158,7 +156,7 @@ func (s *WebhookServer) PauseWebhook(ctx context.Context, req *pb.PauseWebhookRe
 func (s *WebhookServer) ResumeWebhook(ctx context.Context, req *pb.ResumeWebhookRequest) (*pb.ResumeWebhookResponse, error) {
 	err := s.service.ResumeWebhook(ctx, req.WebhookId, req.Namespace)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to resume webhook: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to resume webhook")
 	}
 	return &pb.ResumeWebhookResponse{}, nil
 }

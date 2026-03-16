@@ -12,11 +12,11 @@ import (
 type {{$decorator}} struct {
   {{.Interface.Type}}
   _instance string
-  _spanDecorator func(span trace.Span, params, results map[string]interface{})
+  _spanDecorator func(span trace.Span, params, results map[string]any)
 }
 
 // New{{$decorator}} returns {{$decorator}}
-func New{{$decorator}} (base {{.Interface.Type}}, instance string, spanDecorator ...func(span trace.Span, params, results map[string]interface{})) {{$decorator}} {
+func New{{$decorator}} (base {{.Interface.Type}}, instance string, spanDecorator ...func(span trace.Span, params, results map[string]any)) {{$decorator}} {
   d := {{$decorator}} {
     {{.Interface.Name}}: base,
     _instance: instance,

@@ -107,17 +107,9 @@ func (r *CachingTenantResolver) ResolveTenant(ctx context.Context, externalID st
 		return entry.tenantID, nil
 	}
 
-	// Try parsing as UUID first (direct tenant ID)
-	if id, err := uuid.Parse(externalID); err == nil {
-		r.logger.InfoContext(ctx, "tenant resolved as direct UUID",
-			slog.String("external_id", externalID),
-			slog.String("tenant_id", id.String()),
-		)
-		r.cacheResult(externalID, id)
-		return id, nil
-	}
-
-	// Look up via the store
+	// Look up via the store — all external IDs must be validated against the database.
+	// NOTE: A previous version had a UUID fast-path that returned the parsed UUID directly
+	// without DB validation, allowing tenant impersonation. That shortcut was removed.
 	id, err := r.lookup.LookupTenantIDByExternalID(ctx, externalID)
 	if err == nil {
 		r.logger.InfoContext(ctx, "tenant resolved from database",
@@ -130,7 +122,7 @@ func (r *CachingTenantResolver) ResolveTenant(ctx context.Context, externalID st
 
 	// If lookup failed and we have a provisioner, auto-create the tenant
 	if r.provisioner != nil {
-		r.logger.Info("auto-provisioning tenant for external ID",
+		r.logger.InfoContext(ctx, "auto-provisioning tenant for external ID",
 			"external_id", externalID,
 			"subject_id", subjectID,
 		)
@@ -139,7 +131,7 @@ func (r *CachingTenantResolver) ResolveTenant(ctx context.Context, externalID st
 			return uuid.Nil, fmt.Errorf("auto-provision tenant for %q failed: %w", externalID, provErr)
 		}
 		r.cacheResult(externalID, newID)
-		r.logger.Info("tenant auto-provisioned successfully",
+		r.logger.InfoContext(ctx, "tenant auto-provisioned successfully",
 			"external_id", externalID,
 			"tenant_id", newID.String(),
 		)
@@ -156,17 +148,27 @@ func (r *CachingTenantResolver) cacheResult(externalID string, tenantID uuid.UUI
 		tenantID:  tenantID,
 		expiresAt: time.Now().Add(r.cacheTTL),
 	}
-	// Simple eviction
+	// Evict expired entries when cache grows large, rather than dropping
+	// everything which causes a thundering herd of DB lookups.
 	if len(r.cache) > 10000 {
-		r.cache = make(map[string]*tenantCacheEntry)
+		now := time.Now()
+		for k, e := range r.cache {
+			if now.After(e.expiresAt) {
+				delete(r.cache, k)
+			}
+		}
+		// If still over limit after expiry sweep, drop the oldest half
+		if len(r.cache) > 10000 {
+			count := 0
+			for k := range r.cache {
+				if count >= len(r.cache)/2 {
+					break
+				}
+				delete(r.cache, k)
+				count++
+			}
+		}
 	}
-}
-
-// InvalidateAll clears the resolver cache.
-func (r *CachingTenantResolver) InvalidateAll() {
-	r.cacheMu.Lock()
-	defer r.cacheMu.Unlock()
-	r.cache = make(map[string]*tenantCacheEntry)
 }
 
 // Compile-time check
