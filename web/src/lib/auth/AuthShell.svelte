@@ -32,7 +32,7 @@
     {@render children()}
   </ClerkAuthShell>
 {:else}
-  <NoAuthShell {header}>
+  <NoAuthShell {header} {isPublicRoute}>
     {@render children()}
   </NoAuthShell>
 {/if}

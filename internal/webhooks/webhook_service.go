@@ -159,7 +159,18 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 		Active:      active,
 		Description: description,
 	}
-	if err := s.webhookRepo.RegisterWebhook(ctx, tenantID, registration); err != nil {
+
+	// Build subscriptions slice for atomic creation
+	var subscriptions []*store.EventSubscription
+	for _, event := range events {
+		subscriptions = append(subscriptions, &store.EventSubscription{
+			EventName: event,
+			Namespace: namespace,
+		})
+	}
+
+	// Atomically create webhook + all subscriptions in a single transaction
+	if err := s.webhookRepo.RegisterWebhookWithSubscriptions(ctx, tenantID, registration, subscriptions); err != nil {
 		s.logger.ErrorContext(ctx, "Failed to register webhook",
 			"namespace", namespace,
 			"events", events,
@@ -167,18 +178,6 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 			"error", err,
 		)
 		return "", time.Time{}, fmt.Errorf("failed to register webhook: %w", err)
-	}
-
-	// Create subscriptions for each event
-	for _, event := range events {
-		sub := &store.EventSubscription{
-			WebhookID: registration.ID,
-			EventName: event,
-			Namespace: namespace,
-		}
-		if err := s.webhookRepo.CreateSubscription(ctx, tenantID, sub); err != nil {
-			s.logger.ErrorContext(ctx, "Failed to create subscription", "webhook_id", registration.ID, "event", event, "error", err)
-		}
 	}
 
 	if s.metrics != nil {
@@ -298,8 +297,17 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	}
 	storeWebhook.ExpectedStatusCodes = expectedCodes
 
-	// Register the webhook
-	if err := s.webhookRepo.RegisterWebhook(ctx, tenantID, storeWebhook); err != nil {
+	// Build subscriptions slice for atomic creation
+	var subscriptions []*store.EventSubscription
+	for _, event := range req.Events {
+		subscriptions = append(subscriptions, &store.EventSubscription{
+			EventName: event,
+			Namespace: req.Namespace,
+		})
+	}
+
+	// Atomically register the webhook and all subscriptions in a single transaction
+	if err := s.webhookRepo.RegisterWebhookWithSubscriptions(ctx, tenantID, storeWebhook, subscriptions); err != nil {
 		s.logger.ErrorContext(ctx, "Failed to register webhook",
 			"namespace", req.Namespace,
 			"events", req.Events,
@@ -309,18 +317,6 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "failed to register webhook")
 		return nil, fmt.Errorf("failed to register webhook: %w", err)
-	}
-
-	// Create subscriptions for each event
-	for _, event := range req.Events {
-		sub := &store.EventSubscription{
-			WebhookID: storeWebhook.ID,
-			EventName: event,
-			Namespace: req.Namespace,
-		}
-		if err := s.webhookRepo.CreateSubscription(ctx, tenantID, sub); err != nil {
-			s.logger.ErrorContext(ctx, "Failed to create subscription", "webhook_id", storeWebhook.ID, "event", event, "error", err)
-		}
 	}
 
 	// Update metrics
@@ -573,6 +569,15 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 			"event", event,
 			"error", err,
 		)
+		// Compensation: delete the orphaned event record since the job failed.
+		// This prevents events from existing in the DB without a corresponding
+		// processing job (cross-driver: sqlx event store + pgx River job).
+		if delErr := s.webhookRepo.DeleteEventByID(ctx, tenantID, eventRecord.ID); delErr != nil {
+			s.logger.ErrorContext(ctx, "Failed to compensate: could not delete orphaned event record",
+				"event_id", eventID,
+				"delete_error", delErr,
+			)
+		}
 		return "", fmt.Errorf("failed to schedule event processing: %w", err)
 	}
 
@@ -1527,27 +1532,19 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	}
 	// Update subscriptions if events are provided
 	if len(events) > 0 {
-		// Delete existing subscriptions
-		existingSubs, err := s.webhookRepo.ListSubscriptions(ctx, tenantID, webhookUUID)
-		if err != nil {
-			s.logger.ErrorContext(ctx, "Failed to get existing subscriptions", "error", err)
-		} else {
-			for _, sub := range existingSubs {
-				if err := s.webhookRepo.DeleteSubscription(ctx, tenantID, sub.ID); err != nil {
-					s.logger.ErrorContext(ctx, "Failed to delete subscription", "subscription_id", sub.ID, "error", err)
-				}
-			}
-		}
-		// Create new subscriptions
+		// Build new subscriptions slice
+		var newSubs []*store.EventSubscription
 		for _, event := range events {
-			sub := &store.EventSubscription{
-				WebhookID: webhookUUID,
+			newSubs = append(newSubs, &store.EventSubscription{
 				EventName: event,
-				Namespace: namespace,
-			}
-			if err := s.webhookRepo.CreateSubscription(ctx, tenantID, sub); err != nil {
-				s.logger.ErrorContext(ctx, "Failed to create subscription", "webhook_id", webhookID, "event", event, "error", err)
-			}
+			})
+		}
+		// Atomically replace all subscriptions in a single transaction
+		if err := s.webhookRepo.ReplaceWebhookSubscriptions(ctx, tenantID, webhookUUID, namespace, newSubs); err != nil {
+			s.logger.ErrorContext(ctx, "Failed to replace webhook subscriptions",
+				"webhook_id", webhookID,
+				"error", err)
+			return fmt.Errorf("failed to update webhook subscriptions: %w", err)
 		}
 	}
 	if url != "" {

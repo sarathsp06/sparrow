@@ -3,16 +3,16 @@
     subscriptionClient as client,
     webhookClient,
     eventClient,
-  } from '$lib/services';
-  import { onMount } from 'svelte';
+  } from "$lib/services";
+  import { onMount } from "svelte";
 
   import type {
     EventSubscription,
     TemplateFunction,
     RegisteredEvent,
-  } from '../../../../proto/webhook_pb';
-  import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-  import EmptyState from '$lib/components/EmptyState.svelte';
+  } from "../../../../proto/webhook_pb";
+  import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
 
   let {
     webhookId,
@@ -26,12 +26,12 @@
     onRefresh?: () => void;
   } = $props();
 
-  let error: string = $state('');
+  let error: string = $state("");
   let loading = $state(false);
 
   // Modal state
   let modalOpen = $state(false);
-  let modalMode = $state<'create' | 'edit'>('create');
+  let modalMode = $state<"create" | "edit">("create");
 
   // Delete confirmation
   let confirmDeleteOpen = $state(false);
@@ -47,20 +47,20 @@
   let availableEvents: RegisteredEvent[] = $state([]);
   let selectedEventDetails: RegisteredEvent | null = $state(null);
   let previewLoading = $state(false);
-  let dryRunResult = $state('');
-  let dryRunError = $state('');
+  let dryRunResult = $state("");
+  let dryRunError = $state("");
 
   // Catch-all constant
-  const CATCH_ALL_EVENT = '*';
+  const CATCH_ALL_EVENT = "*";
 
   // Form state (shared for create/edit)
   let form = $state({
-    subscriptionId: '',
-    eventName: '',
-    namespace: '',
+    subscriptionId: "",
+    eventName: "",
+    namespace: "",
     transformEnabled: false,
-    transformTemplate: '',
-    method: 'POST',
+    transformTemplate: "",
+    method: "POST",
     timeout: 30,
     headers: {} as Record<string, string>,
   });
@@ -68,35 +68,38 @@
   // Whether the catch-all toggle is on (controls eventName = '*')
   let catchAllEnabled = $state(false);
 
-  let newHeaderKey = $state('');
-  let newHeaderValue = $state('');
+  let newHeaderKey = $state("");
+  let newHeaderValue = $state("");
 
   function resetForm() {
     form = {
-      subscriptionId: '',
-      eventName: '',
-      namespace: namespace || '',
+      subscriptionId: "",
+      eventName: "",
+      namespace: namespace || "",
       transformEnabled: false,
-      transformTemplate: '',
-      method: 'POST',
+      transformTemplate: "",
+      method: "POST",
       timeout: 30,
       headers: {},
     };
     catchAllEnabled = false;
-    newHeaderKey = '';
-    newHeaderValue = '';
+    newHeaderKey = "";
+    newHeaderValue = "";
     selectedEventDetails = null;
-    dryRunResult = '';
-    dryRunError = '';
+    dryRunResult = "";
+    dryRunError = "";
     showTemplateDocs = false;
     selectedFunction = null;
   }
 
   function addHeader() {
     if (newHeaderKey.trim() && newHeaderValue.trim()) {
-      form.headers = { ...form.headers, [newHeaderKey.trim()]: newHeaderValue.trim() };
-      newHeaderKey = '';
-      newHeaderValue = '';
+      form.headers = {
+        ...form.headers,
+        [newHeaderKey.trim()]: newHeaderValue.trim(),
+      };
+      newHeaderKey = "";
+      newHeaderValue = "";
     }
   }
 
@@ -110,7 +113,7 @@
       const response = await eventClient.listEvents({ activeOnly: true });
       availableEvents = response.events;
     } catch (e: any) {
-      console.error('Failed to fetch events:', e);
+      console.error("Failed to fetch events:", e);
     }
   }
 
@@ -130,16 +133,16 @@
         selectedEventDetails = null;
       }
     }
-    dryRunResult = '';
-    dryRunError = '';
+    dryRunResult = "";
+    dryRunError = "";
   }
 
   async function testTemplate() {
     if (!form.eventName || !form.transformTemplate) return;
     try {
       previewLoading = true;
-      dryRunError = '';
-      dryRunResult = '';
+      dryRunError = "";
+      dryRunResult = "";
       const response = await client.testSubscriptionTemplate({
         eventName: form.eventName,
         transformTemplate: form.transformTemplate,
@@ -159,7 +162,7 @@
       loading = true;
       const response = await client.listSubscriptions({
         webhookId,
-        namespace: namespace || '',
+        namespace: namespace || "",
       });
       subscriptions = response.subscriptions;
       onRefresh?.();
@@ -171,10 +174,10 @@
   }
 
   async function saveSubscription() {
-    error = '';
+    error = "";
     try {
       const eventName = catchAllEnabled ? CATCH_ALL_EVENT : form.eventName;
-      if (modalMode === 'create') {
+      if (modalMode === "create") {
         await client.createSubscription({
           webhookId,
           eventName,
@@ -200,13 +203,13 @@
       resetForm();
       await fetchSubscriptions();
     } catch (e: any) {
-      error = `Failed to ${modalMode === 'create' ? 'create' : 'update'} subscription: ${e.message}`;
+      error = `Failed to ${modalMode === "create" ? "create" : "update"} subscription: ${e.message}`;
     }
   }
 
   function openCreateModal() {
     resetForm();
-    modalMode = 'create';
+    modalMode = "create";
     modalOpen = true;
   }
 
@@ -217,13 +220,13 @@
       eventName: subscription.eventName,
       namespace: subscription.namespace,
       transformEnabled: subscription.transformEnabled,
-      transformTemplate: subscription.transformTemplate || '',
-      method: subscription.method || 'POST',
+      transformTemplate: subscription.transformTemplate || "",
+      method: subscription.method || "POST",
       timeout: subscription.timeout || 30,
       headers: { ...subscription.headers } || {},
     };
     handleEventChange(subscription.eventName);
-    modalMode = 'edit';
+    modalMode = "edit";
     modalOpen = true;
   }
 
@@ -237,7 +240,7 @@
     try {
       await client.deleteSubscription({
         subscriptionId: subscriptionToDelete,
-        namespace: namespace || '',
+        namespace: namespace || "",
       });
       confirmDeleteOpen = false;
       subscriptionToDelete = null;
@@ -279,38 +282,38 @@
     usage: string;
     example: string;
   } {
-    const lines = description.split('\n');
-    let title = '';
-    let summary = '';
-    let usage = '';
-    let example = '';
-    let currentSection = '';
+    const lines = description.split("\n");
+    let title = "";
+    let summary = "";
+    let usage = "";
+    let example = "";
+    let currentSection = "";
 
     for (const line of lines) {
-      if (line.trim().startsWith('# ')) {
-        title = line.replace(/^#\s*/, '').trim();
-      } else if (line.trim().startsWith('## Usage')) {
-        currentSection = 'usage';
-      } else if (line.trim().startsWith('## Example')) {
-        currentSection = 'example';
-      } else if (line.trim() === '```') {
-        if (currentSection === 'usage') usage += '\n';
-        if (currentSection === 'example') example += '\n';
-      } else if (line.trim().startsWith('##')) {
-        currentSection = 'other';
+      if (line.trim().startsWith("# ")) {
+        title = line.replace(/^#\s*/, "").trim();
+      } else if (line.trim().startsWith("## Usage")) {
+        currentSection = "usage";
+      } else if (line.trim().startsWith("## Example")) {
+        currentSection = "example";
+      } else if (line.trim() === "```") {
+        if (currentSection === "usage") usage += "\n";
+        if (currentSection === "example") example += "\n";
+      } else if (line.trim().startsWith("##")) {
+        currentSection = "other";
       } else {
-        if (!currentSection && !line.trim().startsWith('#') && line.trim()) {
-          summary += line + '\n';
-        } else if (currentSection === 'usage') {
-          usage += line + '\n';
-        } else if (currentSection === 'example') {
-          example += line + '\n';
+        if (!currentSection && !line.trim().startsWith("#") && line.trim()) {
+          summary += line + "\n";
+        } else if (currentSection === "usage") {
+          usage += line + "\n";
+        } else if (currentSection === "example") {
+          example += line + "\n";
         }
       }
     }
 
     return {
-      title: title || 'Function',
+      title: title || "Function",
       summary: summary.trim(),
       usage: usage.trim(),
       example: example.trim(),
@@ -325,7 +328,9 @@
 <div>
   <!-- Header with Add button -->
   <div class="flex items-center justify-between mb-4">
-    <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Event Subscriptions</h3>
+    <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+      Event Subscriptions
+    </h3>
     <button
       onclick={openCreateModal}
       class="inline-flex items-center gap-1.5 bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition shadow-sm"
@@ -336,11 +341,29 @@
   </div>
 
   {#if error}
-    <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-start justify-between">
+    <div
+      class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-start justify-between"
+    >
       <p class="text-sm text-red-700">{error}</p>
-      <button onclick={() => { error = ''; }} class="text-red-400 hover:text-red-600 ml-3 shrink-0" aria-label="Dismiss error">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      <button
+        onclick={() => {
+          error = "";
+        }}
+        class="text-red-400 hover:text-red-600 ml-3 shrink-0"
+        aria-label="Dismiss error"
+      >
+        <svg
+          class="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M6 18L18 6M6 6l12 12"
+          />
         </svg>
       </button>
     </div>
@@ -350,7 +373,9 @@
     <!-- Loading skeleton -->
     <div class="space-y-3">
       {#each Array(3) as _}
-        <div class="bg-white rounded-lg border border-gray-200 p-4 animate-pulse">
+        <div
+          class="bg-white rounded-lg border border-gray-200 p-4 animate-pulse"
+        >
           <div class="flex items-center gap-2 mb-2">
             <div class="h-4 bg-gray-200 rounded w-32"></div>
             <div class="h-4 bg-gray-100 rounded w-16"></div>
@@ -384,7 +409,9 @@
     <!-- Subscription cards -->
     <div class="space-y-3">
       {#each subscriptions as subscription}
-        <div class="bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition">
+        <div
+          class="bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition"
+        >
           <div class="p-4">
             <div class="flex items-start justify-between gap-4">
               <div class="flex-1 min-w-0">
@@ -398,37 +425,60 @@
                     {/if}
                   </h3>
                   {#if subscription.eventName === CATCH_ALL_EVENT}
-                    <span class="px-1.5 py-0.5 text-xs font-medium bg-purple-50 text-purple-700 rounded border border-purple-200">
+                    <span
+                      class="px-1.5 py-0.5 text-xs font-medium bg-purple-50 text-purple-700 rounded border border-purple-200"
+                    >
                       Catch-All
                     </span>
                   {/if}
-                  <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">
+                  <span
+                    class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded"
+                  >
                     {subscription.namespace}
                   </span>
-                  <span class="px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded">
-                    {subscription.method || 'POST'}
+                  <span
+                    class="px-1.5 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 rounded"
+                  >
+                    {subscription.method || "POST"}
                   </span>
                   {#if subscription.transformEnabled}
-                    <span class="px-1.5 py-0.5 text-xs font-medium bg-green-50 text-green-700 rounded">
+                    <span
+                      class="px-1.5 py-0.5 text-xs font-medium bg-green-50 text-green-700 rounded"
+                    >
                       Template
                     </span>
                   {/if}
                 </div>
 
                 <!-- Details row -->
-                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                <div
+                  class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500"
+                >
                   <span>Timeout: {subscription.timeout || 30}s</span>
-                  <span>Created: {subscription.createdAt ? new Date(Number(subscription.createdAt.seconds) * 1000).toLocaleDateString() : 'N/A'}</span>
-                  <span class="font-mono text-gray-400">{subscription.subscriptionId.substring(0, 12)}...</span>
+                  <span
+                    >Created: {subscription.createdAt
+                      ? new Date(
+                          Number(subscription.createdAt.seconds) * 1000,
+                        ).toLocaleDateString()
+                      : "N/A"}</span
+                  >
+                  <span class="font-mono text-gray-400"
+                    >{subscription.subscriptionId.substring(0, 12)}...</span
+                  >
                 </div>
 
                 <!-- Template preview -->
                 {#if subscription.transformEnabled && subscription.transformTemplate}
                   <details class="mt-3">
-                    <summary class="text-xs font-medium text-gray-600 cursor-pointer hover:text-gray-800 select-none">
+                    <summary
+                      class="text-xs font-medium text-gray-600 cursor-pointer hover:text-gray-800 select-none"
+                    >
                       View Template
                     </summary>
-                    <pre class="mt-1.5 bg-gray-50 p-3 rounded-lg text-xs overflow-x-auto max-h-32 border border-gray-200 font-mono">{formatTemplate(subscription.transformTemplate)}</pre>
+                    <pre
+                      class="mt-1.5 bg-gray-50 p-3 rounded-lg text-xs overflow-x-auto max-h-32 border border-gray-200 font-mono">{formatTemplate(
+                        subscription.transformTemplate,
+                      )}</pre>
                   </details>
                 {/if}
 
@@ -436,7 +486,9 @@
                 {#if Object.keys(subscription.headers || {}).length > 0}
                   <div class="mt-2 flex flex-wrap gap-1">
                     {#each Object.entries(subscription.headers) as [key, value]}
-                      <span class="text-xs bg-gray-50 text-gray-600 px-2 py-0.5 rounded border border-gray-200 font-mono">
+                      <span
+                        class="text-xs bg-gray-50 text-gray-600 px-2 py-0.5 rounded border border-gray-200 font-mono"
+                      >
                         {key}: {value}
                       </span>
                     {/each}
@@ -470,32 +522,64 @@
 <!-- Create/Edit Subscription Modal -->
 {#if modalOpen}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto">
+  <div
+    class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto"
+  >
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" role="presentation" onclick={() => { modalOpen = false; resetForm(); }}></div>
-    <div class="relative w-full max-w-2xl mx-4 my-12 bg-white rounded-xl shadow-2xl">
+    <div
+      class="fixed inset-0 bg-black/40 backdrop-blur-sm"
+      role="presentation"
+      onclick={() => {
+        modalOpen = false;
+        resetForm();
+      }}
+    ></div>
+    <div
+      class="relative w-full max-w-2xl mx-4 my-12 bg-white rounded-xl shadow-2xl"
+    >
       <!-- Modal header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+      <div
+        class="flex items-center justify-between px-6 py-4 border-b border-gray-200"
+      >
         <h3 class="text-lg font-semibold text-gray-900">
-          {modalMode === 'create' ? 'Create Subscription' : 'Edit Subscription'}
+          {modalMode === "create" ? "Create Subscription" : "Edit Subscription"}
         </h3>
         <button
-          onclick={() => { modalOpen = false; resetForm(); }}
+          onclick={() => {
+            modalOpen = false;
+            resetForm();
+          }}
           class="p-1 text-gray-400 hover:text-gray-600 rounded transition"
           aria-label="Close modal"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>
 
       <!-- Modal body -->
-      <div class="px-6 py-4 space-y-4 max-h-[calc(100vh-12rem)] overflow-y-auto">
+      <div
+        class="px-6 py-4 space-y-4 max-h-[calc(100vh-12rem)] overflow-y-auto"
+      >
         <!-- Event Name -->
         <div>
-          <label for="modal-event-name" class="block text-sm font-medium text-gray-700 mb-1">Event Name</label>
-          {#if modalMode === 'create'}
+          <label
+            for="modal-event-name"
+            class="block text-sm font-medium text-gray-700 mb-1"
+            >Event Name</label
+          >
+          {#if modalMode === "create"}
             <!-- Catch-all toggle -->
             <div class="flex items-center gap-3 mb-3">
               <button
@@ -506,17 +590,27 @@
                     form.eventName = CATCH_ALL_EVENT;
                     selectedEventDetails = null;
                   } else {
-                    form.eventName = '';
+                    form.eventName = "";
                   }
                 }}
                 aria-label="Toggle catch-all subscription"
-                class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {catchAllEnabled ? 'bg-purple-500' : 'bg-gray-300'}"
+                class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {catchAllEnabled
+                  ? 'bg-purple-500'
+                  : 'bg-gray-300'}"
               >
-                <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {catchAllEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
+                <span
+                  class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {catchAllEnabled
+                    ? 'translate-x-4'
+                    : 'translate-x-0'}"
+                ></span>
               </button>
               <div>
-                <span class="text-sm font-medium text-gray-700">Catch-All Subscription</span>
-                <p class="text-xs text-gray-500">Receive every event in this namespace</p>
+                <span class="text-sm font-medium text-gray-700"
+                  >Catch-All Subscription</span
+                >
+                <p class="text-xs text-gray-500">
+                  Receive every event in this namespace
+                </p>
               </div>
             </div>
 
@@ -543,15 +637,31 @@
                 />
               </div>
             {:else}
-              <div class="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
-                <p class="text-sm text-purple-700 font-medium">This subscription will receive all events in the namespace.</p>
-                <p class="text-xs text-purple-600 mt-1">Use template variables <code class="bg-purple-100 px-1 rounded">{'{{.EventName}}'}</code>, <code class="bg-purple-100 px-1 rounded">{'{{.EventID}}'}</code>, <code class="bg-purple-100 px-1 rounded">{'{{.Payload}}'}</code> for dynamic payloads.</p>
+              <div
+                class="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2"
+              >
+                <p class="text-sm text-purple-700 font-medium">
+                  This subscription will receive all events in the namespace.
+                </p>
+                <p class="text-xs text-purple-600 mt-1">
+                  Use template variables <code
+                    class="bg-purple-100 px-1 rounded">{"{{.EventName}}"}</code
+                  >,
+                  <code class="bg-purple-100 px-1 rounded"
+                    >{"{{.EventID}}"}</code
+                  >,
+                  <code class="bg-purple-100 px-1 rounded"
+                    >{"{{.Payload}}"}</code
+                  > for dynamic payloads.
+                </p>
               </div>
             {/if}
           {:else}
             <input
               type="text"
-              value={form.eventName === CATCH_ALL_EVENT ? 'All Events (Catch-All)' : form.eventName}
+              value={form.eventName === CATCH_ALL_EVENT
+                ? "All Events (Catch-All)"
+                : form.eventName}
               disabled
               class="w-full text-sm rounded-lg border-gray-300 bg-gray-50 text-gray-500"
             />
@@ -560,21 +670,35 @@
 
         <!-- Namespace -->
         <div>
-          <label for="modal-namespace" class="block text-sm font-medium text-gray-700 mb-1">Namespace</label>
+          <label
+            for="modal-namespace"
+            class="block text-sm font-medium text-gray-700 mb-1"
+            >Namespace</label
+          >
           <input
             id="modal-namespace"
             type="text"
             bind:value={form.namespace}
-            disabled={modalMode === 'edit'}
-            class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 {modalMode === 'edit' ? 'bg-gray-50 text-gray-500' : ''}"
+            disabled={modalMode === "edit"}
+            class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 {modalMode ===
+            'edit'
+              ? 'bg-gray-50 text-gray-500'
+              : ''}"
           />
         </div>
 
         <!-- Method + Timeout -->
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label for="modal-method" class="block text-sm font-medium text-gray-700 mb-1">Method</label>
-            <select id="modal-method" bind:value={form.method} class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900">
+            <label
+              for="modal-method"
+              class="block text-sm font-medium text-gray-700 mb-1">Method</label
+            >
+            <select
+              id="modal-method"
+              bind:value={form.method}
+              class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+            >
               <option value="GET">GET</option>
               <option value="POST">POST</option>
               <option value="PUT">PUT</option>
@@ -582,7 +706,11 @@
             </select>
           </div>
           <div>
-            <label for="modal-timeout" class="block text-sm font-medium text-gray-700 mb-1">Timeout (seconds)</label>
+            <label
+              for="modal-timeout"
+              class="block text-sm font-medium text-gray-700 mb-1"
+              >Timeout (seconds)</label
+            >
             <input
               id="modal-timeout"
               type="number"
@@ -598,26 +726,40 @@
         <div class="flex items-center gap-3">
           <button
             type="button"
-            onclick={() => { form.transformEnabled = !form.transformEnabled; }}
+            onclick={() => {
+              form.transformEnabled = !form.transformEnabled;
+            }}
             aria-label="Toggle payload transformation"
-            class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {form.transformEnabled ? 'bg-green-500' : 'bg-gray-300'}"
+            class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {form.transformEnabled
+              ? 'bg-green-500'
+              : 'bg-gray-300'}"
           >
-            <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {form.transformEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
+            <span
+              class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {form.transformEnabled
+                ? 'translate-x-4'
+                : 'translate-x-0'}"
+            ></span>
           </button>
-          <span class="text-sm font-medium text-gray-700">Enable Payload Transformation</span>
+          <span class="text-sm font-medium text-gray-700"
+            >Enable Payload Transformation</span
+          >
         </div>
 
         <!-- Transform template -->
         {#if form.transformEnabled}
           <div class="space-y-3">
             <div class="flex items-center justify-between">
-              <label for="modal-template" class="block text-sm font-medium text-gray-700">Transform Template</label>
+              <label
+                for="modal-template"
+                class="block text-sm font-medium text-gray-700"
+                >Transform Template</label
+              >
               <button
                 type="button"
                 onclick={fetchTemplateFunctions}
                 class="text-xs font-medium text-gray-600 hover:text-gray-900 transition"
               >
-                {showTemplateDocs ? 'Hide' : 'Show'} Functions Reference
+                {showTemplateDocs ? "Hide" : "Show"} Functions Reference
               </button>
             </div>
 
@@ -625,30 +767,46 @@
             {#if selectedEventDetails}
               <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
                 <div class="flex items-center justify-between mb-2">
-                  <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Preview</span>
+                  <span
+                    class="text-xs font-semibold text-gray-500 uppercase tracking-wider"
+                    >Preview</span
+                  >
                   <button
                     type="button"
                     onclick={testTemplate}
                     disabled={previewLoading || !form.transformTemplate}
                     class="px-3 py-1 text-xs font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:bg-gray-400 transition"
                   >
-                    {previewLoading ? 'Running...' : 'Run Preview'}
+                    {previewLoading ? "Running..." : "Run Preview"}
                   </button>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <p class="text-[10px] text-gray-500 mb-1 font-medium">Input (Sample)</p>
-                    <pre class="bg-white p-2 border border-gray-200 rounded text-[10px] overflow-auto max-h-32 font-mono">{JSON.stringify(selectedEventDetails.samplePayload, null, 2)}</pre>
+                    <p class="text-[10px] text-gray-500 mb-1 font-medium">
+                      Input (Sample)
+                    </p>
+                    <pre
+                      class="bg-white p-2 border border-gray-200 rounded text-[10px] overflow-auto max-h-32 font-mono">{JSON.stringify(
+                        selectedEventDetails.samplePayload,
+                        null,
+                        2,
+                      )}</pre>
                   </div>
                   <div>
-                    <p class="text-[10px] text-gray-500 mb-1 font-medium">Output (Transformed)</p>
-                    <div class="bg-white p-2 border border-gray-200 rounded text-[10px] overflow-auto max-h-32 min-h-[40px] font-mono">
+                    <p class="text-[10px] text-gray-500 mb-1 font-medium">
+                      Output (Transformed)
+                    </p>
+                    <div
+                      class="bg-white p-2 border border-gray-200 rounded text-[10px] overflow-auto max-h-32 min-h-[40px] font-mono"
+                    >
                       {#if dryRunResult}
                         <pre>{dryRunResult}</pre>
                       {:else if dryRunError}
                         <pre class="text-red-600">{dryRunError}</pre>
                       {:else}
-                        <span class="text-gray-400 italic">Click "Run Preview" to see results</span>
+                        <span class="text-gray-400 italic"
+                          >Click "Run Preview" to see results</span
+                        >
                       {/if}
                     </div>
                   </div>
@@ -656,7 +814,12 @@
               </div>
             {/if}
 
-            <div class="grid gap-3" style="grid-template-columns: {showTemplateDocs ? '1fr 1fr' : '1fr'}">
+            <div
+              class="grid gap-3"
+              style="grid-template-columns: {showTemplateDocs
+                ? '1fr 1fr'
+                : '1fr'}"
+            >
               <div>
                 <textarea
                   id="modal-template"
@@ -665,39 +828,61 @@
                   placeholder={'{\n  "user_id": "{{ .Payload.id }}",\n  "email": "{{ .Payload.email | urlencode }}"\n}'}
                   class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 font-mono"
                 ></textarea>
-                <p class="text-xs text-gray-400 mt-1">Go template syntax for payload transformation</p>
+                <p class="text-xs text-gray-400 mt-1">
+                  Go template syntax for payload transformation
+                </p>
               </div>
 
               {#if showTemplateDocs}
                 <div class="border border-gray-200 rounded-lg overflow-hidden">
                   <div class="bg-gray-50 px-3 py-2 border-b border-gray-200">
-                    <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wide">Template Functions</h4>
+                    <h4
+                      class="text-xs font-semibold text-gray-700 uppercase tracking-wide"
+                    >
+                      Template Functions
+                    </h4>
                   </div>
                   <div class="overflow-y-auto max-h-72">
                     {#if loadingTemplateFunctions}
-                      <div class="p-4 text-center text-sm text-gray-500">Loading...</div>
+                      <div class="p-4 text-center text-sm text-gray-500">
+                        Loading...
+                      </div>
                     {:else}
                       <div class="divide-y divide-gray-100">
                         {#each templateFunctions as func}
                           {@const parsed = parseMarkdown(func.description)}
                           <button
                             type="button"
-                            onclick={() => (selectedFunction = selectedFunction?.name === func.name ? null : func)}
+                            onclick={() =>
+                              (selectedFunction =
+                                selectedFunction?.name === func.name
+                                  ? null
+                                  : func)}
                             class="w-full text-left px-3 py-2 hover:bg-gray-50 transition"
                           >
-                            <code class="text-xs font-semibold text-blue-600">{func.name}</code>
+                            <code class="text-xs font-semibold text-blue-600"
+                              >{func.name}</code
+                            >
                             {#if selectedFunction?.name === func.name}
                               <div class="mt-1.5 space-y-1.5">
-                                <p class="text-xs text-gray-600">{parsed.summary}</p>
+                                <p class="text-xs text-gray-600">
+                                  {parsed.summary}
+                                </p>
                                 {#if parsed.usage}
-                                  <pre class="text-[10px] bg-gray-800 text-gray-100 p-2 rounded overflow-x-auto">{parsed.usage}</pre>
+                                  <pre
+                                    class="text-[10px] bg-gray-800 text-gray-100 p-2 rounded overflow-x-auto">{parsed.usage}</pre>
                                 {/if}
                                 {#if parsed.example}
-                                  <pre class="text-[10px] bg-gray-800 text-gray-100 p-2 rounded overflow-x-auto">{parsed.example}</pre>
+                                  <pre
+                                    class="text-[10px] bg-gray-800 text-gray-100 p-2 rounded overflow-x-auto">{parsed.example}</pre>
                                 {/if}
                               </div>
                             {:else}
-                              <p class="text-[10px] text-gray-500 mt-0.5 truncate">{parsed.summary}</p>
+                              <p
+                                class="text-[10px] text-gray-500 mt-0.5 truncate"
+                              >
+                                {parsed.summary}
+                              </p>
                             {/if}
                           </button>
                         {/each}
@@ -713,22 +898,39 @@
         <!-- Headers -->
         <div>
           <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-medium text-gray-700">Custom Headers</span>
+            <span class="text-sm font-medium text-gray-700">Custom Headers</span
+            >
           </div>
 
           {#if Object.keys(form.headers).length > 0}
             <div class="space-y-1.5 mb-2">
               {#each Object.entries(form.headers) as [key, value]}
                 <div class="flex items-center gap-2">
-                  <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{key}</span>
-                  <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{value}</span>
+                  <span
+                    class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate"
+                    >{key}</span
+                  >
+                  <span
+                    class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate"
+                    >{value}</span
+                  >
                   <button
                     onclick={() => removeHeader(key)}
                     class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition"
                     aria-label="Remove header {key}"
                   >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -761,9 +963,14 @@
       </div>
 
       <!-- Modal footer -->
-      <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200">
+      <div
+        class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200"
+      >
         <button
-          onclick={() => { modalOpen = false; resetForm(); }}
+          onclick={() => {
+            modalOpen = false;
+            resetForm();
+          }}
           class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
         >
           Cancel
@@ -773,7 +980,9 @@
           disabled={!form.eventName}
           class="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition shadow-sm"
         >
-          {modalMode === 'create' ? 'Create Subscription' : 'Update Subscription'}
+          {modalMode === "create"
+            ? "Create Subscription"
+            : "Update Subscription"}
         </button>
       </div>
     </div>
@@ -788,5 +997,8 @@
   confirmLabel="Delete"
   variant="danger"
   onconfirm={executeDelete}
-  oncancel={() => { confirmDeleteOpen = false; subscriptionToDelete = null; }}
+  oncancel={() => {
+    confirmDeleteOpen = false;
+    subscriptionToDelete = null;
+  }}
 />

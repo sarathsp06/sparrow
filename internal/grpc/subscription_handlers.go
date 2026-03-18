@@ -6,6 +6,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/sarathsp06/sparrow/internal/audit"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
@@ -16,6 +17,17 @@ func (s *WebhookServer) CreateSubscription(ctx context.Context, req *pb.CreateSu
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to create subscription")
 	}
+
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionSubscriptionCreate,
+		ResourceType: audit.ResourceSubscription,
+		ResourceID:   subscriptionID,
+		Namespace:    req.Namespace,
+		Metadata: map[string]any{
+			"webhook_id": req.WebhookId,
+			"event_name": req.EventName,
+		},
+	})
 
 	return &pb.CreateSubscriptionResponse{
 		SubscriptionId: subscriptionID,
@@ -73,6 +85,13 @@ func (s *WebhookServer) UpdateSubscription(ctx context.Context, req *pb.UpdateSu
 		return nil, toGRPCError(ctx, err, "failed to update subscription")
 	}
 
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionSubscriptionUpdate,
+		ResourceType: audit.ResourceSubscription,
+		ResourceID:   req.SubscriptionId,
+		Namespace:    req.Namespace,
+	})
+
 	return &pb.UpdateSubscriptionResponse{}, nil
 }
 
@@ -82,6 +101,13 @@ func (s *WebhookServer) DeleteSubscription(ctx context.Context, req *pb.DeleteSu
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to delete subscription")
 	}
+
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionSubscriptionDelete,
+		ResourceType: audit.ResourceSubscription,
+		ResourceID:   req.SubscriptionId,
+		Namespace:    req.Namespace,
+	})
 
 	return &pb.DeleteSubscriptionResponse{}, nil
 }

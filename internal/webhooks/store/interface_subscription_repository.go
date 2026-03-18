@@ -36,7 +36,7 @@ func (r *Repository) CreateSubscription(ctx context.Context, tenantID uuid.UUID,
 		return fmt.Errorf("failed to marshal headers: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, query,
+	_, err = r.conn.ExecContext(ctx, query,
 		sub.ID,
 		sub.TenantID,
 		sub.WebhookID,
@@ -62,7 +62,7 @@ func (r *Repository) GetSubscription(ctx context.Context, tenantID uuid.UUID, id
 		WHERE tenant_id = $1 AND id = $2
 	`
 	var sub EventSubscription
-	err := r.db.GetContext(ctx, &sub, query, tenantID, id)
+	err := r.conn.GetContext(ctx, &sub, query, tenantID, id)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
@@ -88,7 +88,7 @@ func (r *Repository) UpdateSubscription(ctx context.Context, tenantID uuid.UUID,
 		WHERE tenant_id = $1 AND id = $2
 	`
 
-	_, err = r.db.ExecContext(ctx, query,
+	_, err = r.conn.ExecContext(ctx, query,
 		tenantID,
 		sub.ID,
 		headersJSON,
@@ -104,7 +104,7 @@ func (r *Repository) UpdateSubscription(ctx context.Context, tenantID uuid.UUID,
 // DeleteSubscription deletes a subscription within a tenant
 func (r *Repository) DeleteSubscription(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error {
 	query := `DELETE FROM event_subscriptions WHERE tenant_id = $1 AND id = $2`
-	_, err := r.db.ExecContext(ctx, query, tenantID, id)
+	_, err := r.conn.ExecContext(ctx, query, tenantID, id)
 	return storage.Error(err)
 }
 
@@ -118,7 +118,7 @@ func (r *Repository) ListSubscriptions(ctx context.Context, tenantID uuid.UUID, 
 		ORDER BY created_at DESC
 	`
 	var subs []*EventSubscription
-	err := r.db.SelectContext(ctx, &subs, query, tenantID, webhookID)
+	err := r.conn.SelectContext(ctx, &subs, query, tenantID, webhookID)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -129,7 +129,7 @@ func (r *Repository) ListSubscriptions(ctx context.Context, tenantID uuid.UUID, 
 func (r *Repository) ListSubscriptionsByNamespace(ctx context.Context, tenantID uuid.UUID, namespace string, limit, offset int) ([]*EventSubscription, int, error) {
 	countQuery := `SELECT COUNT(*) FROM event_subscriptions WHERE tenant_id = $1 AND namespace = $2`
 	var totalCount int
-	if err := r.db.GetContext(ctx, &totalCount, countQuery, tenantID, namespace); err != nil {
+	if err := r.conn.GetContext(ctx, &totalCount, countQuery, tenantID, namespace); err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
@@ -142,7 +142,7 @@ func (r *Repository) ListSubscriptionsByNamespace(ctx context.Context, tenantID 
 		LIMIT $3 OFFSET $4
 	`
 	var subs []*EventSubscription
-	err := r.db.SelectContext(ctx, &subs, query, tenantID, namespace, limit, offset)
+	err := r.conn.SelectContext(ctx, &subs, query, tenantID, namespace, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -163,7 +163,7 @@ func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.
 	`
 	var subscriptions []*EventSubscription
 
-	err := r.db.SelectContext(ctx, &subscriptions, query, tenantID, namespace, event)
+	err := r.conn.SelectContext(ctx, &subscriptions, query, tenantID, namespace, event)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -227,7 +227,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 	}
 
 	var rows []rowStruct
-	err := r.db.SelectContext(ctx, &rows, query, tenantID, namespace, event)
+	err := r.conn.SelectContext(ctx, &rows, query, tenantID, namespace, event)
 	if err != nil {
 		return nil, storage.Error(err)
 	}

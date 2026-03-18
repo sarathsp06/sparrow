@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/sarathsp06/sparrow/internal/audit"
 	"github.com/sarathsp06/sparrow/internal/auth"
 	"github.com/sarathsp06/sparrow/internal/namespace"
 	"github.com/sarathsp06/sparrow/pkg/storage"
@@ -19,15 +20,16 @@ import (
 type NamespaceServer struct {
 	pb.UnimplementedNamespaceServiceServer
 	pb.UnimplementedNamespaceMembershipServiceServer
-	svc *namespace.Service
+	svc   *namespace.Service
+	audit *audit.Logger
 }
 
 var _ pb.NamespaceServiceServer = (*NamespaceServer)(nil)
 var _ pb.NamespaceMembershipServiceServer = (*NamespaceServer)(nil)
 
 // NewNamespaceServer creates a new NamespaceServer.
-func NewNamespaceServer(svc *namespace.Service) *NamespaceServer {
-	return &NamespaceServer{svc: svc}
+func NewNamespaceServer(svc *namespace.Service, auditLogger *audit.Logger) *NamespaceServer {
+	return &NamespaceServer{svc: svc, audit: auditLogger}
 }
 
 // ---- NamespaceService ----
@@ -49,6 +51,17 @@ func (s *NamespaceServer) CreateNamespace(ctx context.Context, req *pb.CreateNam
 		}
 		return nil, toGRPCError(ctx, err, "create namespace")
 	}
+
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionNamespaceCreate,
+		ResourceType: audit.ResourceNamespace,
+		ResourceID:   ns.ID.String(),
+		Namespace:    ns.Name,
+		Metadata: map[string]any{
+			"name":        req.GetName(),
+			"description": req.GetDescription(),
+		},
+	})
 
 	return &pb.CreateNamespaceResponse{
 		Namespace: namespaceToProto(ns),
@@ -184,6 +197,17 @@ func (s *NamespaceServer) UpdateNamespace(ctx context.Context, req *pb.UpdateNam
 		return nil, toGRPCError(ctx, err, "update namespace")
 	}
 
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionNamespaceUpdate,
+		ResourceType: audit.ResourceNamespace,
+		ResourceID:   ns.ID.String(),
+		Namespace:    ns.Name,
+		Metadata: map[string]any{
+			"name":        req.GetName(),
+			"description": req.GetDescription(),
+		},
+	})
+
 	return &pb.UpdateNamespaceResponse2{
 		Namespace: namespaceToProto(ns),
 	}, nil
@@ -206,6 +230,12 @@ func (s *NamespaceServer) DeleteNamespace(ctx context.Context, req *pb.DeleteNam
 		}
 		return nil, toGRPCError(ctx, err, "delete namespace")
 	}
+
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionNamespaceDelete,
+		ResourceType: audit.ResourceNamespace,
+		ResourceID:   id.String(),
+	})
 
 	return &pb.DeleteNamespaceResponse2{}, nil
 }
@@ -237,6 +267,17 @@ func (s *NamespaceServer) AssignNamespaceRole(ctx context.Context, req *pb.Assig
 		return nil, toGRPCError(ctx, err, "assign namespace role")
 	}
 
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionMembershipAssign,
+		ResourceType: audit.ResourceMembership,
+		ResourceID:   m.ID.String(),
+		Namespace:    req.GetNamespace(),
+		Metadata: map[string]any{
+			"subject_id": req.GetSubjectId(),
+			"role":       req.GetRole(),
+		},
+	})
+
 	return &pb.AssignNamespaceRoleResponse{
 		Membership: membershipToProto(m),
 	}, nil
@@ -258,6 +299,16 @@ func (s *NamespaceServer) RemoveNamespaceRole(ctx context.Context, req *pb.Remov
 	if err := s.svc.RemoveNamespaceRole(ctx, info.TenantID, req.GetSubjectId(), req.GetNamespace()); err != nil {
 		return nil, toGRPCError(ctx, err, "remove namespace role")
 	}
+
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionMembershipRemove,
+		ResourceType: audit.ResourceMembership,
+		ResourceID:   req.GetSubjectId(),
+		Namespace:    req.GetNamespace(),
+		Metadata: map[string]any{
+			"subject_id": req.GetSubjectId(),
+		},
+	})
 
 	return &pb.RemoveNamespaceRoleResponse{}, nil
 }

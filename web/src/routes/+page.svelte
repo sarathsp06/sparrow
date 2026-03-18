@@ -1,94 +1,407 @@
-<script>
+<script lang="ts">
   import favicon from "$lib/assets/favicon.svg";
+  import { authConfig } from "$lib/auth/provider.js";
+
+  const features = [
+    {
+      icon: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+      title: "Guaranteed Delivery",
+      description: "Persistent storage ensures no webhook is ever lost. Events are stored in PostgreSQL with full transactional guarantees.",
+    },
+    {
+      icon: "M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15",
+      title: "Intelligent Retries",
+      description: "Exponential backoff with jitter, configurable retry policies, and automatic failure handling for robust delivery.",
+    },
+    {
+      icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+      title: "Multi-Tenancy",
+      description: "Built-in organization and project isolation. Perfect for SaaS platforms with multiple customers.",
+    },
+    {
+      icon: "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z",
+      title: "High Performance gRPC",
+      description: "Native gRPC API for maximum throughput. Efficient binary protocol for high-volume webhook processing.",
+    },
+    {
+      icon: "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
+      title: "Complete Observability",
+      description: "OpenTelemetry integration, structured logging, and Prometheus metrics for full visibility into your webhook pipeline.",
+    },
+    {
+      icon: "M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z M12 2a3 3 0 0 0-3 3v1a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z",
+      title: "Secure by Design",
+      description: "HMAC signature verification, TLS encryption, and secure secret management for enterprise security requirements.",
+    },
+  ];
+
+  const steps = [
+    {
+      num: "01",
+      title: "Register an Event",
+      description: "Define the event types your system will emit",
+      code: `curl -s -X POST http://localhost:8080/webhook.EventService/RegisterEvent \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "order.created",
+    "description": "New order placed",
+    "active": true
+  }'`,
+    },
+    {
+      num: "02",
+      title: "Register a Webhook",
+      description: "Point a URL at your events — subscriptions are created automatically",
+      code: `curl -s -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "namespace": "default",
+    "url": "https://httpbin.org/post",
+    "events": ["order.created"],
+    "active": true
+  }'`,
+    },
+    {
+      num: "03",
+      title: "Push an Event",
+      description: "Emit an event — Sparrow delivers it with retries and health tracking",
+      code: `curl -s -X POST http://localhost:8080/webhook.EventService/PushEvent \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "namespace": "default",
+    "event": "order.created",
+    "payload": {
+      "order_id": "ord_123",
+      "amount": 99.99
+    }
+  }'`,
+    },
+  ];
+
+  const archCards = [
+    {
+      icon: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
+      title: "API Layer",
+      description: "High-performance gRPC server with REST gateway for maximum flexibility and throughput.",
+      tags: ["gRPC", "REST", "Gateway"],
+    },
+    {
+      icon: "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
+      title: "Service Layer",
+      description: "Core business logic handling event routing, subscription matching, and delivery orchestration.",
+      tags: ["Events", "Subscriptions", "Routing"],
+    },
+    {
+      icon: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+      title: "Queue System",
+      description: "Reliable message queuing with worker pools for scalable, concurrent webhook processing.",
+      tags: ["Workers", "Queues", "Concurrency"],
+    },
+    {
+      icon: "M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7zM9 4v16M4 9h16M4 14h16",
+      title: "Storage Layer",
+      description: "PostgreSQL-backed persistence with full ACID guarantees for events, subscriptions, and delivery logs.",
+      tags: ["PostgreSQL", "ACID", "Logs"],
+    },
+  ];
+
+  const techStack = ["Go", "PostgreSQL", "gRPC", "SvelteKit", "OpenTelemetry"];
+
+  const hasClerk = authConfig.type === "clerk";
 </script>
 
 <svelte:head>
-  <title>Sparrow - Webhook Queue</title>
+  <title>Sparrow - Modern Event-Driven Webhook Delivery System</title>
+  <meta name="description" content="High-performance, production-ready webhook delivery system with guaranteed delivery, intelligent retries, and complete observability." />
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50 flex flex-col">
-  <main class="flex-1 flex flex-col items-center justify-center text-center px-4">
-    <div class="max-w-2xl py-8">
-      <div class="mb-6">
-        <img
-          src={favicon}
-          alt="Sparrow logo"
-          class="w-24 h-24 mx-auto mb-4"
-        />
-        <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight">
-          Sparrow Webhook Queue
-        </h1>
-        <p class="text-lg text-gray-500 mt-2 font-mono">
-          Developer-Focused. Minimal. Reliable.
-        </p>
-      </div>
-
-      <p class="text-gray-600 mb-8 max-w-lg mx-auto">
-        Register, monitor, and deliver webhooks with speed and clarity.
-        Open source, built for developers.
-      </p>
-
-      <div class="mb-8">
-        <div class="flex flex-col sm:flex-row gap-3 justify-center items-center max-w-md mx-auto">
-          <a
-            href="/webhooks"
-            class="w-full sm:w-auto bg-gray-900 text-white font-medium py-3 px-8 rounded-lg shadow hover:bg-gray-800 transition text-sm text-center"
-          >
-            View Webhooks
+<div class="font-inter min-h-screen bg-white text-gray-900">
+  <!-- ============================================================ -->
+  <!-- HEADER -->
+  <!-- ============================================================ -->
+  <header class="fixed top-0 left-0 right-0 z-50 border-b border-gray-200/60 bg-white/80 backdrop-blur-xl">
+    <div class="max-w-[1400px] mx-auto px-6 flex items-center justify-between h-16">
+      <a href="/" class="flex items-center gap-3">
+        <img src={favicon} alt="Sparrow" class="w-8 h-8" />
+        <span class="text-xl font-bold font-fira text-gray-900">Sparrow</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-8">
+        <a href="#features" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Features</a>
+        <a href="#getting-started" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Getting Started</a>
+        <a href="#architecture" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Architecture</a>
+        <a href="https://github.com/sarathsp06/sparrow" target="_blank" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Documentation</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <a
+          href="https://github.com/sarathsp06/sparrow"
+          target="_blank"
+          class="hidden md:inline-flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+        {#if hasClerk}
+          <a href="/webhooks" class="px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all">
+            Log In
           </a>
-          <a
-            href="/webhooks/register"
-            class="w-full sm:w-auto bg-white text-gray-900 font-medium py-3 px-8 rounded-lg shadow border border-gray-300 hover:bg-gray-50 transition text-sm text-center"
-          >
-            Register Webhook
+          <a href="/webhooks" class="px-4 py-2 text-sm font-medium rounded-lg bg-teal-500 text-white hover:bg-teal-600 transition-all">
+            Sign Up
           </a>
-        </div>
-        <div class="mt-4 flex items-center justify-center gap-4 text-sm">
-          <a href="/events" class="text-gray-500 hover:text-gray-900 transition font-medium">
-            View Events
+        {:else}
+          <a href="/webhooks" class="px-4 py-2 text-sm font-medium rounded-lg bg-teal-500 text-white hover:bg-teal-600 transition-all">
+            Open Dashboard
           </a>
-          <span class="text-gray-300">|</span>
-          <a href="/health" class="text-gray-500 hover:text-gray-900 transition font-medium">
-            Health Dashboard
-          </a>
-        </div>
+        {/if}
       </div>
     </div>
-  </main>
+  </header>
 
-  <section class="py-16 px-4 border-t border-gray-200 bg-white">
-    <div class="max-w-5xl mx-auto">
-      <h2 class="text-2xl font-bold text-gray-900 text-center mb-10">Features</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div class="bg-gray-50 rounded-lg p-6 border border-gray-100">
-          <h3 class="text-base font-semibold text-gray-800 mb-2">Event-Driven Delivery</h3>
-          <p class="text-sm text-gray-600">
-            Push events and let Sparrow handle delivery, retries, and status tracking automatically.
+  <!-- ============================================================ -->
+  <!-- HERO SECTION -->
+  <!-- ============================================================ -->
+  <section class="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
+    <!-- Subtle background gradient (light theme) -->
+    <div class="absolute inset-0 bg-gradient-to-br from-teal-50/60 via-white to-sky-50/40"></div>
+    <div class="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[80px] bg-teal-100/50 animate-pulse"></div>
+    <div class="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full blur-[60px] bg-sky-100/40 animate-pulse" style="animation-delay: 1.5s;"></div>
+
+    <div class="max-w-[1400px] mx-auto px-6 relative z-10">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <!-- Left column -->
+        <div class="flex flex-col gap-8">
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full w-fit text-sm bg-teal-50 border border-teal-200/60">
+            <svg class="w-4 h-4 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span class="text-teal-600 font-medium">High-Performance Webhook Delivery</span>
+          </div>
+
+          <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight font-fira">
+            Modern <span class="bg-gradient-to-r from-teal-500 to-sky-500 bg-clip-text text-transparent">Event-Driven</span><br />
+            Webhook System
+          </h1>
+
+          <p class="text-lg leading-relaxed max-w-xl text-gray-500">
+            Production-ready webhook delivery with guaranteed delivery, intelligent retries, and complete observability. Enterprise-grade infrastructure out of the box.
           </p>
+
+          <div class="flex flex-col sm:flex-row gap-4">
+            {#if hasClerk}
+              <a href="/webhooks" class="inline-flex items-center justify-center gap-2 px-7 py-3 text-base font-medium rounded-xl bg-teal-500 text-white hover:bg-teal-600 transition-all shadow-lg shadow-teal-500/20">
+                Get Started
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </a>
+            {:else}
+              <a href="/webhooks" class="inline-flex items-center justify-center gap-2 px-7 py-3 text-base font-medium rounded-xl bg-teal-500 text-white hover:bg-teal-600 transition-all shadow-lg shadow-teal-500/20">
+                Open Dashboard
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </a>
+            {/if}
+            <a
+              href="https://github.com/sarathsp06/sparrow"
+              target="_blank"
+              class="inline-flex items-center justify-center gap-2 px-7 py-3 text-base font-medium rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all"
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+              View on GitHub
+            </a>
+          </div>
+
+          <div class="pt-8 border-t border-gray-200">
+            <p class="text-xs uppercase tracking-widest mb-3 text-gray-400">Built with</p>
+            <div class="flex flex-wrap gap-3">
+              {#each techStack as tech}
+                <span class="px-3 py-1 text-xs font-fira rounded-md bg-gray-100 text-gray-500">{tech}</span>
+              {/each}
+            </div>
+          </div>
         </div>
-        <div class="bg-gray-50 rounded-lg p-6 border border-gray-100">
-          <h3 class="text-base font-semibold text-gray-800 mb-2">Observability Dashboard</h3>
-          <p class="text-sm text-gray-600">
-            Monitor webhook health, delivery attempts, and event flows in real time.
-          </p>
-        </div>
-        <div class="bg-gray-50 rounded-lg p-6 border border-gray-100">
-          <h3 class="text-base font-semibold text-gray-800 mb-2">Flexible API</h3>
-          <p class="text-sm text-gray-600">
-            gRPC, REST, and Connect support for easy integration with any stack.
-          </p>
-        </div>
-        <div class="bg-gray-50 rounded-lg p-6 border border-gray-100">
-          <h3 class="text-base font-semibold text-gray-800 mb-2">Security First</h3>
-          <p class="text-sm text-gray-600">
-            Built-in authentication, header management, and audit logging for peace of mind.
-          </p>
+
+        <!-- Right column: Logo illustration -->
+        <div class="flex justify-center lg:justify-end">
+          <div class="relative">
+            <div class="absolute inset-0 rounded-full blur-[60px] bg-gradient-to-br from-teal-200/40 via-teal-100/30 to-transparent" style="transform: scale(1.1);"></div>
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-[40px] bg-teal-100/40"></div>
+            <div class="relative p-8 rounded-3xl backdrop-blur-sm bg-gradient-to-br from-teal-50/60 via-white/40 to-transparent border border-teal-200/30">
+              <img
+                src={favicon}
+                alt="Sparrow"
+                class="relative w-72 h-72 md:w-80 md:h-80 drop-shadow-2xl"
+                style="animation: float 6s ease-in-out infinite;"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <footer class="py-6 text-center text-gray-400 text-xs font-mono border-t border-gray-100">
-    Sparrow &copy; {new Date().getFullYear()} &mdash; Built for developers
+  <!-- ============================================================ -->
+  <!-- FEATURES SECTION -->
+  <!-- ============================================================ -->
+  <section id="features" class="py-24 bg-white">
+    <div class="max-w-[1400px] mx-auto px-6">
+      <div class="text-center mb-16">
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm mb-6 bg-teal-50 border border-teal-200/60">
+          <span class="text-teal-600 font-medium">Core Features</span>
+        </div>
+        <h2 class="text-3xl md:text-4xl font-bold font-fira mb-4">
+          Enterprise-Grade <span class="bg-gradient-to-r from-teal-500 to-sky-500 bg-clip-text text-transparent">Webhook Infrastructure</span>
+        </h2>
+        <p class="text-lg max-w-3xl mx-auto text-gray-500">Everything you need to build reliable event-driven systems at scale</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {#each features as feature}
+          <div class="group p-8 rounded-xl border border-gray-200/80 bg-gray-50/50 transition-all duration-300 hover:border-teal-300/60 hover:shadow-lg hover:shadow-teal-500/5 hover:-translate-y-1">
+            <div class="w-12 h-12 flex items-center justify-center rounded-xl mb-6 bg-teal-50">
+              <svg class="w-5 h-5 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d={feature.icon}/>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold mb-3 font-fira text-gray-900">{feature.title}</h3>
+            <p class="leading-relaxed text-gray-500 text-[0.9375rem]">{feature.description}</p>
+          </div>
+        {/each}
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- GETTING STARTED SECTION -->
+  <!-- ============================================================ -->
+  <section id="getting-started" class="py-24 bg-gray-50/70">
+    <div class="max-w-[1400px] mx-auto px-6">
+      <div class="text-center mb-16">
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm mb-6 bg-teal-50 border border-teal-200/60">
+          <span class="text-teal-600 font-medium">Getting Started</span>
+        </div>
+        <h2 class="text-3xl md:text-4xl font-bold font-fira mb-4">
+          Up and Running <span class="bg-gradient-to-r from-teal-500 to-sky-500 bg-clip-text text-transparent">in Minutes</span>
+        </h2>
+        <p class="text-lg max-w-3xl mx-auto text-gray-500">
+          Start Sparrow with <code class="px-2 py-0.5 rounded bg-gray-200 text-gray-700 font-fira text-base">docker compose up -d</code> then run these three commands
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-6 max-w-4xl mx-auto">
+        {#each steps as step}
+          <div class="relative p-8 rounded-xl border border-gray-200/80 bg-white">
+            <span class="absolute top-6 right-6 text-5xl font-bold font-fira text-teal-100">{step.num}</span>
+            <h3 class="text-xl font-semibold mb-2 text-teal-600 font-fira">{step.title}</h3>
+            <p class="mb-5 text-gray-500 text-[0.9375rem]">{step.description}</p>
+            <div class="rounded-lg p-4 overflow-x-auto bg-gray-900">
+              <code class="text-sm text-teal-400 whitespace-pre font-fira">{step.code}</code>
+            </div>
+          </div>
+        {/each}
+      </div>
+
+      <div class="mt-10 max-w-4xl mx-auto text-center">
+        <p class="text-gray-500 text-[0.9375rem]">
+          You can also create webhooks and manage subscriptions through the
+          <a href="/webhooks" class="text-teal-600 hover:text-teal-700 font-medium">web dashboard</a>
+          at <code class="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 font-fira text-sm">localhost:8080</code>.
+          Sparrow handles delivery, retries, and health tracking automatically.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- ARCHITECTURE SECTION -->
+  <!-- ============================================================ -->
+  <section id="architecture" class="py-24 bg-white">
+    <div class="max-w-[1400px] mx-auto px-6">
+      <div class="text-center mb-16">
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm mb-6 bg-teal-50 border border-teal-200/60">
+          <span class="text-teal-600 font-medium">Architecture</span>
+        </div>
+        <h2 class="text-3xl md:text-4xl font-bold font-fira mb-4">
+          Built for <span class="bg-gradient-to-r from-teal-500 to-sky-500 bg-clip-text text-transparent">Scale & Reliability</span>
+        </h2>
+        <p class="text-lg max-w-3xl mx-auto text-gray-500">A modern, layered architecture designed for high-throughput webhook delivery</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {#each archCards as card}
+          <div class="p-8 rounded-xl border border-gray-200/80 bg-gray-50/50 transition-all duration-300 hover:border-teal-300/60">
+            <div class="flex items-center gap-4 mb-4">
+              <div class="w-10 h-10 flex items-center justify-center rounded-lg bg-teal-50">
+                <svg class="w-5 h-5 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d={card.icon}/>
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold font-fira text-gray-900">{card.title}</h3>
+            </div>
+            <p class="mb-4 text-gray-500 text-[0.9375rem]">{card.description}</p>
+            <div class="flex flex-wrap gap-2">
+              {#each card.tags as tag}
+                <span class="px-2.5 py-1 text-xs font-fira rounded bg-gray-100 text-gray-500">{tag}</span>
+              {/each}
+            </div>
+          </div>
+        {/each}
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- CTA SECTION -->
+  <!-- ============================================================ -->
+  <section class="py-24 bg-gradient-to-b from-white to-teal-50/30">
+    <div class="max-w-3xl mx-auto px-6 text-center">
+      <h2 class="text-3xl md:text-4xl font-bold font-fira mb-6">
+        Ready to Build <span class="bg-gradient-to-r from-teal-500 to-sky-500 bg-clip-text text-transparent">Reliable Webhooks</span>?
+      </h2>
+      <p class="text-lg mb-8 text-gray-500">
+        Join the developers using Sparrow to power their event-driven architectures. Open source and free to use.
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        {#if hasClerk}
+          <a href="/webhooks" class="inline-flex items-center gap-2 px-7 py-3 text-base font-medium rounded-xl bg-teal-500 text-white hover:bg-teal-600 transition-all shadow-lg shadow-teal-500/20">
+            Get Started Now
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        {:else}
+          <a href="/webhooks" class="inline-flex items-center gap-2 px-7 py-3 text-base font-medium rounded-xl bg-teal-500 text-white hover:bg-teal-600 transition-all shadow-lg shadow-teal-500/20">
+            Open Dashboard
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+        {/if}
+        <a
+          href="https://github.com/sarathsp06/sparrow"
+          target="_blank"
+          class="inline-flex items-center gap-2 px-7 py-3 text-base font-medium rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Star on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- FOOTER -->
+  <!-- ============================================================ -->
+  <footer class="py-12 border-t border-gray-200">
+    <div class="max-w-[1400px] mx-auto px-6">
+      <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="flex items-center gap-2">
+          <img src={favicon} alt="Sparrow" class="w-6 h-6" />
+          <span class="font-fira font-semibold text-gray-900">Sparrow</span>
+        </div>
+        <p class="text-sm text-gray-400">Open source webhook delivery system</p>
+        <div class="flex items-center gap-6">
+          <a href="https://github.com/sarathsp06/sparrow" target="_blank" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">GitHub</a>
+          <a href="https://github.com/sarathsp06/sparrow#-documentation" target="_blank" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Docs</a>
+        </div>
+      </div>
+    </div>
   </footer>
 </div>
+
+<style>
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+</style>

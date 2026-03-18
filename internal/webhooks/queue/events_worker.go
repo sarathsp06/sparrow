@@ -87,11 +87,15 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	// Create webhook delivery jobs for each subscription
 	expiresAt := time.Now().Add(time.Duration(args.TTLSeconds) * time.Second)
 
+	// Build all deliveries and job args in memory first, then batch-insert.
+	deliveries := make([]*store.WebhookDelivery, 0, len(subscriptions))
+	jobArgs := make([]river.JobArgs, 0, len(subscriptions))
+
 	for _, result := range subscriptions {
 		sub := result.Subscription
 		webhook := result.Webhook
 
-		deliveryID := uuid.New().String()
+		deliveryID := uuid.New()
 
 		// Calculate max attempts from webhook configuration (default 3)
 		maxAttempts := 3
@@ -99,50 +103,59 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 			maxAttempts = webhook.MaxRetries + 1 // MaxRetries is retry count, so add 1 for initial attempt
 		}
 
-		// Create webhook delivery record
 		delivery := &store.WebhookDelivery{
-			ID:             uuid.MustParse(deliveryID),
+			ID:             deliveryID,
 			WebhookID:      webhook.ID,
 			EventID:        uuid.MustParse(args.EventID),
-			SubscriptionID: &sub.ID, // Link delivery to subscription
+			SubscriptionID: &sub.ID,
 			Status:         store.StatusPending,
 			MaxAttempts:    maxAttempts,
 			ExpiresAt:      expiresAt,
 		}
+		deliveries = append(deliveries, delivery)
 
-		if err := w.webhookRepo.CreateDelivery(ctx, tenantID, delivery); err != nil {
-			w.logger.ErrorContext(ctx, "Failed to create delivery record", "error", err, "webhook_id", webhook.ID)
-			continue
-		}
-
-		// Create webhook delivery job with minimal data
-		webhookArgs := WebhookArgs{
+		jobArgs = append(jobArgs, &WebhookArgs{
 			TenantID:       args.TenantID,
-			DeliveryID:     deliveryID,
+			DeliveryID:     deliveryID.String(),
 			WebhookID:      webhook.ID.String(),
 			SubscriptionID: sub.ID.String(),
 			EventID:        args.EventID,
 			ExpiresAt:      expiresAt,
 			Namespace:      args.Namespace,
-			MaxAttempts:    delivery.MaxAttempts,
-		}
-
-		if _, err := w.jobInserter.Insert(ctx, &webhookArgs); err != nil {
-			w.logger.ErrorContext(ctx, "Failed to schedule webhook delivery job",
-				"error", err,
-				"webhook_id", webhook.ID,
-				"delivery_id", deliveryID,
-			)
-			continue
-		}
-
-		w.logger.InfoContext(ctx, "Scheduled webhook delivery",
-			"webhook_id", webhook.ID,
-			"subscription_id", sub.ID,
-			"delivery_id", deliveryID,
-			"webhook_url", webhook.URL,
-		)
+			MaxAttempts:    maxAttempts,
+		})
 	}
+
+	// Batch-insert all delivery records (single multi-row INSERT).
+	if err := w.webhookRepo.BatchCreateDeliveries(ctx, tenantID, deliveries); err != nil {
+		w.logger.ErrorContext(ctx, "Failed to batch-create delivery records", "error", err, "count", len(deliveries))
+		return fmt.Errorf("batch create deliveries: %w", err)
+	}
+
+	// Batch-insert all River jobs (single InsertMany call).
+	if _, err := w.jobInserter.BatchInsert(ctx, jobArgs); err != nil {
+		w.logger.ErrorContext(ctx, "Failed to batch-insert webhook delivery jobs",
+			"error", err,
+			"count", len(jobArgs),
+		)
+		// Compensation: remove orphaned delivery records since the jobs
+		// that would process them could not be created.
+		for _, d := range deliveries {
+			if delErr := w.webhookRepo.DeleteDeliveryByID(ctx, d.ID); delErr != nil {
+				w.logger.ErrorContext(ctx, "Failed to delete orphaned delivery record",
+					"error", delErr,
+					"delivery_id", d.ID,
+				)
+			}
+		}
+		return fmt.Errorf("batch insert jobs: %w", err)
+	}
+
+	w.logger.InfoContext(ctx, "Scheduled webhook deliveries",
+		"count", len(deliveries),
+		"namespace", args.Namespace,
+		"event", args.Event,
+	)
 
 	w.logger.InfoContext(ctx, "Event processing completed",
 		"event_id", args.EventID,

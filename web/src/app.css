@@ -22,4 +22,13 @@
 			@apply text-gray-700 hover:text-gray-900 transition-colors;
 			text-decoration: none;
 		}
-} 
+}
+
+/* Landing page utilities — use Inter (sans) for marketing content,
+   Fira Code (mono) for code snippets and tech labels. */
+.font-inter {
+	font-family: 'Inter', system-ui, sans-serif;
+}
+.font-fira {
+	font-family: 'Fira Code', ui-monospace, monospace;
+}

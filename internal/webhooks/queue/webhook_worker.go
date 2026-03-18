@@ -133,9 +133,14 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	// Check for transformation
 	if subscription != nil && subscription.TransformEnabled && subscription.TransformTemplate != "" {
 		payloadBytes, err = w.client.TransformPayload(subscription.TransformTemplate, client.WebhookTemplateContext{
-			EventID:   args.EventID,
-			EventName: eventRecord.Event,
-			Payload:   eventRecord.Payload,
+			EventID:    args.EventID,
+			EventName:  eventRecord.Event,
+			Namespace:  args.Namespace,
+			WebhookID:  args.WebhookID,
+			DeliveryID: args.DeliveryID,
+			Timestamp:  time.Now().UTC().Format(time.RFC3339),
+			Attempt:    job.Attempt,
+			Payload:    eventRecord.Payload,
 		})
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to transform payload", "error", err)
@@ -143,8 +148,16 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			return fmt.Errorf("template transformation failed: %w", err)
 		}
 	} else {
-		// Use default JSON payload
-		payloadBytes, err = json.Marshal(defaultPayload)
+		// Use default JSON envelope
+		payloadBytes, err = client.BuildEnvelopePayload(
+			args.EventID,
+			eventRecord.Event,
+			args.Namespace,
+			args.WebhookID,
+			args.DeliveryID,
+			job.Attempt,
+			defaultPayload,
+		)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to marshal webhook payload", "error", err)
 			return err

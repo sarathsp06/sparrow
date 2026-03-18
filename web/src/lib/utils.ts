@@ -1,5 +1,4 @@
-
-  import { type Content } from "svelte-jsoneditor";
+import { type Content } from "svelte-jsoneditor";
 
 /**
  * Returns a JSON string representation of the given content.
@@ -9,31 +8,27 @@
  * @param {Content} content - The content to be converted to a JSON string.
  * @returns {string} - The JSON string representation of the content.
  */
-  function stringifyContent(content: Content): string {
-    if ("text" in content && content.text) {
-      return content.text;
-    }
-    if ("json" in content && content.json !== undefined) {
-      return JSON.stringify(content.json, null, 2);
-    }
-    return "{}"; // fallback
+function stringifyContent(content: Content): string {
+  if ("text" in content && content.text) {
+    return content.text;
   }
-
-
-
-
-  /**
-   * JSON Schema Meta-Schema for validating JSON Schemas themselves.
-   * This is intentionally permissive — it accepts any valid JSON object as a schema.
-   * JSON Schema is flexible: `{}` (match anything), `{"type": "string"}`,
-   * `{"type": "array", "items": {...}}`, etc. are all valid schemas.
-   * We only enforce that the schema is a JSON object (not a primitive or array).
-   */
-	const JSONSchemaMetaSchema = {
-  "type": "object",
-  "additionalProperties": true
+  if ("json" in content && content.json !== undefined) {
+    return JSON.stringify(content.json, null, 2);
+  }
+  return "{}"; // fallback
 }
 
+/**
+ * JSON Schema Meta-Schema for validating JSON Schemas themselves.
+ * This is intentionally permissive — it accepts any valid JSON object as a schema.
+ * JSON Schema is flexible: `{}` (match anything), `{"type": "string"}`,
+ * `{"type": "array", "items": {...}}`, etc. are all valid schemas.
+ * We only enforce that the schema is a JSON object (not a primitive or array).
+ */
+const JSONSchemaMetaSchema = {
+  type: "object",
+  additionalProperties: true,
+};
 
 /**
  * Infer a JSON Schema type string from a JavaScript value.
@@ -100,7 +95,6 @@ function jsonToJsonSchema(value: any): Record<string, any> {
   return { type };
 }
 
-
 /**
  * Returns a JSON object representation of the given content.
  * If the content has a "text" property, it parses and returns that string as an object.
@@ -124,4 +118,9 @@ function toJSONObject(content: Content): any {
   return {};
 }
 
-export { JSONSchemaMetaSchema, jsonToJsonSchema, stringifyContent, toJSONObject };
+export {
+  JSONSchemaMetaSchema,
+  jsonToJsonSchema,
+  stringifyContent,
+  toJSONObject,
+};

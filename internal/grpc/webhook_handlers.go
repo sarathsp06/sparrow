@@ -5,6 +5,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/sarathsp06/sparrow/internal/audit"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
@@ -21,6 +22,16 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 		if err != nil {
 			return nil, toGRPCError(ctx, err, "failed to register webhook")
 		}
+		s.audit.Log(ctx, audit.LogEntry{
+			Action:       audit.ActionWebhookRegister,
+			ResourceType: audit.ResourceWebhook,
+			ResourceID:   webhook.ID,
+			Namespace:    req.Namespace,
+			Metadata: map[string]any{
+				"url":    req.Url,
+				"events": req.Events,
+			},
+		})
 		return &pb.RegisterWebhookResponse{
 			WebhookId: webhook.ID,
 			CreatedAt: convertTimeToProto(webhook.CreatedAt),
@@ -40,6 +51,16 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to register webhook")
 	}
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionWebhookRegister,
+		ResourceType: audit.ResourceWebhook,
+		ResourceID:   webhookID,
+		Namespace:    req.Namespace,
+		Metadata: map[string]any{
+			"url":    req.Url,
+			"events": req.Events,
+		},
+	})
 	return &pb.RegisterWebhookResponse{
 		WebhookId: webhookID,
 		CreatedAt: timestamppb.New(createdAt),
@@ -52,6 +73,12 @@ func (s *WebhookServer) UnregisterWebhook(ctx context.Context, req *pb.Unregiste
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to unregister webhook")
 	}
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionWebhookUnregister,
+		ResourceType: audit.ResourceWebhook,
+		ResourceID:   req.WebhookId,
+		Namespace:    req.Namespace,
+	})
 	return &pb.UnregisterWebhookResponse{}, nil
 }
 
@@ -140,6 +167,18 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to update webhook config")
 	}
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionWebhookUpdate,
+		ResourceType: audit.ResourceWebhook,
+		ResourceID:   req.WebhookId,
+		Namespace:    req.Namespace,
+		Metadata: map[string]any{
+			"url":         url,
+			"events":      events,
+			"active":      active,
+			"description": description,
+		},
+	})
 	return &pb.UpdateWebhookConfigResponse{}, nil
 }
 
@@ -149,6 +188,13 @@ func (s *WebhookServer) PauseWebhook(ctx context.Context, req *pb.PauseWebhookRe
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to pause webhook")
 	}
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionWebhookPause,
+		ResourceType: audit.ResourceWebhook,
+		ResourceID:   req.WebhookId,
+		Namespace:    req.Namespace,
+		Metadata:     map[string]any{"reason": req.Reason},
+	})
 	return &pb.PauseWebhookResponse{}, nil
 }
 
@@ -158,6 +204,12 @@ func (s *WebhookServer) ResumeWebhook(ctx context.Context, req *pb.ResumeWebhook
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to resume webhook")
 	}
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionWebhookResume,
+		ResourceType: audit.ResourceWebhook,
+		ResourceID:   req.WebhookId,
+		Namespace:    req.Namespace,
+	})
 	return &pb.ResumeWebhookResponse{}, nil
 }
 

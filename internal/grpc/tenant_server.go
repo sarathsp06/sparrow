@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/sarathsp06/sparrow/internal/audit"
 	"github.com/sarathsp06/sparrow/internal/auth"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/pkg/storage"
@@ -19,15 +20,16 @@ import (
 type TenantServer struct {
 	pb.UnimplementedTenantServiceServer
 	pb.UnimplementedAPIKeyServiceServer
-	svc *tenant.Service
+	svc   *tenant.Service
+	audit *audit.Logger
 }
 
 var _ pb.TenantServiceServer = (*TenantServer)(nil)
 var _ pb.APIKeyServiceServer = (*TenantServer)(nil)
 
 // NewTenantServer creates a new TenantServer.
-func NewTenantServer(svc *tenant.Service) *TenantServer {
-	return &TenantServer{svc: svc}
+func NewTenantServer(svc *tenant.Service, auditLogger *audit.Logger) *TenantServer {
+	return &TenantServer{svc: svc, audit: auditLogger}
 }
 
 // ---- TenantService ----
@@ -51,6 +53,15 @@ func (s *TenantServer) CreateTenant(ctx context.Context, req *pb.CreateTenantReq
 		}
 		return nil, status.Errorf(codes.Internal, "create tenant: %v", err)
 	}
+
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionTenantCreate,
+		ResourceType: audit.ResourceTenant,
+		ResourceID:   t.ID.String(),
+		Metadata: map[string]any{
+			"name": t.Name,
+		},
+	})
 
 	return &pb.CreateTenantResponse{
 		Tenant: tenantToProto(t),
@@ -140,6 +151,16 @@ func (s *TenantServer) UpdateTenant(ctx context.Context, req *pb.UpdateTenantReq
 		return nil, status.Errorf(codes.Internal, "update tenant: %v", err)
 	}
 
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionTenantUpdate,
+		ResourceType: audit.ResourceTenant,
+		ResourceID:   t.ID.String(),
+		Metadata: map[string]any{
+			"name":   req.GetName(),
+			"status": req.GetStatus(),
+		},
+	})
+
 	return &pb.UpdateTenantResponse{
 		Tenant: tenantToProto(t),
 	}, nil
@@ -167,6 +188,12 @@ func (s *TenantServer) DeleteTenant(ctx context.Context, req *pb.DeleteTenantReq
 		}
 		return nil, status.Errorf(codes.Internal, "delete tenant: %v", err)
 	}
+
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionTenantDelete,
+		ResourceType: audit.ResourceTenant,
+		ResourceID:   id.String(),
+	})
 
 	return &pb.DeleteTenantResponse{}, nil
 }
@@ -213,6 +240,17 @@ func (s *TenantServer) CreateAPIKey(ctx context.Context, req *pb.CreateAPIKeyReq
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "create API key: %v", err)
 	}
+
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionAPIKeyCreate,
+		ResourceType: audit.ResourceAPIKey,
+		ResourceID:   result.Key.ID.String(),
+		Metadata: map[string]any{
+			"name":      req.GetName(),
+			"tenant_id": tenantID.String(),
+			"role":      req.GetRole(),
+		},
+	})
 
 	return &pb.CreateAPIKeyResponse{
 		Key:    apiKeyToProto(result.Key),
@@ -314,6 +352,15 @@ func (s *TenantServer) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKeyReq
 	if err := s.svc.RevokeAPIKey(ctx, id); err != nil {
 		return nil, status.Errorf(codes.Internal, "revoke API key: %v", err)
 	}
+
+	s.audit.Log(ctx, audit.LogEntry{
+		Action:       audit.ActionAPIKeyRevoke,
+		ResourceType: audit.ResourceAPIKey,
+		ResourceID:   id.String(),
+		Metadata: map[string]any{
+			"tenant_id": key.TenantID.String(),
+		},
+	})
 
 	return &pb.RevokeAPIKeyResponse{}, nil
 }

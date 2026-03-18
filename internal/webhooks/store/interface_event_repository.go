@@ -16,7 +16,7 @@ func (r *Repository) RegisterEvent(ctx context.Context, tenantID uuid.UUID, even
 			tenant_id, name, description, schema, sample_payload, metadata, active
 		) VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.conn.ExecContext(ctx, query,
 		event.TenantID,
 		event.Name,
 		event.Description,
@@ -36,7 +36,7 @@ func (r *Repository) GetEventByName(ctx context.Context, tenantID uuid.UUID, eve
 		WHERE tenant_id = $1 AND name = $2
 	`
 	var event EventRegistration
-	err := r.db.GetContext(ctx, &event, query, tenantID, eventName)
+	err := r.conn.GetContext(ctx, &event, query, tenantID, eventName)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
@@ -56,7 +56,7 @@ func (r *Repository) ListEvents(ctx context.Context, tenantID uuid.UUID, activeO
 func (r *Repository) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID, activeOnly bool, limit, offset int) ([]*EventRegistration, int, error) {
 	countQuery := `SELECT COUNT(*) FROM event_registrations WHERE tenant_id = $1 AND ($2 IS FALSE OR active = true)`
 	var totalCount int
-	err := r.db.GetContext(ctx, &totalCount, countQuery, tenantID, activeOnly)
+	err := r.conn.GetContext(ctx, &totalCount, countQuery, tenantID, activeOnly)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -69,7 +69,7 @@ func (r *Repository) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID
 		LIMIT $3 OFFSET $4
 	`
 	var events []*EventRegistration
-	err = r.db.SelectContext(ctx, &events, query, tenantID, activeOnly, limit, offset)
+	err = r.conn.SelectContext(ctx, &events, query, tenantID, activeOnly, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -84,7 +84,7 @@ func (r *Repository) UpdateEvent(ctx context.Context, tenantID uuid.UUID, event 
 		WHERE tenant_id = $1 AND name = $2
 	`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.conn.ExecContext(ctx, query,
 		tenantID,
 		event.Name,
 		event.Description,
@@ -99,6 +99,6 @@ func (r *Repository) UpdateEvent(ctx context.Context, tenantID uuid.UUID, event 
 // DeleteEvent deletes an event registration within a tenant
 func (r *Repository) DeleteEvent(ctx context.Context, tenantID uuid.UUID, eventName string) error {
 	query := `DELETE FROM event_registrations WHERE tenant_id = $1 AND name = $2`
-	_, err := r.db.ExecContext(ctx, query, tenantID, eventName)
+	_, err := r.conn.ExecContext(ctx, query, tenantID, eventName)
 	return storage.Error(err)
 }

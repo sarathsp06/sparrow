@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/sarathsp06/sparrow/internal/audit"
 	"github.com/sarathsp06/sparrow/internal/auth"
 	connectserver "github.com/sarathsp06/sparrow/internal/connect"
 	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
@@ -77,8 +78,21 @@ func main() {
 		fmt.Println("🔧 Using default database URL. Set DATABASE_URL environment variable for custom connection.")
 	}
 
-	// Create database connection pool
-	dbPool, err := pgxpool.New(ctx, databaseURL)
+	// Create database connection pool for River queue workers.
+	// River runs 45 concurrent workers (20 events + 20 webhooks + 5 default)
+	// so we need enough connections to avoid starvation. The default pgxpool
+	// MaxConns is max(4, NumCPU) which is far too low.
+	pgxConfig, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		log.Fatalf("Failed to parse database URL for pgxpool: %v", err)
+	}
+	pgxConfig.MaxConns = 50                        // 45 workers + headroom
+	pgxConfig.MinConns = 10                        // keep warm connections ready
+	pgxConfig.MaxConnLifetime = 30 * time.Minute   // recycle connections periodically
+	pgxConfig.MaxConnIdleTime = 5 * time.Minute    // release idle connections
+	pgxConfig.HealthCheckPeriod = 30 * time.Second // detect stale connections
+
+	dbPool, err := pgxpool.NewWithConfig(ctx, pgxConfig)
 	if err != nil {
 		log.Fatalf("Failed to create database pool: %v", err)
 	}
@@ -89,7 +103,12 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	sqlxDB, err := postgres.Open(databaseURL, 3)
+	sqlxDB, err := postgres.Open(databaseURL, 3,
+		postgres.WithMaxOpenConnections(25),
+		postgres.WithMaxIdleConnections(25),
+		postgres.WithConnectionMaxLifeTime(5*time.Minute),
+		postgres.WithSetConnMaxIdleTime(5*time.Minute),
+	)
 	if err != nil {
 		log.Fatalf("Failed to open sqlx database: %v", err)
 	}
@@ -158,7 +177,12 @@ func main() {
 				jwksProvider,
 				auth.WithClaimsConfig(claimsCfg),
 				auth.WithTenantResolver(tenantResolver),
-				auth.WithMembershipResolver(namespaceRepo),
+				auth.WithMembershipResolver(
+					auth.NewCachingMembershipResolver(
+						namespaceRepo,
+						auth.WithMembershipResolverLogger(logger),
+					),
+				),
 			)
 
 			// JWT authenticator goes first — API keys are tried if JWT fails
@@ -174,6 +198,10 @@ func main() {
 
 	// Create webhook repository
 	webhookRepo := store.NewRepositoryInterfaceWithTracing(store.NewRepository(sqlxDB), "")
+
+	// Create audit logger
+	auditRepo := audit.NewRepository(sqlxDB)
+	auditLogger := audit.NewLogger(auditRepo, logger)
 
 	// Initialize queue manager
 	queueManager, err := queue.NewManager(ctx, webhookRepo, dbPool)
@@ -197,7 +225,7 @@ func main() {
 
 	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo)
 
-	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, ""))
+	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, ""), auditLogger)
 	pb.RegisterWebhookServiceServer(grpcServer, webhookGRPCServer)
 	pb.RegisterEventServiceServer(grpcServer, webhookGRPCServer)
 	pb.RegisterSubscriptionServiceServer(grpcServer, webhookGRPCServer)
@@ -205,12 +233,12 @@ func main() {
 	pb.RegisterHealthServiceServer(grpcServer, webhookGRPCServer)
 
 	// Register Tenant and API Key gRPC services
-	tenantGRPCServer := grpcserver.NewTenantServer(tenantSvc)
+	tenantGRPCServer := grpcserver.NewTenantServer(tenantSvc, auditLogger)
 	pb.RegisterTenantServiceServer(grpcServer, tenantGRPCServer)
 	pb.RegisterAPIKeyServiceServer(grpcServer, tenantGRPCServer)
 
 	// Register Namespace and Membership gRPC services
-	namespaceGRPCServer := grpcserver.NewNamespaceServer(namespaceSvc)
+	namespaceGRPCServer := grpcserver.NewNamespaceServer(namespaceSvc, auditLogger)
 	pb.RegisterNamespaceServiceServer(grpcServer, namespaceGRPCServer)
 	pb.RegisterNamespaceMembershipServiceServer(grpcServer, namespaceGRPCServer)
 

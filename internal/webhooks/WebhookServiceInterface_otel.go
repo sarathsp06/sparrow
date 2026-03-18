@@ -22,11 +22,11 @@ import (
 type WebhookServiceInterfaceWithTracing struct {
 	WebhookServiceInterface
 	_instance      string
-	_spanDecorator func(span trace.Span, params, results map[string]interface{})
+	_spanDecorator func(span trace.Span, params, results map[string]any)
 }
 
 // NewWebhookServiceInterfaceWithTracing returns WebhookServiceInterfaceWithTracing
-func NewWebhookServiceInterfaceWithTracing(base WebhookServiceInterface, instance string, spanDecorator ...func(span trace.Span, params, results map[string]interface{})) WebhookServiceInterfaceWithTracing {
+func NewWebhookServiceInterfaceWithTracing(base WebhookServiceInterface, instance string, spanDecorator ...func(span trace.Span, params, results map[string]any)) WebhookServiceInterfaceWithTracing {
 	d := WebhookServiceInterfaceWithTracing{
 		WebhookServiceInterface: base,
 		_instance:               instance,

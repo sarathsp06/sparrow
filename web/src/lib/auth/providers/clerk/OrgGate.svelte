@@ -21,9 +21,11 @@
   let {
     header,
     children,
+    isPublicRoute = false,
   }: {
     header: Snippet;
     children: Snippet;
+    isPublicRoute?: boolean;
   } = $props();
 
   const ctx = useClerkContext();
@@ -45,38 +47,42 @@
       prevOrgId = currentOrgId;
       // Hard reload clears all component state and re-fetches data
       // for the newly-active tenant.
-      window.location.href = "/";
+      window.location.href = "/webhooks";
     }
   });
 </script>
 
 {#if hasOrg}
   <!-- User has an active Organization — show full app -->
-  <header
-    class="sticky flex w-full left-0 top-0 items-center justify-between px-8 py-2 z-999 bg-white/20 backdrop-blur-md border-b border-gray-100 shadow-xs"
-  >
-    {@render header()}
-    <nav class="px-2 flex items-center flex-wrap gap-2 md:gap-8 text-lg font-medium">
-      <a href="/webhooks" class="hover:text-primary transition">Webhooks</a>
-      <a href="/events" class="hover:text-primary transition">Events</a>
-      <a href="/health" class="hover:text-primary transition">Health</a>
-      <a href="/team" class="hover:text-primary transition">Team</a>
-      <OrganizationSwitcher hidePersonal={true} />
-      <UserButton />
-    </nav>
-  </header>
+  {#if !isPublicRoute}
+    <header
+      class="sticky flex w-full left-0 top-0 items-center justify-between px-8 py-2 z-999 bg-white/20 backdrop-blur-md border-b border-gray-100 shadow-xs"
+    >
+      {@render header()}
+      <nav class="px-2 flex items-center flex-wrap gap-2 md:gap-8 text-lg font-medium">
+        <a href="/webhooks" class="hover:text-primary transition">Webhooks</a>
+        <a href="/events" class="hover:text-primary transition">Events</a>
+        <a href="/health" class="hover:text-primary transition">Health</a>
+        <a href="/team" class="hover:text-primary transition">Team</a>
+        <OrganizationSwitcher hidePersonal={true} />
+        <UserButton />
+      </nav>
+    </header>
+  {/if}
 
   {@render children()}
 {:else}
   <!-- No active Organization — prompt user to create or join one -->
-  <header
-    class="sticky flex w-full left-0 top-0 items-center justify-between px-8 py-2 z-999 bg-white/20 backdrop-blur-md border-b border-gray-100 shadow-xs"
-  >
-    {@render header()}
-    <nav class="px-2 flex items-center flex-wrap gap-2 md:gap-8 text-lg font-medium">
-      <UserButton />
-    </nav>
-  </header>
+  {#if !isPublicRoute}
+    <header
+      class="sticky flex w-full left-0 top-0 items-center justify-between px-8 py-2 z-999 bg-white/20 backdrop-blur-md border-b border-gray-100 shadow-xs"
+    >
+      {@render header()}
+      <nav class="px-2 flex items-center flex-wrap gap-2 md:gap-8 text-lg font-medium">
+        <UserButton />
+      </nav>
+    </header>
+  {/if}
 
   <div class="flex items-center justify-center min-h-[60vh]">
     <div class="text-center">
@@ -87,8 +93,8 @@
       <div class="flex justify-center">
         <OrganizationList
           hidePersonal={true}
-          afterSelectOrganizationUrl="/"
-          afterCreateOrganizationUrl="/"
+          afterSelectOrganizationUrl="/webhooks"
+          afterCreateOrganizationUrl="/webhooks"
         />
       </div>
     </div>

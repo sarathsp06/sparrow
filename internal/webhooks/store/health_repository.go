@@ -33,7 +33,7 @@ func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID uui
 		consecutiveFailures = 1
 	}
 
-	_, err := r.db.ExecContext(ctx, `
+	_, err := r.conn.ExecContext(ctx, `
 		INSERT INTO webhook_health_state (webhook_id, consecutive_failures, last_success_at, last_failure_at, last_event_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, NOW())
 		ON CONFLICT (webhook_id) DO UPDATE SET
@@ -61,7 +61,7 @@ func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID uui
 	}
 
 	// Update webhook_registrations health field
-	_, err = r.db.ExecContext(ctx, `UPDATE webhook_registrations SET health = $1, updated_at = NOW() WHERE id = $2`, healthStatus, webhookID)
+	_, err = r.conn.ExecContext(ctx, `UPDATE webhook_registrations SET health = $1, updated_at = NOW() WHERE id = $2`, healthStatus, webhookID)
 	return storage.Error(err)
 }
 
@@ -82,7 +82,7 @@ func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID uuid.
 		EventsCount int     `db:"count"`
 		SuccessRate float64 `db:"coalesce"`
 	}
-	err := r.db.GetContext(ctx, &result, query, webhookID, lookbackHours)
+	err := r.conn.GetContext(ctx, &result, query, webhookID, lookbackHours)
 	if err != nil {
 		return "unknown", storage.Error(err)
 	}
@@ -91,7 +91,7 @@ func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID uuid.
 
 	// Get consecutive failures
 	var consecutiveFailuresCount int
-	err = r.db.GetContext(ctx, &consecutiveFailuresCount, `SELECT COALESCE(consecutive_failures, 0) FROM webhook_health_state WHERE webhook_id = $1`, webhookID)
+	err = r.conn.GetContext(ctx, &consecutiveFailuresCount, `SELECT COALESCE(consecutive_failures, 0) FROM webhook_health_state WHERE webhook_id = $1`, webhookID)
 	if err != nil && !storage.IsNotFound(storage.Error(err)) {
 		return "", storage.Error(err)
 	}
@@ -122,7 +122,7 @@ func (r *Repository) RecordWebhookHealthEvent(ctx context.Context, webhookID, de
 		INSERT INTO webhook_health_events (webhook_id, delivery_id, success, response_time, response_code, error_message, error_category, timestamp)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
 	`
-	_, err := r.db.ExecContext(ctx, query, webhookID, deliveryID, success, responseTime, responseCode, errorMessage, errorCategory)
+	_, err := r.conn.ExecContext(ctx, query, webhookID, deliveryID, success, responseTime, responseCode, errorMessage, errorCategory)
 	if err != nil {
 		return fmt.Errorf("failed to record health event: %w", err)
 	}
@@ -144,7 +144,7 @@ func (r *Repository) GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID
 	`
 
 	var events []*WebhookHealthEvent
-	err := r.db.SelectContext(ctx, &events, query, deliveryID, tenantID)
+	err := r.conn.SelectContext(ctx, &events, query, deliveryID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get delivery attempts: %w", err)
 	}
@@ -165,7 +165,7 @@ func (r *Repository) GetWebhookHealthState(ctx context.Context, webhookID uuid.U
 	`
 
 	var state WebhookHealthMetrics
-	err := r.db.GetContext(ctx, &state, query, webhookID)
+	err := r.conn.GetContext(ctx, &state, query, webhookID)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -191,7 +191,7 @@ func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID uuid
 	`
 
 	var summary WebhookHealthSummary
-	err := r.db.GetContext(ctx, &summary, query, webhookID, hours)
+	err := r.conn.GetContext(ctx, &summary, query, webhookID, hours)
 	if err == nil {
 		return &summary, nil
 	}
@@ -221,7 +221,7 @@ func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID uuid
 		  AND timestamp >= NOW() - INTERVAL '1 hour' * $2
 	`
 
-	err = r.db.GetContext(ctx, &summary, realTimeQuery, webhookID, hours)
+	err = r.conn.GetContext(ctx, &summary, realTimeQuery, webhookID, hours)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -247,7 +247,7 @@ func (r *Repository) GetWebhookHealthTimeSeries(ctx context.Context, webhookID u
 			LIMIT 1000
 		`
 		var events []*WebhookHealthEvent
-		err := r.db.SelectContext(ctx, &events, query, webhookID, hours)
+		err := r.conn.SelectContext(ctx, &events, query, webhookID, hours)
 		if err != nil {
 			return nil, storage.Error(err)
 		}
@@ -297,7 +297,7 @@ func (r *Repository) GetWebhookHealthTimeSeries(ctx context.Context, webhookID u
 	`, bucketExpr, bucketExpr, bucketExpr)
 
 	var events []*WebhookHealthEvent
-	err := r.db.SelectContext(ctx, &events, query, webhookID, hours)
+	err := r.conn.SelectContext(ctx, &events, query, webhookID, hours)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -356,7 +356,7 @@ func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) 
 			updated_at = NOW()
 	`
 
-	result, err := r.db.ExecContext(ctx, query)
+	result, err := r.conn.ExecContext(ctx, query)
 	if err != nil {
 		return 0, fmt.Errorf("failed to aggregate health summaries: %w", err)
 	}
@@ -384,7 +384,7 @@ func (r *Repository) GetHealthSummary(ctx context.Context, tenantID uuid.UUID) (
 	}
 
 	var results []healthCount
-	err := r.db.SelectContext(ctx, &results, query, tenantID)
+	err := r.conn.SelectContext(ctx, &results, query, tenantID)
 	if err != nil {
 		return nil, storage.Error(err)
 	}

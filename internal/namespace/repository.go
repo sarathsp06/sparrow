@@ -12,6 +12,10 @@ import (
 
 // Repository defines the data access interface for namespaces and memberships.
 type Repository interface {
+	// WithConn returns a repository that executes queries against the given
+	// connection (e.g. a transaction from storage.WithTransaction).
+	WithConn(conn storage.DBTX) Repository
+
 	// Namespace operations
 	CreateNamespace(ctx context.Context, ns *Namespace) error
 	GetNamespaceByID(ctx context.Context, id uuid.UUID) (*Namespace, error)
@@ -33,12 +37,18 @@ type Repository interface {
 
 // pgRepository implements Repository using PostgreSQL.
 type pgRepository struct {
-	db storage.DB
+	db   storage.DB   // full connection — used for Beginx/Ping/Close
+	conn storage.DBTX // query/exec target — either db or a transaction
 }
 
 // NewRepository creates a new PostgreSQL-backed namespace repository.
 func NewRepository(db storage.DB) Repository {
-	return &pgRepository{db: db}
+	return &pgRepository{db: db, conn: db}
+}
+
+// WithConn returns a shallow copy that runs queries against conn.
+func (r *pgRepository) WithConn(conn storage.DBTX) Repository {
+	return &pgRepository{db: r.db, conn: conn}
 }
 
 // ---- Namespace operations ----
@@ -55,7 +65,7 @@ func (r *pgRepository) CreateNamespace(ctx context.Context, ns *Namespace) error
 		INSERT INTO namespaces (id, tenant_id, name, description, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.conn.ExecContext(ctx, query,
 		ns.ID, ns.TenantID, ns.Name, ns.Description, ns.CreatedAt, ns.UpdatedAt,
 	)
 	return storage.Error(err)
@@ -64,7 +74,7 @@ func (r *pgRepository) CreateNamespace(ctx context.Context, ns *Namespace) error
 func (r *pgRepository) GetNamespaceByID(ctx context.Context, id uuid.UUID) (*Namespace, error) {
 	var ns Namespace
 	query := `SELECT id, tenant_id, name, description, created_at, updated_at FROM namespaces WHERE id = $1`
-	err := r.db.GetContext(ctx, &ns, query, id)
+	err := r.conn.GetContext(ctx, &ns, query, id)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -74,7 +84,7 @@ func (r *pgRepository) GetNamespaceByID(ctx context.Context, id uuid.UUID) (*Nam
 func (r *pgRepository) GetNamespaceByName(ctx context.Context, tenantID uuid.UUID, name string) (*Namespace, error) {
 	var ns Namespace
 	query := `SELECT id, tenant_id, name, description, created_at, updated_at FROM namespaces WHERE tenant_id = $1 AND name = $2`
-	err := r.db.GetContext(ctx, &ns, query, tenantID, name)
+	err := r.conn.GetContext(ctx, &ns, query, tenantID, name)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -83,7 +93,7 @@ func (r *pgRepository) GetNamespaceByName(ctx context.Context, tenantID uuid.UUI
 
 func (r *pgRepository) ListNamespaces(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]*Namespace, int, error) {
 	var total int
-	err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM namespaces WHERE tenant_id = $1`, tenantID)
+	err := r.conn.GetContext(ctx, &total, `SELECT COUNT(*) FROM namespaces WHERE tenant_id = $1`, tenantID)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -94,7 +104,7 @@ func (r *pgRepository) ListNamespaces(ctx context.Context, tenantID uuid.UUID, l
 		FROM namespaces WHERE tenant_id = $1
 		ORDER BY name ASC LIMIT $2 OFFSET $3
 	`
-	err = r.db.SelectContext(ctx, &namespaces, query, tenantID, limit, offset)
+	err = r.conn.SelectContext(ctx, &namespaces, query, tenantID, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -107,12 +117,12 @@ func (r *pgRepository) UpdateNamespace(ctx context.Context, ns *Namespace) error
 		UPDATE namespaces SET name = $1, description = $2, updated_at = $3
 		WHERE id = $4
 	`
-	_, err := r.db.ExecContext(ctx, query, ns.Name, ns.Description, ns.UpdatedAt, ns.ID)
+	_, err := r.conn.ExecContext(ctx, query, ns.Name, ns.Description, ns.UpdatedAt, ns.ID)
 	return storage.Error(err)
 }
 
 func (r *pgRepository) DeleteNamespace(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM namespaces WHERE id = $1`, id)
+	_, err := r.conn.ExecContext(ctx, `DELETE FROM namespaces WHERE id = $1`, id)
 	return storage.Error(err)
 }
 
@@ -132,7 +142,7 @@ func (r *pgRepository) UpsertMembership(ctx context.Context, m *Membership) erro
 		ON CONFLICT (tenant_id, subject_id, namespace)
 		DO UPDATE SET role = EXCLUDED.role, updated_at = EXCLUDED.updated_at
 	`
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.conn.ExecContext(ctx, query,
 		m.ID, m.TenantID, m.SubjectID, m.Namespace, string(m.Role), m.CreatedAt, m.UpdatedAt,
 	)
 	return storage.Error(err)
@@ -145,7 +155,7 @@ func (r *pgRepository) GetMembership(ctx context.Context, tenantID uuid.UUID, su
 		FROM namespace_memberships
 		WHERE tenant_id = $1 AND subject_id = $2 AND namespace = $3
 	`
-	err := r.db.GetContext(ctx, &m, query, tenantID, subjectID, namespace)
+	err := r.conn.GetContext(ctx, &m, query, tenantID, subjectID, namespace)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -154,13 +164,13 @@ func (r *pgRepository) GetMembership(ctx context.Context, tenantID uuid.UUID, su
 
 func (r *pgRepository) DeleteMembership(ctx context.Context, tenantID uuid.UUID, subjectID, namespace string) error {
 	query := `DELETE FROM namespace_memberships WHERE tenant_id = $1 AND subject_id = $2 AND namespace = $3`
-	_, err := r.db.ExecContext(ctx, query, tenantID, subjectID, namespace)
+	_, err := r.conn.ExecContext(ctx, query, tenantID, subjectID, namespace)
 	return storage.Error(err)
 }
 
 func (r *pgRepository) ListMembersByNamespace(ctx context.Context, tenantID uuid.UUID, namespace string, limit, offset int) ([]*Membership, int, error) {
 	var total int
-	err := r.db.GetContext(ctx, &total,
+	err := r.conn.GetContext(ctx, &total,
 		`SELECT COUNT(*) FROM namespace_memberships WHERE tenant_id = $1 AND namespace = $2`,
 		tenantID, namespace,
 	)
@@ -175,7 +185,7 @@ func (r *pgRepository) ListMembersByNamespace(ctx context.Context, tenantID uuid
 		WHERE tenant_id = $1 AND namespace = $2
 		ORDER BY created_at ASC LIMIT $3 OFFSET $4
 	`
-	err = r.db.SelectContext(ctx, &members, query, tenantID, namespace, limit, offset)
+	err = r.conn.SelectContext(ctx, &members, query, tenantID, namespace, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -190,7 +200,7 @@ func (r *pgRepository) ListNamespacesBySubject(ctx context.Context, tenantID uui
 		WHERE tenant_id = $1 AND subject_id = $2
 		ORDER BY namespace ASC
 	`
-	err := r.db.SelectContext(ctx, &memberships, query, tenantID, subjectID)
+	err := r.conn.SelectContext(ctx, &memberships, query, tenantID, subjectID)
 	if err != nil {
 		return nil, storage.Error(err)
 	}

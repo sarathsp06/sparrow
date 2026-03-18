@@ -22,11 +22,11 @@ import (
 type JobInserterWithTracing struct {
 	JobInserter
 	_instance      string
-	_spanDecorator func(span trace.Span, params, results map[string]interface{})
+	_spanDecorator func(span trace.Span, params, results map[string]any)
 }
 
 // NewJobInserterWithTracing returns JobInserterWithTracing
-func NewJobInserterWithTracing(base JobInserter, instance string, spanDecorator ...func(span trace.Span, params, results map[string]interface{})) JobInserterWithTracing {
+func NewJobInserterWithTracing(base JobInserter, instance string, spanDecorator ...func(span trace.Span, params, results map[string]any)) JobInserterWithTracing {
 	d := JobInserterWithTracing{
 		JobInserter: base,
 		_instance:   instance,

@@ -37,9 +37,16 @@ type RepositoryInterface interface {
 	UpdateEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error
 	DeleteEvent(ctx context.Context, tenantID uuid.UUID, eventName string) error
 
+	// Transactional Operations
+	RegisterWebhookWithSubscriptions(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration, subscriptions []*EventSubscription) error
+	ReplaceWebhookSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, newSubscriptions []*EventSubscription) error
+	DeleteEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) error
+	DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUID) error
+
 	// Event Record and Delivery Management
 	StoreEvent(ctx context.Context, tenantID uuid.UUID, event *EventRecord) error
 	CreateDelivery(ctx context.Context, tenantID uuid.UUID, delivery *WebhookDelivery) error
+	BatchCreateDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery) error
 	UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error
 	UpdateDeliveryRequestBody(ctx context.Context, deliveryID uuid.UUID, requestBody string) error
 	GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, namespace string) (*WebhookDelivery, error)

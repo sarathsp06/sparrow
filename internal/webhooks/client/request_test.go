@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	sparrow "github.com/sarathsp06/sparrow"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
@@ -49,8 +50,9 @@ func TestBuildRequest(t *testing.T) {
 		t.Errorf("Expected Content-Type application/json, got %s", req.Header.Get("Content-Type"))
 	}
 
-	if req.Header.Get("User-Agent") != "Sparrow-Webhook/0.1.0" {
-		t.Errorf("Expected User-Agent Sparrow-Webhook/0.1.0, got %s", req.Header.Get("User-Agent"))
+	expectedUA := "Sparrow-Webhook/" + sparrow.Version
+	if req.Header.Get("User-Agent") != expectedUA {
+		t.Errorf("Expected User-Agent %s, got %s", expectedUA, req.Header.Get("User-Agent"))
 	}
 
 	if req.Header.Get("X-Sparrow-Event-ID") != eventID.String() {

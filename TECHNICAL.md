@@ -483,11 +483,216 @@ stateDiagram-v2
 A centralized, OTel-instrumented HTTP client (`internal/webhooks/client/`):
 
 - **Connection pooling**: 100 max idle connections, 10 per host, 90s idle timeout
-- **HMAC signing**: `X-Sparrow-Signature-256` header using `HMAC-SHA256(timestamp + "." + payload, secret)` (Stripe/GitHub pattern)
+- **HMAC signing**: `X-Sparrow-Signature-256` header using `HMAC-SHA256(timestamp + "." + body, secret)` (Stripe/GitHub pattern)
 - **Template engine**: Go `text/template` with LRU cache (100 entries, SHA-256 keyed), ~20 built-in helper functions (json, base64, urlencode, string manipulation, etc.)
 - **Object pooling**: `sync.Pool` for `bytes.Buffer`, `[]byte` slices, and header maps to reduce GC pressure
 - **Header merging**: Subscription-level headers override webhook-level defaults
 - **In-process metrics**: Lock-free atomic counters for request totals, error categories, cache hit rates, and response time statistics
+
+#### Default Webhook Body
+
+Every webhook delivery sends a JSON envelope with snake_case field names. The user-supplied event payload is nested under the `payload` key; all metadata lives at the top level:
+
+```json
+{
+  "version": "1",
+  "event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "event_name": "user.created",
+  "namespace": "billing",
+  "webhook_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "delivery_id": "d-123",
+  "timestamp": "2026-03-17T10:30:00Z",
+  "attempt": 1,
+  "payload": {
+    "user_id": "u-123",
+    "email": "alice@example.com"
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `version` | Envelope schema version (currently `"1"`). Check this to handle future format changes. |
+| `event_id` | UUID of the event that triggered this delivery. |
+| `event_name` | The event type (e.g. `user.created`, `order.paid`). |
+| `namespace` | Namespace the event belongs to. |
+| `webhook_id` | UUID of the webhook registration receiving this delivery. |
+| `delivery_id` | UUID of this specific delivery attempt. |
+| `timestamp` | ISO 8601 / RFC 3339 timestamp of when the delivery was sent. |
+| `attempt` | Delivery attempt number (1 = first attempt, 2+ = retries). |
+| `payload` | The original event payload as submitted by the producer. |
+
+When a subscription has `transform_enabled = true` and a `transform_template`, the template output replaces the entire body -- the envelope is not used.
+
+#### HTTP Headers
+
+Every webhook delivery includes these headers:
+
+| Header | Example | Description |
+|--------|---------|-------------|
+| `Content-Type` | `application/json` | Always JSON. |
+| `User-Agent` | `Sparrow-Webhook/0.1.2` | Identifies the sender and version. |
+| `X-Sparrow-Event-ID` | `550e8400-...` | Same as `event_id` in the body. |
+| `X-Sparrow-Delivery-ID` | `d-123` | Same as `delivery_id` in the body. |
+| `X-Sparrow-Webhook-ID` | `7c9e6679-...` | Same as `webhook_id` in the body. |
+| `X-Sparrow-Signature-256` | `sha256=abc123...` | HMAC-SHA256 signature (only when `webhook_secret` is set). |
+| `X-Sparrow-Timestamp` | `1742201234` | Unix epoch seconds used in signature (only when `webhook_secret` is set). |
+
+Custom headers configured on the webhook or subscription are merged in, with subscription-level headers overriding webhook-level defaults.
+
+#### Verifying Webhook Signatures
+
+When a `webhook_secret` is configured, Sparrow signs every delivery so the consumer can verify authenticity and detect tampering. The signature covers the **entire HTTP request body** (the full JSON envelope, not just the inner `payload`).
+
+**Signature scheme:**
+
+1. Sparrow sets two headers: `X-Sparrow-Timestamp` (Unix epoch seconds) and `X-Sparrow-Signature-256` (prefixed with `sha256=`).
+2. The signed message is: `<timestamp>.<raw_request_body>` -- the timestamp, a literal dot, and the raw bytes of the request body.
+3. The HMAC is computed with SHA-256 using the `webhook_secret` as the key.
+4. The result is hex-encoded and prefixed with `sha256=`.
+
+**Verification steps:**
+
+1. Read the raw request body bytes (before any JSON parsing).
+2. Extract the `X-Sparrow-Timestamp` and `X-Sparrow-Signature-256` headers.
+3. **Reject stale timestamps.** Compare the timestamp against the current time. If the difference exceeds your tolerance (e.g. 5 minutes), reject the request to prevent replay attacks.
+4. Reconstruct the signed message: `timestamp + "." + raw_body`.
+5. Compute `HMAC-SHA256(message, webhook_secret)` and hex-encode the result.
+6. **Use constant-time comparison** to compare your computed signature against the value after the `sha256=` prefix. Do not use `==`.
+
+**Example: Go**
+
+```go
+import (
+    "crypto/hmac"
+    "crypto/sha256"
+    "crypto/subtle"
+    "encoding/hex"
+    "fmt"
+    "io"
+    "math"
+    "net/http"
+    "strconv"
+    "time"
+)
+
+func VerifyWebhook(r *http.Request, secret string) error {
+    // 1. Read raw body
+    body, err := io.ReadAll(r.Body)
+    if err != nil {
+        return fmt.Errorf("failed to read body: %w", err)
+    }
+
+    // 2. Extract headers
+    timestamp := r.Header.Get("X-Sparrow-Timestamp")
+    signature := r.Header.Get("X-Sparrow-Signature-256")
+    if timestamp == "" || signature == "" {
+        return fmt.Errorf("missing signature headers")
+    }
+
+    // 3. Reject stale timestamps (5-minute tolerance)
+    ts, err := strconv.ParseInt(timestamp, 10, 64)
+    if err != nil {
+        return fmt.Errorf("invalid timestamp: %w", err)
+    }
+    if math.Abs(float64(time.Now().Unix()-ts)) > 300 {
+        return fmt.Errorf("timestamp too old, possible replay attack")
+    }
+
+    // 4. Reconstruct signed message
+    message := timestamp + "." + string(body)
+
+    // 5. Compute expected signature
+    mac := hmac.New(sha256.New, []byte(secret))
+    mac.Write([]byte(message))
+    expected := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+
+    // 6. Constant-time comparison
+    if subtle.ConstantTimeCompare([]byte(expected), []byte(signature)) != 1 {
+        return fmt.Errorf("signature mismatch")
+    }
+    return nil
+}
+```
+
+**Example: Node.js**
+
+```javascript
+const crypto = require("crypto");
+
+function verifyWebhook(rawBody, timestamp, signature, secret) {
+  // Reject stale timestamps (5-minute tolerance)
+  const age = Math.abs(Date.now() / 1000 - parseInt(timestamp, 10));
+  if (age > 300) {
+    throw new Error("Timestamp too old, possible replay attack");
+  }
+
+  // Reconstruct signed message and compute HMAC
+  const message = `${timestamp}.${rawBody}`;
+  const expected =
+    "sha256=" +
+    crypto.createHmac("sha256", secret).update(message).digest("hex");
+
+  // Constant-time comparison
+  if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
+    throw new Error("Signature mismatch");
+  }
+}
+
+// In your Express handler:
+app.post("/webhook", express.raw({ type: "application/json" }), (req, res) => {
+  try {
+    verifyWebhook(
+      req.body.toString(),
+      req.headers["x-sparrow-timestamp"],
+      req.headers["x-sparrow-signature-256"],
+      process.env.WEBHOOK_SECRET
+    );
+    const event = JSON.parse(req.body);
+    // Process event...
+    res.sendStatus(200);
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+});
+```
+
+**Example: Python**
+
+```python
+import hashlib
+import hmac
+import time
+
+def verify_webhook(raw_body: bytes, timestamp: str, signature: str, secret: str):
+    # Reject stale timestamps (5-minute tolerance)
+    age = abs(time.time() - int(timestamp))
+    if age > 300:
+        raise ValueError("Timestamp too old, possible replay attack")
+
+    # Reconstruct signed message and compute HMAC
+    message = f"{timestamp}.{raw_body.decode()}"
+    expected = "sha256=" + hmac.new(
+        secret.encode(), message.encode(), hashlib.sha256
+    ).hexdigest()
+
+    # Constant-time comparison
+    if not hmac.compare_digest(expected, signature):
+        raise ValueError("Signature mismatch")
+
+# In your Flask handler:
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    verify_webhook(
+        request.get_data(),
+        request.headers.get("X-Sparrow-Timestamp"),
+        request.headers.get("X-Sparrow-Signature-256"),
+        os.environ["WEBHOOK_SECRET"],
+    )
+    event = request.get_json()
+    # Process event...
+    return "", 200
+```
 
 ### Web UI Architecture
 

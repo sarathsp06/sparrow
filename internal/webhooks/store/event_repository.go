@@ -36,7 +36,7 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	_, err = r.db.ExecContext(ctx, query,
+	_, err = r.conn.ExecContext(ctx, query,
 		event.ID,
 		event.TenantID,
 		event.Namespace,
@@ -60,7 +60,7 @@ func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, event
 
 	var eventRow EventRecord
 
-	err := r.db.GetContext(ctx, &eventRow, query, eventID, tenantID)
+	err := r.conn.GetContext(ctx, &eventRow, query, eventID, tenantID)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
@@ -116,14 +116,14 @@ func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, n
 
 	// Execute main query
 	var eventRows []EventRecord
-	err := r.db.SelectContext(ctx, &eventRows, baseQuery, queryArgs...)
+	err := r.conn.SelectContext(ctx, &eventRows, baseQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
 	// Get total count
 	var totalCount int
-	err = r.db.GetContext(ctx, &totalCount, countQuery, args...)
+	err = r.conn.GetContext(ctx, &totalCount, countQuery, args...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -217,19 +217,28 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 
 	// Execute main query
 	var events []*EventReportWithStats
-	err := r.db.SelectContext(ctx, &events, baseQuery, queryArgs...)
+	err := r.conn.SelectContext(ctx, &events, baseQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
 	// Get total count
 	var totalCount int
-	err = r.db.GetContext(ctx, &totalCount, countQuery, args...)
+	err = r.conn.GetContext(ctx, &totalCount, countQuery, args...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
 	return events, totalCount, nil
+}
+
+// DeleteEventByID deletes an event record by its ID within a tenant.
+// Used as a compensation action when downstream operations (e.g. job insertion) fail
+// after the event has already been stored.
+func (r *Repository) DeleteEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) error {
+	query := `DELETE FROM event_records WHERE id = $1 AND tenant_id = $2`
+	_, err := r.conn.ExecContext(ctx, query, eventID, tenantID)
+	return storage.Error(err)
 }
 
 // GetEventDeliveryStats gets delivery statistics for a specific event within a tenant
@@ -253,7 +262,7 @@ func (r *Repository) GetEventDeliveryStats(ctx context.Context, tenantID uuid.UU
 		PendingDeliveries    int32 `db:"pending_deliveries"`
 	}
 
-	err := r.db.GetContext(ctx, &result, query, eventID, tenantID)
+	err := r.conn.GetContext(ctx, &result, query, eventID, tenantID)
 	if err != nil {
 		return 0, 0, 0, 0, storage.Error(err)
 	}

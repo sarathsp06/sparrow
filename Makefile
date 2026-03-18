@@ -4,6 +4,7 @@
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 OUTPUT ?= build/server-$(GOOS)-$(GOARCH)
+DATABASE_URL ?= 'postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable'
 
 
 build: ## Build the server binary for current OS/arch
@@ -30,7 +31,7 @@ docker-purge: ## Stop and remove Docker containers, networks, volumes, and image
 	docker-compose -f docker-compose.dev.yml  down -v
 
 example: ## Run the gRPC client example
-	DATABASE_URL='postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable' go run examples/grpc_client.go
+	DATABASE_URL=$(DATABASE_URL) go run examples/grpc_client.go
 
 run-web: ## Run the web development server
 	cd web &&  yarn dev
@@ -39,7 +40,7 @@ test: ## Run tests
 	go test -v ./...
 
 run:  ## Run the gRPC server
-	SPARROW_SERVE_UI=true DATABASE_URL='postgres://riveruser:riverpass@0.0.0.0:5432/riverqueue?sslmode=disable'  go run ./cmd/server
+	SPARROW_SERVE_UI=true DATABASE_URL=$(DATABASE_URL)  go run ./cmd/server
 
 migrate: ## Run database migrations
 	DATABASE_URL='postgres://riveruser:riverpass@0.0.0.0:5432/riverqueue?sslmode=disable' go run ./cmd/migrate
@@ -49,7 +50,8 @@ clean: ## Clean up build artifacts and Go module cache
 	rm -rf build
 	go clean -modcache
 
-generate: ## Generate protobuf code
+generate: ## Generate protobuf code and gRPC clients
+	rm -rf client/go client/js client/python
 	buf generate
 	go generate ./...
 	go run ./cmd/generate-docs

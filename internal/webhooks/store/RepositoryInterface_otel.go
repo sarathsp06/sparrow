@@ -22,11 +22,11 @@ import (
 type RepositoryInterfaceWithTracing struct {
 	RepositoryInterface
 	_instance      string
-	_spanDecorator func(span trace.Span, params, results map[string]interface{})
+	_spanDecorator func(span trace.Span, params, results map[string]any)
 }
 
 // NewRepositoryInterfaceWithTracing returns RepositoryInterfaceWithTracing
-func NewRepositoryInterfaceWithTracing(base RepositoryInterface, instance string, spanDecorator ...func(span trace.Span, params, results map[string]interface{})) RepositoryInterfaceWithTracing {
+func NewRepositoryInterfaceWithTracing(base RepositoryInterface, instance string, spanDecorator ...func(span trace.Span, params, results map[string]any)) RepositoryInterfaceWithTracing {
 	d := RepositoryInterfaceWithTracing{
 		RepositoryInterface: base,
 		_instance:           instance,
@@ -60,6 +60,30 @@ func (_d RepositoryInterfaceWithTracing) AggregateHealthSummaries(ctx context.Co
 		_span.End()
 	}()
 	return _d.RepositoryInterface.AggregateHealthSummaries(ctx)
+}
+
+// BatchCreateDeliveries implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) BatchCreateDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.BatchCreateDeliveries")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":        ctx,
+				"tenantID":   tenantID,
+				"deliveries": deliveries}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.BatchCreateDeliveries(ctx, tenantID, deliveries)
 }
 
 // CalculateWebhookHealth implements RepositoryInterface
@@ -135,6 +159,29 @@ func (_d RepositoryInterfaceWithTracing) CreateSubscription(ctx context.Context,
 	return _d.RepositoryInterface.CreateSubscription(ctx, tenantID, sub)
 }
 
+// DeleteDeliveryByID implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUID) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.DeleteDeliveryByID")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":        ctx,
+				"deliveryID": deliveryID}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.DeleteDeliveryByID(ctx, deliveryID)
+}
+
 // DeleteEvent implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) DeleteEvent(ctx context.Context, tenantID uuid.UUID, eventName string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.DeleteEvent")
@@ -157,6 +204,30 @@ func (_d RepositoryInterfaceWithTracing) DeleteEvent(ctx context.Context, tenant
 		_span.End()
 	}()
 	return _d.RepositoryInterface.DeleteEvent(ctx, tenantID, eventName)
+}
+
+// DeleteEventByID implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) DeleteEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.DeleteEventByID")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"tenantID": tenantID,
+				"eventID":  eventID}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.DeleteEventByID(ctx, tenantID, eventID)
 }
 
 // DeleteSubscription implements RepositoryInterface
@@ -1001,6 +1072,57 @@ func (_d RepositoryInterfaceWithTracing) RegisterWebhook(ctx context.Context, te
 		_span.End()
 	}()
 	return _d.RepositoryInterface.RegisterWebhook(ctx, tenantID, registration)
+}
+
+// RegisterWebhookWithSubscriptions implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) RegisterWebhookWithSubscriptions(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration, subscriptions []*EventSubscription) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.RegisterWebhookWithSubscriptions")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":           ctx,
+				"tenantID":      tenantID,
+				"registration":  registration,
+				"subscriptions": subscriptions}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.RegisterWebhookWithSubscriptions(ctx, tenantID, registration, subscriptions)
+}
+
+// ReplaceWebhookSubscriptions implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) ReplaceWebhookSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, newSubscriptions []*EventSubscription) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ReplaceWebhookSubscriptions")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":              ctx,
+				"tenantID":         tenantID,
+				"webhookID":        webhookID,
+				"namespace":        namespace,
+				"newSubscriptions": newSubscriptions}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.ReplaceWebhookSubscriptions(ctx, tenantID, webhookID, namespace, newSubscriptions)
 }
 
 // ResetDeliveryForRetry implements RepositoryInterface

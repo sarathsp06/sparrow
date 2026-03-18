@@ -119,9 +119,14 @@ func (e *TemplateEngine) ValidateTemplate(tmplStr string) error {
 }
 
 type WebhookTemplateContext struct {
-	EventID   string
-	EventName string
-	Payload   map[string]any
+	EventID    string
+	EventName  string
+	Namespace  string
+	WebhookID  string
+	DeliveryID string
+	Timestamp  string
+	Attempt    int
+	Payload    map[string]any
 }
 
 // TransformPayload applies the template if enabled

@@ -6,6 +6,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"net/http"
@@ -33,6 +34,47 @@ type DeliveryRequest struct {
 	EventID    uuid.UUID
 	EventName  string
 	Namespace  string
+}
+
+// WebhookEnvelope is the default JSON body sent to webhook endpoints.
+// All fields use snake_case JSON tags.
+type WebhookEnvelope struct {
+	Version    string         `json:"version"`
+	EventID    string         `json:"event_id"`
+	EventName  string         `json:"event_name"`
+	Namespace  string         `json:"namespace"`
+	WebhookID  string         `json:"webhook_id"`
+	DeliveryID string         `json:"delivery_id"`
+	Timestamp  string         `json:"timestamp"`
+	Attempt    int            `json:"attempt"`
+	Payload    map[string]any `json:"payload"`
+}
+
+// EnvelopeVersion is the current version of the webhook envelope schema.
+const EnvelopeVersion = "1"
+
+// BuildEnvelopePayload constructs the default webhook body as a JSON envelope.
+func BuildEnvelopePayload(
+	eventID string,
+	eventName string,
+	namespace string,
+	webhookID string,
+	deliveryID string,
+	attempt int,
+	payload map[string]any,
+) ([]byte, error) {
+	envelope := WebhookEnvelope{
+		Version:    EnvelopeVersion,
+		EventID:    eventID,
+		EventName:  eventName,
+		Namespace:  namespace,
+		WebhookID:  webhookID,
+		DeliveryID: deliveryID,
+		Timestamp:  time.Now().UTC().Format(time.RFC3339),
+		Attempt:    attempt,
+		Payload:    payload,
+	}
+	return json.Marshal(envelope)
 }
 
 // BuildRequest creates an HTTP request from the delivery request

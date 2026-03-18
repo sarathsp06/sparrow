@@ -74,6 +74,12 @@ type APIKeyAuthenticator struct {
 	cache    map[string]*cacheEntry
 	cacheMu  sync.RWMutex
 	cacheTTL time.Duration
+
+	// lastUsed debounces last_used_at writes: at most one DB UPDATE per key
+	// per lastUsedInterval.
+	lastUsed         map[uuid.UUID]time.Time
+	lastUsedMu       sync.Mutex
+	lastUsedInterval time.Duration
 }
 
 type cacheEntry struct {
@@ -95,9 +101,11 @@ func WithCacheTTL(ttl time.Duration) APIKeyAuthenticatorOption {
 // NewAPIKeyAuthenticator creates an API key authenticator backed by the given store.
 func NewAPIKeyAuthenticator(store APIKeyStore, opts ...APIKeyAuthenticatorOption) *APIKeyAuthenticator {
 	a := &APIKeyAuthenticator{
-		store:    store,
-		cache:    make(map[string]*cacheEntry),
-		cacheTTL: 30 * time.Second,
+		store:            store,
+		cache:            make(map[string]*cacheEntry),
+		cacheTTL:         30 * time.Second,
+		lastUsed:         make(map[uuid.UUID]time.Time),
+		lastUsedInterval: 60 * time.Second,
 	}
 	for _, opt := range opts {
 		opt(a)
@@ -126,13 +134,9 @@ func (a *APIKeyAuthenticator) Authenticate(ctx context.Context, credential strin
 	// Check cache first
 	if a.cacheTTL > 0 {
 		if info := a.fromCache(keyHash); info != nil {
-			// Update last_used_at asynchronously (best-effort)
+			// Update last_used_at (debounced)
 			if info.KeyID != nil {
-				go func() {
-					bgCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-					defer cancel()
-					_ = a.store.UpdateAPIKeyLastUsed(bgCtx, *info.KeyID, time.Now())
-				}()
+				a.touchLastUsed(*info.KeyID)
 			}
 			return info, nil
 		}
@@ -178,14 +182,32 @@ func (a *APIKeyAuthenticator) Authenticate(ctx context.Context, credential strin
 		a.toCache(keyHash, info)
 	}
 
-	// Update last_used_at asynchronously (best-effort)
+	// Update last_used_at (debounced)
+	a.touchLastUsed(record.ID)
+
+	return info, nil
+}
+
+// touchLastUsed fires a best-effort, debounced last_used_at update for the
+// given key. If the key was already written within lastUsedInterval, the
+// write is skipped. This prevents a DB UPDATE on every single request.
+func (a *APIKeyAuthenticator) touchLastUsed(keyID uuid.UUID) {
+	now := time.Now()
+
+	a.lastUsedMu.Lock()
+	last, ok := a.lastUsed[keyID]
+	if ok && now.Sub(last) < a.lastUsedInterval {
+		a.lastUsedMu.Unlock()
+		return // recently written, skip
+	}
+	a.lastUsed[keyID] = now
+	a.lastUsedMu.Unlock()
+
 	go func() {
 		bgCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		_ = a.store.UpdateAPIKeyLastUsed(bgCtx, record.ID, time.Now())
+		_ = a.store.UpdateAPIKeyLastUsed(bgCtx, keyID, now)
 	}()
-
-	return info, nil
 }
 
 func (a *APIKeyAuthenticator) fromCache(keyHash string) *AuthInfo {

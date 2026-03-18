@@ -17,7 +17,8 @@
     "/deliveries": "Deliveries",
     "/events/push": "Push Event",
     "/webhooks/register": "Register Webhook",
-    "/events/[eventName]/reports": "Event Reports"
+    "/events/[eventName]/reports": "Event Reports",
+    "/deliveries/[deliveryId]": "Delivery Details",
   };
 
   // Routes that are accessible without authentication
@@ -28,7 +29,9 @@
     return titles[path] || path;
   }
 
-  const isPublicRoute = $derived(publicRoutes.has(page.route.id?.toString() || "/"));
+  const isPublicRoute = $derived(
+    publicRoutes.has(page.route.id?.toString() || "/"),
+  );
 </script>
 
 <svelte:head>
@@ -38,7 +41,10 @@
 <AuthShell {isPublicRoute}>
   {#snippet header()}
     <div class="flex items-center gap-2">
-      <a href="/" class="text-2xl font-bold text-gray-500 hover:text-blue-700/90">
+      <a
+        href="/"
+        class="text-2xl font-bold text-gray-500 hover:text-blue-700/90"
+      >
         <img src={favicon} alt="favicon" class="inline-block w-12 h-12" />
       </a>
       <h2 class="text-gray-500 font-bold text-2xl hover:text-blue-700/90">

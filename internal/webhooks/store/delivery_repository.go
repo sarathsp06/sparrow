@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,7 +19,7 @@ func (r *Repository) CreateDelivery(ctx context.Context, tenantID uuid.UUID, del
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.conn.ExecContext(ctx, query,
 		delivery.ID,
 		delivery.WebhookID,
 		delivery.EventID,
@@ -31,6 +33,66 @@ func (r *Repository) CreateDelivery(ctx context.Context, tenantID uuid.UUID, del
 		delivery.ErrorMessage,
 		delivery.RequestBody,
 	)
+	return storage.Error(err)
+}
+
+// BatchCreateDeliveries inserts multiple webhook delivery records in a single
+// multi-row INSERT statement. This is the batch counterpart of CreateDelivery
+// and is used by the fan-out loop to avoid N sequential round-trips.
+// tenantID is accepted for interface consistency.
+func (r *Repository) BatchCreateDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery) error {
+	if len(deliveries) == 0 {
+		return nil
+	}
+
+	// Single delivery — fall through to the simple path to avoid builder overhead.
+	if len(deliveries) == 1 {
+		return r.CreateDelivery(ctx, tenantID, deliveries[0])
+	}
+
+	// Build a multi-row INSERT:
+	//   INSERT INTO webhook_deliveries (id, webhook_id, event_id, subscription_id, status, attempt_count, max_attempts, expires_at, response_code, response_body, error_message, request_body)
+	//   VALUES ($1,$2,...,$12), ($13,$14,...,$24), ...
+	const cols = 12
+	valueGroups := make([]string, 0, len(deliveries))
+	args := make([]any, 0, len(deliveries)*cols)
+
+	for i, d := range deliveries {
+		base := i * cols
+		placeholders := make([]string, cols)
+		for j := 0; j < cols; j++ {
+			placeholders[j] = fmt.Sprintf("$%d", base+j+1)
+		}
+		valueGroups = append(valueGroups, "("+strings.Join(placeholders, ",")+")")
+
+		args = append(args,
+			d.ID,
+			d.WebhookID,
+			d.EventID,
+			d.SubscriptionID,
+			d.Status,
+			d.AttemptCount,
+			d.MaxAttempts,
+			d.ExpiresAt,
+			d.ResponseCode,
+			d.ResponseBody,
+			d.ErrorMessage,
+			d.RequestBody,
+		)
+	}
+
+	query := `INSERT INTO webhook_deliveries (id, webhook_id, event_id, subscription_id, status, attempt_count, max_attempts, expires_at, response_code, response_body, error_message, request_body)
+		VALUES ` + strings.Join(valueGroups, ",")
+
+	_, err := r.conn.ExecContext(ctx, query, args...)
+	return storage.Error(err)
+}
+
+// DeleteDeliveryByID removes a delivery record by its ID. Used as a compensation
+// action when a River job insert fails after the delivery was already created.
+func (r *Repository) DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUID) error {
+	query := `DELETE FROM webhook_deliveries WHERE id = $1`
+	_, err := r.conn.ExecContext(ctx, query, deliveryID)
 	return storage.Error(err)
 }
 
@@ -49,14 +111,14 @@ func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.U
 		WHERE id = $1
 	`
 
-	_, err := r.db.ExecContext(ctx, query, deliveryID, status, now, responseCode, responseBody, errorMessage, attemptIncrement, errorCategory)
+	_, err := r.conn.ExecContext(ctx, query, deliveryID, status, now, responseCode, responseBody, errorMessage, attemptIncrement, errorCategory)
 	return storage.Error(err)
 }
 
 // UpdateDeliveryRequestBody updates the request body for a delivery
 func (r *Repository) UpdateDeliveryRequestBody(ctx context.Context, deliveryID uuid.UUID, requestBody string) error {
 	query := `UPDATE webhook_deliveries SET request_body = $2 WHERE id = $1`
-	_, err := r.db.ExecContext(ctx, query, deliveryID, requestBody)
+	_, err := r.conn.ExecContext(ctx, query, deliveryID, requestBody)
 	return storage.Error(err)
 }
 
@@ -89,7 +151,7 @@ func (r *Repository) GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, de
 	}
 
 	var d WebhookDelivery
-	err := r.db.GetContext(ctx, &d, query, args...)
+	err := r.conn.GetContext(ctx, &d, query, args...)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
@@ -111,7 +173,7 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid
 	`
 
 	var totalCount int
-	err := r.db.GetContext(ctx, &totalCount, countQuery, webhookID, tenantID, namespace)
+	err := r.conn.GetContext(ctx, &totalCount, countQuery, webhookID, tenantID, namespace)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -129,7 +191,7 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid
 	`
 
 	var deliveries []*WebhookDelivery
-	err = r.db.SelectContext(ctx, &deliveries, query, webhookID, tenantID, namespace, limit, offset)
+	err = r.conn.SelectContext(ctx, &deliveries, query, webhookID, tenantID, namespace, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -148,7 +210,7 @@ func (r *Repository) GetDeliveriesByEventPaginated(ctx context.Context, tenantID
 	`
 
 	var totalCount int
-	err := r.db.GetContext(ctx, &totalCount, countQuery, eventID, tenantID, namespace)
+	err := r.conn.GetContext(ctx, &totalCount, countQuery, eventID, tenantID, namespace)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -166,7 +228,7 @@ func (r *Repository) GetDeliveriesByEventPaginated(ctx context.Context, tenantID
 	`
 
 	var deliveries []*WebhookDelivery
-	err = r.db.SelectContext(ctx, &deliveries, query, eventID, tenantID, namespace, limit, offset)
+	err = r.conn.SelectContext(ctx, &deliveries, query, eventID, tenantID, namespace, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -191,7 +253,7 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 		args = []any{tenantID, namespace}
 
 		var totalCount int
-		err := r.db.GetContext(ctx, &totalCount, countQuery, args...)
+		err := r.conn.GetContext(ctx, &totalCount, countQuery, args...)
 		if err != nil {
 			return nil, 0, storage.Error(err)
 		}
@@ -209,7 +271,7 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 		`
 
 		var deliveries []*WebhookDelivery
-		err = r.db.SelectContext(ctx, &deliveries, query, tenantID, namespace, limit, offset)
+		err = r.conn.SelectContext(ctx, &deliveries, query, tenantID, namespace, limit, offset)
 		if err != nil {
 			return nil, 0, storage.Error(err)
 		}
@@ -225,7 +287,7 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 		WHERE wr.tenant_id = $1
 	`
 	var totalCount int
-	err := r.db.GetContext(ctx, &totalCount, countQuery, tenantID)
+	err := r.conn.GetContext(ctx, &totalCount, countQuery, tenantID)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -242,7 +304,7 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 	`
 
 	var deliveries []*WebhookDelivery
-	err = r.db.SelectContext(ctx, &deliveries, query, tenantID, limit, offset)
+	err = r.conn.SelectContext(ctx, &deliveries, query, tenantID, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -266,7 +328,7 @@ func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.U
 	`
 
 	var deliveries []*WebhookDelivery
-	err := r.db.SelectContext(ctx, &deliveries, query, webhookID, tenantID, namespace, force)
+	err := r.conn.SelectContext(ctx, &deliveries, query, webhookID, tenantID, namespace, force)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -288,6 +350,6 @@ func (r *Repository) ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.
 		WHERE id = $1
 	`
 
-	_, err := r.db.ExecContext(ctx, query, deliveryID)
+	_, err := r.conn.ExecContext(ctx, query, deliveryID)
 	return storage.Error(err)
 }
