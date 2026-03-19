@@ -17,6 +17,7 @@ import (
 	"connectrpc.com/otelconnect"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -40,6 +41,9 @@ import (
 )
 
 func main() {
+	// Load .env file if present (ignored if missing)
+	_ = godotenv.Load()
+
 	ctx := context.Background()
 	startTime := time.Now() // Track service start time for uptime calculation
 
