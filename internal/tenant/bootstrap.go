@@ -114,11 +114,9 @@ func Bootstrap(ctx context.Context, svc *Service, cfg BootstrapConfig) error {
 // createRootKeyWithValue creates a root API key using a specific raw key value.
 func createRootKeyWithValue(ctx context.Context, svc *Service, rawKey string) (*CreateAPIKeyResult, error) {
 	keyHash := auth.HashAPIKey(rawKey)
-	prefix := rawKey
+	prefix := "sk_default_"
 	if idx := nthIndex(rawKey, '_', 2); idx > 0 && idx < len(rawKey) {
 		prefix = rawKey[:idx+1]
-	} else {
-		prefix = "sk_default_"
 	}
 
 	key := &APIKey{

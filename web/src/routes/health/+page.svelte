@@ -9,6 +9,7 @@
   } from "../../../../proto/webhook_pb.js";
   import { WebhookHealth } from "../../../../proto/webhook_pb.js";
   import HealthBadge from "$lib/components/HealthBadge.svelte";
+  import { activeNamespace } from "$lib/stores/namespace.svelte";
 
   let healthSummary: HealthSummary | undefined = $state();
   let namespaceStats: NamespaceStats | undefined = $state();
@@ -17,16 +18,13 @@
   let loading = $state(true);
   let error = $state("");
 
-  // Namespace filter (empty = all namespaces)
-  let namespaceFilter = $state('');
-
   async function fetchData() {
     loading = true;
     error = "";
     try {
       const [summaryRes, statsRes] = await Promise.all([
         healthClient.getHealthSummary({}),
-        webhookClient.getNamespaceStats({ namespace: namespaceFilter.trim() }),
+        webhookClient.getNamespaceStats({ namespace: activeNamespace() ?? '' }),
       ]);
       healthSummary = summaryRes.summary;
       namespaceStats = statsRes.stats;
@@ -65,9 +63,13 @@
 
   onMount(fetchData);
 
-  function handleNamespaceFilter() {
-    fetchData();
-  }
+  // Re-fetch when active namespace changes
+  $effect(() => {
+    const _ns = activeNamespace();
+    if (!loading) {
+      fetchData();
+    }
+  });
 </script>
 
 <svelte:head>
@@ -165,34 +167,11 @@
         {#if namespaceStats}
           <div>
             <h2 class="text-lg font-semibold text-gray-900 mb-1">
-              {namespaceFilter.trim() ? 'Namespace Statistics' : 'Statistics'}
+              {activeNamespace() ? 'Namespace Statistics' : 'Statistics'}
             </h2>
-            <div class="flex items-center gap-3 mb-4">
-              <p class="text-sm text-gray-500">
-                {namespaceFilter.trim() ? `Namespace: ${namespaceFilter.trim()}` : 'All Namespaces'}
-              </p>
-              <div class="relative flex-none w-48">
-                <input
-                  type="text"
-                  placeholder="Filter by namespace..."
-                  bind:value={namespaceFilter}
-                  onkeydown={(e) => e.key === 'Enter' && handleNamespaceFilter()}
-                  onblur={handleNamespaceFilter}
-                  class="w-full pl-3 pr-8 py-1.5 text-xs border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                />
-                {#if namespaceFilter.trim()}
-                  <button
-                    onclick={() => { namespaceFilter = ''; handleNamespaceFilter(); }}
-                    class="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
-                    title="Clear namespace filter"
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                {/if}
-              </div>
-            </div>
+            <p class="text-sm text-gray-500 mb-4">
+              {activeNamespace() ? `Namespace: ${activeNamespace()}` : 'All Namespaces'}
+            </p>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4">
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Webhooks</p>

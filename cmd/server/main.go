@@ -131,7 +131,15 @@ func main() {
 
 	// Create namespace repository and service
 	namespaceRepo := namespace.NewRepository(sqlxDB)
-	namespaceSvc := namespace.NewService(namespaceRepo)
+
+	// Build namespace service options (identity provider will be added below if auth is enabled)
+	var nsServiceOpts []namespace.ServiceOption
+	nsServiceOpts = append(nsServiceOpts, namespace.WithServiceLogger(logger))
+
+	// identityProvider is captured here so the TeamServer can use it.
+	// It stays nil when auth is disabled or no identity provider is configured,
+	// which the TeamServer handles by returning Unimplemented.
+	var identityProvider auth.IdentityProvider
 
 	// Build auth interceptor config
 	authInterceptorCfg := auth.AuthInterceptorConfig{
@@ -153,7 +161,9 @@ func main() {
 		if jwksURL := os.Getenv("SPARROW_JWKS_URL"); jwksURL != "" {
 			jwksProvider := auth.NewJWKSProvider(jwksURL)
 
-			// Build claims config from env vars with Clerk-compatible defaults
+			// Build claims config from env vars with Clerk-compatible defaults.
+			// All claim names are configurable so self-hosted deployments can use
+			// any OIDC provider (Keycloak, Auth0, Authelia, Zitadel, etc.).
 			claimsCfg := auth.DefaultJWTClaimsConfig()
 			if v := os.Getenv("SPARROW_JWT_TENANT_CLAIM"); v != "" {
 				claimsCfg.TenantClaim = v
@@ -161,8 +171,33 @@ func main() {
 			if v := os.Getenv("SPARROW_JWT_ROLE_CLAIM"); v != "" {
 				claimsCfg.RoleClaim = v
 			}
+			if v := os.Getenv("SPARROW_JWT_SUBJECT_CLAIM"); v != "" {
+				claimsCfg.SubjectClaim = v
+			}
 			if v := os.Getenv("SPARROW_JWT_ISSUER"); v != "" {
 				claimsCfg.Issuer = v
+			}
+			if v := os.Getenv("SPARROW_JWT_AUDIENCES"); v != "" {
+				claimsCfg.Audiences = strings.Split(v, ",")
+			}
+			// Set to "" to disable JWT-claim-based namespace role resolution
+			// and always use DB-based resolution instead.
+			if v, ok := os.LookupEnv("SPARROW_JWT_NAMESPACE_ROLES_CLAIM"); ok {
+				claimsCfg.NamespaceRolesClaim = v
+			}
+			// Custom role mapping: comma-separated "provider_role=sparrow_role" pairs.
+			// Example: "admin=tenant:admin,member=tenant:member,viewer=tenant:member"
+			if v := os.Getenv("SPARROW_JWT_ROLE_MAPPING"); v != "" {
+				mapping := make(map[string]auth.Role)
+				for _, pair := range strings.Split(v, ",") {
+					parts := strings.SplitN(strings.TrimSpace(pair), "=", 2)
+					if len(parts) == 2 {
+						mapping[strings.TrimSpace(parts[0])] = auth.Role(strings.TrimSpace(parts[1]))
+					}
+				}
+				if len(mapping) > 0 {
+					claimsCfg.RoleMapping = mapping
+				}
 			}
 
 			// Create tenant resolver with caching and auto-provisioning
@@ -188,6 +223,26 @@ func main() {
 			// JWT authenticator goes first — API keys are tried if JWT fails
 			authenticators = append([]auth.Authenticator{jwtAuthenticator}, authenticators...)
 			fmt.Printf("🔑 JWT authentication enabled (JWKS: %s)\n", jwksURL)
+			logger.Info("JWT claims configuration",
+				slog.String("tenant_claim", claimsCfg.TenantClaim),
+				slog.String("role_claim", claimsCfg.RoleClaim),
+				slog.String("subject_claim", claimsCfg.SubjectClaim),
+				slog.String("namespace_roles_claim", claimsCfg.NamespaceRolesClaim),
+				slog.String("issuer", claimsCfg.Issuer),
+			)
+		}
+
+		// Configure identity provider for namespace role sync.
+		// When CLERK_SECRET_KEY is set, namespace role changes are synced to
+		// Clerk org membership publicMetadata so they appear in JWT session tokens.
+		if clerkKey := os.Getenv("CLERK_SECRET_KEY"); clerkKey != "" {
+			clerkProvider := auth.NewClerkIdentityProvider(clerkKey, auth.WithClerkLogger(logger))
+			identityProvider = clerkProvider
+			nsServiceOpts = append(nsServiceOpts,
+				namespace.WithIdentityProvider(clerkProvider),
+				namespace.WithExternalTenantLookup(tenantRepo),
+			)
+			fmt.Println("🔗 Clerk identity provider enabled (namespace roles will sync to JWT)")
 		}
 
 		authInterceptorCfg.Authenticators = authenticators
@@ -195,6 +250,9 @@ func main() {
 	} else {
 		fmt.Println("🔓 Authentication disabled (all requests use default tenant)")
 	}
+
+	// Create namespace service (after auth setup so identity provider options are applied)
+	namespaceSvc := namespace.NewService(namespaceRepo, nsServiceOpts...)
 
 	// Create webhook repository
 	webhookRepo := store.NewRepositoryInterfaceWithTracing(store.NewRepository(sqlxDB), "")
@@ -242,6 +300,10 @@ func main() {
 	pb.RegisterNamespaceServiceServer(grpcServer, namespaceGRPCServer)
 	pb.RegisterNamespaceMembershipServiceServer(grpcServer, namespaceGRPCServer)
 
+	// Register Team gRPC service (delegates to identity provider for org-level operations)
+	teamGRPCServer := grpcserver.NewTeamServer(identityProvider, tenantRepo, auditLogger)
+	pb.RegisterTeamServiceServer(grpcServer, teamGRPCServer)
+
 	// Initialize Connect-RPC server
 	webhookConnectServer := connectserver.NewWebhookConnectServer(webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer)
 
@@ -250,6 +312,9 @@ func main() {
 
 	// Create Connect-RPC adapter for namespace/membership services
 	namespaceConnectServer := connectserver.NewNamespaceConnectServer(namespaceGRPCServer, namespaceGRPCServer)
+
+	// Create Connect-RPC adapter for team service
+	teamConnectServer := connectserver.NewTeamConnectServer(teamGRPCServer)
 
 	// Create HTTP mux for Connect-RPC
 	mux := http.NewServeMux()
@@ -269,6 +334,7 @@ func main() {
 	mux.Handle(pbconnect.NewAPIKeyServiceHandler(tenantConnectServer, options))
 	mux.Handle(pbconnect.NewNamespaceServiceHandler(namespaceConnectServer, options))
 	mux.Handle(pbconnect.NewNamespaceMembershipServiceHandler(namespaceConnectServer, options))
+	mux.Handle(pbconnect.NewTeamServiceHandler(teamConnectServer, options))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, queueManager, startTime)

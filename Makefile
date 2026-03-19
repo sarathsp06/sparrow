@@ -39,6 +39,9 @@ run-web: ## Run the web development server
 test: ## Run tests
 	go test -v ./...
 
+test-integration: ## Run integration tests (requires Docker for testcontainers)
+	go test -v -tags integration -timeout 120s ./internal/integration/...
+
 run:  ## Run the gRPC server
 	SPARROW_SERVE_UI=true DATABASE_URL=$(DATABASE_URL)  go run ./cmd/server
 
@@ -68,4 +71,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui build-all run test clean generate docker-dev example docker-purge migrate
+.PHONY: build build-ui build-with-ui build-all run test test-integration clean generate docker-dev example docker-purge migrate

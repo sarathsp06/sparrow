@@ -118,15 +118,23 @@ func (e *TemplateEngine) ValidateTemplate(tmplStr string) error {
 	return nil
 }
 
-type WebhookTemplateContext struct {
-	EventID    string
-	EventName  string
-	Namespace  string
-	WebhookID  string
-	DeliveryID string
-	Timestamp  string
-	Attempt    int
-	Payload    map[string]any
+// WebhookTemplateContext is the data context passed to Go templates.
+// It uses snake_case keys so that templates reference fields as
+// {{.event_id}}, {{.event_name}}, {{.timestamp}}, {{.attempt}}, and
+// {{.payload}}.
+// Namespace, WebhookID, and DeliveryID are conveyed via HTTP headers
+// and are intentionally omitted from the template context.
+type WebhookTemplateContext = map[string]any
+
+// NewWebhookTemplateContext builds a template context map with snake_case keys.
+func NewWebhookTemplateContext(eventID, eventName, timestamp string, attempt int, payload map[string]any) WebhookTemplateContext {
+	return WebhookTemplateContext{
+		"event_id":   eventID,
+		"event_name": eventName,
+		"timestamp":  timestamp,
+		"attempt":    attempt,
+		"payload":    payload,
+	}
 }
 
 // TransformPayload applies the template if enabled

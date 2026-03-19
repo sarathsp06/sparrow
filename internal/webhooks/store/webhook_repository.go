@@ -173,7 +173,7 @@ func (r *Repository) GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, 
 		conditions = append(conditions, fmt.Sprintf("namespace = $%d", argIdx))
 		deliveryConditions = append(deliveryConditions, fmt.Sprintf("wr.namespace = $%d", argIdx))
 		args = append(args, namespace)
-		argIdx++
+		argIdx++ //nolint:ineffassign // kept for clarity and future extensibility
 	}
 
 	webhookFilter := "WHERE " + strings.Join(conditions, " AND ")

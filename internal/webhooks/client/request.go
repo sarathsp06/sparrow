@@ -38,41 +38,36 @@ type DeliveryRequest struct {
 
 // WebhookEnvelope is the default JSON body sent to webhook endpoints.
 // All fields use snake_case JSON tags.
+// Namespace, WebhookID, and DeliveryID are conveyed via X-Sparrow-* HTTP
+// headers and are intentionally omitted from the body.
 type WebhookEnvelope struct {
-	Version    string         `json:"version"`
-	EventID    string         `json:"event_id"`
-	EventName  string         `json:"event_name"`
-	Namespace  string         `json:"namespace"`
-	WebhookID  string         `json:"webhook_id"`
-	DeliveryID string         `json:"delivery_id"`
-	Timestamp  string         `json:"timestamp"`
-	Attempt    int            `json:"attempt"`
-	Payload    map[string]any `json:"payload"`
+	Version   string         `json:"version"`
+	EventID   string         `json:"event_id"`
+	EventName string         `json:"event_name"`
+	Timestamp string         `json:"timestamp"`
+	Attempt   int            `json:"attempt"`
+	Payload   map[string]any `json:"payload"`
 }
 
 // EnvelopeVersion is the current version of the webhook envelope schema.
 const EnvelopeVersion = "1"
 
 // BuildEnvelopePayload constructs the default webhook body as a JSON envelope.
+// Namespace, WebhookID, and DeliveryID are not included in the body; they are
+// sent as X-Sparrow-* HTTP headers instead.
 func BuildEnvelopePayload(
 	eventID string,
 	eventName string,
-	namespace string,
-	webhookID string,
-	deliveryID string,
 	attempt int,
 	payload map[string]any,
 ) ([]byte, error) {
 	envelope := WebhookEnvelope{
-		Version:    EnvelopeVersion,
-		EventID:    eventID,
-		EventName:  eventName,
-		Namespace:  namespace,
-		WebhookID:  webhookID,
-		DeliveryID: deliveryID,
-		Timestamp:  time.Now().UTC().Format(time.RFC3339),
-		Attempt:    attempt,
-		Payload:    payload,
+		Version:   EnvelopeVersion,
+		EventID:   eventID,
+		EventName: eventName,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Attempt:   attempt,
+		Payload:   payload,
 	}
 	return json.Marshal(envelope)
 }

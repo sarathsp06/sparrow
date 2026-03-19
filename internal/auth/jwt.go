@@ -48,6 +48,19 @@ type JWTClaimsConfig struct {
 	// Almost always "sub" per the JWT spec. Default: "sub"
 	SubjectClaim string
 
+	// NamespaceRolesClaim is the JWT claim containing namespace role assignments.
+	// When present and non-empty, namespace roles are extracted from the JWT
+	// directly, skipping the DB-based MembershipResolver lookup.
+	//
+	// Expected format: a JSON array of strings like:
+	//   ["namespace:admin:customer-a", "namespace:viewer:customer-b"]
+	//
+	// This claim is populated by the IdentityProvider sync (e.g., Clerk
+	// publicMetadata → session token customization).
+	//
+	// Default: "namespace_roles" (empty string disables claim-based resolution)
+	NamespaceRolesClaim string
+
 	// Issuer is the expected JWT issuer (iss claim). If set, tokens from
 	// other issuers are rejected. Leave empty to skip issuer validation.
 	Issuer string
@@ -73,11 +86,12 @@ type JWTClaimsConfig struct {
 // DefaultJWTClaimsConfig returns a claims config with Clerk-compatible defaults.
 func DefaultJWTClaimsConfig() JWTClaimsConfig {
 	return JWTClaimsConfig{
-		TenantClaim:  "org_id",
-		RoleClaim:    "org_role",
-		SubjectClaim: "sub",
-		DefaultRole:  RoleTenantMember,
-		ClockSkew:    30 * time.Second,
+		TenantClaim:         "org_id",
+		RoleClaim:           "org_role",
+		SubjectClaim:        "sub",
+		NamespaceRolesClaim: "namespace_roles",
+		DefaultRole:         RoleTenantMember,
+		ClockSkew:           30 * time.Second,
 		RoleMapping: map[string]Role{
 			"org:admin":  RoleTenantAdmin,
 			"org:member": RoleTenantMember,
@@ -249,8 +263,34 @@ func (a *JWTAuthenticator) Authenticate(ctx context.Context, credential string) 
 		slog.String("role", string(role)),
 	)
 
-	// Resolve namespace memberships from database (if resolver is configured)
-	if a.membershipResolver != nil && subjectID != "" {
+	// Resolve namespace memberships: prefer JWT claims, fall back to database.
+	//
+	// When the IdentityProvider sync is active (e.g., Clerk), namespace roles
+	// are embedded in the JWT as the namespace_roles claim. This avoids a
+	// per-request DB lookup and is the preferred path.
+	//
+	// When the claim is absent (non-Clerk providers, or roles not yet synced),
+	// we fall back to the DB-based MembershipResolver.
+	nsRolesResolved := false
+
+	if a.claimsConfig.NamespaceRolesClaim != "" {
+		if rolesRaw, ok := claims[a.claimsConfig.NamespaceRolesClaim]; ok {
+			if encoded := extractStringSlice(rolesRaw); len(encoded) > 0 {
+				nsRoles := DecodeNamespaceRoles(encoded)
+				if len(nsRoles) > 0 {
+					info.NamespaceRoles = nsRoles
+					nsRolesResolved = true
+					a.logger.InfoContext(ctx, "namespace roles resolved from JWT claims",
+						slog.String("subject_id", subjectID),
+						slog.Int("namespace_count", len(nsRoles)),
+					)
+				}
+			}
+		}
+	}
+
+	// Fall back to DB-based membership resolution if JWT claims didn't provide roles
+	if !nsRolesResolved && a.membershipResolver != nil && subjectID != "" {
 		nsRoles, err := a.membershipResolver.ResolveNamespaceMemberships(ctx, tenantID, subjectID)
 		if err != nil {
 			a.logger.WarnContext(ctx, "failed to resolve namespace memberships",
@@ -261,7 +301,7 @@ func (a *JWTAuthenticator) Authenticate(ctx context.Context, credential string) 
 			// Non-fatal: fall back to tenant-level access
 		} else if len(nsRoles) > 0 {
 			info.NamespaceRoles = nsRoles
-			a.logger.InfoContext(ctx, "namespace memberships resolved",
+			a.logger.InfoContext(ctx, "namespace memberships resolved from database",
 				slog.String("subject_id", subjectID),
 				slog.Int("namespace_count", len(nsRoles)),
 			)
@@ -269,6 +309,26 @@ func (a *JWTAuthenticator) Authenticate(ctx context.Context, credential string) 
 	}
 
 	return info, nil
+}
+
+// extractStringSlice extracts a []string from a JWT claim value.
+// JWT claims are typically deserialized as []interface{} by the JSON parser,
+// so we handle both []string and []interface{} (with string elements).
+func extractStringSlice(v interface{}) []string {
+	switch val := v.(type) {
+	case []string:
+		return val
+	case []interface{}:
+		result := make([]string, 0, len(val))
+		for _, item := range val {
+			if s, ok := item.(string); ok {
+				result = append(result, s)
+			}
+		}
+		return result
+	default:
+		return nil
+	}
 }
 
 // Compile-time check

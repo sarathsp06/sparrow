@@ -186,18 +186,18 @@ func TestTransformPayload(t *testing.T) {
 	}{
 		{
 			name:     "simple template",
-			template: `{"event": "{{.EventName}}"}`,
+			template: `{"event": "{{.event_name}}"}`,
 			data: WebhookTemplateContext{
-				EventName: "user.created",
+				"event_name": "user.created",
 			},
 			expected: `{"event": "user.created"}`,
 			wantErr:  false,
 		},
 		{
 			name:     "with payload",
-			template: `{"user_id": "{{.Payload.user_id}}"}`,
+			template: `{"user_id": "{{.payload.user_id}}"}`,
 			data: WebhookTemplateContext{
-				Payload: map[string]any{"user_id": "123"},
+				"payload": map[string]any{"user_id": "123"},
 			},
 			expected: `{"user_id": "123"}`,
 			wantErr:  false,
@@ -340,15 +340,15 @@ func BenchmarkSend(b *testing.B) {
 func BenchmarkTransformPayload(b *testing.B) {
 	client := NewTemplateEngine()
 	templates := []string{
-		`{"event": "{{.EventName}}", "id": "{{.EventID}}"}`,
-		`{"event": "{{.Payload.event}}", "id": "{{.EventID}}"}`,
-		`{"event": "{{.EventName | upper}}", "id": "{{.EventID | lower}}"}`,
+		`{"event": "{{.event_name}}", "id": "{{.event_id}}"}`,
+		`{"event": "{{.payload.event}}", "id": "{{.event_id}}"}`,
+		`{"event": "{{.event_name | upper}}", "id": "{{.event_id | lower}}"}`,
 	}
 
 	data := WebhookTemplateContext{
-		EventID:   "event-123",
-		EventName: "user.created",
-		Payload: map[string]any{
+		"event_id":   "event-123",
+		"event_name": "user.created",
+		"payload": map[string]any{
 			"event": "user.created",
 		},
 	}

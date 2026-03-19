@@ -1059,3 +1059,119 @@ message GetUserNamespacesRequest {
 message GetUserNamespacesResponse {
   repeated NamespaceMembership memberships = 1;
 }
+
+// ============================================================
+// Team Management (org-level members & invitations)
+// ============================================================
+
+// TeamService manages organization-level team membership and invitations.
+// It delegates to the configured identity provider (e.g., Clerk) for
+// member listing, invitation, removal, and role changes.
+// Deployments without an identity provider return Unimplemented.
+service TeamService {
+  // ListMembers lists all members of the caller's organization
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+
+  // InviteMember invites a new member to the organization by email
+  rpc InviteMember(InviteMemberRequest) returns (InviteMemberResponse);
+
+  // RemoveMember removes a member from the organization
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
+
+  // UpdateMemberRole updates a member's organization-level role
+  rpc UpdateMemberRole(UpdateMemberRoleRequest) returns (UpdateMemberRoleResponse);
+
+  // ListInvitations lists pending invitations for the organization
+  rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
+
+  // RevokeInvitation revokes a pending invitation
+  rpc RevokeInvitation(RevokeInvitationRequest) returns (RevokeInvitationResponse);
+}
+
+// ---- Team Messages ----
+
+// TeamMember represents an organization member with profile information
+message TeamMember {
+  string user_id = 1;              // Identity provider user ID (e.g., Clerk user_id)
+  string first_name = 2;           // First name
+  string last_name = 3;            // Last name
+  string email = 4;                // Primary email / identifier
+  string image_url = 5;            // Profile image URL
+  string role = 6;                 // Organization role (e.g., "org:admin", "org:member")
+  google.protobuf.Timestamp joined_at = 7;  // When the member joined the organization
+}
+
+// TeamInvitation represents a pending organization invitation
+message TeamInvitation {
+  string id = 1;                   // Invitation ID
+  string email = 2;                // Invited email address
+  string role = 3;                 // Role assigned on acceptance (e.g., "org:member")
+  string status = 4;               // Invitation status (e.g., "pending", "accepted", "revoked")
+  google.protobuf.Timestamp created_at = 5;  // When the invitation was created
+  google.protobuf.Timestamp expires_at = 6;  // When the invitation expires
+}
+
+// ListMembersRequest represents a request to list organization members
+message ListMembersRequest {
+  PaginationRequest pagination = 1;
+}
+
+// ListMembersResponse represents the response for listing organization members
+message ListMembersResponse {
+  repeated TeamMember members = 1;
+  int32 total_count = 2;
+}
+
+// InviteMemberRequest represents a request to invite a member by email
+message InviteMemberRequest {
+  string email = 1;                // Email address to invite (required)
+  string role = 2;                 // Organization role to assign (required, e.g., "org:member")
+}
+
+// InviteMemberResponse represents the response for inviting a member
+message InviteMemberResponse {
+  TeamInvitation invitation = 1;
+}
+
+// RemoveMemberRequest represents a request to remove a member
+message RemoveMemberRequest {
+  string user_id = 1;              // User ID of the member to remove (required)
+}
+
+// RemoveMemberResponse represents the response for removing a member
+message RemoveMemberResponse {
+  // Empty on success; errors use gRPC status codes
+}
+
+// UpdateMemberRoleRequest represents a request to update a member's role
+message UpdateMemberRoleRequest {
+  string user_id = 1;              // User ID of the member (required)
+  string role = 2;                 // New organization role (required)
+}
+
+// UpdateMemberRoleResponse represents the response for updating a member's role
+message UpdateMemberRoleResponse {
+  TeamMember member = 1;
+}
+
+// ListInvitationsRequest represents a request to list pending invitations
+message ListInvitationsRequest {
+  PaginationRequest pagination = 1;
+  string status = 2;               // Filter by status (e.g., "pending"); empty = all
+}
+
+// ListInvitationsResponse represents the response for listing invitations
+message ListInvitationsResponse {
+  repeated TeamInvitation invitations = 1;
+  int32 total_count = 2;
+}
+
+// RevokeInvitationRequest represents a request to revoke an invitation
+message RevokeInvitationRequest {
+  string invitation_id = 1;        // Invitation ID to revoke (required)
+}
+
+// RevokeInvitationResponse represents the response for revoking an invitation
+message RevokeInvitationResponse {
+  // Empty on success; errors use gRPC status codes
+}

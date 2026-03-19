@@ -6,7 +6,10 @@ import {
   EventService,
   SubscriptionService,
   DeliveryService,
-  HealthService
+  HealthService,
+  NamespaceService,
+  NamespaceMembershipService,
+  TeamService
 } from "../../../proto/webhook_pb.js";
 import { getSessionToken } from "./auth.js";
 
@@ -43,6 +46,9 @@ export const eventClient = createClient(EventService, transport);
 export const subscriptionClient = createClient(SubscriptionService, transport);
 export const deliveryClient = createClient(DeliveryService, transport);
 export const healthClient = createClient(HealthService, transport);
+export const namespaceClient = createClient(NamespaceService, transport);
+export const namespaceMembershipClient = createClient(NamespaceMembershipService, transport);
+export const teamClient = createClient(TeamService, transport);
 
 // Backward compatibility
 export const client = webhookClient;

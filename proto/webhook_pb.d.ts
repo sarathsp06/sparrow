@@ -4049,6 +4049,374 @@ export declare type GetUserNamespacesResponse = Message<"webhook.GetUserNamespac
 export declare const GetUserNamespacesResponseSchema: GenMessage<GetUserNamespacesResponse>;
 
 /**
+ * TeamMember represents an organization member with profile information
+ *
+ * @generated from message webhook.TeamMember
+ */
+export declare type TeamMember = Message<"webhook.TeamMember"> & {
+  /**
+   * Identity provider user ID (e.g., Clerk user_id)
+   *
+   * @generated from field: string user_id = 1;
+   */
+  userId: string;
+
+  /**
+   * First name
+   *
+   * @generated from field: string first_name = 2;
+   */
+  firstName: string;
+
+  /**
+   * Last name
+   *
+   * @generated from field: string last_name = 3;
+   */
+  lastName: string;
+
+  /**
+   * Primary email / identifier
+   *
+   * @generated from field: string email = 4;
+   */
+  email: string;
+
+  /**
+   * Profile image URL
+   *
+   * @generated from field: string image_url = 5;
+   */
+  imageUrl: string;
+
+  /**
+   * Organization role (e.g., "org:admin", "org:member")
+   *
+   * @generated from field: string role = 6;
+   */
+  role: string;
+
+  /**
+   * When the member joined the organization
+   *
+   * @generated from field: google.protobuf.Timestamp joined_at = 7;
+   */
+  joinedAt?: Timestamp;
+};
+
+/**
+ * Describes the message webhook.TeamMember.
+ * Use `create(TeamMemberSchema)` to create a new message.
+ */
+export declare const TeamMemberSchema: GenMessage<TeamMember>;
+
+/**
+ * TeamInvitation represents a pending organization invitation
+ *
+ * @generated from message webhook.TeamInvitation
+ */
+export declare type TeamInvitation = Message<"webhook.TeamInvitation"> & {
+  /**
+   * Invitation ID
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * Invited email address
+   *
+   * @generated from field: string email = 2;
+   */
+  email: string;
+
+  /**
+   * Role assigned on acceptance (e.g., "org:member")
+   *
+   * @generated from field: string role = 3;
+   */
+  role: string;
+
+  /**
+   * Invitation status (e.g., "pending", "accepted", "revoked")
+   *
+   * @generated from field: string status = 4;
+   */
+  status: string;
+
+  /**
+   * When the invitation was created
+   *
+   * @generated from field: google.protobuf.Timestamp created_at = 5;
+   */
+  createdAt?: Timestamp;
+
+  /**
+   * When the invitation expires
+   *
+   * @generated from field: google.protobuf.Timestamp expires_at = 6;
+   */
+  expiresAt?: Timestamp;
+};
+
+/**
+ * Describes the message webhook.TeamInvitation.
+ * Use `create(TeamInvitationSchema)` to create a new message.
+ */
+export declare const TeamInvitationSchema: GenMessage<TeamInvitation>;
+
+/**
+ * ListMembersRequest represents a request to list organization members
+ *
+ * @generated from message webhook.ListMembersRequest
+ */
+export declare type ListMembersRequest = Message<"webhook.ListMembersRequest"> & {
+  /**
+   * @generated from field: webhook.PaginationRequest pagination = 1;
+   */
+  pagination?: PaginationRequest;
+};
+
+/**
+ * Describes the message webhook.ListMembersRequest.
+ * Use `create(ListMembersRequestSchema)` to create a new message.
+ */
+export declare const ListMembersRequestSchema: GenMessage<ListMembersRequest>;
+
+/**
+ * ListMembersResponse represents the response for listing organization members
+ *
+ * @generated from message webhook.ListMembersResponse
+ */
+export declare type ListMembersResponse = Message<"webhook.ListMembersResponse"> & {
+  /**
+   * @generated from field: repeated webhook.TeamMember members = 1;
+   */
+  members: TeamMember[];
+
+  /**
+   * @generated from field: int32 total_count = 2;
+   */
+  totalCount: number;
+};
+
+/**
+ * Describes the message webhook.ListMembersResponse.
+ * Use `create(ListMembersResponseSchema)` to create a new message.
+ */
+export declare const ListMembersResponseSchema: GenMessage<ListMembersResponse>;
+
+/**
+ * InviteMemberRequest represents a request to invite a member by email
+ *
+ * @generated from message webhook.InviteMemberRequest
+ */
+export declare type InviteMemberRequest = Message<"webhook.InviteMemberRequest"> & {
+  /**
+   * Email address to invite (required)
+   *
+   * @generated from field: string email = 1;
+   */
+  email: string;
+
+  /**
+   * Organization role to assign (required, e.g., "org:member")
+   *
+   * @generated from field: string role = 2;
+   */
+  role: string;
+};
+
+/**
+ * Describes the message webhook.InviteMemberRequest.
+ * Use `create(InviteMemberRequestSchema)` to create a new message.
+ */
+export declare const InviteMemberRequestSchema: GenMessage<InviteMemberRequest>;
+
+/**
+ * InviteMemberResponse represents the response for inviting a member
+ *
+ * @generated from message webhook.InviteMemberResponse
+ */
+export declare type InviteMemberResponse = Message<"webhook.InviteMemberResponse"> & {
+  /**
+   * @generated from field: webhook.TeamInvitation invitation = 1;
+   */
+  invitation?: TeamInvitation;
+};
+
+/**
+ * Describes the message webhook.InviteMemberResponse.
+ * Use `create(InviteMemberResponseSchema)` to create a new message.
+ */
+export declare const InviteMemberResponseSchema: GenMessage<InviteMemberResponse>;
+
+/**
+ * RemoveMemberRequest represents a request to remove a member
+ *
+ * @generated from message webhook.RemoveMemberRequest
+ */
+export declare type RemoveMemberRequest = Message<"webhook.RemoveMemberRequest"> & {
+  /**
+   * User ID of the member to remove (required)
+   *
+   * @generated from field: string user_id = 1;
+   */
+  userId: string;
+};
+
+/**
+ * Describes the message webhook.RemoveMemberRequest.
+ * Use `create(RemoveMemberRequestSchema)` to create a new message.
+ */
+export declare const RemoveMemberRequestSchema: GenMessage<RemoveMemberRequest>;
+
+/**
+ * RemoveMemberResponse represents the response for removing a member
+ *
+ * Empty on success; errors use gRPC status codes
+ *
+ * @generated from message webhook.RemoveMemberResponse
+ */
+export declare type RemoveMemberResponse = Message<"webhook.RemoveMemberResponse"> & {
+};
+
+/**
+ * Describes the message webhook.RemoveMemberResponse.
+ * Use `create(RemoveMemberResponseSchema)` to create a new message.
+ */
+export declare const RemoveMemberResponseSchema: GenMessage<RemoveMemberResponse>;
+
+/**
+ * UpdateMemberRoleRequest represents a request to update a member's role
+ *
+ * @generated from message webhook.UpdateMemberRoleRequest
+ */
+export declare type UpdateMemberRoleRequest = Message<"webhook.UpdateMemberRoleRequest"> & {
+  /**
+   * User ID of the member (required)
+   *
+   * @generated from field: string user_id = 1;
+   */
+  userId: string;
+
+  /**
+   * New organization role (required)
+   *
+   * @generated from field: string role = 2;
+   */
+  role: string;
+};
+
+/**
+ * Describes the message webhook.UpdateMemberRoleRequest.
+ * Use `create(UpdateMemberRoleRequestSchema)` to create a new message.
+ */
+export declare const UpdateMemberRoleRequestSchema: GenMessage<UpdateMemberRoleRequest>;
+
+/**
+ * UpdateMemberRoleResponse represents the response for updating a member's role
+ *
+ * @generated from message webhook.UpdateMemberRoleResponse
+ */
+export declare type UpdateMemberRoleResponse = Message<"webhook.UpdateMemberRoleResponse"> & {
+  /**
+   * @generated from field: webhook.TeamMember member = 1;
+   */
+  member?: TeamMember;
+};
+
+/**
+ * Describes the message webhook.UpdateMemberRoleResponse.
+ * Use `create(UpdateMemberRoleResponseSchema)` to create a new message.
+ */
+export declare const UpdateMemberRoleResponseSchema: GenMessage<UpdateMemberRoleResponse>;
+
+/**
+ * ListInvitationsRequest represents a request to list pending invitations
+ *
+ * @generated from message webhook.ListInvitationsRequest
+ */
+export declare type ListInvitationsRequest = Message<"webhook.ListInvitationsRequest"> & {
+  /**
+   * @generated from field: webhook.PaginationRequest pagination = 1;
+   */
+  pagination?: PaginationRequest;
+
+  /**
+   * Filter by status (e.g., "pending"); empty = all
+   *
+   * @generated from field: string status = 2;
+   */
+  status: string;
+};
+
+/**
+ * Describes the message webhook.ListInvitationsRequest.
+ * Use `create(ListInvitationsRequestSchema)` to create a new message.
+ */
+export declare const ListInvitationsRequestSchema: GenMessage<ListInvitationsRequest>;
+
+/**
+ * ListInvitationsResponse represents the response for listing invitations
+ *
+ * @generated from message webhook.ListInvitationsResponse
+ */
+export declare type ListInvitationsResponse = Message<"webhook.ListInvitationsResponse"> & {
+  /**
+   * @generated from field: repeated webhook.TeamInvitation invitations = 1;
+   */
+  invitations: TeamInvitation[];
+
+  /**
+   * @generated from field: int32 total_count = 2;
+   */
+  totalCount: number;
+};
+
+/**
+ * Describes the message webhook.ListInvitationsResponse.
+ * Use `create(ListInvitationsResponseSchema)` to create a new message.
+ */
+export declare const ListInvitationsResponseSchema: GenMessage<ListInvitationsResponse>;
+
+/**
+ * RevokeInvitationRequest represents a request to revoke an invitation
+ *
+ * @generated from message webhook.RevokeInvitationRequest
+ */
+export declare type RevokeInvitationRequest = Message<"webhook.RevokeInvitationRequest"> & {
+  /**
+   * Invitation ID to revoke (required)
+   *
+   * @generated from field: string invitation_id = 1;
+   */
+  invitationId: string;
+};
+
+/**
+ * Describes the message webhook.RevokeInvitationRequest.
+ * Use `create(RevokeInvitationRequestSchema)` to create a new message.
+ */
+export declare const RevokeInvitationRequestSchema: GenMessage<RevokeInvitationRequest>;
+
+/**
+ * RevokeInvitationResponse represents the response for revoking an invitation
+ *
+ * Empty on success; errors use gRPC status codes
+ *
+ * @generated from message webhook.RevokeInvitationResponse
+ */
+export declare type RevokeInvitationResponse = Message<"webhook.RevokeInvitationResponse"> & {
+};
+
+/**
+ * Describes the message webhook.RevokeInvitationResponse.
+ * Use `create(RevokeInvitationResponseSchema)` to create a new message.
+ */
+export declare const RevokeInvitationResponseSchema: GenMessage<RevokeInvitationResponse>;
+
+/**
  * WebhookDeliveryStatus represents the status of webhook delivery
  *
  * @generated from enum webhook.WebhookDeliveryStatus
@@ -4658,6 +5026,77 @@ export declare const NamespaceMembershipService: GenService<{
     methodKind: "unary";
     input: typeof GetUserNamespacesRequestSchema;
     output: typeof GetUserNamespacesResponseSchema;
+  },
+}>;
+
+/**
+ * TeamService manages organization-level team membership and invitations.
+ * It delegates to the configured identity provider (e.g., Clerk) for
+ * member listing, invitation, removal, and role changes.
+ * Deployments without an identity provider return Unimplemented.
+ *
+ * @generated from service webhook.TeamService
+ */
+export declare const TeamService: GenService<{
+  /**
+   * ListMembers lists all members of the caller's organization
+   *
+   * @generated from rpc webhook.TeamService.ListMembers
+   */
+  listMembers: {
+    methodKind: "unary";
+    input: typeof ListMembersRequestSchema;
+    output: typeof ListMembersResponseSchema;
+  },
+  /**
+   * InviteMember invites a new member to the organization by email
+   *
+   * @generated from rpc webhook.TeamService.InviteMember
+   */
+  inviteMember: {
+    methodKind: "unary";
+    input: typeof InviteMemberRequestSchema;
+    output: typeof InviteMemberResponseSchema;
+  },
+  /**
+   * RemoveMember removes a member from the organization
+   *
+   * @generated from rpc webhook.TeamService.RemoveMember
+   */
+  removeMember: {
+    methodKind: "unary";
+    input: typeof RemoveMemberRequestSchema;
+    output: typeof RemoveMemberResponseSchema;
+  },
+  /**
+   * UpdateMemberRole updates a member's organization-level role
+   *
+   * @generated from rpc webhook.TeamService.UpdateMemberRole
+   */
+  updateMemberRole: {
+    methodKind: "unary";
+    input: typeof UpdateMemberRoleRequestSchema;
+    output: typeof UpdateMemberRoleResponseSchema;
+  },
+  /**
+   * ListInvitations lists pending invitations for the organization
+   *
+   * @generated from rpc webhook.TeamService.ListInvitations
+   */
+  listInvitations: {
+    methodKind: "unary";
+    input: typeof ListInvitationsRequestSchema;
+    output: typeof ListInvitationsResponseSchema;
+  },
+  /**
+   * RevokeInvitation revokes a pending invitation
+   *
+   * @generated from rpc webhook.TeamService.RevokeInvitation
+   */
+  revokeInvitation: {
+    methodKind: "unary";
+    input: typeof RevokeInvitationRequestSchema;
+    output: typeof RevokeInvitationResponseSchema;
   },
 }>;
 

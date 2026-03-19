@@ -54,7 +54,7 @@ func Handler(logger *slog.Logger, apiPrefixes []string) http.Handler {
 		// Check if the file exists in the embedded FS.
 		if path != "" {
 			if f, err := staticFS.Open(path); err == nil {
-				f.Close()
+				_ = f.Close()
 				// File exists — serve it with proper caching.
 				// Immutable assets (hashed filenames) get long cache.
 				if strings.HasPrefix(path, "_app/immutable/") {

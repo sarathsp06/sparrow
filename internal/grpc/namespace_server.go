@@ -358,7 +358,9 @@ func (s *NamespaceServer) GetUserNamespaces(ctx context.Context, req *pb.GetUser
 		// Default to caller's own namespaces
 		subjectID = info.SubjectID
 		if subjectID == "" {
-			return nil, status.Error(codes.InvalidArgument, "subject_id is required (API keys have no subject)")
+			// API keys and no-auth mode have no subject — they operate
+			// at tenant level with no per-namespace memberships.
+			return &pb.GetUserNamespacesResponse{}, nil
 		}
 	} else if subjectID != info.SubjectID {
 		// Looking up another user's namespaces requires manage_members permission

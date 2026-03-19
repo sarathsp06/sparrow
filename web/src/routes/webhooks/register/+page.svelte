@@ -3,8 +3,9 @@
   import { eventClient, webhookClient as client } from '$lib/services';
   import { onMount } from 'svelte';
   import type { RegisteredEvent } from '../../../../../proto/webhook_pb.js';
+  import { activeNamespace, namespaces as allNamespaces } from '$lib/stores/namespace.svelte';
 
-  let namespace = $state('');
+  let namespace = $state(activeNamespace() ?? '');
   let events: string[] = $state([]);
   let url = $state('');
   let description = $state('');
@@ -13,6 +14,13 @@
   let error = $state('');
   let submitting = $state(false);
   let eventSearch = $state('');
+
+  // Sync with store when activeNamespace changes
+  $effect(() => {
+    if (activeNamespace() !== null) {
+      namespace = activeNamespace()!;
+    }
+  });
 
   // HTTP Configuration
   let showAdvanced = $state(false);
@@ -152,14 +160,27 @@
         <div class="space-y-4">
           <div>
             <label for="namespace" class="block text-sm font-medium text-gray-700 mb-1">Namespace</label>
-            <input
-              type="text"
-              id="namespace"
-              bind:value={namespace}
-              oninput={() => validateNamespace(namespace)}
-              placeholder="Enter namespace..."
-              class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900 {namespaceError ? 'border-red-300' : ''}"
-            />
+            {#if allNamespaces().length > 0}
+              <select
+                id="namespace"
+                bind:value={namespace}
+                class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900 {namespaceError ? 'border-red-300' : ''}"
+              >
+                <option value="">Select a namespace...</option>
+                {#each allNamespaces() as ns}
+                  <option value={ns.name}>{ns.name}</option>
+                {/each}
+              </select>
+            {:else}
+              <input
+                type="text"
+                id="namespace"
+                bind:value={namespace}
+                oninput={() => validateNamespace(namespace)}
+                placeholder="Enter namespace..."
+                class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900 {namespaceError ? 'border-red-300' : ''}"
+              />
+            {/if}
             {#if namespaceError}
               <p class="mt-1 text-xs text-red-600">{namespaceError}</p>
             {/if}

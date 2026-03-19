@@ -588,13 +588,19 @@ Sparrow Server
 | `DATABASE_URL` | PostgreSQL connection string | required |
 | `SPARROW_AUTH_ENABLED` | Enable JWT/API-key auth | `"false"` |
 | `SPARROW_JWKS_URL` | JWKS endpoint for JWT validation | -- |
-| `SPARROW_JWT_TENANT_CLAIM` | JWT claim for tenant/org ID | -- |
-| `SPARROW_JWT_ROLE_CLAIM` | JWT claim for role | -- |
+| `SPARROW_JWT_TENANT_CLAIM` | JWT claim for tenant/org ID | `"org_id"` |
+| `SPARROW_JWT_ROLE_CLAIM` | JWT claim for role | `"org_role"` |
+| `SPARROW_JWT_SUBJECT_CLAIM` | JWT claim for user identifier | `"sub"` |
 | `SPARROW_JWT_ISSUER` | Expected JWT issuer | -- |
+| `SPARROW_JWT_AUDIENCES` | Comma-separated expected audience values | -- |
+| `SPARROW_JWT_NAMESPACE_ROLES_CLAIM` | JWT claim for namespace roles. Set to `""` to disable. | `"namespace_roles"` |
+| `SPARROW_JWT_ROLE_MAPPING` | Comma-separated `provider_role=sparrow_role` pairs | `"org:admin=tenant:admin,org:member=tenant:member"` |
+| `SPARROW_ROOT_API_KEY` | Pre-configured root API key for bootstrap | -- |
 | `SPARROW_SERVE_UI` | Serve embedded SvelteKit UI | `"false"` |
 | `CORS_ALLOWED_ORIGINS` | CORS origins for Connect-RPC | -- |
 | `ENVIRONMENT` | `"development"` or `"production"` | -- |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP export endpoint | -- |
+| `CLERK_SECRET_KEY` | Clerk secret key for namespace role sync | -- |
 
 ### Database Pools
 | Pool | Library | Config | Purpose |
@@ -771,13 +777,12 @@ func (s *XxxServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequest)
 
 1. **No rate limiting** at the API level
 2. **No dead letter queue** -- failed deliveries stay in deliveries table
-3. **Limited test coverage** outside webhook service (auth, tenant, namespace, audit untested)
-4. **No integration/E2E tests**
-5. **No API versioning** in proto
-6. **No payload size limits** enforcement
-7. **No tenant usage quotas** (events/month, deliveries, etc.)
-8. **No scheduled/delayed webhooks**
-9. **No AuditLogService RPC** -- audit logs are written but no query endpoint exists yet
+3. **No integration/E2E tests**
+4. **No API versioning** in proto
+5. **No payload size limits** enforcement
+6. **No tenant usage quotas** (events/month, deliveries, etc.)
+7. **No scheduled/delayed webhooks**
+8. **No AuditLogService RPC** -- audit logs are written but no query endpoint exists yet
 
 ---
 
@@ -796,3 +801,4 @@ func (s *XxxServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequest)
 | Proto Cleanup | Mar 2026 | Removed OpenAPI/Swagger, added Go/JS/Python gRPC client generation |
 | Scaling & Audit | Mar 2026 | Batch fan-out (BatchCreateDeliveries), pgxpool tuning, audit logging for all 18 RPCs, 6 composite indexes |
 | UI Modernization | Mar 2026 | Marketing landing page (light theme), Getting Started with real curl commands, post-login redirect to /webhooks, protoc-gen-es integration in buf.gen.yaml |
+| Identity Provider | Mar 2026 | Pluggable IdentityProvider interface, Clerk namespace role sync (raw HTTP, no SDK), JWT namespace_roles claim extraction with DB fallback, CachingMembershipResolver (30s TTL), full env var configurability for self-hosted OIDC deployments |

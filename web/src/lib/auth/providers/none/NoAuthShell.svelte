@@ -6,6 +6,7 @@
 -->
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import NamespaceSwitcher from "$lib/components/NamespaceSwitcher.svelte";
 
   let {
     header,
@@ -27,6 +28,8 @@
       <a href="/webhooks" class="hover:text-primary transition">Webhooks</a>
       <a href="/events" class="hover:text-primary transition">Events</a>
       <a href="/health" class="hover:text-primary transition">Health</a>
+      <a href="/namespaces" class="hover:text-primary transition">Namespaces</a>
+      <NamespaceSwitcher />
       <a href="https://github.com/sarathsp06/sparrow" class="hover:text-primary transition">
         <img src="https://logo.svgcdn.com/devicon/github-original.png" alt="github" class="inline-block hover:text-primary w-8 h-8">
       </a>

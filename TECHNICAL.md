@@ -156,8 +156,11 @@ curl -s -X POST http://localhost:8080/webhook.APIKeyService/CreateAPIKey \
 ```bash
 SPARROW_AUTH_ENABLED=true
 SPARROW_JWKS_URL=https://your-provider.example.com/.well-known/jwks.json
-SPARROW_JWT_TENANT_CLAIM=org_id
-SPARROW_JWT_ROLE_CLAIM=org_role
+SPARROW_JWT_TENANT_CLAIM=org_id       # claim containing tenant/org ID
+SPARROW_JWT_ROLE_CLAIM=org_role       # claim containing user role
+SPARROW_JWT_SUBJECT_CLAIM=sub         # claim containing user ID
+SPARROW_JWT_ISSUER=https://...        # optional: expected issuer
+SPARROW_JWT_AUDIENCES=api,web         # optional: comma-separated expected audiences
 ```
 
 When both are enabled, the interceptor tries JWT first, then API key. This lets the web UI use JWTs while scripts use API keys.
@@ -175,9 +178,12 @@ Clerk is a managed identity provider. Sparrow auto-provisions tenants when users
   ```json
   {
     "org_id": "{{org.id}}",
-    "org_role": "{{org_membership.role}}"
+    "org_role": "{{org_membership.role}}",
+    "namespace_roles": "{{org_membership.public_metadata.namespace_roles}}"
   }
   ```
+
+The `namespace_roles` claim is optional but recommended. When present, Sparrow reads namespace roles directly from the JWT instead of querying the database on each request. Namespace roles are synced to Clerk automatically when you assign/remove roles via the Sparrow API (requires `CLERK_SECRET_KEY`).
 
 **3. Configure the backend:**
 
@@ -187,7 +193,12 @@ SPARROW_JWKS_URL=https://<your-instance>.clerk.accounts.dev/.well-known/jwks.jso
 SPARROW_JWT_TENANT_CLAIM=org_id
 SPARROW_JWT_ROLE_CLAIM=org_role
 SPARROW_JWT_ISSUER=https://<your-instance>.clerk.accounts.dev
+
+# Optional: enable namespace role sync to Clerk metadata
+CLERK_SECRET_KEY=sk_live_your-key-here
 ```
+
+When `CLERK_SECRET_KEY` is set, Sparrow syncs namespace role changes to Clerk org membership `publicMetadata`. On the next JWT refresh (~60s), the roles appear in the session token, eliminating per-request DB lookups for namespace membership resolution.
 
 **4. Configure the frontend** (in `web/.env` or environment):
 
@@ -205,6 +216,112 @@ Sparrow's backend is **provider-agnostic**. It validates JWTs using standard JWK
 1. Publishes a JWKS endpoint with RS256 keys
 2. Includes a tenant/org identifier claim in the JWT
 3. Optionally includes a role claim
+
+All JWT claim names are fully configurable via environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `SPARROW_JWT_TENANT_CLAIM` | `org_id` | Claim containing the tenant/org identifier |
+| `SPARROW_JWT_ROLE_CLAIM` | `org_role` | Claim containing the user's role string |
+| `SPARROW_JWT_SUBJECT_CLAIM` | `sub` | Claim containing the user identifier |
+| `SPARROW_JWT_ISSUER` | *(none)* | Expected issuer. Leave empty to skip validation. |
+| `SPARROW_JWT_AUDIENCES` | *(none)* | Comma-separated expected audiences. Leave empty to skip. |
+| `SPARROW_JWT_NAMESPACE_ROLES_CLAIM` | `namespace_roles` | Claim for embedded namespace roles. Set to `""` to disable. |
+| `SPARROW_JWT_ROLE_MAPPING` | `org:admin=tenant:admin,org:member=tenant:member` | Maps provider role strings to Sparrow roles |
+
+#### Example: Keycloak
+
+```bash
+SPARROW_AUTH_ENABLED=true
+SPARROW_JWKS_URL=https://keycloak.example.com/realms/sparrow/protocol/openid-connect/certs
+SPARROW_JWT_TENANT_CLAIM=organization_id       # or your custom claim
+SPARROW_JWT_ROLE_CLAIM=realm_role               # or resource_access.sparrow.roles[0]
+SPARROW_JWT_ISSUER=https://keycloak.example.com/realms/sparrow
+SPARROW_JWT_ROLE_MAPPING=admin=tenant:admin,user=tenant:member
+SPARROW_JWT_NAMESPACE_ROLES_CLAIM=""            # disable, use DB-based resolution
+```
+
+#### Example: Auth0
+
+```bash
+SPARROW_AUTH_ENABLED=true
+SPARROW_JWKS_URL=https://your-tenant.auth0.com/.well-known/jwks.json
+SPARROW_JWT_TENANT_CLAIM=org_id
+SPARROW_JWT_ROLE_CLAIM=https://sparrow.example.com/role    # custom claim namespace
+SPARROW_JWT_ISSUER=https://your-tenant.auth0.com/
+SPARROW_JWT_AUDIENCES=https://api.sparrow.example.com
+SPARROW_JWT_ROLE_MAPPING=Admin=tenant:admin,Member=tenant:member
+SPARROW_JWT_NAMESPACE_ROLES_CLAIM=""
+```
+
+#### Example: Authelia / Zitadel / Generic OIDC
+
+```bash
+SPARROW_AUTH_ENABLED=true
+SPARROW_JWKS_URL=https://auth.example.com/.well-known/jwks.json
+SPARROW_JWT_TENANT_CLAIM=tenant_id              # whatever your provider calls it
+SPARROW_JWT_ROLE_CLAIM=role
+SPARROW_JWT_SUBJECT_CLAIM=sub
+SPARROW_JWT_ROLE_MAPPING=administrator=tenant:admin,member=tenant:member
+SPARROW_JWT_NAMESPACE_ROLES_CLAIM=""            # always use DB for namespace roles
+```
+
+#### Namespace Role Resolution
+
+Namespace roles (e.g., `namespace:admin` on namespace `customer-a`) control fine-grained access within a tenant. There are two resolution paths:
+
+1. **JWT claim (fast path):** When the JWT contains a `namespace_roles` claim (a JSON array of strings like `["namespace:admin:customer-a", "namespace:viewer:customer-b"]`), Sparrow reads roles directly from the token. No DB query needed. This requires an identity provider that supports embedding custom metadata in JWTs (e.g., Clerk with `publicMetadata` + session token customization).
+
+2. **Database fallback (universal):** When the JWT claim is absent, empty, or disabled (`SPARROW_JWT_NAMESPACE_ROLES_CLAIM=""`), Sparrow resolves namespace memberships from the `namespace_memberships` table with a 30-second in-memory cache. This works with any OIDC provider.
+
+For self-hosted deployments without Clerk, the DB fallback is the primary path. It is functionally identical -- the only difference is a cached DB query per JWT-authenticated request (negligible for most workloads).
+
+### Self-Hosted Deployment
+
+Sparrow is designed for self-hosting. There are no mandatory external service dependencies beyond PostgreSQL.
+
+**Minimal self-hosted setup (no auth):**
+
+```bash
+# docker-compose.yml
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: sparrow
+      POSTGRES_USER: sparrow
+      POSTGRES_PASSWORD: sparrow
+    ports: ["5432:5432"]
+
+  sparrow:
+    image: sparrow:latest
+    environment:
+      DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
+      SPARROW_SERVE_UI: "true"
+    ports: ["8080:8080", "50051:50051"]
+    depends_on:
+      postgres: { condition: service_healthy }
+```
+
+**Self-hosted with OIDC auth (e.g., Keycloak):**
+
+```bash
+# Add to the sparrow service environment:
+SPARROW_AUTH_ENABLED: "true"
+SPARROW_JWKS_URL: "https://keycloak.internal/realms/myapp/protocol/openid-connect/certs"
+SPARROW_JWT_TENANT_CLAIM: "organization_id"
+SPARROW_JWT_ROLE_CLAIM: "role"
+SPARROW_JWT_ISSUER: "https://keycloak.internal/realms/myapp"
+SPARROW_JWT_ROLE_MAPPING: "admin=tenant:admin,user=tenant:member"
+SPARROW_JWT_NAMESPACE_ROLES_CLAIM: ""
+```
+
+**Key points for self-hosted:**
+
+- **Clerk is optional.** It is only used for (a) JWT validation (but any OIDC JWKS works) and (b) syncing namespace roles to JWT claims (a performance optimization). Without `CLERK_SECRET_KEY`, namespace roles come from the database.
+- **No external API calls at runtime** (unless Clerk sync is enabled). All auth validation uses cached JWKS keys and local DB lookups.
+- **API keys work standalone.** If you don't have an OIDC provider, just set `SPARROW_AUTH_ENABLED=true` and use API keys for all access. A root key is auto-generated on first boot.
+- **Auto-provisioning:** When JWT auth is enabled, unknown tenant/org IDs in JWTs are auto-provisioned as new tenants (limited to 2 per user). This means no manual tenant setup is needed when users from new organizations sign in.
 
 ---
 
@@ -304,8 +421,11 @@ sequenceDiagram
 | `JWKSProvider` | `internal/auth/jwks.go` | Fetches and caches RSA public keys from a JWKS URL |
 | `JWTAuthenticator` | `internal/auth/jwt.go` | Validates JWT signature and claims, maps to AuthInfo |
 | `CachingTenantResolver` | `internal/auth/tenant_resolver.go` | Maps external org IDs to internal tenant UUIDs with caching |
+| `CachingMembershipResolver` | `internal/auth/membership_resolver.go` | Caches namespace membership lookups (30s TTL) for DB-based resolution |
 | `AutoProvisioner` | `internal/tenant/provisioner.go` | Creates tenants on first JWT login, enforces per-user limits |
 | `JWTClaimsConfig` | `internal/auth/jwt.go` | Configurable claim names, role mapping, issuer/audience |
+| `IdentityProvider` | `internal/auth/identity_provider.go` | Pluggable interface for syncing namespace roles to external providers |
+| `ClerkIdentityProvider` | `internal/auth/clerk_provider.go` | Clerk implementation: syncs roles to org membership publicMetadata |
 
 ### RBAC Model
 
@@ -319,7 +439,9 @@ sequenceDiagram
 | `namespace:member` | Single namespace | Read/write access within a specific namespace |
 | `namespace:viewer` | Single namespace | Read-only access within a specific namespace |
 
-**JWT role mapping (configurable):** `org:admin` -> `tenant:admin`, `org:member` -> `tenant:member`.
+**JWT role mapping (configurable):** Default: `org:admin` -> `tenant:admin`, `org:member` -> `tenant:member`. Override with `SPARROW_JWT_ROLE_MAPPING` env var for non-Clerk providers (e.g., `admin=tenant:admin,user=tenant:member`).
+
+**Namespace roles** are assigned per-user per-namespace via the `NamespaceMembershipService` RPCs. When a user has namespace-level roles, authorization checks use the namespace role exclusively (tenant role is not a fallback). Users without any namespace memberships get tenant-wide access based on their tenant role.
 
 **Platform admin keys** (`is_platform_admin: true`) bypass tenant scoping entirely, allowing cross-tenant management operations.
 
@@ -356,7 +478,7 @@ The same gRPC service implementations back both protocols -- no code duplication
 - **gRPC** on `:50051` for high-performance programmatic access
 - **Connect-RPC (HTTP/JSON)** on `:8080` for curl, browsers, and any HTTP client
 
-Seven domain services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`, `TenantService`, `APIKeyService`.
+Seven domain services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`, `TenantService`, `APIKeyService`, `NamespaceService`, `NamespaceMembershipService`.
 
 ### Data Model
 

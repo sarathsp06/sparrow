@@ -37,6 +37,9 @@ type Repository interface {
 
 	// Implements auth.TenantLookup for JWT tenant resolution
 	auth.TenantLookup
+
+	// Implements auth.ExternalTenantLookup for reverse mapping (tenant UUID -> external_id)
+	auth.ExternalTenantLookup
 }
 
 // pgRepository implements Repository using PostgreSQL via sqlx.
@@ -257,7 +260,20 @@ func (r *pgRepository) LookupTenantIDByExternalID(ctx context.Context, externalI
 	return tenantID, nil
 }
 
+// ---- auth.ExternalTenantLookup implementation ----
+
+func (r *pgRepository) LookupExternalIDByTenantID(ctx context.Context, tenantID uuid.UUID) (string, error) {
+	var externalID string
+	query := `SELECT external_id FROM tenants WHERE id = $1 AND status = 'active' AND external_id IS NOT NULL`
+	err := r.conn.GetContext(ctx, &externalID, query, tenantID)
+	if err != nil {
+		return "", storage.Error(err)
+	}
+	return externalID, nil
+}
+
 // Compile-time checks
 var _ Repository = (*pgRepository)(nil)
 var _ auth.APIKeyStore = (*pgRepository)(nil)
 var _ auth.TenantLookup = (*pgRepository)(nil)
+var _ auth.ExternalTenantLookup = (*pgRepository)(nil)

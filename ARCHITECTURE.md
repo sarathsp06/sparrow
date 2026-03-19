@@ -56,8 +56,11 @@ package implements independently. This is dependency inversion done right.
 |---|---|---|
 | `tenant.pgRepository` | `auth.APIKeyStore` | `auth.APIKeyAuthenticator` |
 | `tenant.pgRepository` | `auth.TenantLookup` | `auth.CachingTenantResolver` |
+| `tenant.pgRepository` | `auth.ExternalTenantLookup` | `namespace.Service` (for identity provider sync) |
 | `tenant.AutoProvisioner` | `auth.TenantProvisioner` | `auth.CachingTenantResolver` |
-| `namespace.pgRepository` | `auth.MembershipResolver` | `auth.JWTAuthenticator` |
+| `namespace.pgRepository` | `auth.MembershipResolver` | `auth.CachingMembershipResolver` → `auth.JWTAuthenticator` |
+| `auth.ClerkIdentityProvider` | `auth.IdentityProvider` | `namespace.Service` (syncs roles to Clerk) |
+| `auth.NoopIdentityProvider` | `auth.IdentityProvider` | (default when no provider configured) |
 
 All of this wiring happens in `cmd/server/main.go` — the only place that knows about all
 three packages simultaneously. This is the composition root pattern.
@@ -118,8 +121,10 @@ auth.Permission              — used by webhooks (service-level permission chec
 auth.AuthInfo                — carried in context, consumed by all three packages
 auth.APIKeyStore             — implemented by tenant.pgRepository
 auth.TenantLookup            — implemented by tenant.pgRepository
+auth.ExternalTenantLookup    — implemented by tenant.pgRepository (maps tenant UUID → external org ID)
 auth.TenantProvisioner       — implemented by tenant.AutoProvisioner
 auth.MembershipResolver      — implemented by namespace.pgRepository
+auth.IdentityProvider        — implemented by ClerkIdentityProvider (or NoopIdentityProvider)
 auth.Authorize()             — called by webhooks service methods
 auth.AuthInfo.Require()      — called by webhooks service methods
 auth.AuthInfo.CanAccessNamespace() — called by webhooks service methods
@@ -188,73 +193,57 @@ interface but is never called. Priority should be:
 3. `RegisterWebhook` / `CreateWebhook` — wrap webhook + subscription creation.
 4. `EventProcessingWorker` — delivery + job insertion should share the River tx.
 
-### 4.3 JWT Auth: 1 Uncached DB Query Per Request [PERFORMANCE]
+### 4.3 JWT Auth: Namespace Membership Resolution [FIXED]
 
-The JWT authentication path (`jwt.go:253-254`) calls `ResolveNamespaceMemberships` on
-every request. This queries `namespace_memberships WHERE tenant_id = $1 AND subject_id = $2`.
+~~The JWT authentication path called `ResolveNamespaceMemberships` on every request with
+no cache.~~
 
-**There is no cache.** Tenant resolution has a 5-minute cache. JWKS keys have a 1-hour
-cache. API key lookups have a 30-second cache. But namespace memberships hit the DB
-every single time.
+**This has been fixed.** Namespace membership resolution now has two tiers:
+
+1. **JWT claim (fast path):** When the JWT contains a `namespace_roles` claim (populated
+   by the Clerk identity provider sync or any custom OIDC setup), roles are extracted
+   directly from the token. Zero DB queries.
+
+2. **Database with caching (fallback):** When the claim is absent (non-Clerk providers,
+   first login before sync), `CachingMembershipResolver` resolves memberships from the
+   `namespace_memberships` table with a **30-second in-memory cache** keyed on
+   `(tenantID, subjectID)`. Same eviction strategy as the API key cache.
 
 | Auth Type | Cache State | Sync DB Queries Per Request |
 |---|---|---|
 | API Key | Cache hit | **0** |
 | API Key | Cache miss | **1** |
-| JWT (no memberships) | Tenant cached | **0** |
-| JWT (with memberships) | Tenant cached | **1** (memberships, always) |
-| JWT (with memberships) | Both miss | **2** (tenant + memberships) |
+| JWT (namespace_roles in claim) | Tenant cached | **0** |
+| JWT (no claim, memberships cached) | Both cached | **0** |
+| JWT (no claim, memberships miss) | Tenant cached | **1** |
+| JWT (all miss) | Both miss | **2** (tenant + memberships) |
 
-**Fix:** Add a `CachingMembershipResolver` wrapper (analogous to `CachingTenantResolver`)
-keyed on `(tenantID, subjectID)` with a 30-60 second TTL. Namespace membership changes
-are rare enough to tolerate short-lived caching.
+The `IdentityProvider` interface (`internal/auth/identity_provider.go`) allows namespace
+role changes to be synced to external providers (currently Clerk). When active, this
+eliminates the DB fallback entirely for subsequent requests after the JWT refreshes.
 
-**Bonus optimization:** On a full JWT cache miss, the two sequential queries (tenant
-lookup + membership resolution) could be combined into a single SQL query with a CTE:
+### 4.4 API Key: `last_used_at` Debouncing [FIXED]
 
-```sql
-WITH t AS (SELECT id FROM tenants WHERE external_id = $1 AND status = 'active')
-SELECT nm.namespace, nm.role
-FROM namespace_memberships nm JOIN t ON nm.tenant_id = t.id
-WHERE nm.subject_id = $2;
-```
+~~Every API key request spawned a goroutine that runs an UPDATE for `last_used_at`.~~
 
-This would reduce the JWT cold-path from 2 round-trips to 1. However, this requires a
-cross-repository query, which would need a dedicated "auth resolution" helper rather
-than combining the two existing repositories.
+**This has been fixed.** The `APIKeyAuthenticator` now debounces `last_used_at` writes:
+at most one DB UPDATE per key per 60 seconds (`lastUsedInterval`). An in-memory map
+tracks the last write time per key ID. If the key was already written within the
+interval, the goroutine is skipped entirely.
 
-### 4.4 API Key: Write-Per-Request for `last_used_at` [PERFORMANCE]
+### 4.5 Connection Pool Configuration [FIXED]
 
-Every API key request (cache hit or miss) spawns a goroutine that runs:
-```sql
-UPDATE api_keys SET last_used_at = $1 WHERE id = $2
-```
-(`authenticator.go:131-136`, `authenticator.go:182-186`)
+~~`cmd/server/main.go` called `postgres.Open(databaseURL, 3)` with no pool options.
+Go's `database/sql` defaults applied: unlimited open connections, 2 idle connections.~~
 
-At high throughput, this creates one write per request. Consider debouncing: only update
-`last_used_at` at most once per N seconds per key using a buffered channel or in-memory
-timestamp check.
+**This has been fixed.** The sqlx pool is now configured with:
+- `MaxOpenConnections: 25`
+- `MaxIdleConnections: 25`
+- `ConnectionMaxLifeTime: 30min`
+- `ConnMaxIdleTime: 5min`
 
-### 4.5 Connection Pool Is Unconfigured [PERFORMANCE]
-
-`cmd/server/main.go:92` calls `postgres.Open(databaseURL, 3)` with no pool options.
-Go's `database/sql` defaults apply: **unlimited open connections, 2 idle connections**.
-
-The `pkg/storage/postgres/sqlx.go` file defines `WithMaxOpenConnections`,
-`WithMaxIdleConnections`, etc. — but they are **never used**.
-
-With 3 repositories + auth lookups + River workers all sharing the same pool with only
-2 idle connections, every burst of concurrent requests pays connection setup costs.
-
-**Fix:** Pass pool options in `main.go`:
-```go
-sqlxDB, err := postgres.Open(databaseURL, 3,
-    postgres.WithMaxOpenConnections(25),
-    postgres.WithMaxIdleConnections(10),
-    postgres.WithConnectionMaxLifeTime(30 * time.Minute),
-    postgres.WithSetConnMaxIdleTime(5 * time.Minute),
-)
-```
+The pgxpool (used by River only) is separately configured with `MaxConns=50,
+MinConns=10`, 30-minute max lifetime, 5-minute max idle, and 30-second health check.
 
 ### 4.6 Event Registrations Are Tenant-Scoped, Not Namespace-Scoped [OK]
 
@@ -359,17 +348,17 @@ model breaks another.
 
 ## 6. Fix Priority (Ordered by Impact)
 
-| Priority | Issue | Risk | Fix Effort |
+| Priority | Issue | Risk | Status |
 |---|---|---|---|
-| **P0** | `PushEvent` not using `StoreEventTx` — events silently lost | Silently lost events | Small — method exists, just not called |
-| **P0** | `UpdateWebhookConfig` delete-then-recreate without tx | Webhook with zero subscriptions | Medium — wrap in `Beginx()` transaction |
-| **P1** | Namespace delete/rename orphans webhook data | Silent data inconsistency | Medium — add FK migration or app-level cascade |
-| **P1** | `RegisterWebhook`/`CreateWebhook` partial subscriptions | Webhook misses events silently | Medium — wrap in transaction |
-| **P1** | `EventProcessingWorker` delivery + job not in same tx | Permanently stuck deliveries | Medium — use River tx for both |
-| **P2** | No cache on namespace membership resolution | 1 extra DB query per JWT request | Small — add caching wrapper |
-| **P2** | Connection pool unconfigured (2 idle conns) | Connection churn under load | Trivial — pass options to `Open()` |
-| **P3** | `last_used_at` write per API key request | Write amplification at high RPS | Small — debounce with timestamp check |
-| **P3** | Cache eviction is O(n) with write lock | Brief latency spike at >10k entries | Small — replace with LRU |
+| **P0** | `PushEvent` not using `StoreEventTx` — events silently lost | Silently lost events | Open |
+| **P0** | `UpdateWebhookConfig` delete-then-recreate without tx | Webhook with zero subscriptions | Open |
+| **P1** | Namespace delete/rename orphans webhook data | Silent data inconsistency | Open |
+| **P1** | `RegisterWebhook`/`CreateWebhook` partial subscriptions | Webhook misses events silently | Open |
+| **P1** | `EventProcessingWorker` delivery + job not in same tx | Permanently stuck deliveries | Open |
+| ~~P2~~ | ~~No cache on namespace membership resolution~~ | ~~1 extra DB query per JWT request~~ | **Fixed** — `CachingMembershipResolver` (30s TTL) + JWT claim extraction |
+| ~~P2~~ | ~~Connection pool unconfigured (2 idle conns)~~ | ~~Connection churn under load~~ | **Fixed** — sqlx MaxOpen=25, pgxpool MaxConns=50 |
+| ~~P3~~ | ~~`last_used_at` write per API key request~~ | ~~Write amplification at high RPS~~ | **Fixed** — debounced to 1 write per 60s per key |
+| **P3** | Cache eviction is O(n) with write lock | Brief latency spike at >10k entries | Open |
 
 ---
 

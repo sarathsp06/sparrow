@@ -1945,11 +1945,13 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 	engine := client.NewTemplateEngine()
 
 	// Create context for template
-	data := client.WebhookTemplateContext{
-		EventID:   "dry-run-event-id",
-		EventName: eventName,
-		Payload:   event.SamplePayload,
-	}
+	data := client.NewWebhookTemplateContext(
+		"dry-run-event-id",
+		eventName,
+		time.Now().UTC().Format(time.RFC3339),
+		1,
+		event.SamplePayload,
+	)
 
 	result, err := engine.TransformPayload(transformTemplate, data)
 	if err != nil {

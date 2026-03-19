@@ -175,13 +175,9 @@ func isTLSError(err error) bool {
 		"ssl", "CERTIFICATE_VERIFY_FAILED",
 	}
 	lower := strings.ToLower(msg)
-	if slices.ContainsFunc(tlsPatterns, func(p string) bool {
+	return slices.ContainsFunc(tlsPatterns, func(p string) bool {
 		return strings.Contains(lower, strings.ToLower(p))
-	}) {
-		return true
-	}
-
-	return false
+	})
 }
 
 // classifySyscallError maps syscall errors to error categories.

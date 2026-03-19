@@ -269,7 +269,7 @@ func TestWebhookService_TestSubscriptionTemplate(t *testing.T) {
 
 	repo.On("GetEventByName", mock.Anything, mock.Anything, eventName).Return(event, nil)
 
-	template := `{"new_id": "{{ .Payload.id }}"}`
+	template := `{"new_id": "{{ .payload.id }}"}`
 	res, err := service.TestSubscriptionTemplate(ctx, eventName, template, "default")
 	assert.NoError(t, err)
 	assert.Equal(t, `{"new_id": "123"}`, res)

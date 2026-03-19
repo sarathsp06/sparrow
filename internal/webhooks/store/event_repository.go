@@ -198,11 +198,11 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 
 	// Build count query — use column names without alias
 	var countConditions []string
-	countConditions = append(countConditions, fmt.Sprintf("tenant_id = $1"))
+	countConditions = append(countConditions, "tenant_id = $1")
 	countArgIdx := 2
 	if namespace != "" {
 		countConditions = append(countConditions, fmt.Sprintf("namespace = $%d", countArgIdx))
-		countArgIdx++
+		countArgIdx++ //nolint:ineffassign // kept for clarity and future extensibility
 	}
 	countWhereClause := strings.Join(countConditions, " AND ")
 

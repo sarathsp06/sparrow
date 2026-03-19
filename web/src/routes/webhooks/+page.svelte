@@ -8,11 +8,11 @@
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
+  import { activeNamespace } from '$lib/stores/namespace.svelte';
 
   let webhooks: RegisteredWebhook[] = $state([]);
   let loading = $state(true);
   let error = $state('');
-  let namespace = $state('');
 
   // Filtering
   let healthFilter = $state<WebhookHealth | null>(null);
@@ -61,8 +61,6 @@
     loading = true;
     error = '';
     try {
-      const trimmedNamespace = namespace.trim();
-
       // Use server-side health filtering when a health filter is active
       if (healthFilter !== null) {
         const res = await healthClient.listWebhooksByHealth({
@@ -73,7 +71,7 @@
         totalCount = res.pagination?.totalCount || 0;
       } else {
         const res = await client.listWebhooks({
-          namespace: trimmedNamespace,
+          namespace: activeNamespace() ?? '',
           pagination: { limit, offset },
         });
         webhooks = res.webhooks || [];
@@ -97,10 +95,16 @@
 
   onMount(fetchWebhooks);
 
-  function handleNamespaceFilter() {
-    offset = 0;
-    fetchWebhooks();
-  }
+  // Re-fetch when active namespace changes
+  $effect(() => {
+    // Access activeNamespace to track it
+    const _ns = activeNamespace();
+    // Skip the initial mount (onMount handles that)
+    if (!loading) {
+      offset = 0;
+      fetchWebhooks();
+    }
+  });
 
   function handlePageChange(pageNum: number) {
     offset = (pageNum - 1) * limit;
@@ -161,7 +165,7 @@
       <div>
         <h1 class="text-2xl font-bold text-gray-900">Webhooks</h1>
         <p class="text-sm text-gray-500 mt-0.5">
-          {namespace.trim() ? `Namespace: ${namespace.trim()}` : 'All Namespaces'}
+          {activeNamespace() ? `Namespace: ${activeNamespace()}` : 'All Namespaces'}
         </p>
       </div>
       <a
@@ -195,29 +199,8 @@
       </div>
     {/if}
 
-    <!-- Toolbar: Namespace filter + Search + Health filter pills -->
+    <!-- Toolbar: Search + Health filter pills -->
     <div class="flex flex-col sm:flex-row gap-3 mb-4">
-      <div class="relative flex-none w-full sm:w-48">
-        <input
-          type="text"
-          placeholder="Filter by namespace..."
-          bind:value={namespace}
-          onkeydown={(e) => e.key === 'Enter' && handleNamespaceFilter()}
-          onblur={handleNamespaceFilter}
-          class="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-        />
-        {#if namespace.trim()}
-          <button
-            onclick={() => { namespace = ''; handleNamespaceFilter(); }}
-            class="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
-            title="Clear namespace filter"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        {/if}
-      </div>
       <div class="relative flex-1 max-w-md">
         <input
           type="text"

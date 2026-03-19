@@ -86,7 +86,7 @@ func MainGRPC() {
 		if err != nil {
 			log.Printf("Failed to register event %s: %v", event.name, err)
 		} else {
-			log.Printf("Event %s registered: (ID: %s)", event.name, regEventResp.EventId)
+			log.Printf("Event %s registered: (ID: %s)", event.name, regEventResp.GetEventId()) //nolint:staticcheck // deprecated field, no replacement available yet
 		}
 	}
 

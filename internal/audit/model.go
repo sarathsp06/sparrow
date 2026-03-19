@@ -73,6 +73,14 @@ const (
 	ActionMembershipRemove Action = "membership.remove"
 )
 
+// Team member actions (org-level, via identity provider)
+const (
+	ActionMemberInvite       Action = "member.invite"
+	ActionMemberRemove       Action = "member.remove"
+	ActionMemberUpdateRole   Action = "member.update_role"
+	ActionMemberInviteRevoke Action = "member.invite_revoke"
+)
+
 // ResourceType identifies the type of resource affected.
 type ResourceType string
 
@@ -85,6 +93,7 @@ const (
 	ResourceAPIKey       ResourceType = "api_key"
 	ResourceNamespace    ResourceType = "namespace"
 	ResourceMembership   ResourceType = "membership"
+	ResourceMember       ResourceType = "member"
 )
 
 // Entry represents a single audit log record.

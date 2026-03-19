@@ -7,6 +7,7 @@
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
+	import { activeNamespace } from '$lib/stores/namespace.svelte';
 
 	let events: RegisteredEvent[] = $state([]);
 	let loading = $state(true);
@@ -109,7 +110,9 @@
 		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
 			<div>
 				<h1 class="text-2xl font-bold text-gray-900">Events</h1>
-				<p class="text-sm text-gray-500 mt-0.5">Manage registered event types</p>
+				<p class="text-sm text-gray-500 mt-0.5">
+					{activeNamespace() ? `Namespace: ${activeNamespace()}` : 'Manage registered event types'}
+				</p>
 			</div>
 			<div class="flex items-center gap-2">
 				<a

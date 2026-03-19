@@ -17,6 +17,7 @@
     OrganizationSwitcher,
     UserButton,
   } from "svelte-clerk/client";
+  import NamespaceSwitcher from "$lib/components/NamespaceSwitcher.svelte";
 
   let {
     header,
@@ -63,7 +64,9 @@
         <a href="/webhooks" class="hover:text-primary transition">Webhooks</a>
         <a href="/events" class="hover:text-primary transition">Events</a>
         <a href="/health" class="hover:text-primary transition">Health</a>
+        <a href="/namespaces" class="hover:text-primary transition">Namespaces</a>
         <a href="/team" class="hover:text-primary transition">Team</a>
+        <NamespaceSwitcher />
         <OrganizationSwitcher hidePersonal={true} />
         <UserButton />
       </nav>

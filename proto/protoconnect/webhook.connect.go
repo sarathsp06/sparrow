@@ -40,6 +40,8 @@ const (
 	// NamespaceMembershipServiceName is the fully-qualified name of the NamespaceMembershipService
 	// service.
 	NamespaceMembershipServiceName = "webhook.NamespaceMembershipService"
+	// TeamServiceName is the fully-qualified name of the TeamService service.
+	TeamServiceName = "webhook.TeamService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -183,6 +185,23 @@ const (
 	// NamespaceMembershipServiceGetUserNamespacesProcedure is the fully-qualified name of the
 	// NamespaceMembershipService's GetUserNamespaces RPC.
 	NamespaceMembershipServiceGetUserNamespacesProcedure = "/webhook.NamespaceMembershipService/GetUserNamespaces"
+	// TeamServiceListMembersProcedure is the fully-qualified name of the TeamService's ListMembers RPC.
+	TeamServiceListMembersProcedure = "/webhook.TeamService/ListMembers"
+	// TeamServiceInviteMemberProcedure is the fully-qualified name of the TeamService's InviteMember
+	// RPC.
+	TeamServiceInviteMemberProcedure = "/webhook.TeamService/InviteMember"
+	// TeamServiceRemoveMemberProcedure is the fully-qualified name of the TeamService's RemoveMember
+	// RPC.
+	TeamServiceRemoveMemberProcedure = "/webhook.TeamService/RemoveMember"
+	// TeamServiceUpdateMemberRoleProcedure is the fully-qualified name of the TeamService's
+	// UpdateMemberRole RPC.
+	TeamServiceUpdateMemberRoleProcedure = "/webhook.TeamService/UpdateMemberRole"
+	// TeamServiceListInvitationsProcedure is the fully-qualified name of the TeamService's
+	// ListInvitations RPC.
+	TeamServiceListInvitationsProcedure = "/webhook.TeamService/ListInvitations"
+	// TeamServiceRevokeInvitationProcedure is the fully-qualified name of the TeamService's
+	// RevokeInvitation RPC.
+	TeamServiceRevokeInvitationProcedure = "/webhook.TeamService/RevokeInvitation"
 )
 
 // WebhookServiceClient is a client for the webhook.WebhookService service.
@@ -1868,4 +1887,216 @@ func (UnimplementedNamespaceMembershipServiceHandler) ListNamespaceMembers(conte
 
 func (UnimplementedNamespaceMembershipServiceHandler) GetUserNamespaces(context.Context, *connect.Request[proto.GetUserNamespacesRequest]) (*connect.Response[proto.GetUserNamespacesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceMembershipService.GetUserNamespaces is not implemented"))
+}
+
+// TeamServiceClient is a client for the webhook.TeamService service.
+type TeamServiceClient interface {
+	// ListMembers lists all members of the caller's organization
+	ListMembers(context.Context, *connect.Request[proto.ListMembersRequest]) (*connect.Response[proto.ListMembersResponse], error)
+	// InviteMember invites a new member to the organization by email
+	InviteMember(context.Context, *connect.Request[proto.InviteMemberRequest]) (*connect.Response[proto.InviteMemberResponse], error)
+	// RemoveMember removes a member from the organization
+	RemoveMember(context.Context, *connect.Request[proto.RemoveMemberRequest]) (*connect.Response[proto.RemoveMemberResponse], error)
+	// UpdateMemberRole updates a member's organization-level role
+	UpdateMemberRole(context.Context, *connect.Request[proto.UpdateMemberRoleRequest]) (*connect.Response[proto.UpdateMemberRoleResponse], error)
+	// ListInvitations lists pending invitations for the organization
+	ListInvitations(context.Context, *connect.Request[proto.ListInvitationsRequest]) (*connect.Response[proto.ListInvitationsResponse], error)
+	// RevokeInvitation revokes a pending invitation
+	RevokeInvitation(context.Context, *connect.Request[proto.RevokeInvitationRequest]) (*connect.Response[proto.RevokeInvitationResponse], error)
+}
+
+// NewTeamServiceClient constructs a client for the webhook.TeamService service. By default, it uses
+// the Connect protocol with the binary Protobuf Codec, asks for gzipped responses, and sends
+// uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the connect.WithGRPC() or
+// connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewTeamServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) TeamServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	teamServiceMethods := proto.File_proto_webhook_proto.Services().ByName("TeamService").Methods()
+	return &teamServiceClient{
+		listMembers: connect.NewClient[proto.ListMembersRequest, proto.ListMembersResponse](
+			httpClient,
+			baseURL+TeamServiceListMembersProcedure,
+			connect.WithSchema(teamServiceMethods.ByName("ListMembers")),
+			connect.WithClientOptions(opts...),
+		),
+		inviteMember: connect.NewClient[proto.InviteMemberRequest, proto.InviteMemberResponse](
+			httpClient,
+			baseURL+TeamServiceInviteMemberProcedure,
+			connect.WithSchema(teamServiceMethods.ByName("InviteMember")),
+			connect.WithClientOptions(opts...),
+		),
+		removeMember: connect.NewClient[proto.RemoveMemberRequest, proto.RemoveMemberResponse](
+			httpClient,
+			baseURL+TeamServiceRemoveMemberProcedure,
+			connect.WithSchema(teamServiceMethods.ByName("RemoveMember")),
+			connect.WithClientOptions(opts...),
+		),
+		updateMemberRole: connect.NewClient[proto.UpdateMemberRoleRequest, proto.UpdateMemberRoleResponse](
+			httpClient,
+			baseURL+TeamServiceUpdateMemberRoleProcedure,
+			connect.WithSchema(teamServiceMethods.ByName("UpdateMemberRole")),
+			connect.WithClientOptions(opts...),
+		),
+		listInvitations: connect.NewClient[proto.ListInvitationsRequest, proto.ListInvitationsResponse](
+			httpClient,
+			baseURL+TeamServiceListInvitationsProcedure,
+			connect.WithSchema(teamServiceMethods.ByName("ListInvitations")),
+			connect.WithClientOptions(opts...),
+		),
+		revokeInvitation: connect.NewClient[proto.RevokeInvitationRequest, proto.RevokeInvitationResponse](
+			httpClient,
+			baseURL+TeamServiceRevokeInvitationProcedure,
+			connect.WithSchema(teamServiceMethods.ByName("RevokeInvitation")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// teamServiceClient implements TeamServiceClient.
+type teamServiceClient struct {
+	listMembers      *connect.Client[proto.ListMembersRequest, proto.ListMembersResponse]
+	inviteMember     *connect.Client[proto.InviteMemberRequest, proto.InviteMemberResponse]
+	removeMember     *connect.Client[proto.RemoveMemberRequest, proto.RemoveMemberResponse]
+	updateMemberRole *connect.Client[proto.UpdateMemberRoleRequest, proto.UpdateMemberRoleResponse]
+	listInvitations  *connect.Client[proto.ListInvitationsRequest, proto.ListInvitationsResponse]
+	revokeInvitation *connect.Client[proto.RevokeInvitationRequest, proto.RevokeInvitationResponse]
+}
+
+// ListMembers calls webhook.TeamService.ListMembers.
+func (c *teamServiceClient) ListMembers(ctx context.Context, req *connect.Request[proto.ListMembersRequest]) (*connect.Response[proto.ListMembersResponse], error) {
+	return c.listMembers.CallUnary(ctx, req)
+}
+
+// InviteMember calls webhook.TeamService.InviteMember.
+func (c *teamServiceClient) InviteMember(ctx context.Context, req *connect.Request[proto.InviteMemberRequest]) (*connect.Response[proto.InviteMemberResponse], error) {
+	return c.inviteMember.CallUnary(ctx, req)
+}
+
+// RemoveMember calls webhook.TeamService.RemoveMember.
+func (c *teamServiceClient) RemoveMember(ctx context.Context, req *connect.Request[proto.RemoveMemberRequest]) (*connect.Response[proto.RemoveMemberResponse], error) {
+	return c.removeMember.CallUnary(ctx, req)
+}
+
+// UpdateMemberRole calls webhook.TeamService.UpdateMemberRole.
+func (c *teamServiceClient) UpdateMemberRole(ctx context.Context, req *connect.Request[proto.UpdateMemberRoleRequest]) (*connect.Response[proto.UpdateMemberRoleResponse], error) {
+	return c.updateMemberRole.CallUnary(ctx, req)
+}
+
+// ListInvitations calls webhook.TeamService.ListInvitations.
+func (c *teamServiceClient) ListInvitations(ctx context.Context, req *connect.Request[proto.ListInvitationsRequest]) (*connect.Response[proto.ListInvitationsResponse], error) {
+	return c.listInvitations.CallUnary(ctx, req)
+}
+
+// RevokeInvitation calls webhook.TeamService.RevokeInvitation.
+func (c *teamServiceClient) RevokeInvitation(ctx context.Context, req *connect.Request[proto.RevokeInvitationRequest]) (*connect.Response[proto.RevokeInvitationResponse], error) {
+	return c.revokeInvitation.CallUnary(ctx, req)
+}
+
+// TeamServiceHandler is an implementation of the webhook.TeamService service.
+type TeamServiceHandler interface {
+	// ListMembers lists all members of the caller's organization
+	ListMembers(context.Context, *connect.Request[proto.ListMembersRequest]) (*connect.Response[proto.ListMembersResponse], error)
+	// InviteMember invites a new member to the organization by email
+	InviteMember(context.Context, *connect.Request[proto.InviteMemberRequest]) (*connect.Response[proto.InviteMemberResponse], error)
+	// RemoveMember removes a member from the organization
+	RemoveMember(context.Context, *connect.Request[proto.RemoveMemberRequest]) (*connect.Response[proto.RemoveMemberResponse], error)
+	// UpdateMemberRole updates a member's organization-level role
+	UpdateMemberRole(context.Context, *connect.Request[proto.UpdateMemberRoleRequest]) (*connect.Response[proto.UpdateMemberRoleResponse], error)
+	// ListInvitations lists pending invitations for the organization
+	ListInvitations(context.Context, *connect.Request[proto.ListInvitationsRequest]) (*connect.Response[proto.ListInvitationsResponse], error)
+	// RevokeInvitation revokes a pending invitation
+	RevokeInvitation(context.Context, *connect.Request[proto.RevokeInvitationRequest]) (*connect.Response[proto.RevokeInvitationResponse], error)
+}
+
+// NewTeamServiceHandler builds an HTTP handler from the service implementation. It returns the path
+// on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewTeamServiceHandler(svc TeamServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	teamServiceMethods := proto.File_proto_webhook_proto.Services().ByName("TeamService").Methods()
+	teamServiceListMembersHandler := connect.NewUnaryHandler(
+		TeamServiceListMembersProcedure,
+		svc.ListMembers,
+		connect.WithSchema(teamServiceMethods.ByName("ListMembers")),
+		connect.WithHandlerOptions(opts...),
+	)
+	teamServiceInviteMemberHandler := connect.NewUnaryHandler(
+		TeamServiceInviteMemberProcedure,
+		svc.InviteMember,
+		connect.WithSchema(teamServiceMethods.ByName("InviteMember")),
+		connect.WithHandlerOptions(opts...),
+	)
+	teamServiceRemoveMemberHandler := connect.NewUnaryHandler(
+		TeamServiceRemoveMemberProcedure,
+		svc.RemoveMember,
+		connect.WithSchema(teamServiceMethods.ByName("RemoveMember")),
+		connect.WithHandlerOptions(opts...),
+	)
+	teamServiceUpdateMemberRoleHandler := connect.NewUnaryHandler(
+		TeamServiceUpdateMemberRoleProcedure,
+		svc.UpdateMemberRole,
+		connect.WithSchema(teamServiceMethods.ByName("UpdateMemberRole")),
+		connect.WithHandlerOptions(opts...),
+	)
+	teamServiceListInvitationsHandler := connect.NewUnaryHandler(
+		TeamServiceListInvitationsProcedure,
+		svc.ListInvitations,
+		connect.WithSchema(teamServiceMethods.ByName("ListInvitations")),
+		connect.WithHandlerOptions(opts...),
+	)
+	teamServiceRevokeInvitationHandler := connect.NewUnaryHandler(
+		TeamServiceRevokeInvitationProcedure,
+		svc.RevokeInvitation,
+		connect.WithSchema(teamServiceMethods.ByName("RevokeInvitation")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/webhook.TeamService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case TeamServiceListMembersProcedure:
+			teamServiceListMembersHandler.ServeHTTP(w, r)
+		case TeamServiceInviteMemberProcedure:
+			teamServiceInviteMemberHandler.ServeHTTP(w, r)
+		case TeamServiceRemoveMemberProcedure:
+			teamServiceRemoveMemberHandler.ServeHTTP(w, r)
+		case TeamServiceUpdateMemberRoleProcedure:
+			teamServiceUpdateMemberRoleHandler.ServeHTTP(w, r)
+		case TeamServiceListInvitationsProcedure:
+			teamServiceListInvitationsHandler.ServeHTTP(w, r)
+		case TeamServiceRevokeInvitationProcedure:
+			teamServiceRevokeInvitationHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedTeamServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedTeamServiceHandler struct{}
+
+func (UnimplementedTeamServiceHandler) ListMembers(context.Context, *connect.Request[proto.ListMembersRequest]) (*connect.Response[proto.ListMembersResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.TeamService.ListMembers is not implemented"))
+}
+
+func (UnimplementedTeamServiceHandler) InviteMember(context.Context, *connect.Request[proto.InviteMemberRequest]) (*connect.Response[proto.InviteMemberResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.TeamService.InviteMember is not implemented"))
+}
+
+func (UnimplementedTeamServiceHandler) RemoveMember(context.Context, *connect.Request[proto.RemoveMemberRequest]) (*connect.Response[proto.RemoveMemberResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.TeamService.RemoveMember is not implemented"))
+}
+
+func (UnimplementedTeamServiceHandler) UpdateMemberRole(context.Context, *connect.Request[proto.UpdateMemberRoleRequest]) (*connect.Response[proto.UpdateMemberRoleResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.TeamService.UpdateMemberRole is not implemented"))
+}
+
+func (UnimplementedTeamServiceHandler) ListInvitations(context.Context, *connect.Request[proto.ListInvitationsRequest]) (*connect.Response[proto.ListInvitationsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.TeamService.ListInvitations is not implemented"))
+}
+
+func (UnimplementedTeamServiceHandler) RevokeInvitation(context.Context, *connect.Request[proto.RevokeInvitationRequest]) (*connect.Response[proto.RevokeInvitationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.TeamService.RevokeInvitation is not implemented"))
 }

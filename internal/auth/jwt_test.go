@@ -579,3 +579,251 @@ func (m *mockTenantLookup) LookupTenantIDByExternalID(_ context.Context, externa
 	}
 	return id, nil
 }
+
+// ---- Mock MembershipResolver for namespace role tests ----
+
+type mockMembershipResolver struct {
+	roles  map[string]Role
+	err    error
+	called bool
+}
+
+func (m *mockMembershipResolver) ResolveNamespaceMemberships(_ context.Context, _ uuid.UUID, _ string) (map[string]Role, error) {
+	m.called = true
+	return m.roles, m.err
+}
+
+// ---- JWT namespace_roles claim extraction tests ----
+
+func TestJWTAuthenticator_NamespaceRolesFromClaims(t *testing.T) {
+	key := generateTestKeyPair(t)
+	kid := "test-key-1"
+	srv := serveJWKS(t, &key.PublicKey, kid)
+	jwksProvider := NewJWKSProvider(srv.URL)
+
+	tenantID := uuid.New()
+	resolver := &mockTenantResolver{
+		tenants: map[string]uuid.UUID{"org_test": tenantID},
+	}
+
+	t.Run("JWT with namespace_roles uses claim and skips DB", func(t *testing.T) {
+		memberResolver := &mockMembershipResolver{
+			roles: map[string]Role{"should-not-use": RoleNamespaceViewer},
+		}
+
+		authn := NewJWTAuthenticator(
+			jwksProvider,
+			WithTenantResolver(resolver),
+			WithMembershipResolver(memberResolver),
+		)
+
+		token := signJWT(t, key, kid, map[string]any{
+			"sub":      "user_1",
+			"org_id":   "org_test",
+			"org_role": "org:admin",
+			"exp":      float64(time.Now().Add(1 * time.Hour).Unix()),
+			"namespace_roles": []string{
+				"namespace:admin:customer-a",
+				"namespace:viewer:customer-b",
+			},
+		})
+
+		info, err := authn.Authenticate(context.Background(), token)
+		require.NoError(t, err)
+		assert.False(t, memberResolver.called, "DB resolver should NOT be called when JWT has namespace_roles")
+		require.Len(t, info.NamespaceRoles, 2)
+		assert.Equal(t, RoleNamespaceAdmin, info.NamespaceRoles["customer-a"])
+		assert.Equal(t, RoleNamespaceViewer, info.NamespaceRoles["customer-b"])
+	})
+
+	t.Run("JWT without namespace_roles falls back to DB", func(t *testing.T) {
+		memberResolver := &mockMembershipResolver{
+			roles: map[string]Role{"ns-from-db": RoleNamespaceMember},
+		}
+
+		authn := NewJWTAuthenticator(
+			jwksProvider,
+			WithTenantResolver(resolver),
+			WithMembershipResolver(memberResolver),
+		)
+
+		token := signJWT(t, key, kid, map[string]any{
+			"sub":      "user_2",
+			"org_id":   "org_test",
+			"org_role": "org:member",
+			"exp":      float64(time.Now().Add(1 * time.Hour).Unix()),
+		})
+
+		info, err := authn.Authenticate(context.Background(), token)
+		require.NoError(t, err)
+		assert.True(t, memberResolver.called, "DB resolver SHOULD be called when JWT lacks namespace_roles")
+		require.Len(t, info.NamespaceRoles, 1)
+		assert.Equal(t, RoleNamespaceMember, info.NamespaceRoles["ns-from-db"])
+	})
+
+	t.Run("JWT with empty namespace_roles array falls back to DB", func(t *testing.T) {
+		memberResolver := &mockMembershipResolver{
+			roles: map[string]Role{"ns-from-db": RoleNamespaceAdmin},
+		}
+
+		authn := NewJWTAuthenticator(
+			jwksProvider,
+			WithTenantResolver(resolver),
+			WithMembershipResolver(memberResolver),
+		)
+
+		token := signJWT(t, key, kid, map[string]any{
+			"sub":             "user_3",
+			"org_id":          "org_test",
+			"exp":             float64(time.Now().Add(1 * time.Hour).Unix()),
+			"namespace_roles": []string{},
+		})
+
+		info, err := authn.Authenticate(context.Background(), token)
+		require.NoError(t, err)
+		assert.True(t, memberResolver.called, "DB resolver should be called when namespace_roles is empty")
+		require.Len(t, info.NamespaceRoles, 1)
+		assert.Equal(t, RoleNamespaceAdmin, info.NamespaceRoles["ns-from-db"])
+	})
+
+	t.Run("JWT with invalid entries in namespace_roles", func(t *testing.T) {
+		memberResolver := &mockMembershipResolver{}
+
+		authn := NewJWTAuthenticator(
+			jwksProvider,
+			WithTenantResolver(resolver),
+			WithMembershipResolver(memberResolver),
+		)
+
+		token := signJWT(t, key, kid, map[string]any{
+			"sub":    "user_4",
+			"org_id": "org_test",
+			"exp":    float64(time.Now().Add(1 * time.Hour).Unix()),
+			"namespace_roles": []string{
+				"bad-entry",
+				"namespace:admin:valid-ns",
+				"namespace:superadmin:invalid-role",
+			},
+		})
+
+		info, err := authn.Authenticate(context.Background(), token)
+		require.NoError(t, err)
+		assert.False(t, memberResolver.called, "DB resolver should not be called when valid roles exist")
+		require.Len(t, info.NamespaceRoles, 1)
+		assert.Equal(t, RoleNamespaceAdmin, info.NamespaceRoles["valid-ns"])
+	})
+
+	t.Run("DB resolver failure is non-fatal", func(t *testing.T) {
+		memberResolver := &mockMembershipResolver{
+			err: fmt.Errorf("database connection lost"),
+		}
+
+		authn := NewJWTAuthenticator(
+			jwksProvider,
+			WithTenantResolver(resolver),
+			WithMembershipResolver(memberResolver),
+		)
+
+		token := signJWT(t, key, kid, map[string]any{
+			"sub":    "user_5",
+			"org_id": "org_test",
+			"exp":    float64(time.Now().Add(1 * time.Hour).Unix()),
+		})
+
+		info, err := authn.Authenticate(context.Background(), token)
+		require.NoError(t, err, "auth should succeed even if membership resolver fails")
+		assert.True(t, memberResolver.called)
+		assert.Nil(t, info.NamespaceRoles, "NamespaceRoles should be nil on resolver error")
+	})
+
+	t.Run("no resolver and no claims", func(t *testing.T) {
+		authn := NewJWTAuthenticator(
+			jwksProvider,
+			WithTenantResolver(resolver),
+			// No MembershipResolver
+		)
+
+		token := signJWT(t, key, kid, map[string]any{
+			"sub":    "user_6",
+			"org_id": "org_test",
+			"exp":    float64(time.Now().Add(1 * time.Hour).Unix()),
+		})
+
+		info, err := authn.Authenticate(context.Background(), token)
+		require.NoError(t, err)
+		assert.Nil(t, info.NamespaceRoles)
+	})
+
+	t.Run("NamespaceRolesClaim disabled skips claim and uses DB", func(t *testing.T) {
+		memberResolver := &mockMembershipResolver{
+			roles: map[string]Role{"ns-from-db": RoleNamespaceViewer},
+		}
+
+		authn := NewJWTAuthenticator(
+			jwksProvider,
+			WithTenantResolver(resolver),
+			WithMembershipResolver(memberResolver),
+			WithClaimsConfig(JWTClaimsConfig{
+				TenantClaim:         "org_id",
+				RoleClaim:           "org_role",
+				SubjectClaim:        "sub",
+				NamespaceRolesClaim: "", // disabled
+				DefaultRole:         RoleTenantMember,
+				ClockSkew:           30 * time.Second,
+				RoleMapping:         map[string]Role{"org:admin": RoleTenantAdmin, "org:member": RoleTenantMember},
+			}),
+		)
+
+		token := signJWT(t, key, kid, map[string]any{
+			"sub":             "user_7",
+			"org_id":          "org_test",
+			"exp":             float64(time.Now().Add(1 * time.Hour).Unix()),
+			"namespace_roles": []string{"namespace:admin:from-jwt"},
+		})
+
+		info, err := authn.Authenticate(context.Background(), token)
+		require.NoError(t, err)
+		assert.True(t, memberResolver.called, "DB resolver should be used when claim is disabled")
+		require.Len(t, info.NamespaceRoles, 1)
+		assert.Equal(t, RoleNamespaceViewer, info.NamespaceRoles["ns-from-db"])
+	})
+}
+
+// ---- extractStringSlice Tests ----
+
+func TestExtractStringSlice(t *testing.T) {
+	t.Run("[]string input", func(t *testing.T) {
+		input := []string{"a", "b", "c"}
+		result := extractStringSlice(input)
+		assert.Equal(t, []string{"a", "b", "c"}, result)
+	})
+
+	t.Run("[]interface{} with strings", func(t *testing.T) {
+		input := []interface{}{"a", "b", "c"}
+		result := extractStringSlice(input)
+		assert.Equal(t, []string{"a", "b", "c"}, result)
+	})
+
+	t.Run("[]interface{} with mixed types", func(t *testing.T) {
+		input := []interface{}{"a", 42, "b", true, "c"}
+		result := extractStringSlice(input)
+		assert.Equal(t, []string{"a", "b", "c"}, result)
+	})
+
+	t.Run("nil input", func(t *testing.T) {
+		result := extractStringSlice(nil)
+		assert.Nil(t, result)
+	})
+
+	t.Run("wrong type returns nil", func(t *testing.T) {
+		result := extractStringSlice("not a slice")
+		assert.Nil(t, result)
+	})
+
+	t.Run("empty []interface{}", func(t *testing.T) {
+		input := []interface{}{}
+		result := extractStringSlice(input)
+		require.NotNil(t, result)
+		assert.Len(t, result, 0)
+	})
+}

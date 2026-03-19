@@ -193,16 +193,16 @@ func TestExecuteComplexTemplate(t *testing.T) {
 
 	tmpl := `
 {
-  "event_id": "{{.EventID}}",
-  "event_name": "{{.EventName | upper}}",
-  "payload": {{.Payload | json}},
-  "user_email": "{{.Payload.email | lower}}"
+  "event_id": "{{.event_id}}",
+  "event_name": "{{.event_name | upper}}",
+  "payload": {{.payload | json}},
+  "user_email": "{{.payload.email | lower}}"
 }
 `
 	data := WebhookTemplateContext{
-		EventID:   "event-123",
-		EventName: "user.created",
-		Payload: map[string]any{
+		"event_id":   "event-123",
+		"event_name": "user.created",
+		"payload": map[string]any{
 			"email": "USER@EXAMPLE.COM",
 			"name":  "Test User",
 		},
@@ -241,11 +241,11 @@ func BenchmarkExecuteSimple(b *testing.B) {
 
 func BenchmarkExecuteComplex(b *testing.B) {
 	engine := NewTemplateEngine()
-	tmpl := `{"id": "{{.EventID}}", "name": "{{.EventName | upper}}", "payload": {{.Payload | json}}}`
+	tmpl := `{"id": "{{.event_id}}", "name": "{{.event_name | upper}}", "payload": {{.payload | json}}}`
 	data := WebhookTemplateContext{
-		EventID:   "event-123",
-		EventName: "user.created",
-		Payload: map[string]any{
+		"event_id":   "event-123",
+		"event_name": "user.created",
+		"payload": map[string]any{
 			"email": "test@example.com",
 			"name":  "Test User",
 		},
