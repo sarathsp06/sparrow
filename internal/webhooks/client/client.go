@@ -35,6 +35,10 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
+			// SEC-002: Validate resolved IPs at connect time to prevent DNS
+			// rebinding attacks. This closes the TOCTOU gap between URL
+			// validation at webhook registration and actual delivery.
+			Control: ssrfDialControl,
 		}).DialContext,
 	}
 
@@ -42,6 +46,10 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		httpClient: &http.Client{
 			Transport: otelhttp.NewTransport(transport),
 			Timeout:   config.Timeout,
+			// SEC-001: Validate redirect targets against SSRF blocklist.
+			// Each redirect URL is checked for internal/private IPs and
+			// restricted hostnames before following.
+			CheckRedirect: ssrfSafeCheckRedirect,
 		},
 		tmpl:    NewTemplateEngine(),
 		metrics: NewMetrics(),

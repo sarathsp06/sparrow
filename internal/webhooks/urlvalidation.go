@@ -5,6 +5,8 @@ import (
 	"net"
 	"net/url"
 	"strings"
+
+	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 )
 
 // ValidateWebhookURL validates a webhook URL to prevent SSRF attacks.
@@ -34,7 +36,7 @@ func ValidateWebhookURL(rawURL string) error {
 	// Check for IP addresses targeting internal networks
 	ip := net.ParseIP(host)
 	if ip != nil {
-		if err := validateIP(ip); err != nil {
+		if err := client.ValidateIP(ip); err != nil {
 			return err
 		}
 	} else {
@@ -55,42 +57,9 @@ func ValidateWebhookURL(rawURL string) error {
 			return fmt.Errorf("cannot resolve URL host %q: %w", host, err)
 		}
 		for _, resolved := range ips {
-			if err := validateIP(resolved); err != nil {
+			if err := client.ValidateIP(resolved); err != nil {
 				return fmt.Errorf("URL host %q resolves to blocked address: %w", host, err)
 			}
-		}
-	}
-
-	return nil
-}
-
-// validateIP checks whether an IP address is safe for outbound webhook delivery.
-func validateIP(ip net.IP) error {
-	if ip.IsLoopback() {
-		return fmt.Errorf("loopback addresses are not allowed")
-	}
-	if ip.IsPrivate() {
-		return fmt.Errorf("private network addresses are not allowed")
-	}
-	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
-		return fmt.Errorf("link-local addresses are not allowed")
-	}
-	if ip.IsUnspecified() {
-		return fmt.Errorf("unspecified address (0.0.0.0) is not allowed")
-	}
-	if ip.IsMulticast() {
-		return fmt.Errorf("multicast addresses are not allowed")
-	}
-
-	// Block AWS/GCP/Azure metadata endpoint: 169.254.169.254
-	if ip.Equal(net.ParseIP("169.254.169.254")) {
-		return fmt.Errorf("cloud metadata endpoint address is not allowed")
-	}
-
-	// Block IPv6-mapped IPv4 private addresses
-	if ip4 := ip.To4(); ip4 != nil {
-		if ip4.IsLoopback() || ip4.IsPrivate() || ip4.IsLinkLocalUnicast() {
-			return fmt.Errorf("address maps to a restricted IPv4 range")
 		}
 	}
 

@@ -41,7 +41,7 @@ Build output goes to `../internal/ui/dist/` (the Go embed directory). The static
 | `PUBLIC_AUTH_PROVIDER` | *(auto-detect)* | Auth provider: `clerk`, `none`, or unset for auto-detect |
 | `PUBLIC_CLERK_PUBLISHABLE_KEY` | *(unset)* | Clerk publishable key (enables Clerk auth when set) |
 
-Set these in `web/.env` for development. When embedded in the Go binary, the UI uses relative paths (`/`) to call the API on the same origin. See the [Configuration Reference](../README.md#configuration-reference) for the full list of backend and frontend env vars.
+Set these in `web/.env` for development. When embedded in the Go binary, the UI uses relative paths (`/`) to call the API on the same origin. See [CONFIGURATION.md](../CONFIGURATION.md) for the full list of backend and frontend env vars.
 
 ## Project Structure
 
@@ -93,7 +93,7 @@ Each provider shell:
 
 The services layer (`services.ts`) calls `getSessionToken()` to get a Bearer token for each API request. It never imports any provider SDK directly.
 
-**Adding a new provider:** See the [README](../README.md#web-ui-authentication-pluggable-providers) for step-by-step instructions.
+**Adding a new provider:** See [TECHNICAL.md](../TECHNICAL.md#web-ui-auth-providers) for step-by-step instructions.
 
 ## Tech Stack
 

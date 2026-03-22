@@ -20,16 +20,32 @@ import (
 type TenantServer struct {
 	pb.UnimplementedTenantServiceServer
 	pb.UnimplementedAPIKeyServiceServer
-	svc   *tenant.Service
-	audit *audit.Logger
+	svc                 *tenant.Service
+	audit               *audit.Logger
+	keyCacheInvalidator auth.KeyCacheInvalidator // SEC-007: invalidate cached keys on revocation
 }
 
 var _ pb.TenantServiceServer = (*TenantServer)(nil)
 var _ pb.APIKeyServiceServer = (*TenantServer)(nil)
 
 // NewTenantServer creates a new TenantServer.
-func NewTenantServer(svc *tenant.Service, auditLogger *audit.Logger) *TenantServer {
-	return &TenantServer{svc: svc, audit: auditLogger}
+func NewTenantServer(svc *tenant.Service, auditLogger *audit.Logger, opts ...TenantServerOption) *TenantServer {
+	s := &TenantServer{svc: svc, audit: auditLogger}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
+// TenantServerOption configures a TenantServer.
+type TenantServerOption func(*TenantServer)
+
+// WithKeyCacheInvalidator sets the API key cache invalidator for the server.
+// When set, revoked API keys are immediately purged from the auth cache.
+func WithKeyCacheInvalidator(inv auth.KeyCacheInvalidator) TenantServerOption {
+	return func(s *TenantServer) {
+		s.keyCacheInvalidator = inv
+	}
 }
 
 // ---- TenantService ----
@@ -351,6 +367,12 @@ func (s *TenantServer) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKeyReq
 
 	if err := s.svc.RevokeAPIKey(ctx, id); err != nil {
 		return nil, status.Errorf(codes.Internal, "revoke API key: %v", err)
+	}
+
+	// SEC-007: Immediately invalidate cached auth result so the revoked key
+	// cannot be used during the remaining cache TTL window.
+	if s.keyCacheInvalidator != nil && key.KeyHash != "" {
+		s.keyCacheInvalidator.InvalidateKeyByHash(key.KeyHash)
 	}
 
 	s.audit.Log(ctx, audit.LogEntry{

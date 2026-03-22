@@ -155,8 +155,12 @@ func main() {
 		Logger: logger,
 	}
 
+	// SEC-007: Declare apiKeyAuthenticator outside the if block so we can
+	// pass it to TenantServer for cache invalidation on key revocation.
+	var apiKeyAuthenticator *auth.APIKeyAuthenticator
+
 	if authEnabled {
-		apiKeyAuthenticator := auth.NewAPIKeyAuthenticator(tenantRepo)
+		apiKeyAuthenticator = auth.NewAPIKeyAuthenticator(tenantRepo)
 		authenticators := []auth.Authenticator{apiKeyAuthenticator}
 
 		// If a JWKS URL is configured, add JWT authentication alongside API keys.
@@ -253,6 +257,12 @@ func main() {
 		fmt.Println("🔒 Authentication enabled")
 	} else {
 		fmt.Println("🔓 Authentication disabled (all requests use default tenant)")
+		// SEC-005: Warn when auth is disabled — all requests get full admin access
+		if env := os.Getenv("ENVIRONMENT"); env == "production" {
+			fmt.Println("⛔ WARNING: Authentication is DISABLED in a production environment!")
+			fmt.Println("   All requests receive tenant:admin privileges via DefaultAuthInfo.")
+			fmt.Println("   Set SPARROW_AUTH_ENABLED=true to secure your deployment.")
+		}
 	}
 
 	// Create namespace service (after auth setup so identity provider options are applied)
@@ -283,6 +293,8 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(auth.NewGRPCUnaryInterceptor(authInterceptorCfg)),
+		grpc.MaxRecvMsgSize(4<<20), // SEC-004: 4 MB max inbound message
+		grpc.MaxSendMsgSize(4<<20), // SEC-004: 4 MB max outbound message
 	)
 
 	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo)
@@ -295,7 +307,12 @@ func main() {
 	pb.RegisterHealthServiceServer(grpcServer, webhookGRPCServer)
 
 	// Register Tenant and API Key gRPC services
-	tenantGRPCServer := grpcserver.NewTenantServer(tenantSvc, auditLogger)
+	// SEC-007: Pass apiKeyAuthenticator for cache invalidation on key revocation
+	var tenantServerOpts []grpcserver.TenantServerOption
+	if apiKeyAuthenticator != nil {
+		tenantServerOpts = append(tenantServerOpts, grpcserver.WithKeyCacheInvalidator(apiKeyAuthenticator))
+	}
+	tenantGRPCServer := grpcserver.NewTenantServer(tenantSvc, auditLogger, tenantServerOpts...)
 	pb.RegisterTenantServiceServer(grpcServer, tenantGRPCServer)
 	pb.RegisterAPIKeyServiceServer(grpcServer, tenantGRPCServer)
 
@@ -329,16 +346,19 @@ func main() {
 
 	authConnectInterceptor := auth.NewConnectInterceptor(authInterceptorCfg)
 	options := connect.WithInterceptors(otelInterceptor, authConnectInterceptor)
-	mux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer, options))
-	mux.Handle(pbconnect.NewEventServiceHandler(webhookConnectServer, options))
-	mux.Handle(pbconnect.NewSubscriptionServiceHandler(webhookConnectServer, options))
-	mux.Handle(pbconnect.NewDeliveryServiceHandler(webhookConnectServer, options))
-	mux.Handle(pbconnect.NewHealthServiceHandler(webhookConnectServer, options))
-	mux.Handle(pbconnect.NewTenantServiceHandler(tenantConnectServer, options))
-	mux.Handle(pbconnect.NewAPIKeyServiceHandler(tenantConnectServer, options))
-	mux.Handle(pbconnect.NewNamespaceServiceHandler(namespaceConnectServer, options))
-	mux.Handle(pbconnect.NewNamespaceMembershipServiceHandler(namespaceConnectServer, options))
-	mux.Handle(pbconnect.NewTeamServiceHandler(teamConnectServer, options))
+	// SEC-004: Enforce request/response body size limits on Connect-RPC handlers
+	readLimit := connect.WithReadMaxBytes(4 << 20) // 4 MB
+	sendLimit := connect.WithSendMaxBytes(4 << 20) // 4 MB
+	mux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
+	mux.Handle(pbconnect.NewEventServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
+	mux.Handle(pbconnect.NewSubscriptionServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
+	mux.Handle(pbconnect.NewDeliveryServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
+	mux.Handle(pbconnect.NewHealthServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
+	mux.Handle(pbconnect.NewTenantServiceHandler(tenantConnectServer, options, readLimit, sendLimit))
+	mux.Handle(pbconnect.NewAPIKeyServiceHandler(tenantConnectServer, options, readLimit, sendLimit))
+	mux.Handle(pbconnect.NewNamespaceServiceHandler(namespaceConnectServer, options, readLimit, sendLimit))
+	mux.Handle(pbconnect.NewNamespaceMembershipServiceHandler(namespaceConnectServer, options, readLimit, sendLimit))
+	mux.Handle(pbconnect.NewTeamServiceHandler(teamConnectServer, options, readLimit, sendLimit))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, queueManager, startTime)
@@ -360,12 +380,23 @@ func main() {
 
 	// Create HTTP server with OpenTelemetry instrumentation
 	corsHandler := buildCORSHandler()
+
+	// SEC-005: Warn about insecure configuration in production
+	if !authEnabled && os.Getenv("CORS_ALLOWED_ORIGINS") == "" {
+		if env := os.Getenv("ENVIRONMENT"); env == "production" {
+			fmt.Println("⛔ CRITICAL: Auth disabled + wildcard CORS in production!")
+			fmt.Println("   Any origin can make authenticated admin requests to this server.")
+		}
+	}
+
 	httpServer := &http.Server{
-		Addr:         ":8080",
-		Handler:      corsHandler.Handler(mux),
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Addr:              ":8080",
+		Handler:           corsHandler.Handler(mux),
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second, // SEC-004: Mitigate slowloris attacks
+		MaxHeaderBytes:    1 << 20,          // SEC-004: 1 MB max header size
 	}
 
 	// Start gRPC server

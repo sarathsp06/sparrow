@@ -62,72 +62,37 @@ Sparrow is configured entirely via environment variables. No config files needed
 
 ### Core
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `DATABASE_URL` | Yes | -- | PostgreSQL connection string |
-| `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard on `:8080` |
-| `ENVIRONMENT` | No | -- | `development` or `production` (affects logging/OTel) |
+- `DATABASE_URL` (required) -- PostgreSQL connection string
+- `SPARROW_SERVE_UI` -- Serve the embedded web dashboard on `:8080`. Default: `false`
+- `ENVIRONMENT` -- `development` or `production` (affects logging/OTel)
 
 ### Authentication
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `SPARROW_AUTH_ENABLED` | No | `false` | Enable authentication. When disabled, all requests use `tenant:admin` on the default tenant. |
-| `SPARROW_JWKS_URL` | No | -- | JWKS endpoint for JWT validation. Works with any OIDC provider (Clerk, Auth0, Keycloak, Authelia, Zitadel, etc.) |
-| `SPARROW_JWT_TENANT_CLAIM` | No | `org_id` | JWT claim containing the tenant/org identifier |
-| `SPARROW_JWT_ROLE_CLAIM` | No | `org_role` | JWT claim containing the user's role |
-| `SPARROW_JWT_SUBJECT_CLAIM` | No | `sub` | JWT claim containing the user identifier |
-| `SPARROW_JWT_ISSUER` | No | -- | Expected JWT issuer (`iss`). Leave empty to skip validation. |
-| `SPARROW_JWT_AUDIENCES` | No | -- | Comma-separated expected audience values (`aud`). Leave empty to skip validation. |
-| `SPARROW_JWT_NAMESPACE_ROLES_CLAIM` | No | `namespace_roles` | JWT claim for embedded namespace roles. Set to `""` to disable and always resolve from DB. |
-| `SPARROW_JWT_ROLE_MAPPING` | No | `org:admin=tenant:admin,org:member=tenant:member` | Comma-separated `provider_role=sparrow_role` pairs for mapping provider roles to Sparrow roles |
-| `SPARROW_ROOT_API_KEY` | No | (auto-generated) | Pre-configured root API key for bootstrap |
+- `SPARROW_AUTH_ENABLED` -- Enable authentication. When disabled, all requests use `tenant:admin` on the default tenant. Default: `false`
+- `SPARROW_ROOT_API_KEY` -- Pre-configured root API key for bootstrap. Default: auto-generated on first boot
 
-### Identity Provider (Optional)
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `CLERK_SECRET_KEY` | No | -- | Clerk secret key. When set, namespace role changes are synced to Clerk org membership metadata so they appear in future JWTs. |
-
-### Observability
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
-
-### Web UI (Frontend)
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `PUBLIC_AUTH_PROVIDER` | No | (auto-detected) | Auth provider: `clerk` or `none` |
-| `PUBLIC_CLERK_PUBLISHABLE_KEY` | No | -- | Clerk publishable key (auto-enables Clerk provider) |
-| `PUBLIC_API_URL` | No | -- | API base URL for the frontend |
-| `CORS_ALLOWED_ORIGINS` | No | -- | Allowed CORS origins for Connect-RPC |
+When auth is enabled, Sparrow supports both API keys and JWT. See [CONFIGURATION.md](CONFIGURATION.md) for the full list of JWT, OIDC, and identity provider settings.
 
 ### Deployment Modes
 
-Sparrow supports four deployment modes depending on your auth needs:
+- **Zero-auth** -- Set only `DATABASE_URL`. All requests get `tenant:admin`. Best for single-user/dev.
+- **API-key only** -- Add `SPARROW_AUTH_ENABLED=true`. Root key created on boot. Create more via API.
+- **Any OIDC provider** -- Add `SPARROW_JWKS_URL=...`. JWT auth with any provider. Namespace roles resolved from DB.
+- **Full Clerk** -- Add `CLERK_SECRET_KEY=...`. Syncs namespace roles to JWT claims for faster auth.
 
-| Mode | Env Vars | Description |
-|---|---|---|
-| **Zero-auth** | `DATABASE_URL` only | All requests get `tenant:admin`. Best for single-user/dev. |
-| **API-key only** | `+ SPARROW_AUTH_ENABLED=true` | Root key created on boot. Create more via API. No OIDC. |
-| **Any OIDC provider** | `+ SPARROW_JWKS_URL=...` | JWT auth with any provider. Namespace roles resolved from DB (30s cache). |
-| **Full Clerk** | `+ CLERK_SECRET_KEY=...` | Adds namespace role sync to JWT claims. Performance optimization, not required. |
-
-See [TECHNICAL.md](TECHNICAL.md) for detailed deployment and auth configuration guides.
+See [CONFIGURATION.md](CONFIGURATION.md) for detailed setup guides for each mode, including Clerk, Keycloak, Auth0, and other OIDC providers.
 
 ---
 
 ## Documentation
 
-| Document | Description |
-|---|---|
-| [TECHNICAL.md](TECHNICAL.md) | Architecture, auth internals, RBAC, queue design, health state machine, deployment guide |
-| [TEMPLATE_FUNCTIONS.md](TEMPLATE_FUNCTIONS.md) | Payload transformation reference (22 template functions) |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Package structure review, dependency graph, design philosophy |
-| [web/README.md](web/README.md) | Web dashboard development guide |
-| [webhook.proto](webhook.proto) | Service and message definitions (9 services, 40+ RPCs) |
+- [CONFIGURATION.md](CONFIGURATION.md) -- All environment variables, auth setup, OIDC provider examples, deployment guides
+- [TECHNICAL.md](TECHNICAL.md) -- Architecture deep dive, RBAC internals, queue design, health state machine, HTTP client details
+- [ARCHITECTURE.md](ARCHITECTURE.md) -- Package structure, dependency graph, design principles
+- [TEMPLATE_FUNCTIONS.md](TEMPLATE_FUNCTIONS.md) -- Payload transformation reference (22 template functions)
+- [client/README.md](client/README.md) -- gRPC client libraries (Go, JS, Python)
+- [web/README.md](web/README.md) -- Web dashboard development guide
+- [webhook.proto](webhook.proto) -- Service and message definitions (9 services, 40+ RPCs)
 
 ---
 

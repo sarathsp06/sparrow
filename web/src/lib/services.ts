@@ -24,17 +24,6 @@ const transport = createConnectTransport({
       const token = await getSessionToken();
       if (token) {
         req.header.set("Authorization", `Bearer ${token}`);
-        // Debug: decode JWT payload to verify org_id, sub, org_role claims
-        try {
-          const payload = JSON.parse(atob(token.split(".")[1]));
-          console.log("[auth] JWT claims:", {
-            org_id: payload.org_id,
-            sub: payload.sub,
-            org_role: payload.org_role,
-          });
-        } catch {
-          console.warn("[auth] Failed to decode JWT payload");
-        }
       }
       return next(req);
     },

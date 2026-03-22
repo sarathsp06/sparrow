@@ -25,6 +25,16 @@ type Authenticator interface {
 	Scheme() string
 }
 
+// KeyCacheInvalidator allows invalidating cached API key authentication
+// results when a key is revoked or modified. Implemented by
+// APIKeyAuthenticator.
+type KeyCacheInvalidator interface {
+	// InvalidateKeyByHash removes a cached API key entry by its SHA-256 hash.
+	InvalidateKeyByHash(keyHash string)
+	// InvalidateAllKeys clears the entire API key cache.
+	InvalidateAllKeys()
+}
+
 // MembershipResolver resolves namespace memberships for a user within a tenant.
 // Used by the JWT authenticator to populate NamespaceRoles after authentication.
 type MembershipResolver interface {
@@ -208,6 +218,33 @@ func (a *APIKeyAuthenticator) touchLastUsed(keyID uuid.UUID) {
 		defer cancel()
 		_ = a.store.UpdateAPIKeyLastUsed(bgCtx, keyID, now)
 	}()
+}
+
+// InvalidateKey removes a cached API key entry so that subsequent
+// authentication attempts must re-validate against the database.
+// This should be called when a key is revoked or its permissions change.
+// The rawKey is the full API key string (e.g., "sk_tenant_xxx").
+func (a *APIKeyAuthenticator) InvalidateKey(rawKey string) {
+	keyHash := HashAPIKey(rawKey)
+	a.cacheMu.Lock()
+	delete(a.cache, keyHash)
+	a.cacheMu.Unlock()
+}
+
+// InvalidateKeyByHash removes a cached API key entry by its SHA-256 hash.
+// Use this when you only have the hash (e.g., from a database record).
+func (a *APIKeyAuthenticator) InvalidateKeyByHash(keyHash string) {
+	a.cacheMu.Lock()
+	delete(a.cache, keyHash)
+	a.cacheMu.Unlock()
+}
+
+// InvalidateAllKeys clears the entire API key cache. This is a brute-force
+// approach useful when you can't determine which specific key was affected.
+func (a *APIKeyAuthenticator) InvalidateAllKeys() {
+	a.cacheMu.Lock()
+	a.cache = make(map[string]*cacheEntry)
+	a.cacheMu.Unlock()
 }
 
 func (a *APIKeyAuthenticator) fromCache(keyHash string) *AuthInfo {

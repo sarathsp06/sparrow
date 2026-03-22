@@ -1,18 +1,12 @@
 # Sparrow -- Technical Reference
 
-This document covers Sparrow's internal architecture, deployment guides, and detailed configuration. For quick start and basic usage, see [README.md](README.md).
+This document covers Sparrow's internal architecture and design details. For configuration and deployment, see [CONFIGURATION.md](CONFIGURATION.md). For quick start, see [README.md](README.md).
 
 ---
 
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
-- [Deployment Guide](#deployment-guide)
-  - [Docker Compose (Recommended)](#docker-compose-recommended)
-  - [Binary Deployment](#binary-deployment)
-  - [Enabling Authentication](#enabling-authentication)
-  - [Setting Up Clerk](#setting-up-clerk)
-  - [Setting Up Other OIDC Providers](#setting-up-other-oidc-providers)
 - [Auth Architecture](#auth-architecture)
   - [API Key Authentication](#api-key-authentication)
   - [JWT Authentication](#jwt-authentication)
@@ -24,8 +18,6 @@ This document covers Sparrow's internal architecture, deployment guides, and det
   - [Error Classification & Retry Logic](#error-classification--retry-logic)
   - [Health State Machine](#health-state-machine)
   - [HTTP Client Design](#http-client-design)
-  - [Observability](#observability)
-  - [Server Boot Sequence](#server-boot-sequence)
   - [Web UI Architecture](#web-ui-architecture)
 
 ---
@@ -67,261 +59,15 @@ graph LR
 
 ### Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | Go 1.25 |
-| Database | PostgreSQL 15 |
-| Job Queue | River (Postgres-based) |
-| API | gRPC (`:50051`) + Connect-RPC/HTTP (`:8080`) |
-| Protobuf | buf.build toolchain |
-| Web UI | SvelteKit 5 + TypeScript + Tailwind CSS 4 (embedded static build) |
-| Observability | OpenTelemetry (traces, metrics, logs via OTLP) |
-| DB Access | pgx/v5 + sqlx (OTel-instrumented) |
-| Container | Multi-stage Dockerfile (distroless nonroot) |
-
----
-
-## Deployment Guide
-
-### Docker Compose (Recommended)
-
-The simplest way to run Sparrow. This starts PostgreSQL, runs migrations, and launches the server with the embedded web UI.
-
-```bash
-docker compose up -d
-```
-
-That's it. The server is available at:
-- **Web UI:** http://localhost:8080
-- **HTTP API (Connect-RPC):** http://localhost:8080
-- **gRPC API:** localhost:50051
-
-On first boot, a root API key is printed to the logs:
-
-```bash
-docker compose logs sparrow
-```
-
-To stop:
-
-```bash
-docker compose down        # stop containers
-docker compose down -v     # stop and delete data
-```
-
-### Binary Deployment
-
-Build from source and run directly:
-
-```bash
-# Build with embedded UI
-make build-with-ui
-
-# Start infrastructure (or provide your own Postgres)
-export DATABASE_URL=postgres://user:pass@localhost:5432/sparrow?sslmode=disable
-
-# Run migrations
-./build/server-* migrate  # or: make migrate
-
-# Start the server
-SPARROW_SERVE_UI=true ./build/server-*
-```
-
-### Enabling Authentication
-
-By default, Sparrow runs without authentication. To enable it:
-
-**1. API keys only (simplest):**
-
-```bash
-# docker-compose.yml or environment
-SPARROW_AUTH_ENABLED=true
-```
-
-On first boot, Sparrow prints a root API key. Use it to create additional keys:
-
-```bash
-curl -s -X POST http://localhost:8080/webhook.APIKeyService/CreateAPIKey \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk_default_<root_key>" \
-  -d '{
-    "tenant_id": "<tenant_id>",
-    "name": "Production Key",
-    "role": "tenant:admin"
-  }'
-```
-
-**2. API keys + JWT (for web UI with identity provider):**
-
-```bash
-SPARROW_AUTH_ENABLED=true
-SPARROW_JWKS_URL=https://your-provider.example.com/.well-known/jwks.json
-SPARROW_JWT_TENANT_CLAIM=org_id       # claim containing tenant/org ID
-SPARROW_JWT_ROLE_CLAIM=org_role       # claim containing user role
-SPARROW_JWT_SUBJECT_CLAIM=sub         # claim containing user ID
-SPARROW_JWT_ISSUER=https://...        # optional: expected issuer
-SPARROW_JWT_AUDIENCES=api,web         # optional: comma-separated expected audiences
-```
-
-When both are enabled, the interceptor tries JWT first, then API key. This lets the web UI use JWTs while scripts use API keys.
-
-### Setting Up Clerk
-
-Clerk is a managed identity provider. Sparrow auto-provisions tenants when users create Clerk organizations -- no webhooks or manual setup needed.
-
-**1. Create a Clerk application** at [clerk.com](https://clerk.com) and enable Organizations.
-
-**2. Create a JWT template** in Clerk Dashboard > JWT Templates:
-
-- Template name: `sparrow` (or any name)
-- Claims (JSON):
-  ```json
-  {
-    "org_id": "{{org.id}}",
-    "org_role": "{{org_membership.role}}",
-    "namespace_roles": "{{org_membership.public_metadata.namespace_roles}}"
-  }
-  ```
-
-The `namespace_roles` claim is optional but recommended. When present, Sparrow reads namespace roles directly from the JWT instead of querying the database on each request. Namespace roles are synced to Clerk automatically when you assign/remove roles via the Sparrow API (requires `CLERK_SECRET_KEY`).
-
-**3. Configure the backend:**
-
-```bash
-SPARROW_AUTH_ENABLED=true
-SPARROW_JWKS_URL=https://<your-instance>.clerk.accounts.dev/.well-known/jwks.json
-SPARROW_JWT_TENANT_CLAIM=org_id
-SPARROW_JWT_ROLE_CLAIM=org_role
-SPARROW_JWT_ISSUER=https://<your-instance>.clerk.accounts.dev
-
-# Optional: enable namespace role sync to Clerk metadata
-CLERK_SECRET_KEY=sk_live_your-key-here
-```
-
-When `CLERK_SECRET_KEY` is set, Sparrow syncs namespace role changes to Clerk org membership `publicMetadata`. On the next JWT refresh (~60s), the roles appear in the session token, eliminating per-request DB lookups for namespace membership resolution.
-
-**4. Configure the frontend** (in `web/.env` or environment):
-
-```bash
-PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your-key-here
-PUBLIC_API_URL=http://localhost:8080   # or your deployment URL
-```
-
-### Setting Up Other OIDC Providers
-
-Sparrow's backend is **provider-agnostic**. It validates JWTs using standard JWKS and reads configurable claims. No provider SDK is linked into the Go binary.
-
-**Any OIDC provider** works as long as it:
-
-1. Publishes a JWKS endpoint with RS256 keys
-2. Includes a tenant/org identifier claim in the JWT
-3. Optionally includes a role claim
-
-All JWT claim names are fully configurable via environment variables:
-
-| Variable | Default | Description |
-|---|---|---|
-| `SPARROW_JWT_TENANT_CLAIM` | `org_id` | Claim containing the tenant/org identifier |
-| `SPARROW_JWT_ROLE_CLAIM` | `org_role` | Claim containing the user's role string |
-| `SPARROW_JWT_SUBJECT_CLAIM` | `sub` | Claim containing the user identifier |
-| `SPARROW_JWT_ISSUER` | *(none)* | Expected issuer. Leave empty to skip validation. |
-| `SPARROW_JWT_AUDIENCES` | *(none)* | Comma-separated expected audiences. Leave empty to skip. |
-| `SPARROW_JWT_NAMESPACE_ROLES_CLAIM` | `namespace_roles` | Claim for embedded namespace roles. Set to `""` to disable. |
-| `SPARROW_JWT_ROLE_MAPPING` | `org:admin=tenant:admin,org:member=tenant:member` | Maps provider role strings to Sparrow roles |
-
-#### Example: Keycloak
-
-```bash
-SPARROW_AUTH_ENABLED=true
-SPARROW_JWKS_URL=https://keycloak.example.com/realms/sparrow/protocol/openid-connect/certs
-SPARROW_JWT_TENANT_CLAIM=organization_id       # or your custom claim
-SPARROW_JWT_ROLE_CLAIM=realm_role               # or resource_access.sparrow.roles[0]
-SPARROW_JWT_ISSUER=https://keycloak.example.com/realms/sparrow
-SPARROW_JWT_ROLE_MAPPING=admin=tenant:admin,user=tenant:member
-SPARROW_JWT_NAMESPACE_ROLES_CLAIM=""            # disable, use DB-based resolution
-```
-
-#### Example: Auth0
-
-```bash
-SPARROW_AUTH_ENABLED=true
-SPARROW_JWKS_URL=https://your-tenant.auth0.com/.well-known/jwks.json
-SPARROW_JWT_TENANT_CLAIM=org_id
-SPARROW_JWT_ROLE_CLAIM=https://sparrow.example.com/role    # custom claim namespace
-SPARROW_JWT_ISSUER=https://your-tenant.auth0.com/
-SPARROW_JWT_AUDIENCES=https://api.sparrow.example.com
-SPARROW_JWT_ROLE_MAPPING=Admin=tenant:admin,Member=tenant:member
-SPARROW_JWT_NAMESPACE_ROLES_CLAIM=""
-```
-
-#### Example: Authelia / Zitadel / Generic OIDC
-
-```bash
-SPARROW_AUTH_ENABLED=true
-SPARROW_JWKS_URL=https://auth.example.com/.well-known/jwks.json
-SPARROW_JWT_TENANT_CLAIM=tenant_id              # whatever your provider calls it
-SPARROW_JWT_ROLE_CLAIM=role
-SPARROW_JWT_SUBJECT_CLAIM=sub
-SPARROW_JWT_ROLE_MAPPING=administrator=tenant:admin,member=tenant:member
-SPARROW_JWT_NAMESPACE_ROLES_CLAIM=""            # always use DB for namespace roles
-```
-
-#### Namespace Role Resolution
-
-Namespace roles (e.g., `namespace:admin` on namespace `customer-a`) control fine-grained access within a tenant. There are two resolution paths:
-
-1. **JWT claim (fast path):** When the JWT contains a `namespace_roles` claim (a JSON array of strings like `["namespace:admin:customer-a", "namespace:viewer:customer-b"]`), Sparrow reads roles directly from the token. No DB query needed. This requires an identity provider that supports embedding custom metadata in JWTs (e.g., Clerk with `publicMetadata` + session token customization).
-
-2. **Database fallback (universal):** When the JWT claim is absent, empty, or disabled (`SPARROW_JWT_NAMESPACE_ROLES_CLAIM=""`), Sparrow resolves namespace memberships from the `namespace_memberships` table with a 30-second in-memory cache. This works with any OIDC provider.
-
-For self-hosted deployments without Clerk, the DB fallback is the primary path. It is functionally identical -- the only difference is a cached DB query per JWT-authenticated request (negligible for most workloads).
-
-### Self-Hosted Deployment
-
-Sparrow is designed for self-hosting. There are no mandatory external service dependencies beyond PostgreSQL.
-
-**Minimal self-hosted setup (no auth):**
-
-```bash
-# docker-compose.yml
-services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: sparrow
-      POSTGRES_USER: sparrow
-      POSTGRES_PASSWORD: sparrow
-    ports: ["5432:5432"]
-
-  sparrow:
-    image: sparrow:latest
-    environment:
-      DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
-      SPARROW_SERVE_UI: "true"
-    ports: ["8080:8080", "50051:50051"]
-    depends_on:
-      postgres: { condition: service_healthy }
-```
-
-**Self-hosted with OIDC auth (e.g., Keycloak):**
-
-```bash
-# Add to the sparrow service environment:
-SPARROW_AUTH_ENABLED: "true"
-SPARROW_JWKS_URL: "https://keycloak.internal/realms/myapp/protocol/openid-connect/certs"
-SPARROW_JWT_TENANT_CLAIM: "organization_id"
-SPARROW_JWT_ROLE_CLAIM: "role"
-SPARROW_JWT_ISSUER: "https://keycloak.internal/realms/myapp"
-SPARROW_JWT_ROLE_MAPPING: "admin=tenant:admin,user=tenant:member"
-SPARROW_JWT_NAMESPACE_ROLES_CLAIM: ""
-```
-
-**Key points for self-hosted:**
-
-- **Clerk is optional.** It is only used for (a) JWT validation (but any OIDC JWKS works) and (b) syncing namespace roles to JWT claims (a performance optimization). Without `CLERK_SECRET_KEY`, namespace roles come from the database.
-- **No external API calls at runtime** (unless Clerk sync is enabled). All auth validation uses cached JWKS keys and local DB lookups.
-- **API keys work standalone.** If you don't have an OIDC provider, just set `SPARROW_AUTH_ENABLED=true` and use API keys for all access. A root key is auto-generated on first boot.
-- **Auto-provisioning:** When JWT auth is enabled, unknown tenant/org IDs in JWTs are auto-provisioned as new tenants (limited to 2 per user). This means no manual tenant setup is needed when users from new organizations sign in.
+- **Backend** -- Go 1.25
+- **Database** -- PostgreSQL 15
+- **Job Queue** -- River (Postgres-based)
+- **API** -- gRPC (`:50051`) + Connect-RPC/HTTP (`:8080`)
+- **Protobuf** -- buf.build toolchain
+- **Web UI** -- SvelteKit 5 + TypeScript + Tailwind CSS 4 (embedded static build)
+- **Observability** -- OpenTelemetry (traces, metrics, logs via OTLP)
+- **DB Access** -- pgx/v5 + sqlx (OTel-instrumented)
+- **Container** -- Multi-stage Dockerfile (distroless nonroot)
 
 ---
 
@@ -416,28 +162,24 @@ sequenceDiagram
 
 **Key components:**
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| `JWKSProvider` | `internal/auth/jwks.go` | Fetches and caches RSA public keys from a JWKS URL |
-| `JWTAuthenticator` | `internal/auth/jwt.go` | Validates JWT signature and claims, maps to AuthInfo |
-| `CachingTenantResolver` | `internal/auth/tenant_resolver.go` | Maps external org IDs to internal tenant UUIDs with caching |
-| `CachingMembershipResolver` | `internal/auth/membership_resolver.go` | Caches namespace membership lookups (30s TTL) for DB-based resolution |
-| `AutoProvisioner` | `internal/tenant/provisioner.go` | Creates tenants on first JWT login, enforces per-user limits |
-| `JWTClaimsConfig` | `internal/auth/jwt.go` | Configurable claim names, role mapping, issuer/audience |
-| `IdentityProvider` | `internal/auth/identity_provider.go` | Pluggable interface for syncing namespace roles to external providers |
-| `ClerkIdentityProvider` | `internal/auth/clerk_provider.go` | Clerk implementation: syncs roles to org membership publicMetadata |
+- `JWKSProvider` (`internal/auth/jwks.go`) -- Fetches and caches RSA public keys from a JWKS URL
+- `JWTAuthenticator` (`internal/auth/jwt.go`) -- Validates JWT signature and claims, maps to AuthInfo
+- `CachingTenantResolver` (`internal/auth/tenant_resolver.go`) -- Maps external org IDs to internal tenant UUIDs with caching
+- `CachingMembershipResolver` (`internal/auth/membership_resolver.go`) -- Caches namespace membership lookups (30s TTL) for DB-based resolution
+- `AutoProvisioner` (`internal/tenant/provisioner.go`) -- Creates tenants on first JWT login, enforces per-user limits
+- `JWTClaimsConfig` (`internal/auth/jwt.go`) -- Configurable claim names, role mapping, issuer/audience
+- `IdentityProvider` (`internal/auth/identity_provider.go`) -- Pluggable interface for syncing namespace roles to external providers
+- `ClerkIdentityProvider` (`internal/auth/clerk_provider.go`) -- Clerk implementation: syncs roles to org membership publicMetadata
 
 ### RBAC Model
 
 5 roles and 25 permissions. `auth.Authorize(authInfo, permission)` checks whether the authenticated identity has a specific permission.
 
-| Role | Scope | Description |
-|---|---|---|
-| `tenant:admin` | Tenant-wide | Full access to all resources within the tenant |
-| `tenant:member` | Tenant-wide | Read/write access to webhooks, events, subscriptions |
-| `namespace:admin` | Single namespace | Full access within a specific namespace |
-| `namespace:member` | Single namespace | Read/write access within a specific namespace |
-| `namespace:viewer` | Single namespace | Read-only access within a specific namespace |
+- `tenant:admin` -- Tenant-wide. Full access to all resources within the tenant.
+- `tenant:member` -- Tenant-wide. Read/write access to webhooks, events, subscriptions.
+- `namespace:admin` -- Single namespace. Full access within a specific namespace.
+- `namespace:member` -- Single namespace. Read/write access within a specific namespace.
+- `namespace:viewer` -- Single namespace. Read-only access within a specific namespace.
 
 **JWT role mapping (configurable):** Default: `org:admin` -> `tenant:admin`, `org:member` -> `tenant:member`. Override with `SPARROW_JWT_ROLE_MAPPING` env var for non-Clerk providers (e.g., `admin=tenant:admin,user=tenant:member`).
 
@@ -451,12 +193,10 @@ The SvelteKit web dashboard has a pluggable auth provider system. The active pro
 
 **Provider selection** (via `PUBLIC_AUTH_PROVIDER` or auto-detected from provider-specific keys):
 
-| `PUBLIC_AUTH_PROVIDER` | Provider-Specific Key | Result |
-|---|---|---|
-| *(unset)* | *(unset)* | No authentication (open access) |
-| *(unset)* | `PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...` | Clerk (auto-detected) |
-| `clerk` | `PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...` | Clerk (explicit) |
-| `none` | *(any)* | No authentication (forced) |
+- `PUBLIC_AUTH_PROVIDER` unset, no provider key -- No authentication (open access)
+- `PUBLIC_AUTH_PROVIDER` unset, `PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...` set -- Clerk (auto-detected)
+- `PUBLIC_AUTH_PROVIDER=clerk`, `PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...` set -- Clerk (explicit)
+- `PUBLIC_AUTH_PROVIDER=none` -- No authentication (forced, ignores any provider keys)
 
 
 **Adding a new auth provider** (e.g., Auth0):
@@ -632,17 +372,15 @@ Every webhook delivery sends a JSON envelope with snake_case field names. The us
 }
 ```
 
-| Field | Description |
-|-------|-------------|
-| `version` | Envelope schema version (currently `"1"`). Check this to handle future format changes. |
-| `event_id` | UUID of the event that triggered this delivery. |
-| `event_name` | The event type (e.g. `user.created`, `order.paid`). |
-| `namespace` | Namespace the event belongs to. |
-| `webhook_id` | UUID of the webhook registration receiving this delivery. |
-| `delivery_id` | UUID of this specific delivery attempt. |
-| `timestamp` | ISO 8601 / RFC 3339 timestamp of when the delivery was sent. |
-| `attempt` | Delivery attempt number (1 = first attempt, 2+ = retries). |
-| `payload` | The original event payload as submitted by the producer. |
+- `version` -- Envelope schema version (currently `"1"`). Check this to handle future format changes.
+- `event_id` -- UUID of the event that triggered this delivery.
+- `event_name` -- The event type (e.g. `user.created`, `order.paid`).
+- `namespace` -- Namespace the event belongs to.
+- `webhook_id` -- UUID of the webhook registration receiving this delivery.
+- `delivery_id` -- UUID of this specific delivery attempt.
+- `timestamp` -- ISO 8601 / RFC 3339 timestamp of when the delivery was sent.
+- `attempt` -- Delivery attempt number (1 = first attempt, 2+ = retries).
+- `payload` -- The original event payload as submitted by the producer.
 
 When a subscription has `transform_enabled = true` and a `transform_template`, the template output replaces the entire body -- the envelope is not used.
 
@@ -650,15 +388,13 @@ When a subscription has `transform_enabled = true` and a `transform_template`, t
 
 Every webhook delivery includes these headers:
 
-| Header | Example | Description |
-|--------|---------|-------------|
-| `Content-Type` | `application/json` | Always JSON. |
-| `User-Agent` | `Sparrow-Webhook/0.1.2` | Identifies the sender and version. |
-| `X-Sparrow-Event-ID` | `550e8400-...` | Same as `event_id` in the body. |
-| `X-Sparrow-Delivery-ID` | `d-123` | Same as `delivery_id` in the body. |
-| `X-Sparrow-Webhook-ID` | `7c9e6679-...` | Same as `webhook_id` in the body. |
-| `X-Sparrow-Signature-256` | `sha256=abc123...` | HMAC-SHA256 signature (only when `webhook_secret` is set). |
-| `X-Sparrow-Timestamp` | `1742201234` | Unix epoch seconds used in signature (only when `webhook_secret` is set). |
+- `Content-Type: application/json` -- Always JSON.
+- `User-Agent: Sparrow-Webhook/0.1.2` -- Identifies the sender and version.
+- `X-Sparrow-Event-ID` -- Same as `event_id` in the body.
+- `X-Sparrow-Delivery-ID` -- Same as `delivery_id` in the body.
+- `X-Sparrow-Webhook-ID` -- Same as `webhook_id` in the body.
+- `X-Sparrow-Signature-256` -- HMAC-SHA256 signature (only when `webhook_secret` is set).
+- `X-Sparrow-Timestamp` -- Unix epoch seconds used in signature (only when `webhook_secret` is set).
 
 Custom headers configured on the webhook or subscription are merged in, with subscription-level headers overriding webhook-level defaults.
 
