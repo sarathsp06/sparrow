@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from "$app/state";
   import favicon from "$lib/assets/favicon.svg";
-  import AuthShell from "$lib/auth/AuthShell.svelte";
+  import NamespaceSwitcher from "$lib/components/NamespaceSwitcher.svelte";
   import "../app.css";
 
   let { children } = $props();
@@ -13,7 +13,6 @@
     "/events/[eventName]/update": "Update Event",
     "/events": "Events",
     "/health": "Health",
-    "/team": "Team",
     "/deliveries": "Deliveries",
     "/events/push": "Push Event",
     "/webhooks/register": "Register Webhook",
@@ -21,16 +20,13 @@
     "/deliveries/[deliveryId]": "Delivery Details",
   };
 
-  // Routes that are accessible without authentication
-  const publicRoutes = new Set(["/"]);
-
   function getTitle(): string {
     const path: string = page.route.id?.toString() || "/";
     return titles[path] || path;
   }
 
-  const isPublicRoute = $derived(
-    publicRoutes.has(page.route.id?.toString() || "/"),
+  const isLandingPage = $derived(
+    (page.route.id?.toString() || "/") === "/",
   );
 </script>
 
@@ -38,8 +34,10 @@
   <link rel="icon" href={favicon} />
 </svelte:head>
 
-<AuthShell {isPublicRoute}>
-  {#snippet header()}
+{#if !isLandingPage}
+  <header
+    class="sticky flex w-full left-0 top-0 items-center justify-between px-8 py-2 z-999 bg-white/20 backdrop-blur-md border-b border-gray-100 shadow-xs"
+  >
     <div class="flex items-center gap-2">
       <a
         href="/"
@@ -51,7 +49,17 @@
         {getTitle()}
       </h2>
     </div>
-  {/snippet}
+    <nav class="px-2 flex items-center flex-wrap gap-2 md:gap-8 text-lg font-medium">
+      <a href="/webhooks" class="hover:text-primary transition">Webhooks</a>
+      <a href="/events" class="hover:text-primary transition">Events</a>
+      <a href="/health" class="hover:text-primary transition">Health</a>
+      <a href="/namespaces" class="hover:text-primary transition">Namespaces</a>
+      <NamespaceSwitcher />
+      <a href="https://github.com/sarathsp06/sparrow" class="hover:text-primary transition">
+        <img src="https://logo.svgcdn.com/devicon/github-original.png" alt="github" class="inline-block hover:text-primary w-8 h-8">
+      </a>
+    </nav>
+  </header>
+{/if}
 
-  {@render children?.()}
-</AuthShell>
+{@render children?.()}

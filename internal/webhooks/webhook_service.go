@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -17,7 +18,7 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/sarathsp06/sparrow/internal/auth"
+	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
@@ -51,14 +52,14 @@ type WebhookServiceInterface interface {
 	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error
 	DeleteEvent(ctx context.Context, name string) error
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
-	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string) (string, error)
+	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string) (string, error)
 	ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int32) ([]*store.EventReportWithStats, int32, error)
 
 	// Subscription Management
-	CreateSubscription(ctx context.Context, webhookID, eventName, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string) (string, time.Time, error)
+	CreateSubscription(ctx context.Context, webhookID, eventName, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error)
 	GetSubscription(ctx context.Context, subscriptionID string, namespace string) (*store.EventSubscription, error)
 	ListSubscriptions(ctx context.Context, namespace string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
-	UpdateSubscription(ctx context.Context, subscriptionID string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string) error
+	UpdateSubscription(ctx context.Context, subscriptionID string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error
 	DeleteSubscription(ctx context.Context, subscriptionID string, namespace string) error
 	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, namespace string) (string, error)
 
@@ -110,6 +111,38 @@ func (s *WebhookService) GetWebhookRepo() store.RepositoryInterface {
 	return s.webhookRepo
 }
 
+// Label validation constraints
+const (
+	maxLabelsPerMap  = 20  // max key-value pairs per labels/labelFilters map
+	maxLabelKeyLen   = 64  // max characters per label key
+	maxLabelValueLen = 256 // max characters per label value
+)
+
+// labelKeyPattern restricts label keys to alphanumeric, dot, underscore, and hyphen.
+var labelKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
+
+// validateLabels checks that a labels/label_filters map meets size and format constraints.
+func validateLabels(m map[string]string, fieldName string) error {
+	if len(m) > maxLabelsPerMap {
+		return fmt.Errorf("%s: too many entries (%d), maximum is %d", fieldName, len(m), maxLabelsPerMap)
+	}
+	for k, v := range m {
+		if k == "" {
+			return fmt.Errorf("%s: key must not be empty", fieldName)
+		}
+		if len(k) > maxLabelKeyLen {
+			return fmt.Errorf("%s: key %q exceeds maximum length of %d characters", fieldName, k, maxLabelKeyLen)
+		}
+		if !labelKeyPattern.MatchString(k) {
+			return fmt.Errorf("%s: key %q contains invalid characters (allowed: alphanumeric, '.', '_', '-')", fieldName, k)
+		}
+		if len(v) > maxLabelValueLen {
+			return fmt.Errorf("%s: value for key %q exceeds maximum length of %d characters", fieldName, k, maxLabelValueLen)
+		}
+	}
+	return nil
+}
+
 func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (string, time.Time, error) {
 	ctx, span := s.tracer.Start(ctx, "webhook.register",
 		trace.WithAttributes(
@@ -120,8 +153,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	)
 	defer span.End()
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	s.logger.InfoContext(ctx, "Processing webhook registration request",
 		"namespace", namespace,
@@ -131,9 +163,6 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 
 	if namespace == "" {
 		return "", time.Time{}, fmt.Errorf("namespace is required")
-	}
-	if err := authInfo.Require(auth.PermWebhookCreate, namespace); err != nil {
-		return "", time.Time{}, err
 	}
 	if url == "" {
 		return "", time.Time{}, fmt.Errorf("URL is required")
@@ -210,14 +239,10 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		"url", req.URL,
 	)
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	if req.Namespace == "" {
 		return nil, fmt.Errorf("namespace is required")
-	}
-	if err := authInfo.Require(auth.PermWebhookCreate, req.Namespace); err != nil {
-		return nil, err
 	}
 
 	// Validate webhook URL against SSRF
@@ -350,12 +375,7 @@ func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string
 		return fmt.Errorf("namespace is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	if err := authInfo.Require(auth.PermWebhookDelete, namespace); err != nil {
-		return err
-	}
+	tenantID := tenant.DefaultTenantID
 
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
@@ -393,14 +413,7 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 		"offset", offset,
 	)
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	// Enforce namespace scoping: namespace-scoped identities must provide
-	// a namespace they have access to.
-	if err := authInfo.CanAccessNamespace(namespace, auth.PermWebhookRead); err != nil {
-		return nil, 0, err
-	}
+	tenantID := tenant.DefaultTenantID
 
 	if limit <= 0 {
 		limit = 50
@@ -447,7 +460,7 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 }
 
 // PushEvent pushes an event
-func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string) (string, error) {
+func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string) (string, error) {
 	ctx, span := s.tracer.Start(ctx, "event.push",
 		trace.WithAttributes(
 			attribute.String("namespace", namespace),
@@ -461,8 +474,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		"event", event,
 	)
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	// Validate required fields
 	if namespace == "" {
@@ -471,15 +483,15 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		span.SetStatus(otelcodes.Error, "namespace is required")
 		return "", err
 	}
-	if err := authInfo.Require(auth.PermEventPush, namespace); err != nil {
-		span.RecordError(err)
-		span.SetStatus(otelcodes.Error, "permission denied")
-		return "", err
-	}
 	if event == "" {
 		err := fmt.Errorf("event is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event is required")
+		return "", err
+	}
+	if err := validateLabels(labels, "labels"); err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "invalid labels")
 		return "", err
 	}
 
@@ -541,6 +553,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		Payload:   payload,
 		TTL:       ttl,
 		Metadata:  metadata,
+		Labels:    labels,
 		CreatedAt: time.Now(),
 	}
 
@@ -556,6 +569,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		Event:      event,
 		TTLSeconds: ttl,
 		Metadata:   metadata,
+		Labels:     labels,
 		CreatedAt:  eventRecord.CreatedAt,
 		TenantID:   tenantID.String(),
 	}
@@ -610,12 +624,7 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 		return nil, fmt.Errorf("delivery ID is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	if err := authInfo.CanAccessNamespace(namespace, auth.PermDeliveryRead); err != nil {
-		return nil, err
-	}
+	tenantID := tenant.DefaultTenantID
 
 	id, err := uuid.Parse(deliveryID)
 	if err != nil {
@@ -639,8 +648,7 @@ func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID str
 	ctx, span := s.tracer.Start(ctx, "WebhookService.GetDeliveryAttempts")
 	defer span.End()
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	s.logger.InfoContext(ctx, "Getting delivery attempts", "delivery_id", deliveryID, "tenant_id", tenantID.String())
 
@@ -653,30 +661,6 @@ func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID str
 		return nil, fmt.Errorf("invalid delivery ID: %w", err)
 	}
 
-	// Look up the delivery first (tenant-scoped, no namespace filter) to find its webhook.
-	delivery, err := s.webhookRepo.GetDeliveryByID(ctx, tenantID, id, "")
-	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to get delivery for authorization", "error", err)
-		return nil, fmt.Errorf("failed to retrieve delivery: %w", err)
-	}
-	if delivery == nil {
-		return nil, fmt.Errorf("delivery not found")
-	}
-
-	// Resolve the namespace from the parent webhook so we can authorize properly.
-	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, delivery.WebhookID, "")
-	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to get webhook for namespace resolution", "error", err)
-		return nil, fmt.Errorf("failed to resolve delivery namespace: %w", err)
-	}
-	if webhook == nil {
-		return nil, fmt.Errorf("webhook not found for delivery")
-	}
-
-	// Now authorize with the correct namespace instead of empty string.
-	if err := authInfo.Require(auth.PermDeliveryRead, webhook.Namespace); err != nil {
-		return nil, err
-	}
 
 	attempts, err := s.webhookRepo.GetDeliveryAttempts(ctx, tenantID, id)
 	if err != nil {
@@ -695,13 +679,7 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, namespace string, w
 
 	s.logger.InfoContext(ctx, "Listing deliveries", "namespace", namespace, "webhook_id", webhookID, "event_id", eventID, "limit", limit, "offset", offset)
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	// Enforce namespace scoping for delivery reads
-	if err := authInfo.CanAccessNamespace(namespace, auth.PermDeliveryRead); err != nil {
-		return nil, 0, err
-	}
+	tenantID := tenant.DefaultTenantID
 
 	if limit <= 0 {
 		limit = 50
@@ -752,16 +730,11 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		"namespace", namespace,
 		"force", force)
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	// Validate required fields
 	if namespace == "" {
 		return nil, 0, fmt.Errorf("namespace is required")
-	}
-
-	if err := authInfo.Require(auth.PermDeliveryRetry, namespace); err != nil {
-		return nil, 0, err
 	}
 
 	if deliveryID == "" && webhookID == "" {
@@ -900,12 +873,7 @@ func (s *WebhookService) PauseWebhook(ctx context.Context, webhookID string, nam
 		return fmt.Errorf("namespace is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	if err := authInfo.Require(auth.PermWebhookPause, namespace); err != nil {
-		return err
-	}
+	tenantID := tenant.DefaultTenantID
 
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
@@ -950,12 +918,7 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, na
 		return fmt.Errorf("namespace is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	if err := authInfo.Require(auth.PermWebhookPause, namespace); err != nil {
-		return err
-	}
+	tenantID := tenant.DefaultTenantID
 
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
@@ -1063,13 +1026,9 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 		return "", time.Time{}, fmt.Errorf("event name is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	// Event types are tenant-scoped (shared across namespaces)
-	if err := authInfo.Require(auth.PermEventTypeCreate, ""); err != nil {
-		return "", time.Time{}, err
-	}
 
 	existingEvent, err := s.webhookRepo.GetEventByName(ctx, tenantID, name)
 	if err != nil {
@@ -1117,13 +1076,9 @@ func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, limit,
 	s.logger.InfoContext(ctx, "Processing list events request",
 		"active_only", activeOnly, "limit", limit, "offset", offset)
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	// Event types are tenant-scoped
-	if err := authInfo.Require(auth.PermEventTypeRead, ""); err != nil {
-		return nil, 0, err
-	}
 
 	if limit <= 0 {
 		limit = 50
@@ -1158,13 +1113,9 @@ func (s *WebhookService) UpdateEvent(ctx context.Context, name string, descripti
 		return fmt.Errorf("event name is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	// Event types are tenant-scoped
-	if err := authInfo.Require(auth.PermEventTypeUpdate, ""); err != nil {
-		return err
-	}
 
 	// Check if event exists
 	existingEvent, err := s.webhookRepo.GetEventByName(ctx, tenantID, name)
@@ -1216,13 +1167,9 @@ func (s *WebhookService) DeleteEvent(ctx context.Context, name string) error {
 		return fmt.Errorf("event name is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	// Event types are tenant-scoped
-	if err := authInfo.Require(auth.PermEventTypeDelete, ""); err != nil {
-		return err
-	}
 
 	// Check if event exists
 	existingEvent, err := s.webhookRepo.GetEventByName(ctx, tenantID, name)
@@ -1258,13 +1205,9 @@ func (s *WebhookService) GetEvent(ctx context.Context, name string) (*store.Even
 		return nil, fmt.Errorf("event name is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	// Event types are tenant-scoped
-	if err := authInfo.Require(auth.PermEventTypeRead, ""); err != nil {
-		return nil, err
-	}
 
 	event, err := s.webhookRepo.GetEventByName(ctx, tenantID, name)
 	if err != nil {
@@ -1293,12 +1236,7 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 		return nil, fmt.Errorf("namespace is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	if err := authInfo.Require(auth.PermHealthRead, namespace); err != nil {
-		return nil, err
-	}
+	tenantID := tenant.DefaultTenantID
 
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
@@ -1377,13 +1315,9 @@ func (s *WebhookService) ListWebhooksByHealth(ctx context.Context, health store.
 
 	s.logger.InfoContext(ctx, "Processing list webhooks by health request", "health", health, "limit", limit, "offset", offset)
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	// This is a cross-namespace query — only tenant-level roles can do this
-	if err := authInfo.Require(auth.PermHealthRead, ""); err != nil {
-		return nil, 0, err
-	}
 
 	if limit <= 0 {
 		limit = 50
@@ -1416,13 +1350,9 @@ func (s *WebhookService) GetHealthSummary(ctx context.Context) (*HealthSummaryDa
 
 	s.logger.InfoContext(ctx, "Processing get health summary request")
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	// Health summary is a cross-namespace query — only tenant-level roles can do this
-	if err := authInfo.Require(auth.PermHealthRead, ""); err != nil {
-		return nil, err
-	}
 
 	// Get health summary from repository
 	summary, err := s.webhookRepo.GetHealthSummary(ctx, tenantID)
@@ -1462,13 +1392,7 @@ func (s *WebhookService) GetNamespaceStats(ctx context.Context, namespace string
 
 	s.logger.InfoContext(ctx, "Processing get namespace stats request", "namespace", namespace)
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	// Enforce namespace scoping for stats
-	if err := authInfo.CanAccessNamespace(namespace, auth.PermNamespaceRead); err != nil {
-		return nil, err
-	}
+	tenantID := tenant.DefaultTenantID
 
 	stats, err := s.webhookRepo.GetNamespaceStats(ctx, tenantID, namespace)
 	if err != nil {
@@ -1510,12 +1434,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		return fmt.Errorf("namespace is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	if err := authInfo.Require(auth.PermWebhookUpdate, namespace); err != nil {
-		return err
-	}
+	tenantID := tenant.DefaultTenantID
 
 	webhookUUID, err := uuid.Parse(webhookID)
 	if err != nil {
@@ -1675,13 +1594,7 @@ func (s *WebhookService) ListEventReports(ctx context.Context, namespace string,
 		"limit", limit,
 		"offset", offset)
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	// Enforce namespace scoping for event reports
-	if err := authInfo.CanAccessNamespace(namespace, auth.PermEventRead); err != nil {
-		return nil, 0, err
-	}
+	tenantID := tenant.DefaultTenantID
 
 	// Set default limit if not provided or out of range
 	if limit <= 0 {
@@ -1722,23 +1635,22 @@ func (s *WebhookService) ListEventReports(ctx context.Context, namespace string,
 
 // Subscription Management Implementation
 
-func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, eventName, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string) (string, time.Time, error) {
+func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, eventName, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error) {
 	s.logger.InfoContext(ctx, "Creating subscription", "webhook_id", webhookID, "event_name", eventName, "namespace", namespace)
 
 	if namespace == "" {
 		return "", time.Time{}, fmt.Errorf("namespace is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	if err := authInfo.Require(auth.PermSubscriptionCreate, namespace); err != nil {
-		return "", time.Time{}, err
-	}
+	tenantID := tenant.DefaultTenantID
 
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("invalid webhook ID: %w", err)
+	}
+
+	if err := validateLabels(labelFilters, "label_filters"); err != nil {
+		return "", time.Time{}, err
 	}
 
 	sub := &store.EventSubscription{
@@ -1750,6 +1662,7 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 		Timeout:           timeout,
 		TransformEnabled:  transformEnabled,
 		TransformTemplate: transformTemplate,
+		LabelFilters:      labelFilters,
 	}
 
 	if err := s.webhookRepo.CreateSubscription(ctx, tenantID, sub); err != nil {
@@ -1760,14 +1673,10 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 }
 
 func (s *WebhookService) GetSubscription(ctx context.Context, subscriptionID string, namespace string) (*store.EventSubscription, error) {
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	if namespace == "" {
 		return nil, fmt.Errorf("namespace is required")
-	}
-	if err := authInfo.Require(auth.PermSubscriptionRead, namespace); err != nil {
-		return nil, err
 	}
 
 	id, err := uuid.Parse(subscriptionID)
@@ -1790,12 +1699,7 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 		return nil, 0, fmt.Errorf("namespace is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	if err := authInfo.Require(auth.PermSubscriptionRead, namespace); err != nil {
-		return nil, 0, err
-	}
+	tenantID := tenant.DefaultTenantID
 
 	if limit <= 0 {
 		limit = 50
@@ -1827,7 +1731,7 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 			subs = []*store.EventSubscription{}
 		}
 	} else if eventName != "" {
-		subs, err = s.webhookRepo.GetSubscriptionsByEvent(ctx, tenantID, namespace, eventName)
+		subs, err = s.webhookRepo.GetSubscriptionsByEvent(ctx, tenantID, namespace, eventName, nil)
 		totalCount = len(subs)
 		if int(offset) < len(subs) {
 			end := int(offset + limit)
@@ -1849,20 +1753,20 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 	return subs, int32(totalCount), err
 }
 
-func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string) error {
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error {
+	tenantID := tenant.DefaultTenantID
 
 	if namespace == "" {
 		return fmt.Errorf("namespace is required")
-	}
-	if err := authInfo.Require(auth.PermSubscriptionUpdate, namespace); err != nil {
-		return err
 	}
 
 	id, err := uuid.Parse(subscriptionID)
 	if err != nil {
 		return fmt.Errorf("invalid subscription ID: %w", err)
+	}
+
+	if err := validateLabels(labelFilters, "label_filters"); err != nil {
+		return err
 	}
 
 	sub, err := s.webhookRepo.GetSubscription(ctx, tenantID, id)
@@ -1878,19 +1782,16 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 	sub.Timeout = timeout
 	sub.TransformEnabled = transformEnabled
 	sub.TransformTemplate = transformTemplate
+	sub.LabelFilters = labelFilters
 
 	return s.webhookRepo.UpdateSubscription(ctx, tenantID, sub)
 }
 
 func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID string, namespace string) error {
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
+	tenantID := tenant.DefaultTenantID
 
 	if namespace == "" {
 		return fmt.Errorf("namespace is required")
-	}
-	if err := authInfo.Require(auth.PermSubscriptionDelete, namespace); err != nil {
-		return err
 	}
 
 	id, err := uuid.Parse(subscriptionID)
@@ -1919,20 +1820,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		return "", fmt.Errorf("event name is required")
 	}
 
-	authInfo := auth.MustFromContext(ctx)
-	tenantID := authInfo.TenantID
-
-	// TestSubscriptionTemplate is namespace-scoped when namespace is provided
-	if namespace != "" {
-		if err := authInfo.Require(auth.PermSubscriptionRead, namespace); err != nil {
-			return "", err
-		}
-	} else {
-		// Without a namespace, require tenant-wide access
-		if err := authInfo.Require(auth.PermSubscriptionRead, ""); err != nil {
-			return "", err
-		}
-	}
+	tenantID := tenant.DefaultTenantID
 
 	event, err := s.webhookRepo.GetEventByName(ctx, tenantID, eventName)
 	if err != nil {

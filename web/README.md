@@ -38,10 +38,8 @@ Build output goes to `../internal/ui/dist/` (the Go embed directory). The static
 | Variable | Default | Description |
 |---|---|---|
 | `PUBLIC_API_URL` | `http://localhost:8080` | Sparrow backend API URL (Connect-RPC HTTP/JSON) |
-| `PUBLIC_AUTH_PROVIDER` | *(auto-detect)* | Auth provider: `clerk`, `none`, or unset for auto-detect |
-| `PUBLIC_CLERK_PUBLISHABLE_KEY` | *(unset)* | Clerk publishable key (enables Clerk auth when set) |
 
-Set these in `web/.env` for development. When embedded in the Go binary, the UI uses relative paths (`/`) to call the API on the same origin. See [CONFIGURATION.md](../CONFIGURATION.md) for the full list of backend and frontend env vars.
+Set this in `web/.env` for development. When embedded in the Go binary, the UI uses relative paths (`/`) to call the API on the same origin. See [CONFIGURATION.md](../CONFIGURATION.md) for the full list of backend env vars.
 
 ## Project Structure
 
@@ -52,48 +50,23 @@ web/
 │   ├── app.css               # Global styles (Tailwind CSS 4)
 │   ├── app.d.ts              # TypeScript declarations
 │   ├── lib/
-│   │   ├── auth.ts           # Provider-agnostic token abstraction
-│   │   ├── services.ts       # Connect-RPC API clients + Bearer token interceptor
+│   │   ├── services.ts       # Connect-RPC API clients
 │   │   ├── utils.ts          # Utility functions
-│   │   ├── auth/
-│   │   │   ├── types.ts      # AuthProviderType, AuthProviderConfig
-│   │   │   ├── provider.ts   # Provider detection from env vars
-│   │   │   ├── AuthShell.svelte   # Dispatches to active provider shell
-│   │   │   └── providers/
-│   │   │       ├── clerk/
-│   │   │       │   └── ClerkAuthShell.svelte   # Clerk sign-in, user button, org switcher
-│   │   │       └── none/
-│   │   │           └── NoAuthShell.svelte      # No-auth fallback (open access)
 │   │   ├── components/       # Reusable Svelte components
 │   │   └── assets/           # Static assets (favicon, etc.)
 │   └── routes/               # SvelteKit pages
-│       ├── +layout.svelte    # Root layout (delegates to AuthShell)
+│       ├── +layout.svelte    # Root layout (navigation)
 │       ├── +layout.ts        # Prerender + SPA config
-│       ├── +page.svelte      # Home
+│       ├── +page.svelte      # Home / landing page
 │       ├── webhooks/         # Webhook management
 │       ├── events/           # Event management
+│       ├── namespaces/       # Namespace management
 │       ├── health/           # Health dashboard
 │       └── deliveries/       # Delivery details
 ├── svelte.config.js          # SvelteKit config (static adapter)
 ├── vite.config.ts            # Vite config
 └── package.json
 ```
-
-## Auth Provider System
-
-The frontend uses a pluggable auth provider architecture. The root layout delegates to `AuthShell.svelte`, which renders the correct provider shell based on environment variables.
-
-**Flow:** `+layout.svelte` -> `AuthShell.svelte` -> `ClerkAuthShell.svelte` or `NoAuthShell.svelte`
-
-Each provider shell:
-- Accepts `header` and `children` snippets from the layout
-- Controls when page content renders (e.g., only after sign-in)
-- Provides its own sign-in/sign-out UI
-- Calls `registerTokenProvider()` from `auth.ts` to inject tokens into API requests
-
-The services layer (`services.ts`) calls `getSessionToken()` to get a Bearer token for each API request. It never imports any provider SDK directly.
-
-**Adding a new provider:** See [TECHNICAL.md](../TECHNICAL.md#web-ui-auth-providers) for step-by-step instructions.
 
 ## Tech Stack
 
@@ -103,4 +76,3 @@ The services layer (`services.ts`) calls `getSessionToken()` to get a Bearer tok
 - **Flowbite Svelte** (UI components)
 - **Connect-RPC** (API client for Go backend)
 - **Static adapter** (embedded in Go binary via `go:embed`)
-- **svelte-clerk** (Clerk integration, optional)

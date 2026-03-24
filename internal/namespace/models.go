@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sarathsp06/sparrow/internal/auth"
 )
 
 // Namespace represents a first-class namespace entity within a tenant.
@@ -20,17 +19,6 @@ type Namespace struct {
 	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 }
 
-// Membership represents a user's role assignment on a specific namespace.
-// When a user has memberships, they can only access those namespaces.
-type Membership struct {
-	ID        uuid.UUID `json:"id" db:"id"`
-	TenantID  uuid.UUID `json:"tenant_id" db:"tenant_id"`
-	SubjectID string    `json:"subject_id" db:"subject_id"` // JWT sub claim
-	Namespace string    `json:"namespace" db:"namespace"`   // Namespace name
-	Role      auth.Role `json:"role" db:"role"`             // namespace:admin, namespace:member, namespace:viewer
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
-}
 
 // CreateNamespaceRequest contains the parameters for creating a namespace.
 type CreateNamespaceRequest struct {
@@ -47,10 +35,3 @@ type UpdateNamespaceRequest struct {
 	Description string // empty = no change
 }
 
-// AssignMembershipRequest contains the parameters for assigning a user to a namespace.
-type AssignMembershipRequest struct {
-	TenantID  uuid.UUID
-	SubjectID string
-	Namespace string
-	Role      auth.Role
-}

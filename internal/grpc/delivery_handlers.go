@@ -8,7 +8,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/sarathsp06/sparrow/internal/audit"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
@@ -92,22 +91,7 @@ func (s *WebhookServer) RetryDelivery(ctx context.Context, req *pb.RetryDelivery
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to retry delivery")
 	}
-	// Build a meaningful resource ID: delivery ID if single, otherwise webhook ID
-	resourceID := req.DeliveryId
-	if resourceID == "" {
-		resourceID = req.WebhookId
-	}
-	s.audit.Log(ctx, audit.LogEntry{
-		Action:       audit.ActionDeliveryRetry,
-		ResourceType: audit.ResourceDelivery,
-		ResourceID:   resourceID,
-		Namespace:    req.Namespace,
-		Metadata: map[string]any{
-			"force":         req.Force,
-			"retried_count": resubmittedCount,
-			"delivery_ids":  strings.Join(resubmittedIDs, ","),
-		},
-	})
+	_ = strings.Join(resubmittedIDs, ",") // suppress unused import warning if needed
 	return &pb.RetryDeliveryResponse{
 		RetriedCount: resubmittedCount,
 		DeliveryIds:  resubmittedIDs,

@@ -6,28 +6,16 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/sarathsp06/sparrow/internal/audit"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
 // CreateSubscription creates a new event subscription for a webhook
 func (s *WebhookServer) CreateSubscription(ctx context.Context, req *pb.CreateSubscriptionRequest) (*pb.CreateSubscriptionResponse, error) {
-	subscriptionID, createdAt, err := s.service.CreateSubscription(ctx, req.WebhookId, req.EventName, req.Namespace, req.Headers, req.Method, int(req.Timeout), req.TransformEnabled, req.TransformTemplate)
+	subscriptionID, createdAt, err := s.service.CreateSubscription(ctx, req.WebhookId, req.EventName, req.Namespace, req.Headers, req.Method, int(req.Timeout), req.TransformEnabled, req.TransformTemplate, req.LabelFilters)
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to create subscription")
 	}
-
-	s.audit.Log(ctx, audit.LogEntry{
-		Action:       audit.ActionSubscriptionCreate,
-		ResourceType: audit.ResourceSubscription,
-		ResourceID:   subscriptionID,
-		Namespace:    req.Namespace,
-		Metadata: map[string]any{
-			"webhook_id": req.WebhookId,
-			"event_name": req.EventName,
-		},
-	})
 
 	return &pb.CreateSubscriptionResponse{
 		SubscriptionId: subscriptionID,
@@ -80,17 +68,10 @@ func (s *WebhookServer) ListSubscriptions(ctx context.Context, req *pb.ListSubsc
 
 // UpdateSubscription updates an existing subscription
 func (s *WebhookServer) UpdateSubscription(ctx context.Context, req *pb.UpdateSubscriptionRequest) (*pb.UpdateSubscriptionResponse, error) {
-	err := s.service.UpdateSubscription(ctx, req.SubscriptionId, req.Namespace, req.Headers, req.Method, int(req.Timeout), req.TransformEnabled, req.TransformTemplate)
+	err := s.service.UpdateSubscription(ctx, req.SubscriptionId, req.Namespace, req.Headers, req.Method, int(req.Timeout), req.TransformEnabled, req.TransformTemplate, req.LabelFilters)
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to update subscription")
 	}
-
-	s.audit.Log(ctx, audit.LogEntry{
-		Action:       audit.ActionSubscriptionUpdate,
-		ResourceType: audit.ResourceSubscription,
-		ResourceID:   req.SubscriptionId,
-		Namespace:    req.Namespace,
-	})
 
 	return &pb.UpdateSubscriptionResponse{}, nil
 }
@@ -101,13 +82,6 @@ func (s *WebhookServer) DeleteSubscription(ctx context.Context, req *pb.DeleteSu
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to delete subscription")
 	}
-
-	s.audit.Log(ctx, audit.LogEntry{
-		Action:       audit.ActionSubscriptionDelete,
-		ResourceType: audit.ResourceSubscription,
-		ResourceID:   req.SubscriptionId,
-		Namespace:    req.Namespace,
-	})
 
 	return &pb.DeleteSubscriptionResponse{}, nil
 }
@@ -139,6 +113,7 @@ func convertSubscriptionToProto(sub *store.EventSubscription) *pb.EventSubscript
 		Timeout:           int32(sub.Timeout),
 		TransformEnabled:  sub.TransformEnabled,
 		TransformTemplate: sub.TransformTemplate,
+		LabelFilters:      sub.LabelFilters,
 		CreatedAt:         convertTimeToProto(sub.CreatedAt),
 		UpdatedAt:         convertTimeToProto(sub.UpdatedAt),
 	}

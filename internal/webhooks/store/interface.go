@@ -26,8 +26,8 @@ type RepositoryInterface interface {
 	DeleteSubscription(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error
 	ListSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) ([]*EventSubscription, error)
 	ListSubscriptionsByNamespace(ctx context.Context, tenantID uuid.UUID, namespace string, limit, offset int) ([]*EventSubscription, int, error)
-	GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string) ([]*EventSubscription, error)
-	GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string) ([]*SubscriptionWithWebhook, error)
+	GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string, labels map[string]string) ([]*EventSubscription, error)
+	GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string, labels map[string]string) ([]*SubscriptionWithWebhook, error)
 
 	// Event Management (event registrations are tenant-scoped)
 	RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error

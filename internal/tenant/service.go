@@ -2,18 +2,18 @@ package tenant
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
-
-	"github.com/sarathsp06/sparrow/internal/auth"
 )
 
-// Service provides business logic for tenant and API key management.
+// DefaultTenantID is the well-known UUID for the default tenant,
+// created by the initial database migration.
+var DefaultTenantID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+// Service provides business logic for tenant management.
 type Service struct {
 	repo Repository
 }
@@ -25,15 +25,9 @@ func NewService(repo Repository) *Service {
 
 // ---- Tenant operations ----
 
-// CreateTenantOpts holds optional parameters for tenant creation.
-type CreateTenantOpts struct {
-	ExternalID *string // External identity provider org ID (e.g., Clerk org_id)
-	CreatedBy  *string // Identity provider user ID (JWT sub) who is creating this tenant
-}
-
 // CreateTenant creates a new tenant with the given name.
 // The slug is derived from the name (lowercased, non-alphanumeric replaced with hyphens).
-func (s *Service) CreateTenant(ctx context.Context, name string, opts ...CreateTenantOpts) (*Tenant, error) {
+func (s *Service) CreateTenant(ctx context.Context, name string) (*Tenant, error) {
 	if name == "" {
 		return nil, fmt.Errorf("tenant name is required")
 	}
@@ -47,15 +41,6 @@ func (s *Service) CreateTenant(ctx context.Context, name string, opts ...CreateT
 		Name:   name,
 		Slug:   slug,
 		Status: StatusActive,
-	}
-
-	if len(opts) > 0 {
-		if opts[0].ExternalID != nil {
-			t.ExternalID = opts[0].ExternalID
-		}
-		if opts[0].CreatedBy != nil {
-			t.CreatedBy = opts[0].CreatedBy
-		}
 	}
 
 	if err := s.repo.CreateTenant(ctx, t); err != nil {
@@ -117,92 +102,10 @@ func (s *Service) UpdateTenant(ctx context.Context, id uuid.UUID, name, status s
 // DeleteTenant deletes a tenant by ID. This cascades to all related data.
 func (s *Service) DeleteTenant(ctx context.Context, id uuid.UUID) error {
 	// Prevent deleting the default tenant
-	if id == auth.DefaultTenantID {
+	if id == DefaultTenantID {
 		return fmt.Errorf("cannot delete the default tenant")
 	}
 	return s.repo.DeleteTenant(ctx, id)
-}
-
-// ---- API Key operations ----
-
-// CreateAPIKey generates a new API key for the given tenant.
-// Returns the key record and the plaintext key (shown only once).
-func (s *Service) CreateAPIKey(ctx context.Context, req CreateAPIKeyRequest) (*CreateAPIKeyResult, error) {
-	// Validate role
-	if !auth.IsValidRole(string(req.Role)) {
-		return nil, fmt.Errorf("invalid role: %s", req.Role)
-	}
-
-	// Validate namespace scope
-	if auth.IsNamespaceRole(req.Role) && (req.NamespaceScope == nil || *req.NamespaceScope == "") {
-		return nil, fmt.Errorf("namespace-scoped role %s requires a namespace_scope", req.Role)
-	}
-	if auth.IsTenantRole(req.Role) && req.NamespaceScope != nil {
-		return nil, fmt.Errorf("tenant-scoped role %s must not have a namespace_scope", req.Role)
-	}
-
-	if req.Name == "" {
-		return nil, fmt.Errorf("API key name is required")
-	}
-
-	// Look up the tenant to get its slug for the key prefix
-	t, err := s.repo.GetTenantByID(ctx, req.TenantID)
-	if err != nil {
-		return nil, fmt.Errorf("tenant lookup: %w", err)
-	}
-
-	// Generate the raw key: sk_<slug>_<32 random hex chars>
-	randomBytes := make([]byte, 16)
-	if _, err := rand.Read(randomBytes); err != nil {
-		return nil, fmt.Errorf("generate random key: %w", err)
-	}
-	prefix := auth.GenerateAPIKeyPrefix(t.Slug)
-	rawKey := prefix + hex.EncodeToString(randomBytes)
-	keyHash := auth.HashAPIKey(rawKey)
-
-	key := &APIKey{
-		TenantID:        req.TenantID,
-		Name:            req.Name,
-		KeyPrefix:       prefix,
-		KeyHash:         keyHash,
-		Role:            req.Role,
-		NamespaceScope:  req.NamespaceScope,
-		IsPlatformAdmin: req.IsPlatformAdmin,
-		ExpiresAt:       req.ExpiresAt,
-	}
-
-	if err := s.repo.CreateAPIKey(ctx, key); err != nil {
-		return nil, fmt.Errorf("create API key: %w", err)
-	}
-
-	return &CreateAPIKeyResult{
-		Key:    key,
-		RawKey: rawKey,
-	}, nil
-}
-
-// GetAPIKey retrieves an API key by ID.
-func (s *Service) GetAPIKey(ctx context.Context, id uuid.UUID) (*APIKey, error) {
-	return s.repo.GetAPIKeyByID(ctx, id)
-}
-
-// ListAPIKeys retrieves API keys for a tenant with pagination.
-func (s *Service) ListAPIKeys(ctx context.Context, tenantID uuid.UUID, limit, offset int) ([]*APIKey, int, error) {
-	if limit <= 0 {
-		limit = 20
-	}
-	if limit > 100 {
-		limit = 100
-	}
-	if offset < 0 {
-		offset = 0
-	}
-	return s.repo.ListAPIKeys(ctx, tenantID, limit, offset)
-}
-
-// RevokeAPIKey revokes an API key by ID, preventing further use.
-func (s *Service) RevokeAPIKey(ctx context.Context, id uuid.UUID) error {
-	return s.repo.RevokeAPIKey(ctx, id)
 }
 
 // ---- Helpers ----

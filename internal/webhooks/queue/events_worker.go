@@ -63,8 +63,8 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		existingEvent.Metadata = args.Metadata
 	}
 
-	// Find all subscriptions for this namespace/event with webhook details
-	subscriptions, err := w.webhookRepo.GetSubscriptionsWithWebhooksByEvent(ctx, tenantID, args.Namespace, args.Event)
+	// Find all subscriptions for this namespace/event with webhook details (including label matching)
+	subscriptions, err := w.webhookRepo.GetSubscriptionsWithWebhooksByEvent(ctx, tenantID, args.Namespace, args.Event, args.Labels)
 	if err != nil {
 		w.logger.ErrorContext(ctx, "Failed to get event subscriptions", "error", err)
 		return err

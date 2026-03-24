@@ -15,12 +15,6 @@ docker compose up -d
 
 Postgres, migrations, and the server with the web UI all start automatically. Open `http://localhost:8080/`.
 
-On first boot a root API key is printed to the logs:
-
-```bash
-docker compose logs sparrow
-```
-
 ### Try It Out
 
 ```bash
@@ -60,39 +54,27 @@ All endpoints are available via both gRPC (`:50051`) and Connect-RPC HTTP/JSON (
 
 Sparrow is configured entirely via environment variables. No config files needed.
 
-### Core
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | -- | PostgreSQL connection string |
+| `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard on `:8080` |
+| `ENVIRONMENT` | No | -- | `development` or `production` (affects logging/OTel) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
+| `CORS_ALLOWED_ORIGINS` | No | -- | Allowed CORS origins for Connect-RPC |
 
-- `DATABASE_URL` (required) -- PostgreSQL connection string
-- `SPARROW_SERVE_UI` -- Serve the embedded web dashboard on `:8080`. Default: `false`
-- `ENVIRONMENT` -- `development` or `production` (affects logging/OTel)
-
-### Authentication
-
-- `SPARROW_AUTH_ENABLED` -- Enable authentication. When disabled, all requests use `tenant:admin` on the default tenant. Default: `false`
-- `SPARROW_ROOT_API_KEY` -- Pre-configured root API key for bootstrap. Default: auto-generated on first boot
-
-When auth is enabled, Sparrow supports both API keys and JWT. See [CONFIGURATION.md](CONFIGURATION.md) for the full list of JWT, OIDC, and identity provider settings.
-
-### Deployment Modes
-
-- **Zero-auth** -- Set only `DATABASE_URL`. All requests get `tenant:admin`. Best for single-user/dev.
-- **API-key only** -- Add `SPARROW_AUTH_ENABLED=true`. Root key created on boot. Create more via API.
-- **Any OIDC provider** -- Add `SPARROW_JWKS_URL=...`. JWT auth with any provider. Namespace roles resolved from DB.
-- **Full Clerk** -- Add `CLERK_SECRET_KEY=...`. Syncs namespace roles to JWT claims for faster auth.
-
-See [CONFIGURATION.md](CONFIGURATION.md) for detailed setup guides for each mode, including Clerk, Keycloak, Auth0, and other OIDC providers.
+See [CONFIGURATION.md](CONFIGURATION.md) for deployment guides and all options.
 
 ---
 
 ## Documentation
 
-- [CONFIGURATION.md](CONFIGURATION.md) -- All environment variables, auth setup, OIDC provider examples, deployment guides
-- [TECHNICAL.md](TECHNICAL.md) -- Architecture deep dive, RBAC internals, queue design, health state machine, HTTP client details
+- [CONFIGURATION.md](CONFIGURATION.md) -- Deployment guides, all environment variables
+- [TECHNICAL.md](TECHNICAL.md) -- Architecture deep dive, queue design, health state machine, HTTP client details
 - [ARCHITECTURE.md](ARCHITECTURE.md) -- Package structure, dependency graph, design principles
-- [TEMPLATE_FUNCTIONS.md](TEMPLATE_FUNCTIONS.md) -- Payload transformation reference (22 template functions)
+- [docs/TEMPLATE_FUNCTIONS.md](docs/TEMPLATE_FUNCTIONS.md) -- Payload transformation reference (22 template functions)
 - [client/README.md](client/README.md) -- gRPC client libraries (Go, JS, Python)
 - [web/README.md](web/README.md) -- Web dashboard development guide
-- [webhook.proto](webhook.proto) -- Service and message definitions (9 services, 40+ RPCs)
+- [webhook.proto](webhook.proto) -- Service and message definitions
 
 ---
 

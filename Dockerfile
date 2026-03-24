@@ -37,13 +37,7 @@ COPY . .
 # Copy built frontend into the embedded UI directory
 COPY --from=frontend /build/internal/ui/dist/ /build/internal/ui/dist/
 
-# Build migrate tool
-RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-w -s" \
-    -trimpath \
-    -o migrate ./cmd/migrate
-
-# Build server (includes embedded UI via go:embed)
+# Build server (includes embedded UI via go:embed, runs migrations on startup)
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-w -s" \
     -trimpath \
@@ -58,8 +52,6 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 COPY --from=builder --chown=65532:65532 /build/server /app/server
-COPY --from=builder --chown=65532:65532 /build/migrate /app/tools/migrate
-COPY --from=builder --chown=65532:65532 /build/db/migrations /app/db/migrations
 
 EXPOSE 50051 8080
 

@@ -32,6 +32,7 @@ type EventArgs struct {
 	Event      string            `json:"event"`
 	TTLSeconds int64             `json:"ttl_seconds"`
 	Metadata   map[string]string `json:"metadata"`
+	Labels     map[string]string `json:"labels"`
 	CreatedAt  time.Time         `json:"created_at"`
 }
 

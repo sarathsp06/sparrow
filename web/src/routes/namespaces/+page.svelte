@@ -5,13 +5,10 @@
   import type { NamespaceResource } from '../../../../proto/webhook_pb.js';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
-  import { getIsTenantAdmin } from '$lib/stores/auth.svelte.js';
 
   let namespacesList = $state<NamespaceResource[]>([]);
   let loading = $state(true);
   let error = $state('');
-
-  const isTenantAdmin = $derived.by(() => getIsTenantAdmin());
 
   // Create namespace form
   let showCreateForm = $state(false);
@@ -99,14 +96,12 @@
       <h1 class="text-3xl font-bold text-gray-900">Namespaces</h1>
       <p class="text-gray-500 mt-1">Manage namespace scopes for your webhooks and events.</p>
     </div>
-    {#if isTenantAdmin}
       <button
         onclick={() => (showCreateForm = !showCreateForm)}
         class="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition text-sm font-medium"
       >
         {showCreateForm ? 'Cancel' : '+ Create Namespace'}
       </button>
-    {/if}
   </div>
 
   <!-- Create form -->
@@ -208,14 +203,12 @@
               >
                 Manage
               </button>
-              {#if isTenantAdmin}
-                <button
+              <button
                   onclick={() => promptDelete(ns)}
                   class="px-3 py-1.5 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
                 >
                   Delete
                 </button>
-              {/if}
             </div>
           </div>
         </div>

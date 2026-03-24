@@ -8,7 +8,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/sarathsp06/sparrow/internal/audit"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
@@ -19,7 +18,7 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 	if req.Payload != nil {
 		payload = req.Payload.AsMap()
 	}
-	eventID, err := s.service.PushEvent(ctx, req.Namespace, req.Event, payload, req.TtlSeconds, req.Metadata)
+	eventID, err := s.service.PushEvent(ctx, req.Namespace, req.Event, payload, req.TtlSeconds, req.Metadata, req.Labels)
 	if err != nil {
 		// Return InvalidArgument for schema validation errors so the client
 		// gets actionable feedback instead of a generic Internal error.
@@ -46,15 +45,6 @@ func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEvent
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to register event")
 	}
-	s.audit.Log(ctx, audit.LogEntry{
-		Action:       audit.ActionEventRegister,
-		ResourceType: audit.ResourceEvent,
-		ResourceID:   eventName,
-		Metadata: map[string]any{
-			"description": req.Description,
-			"active":      req.Active,
-		},
-	})
 	return &pb.RegisterEventResponse{
 		EventId:   eventName, // Deprecated field — now carries the event name
 		CreatedAt: timestamppb.New(createdAt),
@@ -105,15 +95,6 @@ func (s *WebhookServer) UpdateEvent(ctx context.Context, req *pb.UpdateEventRequ
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to update event")
 	}
-	s.audit.Log(ctx, audit.LogEntry{
-		Action:       audit.ActionEventUpdate,
-		ResourceType: audit.ResourceEvent,
-		ResourceID:   req.Name,
-		Metadata: map[string]any{
-			"description": req.Description,
-			"active":      req.Active,
-		},
-	})
 	return &pb.UpdateEventResponse{}, nil
 }
 
@@ -123,11 +104,6 @@ func (s *WebhookServer) DeleteEvent(ctx context.Context, req *pb.DeleteEventRequ
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to delete event")
 	}
-	s.audit.Log(ctx, audit.LogEntry{
-		Action:       audit.ActionEventDelete,
-		ResourceType: audit.ResourceEvent,
-		ResourceID:   req.Name,
-	})
 	return &pb.DeleteEventResponse{}, nil
 }
 

@@ -23,7 +23,6 @@ ALTER TABLE event_subscriptions DROP COLUMN IF EXISTS tenant_id;
 ALTER TABLE webhook_registrations DROP COLUMN IF EXISTS tenant_id;
 ALTER TABLE event_registrations DROP COLUMN IF EXISTS tenant_id;
 
--- Drop auth tables
-DROP TABLE IF EXISTS api_keys;
+-- Drop tenants table
 DROP TRIGGER IF EXISTS update_tenants_updated_at ON tenants;
 DROP TABLE IF EXISTS tenants;

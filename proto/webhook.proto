@@ -160,6 +160,7 @@ message PushEventRequest {
   int64 ttl_seconds = 4; // TTL for webhook retry attempts
   map<string, string> metadata = 5; // Additional event metadata
   optional string id = 6; // Optional id for idempotency 
+  map<string, string> labels = 7; // Optional labels for label-based subscription matching
 }
 
 // PushEventResponse represents the response for event pushing
@@ -575,6 +576,7 @@ message EventSubscription {
   string transform_template = 9; // Go template for payload transformation
   google.protobuf.Timestamp created_at = 10; // When subscription was created
   google.protobuf.Timestamp updated_at = 11; // When subscription was last updated
+  map<string, string> label_filters = 12; // Label filters for matching events (AND logic)
 }
 
 // CreateSubscriptionRequest represents a request to create a subscription
@@ -587,6 +589,7 @@ message CreateSubscriptionRequest {
   int32 timeout = 6; // Optional timeout in seconds
   bool transform_enabled = 7; // Enable payload transformation
   string transform_template = 8; // Go template for transformation
+  map<string, string> label_filters = 9; // Optional label filters for matching events (AND logic)
 }
 
 // CreateSubscriptionResponse represents the response for subscription creation
@@ -636,6 +639,7 @@ message UpdateSubscriptionRequest {
   int32 timeout = 4; // Updated timeout
   bool transform_enabled = 5; // Updated transform enabled flag
   string transform_template = 6; // Updated transform template
+  map<string, string> label_filters = 8; // Updated label filters for matching events (AND logic)
 }
 
 // UpdateSubscriptionResponse represents the response for updating a subscription
@@ -727,176 +731,7 @@ message GetDeliveryAttemptsResponse {
 }
 
 // ============================================================
-// Tenant & API Key Management
-// ============================================================
-
-// TenantService manages tenant lifecycle
-service TenantService {
-  // CreateTenant creates a new tenant
-  rpc CreateTenant(CreateTenantRequest) returns (CreateTenantResponse);
-
-  // GetTenant retrieves a tenant by ID
-  rpc GetTenant(GetTenantRequest) returns (GetTenantResponse);
-
-  // ListTenants lists all tenants with pagination
-  rpc ListTenants(ListTenantsRequest) returns (ListTenantsResponse);
-
-  // UpdateTenant updates a tenant's name or status
-  rpc UpdateTenant(UpdateTenantRequest) returns (UpdateTenantResponse);
-
-  // DeleteTenant deletes a tenant (cascades to all related data)
-  rpc DeleteTenant(DeleteTenantRequest) returns (DeleteTenantResponse);
-}
-
-// APIKeyService manages API key lifecycle
-service APIKeyService {
-  // CreateAPIKey generates a new API key for a tenant
-  rpc CreateAPIKey(CreateAPIKeyRequest) returns (CreateAPIKeyResponse);
-
-  // GetAPIKey retrieves an API key by ID (does not return the secret)
-  rpc GetAPIKey(GetAPIKeyRequest) returns (GetAPIKeyResponse);
-
-  // ListAPIKeys lists API keys for a tenant with pagination
-  rpc ListAPIKeys(ListAPIKeysRequest) returns (ListAPIKeysResponse);
-
-  // RevokeAPIKey revokes an API key, preventing further use
-  rpc RevokeAPIKey(RevokeAPIKeyRequest) returns (RevokeAPIKeyResponse);
-}
-
-// ---- Tenant Messages ----
-
-// Tenant represents an organization/team using Sparrow
-message Tenant {
-  string id = 1; // Tenant UUID
-  string name = 2; // Display name
-  string slug = 3; // URL-safe identifier (derived from name)
-  string status = 4; // active, suspended, archived
-  google.protobuf.Timestamp created_at = 5;
-  google.protobuf.Timestamp updated_at = 6;
-  optional string external_id = 7; // External identity provider org ID (e.g., Clerk org_id)
-}
-
-// CreateTenantRequest represents a request to create a tenant
-message CreateTenantRequest {
-  string name = 1; // Tenant name (required)
-  optional string external_id = 2; // External identity provider org ID (e.g., Clerk org_id)
-}
-
-// CreateTenantResponse represents the response for tenant creation
-message CreateTenantResponse {
-  Tenant tenant = 1;
-}
-
-// GetTenantRequest represents a request to get a tenant
-message GetTenantRequest {
-  string id = 1; // Tenant ID (UUID)
-}
-
-// GetTenantResponse represents the response for getting a tenant
-message GetTenantResponse {
-  Tenant tenant = 1;
-}
-
-// ListTenantsRequest represents a request to list tenants
-message ListTenantsRequest {
-  PaginationRequest pagination = 1;
-}
-
-// ListTenantsResponse represents the response for listing tenants
-message ListTenantsResponse {
-  repeated Tenant tenants = 1;
-  PaginationResponse pagination = 2;
-}
-
-// UpdateTenantRequest represents a request to update a tenant
-message UpdateTenantRequest {
-  string id = 1; // Tenant ID (UUID, required)
-  string name = 2; // Updated name (optional, empty = no change)
-  string status = 3; // Updated status (optional, empty = no change)
-}
-
-// UpdateTenantResponse represents the response for updating a tenant
-message UpdateTenantResponse {
-  Tenant tenant = 1;
-}
-
-// DeleteTenantRequest represents a request to delete a tenant
-message DeleteTenantRequest {
-  string id = 1; // Tenant ID (UUID)
-}
-
-// DeleteTenantResponse represents the response for tenant deletion
-message DeleteTenantResponse {
-  // Empty on success; errors use gRPC status codes
-}
-
-// ---- API Key Messages ----
-
-// APIKey represents a stored API key (secret is never returned after creation)
-message APIKey {
-  string id = 1; // API key UUID
-  string tenant_id = 2; // Owning tenant UUID
-  string name = 3; // Human-readable label
-  string key_prefix = 4; // Key prefix (e.g., "sk_acme_") for identification
-  string role = 5; // Role: tenant:admin, tenant:member, namespace:admin, namespace:member, namespace:viewer
-  optional string namespace_scope = 6; // Namespace scope (required for namespace roles)
-  bool is_platform_admin = 7; // Whether this key has cross-tenant access
-  optional google.protobuf.Timestamp expires_at = 8; // Expiration time (null = never)
-  optional google.protobuf.Timestamp last_used_at = 9; // Last usage timestamp
-  google.protobuf.Timestamp created_at = 10;
-  optional google.protobuf.Timestamp revoked_at = 11; // Revocation timestamp (null = active)
-}
-
-// CreateAPIKeyRequest represents a request to create an API key
-message CreateAPIKeyRequest {
-  string tenant_id = 1; // Tenant UUID (required)
-  string name = 2; // Human-readable label (required)
-  string role = 3; // Role (required)
-  optional string namespace_scope = 4; // Namespace scope (required for namespace roles)
-  bool is_platform_admin = 5; // Grant cross-tenant access
-  optional google.protobuf.Timestamp expires_at = 6; // Optional expiration
-}
-
-// CreateAPIKeyResponse returns the key details including the raw secret (shown only once)
-message CreateAPIKeyResponse {
-  APIKey key = 1; // Key metadata
-  string raw_key = 2; // Plaintext API key — save this, it won't be shown again
-}
-
-// GetAPIKeyRequest represents a request to get an API key
-message GetAPIKeyRequest {
-  string id = 1; // API key UUID
-}
-
-// GetAPIKeyResponse represents the response for getting an API key
-message GetAPIKeyResponse {
-  APIKey key = 1;
-}
-
-// ListAPIKeysRequest represents a request to list API keys for a tenant
-message ListAPIKeysRequest {
-  string tenant_id = 1; // Tenant UUID (required)
-  PaginationRequest pagination = 2;
-}
-
-// ListAPIKeysResponse represents the response for listing API keys
-message ListAPIKeysResponse {
-  repeated APIKey keys = 1;
-  PaginationResponse pagination = 2;
-}
-
-// RevokeAPIKeyRequest represents a request to revoke an API key
-message RevokeAPIKeyRequest {
-  string id = 1; // API key UUID
-}
-
-// RevokeAPIKeyResponse represents the response for revoking an API key
-message RevokeAPIKeyResponse {
-  // Empty on success; errors use gRPC status codes
-}
-
-// ============================================================
-// Namespace & Membership Management
+// Namespace Management
 // ============================================================
 
 // NamespaceService manages namespace lifecycle within a tenant.
@@ -919,20 +754,6 @@ service NamespaceService {
   rpc DeleteNamespace(DeleteNamespaceRequest) returns (DeleteNamespaceResponse2);
 }
 
-// NamespaceMembershipService manages user-to-namespace role assignments.
-service NamespaceMembershipService {
-  // AssignNamespaceRole assigns or updates a user's role on a namespace
-  rpc AssignNamespaceRole(AssignNamespaceRoleRequest) returns (AssignNamespaceRoleResponse);
-
-  // RemoveNamespaceRole removes a user's role from a namespace
-  rpc RemoveNamespaceRole(RemoveNamespaceRoleRequest) returns (RemoveNamespaceRoleResponse);
-
-  // ListNamespaceMembers lists all members of a namespace
-  rpc ListNamespaceMembers(ListNamespaceMembersRequest) returns (ListNamespaceMembersResponse);
-
-  // GetUserNamespaces returns all namespace memberships for a user
-  rpc GetUserNamespaces(GetUserNamespacesRequest) returns (GetUserNamespacesResponse);
-}
 
 // ---- Namespace Messages ----
 
@@ -1002,176 +823,4 @@ message DeleteNamespaceResponse2 {
   // Empty on success; errors use gRPC status codes
 }
 
-// ---- Namespace Membership Messages ----
 
-// NamespaceMembership represents a user's role on a namespace
-message NamespaceMembership {
-  string id = 1;                          // Membership UUID
-  string tenant_id = 2;                   // Tenant UUID
-  string subject_id = 3;                  // User subject ID (JWT sub claim)
-  string namespace = 4;                   // Namespace name
-  string role = 5;                        // Role: namespace:admin, namespace:member, namespace:viewer
-  google.protobuf.Timestamp created_at = 6;
-  google.protobuf.Timestamp updated_at = 7;
-}
-
-// AssignNamespaceRoleRequest represents a request to assign a namespace role
-message AssignNamespaceRoleRequest {
-  string subject_id = 1;                  // User subject ID (required)
-  string namespace = 2;                   // Namespace name (required)
-  string role = 3;                        // Role to assign (required)
-}
-
-// AssignNamespaceRoleResponse represents the response for assigning a namespace role
-message AssignNamespaceRoleResponse {
-  NamespaceMembership membership = 1;
-}
-
-// RemoveNamespaceRoleRequest represents a request to remove a namespace role
-message RemoveNamespaceRoleRequest {
-  string subject_id = 1;                  // User subject ID (required)
-  string namespace = 2;                   // Namespace name (required)
-}
-
-// RemoveNamespaceRoleResponse represents the response for removing a namespace role
-message RemoveNamespaceRoleResponse {
-  // Empty on success; errors use gRPC status codes
-}
-
-// ListNamespaceMembersRequest represents a request to list members of a namespace
-message ListNamespaceMembersRequest {
-  string namespace = 1;                   // Namespace name (required)
-  PaginationRequest pagination = 2;
-}
-
-// ListNamespaceMembersResponse represents the response for listing namespace members
-message ListNamespaceMembersResponse {
-  repeated NamespaceMembership members = 1;
-  PaginationResponse pagination = 2;
-}
-
-// GetUserNamespacesRequest represents a request to get a user's namespace memberships
-message GetUserNamespacesRequest {
-  string subject_id = 1;                  // User subject ID (required, empty = caller's own)
-}
-
-// GetUserNamespacesResponse represents the response for getting user namespaces
-message GetUserNamespacesResponse {
-  repeated NamespaceMembership memberships = 1;
-}
-
-// ============================================================
-// Team Management (org-level members & invitations)
-// ============================================================
-
-// TeamService manages organization-level team membership and invitations.
-// It delegates to the configured identity provider (e.g., Clerk) for
-// member listing, invitation, removal, and role changes.
-// Deployments without an identity provider return Unimplemented.
-service TeamService {
-  // ListMembers lists all members of the caller's organization
-  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
-
-  // InviteMember invites a new member to the organization by email
-  rpc InviteMember(InviteMemberRequest) returns (InviteMemberResponse);
-
-  // RemoveMember removes a member from the organization
-  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
-
-  // UpdateMemberRole updates a member's organization-level role
-  rpc UpdateMemberRole(UpdateMemberRoleRequest) returns (UpdateMemberRoleResponse);
-
-  // ListInvitations lists pending invitations for the organization
-  rpc ListInvitations(ListInvitationsRequest) returns (ListInvitationsResponse);
-
-  // RevokeInvitation revokes a pending invitation
-  rpc RevokeInvitation(RevokeInvitationRequest) returns (RevokeInvitationResponse);
-}
-
-// ---- Team Messages ----
-
-// TeamMember represents an organization member with profile information
-message TeamMember {
-  string user_id = 1;              // Identity provider user ID (e.g., Clerk user_id)
-  string first_name = 2;           // First name
-  string last_name = 3;            // Last name
-  string email = 4;                // Primary email / identifier
-  string image_url = 5;            // Profile image URL
-  string role = 6;                 // Organization role (e.g., "org:admin", "org:member")
-  google.protobuf.Timestamp joined_at = 7;  // When the member joined the organization
-}
-
-// TeamInvitation represents a pending organization invitation
-message TeamInvitation {
-  string id = 1;                   // Invitation ID
-  string email = 2;                // Invited email address
-  string role = 3;                 // Role assigned on acceptance (e.g., "org:member")
-  string status = 4;               // Invitation status (e.g., "pending", "accepted", "revoked")
-  google.protobuf.Timestamp created_at = 5;  // When the invitation was created
-  google.protobuf.Timestamp expires_at = 6;  // When the invitation expires
-}
-
-// ListMembersRequest represents a request to list organization members
-message ListMembersRequest {
-  PaginationRequest pagination = 1;
-}
-
-// ListMembersResponse represents the response for listing organization members
-message ListMembersResponse {
-  repeated TeamMember members = 1;
-  int32 total_count = 2;
-}
-
-// InviteMemberRequest represents a request to invite a member by email
-message InviteMemberRequest {
-  string email = 1;                // Email address to invite (required)
-  string role = 2;                 // Organization role to assign (required, e.g., "org:member")
-}
-
-// InviteMemberResponse represents the response for inviting a member
-message InviteMemberResponse {
-  TeamInvitation invitation = 1;
-}
-
-// RemoveMemberRequest represents a request to remove a member
-message RemoveMemberRequest {
-  string user_id = 1;              // User ID of the member to remove (required)
-}
-
-// RemoveMemberResponse represents the response for removing a member
-message RemoveMemberResponse {
-  // Empty on success; errors use gRPC status codes
-}
-
-// UpdateMemberRoleRequest represents a request to update a member's role
-message UpdateMemberRoleRequest {
-  string user_id = 1;              // User ID of the member (required)
-  string role = 2;                 // New organization role (required)
-}
-
-// UpdateMemberRoleResponse represents the response for updating a member's role
-message UpdateMemberRoleResponse {
-  TeamMember member = 1;
-}
-
-// ListInvitationsRequest represents a request to list pending invitations
-message ListInvitationsRequest {
-  PaginationRequest pagination = 1;
-  string status = 2;               // Filter by status (e.g., "pending"); empty = all
-}
-
-// ListInvitationsResponse represents the response for listing invitations
-message ListInvitationsResponse {
-  repeated TeamInvitation invitations = 1;
-  int32 total_count = 2;
-}
-
-// RevokeInvitationRequest represents a request to revoke an invitation
-message RevokeInvitationRequest {
-  string invitation_id = 1;        // Invitation ID to revoke (required)
-}
-
-// RevokeInvitationResponse represents the response for revoking an invitation
-message RevokeInvitationResponse {
-  // Empty on success; errors use gRPC status codes
-}

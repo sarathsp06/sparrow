@@ -10,34 +10,35 @@
 
 ## Architecture Overview
 
-Sparrow is a **multi-tenant webhook delivery platform** with an event-driven architecture. It accepts webhook registrations, event definitions, and subscriptions (with Go-template payload transformation), then fans out events into a River job queue for async HTTP delivery with retries, health tracking, and error classification.
+Sparrow is a **self-hosted webhook delivery platform** with an event-driven architecture. It accepts webhook registrations, event definitions, and subscriptions (with Go-template payload transformation), then fans out events into a River job queue for async HTTP delivery with retries, health tracking, and error classification.
+
+There is **no authentication or authorization layer** -- all endpoints are open. A default tenant is auto-provisioned on startup and used for all operations.
 
 ```
                          ┌─────────────────────┐
      Clients             │    Sparrow Server    │
   ┌──────────┐           │                      │
   │ gRPC     │──:50051──>│  internal/grpc       │──┐
-  │ clients  │           │  (9 services)        │  │
+  │ clients  │           │  (6 services)        │  │
   └──────────┘           │                      │  │
   ┌──────────┐           │  internal/connect    │  │  ┌──────────────┐
   │ HTTP/    │──:8080───>│  (Connect-RPC        │  ├─>│ Service Layer│
   │ Connect  │           │   adapter)           │  │  │ webhooks.Svc │
-  └──────────┘           │                      │  │  │ tenant.Svc   │
-  ┌──────────┐           │  internal/ui         │  │  │ namespace.Svc│
-  │ Browser  │──:8080───>│  (SvelteKit embed)   │  │  └──────┬───────┘
-  └──────────┘           └──────────────────────┘  │         │
+  └──────────┘           │                      │  │  │ namespace.Svc│
+  ┌──────────┐           │  internal/ui         │  │  └──────┬───────┘
+  │ Browser  │──:8080───>│  (SvelteKit embed)   │  │         │
+  └──────────┘           └──────────────────────┘  │         v
+                                                   │  ┌──────────────┐
+                                                   │  │  Repository  │
+                                                   │  │  (sqlx/DBTX) │
+                                                   │  └──────┬───────┘
+                                                   │         │
                                                    │         v
                          ┌─────────────────────┐   │  ┌──────────────┐
-                         │  internal/auth       │<─┘  │  Repository  │
-                         │  JWT + API Key auth  │     │  (sqlx/DBTX) │
-                         │  RBAC (5 roles)      │     └──────┬───────┘
-                         └─────────────────────┘            │
-                                                            v
-                         ┌─────────────────────┐     ┌──────────────┐
-                         │  internal/webhooks/  │     │  PostgreSQL  │
-                         │  queue (River)       │     │  13 tables   │
-                         │  EventWorker         │     │  10 migrations│
-                         │  WebhookWorker       │     └──────────────┘
+                         │  internal/webhooks/  │   │  │  PostgreSQL  │
+                         │  queue (River)       │<──┘  │  10 tables   │
+                         │  EventWorker         │      │  11 migrations│
+                         │  WebhookWorker       │      └──────────────┘
                          └─────────┬───────────┘
                                    │
                                    v
@@ -60,8 +61,6 @@ Sparrow is a **multi-tenant webhook delivery platform** with an event-driven arc
 │   ├── migrate/         # DB migration runner
 │   └── benchmark/       # Load testing tool with reservoir sampling
 ├── internal/
-│   ├── audit/           # Audit logging (model, repository, service)
-│   ├── auth/            # JWT/API-key auth, RBAC, interceptors, caching resolvers
 │   ├── config/          # Config loading (DATABASE_URL from env)
 │   ├── connect/         # Connect-RPC adapter (delegates to grpc servers)
 │   ├── grpc/            # gRPC service implementations (handlers)
@@ -69,7 +68,7 @@ Sparrow is a **multi-tenant webhook delivery platform** with an event-driven arc
 │   ├── logger/          # Structured slog setup with OTel bridge
 │   ├── namespace/       # Namespace CRUD (service, repository, models)
 │   ├── observability/   # OTel setup (traces, metrics, logs via OTLP)
-│   ├── tenant/          # Tenant + API key management, auto-provisioning
+│   ├── tenant/          # Tenant bootstrap (default tenant auto-creation)
 │   ├── ui/              # Embedded SvelteKit frontend (go:embed)
 │   └── webhooks/
 │       ├── client/      # HTTP client for webhook delivery (HMAC, redirects, SSL)
@@ -85,11 +84,11 @@ Sparrow is a **multi-tenant webhook delivery platform** with an event-driven arc
 │   └── webhook_pb.d.ts  # protoc-gen-es types (web UI)
 ├── client/              # Generated clients (Go, JS, Python)
 ├── db/
-│   └── migrations/      # 10 migration pairs (.up.sql / .down.sql)
+│   └── migrations/      # 11 migration pairs (.up.sql / .down.sql)
 ├── web/                 # SvelteKit frontend source
 ├── buf.gen.yaml         # Buf code generation config (Go, JS/TS clients, protoc-gen-es for web UI)
 ├── buf.yaml             # Buf module config
-├── webhook.proto        # Single proto file defining all 9 services
+├── webhook.proto        # Single proto file defining all 6 services
 ├── Dockerfile           # 3-stage: Node frontend -> Go build -> distroless
 ├── docker-compose.yml   # Postgres + migrate + sparrow + OTel collector
 ├── Makefile             # build, test, lint, migrate, generate, docker targets
@@ -105,8 +104,6 @@ cmd/server/main.go
 ├── internal/config
 ├── internal/logger
 ├── internal/observability
-├── internal/auth
-├── internal/audit
 ├── internal/tenant
 ├── internal/namespace
 ├── internal/webhooks
@@ -120,16 +117,13 @@ cmd/server/main.go
 ├── pkg/storage/postgres
 └── proto / proto/protoconnect
 
-internal/grpc ──────────> internal/audit
-              ──────────> internal/auth
-              ──────────> internal/webhooks (service interface)
-              ──────────> internal/tenant
+internal/grpc ──────────> internal/webhooks (service interface)
               ──────────> internal/namespace
+              ──────────> internal/tenant
               ──────────> pkg/storage
               ──────────> proto
 
-internal/webhooks ──────> internal/auth
-                  ──────> internal/webhooks/store
+internal/webhooks ──────> internal/webhooks/store
                   ──────> internal/webhooks/queue
                   ──────> internal/webhooks/client
                   ──────> internal/observability
@@ -142,16 +136,10 @@ internal/webhooks/queue ─> internal/webhooks/store
 internal/webhooks/store ──> pkg/storage
                           ──> pkg/types
 
-internal/tenant ──────────> internal/auth
-                ──────────> pkg/storage
+internal/tenant ──────────> pkg/storage
 
-internal/namespace ───────> internal/auth
-                   ───────> pkg/storage
+internal/namespace ───────> pkg/storage
 
-internal/audit ───────────> internal/auth
-               ───────────> pkg/storage
-
-internal/auth ────────────> (leaf: no internal deps)
 internal/observability ───> (leaf: only OTel externals)
 pkg/storage ──────────────> (leaf: database/sql, sqlx)
 pkg/errors ───────────────> (leaf: net, syscall)
@@ -159,7 +147,7 @@ pkg/errors ───────────────> (leaf: net, syscall)
 
 ---
 
-## 9 gRPC/Connect-RPC Services
+## 6 gRPC/Connect-RPC Services
 
 | Service | Server Struct | RPCs | File |
 |---------|---------------|------|------|
@@ -168,59 +156,15 @@ pkg/errors ───────────────> (leaf: net, syscall)
 | **SubscriptionService** | `WebhookServer` | CreateSubscription, GetSubscription, ListSubscriptions, UpdateSubscription, DeleteSubscription, TestSubscriptionTemplate | `subscription_handlers.go` |
 | **DeliveryService** | `WebhookServer` | GetDeliveryStatus, ListDeliveries, RetryDelivery, GetDeliveryAttempts | `delivery_handlers.go` |
 | **HealthService** | `WebhookServer` | GetWebhookHealth, ListWebhooksByHealth, GetHealthSummary | `health_handlers.go` |
-| **TenantService** | `TenantServer` | CreateTenant, GetTenant, ListTenants, UpdateTenant, DeleteTenant | `tenant_server.go` |
-| **APIKeyService** | `TenantServer` | CreateAPIKey, GetAPIKey, ListAPIKeys, RevokeAPIKey | `tenant_server.go` |
 | **NamespaceService** | `NamespaceServer` | CreateNamespace, GetNamespace, ListNamespaces, UpdateNamespace, DeleteNamespace | `namespace_server.go` |
-| **NamespaceMembershipService** | `NamespaceServer` | AssignNamespaceRole, RemoveNamespaceRole, ListNamespaceMembers, GetUserNamespaces | `namespace_server.go` |
 
 **Serving**: gRPC on `:50051` (with reflection), Connect-RPC on `:8080` (with CORS + embedded UI).
 
 ---
 
-## Authentication & Authorization
+## Tenant Model
 
-### Auth Flow
-```
-Request
-  │
-  ├─ Authorization: Bearer <JWT>  ──> JWTAuthenticator (JWKS validation)
-  │                                    ├─ Extract org_id -> TenantLookup (cached 5min)
-  │                                    ├─ Extract sub -> MembershipResolver (cached 30s)
-  │                                    └─ Build AuthInfo
-  │
-  └─ Authorization: Bearer sk_*   ──> APIKeyAuthenticator
-                                       ├─ SHA-256 hash -> APIKeyStore (cached 30s)
-                                       └─ Build AuthInfo from stored key record
-```
-
-### AuthInfo (extracted per-request, stored in context)
-```go
-type AuthInfo struct {
-    TenantID        uuid.UUID
-    SubjectID       string             // JWT sub or ""
-    KeyID           *uuid.UUID         // API key UUID or nil
-    IsPlatformAdmin bool
-    TenantRole      Role               // tenant:admin | tenant:member
-    NamespaceRoles  map[string]Role    // namespace -> role
-}
-```
-
-### 5 Roles
-| Role | Scope |
-|------|-------|
-| `tenant:admin` | Full tenant access |
-| `tenant:member` | Read + limited write |
-| `namespace:admin` | Full namespace access |
-| `namespace:member` | Read + write within namespace |
-| `namespace:viewer` | Read-only namespace access |
-
-### ~25 Permissions
-Domains: `tenant`, `event_type`, `namespace`, `webhook`, `subscription`, `event`, `delivery`, `health`, `namespace_membership`
-
-### Interceptors
-- `NewGRPCUnaryInterceptor(cfg)` -- for native gRPC on :50051
-- `NewConnectInterceptor(cfg)` -- for Connect-RPC on :8080
-- Both share `authenticate()` helper; when auth disabled, inject `DefaultAuthInfo()`
+There is no authentication. A **default tenant** (`00000000-0000-0000-0000-000000000001`) is auto-created on startup via `tenant.Bootstrap()`. All operations use this tenant ID. The tenant infrastructure (table, columns, foreign keys) is retained for future use.
 
 ---
 
@@ -359,34 +303,6 @@ type WebhookArgs struct {
 
 ---
 
-## Audit Logging
-
-### Actor Resolution
-```
-auth.AuthInfo
-  ├─ KeyID != nil     -> ActorType: "api_key", ActorID: key UUID
-  ├─ SubjectID != ""  -> ActorType: "user",    ActorID: JWT sub
-  └─ fallback         -> ActorType: "system",  ActorID: tenant UUID
-```
-
-### 20 Actions Across 8 Resource Types
-| Resource | Actions |
-|----------|---------|
-| `webhook` | `webhook.register`, `webhook.unregister`, `webhook.update`, `webhook.pause`, `webhook.resume` |
-| `event` | `event.register`, `event.update`, `event.delete` |
-| `subscription` | `subscription.create`, `subscription.update`, `subscription.delete` |
-| `delivery` | `delivery.retry` |
-| `tenant` | `tenant.create`, `tenant.update`, `tenant.delete` |
-| `api_key` | `api_key.create`, `api_key.revoke` |
-| `namespace` | `namespace.create`, `namespace.update`, `namespace.delete` |
-| `membership` | `membership.assign`, `membership.remove` |
-
-### Modes
-- **`Log(ctx, entry)`** -- async fire-and-forget via goroutine + `context.WithoutCancel`
-- **`LogSync(ctx, entry)`** -- synchronous, for use within transactions
-
----
-
 ## Dependency Injection (Manual, in `cmd/server/main.go`)
 
 ```go
@@ -394,33 +310,28 @@ auth.AuthInfo
 db := postgres.New(databaseURL)          // sqlx pool, MaxOpen=25
 pgxPool := pgxpool.New(...)              // for River only
 
-// 2. Repositories
-webhookRepo := store.NewRepository(db)
-tenantRepo  := tenant.NewRepository(db)
-nsRepo      := namespace.NewRepository(db)
-auditRepo   := audit.NewRepository(db)
+// 2. Bootstrap default tenant
+tenant.Bootstrap(db)
 
-// 3. OTel tracing wrappers (gowrap generated)
+// 3. Repositories
+webhookRepo := store.NewRepository(db)
+nsRepo      := namespace.NewRepository(db)
+
+// 4. OTel tracing wrappers (gowrap generated)
 tracedRepo := store.NewRepositoryInterfaceWithTracing(webhookRepo, "sparrow.store")
 
-// 4. Services
+// 5. Services
 webhookSvc := webhooks.NewService(tracedRepo, jobInserter)
-tenantSvc  := tenant.NewService(tenantRepo)
 nsSvc      := namespace.NewService(nsRepo)
-auditLogger := audit.NewLogger(auditRepo, slogLogger)
-
-// 5. Auth
-authenticators := []auth.Authenticator{jwtAuth, apiKeyAuth}
 
 // 6. gRPC servers
-webhookServer := grpc.NewWebhookServer(webhookSvc, auditLogger)
-tenantServer  := grpc.NewTenantServer(tenantSvc, auditLogger)
-nsServer      := grpc.NewNamespaceServer(nsSvc, auditLogger)
+webhookServer := grpc.NewWebhookServer(webhookSvc)
+nsServer      := grpc.NewNamespaceServer(nsSvc)
 ```
 
 ---
 
-## Database Schema (13 Tables)
+## Database Schema (10 Tables)
 
 ### Entity Relationship Diagram
 
@@ -432,66 +343,72 @@ nsServer      := grpc.NewNamespaceServer(nsSvc, auditLogger)
                             │ name      │
                             │ slug (UQ) │
                             │ status    │
-                            │ external_id│
-                            │ created_by│
                             └─────┬─────┘
-           ┌──────────┬───────────┼──────────┬───────────┬────────────┐
-           │          │           │          │           │            │
-           v          v           v          v           v            v
-    ┌──────────┐ ┌─────────┐ ┌────────┐ ┌─────────┐ ┌─────────┐ ┌──────────┐
-    │ api_keys │ │namespace│ │ns_memb.│ │event_reg│ │event_rec│ │audit_logs│
-    │──────────│ │─────────│ │────────│ │─────────│ │─────────│ │──────────│
-    │ id (PK)  │ │ id (PK) │ │ id (PK)│ │tenant_id│ │ id (PK) │ │ id (PK)  │
-    │ tenant_id│ │tenant_id│ │tenant_id│ │name(PK) │ │tenant_id│ │ tenant_id│
-    │ key_hash │ │name(UQ) │ │subject │ │schema   │ │event    │ │ actor_id │
-    │ role     │ │descript.│ │namespace│ │active   │ │payload  │ │ action   │
-    │ expires  │ └────┬────┘ │role    │ └─────────┘ │namespace│ │ resource │
-    └──────────┘      │      └────────┘              └────┬────┘ └──────────┘
-                      │                                    │
-                      v                                    │
-              ┌───────────────┐                            │
-              │ webhook_regs  │                            │
-              │───────────────│                            │
-              │ id (PK)       │                            │
-              │ tenant_id     │                            │
-              │ namespace ────┤─── FK to namespaces        │
-              │ url           │    (tenant_id, name)       │
-              │ active        │                            │
-              │ health        │                            │
-              │ webhook_secret│                            │
-              └───────┬───────┘                            │
-           ┌──────────┼──────────┬──────────┐              │
-           │          │          │          │              │
-           v          v          v          v              │
-    ┌──────────┐┌──────────┐┌──────────┐┌──────────┐      │
-    │event_sub ││deliveries││health_ev ││health_sum│      │
-    │──────────││──────────││──────────││──────────│      │
-    │ id (PK)  ││ id (PK)  ││ id (PK)  ││ id (PK)  │      │
-    │webhook_id││webhook_id││webhook_id││webhook_id│      │
-    │event_name││event_id──┤│──────────┤│──────────│      │
-    │namespace ││subscr_id ││success   ││success_  │      │
-    │transform ││status    ││resp_time ││  rate    │      │
-    │template  ││attempts  ││error_cat ││p95_resp  │      │
-    └──────────┘│request_  ││          │└──────────┘      │
-                │  body    │└──────────┘                   │
-                │error_cat │       ┌──────────┐            │
-                └─────┬────┘       │health_st │            │
-                      │            │──────────│            │
-                      │            │webhook_id│            │
-                      └────────────│consec_   │            │
-                         FK        │ failures │            │
-                       event_id────│last_succ │            │
-                                   └──────────┘
+           ┌──────────────────────┼──────────────────────┐
+           │                      │                      │
+           v                      v                      v
+    ┌─────────┐            ┌─────────┐            ┌─────────┐
+    │namespace│            │event_reg│            │event_rec│
+    │─────────│            │─────────│            │─────────│
+    │ id (PK) │            │tenant_id│            │ id (PK) │
+    │tenant_id│            │name(PK) │            │tenant_id│
+    │name(UQ) │            │schema   │            │event    │
+    │descript.│            │active   │            │payload  │
+    └────┬────┘            └─────────┘            │namespace│
+         │                                        └────┬────┘
+         v                                             │
+  ┌───────────────┐                                    │
+  │ webhook_regs  │                                    │
+  │───────────────│                                    │
+  │ id (PK)       │                                    │
+  │ tenant_id     │                                    │
+  │ namespace ────┤─── FK to namespaces                │
+  │ url           │    (tenant_id, name)               │
+  │ active        │                                    │
+  │ health        │                                    │
+  │ webhook_secret│                                    │
+  └───────┬───────┘                                    │
+       ┌──┼──────────┬──────────┐                      │
+       │  │          │          │                      │
+       v  v          v          v                      │
+┌──────────┐  ┌──────────┐  ┌──────────┐              │
+│event_sub │  │health_ev │  │health_sum│              │
+│──────────│  │──────────│  │──────────│              │
+│ id (PK)  │  │ id (PK)  │  │ id (PK)  │              │
+│webhook_id│  │webhook_id│  │webhook_id│              │
+│event_name│  │success   │  │success_  │              │
+│namespace │  │resp_time │  │  rate    │              │
+│transform │  │error_cat │  │p95_resp  │              │
+│template  │  └──────────┘  └──────────┘              │
+└──────────┘                                           │
+       │          ┌──────────┐                         │
+       │          │health_st │                         │
+       │          │──────────│                         │
+       │          │webhook_id│                         │
+       │          │consec_   │                         │
+       │          │ failures │                         │
+       │          │last_succ │                         │
+       │          └──────────┘                         │
+       v                                               │
+┌──────────┐                                           │
+│deliveries│                                           │
+│──────────│                                           │
+│ id (PK)  │                                           │
+│webhook_id│                                           │
+│event_id──┤───────────────────────────────────────────┘
+│subscr_id │
+│status    │
+│attempts  │
+│error_cat │
+└──────────┘
 ```
 
 ### All Tables with Column Counts
 
 | Table | Columns | Primary Key | Notable |
 |-------|---------|-------------|---------|
-| `tenants` | 8 | `id` | Slug unique, external_id partial unique |
-| `api_keys` | 12 | `id` | FK tenant, key_hash indexed, role CHECK |
+| `tenants` | 5 | `id` | Slug unique, default tenant auto-created |
 | `namespaces` | 6 | `id` | (tenant_id, name) UNIQUE |
-| `namespace_memberships` | 7 | `id` | (tenant_id, subject_id, namespace) UNIQUE |
 | `event_registrations` | 8 | `(tenant_id, name)` | Composite PK (no UUID) |
 | `webhook_registrations` | 20 | `id` | (tenant_id, namespace) FK to namespaces |
 | `event_subscriptions` | 11 | `id` | FK webhook_id, transform template |
@@ -500,9 +417,8 @@ nsServer      := grpc.NewNamespaceServer(nsSvc, auditLogger)
 | `webhook_health_events` | 9 | `id` | FK webhook, error_category |
 | `webhook_health_summaries` | 17 | `id` | (webhook_id, window_start, window_end) UNIQUE |
 | `webhook_health_state` | 8 | `id` | webhook_id UNIQUE |
-| `audit_logs` | 11 | `id` | FK tenant, actor_type enum |
 
-### Index Inventory (50+ indexes)
+### Index Inventory
 
 #### Hot-path composite indexes (added in migration 000010)
 | Index | Columns | Purpose |
@@ -514,26 +430,17 @@ nsServer      := grpc.NewNamespaceServer(nsSvc, auditLogger)
 | `idx_event_records_tenant_event_created` | `(tenant_id, event, created_at DESC)` | Event name filtering |
 | `idx_webhook_registrations_tenant_ns_active` | `(tenant_id, namespace, active)` | Filtered webhook listing |
 
-#### Dropped (migration 000010)
-| Index | Reason |
-|-------|--------|
-| `idx_webhook_deliveries_request_body_gin` | Unused GIN index, wasted write overhead |
-
 ### Foreign Key Cascade Map
 ```
 tenants.id
-  ├── api_keys.tenant_id                    CASCADE
   ├── namespaces.tenant_id                  CASCADE
-  ├── namespace_memberships.tenant_id       CASCADE
   ├── event_registrations.tenant_id         CASCADE
   ├── webhook_registrations.tenant_id       CASCADE
   ├── event_subscriptions.tenant_id         CASCADE
-  ├── event_records.tenant_id               CASCADE
-  └── audit_logs.tenant_id                  CASCADE
+  └── event_records.tenant_id               CASCADE
 
 namespaces(tenant_id, name)
-  ├── webhook_registrations(tenant_id, ns)  CASCADE
-  └── namespace_memberships(tenant_id, ns)  CASCADE
+  └── webhook_registrations(tenant_id, ns)  CASCADE
 
 webhook_registrations.id
   ├── event_subscriptions.webhook_id        CASCADE
@@ -586,21 +493,10 @@ Sparrow Server
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `DATABASE_URL` | PostgreSQL connection string | required |
-| `SPARROW_AUTH_ENABLED` | Enable JWT/API-key auth | `"false"` |
-| `SPARROW_JWKS_URL` | JWKS endpoint for JWT validation | -- |
-| `SPARROW_JWT_TENANT_CLAIM` | JWT claim for tenant/org ID | `"org_id"` |
-| `SPARROW_JWT_ROLE_CLAIM` | JWT claim for role | `"org_role"` |
-| `SPARROW_JWT_SUBJECT_CLAIM` | JWT claim for user identifier | `"sub"` |
-| `SPARROW_JWT_ISSUER` | Expected JWT issuer | -- |
-| `SPARROW_JWT_AUDIENCES` | Comma-separated expected audience values | -- |
-| `SPARROW_JWT_NAMESPACE_ROLES_CLAIM` | JWT claim for namespace roles. Set to `""` to disable. | `"namespace_roles"` |
-| `SPARROW_JWT_ROLE_MAPPING` | Comma-separated `provider_role=sparrow_role` pairs | `"org:admin=tenant:admin,org:member=tenant:member"` |
-| `SPARROW_ROOT_API_KEY` | Pre-configured root API key for bootstrap | -- |
 | `SPARROW_SERVE_UI` | Serve embedded SvelteKit UI | `"false"` |
 | `CORS_ALLOWED_ORIGINS` | CORS origins for Connect-RPC | -- |
 | `ENVIRONMENT` | `"development"` or `"production"` | -- |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP export endpoint | -- |
-| `CLERK_SECRET_KEY` | Clerk secret key for namespace role sync | -- |
 
 ### Database Pools
 | Pool | Library | Config | Purpose |
@@ -644,40 +540,24 @@ Startup order: postgres (healthy) -> migrate (exits) -> sparrow (starts)
 
 **Stack**: SvelteKit 2, Svelte 5, Tailwind CSS v4, Vite 7, adapter-static (SPA mode)  
 **Output**: `../internal/ui/dist` (embedded in Go binary via `go:embed`)  
-**Auth**: Pluggable via `PUBLIC_AUTH_PROVIDER` env — `clerk` (Clerk SDK) or `none` (no auth)  
 **Fonts**: Inter (`font-inter`) for marketing content, Fira Code (`font-fira`) for code/monospace  
 **UI library**: flowbite-svelte  
 **API layer**: Connect-RPC via `@connectrpc/connect-web`, protobuf types from `proto/webhook_pb.js`
 
 ### Route Structure
-| Route | Access | Purpose |
-|-------|--------|---------|
-| `/` | Public | Marketing landing page (hero, features, getting started, architecture, CTA) |
-| `/webhooks` | Auth required | Webhook list (default post-login page) |
-| `/webhooks/register` | Auth required | Register new webhook |
-| `/webhooks/[webhookId]` | Auth required | Webhook detail + deliveries |
-| `/events` | Auth required | Event type list |
-| `/events/push` | Auth required | Push event form |
-| `/events/[eventName]/update` | Auth required | Edit event type |
-| `/events/[eventName]/reports` | Auth required | Event delivery reports |
-| `/health` | Auth required | Webhook health dashboard |
-| `/team` | Auth required | Team/org management |
-| `/deliveries` | Auth required | Delivery list |
-
-### Auth Shell Hierarchy
-```
-+layout.svelte (defines public routes: ["/"])
-  └── AuthShell.svelte (dispatches to provider)
-        ├── ClerkAuthShell.svelte
-        │     ├── <Show when="signed-in"> → OrgGate → nav + children
-        │     └── <Show when="signed-out"> → SignInButton (forceRedirectUrl="/webhooks")
-        └── NoAuthShell.svelte (no auth, renders nav + children directly)
-```
-
-### Post-login Redirect
-- `OrgGate.svelte`: `afterSelectOrganizationUrl="/webhooks"`, `afterCreateOrganizationUrl="/webhooks"`
-- `OrgGate.svelte`: org-switch reload → `window.location.href = "/webhooks"`
-- `ClerkAuthShell.svelte`: `SignInButton` uses `forceRedirectUrl="/webhooks"`
+| Route | Purpose |
+|-------|---------|
+| `/` | Marketing landing page (hero, features, getting started, architecture, CTA) |
+| `/webhooks` | Webhook list |
+| `/webhooks/register` | Register new webhook |
+| `/webhooks/[webhookId]` | Webhook detail + deliveries |
+| `/events` | Event type list |
+| `/events/push` | Push event form |
+| `/events/[eventName]/update` | Edit event type |
+| `/events/[eventName]/reports` | Event delivery reports |
+| `/health` | Webhook health dashboard |
+| `/namespaces` | Namespace management |
+| `/deliveries` | Delivery list |
 
 ---
 
@@ -707,33 +587,24 @@ Startup order: postgres (healthy) -> migrate (exits) -> sparrow (starts)
 
 ### What to Check When Reviewing
 
-1. **Auth checks first**: Every handler starts with `auth.MustFromContext(ctx)` then `info.Require(perm, namespace)`
-2. **Error returns before success**: All error paths return before the happy path
-3. **Audit after success**: `s.audit.Log(ctx, ...)` is called ONLY after successful mutations, never on error paths
-4. **WithConn for transactions**: Use `repo.WithConn(tx)` inside `storage.WithTransaction` blocks
-5. **No direct SQL in handlers**: All DB access goes through repository methods
-6. **gRPC error translation**: Use `toGRPCError(ctx, err, msg)` or manual `status.Errorf` mapping
-7. **Tenant scoping**: Every query must filter by `tenant_id` (multi-tenant isolation)
-8. **Namespace scoping**: Where applicable, queries also filter by namespace
-9. **Platform admin bypass**: `info.IsPlatformAdmin` bypasses tenant/namespace ownership checks
-10. **OTel tracing wrappers**: Generated by gowrap, applied at DI time (not in business logic)
+1. **Error returns before success**: All error paths return before the happy path
+2. **WithConn for transactions**: Use `repo.WithConn(tx)` inside `storage.WithTransaction` blocks
+3. **No direct SQL in handlers**: All DB access goes through repository methods
+4. **gRPC error translation**: Use `toGRPCError(ctx, err, msg)` or manual `status.Errorf` mapping
+5. **Tenant scoping**: Every query must filter by `tenant_id` (using `tenant.DefaultTenantID`)
+6. **Namespace scoping**: Where applicable, queries also filter by namespace
+7. **OTel tracing wrappers**: Generated by gowrap, applied at DI time (not in business logic)
 
 ### Naming Conventions
-- **Files**: `snake_case.go` (e.g., `webhook_handlers.go`, `tenant_server.go`)
-- **Packages**: Lowercase single word (e.g., `audit`, `auth`, `namespace`)
+- **Files**: `snake_case.go` (e.g., `webhook_handlers.go`, `namespace_server.go`)
+- **Packages**: Lowercase single word (e.g., `namespace`, `tenant`)
 - **Proto services**: PascalCase with `Service` suffix (e.g., `WebhookService`)
-- **Actions**: `resource.verb` format (e.g., `webhook.register`, `tenant.delete`)
-- **Roles**: `scope:level` format (e.g., `tenant:admin`, `namespace:viewer`)
-- **API keys**: `sk_<tenant-slug>_<random>` prefix pattern
 
 ### Handler Structure Pattern
 ```go
-func (s *XxxServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequest) (*pb.DoSomethingResponse, error) {
-    // 1. Auth check
-    info := auth.MustFromContext(ctx)
-    if err := info.Require(auth.PermXxx, ""); err != nil {
-        return nil, status.Error(codes.PermissionDenied, err.Error())
-    }
+func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequest) (*pb.DoSomethingResponse, error) {
+    // 1. Use default tenant
+    tenantID := tenant.DefaultTenantID
 
     // 2. Input validation
     id, err := uuid.Parse(req.GetId())
@@ -741,13 +612,8 @@ func (s *XxxServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequest)
         return nil, status.Errorf(codes.InvalidArgument, "invalid ID: %v", err)
     }
 
-    // 3. Ownership/access check (if not platform admin)
-    if !info.IsPlatformAdmin && ... {
-        return nil, status.Error(codes.PermissionDenied, "...")
-    }
-
-    // 4. Business logic (service call)
-    result, err := s.svc.DoSomething(ctx, ...)
+    // 3. Business logic (service call)
+    result, err := s.svc.DoSomething(ctx, tenantID, ...)
     if err != nil {
         if storage.IsNotFound(err) {
             return nil, status.Errorf(codes.NotFound, "not found")
@@ -755,16 +621,7 @@ func (s *XxxServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequest)
         return nil, status.Errorf(codes.Internal, "do something: %v", err)
     }
 
-    // 5. Audit log (async, fire-and-forget)
-    s.audit.Log(ctx, audit.LogEntry{
-        Action:       audit.ActionXxx,
-        ResourceType: audit.ResourceXxx,
-        ResourceID:   result.ID.String(),
-        Namespace:    req.GetNamespace(),
-        Metadata:     map[string]any{"key": "value"},
-    })
-
-    // 6. Return response
+    // 4. Return response
     return &pb.DoSomethingResponse{
         Result: resultToProto(result),
     }, nil
@@ -775,14 +632,14 @@ func (s *XxxServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequest)
 
 ## Known Gaps / Not Yet Implemented
 
-1. **No rate limiting** at the API level
-2. **No dead letter queue** -- failed deliveries stay in deliveries table
-3. **No integration/E2E tests**
-4. **No API versioning** in proto
-5. **No payload size limits** enforcement
-6. **No tenant usage quotas** (events/month, deliveries, etc.)
-7. **No scheduled/delayed webhooks**
-8. **No AuditLogService RPC** -- audit logs are written but no query endpoint exists yet
+1. **No authentication/authorization** -- all endpoints are open
+2. **No rate limiting** at the API level
+3. **No dead letter queue** -- failed deliveries stay in deliveries table
+4. **No integration/E2E tests**
+5. **No API versioning** in proto
+6. **No payload size limits** enforcement
+7. **No tenant usage quotas** (events/month, deliveries, etc.)
+8. **No scheduled/delayed webhooks**
 
 ---
 
@@ -795,10 +652,8 @@ func (s *XxxServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequest)
 | Observability | Nov 2025 | Metrics, sqlx migration, delivery retry, HMAC |
 | Templating | Nov-Dec 2025 | Go template transforms, benchmarking tool |
 | CI/Quality | Dec 2025-Jan 2026 | GitHub CI, golangci-lint, gowrap codegen |
-| Proto Refactor | Feb 2026 | Split monolith service into 9 services, optimize DB |
-| UI Redesign | Feb 2026 | Terminal aesthetic, namespace chooser, RBAC UI |
-| Multi-Tenancy | Mar 2026 | Full RBAC, JWT/API-key auth, tenants, namespaces, audit logs |
-| Proto Cleanup | Mar 2026 | Removed OpenAPI/Swagger, added Go/JS/Python gRPC client generation |
-| Scaling & Audit | Mar 2026 | Batch fan-out (BatchCreateDeliveries), pgxpool tuning, audit logging for all 18 RPCs, 6 composite indexes |
-| UI Modernization | Mar 2026 | Marketing landing page (light theme), Getting Started with real curl commands, post-login redirect to /webhooks, protoc-gen-es integration in buf.gen.yaml |
-| Identity Provider | Mar 2026 | Pluggable IdentityProvider interface, Clerk namespace role sync (raw HTTP, no SDK), JWT namespace_roles claim extraction with DB fallback, CachingMembershipResolver (30s TTL), full env var configurability for self-hosted OIDC deployments |
+| Proto Refactor | Feb 2026 | Split monolith service into 8 services, optimize DB |
+| UI Redesign | Feb 2026 | Terminal aesthetic, namespace chooser |
+| Multi-Tenancy | Mar 2026 | Tenants, namespaces, batch fan-out, pgxpool tuning, 6 composite indexes |
+| UI Modernization | Mar 2026 | Marketing landing page, Getting Started with curl commands, protoc-gen-es |
+| Auth Removal | Mar 2026 | Removed all auth/RBAC/audit code, simplified to open self-hosted deployment |

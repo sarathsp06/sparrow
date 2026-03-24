@@ -27,13 +27,18 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 
 	query := `
 		INSERT INTO event_records (
-			id, tenant_id, namespace, event, payload, ttl, metadata, created_at, expires_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			id, tenant_id, namespace, event, payload, ttl, metadata, labels, created_at, expires_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	metadataJSON, err := json.Marshal(event.Metadata)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	labelsJSON, err := json.Marshal(event.Labels)
+	if err != nil {
+		return fmt.Errorf("failed to marshal labels: %w", err)
 	}
 
 	_, err = r.conn.ExecContext(ctx, query,
@@ -44,6 +49,7 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 		event.Payload,
 		event.TTL,
 		metadataJSON,
+		labelsJSON,
 		event.CreatedAt,
 		event.ExpiresAt,
 	)
@@ -53,7 +59,7 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 // GetEventByID gets an event record by ID within a tenant
 func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (*EventRecord, error) {
 	query := `
-		SELECT id, tenant_id, namespace, event, payload, ttl, metadata, created_at, expires_at
+		SELECT id, tenant_id, namespace, event, payload, ttl, metadata, labels, created_at, expires_at
 		FROM event_records
 		WHERE id = $1 AND tenant_id = $2
 	`
@@ -97,7 +103,7 @@ func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, n
 	// Build base query
 	baseQuery := fmt.Sprintf(`
 		SELECT
-			id, tenant_id, namespace, event, payload, ttl, metadata, created_at, expires_at
+			id, tenant_id, namespace, event, payload, ttl, metadata, labels, created_at, expires_at
 		FROM event_records
 		WHERE %s
 		  AND ($%d IS NULL OR event = $%d)
@@ -173,7 +179,7 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 	// Build base query with delivery stats from health events
 	baseQuery := fmt.Sprintf(`
 		SELECT
-			er.id, er.tenant_id, er.namespace, er.event, er.payload, er.ttl, er.metadata, er.created_at, er.expires_at,
+			er.id, er.tenant_id, er.namespace, er.event, er.payload, er.ttl, er.metadata, er.labels, er.created_at, er.expires_at,
 			COALESCE(ds.webhook_count, 0) as webhook_count,
 			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
 			COALESCE(ds.failed_deliveries, 0) as failed_deliveries,

@@ -2,7 +2,6 @@ package grpc
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -12,7 +11,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/sarathsp06/sparrow/internal/auth"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
@@ -152,19 +150,13 @@ func maskSecret(secret string) string {
 }
 
 // toGRPCError maps service-layer errors to appropriate gRPC status codes.
-// It checks for known error types (permission denied, not found, validation)
+// It checks for known error types (not found, validation)
 // and returns a properly-coded gRPC status error.
 // Internal errors are logged server-side but NOT exposed to the client —
 // only the fallbackMsg is returned to prevent leaking implementation details.
 func toGRPCError(ctx context.Context, err error, fallbackMsg string) error {
 	if err == nil {
 		return nil
-	}
-
-	// Check for permission denied errors from the auth package
-	var permErr *auth.PermissionDeniedError
-	if errors.As(err, &permErr) {
-		return status.Error(codes.PermissionDenied, permErr.Error())
 	}
 
 	// Check for common error message patterns
@@ -199,4 +191,22 @@ func toGRPCError(ctx context.Context, err error, fallbackMsg string) error {
 	// Returning internal error details (SQL errors, stack traces, etc.) is a security risk.
 	slog.ErrorContext(ctx, "internal error", "fallback_msg", fallbackMsg, "error", err)
 	return status.Errorf(codes.Internal, "%s", fallbackMsg)
+}
+
+// paginationDefaults extracts limit/offset from a PaginationRequest with sensible defaults.
+func paginationDefaults(p *pb.PaginationRequest) (limit, offset int32) {
+	limit = 20
+	offset = 0
+	if p != nil {
+		if p.Limit > 0 {
+			limit = p.Limit
+		}
+		if p.Offset > 0 {
+			offset = p.Offset
+		}
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	return limit, offset
 }

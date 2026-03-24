@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 
-	"github.com/sarathsp06/sparrow/internal/audit"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
@@ -16,7 +15,6 @@ type WebhookServer struct {
 	pb.UnimplementedDeliveryServiceServer
 	pb.UnimplementedHealthServiceServer
 	service webhooks.WebhookServiceInterface
-	audit   *audit.Logger
 }
 
 var _ pb.WebhookServiceServer = (*WebhookServer)(nil)
@@ -26,10 +24,9 @@ var _ pb.DeliveryServiceServer = (*WebhookServer)(nil)
 var _ pb.HealthServiceServer = (*WebhookServer)(nil)
 
 // NewWebhookServer creates a new WebhookServer instance
-func NewWebhookServer(service webhooks.WebhookServiceInterface, auditLogger *audit.Logger) *WebhookServer {
+func NewWebhookServer(service webhooks.WebhookServiceInterface) *WebhookServer {
 	return &WebhookServer{
 		service: service,
-		audit:   auditLogger,
 	}
 }
 

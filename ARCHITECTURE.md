@@ -9,31 +9,29 @@ This document describes Sparrow's package structure, dependency graph, and desig
 ```
 cmd/server/main.go  (composition root — wires everything)
     │
-    ├── internal/tenant   ──→ internal/auth, pkg/storage
-    ├── internal/namespace ──→ internal/auth, pkg/storage
-    ├── internal/webhooks  ──→ internal/auth, pkg/storage, pkg/errors
+    ├── internal/tenant   ──→ pkg/storage
+    ├── internal/namespace ──→ pkg/storage
+    ├── internal/webhooks  ──→ pkg/storage, pkg/errors
     │       ├── store/     ──→ pkg/storage, pkg/types
     │       ├── queue/     ──→ store, client, pkg/errors, internal/observability
     │       └── client/    ──→ store (models only), pkg/errors
-    ├── internal/auth      ──→ pkg/storage (for interface types only)
     └── internal/grpc      ──→ all three domain packages (transport layer)
 ```
 
-`tenant`, `namespace`, and `webhooks` never import each other. Their only shared dependency is `internal/auth`, which defines narrow interfaces that each package implements independently.
+`tenant`, `namespace`, and `webhooks` never import each other.
 
 ### Dependency Matrix
 
 ```
-              imports:  tenant  namespace  webhooks  auth
-  tenant         -        No       No       Yes
-  namespace      No        -       No       Yes
-  webhooks       No       No        -       Yes
-  auth           No       No       No        -
-  grpc          Yes      Yes      Yes       Yes
-  main.go       Yes      Yes      Yes       Yes
+              imports:  tenant  namespace  webhooks
+  tenant         -        No       No
+  namespace      No        -       No
+  webhooks       No       No        -
+  grpc          Yes      Yes      Yes
+  main.go       Yes      Yes      Yes
 ```
 
-Zero cycles. The `auth` package must never import `tenant`, `namespace`, or `webhooks`.
+Zero cycles.
 
 ---
 
@@ -41,17 +39,13 @@ Zero cycles. The `auth` package must never import `tenant`, `namespace`, or `web
 
 ### Domain Packages
 
-**`internal/tenant`** -- Tenant lifecycle and API key management.
+**`internal/tenant`** -- Tenant lifecycle. A default tenant is bootstrapped on first boot.
 
-- Tables: `tenants`, `api_keys`
-- Implements `auth.APIKeyStore`, `auth.TenantLookup`, `auth.ExternalTenantLookup`
-- Auto-provisioning of tenants on first JWT login (`AutoProvisioner` implements `auth.TenantProvisioner`)
+- Tables: `tenants`
 
-**`internal/namespace`** -- Namespace CRUD and membership management.
+**`internal/namespace`** -- Namespace CRUD for organizing webhooks and events.
 
-- Tables: `namespaces`, `namespace_memberships`
-- Implements `auth.MembershipResolver` for namespace role resolution
-- Syncs role changes to external identity providers via `auth.IdentityProvider`
+- Tables: `namespaces`
 
 **`internal/webhooks`** -- Core business domain: events, subscriptions, deliveries, health tracking.
 
@@ -63,26 +57,14 @@ Zero cycles. The `auth` package must never import `tenant`, `namespace`, or `web
 
 ### Infrastructure Packages
 
-**`internal/auth`** -- JWT/API-key authentication, RBAC, interceptors.
-
-- Defines interfaces implemented by domain packages (dependency inversion)
-- `AuthInfo` struct carried in request context, consumed by all packages
-- Caching resolvers for tenant lookups (5min TTL) and namespace memberships (30s TTL)
-- Pluggable `IdentityProvider` interface (Clerk implementation, noop default)
-
 **`internal/grpc`** -- gRPC service implementations (transport layer).
 
-- 9 service handlers delegating to domain services
+- 6 service handlers delegating to domain services
 - The only package that imports all three domain packages
 
 **`internal/connect`** -- Connect-RPC adapter.
 
 - Wraps gRPC handlers for HTTP/JSON access on `:8080`
-
-**`internal/audit`** -- Audit logging.
-
-- Tables: `audit_logs`
-- Async (fire-and-forget) and sync modes for use within transactions
 
 **`internal/observability`** -- OpenTelemetry setup (traces, metrics, logs via OTLP).
 
@@ -100,39 +82,7 @@ Zero cycles. The `auth` package must never import `tenant`, `namespace`, or `web
 
 ---
 
-## Interface Contracts
-
-The `auth` package defines interfaces that domain packages implement. All wiring happens in `cmd/server/main.go`.
-
-```
-auth.APIKeyStore          ← tenant.pgRepository
-auth.TenantLookup         ← tenant.pgRepository
-auth.ExternalTenantLookup ← tenant.pgRepository
-auth.TenantProvisioner    ← tenant.AutoProvisioner
-auth.MembershipResolver   ← namespace.pgRepository
-auth.IdentityProvider     ← auth.ClerkIdentityProvider (or NoopIdentityProvider)
-```
-
-### Auth Context as Communication Channel
-
-The three domain packages don't call each other at runtime. The auth pipeline builds an `AuthInfo` struct (tenant ID, role, namespace memberships) and stores it in the request context. Service methods extract this context and enforce authorization independently.
-
-```
-Request → Auth Interceptor → [tenant repo: validate API key or JWT]
-                            → [namespace repo: resolve memberships]
-                            → AuthInfo injected into context
-                            → Service method extracts AuthInfo
-                            → Service enforces permissions
-                            → Repository queries scoped by tenant_id + namespace
-```
-
----
-
 ## Design Principles
-
-### Bounded Contexts with Interface Contracts
-
-Each domain package is a bounded context. They communicate through interfaces defined in `internal/auth`, not through direct imports. New cross-package interactions should follow this pattern: define the interface in `auth`, implement it in the producing package, consume it in the other.
 
 ### Composition Root in `main.go`
 
@@ -140,16 +90,15 @@ Each domain package is a bounded context. They communicate through interfaces de
 
 ### Repository Per Domain, Not Per Table
 
-Each domain owns a `Repository` interface and `pgRepository` implementation. The repository encapsulates all SQL for that domain's tables. This avoids per-table repositories (too granular) or a single shared repository (too broad).
+Each domain owns a `Repository` interface and implementation. The repository encapsulates all SQL for that domain's tables.
 
 ### Schema Ownership
 
 Each domain package owns its tables:
 
-- `internal/tenant` -- `tenants`, `api_keys`
-- `internal/namespace` -- `namespaces`, `namespace_memberships`
+- `internal/tenant` -- `tenants`
+- `internal/namespace` -- `namespaces`
 - `internal/webhooks` -- all 8 webhook/event/delivery/health tables
-- `internal/audit` -- `audit_logs`
 
 ### No Shared Models
 

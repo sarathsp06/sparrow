@@ -25,29 +25,6 @@ This produces:
 
 ---
 
-## Authentication
-
-All Sparrow APIs (except health checks) require authentication via the `Authorization` header using the `Bearer` scheme.
-
-Sparrow supports two credential types:
-
-| Type    | Format                     | Use case                     |
-|---------|----------------------------|------------------------------|
-| API Key | `sk_<slug>_<random>`       | Service-to-service / CI      |
-| JWT     | Standard JWT token         | User sessions / UI           |
-
-For **gRPC**, pass credentials via metadata:
-```
-authorization: Bearer <api_key_or_jwt>
-```
-
-For **Connect-RPC** (HTTP, port 8080), pass via HTTP header:
-```
-Authorization: Bearer <api_key_or_jwt>
-```
-
----
-
 ## Go
 
 ### Installation
@@ -76,7 +53,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 
 	pb "github.com/sarathsp06/sparrow/client/go/proto"
@@ -92,10 +68,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	// Attach authentication metadata to context
-	ctx := metadata.AppendToOutgoingContext(context.Background(),
-		"authorization", "Bearer sk_default_your-api-key",
-	)
+	ctx := context.Background()
 
 	// Create service clients
 	webhookClient := pb.NewWebhookServiceClient(conn)
@@ -147,32 +120,6 @@ conn, err := grpc.NewClient("sparrow.example.com:50051",
 )
 ```
 
-### Per-RPC Credentials Helper
-
-For automatic credential injection on every call:
-
-```go
-type apiKeyCredential struct {
-	apiKey string
-}
-
-func (c apiKeyCredential) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
-	return map[string]string{
-		"authorization": "Bearer " + c.apiKey,
-	}, nil
-}
-
-func (c apiKeyCredential) RequireTransportSecurity() bool {
-	return false // set true in production
-}
-
-// Usage:
-conn, err := grpc.NewClient("localhost:50051",
-	grpc.WithTransportCredentials(insecure.NewCredentials()),
-	grpc.WithPerRPCCredentials(apiKeyCredential{apiKey: "sk_default_your-api-key"}),
-)
-```
-
 ---
 
 ## JavaScript / TypeScript (gRPC-Web)
@@ -196,11 +143,6 @@ import { RegisterWebhookRequest } from './proto/webhook_pb';
 // Create client (gRPC-Web connects over HTTP)
 const client = new WebhookServiceClient('http://localhost:8080');
 
-// Authentication metadata
-const metadata = {
-  'authorization': 'Bearer sk_default_your-api-key',
-};
-
 // Register a webhook
 const request = new RegisterWebhookRequest();
 request.setNamespace('default');
@@ -208,7 +150,7 @@ request.setEventsList(['order.created']);
 request.setUrl('https://example.com/webhook');
 request.setActive(true);
 
-client.registerWebhook(request, metadata, (err, response) => {
+client.registerWebhook(request, {}, (err, response) => {
   if (err) {
     console.error('Error:', err.message);
     return;
@@ -223,10 +165,9 @@ client.registerWebhook(request, metadata, (err, response) => {
 function registerWebhook(
   client: WebhookServiceClient,
   request: RegisterWebhookRequest,
-  metadata: Record<string, string>,
 ): Promise<RegisterWebhookResponse> {
   return new Promise((resolve, reject) => {
-    client.registerWebhook(request, metadata, (err, response) => {
+    client.registerWebhook(request, {}, (err, response) => {
       if (err) reject(err);
       else resolve(response);
     });
@@ -234,7 +175,7 @@ function registerWebhook(
 }
 
 // Usage
-const response = await registerWebhook(client, request, metadata);
+const response = await registerWebhook(client, request);
 ```
 
 ---
@@ -261,9 +202,6 @@ def main():
     # Connect to gRPC server
     channel = grpc.insecure_channel("localhost:50051")
 
-    # Authentication metadata (key must be lowercase for gRPC)
-    metadata = [("authorization", "Bearer sk_default_your-api-key")]
-
     # Create service stubs
     webhook_stub = webhook_pb2_grpc.WebhookServiceStub(channel)
     event_stub = webhook_pb2_grpc.EventServiceStub(channel)
@@ -276,7 +214,6 @@ def main():
             url="https://example.com/webhook",
             active=True,
         ),
-        metadata=metadata,
     )
     print(f"Webhook registered: {response.webhook_id}")
 
@@ -293,7 +230,6 @@ def main():
             payload=payload,
             ttl_seconds=3600,
         ),
-        metadata=metadata,
     )
     print(f"Event pushed: {push_response.event_id}")
 
@@ -311,33 +247,6 @@ with open("ca-cert.pem", "rb") as f:
 channel = grpc.secure_channel("sparrow.example.com:50051", creds)
 ```
 
-### Using Interceptors for Auth
-
-```python
-class AuthInterceptor(grpc.UnaryUnaryClientInterceptor):
-    def __init__(self, api_key: str):
-        self._api_key = api_key
-
-    def intercept_unary_unary(self, continuation, client_call_details, request):
-        metadata = list(client_call_details.metadata or [])
-        metadata.append(("authorization", f"Bearer {self._api_key}"))
-        new_details = grpc.ClientCallDetails(
-            method=client_call_details.method,
-            timeout=client_call_details.timeout,
-            metadata=metadata,
-            credentials=client_call_details.credentials,
-        )
-        return continuation(new_details, request)
-
-
-# Usage
-channel = grpc.insecure_channel("localhost:50051")
-channel = grpc.intercept_channel(channel, AuthInterceptor("sk_default_your-api-key"))
-
-# Now all calls through this channel are authenticated automatically
-webhook_stub = webhook_pb2_grpc.WebhookServiceStub(channel)
-```
-
 ---
 
 ## Available Services
@@ -349,10 +258,7 @@ webhook_stub = webhook_pb2_grpc.WebhookServiceStub(channel)
 | `SubscriptionService`        | Manage webhook-event subscriptions    |
 | `DeliveryService`            | Query delivery history and attempts   |
 | `HealthService`              | Webhook health metrics and summaries  |
-| `TenantService`              | Tenant management (platform admin)    |
-| `APIKeyService`              | Create and manage API keys            |
 | `NamespaceService`           | Create and manage namespaces          |
-| `NamespaceMembershipService` | Manage namespace member access        |
 
 ## Ports
 
@@ -367,4 +273,3 @@ webhook_stub = webhook_pb2_grpc.WebhookServiceStub(channel)
 - [gRPC Python documentation](https://grpc.io/docs/languages/python/)
 - [gRPC-Web documentation](https://github.com/nicedoc/grpc-web)
 - [Connect-RPC documentation](https://connectrpc.com/)
-- See `examples/grpc_client.go` for a comprehensive Go example using the server-side generated stubs

@@ -66,3 +66,7 @@ internal/ui/dist/*
 
 # Frontend build output
 web/build/
+
+
+# AI
+.serena/

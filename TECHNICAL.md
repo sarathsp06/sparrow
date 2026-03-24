@@ -7,18 +7,12 @@ This document covers Sparrow's internal architecture and design details. For con
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
-- [Auth Architecture](#auth-architecture)
-  - [API Key Authentication](#api-key-authentication)
-  - [JWT Authentication](#jwt-authentication)
-  - [RBAC Model](#rbac-model)
-  - [Web UI Auth Providers](#web-ui-auth-providers)
-- [Architecture Deep Dive](#architecture-deep-dive)
-  - [Data Model](#data-model)
-  - [Tenant Isolation](#tenant-isolation)
-  - [Error Classification & Retry Logic](#error-classification--retry-logic)
-  - [Health State Machine](#health-state-machine)
-  - [HTTP Client Design](#http-client-design)
-  - [Web UI Architecture](#web-ui-architecture)
+- [Data Model](#data-model)
+- [Event Processing Pipeline](#event-processing-pipeline)
+- [Error Classification & Retry Logic](#error-classification--retry-logic)
+- [Health State Machine](#health-state-machine)
+- [HTTP Client Design](#http-client-design)
+- [Web UI Architecture](#web-ui-architecture)
 
 ---
 
@@ -30,18 +24,14 @@ graph LR
 
     subgraph Sparrow
         API[Dual-Protocol API<br>gRPC :50051 · HTTP :8080]
-        Auth[Auth Interceptor<br>JWT + API Key]
         DB[(PostgreSQL)]
         EQ[Events Queue]
         WQ[Webhooks Queue]
         EW[EventWorker]
         WW[WebhookWorker]
         Health[Health Tracker]
-        Tenants[Tenant Isolation]
 
-        API --> Auth
-        Auth -->|Tenant-scoped| Tenants
-        Tenants -->|Store event| DB
+        API -->|Store event| DB
         API -->|Enqueue| EQ
         EQ --> EW
         EW -->|Find matching<br>subscriptions| DB
@@ -50,7 +40,6 @@ graph LR
         WW -->|Load config +<br>transform payload| DB
         WW -->|Record outcome| DB
         WW -->|Update| Health
-        Health -->|LISTEN/NOTIFY| DB
     end
 
     WW -->|HTTP POST<br>HMAC-signed| Endpoint[External Endpoints]
@@ -69,148 +58,6 @@ graph LR
 - **DB Access** -- pgx/v5 + sqlx (OTel-instrumented)
 - **Container** -- Multi-stage Dockerfile (distroless nonroot)
 
----
-
-## Auth Architecture
-
-### API Key Authentication
-
-API keys use the format `sk_<tenant_slug>_<random>` and are verified via SHA-256 hash lookup with an in-memory cache (5-minute TTL).
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Interceptor as Auth Interceptor
-    participant Cache as Key Cache (5min TTL)
-    participant DB as PostgreSQL
-
-    Client->>Interceptor: Request + Authorization: Bearer sk_acme_...
-    Interceptor->>Cache: Lookup key hash
-    alt Cache hit
-        Cache-->>Interceptor: AuthInfo
-    else Cache miss
-        Interceptor->>DB: SELECT by key_hash
-        DB-->>Interceptor: API key record
-        Interceptor->>Cache: Store AuthInfo
-    end
-    Interceptor->>Interceptor: Check expiry, revocation
-    Interceptor->>Interceptor: Inject AuthInfo into context
-    Note over Interceptor: Request proceeds with tenant scope
-```
-
-**API key management:**
-
-```bash
-# Create a key
-curl -s -X POST http://localhost:8080/webhook.APIKeyService/CreateAPIKey \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk_default_<root_key>" \
-  -d '{"tenant_id": "<id>", "name": "CI Key", "role": "tenant:member"}'
-
-# List keys for a tenant
-curl -s -X POST http://localhost:8080/webhook.APIKeyService/ListAPIKeys \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk_default_<root_key>" \
-  -d '{"tenant_id": "<id>"}'
-
-# Revoke a key
-curl -s -X POST http://localhost:8080/webhook.APIKeyService/RevokeAPIKey \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer sk_default_<root_key>" \
-  -d '{"id": "<api_key_id>"}'
-```
-
-### JWT Authentication
-
-Provider-agnostic RS256 JWT verification. No external JWT library -- verification is implemented with Go's `crypto/rsa` stdlib.
-
-```mermaid
-sequenceDiagram
-    participant Browser
-    participant Frontend as SvelteKit Frontend
-    participant IdP as Identity Provider<br>(Clerk / Auth0 / etc.)
-    participant API as Sparrow API
-    participant JWKS as JWKS Endpoint
-    participant Resolver as Tenant Resolver
-    participant DB as PostgreSQL
-
-    Browser->>IdP: Sign in
-    IdP-->>Browser: Session
-    Browser->>Frontend: Access dashboard
-    Frontend->>IdP: getToken()
-    IdP-->>Frontend: JWT (RS256)
-    Frontend->>API: Request + Authorization: Bearer <JWT>
-    API->>API: Parse JWT header (kid, alg)
-    API->>JWKS: Fetch public keys (cached 1hr)
-    JWKS-->>API: RSA public keys
-    API->>API: Verify RS256 signature
-    API->>API: Validate exp, nbf, iss, aud
-    API->>API: Extract tenant claim (org_id)
-    API->>Resolver: ResolveTenant(org_id, sub)
-    alt Tenant exists
-        Resolver->>DB: Lookup by external_id (cached 5min)
-        DB-->>Resolver: Internal tenant UUID
-    else Unknown org_id + provisioner configured
-        Resolver->>DB: Auto-provision new tenant
-        DB-->>Resolver: New tenant UUID
-    end
-    Resolver-->>API: Tenant ID
-    API->>API: Map role claim -> Sparrow role
-    API->>API: Inject AuthInfo into context
-    Note over API: Request proceeds with tenant scope
-```
-
-**Key components:**
-
-- `JWKSProvider` (`internal/auth/jwks.go`) -- Fetches and caches RSA public keys from a JWKS URL
-- `JWTAuthenticator` (`internal/auth/jwt.go`) -- Validates JWT signature and claims, maps to AuthInfo
-- `CachingTenantResolver` (`internal/auth/tenant_resolver.go`) -- Maps external org IDs to internal tenant UUIDs with caching
-- `CachingMembershipResolver` (`internal/auth/membership_resolver.go`) -- Caches namespace membership lookups (30s TTL) for DB-based resolution
-- `AutoProvisioner` (`internal/tenant/provisioner.go`) -- Creates tenants on first JWT login, enforces per-user limits
-- `JWTClaimsConfig` (`internal/auth/jwt.go`) -- Configurable claim names, role mapping, issuer/audience
-- `IdentityProvider` (`internal/auth/identity_provider.go`) -- Pluggable interface for syncing namespace roles to external providers
-- `ClerkIdentityProvider` (`internal/auth/clerk_provider.go`) -- Clerk implementation: syncs roles to org membership publicMetadata
-
-### RBAC Model
-
-5 roles and 25 permissions. `auth.Authorize(authInfo, permission)` checks whether the authenticated identity has a specific permission.
-
-- `tenant:admin` -- Tenant-wide. Full access to all resources within the tenant.
-- `tenant:member` -- Tenant-wide. Read/write access to webhooks, events, subscriptions.
-- `namespace:admin` -- Single namespace. Full access within a specific namespace.
-- `namespace:member` -- Single namespace. Read/write access within a specific namespace.
-- `namespace:viewer` -- Single namespace. Read-only access within a specific namespace.
-
-**JWT role mapping (configurable):** Default: `org:admin` -> `tenant:admin`, `org:member` -> `tenant:member`. Override with `SPARROW_JWT_ROLE_MAPPING` env var for non-Clerk providers (e.g., `admin=tenant:admin,user=tenant:member`).
-
-**Namespace roles** are assigned per-user per-namespace via the `NamespaceMembershipService` RPCs. When a user has namespace-level roles, authorization checks use the namespace role exclusively (tenant role is not a fallback). Users without any namespace memberships get tenant-wide access based on their tenant role.
-
-**Platform admin keys** (`is_platform_admin: true`) bypass tenant scoping entirely, allowing cross-tenant management operations.
-
-### Web UI Auth Providers
-
-The SvelteKit web dashboard has a pluggable auth provider system. The active provider is selected via environment variables.
-
-**Provider selection** (via `PUBLIC_AUTH_PROVIDER` or auto-detected from provider-specific keys):
-
-- `PUBLIC_AUTH_PROVIDER` unset, no provider key -- No authentication (open access)
-- `PUBLIC_AUTH_PROVIDER` unset, `PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...` set -- Clerk (auto-detected)
-- `PUBLIC_AUTH_PROVIDER=clerk`, `PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...` set -- Clerk (explicit)
-- `PUBLIC_AUTH_PROVIDER=none` -- No authentication (forced, ignores any provider keys)
-
-
-**Adding a new auth provider** (e.g., Auth0):
-
-1. Create `web/src/lib/auth/providers/auth0/Auth0AuthShell.svelte` with the same snippet contract
-2. Call `registerTokenProvider()` from `web/src/lib/auth.ts` with your provider's token getter
-3. Add `"auth0"` to `AuthProviderType` in `web/src/lib/auth/types.ts`
-4. Add detection logic in `web/src/lib/auth/provider.ts`
-5. Add a case in `web/src/lib/auth/AuthShell.svelte`
-
-The services layer and backend remain completely unchanged -- they only see JWTs.
-
-## Architecture Deep Dive
-
 ### Dual-Protocol API
 
 The same gRPC service implementations back both protocols -- no code duplication:
@@ -218,13 +65,14 @@ The same gRPC service implementations back both protocols -- no code duplication
 - **gRPC** on `:50051` for high-performance programmatic access
 - **Connect-RPC (HTTP/JSON)** on `:8080` for curl, browsers, and any HTTP client
 
-Seven domain services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`, `TenantService`, `APIKeyService`, `NamespaceService`, `NamespaceMembershipService`.
+Six services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`, `NamespaceService`.
 
-### Data Model
+---
+
+## Data Model
 
 ```mermaid
 erDiagram
-    tenants ||--o{ api_keys : "has"
     tenants ||--o{ event_registrations : "owns"
     tenants ||--o{ webhook_registrations : "owns"
     tenants ||--o{ event_subscriptions : "owns"
@@ -234,39 +82,91 @@ erDiagram
         uuid id PK
         string name
         string slug UK
-        string external_id UK
-        string created_by
         string status
         jsonb settings
         timestamp created_at
         timestamp updated_at
     }
 
-    api_keys {
+    webhook_registrations ||--o{ event_subscriptions : "has"
+    webhook_registrations ||--o{ webhook_deliveries : "has"
+    event_records ||--o{ webhook_deliveries : "triggers"
+
+    webhook_registrations {
         uuid id PK
         uuid tenant_id FK
-        string key_prefix
-        bytes key_hash
-        string role
-        string namespace_scope
-        bool is_platform_admin
-        timestamp expires_at
-        timestamp last_used_at
-        timestamp revoked_at
+        string namespace
+        string url
+        bool active
+        string health
+        string webhook_secret
+    }
+
+    event_subscriptions {
+        uuid id PK
+        uuid webhook_id FK
+        string event_name
+        string namespace
+        bool transform_enabled
+        text transform_template
+    }
+
+    event_records {
+        uuid id PK
+        uuid tenant_id FK
+        string event
+        string namespace
+        jsonb payload
+    }
+
+    webhook_deliveries {
+        uuid id PK
+        uuid webhook_id FK
+        uuid event_id FK
+        uuid subscription_id FK
+        string status
+        int attempts
     }
 ```
 
 ### Tenant Isolation
 
-Every domain table (`event_registrations`, `webhook_registrations`, `event_subscriptions`, `event_records`) has a `tenant_id` column with a foreign key to `tenants`. All queries are scoped by tenant ID, extracted from the authenticated context (API key or JWT).
-
-- **External ID mapping:** Tenants have an `external_id` that maps to an identity provider's organization ID (e.g., Clerk `org_id`). JWT-authenticated requests are scoped to the correct tenant via this mapping.
-- **Auto-provisioning:** When a JWT contains an unknown `org_id`, the `AutoProvisioner` creates a new tenant automatically. A per-user limit of 2 tenants is enforced via the `created_by` column (JWT `sub` claim).
-- **Default tenant:** Auto-created on first boot with UUID `00000000-0000-0000-0000-000000000001`.
+Every domain table has a `tenant_id` column with a foreign key to `tenants`. All queries are scoped by tenant ID. A default tenant (`00000000-0000-0000-0000-000000000001`) is auto-created on first boot.
 
 ---
 
-### Error Classification & Retry Logic
+## Event Processing Pipeline
+
+```
+PushEvent RPC
+    │
+    v
+EventService.PushEvent()
+    │  1. Validate payload against registered event schema
+    │  2. Insert event_record
+    │  3. Enqueue EventArgs job (River, "events" queue)
+    v
+EventProcessingWorker.Work()
+    │  1. Load event from DB
+    │  2. Query matching subscriptions (tenant_id + namespace + event_name)
+    │  3. For each subscription: apply Go template transform (if enabled)
+    │  4. Batch-insert all webhook_delivery records (single multi-row INSERT)
+    │  5. Batch-enqueue all WebhookArgs jobs (River InsertMany)
+    v
+WebhookWorker.Work()
+    │  1. Load delivery from DB
+    │  2. HTTP POST to webhook URL (with headers, HMAC, timeout)
+    │  3. Record delivery_attempt
+    │  4. Update delivery status (success/failed/retrying)
+    │  5. Update webhook_health_events + webhook_health_state
+    │  6. If failed + retries remaining: re-enqueue with backoff
+    v
+Target URL receives webhook payload
+```
+
+---
+
+## Error Classification & Retry Logic
 
 The `pkg/errors/` package implements a taxonomy-based error classifier that inspects Go errors to determine retryability:
 
@@ -304,7 +204,7 @@ Non-retryable errors return `nil` to River (stopping retries); retryable errors 
 
 ---
 
-### Health State Machine
+## Health State Machine
 
 Event-sourced health calculation with a 24-hour lookback window:
 
@@ -336,11 +236,9 @@ stateDiagram-v2
 3. Webhook health status is recalculated and persisted
 4. Hourly aggregation computes per-webhook summaries (p95 response time, error category breakdown)
 
-**Real-time reactivity:** PostgreSQL `LISTEN/NOTIFY` pushes health events for async processing.
-
 ---
 
-### HTTP Client Design
+## HTTP Client Design
 
 A centralized, OTel-instrumented HTTP client (`internal/webhooks/client/`):
 
@@ -351,9 +249,9 @@ A centralized, OTel-instrumented HTTP client (`internal/webhooks/client/`):
 - **Header merging**: Subscription-level headers override webhook-level defaults
 - **In-process metrics**: Lock-free atomic counters for request totals, error categories, cache hit rates, and response time statistics
 
-#### Default Webhook Body
+### Default Webhook Body
 
-Every webhook delivery sends a JSON envelope with snake_case field names. The user-supplied event payload is nested under the `payload` key; all metadata lives at the top level:
+Every webhook delivery sends a JSON envelope with snake_case field names:
 
 ```json
 {
@@ -372,7 +270,7 @@ Every webhook delivery sends a JSON envelope with snake_case field names. The us
 }
 ```
 
-- `version` -- Envelope schema version (currently `"1"`). Check this to handle future format changes.
+- `version` -- Envelope schema version (currently `"1"`).
 - `event_id` -- UUID of the event that triggered this delivery.
 - `event_name` -- The event type (e.g. `user.created`, `order.paid`).
 - `namespace` -- Namespace the event belongs to.
@@ -382,14 +280,14 @@ Every webhook delivery sends a JSON envelope with snake_case field names. The us
 - `attempt` -- Delivery attempt number (1 = first attempt, 2+ = retries).
 - `payload` -- The original event payload as submitted by the producer.
 
-When a subscription has `transform_enabled = true` and a `transform_template`, the template output replaces the entire body -- the envelope is not used.
+When a subscription has `transform_enabled = true` and a `transform_template`, the template output replaces the entire body.
 
-#### HTTP Headers
+### HTTP Headers
 
 Every webhook delivery includes these headers:
 
-- `Content-Type: application/json` -- Always JSON.
-- `User-Agent: Sparrow-Webhook/0.1.2` -- Identifies the sender and version.
+- `Content-Type: application/json`
+- `User-Agent: Sparrow-Webhook/0.1.2`
 - `X-Sparrow-Event-ID` -- Same as `event_id` in the body.
 - `X-Sparrow-Delivery-ID` -- Same as `delivery_id` in the body.
 - `X-Sparrow-Webhook-ID` -- Same as `webhook_id` in the body.
@@ -398,14 +296,14 @@ Every webhook delivery includes these headers:
 
 Custom headers configured on the webhook or subscription are merged in, with subscription-level headers overriding webhook-level defaults.
 
-#### Verifying Webhook Signatures
+### Verifying Webhook Signatures
 
-When a `webhook_secret` is configured, Sparrow signs every delivery so the consumer can verify authenticity and detect tampering. The signature covers the **entire HTTP request body** (the full JSON envelope, not just the inner `payload`).
+When a `webhook_secret` is configured, Sparrow signs every delivery so the consumer can verify authenticity.
 
 **Signature scheme:**
 
 1. Sparrow sets two headers: `X-Sparrow-Timestamp` (Unix epoch seconds) and `X-Sparrow-Signature-256` (prefixed with `sha256=`).
-2. The signed message is: `<timestamp>.<raw_request_body>` -- the timestamp, a literal dot, and the raw bytes of the request body.
+2. The signed message is: `<timestamp>.<raw_request_body>`.
 3. The HMAC is computed with SHA-256 using the `webhook_secret` as the key.
 4. The result is hex-encoded and prefixed with `sha256=`.
 
@@ -413,10 +311,10 @@ When a `webhook_secret` is configured, Sparrow signs every delivery so the consu
 
 1. Read the raw request body bytes (before any JSON parsing).
 2. Extract the `X-Sparrow-Timestamp` and `X-Sparrow-Signature-256` headers.
-3. **Reject stale timestamps.** Compare the timestamp against the current time. If the difference exceeds your tolerance (e.g. 5 minutes), reject the request to prevent replay attacks.
+3. **Reject stale timestamps.** If the difference exceeds your tolerance (e.g. 5 minutes), reject the request.
 4. Reconstruct the signed message: `timestamp + "." + raw_body`.
 5. Compute `HMAC-SHA256(message, webhook_secret)` and hex-encode the result.
-6. **Use constant-time comparison** to compare your computed signature against the value after the `sha256=` prefix. Do not use `==`.
+6. **Use constant-time comparison** to compare your computed signature against the value after the `sha256=` prefix.
 
 **Example: Go**
 
@@ -435,20 +333,17 @@ import (
 )
 
 func VerifyWebhook(r *http.Request, secret string) error {
-    // 1. Read raw body
     body, err := io.ReadAll(r.Body)
     if err != nil {
         return fmt.Errorf("failed to read body: %w", err)
     }
 
-    // 2. Extract headers
     timestamp := r.Header.Get("X-Sparrow-Timestamp")
     signature := r.Header.Get("X-Sparrow-Signature-256")
     if timestamp == "" || signature == "" {
         return fmt.Errorf("missing signature headers")
     }
 
-    // 3. Reject stale timestamps (5-minute tolerance)
     ts, err := strconv.ParseInt(timestamp, 10, 64)
     if err != nil {
         return fmt.Errorf("invalid timestamp: %w", err)
@@ -457,15 +352,11 @@ func VerifyWebhook(r *http.Request, secret string) error {
         return fmt.Errorf("timestamp too old, possible replay attack")
     }
 
-    // 4. Reconstruct signed message
     message := timestamp + "." + string(body)
-
-    // 5. Compute expected signature
     mac := hmac.New(sha256.New, []byte(secret))
     mac.Write([]byte(message))
     expected := "sha256=" + hex.EncodeToString(mac.Sum(nil))
 
-    // 6. Constant-time comparison
     if subtle.ConstantTimeCompare([]byte(expected), []byte(signature)) != 1 {
         return fmt.Errorf("signature mismatch")
     }
@@ -479,80 +370,41 @@ func VerifyWebhook(r *http.Request, secret string) error {
 const crypto = require("crypto");
 
 function verifyWebhook(rawBody, timestamp, signature, secret) {
-  // Reject stale timestamps (5-minute tolerance)
   const age = Math.abs(Date.now() / 1000 - parseInt(timestamp, 10));
-  if (age > 300) {
-    throw new Error("Timestamp too old, possible replay attack");
-  }
+  if (age > 300) throw new Error("Timestamp too old");
 
-  // Reconstruct signed message and compute HMAC
   const message = `${timestamp}.${rawBody}`;
   const expected =
     "sha256=" +
     crypto.createHmac("sha256", secret).update(message).digest("hex");
 
-  // Constant-time comparison
   if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
     throw new Error("Signature mismatch");
   }
 }
-
-// In your Express handler:
-app.post("/webhook", express.raw({ type: "application/json" }), (req, res) => {
-  try {
-    verifyWebhook(
-      req.body.toString(),
-      req.headers["x-sparrow-timestamp"],
-      req.headers["x-sparrow-signature-256"],
-      process.env.WEBHOOK_SECRET
-    );
-    const event = JSON.parse(req.body);
-    // Process event...
-    res.sendStatus(200);
-  } catch (err) {
-    res.status(401).json({ error: err.message });
-  }
-});
 ```
 
 **Example: Python**
 
 ```python
-import hashlib
-import hmac
-import time
+import hashlib, hmac, time
 
 def verify_webhook(raw_body: bytes, timestamp: str, signature: str, secret: str):
-    # Reject stale timestamps (5-minute tolerance)
-    age = abs(time.time() - int(timestamp))
-    if age > 300:
-        raise ValueError("Timestamp too old, possible replay attack")
+    if abs(time.time() - int(timestamp)) > 300:
+        raise ValueError("Timestamp too old")
 
-    # Reconstruct signed message and compute HMAC
     message = f"{timestamp}.{raw_body.decode()}"
     expected = "sha256=" + hmac.new(
         secret.encode(), message.encode(), hashlib.sha256
     ).hexdigest()
 
-    # Constant-time comparison
     if not hmac.compare_digest(expected, signature):
         raise ValueError("Signature mismatch")
-
-# In your Flask handler:
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    verify_webhook(
-        request.get_data(),
-        request.headers.get("X-Sparrow-Timestamp"),
-        request.headers.get("X-Sparrow-Signature-256"),
-        os.environ["WEBHOOK_SECRET"],
-    )
-    event = request.get_json()
-    # Process event...
-    return "", 200
 ```
 
-### Web UI Architecture
+---
+
+## Web UI Architecture
 
 The web dashboard is a SvelteKit application that compiles to static files and is embedded into the Go binary via `go:embed`. See [web/README.md](web/README.md) for development setup.
 

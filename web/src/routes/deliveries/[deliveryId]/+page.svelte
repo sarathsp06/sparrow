@@ -10,7 +10,7 @@
   let loading = $state(true);
   let error = $state('');
 
-  const deliveryId = page.params.deliveryId;
+  const deliveryId = page.params.deliveryId ?? '';
 
   onMount(async () => {
     try {

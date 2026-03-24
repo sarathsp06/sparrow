@@ -15,6 +15,9 @@
   let namespace = $state(activeNamespace() ?? '');
   let event = $state("");
   let payload = $state({ json: {} } as Content);
+  let labels = $state<Record<string, string>>({});
+  let newLabelKey = $state("");
+  let newLabelValue = $state("");
   let loading = $state(false);
   let loadingEvents = $state(true);
   let error = $state("");
@@ -66,6 +69,19 @@
     }
   }
 
+  function addLabel() {
+    if (newLabelKey.trim() && newLabelValue.trim()) {
+      labels = { ...labels, [newLabelKey.trim()]: newLabelValue.trim() };
+      newLabelKey = "";
+      newLabelValue = "";
+    }
+  }
+
+  function removeLabel(key: string) {
+    const { [key]: _, ...rest } = labels;
+    labels = rest;
+  }
+
   onMount(fetchEvents);
 
   /**
@@ -111,9 +127,13 @@
         namespace,
         event,
         payload: payloadObj,
+        labels,
       };
       const res = await client.pushEvent(req);
       successMessage = `Event pushed successfully! Event ID: ${res.eventId}`;
+      labels = {};
+      newLabelKey = "";
+      newLabelValue = "";
     } catch (e: any) {
       const parsed = parseValidationError(e.message);
       error = parsed.summary;
@@ -235,6 +255,60 @@
                 mode={Mode.text}
                 mainMenuBar={false}
               />
+            </div>
+          </div>
+
+          <!-- Labels -->
+          <div>
+            <span class="block text-sm font-medium text-gray-700 mb-1">
+              Labels
+            </span>
+            <p class="text-xs text-gray-500 mb-2">
+              Optional key-value pairs for label-based subscription matching.
+            </p>
+
+            {#if Object.keys(labels).length > 0}
+              <div class="space-y-1.5 mb-2">
+                {#each Object.entries(labels) as [key, value]}
+                  <div class="flex items-center gap-2">
+                    <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{key}</span>
+                    <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{value}</span>
+                    <button
+                      type="button"
+                      onclick={() => removeLabel(key)}
+                      class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition"
+                      aria-label="Remove label {key}"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+
+            <div class="flex items-center gap-2">
+              <input
+                type="text"
+                bind:value={newLabelKey}
+                placeholder="Label key"
+                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+              />
+              <input
+                type="text"
+                bind:value={newLabelValue}
+                placeholder="Label value"
+                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+              />
+              <button
+                type="button"
+                onclick={addLabel}
+                disabled={!newLabelKey.trim() || !newLabelValue.trim()}
+                class="shrink-0 px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+              >
+                Add
+              </button>
             </div>
           </div>
 

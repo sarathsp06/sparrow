@@ -1,4 +1,4 @@
-# Full Sparrow deployment: Postgres + migrations + server with embedded UI.
+# Sparrow deployment: Postgres + server with embedded UI.
 #
 # Usage:
 #   docker compose up -d
@@ -6,12 +6,6 @@
 # The server starts on:
 #   - HTTP (Connect-RPC + Web UI): http://localhost:8080
 #   - gRPC: localhost:50051
-#
-# On first boot, the root API key is printed to the server logs:
-#   docker compose logs sparrow
-#
-# To enable authentication, set SPARROW_AUTH_ENABLED=true in the
-# environment section below (or via a .env file).
 
 services:
   postgres:
@@ -30,16 +24,6 @@ services:
       timeout: 3s
       retries: 10
 
-  migrate:
-    build: .
-    entrypoint: ["/app/tools/migrate"]
-    environment:
-      DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
   sparrow:
     build: .
     restart: unless-stopped
@@ -49,16 +33,10 @@ services:
     environment:
       DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
       SPARROW_SERVE_UI: "true"
-      SPARROW_AUTH_ENABLED: "false"
-      # --- Uncomment to enable authentication ---
-      # SPARROW_AUTH_ENABLED: "true"
-      # SPARROW_JWKS_URL: https://your-clerk-instance.clerk.accounts.dev/.well-known/jwks.json
-      # SPARROW_JWT_TENANT_CLAIM: org_id
-      # SPARROW_JWT_ROLE_CLAIM: org_role
-      # SPARROW_JWT_ISSUER: https://your-clerk-instance.clerk.accounts.dev
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: sparrow-otel-collector

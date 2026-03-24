@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/sarathsp06/sparrow/internal/auth"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
@@ -124,9 +123,9 @@ func (m *mockRepo) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *st
 	return args.Error(0)
 }
 
-// testContext returns a context with default auth info injected.
+// testContext returns a context for testing.
 func testContext() context.Context {
-	return auth.NewContext(context.Background(), auth.DefaultAuthInfo())
+	return context.Background()
 }
 
 func TestWebhookService_ListWebhooks_Pagination(t *testing.T) {
@@ -228,7 +227,7 @@ func TestWebhookService_CreateSubscription(t *testing.T) {
 
 	repo.On("CreateSubscription", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	id, createdAt, err := service.CreateSubscription(ctx, webhookID, eventName, namespace, nil, "POST", 30, false, "")
+	id, createdAt, err := service.CreateSubscription(ctx, webhookID, eventName, namespace, nil, "POST", 30, false, "", nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
@@ -294,7 +293,7 @@ func TestWebhookService_PushEvent_AutoRegister(t *testing.T) {
 	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
 
-	eventID, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil)
+	eventID, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
@@ -320,7 +319,7 @@ func TestWebhookService_PushEvent_ExistingEvent(t *testing.T) {
 	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
 
-	eventID, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil)
+	eventID, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
@@ -343,7 +342,7 @@ func TestWebhookService_PushEvent_InactiveEvent(t *testing.T) {
 		Active: false,
 	}, nil)
 
-	_, err := service.PushEvent(ctx, "default", "user.deleted", nil, 0, nil)
+	_, err := service.PushEvent(ctx, "default", "user.deleted", nil, 0, nil, nil)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "inactive")
@@ -363,7 +362,7 @@ func TestWebhookService_CreateSubscription_CatchAll(t *testing.T) {
 		return sub.EventName == store.CatchAllEventName
 	})).Return(nil)
 
-	id, createdAt, err := service.CreateSubscription(ctx, webhookID, store.CatchAllEventName, namespace, nil, "POST", 30, false, "")
+	id, createdAt, err := service.CreateSubscription(ctx, webhookID, store.CatchAllEventName, namespace, nil, "POST", 30, false, "", nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)

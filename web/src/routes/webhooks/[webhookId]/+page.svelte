@@ -70,7 +70,7 @@
   let offset = $state(0);
   let totalCount = $state(0);
 
-  const webhookId = page.params.webhookId;
+  const webhookId = page.params.webhookId ?? '';
 
   let currentPage = $derived(Math.floor(offset / limit) + 1);
   let totalPages = $derived(Math.max(1, Math.ceil(totalCount / limit)));

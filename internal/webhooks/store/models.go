@@ -59,6 +59,7 @@ type EventRecord struct {
 	Payload   types.Map[string, any]    `json:"payload" db:"payload"`
 	TTL       int64                     `json:"ttl" db:"ttl"`
 	Metadata  types.Map[string, string] `json:"metadata" db:"metadata"`
+	Labels    types.Map[string, string] `json:"labels" db:"labels"`
 	CreatedAt time.Time                 `json:"created_at" db:"created_at"`
 	ExpiresAt time.Time                 `json:"expires_at" db:"expires_at"`
 }
@@ -187,6 +188,7 @@ type EventSubscription struct {
 	TransformEnabled  bool                      `json:"transform_enabled" db:"transform_enabled"`
 	TransformTemplate string                    `json:"transform_template" db:"transform_template"`
 	Timeout           int                       `json:"timeout" db:"timeout"`
+	LabelFilters      types.Map[string, string] `json:"label_filters" db:"label_filters"`
 	CreatedAt         time.Time                 `json:"created_at" db:"created_at"`
 	UpdatedAt         time.Time                 `json:"updated_at" db:"updated_at"`
 }

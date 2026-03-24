@@ -28,7 +28,7 @@
   }
 
   onMount(async () => {
-    const eventName = decodeURIComponent(page.params.eventName);
+    const eventName = decodeURIComponent(page.params.eventName ?? '');
     try {
       const res = await client.getEvent({ name: eventName });
       const event = res.event;

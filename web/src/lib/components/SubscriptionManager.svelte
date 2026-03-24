@@ -63,6 +63,7 @@
     method: "POST",
     timeout: 30,
     headers: {} as Record<string, string>,
+    labelFilters: {} as Record<string, string>,
   });
 
   // Whether the catch-all toggle is on (controls eventName = '*')
@@ -70,6 +71,8 @@
 
   let newHeaderKey = $state("");
   let newHeaderValue = $state("");
+  let newLabelFilterKey = $state("");
+  let newLabelFilterValue = $state("");
 
   function resetForm() {
     form = {
@@ -81,10 +84,13 @@
       method: "POST",
       timeout: 30,
       headers: {},
+      labelFilters: {},
     };
     catchAllEnabled = false;
     newHeaderKey = "";
     newHeaderValue = "";
+    newLabelFilterKey = "";
+    newLabelFilterValue = "";
     selectedEventDetails = null;
     dryRunResult = "";
     dryRunError = "";
@@ -106,6 +112,22 @@
   function removeHeader(key: string) {
     const { [key]: _, ...rest } = form.headers;
     form.headers = rest;
+  }
+
+  function addLabelFilter() {
+    if (newLabelFilterKey.trim() && newLabelFilterValue.trim()) {
+      form.labelFilters = {
+        ...form.labelFilters,
+        [newLabelFilterKey.trim()]: newLabelFilterValue.trim(),
+      };
+      newLabelFilterKey = "";
+      newLabelFilterValue = "";
+    }
+  }
+
+  function removeLabelFilter(key: string) {
+    const { [key]: _, ...rest } = form.labelFilters;
+    form.labelFilters = rest;
   }
 
   async function fetchAvailableEvents() {
@@ -187,6 +209,7 @@
           method: form.method,
           timeout: form.timeout,
           headers: form.headers,
+          labelFilters: form.labelFilters,
         });
       } else {
         await client.updateSubscription({
@@ -197,6 +220,7 @@
           timeout: form.timeout,
           transformEnabled: form.transformEnabled,
           transformTemplate: form.transformTemplate,
+          labelFilters: form.labelFilters,
         });
       }
       modalOpen = false;
@@ -223,7 +247,8 @@
       transformTemplate: subscription.transformTemplate || "",
       method: subscription.method || "POST",
       timeout: subscription.timeout || 30,
-      headers: { ...subscription.headers } || {},
+      headers: { ...(subscription.headers || {}) },
+      labelFilters: { ...(subscription.labelFilters || {}) },
     };
     handleEventChange(subscription.eventName);
     modalMode = "edit";
@@ -490,6 +515,20 @@
                         class="text-xs bg-gray-50 text-gray-600 px-2 py-0.5 rounded border border-gray-200 font-mono"
                       >
                         {key}: {value}
+                      </span>
+                    {/each}
+                  </div>
+                {/if}
+
+                <!-- Label filters -->
+                {#if Object.keys(subscription.labelFilters || {}).length > 0}
+                  <div class="mt-2 flex flex-wrap items-center gap-1">
+                    <span class="text-xs text-gray-500 font-medium mr-1">Labels:</span>
+                    {#each Object.entries(subscription.labelFilters) as [key, value]}
+                      <span
+                        class="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200 font-mono"
+                      >
+                        {key}={value}
                       </span>
                     {/each}
                   </div>
@@ -954,6 +993,74 @@
             <button
               onclick={addHeader}
               disabled={!newHeaderKey.trim() || !newHeaderValue.trim()}
+              class="shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition"
+            >
+              Add
+            </button>
+           </div>
+        </div>
+
+        <!-- Label Filters -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-700">Label Filters</span>
+          </div>
+          <p class="text-xs text-gray-500 mb-2">
+            Only deliver events whose labels match all of these key-value pairs (AND logic).
+          </p>
+
+          {#if Object.keys(form.labelFilters).length > 0}
+            <div class="space-y-1.5 mb-2">
+              {#each Object.entries(form.labelFilters) as [key, value]}
+                <div class="flex items-center gap-2">
+                  <span
+                    class="flex-1 text-xs font-mono bg-amber-50 px-2 py-1.5 rounded border border-amber-200 truncate"
+                    >{key}</span
+                  >
+                  <span
+                    class="flex-1 text-xs font-mono bg-amber-50 px-2 py-1.5 rounded border border-amber-200 truncate"
+                    >{value}</span
+                  >
+                  <button
+                    onclick={() => removeLabelFilter(key)}
+                    class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition"
+                    aria-label="Remove label filter {key}"
+                  >
+                    <svg
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              {/each}
+            </div>
+          {/if}
+
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              bind:value={newLabelFilterKey}
+              placeholder="Label key"
+              class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+            />
+            <input
+              type="text"
+              bind:value={newLabelFilterValue}
+              placeholder="Label value"
+              class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+            />
+            <button
+              onclick={addLabelFilter}
+              disabled={!newLabelFilterKey.trim() || !newLabelFilterValue.trim()}
               class="shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition"
             >
               Add

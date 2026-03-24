@@ -543,7 +543,7 @@ func (_d RepositoryInterfaceWithTracing) GetSubscription(ctx context.Context, te
 }
 
 // GetSubscriptionsByEvent implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace string, event string) (epa1 []*EventSubscription, err error) {
+func (_d RepositoryInterfaceWithTracing) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace string, event string, labels map[string]string) (epa1 []*EventSubscription, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetSubscriptionsByEvent")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -551,7 +551,8 @@ func (_d RepositoryInterfaceWithTracing) GetSubscriptionsByEvent(ctx context.Con
 				"ctx":       ctx,
 				"tenantID":  tenantID,
 				"namespace": namespace,
-				"event":     event}, map[string]interface{}{
+				"event":     event,
+				"labels":    labels}, map[string]interface{}{
 				"epa1": epa1,
 				"err":  err})
 		} else if err != nil {
@@ -565,11 +566,11 @@ func (_d RepositoryInterfaceWithTracing) GetSubscriptionsByEvent(ctx context.Con
 
 		_span.End()
 	}()
-	return _d.RepositoryInterface.GetSubscriptionsByEvent(ctx, tenantID, namespace, event)
+	return _d.RepositoryInterface.GetSubscriptionsByEvent(ctx, tenantID, namespace, event, labels)
 }
 
 // GetSubscriptionsWithWebhooksByEvent implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, namespace string, event string) (spa1 []*SubscriptionWithWebhook, err error) {
+func (_d RepositoryInterfaceWithTracing) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, namespace string, event string, labels map[string]string) (spa1 []*SubscriptionWithWebhook, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetSubscriptionsWithWebhooksByEvent")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -577,7 +578,8 @@ func (_d RepositoryInterfaceWithTracing) GetSubscriptionsWithWebhooksByEvent(ctx
 				"ctx":       ctx,
 				"tenantID":  tenantID,
 				"namespace": namespace,
-				"event":     event}, map[string]interface{}{
+				"event":     event,
+				"labels":    labels}, map[string]interface{}{
 				"spa1": spa1,
 				"err":  err})
 		} else if err != nil {
@@ -591,7 +593,7 @@ func (_d RepositoryInterfaceWithTracing) GetSubscriptionsWithWebhooksByEvent(ctx
 
 		_span.End()
 	}()
-	return _d.RepositoryInterface.GetSubscriptionsWithWebhooksByEvent(ctx, tenantID, namespace, event)
+	return _d.RepositoryInterface.GetSubscriptionsWithWebhooksByEvent(ctx, tenantID, namespace, event, labels)
 }
 
 // GetWebhookByID implements RepositoryInterface

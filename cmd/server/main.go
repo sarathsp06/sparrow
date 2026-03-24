@@ -23,11 +23,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/sarathsp06/sparrow/internal/audit"
-	"github.com/sarathsp06/sparrow/internal/auth"
 	connectserver "github.com/sarathsp06/sparrow/internal/connect"
 	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
 	"github.com/sarathsp06/sparrow/internal/health"
+	"github.com/sarathsp06/sparrow/internal/migration"
 	"github.com/sarathsp06/sparrow/internal/namespace"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/tenant"
@@ -82,6 +81,17 @@ func main() {
 		fmt.Println("🔧 Using default database URL. Set DATABASE_URL environment variable for custom connection.")
 	}
 
+	// Run database migrations before anything else touches the DB.
+	// This covers both River queue schema and application schema migrations.
+	// golang-migrate uses PostgreSQL advisory locks, so concurrent server
+	// instances won't conflict.
+	migrationLogger := slog.Default()
+	fmt.Println("📦 Running database migrations...")
+	if err := migration.RunAllMigrations(ctx, databaseURL, "up", 0, 0, migrationLogger); err != nil {
+		log.Fatalf("Failed to run database migrations: %v", err)
+	}
+	fmt.Println("✅ Database migrations completed")
+
 	// Create database connection pool for River queue workers.
 	// River runs 45 concurrent workers (20 events + 20 webhooks + 5 default)
 	// so we need enough connections to avoid starvation. The default pgxpool
@@ -118,8 +128,6 @@ func main() {
 	}
 	defer sqlxDB.Close() //nolint:errcheck
 
-	// ---- Auth configuration ----
-	authEnabled := os.Getenv("SPARROW_AUTH_ENABLED") == "true" || os.Getenv("SPARROW_AUTH_ENABLED") == "1"
 	logger := slog.Default()
 
 	// Create tenant repository and service
@@ -136,144 +144,11 @@ func main() {
 	// Create namespace repository and service
 	namespaceRepo := namespace.NewRepository(sqlxDB)
 
-	// Build namespace service options (identity provider will be added below if auth is enabled)
-	var nsServiceOpts []namespace.ServiceOption
-	nsServiceOpts = append(nsServiceOpts, namespace.WithServiceLogger(logger))
-
-	// identityProvider is captured here so the TeamServer can use it.
-	// It stays nil when auth is disabled or no identity provider is configured,
-	// which the TeamServer handles by returning Unimplemented.
-	var identityProvider auth.IdentityProvider
-
-	// Build auth interceptor config
-	authInterceptorCfg := auth.AuthInterceptorConfig{
-		Enabled: authEnabled,
-		SkipProcedures: map[string]bool{
-			"/sparrow.HealthService/Check":       true,
-			"/sparrow.HealthService/CheckHealth": true,
-		},
-		Logger: logger,
-	}
-
-	// SEC-007: Declare apiKeyAuthenticator outside the if block so we can
-	// pass it to TenantServer for cache invalidation on key revocation.
-	var apiKeyAuthenticator *auth.APIKeyAuthenticator
-
-	if authEnabled {
-		apiKeyAuthenticator = auth.NewAPIKeyAuthenticator(tenantRepo)
-		authenticators := []auth.Authenticator{apiKeyAuthenticator}
-
-		// If a JWKS URL is configured, add JWT authentication alongside API keys.
-		// This enables OIDC-based auth (Clerk, Auth0, Keycloak, etc.) for the
-		// web UI while keeping API keys for programmatic/M2M access.
-		if jwksURL := os.Getenv("SPARROW_JWKS_URL"); jwksURL != "" {
-			jwksProvider := auth.NewJWKSProvider(jwksURL)
-
-			// Build claims config from env vars with Clerk-compatible defaults.
-			// All claim names are configurable so self-hosted deployments can use
-			// any OIDC provider (Keycloak, Auth0, Authelia, Zitadel, etc.).
-			claimsCfg := auth.DefaultJWTClaimsConfig()
-			if v := os.Getenv("SPARROW_JWT_TENANT_CLAIM"); v != "" {
-				claimsCfg.TenantClaim = v
-			}
-			if v := os.Getenv("SPARROW_JWT_ROLE_CLAIM"); v != "" {
-				claimsCfg.RoleClaim = v
-			}
-			if v := os.Getenv("SPARROW_JWT_SUBJECT_CLAIM"); v != "" {
-				claimsCfg.SubjectClaim = v
-			}
-			if v := os.Getenv("SPARROW_JWT_ISSUER"); v != "" {
-				claimsCfg.Issuer = v
-			}
-			if v := os.Getenv("SPARROW_JWT_AUDIENCES"); v != "" {
-				claimsCfg.Audiences = strings.Split(v, ",")
-			}
-			// Set to "" to disable JWT-claim-based namespace role resolution
-			// and always use DB-based resolution instead.
-			if v, ok := os.LookupEnv("SPARROW_JWT_NAMESPACE_ROLES_CLAIM"); ok {
-				claimsCfg.NamespaceRolesClaim = v
-			}
-			// Custom role mapping: comma-separated "provider_role=sparrow_role" pairs.
-			// Example: "admin=tenant:admin,member=tenant:member,viewer=tenant:member"
-			if v := os.Getenv("SPARROW_JWT_ROLE_MAPPING"); v != "" {
-				mapping := make(map[string]auth.Role)
-				for _, pair := range strings.Split(v, ",") {
-					parts := strings.SplitN(strings.TrimSpace(pair), "=", 2)
-					if len(parts) == 2 {
-						mapping[strings.TrimSpace(parts[0])] = auth.Role(strings.TrimSpace(parts[1]))
-					}
-				}
-				if len(mapping) > 0 {
-					claimsCfg.RoleMapping = mapping
-				}
-			}
-
-			// Create tenant resolver with caching and auto-provisioning
-			provisioner := tenant.NewAutoProvisioner(tenantSvc, logger)
-			tenantResolver := auth.NewCachingTenantResolver(
-				tenantRepo,
-				auth.WithTenantProvisioner(provisioner),
-				auth.WithTenantResolverLogger(logger),
-			)
-
-			jwtAuthenticator := auth.NewJWTAuthenticator(
-				jwksProvider,
-				auth.WithClaimsConfig(claimsCfg),
-				auth.WithTenantResolver(tenantResolver),
-				auth.WithMembershipResolver(
-					auth.NewCachingMembershipResolver(
-						namespaceRepo,
-						auth.WithMembershipResolverLogger(logger),
-					),
-				),
-			)
-
-			// JWT authenticator goes first — API keys are tried if JWT fails
-			authenticators = append([]auth.Authenticator{jwtAuthenticator}, authenticators...)
-			fmt.Printf("🔑 JWT authentication enabled (JWKS: %s)\n", jwksURL)
-			logger.Info("JWT claims configuration",
-				slog.String("tenant_claim", claimsCfg.TenantClaim),
-				slog.String("role_claim", claimsCfg.RoleClaim),
-				slog.String("subject_claim", claimsCfg.SubjectClaim),
-				slog.String("namespace_roles_claim", claimsCfg.NamespaceRolesClaim),
-				slog.String("issuer", claimsCfg.Issuer),
-			)
-		}
-
-		// Configure identity provider for namespace role sync.
-		// When CLERK_SECRET_KEY is set, namespace role changes are synced to
-		// Clerk org membership publicMetadata so they appear in JWT session tokens.
-		if clerkKey := os.Getenv("CLERK_SECRET_KEY"); clerkKey != "" {
-			clerkProvider := auth.NewClerkIdentityProvider(clerkKey, auth.WithClerkLogger(logger))
-			identityProvider = clerkProvider
-			nsServiceOpts = append(nsServiceOpts,
-				namespace.WithIdentityProvider(clerkProvider),
-				namespace.WithExternalTenantLookup(tenantRepo),
-			)
-			fmt.Println("🔗 Clerk identity provider enabled (namespace roles will sync to JWT)")
-		}
-
-		authInterceptorCfg.Authenticators = authenticators
-		fmt.Println("🔒 Authentication enabled")
-	} else {
-		fmt.Println("🔓 Authentication disabled (all requests use default tenant)")
-		// SEC-005: Warn when auth is disabled — all requests get full admin access
-		if env := os.Getenv("ENVIRONMENT"); env == "production" {
-			fmt.Println("⛔ WARNING: Authentication is DISABLED in a production environment!")
-			fmt.Println("   All requests receive tenant:admin privileges via DefaultAuthInfo.")
-			fmt.Println("   Set SPARROW_AUTH_ENABLED=true to secure your deployment.")
-		}
-	}
-
-	// Create namespace service (after auth setup so identity provider options are applied)
-	namespaceSvc := namespace.NewService(namespaceRepo, nsServiceOpts...)
+	// Create namespace service
+	namespaceSvc := namespace.NewService(namespaceRepo, namespace.WithServiceLogger(logger))
 
 	// Create webhook repository
 	webhookRepo := store.NewRepositoryInterfaceWithTracing(store.NewRepository(sqlxDB), "")
-
-	// Create audit logger
-	auditRepo := audit.NewRepository(sqlxDB)
-	auditLogger := audit.NewLogger(auditRepo, logger)
 
 	// Initialize queue manager
 	queueManager, err := queue.NewManager(ctx, webhookRepo, dbPool)
@@ -289,53 +164,31 @@ func main() {
 
 	fmt.Println("🚀 River queue started successfully")
 
-	// Initialize gRPC server with OpenTelemetry instrumentation and auth
+	// Initialize gRPC server with OpenTelemetry instrumentation
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
-		grpc.ChainUnaryInterceptor(auth.NewGRPCUnaryInterceptor(authInterceptorCfg)),
-		grpc.MaxRecvMsgSize(4<<20), // SEC-004: 4 MB max inbound message
-		grpc.MaxSendMsgSize(4<<20), // SEC-004: 4 MB max outbound message
+		grpc.MaxRecvMsgSize(4<<20), // 4 MB max inbound message
+		grpc.MaxSendMsgSize(4<<20), // 4 MB max outbound message
 	)
 
 	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo)
 
-	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, ""), auditLogger)
+	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, ""))
 	pb.RegisterWebhookServiceServer(grpcServer, webhookGRPCServer)
 	pb.RegisterEventServiceServer(grpcServer, webhookGRPCServer)
 	pb.RegisterSubscriptionServiceServer(grpcServer, webhookGRPCServer)
 	pb.RegisterDeliveryServiceServer(grpcServer, webhookGRPCServer)
 	pb.RegisterHealthServiceServer(grpcServer, webhookGRPCServer)
 
-	// Register Tenant and API Key gRPC services
-	// SEC-007: Pass apiKeyAuthenticator for cache invalidation on key revocation
-	var tenantServerOpts []grpcserver.TenantServerOption
-	if apiKeyAuthenticator != nil {
-		tenantServerOpts = append(tenantServerOpts, grpcserver.WithKeyCacheInvalidator(apiKeyAuthenticator))
-	}
-	tenantGRPCServer := grpcserver.NewTenantServer(tenantSvc, auditLogger, tenantServerOpts...)
-	pb.RegisterTenantServiceServer(grpcServer, tenantGRPCServer)
-	pb.RegisterAPIKeyServiceServer(grpcServer, tenantGRPCServer)
-
-	// Register Namespace and Membership gRPC services
-	namespaceGRPCServer := grpcserver.NewNamespaceServer(namespaceSvc, auditLogger)
+	// Register Namespace gRPC service
+	namespaceGRPCServer := grpcserver.NewNamespaceServer(namespaceSvc)
 	pb.RegisterNamespaceServiceServer(grpcServer, namespaceGRPCServer)
-	pb.RegisterNamespaceMembershipServiceServer(grpcServer, namespaceGRPCServer)
-
-	// Register Team gRPC service (delegates to identity provider for org-level operations)
-	teamGRPCServer := grpcserver.NewTeamServer(identityProvider, tenantRepo, auditLogger)
-	pb.RegisterTeamServiceServer(grpcServer, teamGRPCServer)
 
 	// Initialize Connect-RPC server
 	webhookConnectServer := connectserver.NewWebhookConnectServer(webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer)
 
-	// Create Connect-RPC adapter for tenant/API key services
-	tenantConnectServer := connectserver.NewTenantConnectServer(tenantGRPCServer, tenantGRPCServer)
-
-	// Create Connect-RPC adapter for namespace/membership services
-	namespaceConnectServer := connectserver.NewNamespaceConnectServer(namespaceGRPCServer, namespaceGRPCServer)
-
-	// Create Connect-RPC adapter for team service
-	teamConnectServer := connectserver.NewTeamConnectServer(teamGRPCServer)
+	// Create Connect-RPC adapter for namespace services
+	namespaceConnectServer := connectserver.NewNamespaceConnectServer(namespaceGRPCServer)
 
 	// Create HTTP mux for Connect-RPC
 	mux := http.NewServeMux()
@@ -344,9 +197,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	authConnectInterceptor := auth.NewConnectInterceptor(authInterceptorCfg)
-	options := connect.WithInterceptors(otelInterceptor, authConnectInterceptor)
-	// SEC-004: Enforce request/response body size limits on Connect-RPC handlers
+	options := connect.WithInterceptors(otelInterceptor)
+	// Enforce request/response body size limits on Connect-RPC handlers
 	readLimit := connect.WithReadMaxBytes(4 << 20) // 4 MB
 	sendLimit := connect.WithSendMaxBytes(4 << 20) // 4 MB
 	mux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
@@ -354,11 +206,7 @@ func main() {
 	mux.Handle(pbconnect.NewSubscriptionServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
 	mux.Handle(pbconnect.NewDeliveryServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
 	mux.Handle(pbconnect.NewHealthServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
-	mux.Handle(pbconnect.NewTenantServiceHandler(tenantConnectServer, options, readLimit, sendLimit))
-	mux.Handle(pbconnect.NewAPIKeyServiceHandler(tenantConnectServer, options, readLimit, sendLimit))
 	mux.Handle(pbconnect.NewNamespaceServiceHandler(namespaceConnectServer, options, readLimit, sendLimit))
-	mux.Handle(pbconnect.NewNamespaceMembershipServiceHandler(namespaceConnectServer, options, readLimit, sendLimit))
-	mux.Handle(pbconnect.NewTeamServiceHandler(teamConnectServer, options, readLimit, sendLimit))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, queueManager, startTime)
@@ -381,22 +229,14 @@ func main() {
 	// Create HTTP server with OpenTelemetry instrumentation
 	corsHandler := buildCORSHandler()
 
-	// SEC-005: Warn about insecure configuration in production
-	if !authEnabled && os.Getenv("CORS_ALLOWED_ORIGINS") == "" {
-		if env := os.Getenv("ENVIRONMENT"); env == "production" {
-			fmt.Println("⛔ CRITICAL: Auth disabled + wildcard CORS in production!")
-			fmt.Println("   Any origin can make authenticated admin requests to this server.")
-		}
-	}
-
 	httpServer := &http.Server{
 		Addr:              ":8080",
 		Handler:           corsHandler.Handler(mux),
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,
-		ReadHeaderTimeout: 10 * time.Second, // SEC-004: Mitigate slowloris attacks
-		MaxHeaderBytes:    1 << 20,          // SEC-004: 1 MB max header size
+		ReadHeaderTimeout: 10 * time.Second, // Mitigate slowloris attacks
+		MaxHeaderBytes:    1 << 20,          // 1 MB max header size
 	}
 
 	// Start gRPC server

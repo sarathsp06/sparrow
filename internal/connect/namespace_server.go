@@ -10,20 +10,17 @@ import (
 )
 
 // NamespaceConnectServer implements the Connect-RPC handlers for NamespaceService
-// and NamespaceMembershipService by delegating to the gRPC server implementations.
+// by delegating to the gRPC server implementation.
 type NamespaceConnectServer struct {
-	namespaceService           pb.NamespaceServiceServer
-	namespaceMembershipService pb.NamespaceMembershipServiceServer
+	namespaceService pb.NamespaceServiceServer
 }
 
 // NewNamespaceConnectServer creates a new Connect-RPC adapter for namespace services.
 func NewNamespaceConnectServer(
 	namespaceService pb.NamespaceServiceServer,
-	namespaceMembershipService pb.NamespaceMembershipServiceServer,
 ) *NamespaceConnectServer {
 	return &NamespaceConnectServer{
-		namespaceService:           namespaceService,
-		namespaceMembershipService: namespaceMembershipService,
+		namespaceService: namespaceService,
 	}
 }
 
@@ -69,40 +66,5 @@ func (s *NamespaceConnectServer) DeleteNamespace(ctx context.Context, req *conne
 	return connect.NewResponse(res), nil
 }
 
-// ---- NamespaceMembershipService ----
-
-func (s *NamespaceConnectServer) AssignNamespaceRole(ctx context.Context, req *connect.Request[pb.AssignNamespaceRoleRequest]) (*connect.Response[pb.AssignNamespaceRoleResponse], error) {
-	res, err := s.namespaceMembershipService.AssignNamespaceRole(ctx, req.Msg)
-	if err != nil {
-		return nil, err
-	}
-	return connect.NewResponse(res), nil
-}
-
-func (s *NamespaceConnectServer) RemoveNamespaceRole(ctx context.Context, req *connect.Request[pb.RemoveNamespaceRoleRequest]) (*connect.Response[pb.RemoveNamespaceRoleResponse], error) {
-	res, err := s.namespaceMembershipService.RemoveNamespaceRole(ctx, req.Msg)
-	if err != nil {
-		return nil, err
-	}
-	return connect.NewResponse(res), nil
-}
-
-func (s *NamespaceConnectServer) ListNamespaceMembers(ctx context.Context, req *connect.Request[pb.ListNamespaceMembersRequest]) (*connect.Response[pb.ListNamespaceMembersResponse], error) {
-	res, err := s.namespaceMembershipService.ListNamespaceMembers(ctx, req.Msg)
-	if err != nil {
-		return nil, err
-	}
-	return connect.NewResponse(res), nil
-}
-
-func (s *NamespaceConnectServer) GetUserNamespaces(ctx context.Context, req *connect.Request[pb.GetUserNamespacesRequest]) (*connect.Response[pb.GetUserNamespacesResponse], error) {
-	res, err := s.namespaceMembershipService.GetUserNamespaces(ctx, req.Msg)
-	if err != nil {
-		return nil, err
-	}
-	return connect.NewResponse(res), nil
-}
-
-// Compile-time interface checks
+// Compile-time interface check
 var _ pbconnect.NamespaceServiceHandler = (*NamespaceConnectServer)(nil)
-var _ pbconnect.NamespaceMembershipServiceHandler = (*NamespaceConnectServer)(nil)

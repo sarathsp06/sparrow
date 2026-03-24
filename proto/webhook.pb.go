@@ -548,6 +548,7 @@ type PushEventRequest struct {
 	TtlSeconds    int64                  `protobuf:"varint,4,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"`                                                    // TTL for webhook retry attempts
 	Metadata      map[string]string      `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Additional event metadata
 	Id            *string                `protobuf:"bytes,6,opt,name=id,proto3,oneof" json:"id,omitempty"`                                                                                 // Optional id for idempotency
+	Labels        map[string]string      `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`     // Optional labels for label-based subscription matching
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -622,6 +623,13 @@ func (x *PushEventRequest) GetId() string {
 		return *x.Id
 	}
 	return ""
+}
+
+func (x *PushEventRequest) GetLabels() map[string]string {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
 }
 
 // PushEventResponse represents the response for event pushing
@@ -3929,17 +3937,18 @@ func (x *ListEventReportsResponse) GetMessage() string {
 // EventSubscription represents a subscription linking a webhook to an event
 type EventSubscription struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
-	SubscriptionId    string                 `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`                                       // Unique subscription identifier
-	WebhookId         string                 `protobuf:"bytes,2,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`                                                      // Associated webhook ID
-	EventName         string                 `protobuf:"bytes,3,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`                                                      // Event name to subscribe to
-	Namespace         string                 `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                       // Namespace
-	Headers           map[string]string      `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Optional per-subscription headers (override webhook headers)
-	Method            string                 `protobuf:"bytes,6,opt,name=method,proto3" json:"method,omitempty"`                                                                             // Optional HTTP method override (default: POST)
-	Timeout           int32                  `protobuf:"varint,7,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                          // Optional timeout override in seconds
-	TransformEnabled  bool                   `protobuf:"varint,8,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`                                // Whether payload transformation is enabled
-	TransformTemplate string                 `protobuf:"bytes,9,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`                              // Go template for payload transformation
-	CreatedAt         *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                                                     // When subscription was created
-	UpdatedAt         *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`                                                     // When subscription was last updated
+	SubscriptionId    string                 `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`                                                                      // Unique subscription identifier
+	WebhookId         string                 `protobuf:"bytes,2,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`                                                                                     // Associated webhook ID
+	EventName         string                 `protobuf:"bytes,3,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`                                                                                     // Event name to subscribe to
+	Namespace         string                 `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                                                      // Namespace
+	Headers           map[string]string      `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`                                // Optional per-subscription headers (override webhook headers)
+	Method            string                 `protobuf:"bytes,6,opt,name=method,proto3" json:"method,omitempty"`                                                                                                            // Optional HTTP method override (default: POST)
+	Timeout           int32                  `protobuf:"varint,7,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                                                         // Optional timeout override in seconds
+	TransformEnabled  bool                   `protobuf:"varint,8,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`                                                               // Whether payload transformation is enabled
+	TransformTemplate string                 `protobuf:"bytes,9,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`                                                             // Go template for payload transformation
+	CreatedAt         *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                                                                                    // When subscription was created
+	UpdatedAt         *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`                                                                                    // When subscription was last updated
+	LabelFilters      map[string]string      `protobuf:"bytes,12,rep,name=label_filters,json=labelFilters,proto3" json:"label_filters,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Label filters for matching events (AND logic)
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -4051,17 +4060,25 @@ func (x *EventSubscription) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *EventSubscription) GetLabelFilters() map[string]string {
+	if x != nil {
+		return x.LabelFilters
+	}
+	return nil
+}
+
 // CreateSubscriptionRequest represents a request to create a subscription
 type CreateSubscriptionRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
-	WebhookId         string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`                                                      // Webhook ID (required)
-	EventName         string                 `protobuf:"bytes,2,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`                                                      // Event name (required)
-	Namespace         string                 `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                       // Namespace (required)
-	Headers           map[string]string      `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Optional per-subscription headers
-	Method            string                 `protobuf:"bytes,5,opt,name=method,proto3" json:"method,omitempty"`                                                                             // Optional HTTP method (default: POST)
-	Timeout           int32                  `protobuf:"varint,6,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                          // Optional timeout in seconds
-	TransformEnabled  bool                   `protobuf:"varint,7,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`                                // Enable payload transformation
-	TransformTemplate string                 `protobuf:"bytes,8,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`                              // Go template for transformation
+	WebhookId         string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`                                                                                    // Webhook ID (required)
+	EventName         string                 `protobuf:"bytes,2,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`                                                                                    // Event name (required)
+	Namespace         string                 `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                                                     // Namespace (required)
+	Headers           map[string]string      `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`                               // Optional per-subscription headers
+	Method            string                 `protobuf:"bytes,5,opt,name=method,proto3" json:"method,omitempty"`                                                                                                           // Optional HTTP method (default: POST)
+	Timeout           int32                  `protobuf:"varint,6,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                                                        // Optional timeout in seconds
+	TransformEnabled  bool                   `protobuf:"varint,7,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`                                                              // Enable payload transformation
+	TransformTemplate string                 `protobuf:"bytes,8,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`                                                            // Go template for transformation
+	LabelFilters      map[string]string      `protobuf:"bytes,9,rep,name=label_filters,json=labelFilters,proto3" json:"label_filters,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Optional label filters for matching events (AND logic)
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -4150,6 +4167,13 @@ func (x *CreateSubscriptionRequest) GetTransformTemplate() string {
 		return x.TransformTemplate
 	}
 	return ""
+}
+
+func (x *CreateSubscriptionRequest) GetLabelFilters() map[string]string {
+	if x != nil {
+		return x.LabelFilters
+	}
+	return nil
 }
 
 // CreateSubscriptionResponse represents the response for subscription creation
@@ -4498,13 +4522,14 @@ func (x *ListSubscriptionsResponse) GetMessage() string {
 // UpdateSubscriptionRequest represents a request to update a subscription
 type UpdateSubscriptionRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
-	SubscriptionId    string                 `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`                                       // Subscription ID (required)
-	Namespace         string                 `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                       // Namespace (required)
-	Headers           map[string]string      `protobuf:"bytes,2,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Updated headers
-	Method            string                 `protobuf:"bytes,3,opt,name=method,proto3" json:"method,omitempty"`                                                                             // Updated HTTP method
-	Timeout           int32                  `protobuf:"varint,4,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                          // Updated timeout
-	TransformEnabled  bool                   `protobuf:"varint,5,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`                                // Updated transform enabled flag
-	TransformTemplate string                 `protobuf:"bytes,6,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`                              // Updated transform template
+	SubscriptionId    string                 `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`                                                                     // Subscription ID (required)
+	Namespace         string                 `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                                                     // Namespace (required)
+	Headers           map[string]string      `protobuf:"bytes,2,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`                               // Updated headers
+	Method            string                 `protobuf:"bytes,3,opt,name=method,proto3" json:"method,omitempty"`                                                                                                           // Updated HTTP method
+	Timeout           int32                  `protobuf:"varint,4,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                                                        // Updated timeout
+	TransformEnabled  bool                   `protobuf:"varint,5,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`                                                              // Updated transform enabled flag
+	TransformTemplate string                 `protobuf:"bytes,6,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`                                                            // Updated transform template
+	LabelFilters      map[string]string      `protobuf:"bytes,8,rep,name=label_filters,json=labelFilters,proto3" json:"label_filters,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Updated label filters for matching events (AND logic)
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -4586,6 +4611,13 @@ func (x *UpdateSubscriptionRequest) GetTransformTemplate() string {
 		return x.TransformTemplate
 	}
 	return ""
+}
+
+func (x *UpdateSubscriptionRequest) GetLabelFilters() map[string]string {
+	if x != nil {
+		return x.LabelFilters
+	}
+	return nil
 }
 
 // UpdateSubscriptionResponse represents the response for updating a subscription
@@ -5367,1114 +5399,6 @@ func (x *GetDeliveryAttemptsResponse) GetAttempts() []*DeliveryAttempt {
 	return nil
 }
 
-// Tenant represents an organization/team using Sparrow
-type Tenant struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`         // Tenant UUID
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`     // Display name
-	Slug          string                 `protobuf:"bytes,3,opt,name=slug,proto3" json:"slug,omitempty"`     // URL-safe identifier (derived from name)
-	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"` // active, suspended, archived
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	ExternalId    *string                `protobuf:"bytes,7,opt,name=external_id,json=externalId,proto3,oneof" json:"external_id,omitempty"` // External identity provider org ID (e.g., Clerk org_id)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Tenant) Reset() {
-	*x = Tenant{}
-	mi := &file_proto_webhook_proto_msgTypes[72]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Tenant) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Tenant) ProtoMessage() {}
-
-func (x *Tenant) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[72]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Tenant.ProtoReflect.Descriptor instead.
-func (*Tenant) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{72}
-}
-
-func (x *Tenant) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *Tenant) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *Tenant) GetSlug() string {
-	if x != nil {
-		return x.Slug
-	}
-	return ""
-}
-
-func (x *Tenant) GetStatus() string {
-	if x != nil {
-		return x.Status
-	}
-	return ""
-}
-
-func (x *Tenant) GetCreatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return nil
-}
-
-func (x *Tenant) GetUpdatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return nil
-}
-
-func (x *Tenant) GetExternalId() string {
-	if x != nil && x.ExternalId != nil {
-		return *x.ExternalId
-	}
-	return ""
-}
-
-// CreateTenantRequest represents a request to create a tenant
-type CreateTenantRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                     // Tenant name (required)
-	ExternalId    *string                `protobuf:"bytes,2,opt,name=external_id,json=externalId,proto3,oneof" json:"external_id,omitempty"` // External identity provider org ID (e.g., Clerk org_id)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CreateTenantRequest) Reset() {
-	*x = CreateTenantRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[73]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CreateTenantRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CreateTenantRequest) ProtoMessage() {}
-
-func (x *CreateTenantRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[73]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CreateTenantRequest.ProtoReflect.Descriptor instead.
-func (*CreateTenantRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{73}
-}
-
-func (x *CreateTenantRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *CreateTenantRequest) GetExternalId() string {
-	if x != nil && x.ExternalId != nil {
-		return *x.ExternalId
-	}
-	return ""
-}
-
-// CreateTenantResponse represents the response for tenant creation
-type CreateTenantResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tenant        *Tenant                `protobuf:"bytes,1,opt,name=tenant,proto3" json:"tenant,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CreateTenantResponse) Reset() {
-	*x = CreateTenantResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[74]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CreateTenantResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CreateTenantResponse) ProtoMessage() {}
-
-func (x *CreateTenantResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[74]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CreateTenantResponse.ProtoReflect.Descriptor instead.
-func (*CreateTenantResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{74}
-}
-
-func (x *CreateTenantResponse) GetTenant() *Tenant {
-	if x != nil {
-		return x.Tenant
-	}
-	return nil
-}
-
-// GetTenantRequest represents a request to get a tenant
-type GetTenantRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // Tenant ID (UUID)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTenantRequest) Reset() {
-	*x = GetTenantRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[75]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTenantRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTenantRequest) ProtoMessage() {}
-
-func (x *GetTenantRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[75]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTenantRequest.ProtoReflect.Descriptor instead.
-func (*GetTenantRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{75}
-}
-
-func (x *GetTenantRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-// GetTenantResponse represents the response for getting a tenant
-type GetTenantResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tenant        *Tenant                `protobuf:"bytes,1,opt,name=tenant,proto3" json:"tenant,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetTenantResponse) Reset() {
-	*x = GetTenantResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[76]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetTenantResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetTenantResponse) ProtoMessage() {}
-
-func (x *GetTenantResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[76]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetTenantResponse.ProtoReflect.Descriptor instead.
-func (*GetTenantResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{76}
-}
-
-func (x *GetTenantResponse) GetTenant() *Tenant {
-	if x != nil {
-		return x.Tenant
-	}
-	return nil
-}
-
-// ListTenantsRequest represents a request to list tenants
-type ListTenantsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Pagination    *PaginationRequest     `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListTenantsRequest) Reset() {
-	*x = ListTenantsRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[77]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListTenantsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListTenantsRequest) ProtoMessage() {}
-
-func (x *ListTenantsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[77]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListTenantsRequest.ProtoReflect.Descriptor instead.
-func (*ListTenantsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{77}
-}
-
-func (x *ListTenantsRequest) GetPagination() *PaginationRequest {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// ListTenantsResponse represents the response for listing tenants
-type ListTenantsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tenants       []*Tenant              `protobuf:"bytes,1,rep,name=tenants,proto3" json:"tenants,omitempty"`
-	Pagination    *PaginationResponse    `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListTenantsResponse) Reset() {
-	*x = ListTenantsResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[78]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListTenantsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListTenantsResponse) ProtoMessage() {}
-
-func (x *ListTenantsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[78]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListTenantsResponse.ProtoReflect.Descriptor instead.
-func (*ListTenantsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{78}
-}
-
-func (x *ListTenantsResponse) GetTenants() []*Tenant {
-	if x != nil {
-		return x.Tenants
-	}
-	return nil
-}
-
-func (x *ListTenantsResponse) GetPagination() *PaginationResponse {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// UpdateTenantRequest represents a request to update a tenant
-type UpdateTenantRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`         // Tenant ID (UUID, required)
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`     // Updated name (optional, empty = no change)
-	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"` // Updated status (optional, empty = no change)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateTenantRequest) Reset() {
-	*x = UpdateTenantRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[79]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateTenantRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateTenantRequest) ProtoMessage() {}
-
-func (x *UpdateTenantRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[79]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateTenantRequest.ProtoReflect.Descriptor instead.
-func (*UpdateTenantRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{79}
-}
-
-func (x *UpdateTenantRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *UpdateTenantRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *UpdateTenantRequest) GetStatus() string {
-	if x != nil {
-		return x.Status
-	}
-	return ""
-}
-
-// UpdateTenantResponse represents the response for updating a tenant
-type UpdateTenantResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tenant        *Tenant                `protobuf:"bytes,1,opt,name=tenant,proto3" json:"tenant,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateTenantResponse) Reset() {
-	*x = UpdateTenantResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[80]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateTenantResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateTenantResponse) ProtoMessage() {}
-
-func (x *UpdateTenantResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[80]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateTenantResponse.ProtoReflect.Descriptor instead.
-func (*UpdateTenantResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{80}
-}
-
-func (x *UpdateTenantResponse) GetTenant() *Tenant {
-	if x != nil {
-		return x.Tenant
-	}
-	return nil
-}
-
-// DeleteTenantRequest represents a request to delete a tenant
-type DeleteTenantRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // Tenant ID (UUID)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DeleteTenantRequest) Reset() {
-	*x = DeleteTenantRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[81]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DeleteTenantRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeleteTenantRequest) ProtoMessage() {}
-
-func (x *DeleteTenantRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[81]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeleteTenantRequest.ProtoReflect.Descriptor instead.
-func (*DeleteTenantRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{81}
-}
-
-func (x *DeleteTenantRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-// DeleteTenantResponse represents the response for tenant deletion
-type DeleteTenantResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DeleteTenantResponse) Reset() {
-	*x = DeleteTenantResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[82]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DeleteTenantResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeleteTenantResponse) ProtoMessage() {}
-
-func (x *DeleteTenantResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[82]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeleteTenantResponse.ProtoReflect.Descriptor instead.
-func (*DeleteTenantResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{82}
-}
-
-// APIKey represents a stored API key (secret is never returned after creation)
-type APIKey struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Id              string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                                     // API key UUID
-	TenantId        string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`                         // Owning tenant UUID
-	Name            string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`                                                 // Human-readable label
-	KeyPrefix       string                 `protobuf:"bytes,4,opt,name=key_prefix,json=keyPrefix,proto3" json:"key_prefix,omitempty"`                      // Key prefix (e.g., "sk_acme_") for identification
-	Role            string                 `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`                                                 // Role: tenant:admin, tenant:member, namespace:admin, namespace:member, namespace:viewer
-	NamespaceScope  *string                `protobuf:"bytes,6,opt,name=namespace_scope,json=namespaceScope,proto3,oneof" json:"namespace_scope,omitempty"` // Namespace scope (required for namespace roles)
-	IsPlatformAdmin bool                   `protobuf:"varint,7,opt,name=is_platform_admin,json=isPlatformAdmin,proto3" json:"is_platform_admin,omitempty"` // Whether this key has cross-tenant access
-	ExpiresAt       *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`                // Expiration time (null = never)
-	LastUsedAt      *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=last_used_at,json=lastUsedAt,proto3,oneof" json:"last_used_at,omitempty"`           // Last usage timestamp
-	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	RevokedAt       *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=revoked_at,json=revokedAt,proto3,oneof" json:"revoked_at,omitempty"` // Revocation timestamp (null = active)
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *APIKey) Reset() {
-	*x = APIKey{}
-	mi := &file_proto_webhook_proto_msgTypes[83]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *APIKey) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*APIKey) ProtoMessage() {}
-
-func (x *APIKey) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[83]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use APIKey.ProtoReflect.Descriptor instead.
-func (*APIKey) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{83}
-}
-
-func (x *APIKey) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *APIKey) GetTenantId() string {
-	if x != nil {
-		return x.TenantId
-	}
-	return ""
-}
-
-func (x *APIKey) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *APIKey) GetKeyPrefix() string {
-	if x != nil {
-		return x.KeyPrefix
-	}
-	return ""
-}
-
-func (x *APIKey) GetRole() string {
-	if x != nil {
-		return x.Role
-	}
-	return ""
-}
-
-func (x *APIKey) GetNamespaceScope() string {
-	if x != nil && x.NamespaceScope != nil {
-		return *x.NamespaceScope
-	}
-	return ""
-}
-
-func (x *APIKey) GetIsPlatformAdmin() bool {
-	if x != nil {
-		return x.IsPlatformAdmin
-	}
-	return false
-}
-
-func (x *APIKey) GetExpiresAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.ExpiresAt
-	}
-	return nil
-}
-
-func (x *APIKey) GetLastUsedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.LastUsedAt
-	}
-	return nil
-}
-
-func (x *APIKey) GetCreatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return nil
-}
-
-func (x *APIKey) GetRevokedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.RevokedAt
-	}
-	return nil
-}
-
-// CreateAPIKeyRequest represents a request to create an API key
-type CreateAPIKeyRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	TenantId        string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`                         // Tenant UUID (required)
-	Name            string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                 // Human-readable label (required)
-	Role            string                 `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`                                                 // Role (required)
-	NamespaceScope  *string                `protobuf:"bytes,4,opt,name=namespace_scope,json=namespaceScope,proto3,oneof" json:"namespace_scope,omitempty"` // Namespace scope (required for namespace roles)
-	IsPlatformAdmin bool                   `protobuf:"varint,5,opt,name=is_platform_admin,json=isPlatformAdmin,proto3" json:"is_platform_admin,omitempty"` // Grant cross-tenant access
-	ExpiresAt       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3,oneof" json:"expires_at,omitempty"`                // Optional expiration
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
-}
-
-func (x *CreateAPIKeyRequest) Reset() {
-	*x = CreateAPIKeyRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[84]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CreateAPIKeyRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CreateAPIKeyRequest) ProtoMessage() {}
-
-func (x *CreateAPIKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[84]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CreateAPIKeyRequest.ProtoReflect.Descriptor instead.
-func (*CreateAPIKeyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{84}
-}
-
-func (x *CreateAPIKeyRequest) GetTenantId() string {
-	if x != nil {
-		return x.TenantId
-	}
-	return ""
-}
-
-func (x *CreateAPIKeyRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *CreateAPIKeyRequest) GetRole() string {
-	if x != nil {
-		return x.Role
-	}
-	return ""
-}
-
-func (x *CreateAPIKeyRequest) GetNamespaceScope() string {
-	if x != nil && x.NamespaceScope != nil {
-		return *x.NamespaceScope
-	}
-	return ""
-}
-
-func (x *CreateAPIKeyRequest) GetIsPlatformAdmin() bool {
-	if x != nil {
-		return x.IsPlatformAdmin
-	}
-	return false
-}
-
-func (x *CreateAPIKeyRequest) GetExpiresAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.ExpiresAt
-	}
-	return nil
-}
-
-// CreateAPIKeyResponse returns the key details including the raw secret (shown only once)
-type CreateAPIKeyResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           *APIKey                `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`                     // Key metadata
-	RawKey        string                 `protobuf:"bytes,2,opt,name=raw_key,json=rawKey,proto3" json:"raw_key,omitempty"` // Plaintext API key — save this, it won't be shown again
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CreateAPIKeyResponse) Reset() {
-	*x = CreateAPIKeyResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[85]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CreateAPIKeyResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CreateAPIKeyResponse) ProtoMessage() {}
-
-func (x *CreateAPIKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[85]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CreateAPIKeyResponse.ProtoReflect.Descriptor instead.
-func (*CreateAPIKeyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{85}
-}
-
-func (x *CreateAPIKeyResponse) GetKey() *APIKey {
-	if x != nil {
-		return x.Key
-	}
-	return nil
-}
-
-func (x *CreateAPIKeyResponse) GetRawKey() string {
-	if x != nil {
-		return x.RawKey
-	}
-	return ""
-}
-
-// GetAPIKeyRequest represents a request to get an API key
-type GetAPIKeyRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // API key UUID
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetAPIKeyRequest) Reset() {
-	*x = GetAPIKeyRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[86]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetAPIKeyRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetAPIKeyRequest) ProtoMessage() {}
-
-func (x *GetAPIKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[86]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetAPIKeyRequest.ProtoReflect.Descriptor instead.
-func (*GetAPIKeyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{86}
-}
-
-func (x *GetAPIKeyRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-// GetAPIKeyResponse represents the response for getting an API key
-type GetAPIKeyResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           *APIKey                `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetAPIKeyResponse) Reset() {
-	*x = GetAPIKeyResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[87]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetAPIKeyResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetAPIKeyResponse) ProtoMessage() {}
-
-func (x *GetAPIKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[87]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetAPIKeyResponse.ProtoReflect.Descriptor instead.
-func (*GetAPIKeyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{87}
-}
-
-func (x *GetAPIKeyResponse) GetKey() *APIKey {
-	if x != nil {
-		return x.Key
-	}
-	return nil
-}
-
-// ListAPIKeysRequest represents a request to list API keys for a tenant
-type ListAPIKeysRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TenantId      string                 `protobuf:"bytes,1,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"` // Tenant UUID (required)
-	Pagination    *PaginationRequest     `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListAPIKeysRequest) Reset() {
-	*x = ListAPIKeysRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[88]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListAPIKeysRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListAPIKeysRequest) ProtoMessage() {}
-
-func (x *ListAPIKeysRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[88]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListAPIKeysRequest.ProtoReflect.Descriptor instead.
-func (*ListAPIKeysRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{88}
-}
-
-func (x *ListAPIKeysRequest) GetTenantId() string {
-	if x != nil {
-		return x.TenantId
-	}
-	return ""
-}
-
-func (x *ListAPIKeysRequest) GetPagination() *PaginationRequest {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// ListAPIKeysResponse represents the response for listing API keys
-type ListAPIKeysResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Keys          []*APIKey              `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
-	Pagination    *PaginationResponse    `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListAPIKeysResponse) Reset() {
-	*x = ListAPIKeysResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[89]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListAPIKeysResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListAPIKeysResponse) ProtoMessage() {}
-
-func (x *ListAPIKeysResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[89]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListAPIKeysResponse.ProtoReflect.Descriptor instead.
-func (*ListAPIKeysResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{89}
-}
-
-func (x *ListAPIKeysResponse) GetKeys() []*APIKey {
-	if x != nil {
-		return x.Keys
-	}
-	return nil
-}
-
-func (x *ListAPIKeysResponse) GetPagination() *PaginationResponse {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// RevokeAPIKeyRequest represents a request to revoke an API key
-type RevokeAPIKeyRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // API key UUID
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RevokeAPIKeyRequest) Reset() {
-	*x = RevokeAPIKeyRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[90]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RevokeAPIKeyRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RevokeAPIKeyRequest) ProtoMessage() {}
-
-func (x *RevokeAPIKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[90]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RevokeAPIKeyRequest.ProtoReflect.Descriptor instead.
-func (*RevokeAPIKeyRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{90}
-}
-
-func (x *RevokeAPIKeyRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-// RevokeAPIKeyResponse represents the response for revoking an API key
-type RevokeAPIKeyResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RevokeAPIKeyResponse) Reset() {
-	*x = RevokeAPIKeyResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[91]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RevokeAPIKeyResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RevokeAPIKeyResponse) ProtoMessage() {}
-
-func (x *RevokeAPIKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[91]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RevokeAPIKeyResponse.ProtoReflect.Descriptor instead.
-func (*RevokeAPIKeyResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{91}
-}
-
 // NamespaceResource represents a namespace entity
 type NamespaceResource struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -6490,7 +5414,7 @@ type NamespaceResource struct {
 
 func (x *NamespaceResource) Reset() {
 	*x = NamespaceResource{}
-	mi := &file_proto_webhook_proto_msgTypes[92]
+	mi := &file_proto_webhook_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6502,7 +5426,7 @@ func (x *NamespaceResource) String() string {
 func (*NamespaceResource) ProtoMessage() {}
 
 func (x *NamespaceResource) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[92]
+	mi := &file_proto_webhook_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6515,7 +5439,7 @@ func (x *NamespaceResource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamespaceResource.ProtoReflect.Descriptor instead.
 func (*NamespaceResource) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{92}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *NamespaceResource) GetId() string {
@@ -6571,7 +5495,7 @@ type CreateNamespaceRequest struct {
 
 func (x *CreateNamespaceRequest) Reset() {
 	*x = CreateNamespaceRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[93]
+	mi := &file_proto_webhook_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6583,7 +5507,7 @@ func (x *CreateNamespaceRequest) String() string {
 func (*CreateNamespaceRequest) ProtoMessage() {}
 
 func (x *CreateNamespaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[93]
+	mi := &file_proto_webhook_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6596,7 +5520,7 @@ func (x *CreateNamespaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateNamespaceRequest.ProtoReflect.Descriptor instead.
 func (*CreateNamespaceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{93}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *CreateNamespaceRequest) GetName() string {
@@ -6623,7 +5547,7 @@ type CreateNamespaceResponse struct {
 
 func (x *CreateNamespaceResponse) Reset() {
 	*x = CreateNamespaceResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[94]
+	mi := &file_proto_webhook_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6635,7 +5559,7 @@ func (x *CreateNamespaceResponse) String() string {
 func (*CreateNamespaceResponse) ProtoMessage() {}
 
 func (x *CreateNamespaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[94]
+	mi := &file_proto_webhook_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6648,7 +5572,7 @@ func (x *CreateNamespaceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateNamespaceResponse.ProtoReflect.Descriptor instead.
 func (*CreateNamespaceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{94}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *CreateNamespaceResponse) GetNamespace() *NamespaceResource {
@@ -6669,7 +5593,7 @@ type GetNamespaceRequest struct {
 
 func (x *GetNamespaceRequest) Reset() {
 	*x = GetNamespaceRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[95]
+	mi := &file_proto_webhook_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6681,7 +5605,7 @@ func (x *GetNamespaceRequest) String() string {
 func (*GetNamespaceRequest) ProtoMessage() {}
 
 func (x *GetNamespaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[95]
+	mi := &file_proto_webhook_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6694,7 +5618,7 @@ func (x *GetNamespaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNamespaceRequest.ProtoReflect.Descriptor instead.
 func (*GetNamespaceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{95}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *GetNamespaceRequest) GetId() string {
@@ -6721,7 +5645,7 @@ type GetNamespaceResponse struct {
 
 func (x *GetNamespaceResponse) Reset() {
 	*x = GetNamespaceResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[96]
+	mi := &file_proto_webhook_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6733,7 +5657,7 @@ func (x *GetNamespaceResponse) String() string {
 func (*GetNamespaceResponse) ProtoMessage() {}
 
 func (x *GetNamespaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[96]
+	mi := &file_proto_webhook_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6746,7 +5670,7 @@ func (x *GetNamespaceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNamespaceResponse.ProtoReflect.Descriptor instead.
 func (*GetNamespaceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{96}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *GetNamespaceResponse) GetNamespace() *NamespaceResource {
@@ -6766,7 +5690,7 @@ type ListNamespacesRequest struct {
 
 func (x *ListNamespacesRequest) Reset() {
 	*x = ListNamespacesRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[97]
+	mi := &file_proto_webhook_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6778,7 +5702,7 @@ func (x *ListNamespacesRequest) String() string {
 func (*ListNamespacesRequest) ProtoMessage() {}
 
 func (x *ListNamespacesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[97]
+	mi := &file_proto_webhook_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6791,7 +5715,7 @@ func (x *ListNamespacesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNamespacesRequest.ProtoReflect.Descriptor instead.
 func (*ListNamespacesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{97}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *ListNamespacesRequest) GetPagination() *PaginationRequest {
@@ -6812,7 +5736,7 @@ type ListNamespacesResponse struct {
 
 func (x *ListNamespacesResponse) Reset() {
 	*x = ListNamespacesResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[98]
+	mi := &file_proto_webhook_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6824,7 +5748,7 @@ func (x *ListNamespacesResponse) String() string {
 func (*ListNamespacesResponse) ProtoMessage() {}
 
 func (x *ListNamespacesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[98]
+	mi := &file_proto_webhook_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6837,7 +5761,7 @@ func (x *ListNamespacesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNamespacesResponse.ProtoReflect.Descriptor instead.
 func (*ListNamespacesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{98}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *ListNamespacesResponse) GetNamespaces() []*NamespaceResource {
@@ -6867,7 +5791,7 @@ type UpdateNamespaceRequest2 struct {
 
 func (x *UpdateNamespaceRequest2) Reset() {
 	*x = UpdateNamespaceRequest2{}
-	mi := &file_proto_webhook_proto_msgTypes[99]
+	mi := &file_proto_webhook_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6879,7 +5803,7 @@ func (x *UpdateNamespaceRequest2) String() string {
 func (*UpdateNamespaceRequest2) ProtoMessage() {}
 
 func (x *UpdateNamespaceRequest2) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[99]
+	mi := &file_proto_webhook_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6892,7 +5816,7 @@ func (x *UpdateNamespaceRequest2) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateNamespaceRequest2.ProtoReflect.Descriptor instead.
 func (*UpdateNamespaceRequest2) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{99}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *UpdateNamespaceRequest2) GetId() string {
@@ -6926,7 +5850,7 @@ type UpdateNamespaceResponse2 struct {
 
 func (x *UpdateNamespaceResponse2) Reset() {
 	*x = UpdateNamespaceResponse2{}
-	mi := &file_proto_webhook_proto_msgTypes[100]
+	mi := &file_proto_webhook_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6938,7 +5862,7 @@ func (x *UpdateNamespaceResponse2) String() string {
 func (*UpdateNamespaceResponse2) ProtoMessage() {}
 
 func (x *UpdateNamespaceResponse2) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[100]
+	mi := &file_proto_webhook_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6951,7 +5875,7 @@ func (x *UpdateNamespaceResponse2) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateNamespaceResponse2.ProtoReflect.Descriptor instead.
 func (*UpdateNamespaceResponse2) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{100}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *UpdateNamespaceResponse2) GetNamespace() *NamespaceResource {
@@ -6971,7 +5895,7 @@ type DeleteNamespaceRequest struct {
 
 func (x *DeleteNamespaceRequest) Reset() {
 	*x = DeleteNamespaceRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[101]
+	mi := &file_proto_webhook_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6983,7 +5907,7 @@ func (x *DeleteNamespaceRequest) String() string {
 func (*DeleteNamespaceRequest) ProtoMessage() {}
 
 func (x *DeleteNamespaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[101]
+	mi := &file_proto_webhook_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6996,7 +5920,7 @@ func (x *DeleteNamespaceRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteNamespaceRequest.ProtoReflect.Descriptor instead.
 func (*DeleteNamespaceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{101}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *DeleteNamespaceRequest) GetId() string {
@@ -7015,7 +5939,7 @@ type DeleteNamespaceResponse2 struct {
 
 func (x *DeleteNamespaceResponse2) Reset() {
 	*x = DeleteNamespaceResponse2{}
-	mi := &file_proto_webhook_proto_msgTypes[102]
+	mi := &file_proto_webhook_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -7027,7 +5951,7 @@ func (x *DeleteNamespaceResponse2) String() string {
 func (*DeleteNamespaceResponse2) ProtoMessage() {}
 
 func (x *DeleteNamespaceResponse2) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[102]
+	mi := &file_proto_webhook_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -7040,1234 +5964,7 @@ func (x *DeleteNamespaceResponse2) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteNamespaceResponse2.ProtoReflect.Descriptor instead.
 func (*DeleteNamespaceResponse2) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{102}
-}
-
-// NamespaceMembership represents a user's role on a namespace
-type NamespaceMembership struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                // Membership UUID
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`    // Tenant UUID
-	SubjectId     string                 `protobuf:"bytes,3,opt,name=subject_id,json=subjectId,proto3" json:"subject_id,omitempty"` // User subject ID (JWT sub claim)
-	Namespace     string                 `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`                  // Namespace name
-	Role          string                 `protobuf:"bytes,5,opt,name=role,proto3" json:"role,omitempty"`                            // Role: namespace:admin, namespace:member, namespace:viewer
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *NamespaceMembership) Reset() {
-	*x = NamespaceMembership{}
-	mi := &file_proto_webhook_proto_msgTypes[103]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *NamespaceMembership) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*NamespaceMembership) ProtoMessage() {}
-
-func (x *NamespaceMembership) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[103]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use NamespaceMembership.ProtoReflect.Descriptor instead.
-func (*NamespaceMembership) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{103}
-}
-
-func (x *NamespaceMembership) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *NamespaceMembership) GetTenantId() string {
-	if x != nil {
-		return x.TenantId
-	}
-	return ""
-}
-
-func (x *NamespaceMembership) GetSubjectId() string {
-	if x != nil {
-		return x.SubjectId
-	}
-	return ""
-}
-
-func (x *NamespaceMembership) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *NamespaceMembership) GetRole() string {
-	if x != nil {
-		return x.Role
-	}
-	return ""
-}
-
-func (x *NamespaceMembership) GetCreatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return nil
-}
-
-func (x *NamespaceMembership) GetUpdatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return nil
-}
-
-// AssignNamespaceRoleRequest represents a request to assign a namespace role
-type AssignNamespaceRoleRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SubjectId     string                 `protobuf:"bytes,1,opt,name=subject_id,json=subjectId,proto3" json:"subject_id,omitempty"` // User subject ID (required)
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                  // Namespace name (required)
-	Role          string                 `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`                            // Role to assign (required)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AssignNamespaceRoleRequest) Reset() {
-	*x = AssignNamespaceRoleRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[104]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AssignNamespaceRoleRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AssignNamespaceRoleRequest) ProtoMessage() {}
-
-func (x *AssignNamespaceRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[104]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AssignNamespaceRoleRequest.ProtoReflect.Descriptor instead.
-func (*AssignNamespaceRoleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{104}
-}
-
-func (x *AssignNamespaceRoleRequest) GetSubjectId() string {
-	if x != nil {
-		return x.SubjectId
-	}
-	return ""
-}
-
-func (x *AssignNamespaceRoleRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *AssignNamespaceRoleRequest) GetRole() string {
-	if x != nil {
-		return x.Role
-	}
-	return ""
-}
-
-// AssignNamespaceRoleResponse represents the response for assigning a namespace role
-type AssignNamespaceRoleResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Membership    *NamespaceMembership   `protobuf:"bytes,1,opt,name=membership,proto3" json:"membership,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AssignNamespaceRoleResponse) Reset() {
-	*x = AssignNamespaceRoleResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[105]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AssignNamespaceRoleResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AssignNamespaceRoleResponse) ProtoMessage() {}
-
-func (x *AssignNamespaceRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[105]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AssignNamespaceRoleResponse.ProtoReflect.Descriptor instead.
-func (*AssignNamespaceRoleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{105}
-}
-
-func (x *AssignNamespaceRoleResponse) GetMembership() *NamespaceMembership {
-	if x != nil {
-		return x.Membership
-	}
-	return nil
-}
-
-// RemoveNamespaceRoleRequest represents a request to remove a namespace role
-type RemoveNamespaceRoleRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SubjectId     string                 `protobuf:"bytes,1,opt,name=subject_id,json=subjectId,proto3" json:"subject_id,omitempty"` // User subject ID (required)
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                  // Namespace name (required)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RemoveNamespaceRoleRequest) Reset() {
-	*x = RemoveNamespaceRoleRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[106]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RemoveNamespaceRoleRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RemoveNamespaceRoleRequest) ProtoMessage() {}
-
-func (x *RemoveNamespaceRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[106]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RemoveNamespaceRoleRequest.ProtoReflect.Descriptor instead.
-func (*RemoveNamespaceRoleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{106}
-}
-
-func (x *RemoveNamespaceRoleRequest) GetSubjectId() string {
-	if x != nil {
-		return x.SubjectId
-	}
-	return ""
-}
-
-func (x *RemoveNamespaceRoleRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-// RemoveNamespaceRoleResponse represents the response for removing a namespace role
-type RemoveNamespaceRoleResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RemoveNamespaceRoleResponse) Reset() {
-	*x = RemoveNamespaceRoleResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[107]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RemoveNamespaceRoleResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RemoveNamespaceRoleResponse) ProtoMessage() {}
-
-func (x *RemoveNamespaceRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[107]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RemoveNamespaceRoleResponse.ProtoReflect.Descriptor instead.
-func (*RemoveNamespaceRoleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{107}
-}
-
-// ListNamespaceMembersRequest represents a request to list members of a namespace
-type ListNamespaceMembersRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"` // Namespace name (required)
-	Pagination    *PaginationRequest     `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListNamespaceMembersRequest) Reset() {
-	*x = ListNamespaceMembersRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[108]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListNamespaceMembersRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListNamespaceMembersRequest) ProtoMessage() {}
-
-func (x *ListNamespaceMembersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[108]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListNamespaceMembersRequest.ProtoReflect.Descriptor instead.
-func (*ListNamespaceMembersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{108}
-}
-
-func (x *ListNamespaceMembersRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *ListNamespaceMembersRequest) GetPagination() *PaginationRequest {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// ListNamespaceMembersResponse represents the response for listing namespace members
-type ListNamespaceMembersResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Members       []*NamespaceMembership `protobuf:"bytes,1,rep,name=members,proto3" json:"members,omitempty"`
-	Pagination    *PaginationResponse    `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListNamespaceMembersResponse) Reset() {
-	*x = ListNamespaceMembersResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[109]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListNamespaceMembersResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListNamespaceMembersResponse) ProtoMessage() {}
-
-func (x *ListNamespaceMembersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[109]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListNamespaceMembersResponse.ProtoReflect.Descriptor instead.
-func (*ListNamespaceMembersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{109}
-}
-
-func (x *ListNamespaceMembersResponse) GetMembers() []*NamespaceMembership {
-	if x != nil {
-		return x.Members
-	}
-	return nil
-}
-
-func (x *ListNamespaceMembersResponse) GetPagination() *PaginationResponse {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// GetUserNamespacesRequest represents a request to get a user's namespace memberships
-type GetUserNamespacesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SubjectId     string                 `protobuf:"bytes,1,opt,name=subject_id,json=subjectId,proto3" json:"subject_id,omitempty"` // User subject ID (required, empty = caller's own)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetUserNamespacesRequest) Reset() {
-	*x = GetUserNamespacesRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[110]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetUserNamespacesRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetUserNamespacesRequest) ProtoMessage() {}
-
-func (x *GetUserNamespacesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[110]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetUserNamespacesRequest.ProtoReflect.Descriptor instead.
-func (*GetUserNamespacesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{110}
-}
-
-func (x *GetUserNamespacesRequest) GetSubjectId() string {
-	if x != nil {
-		return x.SubjectId
-	}
-	return ""
-}
-
-// GetUserNamespacesResponse represents the response for getting user namespaces
-type GetUserNamespacesResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Memberships   []*NamespaceMembership `protobuf:"bytes,1,rep,name=memberships,proto3" json:"memberships,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetUserNamespacesResponse) Reset() {
-	*x = GetUserNamespacesResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[111]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetUserNamespacesResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetUserNamespacesResponse) ProtoMessage() {}
-
-func (x *GetUserNamespacesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[111]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetUserNamespacesResponse.ProtoReflect.Descriptor instead.
-func (*GetUserNamespacesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{111}
-}
-
-func (x *GetUserNamespacesResponse) GetMemberships() []*NamespaceMembership {
-	if x != nil {
-		return x.Memberships
-	}
-	return nil
-}
-
-// TeamMember represents an organization member with profile information
-type TeamMember struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`          // Identity provider user ID (e.g., Clerk user_id)
-	FirstName     string                 `protobuf:"bytes,2,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"` // First name
-	LastName      string                 `protobuf:"bytes,3,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`    // Last name
-	Email         string                 `protobuf:"bytes,4,opt,name=email,proto3" json:"email,omitempty"`                          // Primary email / identifier
-	ImageUrl      string                 `protobuf:"bytes,5,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`    // Profile image URL
-	Role          string                 `protobuf:"bytes,6,opt,name=role,proto3" json:"role,omitempty"`                            // Organization role (e.g., "org:admin", "org:member")
-	JoinedAt      *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=joined_at,json=joinedAt,proto3" json:"joined_at,omitempty"`    // When the member joined the organization
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TeamMember) Reset() {
-	*x = TeamMember{}
-	mi := &file_proto_webhook_proto_msgTypes[112]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TeamMember) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TeamMember) ProtoMessage() {}
-
-func (x *TeamMember) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[112]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TeamMember.ProtoReflect.Descriptor instead.
-func (*TeamMember) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{112}
-}
-
-func (x *TeamMember) GetUserId() string {
-	if x != nil {
-		return x.UserId
-	}
-	return ""
-}
-
-func (x *TeamMember) GetFirstName() string {
-	if x != nil {
-		return x.FirstName
-	}
-	return ""
-}
-
-func (x *TeamMember) GetLastName() string {
-	if x != nil {
-		return x.LastName
-	}
-	return ""
-}
-
-func (x *TeamMember) GetEmail() string {
-	if x != nil {
-		return x.Email
-	}
-	return ""
-}
-
-func (x *TeamMember) GetImageUrl() string {
-	if x != nil {
-		return x.ImageUrl
-	}
-	return ""
-}
-
-func (x *TeamMember) GetRole() string {
-	if x != nil {
-		return x.Role
-	}
-	return ""
-}
-
-func (x *TeamMember) GetJoinedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.JoinedAt
-	}
-	return nil
-}
-
-// TeamInvitation represents a pending organization invitation
-type TeamInvitation struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                                // Invitation ID
-	Email         string                 `protobuf:"bytes,2,opt,name=email,proto3" json:"email,omitempty"`                          // Invited email address
-	Role          string                 `protobuf:"bytes,3,opt,name=role,proto3" json:"role,omitempty"`                            // Role assigned on acceptance (e.g., "org:member")
-	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`                        // Invitation status (e.g., "pending", "accepted", "revoked")
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"` // When the invitation was created
-	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"` // When the invitation expires
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TeamInvitation) Reset() {
-	*x = TeamInvitation{}
-	mi := &file_proto_webhook_proto_msgTypes[113]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TeamInvitation) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TeamInvitation) ProtoMessage() {}
-
-func (x *TeamInvitation) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[113]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TeamInvitation.ProtoReflect.Descriptor instead.
-func (*TeamInvitation) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{113}
-}
-
-func (x *TeamInvitation) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *TeamInvitation) GetEmail() string {
-	if x != nil {
-		return x.Email
-	}
-	return ""
-}
-
-func (x *TeamInvitation) GetRole() string {
-	if x != nil {
-		return x.Role
-	}
-	return ""
-}
-
-func (x *TeamInvitation) GetStatus() string {
-	if x != nil {
-		return x.Status
-	}
-	return ""
-}
-
-func (x *TeamInvitation) GetCreatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return nil
-}
-
-func (x *TeamInvitation) GetExpiresAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.ExpiresAt
-	}
-	return nil
-}
-
-// ListMembersRequest represents a request to list organization members
-type ListMembersRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Pagination    *PaginationRequest     `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListMembersRequest) Reset() {
-	*x = ListMembersRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[114]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListMembersRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListMembersRequest) ProtoMessage() {}
-
-func (x *ListMembersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[114]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListMembersRequest.ProtoReflect.Descriptor instead.
-func (*ListMembersRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{114}
-}
-
-func (x *ListMembersRequest) GetPagination() *PaginationRequest {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// ListMembersResponse represents the response for listing organization members
-type ListMembersResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Members       []*TeamMember          `protobuf:"bytes,1,rep,name=members,proto3" json:"members,omitempty"`
-	TotalCount    int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListMembersResponse) Reset() {
-	*x = ListMembersResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[115]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListMembersResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListMembersResponse) ProtoMessage() {}
-
-func (x *ListMembersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[115]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListMembersResponse.ProtoReflect.Descriptor instead.
-func (*ListMembersResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{115}
-}
-
-func (x *ListMembersResponse) GetMembers() []*TeamMember {
-	if x != nil {
-		return x.Members
-	}
-	return nil
-}
-
-func (x *ListMembersResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
-// InviteMemberRequest represents a request to invite a member by email
-type InviteMemberRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"` // Email address to invite (required)
-	Role          string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`   // Organization role to assign (required, e.g., "org:member")
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *InviteMemberRequest) Reset() {
-	*x = InviteMemberRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[116]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *InviteMemberRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*InviteMemberRequest) ProtoMessage() {}
-
-func (x *InviteMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[116]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use InviteMemberRequest.ProtoReflect.Descriptor instead.
-func (*InviteMemberRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{116}
-}
-
-func (x *InviteMemberRequest) GetEmail() string {
-	if x != nil {
-		return x.Email
-	}
-	return ""
-}
-
-func (x *InviteMemberRequest) GetRole() string {
-	if x != nil {
-		return x.Role
-	}
-	return ""
-}
-
-// InviteMemberResponse represents the response for inviting a member
-type InviteMemberResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Invitation    *TeamInvitation        `protobuf:"bytes,1,opt,name=invitation,proto3" json:"invitation,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *InviteMemberResponse) Reset() {
-	*x = InviteMemberResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[117]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *InviteMemberResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*InviteMemberResponse) ProtoMessage() {}
-
-func (x *InviteMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[117]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use InviteMemberResponse.ProtoReflect.Descriptor instead.
-func (*InviteMemberResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{117}
-}
-
-func (x *InviteMemberResponse) GetInvitation() *TeamInvitation {
-	if x != nil {
-		return x.Invitation
-	}
-	return nil
-}
-
-// RemoveMemberRequest represents a request to remove a member
-type RemoveMemberRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // User ID of the member to remove (required)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RemoveMemberRequest) Reset() {
-	*x = RemoveMemberRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[118]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RemoveMemberRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RemoveMemberRequest) ProtoMessage() {}
-
-func (x *RemoveMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[118]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RemoveMemberRequest.ProtoReflect.Descriptor instead.
-func (*RemoveMemberRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{118}
-}
-
-func (x *RemoveMemberRequest) GetUserId() string {
-	if x != nil {
-		return x.UserId
-	}
-	return ""
-}
-
-// RemoveMemberResponse represents the response for removing a member
-type RemoveMemberResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RemoveMemberResponse) Reset() {
-	*x = RemoveMemberResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[119]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RemoveMemberResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RemoveMemberResponse) ProtoMessage() {}
-
-func (x *RemoveMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[119]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RemoveMemberResponse.ProtoReflect.Descriptor instead.
-func (*RemoveMemberResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{119}
-}
-
-// UpdateMemberRoleRequest represents a request to update a member's role
-type UpdateMemberRoleRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"` // User ID of the member (required)
-	Role          string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`                   // New organization role (required)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateMemberRoleRequest) Reset() {
-	*x = UpdateMemberRoleRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[120]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateMemberRoleRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateMemberRoleRequest) ProtoMessage() {}
-
-func (x *UpdateMemberRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[120]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateMemberRoleRequest.ProtoReflect.Descriptor instead.
-func (*UpdateMemberRoleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{120}
-}
-
-func (x *UpdateMemberRoleRequest) GetUserId() string {
-	if x != nil {
-		return x.UserId
-	}
-	return ""
-}
-
-func (x *UpdateMemberRoleRequest) GetRole() string {
-	if x != nil {
-		return x.Role
-	}
-	return ""
-}
-
-// UpdateMemberRoleResponse represents the response for updating a member's role
-type UpdateMemberRoleResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Member        *TeamMember            `protobuf:"bytes,1,opt,name=member,proto3" json:"member,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateMemberRoleResponse) Reset() {
-	*x = UpdateMemberRoleResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[121]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateMemberRoleResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateMemberRoleResponse) ProtoMessage() {}
-
-func (x *UpdateMemberRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[121]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateMemberRoleResponse.ProtoReflect.Descriptor instead.
-func (*UpdateMemberRoleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{121}
-}
-
-func (x *UpdateMemberRoleResponse) GetMember() *TeamMember {
-	if x != nil {
-		return x.Member
-	}
-	return nil
-}
-
-// ListInvitationsRequest represents a request to list pending invitations
-type ListInvitationsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Pagination    *PaginationRequest     `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"` // Filter by status (e.g., "pending"); empty = all
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListInvitationsRequest) Reset() {
-	*x = ListInvitationsRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[122]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListInvitationsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListInvitationsRequest) ProtoMessage() {}
-
-func (x *ListInvitationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[122]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListInvitationsRequest.ProtoReflect.Descriptor instead.
-func (*ListInvitationsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{122}
-}
-
-func (x *ListInvitationsRequest) GetPagination() *PaginationRequest {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-func (x *ListInvitationsRequest) GetStatus() string {
-	if x != nil {
-		return x.Status
-	}
-	return ""
-}
-
-// ListInvitationsResponse represents the response for listing invitations
-type ListInvitationsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Invitations   []*TeamInvitation      `protobuf:"bytes,1,rep,name=invitations,proto3" json:"invitations,omitempty"`
-	TotalCount    int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListInvitationsResponse) Reset() {
-	*x = ListInvitationsResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[123]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListInvitationsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListInvitationsResponse) ProtoMessage() {}
-
-func (x *ListInvitationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[123]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListInvitationsResponse.ProtoReflect.Descriptor instead.
-func (*ListInvitationsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{123}
-}
-
-func (x *ListInvitationsResponse) GetInvitations() []*TeamInvitation {
-	if x != nil {
-		return x.Invitations
-	}
-	return nil
-}
-
-func (x *ListInvitationsResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
-// RevokeInvitationRequest represents a request to revoke an invitation
-type RevokeInvitationRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	InvitationId  string                 `protobuf:"bytes,1,opt,name=invitation_id,json=invitationId,proto3" json:"invitation_id,omitempty"` // Invitation ID to revoke (required)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RevokeInvitationRequest) Reset() {
-	*x = RevokeInvitationRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[124]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RevokeInvitationRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RevokeInvitationRequest) ProtoMessage() {}
-
-func (x *RevokeInvitationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[124]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RevokeInvitationRequest.ProtoReflect.Descriptor instead.
-func (*RevokeInvitationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{124}
-}
-
-func (x *RevokeInvitationRequest) GetInvitationId() string {
-	if x != nil {
-		return x.InvitationId
-	}
-	return ""
-}
-
-// RevokeInvitationResponse represents the response for revoking an invitation
-type RevokeInvitationResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RevokeInvitationResponse) Reset() {
-	*x = RevokeInvitationResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[125]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RevokeInvitationResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RevokeInvitationResponse) ProtoMessage() {}
-
-func (x *RevokeInvitationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[125]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RevokeInvitationResponse.ProtoReflect.Descriptor instead.
-func (*RevokeInvitationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{125}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{82}
 }
 
 var File_proto_webhook_proto protoreflect.FileDescriptor
@@ -8316,7 +6013,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"W\n" +
 	"\x19UnregisterWebhookResponse\x12\x1c\n" +
 	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\xb8\x02\n" +
+	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\xb2\x03\n" +
 	"\x10PushEventRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x14\n" +
 	"\x05event\x18\x02 \x01(\tR\x05event\x121\n" +
@@ -8324,8 +6021,12 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vttl_seconds\x18\x04 \x01(\x03R\n" +
 	"ttlSeconds\x12C\n" +
 	"\bmetadata\x18\x05 \x03(\v2'.webhook.PushEventRequest.MetadataEntryR\bmetadata\x12\x13\n" +
-	"\x02id\x18\x06 \x01(\tH\x00R\x02id\x88\x01\x01\x1a;\n" +
+	"\x02id\x18\x06 \x01(\tH\x00R\x02id\x88\x01\x01\x12=\n" +
+	"\x06labels\x18\a \x03(\v2%.webhook.PushEventRequest.LabelsEntryR\x06labels\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a9\n" +
+	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x05\n" +
 	"\x03_id\"j\n" +
@@ -8649,7 +6350,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vtotal_count\x18\x02 \x01(\x05B\x02\x18\x01R\n" +
 	"totalCount\x12\x1c\n" +
 	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\x9b\x04\n" +
+	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\xaf\x05\n" +
 	"\x11EventSubscription\x12'\n" +
 	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12\x1d\n" +
 	"\n" +
@@ -8666,10 +6367,14 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"created_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1a:\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12Q\n" +
+	"\rlabel_filters\x18\f \x03(\v2,.webhook.EventSubscription.LabelFiltersEntryR\flabelFilters\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8c\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a?\n" +
+	"\x11LabelFiltersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa8\x04\n" +
 	"\x19CreateSubscriptionRequest\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1d\n" +
@@ -8680,8 +6385,12 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x06method\x18\x05 \x01(\tR\x06method\x12\x18\n" +
 	"\atimeout\x18\x06 \x01(\x05R\atimeout\x12+\n" +
 	"\x11transform_enabled\x18\a \x01(\bR\x10transformEnabled\x12-\n" +
-	"\x12transform_template\x18\b \x01(\tR\x11transformTemplate\x1a:\n" +
+	"\x12transform_template\x18\b \x01(\tR\x11transformTemplate\x12Y\n" +
+	"\rlabel_filters\x18\t \x03(\v24.webhook.CreateSubscriptionRequest.LabelFiltersEntryR\flabelFilters\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a?\n" +
+	"\x11LabelFiltersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xbc\x01\n" +
 	"\x1aCreateSubscriptionResponse\x12'\n" +
@@ -8714,7 +6423,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vtotal_count\x18\x02 \x01(\x05B\x02\x18\x01R\n" +
 	"totalCount\x12\x1c\n" +
 	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\xf7\x02\n" +
+	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\x93\x04\n" +
 	"\x19UpdateSubscriptionRequest\x12'\n" +
 	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12\x1c\n" +
 	"\tnamespace\x18\a \x01(\tR\tnamespace\x12I\n" +
@@ -8722,8 +6431,12 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x06method\x18\x03 \x01(\tR\x06method\x12\x18\n" +
 	"\atimeout\x18\x04 \x01(\x05R\atimeout\x12+\n" +
 	"\x11transform_enabled\x18\x05 \x01(\bR\x10transformEnabled\x12-\n" +
-	"\x12transform_template\x18\x06 \x01(\tR\x11transformTemplate\x1a:\n" +
+	"\x12transform_template\x18\x06 \x01(\tR\x11transformTemplate\x12Y\n" +
+	"\rlabel_filters\x18\b \x03(\v24.webhook.UpdateSubscriptionRequest.LabelFiltersEntryR\flabelFilters\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a?\n" +
+	"\x11LabelFiltersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"X\n" +
 	"\x1aUpdateSubscriptionResponse\x12\x1c\n" +
@@ -8783,100 +6496,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vdelivery_id\x18\x01 \x01(\tR\n" +
 	"deliveryId\"S\n" +
 	"\x1bGetDeliveryAttemptsResponse\x124\n" +
-	"\battempts\x18\x01 \x03(\v2\x18.webhook.DeliveryAttemptR\battempts\"\x84\x02\n" +
-	"\x06Tenant\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
-	"\x04slug\x18\x03 \x01(\tR\x04slug\x12\x16\n" +
-	"\x06status\x18\x04 \x01(\tR\x06status\x129\n" +
-	"\n" +
-	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
-	"\n" +
-	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12$\n" +
-	"\vexternal_id\x18\a \x01(\tH\x00R\n" +
-	"externalId\x88\x01\x01B\x0e\n" +
-	"\f_external_id\"_\n" +
-	"\x13CreateTenantRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12$\n" +
-	"\vexternal_id\x18\x02 \x01(\tH\x00R\n" +
-	"externalId\x88\x01\x01B\x0e\n" +
-	"\f_external_id\"?\n" +
-	"\x14CreateTenantResponse\x12'\n" +
-	"\x06tenant\x18\x01 \x01(\v2\x0f.webhook.TenantR\x06tenant\"\"\n" +
-	"\x10GetTenantRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"<\n" +
-	"\x11GetTenantResponse\x12'\n" +
-	"\x06tenant\x18\x01 \x01(\v2\x0f.webhook.TenantR\x06tenant\"P\n" +
-	"\x12ListTenantsRequest\x12:\n" +
-	"\n" +
-	"pagination\x18\x01 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\"}\n" +
-	"\x13ListTenantsResponse\x12)\n" +
-	"\atenants\x18\x01 \x03(\v2\x0f.webhook.TenantR\atenants\x12;\n" +
-	"\n" +
-	"pagination\x18\x02 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\"Q\n" +
-	"\x13UpdateTenantRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
-	"\x06status\x18\x03 \x01(\tR\x06status\"?\n" +
-	"\x14UpdateTenantResponse\x12'\n" +
-	"\x06tenant\x18\x01 \x01(\v2\x0f.webhook.TenantR\x06tenant\"%\n" +
-	"\x13DeleteTenantRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x16\n" +
-	"\x14DeleteTenantResponse\"\x97\x04\n" +
-	"\x06APIKey\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
-	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x12\x1d\n" +
-	"\n" +
-	"key_prefix\x18\x04 \x01(\tR\tkeyPrefix\x12\x12\n" +
-	"\x04role\x18\x05 \x01(\tR\x04role\x12,\n" +
-	"\x0fnamespace_scope\x18\x06 \x01(\tH\x00R\x0enamespaceScope\x88\x01\x01\x12*\n" +
-	"\x11is_platform_admin\x18\a \x01(\bR\x0fisPlatformAdmin\x12>\n" +
-	"\n" +
-	"expires_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampH\x01R\texpiresAt\x88\x01\x01\x12A\n" +
-	"\flast_used_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampH\x02R\n" +
-	"lastUsedAt\x88\x01\x01\x129\n" +
-	"\n" +
-	"created_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12>\n" +
-	"\n" +
-	"revoked_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampH\x03R\trevokedAt\x88\x01\x01B\x12\n" +
-	"\x10_namespace_scopeB\r\n" +
-	"\v_expires_atB\x0f\n" +
-	"\r_last_used_atB\r\n" +
-	"\v_revoked_at\"\x97\x02\n" +
-	"\x13CreateAPIKeyRequest\x12\x1b\n" +
-	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
-	"\x04role\x18\x03 \x01(\tR\x04role\x12,\n" +
-	"\x0fnamespace_scope\x18\x04 \x01(\tH\x00R\x0enamespaceScope\x88\x01\x01\x12*\n" +
-	"\x11is_platform_admin\x18\x05 \x01(\bR\x0fisPlatformAdmin\x12>\n" +
-	"\n" +
-	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x01R\texpiresAt\x88\x01\x01B\x12\n" +
-	"\x10_namespace_scopeB\r\n" +
-	"\v_expires_at\"R\n" +
-	"\x14CreateAPIKeyResponse\x12!\n" +
-	"\x03key\x18\x01 \x01(\v2\x0f.webhook.APIKeyR\x03key\x12\x17\n" +
-	"\araw_key\x18\x02 \x01(\tR\x06rawKey\"\"\n" +
-	"\x10GetAPIKeyRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"6\n" +
-	"\x11GetAPIKeyResponse\x12!\n" +
-	"\x03key\x18\x01 \x01(\v2\x0f.webhook.APIKeyR\x03key\"m\n" +
-	"\x12ListAPIKeysRequest\x12\x1b\n" +
-	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12:\n" +
-	"\n" +
-	"pagination\x18\x02 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\"w\n" +
-	"\x13ListAPIKeysResponse\x12#\n" +
-	"\x04keys\x18\x01 \x03(\v2\x0f.webhook.APIKeyR\x04keys\x12;\n" +
-	"\n" +
-	"pagination\x18\x02 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\"%\n" +
-	"\x13RevokeAPIKeyRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x16\n" +
-	"\x14RevokeAPIKeyResponse\"\xec\x01\n" +
+	"\battempts\x18\x01 \x03(\v2\x18.webhook.DeliveryAttemptR\battempts\"\xec\x01\n" +
 	"\x11NamespaceResource\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
@@ -8915,101 +6535,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\tnamespace\x18\x01 \x01(\v2\x1a.webhook.NamespaceResourceR\tnamespace\"(\n" +
 	"\x16DeleteNamespaceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x1a\n" +
-	"\x18DeleteNamespaceResponse2\"\x89\x02\n" +
-	"\x13NamespaceMembership\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
-	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1d\n" +
-	"\n" +
-	"subject_id\x18\x03 \x01(\tR\tsubjectId\x12\x1c\n" +
-	"\tnamespace\x18\x04 \x01(\tR\tnamespace\x12\x12\n" +
-	"\x04role\x18\x05 \x01(\tR\x04role\x129\n" +
-	"\n" +
-	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
-	"\n" +
-	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"m\n" +
-	"\x1aAssignNamespaceRoleRequest\x12\x1d\n" +
-	"\n" +
-	"subject_id\x18\x01 \x01(\tR\tsubjectId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x12\n" +
-	"\x04role\x18\x03 \x01(\tR\x04role\"[\n" +
-	"\x1bAssignNamespaceRoleResponse\x12<\n" +
-	"\n" +
-	"membership\x18\x01 \x01(\v2\x1c.webhook.NamespaceMembershipR\n" +
-	"membership\"Y\n" +
-	"\x1aRemoveNamespaceRoleRequest\x12\x1d\n" +
-	"\n" +
-	"subject_id\x18\x01 \x01(\tR\tsubjectId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\x1d\n" +
-	"\x1bRemoveNamespaceRoleResponse\"w\n" +
-	"\x1bListNamespaceMembersRequest\x12\x1c\n" +
-	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12:\n" +
-	"\n" +
-	"pagination\x18\x02 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\"\x93\x01\n" +
-	"\x1cListNamespaceMembersResponse\x126\n" +
-	"\amembers\x18\x01 \x03(\v2\x1c.webhook.NamespaceMembershipR\amembers\x12;\n" +
-	"\n" +
-	"pagination\x18\x02 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\"9\n" +
-	"\x18GetUserNamespacesRequest\x12\x1d\n" +
-	"\n" +
-	"subject_id\x18\x01 \x01(\tR\tsubjectId\"[\n" +
-	"\x19GetUserNamespacesResponse\x12>\n" +
-	"\vmemberships\x18\x01 \x03(\v2\x1c.webhook.NamespaceMembershipR\vmemberships\"\xe1\x01\n" +
-	"\n" +
-	"TeamMember\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
-	"\n" +
-	"first_name\x18\x02 \x01(\tR\tfirstName\x12\x1b\n" +
-	"\tlast_name\x18\x03 \x01(\tR\blastName\x12\x14\n" +
-	"\x05email\x18\x04 \x01(\tR\x05email\x12\x1b\n" +
-	"\timage_url\x18\x05 \x01(\tR\bimageUrl\x12\x12\n" +
-	"\x04role\x18\x06 \x01(\tR\x04role\x127\n" +
-	"\tjoined_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\bjoinedAt\"\xd8\x01\n" +
-	"\x0eTeamInvitation\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
-	"\x05email\x18\x02 \x01(\tR\x05email\x12\x12\n" +
-	"\x04role\x18\x03 \x01(\tR\x04role\x12\x16\n" +
-	"\x06status\x18\x04 \x01(\tR\x06status\x129\n" +
-	"\n" +
-	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
-	"\n" +
-	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"P\n" +
-	"\x12ListMembersRequest\x12:\n" +
-	"\n" +
-	"pagination\x18\x01 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\"e\n" +
-	"\x13ListMembersResponse\x12-\n" +
-	"\amembers\x18\x01 \x03(\v2\x13.webhook.TeamMemberR\amembers\x12\x1f\n" +
-	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\"?\n" +
-	"\x13InviteMemberRequest\x12\x14\n" +
-	"\x05email\x18\x01 \x01(\tR\x05email\x12\x12\n" +
-	"\x04role\x18\x02 \x01(\tR\x04role\"O\n" +
-	"\x14InviteMemberResponse\x127\n" +
-	"\n" +
-	"invitation\x18\x01 \x01(\v2\x17.webhook.TeamInvitationR\n" +
-	"invitation\".\n" +
-	"\x13RemoveMemberRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x16\n" +
-	"\x14RemoveMemberResponse\"F\n" +
-	"\x17UpdateMemberRoleRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
-	"\x04role\x18\x02 \x01(\tR\x04role\"G\n" +
-	"\x18UpdateMemberRoleResponse\x12+\n" +
-	"\x06member\x18\x01 \x01(\v2\x13.webhook.TeamMemberR\x06member\"l\n" +
-	"\x16ListInvitationsRequest\x12:\n" +
-	"\n" +
-	"pagination\x18\x01 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\x12\x16\n" +
-	"\x06status\x18\x02 \x01(\tR\x06status\"u\n" +
-	"\x17ListInvitationsResponse\x129\n" +
-	"\vinvitations\x18\x01 \x03(\v2\x17.webhook.TeamInvitationR\vinvitations\x12\x1f\n" +
-	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\">\n" +
-	"\x17RevokeInvitationRequest\x12#\n" +
-	"\rinvitation_id\x18\x01 \x01(\tR\finvitationId\"\x1a\n" +
-	"\x18RevokeInvitationResponse*\xb5\x01\n" +
+	"\x18DeleteNamespaceResponse2*\xb5\x01\n" +
 	"\x15WebhookDeliveryStatus\x12\x18\n" +
 	"\x14DELIVERY_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10DELIVERY_PENDING\x10\x01\x12\x14\n" +
@@ -9056,36 +6582,13 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\rHealthService\x12W\n" +
 	"\x10GetWebhookHealth\x12 .webhook.GetWebhookHealthRequest\x1a!.webhook.GetWebhookHealthResponse\x12c\n" +
 	"\x14ListWebhooksByHealth\x12$.webhook.ListWebhooksByHealthRequest\x1a%.webhook.ListWebhooksByHealthResponse\x12W\n" +
-	"\x10GetHealthSummary\x12 .webhook.GetHealthSummaryRequest\x1a!.webhook.GetHealthSummaryResponse2\x84\x03\n" +
-	"\rTenantService\x12K\n" +
-	"\fCreateTenant\x12\x1c.webhook.CreateTenantRequest\x1a\x1d.webhook.CreateTenantResponse\x12B\n" +
-	"\tGetTenant\x12\x19.webhook.GetTenantRequest\x1a\x1a.webhook.GetTenantResponse\x12H\n" +
-	"\vListTenants\x12\x1b.webhook.ListTenantsRequest\x1a\x1c.webhook.ListTenantsResponse\x12K\n" +
-	"\fUpdateTenant\x12\x1c.webhook.UpdateTenantRequest\x1a\x1d.webhook.UpdateTenantResponse\x12K\n" +
-	"\fDeleteTenant\x12\x1c.webhook.DeleteTenantRequest\x1a\x1d.webhook.DeleteTenantResponse2\xb7\x02\n" +
-	"\rAPIKeyService\x12K\n" +
-	"\fCreateAPIKey\x12\x1c.webhook.CreateAPIKeyRequest\x1a\x1d.webhook.CreateAPIKeyResponse\x12B\n" +
-	"\tGetAPIKey\x12\x19.webhook.GetAPIKeyRequest\x1a\x1a.webhook.GetAPIKeyResponse\x12H\n" +
-	"\vListAPIKeys\x12\x1b.webhook.ListAPIKeysRequest\x1a\x1c.webhook.ListAPIKeysResponse\x12K\n" +
-	"\fRevokeAPIKey\x12\x1c.webhook.RevokeAPIKeyRequest\x1a\x1d.webhook.RevokeAPIKeyResponse2\xb7\x03\n" +
+	"\x10GetHealthSummary\x12 .webhook.GetHealthSummaryRequest\x1a!.webhook.GetHealthSummaryResponse2\xb7\x03\n" +
 	"\x10NamespaceService\x12T\n" +
 	"\x0fCreateNamespace\x12\x1f.webhook.CreateNamespaceRequest\x1a .webhook.CreateNamespaceResponse\x12K\n" +
 	"\fGetNamespace\x12\x1c.webhook.GetNamespaceRequest\x1a\x1d.webhook.GetNamespaceResponse\x12Q\n" +
 	"\x0eListNamespaces\x12\x1e.webhook.ListNamespacesRequest\x1a\x1f.webhook.ListNamespacesResponse\x12V\n" +
 	"\x0fUpdateNamespace\x12 .webhook.UpdateNamespaceRequest2\x1a!.webhook.UpdateNamespaceResponse2\x12U\n" +
-	"\x0fDeleteNamespace\x12\x1f.webhook.DeleteNamespaceRequest\x1a!.webhook.DeleteNamespaceResponse22\xa1\x03\n" +
-	"\x1aNamespaceMembershipService\x12`\n" +
-	"\x13AssignNamespaceRole\x12#.webhook.AssignNamespaceRoleRequest\x1a$.webhook.AssignNamespaceRoleResponse\x12`\n" +
-	"\x13RemoveNamespaceRole\x12#.webhook.RemoveNamespaceRoleRequest\x1a$.webhook.RemoveNamespaceRoleResponse\x12c\n" +
-	"\x14ListNamespaceMembers\x12$.webhook.ListNamespaceMembersRequest\x1a%.webhook.ListNamespaceMembersResponse\x12Z\n" +
-	"\x11GetUserNamespaces\x12!.webhook.GetUserNamespacesRequest\x1a\".webhook.GetUserNamespacesResponse2\xf9\x03\n" +
-	"\vTeamService\x12H\n" +
-	"\vListMembers\x12\x1b.webhook.ListMembersRequest\x1a\x1c.webhook.ListMembersResponse\x12K\n" +
-	"\fInviteMember\x12\x1c.webhook.InviteMemberRequest\x1a\x1d.webhook.InviteMemberResponse\x12K\n" +
-	"\fRemoveMember\x12\x1c.webhook.RemoveMemberRequest\x1a\x1d.webhook.RemoveMemberResponse\x12W\n" +
-	"\x10UpdateMemberRole\x12 .webhook.UpdateMemberRoleRequest\x1a!.webhook.UpdateMemberRoleResponse\x12T\n" +
-	"\x0fListInvitations\x12\x1f.webhook.ListInvitationsRequest\x1a .webhook.ListInvitationsResponse\x12W\n" +
-	"\x10RevokeInvitation\x12 .webhook.RevokeInvitationRequest\x1a!.webhook.RevokeInvitationResponseB%Z#github.com/sarathsp06/sparrow/protob\x06proto3"
+	"\x0fDeleteNamespace\x12\x1f.webhook.DeleteNamespaceRequest\x1a!.webhook.DeleteNamespaceResponse2B%Z#github.com/sarathsp06/sparrow/protob\x06proto3"
 
 var (
 	file_proto_webhook_proto_rawDescOnce sync.Once
@@ -9100,7 +6603,7 @@ func file_proto_webhook_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_webhook_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 137)
+var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 98)
 var file_proto_webhook_proto_goTypes = []any{
 	(WebhookDeliveryStatus)(0),               // 0: webhook.WebhookDeliveryStatus
 	(WebhookHealth)(0),                       // 1: webhook.WebhookHealth
@@ -9176,298 +6679,191 @@ var file_proto_webhook_proto_goTypes = []any{
 	(*DeliveryAttempt)(nil),                  // 71: webhook.DeliveryAttempt
 	(*GetDeliveryAttemptsRequest)(nil),       // 72: webhook.GetDeliveryAttemptsRequest
 	(*GetDeliveryAttemptsResponse)(nil),      // 73: webhook.GetDeliveryAttemptsResponse
-	(*Tenant)(nil),                           // 74: webhook.Tenant
-	(*CreateTenantRequest)(nil),              // 75: webhook.CreateTenantRequest
-	(*CreateTenantResponse)(nil),             // 76: webhook.CreateTenantResponse
-	(*GetTenantRequest)(nil),                 // 77: webhook.GetTenantRequest
-	(*GetTenantResponse)(nil),                // 78: webhook.GetTenantResponse
-	(*ListTenantsRequest)(nil),               // 79: webhook.ListTenantsRequest
-	(*ListTenantsResponse)(nil),              // 80: webhook.ListTenantsResponse
-	(*UpdateTenantRequest)(nil),              // 81: webhook.UpdateTenantRequest
-	(*UpdateTenantResponse)(nil),             // 82: webhook.UpdateTenantResponse
-	(*DeleteTenantRequest)(nil),              // 83: webhook.DeleteTenantRequest
-	(*DeleteTenantResponse)(nil),             // 84: webhook.DeleteTenantResponse
-	(*APIKey)(nil),                           // 85: webhook.APIKey
-	(*CreateAPIKeyRequest)(nil),              // 86: webhook.CreateAPIKeyRequest
-	(*CreateAPIKeyResponse)(nil),             // 87: webhook.CreateAPIKeyResponse
-	(*GetAPIKeyRequest)(nil),                 // 88: webhook.GetAPIKeyRequest
-	(*GetAPIKeyResponse)(nil),                // 89: webhook.GetAPIKeyResponse
-	(*ListAPIKeysRequest)(nil),               // 90: webhook.ListAPIKeysRequest
-	(*ListAPIKeysResponse)(nil),              // 91: webhook.ListAPIKeysResponse
-	(*RevokeAPIKeyRequest)(nil),              // 92: webhook.RevokeAPIKeyRequest
-	(*RevokeAPIKeyResponse)(nil),             // 93: webhook.RevokeAPIKeyResponse
-	(*NamespaceResource)(nil),                // 94: webhook.NamespaceResource
-	(*CreateNamespaceRequest)(nil),           // 95: webhook.CreateNamespaceRequest
-	(*CreateNamespaceResponse)(nil),          // 96: webhook.CreateNamespaceResponse
-	(*GetNamespaceRequest)(nil),              // 97: webhook.GetNamespaceRequest
-	(*GetNamespaceResponse)(nil),             // 98: webhook.GetNamespaceResponse
-	(*ListNamespacesRequest)(nil),            // 99: webhook.ListNamespacesRequest
-	(*ListNamespacesResponse)(nil),           // 100: webhook.ListNamespacesResponse
-	(*UpdateNamespaceRequest2)(nil),          // 101: webhook.UpdateNamespaceRequest2
-	(*UpdateNamespaceResponse2)(nil),         // 102: webhook.UpdateNamespaceResponse2
-	(*DeleteNamespaceRequest)(nil),           // 103: webhook.DeleteNamespaceRequest
-	(*DeleteNamespaceResponse2)(nil),         // 104: webhook.DeleteNamespaceResponse2
-	(*NamespaceMembership)(nil),              // 105: webhook.NamespaceMembership
-	(*AssignNamespaceRoleRequest)(nil),       // 106: webhook.AssignNamespaceRoleRequest
-	(*AssignNamespaceRoleResponse)(nil),      // 107: webhook.AssignNamespaceRoleResponse
-	(*RemoveNamespaceRoleRequest)(nil),       // 108: webhook.RemoveNamespaceRoleRequest
-	(*RemoveNamespaceRoleResponse)(nil),      // 109: webhook.RemoveNamespaceRoleResponse
-	(*ListNamespaceMembersRequest)(nil),      // 110: webhook.ListNamespaceMembersRequest
-	(*ListNamespaceMembersResponse)(nil),     // 111: webhook.ListNamespaceMembersResponse
-	(*GetUserNamespacesRequest)(nil),         // 112: webhook.GetUserNamespacesRequest
-	(*GetUserNamespacesResponse)(nil),        // 113: webhook.GetUserNamespacesResponse
-	(*TeamMember)(nil),                       // 114: webhook.TeamMember
-	(*TeamInvitation)(nil),                   // 115: webhook.TeamInvitation
-	(*ListMembersRequest)(nil),               // 116: webhook.ListMembersRequest
-	(*ListMembersResponse)(nil),              // 117: webhook.ListMembersResponse
-	(*InviteMemberRequest)(nil),              // 118: webhook.InviteMemberRequest
-	(*InviteMemberResponse)(nil),             // 119: webhook.InviteMemberResponse
-	(*RemoveMemberRequest)(nil),              // 120: webhook.RemoveMemberRequest
-	(*RemoveMemberResponse)(nil),             // 121: webhook.RemoveMemberResponse
-	(*UpdateMemberRoleRequest)(nil),          // 122: webhook.UpdateMemberRoleRequest
-	(*UpdateMemberRoleResponse)(nil),         // 123: webhook.UpdateMemberRoleResponse
-	(*ListInvitationsRequest)(nil),           // 124: webhook.ListInvitationsRequest
-	(*ListInvitationsResponse)(nil),          // 125: webhook.ListInvitationsResponse
-	(*RevokeInvitationRequest)(nil),          // 126: webhook.RevokeInvitationRequest
-	(*RevokeInvitationResponse)(nil),         // 127: webhook.RevokeInvitationResponse
-	nil,                                      // 128: webhook.RegisterWebhookRequest.HeadersEntry
-	nil,                                      // 129: webhook.PushEventRequest.MetadataEntry
-	nil,                                      // 130: webhook.RegisteredWebhook.HeadersEntry
-	nil,                                      // 131: webhook.RegisterEventRequest.MetadataEntry
-	nil,                                      // 132: webhook.RegisteredEvent.MetadataEntry
-	nil,                                      // 133: webhook.UpdateEventRequest.MetadataEntry
-	nil,                                      // 134: webhook.WebhookUpdateFields.HeadersEntry
-	nil,                                      // 135: webhook.EventReport.MetadataEntry
-	nil,                                      // 136: webhook.EventSubscription.HeadersEntry
-	nil,                                      // 137: webhook.CreateSubscriptionRequest.HeadersEntry
-	nil,                                      // 138: webhook.UpdateSubscriptionRequest.HeadersEntry
-	(*timestamppb.Timestamp)(nil),            // 139: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),                  // 140: google.protobuf.Struct
+	(*NamespaceResource)(nil),                // 74: webhook.NamespaceResource
+	(*CreateNamespaceRequest)(nil),           // 75: webhook.CreateNamespaceRequest
+	(*CreateNamespaceResponse)(nil),          // 76: webhook.CreateNamespaceResponse
+	(*GetNamespaceRequest)(nil),              // 77: webhook.GetNamespaceRequest
+	(*GetNamespaceResponse)(nil),             // 78: webhook.GetNamespaceResponse
+	(*ListNamespacesRequest)(nil),            // 79: webhook.ListNamespacesRequest
+	(*ListNamespacesResponse)(nil),           // 80: webhook.ListNamespacesResponse
+	(*UpdateNamespaceRequest2)(nil),          // 81: webhook.UpdateNamespaceRequest2
+	(*UpdateNamespaceResponse2)(nil),         // 82: webhook.UpdateNamespaceResponse2
+	(*DeleteNamespaceRequest)(nil),           // 83: webhook.DeleteNamespaceRequest
+	(*DeleteNamespaceResponse2)(nil),         // 84: webhook.DeleteNamespaceResponse2
+	nil,                                      // 85: webhook.RegisterWebhookRequest.HeadersEntry
+	nil,                                      // 86: webhook.PushEventRequest.MetadataEntry
+	nil,                                      // 87: webhook.PushEventRequest.LabelsEntry
+	nil,                                      // 88: webhook.RegisteredWebhook.HeadersEntry
+	nil,                                      // 89: webhook.RegisterEventRequest.MetadataEntry
+	nil,                                      // 90: webhook.RegisteredEvent.MetadataEntry
+	nil,                                      // 91: webhook.UpdateEventRequest.MetadataEntry
+	nil,                                      // 92: webhook.WebhookUpdateFields.HeadersEntry
+	nil,                                      // 93: webhook.EventReport.MetadataEntry
+	nil,                                      // 94: webhook.EventSubscription.HeadersEntry
+	nil,                                      // 95: webhook.EventSubscription.LabelFiltersEntry
+	nil,                                      // 96: webhook.CreateSubscriptionRequest.HeadersEntry
+	nil,                                      // 97: webhook.CreateSubscriptionRequest.LabelFiltersEntry
+	nil,                                      // 98: webhook.UpdateSubscriptionRequest.HeadersEntry
+	nil,                                      // 99: webhook.UpdateSubscriptionRequest.LabelFiltersEntry
+	(*timestamppb.Timestamp)(nil),            // 100: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),                  // 101: google.protobuf.Struct
 }
 var file_proto_webhook_proto_depIdxs = []int32{
-	128, // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
+	85,  // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
 	2,   // 1: webhook.RegisterWebhookRequest.http_config:type_name -> webhook.WebhookHTTPConfig
-	139, // 2: webhook.RegisterWebhookResponse.created_at:type_name -> google.protobuf.Timestamp
-	140, // 3: webhook.PushEventRequest.payload:type_name -> google.protobuf.Struct
-	129, // 4: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
-	0,   // 5: webhook.WebhookDelivery.status:type_name -> webhook.WebhookDeliveryStatus
-	139, // 6: webhook.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
-	139, // 7: webhook.WebhookDelivery.last_attempted_at:type_name -> google.protobuf.Timestamp
-	139, // 8: webhook.WebhookDelivery.next_retry_at:type_name -> google.protobuf.Timestamp
-	139, // 9: webhook.WebhookDelivery.expires_at:type_name -> google.protobuf.Timestamp
-	69,  // 10: webhook.ListWebhooksRequest.pagination:type_name -> webhook.PaginationRequest
-	130, // 11: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
-	1,   // 12: webhook.RegisteredWebhook.health:type_name -> webhook.WebhookHealth
-	139, // 13: webhook.RegisteredWebhook.created_at:type_name -> google.protobuf.Timestamp
-	139, // 14: webhook.RegisteredWebhook.updated_at:type_name -> google.protobuf.Timestamp
-	2,   // 15: webhook.RegisteredWebhook.http_config:type_name -> webhook.WebhookHTTPConfig
-	11,  // 16: webhook.ListWebhooksResponse.webhooks:type_name -> webhook.RegisteredWebhook
-	70,  // 17: webhook.ListWebhooksResponse.pagination:type_name -> webhook.PaginationResponse
-	140, // 18: webhook.RegisterEventRequest.schema:type_name -> google.protobuf.Struct
-	131, // 19: webhook.RegisterEventRequest.metadata:type_name -> webhook.RegisterEventRequest.MetadataEntry
-	139, // 20: webhook.RegisterEventResponse.created_at:type_name -> google.protobuf.Timestamp
-	69,  // 21: webhook.ListEventsRequest.pagination:type_name -> webhook.PaginationRequest
-	140, // 22: webhook.RegisteredEvent.schema:type_name -> google.protobuf.Struct
-	140, // 23: webhook.RegisteredEvent.sample_payload:type_name -> google.protobuf.Struct
-	132, // 24: webhook.RegisteredEvent.metadata:type_name -> webhook.RegisteredEvent.MetadataEntry
-	139, // 25: webhook.RegisteredEvent.created_at:type_name -> google.protobuf.Timestamp
-	139, // 26: webhook.RegisteredEvent.updated_at:type_name -> google.protobuf.Timestamp
-	16,  // 27: webhook.ListEventsResponse.events:type_name -> webhook.RegisteredEvent
-	70,  // 28: webhook.ListEventsResponse.pagination:type_name -> webhook.PaginationResponse
-	140, // 29: webhook.UpdateEventRequest.schema:type_name -> google.protobuf.Struct
-	133, // 30: webhook.UpdateEventRequest.metadata:type_name -> webhook.UpdateEventRequest.MetadataEntry
-	16,  // 31: webhook.GetEventResponse.event:type_name -> webhook.RegisteredEvent
-	139, // 32: webhook.WebhookHealthMetrics.last_success_at:type_name -> google.protobuf.Timestamp
-	139, // 33: webhook.WebhookHealthMetrics.last_failure_at:type_name -> google.protobuf.Timestamp
-	139, // 34: webhook.WebhookHealthMetrics.created_at:type_name -> google.protobuf.Timestamp
-	139, // 35: webhook.WebhookHealthMetrics.updated_at:type_name -> google.protobuf.Timestamp
-	1,   // 36: webhook.GetWebhookHealthResponse.health:type_name -> webhook.WebhookHealth
-	27,  // 37: webhook.GetWebhookHealthResponse.metrics:type_name -> webhook.WebhookHealthMetrics
-	1,   // 38: webhook.ListWebhooksByHealthRequest.health:type_name -> webhook.WebhookHealth
-	69,  // 39: webhook.ListWebhooksByHealthRequest.pagination:type_name -> webhook.PaginationRequest
-	11,  // 40: webhook.ListWebhooksByHealthResponse.webhooks:type_name -> webhook.RegisteredWebhook
-	70,  // 41: webhook.ListWebhooksByHealthResponse.pagination:type_name -> webhook.PaginationResponse
-	32,  // 42: webhook.GetHealthSummaryResponse.summary:type_name -> webhook.HealthSummary
-	9,   // 43: webhook.GetDeliveryStatusResponse.delivery:type_name -> webhook.WebhookDelivery
-	69,  // 44: webhook.ListDeliveriesRequest.pagination:type_name -> webhook.PaginationRequest
-	9,   // 45: webhook.ListDeliveriesResponse.deliveries:type_name -> webhook.WebhookDelivery
-	70,  // 46: webhook.ListDeliveriesResponse.pagination:type_name -> webhook.PaginationResponse
-	41,  // 47: webhook.GetNamespaceStatsResponse.stats:type_name -> webhook.NamespaceStats
-	134, // 48: webhook.WebhookUpdateFields.headers:type_name -> webhook.WebhookUpdateFields.HeadersEntry
-	2,   // 49: webhook.WebhookUpdateFields.http_config:type_name -> webhook.WebhookHTTPConfig
-	43,  // 50: webhook.UpdateWebhookConfigRequest.updates:type_name -> webhook.WebhookUpdateFields
-	140, // 51: webhook.EventReport.payload:type_name -> google.protobuf.Struct
-	135, // 52: webhook.EventReport.metadata:type_name -> webhook.EventReport.MetadataEntry
-	139, // 53: webhook.EventReport.created_at:type_name -> google.protobuf.Timestamp
-	69,  // 54: webhook.ListEventReportsRequest.pagination:type_name -> webhook.PaginationRequest
-	50,  // 55: webhook.ListEventReportsResponse.events:type_name -> webhook.EventReport
-	70,  // 56: webhook.ListEventReportsResponse.pagination:type_name -> webhook.PaginationResponse
-	136, // 57: webhook.EventSubscription.headers:type_name -> webhook.EventSubscription.HeadersEntry
-	139, // 58: webhook.EventSubscription.created_at:type_name -> google.protobuf.Timestamp
-	139, // 59: webhook.EventSubscription.updated_at:type_name -> google.protobuf.Timestamp
-	137, // 60: webhook.CreateSubscriptionRequest.headers:type_name -> webhook.CreateSubscriptionRequest.HeadersEntry
-	139, // 61: webhook.CreateSubscriptionResponse.created_at:type_name -> google.protobuf.Timestamp
-	53,  // 62: webhook.GetSubscriptionResponse.subscription:type_name -> webhook.EventSubscription
-	69,  // 63: webhook.ListSubscriptionsRequest.pagination:type_name -> webhook.PaginationRequest
-	53,  // 64: webhook.ListSubscriptionsResponse.subscriptions:type_name -> webhook.EventSubscription
-	70,  // 65: webhook.ListSubscriptionsResponse.pagination:type_name -> webhook.PaginationResponse
-	138, // 66: webhook.UpdateSubscriptionRequest.headers:type_name -> webhook.UpdateSubscriptionRequest.HeadersEntry
-	53,  // 67: webhook.ListSubscriptionsByEventResponse.subscriptions:type_name -> webhook.EventSubscription
-	70,  // 68: webhook.ListSubscriptionsByEventResponse.pagination:type_name -> webhook.PaginationResponse
-	66,  // 69: webhook.GetTemplateFunctionsResponse.functions:type_name -> webhook.TemplateFunction
-	139, // 70: webhook.DeliveryAttempt.timestamp:type_name -> google.protobuf.Timestamp
-	71,  // 71: webhook.GetDeliveryAttemptsResponse.attempts:type_name -> webhook.DeliveryAttempt
-	139, // 72: webhook.Tenant.created_at:type_name -> google.protobuf.Timestamp
-	139, // 73: webhook.Tenant.updated_at:type_name -> google.protobuf.Timestamp
-	74,  // 74: webhook.CreateTenantResponse.tenant:type_name -> webhook.Tenant
-	74,  // 75: webhook.GetTenantResponse.tenant:type_name -> webhook.Tenant
-	69,  // 76: webhook.ListTenantsRequest.pagination:type_name -> webhook.PaginationRequest
-	74,  // 77: webhook.ListTenantsResponse.tenants:type_name -> webhook.Tenant
-	70,  // 78: webhook.ListTenantsResponse.pagination:type_name -> webhook.PaginationResponse
-	74,  // 79: webhook.UpdateTenantResponse.tenant:type_name -> webhook.Tenant
-	139, // 80: webhook.APIKey.expires_at:type_name -> google.protobuf.Timestamp
-	139, // 81: webhook.APIKey.last_used_at:type_name -> google.protobuf.Timestamp
-	139, // 82: webhook.APIKey.created_at:type_name -> google.protobuf.Timestamp
-	139, // 83: webhook.APIKey.revoked_at:type_name -> google.protobuf.Timestamp
-	139, // 84: webhook.CreateAPIKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
-	85,  // 85: webhook.CreateAPIKeyResponse.key:type_name -> webhook.APIKey
-	85,  // 86: webhook.GetAPIKeyResponse.key:type_name -> webhook.APIKey
-	69,  // 87: webhook.ListAPIKeysRequest.pagination:type_name -> webhook.PaginationRequest
-	85,  // 88: webhook.ListAPIKeysResponse.keys:type_name -> webhook.APIKey
-	70,  // 89: webhook.ListAPIKeysResponse.pagination:type_name -> webhook.PaginationResponse
-	139, // 90: webhook.NamespaceResource.created_at:type_name -> google.protobuf.Timestamp
-	139, // 91: webhook.NamespaceResource.updated_at:type_name -> google.protobuf.Timestamp
-	94,  // 92: webhook.CreateNamespaceResponse.namespace:type_name -> webhook.NamespaceResource
-	94,  // 93: webhook.GetNamespaceResponse.namespace:type_name -> webhook.NamespaceResource
-	69,  // 94: webhook.ListNamespacesRequest.pagination:type_name -> webhook.PaginationRequest
-	94,  // 95: webhook.ListNamespacesResponse.namespaces:type_name -> webhook.NamespaceResource
-	70,  // 96: webhook.ListNamespacesResponse.pagination:type_name -> webhook.PaginationResponse
-	94,  // 97: webhook.UpdateNamespaceResponse2.namespace:type_name -> webhook.NamespaceResource
-	139, // 98: webhook.NamespaceMembership.created_at:type_name -> google.protobuf.Timestamp
-	139, // 99: webhook.NamespaceMembership.updated_at:type_name -> google.protobuf.Timestamp
-	105, // 100: webhook.AssignNamespaceRoleResponse.membership:type_name -> webhook.NamespaceMembership
-	69,  // 101: webhook.ListNamespaceMembersRequest.pagination:type_name -> webhook.PaginationRequest
-	105, // 102: webhook.ListNamespaceMembersResponse.members:type_name -> webhook.NamespaceMembership
-	70,  // 103: webhook.ListNamespaceMembersResponse.pagination:type_name -> webhook.PaginationResponse
-	105, // 104: webhook.GetUserNamespacesResponse.memberships:type_name -> webhook.NamespaceMembership
-	139, // 105: webhook.TeamMember.joined_at:type_name -> google.protobuf.Timestamp
-	139, // 106: webhook.TeamInvitation.created_at:type_name -> google.protobuf.Timestamp
-	139, // 107: webhook.TeamInvitation.expires_at:type_name -> google.protobuf.Timestamp
-	69,  // 108: webhook.ListMembersRequest.pagination:type_name -> webhook.PaginationRequest
-	114, // 109: webhook.ListMembersResponse.members:type_name -> webhook.TeamMember
-	115, // 110: webhook.InviteMemberResponse.invitation:type_name -> webhook.TeamInvitation
-	114, // 111: webhook.UpdateMemberRoleResponse.member:type_name -> webhook.TeamMember
-	69,  // 112: webhook.ListInvitationsRequest.pagination:type_name -> webhook.PaginationRequest
-	115, // 113: webhook.ListInvitationsResponse.invitations:type_name -> webhook.TeamInvitation
-	3,   // 114: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
-	5,   // 115: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
-	10,  // 116: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
-	44,  // 117: webhook.WebhookService.UpdateWebhookConfig:input_type -> webhook.UpdateWebhookConfigRequest
-	46,  // 118: webhook.WebhookService.PauseWebhook:input_type -> webhook.PauseWebhookRequest
-	48,  // 119: webhook.WebhookService.ResumeWebhook:input_type -> webhook.ResumeWebhookRequest
-	40,  // 120: webhook.WebhookService.GetNamespaceStats:input_type -> webhook.GetNamespaceStatsRequest
-	67,  // 121: webhook.WebhookService.GetTemplateFunctions:input_type -> webhook.GetTemplateFunctionsRequest
-	13,  // 122: webhook.EventService.RegisterEvent:input_type -> webhook.RegisterEventRequest
-	15,  // 123: webhook.EventService.ListEvents:input_type -> webhook.ListEventsRequest
-	18,  // 124: webhook.EventService.UpdateEvent:input_type -> webhook.UpdateEventRequest
-	22,  // 125: webhook.EventService.DeleteEvent:input_type -> webhook.DeleteEventRequest
-	20,  // 126: webhook.EventService.GetEvent:input_type -> webhook.GetEventRequest
-	7,   // 127: webhook.EventService.PushEvent:input_type -> webhook.PushEventRequest
-	51,  // 128: webhook.EventService.ListEventReports:input_type -> webhook.ListEventReportsRequest
-	54,  // 129: webhook.SubscriptionService.CreateSubscription:input_type -> webhook.CreateSubscriptionRequest
-	56,  // 130: webhook.SubscriptionService.GetSubscription:input_type -> webhook.GetSubscriptionRequest
-	58,  // 131: webhook.SubscriptionService.ListSubscriptions:input_type -> webhook.ListSubscriptionsRequest
-	60,  // 132: webhook.SubscriptionService.UpdateSubscription:input_type -> webhook.UpdateSubscriptionRequest
-	62,  // 133: webhook.SubscriptionService.DeleteSubscription:input_type -> webhook.DeleteSubscriptionRequest
-	24,  // 134: webhook.SubscriptionService.TestSubscriptionTemplate:input_type -> webhook.TestSubscriptionTemplateRequest
-	36,  // 135: webhook.DeliveryService.GetDeliveryStatus:input_type -> webhook.GetDeliveryStatusRequest
-	38,  // 136: webhook.DeliveryService.ListDeliveries:input_type -> webhook.ListDeliveriesRequest
-	34,  // 137: webhook.DeliveryService.RetryDelivery:input_type -> webhook.RetryDeliveryRequest
-	72,  // 138: webhook.DeliveryService.GetDeliveryAttempts:input_type -> webhook.GetDeliveryAttemptsRequest
-	26,  // 139: webhook.HealthService.GetWebhookHealth:input_type -> webhook.GetWebhookHealthRequest
-	29,  // 140: webhook.HealthService.ListWebhooksByHealth:input_type -> webhook.ListWebhooksByHealthRequest
-	31,  // 141: webhook.HealthService.GetHealthSummary:input_type -> webhook.GetHealthSummaryRequest
-	75,  // 142: webhook.TenantService.CreateTenant:input_type -> webhook.CreateTenantRequest
-	77,  // 143: webhook.TenantService.GetTenant:input_type -> webhook.GetTenantRequest
-	79,  // 144: webhook.TenantService.ListTenants:input_type -> webhook.ListTenantsRequest
-	81,  // 145: webhook.TenantService.UpdateTenant:input_type -> webhook.UpdateTenantRequest
-	83,  // 146: webhook.TenantService.DeleteTenant:input_type -> webhook.DeleteTenantRequest
-	86,  // 147: webhook.APIKeyService.CreateAPIKey:input_type -> webhook.CreateAPIKeyRequest
-	88,  // 148: webhook.APIKeyService.GetAPIKey:input_type -> webhook.GetAPIKeyRequest
-	90,  // 149: webhook.APIKeyService.ListAPIKeys:input_type -> webhook.ListAPIKeysRequest
-	92,  // 150: webhook.APIKeyService.RevokeAPIKey:input_type -> webhook.RevokeAPIKeyRequest
-	95,  // 151: webhook.NamespaceService.CreateNamespace:input_type -> webhook.CreateNamespaceRequest
-	97,  // 152: webhook.NamespaceService.GetNamespace:input_type -> webhook.GetNamespaceRequest
-	99,  // 153: webhook.NamespaceService.ListNamespaces:input_type -> webhook.ListNamespacesRequest
-	101, // 154: webhook.NamespaceService.UpdateNamespace:input_type -> webhook.UpdateNamespaceRequest2
-	103, // 155: webhook.NamespaceService.DeleteNamespace:input_type -> webhook.DeleteNamespaceRequest
-	106, // 156: webhook.NamespaceMembershipService.AssignNamespaceRole:input_type -> webhook.AssignNamespaceRoleRequest
-	108, // 157: webhook.NamespaceMembershipService.RemoveNamespaceRole:input_type -> webhook.RemoveNamespaceRoleRequest
-	110, // 158: webhook.NamespaceMembershipService.ListNamespaceMembers:input_type -> webhook.ListNamespaceMembersRequest
-	112, // 159: webhook.NamespaceMembershipService.GetUserNamespaces:input_type -> webhook.GetUserNamespacesRequest
-	116, // 160: webhook.TeamService.ListMembers:input_type -> webhook.ListMembersRequest
-	118, // 161: webhook.TeamService.InviteMember:input_type -> webhook.InviteMemberRequest
-	120, // 162: webhook.TeamService.RemoveMember:input_type -> webhook.RemoveMemberRequest
-	122, // 163: webhook.TeamService.UpdateMemberRole:input_type -> webhook.UpdateMemberRoleRequest
-	124, // 164: webhook.TeamService.ListInvitations:input_type -> webhook.ListInvitationsRequest
-	126, // 165: webhook.TeamService.RevokeInvitation:input_type -> webhook.RevokeInvitationRequest
-	4,   // 166: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
-	6,   // 167: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
-	12,  // 168: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
-	45,  // 169: webhook.WebhookService.UpdateWebhookConfig:output_type -> webhook.UpdateWebhookConfigResponse
-	47,  // 170: webhook.WebhookService.PauseWebhook:output_type -> webhook.PauseWebhookResponse
-	49,  // 171: webhook.WebhookService.ResumeWebhook:output_type -> webhook.ResumeWebhookResponse
-	42,  // 172: webhook.WebhookService.GetNamespaceStats:output_type -> webhook.GetNamespaceStatsResponse
-	68,  // 173: webhook.WebhookService.GetTemplateFunctions:output_type -> webhook.GetTemplateFunctionsResponse
-	14,  // 174: webhook.EventService.RegisterEvent:output_type -> webhook.RegisterEventResponse
-	17,  // 175: webhook.EventService.ListEvents:output_type -> webhook.ListEventsResponse
-	19,  // 176: webhook.EventService.UpdateEvent:output_type -> webhook.UpdateEventResponse
-	23,  // 177: webhook.EventService.DeleteEvent:output_type -> webhook.DeleteEventResponse
-	21,  // 178: webhook.EventService.GetEvent:output_type -> webhook.GetEventResponse
-	8,   // 179: webhook.EventService.PushEvent:output_type -> webhook.PushEventResponse
-	52,  // 180: webhook.EventService.ListEventReports:output_type -> webhook.ListEventReportsResponse
-	55,  // 181: webhook.SubscriptionService.CreateSubscription:output_type -> webhook.CreateSubscriptionResponse
-	57,  // 182: webhook.SubscriptionService.GetSubscription:output_type -> webhook.GetSubscriptionResponse
-	59,  // 183: webhook.SubscriptionService.ListSubscriptions:output_type -> webhook.ListSubscriptionsResponse
-	61,  // 184: webhook.SubscriptionService.UpdateSubscription:output_type -> webhook.UpdateSubscriptionResponse
-	63,  // 185: webhook.SubscriptionService.DeleteSubscription:output_type -> webhook.DeleteSubscriptionResponse
-	25,  // 186: webhook.SubscriptionService.TestSubscriptionTemplate:output_type -> webhook.TestSubscriptionTemplateResponse
-	37,  // 187: webhook.DeliveryService.GetDeliveryStatus:output_type -> webhook.GetDeliveryStatusResponse
-	39,  // 188: webhook.DeliveryService.ListDeliveries:output_type -> webhook.ListDeliveriesResponse
-	35,  // 189: webhook.DeliveryService.RetryDelivery:output_type -> webhook.RetryDeliveryResponse
-	73,  // 190: webhook.DeliveryService.GetDeliveryAttempts:output_type -> webhook.GetDeliveryAttemptsResponse
-	28,  // 191: webhook.HealthService.GetWebhookHealth:output_type -> webhook.GetWebhookHealthResponse
-	30,  // 192: webhook.HealthService.ListWebhooksByHealth:output_type -> webhook.ListWebhooksByHealthResponse
-	33,  // 193: webhook.HealthService.GetHealthSummary:output_type -> webhook.GetHealthSummaryResponse
-	76,  // 194: webhook.TenantService.CreateTenant:output_type -> webhook.CreateTenantResponse
-	78,  // 195: webhook.TenantService.GetTenant:output_type -> webhook.GetTenantResponse
-	80,  // 196: webhook.TenantService.ListTenants:output_type -> webhook.ListTenantsResponse
-	82,  // 197: webhook.TenantService.UpdateTenant:output_type -> webhook.UpdateTenantResponse
-	84,  // 198: webhook.TenantService.DeleteTenant:output_type -> webhook.DeleteTenantResponse
-	87,  // 199: webhook.APIKeyService.CreateAPIKey:output_type -> webhook.CreateAPIKeyResponse
-	89,  // 200: webhook.APIKeyService.GetAPIKey:output_type -> webhook.GetAPIKeyResponse
-	91,  // 201: webhook.APIKeyService.ListAPIKeys:output_type -> webhook.ListAPIKeysResponse
-	93,  // 202: webhook.APIKeyService.RevokeAPIKey:output_type -> webhook.RevokeAPIKeyResponse
-	96,  // 203: webhook.NamespaceService.CreateNamespace:output_type -> webhook.CreateNamespaceResponse
-	98,  // 204: webhook.NamespaceService.GetNamespace:output_type -> webhook.GetNamespaceResponse
-	100, // 205: webhook.NamespaceService.ListNamespaces:output_type -> webhook.ListNamespacesResponse
-	102, // 206: webhook.NamespaceService.UpdateNamespace:output_type -> webhook.UpdateNamespaceResponse2
-	104, // 207: webhook.NamespaceService.DeleteNamespace:output_type -> webhook.DeleteNamespaceResponse2
-	107, // 208: webhook.NamespaceMembershipService.AssignNamespaceRole:output_type -> webhook.AssignNamespaceRoleResponse
-	109, // 209: webhook.NamespaceMembershipService.RemoveNamespaceRole:output_type -> webhook.RemoveNamespaceRoleResponse
-	111, // 210: webhook.NamespaceMembershipService.ListNamespaceMembers:output_type -> webhook.ListNamespaceMembersResponse
-	113, // 211: webhook.NamespaceMembershipService.GetUserNamespaces:output_type -> webhook.GetUserNamespacesResponse
-	117, // 212: webhook.TeamService.ListMembers:output_type -> webhook.ListMembersResponse
-	119, // 213: webhook.TeamService.InviteMember:output_type -> webhook.InviteMemberResponse
-	121, // 214: webhook.TeamService.RemoveMember:output_type -> webhook.RemoveMemberResponse
-	123, // 215: webhook.TeamService.UpdateMemberRole:output_type -> webhook.UpdateMemberRoleResponse
-	125, // 216: webhook.TeamService.ListInvitations:output_type -> webhook.ListInvitationsResponse
-	127, // 217: webhook.TeamService.RevokeInvitation:output_type -> webhook.RevokeInvitationResponse
-	166, // [166:218] is the sub-list for method output_type
-	114, // [114:166] is the sub-list for method input_type
-	114, // [114:114] is the sub-list for extension type_name
-	114, // [114:114] is the sub-list for extension extendee
-	0,   // [0:114] is the sub-list for field type_name
+	100, // 2: webhook.RegisterWebhookResponse.created_at:type_name -> google.protobuf.Timestamp
+	101, // 3: webhook.PushEventRequest.payload:type_name -> google.protobuf.Struct
+	86,  // 4: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
+	87,  // 5: webhook.PushEventRequest.labels:type_name -> webhook.PushEventRequest.LabelsEntry
+	0,   // 6: webhook.WebhookDelivery.status:type_name -> webhook.WebhookDeliveryStatus
+	100, // 7: webhook.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
+	100, // 8: webhook.WebhookDelivery.last_attempted_at:type_name -> google.protobuf.Timestamp
+	100, // 9: webhook.WebhookDelivery.next_retry_at:type_name -> google.protobuf.Timestamp
+	100, // 10: webhook.WebhookDelivery.expires_at:type_name -> google.protobuf.Timestamp
+	69,  // 11: webhook.ListWebhooksRequest.pagination:type_name -> webhook.PaginationRequest
+	88,  // 12: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
+	1,   // 13: webhook.RegisteredWebhook.health:type_name -> webhook.WebhookHealth
+	100, // 14: webhook.RegisteredWebhook.created_at:type_name -> google.protobuf.Timestamp
+	100, // 15: webhook.RegisteredWebhook.updated_at:type_name -> google.protobuf.Timestamp
+	2,   // 16: webhook.RegisteredWebhook.http_config:type_name -> webhook.WebhookHTTPConfig
+	11,  // 17: webhook.ListWebhooksResponse.webhooks:type_name -> webhook.RegisteredWebhook
+	70,  // 18: webhook.ListWebhooksResponse.pagination:type_name -> webhook.PaginationResponse
+	101, // 19: webhook.RegisterEventRequest.schema:type_name -> google.protobuf.Struct
+	89,  // 20: webhook.RegisterEventRequest.metadata:type_name -> webhook.RegisterEventRequest.MetadataEntry
+	100, // 21: webhook.RegisterEventResponse.created_at:type_name -> google.protobuf.Timestamp
+	69,  // 22: webhook.ListEventsRequest.pagination:type_name -> webhook.PaginationRequest
+	101, // 23: webhook.RegisteredEvent.schema:type_name -> google.protobuf.Struct
+	101, // 24: webhook.RegisteredEvent.sample_payload:type_name -> google.protobuf.Struct
+	90,  // 25: webhook.RegisteredEvent.metadata:type_name -> webhook.RegisteredEvent.MetadataEntry
+	100, // 26: webhook.RegisteredEvent.created_at:type_name -> google.protobuf.Timestamp
+	100, // 27: webhook.RegisteredEvent.updated_at:type_name -> google.protobuf.Timestamp
+	16,  // 28: webhook.ListEventsResponse.events:type_name -> webhook.RegisteredEvent
+	70,  // 29: webhook.ListEventsResponse.pagination:type_name -> webhook.PaginationResponse
+	101, // 30: webhook.UpdateEventRequest.schema:type_name -> google.protobuf.Struct
+	91,  // 31: webhook.UpdateEventRequest.metadata:type_name -> webhook.UpdateEventRequest.MetadataEntry
+	16,  // 32: webhook.GetEventResponse.event:type_name -> webhook.RegisteredEvent
+	100, // 33: webhook.WebhookHealthMetrics.last_success_at:type_name -> google.protobuf.Timestamp
+	100, // 34: webhook.WebhookHealthMetrics.last_failure_at:type_name -> google.protobuf.Timestamp
+	100, // 35: webhook.WebhookHealthMetrics.created_at:type_name -> google.protobuf.Timestamp
+	100, // 36: webhook.WebhookHealthMetrics.updated_at:type_name -> google.protobuf.Timestamp
+	1,   // 37: webhook.GetWebhookHealthResponse.health:type_name -> webhook.WebhookHealth
+	27,  // 38: webhook.GetWebhookHealthResponse.metrics:type_name -> webhook.WebhookHealthMetrics
+	1,   // 39: webhook.ListWebhooksByHealthRequest.health:type_name -> webhook.WebhookHealth
+	69,  // 40: webhook.ListWebhooksByHealthRequest.pagination:type_name -> webhook.PaginationRequest
+	11,  // 41: webhook.ListWebhooksByHealthResponse.webhooks:type_name -> webhook.RegisteredWebhook
+	70,  // 42: webhook.ListWebhooksByHealthResponse.pagination:type_name -> webhook.PaginationResponse
+	32,  // 43: webhook.GetHealthSummaryResponse.summary:type_name -> webhook.HealthSummary
+	9,   // 44: webhook.GetDeliveryStatusResponse.delivery:type_name -> webhook.WebhookDelivery
+	69,  // 45: webhook.ListDeliveriesRequest.pagination:type_name -> webhook.PaginationRequest
+	9,   // 46: webhook.ListDeliveriesResponse.deliveries:type_name -> webhook.WebhookDelivery
+	70,  // 47: webhook.ListDeliveriesResponse.pagination:type_name -> webhook.PaginationResponse
+	41,  // 48: webhook.GetNamespaceStatsResponse.stats:type_name -> webhook.NamespaceStats
+	92,  // 49: webhook.WebhookUpdateFields.headers:type_name -> webhook.WebhookUpdateFields.HeadersEntry
+	2,   // 50: webhook.WebhookUpdateFields.http_config:type_name -> webhook.WebhookHTTPConfig
+	43,  // 51: webhook.UpdateWebhookConfigRequest.updates:type_name -> webhook.WebhookUpdateFields
+	101, // 52: webhook.EventReport.payload:type_name -> google.protobuf.Struct
+	93,  // 53: webhook.EventReport.metadata:type_name -> webhook.EventReport.MetadataEntry
+	100, // 54: webhook.EventReport.created_at:type_name -> google.protobuf.Timestamp
+	69,  // 55: webhook.ListEventReportsRequest.pagination:type_name -> webhook.PaginationRequest
+	50,  // 56: webhook.ListEventReportsResponse.events:type_name -> webhook.EventReport
+	70,  // 57: webhook.ListEventReportsResponse.pagination:type_name -> webhook.PaginationResponse
+	94,  // 58: webhook.EventSubscription.headers:type_name -> webhook.EventSubscription.HeadersEntry
+	100, // 59: webhook.EventSubscription.created_at:type_name -> google.protobuf.Timestamp
+	100, // 60: webhook.EventSubscription.updated_at:type_name -> google.protobuf.Timestamp
+	95,  // 61: webhook.EventSubscription.label_filters:type_name -> webhook.EventSubscription.LabelFiltersEntry
+	96,  // 62: webhook.CreateSubscriptionRequest.headers:type_name -> webhook.CreateSubscriptionRequest.HeadersEntry
+	97,  // 63: webhook.CreateSubscriptionRequest.label_filters:type_name -> webhook.CreateSubscriptionRequest.LabelFiltersEntry
+	100, // 64: webhook.CreateSubscriptionResponse.created_at:type_name -> google.protobuf.Timestamp
+	53,  // 65: webhook.GetSubscriptionResponse.subscription:type_name -> webhook.EventSubscription
+	69,  // 66: webhook.ListSubscriptionsRequest.pagination:type_name -> webhook.PaginationRequest
+	53,  // 67: webhook.ListSubscriptionsResponse.subscriptions:type_name -> webhook.EventSubscription
+	70,  // 68: webhook.ListSubscriptionsResponse.pagination:type_name -> webhook.PaginationResponse
+	98,  // 69: webhook.UpdateSubscriptionRequest.headers:type_name -> webhook.UpdateSubscriptionRequest.HeadersEntry
+	99,  // 70: webhook.UpdateSubscriptionRequest.label_filters:type_name -> webhook.UpdateSubscriptionRequest.LabelFiltersEntry
+	53,  // 71: webhook.ListSubscriptionsByEventResponse.subscriptions:type_name -> webhook.EventSubscription
+	70,  // 72: webhook.ListSubscriptionsByEventResponse.pagination:type_name -> webhook.PaginationResponse
+	66,  // 73: webhook.GetTemplateFunctionsResponse.functions:type_name -> webhook.TemplateFunction
+	100, // 74: webhook.DeliveryAttempt.timestamp:type_name -> google.protobuf.Timestamp
+	71,  // 75: webhook.GetDeliveryAttemptsResponse.attempts:type_name -> webhook.DeliveryAttempt
+	100, // 76: webhook.NamespaceResource.created_at:type_name -> google.protobuf.Timestamp
+	100, // 77: webhook.NamespaceResource.updated_at:type_name -> google.protobuf.Timestamp
+	74,  // 78: webhook.CreateNamespaceResponse.namespace:type_name -> webhook.NamespaceResource
+	74,  // 79: webhook.GetNamespaceResponse.namespace:type_name -> webhook.NamespaceResource
+	69,  // 80: webhook.ListNamespacesRequest.pagination:type_name -> webhook.PaginationRequest
+	74,  // 81: webhook.ListNamespacesResponse.namespaces:type_name -> webhook.NamespaceResource
+	70,  // 82: webhook.ListNamespacesResponse.pagination:type_name -> webhook.PaginationResponse
+	74,  // 83: webhook.UpdateNamespaceResponse2.namespace:type_name -> webhook.NamespaceResource
+	3,   // 84: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
+	5,   // 85: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
+	10,  // 86: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
+	44,  // 87: webhook.WebhookService.UpdateWebhookConfig:input_type -> webhook.UpdateWebhookConfigRequest
+	46,  // 88: webhook.WebhookService.PauseWebhook:input_type -> webhook.PauseWebhookRequest
+	48,  // 89: webhook.WebhookService.ResumeWebhook:input_type -> webhook.ResumeWebhookRequest
+	40,  // 90: webhook.WebhookService.GetNamespaceStats:input_type -> webhook.GetNamespaceStatsRequest
+	67,  // 91: webhook.WebhookService.GetTemplateFunctions:input_type -> webhook.GetTemplateFunctionsRequest
+	13,  // 92: webhook.EventService.RegisterEvent:input_type -> webhook.RegisterEventRequest
+	15,  // 93: webhook.EventService.ListEvents:input_type -> webhook.ListEventsRequest
+	18,  // 94: webhook.EventService.UpdateEvent:input_type -> webhook.UpdateEventRequest
+	22,  // 95: webhook.EventService.DeleteEvent:input_type -> webhook.DeleteEventRequest
+	20,  // 96: webhook.EventService.GetEvent:input_type -> webhook.GetEventRequest
+	7,   // 97: webhook.EventService.PushEvent:input_type -> webhook.PushEventRequest
+	51,  // 98: webhook.EventService.ListEventReports:input_type -> webhook.ListEventReportsRequest
+	54,  // 99: webhook.SubscriptionService.CreateSubscription:input_type -> webhook.CreateSubscriptionRequest
+	56,  // 100: webhook.SubscriptionService.GetSubscription:input_type -> webhook.GetSubscriptionRequest
+	58,  // 101: webhook.SubscriptionService.ListSubscriptions:input_type -> webhook.ListSubscriptionsRequest
+	60,  // 102: webhook.SubscriptionService.UpdateSubscription:input_type -> webhook.UpdateSubscriptionRequest
+	62,  // 103: webhook.SubscriptionService.DeleteSubscription:input_type -> webhook.DeleteSubscriptionRequest
+	24,  // 104: webhook.SubscriptionService.TestSubscriptionTemplate:input_type -> webhook.TestSubscriptionTemplateRequest
+	36,  // 105: webhook.DeliveryService.GetDeliveryStatus:input_type -> webhook.GetDeliveryStatusRequest
+	38,  // 106: webhook.DeliveryService.ListDeliveries:input_type -> webhook.ListDeliveriesRequest
+	34,  // 107: webhook.DeliveryService.RetryDelivery:input_type -> webhook.RetryDeliveryRequest
+	72,  // 108: webhook.DeliveryService.GetDeliveryAttempts:input_type -> webhook.GetDeliveryAttemptsRequest
+	26,  // 109: webhook.HealthService.GetWebhookHealth:input_type -> webhook.GetWebhookHealthRequest
+	29,  // 110: webhook.HealthService.ListWebhooksByHealth:input_type -> webhook.ListWebhooksByHealthRequest
+	31,  // 111: webhook.HealthService.GetHealthSummary:input_type -> webhook.GetHealthSummaryRequest
+	75,  // 112: webhook.NamespaceService.CreateNamespace:input_type -> webhook.CreateNamespaceRequest
+	77,  // 113: webhook.NamespaceService.GetNamespace:input_type -> webhook.GetNamespaceRequest
+	79,  // 114: webhook.NamespaceService.ListNamespaces:input_type -> webhook.ListNamespacesRequest
+	81,  // 115: webhook.NamespaceService.UpdateNamespace:input_type -> webhook.UpdateNamespaceRequest2
+	83,  // 116: webhook.NamespaceService.DeleteNamespace:input_type -> webhook.DeleteNamespaceRequest
+	4,   // 117: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
+	6,   // 118: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
+	12,  // 119: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
+	45,  // 120: webhook.WebhookService.UpdateWebhookConfig:output_type -> webhook.UpdateWebhookConfigResponse
+	47,  // 121: webhook.WebhookService.PauseWebhook:output_type -> webhook.PauseWebhookResponse
+	49,  // 122: webhook.WebhookService.ResumeWebhook:output_type -> webhook.ResumeWebhookResponse
+	42,  // 123: webhook.WebhookService.GetNamespaceStats:output_type -> webhook.GetNamespaceStatsResponse
+	68,  // 124: webhook.WebhookService.GetTemplateFunctions:output_type -> webhook.GetTemplateFunctionsResponse
+	14,  // 125: webhook.EventService.RegisterEvent:output_type -> webhook.RegisterEventResponse
+	17,  // 126: webhook.EventService.ListEvents:output_type -> webhook.ListEventsResponse
+	19,  // 127: webhook.EventService.UpdateEvent:output_type -> webhook.UpdateEventResponse
+	23,  // 128: webhook.EventService.DeleteEvent:output_type -> webhook.DeleteEventResponse
+	21,  // 129: webhook.EventService.GetEvent:output_type -> webhook.GetEventResponse
+	8,   // 130: webhook.EventService.PushEvent:output_type -> webhook.PushEventResponse
+	52,  // 131: webhook.EventService.ListEventReports:output_type -> webhook.ListEventReportsResponse
+	55,  // 132: webhook.SubscriptionService.CreateSubscription:output_type -> webhook.CreateSubscriptionResponse
+	57,  // 133: webhook.SubscriptionService.GetSubscription:output_type -> webhook.GetSubscriptionResponse
+	59,  // 134: webhook.SubscriptionService.ListSubscriptions:output_type -> webhook.ListSubscriptionsResponse
+	61,  // 135: webhook.SubscriptionService.UpdateSubscription:output_type -> webhook.UpdateSubscriptionResponse
+	63,  // 136: webhook.SubscriptionService.DeleteSubscription:output_type -> webhook.DeleteSubscriptionResponse
+	25,  // 137: webhook.SubscriptionService.TestSubscriptionTemplate:output_type -> webhook.TestSubscriptionTemplateResponse
+	37,  // 138: webhook.DeliveryService.GetDeliveryStatus:output_type -> webhook.GetDeliveryStatusResponse
+	39,  // 139: webhook.DeliveryService.ListDeliveries:output_type -> webhook.ListDeliveriesResponse
+	35,  // 140: webhook.DeliveryService.RetryDelivery:output_type -> webhook.RetryDeliveryResponse
+	73,  // 141: webhook.DeliveryService.GetDeliveryAttempts:output_type -> webhook.GetDeliveryAttemptsResponse
+	28,  // 142: webhook.HealthService.GetWebhookHealth:output_type -> webhook.GetWebhookHealthResponse
+	30,  // 143: webhook.HealthService.ListWebhooksByHealth:output_type -> webhook.ListWebhooksByHealthResponse
+	33,  // 144: webhook.HealthService.GetHealthSummary:output_type -> webhook.GetHealthSummaryResponse
+	76,  // 145: webhook.NamespaceService.CreateNamespace:output_type -> webhook.CreateNamespaceResponse
+	78,  // 146: webhook.NamespaceService.GetNamespace:output_type -> webhook.GetNamespaceResponse
+	80,  // 147: webhook.NamespaceService.ListNamespaces:output_type -> webhook.ListNamespacesResponse
+	82,  // 148: webhook.NamespaceService.UpdateNamespace:output_type -> webhook.UpdateNamespaceResponse2
+	84,  // 149: webhook.NamespaceService.DeleteNamespace:output_type -> webhook.DeleteNamespaceResponse2
+	117, // [117:150] is the sub-list for method output_type
+	84,  // [84:117] is the sub-list for method input_type
+	84,  // [84:84] is the sub-list for extension type_name
+	84,  // [84:84] is the sub-list for extension extendee
+	0,   // [0:84] is the sub-list for field type_name
 }
 
 func init() { file_proto_webhook_proto_init() }
@@ -9477,19 +6873,15 @@ func file_proto_webhook_proto_init() {
 	}
 	file_proto_webhook_proto_msgTypes[5].OneofWrappers = []any{}
 	file_proto_webhook_proto_msgTypes[49].OneofWrappers = []any{}
-	file_proto_webhook_proto_msgTypes[72].OneofWrappers = []any{}
-	file_proto_webhook_proto_msgTypes[73].OneofWrappers = []any{}
-	file_proto_webhook_proto_msgTypes[83].OneofWrappers = []any{}
-	file_proto_webhook_proto_msgTypes[84].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_webhook_proto_rawDesc), len(file_proto_webhook_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   137,
+			NumMessages:   98,
 			NumExtensions: 0,
-			NumServices:   10,
+			NumServices:   6,
 		},
 		GoTypes:           file_proto_webhook_proto_goTypes,
 		DependencyIndexes: file_proto_webhook_proto_depIdxs,

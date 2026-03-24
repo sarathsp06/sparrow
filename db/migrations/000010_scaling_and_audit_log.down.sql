@@ -1,9 +1,5 @@
 -- 000010_scaling_and_audit_log.down.sql
--- Reverses the scaling indexes and audit_logs table.
-
--- Drop audit log table and type
-DROP TABLE IF EXISTS audit_logs;
-DROP TYPE IF EXISTS audit_actor_type;
+-- Reverses the scaling indexes.
 
 -- Drop scaling indexes
 DROP INDEX IF EXISTS idx_event_subscriptions_tenant_ns_event;
