@@ -21,12 +21,14 @@ import (
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 // WebhookWorker handles webhook delivery jobs
 type WebhookWorker struct {
 	river.WorkerDefaults[WebhookArgs]
 	webhookRepo store.RepositoryInterface
+	cryptoSvc   *crypto.Service
 	tracer      trace.Tracer
 	logger      *slog.Logger
 	metrics     *observability.SparrowMetrics
@@ -34,7 +36,7 @@ type WebhookWorker struct {
 }
 
 // NewWebhookWorker creates a new webhook worker
-func NewWebhookWorker(webhookRepo store.RepositoryInterface) *WebhookWorker {
+func NewWebhookWorker(webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service) *WebhookWorker {
 	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
@@ -48,6 +50,7 @@ func NewWebhookWorker(webhookRepo store.RepositoryInterface) *WebhookWorker {
 
 	return &WebhookWorker{
 		webhookRepo: webhookRepo,
+		cryptoSvc:   cryptoSvc,
 		logger:      logger.NewLogger("webhook-worker"),
 		tracer:      observability.GetTracer("sparrow.workers.webhook"),
 		metrics:     metrics,
@@ -159,7 +162,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 
 	// Prepare delivery request using centralized client logic
-	deliveryReq := client.PrepareDeliveryRequest(webhook, subscription, eventRecord, args.DeliveryID, payloadBytes)
+	deliveryReq := client.PrepareDeliveryRequest(webhook, subscription, eventRecord, args.DeliveryID, payloadBytes, w.cryptoSvc)
 
 	// Store the request body in the delivery record
 	if err := w.webhookRepo.UpdateDeliveryRequestBody(ctx, uuid.MustParse(args.DeliveryID), string(payloadBytes)); err != nil {
@@ -203,15 +206,17 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Read response body
-	// We can use the client helper, but we need to respect the CaptureResponseBody flag
-	const maxResponseBodyBytes = 1024 * 1024 // 1 MB cap to prevent OOM from malicious endpoints
+	// Read response body. The body is always consumed to allow HTTP connection reuse.
+	// CaptureResponseBody controls the storage size limit:
+	//   false (default) -> store up to 1 KB (useful for error diagnostics)
+	//   true            -> store up to 1 MB (full response capture)
+	const maxResponseBodyBytes = 1024 * 1024 // 1 MB
 	var body []byte
 	var bodyErr error
 	if webhook.CaptureResponseBody {
 		body, bodyErr = client.ReadBody(resp, maxResponseBodyBytes)
 	} else {
-		body, bodyErr = client.ReadBody(resp, 1000) // Limit to 1000 chars
+		body, bodyErr = client.ReadBody(resp, 1000) // 1 KB — enough for error messages
 	}
 
 	if bodyErr != nil {

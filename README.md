@@ -41,12 +41,53 @@ Sparrow matches subscriptions, delivers the webhook with retries, and tracks hea
 ## How It Works
 
 ```
-Push Event -> Match Subscriptions -> Queue Deliveries -> Deliver with Retries
-                                                          |
-                                                Track Health + Log Everything
+PushEvent
+  -> Validate payload against event schema (if defined)
+  -> Persist event record
+  -> Enqueue fan-out job
+     -> Match subscriptions by (namespace, event_name, label_filters)
+     -> Apply Go template transformation per subscription (if enabled)
+     -> Create one delivery record per matching subscription
+     -> Enqueue delivery jobs
+        -> HTTP POST to webhook URL with HMAC signature
+        -> Record attempt (response code, response time, error category)
+        -> On success: mark delivered, update health metrics
+        -> On failure: classify error, retry with exponential backoff (if retryable)
+        -> Store response body (up to 1 KB by default, 1 MB if capture_response_body is on)
 ```
 
+**Delivery guarantees**: Events are persisted in PostgreSQL before any delivery is attempted. The River job queue provides at-least-once delivery semantics with configurable retries (default: 3 attempts, 60s backoff).
+
+**Error classification**: Failures are categorized as `client_error` (4xx, not retried), `server_error` (5xx, retried), `timeout` (retried), `connection_refused` (retried), `network_error` (retried), `dns_error` (not retried), or `tls_error` (not retried).
+
+**Health tracking**: Per-webhook health is computed from delivery outcomes -- healthy (>90% success rate, <3 consecutive failures), degraded (50-90% or 3-9 consecutive), unhealthy (<50% or 10+ consecutive).
+
 All endpoints are available via both gRPC (`:50051`) and Connect-RPC HTTP/JSON (`:8080`).
+
+---
+
+## API Reference
+
+Sparrow exposes 5 gRPC/Connect-RPC services. All endpoints are unauthenticated.
+
+| Service | RPCs | Purpose |
+|---------|------|---------|
+| **WebhookService** | RegisterWebhook, UnregisterWebhook, ListWebhooks, UpdateWebhookConfig, PauseWebhook, ResumeWebhook, GetNamespaceStats, GetTemplateFunctions | Webhook CRUD, pause/resume, namespace stats |
+| **EventService** | RegisterEvent, ListEvents, UpdateEvent, DeleteEvent, GetEvent, PushEvent, ListEventReports | Event type definitions and event ingestion |
+| **SubscriptionService** | CreateSubscription, GetSubscription, ListSubscriptions, UpdateSubscription, DeleteSubscription, TestSubscriptionTemplate | Link webhooks to events, payload transformation |
+| **DeliveryService** | GetDeliveryStatus, ListDeliveries, RetryDelivery, GetDeliveryAttempts | Delivery history, per-attempt details, manual retry |
+| **HealthService** | GetWebhookHealth, ListWebhooksByHealth, GetHealthSummary | Per-webhook health metrics and aggregates |
+
+### Key behaviors
+
+- **Subscriptions auto-created**: `RegisterWebhook` with an `events` list automatically creates one subscription per event.
+- **Payload transformation**: Subscriptions support Go templates to reshape the event payload before delivery. Use `TestSubscriptionTemplate` to validate templates.
+- **Label filtering**: Subscriptions can specify `label_filters` (AND logic). Only events whose `labels` match all filters trigger a delivery.
+- **Response body capture**: By default, up to 1 KB of the HTTP response body is stored per delivery attempt. Set `capture_response_body: true` in `WebhookHTTPConfig` to store up to 1 MB. The response is always read regardless of this setting.
+- **HMAC signing**: If `webhook_secret` is set, each request includes an `X-Webhook-Signature` header (HMAC-SHA256 of the request body).
+- **Secret headers**: Headers passed via `secret_headers` are stored encrypted and masked (`******`) in API responses.
+
+See [webhook.proto](proto/webhook.proto) for full message and field documentation.
 
 ---
 

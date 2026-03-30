@@ -84,7 +84,11 @@ func MainGRPC() {
 		}
 		regEventResp, err := eventClient.RegisterEvent(ctx, regEventReq)
 		if err != nil {
-			log.Printf("Failed to register event %s: %v", event.name, err)
+			if strings.Contains(err.Error(), "already exists") {
+				log.Printf("Event %s already registered (skipping)", event.name)
+			} else {
+				log.Printf("Failed to register event %s: %v", event.name, err)
+			}
 		} else {
 			log.Printf("Event %s registered: (ID: %s)", event.name, regEventResp.GetEventId()) //nolint:staticcheck // deprecated field, no replacement available yet
 		}
@@ -95,7 +99,7 @@ func MainGRPC() {
 	registerReq := &pb.RegisterWebhookRequest{
 		Namespace: "default",
 		Events:    []string{"signup", "login"}, // This creates 2 subscriptions
-		Url:       "https://webhooks.sarathsadasivan.com/65f3d9dc-e921-4154-8926-42e27f6e7058",
+		Url:       "https://httpbin.org/post",
 		Headers: map[string]string{
 			"Authorization": "Bearer secret-token",
 			"X-App-Name":    "MyApp",
@@ -195,7 +199,7 @@ func MainGRPC() {
 	registerReq2 := &pb.RegisterWebhookRequest{
 		Namespace: "default",
 		Events:    []string{"order.created"},
-		Url:       "https://webhooks.sarathsadasivan.com/32c5c978-30ed-49d6-aafc-fda9e7fcdc33",
+		Url:       "https://httpbin.org/post",
 		Headers: map[string]string{
 			"Content-Type":   "application/json",
 			"X-Service-Name": "OrderProcessor",
@@ -389,7 +393,7 @@ func MainGRPC() {
 			Namespace: "default",
 			Updates: &pb.WebhookUpdateFields{
 				Events:      []string{"signup", "login", "order.created"}, // Add order.created subscription
-				Url:         "https://webhooks.sarathsadasivan.com/65f3d9dc-e921-4154-8926-42e27f6e7058",
+				Url:         "https://httpbin.org/post",
 				Active:      true,
 				Description: "Updated webhook with order events",
 			},

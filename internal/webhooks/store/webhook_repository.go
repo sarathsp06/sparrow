@@ -36,8 +36,8 @@ func (r *Repository) RegisterWebhook(ctx context.Context, tenantID uuid.UUID, re
 			id, tenant_id, namespace, url, headers, timeout, active, description, health,
 			max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			user_agent, content_type, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+			user_agent, content_type, secret_headers, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
 	`
 
 	headersJSON, err := json.Marshal(registration.Headers)
@@ -72,6 +72,7 @@ func (r *Repository) RegisterWebhook(ctx context.Context, tenantID uuid.UUID, re
 		registration.WebhookSecret,
 		registration.UserAgent,
 		registration.ContentType,
+		registration.SecretHeaders,
 		registration.CreatedAt,
 		registration.UpdatedAt,
 	)
@@ -137,7 +138,7 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 		SELECT DISTINCT wr.id, wr.tenant_id, wr.namespace, wr.url, wr.headers, wr.timeout, wr.active, wr.description, wr.health,
 		       wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
 		       wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
-		       wr.user_agent, wr.content_type, wr.created_at, wr.updated_at
+		       wr.user_agent, wr.content_type, wr.secret_headers, wr.created_at, wr.updated_at
 		FROM webhook_registrations wr
 		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
 		WHERE %s
@@ -231,7 +232,10 @@ func (r *Repository) RegisterWebhookWithSubscriptions(ctx context.Context, tenan
 		var existingID uuid.UUID
 		err := tx.GetContext(ctx, &existingID, checkQuery, tenantID, registration.Namespace, registration.URL)
 		if err == nil && existingID != uuid.Nil {
-			// Already exists, treat as success (commit empty tx)
+			// Already exists, treat as success (commit empty tx).
+			// Set the caller's ID to the existing one so the returned
+			// webhook ID is valid for subsequent API calls.
+			registration.ID = existingID
 			return nil
 		} else if err != nil && !storage.IsNotFound(storage.Error(err)) {
 			return storage.Error(err)
@@ -257,8 +261,8 @@ func (r *Repository) RegisterWebhookWithSubscriptions(ctx context.Context, tenan
 				id, tenant_id, namespace, url, headers, timeout, active, description, health,
 				max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 				verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-				user_agent, content_type, created_at, updated_at
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+				user_agent, content_type, secret_headers, created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
 		`
 
 		_, err = tx.ExecContext(ctx, webhookQuery,
@@ -281,6 +285,7 @@ func (r *Repository) RegisterWebhookWithSubscriptions(ctx context.Context, tenan
 			registration.WebhookSecret,
 			registration.UserAgent,
 			registration.ContentType,
+			registration.SecretHeaders,
 			registration.CreatedAt,
 			registration.UpdatedAt,
 		)
@@ -388,7 +393,7 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			SELECT id, tenant_id, namespace, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			       user_agent, content_type, created_at, updated_at
+			       user_agent, content_type, secret_headers, created_at, updated_at
 			FROM webhook_registrations
 			WHERE id = $1 AND tenant_id = $2 AND namespace = $3
 		`
@@ -398,7 +403,7 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			SELECT id, tenant_id, namespace, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			       user_agent, content_type, created_at, updated_at
+			       user_agent, content_type, secret_headers, created_at, updated_at
 			FROM webhook_registrations
 			WHERE id = $1 AND tenant_id = $2
 		`
@@ -417,7 +422,8 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 	return &result, nil
 }
 
-// UpdateWebhook updates a webhook registration within a tenant
+// UpdateWebhook updates a webhook registration within a tenant.
+// This persists ALL mutable fields including HTTP config, secret headers, and webhook secret.
 func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webhook *WebhookRegistration) error {
 	webhook.UpdatedAt = time.Now()
 
@@ -429,13 +435,26 @@ func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webh
 	query := `
 		UPDATE webhook_registrations
 		SET url = $4, headers = $5, timeout = $6, active = $7,
-		    description = $8, updated_at = NOW()
+		    description = $8,
+		    max_retries = $9, retry_backoff_seconds = $10,
+		    capture_response_body = $11, follow_redirects = $12,
+		    verify_ssl = $13, request_timeout_seconds = $14,
+		    expected_status_codes = $15, webhook_secret = $16,
+		    user_agent = $17, content_type = $18,
+		    secret_headers = $19, updated_at = NOW()
 		WHERE id = $1 AND tenant_id = $2 AND namespace = $3
 	`
 
 	_, err = r.conn.ExecContext(ctx, query,
-		webhook.ID, tenantID, webhook.Namespace, webhook.URL, headersJSON,
-		webhook.Timeout, webhook.Active, webhook.Description)
+		webhook.ID, tenantID, webhook.Namespace,
+		webhook.URL, headersJSON, webhook.Timeout, webhook.Active, webhook.Description,
+		webhook.MaxRetries, webhook.RetryBackoffSeconds,
+		webhook.CaptureResponseBody, webhook.FollowRedirects,
+		webhook.VerifySSL, webhook.RequestTimeoutSeconds,
+		pq.Array(webhook.ExpectedStatusCodes), webhook.WebhookSecret,
+		webhook.UserAgent, webhook.ContentType,
+		webhook.SecretHeaders,
+	)
 	return storage.Error(err)
 }
 
@@ -459,7 +478,7 @@ func (r *Repository) GetWebhooksByHealthPaginated(ctx context.Context, tenantID 
 		       active, description, health,
 		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-		       user_agent, content_type, created_at, updated_at
+		       user_agent, content_type, secret_headers, created_at, updated_at
 		FROM webhook_registrations
 		WHERE tenant_id = $1 AND health = $2
 		ORDER BY created_at DESC
@@ -486,6 +505,7 @@ func (r *Repository) GetWebhooksByHealthPaginated(ctx context.Context, tenantID 
 		WebhookSecret         string        `db:"webhook_secret"`
 		UserAgent             string        `db:"user_agent"`
 		ContentType           string        `db:"content_type"`
+		SecretHeaders         []byte        `db:"secret_headers"`
 		CreatedAt             time.Time     `db:"created_at"`
 		UpdatedAt             time.Time     `db:"updated_at"`
 	}
@@ -516,6 +536,7 @@ func (r *Repository) GetWebhooksByHealthPaginated(ctx context.Context, tenantID 
 			WebhookSecret:         row.WebhookSecret,
 			UserAgent:             row.UserAgent,
 			ContentType:           row.ContentType,
+			SecretHeaders:         row.SecretHeaders,
 			CreatedAt:             row.CreatedAt,
 			UpdatedAt:             row.UpdatedAt,
 		}

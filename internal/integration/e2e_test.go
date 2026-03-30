@@ -90,7 +90,6 @@ type testClients struct {
 	event        pbconnect.EventServiceClient
 	subscription pbconnect.SubscriptionServiceClient
 	delivery     pbconnect.DeliveryServiceClient
-	namespace    pbconnect.NamespaceServiceClient
 }
 
 func newClients(env *testEnv) *testClients {
@@ -103,7 +102,6 @@ func newClients(env *testEnv) *testClients {
 		event:        pbconnect.NewEventServiceClient(http.DefaultClient, env.baseURL, authInterceptor),
 		subscription: pbconnect.NewSubscriptionServiceClient(http.DefaultClient, env.baseURL, authInterceptor),
 		delivery:     pbconnect.NewDeliveryServiceClient(http.DefaultClient, env.baseURL, authInterceptor),
-		namespace:    pbconnect.NewNamespaceServiceClient(http.DefaultClient, env.baseURL, authInterceptor),
 	}
 }
 
@@ -143,16 +141,7 @@ func TestE2E_HappyPath(t *testing.T) {
 		webhookSecret = "test-secret-key-for-hmac"
 	)
 
-	// ── Step 1: Create namespace ─────────────────────────────────────────
-	t.Log("Step 1: Creating namespace")
-	nsResp, err := clients.namespace.CreateNamespace(ctx, connect.NewRequest(&pb.CreateNamespaceRequest{
-		Name:        namespaceName,
-		Description: "Integration test namespace",
-	}))
-	require.NoError(t, err, "CreateNamespace failed")
-	require.NotNil(t, nsResp.Msg.GetNamespace())
-	t.Logf("  namespace created: %s", nsResp.Msg.GetNamespace().GetName())
-
+	// Namespace is now a free-form string — no need to create it via API.
 	// ── Step 2: Register event type ──────────────────────────────────────
 	t.Log("Step 2: Registering event type")
 	eventResp, err := clients.event.RegisterEvent(ctx, connect.NewRequest(&pb.RegisterEventRequest{

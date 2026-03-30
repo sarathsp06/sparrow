@@ -147,16 +147,16 @@ pkg/errors ───────────────> (leaf: net, syscall)
 
 ---
 
-## 6 gRPC/Connect-RPC Services
+## 5 Proto-Defined + 1 Go-Only Service
 
-| Service | Server Struct | RPCs | File |
-|---------|---------------|------|------|
-| **WebhookService** | `WebhookServer` | RegisterWebhook, UnregisterWebhook, ListWebhooks, UpdateWebhookConfig, PauseWebhook, ResumeWebhook, GetNamespaceStats, GetTemplateFunctions | `webhook_handlers.go` |
-| **EventService** | `WebhookServer` | RegisterEvent, ListEvents, UpdateEvent, DeleteEvent, GetEvent, PushEvent, ListEventReports | `event_handlers.go` |
-| **SubscriptionService** | `WebhookServer` | CreateSubscription, GetSubscription, ListSubscriptions, UpdateSubscription, DeleteSubscription, TestSubscriptionTemplate | `subscription_handlers.go` |
-| **DeliveryService** | `WebhookServer` | GetDeliveryStatus, ListDeliveries, RetryDelivery, GetDeliveryAttempts | `delivery_handlers.go` |
-| **HealthService** | `WebhookServer` | GetWebhookHealth, ListWebhooksByHealth, GetHealthSummary | `health_handlers.go` |
-| **NamespaceService** | `NamespaceServer` | CreateNamespace, GetNamespace, ListNamespaces, UpdateNamespace, DeleteNamespace | `namespace_server.go` |
+| Service | Server Struct | RPCs | File | Proto? |
+|---------|---------------|------|------|--------|
+| **WebhookService** | `WebhookServer` | RegisterWebhook, UnregisterWebhook, ListWebhooks, UpdateWebhookConfig, PauseWebhook, ResumeWebhook, GetNamespaceStats, GetTemplateFunctions | `webhook_handlers.go` | Yes |
+| **EventService** | `WebhookServer` | RegisterEvent, ListEvents, UpdateEvent, DeleteEvent, GetEvent, PushEvent, ListEventReports | `event_handlers.go` | Yes |
+| **SubscriptionService** | `WebhookServer` | CreateSubscription, GetSubscription, ListSubscriptions, UpdateSubscription, DeleteSubscription, TestSubscriptionTemplate | `subscription_handlers.go` | Yes |
+| **DeliveryService** | `WebhookServer` | GetDeliveryStatus, ListDeliveries, RetryDelivery, GetDeliveryAttempts | `delivery_handlers.go` | Yes |
+| **HealthService** | `WebhookServer` | GetWebhookHealth, ListWebhooksByHealth, GetHealthSummary | `health_handlers.go` | Yes |
+| **NamespaceService** | `NamespaceServer` | CreateNamespace, GetNamespace, ListNamespaces, UpdateNamespace, DeleteNamespace | `namespace_server.go` | No (Go-only) |
 
 **Serving**: gRPC on `:50051` (with reflection), Connect-RPC on `:8080` (with CORS + embedded UI).
 

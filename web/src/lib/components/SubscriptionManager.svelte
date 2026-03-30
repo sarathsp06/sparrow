@@ -523,7 +523,7 @@
                 <!-- Label filters -->
                 {#if Object.keys(subscription.labelFilters || {}).length > 0}
                   <div class="mt-2 flex flex-wrap items-center gap-1">
-                    <span class="text-xs text-gray-500 font-medium mr-1">Labels:</span>
+                    <span class="text-xs text-gray-500 font-medium mr-1">Filters:</span>
                     {#each Object.entries(subscription.labelFilters) as [key, value]}
                       <span
                         class="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200 font-mono"
@@ -531,6 +531,10 @@
                         {key}={value}
                       </span>
                     {/each}
+                  </div>
+                {:else}
+                  <div class="mt-2">
+                    <span class="text-xs text-gray-400 italic">No label filters — matches all events</span>
                   </div>
                 {/if}
               </div>
@@ -1005,8 +1009,39 @@
           <div class="flex items-center justify-between mb-2">
             <span class="text-sm font-medium text-gray-700">Label Filters</span>
           </div>
-          <p class="text-xs text-gray-500 mb-2">
-            Only deliver events whose labels match all of these key-value pairs (AND logic).
+
+          <!-- Informational callout explaining label filter behavior -->
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+            <p class="text-xs text-amber-800 font-medium mb-1.5">How label filtering works</p>
+            <p class="text-xs text-amber-700 leading-relaxed mb-2">
+              Only events whose labels contain <strong>all</strong> of these key-value pairs will be delivered (AND logic).
+              If no filters are set, this subscription matches <strong>every</strong> event of the selected type.
+            </p>
+            <details class="group">
+              <summary class="text-xs text-amber-600 cursor-pointer hover:text-amber-800 font-medium select-none">
+                Show example
+              </summary>
+              <div class="mt-2 bg-white rounded border border-amber-100 p-2.5 space-y-1.5">
+                <p class="text-[11px] text-gray-600">
+                  <span class="font-medium">Subscription filters:</span>
+                  <code class="bg-amber-50 px-1 rounded text-amber-700">region=us-east</code>
+                  <code class="bg-amber-50 px-1 rounded text-amber-700">env=prod</code>
+                </p>
+                <div class="flex items-center gap-2 text-[11px]">
+                  <span class="text-green-600 font-medium">Matches:</span>
+                  <span class="text-gray-600">event with labels <code class="bg-gray-100 px-1 rounded">region=us-east, env=prod, team=payments</code></span>
+                </div>
+                <div class="flex items-center gap-2 text-[11px]">
+                  <span class="text-red-600 font-medium">Skipped:</span>
+                  <span class="text-gray-600">event with labels <code class="bg-gray-100 px-1 rounded">region=us-east, env=staging</code></span>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <!-- Validation hints -->
+          <p class="text-xs text-gray-400 mb-2">
+            Max 20 filters. Keys: 1-64 chars, alphanumeric with <code class="bg-gray-100 px-0.5 rounded">._-/</code>. Values: up to 256 chars.
           </p>
 
           {#if Object.keys(form.labelFilters).length > 0}

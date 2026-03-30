@@ -131,7 +131,7 @@ func testContext() context.Context {
 func TestWebhookService_ListWebhooks_Pagination(t *testing.T) {
 	repo := new(mockRepo)
 	inserter := new(mockJobInserter)
-	service := NewWebhookService(inserter, repo)
+	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
 	namespace := "default"
@@ -156,7 +156,7 @@ func TestWebhookService_ListWebhooks_Pagination(t *testing.T) {
 func TestWebhookService_RetryDelivery(t *testing.T) {
 	repo := new(mockRepo)
 	inserter := new(mockJobInserter)
-	service := NewWebhookService(inserter, repo)
+	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
 	namespace := "default"
@@ -193,7 +193,7 @@ func TestWebhookService_RetryDelivery(t *testing.T) {
 func TestWebhookService_ListDeliveries_Pagination(t *testing.T) {
 	repo := new(mockRepo)
 	inserter := new(mockJobInserter)
-	service := NewWebhookService(inserter, repo)
+	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
 	namespace := "default"
@@ -218,7 +218,7 @@ func TestWebhookService_ListDeliveries_Pagination(t *testing.T) {
 func TestWebhookService_CreateSubscription(t *testing.T) {
 	repo := new(mockRepo)
 	inserter := new(mockJobInserter)
-	service := NewWebhookService(inserter, repo)
+	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
 	webhookID := uuid.New().String()
@@ -237,7 +237,7 @@ func TestWebhookService_CreateSubscription(t *testing.T) {
 
 func TestWebhookService_GetEvent(t *testing.T) {
 	repo := new(mockRepo)
-	service := NewWebhookService(nil, repo)
+	service := NewWebhookService(nil, repo, nil)
 
 	ctx := testContext()
 	eventName := "test.event"
@@ -255,7 +255,7 @@ func TestWebhookService_GetEvent(t *testing.T) {
 
 func TestWebhookService_TestSubscriptionTemplate(t *testing.T) {
 	repo := new(mockRepo)
-	service := NewWebhookService(nil, repo)
+	service := NewWebhookService(nil, repo, nil)
 
 	ctx := testContext()
 	eventName := "test.event"
@@ -278,7 +278,7 @@ func TestWebhookService_TestSubscriptionTemplate(t *testing.T) {
 func TestWebhookService_PushEvent_AutoRegister(t *testing.T) {
 	repo := new(mockRepo)
 	inserter := new(mockJobInserter)
-	service := NewWebhookService(inserter, repo)
+	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
 	namespace := "default"
@@ -304,7 +304,7 @@ func TestWebhookService_PushEvent_AutoRegister(t *testing.T) {
 func TestWebhookService_PushEvent_ExistingEvent(t *testing.T) {
 	repo := new(mockRepo)
 	inserter := new(mockJobInserter)
-	service := NewWebhookService(inserter, repo)
+	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
 	namespace := "default"
@@ -332,7 +332,7 @@ func TestWebhookService_PushEvent_ExistingEvent(t *testing.T) {
 func TestWebhookService_PushEvent_InactiveEvent(t *testing.T) {
 	repo := new(mockRepo)
 	inserter := new(mockJobInserter)
-	service := NewWebhookService(inserter, repo)
+	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
 
@@ -352,7 +352,7 @@ func TestWebhookService_PushEvent_InactiveEvent(t *testing.T) {
 func TestWebhookService_CreateSubscription_CatchAll(t *testing.T) {
 	repo := new(mockRepo)
 	inserter := new(mockJobInserter)
-	service := NewWebhookService(inserter, repo)
+	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
 	webhookID := uuid.New().String()

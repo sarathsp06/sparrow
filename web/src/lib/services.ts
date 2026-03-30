@@ -7,7 +7,6 @@ import {
   SubscriptionService,
   DeliveryService,
   HealthService,
-  NamespaceService,
 } from "../../../proto/webhook_pb.js";
 
 const transport = createConnectTransport({
@@ -19,7 +18,6 @@ export const eventClient = createClient(EventService, transport);
 export const subscriptionClient = createClient(SubscriptionService, transport);
 export const deliveryClient = createClient(DeliveryService, transport);
 export const healthClient = createClient(HealthService, transport);
-export const namespaceClient = createClient(NamespaceService, transport);
 
 // Backward compatibility
 export const client = webhookClient;

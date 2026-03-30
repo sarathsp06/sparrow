@@ -23,17 +23,36 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// WebhookDeliveryStatus represents the status of webhook delivery
+// WebhookDeliveryStatus tracks the lifecycle of a single delivery.
+//
+// State transitions:
+//
+//	PENDING -> SENDING -> SUCCESS
+//	PENDING -> SENDING -> RETRYING -> SENDING -> ... -> SUCCESS | FAILED | EXPIRED
+//
+// Terminal states: SUCCESS, FAILED, EXPIRED.
 type WebhookDeliveryStatus int32
 
 const (
+	// Default zero value. Never set by the system; indicates an uninitialized field.
 	WebhookDeliveryStatus_DELIVERY_UNSPECIFIED WebhookDeliveryStatus = 0
-	WebhookDeliveryStatus_DELIVERY_PENDING     WebhookDeliveryStatus = 1
-	WebhookDeliveryStatus_DELIVERY_SENDING     WebhookDeliveryStatus = 2
-	WebhookDeliveryStatus_DELIVERY_SUCCESS     WebhookDeliveryStatus = 3
-	WebhookDeliveryStatus_DELIVERY_FAILED      WebhookDeliveryStatus = 4
-	WebhookDeliveryStatus_DELIVERY_RETRYING    WebhookDeliveryStatus = 5
-	WebhookDeliveryStatus_DELIVERY_EXPIRED     WebhookDeliveryStatus = 6
+	// Delivery is queued but has not been attempted yet.
+	WebhookDeliveryStatus_DELIVERY_PENDING WebhookDeliveryStatus = 1
+	// Delivery is currently being sent (HTTP request in flight).
+	WebhookDeliveryStatus_DELIVERY_SENDING WebhookDeliveryStatus = 2
+	// Delivery succeeded. The webhook endpoint returned an expected status code
+	// (default: 200, 201, 202, 204 -- configurable via expected_status_codes).
+	WebhookDeliveryStatus_DELIVERY_SUCCESS WebhookDeliveryStatus = 3
+	// Delivery failed permanently. All retry attempts exhausted or the error
+	// is classified as non-retryable (client_error, dns_error, tls_error).
+	WebhookDeliveryStatus_DELIVERY_FAILED WebhookDeliveryStatus = 4
+	// Delivery failed but will be retried. Applies to retryable error categories:
+	// server_error (5xx), timeout, connection_refused, network_error.
+	// The next_retry_at field indicates when the next attempt is scheduled.
+	WebhookDeliveryStatus_DELIVERY_RETRYING WebhookDeliveryStatus = 5
+	// Delivery TTL elapsed before it could succeed. The event's ttl_seconds
+	// determines the expiration window. No further retries will be attempted.
+	WebhookDeliveryStatus_DELIVERY_EXPIRED WebhookDeliveryStatus = 6
 )
 
 // Enum value maps for WebhookDeliveryStatus.
@@ -85,14 +104,31 @@ func (WebhookDeliveryStatus) EnumDescriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{0}
 }
 
-// WebhookHealth represents webhook health status
+// WebhookHealth represents the computed health status of a webhook endpoint.
+//
+// Health is derived from recent delivery outcomes using two signals:
+//   - Success rate: successful deliveries / total deliveries
+//   - Consecutive failures: unbroken streak of failed deliveries
+//
+// Thresholds:
+//
+//	HEALTHY:   success_rate > 90% AND consecutive_failures < 3
+//	DEGRADED:  success_rate 50-90% OR consecutive_failures 3-9
+//	UNHEALTHY: success_rate < 50% OR consecutive_failures >= 10
 type WebhookHealth int32
 
 const (
+	// No delivery data available. The webhook has never received a delivery,
+	// or health has not been computed yet.
 	WebhookHealth_HEALTH_UNSPECIFIED WebhookHealth = 0
-	WebhookHealth_HEALTH_HEALTHY     WebhookHealth = 1
-	WebhookHealth_HEALTH_DEGRADED    WebhookHealth = 2
-	WebhookHealth_HEALTH_UNHEALTHY   WebhookHealth = 3
+	// Webhook is healthy: >90% success rate and fewer than 3 consecutive failures.
+	WebhookHealth_HEALTH_HEALTHY WebhookHealth = 1
+	// Webhook is degraded: 50-90% success rate or 3-9 consecutive failures.
+	// May indicate intermittent issues at the target endpoint.
+	WebhookHealth_HEALTH_DEGRADED WebhookHealth = 2
+	// Webhook is unhealthy: <50% success rate or 10+ consecutive failures.
+	// Investigate the target endpoint -- deliveries are still attempted but mostly failing.
+	WebhookHealth_HEALTH_UNHEALTHY WebhookHealth = 3
 )
 
 // Enum value maps for WebhookHealth.
@@ -138,26 +174,183 @@ func (WebhookHealth) EnumDescriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{1}
 }
 
-// WebhookHTTPConfig represents HTTP configuration for webhook delivery
+// PaginationRequest specifies offset-based pagination parameters.
+// Used by all List* RPCs. If omitted, the server uses default limit=50, offset=0.
+type PaginationRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Maximum number of items to return. Clamped to server max (typically 250).
+	// Default: 50.
+	Limit int32 `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Number of items to skip before returning results. Default: 0.
+	Offset        int32 `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PaginationRequest) Reset() {
+	*x = PaginationRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PaginationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PaginationRequest) ProtoMessage() {}
+
+func (x *PaginationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PaginationRequest.ProtoReflect.Descriptor instead.
+func (*PaginationRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *PaginationRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *PaginationRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+// PaginationResponse returns pagination metadata alongside list results.
+// Clients can compute has_more as (offset + limit < total_count).
+type PaginationResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Total number of items matching the query (ignoring limit/offset).
+	TotalCount int32 `protobuf:"varint,1,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// The limit that was applied to this response.
+	Limit int32 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	// The offset that was applied to this response.
+	Offset        int32 `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PaginationResponse) Reset() {
+	*x = PaginationResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PaginationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PaginationResponse) ProtoMessage() {}
+
+func (x *PaginationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PaginationResponse.ProtoReflect.Descriptor instead.
+func (*PaginationResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *PaginationResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+func (x *PaginationResponse) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *PaginationResponse) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+// WebhookHTTPConfig controls how Sparrow delivers HTTP requests to a webhook URL.
+// All fields have sensible defaults; only set fields you want to override.
+// This message is used both when registering a webhook and when updating its configuration.
 type WebhookHTTPConfig struct {
-	state                 protoimpl.MessageState `protogen:"open.v1"`
-	MaxRetries            int32                  `protobuf:"varint,1,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`                                     // Maximum retry attempts (0-10, default: 3)
-	RetryBackoffSeconds   int32                  `protobuf:"varint,2,opt,name=retry_backoff_seconds,json=retryBackoffSeconds,proto3" json:"retry_backoff_seconds,omitempty"`        // Base backoff time between retries (1-3600s, default: 60)
-	CaptureResponseBody   bool                   `protobuf:"varint,3,opt,name=capture_response_body,json=captureResponseBody,proto3" json:"capture_response_body,omitempty"`        // Whether to capture and store response body (default: false)
-	FollowRedirects       bool                   `protobuf:"varint,4,opt,name=follow_redirects,json=followRedirects,proto3" json:"follow_redirects,omitempty"`                      // Whether to follow HTTP redirects (default: true)
-	VerifySsl             bool                   `protobuf:"varint,5,opt,name=verify_ssl,json=verifySsl,proto3" json:"verify_ssl,omitempty"`                                        // Whether to verify SSL certificates (default: true)
-	RequestTimeoutSeconds int32                  `protobuf:"varint,6,opt,name=request_timeout_seconds,json=requestTimeoutSeconds,proto3" json:"request_timeout_seconds,omitempty"`  // Per-request timeout (1-300s, default: 30)
-	ExpectedStatusCodes   []int32                `protobuf:"varint,7,rep,packed,name=expected_status_codes,json=expectedStatusCodes,proto3" json:"expected_status_codes,omitempty"` // HTTP status codes considered successful (default: [200,201,202,204])
-	WebhookSecret         string                 `protobuf:"bytes,8,opt,name=webhook_secret,json=webhookSecret,proto3" json:"webhook_secret,omitempty"`                             // Secret for webhook signature verification
-	UserAgent             string                 `protobuf:"bytes,9,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`                                         // Custom User-Agent header (default: "Sparrow-Webhook/1.0")
-	ContentType           string                 `protobuf:"bytes,10,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`                                  // Content-Type for requests (default: "application/json")
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Maximum number of retry attempts after the initial delivery fails.
+	// Range: 0-10. Default: 3. Set to 0 to disable retries entirely.
+	// Only retryable error categories trigger retries (server_error, timeout,
+	// connection_refused, network_error). Client errors (4xx), DNS errors,
+	// and TLS errors are never retried regardless of this setting.
+	MaxRetries int32 `protobuf:"varint,1,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
+	// Base backoff duration in seconds between retry attempts.
+	// Range: 1-3600. Default: 60. Actual backoff uses exponential increase
+	// with jitter: base * 2^(attempt-1) + random jitter.
+	RetryBackoffSeconds int32 `protobuf:"varint,2,opt,name=retry_backoff_seconds,json=retryBackoffSeconds,proto3" json:"retry_backoff_seconds,omitempty"`
+	// Controls the maximum size of stored response body per delivery attempt.
+	// When false (default): up to 1 KB of the response body is stored.
+	// When true: up to 1 MB of the response body is stored.
+	// Note: the response body is always read from the connection regardless of this
+	// flag (required for HTTP connection reuse). This only controls how much is persisted.
+	CaptureResponseBody bool `protobuf:"varint,3,opt,name=capture_response_body,json=captureResponseBody,proto3" json:"capture_response_body,omitempty"`
+	// Whether to follow HTTP 3xx redirects when delivering webhooks.
+	// Default: true. Set to false to treat redirects as the final response.
+	FollowRedirects bool `protobuf:"varint,4,opt,name=follow_redirects,json=followRedirects,proto3" json:"follow_redirects,omitempty"`
+	// Whether to verify the target endpoint's TLS certificate chain.
+	// Default: true. Set to false only for development/testing with self-signed certs.
+	// Disabling this in production is a security risk.
+	VerifySsl bool `protobuf:"varint,5,opt,name=verify_ssl,json=verifySsl,proto3" json:"verify_ssl,omitempty"`
+	// Per-request timeout in seconds. If the target endpoint does not respond
+	// within this duration, the attempt is classified as a timeout error (retryable).
+	// Range: 1-300. Default: 30.
+	RequestTimeoutSeconds int32 `protobuf:"varint,6,opt,name=request_timeout_seconds,json=requestTimeoutSeconds,proto3" json:"request_timeout_seconds,omitempty"`
+	// HTTP status codes that Sparrow treats as a successful delivery.
+	// Default: [200, 201, 202, 204]. Any response code not in this list
+	// is classified as a client_error (4xx) or server_error (5xx) based on range.
+	ExpectedStatusCodes []int32 `protobuf:"varint,7,rep,packed,name=expected_status_codes,json=expectedStatusCodes,proto3" json:"expected_status_codes,omitempty"`
+	// Shared secret used for HMAC-SHA256 request signing. When set, Sparrow
+	// includes an X-Webhook-Signature header on every delivery containing
+	// the hex-encoded HMAC of the request body. The receiving endpoint can
+	// verify authenticity by recomputing the HMAC.
+	// Leave empty to disable signing.
+	WebhookSecret string `protobuf:"bytes,8,opt,name=webhook_secret,json=webhookSecret,proto3" json:"webhook_secret,omitempty"`
+	// Value of the User-Agent header sent with every delivery request.
+	// Default: "Sparrow-Webhook/1.0".
+	UserAgent string `protobuf:"bytes,9,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	// Content-Type header for delivery requests.
+	// Default: "application/json". Change if your endpoint expects a different media type.
+	ContentType   string `protobuf:"bytes,10,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WebhookHTTPConfig) Reset() {
 	*x = WebhookHTTPConfig{}
-	mi := &file_proto_webhook_proto_msgTypes[0]
+	mi := &file_proto_webhook_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -169,7 +362,7 @@ func (x *WebhookHTTPConfig) String() string {
 func (*WebhookHTTPConfig) ProtoMessage() {}
 
 func (x *WebhookHTTPConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[0]
+	mi := &file_proto_webhook_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -182,7 +375,7 @@ func (x *WebhookHTTPConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookHTTPConfig.ProtoReflect.Descriptor instead.
 func (*WebhookHTTPConfig) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{0}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *WebhookHTTPConfig) GetMaxRetries() int32 {
@@ -255,24 +448,45 @@ func (x *WebhookHTTPConfig) GetContentType() string {
 	return ""
 }
 
-// RegisterWebhookRequest represents a request to register a webhook URL
+// RegisterWebhookRequest provides all parameters needed to register a new webhook.
+// At minimum, namespace, url, and at least one event name are required.
+// Subscriptions are auto-created for each event name in the events list.
 type RegisterWebhookRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                       // Namespace for grouping webhooks
-	Events        []string               `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`                                                                             // Event names to listen for (multiple events supported)
-	Url           string                 `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`                                                                                   // Target URL for the webhook
-	Headers       map[string]string      `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // HTTP headers to include in requests
-	Timeout       int32                  `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                          // Timeout in seconds (default: 30) - DEPRECATED, use http_config.request_timeout_seconds
-	Active        bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`                                                                            // Whether webhook is active (default: true)
-	Description   string                 `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`                                                                   // Optional description
-	HttpConfig    *WebhookHTTPConfig     `protobuf:"bytes,8,opt,name=http_config,json=httpConfig,proto3" json:"http_config,omitempty"`                                                   // HTTP configuration options (optional, defaults will be used if not provided)
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Namespace to register the webhook in. Required.
+	// The namespace must already exist (created via the NamespaceService).
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Event names this webhook should receive. At least one is required.
+	// A subscription is automatically created for each event name listed here.
+	Events []string `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
+	// Target URL that will receive HTTP POST requests for each delivery.
+	// Must be a valid HTTP or HTTPS URL. Required.
+	Url string `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
+	// Custom HTTP headers included in every delivery request to this webhook.
+	// These are visible in API responses. For sensitive values (API keys, tokens),
+	// use secret_headers instead.
+	Headers map[string]string `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Deprecated: use http_config.request_timeout_seconds instead.
+	Timeout int32 `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	// Whether the webhook starts in active state. Default: true.
+	// Inactive webhooks are skipped during event fan-out.
+	Active bool `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`
+	// Human-readable description of the webhook's purpose. Optional.
+	Description string `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`
+	// HTTP delivery configuration (retries, timeouts, TLS, HMAC, etc.).
+	// Optional -- all fields have sensible defaults if omitted.
+	HttpConfig *WebhookHTTPConfig `protobuf:"bytes,8,opt,name=http_config,json=httpConfig,proto3" json:"http_config,omitempty"`
+	// Sensitive HTTP headers stored encrypted at rest (e.g., Authorization, API keys).
+	// Values are masked as "******" in all API responses -- only keys are visible.
+	// Included in delivery requests alongside regular headers.
+	SecretHeaders map[string]string `protobuf:"bytes,9,rep,name=secret_headers,json=secretHeaders,proto3" json:"secret_headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RegisterWebhookRequest) Reset() {
 	*x = RegisterWebhookRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[1]
+	mi := &file_proto_webhook_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -284,7 +498,7 @@ func (x *RegisterWebhookRequest) String() string {
 func (*RegisterWebhookRequest) ProtoMessage() {}
 
 func (x *RegisterWebhookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[1]
+	mi := &file_proto_webhook_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -297,7 +511,7 @@ func (x *RegisterWebhookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterWebhookRequest.ProtoReflect.Descriptor instead.
 func (*RegisterWebhookRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{1}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RegisterWebhookRequest) GetNamespace() string {
@@ -356,22 +570,36 @@ func (x *RegisterWebhookRequest) GetHttpConfig() *WebhookHTTPConfig {
 	return nil
 }
 
-// RegisterWebhookResponse represents the response for webhook registration
+func (x *RegisterWebhookRequest) GetSecretHeaders() map[string]string {
+	if x != nil {
+		return x.SecretHeaders
+	}
+	return nil
+}
+
+// RegisterWebhookResponse is returned after successfully registering a webhook.
 type RegisterWebhookResponse struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	WebhookId string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"` // Unique webhook identifier
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Server-generated UUID for the new webhook. Use this ID for all
+	// subsequent operations (update, pause, resume, unregister).
+	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Deprecated: use gRPC status codes to determine success/failure.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"` // Use gRPC status codes instead
+	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status details for error messages.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`                      // Use gRPC status codes instead
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"` // When the webhook was registered
+	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	// Timestamp when the webhook was created.
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RegisterWebhookResponse) Reset() {
 	*x = RegisterWebhookResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[2]
+	mi := &file_proto_webhook_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -383,7 +611,7 @@ func (x *RegisterWebhookResponse) String() string {
 func (*RegisterWebhookResponse) ProtoMessage() {}
 
 func (x *RegisterWebhookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[2]
+	mi := &file_proto_webhook_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -396,7 +624,7 @@ func (x *RegisterWebhookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterWebhookResponse.ProtoReflect.Descriptor instead.
 func (*RegisterWebhookResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{2}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *RegisterWebhookResponse) GetWebhookId() string {
@@ -429,18 +657,21 @@ func (x *RegisterWebhookResponse) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// UnregisterWebhookRequest represents a request to remove a webhook
+// UnregisterWebhookRequest identifies a webhook to permanently delete.
+// This cascade-deletes all subscriptions, deliveries, and health data for the webhook.
 type UnregisterWebhookRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WebhookId     string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"` // Webhook ID to remove
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                  // Namespace (required)
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the webhook to delete. Required.
+	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Namespace the webhook belongs to. Required.
+	Namespace     string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UnregisterWebhookRequest) Reset() {
 	*x = UnregisterWebhookRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[3]
+	mi := &file_proto_webhook_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -452,7 +683,7 @@ func (x *UnregisterWebhookRequest) String() string {
 func (*UnregisterWebhookRequest) ProtoMessage() {}
 
 func (x *UnregisterWebhookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[3]
+	mi := &file_proto_webhook_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -465,7 +696,7 @@ func (x *UnregisterWebhookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnregisterWebhookRequest.ProtoReflect.Descriptor instead.
 func (*UnregisterWebhookRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{3}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *UnregisterWebhookRequest) GetWebhookId() string {
@@ -482,20 +713,25 @@ func (x *UnregisterWebhookRequest) GetNamespace() string {
 	return ""
 }
 
-// UnregisterWebhookResponse represents the response for webhook removal
+// UnregisterWebhookResponse confirms webhook deletion.
+// On success, the gRPC status is OK. On failure, NOT_FOUND is returned.
 type UnregisterWebhookResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: use gRPC status codes to determine success/failure.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // Use gRPC status codes instead
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status details for error messages.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"` // Use gRPC status codes instead
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UnregisterWebhookResponse) Reset() {
 	*x = UnregisterWebhookResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[4]
+	mi := &file_proto_webhook_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -507,7 +743,7 @@ func (x *UnregisterWebhookResponse) String() string {
 func (*UnregisterWebhookResponse) ProtoMessage() {}
 
 func (x *UnregisterWebhookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[4]
+	mi := &file_proto_webhook_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -520,7 +756,7 @@ func (x *UnregisterWebhookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnregisterWebhookResponse.ProtoReflect.Descriptor instead.
 func (*UnregisterWebhookResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{4}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{6}
 }
 
 // Deprecated: Marked as deprecated in proto/webhook.proto.
@@ -539,23 +775,1665 @@ func (x *UnregisterWebhookResponse) GetMessage() string {
 	return ""
 }
 
-// PushEventRequest represents a request to push an event
+// ListWebhooksRequest specifies filters and pagination for listing webhooks.
+// At minimum, namespace is required. All other fields are optional filters.
+type ListWebhooksRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Namespace to list webhooks from. Required.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Filter to only webhooks subscribed to this event name. Optional.
+	Event string `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
+	// When true, only return active (non-paused) webhooks. Default: false (return all).
+	ActiveOnly bool `protobuf:"varint,3,opt,name=active_only,json=activeOnly,proto3" json:"active_only,omitempty"`
+	// Pagination parameters. Default: limit=50, offset=0.
+	Pagination *PaginationRequest `protobuf:"bytes,4,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	// Filter to a specific webhook by ID. Optional.
+	// When set, returns at most one result.
+	WebhookId     string `protobuf:"bytes,5,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWebhooksRequest) Reset() {
+	*x = ListWebhooksRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWebhooksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWebhooksRequest) ProtoMessage() {}
+
+func (x *ListWebhooksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWebhooksRequest.ProtoReflect.Descriptor instead.
+func (*ListWebhooksRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ListWebhooksRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *ListWebhooksRequest) GetEvent() string {
+	if x != nil {
+		return x.Event
+	}
+	return ""
+}
+
+func (x *ListWebhooksRequest) GetActiveOnly() bool {
+	if x != nil {
+		return x.ActiveOnly
+	}
+	return false
+}
+
+func (x *ListWebhooksRequest) GetPagination() *PaginationRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+func (x *ListWebhooksRequest) GetWebhookId() string {
+	if x != nil {
+		return x.WebhookId
+	}
+	return ""
+}
+
+// RegisteredWebhook is the full representation of a webhook as returned by List and Get operations.
+// Includes all configuration, the current list of subscribed events, and live health status.
+type RegisteredWebhook struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Server-generated UUID identifying this webhook.
+	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Namespace this webhook belongs to.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Event names this webhook is subscribed to (derived from its subscriptions).
+	Events []string `protobuf:"bytes,3,rep,name=events,proto3" json:"events,omitempty"`
+	// Target URL that receives delivery HTTP requests.
+	Url string `protobuf:"bytes,4,opt,name=url,proto3" json:"url,omitempty"`
+	// Custom HTTP headers included in delivery requests.
+	// Does not include secret_headers (those are listed separately with masked values).
+	Headers map[string]string `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Deprecated: see http_config.request_timeout_seconds.
+	Timeout int32 `protobuf:"varint,6,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	// Whether the webhook is currently active. Inactive webhooks do not receive
+	// new deliveries but retain their configuration and history.
+	Active bool `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`
+	// Human-readable description.
+	Description string `protobuf:"bytes,8,opt,name=description,proto3" json:"description,omitempty"`
+	// Current health status computed from recent delivery outcomes.
+	// See WebhookHealth enum for threshold definitions.
+	Health WebhookHealth `protobuf:"varint,9,opt,name=health,proto3,enum=webhook.WebhookHealth" json:"health,omitempty"`
+	// When the webhook was first registered.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the webhook configuration was last modified.
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// HTTP delivery configuration (retries, timeouts, TLS, HMAC, etc.).
+	HttpConfig *WebhookHTTPConfig `protobuf:"bytes,12,opt,name=http_config,json=httpConfig,proto3" json:"http_config,omitempty"`
+	// Secret headers with values masked as "******". Keys are shown for display;
+	// actual values are never exposed through the API.
+	SecretHeaders map[string]string `protobuf:"bytes,13,rep,name=secret_headers,json=secretHeaders,proto3" json:"secret_headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisteredWebhook) Reset() {
+	*x = RegisteredWebhook{}
+	mi := &file_proto_webhook_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisteredWebhook) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisteredWebhook) ProtoMessage() {}
+
+func (x *RegisteredWebhook) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisteredWebhook.ProtoReflect.Descriptor instead.
+func (*RegisteredWebhook) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *RegisteredWebhook) GetWebhookId() string {
+	if x != nil {
+		return x.WebhookId
+	}
+	return ""
+}
+
+func (x *RegisteredWebhook) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *RegisteredWebhook) GetEvents() []string {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *RegisteredWebhook) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *RegisteredWebhook) GetHeaders() map[string]string {
+	if x != nil {
+		return x.Headers
+	}
+	return nil
+}
+
+func (x *RegisteredWebhook) GetTimeout() int32 {
+	if x != nil {
+		return x.Timeout
+	}
+	return 0
+}
+
+func (x *RegisteredWebhook) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *RegisteredWebhook) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *RegisteredWebhook) GetHealth() WebhookHealth {
+	if x != nil {
+		return x.Health
+	}
+	return WebhookHealth_HEALTH_UNSPECIFIED
+}
+
+func (x *RegisteredWebhook) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *RegisteredWebhook) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *RegisteredWebhook) GetHttpConfig() *WebhookHTTPConfig {
+	if x != nil {
+		return x.HttpConfig
+	}
+	return nil
+}
+
+func (x *RegisteredWebhook) GetSecretHeaders() map[string]string {
+	if x != nil {
+		return x.SecretHeaders
+	}
+	return nil
+}
+
+// ListWebhooksResponse contains the paginated list of webhooks matching the query.
+type ListWebhooksResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Webhooks matching the filter criteria.
+	Webhooks []*RegisteredWebhook `protobuf:"bytes,1,rep,name=webhooks,proto3" json:"webhooks,omitempty"`
+	// Pagination metadata (total_count, limit, offset).
+	Pagination *PaginationResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	// Deprecated: use pagination.total_count instead.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	TotalCount    int32 `protobuf:"varint,5,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWebhooksResponse) Reset() {
+	*x = ListWebhooksResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWebhooksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWebhooksResponse) ProtoMessage() {}
+
+func (x *ListWebhooksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWebhooksResponse.ProtoReflect.Descriptor instead.
+func (*ListWebhooksResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ListWebhooksResponse) GetWebhooks() []*RegisteredWebhook {
+	if x != nil {
+		return x.Webhooks
+	}
+	return nil
+}
+
+func (x *ListWebhooksResponse) GetPagination() *PaginationResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListWebhooksResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListWebhooksResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListWebhooksResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+// WebhookUpdateFields specifies which webhook fields to update.
+// This is a partial-update message: only non-zero/non-empty fields are applied.
+// Omitted fields are left unchanged on the webhook.
+//
+// Special behavior for events: setting this field replaces the entire subscription set.
+// Subscriptions for removed events are deleted; new events get subscriptions created.
+// To leave events unchanged, omit the field entirely (don't pass an empty list).
+type WebhookUpdateFields struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Replace the full list of subscribed events. Omit to leave unchanged.
+	// Passing a non-empty list replaces all existing subscriptions.
+	Events []string `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	// New target URL. Omit to leave unchanged.
+	Url string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	// Replace all custom headers. Omit to leave unchanged.
+	// Pass an empty map to clear all headers.
+	Headers map[string]string `protobuf:"bytes,3,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Deprecated: use http_config.request_timeout_seconds.
+	Timeout int32 `protobuf:"varint,4,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	// Set active/inactive status. Note: prefer PauseWebhook/ResumeWebhook RPCs
+	// for explicit lifecycle control with reason tracking.
+	Active bool `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
+	// Updated human-readable description. Omit to leave unchanged.
+	Description string `protobuf:"bytes,6,opt,name=description,proto3" json:"description,omitempty"`
+	// Updated HTTP delivery configuration. Omit to leave unchanged.
+	// When set, the entire http_config is replaced (not merged field-by-field).
+	HttpConfig *WebhookHTTPConfig `protobuf:"bytes,7,opt,name=http_config,json=httpConfig,proto3" json:"http_config,omitempty"`
+	// Replace all secret headers. Omit to leave unchanged.
+	// Pass an empty map to clear all secret headers.
+	SecretHeaders map[string]string `protobuf:"bytes,8,rep,name=secret_headers,json=secretHeaders,proto3" json:"secret_headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WebhookUpdateFields) Reset() {
+	*x = WebhookUpdateFields{}
+	mi := &file_proto_webhook_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WebhookUpdateFields) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WebhookUpdateFields) ProtoMessage() {}
+
+func (x *WebhookUpdateFields) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WebhookUpdateFields.ProtoReflect.Descriptor instead.
+func (*WebhookUpdateFields) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *WebhookUpdateFields) GetEvents() []string {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *WebhookUpdateFields) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *WebhookUpdateFields) GetHeaders() map[string]string {
+	if x != nil {
+		return x.Headers
+	}
+	return nil
+}
+
+func (x *WebhookUpdateFields) GetTimeout() int32 {
+	if x != nil {
+		return x.Timeout
+	}
+	return 0
+}
+
+func (x *WebhookUpdateFields) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *WebhookUpdateFields) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *WebhookUpdateFields) GetHttpConfig() *WebhookHTTPConfig {
+	if x != nil {
+		return x.HttpConfig
+	}
+	return nil
+}
+
+func (x *WebhookUpdateFields) GetSecretHeaders() map[string]string {
+	if x != nil {
+		return x.SecretHeaders
+	}
+	return nil
+}
+
+// UpdateWebhookConfigRequest applies partial updates to an existing webhook.
+type UpdateWebhookConfigRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the webhook to update. Required.
+	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Namespace the webhook belongs to. Required.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Fields to update. Only non-zero fields are applied. Required.
+	Updates       *WebhookUpdateFields `protobuf:"bytes,3,opt,name=updates,proto3" json:"updates,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateWebhookConfigRequest) Reset() {
+	*x = UpdateWebhookConfigRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateWebhookConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateWebhookConfigRequest) ProtoMessage() {}
+
+func (x *UpdateWebhookConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateWebhookConfigRequest.ProtoReflect.Descriptor instead.
+func (*UpdateWebhookConfigRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *UpdateWebhookConfigRequest) GetWebhookId() string {
+	if x != nil {
+		return x.WebhookId
+	}
+	return ""
+}
+
+func (x *UpdateWebhookConfigRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *UpdateWebhookConfigRequest) GetUpdates() *WebhookUpdateFields {
+	if x != nil {
+		return x.Updates
+	}
+	return nil
+}
+
+// UpdateWebhookConfigResponse confirms the webhook was updated.
+// On success, gRPC status is OK. On failure, NOT_FOUND or INVALID_ARGUMENT.
+type UpdateWebhookConfigResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateWebhookConfigResponse) Reset() {
+	*x = UpdateWebhookConfigResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateWebhookConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateWebhookConfigResponse) ProtoMessage() {}
+
+func (x *UpdateWebhookConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateWebhookConfigResponse.ProtoReflect.Descriptor instead.
+func (*UpdateWebhookConfigResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{12}
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *UpdateWebhookConfigResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *UpdateWebhookConfigResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// PauseWebhookRequest sets a webhook to inactive, preventing new deliveries.
+// Existing in-flight deliveries are not cancelled.
+type PauseWebhookRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the webhook to pause. Required.
+	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Namespace the webhook belongs to. Required.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Human-readable reason for pausing (stored for audit purposes). Optional.
+	Reason        string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PauseWebhookRequest) Reset() {
+	*x = PauseWebhookRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PauseWebhookRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PauseWebhookRequest) ProtoMessage() {}
+
+func (x *PauseWebhookRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PauseWebhookRequest.ProtoReflect.Descriptor instead.
+func (*PauseWebhookRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *PauseWebhookRequest) GetWebhookId() string {
+	if x != nil {
+		return x.WebhookId
+	}
+	return ""
+}
+
+func (x *PauseWebhookRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *PauseWebhookRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// PauseWebhookResponse confirms the webhook was paused.
+type PauseWebhookResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PauseWebhookResponse) Reset() {
+	*x = PauseWebhookResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PauseWebhookResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PauseWebhookResponse) ProtoMessage() {}
+
+func (x *PauseWebhookResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PauseWebhookResponse.ProtoReflect.Descriptor instead.
+func (*PauseWebhookResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{14}
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *PauseWebhookResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *PauseWebhookResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// ResumeWebhookRequest re-activates a paused webhook.
+// Events pushed while the webhook was paused are not retroactively delivered.
+type ResumeWebhookRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the webhook to resume. Required.
+	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Namespace the webhook belongs to. Required.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Human-readable reason for resuming. Optional.
+	Reason        string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResumeWebhookRequest) Reset() {
+	*x = ResumeWebhookRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResumeWebhookRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResumeWebhookRequest) ProtoMessage() {}
+
+func (x *ResumeWebhookRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResumeWebhookRequest.ProtoReflect.Descriptor instead.
+func (*ResumeWebhookRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ResumeWebhookRequest) GetWebhookId() string {
+	if x != nil {
+		return x.WebhookId
+	}
+	return ""
+}
+
+func (x *ResumeWebhookRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *ResumeWebhookRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// ResumeWebhookResponse confirms the webhook was resumed.
+type ResumeWebhookResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResumeWebhookResponse) Reset() {
+	*x = ResumeWebhookResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResumeWebhookResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResumeWebhookResponse) ProtoMessage() {}
+
+func (x *ResumeWebhookResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResumeWebhookResponse.ProtoReflect.Descriptor instead.
+func (*ResumeWebhookResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{16}
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ResumeWebhookResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ResumeWebhookResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// RegisterEventRequest creates a new event type definition.
+// The event name becomes the primary identifier (not a UUID) and must be unique per tenant.
+type RegisterEventRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unique event name (e.g., "order.created", "payment.completed"). Required.
+	// Convention: use dot-separated lowercase names.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Human-readable description of what this event represents. Optional.
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// JSON Schema for validating PushEvent payloads. Optional.
+	// When set, all future PushEvent calls for this event type must conform to this schema.
+	// Passed as a google.protobuf.Struct (JSON object).
+	Schema *structpb.Struct `protobuf:"bytes,3,opt,name=schema,proto3" json:"schema,omitempty"`
+	// Arbitrary key-value metadata attached to the event type definition. Optional.
+	Metadata map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Whether the event type is active. Default: true.
+	// Inactive event types cannot receive new PushEvent calls.
+	Active        bool `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterEventRequest) Reset() {
+	*x = RegisterEventRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterEventRequest) ProtoMessage() {}
+
+func (x *RegisterEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterEventRequest.ProtoReflect.Descriptor instead.
+func (*RegisterEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *RegisterEventRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *RegisterEventRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *RegisterEventRequest) GetSchema() *structpb.Struct {
+	if x != nil {
+		return x.Schema
+	}
+	return nil
+}
+
+func (x *RegisterEventRequest) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *RegisterEventRequest) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+// RegisterEventResponse confirms successful event type creation.
+type RegisterEventResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: returns the event name (identical to the name in the request).
+	// Use the name from the request instead.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	EventId string `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	// Timestamp when the event type was created.
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterEventResponse) Reset() {
+	*x = RegisterEventResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterEventResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterEventResponse) ProtoMessage() {}
+
+func (x *RegisterEventResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterEventResponse.ProtoReflect.Descriptor instead.
+func (*RegisterEventResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{18}
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *RegisterEventResponse) GetEventId() string {
+	if x != nil {
+		return x.EventId
+	}
+	return ""
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *RegisterEventResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *RegisterEventResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *RegisterEventResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+// ListEventsRequest specifies filters for listing registered event types.
+type ListEventsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// When true, only return active event types. Default: false (return all).
+	ActiveOnly bool `protobuf:"varint,1,opt,name=active_only,json=activeOnly,proto3" json:"active_only,omitempty"`
+	// Pagination parameters. Default: limit=50, offset=0.
+	Pagination    *PaginationRequest `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEventsRequest) Reset() {
+	*x = ListEventsRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEventsRequest) ProtoMessage() {}
+
+func (x *ListEventsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEventsRequest.ProtoReflect.Descriptor instead.
+func (*ListEventsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ListEventsRequest) GetActiveOnly() bool {
+	if x != nil {
+		return x.ActiveOnly
+	}
+	return false
+}
+
+func (x *ListEventsRequest) GetPagination() *PaginationRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// RegisteredEvent is the full representation of an event type definition.
+// This describes an event type (schema), not an event instance (see EventReport for that).
+type RegisteredEvent struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: returns the event name. Use the name field (field 2) instead.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	EventId string `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	// Unique event name (primary identifier). This is the value used in
+	// PushEvent, subscription matching, and all event-related queries.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// Human-readable description of the event type.
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	// JSON Schema used for payload validation on PushEvent. Null if no schema is set.
+	Schema *structpb.Struct `protobuf:"bytes,4,opt,name=schema,proto3" json:"schema,omitempty"`
+	// Auto-generated sample payload based on the schema. Useful for testing
+	// subscription templates via TestSubscriptionTemplate. Null if no schema is set.
+	SamplePayload *structpb.Struct `protobuf:"bytes,9,opt,name=sample_payload,json=samplePayload,proto3" json:"sample_payload,omitempty"`
+	// Arbitrary key-value metadata.
+	Metadata map[string]string `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Whether this event type is active. Inactive types reject PushEvent calls.
+	Active bool `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`
+	// When the event type was first registered.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the event type was last modified.
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisteredEvent) Reset() {
+	*x = RegisteredEvent{}
+	mi := &file_proto_webhook_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisteredEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisteredEvent) ProtoMessage() {}
+
+func (x *RegisteredEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisteredEvent.ProtoReflect.Descriptor instead.
+func (*RegisteredEvent) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{20}
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *RegisteredEvent) GetEventId() string {
+	if x != nil {
+		return x.EventId
+	}
+	return ""
+}
+
+func (x *RegisteredEvent) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *RegisteredEvent) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *RegisteredEvent) GetSchema() *structpb.Struct {
+	if x != nil {
+		return x.Schema
+	}
+	return nil
+}
+
+func (x *RegisteredEvent) GetSamplePayload() *structpb.Struct {
+	if x != nil {
+		return x.SamplePayload
+	}
+	return nil
+}
+
+func (x *RegisteredEvent) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *RegisteredEvent) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+func (x *RegisteredEvent) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *RegisteredEvent) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+// ListEventsResponse contains the paginated list of event type definitions.
+type ListEventsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Event type definitions matching the filter criteria.
+	Events []*RegisteredEvent `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	// Pagination metadata.
+	Pagination *PaginationResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	// Deprecated: use pagination.total_count.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	TotalCount    int32 `protobuf:"varint,5,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEventsResponse) Reset() {
+	*x = ListEventsResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEventsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEventsResponse) ProtoMessage() {}
+
+func (x *ListEventsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEventsResponse.ProtoReflect.Descriptor instead.
+func (*ListEventsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ListEventsResponse) GetEvents() []*RegisteredEvent {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *ListEventsResponse) GetPagination() *PaginationResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListEventsResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListEventsResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListEventsResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+// UpdateEventRequest modifies an existing event type definition.
+// All fields except name are optional; only non-zero fields are applied.
+type UpdateEventRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Event name to update. Required. This is the lookup key (not a UUID).
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Updated description. Omit to leave unchanged.
+	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	// Updated JSON Schema for payload validation. Omit to leave unchanged.
+	// Note: changing the schema does not retroactively validate previously pushed events.
+	Schema *structpb.Struct `protobuf:"bytes,3,opt,name=schema,proto3" json:"schema,omitempty"`
+	// Updated metadata. Omit to leave unchanged.
+	Metadata map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Updated active flag. Omit to leave unchanged.
+	Active        bool `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateEventRequest) Reset() {
+	*x = UpdateEventRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateEventRequest) ProtoMessage() {}
+
+func (x *UpdateEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateEventRequest.ProtoReflect.Descriptor instead.
+func (*UpdateEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *UpdateEventRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateEventRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *UpdateEventRequest) GetSchema() *structpb.Struct {
+	if x != nil {
+		return x.Schema
+	}
+	return nil
+}
+
+func (x *UpdateEventRequest) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *UpdateEventRequest) GetActive() bool {
+	if x != nil {
+		return x.Active
+	}
+	return false
+}
+
+// UpdateEventResponse confirms the event type was updated.
+type UpdateEventResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateEventResponse) Reset() {
+	*x = UpdateEventResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateEventResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateEventResponse) ProtoMessage() {}
+
+func (x *UpdateEventResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateEventResponse.ProtoReflect.Descriptor instead.
+func (*UpdateEventResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{23}
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *UpdateEventResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *UpdateEventResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// GetEventRequest retrieves a single event type definition by name.
+type GetEventRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Event name to look up. Required.
+	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEventRequest) Reset() {
+	*x = GetEventRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEventRequest) ProtoMessage() {}
+
+func (x *GetEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEventRequest.ProtoReflect.Descriptor instead.
+func (*GetEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *GetEventRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+// GetEventResponse returns the requested event type definition.
+type GetEventResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The event type definition, including schema and sample_payload.
+	Event         *RegisteredEvent `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEventResponse) Reset() {
+	*x = GetEventResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEventResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEventResponse) ProtoMessage() {}
+
+func (x *GetEventResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEventResponse.ProtoReflect.Descriptor instead.
+func (*GetEventResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *GetEventResponse) GetEvent() *RegisteredEvent {
+	if x != nil {
+		return x.Event
+	}
+	return nil
+}
+
+// DeleteEventRequest permanently removes an event type definition.
+// Caution: existing subscriptions referencing this event name are NOT automatically deleted.
+// They will simply stop matching any future events.
+type DeleteEventRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Event name to delete. Required.
+	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteEventRequest) Reset() {
+	*x = DeleteEventRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteEventRequest) ProtoMessage() {}
+
+func (x *DeleteEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteEventRequest.ProtoReflect.Descriptor instead.
+func (*DeleteEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *DeleteEventRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+// DeleteEventResponse confirms the event type was deleted.
+type DeleteEventResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteEventResponse) Reset() {
+	*x = DeleteEventResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteEventResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteEventResponse) ProtoMessage() {}
+
+func (x *DeleteEventResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteEventResponse.ProtoReflect.Descriptor instead.
+func (*DeleteEventResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{27}
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *DeleteEventResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *DeleteEventResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// PushEventRequest submits an event instance for asynchronous delivery.
+// This is the primary ingestion endpoint. The event is persisted and a background
+// job fans out deliveries to all matching subscriptions. The response returns
+// immediately with the event_id; actual HTTP delivery happens asynchronously.
 type PushEventRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                         // Namespace for the event
-	Event         string                 `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`                                                                                 // Event name
-	Payload       *structpb.Struct       `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`                                                                             // Event payload as JSON struct
-	TtlSeconds    int64                  `protobuf:"varint,4,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"`                                                    // TTL for webhook retry attempts
-	Metadata      map[string]string      `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Additional event metadata
-	Id            *string                `protobuf:"bytes,6,opt,name=id,proto3,oneof" json:"id,omitempty"`                                                                                 // Optional id for idempotency
-	Labels        map[string]string      `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`     // Optional labels for label-based subscription matching
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Namespace to push the event into. Required.
+	// Only subscriptions in this namespace are matched.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Event type name (must match a registered event type). Required.
+	// Subscriptions with matching event_name in this namespace will receive deliveries.
+	Event string `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
+	// Event payload as a JSON object. Required.
+	// If the event type has a schema, this payload is validated against it before acceptance.
+	// This payload (or its template-transformed version) becomes the HTTP request body
+	// sent to each matching webhook.
+	Payload *structpb.Struct `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
+	// Time-to-live in seconds for delivery retries. Optional.
+	// When set, deliveries that haven't succeeded within this window transition to EXPIRED.
+	// Default: 0 (no expiration -- retries continue until max_retries is exhausted).
+	TtlSeconds int64 `protobuf:"varint,4,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"`
+	// Arbitrary key-value metadata attached to this event instance. Optional.
+	// Metadata is stored with the event record and available in event reports,
+	// but is NOT included in the delivery payload sent to webhooks.
+	Metadata map[string]string `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Client-provided event ID for idempotency. Optional.
+	// If provided and an event with this ID already exists, the existing event_id is returned
+	// without creating a duplicate.
+	Id *string `protobuf:"bytes,6,opt,name=id,proto3,oneof" json:"id,omitempty"`
+	// Labels for label-based subscription matching. Optional.
+	// When set, only subscriptions whose label_filters are a subset of these labels
+	// will receive deliveries. Labels use AND logic: all filter keys must match.
+	// Subscriptions with no label_filters match all events regardless of labels.
+	Labels        map[string]string `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PushEventRequest) Reset() {
 	*x = PushEventRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[5]
+	mi := &file_proto_webhook_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -567,7 +2445,7 @@ func (x *PushEventRequest) String() string {
 func (*PushEventRequest) ProtoMessage() {}
 
 func (x *PushEventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[5]
+	mi := &file_proto_webhook_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -580,7 +2458,7 @@ func (x *PushEventRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PushEventRequest.ProtoReflect.Descriptor instead.
 func (*PushEventRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{5}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *PushEventRequest) GetNamespace() string {
@@ -632,21 +2510,28 @@ func (x *PushEventRequest) GetLabels() map[string]string {
 	return nil
 }
 
-// PushEventResponse represents the response for event pushing
+// PushEventResponse is returned immediately after the event is accepted.
+// Delivery to webhooks happens asynchronously via background workers.
 type PushEventResponse struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	EventId string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"` // Unique event identifier
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Server-generated UUID for the event instance.
+	// Use this ID to query delivery status via DeliveryService.ListDeliveries.
+	EventId string `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"` // Use gRPC status codes instead
+	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"` // Use gRPC status codes instead
+	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PushEventResponse) Reset() {
 	*x = PushEventResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[6]
+	mi := &file_proto_webhook_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -658,7 +2543,7 @@ func (x *PushEventResponse) String() string {
 func (*PushEventResponse) ProtoMessage() {}
 
 func (x *PushEventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[6]
+	mi := &file_proto_webhook_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -671,7 +2556,7 @@ func (x *PushEventResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PushEventResponse.ProtoReflect.Descriptor instead.
 func (*PushEventResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{6}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *PushEventResponse) GetEventId() string {
@@ -697,31 +2582,1581 @@ func (x *PushEventResponse) GetMessage() string {
 	return ""
 }
 
-// WebhookDelivery represents a single webhook delivery attempt
+// EventReport represents a pushed event instance with aggregated delivery statistics.
+// This is different from RegisteredEvent (which is an event type definition).
+// An EventReport is an actual event that was pushed via PushEvent and may have
+// triggered zero or more deliveries to subscribed webhooks.
+type EventReport struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Server-generated UUID of the event instance.
+	EventId string `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	// Namespace the event was pushed into.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Event type name.
+	EventName string `protobuf:"bytes,3,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
+	// The original payload that was pushed.
+	Payload *structpb.Struct `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
+	// Metadata attached when the event was pushed.
+	Metadata map[string]string `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// When the event was pushed.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// TTL in seconds that was specified when pushing. 0 if no TTL was set.
+	TtlSeconds int64 `protobuf:"varint,7,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"`
+	// Number of webhooks that received (or will receive) a delivery for this event.
+	WebhookCount int32 `protobuf:"varint,8,opt,name=webhook_count,json=webhookCount,proto3" json:"webhook_count,omitempty"`
+	// Number of deliveries that completed successfully (terminal SUCCESS status).
+	SuccessfulDeliveries int32 `protobuf:"varint,9,opt,name=successful_deliveries,json=successfulDeliveries,proto3" json:"successful_deliveries,omitempty"`
+	// Number of deliveries that failed permanently (terminal FAILED or EXPIRED status).
+	FailedDeliveries int32 `protobuf:"varint,10,opt,name=failed_deliveries,json=failedDeliveries,proto3" json:"failed_deliveries,omitempty"`
+	// Number of deliveries still in progress (PENDING, SENDING, or RETRYING status).
+	PendingDeliveries int32 `protobuf:"varint,11,opt,name=pending_deliveries,json=pendingDeliveries,proto3" json:"pending_deliveries,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *EventReport) Reset() {
+	*x = EventReport{}
+	mi := &file_proto_webhook_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EventReport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EventReport) ProtoMessage() {}
+
+func (x *EventReport) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EventReport.ProtoReflect.Descriptor instead.
+func (*EventReport) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *EventReport) GetEventId() string {
+	if x != nil {
+		return x.EventId
+	}
+	return ""
+}
+
+func (x *EventReport) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *EventReport) GetEventName() string {
+	if x != nil {
+		return x.EventName
+	}
+	return ""
+}
+
+func (x *EventReport) GetPayload() *structpb.Struct {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *EventReport) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+func (x *EventReport) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *EventReport) GetTtlSeconds() int64 {
+	if x != nil {
+		return x.TtlSeconds
+	}
+	return 0
+}
+
+func (x *EventReport) GetWebhookCount() int32 {
+	if x != nil {
+		return x.WebhookCount
+	}
+	return 0
+}
+
+func (x *EventReport) GetSuccessfulDeliveries() int32 {
+	if x != nil {
+		return x.SuccessfulDeliveries
+	}
+	return 0
+}
+
+func (x *EventReport) GetFailedDeliveries() int32 {
+	if x != nil {
+		return x.FailedDeliveries
+	}
+	return 0
+}
+
+func (x *EventReport) GetPendingDeliveries() int32 {
+	if x != nil {
+		return x.PendingDeliveries
+	}
+	return 0
+}
+
+// ListEventReportsRequest specifies filters for listing pushed event instances.
+type ListEventReportsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Namespace to list events from. Required.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Filter to events of this type name. Optional.
+	EventName *string `protobuf:"bytes,2,opt,name=event_name,json=eventName,proto3,oneof" json:"event_name,omitempty"`
+	// Pagination parameters. Default: limit=50, offset=0. Max limit: 1000.
+	Pagination *PaginationRequest `protobuf:"bytes,3,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	// Deprecated: use pagination.limit.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Limit int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
+	// Deprecated: use pagination.offset.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Offset        int32 `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEventReportsRequest) Reset() {
+	*x = ListEventReportsRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEventReportsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEventReportsRequest) ProtoMessage() {}
+
+func (x *ListEventReportsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEventReportsRequest.ProtoReflect.Descriptor instead.
+func (*ListEventReportsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *ListEventReportsRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *ListEventReportsRequest) GetEventName() string {
+	if x != nil && x.EventName != nil {
+		return *x.EventName
+	}
+	return ""
+}
+
+func (x *ListEventReportsRequest) GetPagination() *PaginationRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListEventReportsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListEventReportsRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+// ListEventReportsResponse contains pushed event instances with delivery statistics.
+type ListEventReportsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Event instances ordered by created_at descending (newest first).
+	Events []*EventReport `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
+	// Pagination metadata.
+	Pagination *PaginationResponse `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	// Deprecated: use pagination.total_count.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEventReportsResponse) Reset() {
+	*x = ListEventReportsResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEventReportsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEventReportsResponse) ProtoMessage() {}
+
+func (x *ListEventReportsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEventReportsResponse.ProtoReflect.Descriptor instead.
+func (*ListEventReportsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *ListEventReportsResponse) GetEvents() []*EventReport {
+	if x != nil {
+		return x.Events
+	}
+	return nil
+}
+
+func (x *ListEventReportsResponse) GetPagination() *PaginationResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListEventReportsResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListEventReportsResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListEventReportsResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// EventSubscription is the full representation of a subscription linking
+// a webhook to an event type within a namespace.
+//
+// Subscriptions determine which webhooks receive deliveries when an event is pushed.
+// Matching logic: (namespace = event.namespace) AND (event_name = event.event)
+// AND (all label_filter keys/values match the event's labels).
+//
+// Optional features:
+//   - Per-subscription HTTP headers and method override
+//   - Payload transformation via Go templates
+//   - Label-based filtering for selective event matching
+type EventSubscription struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Server-generated UUID for this subscription.
+	SubscriptionId string `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
+	// UUID of the webhook that receives deliveries through this subscription.
+	WebhookId string `protobuf:"bytes,2,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Event type name this subscription listens for.
+	EventName string `protobuf:"bytes,3,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
+	// Namespace this subscription belongs to.
+	Namespace string `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Per-subscription HTTP headers added to delivery requests.
+	// These are merged with (and override) the webhook's headers.
+	Headers map[string]string `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// HTTP method override for deliveries through this subscription.
+	// Default: "POST". Allows using PUT, PATCH, etc. per subscription.
+	Method string `protobuf:"bytes,6,opt,name=method,proto3" json:"method,omitempty"`
+	// Per-subscription timeout override in seconds.
+	// When set (> 0), overrides the webhook's request_timeout_seconds for this subscription.
+	Timeout int32 `protobuf:"varint,7,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	// Whether Go template payload transformation is enabled for this subscription.
+	TransformEnabled bool `protobuf:"varint,8,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`
+	// Go template string for payload transformation. Only used when transform_enabled is true.
+	// The template receives the event payload as its data context. Available functions
+	// can be listed via WebhookService.GetTemplateFunctions.
+	TransformTemplate string `protobuf:"bytes,9,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`
+	// When this subscription was created.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When this subscription was last modified.
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// Label filters for selective event matching. When set, only events whose labels
+	// contain all key-value pairs in this map will trigger deliveries through this subscription.
+	// Uses AND logic: every filter must match. Empty map matches all events.
+	LabelFilters  map[string]string `protobuf:"bytes,12,rep,name=label_filters,json=labelFilters,proto3" json:"label_filters,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EventSubscription) Reset() {
+	*x = EventSubscription{}
+	mi := &file_proto_webhook_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EventSubscription) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EventSubscription) ProtoMessage() {}
+
+func (x *EventSubscription) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EventSubscription.ProtoReflect.Descriptor instead.
+func (*EventSubscription) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *EventSubscription) GetSubscriptionId() string {
+	if x != nil {
+		return x.SubscriptionId
+	}
+	return ""
+}
+
+func (x *EventSubscription) GetWebhookId() string {
+	if x != nil {
+		return x.WebhookId
+	}
+	return ""
+}
+
+func (x *EventSubscription) GetEventName() string {
+	if x != nil {
+		return x.EventName
+	}
+	return ""
+}
+
+func (x *EventSubscription) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *EventSubscription) GetHeaders() map[string]string {
+	if x != nil {
+		return x.Headers
+	}
+	return nil
+}
+
+func (x *EventSubscription) GetMethod() string {
+	if x != nil {
+		return x.Method
+	}
+	return ""
+}
+
+func (x *EventSubscription) GetTimeout() int32 {
+	if x != nil {
+		return x.Timeout
+	}
+	return 0
+}
+
+func (x *EventSubscription) GetTransformEnabled() bool {
+	if x != nil {
+		return x.TransformEnabled
+	}
+	return false
+}
+
+func (x *EventSubscription) GetTransformTemplate() string {
+	if x != nil {
+		return x.TransformTemplate
+	}
+	return ""
+}
+
+func (x *EventSubscription) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *EventSubscription) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *EventSubscription) GetLabelFilters() map[string]string {
+	if x != nil {
+		return x.LabelFilters
+	}
+	return nil
+}
+
+// CreateSubscriptionRequest creates a new subscription linking a webhook to an event type.
+type CreateSubscriptionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the webhook to subscribe. Required.
+	// The webhook must exist in the specified namespace.
+	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Event type name to subscribe to. Required.
+	EventName string `protobuf:"bytes,2,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
+	// Namespace for the subscription. Required.
+	// Must match the webhook's namespace.
+	Namespace string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Per-subscription HTTP headers. Optional.
+	// Merged with (and overrides) webhook-level headers on delivery.
+	Headers map[string]string `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// HTTP method override. Optional. Default: "POST".
+	Method string `protobuf:"bytes,5,opt,name=method,proto3" json:"method,omitempty"`
+	// Timeout override in seconds. Optional. Default: use webhook's timeout.
+	Timeout int32 `protobuf:"varint,6,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	// Enable Go template payload transformation. Default: false.
+	TransformEnabled bool `protobuf:"varint,7,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`
+	// Go template for payload transformation. Only used when transform_enabled is true.
+	// Use TestSubscriptionTemplate to validate before saving.
+	TransformTemplate string `protobuf:"bytes,8,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`
+	// Label filters for selective event matching. Optional.
+	// Only events with labels matching all key-value pairs will trigger this subscription.
+	LabelFilters  map[string]string `protobuf:"bytes,9,rep,name=label_filters,json=labelFilters,proto3" json:"label_filters,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateSubscriptionRequest) Reset() {
+	*x = CreateSubscriptionRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSubscriptionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSubscriptionRequest) ProtoMessage() {}
+
+func (x *CreateSubscriptionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSubscriptionRequest.ProtoReflect.Descriptor instead.
+func (*CreateSubscriptionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *CreateSubscriptionRequest) GetWebhookId() string {
+	if x != nil {
+		return x.WebhookId
+	}
+	return ""
+}
+
+func (x *CreateSubscriptionRequest) GetEventName() string {
+	if x != nil {
+		return x.EventName
+	}
+	return ""
+}
+
+func (x *CreateSubscriptionRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *CreateSubscriptionRequest) GetHeaders() map[string]string {
+	if x != nil {
+		return x.Headers
+	}
+	return nil
+}
+
+func (x *CreateSubscriptionRequest) GetMethod() string {
+	if x != nil {
+		return x.Method
+	}
+	return ""
+}
+
+func (x *CreateSubscriptionRequest) GetTimeout() int32 {
+	if x != nil {
+		return x.Timeout
+	}
+	return 0
+}
+
+func (x *CreateSubscriptionRequest) GetTransformEnabled() bool {
+	if x != nil {
+		return x.TransformEnabled
+	}
+	return false
+}
+
+func (x *CreateSubscriptionRequest) GetTransformTemplate() string {
+	if x != nil {
+		return x.TransformTemplate
+	}
+	return ""
+}
+
+func (x *CreateSubscriptionRequest) GetLabelFilters() map[string]string {
+	if x != nil {
+		return x.LabelFilters
+	}
+	return nil
+}
+
+// CreateSubscriptionResponse confirms successful subscription creation.
+type CreateSubscriptionResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Server-generated UUID of the new subscription.
+	SubscriptionId string `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
+	// When the subscription was created.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateSubscriptionResponse) Reset() {
+	*x = CreateSubscriptionResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSubscriptionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSubscriptionResponse) ProtoMessage() {}
+
+func (x *CreateSubscriptionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSubscriptionResponse.ProtoReflect.Descriptor instead.
+func (*CreateSubscriptionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *CreateSubscriptionResponse) GetSubscriptionId() string {
+	if x != nil {
+		return x.SubscriptionId
+	}
+	return ""
+}
+
+func (x *CreateSubscriptionResponse) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *CreateSubscriptionResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *CreateSubscriptionResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// GetSubscriptionRequest retrieves a single subscription by ID.
+type GetSubscriptionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the subscription to retrieve. Required.
+	SubscriptionId string `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
+	// Namespace the subscription belongs to. Required.
+	Namespace     string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSubscriptionRequest) Reset() {
+	*x = GetSubscriptionRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSubscriptionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSubscriptionRequest) ProtoMessage() {}
+
+func (x *GetSubscriptionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSubscriptionRequest.ProtoReflect.Descriptor instead.
+func (*GetSubscriptionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *GetSubscriptionRequest) GetSubscriptionId() string {
+	if x != nil {
+		return x.SubscriptionId
+	}
+	return ""
+}
+
+func (x *GetSubscriptionRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+// GetSubscriptionResponse returns the requested subscription.
+type GetSubscriptionResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Full subscription details.
+	Subscription *EventSubscription `protobuf:"bytes,1,opt,name=subscription,proto3" json:"subscription,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSubscriptionResponse) Reset() {
+	*x = GetSubscriptionResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSubscriptionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSubscriptionResponse) ProtoMessage() {}
+
+func (x *GetSubscriptionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSubscriptionResponse.ProtoReflect.Descriptor instead.
+func (*GetSubscriptionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *GetSubscriptionResponse) GetSubscription() *EventSubscription {
+	if x != nil {
+		return x.Subscription
+	}
+	return nil
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *GetSubscriptionResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *GetSubscriptionResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// ListSubscriptionsRequest specifies filters for listing subscriptions.
+type ListSubscriptionsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Filter by webhook UUID. Optional.
+	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Filter by event type name. Optional.
+	EventName string `protobuf:"bytes,4,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
+	// Namespace to list subscriptions from. Required.
+	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Pagination parameters. Default: limit=50, offset=0.
+	Pagination    *PaginationRequest `protobuf:"bytes,3,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSubscriptionsRequest) Reset() {
+	*x = ListSubscriptionsRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSubscriptionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSubscriptionsRequest) ProtoMessage() {}
+
+func (x *ListSubscriptionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSubscriptionsRequest.ProtoReflect.Descriptor instead.
+func (*ListSubscriptionsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *ListSubscriptionsRequest) GetWebhookId() string {
+	if x != nil {
+		return x.WebhookId
+	}
+	return ""
+}
+
+func (x *ListSubscriptionsRequest) GetEventName() string {
+	if x != nil {
+		return x.EventName
+	}
+	return ""
+}
+
+func (x *ListSubscriptionsRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *ListSubscriptionsRequest) GetPagination() *PaginationRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// ListSubscriptionsResponse contains the paginated list of subscriptions.
+type ListSubscriptionsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Subscriptions matching the filter criteria.
+	Subscriptions []*EventSubscription `protobuf:"bytes,1,rep,name=subscriptions,proto3" json:"subscriptions,omitempty"`
+	// Pagination metadata.
+	Pagination *PaginationResponse `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	// Deprecated: use pagination.total_count.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSubscriptionsResponse) Reset() {
+	*x = ListSubscriptionsResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSubscriptionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSubscriptionsResponse) ProtoMessage() {}
+
+func (x *ListSubscriptionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSubscriptionsResponse.ProtoReflect.Descriptor instead.
+func (*ListSubscriptionsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *ListSubscriptionsResponse) GetSubscriptions() []*EventSubscription {
+	if x != nil {
+		return x.Subscriptions
+	}
+	return nil
+}
+
+func (x *ListSubscriptionsResponse) GetPagination() *PaginationResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListSubscriptionsResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListSubscriptionsResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListSubscriptionsResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// UpdateSubscriptionRequest modifies an existing subscription.
+// Only non-zero/non-empty fields are applied; omitted fields are left unchanged.
+type UpdateSubscriptionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the subscription to update. Required.
+	SubscriptionId string `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
+	// Namespace the subscription belongs to. Required.
+	Namespace string `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Updated per-subscription headers. Replaces existing headers when set.
+	Headers map[string]string `protobuf:"bytes,2,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Updated HTTP method override.
+	Method string `protobuf:"bytes,3,opt,name=method,proto3" json:"method,omitempty"`
+	// Updated timeout override in seconds.
+	Timeout int32 `protobuf:"varint,4,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	// Updated transform enabled flag.
+	TransformEnabled bool `protobuf:"varint,5,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`
+	// Updated Go template. Use TestSubscriptionTemplate to validate before saving.
+	TransformTemplate string `protobuf:"bytes,6,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`
+	// Updated label filters. Replaces existing filters when set.
+	LabelFilters  map[string]string `protobuf:"bytes,8,rep,name=label_filters,json=labelFilters,proto3" json:"label_filters,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateSubscriptionRequest) Reset() {
+	*x = UpdateSubscriptionRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateSubscriptionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateSubscriptionRequest) ProtoMessage() {}
+
+func (x *UpdateSubscriptionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateSubscriptionRequest.ProtoReflect.Descriptor instead.
+func (*UpdateSubscriptionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *UpdateSubscriptionRequest) GetSubscriptionId() string {
+	if x != nil {
+		return x.SubscriptionId
+	}
+	return ""
+}
+
+func (x *UpdateSubscriptionRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *UpdateSubscriptionRequest) GetHeaders() map[string]string {
+	if x != nil {
+		return x.Headers
+	}
+	return nil
+}
+
+func (x *UpdateSubscriptionRequest) GetMethod() string {
+	if x != nil {
+		return x.Method
+	}
+	return ""
+}
+
+func (x *UpdateSubscriptionRequest) GetTimeout() int32 {
+	if x != nil {
+		return x.Timeout
+	}
+	return 0
+}
+
+func (x *UpdateSubscriptionRequest) GetTransformEnabled() bool {
+	if x != nil {
+		return x.TransformEnabled
+	}
+	return false
+}
+
+func (x *UpdateSubscriptionRequest) GetTransformTemplate() string {
+	if x != nil {
+		return x.TransformTemplate
+	}
+	return ""
+}
+
+func (x *UpdateSubscriptionRequest) GetLabelFilters() map[string]string {
+	if x != nil {
+		return x.LabelFilters
+	}
+	return nil
+}
+
+// UpdateSubscriptionResponse confirms the subscription was updated.
+type UpdateSubscriptionResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateSubscriptionResponse) Reset() {
+	*x = UpdateSubscriptionResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateSubscriptionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateSubscriptionResponse) ProtoMessage() {}
+
+func (x *UpdateSubscriptionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateSubscriptionResponse.ProtoReflect.Descriptor instead.
+func (*UpdateSubscriptionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{41}
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *UpdateSubscriptionResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *UpdateSubscriptionResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// DeleteSubscriptionRequest permanently removes a subscription.
+// In-flight deliveries for this subscription are not cancelled.
+type DeleteSubscriptionRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the subscription to delete. Required.
+	SubscriptionId string `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
+	// Namespace the subscription belongs to. Required.
+	Namespace     string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSubscriptionRequest) Reset() {
+	*x = DeleteSubscriptionRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSubscriptionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSubscriptionRequest) ProtoMessage() {}
+
+func (x *DeleteSubscriptionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSubscriptionRequest.ProtoReflect.Descriptor instead.
+func (*DeleteSubscriptionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *DeleteSubscriptionRequest) GetSubscriptionId() string {
+	if x != nil {
+		return x.SubscriptionId
+	}
+	return ""
+}
+
+func (x *DeleteSubscriptionRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+// DeleteSubscriptionResponse confirms the subscription was deleted.
+type DeleteSubscriptionResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteSubscriptionResponse) Reset() {
+	*x = DeleteSubscriptionResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteSubscriptionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteSubscriptionResponse) ProtoMessage() {}
+
+func (x *DeleteSubscriptionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteSubscriptionResponse.ProtoReflect.Descriptor instead.
+func (*DeleteSubscriptionResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{43}
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *DeleteSubscriptionResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *DeleteSubscriptionResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// ListSubscriptionsByEventRequest lists subscriptions for a specific event in a namespace.
+// Note: this message is defined for internal use but not exposed as a standalone RPC.
+// Use ListSubscriptions with event_name filter instead.
+type ListSubscriptionsByEventRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Namespace to search in. Required.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Event name to filter by. Required.
+	EventName     string `protobuf:"bytes,2,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSubscriptionsByEventRequest) Reset() {
+	*x = ListSubscriptionsByEventRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSubscriptionsByEventRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSubscriptionsByEventRequest) ProtoMessage() {}
+
+func (x *ListSubscriptionsByEventRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSubscriptionsByEventRequest.ProtoReflect.Descriptor instead.
+func (*ListSubscriptionsByEventRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *ListSubscriptionsByEventRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *ListSubscriptionsByEventRequest) GetEventName() string {
+	if x != nil {
+		return x.EventName
+	}
+	return ""
+}
+
+// ListSubscriptionsByEventResponse contains subscriptions matching the event filter.
+type ListSubscriptionsByEventResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Matching subscriptions.
+	Subscriptions []*EventSubscription `protobuf:"bytes,1,rep,name=subscriptions,proto3" json:"subscriptions,omitempty"`
+	// Pagination metadata.
+	Pagination *PaginationResponse `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	// Deprecated: use pagination.total_count.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSubscriptionsByEventResponse) Reset() {
+	*x = ListSubscriptionsByEventResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSubscriptionsByEventResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSubscriptionsByEventResponse) ProtoMessage() {}
+
+func (x *ListSubscriptionsByEventResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSubscriptionsByEventResponse.ProtoReflect.Descriptor instead.
+func (*ListSubscriptionsByEventResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ListSubscriptionsByEventResponse) GetSubscriptions() []*EventSubscription {
+	if x != nil {
+		return x.Subscriptions
+	}
+	return nil
+}
+
+func (x *ListSubscriptionsByEventResponse) GetPagination() *PaginationResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListSubscriptionsByEventResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListSubscriptionsByEventResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListSubscriptionsByEventResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// TestSubscriptionTemplateRequest validates a Go template against an event's sample payload.
+// Use this before saving a transform_template on a subscription to catch syntax errors.
+type TestSubscriptionTemplateRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Event name to get the sample payload from. Required.
+	// The event type must have a schema defined for a sample payload to be generated.
+	EventName string `protobuf:"bytes,1,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
+	// Go template string to test. Required.
+	// The template is executed with the event's sample_payload as its data context.
+	TransformTemplate string `protobuf:"bytes,2,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`
+	// Namespace. Required.
+	Namespace     string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TestSubscriptionTemplateRequest) Reset() {
+	*x = TestSubscriptionTemplateRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestSubscriptionTemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestSubscriptionTemplateRequest) ProtoMessage() {}
+
+func (x *TestSubscriptionTemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestSubscriptionTemplateRequest.ProtoReflect.Descriptor instead.
+func (*TestSubscriptionTemplateRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *TestSubscriptionTemplateRequest) GetEventName() string {
+	if x != nil {
+		return x.EventName
+	}
+	return ""
+}
+
+func (x *TestSubscriptionTemplateRequest) GetTransformTemplate() string {
+	if x != nil {
+		return x.TransformTemplate
+	}
+	return ""
+}
+
+func (x *TestSubscriptionTemplateRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+// TestSubscriptionTemplateResponse returns the rendered template output.
+type TestSubscriptionTemplateResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The template output after rendering against the sample payload.
+	// This is exactly what would be sent as the delivery request body
+	// if this template were applied to a subscription.
+	TransformedPayload string `protobuf:"bytes,1,opt,name=transformed_payload,json=transformedPayload,proto3" json:"transformed_payload,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *TestSubscriptionTemplateResponse) Reset() {
+	*x = TestSubscriptionTemplateResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TestSubscriptionTemplateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TestSubscriptionTemplateResponse) ProtoMessage() {}
+
+func (x *TestSubscriptionTemplateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TestSubscriptionTemplateResponse.ProtoReflect.Descriptor instead.
+func (*TestSubscriptionTemplateResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *TestSubscriptionTemplateResponse) GetTransformedPayload() string {
+	if x != nil {
+		return x.TransformedPayload
+	}
+	return ""
+}
+
+// WebhookDelivery is the full representation of a single delivery and its attempt chain.
+// A delivery is created when an event is fanned out to a webhook via a subscription.
+// It tracks the entire lifecycle from creation through all retry attempts to final status.
+//
+// Each delivery maps to exactly one (webhook, event, subscription) tuple.
 type WebhookDelivery struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	DeliveryId      string                 `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`                  // Unique delivery identifier
-	WebhookId       string                 `protobuf:"bytes,2,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`                     // Associated webhook ID
-	EventId         string                 `protobuf:"bytes,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`                           // Associated event ID
-	Status          WebhookDeliveryStatus  `protobuf:"varint,4,opt,name=status,proto3,enum=webhook.WebhookDeliveryStatus" json:"status,omitempty"`        // Current delivery status
-	AttemptCount    int32                  `protobuf:"varint,5,opt,name=attempt_count,json=attemptCount,proto3" json:"attempt_count,omitempty"`           // Number of delivery attempts
-	MaxAttempts     int32                  `protobuf:"varint,6,opt,name=max_attempts,json=maxAttempts,proto3" json:"max_attempts,omitempty"`              // Maximum retry attempts
-	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                     // When delivery was created
-	LastAttemptedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=last_attempted_at,json=lastAttemptedAt,proto3" json:"last_attempted_at,omitempty"` // Last attempt timestamp
-	NextRetryAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=next_retry_at,json=nextRetryAt,proto3" json:"next_retry_at,omitempty"`             // Next retry timestamp
-	ExpiresAt       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`                    // When delivery expires (TTL)
-	ResponseCode    int32                  `protobuf:"varint,11,opt,name=response_code,json=responseCode,proto3" json:"response_code,omitempty"`          // HTTP response code from last attempt
-	ResponseBody    string                 `protobuf:"bytes,12,opt,name=response_body,json=responseBody,proto3" json:"response_body,omitempty"`           // HTTP response body (truncated)
-	ErrorMessage    string                 `protobuf:"bytes,13,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`           // Error message if failed
-	RequestBody     string                 `protobuf:"bytes,14,opt,name=request_body,json=requestBody,proto3" json:"request_body,omitempty"`              // Request body sent to webhook
-	ErrorCategory   string                 `protobuf:"bytes,15,opt,name=error_category,json=errorCategory,proto3" json:"error_category,omitempty"`        // Classified error category (e.g. client_error, server_error, timeout, network_error)
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Server-generated UUID for this delivery.
+	DeliveryId string `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`
+	// UUID of the target webhook.
+	WebhookId string `protobuf:"bytes,2,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// UUID of the event that triggered this delivery.
+	EventId string `protobuf:"bytes,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	// Current delivery status. See WebhookDeliveryStatus for state transitions.
+	Status WebhookDeliveryStatus `protobuf:"varint,4,opt,name=status,proto3,enum=webhook.WebhookDeliveryStatus" json:"status,omitempty"`
+	// Number of delivery attempts made so far (including the initial attempt).
+	AttemptCount int32 `protobuf:"varint,5,opt,name=attempt_count,json=attemptCount,proto3" json:"attempt_count,omitempty"`
+	// Maximum attempts allowed (1 + max_retries from the webhook's http_config).
+	MaxAttempts int32 `protobuf:"varint,6,opt,name=max_attempts,json=maxAttempts,proto3" json:"max_attempts,omitempty"`
+	// When this delivery was created (event fan-out time).
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the most recent attempt was made. Null if not yet attempted.
+	LastAttemptedAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=last_attempted_at,json=lastAttemptedAt,proto3" json:"last_attempted_at,omitempty"`
+	// When the next retry is scheduled. Null if not in RETRYING state.
+	NextRetryAt *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=next_retry_at,json=nextRetryAt,proto3" json:"next_retry_at,omitempty"`
+	// When this delivery expires based on the event's ttl_seconds.
+	// Null if no TTL was set on the event.
+	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// HTTP status code from the most recent attempt. 0 if no response was received
+	// (e.g., timeout, connection refused, DNS error).
+	ResponseCode int32 `protobuf:"varint,11,opt,name=response_code,json=responseCode,proto3" json:"response_code,omitempty"`
+	// Response body from the most recent attempt. Truncated to 1 KB by default,
+	// or 1 MB if the webhook has capture_response_body enabled.
+	// Empty string if no response was received.
+	ResponseBody string `protobuf:"bytes,12,opt,name=response_body,json=responseBody,proto3" json:"response_body,omitempty"`
+	// Error message from the most recent failed attempt. Empty on success.
+	ErrorMessage string `protobuf:"bytes,13,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	// The HTTP request body that was sent to the webhook URL.
+	// This is the original event payload, or the template-transformed payload
+	// if the subscription has transform_enabled.
+	RequestBody string `protobuf:"bytes,14,opt,name=request_body,json=requestBody,proto3" json:"request_body,omitempty"`
+	// Classified error category from the most recent attempt.
+	// Values: "success", "client_error" (4xx, not retried), "server_error" (5xx, retried),
+	// "timeout" (retried), "connection_refused" (retried), "network_error" (retried),
+	// "dns_error" (not retried), "tls_error" (not retried), "unknown".
+	ErrorCategory string `protobuf:"bytes,15,opt,name=error_category,json=errorCategory,proto3" json:"error_category,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WebhookDelivery) Reset() {
 	*x = WebhookDelivery{}
-	mi := &file_proto_webhook_proto_msgTypes[7]
+	mi := &file_proto_webhook_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -733,7 +4168,7 @@ func (x *WebhookDelivery) String() string {
 func (*WebhookDelivery) ProtoMessage() {}
 
 func (x *WebhookDelivery) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[7]
+	mi := &file_proto_webhook_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -746,7 +4181,7 @@ func (x *WebhookDelivery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookDelivery.ProtoReflect.Descriptor instead.
 func (*WebhookDelivery) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{7}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *WebhookDelivery) GetDeliveryId() string {
@@ -854,33 +4289,32 @@ func (x *WebhookDelivery) GetErrorCategory() string {
 	return ""
 }
 
-// ListWebhooksRequest represents a request to list webhooks
-type ListWebhooksRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`                      // Namespace to filter by (required)
-	Event         string                 `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`                              // Event to filter by (optional)
-	ActiveOnly    bool                   `protobuf:"varint,3,opt,name=active_only,json=activeOnly,proto3" json:"active_only,omitempty"` // Only return active webhooks
-	Pagination    *PaginationRequest     `protobuf:"bytes,4,opt,name=pagination,proto3" json:"pagination,omitempty"`                    // Optional pagination
-	WebhookId     string                 `protobuf:"bytes,5,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`     // Optional webhook ID filter
+// GetDeliveryStatusRequest retrieves a single delivery by ID.
+type GetDeliveryStatusRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the delivery to retrieve. Required.
+	DeliveryId string `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`
+	// Namespace the delivery belongs to. Required.
+	Namespace     string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListWebhooksRequest) Reset() {
-	*x = ListWebhooksRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[8]
+func (x *GetDeliveryStatusRequest) Reset() {
+	*x = GetDeliveryStatusRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListWebhooksRequest) String() string {
+func (x *GetDeliveryStatusRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListWebhooksRequest) ProtoMessage() {}
+func (*GetDeliveryStatusRequest) ProtoMessage() {}
 
-func (x *ListWebhooksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[8]
+func (x *GetDeliveryStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -891,80 +4325,203 @@ func (x *ListWebhooksRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListWebhooksRequest.ProtoReflect.Descriptor instead.
-func (*ListWebhooksRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{8}
+// Deprecated: Use GetDeliveryStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetDeliveryStatusRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{49}
 }
 
-func (x *ListWebhooksRequest) GetNamespace() string {
+func (x *GetDeliveryStatusRequest) GetDeliveryId() string {
+	if x != nil {
+		return x.DeliveryId
+	}
+	return ""
+}
+
+func (x *GetDeliveryStatusRequest) GetNamespace() string {
 	if x != nil {
 		return x.Namespace
 	}
 	return ""
 }
 
-func (x *ListWebhooksRequest) GetEvent() string {
-	if x != nil {
-		return x.Event
-	}
-	return ""
+// GetDeliveryStatusResponse returns the full delivery details.
+type GetDeliveryStatusResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Full delivery details including request/response bodies and error info.
+	Delivery *WebhookDelivery `protobuf:"bytes,1,opt,name=delivery,proto3" json:"delivery,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListWebhooksRequest) GetActiveOnly() bool {
-	if x != nil {
-		return x.ActiveOnly
-	}
-	return false
+func (x *GetDeliveryStatusResponse) Reset() {
+	*x = GetDeliveryStatusResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListWebhooksRequest) GetPagination() *PaginationRequest {
+func (x *GetDeliveryStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDeliveryStatusResponse) ProtoMessage() {}
+
+func (x *GetDeliveryStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[50]
 	if x != nil {
-		return x.Pagination
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDeliveryStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetDeliveryStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *GetDeliveryStatusResponse) GetDelivery() *WebhookDelivery {
+	if x != nil {
+		return x.Delivery
 	}
 	return nil
 }
 
-func (x *ListWebhooksRequest) GetWebhookId() string {
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *GetDeliveryStatusResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *GetDeliveryStatusResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// ListDeliveriesRequest specifies filters for listing deliveries.
+// Results are always ordered by created_at descending (newest first).
+type ListDeliveriesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Namespace to list deliveries from. Required.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Filter by webhook UUID. Optional.
+	WebhookId string `protobuf:"bytes,2,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Filter by event UUID. Optional.
+	EventId string `protobuf:"bytes,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	// Pagination parameters. Default: limit=50, offset=0.
+	Pagination    *PaginationRequest `protobuf:"bytes,4,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDeliveriesRequest) Reset() {
+	*x = ListDeliveriesRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDeliveriesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDeliveriesRequest) ProtoMessage() {}
+
+func (x *ListDeliveriesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDeliveriesRequest.ProtoReflect.Descriptor instead.
+func (*ListDeliveriesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *ListDeliveriesRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *ListDeliveriesRequest) GetWebhookId() string {
 	if x != nil {
 		return x.WebhookId
 	}
 	return ""
 }
 
-// RegisteredWebhook represents a registered webhook
-type RegisteredWebhook struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WebhookId     string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`                                                      // Unique webhook identifier
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                       // Webhook namespace
-	Events        []string               `protobuf:"bytes,3,rep,name=events,proto3" json:"events,omitempty"`                                                                             // Events the webhook listens for
-	Url           string                 `protobuf:"bytes,4,opt,name=url,proto3" json:"url,omitempty"`                                                                                   // Target URL
-	Headers       map[string]string      `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // HTTP headers
-	Timeout       int32                  `protobuf:"varint,6,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                          // Timeout in seconds - DEPRECATED, see http_config.request_timeout_seconds
-	Active        bool                   `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`                                                                            // Whether webhook is active
-	Description   string                 `protobuf:"bytes,8,opt,name=description,proto3" json:"description,omitempty"`                                                                   // Webhook description
-	Health        WebhookHealth          `protobuf:"varint,9,opt,name=health,proto3,enum=webhook.WebhookHealth" json:"health,omitempty"`                                                 // Webhook health status
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                                                     // When webhook was registered
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`                                                     // When webhook was last updated
-	HttpConfig    *WebhookHTTPConfig     `protobuf:"bytes,12,opt,name=http_config,json=httpConfig,proto3" json:"http_config,omitempty"`                                                  // HTTP configuration options
+func (x *ListDeliveriesRequest) GetEventId() string {
+	if x != nil {
+		return x.EventId
+	}
+	return ""
+}
+
+func (x *ListDeliveriesRequest) GetPagination() *PaginationRequest {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// ListDeliveriesResponse contains the paginated list of deliveries.
+type ListDeliveriesResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Deliveries matching the filter criteria, newest first.
+	Deliveries []*WebhookDelivery `protobuf:"bytes,1,rep,name=deliveries,proto3" json:"deliveries,omitempty"`
+	// Pagination metadata.
+	Pagination *PaginationResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
+	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RegisteredWebhook) Reset() {
-	*x = RegisteredWebhook{}
-	mi := &file_proto_webhook_proto_msgTypes[9]
+func (x *ListDeliveriesResponse) Reset() {
+	*x = ListDeliveriesResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RegisteredWebhook) String() string {
+func (x *ListDeliveriesResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RegisteredWebhook) ProtoMessage() {}
+func (*ListDeliveriesResponse) ProtoMessage() {}
 
-func (x *RegisteredWebhook) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[9]
+func (x *ListDeliveriesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -975,125 +4532,151 @@ func (x *RegisteredWebhook) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RegisteredWebhook.ProtoReflect.Descriptor instead.
-func (*RegisteredWebhook) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{9}
+// Deprecated: Use ListDeliveriesResponse.ProtoReflect.Descriptor instead.
+func (*ListDeliveriesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{52}
 }
 
-func (x *RegisteredWebhook) GetWebhookId() string {
+func (x *ListDeliveriesResponse) GetDeliveries() []*WebhookDelivery {
+	if x != nil {
+		return x.Deliveries
+	}
+	return nil
+}
+
+func (x *ListDeliveriesResponse) GetPagination() *PaginationResponse {
+	if x != nil {
+		return x.Pagination
+	}
+	return nil
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListDeliveriesResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+// Deprecated: Marked as deprecated in proto/webhook.proto.
+func (x *ListDeliveriesResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// RetryDeliveryRequest re-enqueues one or more deliveries for reprocessing.
+// Provide delivery_id for a single retry, webhook_id for bulk retry, or both.
+// Without force=true, only FAILED and PENDING deliveries are retried.
+type RetryDeliveryRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Namespace. Required.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// UUID of a specific delivery to retry. Optional.
+	DeliveryId string `protobuf:"bytes,2,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`
+	// UUID of a webhook -- retry all its failed/pending deliveries. Optional.
+	WebhookId string `protobuf:"bytes,3,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// When true, retry even successful deliveries. Default: false.
+	// Use with caution: this causes duplicate delivery to the target endpoint.
+	Force         bool `protobuf:"varint,4,opt,name=force,proto3" json:"force,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RetryDeliveryRequest) Reset() {
+	*x = RetryDeliveryRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RetryDeliveryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RetryDeliveryRequest) ProtoMessage() {}
+
+func (x *RetryDeliveryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RetryDeliveryRequest.ProtoReflect.Descriptor instead.
+func (*RetryDeliveryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *RetryDeliveryRequest) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *RetryDeliveryRequest) GetDeliveryId() string {
+	if x != nil {
+		return x.DeliveryId
+	}
+	return ""
+}
+
+func (x *RetryDeliveryRequest) GetWebhookId() string {
 	if x != nil {
 		return x.WebhookId
 	}
 	return ""
 }
 
-func (x *RegisteredWebhook) GetNamespace() string {
+func (x *RetryDeliveryRequest) GetForce() bool {
 	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *RegisteredWebhook) GetEvents() []string {
-	if x != nil {
-		return x.Events
-	}
-	return nil
-}
-
-func (x *RegisteredWebhook) GetUrl() string {
-	if x != nil {
-		return x.Url
-	}
-	return ""
-}
-
-func (x *RegisteredWebhook) GetHeaders() map[string]string {
-	if x != nil {
-		return x.Headers
-	}
-	return nil
-}
-
-func (x *RegisteredWebhook) GetTimeout() int32 {
-	if x != nil {
-		return x.Timeout
-	}
-	return 0
-}
-
-func (x *RegisteredWebhook) GetActive() bool {
-	if x != nil {
-		return x.Active
+		return x.Force
 	}
 	return false
 }
 
-func (x *RegisteredWebhook) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *RegisteredWebhook) GetHealth() WebhookHealth {
-	if x != nil {
-		return x.Health
-	}
-	return WebhookHealth_HEALTH_UNSPECIFIED
-}
-
-func (x *RegisteredWebhook) GetCreatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return nil
-}
-
-func (x *RegisteredWebhook) GetUpdatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return nil
-}
-
-func (x *RegisteredWebhook) GetHttpConfig() *WebhookHTTPConfig {
-	if x != nil {
-		return x.HttpConfig
-	}
-	return nil
-}
-
-// ListWebhooksResponse represents the response for listing webhooks
-type ListWebhooksResponse struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Webhooks   []*RegisteredWebhook   `protobuf:"bytes,1,rep,name=webhooks,proto3" json:"webhooks,omitempty"`
-	Pagination *PaginationResponse    `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+// RetryDeliveryResponse reports how many deliveries were re-enqueued.
+type RetryDeliveryResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Number of deliveries that were re-enqueued.
+	RetriedCount int32 `protobuf:"varint,1,opt,name=retried_count,json=retriedCount,proto3" json:"retried_count,omitempty"`
+	// UUIDs of the deliveries that were re-enqueued.
+	DeliveryIds []string `protobuf:"bytes,2,rep,name=delivery_ids,json=deliveryIds,proto3" json:"delivery_ids,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	TotalCount    int32 `protobuf:"varint,5,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"` // Use pagination.total_count instead
+	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListWebhooksResponse) Reset() {
-	*x = ListWebhooksResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[10]
+func (x *RetryDeliveryResponse) Reset() {
+	*x = RetryDeliveryResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListWebhooksResponse) String() string {
+func (x *RetryDeliveryResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListWebhooksResponse) ProtoMessage() {}
+func (*RetryDeliveryResponse) ProtoMessage() {}
 
-func (x *ListWebhooksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[10]
+func (x *RetryDeliveryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1104,180 +4687,27 @@ func (x *ListWebhooksResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListWebhooksResponse.ProtoReflect.Descriptor instead.
-func (*ListWebhooksResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{10}
+// Deprecated: Use RetryDeliveryResponse.ProtoReflect.Descriptor instead.
+func (*RetryDeliveryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{54}
 }
 
-func (x *ListWebhooksResponse) GetWebhooks() []*RegisteredWebhook {
+func (x *RetryDeliveryResponse) GetRetriedCount() int32 {
 	if x != nil {
-		return x.Webhooks
-	}
-	return nil
-}
-
-func (x *ListWebhooksResponse) GetPagination() *PaginationResponse {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListWebhooksResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListWebhooksResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListWebhooksResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
+		return x.RetriedCount
 	}
 	return 0
 }
 
-// RegisterEventRequest represents a request to register an event type
-type RegisterEventRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                                                                   // Event name (required)
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`                                                                     // Event description
-	Schema        *structpb.Struct       `protobuf:"bytes,3,opt,name=schema,proto3" json:"schema,omitempty"`                                                                               // JSON schema for event payload validation
-	Metadata      map[string]string      `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Additional metadata
-	Active        bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`                                                                              // Whether event is active (default: true)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RegisterEventRequest) Reset() {
-	*x = RegisterEventRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RegisterEventRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RegisterEventRequest) ProtoMessage() {}
-
-func (x *RegisterEventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[11]
+func (x *RetryDeliveryResponse) GetDeliveryIds() []string {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RegisterEventRequest.ProtoReflect.Descriptor instead.
-func (*RegisterEventRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *RegisterEventRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *RegisterEventRequest) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *RegisterEventRequest) GetSchema() *structpb.Struct {
-	if x != nil {
-		return x.Schema
+		return x.DeliveryIds
 	}
 	return nil
 }
 
-func (x *RegisterEventRequest) GetMetadata() map[string]string {
-	if x != nil {
-		return x.Metadata
-	}
-	return nil
-}
-
-func (x *RegisterEventRequest) GetActive() bool {
-	if x != nil {
-		return x.Active
-	}
-	return false
-}
-
-// RegisterEventResponse represents the response for event registration
-type RegisterEventResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	EventId string `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"` // Deprecated: now returns the event name (same as the name in the request). Use name field instead.
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"` // Use gRPC status codes instead
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`                      // Use gRPC status codes instead
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"` // When the event was registered
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RegisterEventResponse) Reset() {
-	*x = RegisterEventResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RegisterEventResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RegisterEventResponse) ProtoMessage() {}
-
-func (x *RegisterEventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RegisterEventResponse.ProtoReflect.Descriptor instead.
-func (*RegisterEventResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{12}
-}
-
 // Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RegisterEventResponse) GetEventId() string {
-	if x != nil {
-		return x.EventId
-	}
-	return ""
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RegisterEventResponse) GetSuccess() bool {
+func (x *RetryDeliveryResponse) GetSuccess() bool {
 	if x != nil {
 		return x.Success
 	}
@@ -1285,105 +4715,62 @@ func (x *RegisterEventResponse) GetSuccess() bool {
 }
 
 // Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RegisterEventResponse) GetMessage() string {
+func (x *RetryDeliveryResponse) GetMessage() string {
 	if x != nil {
 		return x.Message
 	}
 	return ""
 }
 
-func (x *RegisterEventResponse) GetCreatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return nil
-}
-
-// ListEventsRequest represents a request to list events
-type ListEventsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ActiveOnly    bool                   `protobuf:"varint,1,opt,name=active_only,json=activeOnly,proto3" json:"active_only,omitempty"` // Only return active events
-	Pagination    *PaginationRequest     `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListEventsRequest) Reset() {
-	*x = ListEventsRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[13]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListEventsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListEventsRequest) ProtoMessage() {}
-
-func (x *ListEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[13]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListEventsRequest.ProtoReflect.Descriptor instead.
-func (*ListEventsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{13}
-}
-
-func (x *ListEventsRequest) GetActiveOnly() bool {
-	if x != nil {
-		return x.ActiveOnly
-	}
-	return false
-}
-
-func (x *ListEventsRequest) GetPagination() *PaginationRequest {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// RegisteredEvent represents a registered event type
-type RegisteredEvent struct {
+// DeliveryAttempt represents a single HTTP request attempt within a delivery.
+// A delivery may have multiple attempts if retries are configured.
+// Each attempt is an immutable record of one HTTP round-trip (or failure to connect).
+type DeliveryAttempt struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	EventId       string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`                                                              // Deprecated: now returns the event name. Use the name field (field 2) instead.
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                                                                   // Event name (unique per tenant — this is the primary identifier)
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`                                                                     // Event description
-	Schema        *structpb.Struct       `protobuf:"bytes,4,opt,name=schema,proto3" json:"schema,omitempty"`                                                                               // JSON schema for validation
-	SamplePayload *structpb.Struct       `protobuf:"bytes,9,opt,name=sample_payload,json=samplePayload,proto3" json:"sample_payload,omitempty"`                                            // Auto-generated sample payload based on schema
-	Metadata      map[string]string      `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Additional metadata
-	Active        bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`                                                                              // Whether event is active
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                                                        // When event was registered
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`                                                        // When event was last updated
+	// Server-generated UUID for this attempt.
+	AttemptId string `protobuf:"bytes,1,opt,name=attempt_id,json=attemptId,proto3" json:"attempt_id,omitempty"`
+	// UUID of the parent delivery this attempt belongs to.
+	DeliveryId string `protobuf:"bytes,2,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`
+	// UUID of the target webhook.
+	WebhookId string `protobuf:"bytes,3,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Whether this attempt resulted in a successful delivery
+	// (response code matched expected_status_codes).
+	Success bool `protobuf:"varint,4,opt,name=success,proto3" json:"success,omitempty"`
+	// Round-trip time in milliseconds from sending the request to receiving
+	// the full response (or timeout/error). 0 if no connection was established.
+	ResponseTime int32 `protobuf:"varint,5,opt,name=response_time,json=responseTime,proto3" json:"response_time,omitempty"`
+	// HTTP response status code. 0 if no response was received
+	// (timeout, connection refused, DNS error, etc.).
+	ResponseCode int32 `protobuf:"varint,6,opt,name=response_code,json=responseCode,proto3" json:"response_code,omitempty"`
+	// Error message describing the failure. Empty string on success.
+	// Contains the raw error from the HTTP client (e.g., "context deadline exceeded",
+	// "connection refused", "no such host").
+	ErrorMessage string `protobuf:"bytes,7,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	// Classified error category for this attempt.
+	// Values: "success", "client_error", "server_error", "timeout",
+	// "connection_refused", "network_error", "dns_error", "tls_error", "unknown".
+	ErrorCategory string `protobuf:"bytes,8,opt,name=error_category,json=errorCategory,proto3" json:"error_category,omitempty"`
+	// When this attempt was made.
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RegisteredEvent) Reset() {
-	*x = RegisteredEvent{}
-	mi := &file_proto_webhook_proto_msgTypes[14]
+func (x *DeliveryAttempt) Reset() {
+	*x = DeliveryAttempt{}
+	mi := &file_proto_webhook_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RegisteredEvent) String() string {
+func (x *DeliveryAttempt) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RegisteredEvent) ProtoMessage() {}
+func (*DeliveryAttempt) ProtoMessage() {}
 
-func (x *RegisteredEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[14]
+func (x *DeliveryAttempt) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1394,261 +4781,98 @@ func (x *RegisteredEvent) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RegisteredEvent.ProtoReflect.Descriptor instead.
-func (*RegisteredEvent) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{14}
+// Deprecated: Use DeliveryAttempt.ProtoReflect.Descriptor instead.
+func (*DeliveryAttempt) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{55}
 }
 
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RegisteredEvent) GetEventId() string {
+func (x *DeliveryAttempt) GetAttemptId() string {
 	if x != nil {
-		return x.EventId
+		return x.AttemptId
 	}
 	return ""
 }
 
-func (x *RegisteredEvent) GetName() string {
+func (x *DeliveryAttempt) GetDeliveryId() string {
 	if x != nil {
-		return x.Name
+		return x.DeliveryId
 	}
 	return ""
 }
 
-func (x *RegisteredEvent) GetDescription() string {
+func (x *DeliveryAttempt) GetWebhookId() string {
 	if x != nil {
-		return x.Description
+		return x.WebhookId
 	}
 	return ""
 }
 
-func (x *RegisteredEvent) GetSchema() *structpb.Struct {
-	if x != nil {
-		return x.Schema
-	}
-	return nil
-}
-
-func (x *RegisteredEvent) GetSamplePayload() *structpb.Struct {
-	if x != nil {
-		return x.SamplePayload
-	}
-	return nil
-}
-
-func (x *RegisteredEvent) GetMetadata() map[string]string {
-	if x != nil {
-		return x.Metadata
-	}
-	return nil
-}
-
-func (x *RegisteredEvent) GetActive() bool {
-	if x != nil {
-		return x.Active
-	}
-	return false
-}
-
-func (x *RegisteredEvent) GetCreatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return nil
-}
-
-func (x *RegisteredEvent) GetUpdatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return nil
-}
-
-// ListEventsResponse represents the response for listing events
-type ListEventsResponse struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Events     []*RegisteredEvent     `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
-	Pagination *PaginationResponse    `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	TotalCount    int32 `protobuf:"varint,5,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListEventsResponse) Reset() {
-	*x = ListEventsResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[15]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListEventsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListEventsResponse) ProtoMessage() {}
-
-func (x *ListEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[15]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListEventsResponse.ProtoReflect.Descriptor instead.
-func (*ListEventsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{15}
-}
-
-func (x *ListEventsResponse) GetEvents() []*RegisteredEvent {
-	if x != nil {
-		return x.Events
-	}
-	return nil
-}
-
-func (x *ListEventsResponse) GetPagination() *PaginationResponse {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventsResponse) GetSuccess() bool {
+func (x *DeliveryAttempt) GetSuccess() bool {
 	if x != nil {
 		return x.Success
 	}
 	return false
 }
 
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventsResponse) GetMessage() string {
+func (x *DeliveryAttempt) GetResponseTime() int32 {
 	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventsResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
+		return x.ResponseTime
 	}
 	return 0
 }
 
-// UpdateEventRequest represents a request to update an event
-type UpdateEventRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`                                                                                   // Event name (required)
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`                                                                     // Event description
-	Schema        *structpb.Struct       `protobuf:"bytes,3,opt,name=schema,proto3" json:"schema,omitempty"`                                                                               // JSON schema for event payload validation
-	Metadata      map[string]string      `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Additional metadata
-	Active        bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`                                                                              // Whether event is active
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateEventRequest) Reset() {
-	*x = UpdateEventRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[16]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateEventRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateEventRequest) ProtoMessage() {}
-
-func (x *UpdateEventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[16]
+func (x *DeliveryAttempt) GetResponseCode() int32 {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
+		return x.ResponseCode
 	}
-	return mi.MessageOf(x)
+	return 0
 }
 
-// Deprecated: Use UpdateEventRequest.ProtoReflect.Descriptor instead.
-func (*UpdateEventRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{16}
-}
-
-func (x *UpdateEventRequest) GetName() string {
+func (x *DeliveryAttempt) GetErrorMessage() string {
 	if x != nil {
-		return x.Name
+		return x.ErrorMessage
 	}
 	return ""
 }
 
-func (x *UpdateEventRequest) GetDescription() string {
+func (x *DeliveryAttempt) GetErrorCategory() string {
 	if x != nil {
-		return x.Description
+		return x.ErrorCategory
 	}
 	return ""
 }
 
-func (x *UpdateEventRequest) GetSchema() *structpb.Struct {
+func (x *DeliveryAttempt) GetTimestamp() *timestamppb.Timestamp {
 	if x != nil {
-		return x.Schema
+		return x.Timestamp
 	}
 	return nil
 }
 
-func (x *UpdateEventRequest) GetMetadata() map[string]string {
-	if x != nil {
-		return x.Metadata
-	}
-	return nil
-}
-
-func (x *UpdateEventRequest) GetActive() bool {
-	if x != nil {
-		return x.Active
-	}
-	return false
-}
-
-// UpdateEventResponse represents the response for event update
-type UpdateEventResponse struct {
+// GetDeliveryAttemptsRequest retrieves the attempt history for a delivery.
+type GetDeliveryAttemptsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	// UUID of the delivery to get attempts for. Required.
+	DeliveryId    string `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UpdateEventResponse) Reset() {
-	*x = UpdateEventResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[17]
+func (x *GetDeliveryAttemptsRequest) Reset() {
+	*x = GetDeliveryAttemptsRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UpdateEventResponse) String() string {
+func (x *GetDeliveryAttemptsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UpdateEventResponse) ProtoMessage() {}
+func (*GetDeliveryAttemptsRequest) ProtoMessage() {}
 
-func (x *UpdateEventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[17]
+func (x *GetDeliveryAttemptsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1659,50 +4883,43 @@ func (x *UpdateEventResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpdateEventResponse.ProtoReflect.Descriptor instead.
-func (*UpdateEventResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{17}
+// Deprecated: Use GetDeliveryAttemptsRequest.ProtoReflect.Descriptor instead.
+func (*GetDeliveryAttemptsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{56}
 }
 
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UpdateEventResponse) GetSuccess() bool {
+func (x *GetDeliveryAttemptsRequest) GetDeliveryId() string {
 	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UpdateEventResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
+		return x.DeliveryId
 	}
 	return ""
 }
 
-// GetEventRequest represents a request to get an event by name
-type GetEventRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // Event name (required)
+// GetDeliveryAttemptsResponse returns all attempts for a delivery.
+type GetDeliveryAttemptsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Delivery attempts ordered by timestamp ascending (oldest first).
+	// The last element reflects the most recent attempt.
+	Attempts      []*DeliveryAttempt `protobuf:"bytes,1,rep,name=attempts,proto3" json:"attempts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetEventRequest) Reset() {
-	*x = GetEventRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[18]
+func (x *GetDeliveryAttemptsResponse) Reset() {
+	*x = GetDeliveryAttemptsResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetEventRequest) String() string {
+func (x *GetDeliveryAttemptsResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetEventRequest) ProtoMessage() {}
+func (*GetDeliveryAttemptsResponse) ProtoMessage() {}
 
-func (x *GetEventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[18]
+func (x *GetDeliveryAttemptsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1713,283 +4930,32 @@ func (x *GetEventRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetEventRequest.ProtoReflect.Descriptor instead.
-func (*GetEventRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{18}
+// Deprecated: Use GetDeliveryAttemptsResponse.ProtoReflect.Descriptor instead.
+func (*GetDeliveryAttemptsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{57}
 }
 
-func (x *GetEventRequest) GetName() string {
+func (x *GetDeliveryAttemptsResponse) GetAttempts() []*DeliveryAttempt {
 	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-// GetEventResponse represents the response for getting an event
-type GetEventResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Event         *RegisteredEvent       `protobuf:"bytes,1,opt,name=event,proto3" json:"event,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetEventResponse) Reset() {
-	*x = GetEventResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[19]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetEventResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetEventResponse) ProtoMessage() {}
-
-func (x *GetEventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[19]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetEventResponse.ProtoReflect.Descriptor instead.
-func (*GetEventResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{19}
-}
-
-func (x *GetEventResponse) GetEvent() *RegisteredEvent {
-	if x != nil {
-		return x.Event
+		return x.Attempts
 	}
 	return nil
 }
 
-// DeleteEventRequest represents a request to delete an event
-type DeleteEventRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // Event name to delete
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DeleteEventRequest) Reset() {
-	*x = DeleteEventRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[20]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DeleteEventRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeleteEventRequest) ProtoMessage() {}
-
-func (x *DeleteEventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[20]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeleteEventRequest.ProtoReflect.Descriptor instead.
-func (*DeleteEventRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{20}
-}
-
-func (x *DeleteEventRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-// DeleteEventResponse represents the response for event deletion
-type DeleteEventResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DeleteEventResponse) Reset() {
-	*x = DeleteEventResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[21]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DeleteEventResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeleteEventResponse) ProtoMessage() {}
-
-func (x *DeleteEventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[21]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeleteEventResponse.ProtoReflect.Descriptor instead.
-func (*DeleteEventResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{21}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *DeleteEventResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *DeleteEventResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// TestSubscriptionTemplateRequest represents a request to test a transformation template
-type TestSubscriptionTemplateRequest struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	EventName         string                 `protobuf:"bytes,1,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`                         // Event name to get sample data from
-	TransformTemplate string                 `protobuf:"bytes,2,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"` // Template to test
-	Namespace         string                 `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`                                          // Namespace
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *TestSubscriptionTemplateRequest) Reset() {
-	*x = TestSubscriptionTemplateRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[22]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TestSubscriptionTemplateRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TestSubscriptionTemplateRequest) ProtoMessage() {}
-
-func (x *TestSubscriptionTemplateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[22]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TestSubscriptionTemplateRequest.ProtoReflect.Descriptor instead.
-func (*TestSubscriptionTemplateRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{22}
-}
-
-func (x *TestSubscriptionTemplateRequest) GetEventName() string {
-	if x != nil {
-		return x.EventName
-	}
-	return ""
-}
-
-func (x *TestSubscriptionTemplateRequest) GetTransformTemplate() string {
-	if x != nil {
-		return x.TransformTemplate
-	}
-	return ""
-}
-
-func (x *TestSubscriptionTemplateRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-// TestSubscriptionTemplateResponse represents the result of a template test
-type TestSubscriptionTemplateResponse struct {
-	state              protoimpl.MessageState `protogen:"open.v1"`
-	TransformedPayload string                 `protobuf:"bytes,1,opt,name=transformed_payload,json=transformedPayload,proto3" json:"transformed_payload,omitempty"` // Resulting transformed payload
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
-}
-
-func (x *TestSubscriptionTemplateResponse) Reset() {
-	*x = TestSubscriptionTemplateResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[23]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TestSubscriptionTemplateResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TestSubscriptionTemplateResponse) ProtoMessage() {}
-
-func (x *TestSubscriptionTemplateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[23]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TestSubscriptionTemplateResponse.ProtoReflect.Descriptor instead.
-func (*TestSubscriptionTemplateResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{23}
-}
-
-func (x *TestSubscriptionTemplateResponse) GetTransformedPayload() string {
-	if x != nil {
-		return x.TransformedPayload
-	}
-	return ""
-}
-
-// GetWebhookHealthRequest represents a request to get webhook health
+// GetWebhookHealthRequest retrieves health status for a single webhook.
 type GetWebhookHealthRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WebhookId     string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"` // Webhook ID
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                  // Namespace
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the webhook. Required.
+	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Namespace the webhook belongs to. Required.
+	Namespace     string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetWebhookHealthRequest) Reset() {
 	*x = GetWebhookHealthRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[24]
+	mi := &file_proto_webhook_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2001,7 +4967,7 @@ func (x *GetWebhookHealthRequest) String() string {
 func (*GetWebhookHealthRequest) ProtoMessage() {}
 
 func (x *GetWebhookHealthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[24]
+	mi := &file_proto_webhook_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2014,7 +4980,7 @@ func (x *GetWebhookHealthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWebhookHealthRequest.ProtoReflect.Descriptor instead.
 func (*GetWebhookHealthRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{24}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *GetWebhookHealthRequest) GetWebhookId() string {
@@ -2031,32 +4997,56 @@ func (x *GetWebhookHealthRequest) GetNamespace() string {
 	return ""
 }
 
-// WebhookHealthMetrics represents detailed health metrics
+// WebhookHealthMetrics contains detailed health metrics for a single webhook.
+// Metrics are derived from the webhook_health_events and webhook_health_state tables
+// and are updated after every delivery attempt.
 type WebhookHealthMetrics struct {
-	state                protoimpl.MessageState `protogen:"open.v1"`
-	WebhookId            string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
-	TotalDeliveries      int32                  `protobuf:"varint,2,opt,name=total_deliveries,json=totalDeliveries,proto3" json:"total_deliveries,omitempty"`
-	SuccessfulDeliveries int32                  `protobuf:"varint,3,opt,name=successful_deliveries,json=successfulDeliveries,proto3" json:"successful_deliveries,omitempty"`
-	FailedDeliveries     int32                  `protobuf:"varint,4,opt,name=failed_deliveries,json=failedDeliveries,proto3" json:"failed_deliveries,omitempty"`
-	ConsecutiveFailures  int32                  `protobuf:"varint,5,opt,name=consecutive_failures,json=consecutiveFailures,proto3" json:"consecutive_failures,omitempty"`
-	LastSuccessAt        *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_success_at,json=lastSuccessAt,proto3" json:"last_success_at,omitempty"`        // Last success timestamp
-	LastFailureAt        *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=last_failure_at,json=lastFailureAt,proto3" json:"last_failure_at,omitempty"`        // Last failure timestamp
-	SuccessRate          float64                `protobuf:"fixed64,8,opt,name=success_rate,json=successRate,proto3" json:"success_rate,omitempty"`              // 0.0 to 1.0
-	AvgResponseTime      int32                  `protobuf:"varint,9,opt,name=avg_response_time,json=avgResponseTime,proto3" json:"avg_response_time,omitempty"` // milliseconds
-	CreatedAt            *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                     // Created timestamp
-	UpdatedAt            *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`                     // Updated timestamp
-	// Error category breakdown (last 24 hours)
-	ClientErrors  int32 `protobuf:"varint,12,opt,name=client_errors,json=clientErrors,proto3" json:"client_errors,omitempty"`    // 4xx responses (never retried)
-	ServerErrors  int32 `protobuf:"varint,13,opt,name=server_errors,json=serverErrors,proto3" json:"server_errors,omitempty"`    // 5xx responses (retried)
-	TimeoutErrors int32 `protobuf:"varint,14,opt,name=timeout_errors,json=timeoutErrors,proto3" json:"timeout_errors,omitempty"` // Timeouts (retried)
-	NetworkErrors int32 `protobuf:"varint,15,opt,name=network_errors,json=networkErrors,proto3" json:"network_errors,omitempty"` // DNS, TLS, connection refused, and other network errors
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the webhook these metrics belong to.
+	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Total number of deliveries ever made to this webhook (all time).
+	TotalDeliveries int32 `protobuf:"varint,2,opt,name=total_deliveries,json=totalDeliveries,proto3" json:"total_deliveries,omitempty"`
+	// Number of deliveries that succeeded (terminal SUCCESS status).
+	SuccessfulDeliveries int32 `protobuf:"varint,3,opt,name=successful_deliveries,json=successfulDeliveries,proto3" json:"successful_deliveries,omitempty"`
+	// Number of deliveries that failed permanently (terminal FAILED status).
+	FailedDeliveries int32 `protobuf:"varint,4,opt,name=failed_deliveries,json=failedDeliveries,proto3" json:"failed_deliveries,omitempty"`
+	// Current streak of consecutive failed deliveries. Resets to 0 on any success.
+	// Used for health status computation: 3-9 = DEGRADED, 10+ = UNHEALTHY.
+	ConsecutiveFailures int32 `protobuf:"varint,5,opt,name=consecutive_failures,json=consecutiveFailures,proto3" json:"consecutive_failures,omitempty"`
+	// Timestamp of the most recent successful delivery. Null if the webhook has never succeeded.
+	LastSuccessAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_success_at,json=lastSuccessAt,proto3" json:"last_success_at,omitempty"`
+	// Timestamp of the most recent failed delivery. Null if the webhook has never failed.
+	LastFailureAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=last_failure_at,json=lastFailureAt,proto3" json:"last_failure_at,omitempty"`
+	// Success rate as a decimal between 0.0 and 1.0.
+	// Computed as successful_deliveries / total_deliveries.
+	// Used for health thresholds: >0.9 = HEALTHY, 0.5-0.9 = DEGRADED, <0.5 = UNHEALTHY.
+	SuccessRate float64 `protobuf:"fixed64,8,opt,name=success_rate,json=successRate,proto3" json:"success_rate,omitempty"`
+	// Average response time in milliseconds across all delivery attempts.
+	AvgResponseTime int32 `protobuf:"varint,9,opt,name=avg_response_time,json=avgResponseTime,proto3" json:"avg_response_time,omitempty"`
+	// When the health metrics record was first created.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the health metrics were last updated.
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// Count of client errors (HTTP 4xx) in the last 24 hours.
+	// Client errors are never retried -- typically indicates a misconfigured endpoint
+	// (wrong URL, missing auth, payload format mismatch).
+	ClientErrors int32 `protobuf:"varint,12,opt,name=client_errors,json=clientErrors,proto3" json:"client_errors,omitempty"`
+	// Count of server errors (HTTP 5xx) in the last 24 hours.
+	// Server errors are retried according to the webhook's retry configuration.
+	ServerErrors int32 `protobuf:"varint,13,opt,name=server_errors,json=serverErrors,proto3" json:"server_errors,omitempty"`
+	// Count of timeout errors in the last 24 hours.
+	// Timeouts are retried. May indicate the endpoint is slow or overloaded.
+	TimeoutErrors int32 `protobuf:"varint,14,opt,name=timeout_errors,json=timeoutErrors,proto3" json:"timeout_errors,omitempty"`
+	// Count of network-level errors in the last 24 hours.
+	// Includes DNS failures, TLS errors, connection refused, and other transport errors.
+	NetworkErrors int32 `protobuf:"varint,15,opt,name=network_errors,json=networkErrors,proto3" json:"network_errors,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *WebhookHealthMetrics) Reset() {
 	*x = WebhookHealthMetrics{}
-	mi := &file_proto_webhook_proto_msgTypes[25]
+	mi := &file_proto_webhook_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2068,7 +5058,7 @@ func (x *WebhookHealthMetrics) String() string {
 func (*WebhookHealthMetrics) ProtoMessage() {}
 
 func (x *WebhookHealthMetrics) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[25]
+	mi := &file_proto_webhook_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2081,7 +5071,7 @@ func (x *WebhookHealthMetrics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebhookHealthMetrics.ProtoReflect.Descriptor instead.
 func (*WebhookHealthMetrics) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{25}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *WebhookHealthMetrics) GetWebhookId() string {
@@ -2189,14 +5179,22 @@ func (x *WebhookHealthMetrics) GetNetworkErrors() int32 {
 	return 0
 }
 
-// GetWebhookHealthResponse represents the response for getting webhook health
+// GetWebhookHealthResponse returns health status and metrics for a webhook.
 type GetWebhookHealthResponse struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	WebhookId string                 `protobuf:"bytes,3,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
-	Health    WebhookHealth          `protobuf:"varint,4,opt,name=health,proto3,enum=webhook.WebhookHealth" json:"health,omitempty"`
-	Metrics   *WebhookHealthMetrics  `protobuf:"bytes,5,opt,name=metrics,proto3" json:"metrics,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// UUID of the webhook.
+	WebhookId string `protobuf:"bytes,3,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
+	// Computed health status based on success_rate and consecutive_failures.
+	// Returns HEALTH_UNSPECIFIED if the webhook has no delivery history.
+	Health WebhookHealth `protobuf:"varint,4,opt,name=health,proto3,enum=webhook.WebhookHealth" json:"health,omitempty"`
+	// Detailed health metrics. Null if the webhook has no delivery history.
+	Metrics *WebhookHealthMetrics `protobuf:"bytes,5,opt,name=metrics,proto3" json:"metrics,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2205,7 +5203,7 @@ type GetWebhookHealthResponse struct {
 
 func (x *GetWebhookHealthResponse) Reset() {
 	*x = GetWebhookHealthResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[26]
+	mi := &file_proto_webhook_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2217,7 +5215,7 @@ func (x *GetWebhookHealthResponse) String() string {
 func (*GetWebhookHealthResponse) ProtoMessage() {}
 
 func (x *GetWebhookHealthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[26]
+	mi := &file_proto_webhook_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2230,7 +5228,7 @@ func (x *GetWebhookHealthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetWebhookHealthResponse.ProtoReflect.Descriptor instead.
 func (*GetWebhookHealthResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{26}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *GetWebhookHealthResponse) GetWebhookId() string {
@@ -2270,18 +5268,21 @@ func (x *GetWebhookHealthResponse) GetMessage() string {
 	return ""
 }
 
-// ListWebhooksByHealthRequest represents a request to list webhooks by health
+// ListWebhooksByHealthRequest filters webhooks by their computed health status.
 type ListWebhooksByHealthRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Health        WebhookHealth          `protobuf:"varint,1,opt,name=health,proto3,enum=webhook.WebhookHealth" json:"health,omitempty"` // Health status to filter by
-	Pagination    *PaginationRequest     `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Health status to filter by. Required.
+	// Use HEALTH_UNHEALTHY to find problematic endpoints, HEALTH_DEGRADED for early warnings.
+	Health WebhookHealth `protobuf:"varint,1,opt,name=health,proto3,enum=webhook.WebhookHealth" json:"health,omitempty"`
+	// Pagination parameters. Default: limit=50, offset=0.
+	Pagination    *PaginationRequest `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListWebhooksByHealthRequest) Reset() {
 	*x = ListWebhooksByHealthRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[27]
+	mi := &file_proto_webhook_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2293,7 +5294,7 @@ func (x *ListWebhooksByHealthRequest) String() string {
 func (*ListWebhooksByHealthRequest) ProtoMessage() {}
 
 func (x *ListWebhooksByHealthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[27]
+	mi := &file_proto_webhook_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2306,7 +5307,7 @@ func (x *ListWebhooksByHealthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWebhooksByHealthRequest.ProtoReflect.Descriptor instead.
 func (*ListWebhooksByHealthRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{27}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *ListWebhooksByHealthRequest) GetHealth() WebhookHealth {
@@ -2323,15 +5324,23 @@ func (x *ListWebhooksByHealthRequest) GetPagination() *PaginationRequest {
 	return nil
 }
 
-// ListWebhooksByHealthResponse represents the response for listing webhooks by health
+// ListWebhooksByHealthResponse contains webhooks matching the specified health status.
 type ListWebhooksByHealthResponse struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Webhooks   []*RegisteredWebhook   `protobuf:"bytes,3,rep,name=webhooks,proto3" json:"webhooks,omitempty"`
-	Pagination *PaginationResponse    `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Webhooks with the requested health status.
+	Webhooks []*RegisteredWebhook `protobuf:"bytes,3,rep,name=webhooks,proto3" json:"webhooks,omitempty"`
+	// Pagination metadata.
+	Pagination *PaginationResponse `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Message string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	// Deprecated: use pagination.total_count.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	TotalCount    int32 `protobuf:"varint,4,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2340,7 +5349,7 @@ type ListWebhooksByHealthResponse struct {
 
 func (x *ListWebhooksByHealthResponse) Reset() {
 	*x = ListWebhooksByHealthResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[28]
+	mi := &file_proto_webhook_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2352,7 +5361,7 @@ func (x *ListWebhooksByHealthResponse) String() string {
 func (*ListWebhooksByHealthResponse) ProtoMessage() {}
 
 func (x *ListWebhooksByHealthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[28]
+	mi := &file_proto_webhook_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2365,7 +5374,7 @@ func (x *ListWebhooksByHealthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListWebhooksByHealthResponse.ProtoReflect.Descriptor instead.
 func (*ListWebhooksByHealthResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{28}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *ListWebhooksByHealthResponse) GetWebhooks() []*RegisteredWebhook {
@@ -2406,7 +5415,8 @@ func (x *ListWebhooksByHealthResponse) GetTotalCount() int32 {
 	return 0
 }
 
-// GetHealthSummaryRequest represents a request to get health summary
+// GetHealthSummaryRequest retrieves aggregate health counts across all namespaces.
+// No parameters needed.
 type GetHealthSummaryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -2415,7 +5425,7 @@ type GetHealthSummaryRequest struct {
 
 func (x *GetHealthSummaryRequest) Reset() {
 	*x = GetHealthSummaryRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[29]
+	mi := &file_proto_webhook_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2427,7 +5437,7 @@ func (x *GetHealthSummaryRequest) String() string {
 func (*GetHealthSummaryRequest) ProtoMessage() {}
 
 func (x *GetHealthSummaryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[29]
+	mi := &file_proto_webhook_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2440,24 +5450,30 @@ func (x *GetHealthSummaryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHealthSummaryRequest.ProtoReflect.Descriptor instead.
 func (*GetHealthSummaryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{29}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{63}
 }
 
-// HealthSummary represents summary of webhook health
+// HealthSummary provides a high-level overview of webhook health across the entire system.
+// Useful for dashboards and monitoring alerts.
 type HealthSummary struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	HealthyCount   int32                  `protobuf:"varint,1,opt,name=healthy_count,json=healthyCount,proto3" json:"healthy_count,omitempty"`
-	DegradedCount  int32                  `protobuf:"varint,2,opt,name=degraded_count,json=degradedCount,proto3" json:"degraded_count,omitempty"`
-	UnhealthyCount int32                  `protobuf:"varint,3,opt,name=unhealthy_count,json=unhealthyCount,proto3" json:"unhealthy_count,omitempty"`
-	UnknownCount   int32                  `protobuf:"varint,4,opt,name=unknown_count,json=unknownCount,proto3" json:"unknown_count,omitempty"`
-	TotalCount     int32                  `protobuf:"varint,5,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Number of webhooks in HEALTHY state (>90% success rate, <3 consecutive failures).
+	HealthyCount int32 `protobuf:"varint,1,opt,name=healthy_count,json=healthyCount,proto3" json:"healthy_count,omitempty"`
+	// Number of webhooks in DEGRADED state (50-90% success rate or 3-9 consecutive failures).
+	DegradedCount int32 `protobuf:"varint,2,opt,name=degraded_count,json=degradedCount,proto3" json:"degraded_count,omitempty"`
+	// Number of webhooks in UNHEALTHY state (<50% success rate or 10+ consecutive failures).
+	UnhealthyCount int32 `protobuf:"varint,3,opt,name=unhealthy_count,json=unhealthyCount,proto3" json:"unhealthy_count,omitempty"`
+	// Number of webhooks with no delivery history (HEALTH_UNSPECIFIED).
+	UnknownCount int32 `protobuf:"varint,4,opt,name=unknown_count,json=unknownCount,proto3" json:"unknown_count,omitempty"`
+	// Total number of webhooks (sum of all categories above).
+	TotalCount    int32 `protobuf:"varint,5,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *HealthSummary) Reset() {
 	*x = HealthSummary{}
-	mi := &file_proto_webhook_proto_msgTypes[30]
+	mi := &file_proto_webhook_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2469,7 +5485,7 @@ func (x *HealthSummary) String() string {
 func (*HealthSummary) ProtoMessage() {}
 
 func (x *HealthSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[30]
+	mi := &file_proto_webhook_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2482,7 +5498,7 @@ func (x *HealthSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthSummary.ProtoReflect.Descriptor instead.
 func (*HealthSummary) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{30}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *HealthSummary) GetHealthyCount() int32 {
@@ -2520,12 +5536,17 @@ func (x *HealthSummary) GetTotalCount() int32 {
 	return 0
 }
 
-// GetHealthSummaryResponse represents the response for getting health summary
+// GetHealthSummaryResponse returns the aggregate health summary.
 type GetHealthSummaryResponse struct {
-	state   protoimpl.MessageState `protogen:"open.v1"`
-	Summary *HealthSummary         `protobuf:"bytes,3,opt,name=summary,proto3" json:"summary,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Aggregate health counts across all namespaces.
+	Summary *HealthSummary `protobuf:"bytes,3,opt,name=summary,proto3" json:"summary,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2534,7 +5555,7 @@ type GetHealthSummaryResponse struct {
 
 func (x *GetHealthSummaryResponse) Reset() {
 	*x = GetHealthSummaryResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[31]
+	mi := &file_proto_webhook_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2546,7 +5567,7 @@ func (x *GetHealthSummaryResponse) String() string {
 func (*GetHealthSummaryResponse) ProtoMessage() {}
 
 func (x *GetHealthSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[31]
+	mi := &file_proto_webhook_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2559,7 +5580,7 @@ func (x *GetHealthSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHealthSummaryResponse.ProtoReflect.Descriptor instead.
 func (*GetHealthSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{31}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *GetHealthSummaryResponse) GetSummary() *HealthSummary {
@@ -2585,419 +5606,18 @@ func (x *GetHealthSummaryResponse) GetMessage() string {
 	return ""
 }
 
-// RetryDeliveryRequest represents a request to manually retry webhook deliveries
-type RetryDeliveryRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`                     // Namespace (required)
-	DeliveryId    string                 `protobuf:"bytes,2,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"` // Optional: Retry specific delivery
-	WebhookId     string                 `protobuf:"bytes,3,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`    // Optional: Retry all failed/pending for webhook
-	Force         bool                   `protobuf:"varint,4,opt,name=force,proto3" json:"force,omitempty"`                            // Force retry even for successful deliveries (default: false)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetryDeliveryRequest) Reset() {
-	*x = RetryDeliveryRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[32]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetryDeliveryRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetryDeliveryRequest) ProtoMessage() {}
-
-func (x *RetryDeliveryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[32]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetryDeliveryRequest.ProtoReflect.Descriptor instead.
-func (*RetryDeliveryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{32}
-}
-
-func (x *RetryDeliveryRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *RetryDeliveryRequest) GetDeliveryId() string {
-	if x != nil {
-		return x.DeliveryId
-	}
-	return ""
-}
-
-func (x *RetryDeliveryRequest) GetWebhookId() string {
-	if x != nil {
-		return x.WebhookId
-	}
-	return ""
-}
-
-func (x *RetryDeliveryRequest) GetForce() bool {
-	if x != nil {
-		return x.Force
-	}
-	return false
-}
-
-// RetryDeliveryResponse represents the response for delivery retry
-type RetryDeliveryResponse struct {
-	state        protoimpl.MessageState `protogen:"open.v1"`
-	RetriedCount int32                  `protobuf:"varint,1,opt,name=retried_count,json=retriedCount,proto3" json:"retried_count,omitempty"` // Number of deliveries retried
-	DeliveryIds  []string               `protobuf:"bytes,2,rep,name=delivery_ids,json=deliveryIds,proto3" json:"delivery_ids,omitempty"`     // IDs of deliveries that were retried
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetryDeliveryResponse) Reset() {
-	*x = RetryDeliveryResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[33]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetryDeliveryResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetryDeliveryResponse) ProtoMessage() {}
-
-func (x *RetryDeliveryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[33]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetryDeliveryResponse.ProtoReflect.Descriptor instead.
-func (*RetryDeliveryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{33}
-}
-
-func (x *RetryDeliveryResponse) GetRetriedCount() int32 {
-	if x != nil {
-		return x.RetriedCount
-	}
-	return 0
-}
-
-func (x *RetryDeliveryResponse) GetDeliveryIds() []string {
-	if x != nil {
-		return x.DeliveryIds
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RetryDeliveryResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RetryDeliveryResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// GetDeliveryStatusRequest represents a request to get delivery status
-type GetDeliveryStatusRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	DeliveryId    string                 `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"` // Delivery ID (required)
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                     // Namespace (required for security)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetDeliveryStatusRequest) Reset() {
-	*x = GetDeliveryStatusRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[34]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetDeliveryStatusRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetDeliveryStatusRequest) ProtoMessage() {}
-
-func (x *GetDeliveryStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[34]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetDeliveryStatusRequest.ProtoReflect.Descriptor instead.
-func (*GetDeliveryStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{34}
-}
-
-func (x *GetDeliveryStatusRequest) GetDeliveryId() string {
-	if x != nil {
-		return x.DeliveryId
-	}
-	return ""
-}
-
-func (x *GetDeliveryStatusRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-// GetDeliveryStatusResponse represents the response for getting delivery status
-type GetDeliveryStatusResponse struct {
-	state    protoimpl.MessageState `protogen:"open.v1"`
-	Delivery *WebhookDelivery       `protobuf:"bytes,1,opt,name=delivery,proto3" json:"delivery,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetDeliveryStatusResponse) Reset() {
-	*x = GetDeliveryStatusResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[35]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetDeliveryStatusResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetDeliveryStatusResponse) ProtoMessage() {}
-
-func (x *GetDeliveryStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[35]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetDeliveryStatusResponse.ProtoReflect.Descriptor instead.
-func (*GetDeliveryStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{35}
-}
-
-func (x *GetDeliveryStatusResponse) GetDelivery() *WebhookDelivery {
-	if x != nil {
-		return x.Delivery
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetDeliveryStatusResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetDeliveryStatusResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// ListDeliveriesRequest represents a request to list deliveries
-type ListDeliveriesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`                  // Namespace (required)
-	WebhookId     string                 `protobuf:"bytes,2,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"` // Optional: filter by webhook
-	EventId       string                 `protobuf:"bytes,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`       // Optional: filter by event
-	Pagination    *PaginationRequest     `protobuf:"bytes,4,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListDeliveriesRequest) Reset() {
-	*x = ListDeliveriesRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[36]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListDeliveriesRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListDeliveriesRequest) ProtoMessage() {}
-
-func (x *ListDeliveriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[36]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListDeliveriesRequest.ProtoReflect.Descriptor instead.
-func (*ListDeliveriesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{36}
-}
-
-func (x *ListDeliveriesRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *ListDeliveriesRequest) GetWebhookId() string {
-	if x != nil {
-		return x.WebhookId
-	}
-	return ""
-}
-
-func (x *ListDeliveriesRequest) GetEventId() string {
-	if x != nil {
-		return x.EventId
-	}
-	return ""
-}
-
-func (x *ListDeliveriesRequest) GetPagination() *PaginationRequest {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// ListDeliveriesResponse represents the response for listing deliveries
-type ListDeliveriesResponse struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Deliveries []*WebhookDelivery     `protobuf:"bytes,1,rep,name=deliveries,proto3" json:"deliveries,omitempty"`
-	Pagination *PaginationResponse    `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListDeliveriesResponse) Reset() {
-	*x = ListDeliveriesResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[37]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListDeliveriesResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListDeliveriesResponse) ProtoMessage() {}
-
-func (x *ListDeliveriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[37]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListDeliveriesResponse.ProtoReflect.Descriptor instead.
-func (*ListDeliveriesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{37}
-}
-
-func (x *ListDeliveriesResponse) GetDeliveries() []*WebhookDelivery {
-	if x != nil {
-		return x.Deliveries
-	}
-	return nil
-}
-
-func (x *ListDeliveriesResponse) GetPagination() *PaginationResponse {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListDeliveriesResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListDeliveriesResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// GetNamespaceStatsRequest represents a request to get namespace statistics
+// GetNamespaceStatsRequest retrieves aggregate delivery statistics for a namespace.
 type GetNamespaceStatsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"` // Namespace (required)
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Namespace to get statistics for. Required.
+	Namespace     string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetNamespaceStatsRequest) Reset() {
 	*x = GetNamespaceStatsRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[38]
+	mi := &file_proto_webhook_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3009,7 +5629,7 @@ func (x *GetNamespaceStatsRequest) String() string {
 func (*GetNamespaceStatsRequest) ProtoMessage() {}
 
 func (x *GetNamespaceStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[38]
+	mi := &file_proto_webhook_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3022,7 +5642,7 @@ func (x *GetNamespaceStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNamespaceStatsRequest.ProtoReflect.Descriptor instead.
 func (*GetNamespaceStatsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{38}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *GetNamespaceStatsRequest) GetNamespace() string {
@@ -3032,23 +5652,32 @@ func (x *GetNamespaceStatsRequest) GetNamespace() string {
 	return ""
 }
 
-// NamespaceStats represents statistics for a namespace
+// NamespaceStats contains aggregate webhook and delivery counts for a namespace.
+// Useful for dashboard summaries and capacity monitoring.
 type NamespaceStats struct {
-	state                protoimpl.MessageState `protogen:"open.v1"`
-	TotalWebhooks        int32                  `protobuf:"varint,1,opt,name=total_webhooks,json=totalWebhooks,proto3" json:"total_webhooks,omitempty"`
-	ActiveWebhooks       int32                  `protobuf:"varint,2,opt,name=active_webhooks,json=activeWebhooks,proto3" json:"active_webhooks,omitempty"`
-	TotalDeliveries      int32                  `protobuf:"varint,3,opt,name=total_deliveries,json=totalDeliveries,proto3" json:"total_deliveries,omitempty"`
-	SuccessfulDeliveries int32                  `protobuf:"varint,4,opt,name=successful_deliveries,json=successfulDeliveries,proto3" json:"successful_deliveries,omitempty"`
-	FailedDeliveries     int32                  `protobuf:"varint,5,opt,name=failed_deliveries,json=failedDeliveries,proto3" json:"failed_deliveries,omitempty"`
-	PendingDeliveries    int32                  `protobuf:"varint,6,opt,name=pending_deliveries,json=pendingDeliveries,proto3" json:"pending_deliveries,omitempty"`
-	SuccessRate          float64                `protobuf:"fixed64,7,opt,name=success_rate,json=successRate,proto3" json:"success_rate,omitempty"` // 0.0 to 1.0
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Total number of registered webhooks in this namespace (active + inactive).
+	TotalWebhooks int32 `protobuf:"varint,1,opt,name=total_webhooks,json=totalWebhooks,proto3" json:"total_webhooks,omitempty"`
+	// Number of currently active (non-paused) webhooks.
+	ActiveWebhooks int32 `protobuf:"varint,2,opt,name=active_webhooks,json=activeWebhooks,proto3" json:"active_webhooks,omitempty"`
+	// Total number of deliveries ever created in this namespace.
+	TotalDeliveries int32 `protobuf:"varint,3,opt,name=total_deliveries,json=totalDeliveries,proto3" json:"total_deliveries,omitempty"`
+	// Number of deliveries in terminal SUCCESS state.
+	SuccessfulDeliveries int32 `protobuf:"varint,4,opt,name=successful_deliveries,json=successfulDeliveries,proto3" json:"successful_deliveries,omitempty"`
+	// Number of deliveries in terminal FAILED state.
+	FailedDeliveries int32 `protobuf:"varint,5,opt,name=failed_deliveries,json=failedDeliveries,proto3" json:"failed_deliveries,omitempty"`
+	// Number of deliveries in PENDING, SENDING, or RETRYING state.
+	PendingDeliveries int32 `protobuf:"varint,6,opt,name=pending_deliveries,json=pendingDeliveries,proto3" json:"pending_deliveries,omitempty"`
+	// Overall delivery success rate as a decimal between 0.0 and 1.0.
+	// Computed as successful_deliveries / total_deliveries. 0.0 if no deliveries.
+	SuccessRate   float64 `protobuf:"fixed64,7,opt,name=success_rate,json=successRate,proto3" json:"success_rate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *NamespaceStats) Reset() {
 	*x = NamespaceStats{}
-	mi := &file_proto_webhook_proto_msgTypes[39]
+	mi := &file_proto_webhook_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3060,7 +5689,7 @@ func (x *NamespaceStats) String() string {
 func (*NamespaceStats) ProtoMessage() {}
 
 func (x *NamespaceStats) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[39]
+	mi := &file_proto_webhook_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3073,7 +5702,7 @@ func (x *NamespaceStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamespaceStats.ProtoReflect.Descriptor instead.
 func (*NamespaceStats) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{39}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *NamespaceStats) GetTotalWebhooks() int32 {
@@ -3125,13 +5754,19 @@ func (x *NamespaceStats) GetSuccessRate() float64 {
 	return 0
 }
 
-// GetNamespaceStatsResponse represents the response for getting namespace statistics
+// GetNamespaceStatsResponse returns namespace-level statistics.
 type GetNamespaceStatsResponse struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	Namespace string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	Stats     *NamespaceStats        `protobuf:"bytes,2,opt,name=stats,proto3" json:"stats,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The namespace these stats apply to.
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Aggregate statistics for the namespace.
+	Stats *NamespaceStats `protobuf:"bytes,2,opt,name=stats,proto3" json:"stats,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -3140,7 +5775,7 @@ type GetNamespaceStatsResponse struct {
 
 func (x *GetNamespaceStatsResponse) Reset() {
 	*x = GetNamespaceStatsResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[40]
+	mi := &file_proto_webhook_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3152,7 +5787,7 @@ func (x *GetNamespaceStatsResponse) String() string {
 func (*GetNamespaceStatsResponse) ProtoMessage() {}
 
 func (x *GetNamespaceStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[40]
+	mi := &file_proto_webhook_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3165,7 +5800,7 @@ func (x *GetNamespaceStatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNamespaceStatsResponse.ProtoReflect.Descriptor instead.
 func (*GetNamespaceStatsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{40}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *GetNamespaceStatsResponse) GetNamespace() string {
@@ -3198,1743 +5833,21 @@ func (x *GetNamespaceStatsResponse) GetMessage() string {
 	return ""
 }
 
-// WebhookUpdateFields represents fields that can be updated for a webhook
-type WebhookUpdateFields struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Events        []string               `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`                                                                             // Updated events list
-	Url           string                 `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`                                                                                   // Updated URL
-	Headers       map[string]string      `protobuf:"bytes,3,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Updated headers
-	Timeout       int32                  `protobuf:"varint,4,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                          // Updated timeout - DEPRECATED, use http_config.request_timeout_seconds
-	Active        bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`                                                                            // Updated active status
-	Description   string                 `protobuf:"bytes,6,opt,name=description,proto3" json:"description,omitempty"`                                                                   // Updated description
-	HttpConfig    *WebhookHTTPConfig     `protobuf:"bytes,7,opt,name=http_config,json=httpConfig,proto3" json:"http_config,omitempty"`                                                   // Updated HTTP configuration options
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WebhookUpdateFields) Reset() {
-	*x = WebhookUpdateFields{}
-	mi := &file_proto_webhook_proto_msgTypes[41]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WebhookUpdateFields) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WebhookUpdateFields) ProtoMessage() {}
-
-func (x *WebhookUpdateFields) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[41]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WebhookUpdateFields.ProtoReflect.Descriptor instead.
-func (*WebhookUpdateFields) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{41}
-}
-
-func (x *WebhookUpdateFields) GetEvents() []string {
-	if x != nil {
-		return x.Events
-	}
-	return nil
-}
-
-func (x *WebhookUpdateFields) GetUrl() string {
-	if x != nil {
-		return x.Url
-	}
-	return ""
-}
-
-func (x *WebhookUpdateFields) GetHeaders() map[string]string {
-	if x != nil {
-		return x.Headers
-	}
-	return nil
-}
-
-func (x *WebhookUpdateFields) GetTimeout() int32 {
-	if x != nil {
-		return x.Timeout
-	}
-	return 0
-}
-
-func (x *WebhookUpdateFields) GetActive() bool {
-	if x != nil {
-		return x.Active
-	}
-	return false
-}
-
-func (x *WebhookUpdateFields) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *WebhookUpdateFields) GetHttpConfig() *WebhookHTTPConfig {
-	if x != nil {
-		return x.HttpConfig
-	}
-	return nil
-}
-
-// UpdateWebhookConfigRequest represents a request to update webhook configuration
-type UpdateWebhookConfigRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WebhookId     string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"` // Webhook ID (required)
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                  // Namespace (required for security)
-	Updates       *WebhookUpdateFields   `protobuf:"bytes,3,opt,name=updates,proto3" json:"updates,omitempty"`                      // Fields to update
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateWebhookConfigRequest) Reset() {
-	*x = UpdateWebhookConfigRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[42]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateWebhookConfigRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateWebhookConfigRequest) ProtoMessage() {}
-
-func (x *UpdateWebhookConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[42]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateWebhookConfigRequest.ProtoReflect.Descriptor instead.
-func (*UpdateWebhookConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{42}
-}
-
-func (x *UpdateWebhookConfigRequest) GetWebhookId() string {
-	if x != nil {
-		return x.WebhookId
-	}
-	return ""
-}
-
-func (x *UpdateWebhookConfigRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *UpdateWebhookConfigRequest) GetUpdates() *WebhookUpdateFields {
-	if x != nil {
-		return x.Updates
-	}
-	return nil
-}
-
-// UpdateWebhookConfigResponse represents the response for updating webhook configuration
-type UpdateWebhookConfigResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateWebhookConfigResponse) Reset() {
-	*x = UpdateWebhookConfigResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[43]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateWebhookConfigResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateWebhookConfigResponse) ProtoMessage() {}
-
-func (x *UpdateWebhookConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[43]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateWebhookConfigResponse.ProtoReflect.Descriptor instead.
-func (*UpdateWebhookConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{43}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UpdateWebhookConfigResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UpdateWebhookConfigResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// PauseWebhookRequest represents a request to pause a webhook
-type PauseWebhookRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WebhookId     string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"` // Webhook ID (required)
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                  // Namespace (required for security)
-	Reason        string                 `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`                        // Optional reason for pausing
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PauseWebhookRequest) Reset() {
-	*x = PauseWebhookRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[44]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PauseWebhookRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PauseWebhookRequest) ProtoMessage() {}
-
-func (x *PauseWebhookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[44]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PauseWebhookRequest.ProtoReflect.Descriptor instead.
-func (*PauseWebhookRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{44}
-}
-
-func (x *PauseWebhookRequest) GetWebhookId() string {
-	if x != nil {
-		return x.WebhookId
-	}
-	return ""
-}
-
-func (x *PauseWebhookRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *PauseWebhookRequest) GetReason() string {
-	if x != nil {
-		return x.Reason
-	}
-	return ""
-}
-
-// PauseWebhookResponse represents the response for pausing a webhook
-type PauseWebhookResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PauseWebhookResponse) Reset() {
-	*x = PauseWebhookResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[45]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PauseWebhookResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PauseWebhookResponse) ProtoMessage() {}
-
-func (x *PauseWebhookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[45]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PauseWebhookResponse.ProtoReflect.Descriptor instead.
-func (*PauseWebhookResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{45}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *PauseWebhookResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *PauseWebhookResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// ResumeWebhookRequest represents a request to resume a webhook
-type ResumeWebhookRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WebhookId     string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"` // Webhook ID (required)
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                  // Namespace (required for security)
-	Reason        string                 `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`                        // Optional reason for resuming
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ResumeWebhookRequest) Reset() {
-	*x = ResumeWebhookRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[46]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ResumeWebhookRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ResumeWebhookRequest) ProtoMessage() {}
-
-func (x *ResumeWebhookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[46]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ResumeWebhookRequest.ProtoReflect.Descriptor instead.
-func (*ResumeWebhookRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{46}
-}
-
-func (x *ResumeWebhookRequest) GetWebhookId() string {
-	if x != nil {
-		return x.WebhookId
-	}
-	return ""
-}
-
-func (x *ResumeWebhookRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *ResumeWebhookRequest) GetReason() string {
-	if x != nil {
-		return x.Reason
-	}
-	return ""
-}
-
-// ResumeWebhookResponse represents the response for resuming a webhook
-type ResumeWebhookResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ResumeWebhookResponse) Reset() {
-	*x = ResumeWebhookResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[47]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ResumeWebhookResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ResumeWebhookResponse) ProtoMessage() {}
-
-func (x *ResumeWebhookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[47]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ResumeWebhookResponse.ProtoReflect.Descriptor instead.
-func (*ResumeWebhookResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{47}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ResumeWebhookResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ResumeWebhookResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// EventReport represents detailed information about an event instance
-type EventReport struct {
-	state                protoimpl.MessageState `protogen:"open.v1"`
-	EventId              string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`                                                              // Unique event identifier
-	Namespace            string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                         // Event namespace
-	EventName            string                 `protobuf:"bytes,3,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`                                                        // Event type name
-	Payload              *structpb.Struct       `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`                                                                             // Event payload
-	Metadata             map[string]string      `protobuf:"bytes,5,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Event metadata
-	CreatedAt            *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                                                        // When the event was created
-	TtlSeconds           int64                  `protobuf:"varint,7,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"`                                                    // TTL for webhook retry attempts
-	WebhookCount         int32                  `protobuf:"varint,8,opt,name=webhook_count,json=webhookCount,proto3" json:"webhook_count,omitempty"`                                              // Number of webhooks triggered by this event
-	SuccessfulDeliveries int32                  `protobuf:"varint,9,opt,name=successful_deliveries,json=successfulDeliveries,proto3" json:"successful_deliveries,omitempty"`                      // Number of successful deliveries
-	FailedDeliveries     int32                  `protobuf:"varint,10,opt,name=failed_deliveries,json=failedDeliveries,proto3" json:"failed_deliveries,omitempty"`                                 // Number of failed deliveries
-	PendingDeliveries    int32                  `protobuf:"varint,11,opt,name=pending_deliveries,json=pendingDeliveries,proto3" json:"pending_deliveries,omitempty"`                              // Number of pending deliveries
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
-}
-
-func (x *EventReport) Reset() {
-	*x = EventReport{}
-	mi := &file_proto_webhook_proto_msgTypes[48]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *EventReport) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*EventReport) ProtoMessage() {}
-
-func (x *EventReport) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[48]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use EventReport.ProtoReflect.Descriptor instead.
-func (*EventReport) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{48}
-}
-
-func (x *EventReport) GetEventId() string {
-	if x != nil {
-		return x.EventId
-	}
-	return ""
-}
-
-func (x *EventReport) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *EventReport) GetEventName() string {
-	if x != nil {
-		return x.EventName
-	}
-	return ""
-}
-
-func (x *EventReport) GetPayload() *structpb.Struct {
-	if x != nil {
-		return x.Payload
-	}
-	return nil
-}
-
-func (x *EventReport) GetMetadata() map[string]string {
-	if x != nil {
-		return x.Metadata
-	}
-	return nil
-}
-
-func (x *EventReport) GetCreatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return nil
-}
-
-func (x *EventReport) GetTtlSeconds() int64 {
-	if x != nil {
-		return x.TtlSeconds
-	}
-	return 0
-}
-
-func (x *EventReport) GetWebhookCount() int32 {
-	if x != nil {
-		return x.WebhookCount
-	}
-	return 0
-}
-
-func (x *EventReport) GetSuccessfulDeliveries() int32 {
-	if x != nil {
-		return x.SuccessfulDeliveries
-	}
-	return 0
-}
-
-func (x *EventReport) GetFailedDeliveries() int32 {
-	if x != nil {
-		return x.FailedDeliveries
-	}
-	return 0
-}
-
-func (x *EventReport) GetPendingDeliveries() int32 {
-	if x != nil {
-		return x.PendingDeliveries
-	}
-	return 0
-}
-
-// ListEventReportsRequest represents a request to list event reports
-type ListEventReportsRequest struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Namespace  string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`                        // Namespace to filter by (required)
-	EventName  *string                `protobuf:"bytes,2,opt,name=event_name,json=eventName,proto3,oneof" json:"event_name,omitempty"` // Optional event name filter
-	Pagination *PaginationRequest     `protobuf:"bytes,3,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Limit int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Offset        int32 `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListEventReportsRequest) Reset() {
-	*x = ListEventReportsRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[49]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListEventReportsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListEventReportsRequest) ProtoMessage() {}
-
-func (x *ListEventReportsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[49]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListEventReportsRequest.ProtoReflect.Descriptor instead.
-func (*ListEventReportsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{49}
-}
-
-func (x *ListEventReportsRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *ListEventReportsRequest) GetEventName() string {
-	if x != nil && x.EventName != nil {
-		return *x.EventName
-	}
-	return ""
-}
-
-func (x *ListEventReportsRequest) GetPagination() *PaginationRequest {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventReportsRequest) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventReportsRequest) GetOffset() int32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-// ListEventReportsResponse represents the response for listing event reports
-type ListEventReportsResponse struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Events     []*EventReport         `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"` // List of events in descending order by created_at
-	Pagination *PaginationResponse    `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"` // Total count of events matching the filter
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"` // Whether the request was successful
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"` // Success or error message
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListEventReportsResponse) Reset() {
-	*x = ListEventReportsResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[50]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListEventReportsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListEventReportsResponse) ProtoMessage() {}
-
-func (x *ListEventReportsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[50]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListEventReportsResponse.ProtoReflect.Descriptor instead.
-func (*ListEventReportsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{50}
-}
-
-func (x *ListEventReportsResponse) GetEvents() []*EventReport {
-	if x != nil {
-		return x.Events
-	}
-	return nil
-}
-
-func (x *ListEventReportsResponse) GetPagination() *PaginationResponse {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventReportsResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventReportsResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventReportsResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// EventSubscription represents a subscription linking a webhook to an event
-type EventSubscription struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	SubscriptionId    string                 `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`                                                                      // Unique subscription identifier
-	WebhookId         string                 `protobuf:"bytes,2,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`                                                                                     // Associated webhook ID
-	EventName         string                 `protobuf:"bytes,3,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`                                                                                     // Event name to subscribe to
-	Namespace         string                 `protobuf:"bytes,4,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                                                      // Namespace
-	Headers           map[string]string      `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`                                // Optional per-subscription headers (override webhook headers)
-	Method            string                 `protobuf:"bytes,6,opt,name=method,proto3" json:"method,omitempty"`                                                                                                            // Optional HTTP method override (default: POST)
-	Timeout           int32                  `protobuf:"varint,7,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                                                         // Optional timeout override in seconds
-	TransformEnabled  bool                   `protobuf:"varint,8,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`                                                               // Whether payload transformation is enabled
-	TransformTemplate string                 `protobuf:"bytes,9,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`                                                             // Go template for payload transformation
-	CreatedAt         *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                                                                                    // When subscription was created
-	UpdatedAt         *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`                                                                                    // When subscription was last updated
-	LabelFilters      map[string]string      `protobuf:"bytes,12,rep,name=label_filters,json=labelFilters,proto3" json:"label_filters,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Label filters for matching events (AND logic)
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *EventSubscription) Reset() {
-	*x = EventSubscription{}
-	mi := &file_proto_webhook_proto_msgTypes[51]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *EventSubscription) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*EventSubscription) ProtoMessage() {}
-
-func (x *EventSubscription) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[51]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use EventSubscription.ProtoReflect.Descriptor instead.
-func (*EventSubscription) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{51}
-}
-
-func (x *EventSubscription) GetSubscriptionId() string {
-	if x != nil {
-		return x.SubscriptionId
-	}
-	return ""
-}
-
-func (x *EventSubscription) GetWebhookId() string {
-	if x != nil {
-		return x.WebhookId
-	}
-	return ""
-}
-
-func (x *EventSubscription) GetEventName() string {
-	if x != nil {
-		return x.EventName
-	}
-	return ""
-}
-
-func (x *EventSubscription) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *EventSubscription) GetHeaders() map[string]string {
-	if x != nil {
-		return x.Headers
-	}
-	return nil
-}
-
-func (x *EventSubscription) GetMethod() string {
-	if x != nil {
-		return x.Method
-	}
-	return ""
-}
-
-func (x *EventSubscription) GetTimeout() int32 {
-	if x != nil {
-		return x.Timeout
-	}
-	return 0
-}
-
-func (x *EventSubscription) GetTransformEnabled() bool {
-	if x != nil {
-		return x.TransformEnabled
-	}
-	return false
-}
-
-func (x *EventSubscription) GetTransformTemplate() string {
-	if x != nil {
-		return x.TransformTemplate
-	}
-	return ""
-}
-
-func (x *EventSubscription) GetCreatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return nil
-}
-
-func (x *EventSubscription) GetUpdatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return nil
-}
-
-func (x *EventSubscription) GetLabelFilters() map[string]string {
-	if x != nil {
-		return x.LabelFilters
-	}
-	return nil
-}
-
-// CreateSubscriptionRequest represents a request to create a subscription
-type CreateSubscriptionRequest struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	WebhookId         string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`                                                                                    // Webhook ID (required)
-	EventName         string                 `protobuf:"bytes,2,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`                                                                                    // Event name (required)
-	Namespace         string                 `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                                                     // Namespace (required)
-	Headers           map[string]string      `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`                               // Optional per-subscription headers
-	Method            string                 `protobuf:"bytes,5,opt,name=method,proto3" json:"method,omitempty"`                                                                                                           // Optional HTTP method (default: POST)
-	Timeout           int32                  `protobuf:"varint,6,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                                                        // Optional timeout in seconds
-	TransformEnabled  bool                   `protobuf:"varint,7,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`                                                              // Enable payload transformation
-	TransformTemplate string                 `protobuf:"bytes,8,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`                                                            // Go template for transformation
-	LabelFilters      map[string]string      `protobuf:"bytes,9,rep,name=label_filters,json=labelFilters,proto3" json:"label_filters,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Optional label filters for matching events (AND logic)
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *CreateSubscriptionRequest) Reset() {
-	*x = CreateSubscriptionRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[52]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CreateSubscriptionRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CreateSubscriptionRequest) ProtoMessage() {}
-
-func (x *CreateSubscriptionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[52]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CreateSubscriptionRequest.ProtoReflect.Descriptor instead.
-func (*CreateSubscriptionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{52}
-}
-
-func (x *CreateSubscriptionRequest) GetWebhookId() string {
-	if x != nil {
-		return x.WebhookId
-	}
-	return ""
-}
-
-func (x *CreateSubscriptionRequest) GetEventName() string {
-	if x != nil {
-		return x.EventName
-	}
-	return ""
-}
-
-func (x *CreateSubscriptionRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *CreateSubscriptionRequest) GetHeaders() map[string]string {
-	if x != nil {
-		return x.Headers
-	}
-	return nil
-}
-
-func (x *CreateSubscriptionRequest) GetMethod() string {
-	if x != nil {
-		return x.Method
-	}
-	return ""
-}
-
-func (x *CreateSubscriptionRequest) GetTimeout() int32 {
-	if x != nil {
-		return x.Timeout
-	}
-	return 0
-}
-
-func (x *CreateSubscriptionRequest) GetTransformEnabled() bool {
-	if x != nil {
-		return x.TransformEnabled
-	}
-	return false
-}
-
-func (x *CreateSubscriptionRequest) GetTransformTemplate() string {
-	if x != nil {
-		return x.TransformTemplate
-	}
-	return ""
-}
-
-func (x *CreateSubscriptionRequest) GetLabelFilters() map[string]string {
-	if x != nil {
-		return x.LabelFilters
-	}
-	return nil
-}
-
-// CreateSubscriptionResponse represents the response for subscription creation
-type CreateSubscriptionResponse struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	SubscriptionId string                 `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"` // Created subscription ID
-	CreatedAt      *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`                // When subscription was created
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CreateSubscriptionResponse) Reset() {
-	*x = CreateSubscriptionResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[53]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CreateSubscriptionResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CreateSubscriptionResponse) ProtoMessage() {}
-
-func (x *CreateSubscriptionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[53]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CreateSubscriptionResponse.ProtoReflect.Descriptor instead.
-func (*CreateSubscriptionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{53}
-}
-
-func (x *CreateSubscriptionResponse) GetSubscriptionId() string {
-	if x != nil {
-		return x.SubscriptionId
-	}
-	return ""
-}
-
-func (x *CreateSubscriptionResponse) GetCreatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *CreateSubscriptionResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *CreateSubscriptionResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// GetSubscriptionRequest represents a request to get a subscription
-type GetSubscriptionRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	SubscriptionId string                 `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"` // Subscription ID (required)
-	Namespace      string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                                 // Namespace (required)
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *GetSubscriptionRequest) Reset() {
-	*x = GetSubscriptionRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[54]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetSubscriptionRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetSubscriptionRequest) ProtoMessage() {}
-
-func (x *GetSubscriptionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[54]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetSubscriptionRequest.ProtoReflect.Descriptor instead.
-func (*GetSubscriptionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{54}
-}
-
-func (x *GetSubscriptionRequest) GetSubscriptionId() string {
-	if x != nil {
-		return x.SubscriptionId
-	}
-	return ""
-}
-
-func (x *GetSubscriptionRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-// GetSubscriptionResponse represents the response for getting a subscription
-type GetSubscriptionResponse struct {
-	state        protoimpl.MessageState `protogen:"open.v1"`
-	Subscription *EventSubscription     `protobuf:"bytes,1,opt,name=subscription,proto3" json:"subscription,omitempty"` // Subscription details
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetSubscriptionResponse) Reset() {
-	*x = GetSubscriptionResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[55]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetSubscriptionResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetSubscriptionResponse) ProtoMessage() {}
-
-func (x *GetSubscriptionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[55]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetSubscriptionResponse.ProtoReflect.Descriptor instead.
-func (*GetSubscriptionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{55}
-}
-
-func (x *GetSubscriptionResponse) GetSubscription() *EventSubscription {
-	if x != nil {
-		return x.Subscription
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetSubscriptionResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetSubscriptionResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// ListSubscriptionsRequest represents a request to list subscriptions
-type ListSubscriptionsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WebhookId     string                 `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"` // Webhook ID to filter by (optional)
-	EventName     string                 `protobuf:"bytes,4,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"` // Event name to filter by (optional)
-	Namespace     string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                  // Namespace (required)
-	Pagination    *PaginationRequest     `protobuf:"bytes,3,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListSubscriptionsRequest) Reset() {
-	*x = ListSubscriptionsRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[56]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListSubscriptionsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListSubscriptionsRequest) ProtoMessage() {}
-
-func (x *ListSubscriptionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[56]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListSubscriptionsRequest.ProtoReflect.Descriptor instead.
-func (*ListSubscriptionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{56}
-}
-
-func (x *ListSubscriptionsRequest) GetWebhookId() string {
-	if x != nil {
-		return x.WebhookId
-	}
-	return ""
-}
-
-func (x *ListSubscriptionsRequest) GetEventName() string {
-	if x != nil {
-		return x.EventName
-	}
-	return ""
-}
-
-func (x *ListSubscriptionsRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *ListSubscriptionsRequest) GetPagination() *PaginationRequest {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// ListSubscriptionsResponse represents the response for listing subscriptions
-type ListSubscriptionsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Subscriptions []*EventSubscription   `protobuf:"bytes,1,rep,name=subscriptions,proto3" json:"subscriptions,omitempty"` // List of subscriptions
-	Pagination    *PaginationResponse    `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListSubscriptionsResponse) Reset() {
-	*x = ListSubscriptionsResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[57]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListSubscriptionsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListSubscriptionsResponse) ProtoMessage() {}
-
-func (x *ListSubscriptionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[57]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListSubscriptionsResponse.ProtoReflect.Descriptor instead.
-func (*ListSubscriptionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{57}
-}
-
-func (x *ListSubscriptionsResponse) GetSubscriptions() []*EventSubscription {
-	if x != nil {
-		return x.Subscriptions
-	}
-	return nil
-}
-
-func (x *ListSubscriptionsResponse) GetPagination() *PaginationResponse {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListSubscriptionsResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListSubscriptionsResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListSubscriptionsResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// UpdateSubscriptionRequest represents a request to update a subscription
-type UpdateSubscriptionRequest struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	SubscriptionId    string                 `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`                                                                     // Subscription ID (required)
-	Namespace         string                 `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty"`                                                                                                     // Namespace (required)
-	Headers           map[string]string      `protobuf:"bytes,2,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`                               // Updated headers
-	Method            string                 `protobuf:"bytes,3,opt,name=method,proto3" json:"method,omitempty"`                                                                                                           // Updated HTTP method
-	Timeout           int32                  `protobuf:"varint,4,opt,name=timeout,proto3" json:"timeout,omitempty"`                                                                                                        // Updated timeout
-	TransformEnabled  bool                   `protobuf:"varint,5,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`                                                              // Updated transform enabled flag
-	TransformTemplate string                 `protobuf:"bytes,6,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`                                                            // Updated transform template
-	LabelFilters      map[string]string      `protobuf:"bytes,8,rep,name=label_filters,json=labelFilters,proto3" json:"label_filters,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Updated label filters for matching events (AND logic)
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *UpdateSubscriptionRequest) Reset() {
-	*x = UpdateSubscriptionRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[58]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateSubscriptionRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateSubscriptionRequest) ProtoMessage() {}
-
-func (x *UpdateSubscriptionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[58]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateSubscriptionRequest.ProtoReflect.Descriptor instead.
-func (*UpdateSubscriptionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{58}
-}
-
-func (x *UpdateSubscriptionRequest) GetSubscriptionId() string {
-	if x != nil {
-		return x.SubscriptionId
-	}
-	return ""
-}
-
-func (x *UpdateSubscriptionRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *UpdateSubscriptionRequest) GetHeaders() map[string]string {
-	if x != nil {
-		return x.Headers
-	}
-	return nil
-}
-
-func (x *UpdateSubscriptionRequest) GetMethod() string {
-	if x != nil {
-		return x.Method
-	}
-	return ""
-}
-
-func (x *UpdateSubscriptionRequest) GetTimeout() int32 {
-	if x != nil {
-		return x.Timeout
-	}
-	return 0
-}
-
-func (x *UpdateSubscriptionRequest) GetTransformEnabled() bool {
-	if x != nil {
-		return x.TransformEnabled
-	}
-	return false
-}
-
-func (x *UpdateSubscriptionRequest) GetTransformTemplate() string {
-	if x != nil {
-		return x.TransformTemplate
-	}
-	return ""
-}
-
-func (x *UpdateSubscriptionRequest) GetLabelFilters() map[string]string {
-	if x != nil {
-		return x.LabelFilters
-	}
-	return nil
-}
-
-// UpdateSubscriptionResponse represents the response for updating a subscription
-type UpdateSubscriptionResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateSubscriptionResponse) Reset() {
-	*x = UpdateSubscriptionResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[59]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateSubscriptionResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateSubscriptionResponse) ProtoMessage() {}
-
-func (x *UpdateSubscriptionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[59]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateSubscriptionResponse.ProtoReflect.Descriptor instead.
-func (*UpdateSubscriptionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{59}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UpdateSubscriptionResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UpdateSubscriptionResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// DeleteSubscriptionRequest represents a request to delete a subscription
-type DeleteSubscriptionRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	SubscriptionId string                 `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"` // Subscription ID (required)
-	Namespace      string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`                                 // Namespace (required)
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
-func (x *DeleteSubscriptionRequest) Reset() {
-	*x = DeleteSubscriptionRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[60]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DeleteSubscriptionRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeleteSubscriptionRequest) ProtoMessage() {}
-
-func (x *DeleteSubscriptionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[60]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeleteSubscriptionRequest.ProtoReflect.Descriptor instead.
-func (*DeleteSubscriptionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{60}
-}
-
-func (x *DeleteSubscriptionRequest) GetSubscriptionId() string {
-	if x != nil {
-		return x.SubscriptionId
-	}
-	return ""
-}
-
-func (x *DeleteSubscriptionRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-// DeleteSubscriptionResponse represents the response for deleting a subscription
-type DeleteSubscriptionResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DeleteSubscriptionResponse) Reset() {
-	*x = DeleteSubscriptionResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[61]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DeleteSubscriptionResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeleteSubscriptionResponse) ProtoMessage() {}
-
-func (x *DeleteSubscriptionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[61]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeleteSubscriptionResponse.ProtoReflect.Descriptor instead.
-func (*DeleteSubscriptionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{61}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *DeleteSubscriptionResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *DeleteSubscriptionResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// ListSubscriptionsByEventRequest represents a request to list subscriptions by event
-type ListSubscriptionsByEventRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`                  // Namespace (required)
-	EventName     string                 `protobuf:"bytes,2,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"` // Event name (required)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListSubscriptionsByEventRequest) Reset() {
-	*x = ListSubscriptionsByEventRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[62]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListSubscriptionsByEventRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListSubscriptionsByEventRequest) ProtoMessage() {}
-
-func (x *ListSubscriptionsByEventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[62]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListSubscriptionsByEventRequest.ProtoReflect.Descriptor instead.
-func (*ListSubscriptionsByEventRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{62}
-}
-
-func (x *ListSubscriptionsByEventRequest) GetNamespace() string {
-	if x != nil {
-		return x.Namespace
-	}
-	return ""
-}
-
-func (x *ListSubscriptionsByEventRequest) GetEventName() string {
-	if x != nil {
-		return x.EventName
-	}
-	return ""
-}
-
-// ListSubscriptionsByEventResponse represents the response for listing subscriptions by event
-type ListSubscriptionsByEventResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Subscriptions []*EventSubscription   `protobuf:"bytes,1,rep,name=subscriptions,proto3" json:"subscriptions,omitempty"` // List of subscriptions
-	Pagination    *PaginationResponse    `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListSubscriptionsByEventResponse) Reset() {
-	*x = ListSubscriptionsByEventResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[63]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListSubscriptionsByEventResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListSubscriptionsByEventResponse) ProtoMessage() {}
-
-func (x *ListSubscriptionsByEventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[63]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListSubscriptionsByEventResponse.ProtoReflect.Descriptor instead.
-func (*ListSubscriptionsByEventResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{63}
-}
-
-func (x *ListSubscriptionsByEventResponse) GetSubscriptions() []*EventSubscription {
-	if x != nil {
-		return x.Subscriptions
-	}
-	return nil
-}
-
-func (x *ListSubscriptionsByEventResponse) GetPagination() *PaginationResponse {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListSubscriptionsByEventResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListSubscriptionsByEventResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListSubscriptionsByEventResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// TemplateFunction represents a template function with its name and description
+// TemplateFunction describes a single Go template function available for
+// payload transformation in event subscriptions.
 type TemplateFunction struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`               // Function name
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"` // Function description
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Function name as used in Go templates (e.g., "toJSON", "upper", "now").
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Human-readable description of the function's behavior, parameters, and return value.
+	Description   string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TemplateFunction) Reset() {
 	*x = TemplateFunction{}
-	mi := &file_proto_webhook_proto_msgTypes[64]
+	mi := &file_proto_webhook_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4946,7 +5859,7 @@ func (x *TemplateFunction) String() string {
 func (*TemplateFunction) ProtoMessage() {}
 
 func (x *TemplateFunction) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[64]
+	mi := &file_proto_webhook_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4959,7 +5872,7 @@ func (x *TemplateFunction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TemplateFunction.ProtoReflect.Descriptor instead.
 func (*TemplateFunction) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{64}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *TemplateFunction) GetName() string {
@@ -4976,7 +5889,8 @@ func (x *TemplateFunction) GetDescription() string {
 	return ""
 }
 
-// GetTemplateFunctionsRequest represents a request to get template functions
+// GetTemplateFunctionsRequest retrieves the list of available template functions.
+// No parameters needed.
 type GetTemplateFunctionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -4985,7 +5899,7 @@ type GetTemplateFunctionsRequest struct {
 
 func (x *GetTemplateFunctionsRequest) Reset() {
 	*x = GetTemplateFunctionsRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[65]
+	mi := &file_proto_webhook_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4997,7 +5911,7 @@ func (x *GetTemplateFunctionsRequest) String() string {
 func (*GetTemplateFunctionsRequest) ProtoMessage() {}
 
 func (x *GetTemplateFunctionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[65]
+	mi := &file_proto_webhook_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5010,16 +5924,23 @@ func (x *GetTemplateFunctionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTemplateFunctionsRequest.ProtoReflect.Descriptor instead.
 func (*GetTemplateFunctionsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{65}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{70}
 }
 
-// GetTemplateFunctionsResponse represents the response for getting template functions
+// GetTemplateFunctionsResponse returns all Go template functions available for
+// subscription payload transformation.
 type GetTemplateFunctionsResponse struct {
-	state      protoimpl.MessageState `protogen:"open.v1"`
-	Functions  []*TemplateFunction    `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`                      // List of available template functions
-	TotalCount int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"` // Total count of functions
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Available template functions with names and descriptions.
+	Functions []*TemplateFunction `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
+	// Total number of available functions.
+	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
+	// Deprecated: use gRPC status codes.
+	//
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -5028,7 +5949,7 @@ type GetTemplateFunctionsResponse struct {
 
 func (x *GetTemplateFunctionsResponse) Reset() {
 	*x = GetTemplateFunctionsResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[66]
+	mi := &file_proto_webhook_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5040,7 +5961,7 @@ func (x *GetTemplateFunctionsResponse) String() string {
 func (*GetTemplateFunctionsResponse) ProtoMessage() {}
 
 func (x *GetTemplateFunctionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[66]
+	mi := &file_proto_webhook_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5053,7 +5974,7 @@ func (x *GetTemplateFunctionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTemplateFunctionsResponse.ProtoReflect.Descriptor instead.
 func (*GetTemplateFunctionsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{66}
+	return file_proto_webhook_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *GetTemplateFunctionsResponse) GetFunctions() []*TemplateFunction {
@@ -5086,892 +6007,19 @@ func (x *GetTemplateFunctionsResponse) GetMessage() string {
 	return ""
 }
 
-// PaginationRequest represents a request for paginated results
-type PaginationRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`   // Maximum number of items to return (default: 50)
-	Offset        int32                  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"` // Number of items to skip (default: 0)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PaginationRequest) Reset() {
-	*x = PaginationRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[67]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PaginationRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PaginationRequest) ProtoMessage() {}
-
-func (x *PaginationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[67]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PaginationRequest.ProtoReflect.Descriptor instead.
-func (*PaginationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{67}
-}
-
-func (x *PaginationRequest) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
-	}
-	return 0
-}
-
-func (x *PaginationRequest) GetOffset() int32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-// PaginationResponse represents metadata for paginated results
-type PaginationResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TotalCount    int32                  `protobuf:"varint,1,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"` // Total number of items available
-	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`                             // Limit used for the request
-	Offset        int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`                           // Offset used for the request
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *PaginationResponse) Reset() {
-	*x = PaginationResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[68]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *PaginationResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PaginationResponse) ProtoMessage() {}
-
-func (x *PaginationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[68]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PaginationResponse.ProtoReflect.Descriptor instead.
-func (*PaginationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{68}
-}
-
-func (x *PaginationResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
-func (x *PaginationResponse) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
-	}
-	return 0
-}
-
-func (x *PaginationResponse) GetOffset() int32 {
-	if x != nil {
-		return x.Offset
-	}
-	return 0
-}
-
-// DeliveryAttempt represents a single attempt to deliver a webhook
-type DeliveryAttempt struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AttemptId     string                 `protobuf:"bytes,1,opt,name=attempt_id,json=attemptId,proto3" json:"attempt_id,omitempty"`             // Unique attempt identifier
-	DeliveryId    string                 `protobuf:"bytes,2,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`          // Associated delivery ID
-	WebhookId     string                 `protobuf:"bytes,3,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`             // Associated webhook ID
-	Success       bool                   `protobuf:"varint,4,opt,name=success,proto3" json:"success,omitempty"`                                 // Whether this attempt succeeded
-	ResponseTime  int32                  `protobuf:"varint,5,opt,name=response_time,json=responseTime,proto3" json:"response_time,omitempty"`   // Response time in milliseconds
-	ResponseCode  int32                  `protobuf:"varint,6,opt,name=response_code,json=responseCode,proto3" json:"response_code,omitempty"`   // HTTP response code (0 if no response)
-	ErrorMessage  string                 `protobuf:"bytes,7,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`    // Error message (empty on success)
-	ErrorCategory string                 `protobuf:"bytes,8,opt,name=error_category,json=errorCategory,proto3" json:"error_category,omitempty"` // Error category (success, client_error, server_error, timeout, etc.)
-	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=timestamp,proto3" json:"timestamp,omitempty"`                              // When this attempt occurred
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DeliveryAttempt) Reset() {
-	*x = DeliveryAttempt{}
-	mi := &file_proto_webhook_proto_msgTypes[69]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DeliveryAttempt) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeliveryAttempt) ProtoMessage() {}
-
-func (x *DeliveryAttempt) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[69]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeliveryAttempt.ProtoReflect.Descriptor instead.
-func (*DeliveryAttempt) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{69}
-}
-
-func (x *DeliveryAttempt) GetAttemptId() string {
-	if x != nil {
-		return x.AttemptId
-	}
-	return ""
-}
-
-func (x *DeliveryAttempt) GetDeliveryId() string {
-	if x != nil {
-		return x.DeliveryId
-	}
-	return ""
-}
-
-func (x *DeliveryAttempt) GetWebhookId() string {
-	if x != nil {
-		return x.WebhookId
-	}
-	return ""
-}
-
-func (x *DeliveryAttempt) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-func (x *DeliveryAttempt) GetResponseTime() int32 {
-	if x != nil {
-		return x.ResponseTime
-	}
-	return 0
-}
-
-func (x *DeliveryAttempt) GetResponseCode() int32 {
-	if x != nil {
-		return x.ResponseCode
-	}
-	return 0
-}
-
-func (x *DeliveryAttempt) GetErrorMessage() string {
-	if x != nil {
-		return x.ErrorMessage
-	}
-	return ""
-}
-
-func (x *DeliveryAttempt) GetErrorCategory() string {
-	if x != nil {
-		return x.ErrorCategory
-	}
-	return ""
-}
-
-func (x *DeliveryAttempt) GetTimestamp() *timestamppb.Timestamp {
-	if x != nil {
-		return x.Timestamp
-	}
-	return nil
-}
-
-// GetDeliveryAttemptsRequest represents a request to get delivery attempt history
-type GetDeliveryAttemptsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	DeliveryId    string                 `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"` // Delivery ID (required)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetDeliveryAttemptsRequest) Reset() {
-	*x = GetDeliveryAttemptsRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[70]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetDeliveryAttemptsRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetDeliveryAttemptsRequest) ProtoMessage() {}
-
-func (x *GetDeliveryAttemptsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[70]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetDeliveryAttemptsRequest.ProtoReflect.Descriptor instead.
-func (*GetDeliveryAttemptsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{70}
-}
-
-func (x *GetDeliveryAttemptsRequest) GetDeliveryId() string {
-	if x != nil {
-		return x.DeliveryId
-	}
-	return ""
-}
-
-// GetDeliveryAttemptsResponse represents the response for getting delivery attempts
-type GetDeliveryAttemptsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Attempts      []*DeliveryAttempt     `protobuf:"bytes,1,rep,name=attempts,proto3" json:"attempts,omitempty"` // List of delivery attempts ordered by timestamp
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetDeliveryAttemptsResponse) Reset() {
-	*x = GetDeliveryAttemptsResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[71]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetDeliveryAttemptsResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetDeliveryAttemptsResponse) ProtoMessage() {}
-
-func (x *GetDeliveryAttemptsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[71]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetDeliveryAttemptsResponse.ProtoReflect.Descriptor instead.
-func (*GetDeliveryAttemptsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{71}
-}
-
-func (x *GetDeliveryAttemptsResponse) GetAttempts() []*DeliveryAttempt {
-	if x != nil {
-		return x.Attempts
-	}
-	return nil
-}
-
-// NamespaceResource represents a namespace entity
-type NamespaceResource struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                             // Namespace UUID
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"` // Owning tenant UUID
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`                         // Namespace name (unique per tenant)
-	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`           // Human-readable description
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *NamespaceResource) Reset() {
-	*x = NamespaceResource{}
-	mi := &file_proto_webhook_proto_msgTypes[72]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *NamespaceResource) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*NamespaceResource) ProtoMessage() {}
-
-func (x *NamespaceResource) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[72]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use NamespaceResource.ProtoReflect.Descriptor instead.
-func (*NamespaceResource) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{72}
-}
-
-func (x *NamespaceResource) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *NamespaceResource) GetTenantId() string {
-	if x != nil {
-		return x.TenantId
-	}
-	return ""
-}
-
-func (x *NamespaceResource) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *NamespaceResource) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *NamespaceResource) GetCreatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.CreatedAt
-	}
-	return nil
-}
-
-func (x *NamespaceResource) GetUpdatedAt() *timestamppb.Timestamp {
-	if x != nil {
-		return x.UpdatedAt
-	}
-	return nil
-}
-
-// CreateNamespaceRequest represents a request to create a namespace
-type CreateNamespaceRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`               // Namespace name (required, lowercase alphanumeric with hyphens/underscores)
-	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"` // Optional description
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CreateNamespaceRequest) Reset() {
-	*x = CreateNamespaceRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[73]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CreateNamespaceRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CreateNamespaceRequest) ProtoMessage() {}
-
-func (x *CreateNamespaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[73]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CreateNamespaceRequest.ProtoReflect.Descriptor instead.
-func (*CreateNamespaceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{73}
-}
-
-func (x *CreateNamespaceRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *CreateNamespaceRequest) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-// CreateNamespaceResponse represents the response for namespace creation
-type CreateNamespaceResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     *NamespaceResource     `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CreateNamespaceResponse) Reset() {
-	*x = CreateNamespaceResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[74]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CreateNamespaceResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CreateNamespaceResponse) ProtoMessage() {}
-
-func (x *CreateNamespaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[74]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CreateNamespaceResponse.ProtoReflect.Descriptor instead.
-func (*CreateNamespaceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{74}
-}
-
-func (x *CreateNamespaceResponse) GetNamespace() *NamespaceResource {
-	if x != nil {
-		return x.Namespace
-	}
-	return nil
-}
-
-// GetNamespaceRequest represents a request to get a namespace
-type GetNamespaceRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`     // Namespace UUID (one of id or name required)
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"` // Namespace name (alternative to id)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetNamespaceRequest) Reset() {
-	*x = GetNamespaceRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[75]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetNamespaceRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetNamespaceRequest) ProtoMessage() {}
-
-func (x *GetNamespaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[75]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetNamespaceRequest.ProtoReflect.Descriptor instead.
-func (*GetNamespaceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{75}
-}
-
-func (x *GetNamespaceRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *GetNamespaceRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-// GetNamespaceResponse represents the response for getting a namespace
-type GetNamespaceResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     *NamespaceResource     `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GetNamespaceResponse) Reset() {
-	*x = GetNamespaceResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[76]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GetNamespaceResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetNamespaceResponse) ProtoMessage() {}
-
-func (x *GetNamespaceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[76]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetNamespaceResponse.ProtoReflect.Descriptor instead.
-func (*GetNamespaceResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{76}
-}
-
-func (x *GetNamespaceResponse) GetNamespace() *NamespaceResource {
-	if x != nil {
-		return x.Namespace
-	}
-	return nil
-}
-
-// ListNamespacesRequest represents a request to list namespaces
-type ListNamespacesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Pagination    *PaginationRequest     `protobuf:"bytes,1,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListNamespacesRequest) Reset() {
-	*x = ListNamespacesRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[77]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListNamespacesRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListNamespacesRequest) ProtoMessage() {}
-
-func (x *ListNamespacesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[77]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListNamespacesRequest.ProtoReflect.Descriptor instead.
-func (*ListNamespacesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{77}
-}
-
-func (x *ListNamespacesRequest) GetPagination() *PaginationRequest {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// ListNamespacesResponse represents the response for listing namespaces
-type ListNamespacesResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespaces    []*NamespaceResource   `protobuf:"bytes,1,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
-	Pagination    *PaginationResponse    `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListNamespacesResponse) Reset() {
-	*x = ListNamespacesResponse{}
-	mi := &file_proto_webhook_proto_msgTypes[78]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListNamespacesResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListNamespacesResponse) ProtoMessage() {}
-
-func (x *ListNamespacesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[78]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListNamespacesResponse.ProtoReflect.Descriptor instead.
-func (*ListNamespacesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{78}
-}
-
-func (x *ListNamespacesResponse) GetNamespaces() []*NamespaceResource {
-	if x != nil {
-		return x.Namespaces
-	}
-	return nil
-}
-
-func (x *ListNamespacesResponse) GetPagination() *PaginationResponse {
-	if x != nil {
-		return x.Pagination
-	}
-	return nil
-}
-
-// UpdateNamespaceRequest2 represents a request to update a namespace
-// (suffixed with "2" to avoid conflict with existing UpdateNamespaceRequest in internal package)
-type UpdateNamespaceRequest2 struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`                   // Namespace UUID (required)
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`               // Updated name (optional, empty = no change)
-	Description   string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"` // Updated description (optional, empty = no change)
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateNamespaceRequest2) Reset() {
-	*x = UpdateNamespaceRequest2{}
-	mi := &file_proto_webhook_proto_msgTypes[79]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateNamespaceRequest2) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateNamespaceRequest2) ProtoMessage() {}
-
-func (x *UpdateNamespaceRequest2) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[79]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateNamespaceRequest2.ProtoReflect.Descriptor instead.
-func (*UpdateNamespaceRequest2) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{79}
-}
-
-func (x *UpdateNamespaceRequest2) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *UpdateNamespaceRequest2) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *UpdateNamespaceRequest2) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-// UpdateNamespaceResponse2 represents the response for updating a namespace
-type UpdateNamespaceResponse2 struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Namespace     *NamespaceResource     `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *UpdateNamespaceResponse2) Reset() {
-	*x = UpdateNamespaceResponse2{}
-	mi := &file_proto_webhook_proto_msgTypes[80]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *UpdateNamespaceResponse2) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*UpdateNamespaceResponse2) ProtoMessage() {}
-
-func (x *UpdateNamespaceResponse2) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[80]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use UpdateNamespaceResponse2.ProtoReflect.Descriptor instead.
-func (*UpdateNamespaceResponse2) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{80}
-}
-
-func (x *UpdateNamespaceResponse2) GetNamespace() *NamespaceResource {
-	if x != nil {
-		return x.Namespace
-	}
-	return nil
-}
-
-// DeleteNamespaceRequest represents a request to delete a namespace
-type DeleteNamespaceRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"` // Namespace UUID
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DeleteNamespaceRequest) Reset() {
-	*x = DeleteNamespaceRequest{}
-	mi := &file_proto_webhook_proto_msgTypes[81]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DeleteNamespaceRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeleteNamespaceRequest) ProtoMessage() {}
-
-func (x *DeleteNamespaceRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[81]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeleteNamespaceRequest.ProtoReflect.Descriptor instead.
-func (*DeleteNamespaceRequest) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{81}
-}
-
-func (x *DeleteNamespaceRequest) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-// DeleteNamespaceResponse2 represents the response for namespace deletion
-type DeleteNamespaceResponse2 struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *DeleteNamespaceResponse2) Reset() {
-	*x = DeleteNamespaceResponse2{}
-	mi := &file_proto_webhook_proto_msgTypes[82]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *DeleteNamespaceResponse2) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*DeleteNamespaceResponse2) ProtoMessage() {}
-
-func (x *DeleteNamespaceResponse2) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_webhook_proto_msgTypes[82]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use DeleteNamespaceResponse2.ProtoReflect.Descriptor instead.
-func (*DeleteNamespaceResponse2) Descriptor() ([]byte, []int) {
-	return file_proto_webhook_proto_rawDescGZIP(), []int{82}
-}
-
 var File_proto_webhook_proto protoreflect.FileDescriptor
 
 const file_proto_webhook_proto_rawDesc = "" +
 	"\n" +
-	"\x13proto/webhook.proto\x12\awebhook\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbb\x03\n" +
+	"\x13proto/webhook.proto\x12\awebhook\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"A\n" +
+	"\x11PaginationRequest\x12\x14\n" +
+	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x02 \x01(\x05R\x06offset\"c\n" +
+	"\x12PaginationResponse\x12\x1f\n" +
+	"\vtotal_count\x18\x01 \x01(\x05R\n" +
+	"totalCount\x12\x14\n" +
+	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x03 \x01(\x05R\x06offset\"\xbb\x03\n" +
 	"\x11WebhookHTTPConfig\x12\x1f\n" +
 	"\vmax_retries\x18\x01 \x01(\x05R\n" +
 	"maxRetries\x122\n" +
@@ -5986,7 +6034,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\n" +
 	"user_agent\x18\t \x01(\tR\tuserAgent\x12!\n" +
 	"\fcontent_type\x18\n" +
-	" \x01(\tR\vcontentType\"\xf5\x02\n" +
+	" \x01(\tR\vcontentType\"\x92\x04\n" +
 	"\x16RegisterWebhookRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x16\n" +
 	"\x06events\x18\x02 \x03(\tR\x06events\x12\x10\n" +
@@ -5996,8 +6044,12 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x06active\x18\x06 \x01(\bR\x06active\x12 \n" +
 	"\vdescription\x18\a \x01(\tR\vdescription\x12;\n" +
 	"\vhttp_config\x18\b \x01(\v2\x1a.webhook.WebhookHTTPConfigR\n" +
-	"httpConfig\x1a:\n" +
+	"httpConfig\x12Y\n" +
+	"\x0esecret_headers\x18\t \x03(\v22.webhook.RegisterWebhookRequest.SecretHeadersEntryR\rsecretHeaders\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a@\n" +
+	"\x12SecretHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xaf\x01\n" +
 	"\x17RegisterWebhookResponse\x12\x1d\n" +
@@ -6013,48 +6065,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"W\n" +
 	"\x19UnregisterWebhookResponse\x12\x1c\n" +
 	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\xb2\x03\n" +
-	"\x10PushEventRequest\x12\x1c\n" +
-	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x14\n" +
-	"\x05event\x18\x02 \x01(\tR\x05event\x121\n" +
-	"\apayload\x18\x03 \x01(\v2\x17.google.protobuf.StructR\apayload\x12\x1f\n" +
-	"\vttl_seconds\x18\x04 \x01(\x03R\n" +
-	"ttlSeconds\x12C\n" +
-	"\bmetadata\x18\x05 \x03(\v2'.webhook.PushEventRequest.MetadataEntryR\bmetadata\x12\x13\n" +
-	"\x02id\x18\x06 \x01(\tH\x00R\x02id\x88\x01\x01\x12=\n" +
-	"\x06labels\x18\a \x03(\v2%.webhook.PushEventRequest.LabelsEntryR\x06labels\x1a;\n" +
-	"\rMetadataEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a9\n" +
-	"\vLabelsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x05\n" +
-	"\x03_id\"j\n" +
-	"\x11PushEventResponse\x12\x19\n" +
-	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1c\n" +
-	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\"\xa3\x05\n" +
-	"\x0fWebhookDelivery\x12\x1f\n" +
-	"\vdelivery_id\x18\x01 \x01(\tR\n" +
-	"deliveryId\x12\x1d\n" +
-	"\n" +
-	"webhook_id\x18\x02 \x01(\tR\twebhookId\x12\x19\n" +
-	"\bevent_id\x18\x03 \x01(\tR\aeventId\x126\n" +
-	"\x06status\x18\x04 \x01(\x0e2\x1e.webhook.WebhookDeliveryStatusR\x06status\x12#\n" +
-	"\rattempt_count\x18\x05 \x01(\x05R\fattemptCount\x12!\n" +
-	"\fmax_attempts\x18\x06 \x01(\x05R\vmaxAttempts\x129\n" +
-	"\n" +
-	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12F\n" +
-	"\x11last_attempted_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\x0flastAttemptedAt\x12>\n" +
-	"\rnext_retry_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\vnextRetryAt\x129\n" +
-	"\n" +
-	"expires_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12#\n" +
-	"\rresponse_code\x18\v \x01(\x05R\fresponseCode\x12#\n" +
-	"\rresponse_body\x18\f \x01(\tR\fresponseBody\x12#\n" +
-	"\rerror_message\x18\r \x01(\tR\ferrorMessage\x12!\n" +
-	"\frequest_body\x18\x0e \x01(\tR\vrequestBody\x12%\n" +
-	"\x0eerror_category\x18\x0f \x01(\tR\rerrorCategory\"\xc5\x01\n" +
+	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\xc5\x01\n" +
 	"\x13ListWebhooksRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x14\n" +
 	"\x05event\x18\x02 \x01(\tR\x05event\x12\x1f\n" +
@@ -6064,7 +6075,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"pagination\x18\x04 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
 	"pagination\x12\x1d\n" +
 	"\n" +
-	"webhook_id\x18\x05 \x01(\tR\twebhookId\"\xb0\x04\n" +
+	"webhook_id\x18\x05 \x01(\tR\twebhookId\"\xc8\x05\n" +
 	"\x11RegisteredWebhook\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
@@ -6082,8 +6093,12 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12;\n" +
 	"\vhttp_config\x18\f \x01(\v2\x1a.webhook.WebhookHTTPConfigR\n" +
-	"httpConfig\x1a:\n" +
+	"httpConfig\x12T\n" +
+	"\x0esecret_headers\x18\r \x03(\v2-.webhook.RegisteredWebhook.SecretHeadersEntryR\rsecretHeaders\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a@\n" +
+	"\x12SecretHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xec\x01\n" +
 	"\x14ListWebhooksResponse\x126\n" +
@@ -6094,7 +6109,47 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
 	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\x12#\n" +
 	"\vtotal_count\x18\x05 \x01(\x05B\x02\x18\x01R\n" +
-	"totalCount\"\x9b\x02\n" +
+	"totalCount\"\xeb\x03\n" +
+	"\x13WebhookUpdateFields\x12\x16\n" +
+	"\x06events\x18\x01 \x03(\tR\x06events\x12\x10\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\x12C\n" +
+	"\aheaders\x18\x03 \x03(\v2).webhook.WebhookUpdateFields.HeadersEntryR\aheaders\x12\x18\n" +
+	"\atimeout\x18\x04 \x01(\x05R\atimeout\x12\x16\n" +
+	"\x06active\x18\x05 \x01(\bR\x06active\x12 \n" +
+	"\vdescription\x18\x06 \x01(\tR\vdescription\x12;\n" +
+	"\vhttp_config\x18\a \x01(\v2\x1a.webhook.WebhookHTTPConfigR\n" +
+	"httpConfig\x12V\n" +
+	"\x0esecret_headers\x18\b \x03(\v2/.webhook.WebhookUpdateFields.SecretHeadersEntryR\rsecretHeaders\x1a:\n" +
+	"\fHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a@\n" +
+	"\x12SecretHeadersEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x91\x01\n" +
+	"\x1aUpdateWebhookConfigRequest\x12\x1d\n" +
+	"\n" +
+	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x126\n" +
+	"\aupdates\x18\x03 \x01(\v2\x1c.webhook.WebhookUpdateFieldsR\aupdates\"Y\n" +
+	"\x1bUpdateWebhookConfigResponse\x12\x1c\n" +
+	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
+	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"j\n" +
+	"\x13PauseWebhookRequest\x12\x1d\n" +
+	"\n" +
+	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"R\n" +
+	"\x14PauseWebhookResponse\x12\x1c\n" +
+	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
+	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"k\n" +
+	"\x14ResumeWebhookRequest\x12\x1d\n" +
+	"\n" +
+	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"S\n" +
+	"\x15ResumeWebhookResponse\x12\x1c\n" +
+	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
+	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\x9b\x02\n" +
 	"\x14RegisterEventRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12/\n" +
@@ -6160,159 +6215,27 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"Q\n" +
 	"\x13DeleteEventResponse\x12\x1c\n" +
 	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\x8d\x01\n" +
-	"\x1fTestSubscriptionTemplateRequest\x12\x1d\n" +
-	"\n" +
-	"event_name\x18\x01 \x01(\tR\teventName\x12-\n" +
-	"\x12transform_template\x18\x02 \x01(\tR\x11transformTemplate\x12\x1c\n" +
-	"\tnamespace\x18\x03 \x01(\tR\tnamespace\"S\n" +
-	" TestSubscriptionTemplateResponse\x12/\n" +
-	"\x13transformed_payload\x18\x01 \x01(\tR\x12transformedPayload\"V\n" +
-	"\x17GetWebhookHealthRequest\x12\x1d\n" +
-	"\n" +
-	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\xda\x05\n" +
-	"\x14WebhookHealthMetrics\x12\x1d\n" +
-	"\n" +
-	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12)\n" +
-	"\x10total_deliveries\x18\x02 \x01(\x05R\x0ftotalDeliveries\x123\n" +
-	"\x15successful_deliveries\x18\x03 \x01(\x05R\x14successfulDeliveries\x12+\n" +
-	"\x11failed_deliveries\x18\x04 \x01(\x05R\x10failedDeliveries\x121\n" +
-	"\x14consecutive_failures\x18\x05 \x01(\x05R\x13consecutiveFailures\x12B\n" +
-	"\x0flast_success_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\rlastSuccessAt\x12B\n" +
-	"\x0flast_failure_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\rlastFailureAt\x12!\n" +
-	"\fsuccess_rate\x18\b \x01(\x01R\vsuccessRate\x12*\n" +
-	"\x11avg_response_time\x18\t \x01(\x05R\x0favgResponseTime\x129\n" +
-	"\n" +
-	"created_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
-	"\n" +
-	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12#\n" +
-	"\rclient_errors\x18\f \x01(\x05R\fclientErrors\x12#\n" +
-	"\rserver_errors\x18\r \x01(\x05R\fserverErrors\x12%\n" +
-	"\x0etimeout_errors\x18\x0e \x01(\x05R\rtimeoutErrors\x12%\n" +
-	"\x0enetwork_errors\x18\x0f \x01(\x05R\rnetworkErrors\"\xde\x01\n" +
-	"\x18GetWebhookHealthResponse\x12\x1d\n" +
-	"\n" +
-	"webhook_id\x18\x03 \x01(\tR\twebhookId\x12.\n" +
-	"\x06health\x18\x04 \x01(\x0e2\x16.webhook.WebhookHealthR\x06health\x127\n" +
-	"\ametrics\x18\x05 \x01(\v2\x1d.webhook.WebhookHealthMetricsR\ametrics\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\x89\x01\n" +
-	"\x1bListWebhooksByHealthRequest\x12.\n" +
-	"\x06health\x18\x01 \x01(\x0e2\x16.webhook.WebhookHealthR\x06health\x12:\n" +
-	"\n" +
-	"pagination\x18\x02 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\"\xf4\x01\n" +
-	"\x1cListWebhooksByHealthResponse\x126\n" +
-	"\bwebhooks\x18\x03 \x03(\v2\x1a.webhook.RegisteredWebhookR\bwebhooks\x12;\n" +
-	"\n" +
-	"pagination\x18\x05 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\x12#\n" +
-	"\vtotal_count\x18\x04 \x01(\x05B\x02\x18\x01R\n" +
-	"totalCount\"\x19\n" +
-	"\x17GetHealthSummaryRequest\"\xca\x01\n" +
-	"\rHealthSummary\x12#\n" +
-	"\rhealthy_count\x18\x01 \x01(\x05R\fhealthyCount\x12%\n" +
-	"\x0edegraded_count\x18\x02 \x01(\x05R\rdegradedCount\x12'\n" +
-	"\x0funhealthy_count\x18\x03 \x01(\x05R\x0eunhealthyCount\x12#\n" +
-	"\runknown_count\x18\x04 \x01(\x05R\funknownCount\x12\x1f\n" +
-	"\vtotal_count\x18\x05 \x01(\x05R\n" +
-	"totalCount\"\x88\x01\n" +
-	"\x18GetHealthSummaryResponse\x120\n" +
-	"\asummary\x18\x03 \x01(\v2\x16.webhook.HealthSummaryR\asummary\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\x8a\x01\n" +
-	"\x14RetryDeliveryRequest\x12\x1c\n" +
-	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1f\n" +
-	"\vdelivery_id\x18\x02 \x01(\tR\n" +
-	"deliveryId\x12\x1d\n" +
-	"\n" +
-	"webhook_id\x18\x03 \x01(\tR\twebhookId\x12\x14\n" +
-	"\x05force\x18\x04 \x01(\bR\x05force\"\x9b\x01\n" +
-	"\x15RetryDeliveryResponse\x12#\n" +
-	"\rretried_count\x18\x01 \x01(\x05R\fretriedCount\x12!\n" +
-	"\fdelivery_ids\x18\x02 \x03(\tR\vdeliveryIds\x12\x1c\n" +
-	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"Y\n" +
-	"\x18GetDeliveryStatusRequest\x12\x1f\n" +
-	"\vdelivery_id\x18\x01 \x01(\tR\n" +
-	"deliveryId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\x8d\x01\n" +
-	"\x19GetDeliveryStatusResponse\x124\n" +
-	"\bdelivery\x18\x01 \x01(\v2\x18.webhook.WebhookDeliveryR\bdelivery\x12\x1c\n" +
-	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\"\xab\x01\n" +
-	"\x15ListDeliveriesRequest\x12\x1c\n" +
-	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1d\n" +
-	"\n" +
-	"webhook_id\x18\x02 \x01(\tR\twebhookId\x12\x19\n" +
-	"\bevent_id\x18\x03 \x01(\tR\aeventId\x12:\n" +
-	"\n" +
-	"pagination\x18\x04 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\"\xcb\x01\n" +
-	"\x16ListDeliveriesResponse\x128\n" +
-	"\n" +
-	"deliveries\x18\x01 \x03(\v2\x18.webhook.WebhookDeliveryR\n" +
-	"deliveries\x12;\n" +
-	"\n" +
-	"pagination\x18\x02 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\x12\x1c\n" +
-	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"8\n" +
-	"\x18GetNamespaceStatsRequest\x12\x1c\n" +
-	"\tnamespace\x18\x01 \x01(\tR\tnamespace\"\xbf\x02\n" +
-	"\x0eNamespaceStats\x12%\n" +
-	"\x0etotal_webhooks\x18\x01 \x01(\x05R\rtotalWebhooks\x12'\n" +
-	"\x0factive_webhooks\x18\x02 \x01(\x05R\x0eactiveWebhooks\x12)\n" +
-	"\x10total_deliveries\x18\x03 \x01(\x05R\x0ftotalDeliveries\x123\n" +
-	"\x15successful_deliveries\x18\x04 \x01(\x05R\x14successfulDeliveries\x12+\n" +
-	"\x11failed_deliveries\x18\x05 \x01(\x05R\x10failedDeliveries\x12-\n" +
-	"\x12pending_deliveries\x18\x06 \x01(\x05R\x11pendingDeliveries\x12!\n" +
-	"\fsuccess_rate\x18\a \x01(\x01R\vsuccessRate\"\xa4\x01\n" +
-	"\x19GetNamespaceStatsResponse\x12\x1c\n" +
-	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12-\n" +
-	"\x05stats\x18\x02 \x01(\v2\x17.webhook.NamespaceStatsR\x05stats\x12\x1c\n" +
-	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\xd1\x02\n" +
-	"\x13WebhookUpdateFields\x12\x16\n" +
-	"\x06events\x18\x01 \x03(\tR\x06events\x12\x10\n" +
-	"\x03url\x18\x02 \x01(\tR\x03url\x12C\n" +
-	"\aheaders\x18\x03 \x03(\v2).webhook.WebhookUpdateFields.HeadersEntryR\aheaders\x12\x18\n" +
-	"\atimeout\x18\x04 \x01(\x05R\atimeout\x12\x16\n" +
-	"\x06active\x18\x05 \x01(\bR\x06active\x12 \n" +
-	"\vdescription\x18\x06 \x01(\tR\vdescription\x12;\n" +
-	"\vhttp_config\x18\a \x01(\v2\x1a.webhook.WebhookHTTPConfigR\n" +
-	"httpConfig\x1a:\n" +
-	"\fHeadersEntry\x12\x10\n" +
+	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\xb2\x03\n" +
+	"\x10PushEventRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x14\n" +
+	"\x05event\x18\x02 \x01(\tR\x05event\x121\n" +
+	"\apayload\x18\x03 \x01(\v2\x17.google.protobuf.StructR\apayload\x12\x1f\n" +
+	"\vttl_seconds\x18\x04 \x01(\x03R\n" +
+	"ttlSeconds\x12C\n" +
+	"\bmetadata\x18\x05 \x03(\v2'.webhook.PushEventRequest.MetadataEntryR\bmetadata\x12\x13\n" +
+	"\x02id\x18\x06 \x01(\tH\x00R\x02id\x88\x01\x01\x12=\n" +
+	"\x06labels\x18\a \x03(\v2%.webhook.PushEventRequest.LabelsEntryR\x06labels\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x91\x01\n" +
-	"\x1aUpdateWebhookConfigRequest\x12\x1d\n" +
-	"\n" +
-	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x126\n" +
-	"\aupdates\x18\x03 \x01(\v2\x1c.webhook.WebhookUpdateFieldsR\aupdates\"Y\n" +
-	"\x1bUpdateWebhookConfigResponse\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"j\n" +
-	"\x13PauseWebhookRequest\x12\x1d\n" +
-	"\n" +
-	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x16\n" +
-	"\x06reason\x18\x03 \x01(\tR\x06reason\"R\n" +
-	"\x14PauseWebhookResponse\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"k\n" +
-	"\x14ResumeWebhookRequest\x12\x1d\n" +
-	"\n" +
-	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x16\n" +
-	"\x06reason\x18\x03 \x01(\tR\x06reason\"S\n" +
-	"\x15ResumeWebhookResponse\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\xa7\x04\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a9\n" +
+	"\vLabelsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x05\n" +
+	"\x03_id\"j\n" +
+	"\x11PushEventResponse\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1c\n" +
+	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
+	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\"\xa7\x04\n" +
 	"\vEventReport\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1d\n" +
@@ -6460,25 +6383,72 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vtotal_count\x18\x02 \x01(\x05B\x02\x18\x01R\n" +
 	"totalCount\x12\x1c\n" +
 	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"H\n" +
-	"\x10TemplateFunction\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\"\x1d\n" +
-	"\x1bGetTemplateFunctionsRequest\"\xb4\x01\n" +
-	"\x1cGetTemplateFunctionsResponse\x127\n" +
-	"\tfunctions\x18\x01 \x03(\v2\x19.webhook.TemplateFunctionR\tfunctions\x12\x1f\n" +
-	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\x12\x1c\n" +
+	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\x8d\x01\n" +
+	"\x1fTestSubscriptionTemplateRequest\x12\x1d\n" +
+	"\n" +
+	"event_name\x18\x01 \x01(\tR\teventName\x12-\n" +
+	"\x12transform_template\x18\x02 \x01(\tR\x11transformTemplate\x12\x1c\n" +
+	"\tnamespace\x18\x03 \x01(\tR\tnamespace\"S\n" +
+	" TestSubscriptionTemplateResponse\x12/\n" +
+	"\x13transformed_payload\x18\x01 \x01(\tR\x12transformedPayload\"\xa3\x05\n" +
+	"\x0fWebhookDelivery\x12\x1f\n" +
+	"\vdelivery_id\x18\x01 \x01(\tR\n" +
+	"deliveryId\x12\x1d\n" +
+	"\n" +
+	"webhook_id\x18\x02 \x01(\tR\twebhookId\x12\x19\n" +
+	"\bevent_id\x18\x03 \x01(\tR\aeventId\x126\n" +
+	"\x06status\x18\x04 \x01(\x0e2\x1e.webhook.WebhookDeliveryStatusR\x06status\x12#\n" +
+	"\rattempt_count\x18\x05 \x01(\x05R\fattemptCount\x12!\n" +
+	"\fmax_attempts\x18\x06 \x01(\x05R\vmaxAttempts\x129\n" +
+	"\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12F\n" +
+	"\x11last_attempted_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\x0flastAttemptedAt\x12>\n" +
+	"\rnext_retry_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\vnextRetryAt\x129\n" +
+	"\n" +
+	"expires_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12#\n" +
+	"\rresponse_code\x18\v \x01(\x05R\fresponseCode\x12#\n" +
+	"\rresponse_body\x18\f \x01(\tR\fresponseBody\x12#\n" +
+	"\rerror_message\x18\r \x01(\tR\ferrorMessage\x12!\n" +
+	"\frequest_body\x18\x0e \x01(\tR\vrequestBody\x12%\n" +
+	"\x0eerror_category\x18\x0f \x01(\tR\rerrorCategory\"Y\n" +
+	"\x18GetDeliveryStatusRequest\x12\x1f\n" +
+	"\vdelivery_id\x18\x01 \x01(\tR\n" +
+	"deliveryId\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\x8d\x01\n" +
+	"\x19GetDeliveryStatusResponse\x124\n" +
+	"\bdelivery\x18\x01 \x01(\v2\x18.webhook.WebhookDeliveryR\bdelivery\x12\x1c\n" +
+	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
+	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\"\xab\x01\n" +
+	"\x15ListDeliveriesRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1d\n" +
+	"\n" +
+	"webhook_id\x18\x02 \x01(\tR\twebhookId\x12\x19\n" +
+	"\bevent_id\x18\x03 \x01(\tR\aeventId\x12:\n" +
+	"\n" +
+	"pagination\x18\x04 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
+	"pagination\"\xcb\x01\n" +
+	"\x16ListDeliveriesResponse\x128\n" +
+	"\n" +
+	"deliveries\x18\x01 \x03(\v2\x18.webhook.WebhookDeliveryR\n" +
+	"deliveries\x12;\n" +
+	"\n" +
+	"pagination\x18\x02 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
+	"pagination\x12\x1c\n" +
 	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"A\n" +
-	"\x11PaginationRequest\x12\x14\n" +
-	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x02 \x01(\x05R\x06offset\"c\n" +
-	"\x12PaginationResponse\x12\x1f\n" +
-	"\vtotal_count\x18\x01 \x01(\x05R\n" +
-	"totalCount\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x03 \x01(\x05R\x06offset\"\xda\x02\n" +
+	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\x8a\x01\n" +
+	"\x14RetryDeliveryRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1f\n" +
+	"\vdelivery_id\x18\x02 \x01(\tR\n" +
+	"deliveryId\x12\x1d\n" +
+	"\n" +
+	"webhook_id\x18\x03 \x01(\tR\twebhookId\x12\x14\n" +
+	"\x05force\x18\x04 \x01(\bR\x05force\"\x9b\x01\n" +
+	"\x15RetryDeliveryResponse\x12#\n" +
+	"\rretried_count\x18\x01 \x01(\x05R\fretriedCount\x12!\n" +
+	"\fdelivery_ids\x18\x02 \x03(\tR\vdeliveryIds\x12\x1c\n" +
+	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
+	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\xda\x02\n" +
 	"\x0fDeliveryAttempt\x12\x1d\n" +
 	"\n" +
 	"attempt_id\x18\x01 \x01(\tR\tattemptId\x12\x1f\n" +
@@ -6496,46 +6466,89 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vdelivery_id\x18\x01 \x01(\tR\n" +
 	"deliveryId\"S\n" +
 	"\x1bGetDeliveryAttemptsResponse\x124\n" +
-	"\battempts\x18\x01 \x03(\v2\x18.webhook.DeliveryAttemptR\battempts\"\xec\x01\n" +
-	"\x11NamespaceResource\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
-	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x04 \x01(\tR\vdescription\x129\n" +
+	"\battempts\x18\x01 \x03(\v2\x18.webhook.DeliveryAttemptR\battempts\"V\n" +
+	"\x17GetWebhookHealthRequest\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\xda\x05\n" +
+	"\x14WebhookHealthMetrics\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"N\n" +
-	"\x16CreateNamespaceRequest\x12\x12\n" +
+	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12)\n" +
+	"\x10total_deliveries\x18\x02 \x01(\x05R\x0ftotalDeliveries\x123\n" +
+	"\x15successful_deliveries\x18\x03 \x01(\x05R\x14successfulDeliveries\x12+\n" +
+	"\x11failed_deliveries\x18\x04 \x01(\x05R\x10failedDeliveries\x121\n" +
+	"\x14consecutive_failures\x18\x05 \x01(\x05R\x13consecutiveFailures\x12B\n" +
+	"\x0flast_success_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\rlastSuccessAt\x12B\n" +
+	"\x0flast_failure_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\rlastFailureAt\x12!\n" +
+	"\fsuccess_rate\x18\b \x01(\x01R\vsuccessRate\x12*\n" +
+	"\x11avg_response_time\x18\t \x01(\x05R\x0favgResponseTime\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12#\n" +
+	"\rclient_errors\x18\f \x01(\x05R\fclientErrors\x12#\n" +
+	"\rserver_errors\x18\r \x01(\x05R\fserverErrors\x12%\n" +
+	"\x0etimeout_errors\x18\x0e \x01(\x05R\rtimeoutErrors\x12%\n" +
+	"\x0enetwork_errors\x18\x0f \x01(\x05R\rnetworkErrors\"\xde\x01\n" +
+	"\x18GetWebhookHealthResponse\x12\x1d\n" +
+	"\n" +
+	"webhook_id\x18\x03 \x01(\tR\twebhookId\x12.\n" +
+	"\x06health\x18\x04 \x01(\x0e2\x16.webhook.WebhookHealthR\x06health\x127\n" +
+	"\ametrics\x18\x05 \x01(\v2\x1d.webhook.WebhookHealthMetricsR\ametrics\x12\x1c\n" +
+	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
+	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\x89\x01\n" +
+	"\x1bListWebhooksByHealthRequest\x12.\n" +
+	"\x06health\x18\x01 \x01(\x0e2\x16.webhook.WebhookHealthR\x06health\x12:\n" +
+	"\n" +
+	"pagination\x18\x02 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
+	"pagination\"\xf4\x01\n" +
+	"\x1cListWebhooksByHealthResponse\x126\n" +
+	"\bwebhooks\x18\x03 \x03(\v2\x1a.webhook.RegisteredWebhookR\bwebhooks\x12;\n" +
+	"\n" +
+	"pagination\x18\x05 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
+	"pagination\x12\x1c\n" +
+	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
+	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\x12#\n" +
+	"\vtotal_count\x18\x04 \x01(\x05B\x02\x18\x01R\n" +
+	"totalCount\"\x19\n" +
+	"\x17GetHealthSummaryRequest\"\xca\x01\n" +
+	"\rHealthSummary\x12#\n" +
+	"\rhealthy_count\x18\x01 \x01(\x05R\fhealthyCount\x12%\n" +
+	"\x0edegraded_count\x18\x02 \x01(\x05R\rdegradedCount\x12'\n" +
+	"\x0funhealthy_count\x18\x03 \x01(\x05R\x0eunhealthyCount\x12#\n" +
+	"\runknown_count\x18\x04 \x01(\x05R\funknownCount\x12\x1f\n" +
+	"\vtotal_count\x18\x05 \x01(\x05R\n" +
+	"totalCount\"\x88\x01\n" +
+	"\x18GetHealthSummaryResponse\x120\n" +
+	"\asummary\x18\x03 \x01(\v2\x16.webhook.HealthSummaryR\asummary\x12\x1c\n" +
+	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
+	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"8\n" +
+	"\x18GetNamespaceStatsRequest\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\"\xbf\x02\n" +
+	"\x0eNamespaceStats\x12%\n" +
+	"\x0etotal_webhooks\x18\x01 \x01(\x05R\rtotalWebhooks\x12'\n" +
+	"\x0factive_webhooks\x18\x02 \x01(\x05R\x0eactiveWebhooks\x12)\n" +
+	"\x10total_deliveries\x18\x03 \x01(\x05R\x0ftotalDeliveries\x123\n" +
+	"\x15successful_deliveries\x18\x04 \x01(\x05R\x14successfulDeliveries\x12+\n" +
+	"\x11failed_deliveries\x18\x05 \x01(\x05R\x10failedDeliveries\x12-\n" +
+	"\x12pending_deliveries\x18\x06 \x01(\x05R\x11pendingDeliveries\x12!\n" +
+	"\fsuccess_rate\x18\a \x01(\x01R\vsuccessRate\"\xa4\x01\n" +
+	"\x19GetNamespaceStatsResponse\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12-\n" +
+	"\x05stats\x18\x02 \x01(\v2\x17.webhook.NamespaceStatsR\x05stats\x12\x1c\n" +
+	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
+	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"H\n" +
+	"\x10TemplateFunction\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x02 \x01(\tR\vdescription\"S\n" +
-	"\x17CreateNamespaceResponse\x128\n" +
-	"\tnamespace\x18\x01 \x01(\v2\x1a.webhook.NamespaceResourceR\tnamespace\"9\n" +
-	"\x13GetNamespaceRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"P\n" +
-	"\x14GetNamespaceResponse\x128\n" +
-	"\tnamespace\x18\x01 \x01(\v2\x1a.webhook.NamespaceResourceR\tnamespace\"S\n" +
-	"\x15ListNamespacesRequest\x12:\n" +
-	"\n" +
-	"pagination\x18\x01 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\"\x91\x01\n" +
-	"\x16ListNamespacesResponse\x12:\n" +
-	"\n" +
-	"namespaces\x18\x01 \x03(\v2\x1a.webhook.NamespaceResourceR\n" +
-	"namespaces\x12;\n" +
-	"\n" +
-	"pagination\x18\x02 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\"_\n" +
-	"\x17UpdateNamespaceRequest2\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\"T\n" +
-	"\x18UpdateNamespaceResponse2\x128\n" +
-	"\tnamespace\x18\x01 \x01(\v2\x1a.webhook.NamespaceResourceR\tnamespace\"(\n" +
-	"\x16DeleteNamespaceRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x1a\n" +
-	"\x18DeleteNamespaceResponse2*\xb5\x01\n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\"\x1d\n" +
+	"\x1bGetTemplateFunctionsRequest\"\xb4\x01\n" +
+	"\x1cGetTemplateFunctionsResponse\x127\n" +
+	"\tfunctions\x18\x01 \x03(\v2\x19.webhook.TemplateFunctionR\tfunctions\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x05R\n" +
+	"totalCount\x12\x1c\n" +
+	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
+	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage*\xb5\x01\n" +
 	"\x15WebhookDeliveryStatus\x12\x18\n" +
 	"\x14DELIVERY_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10DELIVERY_PENDING\x10\x01\x12\x14\n" +
@@ -6582,13 +6595,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\rHealthService\x12W\n" +
 	"\x10GetWebhookHealth\x12 .webhook.GetWebhookHealthRequest\x1a!.webhook.GetWebhookHealthResponse\x12c\n" +
 	"\x14ListWebhooksByHealth\x12$.webhook.ListWebhooksByHealthRequest\x1a%.webhook.ListWebhooksByHealthResponse\x12W\n" +
-	"\x10GetHealthSummary\x12 .webhook.GetHealthSummaryRequest\x1a!.webhook.GetHealthSummaryResponse2\xb7\x03\n" +
-	"\x10NamespaceService\x12T\n" +
-	"\x0fCreateNamespace\x12\x1f.webhook.CreateNamespaceRequest\x1a .webhook.CreateNamespaceResponse\x12K\n" +
-	"\fGetNamespace\x12\x1c.webhook.GetNamespaceRequest\x1a\x1d.webhook.GetNamespaceResponse\x12Q\n" +
-	"\x0eListNamespaces\x12\x1e.webhook.ListNamespacesRequest\x1a\x1f.webhook.ListNamespacesResponse\x12V\n" +
-	"\x0fUpdateNamespace\x12 .webhook.UpdateNamespaceRequest2\x1a!.webhook.UpdateNamespaceResponse2\x12U\n" +
-	"\x0fDeleteNamespace\x12\x1f.webhook.DeleteNamespaceRequest\x1a!.webhook.DeleteNamespaceResponse2B%Z#github.com/sarathsp06/sparrow/protob\x06proto3"
+	"\x10GetHealthSummary\x12 .webhook.GetHealthSummaryRequest\x1a!.webhook.GetHealthSummaryResponseB%Z#github.com/sarathsp06/sparrow/protob\x06proto3"
 
 var (
 	file_proto_webhook_proto_rawDescOnce sync.Once
@@ -6603,267 +6610,244 @@ func file_proto_webhook_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_webhook_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 98)
+var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 90)
 var file_proto_webhook_proto_goTypes = []any{
 	(WebhookDeliveryStatus)(0),               // 0: webhook.WebhookDeliveryStatus
 	(WebhookHealth)(0),                       // 1: webhook.WebhookHealth
-	(*WebhookHTTPConfig)(nil),                // 2: webhook.WebhookHTTPConfig
-	(*RegisterWebhookRequest)(nil),           // 3: webhook.RegisterWebhookRequest
-	(*RegisterWebhookResponse)(nil),          // 4: webhook.RegisterWebhookResponse
-	(*UnregisterWebhookRequest)(nil),         // 5: webhook.UnregisterWebhookRequest
-	(*UnregisterWebhookResponse)(nil),        // 6: webhook.UnregisterWebhookResponse
-	(*PushEventRequest)(nil),                 // 7: webhook.PushEventRequest
-	(*PushEventResponse)(nil),                // 8: webhook.PushEventResponse
-	(*WebhookDelivery)(nil),                  // 9: webhook.WebhookDelivery
-	(*ListWebhooksRequest)(nil),              // 10: webhook.ListWebhooksRequest
-	(*RegisteredWebhook)(nil),                // 11: webhook.RegisteredWebhook
-	(*ListWebhooksResponse)(nil),             // 12: webhook.ListWebhooksResponse
-	(*RegisterEventRequest)(nil),             // 13: webhook.RegisterEventRequest
-	(*RegisterEventResponse)(nil),            // 14: webhook.RegisterEventResponse
-	(*ListEventsRequest)(nil),                // 15: webhook.ListEventsRequest
-	(*RegisteredEvent)(nil),                  // 16: webhook.RegisteredEvent
-	(*ListEventsResponse)(nil),               // 17: webhook.ListEventsResponse
-	(*UpdateEventRequest)(nil),               // 18: webhook.UpdateEventRequest
-	(*UpdateEventResponse)(nil),              // 19: webhook.UpdateEventResponse
-	(*GetEventRequest)(nil),                  // 20: webhook.GetEventRequest
-	(*GetEventResponse)(nil),                 // 21: webhook.GetEventResponse
-	(*DeleteEventRequest)(nil),               // 22: webhook.DeleteEventRequest
-	(*DeleteEventResponse)(nil),              // 23: webhook.DeleteEventResponse
-	(*TestSubscriptionTemplateRequest)(nil),  // 24: webhook.TestSubscriptionTemplateRequest
-	(*TestSubscriptionTemplateResponse)(nil), // 25: webhook.TestSubscriptionTemplateResponse
-	(*GetWebhookHealthRequest)(nil),          // 26: webhook.GetWebhookHealthRequest
-	(*WebhookHealthMetrics)(nil),             // 27: webhook.WebhookHealthMetrics
-	(*GetWebhookHealthResponse)(nil),         // 28: webhook.GetWebhookHealthResponse
-	(*ListWebhooksByHealthRequest)(nil),      // 29: webhook.ListWebhooksByHealthRequest
-	(*ListWebhooksByHealthResponse)(nil),     // 30: webhook.ListWebhooksByHealthResponse
-	(*GetHealthSummaryRequest)(nil),          // 31: webhook.GetHealthSummaryRequest
-	(*HealthSummary)(nil),                    // 32: webhook.HealthSummary
-	(*GetHealthSummaryResponse)(nil),         // 33: webhook.GetHealthSummaryResponse
-	(*RetryDeliveryRequest)(nil),             // 34: webhook.RetryDeliveryRequest
-	(*RetryDeliveryResponse)(nil),            // 35: webhook.RetryDeliveryResponse
-	(*GetDeliveryStatusRequest)(nil),         // 36: webhook.GetDeliveryStatusRequest
-	(*GetDeliveryStatusResponse)(nil),        // 37: webhook.GetDeliveryStatusResponse
-	(*ListDeliveriesRequest)(nil),            // 38: webhook.ListDeliveriesRequest
-	(*ListDeliveriesResponse)(nil),           // 39: webhook.ListDeliveriesResponse
-	(*GetNamespaceStatsRequest)(nil),         // 40: webhook.GetNamespaceStatsRequest
-	(*NamespaceStats)(nil),                   // 41: webhook.NamespaceStats
-	(*GetNamespaceStatsResponse)(nil),        // 42: webhook.GetNamespaceStatsResponse
-	(*WebhookUpdateFields)(nil),              // 43: webhook.WebhookUpdateFields
-	(*UpdateWebhookConfigRequest)(nil),       // 44: webhook.UpdateWebhookConfigRequest
-	(*UpdateWebhookConfigResponse)(nil),      // 45: webhook.UpdateWebhookConfigResponse
-	(*PauseWebhookRequest)(nil),              // 46: webhook.PauseWebhookRequest
-	(*PauseWebhookResponse)(nil),             // 47: webhook.PauseWebhookResponse
-	(*ResumeWebhookRequest)(nil),             // 48: webhook.ResumeWebhookRequest
-	(*ResumeWebhookResponse)(nil),            // 49: webhook.ResumeWebhookResponse
-	(*EventReport)(nil),                      // 50: webhook.EventReport
-	(*ListEventReportsRequest)(nil),          // 51: webhook.ListEventReportsRequest
-	(*ListEventReportsResponse)(nil),         // 52: webhook.ListEventReportsResponse
-	(*EventSubscription)(nil),                // 53: webhook.EventSubscription
-	(*CreateSubscriptionRequest)(nil),        // 54: webhook.CreateSubscriptionRequest
-	(*CreateSubscriptionResponse)(nil),       // 55: webhook.CreateSubscriptionResponse
-	(*GetSubscriptionRequest)(nil),           // 56: webhook.GetSubscriptionRequest
-	(*GetSubscriptionResponse)(nil),          // 57: webhook.GetSubscriptionResponse
-	(*ListSubscriptionsRequest)(nil),         // 58: webhook.ListSubscriptionsRequest
-	(*ListSubscriptionsResponse)(nil),        // 59: webhook.ListSubscriptionsResponse
-	(*UpdateSubscriptionRequest)(nil),        // 60: webhook.UpdateSubscriptionRequest
-	(*UpdateSubscriptionResponse)(nil),       // 61: webhook.UpdateSubscriptionResponse
-	(*DeleteSubscriptionRequest)(nil),        // 62: webhook.DeleteSubscriptionRequest
-	(*DeleteSubscriptionResponse)(nil),       // 63: webhook.DeleteSubscriptionResponse
-	(*ListSubscriptionsByEventRequest)(nil),  // 64: webhook.ListSubscriptionsByEventRequest
-	(*ListSubscriptionsByEventResponse)(nil), // 65: webhook.ListSubscriptionsByEventResponse
-	(*TemplateFunction)(nil),                 // 66: webhook.TemplateFunction
-	(*GetTemplateFunctionsRequest)(nil),      // 67: webhook.GetTemplateFunctionsRequest
-	(*GetTemplateFunctionsResponse)(nil),     // 68: webhook.GetTemplateFunctionsResponse
-	(*PaginationRequest)(nil),                // 69: webhook.PaginationRequest
-	(*PaginationResponse)(nil),               // 70: webhook.PaginationResponse
-	(*DeliveryAttempt)(nil),                  // 71: webhook.DeliveryAttempt
-	(*GetDeliveryAttemptsRequest)(nil),       // 72: webhook.GetDeliveryAttemptsRequest
-	(*GetDeliveryAttemptsResponse)(nil),      // 73: webhook.GetDeliveryAttemptsResponse
-	(*NamespaceResource)(nil),                // 74: webhook.NamespaceResource
-	(*CreateNamespaceRequest)(nil),           // 75: webhook.CreateNamespaceRequest
-	(*CreateNamespaceResponse)(nil),          // 76: webhook.CreateNamespaceResponse
-	(*GetNamespaceRequest)(nil),              // 77: webhook.GetNamespaceRequest
-	(*GetNamespaceResponse)(nil),             // 78: webhook.GetNamespaceResponse
-	(*ListNamespacesRequest)(nil),            // 79: webhook.ListNamespacesRequest
-	(*ListNamespacesResponse)(nil),           // 80: webhook.ListNamespacesResponse
-	(*UpdateNamespaceRequest2)(nil),          // 81: webhook.UpdateNamespaceRequest2
-	(*UpdateNamespaceResponse2)(nil),         // 82: webhook.UpdateNamespaceResponse2
-	(*DeleteNamespaceRequest)(nil),           // 83: webhook.DeleteNamespaceRequest
-	(*DeleteNamespaceResponse2)(nil),         // 84: webhook.DeleteNamespaceResponse2
-	nil,                                      // 85: webhook.RegisterWebhookRequest.HeadersEntry
-	nil,                                      // 86: webhook.PushEventRequest.MetadataEntry
-	nil,                                      // 87: webhook.PushEventRequest.LabelsEntry
-	nil,                                      // 88: webhook.RegisteredWebhook.HeadersEntry
-	nil,                                      // 89: webhook.RegisterEventRequest.MetadataEntry
-	nil,                                      // 90: webhook.RegisteredEvent.MetadataEntry
-	nil,                                      // 91: webhook.UpdateEventRequest.MetadataEntry
-	nil,                                      // 92: webhook.WebhookUpdateFields.HeadersEntry
-	nil,                                      // 93: webhook.EventReport.MetadataEntry
-	nil,                                      // 94: webhook.EventSubscription.HeadersEntry
-	nil,                                      // 95: webhook.EventSubscription.LabelFiltersEntry
-	nil,                                      // 96: webhook.CreateSubscriptionRequest.HeadersEntry
-	nil,                                      // 97: webhook.CreateSubscriptionRequest.LabelFiltersEntry
-	nil,                                      // 98: webhook.UpdateSubscriptionRequest.HeadersEntry
-	nil,                                      // 99: webhook.UpdateSubscriptionRequest.LabelFiltersEntry
-	(*timestamppb.Timestamp)(nil),            // 100: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),                  // 101: google.protobuf.Struct
+	(*PaginationRequest)(nil),                // 2: webhook.PaginationRequest
+	(*PaginationResponse)(nil),               // 3: webhook.PaginationResponse
+	(*WebhookHTTPConfig)(nil),                // 4: webhook.WebhookHTTPConfig
+	(*RegisterWebhookRequest)(nil),           // 5: webhook.RegisterWebhookRequest
+	(*RegisterWebhookResponse)(nil),          // 6: webhook.RegisterWebhookResponse
+	(*UnregisterWebhookRequest)(nil),         // 7: webhook.UnregisterWebhookRequest
+	(*UnregisterWebhookResponse)(nil),        // 8: webhook.UnregisterWebhookResponse
+	(*ListWebhooksRequest)(nil),              // 9: webhook.ListWebhooksRequest
+	(*RegisteredWebhook)(nil),                // 10: webhook.RegisteredWebhook
+	(*ListWebhooksResponse)(nil),             // 11: webhook.ListWebhooksResponse
+	(*WebhookUpdateFields)(nil),              // 12: webhook.WebhookUpdateFields
+	(*UpdateWebhookConfigRequest)(nil),       // 13: webhook.UpdateWebhookConfigRequest
+	(*UpdateWebhookConfigResponse)(nil),      // 14: webhook.UpdateWebhookConfigResponse
+	(*PauseWebhookRequest)(nil),              // 15: webhook.PauseWebhookRequest
+	(*PauseWebhookResponse)(nil),             // 16: webhook.PauseWebhookResponse
+	(*ResumeWebhookRequest)(nil),             // 17: webhook.ResumeWebhookRequest
+	(*ResumeWebhookResponse)(nil),            // 18: webhook.ResumeWebhookResponse
+	(*RegisterEventRequest)(nil),             // 19: webhook.RegisterEventRequest
+	(*RegisterEventResponse)(nil),            // 20: webhook.RegisterEventResponse
+	(*ListEventsRequest)(nil),                // 21: webhook.ListEventsRequest
+	(*RegisteredEvent)(nil),                  // 22: webhook.RegisteredEvent
+	(*ListEventsResponse)(nil),               // 23: webhook.ListEventsResponse
+	(*UpdateEventRequest)(nil),               // 24: webhook.UpdateEventRequest
+	(*UpdateEventResponse)(nil),              // 25: webhook.UpdateEventResponse
+	(*GetEventRequest)(nil),                  // 26: webhook.GetEventRequest
+	(*GetEventResponse)(nil),                 // 27: webhook.GetEventResponse
+	(*DeleteEventRequest)(nil),               // 28: webhook.DeleteEventRequest
+	(*DeleteEventResponse)(nil),              // 29: webhook.DeleteEventResponse
+	(*PushEventRequest)(nil),                 // 30: webhook.PushEventRequest
+	(*PushEventResponse)(nil),                // 31: webhook.PushEventResponse
+	(*EventReport)(nil),                      // 32: webhook.EventReport
+	(*ListEventReportsRequest)(nil),          // 33: webhook.ListEventReportsRequest
+	(*ListEventReportsResponse)(nil),         // 34: webhook.ListEventReportsResponse
+	(*EventSubscription)(nil),                // 35: webhook.EventSubscription
+	(*CreateSubscriptionRequest)(nil),        // 36: webhook.CreateSubscriptionRequest
+	(*CreateSubscriptionResponse)(nil),       // 37: webhook.CreateSubscriptionResponse
+	(*GetSubscriptionRequest)(nil),           // 38: webhook.GetSubscriptionRequest
+	(*GetSubscriptionResponse)(nil),          // 39: webhook.GetSubscriptionResponse
+	(*ListSubscriptionsRequest)(nil),         // 40: webhook.ListSubscriptionsRequest
+	(*ListSubscriptionsResponse)(nil),        // 41: webhook.ListSubscriptionsResponse
+	(*UpdateSubscriptionRequest)(nil),        // 42: webhook.UpdateSubscriptionRequest
+	(*UpdateSubscriptionResponse)(nil),       // 43: webhook.UpdateSubscriptionResponse
+	(*DeleteSubscriptionRequest)(nil),        // 44: webhook.DeleteSubscriptionRequest
+	(*DeleteSubscriptionResponse)(nil),       // 45: webhook.DeleteSubscriptionResponse
+	(*ListSubscriptionsByEventRequest)(nil),  // 46: webhook.ListSubscriptionsByEventRequest
+	(*ListSubscriptionsByEventResponse)(nil), // 47: webhook.ListSubscriptionsByEventResponse
+	(*TestSubscriptionTemplateRequest)(nil),  // 48: webhook.TestSubscriptionTemplateRequest
+	(*TestSubscriptionTemplateResponse)(nil), // 49: webhook.TestSubscriptionTemplateResponse
+	(*WebhookDelivery)(nil),                  // 50: webhook.WebhookDelivery
+	(*GetDeliveryStatusRequest)(nil),         // 51: webhook.GetDeliveryStatusRequest
+	(*GetDeliveryStatusResponse)(nil),        // 52: webhook.GetDeliveryStatusResponse
+	(*ListDeliveriesRequest)(nil),            // 53: webhook.ListDeliveriesRequest
+	(*ListDeliveriesResponse)(nil),           // 54: webhook.ListDeliveriesResponse
+	(*RetryDeliveryRequest)(nil),             // 55: webhook.RetryDeliveryRequest
+	(*RetryDeliveryResponse)(nil),            // 56: webhook.RetryDeliveryResponse
+	(*DeliveryAttempt)(nil),                  // 57: webhook.DeliveryAttempt
+	(*GetDeliveryAttemptsRequest)(nil),       // 58: webhook.GetDeliveryAttemptsRequest
+	(*GetDeliveryAttemptsResponse)(nil),      // 59: webhook.GetDeliveryAttemptsResponse
+	(*GetWebhookHealthRequest)(nil),          // 60: webhook.GetWebhookHealthRequest
+	(*WebhookHealthMetrics)(nil),             // 61: webhook.WebhookHealthMetrics
+	(*GetWebhookHealthResponse)(nil),         // 62: webhook.GetWebhookHealthResponse
+	(*ListWebhooksByHealthRequest)(nil),      // 63: webhook.ListWebhooksByHealthRequest
+	(*ListWebhooksByHealthResponse)(nil),     // 64: webhook.ListWebhooksByHealthResponse
+	(*GetHealthSummaryRequest)(nil),          // 65: webhook.GetHealthSummaryRequest
+	(*HealthSummary)(nil),                    // 66: webhook.HealthSummary
+	(*GetHealthSummaryResponse)(nil),         // 67: webhook.GetHealthSummaryResponse
+	(*GetNamespaceStatsRequest)(nil),         // 68: webhook.GetNamespaceStatsRequest
+	(*NamespaceStats)(nil),                   // 69: webhook.NamespaceStats
+	(*GetNamespaceStatsResponse)(nil),        // 70: webhook.GetNamespaceStatsResponse
+	(*TemplateFunction)(nil),                 // 71: webhook.TemplateFunction
+	(*GetTemplateFunctionsRequest)(nil),      // 72: webhook.GetTemplateFunctionsRequest
+	(*GetTemplateFunctionsResponse)(nil),     // 73: webhook.GetTemplateFunctionsResponse
+	nil,                                      // 74: webhook.RegisterWebhookRequest.HeadersEntry
+	nil,                                      // 75: webhook.RegisterWebhookRequest.SecretHeadersEntry
+	nil,                                      // 76: webhook.RegisteredWebhook.HeadersEntry
+	nil,                                      // 77: webhook.RegisteredWebhook.SecretHeadersEntry
+	nil,                                      // 78: webhook.WebhookUpdateFields.HeadersEntry
+	nil,                                      // 79: webhook.WebhookUpdateFields.SecretHeadersEntry
+	nil,                                      // 80: webhook.RegisterEventRequest.MetadataEntry
+	nil,                                      // 81: webhook.RegisteredEvent.MetadataEntry
+	nil,                                      // 82: webhook.UpdateEventRequest.MetadataEntry
+	nil,                                      // 83: webhook.PushEventRequest.MetadataEntry
+	nil,                                      // 84: webhook.PushEventRequest.LabelsEntry
+	nil,                                      // 85: webhook.EventReport.MetadataEntry
+	nil,                                      // 86: webhook.EventSubscription.HeadersEntry
+	nil,                                      // 87: webhook.EventSubscription.LabelFiltersEntry
+	nil,                                      // 88: webhook.CreateSubscriptionRequest.HeadersEntry
+	nil,                                      // 89: webhook.CreateSubscriptionRequest.LabelFiltersEntry
+	nil,                                      // 90: webhook.UpdateSubscriptionRequest.HeadersEntry
+	nil,                                      // 91: webhook.UpdateSubscriptionRequest.LabelFiltersEntry
+	(*timestamppb.Timestamp)(nil),            // 92: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),                  // 93: google.protobuf.Struct
 }
 var file_proto_webhook_proto_depIdxs = []int32{
-	85,  // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
-	2,   // 1: webhook.RegisterWebhookRequest.http_config:type_name -> webhook.WebhookHTTPConfig
-	100, // 2: webhook.RegisterWebhookResponse.created_at:type_name -> google.protobuf.Timestamp
-	101, // 3: webhook.PushEventRequest.payload:type_name -> google.protobuf.Struct
-	86,  // 4: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
-	87,  // 5: webhook.PushEventRequest.labels:type_name -> webhook.PushEventRequest.LabelsEntry
-	0,   // 6: webhook.WebhookDelivery.status:type_name -> webhook.WebhookDeliveryStatus
-	100, // 7: webhook.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
-	100, // 8: webhook.WebhookDelivery.last_attempted_at:type_name -> google.protobuf.Timestamp
-	100, // 9: webhook.WebhookDelivery.next_retry_at:type_name -> google.protobuf.Timestamp
-	100, // 10: webhook.WebhookDelivery.expires_at:type_name -> google.protobuf.Timestamp
-	69,  // 11: webhook.ListWebhooksRequest.pagination:type_name -> webhook.PaginationRequest
-	88,  // 12: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
-	1,   // 13: webhook.RegisteredWebhook.health:type_name -> webhook.WebhookHealth
-	100, // 14: webhook.RegisteredWebhook.created_at:type_name -> google.protobuf.Timestamp
-	100, // 15: webhook.RegisteredWebhook.updated_at:type_name -> google.protobuf.Timestamp
-	2,   // 16: webhook.RegisteredWebhook.http_config:type_name -> webhook.WebhookHTTPConfig
-	11,  // 17: webhook.ListWebhooksResponse.webhooks:type_name -> webhook.RegisteredWebhook
-	70,  // 18: webhook.ListWebhooksResponse.pagination:type_name -> webhook.PaginationResponse
-	101, // 19: webhook.RegisterEventRequest.schema:type_name -> google.protobuf.Struct
-	89,  // 20: webhook.RegisterEventRequest.metadata:type_name -> webhook.RegisterEventRequest.MetadataEntry
-	100, // 21: webhook.RegisterEventResponse.created_at:type_name -> google.protobuf.Timestamp
-	69,  // 22: webhook.ListEventsRequest.pagination:type_name -> webhook.PaginationRequest
-	101, // 23: webhook.RegisteredEvent.schema:type_name -> google.protobuf.Struct
-	101, // 24: webhook.RegisteredEvent.sample_payload:type_name -> google.protobuf.Struct
-	90,  // 25: webhook.RegisteredEvent.metadata:type_name -> webhook.RegisteredEvent.MetadataEntry
-	100, // 26: webhook.RegisteredEvent.created_at:type_name -> google.protobuf.Timestamp
-	100, // 27: webhook.RegisteredEvent.updated_at:type_name -> google.protobuf.Timestamp
-	16,  // 28: webhook.ListEventsResponse.events:type_name -> webhook.RegisteredEvent
-	70,  // 29: webhook.ListEventsResponse.pagination:type_name -> webhook.PaginationResponse
-	101, // 30: webhook.UpdateEventRequest.schema:type_name -> google.protobuf.Struct
-	91,  // 31: webhook.UpdateEventRequest.metadata:type_name -> webhook.UpdateEventRequest.MetadataEntry
-	16,  // 32: webhook.GetEventResponse.event:type_name -> webhook.RegisteredEvent
-	100, // 33: webhook.WebhookHealthMetrics.last_success_at:type_name -> google.protobuf.Timestamp
-	100, // 34: webhook.WebhookHealthMetrics.last_failure_at:type_name -> google.protobuf.Timestamp
-	100, // 35: webhook.WebhookHealthMetrics.created_at:type_name -> google.protobuf.Timestamp
-	100, // 36: webhook.WebhookHealthMetrics.updated_at:type_name -> google.protobuf.Timestamp
-	1,   // 37: webhook.GetWebhookHealthResponse.health:type_name -> webhook.WebhookHealth
-	27,  // 38: webhook.GetWebhookHealthResponse.metrics:type_name -> webhook.WebhookHealthMetrics
-	1,   // 39: webhook.ListWebhooksByHealthRequest.health:type_name -> webhook.WebhookHealth
-	69,  // 40: webhook.ListWebhooksByHealthRequest.pagination:type_name -> webhook.PaginationRequest
-	11,  // 41: webhook.ListWebhooksByHealthResponse.webhooks:type_name -> webhook.RegisteredWebhook
-	70,  // 42: webhook.ListWebhooksByHealthResponse.pagination:type_name -> webhook.PaginationResponse
-	32,  // 43: webhook.GetHealthSummaryResponse.summary:type_name -> webhook.HealthSummary
-	9,   // 44: webhook.GetDeliveryStatusResponse.delivery:type_name -> webhook.WebhookDelivery
-	69,  // 45: webhook.ListDeliveriesRequest.pagination:type_name -> webhook.PaginationRequest
-	9,   // 46: webhook.ListDeliveriesResponse.deliveries:type_name -> webhook.WebhookDelivery
-	70,  // 47: webhook.ListDeliveriesResponse.pagination:type_name -> webhook.PaginationResponse
-	41,  // 48: webhook.GetNamespaceStatsResponse.stats:type_name -> webhook.NamespaceStats
-	92,  // 49: webhook.WebhookUpdateFields.headers:type_name -> webhook.WebhookUpdateFields.HeadersEntry
-	2,   // 50: webhook.WebhookUpdateFields.http_config:type_name -> webhook.WebhookHTTPConfig
-	43,  // 51: webhook.UpdateWebhookConfigRequest.updates:type_name -> webhook.WebhookUpdateFields
-	101, // 52: webhook.EventReport.payload:type_name -> google.protobuf.Struct
-	93,  // 53: webhook.EventReport.metadata:type_name -> webhook.EventReport.MetadataEntry
-	100, // 54: webhook.EventReport.created_at:type_name -> google.protobuf.Timestamp
-	69,  // 55: webhook.ListEventReportsRequest.pagination:type_name -> webhook.PaginationRequest
-	50,  // 56: webhook.ListEventReportsResponse.events:type_name -> webhook.EventReport
-	70,  // 57: webhook.ListEventReportsResponse.pagination:type_name -> webhook.PaginationResponse
-	94,  // 58: webhook.EventSubscription.headers:type_name -> webhook.EventSubscription.HeadersEntry
-	100, // 59: webhook.EventSubscription.created_at:type_name -> google.protobuf.Timestamp
-	100, // 60: webhook.EventSubscription.updated_at:type_name -> google.protobuf.Timestamp
-	95,  // 61: webhook.EventSubscription.label_filters:type_name -> webhook.EventSubscription.LabelFiltersEntry
-	96,  // 62: webhook.CreateSubscriptionRequest.headers:type_name -> webhook.CreateSubscriptionRequest.HeadersEntry
-	97,  // 63: webhook.CreateSubscriptionRequest.label_filters:type_name -> webhook.CreateSubscriptionRequest.LabelFiltersEntry
-	100, // 64: webhook.CreateSubscriptionResponse.created_at:type_name -> google.protobuf.Timestamp
-	53,  // 65: webhook.GetSubscriptionResponse.subscription:type_name -> webhook.EventSubscription
-	69,  // 66: webhook.ListSubscriptionsRequest.pagination:type_name -> webhook.PaginationRequest
-	53,  // 67: webhook.ListSubscriptionsResponse.subscriptions:type_name -> webhook.EventSubscription
-	70,  // 68: webhook.ListSubscriptionsResponse.pagination:type_name -> webhook.PaginationResponse
-	98,  // 69: webhook.UpdateSubscriptionRequest.headers:type_name -> webhook.UpdateSubscriptionRequest.HeadersEntry
-	99,  // 70: webhook.UpdateSubscriptionRequest.label_filters:type_name -> webhook.UpdateSubscriptionRequest.LabelFiltersEntry
-	53,  // 71: webhook.ListSubscriptionsByEventResponse.subscriptions:type_name -> webhook.EventSubscription
-	70,  // 72: webhook.ListSubscriptionsByEventResponse.pagination:type_name -> webhook.PaginationResponse
-	66,  // 73: webhook.GetTemplateFunctionsResponse.functions:type_name -> webhook.TemplateFunction
-	100, // 74: webhook.DeliveryAttempt.timestamp:type_name -> google.protobuf.Timestamp
-	71,  // 75: webhook.GetDeliveryAttemptsResponse.attempts:type_name -> webhook.DeliveryAttempt
-	100, // 76: webhook.NamespaceResource.created_at:type_name -> google.protobuf.Timestamp
-	100, // 77: webhook.NamespaceResource.updated_at:type_name -> google.protobuf.Timestamp
-	74,  // 78: webhook.CreateNamespaceResponse.namespace:type_name -> webhook.NamespaceResource
-	74,  // 79: webhook.GetNamespaceResponse.namespace:type_name -> webhook.NamespaceResource
-	69,  // 80: webhook.ListNamespacesRequest.pagination:type_name -> webhook.PaginationRequest
-	74,  // 81: webhook.ListNamespacesResponse.namespaces:type_name -> webhook.NamespaceResource
-	70,  // 82: webhook.ListNamespacesResponse.pagination:type_name -> webhook.PaginationResponse
-	74,  // 83: webhook.UpdateNamespaceResponse2.namespace:type_name -> webhook.NamespaceResource
-	3,   // 84: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
-	5,   // 85: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
-	10,  // 86: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
-	44,  // 87: webhook.WebhookService.UpdateWebhookConfig:input_type -> webhook.UpdateWebhookConfigRequest
-	46,  // 88: webhook.WebhookService.PauseWebhook:input_type -> webhook.PauseWebhookRequest
-	48,  // 89: webhook.WebhookService.ResumeWebhook:input_type -> webhook.ResumeWebhookRequest
-	40,  // 90: webhook.WebhookService.GetNamespaceStats:input_type -> webhook.GetNamespaceStatsRequest
-	67,  // 91: webhook.WebhookService.GetTemplateFunctions:input_type -> webhook.GetTemplateFunctionsRequest
-	13,  // 92: webhook.EventService.RegisterEvent:input_type -> webhook.RegisterEventRequest
-	15,  // 93: webhook.EventService.ListEvents:input_type -> webhook.ListEventsRequest
-	18,  // 94: webhook.EventService.UpdateEvent:input_type -> webhook.UpdateEventRequest
-	22,  // 95: webhook.EventService.DeleteEvent:input_type -> webhook.DeleteEventRequest
-	20,  // 96: webhook.EventService.GetEvent:input_type -> webhook.GetEventRequest
-	7,   // 97: webhook.EventService.PushEvent:input_type -> webhook.PushEventRequest
-	51,  // 98: webhook.EventService.ListEventReports:input_type -> webhook.ListEventReportsRequest
-	54,  // 99: webhook.SubscriptionService.CreateSubscription:input_type -> webhook.CreateSubscriptionRequest
-	56,  // 100: webhook.SubscriptionService.GetSubscription:input_type -> webhook.GetSubscriptionRequest
-	58,  // 101: webhook.SubscriptionService.ListSubscriptions:input_type -> webhook.ListSubscriptionsRequest
-	60,  // 102: webhook.SubscriptionService.UpdateSubscription:input_type -> webhook.UpdateSubscriptionRequest
-	62,  // 103: webhook.SubscriptionService.DeleteSubscription:input_type -> webhook.DeleteSubscriptionRequest
-	24,  // 104: webhook.SubscriptionService.TestSubscriptionTemplate:input_type -> webhook.TestSubscriptionTemplateRequest
-	36,  // 105: webhook.DeliveryService.GetDeliveryStatus:input_type -> webhook.GetDeliveryStatusRequest
-	38,  // 106: webhook.DeliveryService.ListDeliveries:input_type -> webhook.ListDeliveriesRequest
-	34,  // 107: webhook.DeliveryService.RetryDelivery:input_type -> webhook.RetryDeliveryRequest
-	72,  // 108: webhook.DeliveryService.GetDeliveryAttempts:input_type -> webhook.GetDeliveryAttemptsRequest
-	26,  // 109: webhook.HealthService.GetWebhookHealth:input_type -> webhook.GetWebhookHealthRequest
-	29,  // 110: webhook.HealthService.ListWebhooksByHealth:input_type -> webhook.ListWebhooksByHealthRequest
-	31,  // 111: webhook.HealthService.GetHealthSummary:input_type -> webhook.GetHealthSummaryRequest
-	75,  // 112: webhook.NamespaceService.CreateNamespace:input_type -> webhook.CreateNamespaceRequest
-	77,  // 113: webhook.NamespaceService.GetNamespace:input_type -> webhook.GetNamespaceRequest
-	79,  // 114: webhook.NamespaceService.ListNamespaces:input_type -> webhook.ListNamespacesRequest
-	81,  // 115: webhook.NamespaceService.UpdateNamespace:input_type -> webhook.UpdateNamespaceRequest2
-	83,  // 116: webhook.NamespaceService.DeleteNamespace:input_type -> webhook.DeleteNamespaceRequest
-	4,   // 117: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
-	6,   // 118: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
-	12,  // 119: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
-	45,  // 120: webhook.WebhookService.UpdateWebhookConfig:output_type -> webhook.UpdateWebhookConfigResponse
-	47,  // 121: webhook.WebhookService.PauseWebhook:output_type -> webhook.PauseWebhookResponse
-	49,  // 122: webhook.WebhookService.ResumeWebhook:output_type -> webhook.ResumeWebhookResponse
-	42,  // 123: webhook.WebhookService.GetNamespaceStats:output_type -> webhook.GetNamespaceStatsResponse
-	68,  // 124: webhook.WebhookService.GetTemplateFunctions:output_type -> webhook.GetTemplateFunctionsResponse
-	14,  // 125: webhook.EventService.RegisterEvent:output_type -> webhook.RegisterEventResponse
-	17,  // 126: webhook.EventService.ListEvents:output_type -> webhook.ListEventsResponse
-	19,  // 127: webhook.EventService.UpdateEvent:output_type -> webhook.UpdateEventResponse
-	23,  // 128: webhook.EventService.DeleteEvent:output_type -> webhook.DeleteEventResponse
-	21,  // 129: webhook.EventService.GetEvent:output_type -> webhook.GetEventResponse
-	8,   // 130: webhook.EventService.PushEvent:output_type -> webhook.PushEventResponse
-	52,  // 131: webhook.EventService.ListEventReports:output_type -> webhook.ListEventReportsResponse
-	55,  // 132: webhook.SubscriptionService.CreateSubscription:output_type -> webhook.CreateSubscriptionResponse
-	57,  // 133: webhook.SubscriptionService.GetSubscription:output_type -> webhook.GetSubscriptionResponse
-	59,  // 134: webhook.SubscriptionService.ListSubscriptions:output_type -> webhook.ListSubscriptionsResponse
-	61,  // 135: webhook.SubscriptionService.UpdateSubscription:output_type -> webhook.UpdateSubscriptionResponse
-	63,  // 136: webhook.SubscriptionService.DeleteSubscription:output_type -> webhook.DeleteSubscriptionResponse
-	25,  // 137: webhook.SubscriptionService.TestSubscriptionTemplate:output_type -> webhook.TestSubscriptionTemplateResponse
-	37,  // 138: webhook.DeliveryService.GetDeliveryStatus:output_type -> webhook.GetDeliveryStatusResponse
-	39,  // 139: webhook.DeliveryService.ListDeliveries:output_type -> webhook.ListDeliveriesResponse
-	35,  // 140: webhook.DeliveryService.RetryDelivery:output_type -> webhook.RetryDeliveryResponse
-	73,  // 141: webhook.DeliveryService.GetDeliveryAttempts:output_type -> webhook.GetDeliveryAttemptsResponse
-	28,  // 142: webhook.HealthService.GetWebhookHealth:output_type -> webhook.GetWebhookHealthResponse
-	30,  // 143: webhook.HealthService.ListWebhooksByHealth:output_type -> webhook.ListWebhooksByHealthResponse
-	33,  // 144: webhook.HealthService.GetHealthSummary:output_type -> webhook.GetHealthSummaryResponse
-	76,  // 145: webhook.NamespaceService.CreateNamespace:output_type -> webhook.CreateNamespaceResponse
-	78,  // 146: webhook.NamespaceService.GetNamespace:output_type -> webhook.GetNamespaceResponse
-	80,  // 147: webhook.NamespaceService.ListNamespaces:output_type -> webhook.ListNamespacesResponse
-	82,  // 148: webhook.NamespaceService.UpdateNamespace:output_type -> webhook.UpdateNamespaceResponse2
-	84,  // 149: webhook.NamespaceService.DeleteNamespace:output_type -> webhook.DeleteNamespaceResponse2
-	117, // [117:150] is the sub-list for method output_type
-	84,  // [84:117] is the sub-list for method input_type
-	84,  // [84:84] is the sub-list for extension type_name
-	84,  // [84:84] is the sub-list for extension extendee
-	0,   // [0:84] is the sub-list for field type_name
+	74,  // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
+	4,   // 1: webhook.RegisterWebhookRequest.http_config:type_name -> webhook.WebhookHTTPConfig
+	75,  // 2: webhook.RegisterWebhookRequest.secret_headers:type_name -> webhook.RegisterWebhookRequest.SecretHeadersEntry
+	92,  // 3: webhook.RegisterWebhookResponse.created_at:type_name -> google.protobuf.Timestamp
+	2,   // 4: webhook.ListWebhooksRequest.pagination:type_name -> webhook.PaginationRequest
+	76,  // 5: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
+	1,   // 6: webhook.RegisteredWebhook.health:type_name -> webhook.WebhookHealth
+	92,  // 7: webhook.RegisteredWebhook.created_at:type_name -> google.protobuf.Timestamp
+	92,  // 8: webhook.RegisteredWebhook.updated_at:type_name -> google.protobuf.Timestamp
+	4,   // 9: webhook.RegisteredWebhook.http_config:type_name -> webhook.WebhookHTTPConfig
+	77,  // 10: webhook.RegisteredWebhook.secret_headers:type_name -> webhook.RegisteredWebhook.SecretHeadersEntry
+	10,  // 11: webhook.ListWebhooksResponse.webhooks:type_name -> webhook.RegisteredWebhook
+	3,   // 12: webhook.ListWebhooksResponse.pagination:type_name -> webhook.PaginationResponse
+	78,  // 13: webhook.WebhookUpdateFields.headers:type_name -> webhook.WebhookUpdateFields.HeadersEntry
+	4,   // 14: webhook.WebhookUpdateFields.http_config:type_name -> webhook.WebhookHTTPConfig
+	79,  // 15: webhook.WebhookUpdateFields.secret_headers:type_name -> webhook.WebhookUpdateFields.SecretHeadersEntry
+	12,  // 16: webhook.UpdateWebhookConfigRequest.updates:type_name -> webhook.WebhookUpdateFields
+	93,  // 17: webhook.RegisterEventRequest.schema:type_name -> google.protobuf.Struct
+	80,  // 18: webhook.RegisterEventRequest.metadata:type_name -> webhook.RegisterEventRequest.MetadataEntry
+	92,  // 19: webhook.RegisterEventResponse.created_at:type_name -> google.protobuf.Timestamp
+	2,   // 20: webhook.ListEventsRequest.pagination:type_name -> webhook.PaginationRequest
+	93,  // 21: webhook.RegisteredEvent.schema:type_name -> google.protobuf.Struct
+	93,  // 22: webhook.RegisteredEvent.sample_payload:type_name -> google.protobuf.Struct
+	81,  // 23: webhook.RegisteredEvent.metadata:type_name -> webhook.RegisteredEvent.MetadataEntry
+	92,  // 24: webhook.RegisteredEvent.created_at:type_name -> google.protobuf.Timestamp
+	92,  // 25: webhook.RegisteredEvent.updated_at:type_name -> google.protobuf.Timestamp
+	22,  // 26: webhook.ListEventsResponse.events:type_name -> webhook.RegisteredEvent
+	3,   // 27: webhook.ListEventsResponse.pagination:type_name -> webhook.PaginationResponse
+	93,  // 28: webhook.UpdateEventRequest.schema:type_name -> google.protobuf.Struct
+	82,  // 29: webhook.UpdateEventRequest.metadata:type_name -> webhook.UpdateEventRequest.MetadataEntry
+	22,  // 30: webhook.GetEventResponse.event:type_name -> webhook.RegisteredEvent
+	93,  // 31: webhook.PushEventRequest.payload:type_name -> google.protobuf.Struct
+	83,  // 32: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
+	84,  // 33: webhook.PushEventRequest.labels:type_name -> webhook.PushEventRequest.LabelsEntry
+	93,  // 34: webhook.EventReport.payload:type_name -> google.protobuf.Struct
+	85,  // 35: webhook.EventReport.metadata:type_name -> webhook.EventReport.MetadataEntry
+	92,  // 36: webhook.EventReport.created_at:type_name -> google.protobuf.Timestamp
+	2,   // 37: webhook.ListEventReportsRequest.pagination:type_name -> webhook.PaginationRequest
+	32,  // 38: webhook.ListEventReportsResponse.events:type_name -> webhook.EventReport
+	3,   // 39: webhook.ListEventReportsResponse.pagination:type_name -> webhook.PaginationResponse
+	86,  // 40: webhook.EventSubscription.headers:type_name -> webhook.EventSubscription.HeadersEntry
+	92,  // 41: webhook.EventSubscription.created_at:type_name -> google.protobuf.Timestamp
+	92,  // 42: webhook.EventSubscription.updated_at:type_name -> google.protobuf.Timestamp
+	87,  // 43: webhook.EventSubscription.label_filters:type_name -> webhook.EventSubscription.LabelFiltersEntry
+	88,  // 44: webhook.CreateSubscriptionRequest.headers:type_name -> webhook.CreateSubscriptionRequest.HeadersEntry
+	89,  // 45: webhook.CreateSubscriptionRequest.label_filters:type_name -> webhook.CreateSubscriptionRequest.LabelFiltersEntry
+	92,  // 46: webhook.CreateSubscriptionResponse.created_at:type_name -> google.protobuf.Timestamp
+	35,  // 47: webhook.GetSubscriptionResponse.subscription:type_name -> webhook.EventSubscription
+	2,   // 48: webhook.ListSubscriptionsRequest.pagination:type_name -> webhook.PaginationRequest
+	35,  // 49: webhook.ListSubscriptionsResponse.subscriptions:type_name -> webhook.EventSubscription
+	3,   // 50: webhook.ListSubscriptionsResponse.pagination:type_name -> webhook.PaginationResponse
+	90,  // 51: webhook.UpdateSubscriptionRequest.headers:type_name -> webhook.UpdateSubscriptionRequest.HeadersEntry
+	91,  // 52: webhook.UpdateSubscriptionRequest.label_filters:type_name -> webhook.UpdateSubscriptionRequest.LabelFiltersEntry
+	35,  // 53: webhook.ListSubscriptionsByEventResponse.subscriptions:type_name -> webhook.EventSubscription
+	3,   // 54: webhook.ListSubscriptionsByEventResponse.pagination:type_name -> webhook.PaginationResponse
+	0,   // 55: webhook.WebhookDelivery.status:type_name -> webhook.WebhookDeliveryStatus
+	92,  // 56: webhook.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
+	92,  // 57: webhook.WebhookDelivery.last_attempted_at:type_name -> google.protobuf.Timestamp
+	92,  // 58: webhook.WebhookDelivery.next_retry_at:type_name -> google.protobuf.Timestamp
+	92,  // 59: webhook.WebhookDelivery.expires_at:type_name -> google.protobuf.Timestamp
+	50,  // 60: webhook.GetDeliveryStatusResponse.delivery:type_name -> webhook.WebhookDelivery
+	2,   // 61: webhook.ListDeliveriesRequest.pagination:type_name -> webhook.PaginationRequest
+	50,  // 62: webhook.ListDeliveriesResponse.deliveries:type_name -> webhook.WebhookDelivery
+	3,   // 63: webhook.ListDeliveriesResponse.pagination:type_name -> webhook.PaginationResponse
+	92,  // 64: webhook.DeliveryAttempt.timestamp:type_name -> google.protobuf.Timestamp
+	57,  // 65: webhook.GetDeliveryAttemptsResponse.attempts:type_name -> webhook.DeliveryAttempt
+	92,  // 66: webhook.WebhookHealthMetrics.last_success_at:type_name -> google.protobuf.Timestamp
+	92,  // 67: webhook.WebhookHealthMetrics.last_failure_at:type_name -> google.protobuf.Timestamp
+	92,  // 68: webhook.WebhookHealthMetrics.created_at:type_name -> google.protobuf.Timestamp
+	92,  // 69: webhook.WebhookHealthMetrics.updated_at:type_name -> google.protobuf.Timestamp
+	1,   // 70: webhook.GetWebhookHealthResponse.health:type_name -> webhook.WebhookHealth
+	61,  // 71: webhook.GetWebhookHealthResponse.metrics:type_name -> webhook.WebhookHealthMetrics
+	1,   // 72: webhook.ListWebhooksByHealthRequest.health:type_name -> webhook.WebhookHealth
+	2,   // 73: webhook.ListWebhooksByHealthRequest.pagination:type_name -> webhook.PaginationRequest
+	10,  // 74: webhook.ListWebhooksByHealthResponse.webhooks:type_name -> webhook.RegisteredWebhook
+	3,   // 75: webhook.ListWebhooksByHealthResponse.pagination:type_name -> webhook.PaginationResponse
+	66,  // 76: webhook.GetHealthSummaryResponse.summary:type_name -> webhook.HealthSummary
+	69,  // 77: webhook.GetNamespaceStatsResponse.stats:type_name -> webhook.NamespaceStats
+	71,  // 78: webhook.GetTemplateFunctionsResponse.functions:type_name -> webhook.TemplateFunction
+	5,   // 79: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
+	7,   // 80: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
+	9,   // 81: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
+	13,  // 82: webhook.WebhookService.UpdateWebhookConfig:input_type -> webhook.UpdateWebhookConfigRequest
+	15,  // 83: webhook.WebhookService.PauseWebhook:input_type -> webhook.PauseWebhookRequest
+	17,  // 84: webhook.WebhookService.ResumeWebhook:input_type -> webhook.ResumeWebhookRequest
+	68,  // 85: webhook.WebhookService.GetNamespaceStats:input_type -> webhook.GetNamespaceStatsRequest
+	72,  // 86: webhook.WebhookService.GetTemplateFunctions:input_type -> webhook.GetTemplateFunctionsRequest
+	19,  // 87: webhook.EventService.RegisterEvent:input_type -> webhook.RegisterEventRequest
+	21,  // 88: webhook.EventService.ListEvents:input_type -> webhook.ListEventsRequest
+	24,  // 89: webhook.EventService.UpdateEvent:input_type -> webhook.UpdateEventRequest
+	28,  // 90: webhook.EventService.DeleteEvent:input_type -> webhook.DeleteEventRequest
+	26,  // 91: webhook.EventService.GetEvent:input_type -> webhook.GetEventRequest
+	30,  // 92: webhook.EventService.PushEvent:input_type -> webhook.PushEventRequest
+	33,  // 93: webhook.EventService.ListEventReports:input_type -> webhook.ListEventReportsRequest
+	36,  // 94: webhook.SubscriptionService.CreateSubscription:input_type -> webhook.CreateSubscriptionRequest
+	38,  // 95: webhook.SubscriptionService.GetSubscription:input_type -> webhook.GetSubscriptionRequest
+	40,  // 96: webhook.SubscriptionService.ListSubscriptions:input_type -> webhook.ListSubscriptionsRequest
+	42,  // 97: webhook.SubscriptionService.UpdateSubscription:input_type -> webhook.UpdateSubscriptionRequest
+	44,  // 98: webhook.SubscriptionService.DeleteSubscription:input_type -> webhook.DeleteSubscriptionRequest
+	48,  // 99: webhook.SubscriptionService.TestSubscriptionTemplate:input_type -> webhook.TestSubscriptionTemplateRequest
+	51,  // 100: webhook.DeliveryService.GetDeliveryStatus:input_type -> webhook.GetDeliveryStatusRequest
+	53,  // 101: webhook.DeliveryService.ListDeliveries:input_type -> webhook.ListDeliveriesRequest
+	55,  // 102: webhook.DeliveryService.RetryDelivery:input_type -> webhook.RetryDeliveryRequest
+	58,  // 103: webhook.DeliveryService.GetDeliveryAttempts:input_type -> webhook.GetDeliveryAttemptsRequest
+	60,  // 104: webhook.HealthService.GetWebhookHealth:input_type -> webhook.GetWebhookHealthRequest
+	63,  // 105: webhook.HealthService.ListWebhooksByHealth:input_type -> webhook.ListWebhooksByHealthRequest
+	65,  // 106: webhook.HealthService.GetHealthSummary:input_type -> webhook.GetHealthSummaryRequest
+	6,   // 107: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
+	8,   // 108: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
+	11,  // 109: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
+	14,  // 110: webhook.WebhookService.UpdateWebhookConfig:output_type -> webhook.UpdateWebhookConfigResponse
+	16,  // 111: webhook.WebhookService.PauseWebhook:output_type -> webhook.PauseWebhookResponse
+	18,  // 112: webhook.WebhookService.ResumeWebhook:output_type -> webhook.ResumeWebhookResponse
+	70,  // 113: webhook.WebhookService.GetNamespaceStats:output_type -> webhook.GetNamespaceStatsResponse
+	73,  // 114: webhook.WebhookService.GetTemplateFunctions:output_type -> webhook.GetTemplateFunctionsResponse
+	20,  // 115: webhook.EventService.RegisterEvent:output_type -> webhook.RegisterEventResponse
+	23,  // 116: webhook.EventService.ListEvents:output_type -> webhook.ListEventsResponse
+	25,  // 117: webhook.EventService.UpdateEvent:output_type -> webhook.UpdateEventResponse
+	29,  // 118: webhook.EventService.DeleteEvent:output_type -> webhook.DeleteEventResponse
+	27,  // 119: webhook.EventService.GetEvent:output_type -> webhook.GetEventResponse
+	31,  // 120: webhook.EventService.PushEvent:output_type -> webhook.PushEventResponse
+	34,  // 121: webhook.EventService.ListEventReports:output_type -> webhook.ListEventReportsResponse
+	37,  // 122: webhook.SubscriptionService.CreateSubscription:output_type -> webhook.CreateSubscriptionResponse
+	39,  // 123: webhook.SubscriptionService.GetSubscription:output_type -> webhook.GetSubscriptionResponse
+	41,  // 124: webhook.SubscriptionService.ListSubscriptions:output_type -> webhook.ListSubscriptionsResponse
+	43,  // 125: webhook.SubscriptionService.UpdateSubscription:output_type -> webhook.UpdateSubscriptionResponse
+	45,  // 126: webhook.SubscriptionService.DeleteSubscription:output_type -> webhook.DeleteSubscriptionResponse
+	49,  // 127: webhook.SubscriptionService.TestSubscriptionTemplate:output_type -> webhook.TestSubscriptionTemplateResponse
+	52,  // 128: webhook.DeliveryService.GetDeliveryStatus:output_type -> webhook.GetDeliveryStatusResponse
+	54,  // 129: webhook.DeliveryService.ListDeliveries:output_type -> webhook.ListDeliveriesResponse
+	56,  // 130: webhook.DeliveryService.RetryDelivery:output_type -> webhook.RetryDeliveryResponse
+	59,  // 131: webhook.DeliveryService.GetDeliveryAttempts:output_type -> webhook.GetDeliveryAttemptsResponse
+	62,  // 132: webhook.HealthService.GetWebhookHealth:output_type -> webhook.GetWebhookHealthResponse
+	64,  // 133: webhook.HealthService.ListWebhooksByHealth:output_type -> webhook.ListWebhooksByHealthResponse
+	67,  // 134: webhook.HealthService.GetHealthSummary:output_type -> webhook.GetHealthSummaryResponse
+	107, // [107:135] is the sub-list for method output_type
+	79,  // [79:107] is the sub-list for method input_type
+	79,  // [79:79] is the sub-list for extension type_name
+	79,  // [79:79] is the sub-list for extension extendee
+	0,   // [0:79] is the sub-list for field type_name
 }
 
 func init() { file_proto_webhook_proto_init() }
@@ -6871,17 +6855,17 @@ func file_proto_webhook_proto_init() {
 	if File_proto_webhook_proto != nil {
 		return
 	}
-	file_proto_webhook_proto_msgTypes[5].OneofWrappers = []any{}
-	file_proto_webhook_proto_msgTypes[49].OneofWrappers = []any{}
+	file_proto_webhook_proto_msgTypes[28].OneofWrappers = []any{}
+	file_proto_webhook_proto_msgTypes[31].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_webhook_proto_rawDesc), len(file_proto_webhook_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   98,
+			NumMessages:   90,
 			NumExtensions: 0,
-			NumServices:   6,
+			NumServices:   5,
 		},
 		GoTypes:           file_proto_webhook_proto_goTypes,
 		DependencyIndexes: file_proto_webhook_proto_depIdxs,

@@ -8,7 +8,6 @@
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
-  import { activeNamespace } from '$lib/stores/namespace.svelte';
 
   let webhooks: RegisteredWebhook[] = $state([]);
   let loading = $state(true);
@@ -71,7 +70,7 @@
         totalCount = res.pagination?.totalCount || 0;
       } else {
         const res = await client.listWebhooks({
-          namespace: activeNamespace() ?? '',
+          namespace: '',
           pagination: { limit, offset },
         });
         webhooks = res.webhooks || [];
@@ -94,17 +93,6 @@
   }
 
   onMount(fetchWebhooks);
-
-  // Re-fetch when active namespace changes
-  $effect(() => {
-    // Access activeNamespace to track it
-    const _ns = activeNamespace();
-    // Skip the initial mount (onMount handles that)
-    if (!loading) {
-      offset = 0;
-      fetchWebhooks();
-    }
-  });
 
   function handlePageChange(pageNum: number) {
     offset = (pageNum - 1) * limit;
@@ -164,9 +152,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
       <div>
         <h1 class="text-2xl font-bold text-gray-900">Webhooks</h1>
-        <p class="text-sm text-gray-500 mt-0.5">
-          {activeNamespace() ? `Namespace: ${activeNamespace()}` : 'All Namespaces'}
-        </p>
+        <p class="text-sm text-gray-500 mt-0.5">Manage registered webhooks</p>
       </div>
       <a
         href="/webhooks/register"

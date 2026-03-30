@@ -10,9 +10,8 @@
   import { eventClient as client } from "$lib/services";
   import { onMount } from "svelte";
   import type { RegisteredEvent } from "../../../../../proto/webhook_pb.js";
-  import { activeNamespace, namespaces as allNamespaces } from "$lib/stores/namespace.svelte";
 
-  let namespace = $state(activeNamespace() ?? '');
+  let namespace = $state('default');
   let event = $state("");
   let payload = $state({ json: {} } as Content);
   let labels = $state<Record<string, string>>({});
@@ -24,13 +23,6 @@
   let validationDetails = $state<string[]>([]);
   let successMessage = $state("");
   let availableEvents: RegisteredEvent[] = $state([]);
-
-  // Sync with store when activeNamespace changes
-  $effect(() => {
-    if (activeNamespace() !== null) {
-      namespace = activeNamespace()!;
-    }
-  });
 
   // Watch for event changes and update payload with sample_payload
   $effect(() => {
@@ -185,19 +177,6 @@
             <label for="namespace" class="block text-sm font-medium text-gray-700 mb-1">
               Namespace
             </label>
-            {#if allNamespaces().length > 0}
-              <select
-                id="namespace"
-                bind:value={namespace}
-                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 bg-white"
-                required
-              >
-                <option value="">Select a namespace...</option>
-                {#each allNamespaces() as ns}
-                  <option value={ns.name}>{ns.name}</option>
-                {/each}
-              </select>
-            {:else}
               <input
                 type="text"
                 id="namespace"
@@ -206,7 +185,6 @@
                 class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
                 required
               />
-            {/if}
           </div>
 
           <div>
@@ -263,9 +241,27 @@
             <span class="block text-sm font-medium text-gray-700 mb-1">
               Labels
             </span>
-            <p class="text-xs text-gray-500 mb-2">
-              Optional key-value pairs for label-based subscription matching.
-            </p>
+            <div class="bg-sky-50 border border-sky-200 rounded-lg p-3 mb-3">
+              <p class="text-xs text-sky-800 font-medium mb-1">Label-based routing</p>
+              <p class="text-xs text-sky-700 leading-relaxed">
+                Labels on an event are matched against subscription label filters. A subscription receives this event only if
+                <strong>all</strong> its filter key-value pairs appear in the event's labels. Subscriptions with no filters receive every event.
+              </p>
+              <details class="group mt-1.5">
+                <summary class="text-xs text-sky-600 cursor-pointer hover:text-sky-800 font-medium select-none">
+                  Show example
+                </summary>
+                <div class="mt-2 bg-white rounded border border-sky-100 p-2.5 space-y-1">
+                  <p class="text-[11px] text-gray-600">
+                    If you push with labels <code class="bg-sky-50 px-1 rounded text-sky-700">region=us-east</code>
+                    <code class="bg-sky-50 px-1 rounded text-sky-700">env=prod</code>:
+                  </p>
+                  <p class="text-[11px] text-green-700">A subscription filtering <code class="bg-gray-100 px-1 rounded">region=us-east</code> will match</p>
+                  <p class="text-[11px] text-green-700">A subscription with no filters will also match</p>
+                  <p class="text-[11px] text-red-600">A subscription filtering <code class="bg-gray-100 px-1 rounded">env=staging</code> will NOT match</p>
+                </div>
+              </details>
+            </div>
 
             {#if Object.keys(labels).length > 0}
               <div class="space-y-1.5 mb-2">

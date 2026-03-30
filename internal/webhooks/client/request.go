@@ -15,8 +15,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sarathsp06/sparrow"
+	sparrow "github.com/sarathsp06/sparrow"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 // DeliveryRequest represents the data needed to send a webhook
@@ -111,13 +112,16 @@ func generateHMACSignature(payload []byte, secret, timestamp string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// PrepareDeliveryRequest creates a DeliveryRequest from subscription and event data
+// PrepareDeliveryRequest creates a DeliveryRequest from subscription and event data.
+// If cryptoSvc is provided and the webhook has encrypted secret headers, they are
+// decrypted and merged after regular + subscription headers (secret headers win).
 func PrepareDeliveryRequest(
 	webhook *store.WebhookRegistration,
 	sub *store.EventSubscription,
 	event *store.EventRecord,
 	deliveryID string,
 	payload []byte,
+	cryptoSvc *crypto.Service,
 ) *DeliveryRequest {
 
 	// Merge headers: subscription headers override webhook headers
@@ -126,6 +130,19 @@ func PrepareDeliveryRequest(
 	maps.Copy(headers, webhook.Headers)
 	if sub != nil {
 		maps.Copy(headers, sub.Headers)
+	}
+
+	// Decrypt and merge secret headers (override regular + subscription headers)
+	if cryptoSvc != nil && len(webhook.SecretHeaders) > 0 {
+		var secretHeaders map[string]string
+		if err := cryptoSvc.DecryptJSON(webhook.SecretHeaders, &secretHeaders); err == nil {
+			for k, v := range secretHeaders {
+				headers[k] = v
+			}
+		}
+		// On decryption failure, silently skip — the webhook still delivers
+		// with regular headers. The error is non-fatal because the encryption
+		// key may have been rotated or removed.
 	}
 
 	// Determine method

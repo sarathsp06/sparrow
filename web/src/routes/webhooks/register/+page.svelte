@@ -3,9 +3,8 @@
   import { eventClient, webhookClient as client } from '$lib/services';
   import { onMount } from 'svelte';
   import type { RegisteredEvent } from '../../../../../proto/webhook_pb.js';
-  import { activeNamespace, namespaces as allNamespaces } from '$lib/stores/namespace.svelte';
 
-  let namespace = $state(activeNamespace() ?? '');
+  let namespace = $state('default');
   let events: string[] = $state([]);
   let url = $state('');
   let description = $state('');
@@ -14,13 +13,6 @@
   let error = $state('');
   let submitting = $state(false);
   let eventSearch = $state('');
-
-  // Sync with store when activeNamespace changes
-  $effect(() => {
-    if (activeNamespace() !== null) {
-      namespace = activeNamespace()!;
-    }
-  });
 
   // HTTP Configuration
   let showAdvanced = $state(false);
@@ -37,6 +29,9 @@
 
   // HTTP Headers
   let headers: { key: string; value: string }[] = $state([]);
+
+  // Secret Headers (encrypted server-side)
+  let secretHeaders: { key: string; value: string }[] = $state([]);
 
   // Validation
   let urlError = $state('');
@@ -65,6 +60,14 @@
     headers = headers.filter((_, i) => i !== index);
   }
 
+  function addSecretHeader() {
+    secretHeaders = [...secretHeaders, { key: '', value: '' }];
+  }
+
+  function removeSecretHeader(index: number) {
+    secretHeaders = secretHeaders.filter((_, i) => i !== index);
+  }
+
   function validateUrl(val: string): boolean {
     if (!val.trim()) { urlError = 'URL is required'; return false; }
     try { new URL(val); urlError = ''; return true; }
@@ -85,17 +88,19 @@
     const nsValid = validateNamespace(namespace);
     if (!urlValid || !nsValid) return;
 
-    if (events.length === 0) {
-      error = 'Select at least one event to subscribe to.';
-      return;
-    }
-
     submitting = true;
     try {
       const headersMap: Record<string, string> = {};
       headers.forEach(h => {
         if (h.key.trim() && h.value.trim()) {
           headersMap[h.key.trim()] = h.value.trim();
+        }
+      });
+
+      const secretHeadersMap: Record<string, string> = {};
+      secretHeaders.forEach(h => {
+        if (h.key.trim() && h.value.trim()) {
+          secretHeadersMap[h.key.trim()] = h.value.trim();
         }
       });
 
@@ -111,6 +116,7 @@
         description,
         active,
         headers: headersMap,
+        secretHeaders: Object.keys(secretHeadersMap).length > 0 ? secretHeadersMap : undefined,
         httpConfig: showAdvanced ? {
           maxRetries,
           retryBackoffSeconds,
@@ -160,18 +166,6 @@
         <div class="space-y-4">
           <div>
             <label for="namespace" class="block text-sm font-medium text-gray-700 mb-1">Namespace</label>
-            {#if allNamespaces().length > 0}
-              <select
-                id="namespace"
-                bind:value={namespace}
-                class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900 {namespaceError ? 'border-red-300' : ''}"
-              >
-                <option value="">Select a namespace...</option>
-                {#each allNamespaces() as ns}
-                  <option value={ns.name}>{ns.name}</option>
-                {/each}
-              </select>
-            {:else}
               <input
                 type="text"
                 id="namespace"
@@ -180,7 +174,6 @@
                 placeholder="Enter namespace..."
                 class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900 {namespaceError ? 'border-red-300' : ''}"
               />
-            {/if}
             {#if namespaceError}
               <p class="mt-1 text-xs text-red-600">{namespaceError}</p>
             {/if}
@@ -233,14 +226,18 @@
 
       <!-- Event Selection -->
       <section class="bg-white rounded-lg border border-gray-200 p-5">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-2">
           <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">
             Events
+            <span class="text-gray-400 font-normal normal-case tracking-normal">(optional)</span>
             {#if events.length > 0}
               <span class="ml-1 text-xs font-normal text-gray-500">({events.length} selected)</span>
             {/if}
           </h2>
         </div>
+        <p class="text-xs text-gray-500 mb-4">
+          Select events to subscribe to now, or skip this and add subscriptions later from the webhook detail page.
+        </p>
 
         {#if allEvents.length > 5}
           <div class="mb-3">
@@ -303,6 +300,52 @@
                   onclick={() => removeHeader(index)}
                   class="shrink-0 p-1.5 text-gray-400 hover:text-red-600 rounded transition"
                   title="Remove header"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </section>
+
+      <!-- Secret Headers -->
+      <section class="bg-white rounded-lg border border-gray-200 p-5">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Secret Headers</h2>
+          <button type="button" onclick={addSecretHeader} class="text-xs font-medium text-gray-600 hover:text-gray-900 transition">
+            + Add Secret Header
+          </button>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">
+          Sensitive headers (API keys, Bearer tokens) that are stored encrypted. Values are never exposed in API responses.
+        </p>
+
+        {#if secretHeaders.length === 0}
+          <p class="text-sm text-gray-400">No secret headers configured.</p>
+        {:else}
+          <div class="space-y-2">
+            {#each secretHeaders as header, index}
+              <div class="flex items-center gap-2">
+                <input
+                  type="text"
+                  bind:value={header.key}
+                  placeholder="Header Name (e.g. Authorization)"
+                  class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                />
+                <input
+                  type="password"
+                  bind:value={header.value}
+                  placeholder="Header Value (e.g. Bearer sk-...)"
+                  class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
+                />
+                <button
+                  type="button"
+                  onclick={() => removeSecretHeader(index)}
+                  class="shrink-0 p-1.5 text-gray-400 hover:text-red-600 rounded transition"
+                  title="Remove secret header"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -383,7 +426,7 @@
 
             <div class="space-y-2 pt-2">
               {#each [
-                { label: 'Capture Response Body', bind: () => captureResponseBody, toggle: () => captureResponseBody = !captureResponseBody, hint: 'Store response bodies for debugging' },
+                { label: 'Capture Response Body', bind: () => captureResponseBody, toggle: () => captureResponseBody = !captureResponseBody, hint: 'Off: stores up to 1 KB of response per delivery. On: stores up to 1 MB.' },
                 { label: 'Follow Redirects', bind: () => followRedirects, toggle: () => followRedirects = !followRedirects, hint: 'Allow HTTP redirects' },
                 { label: 'Verify SSL Certificates', bind: () => verifySSL, toggle: () => verifySSL = !verifySSL, hint: 'Disable for development only' },
               ] as opt}
@@ -419,7 +462,7 @@
       <!-- Info banner -->
       <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
         <p class="text-sm text-gray-600">
-          <span class="font-medium text-gray-700">Tip:</span> After registering, you can customize how event payloads are formatted by adding templates to individual event subscriptions from the webhook detail page.
+          <span class="font-medium text-gray-700">Tip:</span> You can manage event subscriptions at any time from the webhook detail page, including adding templates for payload transformation and label filters for routing.
         </p>
       </div>
 

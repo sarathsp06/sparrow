@@ -104,13 +104,14 @@ func CreateWebhookRegistrationRequest(req *pb.RegisterWebhookRequest) webhooks.W
 	}
 
 	return webhooks.WebhookRegistrationRequest{
-		Namespace:   req.Namespace,
-		Events:      req.Events,
-		URL:         req.Url,
-		Headers:     headers,
-		Active:      active,
-		Description: req.Description,
-		HTTPConfig:  ConvertProtoHTTPConfig(req.HttpConfig),
+		Namespace:     req.Namespace,
+		Events:        req.Events,
+		URL:           req.Url,
+		Headers:       headers,
+		Active:        active,
+		Description:   req.Description,
+		HTTPConfig:    ConvertProtoHTTPConfig(req.HttpConfig),
+		SecretHeaders: req.SecretHeaders,
 	}
 }
 

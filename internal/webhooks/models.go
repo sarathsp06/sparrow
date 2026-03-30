@@ -32,7 +32,10 @@ type WebhookRegistration struct {
 type WebhookHTTPConfig struct {
 	MaxRetries            int      `db:"max_retries" json:"max_retries"`
 	RetryBackoffSeconds   int      `db:"retry_backoff_seconds" json:"retry_backoff_seconds"`
-	CaptureResponseBody   bool     `db:"capture_response_body" json:"capture_response_body"`
+	// CaptureResponseBody controls the stored response body size limit per delivery attempt.
+	// false (default): stores up to 1 KB. true: stores up to 1 MB.
+	// The response body is always read regardless of this setting (required for HTTP connection reuse).
+	CaptureResponseBody bool `db:"capture_response_body" json:"capture_response_body"`
 	FollowRedirects       bool     `db:"follow_redirects" json:"follow_redirects"`
 	VerifySSL             bool     `db:"verify_ssl" json:"verify_ssl"`
 	RequestTimeoutSeconds int      `db:"request_timeout_seconds" json:"request_timeout_seconds"`
@@ -47,7 +50,7 @@ func DefaultWebhookHTTPConfig() WebhookHTTPConfig {
 	return WebhookHTTPConfig{
 		MaxRetries:            3,
 		RetryBackoffSeconds:   60,
-		CaptureResponseBody:   false,
+		CaptureResponseBody:   false, // stores up to 1 KB of response body; set true for up to 1 MB
 		FollowRedirects:       true,
 		VerifySSL:             true,
 		RequestTimeoutSeconds: 30,
@@ -267,14 +270,15 @@ type HTTPConfigUpdate struct {
 
 // WebhookRegistrationRequest represents a request to create/update a webhook registration
 type WebhookRegistrationRequest struct {
-	ID          string             `json:"id,omitempty"`
-	Namespace   string             `json:"namespace" validate:"required"`
-	Events      []string           `json:"events" validate:"required,min=1"`
-	URL         string             `json:"url" validate:"required,url"`
-	Headers     map[string]any     `json:"headers,omitempty"`
-	Active      *bool              `json:"active,omitempty"`
-	Description string             `json:"description,omitempty"`
-	HTTPConfig  *WebhookHTTPConfig `json:"http_config,omitempty"`
+	ID            string             `json:"id,omitempty"`
+	Namespace     string             `json:"namespace" validate:"required"`
+	Events        []string           `json:"events" validate:"required,min=1"`
+	URL           string             `json:"url" validate:"required,url"`
+	Headers       map[string]any     `json:"headers,omitempty"`
+	SecretHeaders map[string]string  `json:"secret_headers,omitempty"`
+	Active        *bool              `json:"active,omitempty"`
+	Description   string             `json:"description,omitempty"`
+	HTTPConfig    *WebhookHTTPConfig `json:"http_config,omitempty"`
 }
 
 // ToWebhookRegistration converts the request to a WebhookRegistration

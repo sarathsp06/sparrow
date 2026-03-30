@@ -36,7 +36,7 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 		timeout = 30 // Default timeout
 	}
 
-	webhookID, createdAt, err := s.service.RegisterWebhook(ctx, req.Namespace, req.Events, req.Url, req.Headers, timeout, req.Active, req.Description)
+	webhookID, createdAt, err := s.service.RegisterWebhook(ctx, req.Namespace, req.Events, req.Url, req.Headers, timeout, req.Active, req.Description, req.SecretHeaders)
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to register webhook")
 	}
@@ -70,17 +70,18 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 	pbWebhooks := make([]*pb.RegisteredWebhook, len(regs))
 	for i, reg := range regs {
 		pbWebhooks[i] = &pb.RegisteredWebhook{
-			WebhookId:   reg.ID.String(),
-			Namespace:   reg.Namespace,
-			Events:      s.getWebhookEvents(ctx, reg.ID.String(), reg.Namespace),
-			Url:         reg.URL,
-			Headers:     reg.Headers,
-			Timeout:     int32(reg.Timeout),
-			Active:      reg.Active,
-			Description: reg.Description,
-			Health:      convertWebhookHealth(reg.Health),
-			CreatedAt:   convertTimeToProto(reg.CreatedAt),
-			UpdatedAt:   convertTimeToProto(reg.UpdatedAt),
+			WebhookId:     reg.ID.String(),
+			Namespace:     reg.Namespace,
+			Events:        s.getWebhookEvents(ctx, reg.ID.String(), reg.Namespace),
+			Url:           reg.URL,
+			Headers:       reg.Headers,
+			Timeout:       int32(reg.Timeout),
+			Active:        reg.Active,
+			Description:   reg.Description,
+			Health:        convertWebhookHealth(reg.Health),
+			CreatedAt:     convertTimeToProto(reg.CreatedAt),
+			UpdatedAt:     convertTimeToProto(reg.UpdatedAt),
+			SecretHeaders: maskSecretHeaders(reg.SecretHeaders, s.service),
 			HttpConfig: &pb.WebhookHTTPConfig{
 				MaxRetries:            int32(reg.MaxRetries),
 				RetryBackoffSeconds:   int32(reg.RetryBackoffSeconds),
@@ -110,6 +111,7 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 	var events []string
 	var url string
 	var headers map[string]string
+	var secretHeaders map[string]string
 	var timeout int
 	var active bool
 	var description string
@@ -118,6 +120,7 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 		events = req.Updates.Events
 		url = req.Updates.Url
 		headers = req.Updates.Headers
+		secretHeaders = req.Updates.SecretHeaders
 		timeout = int(req.Updates.Timeout)
 		active = req.Updates.Active
 		description = req.Updates.Description
@@ -136,7 +139,7 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 			}
 		}
 	}
-	err := s.service.UpdateWebhookConfig(ctx, req.WebhookId, req.Namespace, events, url, headers, timeout, active, description, httpConfig)
+	err := s.service.UpdateWebhookConfig(ctx, req.WebhookId, req.Namespace, events, url, headers, timeout, active, description, httpConfig, secretHeaders)
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to update webhook config")
 	}

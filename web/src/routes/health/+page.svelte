@@ -9,7 +9,6 @@
   } from "../../../../proto/webhook_pb.js";
   import { WebhookHealth } from "../../../../proto/webhook_pb.js";
   import HealthBadge from "$lib/components/HealthBadge.svelte";
-  import { activeNamespace } from "$lib/stores/namespace.svelte";
 
   let healthSummary: HealthSummary | undefined = $state();
   let namespaceStats: NamespaceStats | undefined = $state();
@@ -24,7 +23,7 @@
     try {
       const [summaryRes, statsRes] = await Promise.all([
         healthClient.getHealthSummary({}),
-        webhookClient.getNamespaceStats({ namespace: activeNamespace() ?? '' }),
+        webhookClient.getNamespaceStats({ namespace: '' }),
       ]);
       healthSummary = summaryRes.summary;
       namespaceStats = statsRes.stats;
@@ -62,14 +61,6 @@
   }
 
   onMount(fetchData);
-
-  // Re-fetch when active namespace changes
-  $effect(() => {
-    const _ns = activeNamespace();
-    if (!loading) {
-      fetchData();
-    }
-  });
 </script>
 
 <svelte:head>
@@ -167,10 +158,10 @@
         {#if namespaceStats}
           <div>
             <h2 class="text-lg font-semibold text-gray-900 mb-1">
-              {activeNamespace() ? 'Namespace Statistics' : 'Statistics'}
+              Statistics
             </h2>
             <p class="text-sm text-gray-500 mb-4">
-              {activeNamespace() ? `Namespace: ${activeNamespace()}` : 'All Namespaces'}
+              All Namespaces
             </p>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4">

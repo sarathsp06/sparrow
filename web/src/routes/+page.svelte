@@ -5,32 +5,32 @@
     {
       icon: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
       title: "Guaranteed Delivery",
-      description: "Persistent storage ensures no webhook is ever lost. Events are stored in PostgreSQL with full transactional guarantees.",
+      description: "Events are persisted in PostgreSQL before delivery begins. The River job queue provides at-least-once delivery with configurable retries (default: 3 attempts).",
     },
     {
       icon: "M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15",
       title: "Intelligent Retries",
-      description: "Exponential backoff with jitter, configurable retry policies, and automatic failure handling for robust delivery.",
+      description: "Exponential backoff with configurable intervals. Errors are classified into retryable (5xx, timeout, connection refused, network) and non-retryable (4xx, DNS, TLS).",
     },
     {
       icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
-      title: "Multi-Tenancy",
-      description: "Built-in organization and project isolation. Perfect for SaaS platforms with multiple customers.",
+      title: "Namespace Isolation",
+      description: "Organize webhooks and events into namespaces. Each namespace has independent subscriptions, deliveries, and health tracking.",
     },
     {
       icon: "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z",
-      title: "High Performance gRPC",
-      description: "Native gRPC API for maximum throughput. Efficient binary protocol for high-volume webhook processing.",
+      title: "gRPC + Connect-RPC",
+      description: "Native gRPC on :50051 and Connect-RPC (HTTP/JSON) on :8080. Use curl, gRPC clients, or the built-in web dashboard -- same API, same behavior.",
     },
     {
       icon: "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
       title: "Complete Observability",
-      description: "OpenTelemetry integration, structured logging, and Prometheus metrics for full visibility into your webhook pipeline.",
+      description: "OpenTelemetry traces, metrics, and structured logs exported via OTLP. Per-webhook health tracking with error category breakdown (client, server, timeout, network).",
     },
     {
       icon: "M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z M12 2a3 3 0 0 0-3 3v1a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z",
-      title: "Secure by Design",
-      description: "HMAC signature verification, TLS encryption, and secure secret management for enterprise security requirements.",
+      title: "HMAC Signing & TLS",
+      description: "Every delivery can be HMAC-SHA256 signed with a per-webhook secret. Sensitive headers are stored encrypted and masked in API responses.",
     },
   ];
 
@@ -105,6 +105,61 @@
   ];
 
   const techStack = ["Go", "PostgreSQL", "gRPC", "SvelteKit", "OpenTelemetry"];
+
+  // Comparison table: columns = services, rows = features
+  const comparisonServices = [
+    { key: "sparrow", name: "Sparrow", highlight: true },
+    { key: "svix", name: "Svix" },
+    { key: "convoy", name: "Convoy" },
+    { key: "hookdeck", name: "Hookdeck" },
+    { key: "aws", name: "AWS EventBridge / SNS" },
+    { key: "diy", name: "DIY" },
+  ];
+
+  // Values: true = supported, false = not supported, string = custom text
+  // Keep rows focused on differentiators — where Sparrow clearly stands out
+  const comparisonFeatures = [
+    {
+      feature: "Open Source",
+      sparrow: true, svix: "Partial", convoy: true, hookdeck: false, aws: false, diy: "N/A",
+    },
+    {
+      feature: "Self-Hosted",
+      sparrow: true, svix: "Enterprise", convoy: true, hookdeck: false, aws: false, diy: true,
+    },
+    {
+      feature: "No Per-Message Pricing",
+      sparrow: true, svix: false, convoy: true, hookdeck: false, aws: false, diy: true,
+    },
+    {
+      feature: "Minimal Infra (Binary + Postgres)",
+      sparrow: true, svix: "SaaS", convoy: false, hookdeck: "SaaS", aws: "Managed", diy: "Varies",
+    },
+    {
+      feature: "Guaranteed Delivery & Retries",
+      sparrow: true, svix: true, convoy: true, hookdeck: true, aws: "Partial", diy: false,
+    },
+    {
+      feature: "Webhook Health Tracking",
+      sparrow: true, svix: true, convoy: "Partial", hookdeck: true, aws: false, diy: false,
+    },
+    {
+      feature: "OpenTelemetry Native",
+      sparrow: true, svix: false, convoy: false, hookdeck: false, aws: "X-Ray", diy: false,
+    },
+    {
+      feature: "gRPC + REST API",
+      sparrow: true, svix: false, convoy: false, hookdeck: false, aws: "SDK", diy: "Varies",
+    },
+    {
+      feature: "Payload Transformation",
+      sparrow: true, svix: false, convoy: true, hookdeck: true, aws: "Partial", diy: false,
+    },
+    {
+      feature: "No Vendor Lock-In",
+      sparrow: true, svix: false, convoy: true, hookdeck: false, aws: false, diy: true,
+    },
+  ];
 </script>
 
 <svelte:head>
@@ -126,6 +181,7 @@
         <a href="#features" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Features</a>
         <a href="#getting-started" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Getting Started</a>
         <a href="#architecture" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Architecture</a>
+        <a href="#comparison" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Comparison</a>
         <a href="https://github.com/sarathsp06/sparrow" target="_blank" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Documentation</a>
       </nav>
       <div class="flex items-center gap-3">
@@ -321,6 +377,93 @@
             </div>
           </div>
         {/each}
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- COMPARISON SECTION -->
+  <!-- ============================================================ -->
+  <section id="comparison" class="py-24 bg-gray-50/70">
+    <div class="max-w-[1400px] mx-auto px-6">
+      <div class="text-center mb-16">
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm mb-6 bg-teal-50 border border-teal-200/60">
+          <span class="text-teal-600 font-medium">Why Sparrow?</span>
+        </div>
+        <h2 class="text-3xl md:text-4xl font-bold font-fira mb-4">
+          How Sparrow <span class="bg-gradient-to-r from-teal-500 to-sky-500 bg-clip-text text-transparent">Compares</span>
+        </h2>
+        <p class="text-lg max-w-3xl mx-auto text-gray-500">
+          There are many ways to deliver webhooks. Here's why teams choose Sparrow.
+        </p>
+      </div>
+
+      <!-- Feature comparison table -->
+      <div class="overflow-x-auto rounded-xl border border-gray-200/80 bg-white shadow-sm">
+        <table class="w-full text-sm min-w-[900px]">
+          <thead>
+            <tr class="border-b border-gray-200">
+              <th class="text-left py-4 px-5 font-medium text-gray-400 uppercase tracking-wider text-xs bg-gray-50/50 sticky left-0 z-10 min-w-[200px]">Feature</th>
+              {#each comparisonServices as svc}
+                <th class="py-4 px-4 text-center font-semibold font-fira text-xs uppercase tracking-wider min-w-[120px] {svc.highlight ? 'bg-teal-50/80 text-teal-700 border-x border-teal-200/50' : 'text-gray-500 bg-gray-50/50'}">
+                  {#if svc.highlight}
+                    <div class="flex flex-col items-center gap-1">
+                      <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-teal-500 text-white text-[10px] font-bold uppercase tracking-widest">Recommended</span>
+                      <span class="text-sm">{svc.name}</span>
+                    </div>
+                  {:else}
+                    {svc.name}
+                  {/if}
+                </th>
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each comparisonFeatures as row, i}
+              <tr class="border-b border-gray-100 last:border-b-0 {i % 2 === 0 ? '' : 'bg-gray-50/30'}">
+                <td class="py-3.5 px-5 font-medium text-gray-700 sticky left-0 z-10 {i % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}">{row.feature}</td>
+                {#each comparisonServices as svc}
+                  {@const val = row[svc.key]}
+                  <td class="py-3.5 px-4 text-center {svc.highlight ? 'border-x border-teal-200/50' : ''} {svc.highlight && val === true ? 'bg-teal-50/60' : ''}">
+                    {#if val === true}
+                      <span class="inline-flex items-center justify-center w-6 h-6 rounded-full {svc.highlight ? 'bg-teal-500 text-white' : 'bg-green-100 text-green-600'}">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
+                      </span>
+                    {:else if val === false}
+                      <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-300">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
+                      </span>
+                    {:else}
+                      <span class="text-xs font-medium text-gray-400 px-2 py-0.5 rounded bg-gray-100/80">{val}</span>
+                    {/if}
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Summary stats row -->
+      <div class="mt-12 p-8 rounded-xl border border-teal-200/60 bg-gradient-to-r from-teal-50/80 to-sky-50/60">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+          <div>
+            <p class="text-2xl font-bold font-fira text-teal-600">$0</p>
+            <p class="text-sm text-gray-500 mt-1">Per-message cost</p>
+          </div>
+          <div>
+            <p class="text-2xl font-bold font-fira text-teal-600">1 Binary</p>
+            <p class="text-sm text-gray-500 mt-1">Single Go binary + Postgres</p>
+          </div>
+          <div>
+            <p class="text-2xl font-bold font-fira text-teal-600">100%</p>
+            <p class="text-sm text-gray-500 mt-1">Open source, no gated features</p>
+          </div>
+          <div>
+            <p class="text-2xl font-bold font-fira text-teal-600">Minutes</p>
+            <p class="text-sm text-gray-500 mt-1">Docker Compose to production</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>

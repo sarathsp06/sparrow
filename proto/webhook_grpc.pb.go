@@ -33,23 +33,44 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// WebhookService handles webhook lifecycle management
+// WebhookService manages webhook registration, configuration, and lifecycle.
+// All RPCs require a namespace. Webhooks are scoped to a single namespace.
 type WebhookServiceClient interface {
-	// RegisterWebhook registers a URL for specific events in a namespace
+	// RegisterWebhook creates a new webhook registration.
+	// Accepts a target URL, a list of event names, and optional HTTP configuration.
+	// Subscriptions are created automatically for each event in the events list.
+	// Returns the generated webhook_id and created_at timestamp.
+	// Errors: ALREADY_EXISTS if the URL is already registered in the same namespace.
 	RegisterWebhook(ctx context.Context, in *RegisterWebhookRequest, opts ...grpc.CallOption) (*RegisterWebhookResponse, error)
-	// UnregisterWebhook removes a webhook registration
+	// UnregisterWebhook permanently deletes a webhook and all its subscriptions.
+	// Associated delivery records are also cascade-deleted.
+	// Errors: NOT_FOUND if the webhook_id does not exist in the given namespace.
 	UnregisterWebhook(ctx context.Context, in *UnregisterWebhookRequest, opts ...grpc.CallOption) (*UnregisterWebhookResponse, error)
-	// ListWebhooks lists all registered webhooks for a namespace with filters
+	// ListWebhooks returns webhooks for a namespace with optional filters.
+	// Supports filtering by event name, active status, or specific webhook_id.
+	// Results are paginated (default limit: 50). Each webhook includes its current health status.
 	ListWebhooks(ctx context.Context, in *ListWebhooksRequest, opts ...grpc.CallOption) (*ListWebhooksResponse, error)
-	// UpdateWebhookConfig updates webhook configuration
+	// UpdateWebhookConfig patches one or more fields on an existing webhook.
+	// Only non-zero fields in WebhookUpdateFields are applied. Updating events replaces
+	// the full subscription set: removed events have their subscriptions deleted,
+	// new events get subscriptions created.
+	// Errors: NOT_FOUND if the webhook does not exist.
 	UpdateWebhookConfig(ctx context.Context, in *UpdateWebhookConfigRequest, opts ...grpc.CallOption) (*UpdateWebhookConfigResponse, error)
-	// PauseWebhook temporarily disables a webhook
+	// PauseWebhook sets a webhook to inactive. Paused webhooks are skipped during
+	// event fan-out -- no new deliveries are created for them. Existing in-flight
+	// deliveries are not cancelled.
+	// Errors: NOT_FOUND if the webhook does not exist.
 	PauseWebhook(ctx context.Context, in *PauseWebhookRequest, opts ...grpc.CallOption) (*PauseWebhookResponse, error)
-	// ResumeWebhook re-enables a paused webhook
+	// ResumeWebhook re-activates a paused webhook. Future events will again create
+	// deliveries for this webhook. Events pushed while the webhook was paused are not retroactively delivered.
+	// Errors: NOT_FOUND if the webhook does not exist.
 	ResumeWebhook(ctx context.Context, in *ResumeWebhookRequest, opts ...grpc.CallOption) (*ResumeWebhookResponse, error)
-	// GetNamespaceStats retrieves statistics for a namespace
+	// GetNamespaceStats returns aggregate delivery statistics for a namespace:
+	// total/active webhooks, total/successful/failed/pending deliveries, and success rate.
 	GetNamespaceStats(ctx context.Context, in *GetNamespaceStatsRequest, opts ...grpc.CallOption) (*GetNamespaceStatsResponse, error)
-	// GetTemplateFunctions returns all available template functions with their descriptions
+	// GetTemplateFunctions returns the list of Go template functions available for
+	// payload transformation in subscriptions. Each entry includes the function name
+	// and a description of its behavior.
 	GetTemplateFunctions(ctx context.Context, in *GetTemplateFunctionsRequest, opts ...grpc.CallOption) (*GetTemplateFunctionsResponse, error)
 }
 
@@ -145,23 +166,44 @@ func (c *webhookServiceClient) GetTemplateFunctions(ctx context.Context, in *Get
 // All implementations must embed UnimplementedWebhookServiceServer
 // for forward compatibility.
 //
-// WebhookService handles webhook lifecycle management
+// WebhookService manages webhook registration, configuration, and lifecycle.
+// All RPCs require a namespace. Webhooks are scoped to a single namespace.
 type WebhookServiceServer interface {
-	// RegisterWebhook registers a URL for specific events in a namespace
+	// RegisterWebhook creates a new webhook registration.
+	// Accepts a target URL, a list of event names, and optional HTTP configuration.
+	// Subscriptions are created automatically for each event in the events list.
+	// Returns the generated webhook_id and created_at timestamp.
+	// Errors: ALREADY_EXISTS if the URL is already registered in the same namespace.
 	RegisterWebhook(context.Context, *RegisterWebhookRequest) (*RegisterWebhookResponse, error)
-	// UnregisterWebhook removes a webhook registration
+	// UnregisterWebhook permanently deletes a webhook and all its subscriptions.
+	// Associated delivery records are also cascade-deleted.
+	// Errors: NOT_FOUND if the webhook_id does not exist in the given namespace.
 	UnregisterWebhook(context.Context, *UnregisterWebhookRequest) (*UnregisterWebhookResponse, error)
-	// ListWebhooks lists all registered webhooks for a namespace with filters
+	// ListWebhooks returns webhooks for a namespace with optional filters.
+	// Supports filtering by event name, active status, or specific webhook_id.
+	// Results are paginated (default limit: 50). Each webhook includes its current health status.
 	ListWebhooks(context.Context, *ListWebhooksRequest) (*ListWebhooksResponse, error)
-	// UpdateWebhookConfig updates webhook configuration
+	// UpdateWebhookConfig patches one or more fields on an existing webhook.
+	// Only non-zero fields in WebhookUpdateFields are applied. Updating events replaces
+	// the full subscription set: removed events have their subscriptions deleted,
+	// new events get subscriptions created.
+	// Errors: NOT_FOUND if the webhook does not exist.
 	UpdateWebhookConfig(context.Context, *UpdateWebhookConfigRequest) (*UpdateWebhookConfigResponse, error)
-	// PauseWebhook temporarily disables a webhook
+	// PauseWebhook sets a webhook to inactive. Paused webhooks are skipped during
+	// event fan-out -- no new deliveries are created for them. Existing in-flight
+	// deliveries are not cancelled.
+	// Errors: NOT_FOUND if the webhook does not exist.
 	PauseWebhook(context.Context, *PauseWebhookRequest) (*PauseWebhookResponse, error)
-	// ResumeWebhook re-enables a paused webhook
+	// ResumeWebhook re-activates a paused webhook. Future events will again create
+	// deliveries for this webhook. Events pushed while the webhook was paused are not retroactively delivered.
+	// Errors: NOT_FOUND if the webhook does not exist.
 	ResumeWebhook(context.Context, *ResumeWebhookRequest) (*ResumeWebhookResponse, error)
-	// GetNamespaceStats retrieves statistics for a namespace
+	// GetNamespaceStats returns aggregate delivery statistics for a namespace:
+	// total/active webhooks, total/successful/failed/pending deliveries, and success rate.
 	GetNamespaceStats(context.Context, *GetNamespaceStatsRequest) (*GetNamespaceStatsResponse, error)
-	// GetTemplateFunctions returns all available template functions with their descriptions
+	// GetTemplateFunctions returns the list of Go template functions available for
+	// payload transformation in subscriptions. Each entry includes the function name
+	// and a description of its behavior.
 	GetTemplateFunctions(context.Context, *GetTemplateFunctionsRequest) (*GetTemplateFunctionsResponse, error)
 	mustEmbedUnimplementedWebhookServiceServer()
 }
@@ -420,21 +462,41 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// EventService handles event definitions and reports
+// EventService manages event type definitions and event pushing.
+// Event types must be registered before they can be pushed. Each event type
+// has a unique name (scoped to the default tenant) and an optional JSON schema
+// for payload validation.
 type EventServiceClient interface {
-	// RegisterEvent registers a new event type
+	// RegisterEvent creates a new event type definition.
+	// If a JSON schema is provided, all future PushEvent payloads for this event
+	// are validated against it. The event name is the primary identifier (not a UUID).
+	// Errors: ALREADY_EXISTS if an event with the same name already exists.
 	RegisterEvent(ctx context.Context, in *RegisterEventRequest, opts ...grpc.CallOption) (*RegisterEventResponse, error)
-	// ListEvents lists all registered event types
+	// ListEvents returns all registered event types, optionally filtered to active-only.
+	// Results are paginated.
 	ListEvents(ctx context.Context, in *ListEventsRequest, opts ...grpc.CallOption) (*ListEventsResponse, error)
-	// UpdateEvent updates an event registration
+	// UpdateEvent modifies an existing event type's description, schema, metadata, or active flag.
+	// Updating the schema does not retroactively validate previously pushed events.
+	// Errors: NOT_FOUND if the event name does not exist.
 	UpdateEvent(ctx context.Context, in *UpdateEventRequest, opts ...grpc.CallOption) (*UpdateEventResponse, error)
-	// DeleteEvent deletes an event registration
+	// DeleteEvent permanently removes an event type definition.
+	// Existing subscriptions referencing this event name are not automatically deleted.
+	// Errors: NOT_FOUND if the event name does not exist.
 	DeleteEvent(ctx context.Context, in *DeleteEventRequest, opts ...grpc.CallOption) (*DeleteEventResponse, error)
-	// GetEvent retrieves an event type by name
+	// GetEvent returns a single event type by name, including its schema and auto-generated sample payload.
+	// Errors: NOT_FOUND if the event name does not exist.
 	GetEvent(ctx context.Context, in *GetEventRequest, opts ...grpc.CallOption) (*GetEventResponse, error)
-	// PushEvent pushes an event that triggers registered webhooks
+	// PushEvent emits an event instance. This is the primary ingestion endpoint.
+	// On success, the event is persisted and a background job is enqueued to fan out
+	// deliveries to all matching subscriptions (by namespace + event_name + label_filters).
+	// The response returns immediately with the event_id; delivery happens asynchronously.
+	// If the event type has a JSON schema, the payload is validated before acceptance.
+	// Errors: INVALID_ARGUMENT if the payload fails schema validation.
+	// Errors: NOT_FOUND if the event name is not registered.
 	PushEvent(ctx context.Context, in *PushEventRequest, opts ...grpc.CallOption) (*PushEventResponse, error)
-	// ListEventReports lists all events in descending order for a given namespace
+	// ListEventReports returns pushed event instances (not type definitions) for a namespace,
+	// ordered by created_at descending. Each report includes delivery stats
+	// (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
 	ListEventReports(ctx context.Context, in *ListEventReportsRequest, opts ...grpc.CallOption) (*ListEventReportsResponse, error)
 }
 
@@ -520,21 +582,41 @@ func (c *eventServiceClient) ListEventReports(ctx context.Context, in *ListEvent
 // All implementations must embed UnimplementedEventServiceServer
 // for forward compatibility.
 //
-// EventService handles event definitions and reports
+// EventService manages event type definitions and event pushing.
+// Event types must be registered before they can be pushed. Each event type
+// has a unique name (scoped to the default tenant) and an optional JSON schema
+// for payload validation.
 type EventServiceServer interface {
-	// RegisterEvent registers a new event type
+	// RegisterEvent creates a new event type definition.
+	// If a JSON schema is provided, all future PushEvent payloads for this event
+	// are validated against it. The event name is the primary identifier (not a UUID).
+	// Errors: ALREADY_EXISTS if an event with the same name already exists.
 	RegisterEvent(context.Context, *RegisterEventRequest) (*RegisterEventResponse, error)
-	// ListEvents lists all registered event types
+	// ListEvents returns all registered event types, optionally filtered to active-only.
+	// Results are paginated.
 	ListEvents(context.Context, *ListEventsRequest) (*ListEventsResponse, error)
-	// UpdateEvent updates an event registration
+	// UpdateEvent modifies an existing event type's description, schema, metadata, or active flag.
+	// Updating the schema does not retroactively validate previously pushed events.
+	// Errors: NOT_FOUND if the event name does not exist.
 	UpdateEvent(context.Context, *UpdateEventRequest) (*UpdateEventResponse, error)
-	// DeleteEvent deletes an event registration
+	// DeleteEvent permanently removes an event type definition.
+	// Existing subscriptions referencing this event name are not automatically deleted.
+	// Errors: NOT_FOUND if the event name does not exist.
 	DeleteEvent(context.Context, *DeleteEventRequest) (*DeleteEventResponse, error)
-	// GetEvent retrieves an event type by name
+	// GetEvent returns a single event type by name, including its schema and auto-generated sample payload.
+	// Errors: NOT_FOUND if the event name does not exist.
 	GetEvent(context.Context, *GetEventRequest) (*GetEventResponse, error)
-	// PushEvent pushes an event that triggers registered webhooks
+	// PushEvent emits an event instance. This is the primary ingestion endpoint.
+	// On success, the event is persisted and a background job is enqueued to fan out
+	// deliveries to all matching subscriptions (by namespace + event_name + label_filters).
+	// The response returns immediately with the event_id; delivery happens asynchronously.
+	// If the event type has a JSON schema, the payload is validated before acceptance.
+	// Errors: INVALID_ARGUMENT if the payload fails schema validation.
+	// Errors: NOT_FOUND if the event name is not registered.
 	PushEvent(context.Context, *PushEventRequest) (*PushEventResponse, error)
-	// ListEventReports lists all events in descending order for a given namespace
+	// ListEventReports returns pushed event instances (not type definitions) for a namespace,
+	// ordered by created_at descending. Each report includes delivery stats
+	// (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
 	ListEventReports(context.Context, *ListEventReportsRequest) (*ListEventReportsResponse, error)
 	mustEmbedUnimplementedEventServiceServer()
 }
@@ -767,19 +849,36 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// SubscriptionService manages mapping of webhooks to events
+// SubscriptionService manages the mapping between webhooks and event types.
+// A subscription links one webhook to one event name within a namespace.
+// When an event is pushed, all subscriptions matching (namespace, event_name, label_filters)
+// generate a delivery. Subscriptions can optionally transform the payload using Go templates.
 type SubscriptionServiceClient interface {
-	// CreateSubscription creates a new event subscription for a webhook
+	// CreateSubscription links a webhook to an event name in a namespace.
+	// Optionally configure per-subscription headers, HTTP method override, timeout override,
+	// payload transformation (Go template), and label filters for selective matching.
+	// Errors: ALREADY_EXISTS if the webhook is already subscribed to this event in this namespace.
+	// Errors: NOT_FOUND if the webhook_id does not exist.
 	CreateSubscription(ctx context.Context, in *CreateSubscriptionRequest, opts ...grpc.CallOption) (*CreateSubscriptionResponse, error)
-	// GetSubscription retrieves a specific subscription by ID
+	// GetSubscription returns a single subscription by ID.
+	// Errors: NOT_FOUND if the subscription_id does not exist in the given namespace.
 	GetSubscription(ctx context.Context, in *GetSubscriptionRequest, opts ...grpc.CallOption) (*GetSubscriptionResponse, error)
-	// ListSubscriptions lists all subscriptions for a webhook or event
+	// ListSubscriptions returns subscriptions in a namespace, optionally filtered
+	// by webhook_id or event_name. Results are paginated.
 	ListSubscriptions(ctx context.Context, in *ListSubscriptionsRequest, opts ...grpc.CallOption) (*ListSubscriptionsResponse, error)
-	// UpdateSubscription updates an existing subscription
+	// UpdateSubscription modifies a subscription's headers, method, timeout,
+	// transform settings, or label filters. Only non-zero fields are applied.
+	// Errors: NOT_FOUND if the subscription does not exist.
 	UpdateSubscription(ctx context.Context, in *UpdateSubscriptionRequest, opts ...grpc.CallOption) (*UpdateSubscriptionResponse, error)
-	// DeleteSubscription deletes a subscription
+	// DeleteSubscription permanently removes a subscription.
+	// Existing in-flight deliveries for this subscription are not cancelled.
+	// Errors: NOT_FOUND if the subscription does not exist.
 	DeleteSubscription(ctx context.Context, in *DeleteSubscriptionRequest, opts ...grpc.CallOption) (*DeleteSubscriptionResponse, error)
-	// TestSubscriptionTemplate dry-runs a transformation template with sample data
+	// TestSubscriptionTemplate renders a Go template against the sample payload of the
+	// given event type. Returns the transformed output string. Use this to validate
+	// templates before saving them on a subscription.
+	// Errors: INVALID_ARGUMENT if the template fails to parse or execute.
+	// Errors: NOT_FOUND if the event_name does not exist.
 	TestSubscriptionTemplate(ctx context.Context, in *TestSubscriptionTemplateRequest, opts ...grpc.CallOption) (*TestSubscriptionTemplateResponse, error)
 }
 
@@ -855,19 +954,36 @@ func (c *subscriptionServiceClient) TestSubscriptionTemplate(ctx context.Context
 // All implementations must embed UnimplementedSubscriptionServiceServer
 // for forward compatibility.
 //
-// SubscriptionService manages mapping of webhooks to events
+// SubscriptionService manages the mapping between webhooks and event types.
+// A subscription links one webhook to one event name within a namespace.
+// When an event is pushed, all subscriptions matching (namespace, event_name, label_filters)
+// generate a delivery. Subscriptions can optionally transform the payload using Go templates.
 type SubscriptionServiceServer interface {
-	// CreateSubscription creates a new event subscription for a webhook
+	// CreateSubscription links a webhook to an event name in a namespace.
+	// Optionally configure per-subscription headers, HTTP method override, timeout override,
+	// payload transformation (Go template), and label filters for selective matching.
+	// Errors: ALREADY_EXISTS if the webhook is already subscribed to this event in this namespace.
+	// Errors: NOT_FOUND if the webhook_id does not exist.
 	CreateSubscription(context.Context, *CreateSubscriptionRequest) (*CreateSubscriptionResponse, error)
-	// GetSubscription retrieves a specific subscription by ID
+	// GetSubscription returns a single subscription by ID.
+	// Errors: NOT_FOUND if the subscription_id does not exist in the given namespace.
 	GetSubscription(context.Context, *GetSubscriptionRequest) (*GetSubscriptionResponse, error)
-	// ListSubscriptions lists all subscriptions for a webhook or event
+	// ListSubscriptions returns subscriptions in a namespace, optionally filtered
+	// by webhook_id or event_name. Results are paginated.
 	ListSubscriptions(context.Context, *ListSubscriptionsRequest) (*ListSubscriptionsResponse, error)
-	// UpdateSubscription updates an existing subscription
+	// UpdateSubscription modifies a subscription's headers, method, timeout,
+	// transform settings, or label filters. Only non-zero fields are applied.
+	// Errors: NOT_FOUND if the subscription does not exist.
 	UpdateSubscription(context.Context, *UpdateSubscriptionRequest) (*UpdateSubscriptionResponse, error)
-	// DeleteSubscription deletes a subscription
+	// DeleteSubscription permanently removes a subscription.
+	// Existing in-flight deliveries for this subscription are not cancelled.
+	// Errors: NOT_FOUND if the subscription does not exist.
 	DeleteSubscription(context.Context, *DeleteSubscriptionRequest) (*DeleteSubscriptionResponse, error)
-	// TestSubscriptionTemplate dry-runs a transformation template with sample data
+	// TestSubscriptionTemplate renders a Go template against the sample payload of the
+	// given event type. Returns the transformed output string. Use this to validate
+	// templates before saving them on a subscription.
+	// Errors: INVALID_ARGUMENT if the template fails to parse or execute.
+	// Errors: NOT_FOUND if the event_name does not exist.
 	TestSubscriptionTemplate(context.Context, *TestSubscriptionTemplateRequest) (*TestSubscriptionTemplateResponse, error)
 	mustEmbedUnimplementedSubscriptionServiceServer()
 }
@@ -1073,15 +1189,27 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// DeliveryService tracks history and handles retries
+// DeliveryService provides read access to delivery history and manual retry control.
+// Deliveries are created automatically when an event is pushed. Each delivery
+// tracks its status (pending -> sending -> success/failed/retrying/expired),
+// HTTP response code, response body (up to 1 KB by default, 1 MB if capture_response_body is enabled),
+// error classification, and per-attempt history.
 type DeliveryServiceClient interface {
-	// GetDeliveryStatus retrieves delivery status for specific delivery
+	// GetDeliveryStatus returns full details of a single delivery, including
+	// request body, response body, response code, error category, and retry state.
+	// Errors: NOT_FOUND if the delivery_id does not exist in the given namespace.
 	GetDeliveryStatus(ctx context.Context, in *GetDeliveryStatusRequest, opts ...grpc.CallOption) (*GetDeliveryStatusResponse, error)
-	// ListDeliveries retrieves delivery history with filters
+	// ListDeliveries returns delivery records for a namespace, optionally filtered
+	// by webhook_id or event_id. Ordered by created_at descending. Paginated.
 	ListDeliveries(ctx context.Context, in *ListDeliveriesRequest, opts ...grpc.CallOption) (*ListDeliveriesResponse, error)
-	// RetryDelivery manually retries failed or pending webhook deliveries
+	// RetryDelivery re-enqueues deliveries for processing.
+	// Can target a specific delivery_id, all failed/pending deliveries for a webhook_id,
+	// or both. Set force=true to retry even successful deliveries.
+	// Returns the count and IDs of deliveries that were re-enqueued.
 	RetryDelivery(ctx context.Context, in *RetryDeliveryRequest, opts ...grpc.CallOption) (*RetryDeliveryResponse, error)
-	// GetDeliveryAttempts retrieves individual attempt history for a delivery
+	// GetDeliveryAttempts returns the per-attempt history for a delivery, ordered by timestamp.
+	// Each attempt includes response_time, response_code, error_message, and error_category.
+	// Errors: INVALID_ARGUMENT if delivery_id is empty.
 	GetDeliveryAttempts(ctx context.Context, in *GetDeliveryAttemptsRequest, opts ...grpc.CallOption) (*GetDeliveryAttemptsResponse, error)
 }
 
@@ -1137,15 +1265,27 @@ func (c *deliveryServiceClient) GetDeliveryAttempts(ctx context.Context, in *Get
 // All implementations must embed UnimplementedDeliveryServiceServer
 // for forward compatibility.
 //
-// DeliveryService tracks history and handles retries
+// DeliveryService provides read access to delivery history and manual retry control.
+// Deliveries are created automatically when an event is pushed. Each delivery
+// tracks its status (pending -> sending -> success/failed/retrying/expired),
+// HTTP response code, response body (up to 1 KB by default, 1 MB if capture_response_body is enabled),
+// error classification, and per-attempt history.
 type DeliveryServiceServer interface {
-	// GetDeliveryStatus retrieves delivery status for specific delivery
+	// GetDeliveryStatus returns full details of a single delivery, including
+	// request body, response body, response code, error category, and retry state.
+	// Errors: NOT_FOUND if the delivery_id does not exist in the given namespace.
 	GetDeliveryStatus(context.Context, *GetDeliveryStatusRequest) (*GetDeliveryStatusResponse, error)
-	// ListDeliveries retrieves delivery history with filters
+	// ListDeliveries returns delivery records for a namespace, optionally filtered
+	// by webhook_id or event_id. Ordered by created_at descending. Paginated.
 	ListDeliveries(context.Context, *ListDeliveriesRequest) (*ListDeliveriesResponse, error)
-	// RetryDelivery manually retries failed or pending webhook deliveries
+	// RetryDelivery re-enqueues deliveries for processing.
+	// Can target a specific delivery_id, all failed/pending deliveries for a webhook_id,
+	// or both. Set force=true to retry even successful deliveries.
+	// Returns the count and IDs of deliveries that were re-enqueued.
 	RetryDelivery(context.Context, *RetryDeliveryRequest) (*RetryDeliveryResponse, error)
-	// GetDeliveryAttempts retrieves individual attempt history for a delivery
+	// GetDeliveryAttempts returns the per-attempt history for a delivery, ordered by timestamp.
+	// Each attempt includes response_time, response_code, error_message, and error_category.
+	// Errors: INVALID_ARGUMENT if delivery_id is empty.
 	GetDeliveryAttempts(context.Context, *GetDeliveryAttemptsRequest) (*GetDeliveryAttemptsResponse, error)
 	mustEmbedUnimplementedDeliveryServiceServer()
 }
@@ -1300,13 +1440,21 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// HealthService manages health metrics and summaries
+// HealthService provides webhook health metrics derived from delivery outcomes.
+// Health is computed per-webhook based on success rate and consecutive failures:
+// HEALTHY (>90% success, <3 consecutive failures), DEGRADED (50-90% or 3-9 consecutive),
+// UNHEALTHY (<50% or 10+ consecutive failures).
 type HealthServiceClient interface {
-	// GetWebhookHealth gets health metrics for a specific webhook
+	// GetWebhookHealth returns health status and detailed metrics for a single webhook:
+	// total/successful/failed deliveries, consecutive failures, success rate, avg response time,
+	// and error category breakdown (client/server/timeout/network errors).
+	// Returns HEALTH_UNSPECIFIED with no metrics if the webhook has no delivery history.
 	GetWebhookHealth(ctx context.Context, in *GetWebhookHealthRequest, opts ...grpc.CallOption) (*GetWebhookHealthResponse, error)
-	// ListWebhooksByHealth lists webhooks filtered by health status
+	// ListWebhooksByHealth returns all webhooks matching a given health status.
+	// Useful for finding degraded or unhealthy endpoints. Paginated.
 	ListWebhooksByHealth(ctx context.Context, in *ListWebhooksByHealthRequest, opts ...grpc.CallOption) (*ListWebhooksByHealthResponse, error)
-	// GetHealthSummary gets a summary of webhook health across all namespaces
+	// GetHealthSummary returns aggregate counts of webhooks by health status
+	// (healthy, degraded, unhealthy, unknown) across all namespaces.
 	GetHealthSummary(ctx context.Context, in *GetHealthSummaryRequest, opts ...grpc.CallOption) (*GetHealthSummaryResponse, error)
 }
 
@@ -1352,13 +1500,21 @@ func (c *healthServiceClient) GetHealthSummary(ctx context.Context, in *GetHealt
 // All implementations must embed UnimplementedHealthServiceServer
 // for forward compatibility.
 //
-// HealthService manages health metrics and summaries
+// HealthService provides webhook health metrics derived from delivery outcomes.
+// Health is computed per-webhook based on success rate and consecutive failures:
+// HEALTHY (>90% success, <3 consecutive failures), DEGRADED (50-90% or 3-9 consecutive),
+// UNHEALTHY (<50% or 10+ consecutive failures).
 type HealthServiceServer interface {
-	// GetWebhookHealth gets health metrics for a specific webhook
+	// GetWebhookHealth returns health status and detailed metrics for a single webhook:
+	// total/successful/failed deliveries, consecutive failures, success rate, avg response time,
+	// and error category breakdown (client/server/timeout/network errors).
+	// Returns HEALTH_UNSPECIFIED with no metrics if the webhook has no delivery history.
 	GetWebhookHealth(context.Context, *GetWebhookHealthRequest) (*GetWebhookHealthResponse, error)
-	// ListWebhooksByHealth lists webhooks filtered by health status
+	// ListWebhooksByHealth returns all webhooks matching a given health status.
+	// Useful for finding degraded or unhealthy endpoints. Paginated.
 	ListWebhooksByHealth(context.Context, *ListWebhooksByHealthRequest) (*ListWebhooksByHealthResponse, error)
-	// GetHealthSummary gets a summary of webhook health across all namespaces
+	// GetHealthSummary returns aggregate counts of webhooks by health status
+	// (healthy, degraded, unhealthy, unknown) across all namespaces.
 	GetHealthSummary(context.Context, *GetHealthSummaryRequest) (*GetHealthSummaryResponse, error)
 	mustEmbedUnimplementedHealthServiceServer()
 }
@@ -1472,278 +1628,6 @@ var HealthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetHealthSummary",
 			Handler:    _HealthService_GetHealthSummary_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/webhook.proto",
-}
-
-const (
-	NamespaceService_CreateNamespace_FullMethodName = "/webhook.NamespaceService/CreateNamespace"
-	NamespaceService_GetNamespace_FullMethodName    = "/webhook.NamespaceService/GetNamespace"
-	NamespaceService_ListNamespaces_FullMethodName  = "/webhook.NamespaceService/ListNamespaces"
-	NamespaceService_UpdateNamespace_FullMethodName = "/webhook.NamespaceService/UpdateNamespace"
-	NamespaceService_DeleteNamespace_FullMethodName = "/webhook.NamespaceService/DeleteNamespace"
-)
-
-// NamespaceServiceClient is the client API for NamespaceService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-//
-// NamespaceService manages namespace lifecycle within a tenant.
-// Namespaces are sub-tenant scopes used to isolate webhooks, subscriptions,
-// deliveries, and other resources.
-type NamespaceServiceClient interface {
-	// CreateNamespace creates a new namespace within the caller's tenant
-	CreateNamespace(ctx context.Context, in *CreateNamespaceRequest, opts ...grpc.CallOption) (*CreateNamespaceResponse, error)
-	// GetNamespace retrieves a namespace by ID
-	GetNamespace(ctx context.Context, in *GetNamespaceRequest, opts ...grpc.CallOption) (*GetNamespaceResponse, error)
-	// ListNamespaces lists namespaces for the caller's tenant
-	ListNamespaces(ctx context.Context, in *ListNamespacesRequest, opts ...grpc.CallOption) (*ListNamespacesResponse, error)
-	// UpdateNamespace updates a namespace's name or description
-	UpdateNamespace(ctx context.Context, in *UpdateNamespaceRequest2, opts ...grpc.CallOption) (*UpdateNamespaceResponse2, error)
-	// DeleteNamespace deletes a namespace
-	DeleteNamespace(ctx context.Context, in *DeleteNamespaceRequest, opts ...grpc.CallOption) (*DeleteNamespaceResponse2, error)
-}
-
-type namespaceServiceClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewNamespaceServiceClient(cc grpc.ClientConnInterface) NamespaceServiceClient {
-	return &namespaceServiceClient{cc}
-}
-
-func (c *namespaceServiceClient) CreateNamespace(ctx context.Context, in *CreateNamespaceRequest, opts ...grpc.CallOption) (*CreateNamespaceResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CreateNamespaceResponse)
-	err := c.cc.Invoke(ctx, NamespaceService_CreateNamespace_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *namespaceServiceClient) GetNamespace(ctx context.Context, in *GetNamespaceRequest, opts ...grpc.CallOption) (*GetNamespaceResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetNamespaceResponse)
-	err := c.cc.Invoke(ctx, NamespaceService_GetNamespace_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *namespaceServiceClient) ListNamespaces(ctx context.Context, in *ListNamespacesRequest, opts ...grpc.CallOption) (*ListNamespacesResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListNamespacesResponse)
-	err := c.cc.Invoke(ctx, NamespaceService_ListNamespaces_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *namespaceServiceClient) UpdateNamespace(ctx context.Context, in *UpdateNamespaceRequest2, opts ...grpc.CallOption) (*UpdateNamespaceResponse2, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(UpdateNamespaceResponse2)
-	err := c.cc.Invoke(ctx, NamespaceService_UpdateNamespace_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *namespaceServiceClient) DeleteNamespace(ctx context.Context, in *DeleteNamespaceRequest, opts ...grpc.CallOption) (*DeleteNamespaceResponse2, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(DeleteNamespaceResponse2)
-	err := c.cc.Invoke(ctx, NamespaceService_DeleteNamespace_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// NamespaceServiceServer is the server API for NamespaceService service.
-// All implementations must embed UnimplementedNamespaceServiceServer
-// for forward compatibility.
-//
-// NamespaceService manages namespace lifecycle within a tenant.
-// Namespaces are sub-tenant scopes used to isolate webhooks, subscriptions,
-// deliveries, and other resources.
-type NamespaceServiceServer interface {
-	// CreateNamespace creates a new namespace within the caller's tenant
-	CreateNamespace(context.Context, *CreateNamespaceRequest) (*CreateNamespaceResponse, error)
-	// GetNamespace retrieves a namespace by ID
-	GetNamespace(context.Context, *GetNamespaceRequest) (*GetNamespaceResponse, error)
-	// ListNamespaces lists namespaces for the caller's tenant
-	ListNamespaces(context.Context, *ListNamespacesRequest) (*ListNamespacesResponse, error)
-	// UpdateNamespace updates a namespace's name or description
-	UpdateNamespace(context.Context, *UpdateNamespaceRequest2) (*UpdateNamespaceResponse2, error)
-	// DeleteNamespace deletes a namespace
-	DeleteNamespace(context.Context, *DeleteNamespaceRequest) (*DeleteNamespaceResponse2, error)
-	mustEmbedUnimplementedNamespaceServiceServer()
-}
-
-// UnimplementedNamespaceServiceServer must be embedded to have
-// forward compatible implementations.
-//
-// NOTE: this should be embedded by value instead of pointer to avoid a nil
-// pointer dereference when methods are called.
-type UnimplementedNamespaceServiceServer struct{}
-
-func (UnimplementedNamespaceServiceServer) CreateNamespace(context.Context, *CreateNamespaceRequest) (*CreateNamespaceResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method CreateNamespace not implemented")
-}
-func (UnimplementedNamespaceServiceServer) GetNamespace(context.Context, *GetNamespaceRequest) (*GetNamespaceResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetNamespace not implemented")
-}
-func (UnimplementedNamespaceServiceServer) ListNamespaces(context.Context, *ListNamespacesRequest) (*ListNamespacesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListNamespaces not implemented")
-}
-func (UnimplementedNamespaceServiceServer) UpdateNamespace(context.Context, *UpdateNamespaceRequest2) (*UpdateNamespaceResponse2, error) {
-	return nil, status.Error(codes.Unimplemented, "method UpdateNamespace not implemented")
-}
-func (UnimplementedNamespaceServiceServer) DeleteNamespace(context.Context, *DeleteNamespaceRequest) (*DeleteNamespaceResponse2, error) {
-	return nil, status.Error(codes.Unimplemented, "method DeleteNamespace not implemented")
-}
-func (UnimplementedNamespaceServiceServer) mustEmbedUnimplementedNamespaceServiceServer() {}
-func (UnimplementedNamespaceServiceServer) testEmbeddedByValue()                          {}
-
-// UnsafeNamespaceServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to NamespaceServiceServer will
-// result in compilation errors.
-type UnsafeNamespaceServiceServer interface {
-	mustEmbedUnimplementedNamespaceServiceServer()
-}
-
-func RegisterNamespaceServiceServer(s grpc.ServiceRegistrar, srv NamespaceServiceServer) {
-	// If the following call panics, it indicates UnimplementedNamespaceServiceServer was
-	// embedded by pointer and is nil.  This will cause panics if an
-	// unimplemented method is ever invoked, so we test this at initialization
-	// time to prevent it from happening at runtime later due to I/O.
-	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
-		t.testEmbeddedByValue()
-	}
-	s.RegisterService(&NamespaceService_ServiceDesc, srv)
-}
-
-func _NamespaceService_CreateNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateNamespaceRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NamespaceServiceServer).CreateNamespace(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: NamespaceService_CreateNamespace_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NamespaceServiceServer).CreateNamespace(ctx, req.(*CreateNamespaceRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _NamespaceService_GetNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetNamespaceRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NamespaceServiceServer).GetNamespace(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: NamespaceService_GetNamespace_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NamespaceServiceServer).GetNamespace(ctx, req.(*GetNamespaceRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _NamespaceService_ListNamespaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListNamespacesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NamespaceServiceServer).ListNamespaces(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: NamespaceService_ListNamespaces_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NamespaceServiceServer).ListNamespaces(ctx, req.(*ListNamespacesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _NamespaceService_UpdateNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateNamespaceRequest2)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NamespaceServiceServer).UpdateNamespace(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: NamespaceService_UpdateNamespace_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NamespaceServiceServer).UpdateNamespace(ctx, req.(*UpdateNamespaceRequest2))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _NamespaceService_DeleteNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteNamespaceRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NamespaceServiceServer).DeleteNamespace(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: NamespaceService_DeleteNamespace_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NamespaceServiceServer).DeleteNamespace(ctx, req.(*DeleteNamespaceRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// NamespaceService_ServiceDesc is the grpc.ServiceDesc for NamespaceService service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var NamespaceService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "webhook.NamespaceService",
-	HandlerType: (*NamespaceServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "CreateNamespace",
-			Handler:    _NamespaceService_CreateNamespace_Handler,
-		},
-		{
-			MethodName: "GetNamespace",
-			Handler:    _NamespaceService_GetNamespace_Handler,
-		},
-		{
-			MethodName: "ListNamespaces",
-			Handler:    _NamespaceService_ListNamespaces_Handler,
-		},
-		{
-			MethodName: "UpdateNamespace",
-			Handler:    _NamespaceService_UpdateNamespace_Handler,
-		},
-		{
-			MethodName: "DeleteNamespace",
-			Handler:    _NamespaceService_DeleteNamespace_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

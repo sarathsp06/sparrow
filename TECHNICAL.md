@@ -65,7 +65,7 @@ The same gRPC service implementations back both protocols -- no code duplication
 - **gRPC** on `:50051` for high-performance programmatic access
 - **Connect-RPC (HTTP/JSON)** on `:8080` for curl, browsers, and any HTTP client
 
-Six services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`, `NamespaceService`.
+Five proto-defined services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`. A separate `NamespaceService` is implemented directly in Go (no proto definition) for namespace CRUD.
 
 ---
 

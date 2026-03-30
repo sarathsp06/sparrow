@@ -7,820 +7,1628 @@ import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/sarathsp06/sparrow/proto";
 
-// WebhookService handles webhook lifecycle management
+// WebhookService manages webhook registration, configuration, and lifecycle.
+// All RPCs require a namespace. Webhooks are scoped to a single namespace.
 service WebhookService {
-  // RegisterWebhook registers a URL for specific events in a namespace
+  // RegisterWebhook creates a new webhook registration.
+  // Accepts a target URL, a list of event names, and optional HTTP configuration.
+  // Subscriptions are created automatically for each event in the events list.
+  // Returns the generated webhook_id and created_at timestamp.
+  // Errors: ALREADY_EXISTS if the URL is already registered in the same namespace.
   rpc RegisterWebhook(RegisterWebhookRequest) returns (RegisterWebhookResponse);
 
-  // UnregisterWebhook removes a webhook registration
+  // UnregisterWebhook permanently deletes a webhook and all its subscriptions.
+  // Associated delivery records are also cascade-deleted.
+  // Errors: NOT_FOUND if the webhook_id does not exist in the given namespace.
   rpc UnregisterWebhook(UnregisterWebhookRequest) returns (UnregisterWebhookResponse);
 
-  // ListWebhooks lists all registered webhooks for a namespace with filters
+  // ListWebhooks returns webhooks for a namespace with optional filters.
+  // Supports filtering by event name, active status, or specific webhook_id.
+  // Results are paginated (default limit: 50). Each webhook includes its current health status.
   rpc ListWebhooks(ListWebhooksRequest) returns (ListWebhooksResponse);
 
-  // UpdateWebhookConfig updates webhook configuration
+  // UpdateWebhookConfig patches one or more fields on an existing webhook.
+  // Only non-zero fields in WebhookUpdateFields are applied. Updating events replaces
+  // the full subscription set: removed events have their subscriptions deleted,
+  // new events get subscriptions created.
+  // Errors: NOT_FOUND if the webhook does not exist.
   rpc UpdateWebhookConfig(UpdateWebhookConfigRequest) returns (UpdateWebhookConfigResponse);
 
-  // PauseWebhook temporarily disables a webhook
+  // PauseWebhook sets a webhook to inactive. Paused webhooks are skipped during
+  // event fan-out -- no new deliveries are created for them. Existing in-flight
+  // deliveries are not cancelled.
+  // Errors: NOT_FOUND if the webhook does not exist.
   rpc PauseWebhook(PauseWebhookRequest) returns (PauseWebhookResponse);
 
-  // ResumeWebhook re-enables a paused webhook
+  // ResumeWebhook re-activates a paused webhook. Future events will again create
+  // deliveries for this webhook. Events pushed while the webhook was paused are not retroactively delivered.
+  // Errors: NOT_FOUND if the webhook does not exist.
   rpc ResumeWebhook(ResumeWebhookRequest) returns (ResumeWebhookResponse);
 
-  // GetNamespaceStats retrieves statistics for a namespace
+  // GetNamespaceStats returns aggregate delivery statistics for a namespace:
+  // total/active webhooks, total/successful/failed/pending deliveries, and success rate.
   rpc GetNamespaceStats(GetNamespaceStatsRequest) returns (GetNamespaceStatsResponse);
 
-  // GetTemplateFunctions returns all available template functions with their descriptions
+  // GetTemplateFunctions returns the list of Go template functions available for
+  // payload transformation in subscriptions. Each entry includes the function name
+  // and a description of its behavior.
   rpc GetTemplateFunctions(GetTemplateFunctionsRequest) returns (GetTemplateFunctionsResponse);
 }
 
-// EventService handles event definitions and reports
+// EventService manages event type definitions and event pushing.
+// Event types must be registered before they can be pushed. Each event type
+// has a unique name (scoped to the default tenant) and an optional JSON schema
+// for payload validation.
 service EventService {
-  // RegisterEvent registers a new event type
+  // RegisterEvent creates a new event type definition.
+  // If a JSON schema is provided, all future PushEvent payloads for this event
+  // are validated against it. The event name is the primary identifier (not a UUID).
+  // Errors: ALREADY_EXISTS if an event with the same name already exists.
   rpc RegisterEvent(RegisterEventRequest) returns (RegisterEventResponse);
 
-  // ListEvents lists all registered event types
+  // ListEvents returns all registered event types, optionally filtered to active-only.
+  // Results are paginated.
   rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
 
-  // UpdateEvent updates an event registration
+  // UpdateEvent modifies an existing event type's description, schema, metadata, or active flag.
+  // Updating the schema does not retroactively validate previously pushed events.
+  // Errors: NOT_FOUND if the event name does not exist.
   rpc UpdateEvent(UpdateEventRequest) returns (UpdateEventResponse);
 
-  // DeleteEvent deletes an event registration
+  // DeleteEvent permanently removes an event type definition.
+  // Existing subscriptions referencing this event name are not automatically deleted.
+  // Errors: NOT_FOUND if the event name does not exist.
   rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse);
 
-  // GetEvent retrieves an event type by name
+  // GetEvent returns a single event type by name, including its schema and auto-generated sample payload.
+  // Errors: NOT_FOUND if the event name does not exist.
   rpc GetEvent(GetEventRequest) returns (GetEventResponse);
 
-  // PushEvent pushes an event that triggers registered webhooks
+  // PushEvent emits an event instance. This is the primary ingestion endpoint.
+  // On success, the event is persisted and a background job is enqueued to fan out
+  // deliveries to all matching subscriptions (by namespace + event_name + label_filters).
+  // The response returns immediately with the event_id; delivery happens asynchronously.
+  // If the event type has a JSON schema, the payload is validated before acceptance.
+  // Errors: INVALID_ARGUMENT if the payload fails schema validation.
+  // Errors: NOT_FOUND if the event name is not registered.
   rpc PushEvent(PushEventRequest) returns (PushEventResponse);
 
-  // ListEventReports lists all events in descending order for a given namespace
+  // ListEventReports returns pushed event instances (not type definitions) for a namespace,
+  // ordered by created_at descending. Each report includes delivery stats
+  // (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
   rpc ListEventReports(ListEventReportsRequest) returns (ListEventReportsResponse);
 }
 
-// SubscriptionService manages mapping of webhooks to events
+// SubscriptionService manages the mapping between webhooks and event types.
+// A subscription links one webhook to one event name within a namespace.
+// When an event is pushed, all subscriptions matching (namespace, event_name, label_filters)
+// generate a delivery. Subscriptions can optionally transform the payload using Go templates.
 service SubscriptionService {
-  // CreateSubscription creates a new event subscription for a webhook
+  // CreateSubscription links a webhook to an event name in a namespace.
+  // Optionally configure per-subscription headers, HTTP method override, timeout override,
+  // payload transformation (Go template), and label filters for selective matching.
+  // Errors: ALREADY_EXISTS if the webhook is already subscribed to this event in this namespace.
+  // Errors: NOT_FOUND if the webhook_id does not exist.
   rpc CreateSubscription(CreateSubscriptionRequest) returns (CreateSubscriptionResponse);
 
-  // GetSubscription retrieves a specific subscription by ID
+  // GetSubscription returns a single subscription by ID.
+  // Errors: NOT_FOUND if the subscription_id does not exist in the given namespace.
   rpc GetSubscription(GetSubscriptionRequest) returns (GetSubscriptionResponse);
 
-  // ListSubscriptions lists all subscriptions for a webhook or event
+  // ListSubscriptions returns subscriptions in a namespace, optionally filtered
+  // by webhook_id or event_name. Results are paginated.
   rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
 
-  // UpdateSubscription updates an existing subscription
+  // UpdateSubscription modifies a subscription's headers, method, timeout,
+  // transform settings, or label filters. Only non-zero fields are applied.
+  // Errors: NOT_FOUND if the subscription does not exist.
   rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
 
-  // DeleteSubscription deletes a subscription
+  // DeleteSubscription permanently removes a subscription.
+  // Existing in-flight deliveries for this subscription are not cancelled.
+  // Errors: NOT_FOUND if the subscription does not exist.
   rpc DeleteSubscription(DeleteSubscriptionRequest) returns (DeleteSubscriptionResponse);
 
-  // TestSubscriptionTemplate dry-runs a transformation template with sample data
+  // TestSubscriptionTemplate renders a Go template against the sample payload of the
+  // given event type. Returns the transformed output string. Use this to validate
+  // templates before saving them on a subscription.
+  // Errors: INVALID_ARGUMENT if the template fails to parse or execute.
+  // Errors: NOT_FOUND if the event_name does not exist.
   rpc TestSubscriptionTemplate(TestSubscriptionTemplateRequest) returns (TestSubscriptionTemplateResponse);
 }
 
-// DeliveryService tracks history and handles retries
+// DeliveryService provides read access to delivery history and manual retry control.
+// Deliveries are created automatically when an event is pushed. Each delivery
+// tracks its status (pending -> sending -> success/failed/retrying/expired),
+// HTTP response code, response body (up to 1 KB by default, 1 MB if capture_response_body is enabled),
+// error classification, and per-attempt history.
 service DeliveryService {
-  // GetDeliveryStatus retrieves delivery status for specific delivery
+  // GetDeliveryStatus returns full details of a single delivery, including
+  // request body, response body, response code, error category, and retry state.
+  // Errors: NOT_FOUND if the delivery_id does not exist in the given namespace.
   rpc GetDeliveryStatus(GetDeliveryStatusRequest) returns (GetDeliveryStatusResponse);
 
-  // ListDeliveries retrieves delivery history with filters
+  // ListDeliveries returns delivery records for a namespace, optionally filtered
+  // by webhook_id or event_id. Ordered by created_at descending. Paginated.
   rpc ListDeliveries(ListDeliveriesRequest) returns (ListDeliveriesResponse);
 
-  // RetryDelivery manually retries failed or pending webhook deliveries
+  // RetryDelivery re-enqueues deliveries for processing.
+  // Can target a specific delivery_id, all failed/pending deliveries for a webhook_id,
+  // or both. Set force=true to retry even successful deliveries.
+  // Returns the count and IDs of deliveries that were re-enqueued.
   rpc RetryDelivery(RetryDeliveryRequest) returns (RetryDeliveryResponse);
 
-  // GetDeliveryAttempts retrieves individual attempt history for a delivery
+  // GetDeliveryAttempts returns the per-attempt history for a delivery, ordered by timestamp.
+  // Each attempt includes response_time, response_code, error_message, and error_category.
+  // Errors: INVALID_ARGUMENT if delivery_id is empty.
   rpc GetDeliveryAttempts(GetDeliveryAttemptsRequest) returns (GetDeliveryAttemptsResponse);
 }
 
-// HealthService manages health metrics and summaries
+// HealthService provides webhook health metrics derived from delivery outcomes.
+// Health is computed per-webhook based on success rate and consecutive failures:
+// HEALTHY (>90% success, <3 consecutive failures), DEGRADED (50-90% or 3-9 consecutive),
+// UNHEALTHY (<50% or 10+ consecutive failures).
 service HealthService {
-  // GetWebhookHealth gets health metrics for a specific webhook
+  // GetWebhookHealth returns health status and detailed metrics for a single webhook:
+  // total/successful/failed deliveries, consecutive failures, success rate, avg response time,
+  // and error category breakdown (client/server/timeout/network errors).
+  // Returns HEALTH_UNSPECIFIED with no metrics if the webhook has no delivery history.
   rpc GetWebhookHealth(GetWebhookHealthRequest) returns (GetWebhookHealthResponse);
 
-  // ListWebhooksByHealth lists webhooks filtered by health status
+  // ListWebhooksByHealth returns all webhooks matching a given health status.
+  // Useful for finding degraded or unhealthy endpoints. Paginated.
   rpc ListWebhooksByHealth(ListWebhooksByHealthRequest) returns (ListWebhooksByHealthResponse);
 
-  // GetHealthSummary gets a summary of webhook health across all namespaces
+  // GetHealthSummary returns aggregate counts of webhooks by health status
+  // (healthy, degraded, unhealthy, unknown) across all namespaces.
   rpc GetHealthSummary(GetHealthSummaryRequest) returns (GetHealthSummaryResponse);
 }
 
-// WebhookHTTPConfig represents HTTP configuration for webhook delivery
-message WebhookHTTPConfig {
-  int32 max_retries = 1; // Maximum retry attempts (0-10, default: 3)
-  int32 retry_backoff_seconds = 2; // Base backoff time between retries (1-3600s, default: 60)
-  bool capture_response_body = 3; // Whether to capture and store response body (default: false)
-  bool follow_redirects = 4; // Whether to follow HTTP redirects (default: true)
-  bool verify_ssl = 5; // Whether to verify SSL certificates (default: true)
-  int32 request_timeout_seconds = 6; // Per-request timeout (1-300s, default: 30)
-  repeated int32 expected_status_codes = 7; // HTTP status codes considered successful (default: [200,201,202,204])
-  string webhook_secret = 8; // Secret for webhook signature verification
-  string user_agent = 9; // Custom User-Agent header (default: "Sparrow-Webhook/1.0")
-  string content_type = 10; // Content-Type for requests (default: "application/json")
+// ---------------------------------------------------------------------------
+// Shared types
+// ---------------------------------------------------------------------------
+
+// PaginationRequest specifies offset-based pagination parameters.
+// Used by all List* RPCs. If omitted, the server uses default limit=50, offset=0.
+message PaginationRequest {
+  // Maximum number of items to return. Clamped to server max (typically 250).
+  // Default: 50.
+  int32 limit = 1;
+
+  // Number of items to skip before returning results. Default: 0.
+  int32 offset = 2;
 }
 
-// RegisterWebhookRequest represents a request to register a webhook URL
-message RegisterWebhookRequest {
-  string namespace = 1; // Namespace for grouping webhooks
-  repeated string events = 2; // Event names to listen for (multiple events supported)
-  string url = 3; // Target URL for the webhook
-  map<string, string> headers = 4; // HTTP headers to include in requests
-  int32 timeout = 5; // Timeout in seconds (default: 30) - DEPRECATED, use http_config.request_timeout_seconds
-  bool active = 6; // Whether webhook is active (default: true)
-  string description = 7; // Optional description
-  WebhookHTTPConfig http_config = 8; // HTTP configuration options (optional, defaults will be used if not provided)
+// PaginationResponse returns pagination metadata alongside list results.
+// Clients can compute has_more as (offset + limit < total_count).
+message PaginationResponse {
+  // Total number of items matching the query (ignoring limit/offset).
+  int32 total_count = 1;
+
+  // The limit that was applied to this response.
+  int32 limit = 2;
+
+  // The offset that was applied to this response.
+  int32 offset = 3;
 }
 
-// RegisterWebhookResponse represents the response for webhook registration
-message RegisterWebhookResponse {
-  string webhook_id = 1; // Unique webhook identifier
-  bool success = 2 [deprecated = true]; // Use gRPC status codes instead
-  string message = 3 [deprecated = true]; // Use gRPC status codes instead
-  google.protobuf.Timestamp created_at = 4; // When the webhook was registered
-}
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
 
-// UnregisterWebhookRequest represents a request to remove a webhook
-message UnregisterWebhookRequest {
-  string webhook_id = 1; // Webhook ID to remove
-  string namespace = 2; // Namespace (required)
-}
-
-// UnregisterWebhookResponse represents the response for webhook removal
-message UnregisterWebhookResponse {
-  bool success = 1 [deprecated = true]; // Use gRPC status codes instead
-  string message = 2 [deprecated = true]; // Use gRPC status codes instead
-}
-
-// PushEventRequest represents a request to push an event
-message PushEventRequest {
-  string namespace = 1; // Namespace for the event
-  string event = 2; // Event name
-  google.protobuf.Struct payload = 3; // Event payload as JSON struct
-  int64 ttl_seconds = 4; // TTL for webhook retry attempts
-  map<string, string> metadata = 5; // Additional event metadata
-  optional string id = 6; // Optional id for idempotency 
-  map<string, string> labels = 7; // Optional labels for label-based subscription matching
-}
-
-// PushEventResponse represents the response for event pushing
-message PushEventResponse {
-  string event_id = 1; // Unique event identifier
-  bool success = 2 [deprecated = true]; // Use gRPC status codes instead
-  string message = 3 [deprecated = true]; // Use gRPC status codes instead
-}
-
-// WebhookDeliveryStatus represents the status of webhook delivery
+// WebhookDeliveryStatus tracks the lifecycle of a single delivery.
+//
+// State transitions:
+//   PENDING -> SENDING -> SUCCESS
+//   PENDING -> SENDING -> RETRYING -> SENDING -> ... -> SUCCESS | FAILED | EXPIRED
+//
+// Terminal states: SUCCESS, FAILED, EXPIRED.
 enum WebhookDeliveryStatus {
+  // Default zero value. Never set by the system; indicates an uninitialized field.
   DELIVERY_UNSPECIFIED = 0;
+
+  // Delivery is queued but has not been attempted yet.
   DELIVERY_PENDING = 1;
+
+  // Delivery is currently being sent (HTTP request in flight).
   DELIVERY_SENDING = 2;
+
+  // Delivery succeeded. The webhook endpoint returned an expected status code
+  // (default: 200, 201, 202, 204 -- configurable via expected_status_codes).
   DELIVERY_SUCCESS = 3;
+
+  // Delivery failed permanently. All retry attempts exhausted or the error
+  // is classified as non-retryable (client_error, dns_error, tls_error).
   DELIVERY_FAILED = 4;
+
+  // Delivery failed but will be retried. Applies to retryable error categories:
+  // server_error (5xx), timeout, connection_refused, network_error.
+  // The next_retry_at field indicates when the next attempt is scheduled.
   DELIVERY_RETRYING = 5;
+
+  // Delivery TTL elapsed before it could succeed. The event's ttl_seconds
+  // determines the expiration window. No further retries will be attempted.
   DELIVERY_EXPIRED = 6;
 }
 
-// WebhookDelivery represents a single webhook delivery attempt
-message WebhookDelivery {
-  string delivery_id = 1; // Unique delivery identifier
-  string webhook_id = 2; // Associated webhook ID
-  string event_id = 3; // Associated event ID
-  WebhookDeliveryStatus status = 4; // Current delivery status
-  int32 attempt_count = 5; // Number of delivery attempts
-  int32 max_attempts = 6; // Maximum retry attempts
-  google.protobuf.Timestamp created_at = 7; // When delivery was created
-  google.protobuf.Timestamp last_attempted_at = 8; // Last attempt timestamp
-  google.protobuf.Timestamp next_retry_at = 9; // Next retry timestamp
-  google.protobuf.Timestamp expires_at = 10; // When delivery expires (TTL)
-  int32 response_code = 11; // HTTP response code from last attempt
-  string response_body = 12; // HTTP response body (truncated)
-  string error_message = 13; // Error message if failed
-  string request_body = 14; // Request body sent to webhook
-  string error_category = 15; // Classified error category (e.g. client_error, server_error, timeout, network_error)
-}
-
-// ListWebhooksRequest represents a request to list webhooks
-message ListWebhooksRequest {
-  string namespace = 1; // Namespace to filter by (required)
-  string event = 2; // Event to filter by (optional)
-  bool active_only = 3; // Only return active webhooks
-  PaginationRequest pagination = 4; // Optional pagination
-  string webhook_id = 5; // Optional webhook ID filter
-}
-
-// RegisteredWebhook represents a registered webhook
-message RegisteredWebhook {
-  string webhook_id = 1; // Unique webhook identifier
-  string namespace = 2; // Webhook namespace
-  repeated string events = 3; // Events the webhook listens for
-  string url = 4; // Target URL
-  map<string, string> headers = 5; // HTTP headers
-  int32 timeout = 6; // Timeout in seconds - DEPRECATED, see http_config.request_timeout_seconds
-  bool active = 7; // Whether webhook is active
-  string description = 8; // Webhook description
-  WebhookHealth health = 9; // Webhook health status
-  google.protobuf.Timestamp created_at = 10; // When webhook was registered
-  google.protobuf.Timestamp updated_at = 11; // When webhook was last updated
-  WebhookHTTPConfig http_config = 12; // HTTP configuration options
-}
-
-// ListWebhooksResponse represents the response for listing webhooks
-message ListWebhooksResponse {
-  repeated RegisteredWebhook webhooks = 1;
-  PaginationResponse pagination = 2;
-  bool success = 3 [deprecated = true];
-  string message = 4 [deprecated = true];
-  int32 total_count = 5 [deprecated = true]; // Use pagination.total_count instead
-}
-
-// RegisterEventRequest represents a request to register an event type
-message RegisterEventRequest {
-  string name = 1; // Event name (required)
-  string description = 2; // Event description
-  google.protobuf.Struct schema = 3; // JSON schema for event payload validation
-  map<string, string> metadata = 4; // Additional metadata
-  bool active = 5; // Whether event is active (default: true)
-}
-
-// RegisterEventResponse represents the response for event registration
-message RegisterEventResponse {
-  string event_id = 1 [deprecated = true]; // Deprecated: now returns the event name (same as the name in the request). Use name field instead.
-  bool success = 2 [deprecated = true]; // Use gRPC status codes instead
-  string message = 3 [deprecated = true]; // Use gRPC status codes instead
-  google.protobuf.Timestamp created_at = 4; // When the event was registered
-}
-
-// ListEventsRequest represents a request to list events
-message ListEventsRequest {
-  bool active_only = 1; // Only return active events
-  PaginationRequest pagination = 2;
-}
-
-// RegisteredEvent represents a registered event type
-message RegisteredEvent {
-  string event_id = 1 [deprecated = true]; // Deprecated: now returns the event name. Use the name field (field 2) instead.
-  string name = 2; // Event name (unique per tenant — this is the primary identifier)
-  string description = 3; // Event description
-  google.protobuf.Struct schema = 4; // JSON schema for validation
-  google.protobuf.Struct sample_payload = 9; // Auto-generated sample payload based on schema
-  map<string, string> metadata = 5; // Additional metadata
-  bool active = 6; // Whether event is active
-  google.protobuf.Timestamp created_at = 7; // When event was registered
-  google.protobuf.Timestamp updated_at = 8; // When event was last updated
-}
-
-// ListEventsResponse represents the response for listing events
-message ListEventsResponse {
-  repeated RegisteredEvent events = 1;
-  PaginationResponse pagination = 2;
-  bool success = 3 [deprecated = true];
-  string message = 4 [deprecated = true];
-  int32 total_count = 5 [deprecated = true];
-}
-
-// UpdateEventRequest represents a request to update an event
-message UpdateEventRequest {
-  string name = 1; // Event name (required)
-  string description = 2; // Event description
-  google.protobuf.Struct schema = 3; // JSON schema for event payload validation
-  map<string, string> metadata = 4; // Additional metadata
-  bool active = 5; // Whether event is active
-}
-
-// UpdateEventResponse represents the response for event update
-message UpdateEventResponse {
-  bool success = 1 [deprecated = true];
-  string message = 2 [deprecated = true];
-}
-
-// GetEventRequest represents a request to get an event by name
-message GetEventRequest {
-  string name = 1; // Event name (required)
-}
-
-// GetEventResponse represents the response for getting an event
-message GetEventResponse {
-  RegisteredEvent event = 1;
-}
-
-// DeleteEventRequest represents a request to delete an event
-message DeleteEventRequest {
-  string name = 1; // Event name to delete
-}
-
-// DeleteEventResponse represents the response for event deletion
-message DeleteEventResponse {
-  bool success = 1 [deprecated = true];
-  string message = 2 [deprecated = true];
-}
-
-// TestSubscriptionTemplateRequest represents a request to test a transformation template
-message TestSubscriptionTemplateRequest {
-  string event_name = 1; // Event name to get sample data from
-  string transform_template = 2; // Template to test
-  string namespace = 3; // Namespace
-}
-
-// TestSubscriptionTemplateResponse represents the result of a template test
-message TestSubscriptionTemplateResponse {
-  string transformed_payload = 1; // Resulting transformed payload
-}
-
-// Health Management Messages
-
-// WebhookHealth represents webhook health status
+// WebhookHealth represents the computed health status of a webhook endpoint.
+//
+// Health is derived from recent delivery outcomes using two signals:
+//   - Success rate: successful deliveries / total deliveries
+//   - Consecutive failures: unbroken streak of failed deliveries
+//
+// Thresholds:
+//   HEALTHY:   success_rate > 90% AND consecutive_failures < 3
+//   DEGRADED:  success_rate 50-90% OR consecutive_failures 3-9
+//   UNHEALTHY: success_rate < 50% OR consecutive_failures >= 10
 enum WebhookHealth {
+  // No delivery data available. The webhook has never received a delivery,
+  // or health has not been computed yet.
   HEALTH_UNSPECIFIED = 0;
+
+  // Webhook is healthy: >90% success rate and fewer than 3 consecutive failures.
   HEALTH_HEALTHY = 1;
+
+  // Webhook is degraded: 50-90% success rate or 3-9 consecutive failures.
+  // May indicate intermittent issues at the target endpoint.
   HEALTH_DEGRADED = 2;
+
+  // Webhook is unhealthy: <50% success rate or 10+ consecutive failures.
+  // Investigate the target endpoint -- deliveries are still attempted but mostly failing.
   HEALTH_UNHEALTHY = 3;
 }
 
-// GetWebhookHealthRequest represents a request to get webhook health
-message GetWebhookHealthRequest {
-  string webhook_id = 1; // Webhook ID
-  string namespace = 2; // Namespace
+// ---------------------------------------------------------------------------
+// WebhookHTTPConfig
+// ---------------------------------------------------------------------------
+
+// WebhookHTTPConfig controls how Sparrow delivers HTTP requests to a webhook URL.
+// All fields have sensible defaults; only set fields you want to override.
+// This message is used both when registering a webhook and when updating its configuration.
+message WebhookHTTPConfig {
+  // Maximum number of retry attempts after the initial delivery fails.
+  // Range: 0-10. Default: 3. Set to 0 to disable retries entirely.
+  // Only retryable error categories trigger retries (server_error, timeout,
+  // connection_refused, network_error). Client errors (4xx), DNS errors,
+  // and TLS errors are never retried regardless of this setting.
+  int32 max_retries = 1;
+
+  // Base backoff duration in seconds between retry attempts.
+  // Range: 1-3600. Default: 60. Actual backoff uses exponential increase
+  // with jitter: base * 2^(attempt-1) + random jitter.
+  int32 retry_backoff_seconds = 2;
+
+  // Controls the maximum size of stored response body per delivery attempt.
+  // When false (default): up to 1 KB of the response body is stored.
+  // When true: up to 1 MB of the response body is stored.
+  // Note: the response body is always read from the connection regardless of this
+  // flag (required for HTTP connection reuse). This only controls how much is persisted.
+  bool capture_response_body = 3;
+
+  // Whether to follow HTTP 3xx redirects when delivering webhooks.
+  // Default: true. Set to false to treat redirects as the final response.
+  bool follow_redirects = 4;
+
+  // Whether to verify the target endpoint's TLS certificate chain.
+  // Default: true. Set to false only for development/testing with self-signed certs.
+  // Disabling this in production is a security risk.
+  bool verify_ssl = 5;
+
+  // Per-request timeout in seconds. If the target endpoint does not respond
+  // within this duration, the attempt is classified as a timeout error (retryable).
+  // Range: 1-300. Default: 30.
+  int32 request_timeout_seconds = 6;
+
+  // HTTP status codes that Sparrow treats as a successful delivery.
+  // Default: [200, 201, 202, 204]. Any response code not in this list
+  // is classified as a client_error (4xx) or server_error (5xx) based on range.
+  repeated int32 expected_status_codes = 7;
+
+  // Shared secret used for HMAC-SHA256 request signing. When set, Sparrow
+  // includes an X-Webhook-Signature header on every delivery containing
+  // the hex-encoded HMAC of the request body. The receiving endpoint can
+  // verify authenticity by recomputing the HMAC.
+  // Leave empty to disable signing.
+  string webhook_secret = 8;
+
+  // Value of the User-Agent header sent with every delivery request.
+  // Default: "Sparrow-Webhook/1.0".
+  string user_agent = 9;
+
+  // Content-Type header for delivery requests.
+  // Default: "application/json". Change if your endpoint expects a different media type.
+  string content_type = 10;
 }
 
-// WebhookHealthMetrics represents detailed health metrics
-message WebhookHealthMetrics {
+// ---------------------------------------------------------------------------
+// Webhook registration messages
+// ---------------------------------------------------------------------------
+
+// RegisterWebhookRequest provides all parameters needed to register a new webhook.
+// At minimum, namespace, url, and at least one event name are required.
+// Subscriptions are auto-created for each event name in the events list.
+message RegisterWebhookRequest {
+  // Namespace to register the webhook in. Required.
+  // The namespace must already exist (created via the NamespaceService).
+  string namespace = 1;
+
+  // Event names this webhook should receive. At least one is required.
+  // A subscription is automatically created for each event name listed here.
+  repeated string events = 2;
+
+  // Target URL that will receive HTTP POST requests for each delivery.
+  // Must be a valid HTTP or HTTPS URL. Required.
+  string url = 3;
+
+  // Custom HTTP headers included in every delivery request to this webhook.
+  // These are visible in API responses. For sensitive values (API keys, tokens),
+  // use secret_headers instead.
+  map<string, string> headers = 4;
+
+  // Deprecated: use http_config.request_timeout_seconds instead.
+  int32 timeout = 5;
+
+  // Whether the webhook starts in active state. Default: true.
+  // Inactive webhooks are skipped during event fan-out.
+  bool active = 6;
+
+  // Human-readable description of the webhook's purpose. Optional.
+  string description = 7;
+
+  // HTTP delivery configuration (retries, timeouts, TLS, HMAC, etc.).
+  // Optional -- all fields have sensible defaults if omitted.
+  WebhookHTTPConfig http_config = 8;
+
+  // Sensitive HTTP headers stored encrypted at rest (e.g., Authorization, API keys).
+  // Values are masked as "******" in all API responses -- only keys are visible.
+  // Included in delivery requests alongside regular headers.
+  map<string, string> secret_headers = 9;
+}
+
+// RegisterWebhookResponse is returned after successfully registering a webhook.
+message RegisterWebhookResponse {
+  // Server-generated UUID for the new webhook. Use this ID for all
+  // subsequent operations (update, pause, resume, unregister).
   string webhook_id = 1;
-  int32 total_deliveries = 2;
-  int32 successful_deliveries = 3;
-  int32 failed_deliveries = 4;
-  int32 consecutive_failures = 5;
-  google.protobuf.Timestamp last_success_at = 6; // Last success timestamp
-  google.protobuf.Timestamp last_failure_at = 7; // Last failure timestamp
-  double success_rate = 8; // 0.0 to 1.0
-  int32 avg_response_time = 9; // milliseconds
-  google.protobuf.Timestamp created_at = 10; // Created timestamp
-  google.protobuf.Timestamp updated_at = 11; // Updated timestamp
 
-  // Error category breakdown (last 24 hours)
-  int32 client_errors = 12; // 4xx responses (never retried)
-  int32 server_errors = 13; // 5xx responses (retried)
-  int32 timeout_errors = 14; // Timeouts (retried)
-  int32 network_errors = 15; // DNS, TLS, connection refused, and other network errors
+  // Deprecated: use gRPC status codes to determine success/failure.
+  bool success = 2 [deprecated = true];
+
+  // Deprecated: use gRPC status details for error messages.
+  string message = 3 [deprecated = true];
+
+  // Timestamp when the webhook was created.
+  google.protobuf.Timestamp created_at = 4;
 }
 
-// GetWebhookHealthResponse represents the response for getting webhook health
-message GetWebhookHealthResponse {
-  string webhook_id = 3;
-  WebhookHealth health = 4;
-  WebhookHealthMetrics metrics = 5;
+// UnregisterWebhookRequest identifies a webhook to permanently delete.
+// This cascade-deletes all subscriptions, deliveries, and health data for the webhook.
+message UnregisterWebhookRequest {
+  // UUID of the webhook to delete. Required.
+  string webhook_id = 1;
+
+  // Namespace the webhook belongs to. Required.
+  string namespace = 2;
+}
+
+// UnregisterWebhookResponse confirms webhook deletion.
+// On success, the gRPC status is OK. On failure, NOT_FOUND is returned.
+message UnregisterWebhookResponse {
+  // Deprecated: use gRPC status codes to determine success/failure.
   bool success = 1 [deprecated = true];
+
+  // Deprecated: use gRPC status details for error messages.
   string message = 2 [deprecated = true];
 }
 
-// ListWebhooksByHealthRequest represents a request to list webhooks by health
-message ListWebhooksByHealthRequest {
-  WebhookHealth health = 1; // Health status to filter by
+// ---------------------------------------------------------------------------
+// Webhook listing messages
+// ---------------------------------------------------------------------------
+
+// ListWebhooksRequest specifies filters and pagination for listing webhooks.
+// At minimum, namespace is required. All other fields are optional filters.
+message ListWebhooksRequest {
+  // Namespace to list webhooks from. Required.
+  string namespace = 1;
+
+  // Filter to only webhooks subscribed to this event name. Optional.
+  string event = 2;
+
+  // When true, only return active (non-paused) webhooks. Default: false (return all).
+  bool active_only = 3;
+
+  // Pagination parameters. Default: limit=50, offset=0.
+  PaginationRequest pagination = 4;
+
+  // Filter to a specific webhook by ID. Optional.
+  // When set, returns at most one result.
+  string webhook_id = 5;
+}
+
+// RegisteredWebhook is the full representation of a webhook as returned by List and Get operations.
+// Includes all configuration, the current list of subscribed events, and live health status.
+message RegisteredWebhook {
+  // Server-generated UUID identifying this webhook.
+  string webhook_id = 1;
+
+  // Namespace this webhook belongs to.
+  string namespace = 2;
+
+  // Event names this webhook is subscribed to (derived from its subscriptions).
+  repeated string events = 3;
+
+  // Target URL that receives delivery HTTP requests.
+  string url = 4;
+
+  // Custom HTTP headers included in delivery requests.
+  // Does not include secret_headers (those are listed separately with masked values).
+  map<string, string> headers = 5;
+
+  // Deprecated: see http_config.request_timeout_seconds.
+  int32 timeout = 6;
+
+  // Whether the webhook is currently active. Inactive webhooks do not receive
+  // new deliveries but retain their configuration and history.
+  bool active = 7;
+
+  // Human-readable description.
+  string description = 8;
+
+  // Current health status computed from recent delivery outcomes.
+  // See WebhookHealth enum for threshold definitions.
+  WebhookHealth health = 9;
+
+  // When the webhook was first registered.
+  google.protobuf.Timestamp created_at = 10;
+
+  // When the webhook configuration was last modified.
+  google.protobuf.Timestamp updated_at = 11;
+
+  // HTTP delivery configuration (retries, timeouts, TLS, HMAC, etc.).
+  WebhookHTTPConfig http_config = 12;
+
+  // Secret headers with values masked as "******". Keys are shown for display;
+  // actual values are never exposed through the API.
+  map<string, string> secret_headers = 13;
+}
+
+// ListWebhooksResponse contains the paginated list of webhooks matching the query.
+message ListWebhooksResponse {
+  // Webhooks matching the filter criteria.
+  repeated RegisteredWebhook webhooks = 1;
+
+  // Pagination metadata (total_count, limit, offset).
+  PaginationResponse pagination = 2;
+
+  // Deprecated: use gRPC status codes.
+  bool success = 3 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 4 [deprecated = true];
+
+  // Deprecated: use pagination.total_count instead.
+  int32 total_count = 5 [deprecated = true];
+}
+
+// ---------------------------------------------------------------------------
+// Webhook update messages
+// ---------------------------------------------------------------------------
+
+// WebhookUpdateFields specifies which webhook fields to update.
+// This is a partial-update message: only non-zero/non-empty fields are applied.
+// Omitted fields are left unchanged on the webhook.
+//
+// Special behavior for events: setting this field replaces the entire subscription set.
+// Subscriptions for removed events are deleted; new events get subscriptions created.
+// To leave events unchanged, omit the field entirely (don't pass an empty list).
+message WebhookUpdateFields {
+  // Replace the full list of subscribed events. Omit to leave unchanged.
+  // Passing a non-empty list replaces all existing subscriptions.
+  repeated string events = 1;
+
+  // New target URL. Omit to leave unchanged.
+  string url = 2;
+
+  // Replace all custom headers. Omit to leave unchanged.
+  // Pass an empty map to clear all headers.
+  map<string, string> headers = 3;
+
+  // Deprecated: use http_config.request_timeout_seconds.
+  int32 timeout = 4;
+
+  // Set active/inactive status. Note: prefer PauseWebhook/ResumeWebhook RPCs
+  // for explicit lifecycle control with reason tracking.
+  bool active = 5;
+
+  // Updated human-readable description. Omit to leave unchanged.
+  string description = 6;
+
+  // Updated HTTP delivery configuration. Omit to leave unchanged.
+  // When set, the entire http_config is replaced (not merged field-by-field).
+  WebhookHTTPConfig http_config = 7;
+
+  // Replace all secret headers. Omit to leave unchanged.
+  // Pass an empty map to clear all secret headers.
+  map<string, string> secret_headers = 8;
+}
+
+// UpdateWebhookConfigRequest applies partial updates to an existing webhook.
+message UpdateWebhookConfigRequest {
+  // UUID of the webhook to update. Required.
+  string webhook_id = 1;
+
+  // Namespace the webhook belongs to. Required.
+  string namespace = 2;
+
+  // Fields to update. Only non-zero fields are applied. Required.
+  WebhookUpdateFields updates = 3;
+}
+
+// UpdateWebhookConfigResponse confirms the webhook was updated.
+// On success, gRPC status is OK. On failure, NOT_FOUND or INVALID_ARGUMENT.
+message UpdateWebhookConfigResponse {
+  // Deprecated: use gRPC status codes.
+  bool success = 1 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 2 [deprecated = true];
+}
+
+// ---------------------------------------------------------------------------
+// Webhook pause/resume messages
+// ---------------------------------------------------------------------------
+
+// PauseWebhookRequest sets a webhook to inactive, preventing new deliveries.
+// Existing in-flight deliveries are not cancelled.
+message PauseWebhookRequest {
+  // UUID of the webhook to pause. Required.
+  string webhook_id = 1;
+
+  // Namespace the webhook belongs to. Required.
+  string namespace = 2;
+
+  // Human-readable reason for pausing (stored for audit purposes). Optional.
+  string reason = 3;
+}
+
+// PauseWebhookResponse confirms the webhook was paused.
+message PauseWebhookResponse {
+  // Deprecated: use gRPC status codes.
+  bool success = 1 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 2 [deprecated = true];
+}
+
+// ResumeWebhookRequest re-activates a paused webhook.
+// Events pushed while the webhook was paused are not retroactively delivered.
+message ResumeWebhookRequest {
+  // UUID of the webhook to resume. Required.
+  string webhook_id = 1;
+
+  // Namespace the webhook belongs to. Required.
+  string namespace = 2;
+
+  // Human-readable reason for resuming. Optional.
+  string reason = 3;
+}
+
+// ResumeWebhookResponse confirms the webhook was resumed.
+message ResumeWebhookResponse {
+  // Deprecated: use gRPC status codes.
+  bool success = 1 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 2 [deprecated = true];
+}
+
+// ---------------------------------------------------------------------------
+// Event type definition messages
+// ---------------------------------------------------------------------------
+
+// RegisterEventRequest creates a new event type definition.
+// The event name becomes the primary identifier (not a UUID) and must be unique per tenant.
+message RegisterEventRequest {
+  // Unique event name (e.g., "order.created", "payment.completed"). Required.
+  // Convention: use dot-separated lowercase names.
+  string name = 1;
+
+  // Human-readable description of what this event represents. Optional.
+  string description = 2;
+
+  // JSON Schema for validating PushEvent payloads. Optional.
+  // When set, all future PushEvent calls for this event type must conform to this schema.
+  // Passed as a google.protobuf.Struct (JSON object).
+  google.protobuf.Struct schema = 3;
+
+  // Arbitrary key-value metadata attached to the event type definition. Optional.
+  map<string, string> metadata = 4;
+
+  // Whether the event type is active. Default: true.
+  // Inactive event types cannot receive new PushEvent calls.
+  bool active = 5;
+}
+
+// RegisterEventResponse confirms successful event type creation.
+message RegisterEventResponse {
+  // Deprecated: returns the event name (identical to the name in the request).
+  // Use the name from the request instead.
+  string event_id = 1 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  bool success = 2 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 3 [deprecated = true];
+
+  // Timestamp when the event type was created.
+  google.protobuf.Timestamp created_at = 4;
+}
+
+// ListEventsRequest specifies filters for listing registered event types.
+message ListEventsRequest {
+  // When true, only return active event types. Default: false (return all).
+  bool active_only = 1;
+
+  // Pagination parameters. Default: limit=50, offset=0.
   PaginationRequest pagination = 2;
 }
 
-// ListWebhooksByHealthResponse represents the response for listing webhooks by health
-message ListWebhooksByHealthResponse {
-  repeated RegisteredWebhook webhooks = 3;
-  PaginationResponse pagination = 5;
-  bool success = 1 [deprecated = true];
-  string message = 2 [deprecated = true];
-  int32 total_count = 4 [deprecated = true];
+// RegisteredEvent is the full representation of an event type definition.
+// This describes an event type (schema), not an event instance (see EventReport for that).
+message RegisteredEvent {
+  // Deprecated: returns the event name. Use the name field (field 2) instead.
+  string event_id = 1 [deprecated = true];
+
+  // Unique event name (primary identifier). This is the value used in
+  // PushEvent, subscription matching, and all event-related queries.
+  string name = 2;
+
+  // Human-readable description of the event type.
+  string description = 3;
+
+  // JSON Schema used for payload validation on PushEvent. Null if no schema is set.
+  google.protobuf.Struct schema = 4;
+
+  // Auto-generated sample payload based on the schema. Useful for testing
+  // subscription templates via TestSubscriptionTemplate. Null if no schema is set.
+  google.protobuf.Struct sample_payload = 9;
+
+  // Arbitrary key-value metadata.
+  map<string, string> metadata = 5;
+
+  // Whether this event type is active. Inactive types reject PushEvent calls.
+  bool active = 6;
+
+  // When the event type was first registered.
+  google.protobuf.Timestamp created_at = 7;
+
+  // When the event type was last modified.
+  google.protobuf.Timestamp updated_at = 8;
 }
 
-// GetHealthSummaryRequest represents a request to get health summary
-message GetHealthSummaryRequest {
-  // No parameters needed
-}
+// ListEventsResponse contains the paginated list of event type definitions.
+message ListEventsResponse {
+  // Event type definitions matching the filter criteria.
+  repeated RegisteredEvent events = 1;
 
-// HealthSummary represents summary of webhook health
-message HealthSummary {
-  int32 healthy_count = 1;
-  int32 degraded_count = 2;
-  int32 unhealthy_count = 3;
-  int32 unknown_count = 4;
-  int32 total_count = 5;
-}
+  // Pagination metadata.
+  PaginationResponse pagination = 2;
 
-// GetHealthSummaryResponse represents the response for getting health summary
-message GetHealthSummaryResponse {
-  HealthSummary summary = 3;
-  bool success = 1 [deprecated = true];
-  string message = 2 [deprecated = true];
-}
-
-// RetryDeliveryRequest represents a request to manually retry webhook deliveries
-message RetryDeliveryRequest {
-  string namespace = 1; // Namespace (required)
-  string delivery_id = 2; // Optional: Retry specific delivery
-  string webhook_id = 3; // Optional: Retry all failed/pending for webhook
-  bool force = 4; // Force retry even for successful deliveries (default: false)
-}
-
-// RetryDeliveryResponse represents the response for delivery retry
-message RetryDeliveryResponse {
-  int32 retried_count = 1; // Number of deliveries retried
-  repeated string delivery_ids = 2; // IDs of deliveries that were retried
+  // Deprecated: use gRPC status codes.
   bool success = 3 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
   string message = 4 [deprecated = true];
+
+  // Deprecated: use pagination.total_count.
+  int32 total_count = 5 [deprecated = true];
 }
 
-// GetDeliveryStatusRequest represents a request to get delivery status
-message GetDeliveryStatusRequest {
-  string delivery_id = 1; // Delivery ID (required)
-  string namespace = 2; // Namespace (required for security)
+// UpdateEventRequest modifies an existing event type definition.
+// All fields except name are optional; only non-zero fields are applied.
+message UpdateEventRequest {
+  // Event name to update. Required. This is the lookup key (not a UUID).
+  string name = 1;
+
+  // Updated description. Omit to leave unchanged.
+  string description = 2;
+
+  // Updated JSON Schema for payload validation. Omit to leave unchanged.
+  // Note: changing the schema does not retroactively validate previously pushed events.
+  google.protobuf.Struct schema = 3;
+
+  // Updated metadata. Omit to leave unchanged.
+  map<string, string> metadata = 4;
+
+  // Updated active flag. Omit to leave unchanged.
+  bool active = 5;
 }
 
-// GetDeliveryStatusResponse represents the response for getting delivery status
-message GetDeliveryStatusResponse {
-  WebhookDelivery delivery = 1;
+// UpdateEventResponse confirms the event type was updated.
+message UpdateEventResponse {
+  // Deprecated: use gRPC status codes.
+  bool success = 1 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 2 [deprecated = true];
+}
+
+// GetEventRequest retrieves a single event type definition by name.
+message GetEventRequest {
+  // Event name to look up. Required.
+  string name = 1;
+}
+
+// GetEventResponse returns the requested event type definition.
+message GetEventResponse {
+  // The event type definition, including schema and sample_payload.
+  RegisteredEvent event = 1;
+}
+
+// DeleteEventRequest permanently removes an event type definition.
+// Caution: existing subscriptions referencing this event name are NOT automatically deleted.
+// They will simply stop matching any future events.
+message DeleteEventRequest {
+  // Event name to delete. Required.
+  string name = 1;
+}
+
+// DeleteEventResponse confirms the event type was deleted.
+message DeleteEventResponse {
+  // Deprecated: use gRPC status codes.
+  bool success = 1 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 2 [deprecated = true];
+}
+
+// ---------------------------------------------------------------------------
+// Event push messages
+// ---------------------------------------------------------------------------
+
+// PushEventRequest submits an event instance for asynchronous delivery.
+// This is the primary ingestion endpoint. The event is persisted and a background
+// job fans out deliveries to all matching subscriptions. The response returns
+// immediately with the event_id; actual HTTP delivery happens asynchronously.
+message PushEventRequest {
+  // Namespace to push the event into. Required.
+  // Only subscriptions in this namespace are matched.
+  string namespace = 1;
+
+  // Event type name (must match a registered event type). Required.
+  // Subscriptions with matching event_name in this namespace will receive deliveries.
+  string event = 2;
+
+  // Event payload as a JSON object. Required.
+  // If the event type has a schema, this payload is validated against it before acceptance.
+  // This payload (or its template-transformed version) becomes the HTTP request body
+  // sent to each matching webhook.
+  google.protobuf.Struct payload = 3;
+
+  // Time-to-live in seconds for delivery retries. Optional.
+  // When set, deliveries that haven't succeeded within this window transition to EXPIRED.
+  // Default: 0 (no expiration -- retries continue until max_retries is exhausted).
+  int64 ttl_seconds = 4;
+
+  // Arbitrary key-value metadata attached to this event instance. Optional.
+  // Metadata is stored with the event record and available in event reports,
+  // but is NOT included in the delivery payload sent to webhooks.
+  map<string, string> metadata = 5;
+
+  // Client-provided event ID for idempotency. Optional.
+  // If provided and an event with this ID already exists, the existing event_id is returned
+  // without creating a duplicate.
+  optional string id = 6;
+
+  // Labels for label-based subscription matching. Optional.
+  // When set, only subscriptions whose label_filters are a subset of these labels
+  // will receive deliveries. Labels use AND logic: all filter keys must match.
+  // Subscriptions with no label_filters match all events regardless of labels.
+  map<string, string> labels = 7;
+}
+
+// PushEventResponse is returned immediately after the event is accepted.
+// Delivery to webhooks happens asynchronously via background workers.
+message PushEventResponse {
+  // Server-generated UUID for the event instance.
+  // Use this ID to query delivery status via DeliveryService.ListDeliveries.
+  string event_id = 1;
+
+  // Deprecated: use gRPC status codes.
   bool success = 2 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
   string message = 3 [deprecated = true];
 }
 
-// ListDeliveriesRequest represents a request to list deliveries
-message ListDeliveriesRequest {
-  string namespace = 1; // Namespace (required)
-  string webhook_id = 2; // Optional: filter by webhook
-  string event_id = 3; // Optional: filter by event
-  PaginationRequest pagination = 4;
-}
+// ---------------------------------------------------------------------------
+// Event report messages
+// ---------------------------------------------------------------------------
 
-// ListDeliveriesResponse represents the response for listing deliveries
-message ListDeliveriesResponse {
-  repeated WebhookDelivery deliveries = 1;
-  PaginationResponse pagination = 2;
-  bool success = 3 [deprecated = true];
-  string message = 4 [deprecated = true];
-}
-
-// GetNamespaceStatsRequest represents a request to get namespace statistics
-message GetNamespaceStatsRequest {
-  string namespace = 1; // Namespace (required)
-}
-
-// NamespaceStats represents statistics for a namespace
-message NamespaceStats {
-  int32 total_webhooks = 1;
-  int32 active_webhooks = 2;
-  int32 total_deliveries = 3;
-  int32 successful_deliveries = 4;
-  int32 failed_deliveries = 5;
-  int32 pending_deliveries = 6;
-  double success_rate = 7; // 0.0 to 1.0
-}
-
-// GetNamespaceStatsResponse represents the response for getting namespace statistics
-message GetNamespaceStatsResponse {
-  string namespace = 1;
-  NamespaceStats stats = 2;
-  bool success = 3 [deprecated = true];
-  string message = 4 [deprecated = true];
-}
-
-// WebhookUpdateFields represents fields that can be updated for a webhook
-message WebhookUpdateFields {
-  repeated string events = 1; // Updated events list
-  string url = 2; // Updated URL
-  map<string, string> headers = 3; // Updated headers
-  int32 timeout = 4; // Updated timeout - DEPRECATED, use http_config.request_timeout_seconds
-  bool active = 5; // Updated active status
-  string description = 6; // Updated description
-  WebhookHTTPConfig http_config = 7; // Updated HTTP configuration options
-}
-
-// UpdateWebhookConfigRequest represents a request to update webhook configuration
-message UpdateWebhookConfigRequest {
-  string webhook_id = 1; // Webhook ID (required)
-  string namespace = 2; // Namespace (required for security)
-  WebhookUpdateFields updates = 3; // Fields to update
-}
-
-// UpdateWebhookConfigResponse represents the response for updating webhook configuration
-message UpdateWebhookConfigResponse {
-  bool success = 1 [deprecated = true];
-  string message = 2 [deprecated = true];
-}
-
-// PauseWebhookRequest represents a request to pause a webhook
-message PauseWebhookRequest {
-  string webhook_id = 1; // Webhook ID (required)
-  string namespace = 2; // Namespace (required for security)
-  string reason = 3; // Optional reason for pausing
-}
-
-// PauseWebhookResponse represents the response for pausing a webhook
-message PauseWebhookResponse {
-  bool success = 1 [deprecated = true];
-  string message = 2 [deprecated = true];
-}
-
-// ResumeWebhookRequest represents a request to resume a webhook
-message ResumeWebhookRequest {
-  string webhook_id = 1; // Webhook ID (required)
-  string namespace = 2; // Namespace (required for security)
-  string reason = 3; // Optional reason for resuming
-}
-
-// ResumeWebhookResponse represents the response for resuming a webhook
-message ResumeWebhookResponse {
-  bool success = 1 [deprecated = true];
-  string message = 2 [deprecated = true];
-}
-
-// EventReport represents detailed information about an event instance
+// EventReport represents a pushed event instance with aggregated delivery statistics.
+// This is different from RegisteredEvent (which is an event type definition).
+// An EventReport is an actual event that was pushed via PushEvent and may have
+// triggered zero or more deliveries to subscribed webhooks.
 message EventReport {
-  string event_id = 1; // Unique event identifier
-  string namespace = 2; // Event namespace
-  string event_name = 3; // Event type name
-  google.protobuf.Struct payload = 4; // Event payload
-  map<string, string> metadata = 5; // Event metadata
-  google.protobuf.Timestamp created_at = 6; // When the event was created
-  int64 ttl_seconds = 7; // TTL for webhook retry attempts
-  int32 webhook_count = 8; // Number of webhooks triggered by this event
-  int32 successful_deliveries = 9; // Number of successful deliveries
-  int32 failed_deliveries = 10; // Number of failed deliveries
-  int32 pending_deliveries = 11; // Number of pending deliveries
+  // Server-generated UUID of the event instance.
+  string event_id = 1;
+
+  // Namespace the event was pushed into.
+  string namespace = 2;
+
+  // Event type name.
+  string event_name = 3;
+
+  // The original payload that was pushed.
+  google.protobuf.Struct payload = 4;
+
+  // Metadata attached when the event was pushed.
+  map<string, string> metadata = 5;
+
+  // When the event was pushed.
+  google.protobuf.Timestamp created_at = 6;
+
+  // TTL in seconds that was specified when pushing. 0 if no TTL was set.
+  int64 ttl_seconds = 7;
+
+  // Number of webhooks that received (or will receive) a delivery for this event.
+  int32 webhook_count = 8;
+
+  // Number of deliveries that completed successfully (terminal SUCCESS status).
+  int32 successful_deliveries = 9;
+
+  // Number of deliveries that failed permanently (terminal FAILED or EXPIRED status).
+  int32 failed_deliveries = 10;
+
+  // Number of deliveries still in progress (PENDING, SENDING, or RETRYING status).
+  int32 pending_deliveries = 11;
 }
 
-// ListEventReportsRequest represents a request to list event reports
+// ListEventReportsRequest specifies filters for listing pushed event instances.
 message ListEventReportsRequest {
-  string namespace = 1; // Namespace to filter by (required)
-  optional string event_name = 2; // Optional event name filter
+  // Namespace to list events from. Required.
+  string namespace = 1;
+
+  // Filter to events of this type name. Optional.
+  optional string event_name = 2;
+
+  // Pagination parameters. Default: limit=50, offset=0. Max limit: 1000.
   PaginationRequest pagination = 3;
+
+  // Deprecated: use pagination.limit.
   int32 limit = 4 [deprecated = true];
+
+  // Deprecated: use pagination.offset.
   int32 offset = 5 [deprecated = true];
 }
 
-// ListEventReportsResponse represents the response for listing event reports
+// ListEventReportsResponse contains pushed event instances with delivery statistics.
 message ListEventReportsResponse {
-  repeated EventReport events = 1; // List of events in descending order by created_at
+  // Event instances ordered by created_at descending (newest first).
+  repeated EventReport events = 1;
+
+  // Pagination metadata.
   PaginationResponse pagination = 5;
-  int32 total_count = 2 [deprecated = true]; // Total count of events matching the filter
-  bool success = 3 [deprecated = true]; // Whether the request was successful
-  string message = 4 [deprecated = true]; // Success or error message
+
+  // Deprecated: use pagination.total_count.
+  int32 total_count = 2 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  bool success = 3 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 4 [deprecated = true];
 }
 
-// Event Subscription Messages
+// ---------------------------------------------------------------------------
+// Subscription messages
+// ---------------------------------------------------------------------------
 
-// EventSubscription represents a subscription linking a webhook to an event
+// EventSubscription is the full representation of a subscription linking
+// a webhook to an event type within a namespace.
+//
+// Subscriptions determine which webhooks receive deliveries when an event is pushed.
+// Matching logic: (namespace = event.namespace) AND (event_name = event.event)
+// AND (all label_filter keys/values match the event's labels).
+//
+// Optional features:
+//   - Per-subscription HTTP headers and method override
+//   - Payload transformation via Go templates
+//   - Label-based filtering for selective event matching
 message EventSubscription {
-  string subscription_id = 1; // Unique subscription identifier
-  string webhook_id = 2; // Associated webhook ID
-  string event_name = 3; // Event name to subscribe to
-  string namespace = 4; // Namespace
-  map<string, string> headers = 5; // Optional per-subscription headers (override webhook headers)
-  string method = 6; // Optional HTTP method override (default: POST)
-  int32 timeout = 7; // Optional timeout override in seconds
-  bool transform_enabled = 8; // Whether payload transformation is enabled
-  string transform_template = 9; // Go template for payload transformation
-  google.protobuf.Timestamp created_at = 10; // When subscription was created
-  google.protobuf.Timestamp updated_at = 11; // When subscription was last updated
-  map<string, string> label_filters = 12; // Label filters for matching events (AND logic)
+  // Server-generated UUID for this subscription.
+  string subscription_id = 1;
+
+  // UUID of the webhook that receives deliveries through this subscription.
+  string webhook_id = 2;
+
+  // Event type name this subscription listens for.
+  string event_name = 3;
+
+  // Namespace this subscription belongs to.
+  string namespace = 4;
+
+  // Per-subscription HTTP headers added to delivery requests.
+  // These are merged with (and override) the webhook's headers.
+  map<string, string> headers = 5;
+
+  // HTTP method override for deliveries through this subscription.
+  // Default: "POST". Allows using PUT, PATCH, etc. per subscription.
+  string method = 6;
+
+  // Per-subscription timeout override in seconds.
+  // When set (> 0), overrides the webhook's request_timeout_seconds for this subscription.
+  int32 timeout = 7;
+
+  // Whether Go template payload transformation is enabled for this subscription.
+  bool transform_enabled = 8;
+
+  // Go template string for payload transformation. Only used when transform_enabled is true.
+  // The template receives the event payload as its data context. Available functions
+  // can be listed via WebhookService.GetTemplateFunctions.
+  string transform_template = 9;
+
+  // When this subscription was created.
+  google.protobuf.Timestamp created_at = 10;
+
+  // When this subscription was last modified.
+  google.protobuf.Timestamp updated_at = 11;
+
+  // Label filters for selective event matching. When set, only events whose labels
+  // contain all key-value pairs in this map will trigger deliveries through this subscription.
+  // Uses AND logic: every filter must match. Empty map matches all events.
+  map<string, string> label_filters = 12;
 }
 
-// CreateSubscriptionRequest represents a request to create a subscription
+// CreateSubscriptionRequest creates a new subscription linking a webhook to an event type.
 message CreateSubscriptionRequest {
-  string webhook_id = 1; // Webhook ID (required)
-  string event_name = 2; // Event name (required)
-  string namespace = 3; // Namespace (required)
-  map<string, string> headers = 4; // Optional per-subscription headers
-  string method = 5; // Optional HTTP method (default: POST)
-  int32 timeout = 6; // Optional timeout in seconds
-  bool transform_enabled = 7; // Enable payload transformation
-  string transform_template = 8; // Go template for transformation
-  map<string, string> label_filters = 9; // Optional label filters for matching events (AND logic)
+  // UUID of the webhook to subscribe. Required.
+  // The webhook must exist in the specified namespace.
+  string webhook_id = 1;
+
+  // Event type name to subscribe to. Required.
+  string event_name = 2;
+
+  // Namespace for the subscription. Required.
+  // Must match the webhook's namespace.
+  string namespace = 3;
+
+  // Per-subscription HTTP headers. Optional.
+  // Merged with (and overrides) webhook-level headers on delivery.
+  map<string, string> headers = 4;
+
+  // HTTP method override. Optional. Default: "POST".
+  string method = 5;
+
+  // Timeout override in seconds. Optional. Default: use webhook's timeout.
+  int32 timeout = 6;
+
+  // Enable Go template payload transformation. Default: false.
+  bool transform_enabled = 7;
+
+  // Go template for payload transformation. Only used when transform_enabled is true.
+  // Use TestSubscriptionTemplate to validate before saving.
+  string transform_template = 8;
+
+  // Label filters for selective event matching. Optional.
+  // Only events with labels matching all key-value pairs will trigger this subscription.
+  map<string, string> label_filters = 9;
 }
 
-// CreateSubscriptionResponse represents the response for subscription creation
+// CreateSubscriptionResponse confirms successful subscription creation.
 message CreateSubscriptionResponse {
-  string subscription_id = 1; // Created subscription ID
-  google.protobuf.Timestamp created_at = 4; // When subscription was created
+  // Server-generated UUID of the new subscription.
+  string subscription_id = 1;
+
+  // When the subscription was created.
+  google.protobuf.Timestamp created_at = 4;
+
+  // Deprecated: use gRPC status codes.
   bool success = 2 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
   string message = 3 [deprecated = true];
 }
 
-// GetSubscriptionRequest represents a request to get a subscription
+// GetSubscriptionRequest retrieves a single subscription by ID.
 message GetSubscriptionRequest {
-  string subscription_id = 1; // Subscription ID (required)
-  string namespace = 2; // Namespace (required)
+  // UUID of the subscription to retrieve. Required.
+  string subscription_id = 1;
+
+  // Namespace the subscription belongs to. Required.
+  string namespace = 2;
 }
 
-// GetSubscriptionResponse represents the response for getting a subscription
+// GetSubscriptionResponse returns the requested subscription.
 message GetSubscriptionResponse {
-  EventSubscription subscription = 1; // Subscription details
+  // Full subscription details.
+  EventSubscription subscription = 1;
+
+  // Deprecated: use gRPC status codes.
   bool success = 2 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
   string message = 3 [deprecated = true];
 }
 
-// ListSubscriptionsRequest represents a request to list subscriptions
+// ListSubscriptionsRequest specifies filters for listing subscriptions.
 message ListSubscriptionsRequest {
-  string webhook_id = 1; // Webhook ID to filter by (optional)
-  string event_name = 4; // Event name to filter by (optional)
-  string namespace = 2; // Namespace (required)
+  // Filter by webhook UUID. Optional.
+  string webhook_id = 1;
+
+  // Filter by event type name. Optional.
+  string event_name = 4;
+
+  // Namespace to list subscriptions from. Required.
+  string namespace = 2;
+
+  // Pagination parameters. Default: limit=50, offset=0.
   PaginationRequest pagination = 3;
 }
 
-// ListSubscriptionsResponse represents the response for listing subscriptions
+// ListSubscriptionsResponse contains the paginated list of subscriptions.
 message ListSubscriptionsResponse {
-  repeated EventSubscription subscriptions = 1; // List of subscriptions
+  // Subscriptions matching the filter criteria.
+  repeated EventSubscription subscriptions = 1;
+
+  // Pagination metadata.
   PaginationResponse pagination = 5;
+
+  // Deprecated: use pagination.total_count.
   int32 total_count = 2 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
   bool success = 3 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
   string message = 4 [deprecated = true];
 }
 
-// UpdateSubscriptionRequest represents a request to update a subscription
+// UpdateSubscriptionRequest modifies an existing subscription.
+// Only non-zero/non-empty fields are applied; omitted fields are left unchanged.
 message UpdateSubscriptionRequest {
-  string subscription_id = 1; // Subscription ID (required)
-  string namespace = 7; // Namespace (required)
-  map<string, string> headers = 2; // Updated headers
-  string method = 3; // Updated HTTP method
-  int32 timeout = 4; // Updated timeout
-  bool transform_enabled = 5; // Updated transform enabled flag
-  string transform_template = 6; // Updated transform template
-  map<string, string> label_filters = 8; // Updated label filters for matching events (AND logic)
+  // UUID of the subscription to update. Required.
+  string subscription_id = 1;
+
+  // Namespace the subscription belongs to. Required.
+  string namespace = 7;
+
+  // Updated per-subscription headers. Replaces existing headers when set.
+  map<string, string> headers = 2;
+
+  // Updated HTTP method override.
+  string method = 3;
+
+  // Updated timeout override in seconds.
+  int32 timeout = 4;
+
+  // Updated transform enabled flag.
+  bool transform_enabled = 5;
+
+  // Updated Go template. Use TestSubscriptionTemplate to validate before saving.
+  string transform_template = 6;
+
+  // Updated label filters. Replaces existing filters when set.
+  map<string, string> label_filters = 8;
 }
 
-// UpdateSubscriptionResponse represents the response for updating a subscription
+// UpdateSubscriptionResponse confirms the subscription was updated.
 message UpdateSubscriptionResponse {
+  // Deprecated: use gRPC status codes.
   bool success = 1 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
   string message = 2 [deprecated = true];
 }
 
-// DeleteSubscriptionRequest represents a request to delete a subscription
+// DeleteSubscriptionRequest permanently removes a subscription.
+// In-flight deliveries for this subscription are not cancelled.
 message DeleteSubscriptionRequest {
-  string subscription_id = 1; // Subscription ID (required)
-  string namespace = 2; // Namespace (required)
+  // UUID of the subscription to delete. Required.
+  string subscription_id = 1;
+
+  // Namespace the subscription belongs to. Required.
+  string namespace = 2;
 }
 
-// DeleteSubscriptionResponse represents the response for deleting a subscription
+// DeleteSubscriptionResponse confirms the subscription was deleted.
 message DeleteSubscriptionResponse {
+  // Deprecated: use gRPC status codes.
   bool success = 1 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
   string message = 2 [deprecated = true];
 }
 
-// ListSubscriptionsByEventRequest represents a request to list subscriptions by event
+// ListSubscriptionsByEventRequest lists subscriptions for a specific event in a namespace.
+// Note: this message is defined for internal use but not exposed as a standalone RPC.
+// Use ListSubscriptions with event_name filter instead.
 message ListSubscriptionsByEventRequest {
-  string namespace = 1; // Namespace (required)
-  string event_name = 2; // Event name (required)
+  // Namespace to search in. Required.
+  string namespace = 1;
+
+  // Event name to filter by. Required.
+  string event_name = 2;
 }
 
-// ListSubscriptionsByEventResponse represents the response for listing subscriptions by event
+// ListSubscriptionsByEventResponse contains subscriptions matching the event filter.
 message ListSubscriptionsByEventResponse {
-  repeated EventSubscription subscriptions = 1; // List of subscriptions
+  // Matching subscriptions.
+  repeated EventSubscription subscriptions = 1;
+
+  // Pagination metadata.
   PaginationResponse pagination = 5;
+
+  // Deprecated: use pagination.total_count.
   int32 total_count = 2 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
   bool success = 3 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
   string message = 4 [deprecated = true];
 }
 
-// TemplateFunction represents a template function with its name and description
-message TemplateFunction {
-  string name = 1; // Function name
-  string description = 2; // Function description
+// TestSubscriptionTemplateRequest validates a Go template against an event's sample payload.
+// Use this before saving a transform_template on a subscription to catch syntax errors.
+message TestSubscriptionTemplateRequest {
+  // Event name to get the sample payload from. Required.
+  // The event type must have a schema defined for a sample payload to be generated.
+  string event_name = 1;
+
+  // Go template string to test. Required.
+  // The template is executed with the event's sample_payload as its data context.
+  string transform_template = 2;
+
+  // Namespace. Required.
+  string namespace = 3;
 }
 
-// GetTemplateFunctionsRequest represents a request to get template functions
-message GetTemplateFunctionsRequest {
-  // No parameters needed for this request
+// TestSubscriptionTemplateResponse returns the rendered template output.
+message TestSubscriptionTemplateResponse {
+  // The template output after rendering against the sample payload.
+  // This is exactly what would be sent as the delivery request body
+  // if this template were applied to a subscription.
+  string transformed_payload = 1;
 }
 
-// GetTemplateFunctionsResponse represents the response for getting template functions
-message GetTemplateFunctionsResponse {
-  repeated TemplateFunction functions = 1; // List of available template functions
-  int32 total_count = 2; // Total count of functions
-  bool success = 3 [deprecated = true];
-  string message = 4 [deprecated = true];
+// ---------------------------------------------------------------------------
+// Delivery messages
+// ---------------------------------------------------------------------------
+
+// WebhookDelivery is the full representation of a single delivery and its attempt chain.
+// A delivery is created when an event is fanned out to a webhook via a subscription.
+// It tracks the entire lifecycle from creation through all retry attempts to final status.
+//
+// Each delivery maps to exactly one (webhook, event, subscription) tuple.
+message WebhookDelivery {
+  // Server-generated UUID for this delivery.
+  string delivery_id = 1;
+
+  // UUID of the target webhook.
+  string webhook_id = 2;
+
+  // UUID of the event that triggered this delivery.
+  string event_id = 3;
+
+  // Current delivery status. See WebhookDeliveryStatus for state transitions.
+  WebhookDeliveryStatus status = 4;
+
+  // Number of delivery attempts made so far (including the initial attempt).
+  int32 attempt_count = 5;
+
+  // Maximum attempts allowed (1 + max_retries from the webhook's http_config).
+  int32 max_attempts = 6;
+
+  // When this delivery was created (event fan-out time).
+  google.protobuf.Timestamp created_at = 7;
+
+  // When the most recent attempt was made. Null if not yet attempted.
+  google.protobuf.Timestamp last_attempted_at = 8;
+
+  // When the next retry is scheduled. Null if not in RETRYING state.
+  google.protobuf.Timestamp next_retry_at = 9;
+
+  // When this delivery expires based on the event's ttl_seconds.
+  // Null if no TTL was set on the event.
+  google.protobuf.Timestamp expires_at = 10;
+
+  // HTTP status code from the most recent attempt. 0 if no response was received
+  // (e.g., timeout, connection refused, DNS error).
+  int32 response_code = 11;
+
+  // Response body from the most recent attempt. Truncated to 1 KB by default,
+  // or 1 MB if the webhook has capture_response_body enabled.
+  // Empty string if no response was received.
+  string response_body = 12;
+
+  // Error message from the most recent failed attempt. Empty on success.
+  string error_message = 13;
+
+  // The HTTP request body that was sent to the webhook URL.
+  // This is the original event payload, or the template-transformed payload
+  // if the subscription has transform_enabled.
+  string request_body = 14;
+
+  // Classified error category from the most recent attempt.
+  // Values: "success", "client_error" (4xx, not retried), "server_error" (5xx, retried),
+  // "timeout" (retried), "connection_refused" (retried), "network_error" (retried),
+  // "dns_error" (not retried), "tls_error" (not retried), "unknown".
+  string error_category = 15;
 }
 
-// PaginationRequest represents a request for paginated results
-message PaginationRequest {
-  int32 limit = 1; // Maximum number of items to return (default: 50)
-  int32 offset = 2; // Number of items to skip (default: 0)
+// GetDeliveryStatusRequest retrieves a single delivery by ID.
+message GetDeliveryStatusRequest {
+  // UUID of the delivery to retrieve. Required.
+  string delivery_id = 1;
+
+  // Namespace the delivery belongs to. Required.
+  string namespace = 2;
 }
 
-// PaginationResponse represents metadata for paginated results
-message PaginationResponse {
-  int32 total_count = 1; // Total number of items available
-  int32 limit = 2; // Limit used for the request
-  int32 offset = 3; // Offset used for the request
+// GetDeliveryStatusResponse returns the full delivery details.
+message GetDeliveryStatusResponse {
+  // Full delivery details including request/response bodies and error info.
+  WebhookDelivery delivery = 1;
+
+  // Deprecated: use gRPC status codes.
+  bool success = 2 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 3 [deprecated = true];
 }
 
-// DeliveryAttempt represents a single attempt to deliver a webhook
-message DeliveryAttempt {
-  string attempt_id = 1; // Unique attempt identifier
-  string delivery_id = 2; // Associated delivery ID
-  string webhook_id = 3; // Associated webhook ID
-  bool success = 4; // Whether this attempt succeeded
-  int32 response_time = 5; // Response time in milliseconds
-  int32 response_code = 6; // HTTP response code (0 if no response)
-  string error_message = 7; // Error message (empty on success)
-  string error_category = 8; // Error category (success, client_error, server_error, timeout, etc.)
-  google.protobuf.Timestamp timestamp = 9; // When this attempt occurred
+// ListDeliveriesRequest specifies filters for listing deliveries.
+// Results are always ordered by created_at descending (newest first).
+message ListDeliveriesRequest {
+  // Namespace to list deliveries from. Required.
+  string namespace = 1;
+
+  // Filter by webhook UUID. Optional.
+  string webhook_id = 2;
+
+  // Filter by event UUID. Optional.
+  string event_id = 3;
+
+  // Pagination parameters. Default: limit=50, offset=0.
+  PaginationRequest pagination = 4;
 }
 
-// GetDeliveryAttemptsRequest represents a request to get delivery attempt history
-message GetDeliveryAttemptsRequest {
-  string delivery_id = 1; // Delivery ID (required)
-}
+// ListDeliveriesResponse contains the paginated list of deliveries.
+message ListDeliveriesResponse {
+  // Deliveries matching the filter criteria, newest first.
+  repeated WebhookDelivery deliveries = 1;
 
-// GetDeliveryAttemptsResponse represents the response for getting delivery attempts
-message GetDeliveryAttemptsResponse {
-  repeated DeliveryAttempt attempts = 1; // List of delivery attempts ordered by timestamp
-}
-
-// ============================================================
-// Namespace Management
-// ============================================================
-
-// NamespaceService manages namespace lifecycle within a tenant.
-// Namespaces are sub-tenant scopes used to isolate webhooks, subscriptions,
-// deliveries, and other resources.
-service NamespaceService {
-  // CreateNamespace creates a new namespace within the caller's tenant
-  rpc CreateNamespace(CreateNamespaceRequest) returns (CreateNamespaceResponse);
-
-  // GetNamespace retrieves a namespace by ID
-  rpc GetNamespace(GetNamespaceRequest) returns (GetNamespaceResponse);
-
-  // ListNamespaces lists namespaces for the caller's tenant
-  rpc ListNamespaces(ListNamespacesRequest) returns (ListNamespacesResponse);
-
-  // UpdateNamespace updates a namespace's name or description
-  rpc UpdateNamespace(UpdateNamespaceRequest2) returns (UpdateNamespaceResponse2);
-
-  // DeleteNamespace deletes a namespace
-  rpc DeleteNamespace(DeleteNamespaceRequest) returns (DeleteNamespaceResponse2);
-}
-
-
-// ---- Namespace Messages ----
-
-// NamespaceResource represents a namespace entity
-message NamespaceResource {
-  string id = 1;                          // Namespace UUID
-  string tenant_id = 2;                   // Owning tenant UUID
-  string name = 3;                        // Namespace name (unique per tenant)
-  string description = 4;                 // Human-readable description
-  google.protobuf.Timestamp created_at = 5;
-  google.protobuf.Timestamp updated_at = 6;
-}
-
-// CreateNamespaceRequest represents a request to create a namespace
-message CreateNamespaceRequest {
-  string name = 1;                        // Namespace name (required, lowercase alphanumeric with hyphens/underscores)
-  string description = 2;                 // Optional description
-}
-
-// CreateNamespaceResponse represents the response for namespace creation
-message CreateNamespaceResponse {
-  NamespaceResource namespace = 1;
-}
-
-// GetNamespaceRequest represents a request to get a namespace
-message GetNamespaceRequest {
-  string id = 1;                          // Namespace UUID (one of id or name required)
-  string name = 2;                        // Namespace name (alternative to id)
-}
-
-// GetNamespaceResponse represents the response for getting a namespace
-message GetNamespaceResponse {
-  NamespaceResource namespace = 1;
-}
-
-// ListNamespacesRequest represents a request to list namespaces
-message ListNamespacesRequest {
-  PaginationRequest pagination = 1;
-}
-
-// ListNamespacesResponse represents the response for listing namespaces
-message ListNamespacesResponse {
-  repeated NamespaceResource namespaces = 1;
+  // Pagination metadata.
   PaginationResponse pagination = 2;
+
+  // Deprecated: use gRPC status codes.
+  bool success = 3 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 4 [deprecated = true];
 }
 
-// UpdateNamespaceRequest2 represents a request to update a namespace
-// (suffixed with "2" to avoid conflict with existing UpdateNamespaceRequest in internal package)
-message UpdateNamespaceRequest2 {
-  string id = 1;                          // Namespace UUID (required)
-  string name = 2;                        // Updated name (optional, empty = no change)
-  string description = 3;                 // Updated description (optional, empty = no change)
+// RetryDeliveryRequest re-enqueues one or more deliveries for reprocessing.
+// Provide delivery_id for a single retry, webhook_id for bulk retry, or both.
+// Without force=true, only FAILED and PENDING deliveries are retried.
+message RetryDeliveryRequest {
+  // Namespace. Required.
+  string namespace = 1;
+
+  // UUID of a specific delivery to retry. Optional.
+  string delivery_id = 2;
+
+  // UUID of a webhook -- retry all its failed/pending deliveries. Optional.
+  string webhook_id = 3;
+
+  // When true, retry even successful deliveries. Default: false.
+  // Use with caution: this causes duplicate delivery to the target endpoint.
+  bool force = 4;
 }
 
-// UpdateNamespaceResponse2 represents the response for updating a namespace
-message UpdateNamespaceResponse2 {
-  NamespaceResource namespace = 1;
+// RetryDeliveryResponse reports how many deliveries were re-enqueued.
+message RetryDeliveryResponse {
+  // Number of deliveries that were re-enqueued.
+  int32 retried_count = 1;
+
+  // UUIDs of the deliveries that were re-enqueued.
+  repeated string delivery_ids = 2;
+
+  // Deprecated: use gRPC status codes.
+  bool success = 3 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 4 [deprecated = true];
 }
 
-// DeleteNamespaceRequest represents a request to delete a namespace
-message DeleteNamespaceRequest {
-  string id = 1;                          // Namespace UUID
+// DeliveryAttempt represents a single HTTP request attempt within a delivery.
+// A delivery may have multiple attempts if retries are configured.
+// Each attempt is an immutable record of one HTTP round-trip (or failure to connect).
+message DeliveryAttempt {
+  // Server-generated UUID for this attempt.
+  string attempt_id = 1;
+
+  // UUID of the parent delivery this attempt belongs to.
+  string delivery_id = 2;
+
+  // UUID of the target webhook.
+  string webhook_id = 3;
+
+  // Whether this attempt resulted in a successful delivery
+  // (response code matched expected_status_codes).
+  bool success = 4;
+
+  // Round-trip time in milliseconds from sending the request to receiving
+  // the full response (or timeout/error). 0 if no connection was established.
+  int32 response_time = 5;
+
+  // HTTP response status code. 0 if no response was received
+  // (timeout, connection refused, DNS error, etc.).
+  int32 response_code = 6;
+
+  // Error message describing the failure. Empty string on success.
+  // Contains the raw error from the HTTP client (e.g., "context deadline exceeded",
+  // "connection refused", "no such host").
+  string error_message = 7;
+
+  // Classified error category for this attempt.
+  // Values: "success", "client_error", "server_error", "timeout",
+  // "connection_refused", "network_error", "dns_error", "tls_error", "unknown".
+  string error_category = 8;
+
+  // When this attempt was made.
+  google.protobuf.Timestamp timestamp = 9;
 }
 
-// DeleteNamespaceResponse2 represents the response for namespace deletion
-message DeleteNamespaceResponse2 {
-  // Empty on success; errors use gRPC status codes
+// GetDeliveryAttemptsRequest retrieves the attempt history for a delivery.
+message GetDeliveryAttemptsRequest {
+  // UUID of the delivery to get attempts for. Required.
+  string delivery_id = 1;
 }
 
+// GetDeliveryAttemptsResponse returns all attempts for a delivery.
+message GetDeliveryAttemptsResponse {
+  // Delivery attempts ordered by timestamp ascending (oldest first).
+  // The last element reflects the most recent attempt.
+  repeated DeliveryAttempt attempts = 1;
+}
 
+// ---------------------------------------------------------------------------
+// Health messages
+// ---------------------------------------------------------------------------
+
+// GetWebhookHealthRequest retrieves health status for a single webhook.
+message GetWebhookHealthRequest {
+  // UUID of the webhook. Required.
+  string webhook_id = 1;
+
+  // Namespace the webhook belongs to. Required.
+  string namespace = 2;
+}
+
+// WebhookHealthMetrics contains detailed health metrics for a single webhook.
+// Metrics are derived from the webhook_health_events and webhook_health_state tables
+// and are updated after every delivery attempt.
+message WebhookHealthMetrics {
+  // UUID of the webhook these metrics belong to.
+  string webhook_id = 1;
+
+  // Total number of deliveries ever made to this webhook (all time).
+  int32 total_deliveries = 2;
+
+  // Number of deliveries that succeeded (terminal SUCCESS status).
+  int32 successful_deliveries = 3;
+
+  // Number of deliveries that failed permanently (terminal FAILED status).
+  int32 failed_deliveries = 4;
+
+  // Current streak of consecutive failed deliveries. Resets to 0 on any success.
+  // Used for health status computation: 3-9 = DEGRADED, 10+ = UNHEALTHY.
+  int32 consecutive_failures = 5;
+
+  // Timestamp of the most recent successful delivery. Null if the webhook has never succeeded.
+  google.protobuf.Timestamp last_success_at = 6;
+
+  // Timestamp of the most recent failed delivery. Null if the webhook has never failed.
+  google.protobuf.Timestamp last_failure_at = 7;
+
+  // Success rate as a decimal between 0.0 and 1.0.
+  // Computed as successful_deliveries / total_deliveries.
+  // Used for health thresholds: >0.9 = HEALTHY, 0.5-0.9 = DEGRADED, <0.5 = UNHEALTHY.
+  double success_rate = 8;
+
+  // Average response time in milliseconds across all delivery attempts.
+  int32 avg_response_time = 9;
+
+  // When the health metrics record was first created.
+  google.protobuf.Timestamp created_at = 10;
+
+  // When the health metrics were last updated.
+  google.protobuf.Timestamp updated_at = 11;
+
+  // Count of client errors (HTTP 4xx) in the last 24 hours.
+  // Client errors are never retried -- typically indicates a misconfigured endpoint
+  // (wrong URL, missing auth, payload format mismatch).
+  int32 client_errors = 12;
+
+  // Count of server errors (HTTP 5xx) in the last 24 hours.
+  // Server errors are retried according to the webhook's retry configuration.
+  int32 server_errors = 13;
+
+  // Count of timeout errors in the last 24 hours.
+  // Timeouts are retried. May indicate the endpoint is slow or overloaded.
+  int32 timeout_errors = 14;
+
+  // Count of network-level errors in the last 24 hours.
+  // Includes DNS failures, TLS errors, connection refused, and other transport errors.
+  int32 network_errors = 15;
+}
+
+// GetWebhookHealthResponse returns health status and metrics for a webhook.
+message GetWebhookHealthResponse {
+  // UUID of the webhook.
+  string webhook_id = 3;
+
+  // Computed health status based on success_rate and consecutive_failures.
+  // Returns HEALTH_UNSPECIFIED if the webhook has no delivery history.
+  WebhookHealth health = 4;
+
+  // Detailed health metrics. Null if the webhook has no delivery history.
+  WebhookHealthMetrics metrics = 5;
+
+  // Deprecated: use gRPC status codes.
+  bool success = 1 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 2 [deprecated = true];
+}
+
+// ListWebhooksByHealthRequest filters webhooks by their computed health status.
+message ListWebhooksByHealthRequest {
+  // Health status to filter by. Required.
+  // Use HEALTH_UNHEALTHY to find problematic endpoints, HEALTH_DEGRADED for early warnings.
+  WebhookHealth health = 1;
+
+  // Pagination parameters. Default: limit=50, offset=0.
+  PaginationRequest pagination = 2;
+}
+
+// ListWebhooksByHealthResponse contains webhooks matching the specified health status.
+message ListWebhooksByHealthResponse {
+  // Webhooks with the requested health status.
+  repeated RegisteredWebhook webhooks = 3;
+
+  // Pagination metadata.
+  PaginationResponse pagination = 5;
+
+  // Deprecated: use gRPC status codes.
+  bool success = 1 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 2 [deprecated = true];
+
+  // Deprecated: use pagination.total_count.
+  int32 total_count = 4 [deprecated = true];
+}
+
+// GetHealthSummaryRequest retrieves aggregate health counts across all namespaces.
+// No parameters needed.
+message GetHealthSummaryRequest {}
+
+// HealthSummary provides a high-level overview of webhook health across the entire system.
+// Useful for dashboards and monitoring alerts.
+message HealthSummary {
+  // Number of webhooks in HEALTHY state (>90% success rate, <3 consecutive failures).
+  int32 healthy_count = 1;
+
+  // Number of webhooks in DEGRADED state (50-90% success rate or 3-9 consecutive failures).
+  int32 degraded_count = 2;
+
+  // Number of webhooks in UNHEALTHY state (<50% success rate or 10+ consecutive failures).
+  int32 unhealthy_count = 3;
+
+  // Number of webhooks with no delivery history (HEALTH_UNSPECIFIED).
+  int32 unknown_count = 4;
+
+  // Total number of webhooks (sum of all categories above).
+  int32 total_count = 5;
+}
+
+// GetHealthSummaryResponse returns the aggregate health summary.
+message GetHealthSummaryResponse {
+  // Aggregate health counts across all namespaces.
+  HealthSummary summary = 3;
+
+  // Deprecated: use gRPC status codes.
+  bool success = 1 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 2 [deprecated = true];
+}
+
+// ---------------------------------------------------------------------------
+// Namespace stats messages
+// ---------------------------------------------------------------------------
+
+// GetNamespaceStatsRequest retrieves aggregate delivery statistics for a namespace.
+message GetNamespaceStatsRequest {
+  // Namespace to get statistics for. Required.
+  string namespace = 1;
+}
+
+// NamespaceStats contains aggregate webhook and delivery counts for a namespace.
+// Useful for dashboard summaries and capacity monitoring.
+message NamespaceStats {
+  // Total number of registered webhooks in this namespace (active + inactive).
+  int32 total_webhooks = 1;
+
+  // Number of currently active (non-paused) webhooks.
+  int32 active_webhooks = 2;
+
+  // Total number of deliveries ever created in this namespace.
+  int32 total_deliveries = 3;
+
+  // Number of deliveries in terminal SUCCESS state.
+  int32 successful_deliveries = 4;
+
+  // Number of deliveries in terminal FAILED state.
+  int32 failed_deliveries = 5;
+
+  // Number of deliveries in PENDING, SENDING, or RETRYING state.
+  int32 pending_deliveries = 6;
+
+  // Overall delivery success rate as a decimal between 0.0 and 1.0.
+  // Computed as successful_deliveries / total_deliveries. 0.0 if no deliveries.
+  double success_rate = 7;
+}
+
+// GetNamespaceStatsResponse returns namespace-level statistics.
+message GetNamespaceStatsResponse {
+  // The namespace these stats apply to.
+  string namespace = 1;
+
+  // Aggregate statistics for the namespace.
+  NamespaceStats stats = 2;
+
+  // Deprecated: use gRPC status codes.
+  bool success = 3 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 4 [deprecated = true];
+}
+
+// ---------------------------------------------------------------------------
+// Template function messages
+// ---------------------------------------------------------------------------
+
+// TemplateFunction describes a single Go template function available for
+// payload transformation in event subscriptions.
+message TemplateFunction {
+  // Function name as used in Go templates (e.g., "toJSON", "upper", "now").
+  string name = 1;
+
+  // Human-readable description of the function's behavior, parameters, and return value.
+  string description = 2;
+}
+
+// GetTemplateFunctionsRequest retrieves the list of available template functions.
+// No parameters needed.
+message GetTemplateFunctionsRequest {}
+
+// GetTemplateFunctionsResponse returns all Go template functions available for
+// subscription payload transformation.
+message GetTemplateFunctionsResponse {
+  // Available template functions with names and descriptions.
+  repeated TemplateFunction functions = 1;
+
+  // Total number of available functions.
+  int32 total_count = 2;
+
+  // Deprecated: use gRPC status codes.
+  bool success = 3 [deprecated = true];
+
+  // Deprecated: use gRPC status codes.
+  string message = 4 [deprecated = true];
+}

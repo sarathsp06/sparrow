@@ -58,9 +58,12 @@
     userAgent: 'Sparrow-Webhook/1.0',
     contentType: 'application/json',
     headers: {} as Record<string, string>,
+    secretHeaders: {} as Record<string, string>,
   });
   let configHeaderKey = $state('');
   let configHeaderValue = $state('');
+  let configSecretHeaderKey = $state('');
+  let configSecretHeaderValue = $state('');
 
   // Unregister confirmation
   let confirmUnregister = $state(false);
@@ -215,9 +218,12 @@
       userAgent: webhook.httpConfig?.userAgent || 'Sparrow-Webhook/1.0',
       contentType: webhook.httpConfig?.contentType || 'application/json',
       headers: { ...(webhook.headers || {}) },
+      secretHeaders: { ...(webhook.secretHeaders || {}) },
     };
     configHeaderKey = '';
     configHeaderValue = '';
+    configSecretHeaderKey = '';
+    configSecretHeaderValue = '';
     editingConfig = true;
     error = '';
   }
@@ -237,6 +243,19 @@
   function removeConfigHeader(key: string) {
     const { [key]: _, ...rest } = configForm.headers;
     configForm.headers = rest;
+  }
+
+  function addConfigSecretHeader() {
+    if (configSecretHeaderKey.trim() && configSecretHeaderValue.trim()) {
+      configForm.secretHeaders = { ...configForm.secretHeaders, [configSecretHeaderKey.trim()]: configSecretHeaderValue.trim() };
+      configSecretHeaderKey = '';
+      configSecretHeaderValue = '';
+    }
+  }
+
+  function removeConfigSecretHeader(key: string) {
+    const { [key]: _, ...rest } = configForm.secretHeaders;
+    configForm.secretHeaders = rest;
   }
 
   async function saveConfig() {
@@ -269,6 +288,7 @@
           active: configForm.active,
           description: configForm.description,
           headers: configForm.headers,
+          secretHeaders: configForm.secretHeaders,
           httpConfig: {
             maxRetries: configForm.maxRetries,
             retryBackoffSeconds: configForm.retryBackoffSeconds,
@@ -854,7 +874,7 @@
                     {#each [
                       { key: 'followRedirects', label: 'Follow Redirects', desc: 'Follow HTTP 3xx redirects' },
                       { key: 'verifySsl', label: 'Verify SSL', desc: 'Validate SSL/TLS certificates' },
-                      { key: 'captureResponseBody', label: 'Capture Response Body', desc: 'Store response body with delivery records' },
+                      { key: 'captureResponseBody', label: 'Capture Response Body', desc: 'Off: stores up to 1 KB of response per delivery. On: stores up to 1 MB.' },
                     ] as toggle}
                       <div class="flex items-center gap-3">
                         <button
@@ -902,6 +922,42 @@
                     <button
                       onclick={addConfigHeader}
                       disabled={!configHeaderKey.trim() || !configHeaderValue.trim()}
+                      class="shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Secret Headers -->
+                <div class="border-t border-gray-100 pt-4">
+                  <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Secret Headers</h4>
+                  <p class="text-[10px] text-gray-400 mb-3">Encrypted headers for sensitive values (API keys, tokens). Existing values are masked — enter a new value to replace.</p>
+                  {#if Object.keys(configForm.secretHeaders).length > 0}
+                    <div class="space-y-1.5 mb-3">
+                      {#each Object.entries(configForm.secretHeaders) as [key, value]}
+                        <div class="flex items-center gap-2">
+                          <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{key}</span>
+                          <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate text-gray-400">{value === '••••••' ? '••••••' : '••••••'}</span>
+                          <button
+                            onclick={() => removeConfigSecretHeader(key)}
+                            class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition"
+                            aria-label="Remove secret header {key}"
+                          >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
+                  <div class="flex items-center gap-2">
+                    <input type="text" bind:value={configSecretHeaderKey} placeholder="Header name (e.g. Authorization)" class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
+                    <input type="password" bind:value={configSecretHeaderValue} placeholder="Header value (e.g. Bearer sk-...)" class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
+                    <button
+                      onclick={addConfigSecretHeader}
+                      disabled={!configSecretHeaderKey.trim() || !configSecretHeaderValue.trim()}
                       class="shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition"
                     >
                       Add
@@ -1018,6 +1074,24 @@
                 </div>
               {:else}
                 <p class="text-sm text-gray-500">No custom headers configured.</p>
+              {/if}
+            </div>
+
+            <!-- Secret Headers -->
+            <div class="bg-white rounded-lg border border-gray-200 p-5">
+              <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-2">Secret Headers</h3>
+              <p class="text-xs text-gray-400 mb-4">Encrypted headers for sensitive values. Values are never exposed.</p>
+              {#if Object.keys(webhook.secretHeaders || {}).length > 0}
+                <div class="space-y-1.5">
+                  {#each Object.entries(webhook.secretHeaders) as [key, value]}
+                    <div class="flex items-center gap-2 text-sm">
+                      <span class="font-mono text-gray-900 font-medium">{key}:</span>
+                      <span class="font-mono text-gray-400">••••••</span>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <p class="text-sm text-gray-500">No secret headers configured.</p>
               {/if}
             </div>
           {/if}

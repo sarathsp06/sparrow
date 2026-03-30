@@ -31,8 +31,6 @@ const (
 	DeliveryServiceName = "webhook.DeliveryService"
 	// HealthServiceName is the fully-qualified name of the HealthService service.
 	HealthServiceName = "webhook.HealthService"
-	// NamespaceServiceName is the fully-qualified name of the NamespaceService service.
-	NamespaceServiceName = "webhook.NamespaceService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -124,40 +122,45 @@ const (
 	// HealthServiceGetHealthSummaryProcedure is the fully-qualified name of the HealthService's
 	// GetHealthSummary RPC.
 	HealthServiceGetHealthSummaryProcedure = "/webhook.HealthService/GetHealthSummary"
-	// NamespaceServiceCreateNamespaceProcedure is the fully-qualified name of the NamespaceService's
-	// CreateNamespace RPC.
-	NamespaceServiceCreateNamespaceProcedure = "/webhook.NamespaceService/CreateNamespace"
-	// NamespaceServiceGetNamespaceProcedure is the fully-qualified name of the NamespaceService's
-	// GetNamespace RPC.
-	NamespaceServiceGetNamespaceProcedure = "/webhook.NamespaceService/GetNamespace"
-	// NamespaceServiceListNamespacesProcedure is the fully-qualified name of the NamespaceService's
-	// ListNamespaces RPC.
-	NamespaceServiceListNamespacesProcedure = "/webhook.NamespaceService/ListNamespaces"
-	// NamespaceServiceUpdateNamespaceProcedure is the fully-qualified name of the NamespaceService's
-	// UpdateNamespace RPC.
-	NamespaceServiceUpdateNamespaceProcedure = "/webhook.NamespaceService/UpdateNamespace"
-	// NamespaceServiceDeleteNamespaceProcedure is the fully-qualified name of the NamespaceService's
-	// DeleteNamespace RPC.
-	NamespaceServiceDeleteNamespaceProcedure = "/webhook.NamespaceService/DeleteNamespace"
 )
 
 // WebhookServiceClient is a client for the webhook.WebhookService service.
 type WebhookServiceClient interface {
-	// RegisterWebhook registers a URL for specific events in a namespace
+	// RegisterWebhook creates a new webhook registration.
+	// Accepts a target URL, a list of event names, and optional HTTP configuration.
+	// Subscriptions are created automatically for each event in the events list.
+	// Returns the generated webhook_id and created_at timestamp.
+	// Errors: ALREADY_EXISTS if the URL is already registered in the same namespace.
 	RegisterWebhook(context.Context, *connect.Request[proto.RegisterWebhookRequest]) (*connect.Response[proto.RegisterWebhookResponse], error)
-	// UnregisterWebhook removes a webhook registration
+	// UnregisterWebhook permanently deletes a webhook and all its subscriptions.
+	// Associated delivery records are also cascade-deleted.
+	// Errors: NOT_FOUND if the webhook_id does not exist in the given namespace.
 	UnregisterWebhook(context.Context, *connect.Request[proto.UnregisterWebhookRequest]) (*connect.Response[proto.UnregisterWebhookResponse], error)
-	// ListWebhooks lists all registered webhooks for a namespace with filters
+	// ListWebhooks returns webhooks for a namespace with optional filters.
+	// Supports filtering by event name, active status, or specific webhook_id.
+	// Results are paginated (default limit: 50). Each webhook includes its current health status.
 	ListWebhooks(context.Context, *connect.Request[proto.ListWebhooksRequest]) (*connect.Response[proto.ListWebhooksResponse], error)
-	// UpdateWebhookConfig updates webhook configuration
+	// UpdateWebhookConfig patches one or more fields on an existing webhook.
+	// Only non-zero fields in WebhookUpdateFields are applied. Updating events replaces
+	// the full subscription set: removed events have their subscriptions deleted,
+	// new events get subscriptions created.
+	// Errors: NOT_FOUND if the webhook does not exist.
 	UpdateWebhookConfig(context.Context, *connect.Request[proto.UpdateWebhookConfigRequest]) (*connect.Response[proto.UpdateWebhookConfigResponse], error)
-	// PauseWebhook temporarily disables a webhook
+	// PauseWebhook sets a webhook to inactive. Paused webhooks are skipped during
+	// event fan-out -- no new deliveries are created for them. Existing in-flight
+	// deliveries are not cancelled.
+	// Errors: NOT_FOUND if the webhook does not exist.
 	PauseWebhook(context.Context, *connect.Request[proto.PauseWebhookRequest]) (*connect.Response[proto.PauseWebhookResponse], error)
-	// ResumeWebhook re-enables a paused webhook
+	// ResumeWebhook re-activates a paused webhook. Future events will again create
+	// deliveries for this webhook. Events pushed while the webhook was paused are not retroactively delivered.
+	// Errors: NOT_FOUND if the webhook does not exist.
 	ResumeWebhook(context.Context, *connect.Request[proto.ResumeWebhookRequest]) (*connect.Response[proto.ResumeWebhookResponse], error)
-	// GetNamespaceStats retrieves statistics for a namespace
+	// GetNamespaceStats returns aggregate delivery statistics for a namespace:
+	// total/active webhooks, total/successful/failed/pending deliveries, and success rate.
 	GetNamespaceStats(context.Context, *connect.Request[proto.GetNamespaceStatsRequest]) (*connect.Response[proto.GetNamespaceStatsResponse], error)
-	// GetTemplateFunctions returns all available template functions with their descriptions
+	// GetTemplateFunctions returns the list of Go template functions available for
+	// payload transformation in subscriptions. Each entry includes the function name
+	// and a description of its behavior.
 	GetTemplateFunctions(context.Context, *connect.Request[proto.GetTemplateFunctionsRequest]) (*connect.Response[proto.GetTemplateFunctionsResponse], error)
 }
 
@@ -277,21 +280,41 @@ func (c *webhookServiceClient) GetTemplateFunctions(ctx context.Context, req *co
 
 // WebhookServiceHandler is an implementation of the webhook.WebhookService service.
 type WebhookServiceHandler interface {
-	// RegisterWebhook registers a URL for specific events in a namespace
+	// RegisterWebhook creates a new webhook registration.
+	// Accepts a target URL, a list of event names, and optional HTTP configuration.
+	// Subscriptions are created automatically for each event in the events list.
+	// Returns the generated webhook_id and created_at timestamp.
+	// Errors: ALREADY_EXISTS if the URL is already registered in the same namespace.
 	RegisterWebhook(context.Context, *connect.Request[proto.RegisterWebhookRequest]) (*connect.Response[proto.RegisterWebhookResponse], error)
-	// UnregisterWebhook removes a webhook registration
+	// UnregisterWebhook permanently deletes a webhook and all its subscriptions.
+	// Associated delivery records are also cascade-deleted.
+	// Errors: NOT_FOUND if the webhook_id does not exist in the given namespace.
 	UnregisterWebhook(context.Context, *connect.Request[proto.UnregisterWebhookRequest]) (*connect.Response[proto.UnregisterWebhookResponse], error)
-	// ListWebhooks lists all registered webhooks for a namespace with filters
+	// ListWebhooks returns webhooks for a namespace with optional filters.
+	// Supports filtering by event name, active status, or specific webhook_id.
+	// Results are paginated (default limit: 50). Each webhook includes its current health status.
 	ListWebhooks(context.Context, *connect.Request[proto.ListWebhooksRequest]) (*connect.Response[proto.ListWebhooksResponse], error)
-	// UpdateWebhookConfig updates webhook configuration
+	// UpdateWebhookConfig patches one or more fields on an existing webhook.
+	// Only non-zero fields in WebhookUpdateFields are applied. Updating events replaces
+	// the full subscription set: removed events have their subscriptions deleted,
+	// new events get subscriptions created.
+	// Errors: NOT_FOUND if the webhook does not exist.
 	UpdateWebhookConfig(context.Context, *connect.Request[proto.UpdateWebhookConfigRequest]) (*connect.Response[proto.UpdateWebhookConfigResponse], error)
-	// PauseWebhook temporarily disables a webhook
+	// PauseWebhook sets a webhook to inactive. Paused webhooks are skipped during
+	// event fan-out -- no new deliveries are created for them. Existing in-flight
+	// deliveries are not cancelled.
+	// Errors: NOT_FOUND if the webhook does not exist.
 	PauseWebhook(context.Context, *connect.Request[proto.PauseWebhookRequest]) (*connect.Response[proto.PauseWebhookResponse], error)
-	// ResumeWebhook re-enables a paused webhook
+	// ResumeWebhook re-activates a paused webhook. Future events will again create
+	// deliveries for this webhook. Events pushed while the webhook was paused are not retroactively delivered.
+	// Errors: NOT_FOUND if the webhook does not exist.
 	ResumeWebhook(context.Context, *connect.Request[proto.ResumeWebhookRequest]) (*connect.Response[proto.ResumeWebhookResponse], error)
-	// GetNamespaceStats retrieves statistics for a namespace
+	// GetNamespaceStats returns aggregate delivery statistics for a namespace:
+	// total/active webhooks, total/successful/failed/pending deliveries, and success rate.
 	GetNamespaceStats(context.Context, *connect.Request[proto.GetNamespaceStatsRequest]) (*connect.Response[proto.GetNamespaceStatsResponse], error)
-	// GetTemplateFunctions returns all available template functions with their descriptions
+	// GetTemplateFunctions returns the list of Go template functions available for
+	// payload transformation in subscriptions. Each entry includes the function name
+	// and a description of its behavior.
 	GetTemplateFunctions(context.Context, *connect.Request[proto.GetTemplateFunctionsRequest]) (*connect.Response[proto.GetTemplateFunctionsResponse], error)
 }
 
@@ -411,19 +434,36 @@ func (UnimplementedWebhookServiceHandler) GetTemplateFunctions(context.Context, 
 
 // EventServiceClient is a client for the webhook.EventService service.
 type EventServiceClient interface {
-	// RegisterEvent registers a new event type
+	// RegisterEvent creates a new event type definition.
+	// If a JSON schema is provided, all future PushEvent payloads for this event
+	// are validated against it. The event name is the primary identifier (not a UUID).
+	// Errors: ALREADY_EXISTS if an event with the same name already exists.
 	RegisterEvent(context.Context, *connect.Request[proto.RegisterEventRequest]) (*connect.Response[proto.RegisterEventResponse], error)
-	// ListEvents lists all registered event types
+	// ListEvents returns all registered event types, optionally filtered to active-only.
+	// Results are paginated.
 	ListEvents(context.Context, *connect.Request[proto.ListEventsRequest]) (*connect.Response[proto.ListEventsResponse], error)
-	// UpdateEvent updates an event registration
+	// UpdateEvent modifies an existing event type's description, schema, metadata, or active flag.
+	// Updating the schema does not retroactively validate previously pushed events.
+	// Errors: NOT_FOUND if the event name does not exist.
 	UpdateEvent(context.Context, *connect.Request[proto.UpdateEventRequest]) (*connect.Response[proto.UpdateEventResponse], error)
-	// DeleteEvent deletes an event registration
+	// DeleteEvent permanently removes an event type definition.
+	// Existing subscriptions referencing this event name are not automatically deleted.
+	// Errors: NOT_FOUND if the event name does not exist.
 	DeleteEvent(context.Context, *connect.Request[proto.DeleteEventRequest]) (*connect.Response[proto.DeleteEventResponse], error)
-	// GetEvent retrieves an event type by name
+	// GetEvent returns a single event type by name, including its schema and auto-generated sample payload.
+	// Errors: NOT_FOUND if the event name does not exist.
 	GetEvent(context.Context, *connect.Request[proto.GetEventRequest]) (*connect.Response[proto.GetEventResponse], error)
-	// PushEvent pushes an event that triggers registered webhooks
+	// PushEvent emits an event instance. This is the primary ingestion endpoint.
+	// On success, the event is persisted and a background job is enqueued to fan out
+	// deliveries to all matching subscriptions (by namespace + event_name + label_filters).
+	// The response returns immediately with the event_id; delivery happens asynchronously.
+	// If the event type has a JSON schema, the payload is validated before acceptance.
+	// Errors: INVALID_ARGUMENT if the payload fails schema validation.
+	// Errors: NOT_FOUND if the event name is not registered.
 	PushEvent(context.Context, *connect.Request[proto.PushEventRequest]) (*connect.Response[proto.PushEventResponse], error)
-	// ListEventReports lists all events in descending order for a given namespace
+	// ListEventReports returns pushed event instances (not type definitions) for a namespace,
+	// ordered by created_at descending. Each report includes delivery stats
+	// (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
 	ListEventReports(context.Context, *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error)
 }
 
@@ -531,19 +571,36 @@ func (c *eventServiceClient) ListEventReports(ctx context.Context, req *connect.
 
 // EventServiceHandler is an implementation of the webhook.EventService service.
 type EventServiceHandler interface {
-	// RegisterEvent registers a new event type
+	// RegisterEvent creates a new event type definition.
+	// If a JSON schema is provided, all future PushEvent payloads for this event
+	// are validated against it. The event name is the primary identifier (not a UUID).
+	// Errors: ALREADY_EXISTS if an event with the same name already exists.
 	RegisterEvent(context.Context, *connect.Request[proto.RegisterEventRequest]) (*connect.Response[proto.RegisterEventResponse], error)
-	// ListEvents lists all registered event types
+	// ListEvents returns all registered event types, optionally filtered to active-only.
+	// Results are paginated.
 	ListEvents(context.Context, *connect.Request[proto.ListEventsRequest]) (*connect.Response[proto.ListEventsResponse], error)
-	// UpdateEvent updates an event registration
+	// UpdateEvent modifies an existing event type's description, schema, metadata, or active flag.
+	// Updating the schema does not retroactively validate previously pushed events.
+	// Errors: NOT_FOUND if the event name does not exist.
 	UpdateEvent(context.Context, *connect.Request[proto.UpdateEventRequest]) (*connect.Response[proto.UpdateEventResponse], error)
-	// DeleteEvent deletes an event registration
+	// DeleteEvent permanently removes an event type definition.
+	// Existing subscriptions referencing this event name are not automatically deleted.
+	// Errors: NOT_FOUND if the event name does not exist.
 	DeleteEvent(context.Context, *connect.Request[proto.DeleteEventRequest]) (*connect.Response[proto.DeleteEventResponse], error)
-	// GetEvent retrieves an event type by name
+	// GetEvent returns a single event type by name, including its schema and auto-generated sample payload.
+	// Errors: NOT_FOUND if the event name does not exist.
 	GetEvent(context.Context, *connect.Request[proto.GetEventRequest]) (*connect.Response[proto.GetEventResponse], error)
-	// PushEvent pushes an event that triggers registered webhooks
+	// PushEvent emits an event instance. This is the primary ingestion endpoint.
+	// On success, the event is persisted and a background job is enqueued to fan out
+	// deliveries to all matching subscriptions (by namespace + event_name + label_filters).
+	// The response returns immediately with the event_id; delivery happens asynchronously.
+	// If the event type has a JSON schema, the payload is validated before acceptance.
+	// Errors: INVALID_ARGUMENT if the payload fails schema validation.
+	// Errors: NOT_FOUND if the event name is not registered.
 	PushEvent(context.Context, *connect.Request[proto.PushEventRequest]) (*connect.Response[proto.PushEventResponse], error)
-	// ListEventReports lists all events in descending order for a given namespace
+	// ListEventReports returns pushed event instances (not type definitions) for a namespace,
+	// ordered by created_at descending. Each report includes delivery stats
+	// (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
 	ListEventReports(context.Context, *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error)
 }
 
@@ -651,17 +708,31 @@ func (UnimplementedEventServiceHandler) ListEventReports(context.Context, *conne
 
 // SubscriptionServiceClient is a client for the webhook.SubscriptionService service.
 type SubscriptionServiceClient interface {
-	// CreateSubscription creates a new event subscription for a webhook
+	// CreateSubscription links a webhook to an event name in a namespace.
+	// Optionally configure per-subscription headers, HTTP method override, timeout override,
+	// payload transformation (Go template), and label filters for selective matching.
+	// Errors: ALREADY_EXISTS if the webhook is already subscribed to this event in this namespace.
+	// Errors: NOT_FOUND if the webhook_id does not exist.
 	CreateSubscription(context.Context, *connect.Request[proto.CreateSubscriptionRequest]) (*connect.Response[proto.CreateSubscriptionResponse], error)
-	// GetSubscription retrieves a specific subscription by ID
+	// GetSubscription returns a single subscription by ID.
+	// Errors: NOT_FOUND if the subscription_id does not exist in the given namespace.
 	GetSubscription(context.Context, *connect.Request[proto.GetSubscriptionRequest]) (*connect.Response[proto.GetSubscriptionResponse], error)
-	// ListSubscriptions lists all subscriptions for a webhook or event
+	// ListSubscriptions returns subscriptions in a namespace, optionally filtered
+	// by webhook_id or event_name. Results are paginated.
 	ListSubscriptions(context.Context, *connect.Request[proto.ListSubscriptionsRequest]) (*connect.Response[proto.ListSubscriptionsResponse], error)
-	// UpdateSubscription updates an existing subscription
+	// UpdateSubscription modifies a subscription's headers, method, timeout,
+	// transform settings, or label filters. Only non-zero fields are applied.
+	// Errors: NOT_FOUND if the subscription does not exist.
 	UpdateSubscription(context.Context, *connect.Request[proto.UpdateSubscriptionRequest]) (*connect.Response[proto.UpdateSubscriptionResponse], error)
-	// DeleteSubscription deletes a subscription
+	// DeleteSubscription permanently removes a subscription.
+	// Existing in-flight deliveries for this subscription are not cancelled.
+	// Errors: NOT_FOUND if the subscription does not exist.
 	DeleteSubscription(context.Context, *connect.Request[proto.DeleteSubscriptionRequest]) (*connect.Response[proto.DeleteSubscriptionResponse], error)
-	// TestSubscriptionTemplate dry-runs a transformation template with sample data
+	// TestSubscriptionTemplate renders a Go template against the sample payload of the
+	// given event type. Returns the transformed output string. Use this to validate
+	// templates before saving them on a subscription.
+	// Errors: INVALID_ARGUMENT if the template fails to parse or execute.
+	// Errors: NOT_FOUND if the event_name does not exist.
 	TestSubscriptionTemplate(context.Context, *connect.Request[proto.TestSubscriptionTemplateRequest]) (*connect.Response[proto.TestSubscriptionTemplateResponse], error)
 }
 
@@ -757,17 +828,31 @@ func (c *subscriptionServiceClient) TestSubscriptionTemplate(ctx context.Context
 
 // SubscriptionServiceHandler is an implementation of the webhook.SubscriptionService service.
 type SubscriptionServiceHandler interface {
-	// CreateSubscription creates a new event subscription for a webhook
+	// CreateSubscription links a webhook to an event name in a namespace.
+	// Optionally configure per-subscription headers, HTTP method override, timeout override,
+	// payload transformation (Go template), and label filters for selective matching.
+	// Errors: ALREADY_EXISTS if the webhook is already subscribed to this event in this namespace.
+	// Errors: NOT_FOUND if the webhook_id does not exist.
 	CreateSubscription(context.Context, *connect.Request[proto.CreateSubscriptionRequest]) (*connect.Response[proto.CreateSubscriptionResponse], error)
-	// GetSubscription retrieves a specific subscription by ID
+	// GetSubscription returns a single subscription by ID.
+	// Errors: NOT_FOUND if the subscription_id does not exist in the given namespace.
 	GetSubscription(context.Context, *connect.Request[proto.GetSubscriptionRequest]) (*connect.Response[proto.GetSubscriptionResponse], error)
-	// ListSubscriptions lists all subscriptions for a webhook or event
+	// ListSubscriptions returns subscriptions in a namespace, optionally filtered
+	// by webhook_id or event_name. Results are paginated.
 	ListSubscriptions(context.Context, *connect.Request[proto.ListSubscriptionsRequest]) (*connect.Response[proto.ListSubscriptionsResponse], error)
-	// UpdateSubscription updates an existing subscription
+	// UpdateSubscription modifies a subscription's headers, method, timeout,
+	// transform settings, or label filters. Only non-zero fields are applied.
+	// Errors: NOT_FOUND if the subscription does not exist.
 	UpdateSubscription(context.Context, *connect.Request[proto.UpdateSubscriptionRequest]) (*connect.Response[proto.UpdateSubscriptionResponse], error)
-	// DeleteSubscription deletes a subscription
+	// DeleteSubscription permanently removes a subscription.
+	// Existing in-flight deliveries for this subscription are not cancelled.
+	// Errors: NOT_FOUND if the subscription does not exist.
 	DeleteSubscription(context.Context, *connect.Request[proto.DeleteSubscriptionRequest]) (*connect.Response[proto.DeleteSubscriptionResponse], error)
-	// TestSubscriptionTemplate dry-runs a transformation template with sample data
+	// TestSubscriptionTemplate renders a Go template against the sample payload of the
+	// given event type. Returns the transformed output string. Use this to validate
+	// templates before saving them on a subscription.
+	// Errors: INVALID_ARGUMENT if the template fails to parse or execute.
+	// Errors: NOT_FOUND if the event_name does not exist.
 	TestSubscriptionTemplate(context.Context, *connect.Request[proto.TestSubscriptionTemplateRequest]) (*connect.Response[proto.TestSubscriptionTemplateResponse], error)
 }
 
@@ -863,13 +948,21 @@ func (UnimplementedSubscriptionServiceHandler) TestSubscriptionTemplate(context.
 
 // DeliveryServiceClient is a client for the webhook.DeliveryService service.
 type DeliveryServiceClient interface {
-	// GetDeliveryStatus retrieves delivery status for specific delivery
+	// GetDeliveryStatus returns full details of a single delivery, including
+	// request body, response body, response code, error category, and retry state.
+	// Errors: NOT_FOUND if the delivery_id does not exist in the given namespace.
 	GetDeliveryStatus(context.Context, *connect.Request[proto.GetDeliveryStatusRequest]) (*connect.Response[proto.GetDeliveryStatusResponse], error)
-	// ListDeliveries retrieves delivery history with filters
+	// ListDeliveries returns delivery records for a namespace, optionally filtered
+	// by webhook_id or event_id. Ordered by created_at descending. Paginated.
 	ListDeliveries(context.Context, *connect.Request[proto.ListDeliveriesRequest]) (*connect.Response[proto.ListDeliveriesResponse], error)
-	// RetryDelivery manually retries failed or pending webhook deliveries
+	// RetryDelivery re-enqueues deliveries for processing.
+	// Can target a specific delivery_id, all failed/pending deliveries for a webhook_id,
+	// or both. Set force=true to retry even successful deliveries.
+	// Returns the count and IDs of deliveries that were re-enqueued.
 	RetryDelivery(context.Context, *connect.Request[proto.RetryDeliveryRequest]) (*connect.Response[proto.RetryDeliveryResponse], error)
-	// GetDeliveryAttempts retrieves individual attempt history for a delivery
+	// GetDeliveryAttempts returns the per-attempt history for a delivery, ordered by timestamp.
+	// Each attempt includes response_time, response_code, error_message, and error_category.
+	// Errors: INVALID_ARGUMENT if delivery_id is empty.
 	GetDeliveryAttempts(context.Context, *connect.Request[proto.GetDeliveryAttemptsRequest]) (*connect.Response[proto.GetDeliveryAttemptsResponse], error)
 }
 
@@ -941,13 +1034,21 @@ func (c *deliveryServiceClient) GetDeliveryAttempts(ctx context.Context, req *co
 
 // DeliveryServiceHandler is an implementation of the webhook.DeliveryService service.
 type DeliveryServiceHandler interface {
-	// GetDeliveryStatus retrieves delivery status for specific delivery
+	// GetDeliveryStatus returns full details of a single delivery, including
+	// request body, response body, response code, error category, and retry state.
+	// Errors: NOT_FOUND if the delivery_id does not exist in the given namespace.
 	GetDeliveryStatus(context.Context, *connect.Request[proto.GetDeliveryStatusRequest]) (*connect.Response[proto.GetDeliveryStatusResponse], error)
-	// ListDeliveries retrieves delivery history with filters
+	// ListDeliveries returns delivery records for a namespace, optionally filtered
+	// by webhook_id or event_id. Ordered by created_at descending. Paginated.
 	ListDeliveries(context.Context, *connect.Request[proto.ListDeliveriesRequest]) (*connect.Response[proto.ListDeliveriesResponse], error)
-	// RetryDelivery manually retries failed or pending webhook deliveries
+	// RetryDelivery re-enqueues deliveries for processing.
+	// Can target a specific delivery_id, all failed/pending deliveries for a webhook_id,
+	// or both. Set force=true to retry even successful deliveries.
+	// Returns the count and IDs of deliveries that were re-enqueued.
 	RetryDelivery(context.Context, *connect.Request[proto.RetryDeliveryRequest]) (*connect.Response[proto.RetryDeliveryResponse], error)
-	// GetDeliveryAttempts retrieves individual attempt history for a delivery
+	// GetDeliveryAttempts returns the per-attempt history for a delivery, ordered by timestamp.
+	// Each attempt includes response_time, response_code, error_message, and error_category.
+	// Errors: INVALID_ARGUMENT if delivery_id is empty.
 	GetDeliveryAttempts(context.Context, *connect.Request[proto.GetDeliveryAttemptsRequest]) (*connect.Response[proto.GetDeliveryAttemptsResponse], error)
 }
 
@@ -1019,11 +1120,16 @@ func (UnimplementedDeliveryServiceHandler) GetDeliveryAttempts(context.Context, 
 
 // HealthServiceClient is a client for the webhook.HealthService service.
 type HealthServiceClient interface {
-	// GetWebhookHealth gets health metrics for a specific webhook
+	// GetWebhookHealth returns health status and detailed metrics for a single webhook:
+	// total/successful/failed deliveries, consecutive failures, success rate, avg response time,
+	// and error category breakdown (client/server/timeout/network errors).
+	// Returns HEALTH_UNSPECIFIED with no metrics if the webhook has no delivery history.
 	GetWebhookHealth(context.Context, *connect.Request[proto.GetWebhookHealthRequest]) (*connect.Response[proto.GetWebhookHealthResponse], error)
-	// ListWebhooksByHealth lists webhooks filtered by health status
+	// ListWebhooksByHealth returns all webhooks matching a given health status.
+	// Useful for finding degraded or unhealthy endpoints. Paginated.
 	ListWebhooksByHealth(context.Context, *connect.Request[proto.ListWebhooksByHealthRequest]) (*connect.Response[proto.ListWebhooksByHealthResponse], error)
-	// GetHealthSummary gets a summary of webhook health across all namespaces
+	// GetHealthSummary returns aggregate counts of webhooks by health status
+	// (healthy, degraded, unhealthy, unknown) across all namespaces.
 	GetHealthSummary(context.Context, *connect.Request[proto.GetHealthSummaryRequest]) (*connect.Response[proto.GetHealthSummaryResponse], error)
 }
 
@@ -1083,11 +1189,16 @@ func (c *healthServiceClient) GetHealthSummary(ctx context.Context, req *connect
 
 // HealthServiceHandler is an implementation of the webhook.HealthService service.
 type HealthServiceHandler interface {
-	// GetWebhookHealth gets health metrics for a specific webhook
+	// GetWebhookHealth returns health status and detailed metrics for a single webhook:
+	// total/successful/failed deliveries, consecutive failures, success rate, avg response time,
+	// and error category breakdown (client/server/timeout/network errors).
+	// Returns HEALTH_UNSPECIFIED with no metrics if the webhook has no delivery history.
 	GetWebhookHealth(context.Context, *connect.Request[proto.GetWebhookHealthRequest]) (*connect.Response[proto.GetWebhookHealthResponse], error)
-	// ListWebhooksByHealth lists webhooks filtered by health status
+	// ListWebhooksByHealth returns all webhooks matching a given health status.
+	// Useful for finding degraded or unhealthy endpoints. Paginated.
 	ListWebhooksByHealth(context.Context, *connect.Request[proto.ListWebhooksByHealthRequest]) (*connect.Response[proto.ListWebhooksByHealthResponse], error)
-	// GetHealthSummary gets a summary of webhook health across all namespaces
+	// GetHealthSummary returns aggregate counts of webhooks by health status
+	// (healthy, degraded, unhealthy, unknown) across all namespaces.
 	GetHealthSummary(context.Context, *connect.Request[proto.GetHealthSummaryRequest]) (*connect.Response[proto.GetHealthSummaryResponse], error)
 }
 
@@ -1143,188 +1254,4 @@ func (UnimplementedHealthServiceHandler) ListWebhooksByHealth(context.Context, *
 
 func (UnimplementedHealthServiceHandler) GetHealthSummary(context.Context, *connect.Request[proto.GetHealthSummaryRequest]) (*connect.Response[proto.GetHealthSummaryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.HealthService.GetHealthSummary is not implemented"))
-}
-
-// NamespaceServiceClient is a client for the webhook.NamespaceService service.
-type NamespaceServiceClient interface {
-	// CreateNamespace creates a new namespace within the caller's tenant
-	CreateNamespace(context.Context, *connect.Request[proto.CreateNamespaceRequest]) (*connect.Response[proto.CreateNamespaceResponse], error)
-	// GetNamespace retrieves a namespace by ID
-	GetNamespace(context.Context, *connect.Request[proto.GetNamespaceRequest]) (*connect.Response[proto.GetNamespaceResponse], error)
-	// ListNamespaces lists namespaces for the caller's tenant
-	ListNamespaces(context.Context, *connect.Request[proto.ListNamespacesRequest]) (*connect.Response[proto.ListNamespacesResponse], error)
-	// UpdateNamespace updates a namespace's name or description
-	UpdateNamespace(context.Context, *connect.Request[proto.UpdateNamespaceRequest2]) (*connect.Response[proto.UpdateNamespaceResponse2], error)
-	// DeleteNamespace deletes a namespace
-	DeleteNamespace(context.Context, *connect.Request[proto.DeleteNamespaceRequest]) (*connect.Response[proto.DeleteNamespaceResponse2], error)
-}
-
-// NewNamespaceServiceClient constructs a client for the webhook.NamespaceService service. By
-// default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
-// and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
-// connect.WithGRPC() or connect.WithGRPCWeb() options.
-//
-// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
-// http://api.acme.com or https://acme.com/grpc).
-func NewNamespaceServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) NamespaceServiceClient {
-	baseURL = strings.TrimRight(baseURL, "/")
-	namespaceServiceMethods := proto.File_proto_webhook_proto.Services().ByName("NamespaceService").Methods()
-	return &namespaceServiceClient{
-		createNamespace: connect.NewClient[proto.CreateNamespaceRequest, proto.CreateNamespaceResponse](
-			httpClient,
-			baseURL+NamespaceServiceCreateNamespaceProcedure,
-			connect.WithSchema(namespaceServiceMethods.ByName("CreateNamespace")),
-			connect.WithClientOptions(opts...),
-		),
-		getNamespace: connect.NewClient[proto.GetNamespaceRequest, proto.GetNamespaceResponse](
-			httpClient,
-			baseURL+NamespaceServiceGetNamespaceProcedure,
-			connect.WithSchema(namespaceServiceMethods.ByName("GetNamespace")),
-			connect.WithClientOptions(opts...),
-		),
-		listNamespaces: connect.NewClient[proto.ListNamespacesRequest, proto.ListNamespacesResponse](
-			httpClient,
-			baseURL+NamespaceServiceListNamespacesProcedure,
-			connect.WithSchema(namespaceServiceMethods.ByName("ListNamespaces")),
-			connect.WithClientOptions(opts...),
-		),
-		updateNamespace: connect.NewClient[proto.UpdateNamespaceRequest2, proto.UpdateNamespaceResponse2](
-			httpClient,
-			baseURL+NamespaceServiceUpdateNamespaceProcedure,
-			connect.WithSchema(namespaceServiceMethods.ByName("UpdateNamespace")),
-			connect.WithClientOptions(opts...),
-		),
-		deleteNamespace: connect.NewClient[proto.DeleteNamespaceRequest, proto.DeleteNamespaceResponse2](
-			httpClient,
-			baseURL+NamespaceServiceDeleteNamespaceProcedure,
-			connect.WithSchema(namespaceServiceMethods.ByName("DeleteNamespace")),
-			connect.WithClientOptions(opts...),
-		),
-	}
-}
-
-// namespaceServiceClient implements NamespaceServiceClient.
-type namespaceServiceClient struct {
-	createNamespace *connect.Client[proto.CreateNamespaceRequest, proto.CreateNamespaceResponse]
-	getNamespace    *connect.Client[proto.GetNamespaceRequest, proto.GetNamespaceResponse]
-	listNamespaces  *connect.Client[proto.ListNamespacesRequest, proto.ListNamespacesResponse]
-	updateNamespace *connect.Client[proto.UpdateNamespaceRequest2, proto.UpdateNamespaceResponse2]
-	deleteNamespace *connect.Client[proto.DeleteNamespaceRequest, proto.DeleteNamespaceResponse2]
-}
-
-// CreateNamespace calls webhook.NamespaceService.CreateNamespace.
-func (c *namespaceServiceClient) CreateNamespace(ctx context.Context, req *connect.Request[proto.CreateNamespaceRequest]) (*connect.Response[proto.CreateNamespaceResponse], error) {
-	return c.createNamespace.CallUnary(ctx, req)
-}
-
-// GetNamespace calls webhook.NamespaceService.GetNamespace.
-func (c *namespaceServiceClient) GetNamespace(ctx context.Context, req *connect.Request[proto.GetNamespaceRequest]) (*connect.Response[proto.GetNamespaceResponse], error) {
-	return c.getNamespace.CallUnary(ctx, req)
-}
-
-// ListNamespaces calls webhook.NamespaceService.ListNamespaces.
-func (c *namespaceServiceClient) ListNamespaces(ctx context.Context, req *connect.Request[proto.ListNamespacesRequest]) (*connect.Response[proto.ListNamespacesResponse], error) {
-	return c.listNamespaces.CallUnary(ctx, req)
-}
-
-// UpdateNamespace calls webhook.NamespaceService.UpdateNamespace.
-func (c *namespaceServiceClient) UpdateNamespace(ctx context.Context, req *connect.Request[proto.UpdateNamespaceRequest2]) (*connect.Response[proto.UpdateNamespaceResponse2], error) {
-	return c.updateNamespace.CallUnary(ctx, req)
-}
-
-// DeleteNamespace calls webhook.NamespaceService.DeleteNamespace.
-func (c *namespaceServiceClient) DeleteNamespace(ctx context.Context, req *connect.Request[proto.DeleteNamespaceRequest]) (*connect.Response[proto.DeleteNamespaceResponse2], error) {
-	return c.deleteNamespace.CallUnary(ctx, req)
-}
-
-// NamespaceServiceHandler is an implementation of the webhook.NamespaceService service.
-type NamespaceServiceHandler interface {
-	// CreateNamespace creates a new namespace within the caller's tenant
-	CreateNamespace(context.Context, *connect.Request[proto.CreateNamespaceRequest]) (*connect.Response[proto.CreateNamespaceResponse], error)
-	// GetNamespace retrieves a namespace by ID
-	GetNamespace(context.Context, *connect.Request[proto.GetNamespaceRequest]) (*connect.Response[proto.GetNamespaceResponse], error)
-	// ListNamespaces lists namespaces for the caller's tenant
-	ListNamespaces(context.Context, *connect.Request[proto.ListNamespacesRequest]) (*connect.Response[proto.ListNamespacesResponse], error)
-	// UpdateNamespace updates a namespace's name or description
-	UpdateNamespace(context.Context, *connect.Request[proto.UpdateNamespaceRequest2]) (*connect.Response[proto.UpdateNamespaceResponse2], error)
-	// DeleteNamespace deletes a namespace
-	DeleteNamespace(context.Context, *connect.Request[proto.DeleteNamespaceRequest]) (*connect.Response[proto.DeleteNamespaceResponse2], error)
-}
-
-// NewNamespaceServiceHandler builds an HTTP handler from the service implementation. It returns the
-// path on which to mount the handler and the handler itself.
-//
-// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
-// and JSON codecs. They also support gzip compression.
-func NewNamespaceServiceHandler(svc NamespaceServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	namespaceServiceMethods := proto.File_proto_webhook_proto.Services().ByName("NamespaceService").Methods()
-	namespaceServiceCreateNamespaceHandler := connect.NewUnaryHandler(
-		NamespaceServiceCreateNamespaceProcedure,
-		svc.CreateNamespace,
-		connect.WithSchema(namespaceServiceMethods.ByName("CreateNamespace")),
-		connect.WithHandlerOptions(opts...),
-	)
-	namespaceServiceGetNamespaceHandler := connect.NewUnaryHandler(
-		NamespaceServiceGetNamespaceProcedure,
-		svc.GetNamespace,
-		connect.WithSchema(namespaceServiceMethods.ByName("GetNamespace")),
-		connect.WithHandlerOptions(opts...),
-	)
-	namespaceServiceListNamespacesHandler := connect.NewUnaryHandler(
-		NamespaceServiceListNamespacesProcedure,
-		svc.ListNamespaces,
-		connect.WithSchema(namespaceServiceMethods.ByName("ListNamespaces")),
-		connect.WithHandlerOptions(opts...),
-	)
-	namespaceServiceUpdateNamespaceHandler := connect.NewUnaryHandler(
-		NamespaceServiceUpdateNamespaceProcedure,
-		svc.UpdateNamespace,
-		connect.WithSchema(namespaceServiceMethods.ByName("UpdateNamespace")),
-		connect.WithHandlerOptions(opts...),
-	)
-	namespaceServiceDeleteNamespaceHandler := connect.NewUnaryHandler(
-		NamespaceServiceDeleteNamespaceProcedure,
-		svc.DeleteNamespace,
-		connect.WithSchema(namespaceServiceMethods.ByName("DeleteNamespace")),
-		connect.WithHandlerOptions(opts...),
-	)
-	return "/webhook.NamespaceService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case NamespaceServiceCreateNamespaceProcedure:
-			namespaceServiceCreateNamespaceHandler.ServeHTTP(w, r)
-		case NamespaceServiceGetNamespaceProcedure:
-			namespaceServiceGetNamespaceHandler.ServeHTTP(w, r)
-		case NamespaceServiceListNamespacesProcedure:
-			namespaceServiceListNamespacesHandler.ServeHTTP(w, r)
-		case NamespaceServiceUpdateNamespaceProcedure:
-			namespaceServiceUpdateNamespaceHandler.ServeHTTP(w, r)
-		case NamespaceServiceDeleteNamespaceProcedure:
-			namespaceServiceDeleteNamespaceHandler.ServeHTTP(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	})
-}
-
-// UnimplementedNamespaceServiceHandler returns CodeUnimplemented from all methods.
-type UnimplementedNamespaceServiceHandler struct{}
-
-func (UnimplementedNamespaceServiceHandler) CreateNamespace(context.Context, *connect.Request[proto.CreateNamespaceRequest]) (*connect.Response[proto.CreateNamespaceResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceService.CreateNamespace is not implemented"))
-}
-
-func (UnimplementedNamespaceServiceHandler) GetNamespace(context.Context, *connect.Request[proto.GetNamespaceRequest]) (*connect.Response[proto.GetNamespaceResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceService.GetNamespace is not implemented"))
-}
-
-func (UnimplementedNamespaceServiceHandler) ListNamespaces(context.Context, *connect.Request[proto.ListNamespacesRequest]) (*connect.Response[proto.ListNamespacesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceService.ListNamespaces is not implemented"))
-}
-
-func (UnimplementedNamespaceServiceHandler) UpdateNamespace(context.Context, *connect.Request[proto.UpdateNamespaceRequest2]) (*connect.Response[proto.UpdateNamespaceResponse2], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceService.UpdateNamespace is not implemented"))
-}
-
-func (UnimplementedNamespaceServiceHandler) DeleteNamespace(context.Context, *connect.Request[proto.DeleteNamespaceRequest]) (*connect.Response[proto.DeleteNamespaceResponse2], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.NamespaceService.DeleteNamespace is not implemented"))
 }

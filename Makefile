@@ -28,13 +28,13 @@ build-all: build-ui ## Build for common OS/arch combinations
 
 
 docker-purge: ## Stop and remove Docker containers, networks, volumes, and images created by Docker Compose for development
-	docker-compose -f docker-compose.dev.yml  down -v
+	docker-compose -f docker-compose.yml down -v
 
 example: ## Run the gRPC client example
 	DATABASE_URL=$(DATABASE_URL) go run examples/grpc_client.go
 
 run-web: ## Run the web development server
-	cd web &&  yarn dev
+	cd web && npm run dev
 
 test: ## Run tests
 	go test -v ./...
@@ -46,7 +46,7 @@ run:  ## Run the gRPC server
 	SPARROW_SERVE_UI=true DATABASE_URL=$(DATABASE_URL)  go run ./cmd/server
 
 migrate: ## Run database migrations
-	DATABASE_URL='postgres://riveruser:riverpass@0.0.0.0:5432/riverqueue?sslmode=disable' go run ./cmd/migrate
+	DATABASE_URL=$(DATABASE_URL) go run ./cmd/migrate
 
 
 clean: ## Clean up build artifacts and Go module cache
@@ -63,7 +63,7 @@ lint: ## Run golangci-lint for linting
 	golangci-lint run -v --timeout 15m ./...
 
 docker-dev: ## Run the development environment with Docker Compose
-	docker-compose -f docker-compose.dev.yml up -d
+	docker-compose -f docker-compose.yml up -d --build
 
 fmt: ## Format the code
 	goimports -local github.com/sarathsp06/sparrow/  -w .
@@ -71,4 +71,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui build-all run test test-integration clean generate docker-dev example docker-purge migrate
+.PHONY: build build-ui build-with-ui build-all run test test-integration clean generate docker-dev example docker-purge migrate lint fmt run-web help

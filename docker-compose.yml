@@ -33,6 +33,7 @@ services:
     environment:
       DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
       SPARROW_SERVE_UI: "true"
+      SPARROW_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     depends_on:
       postgres:
         condition: service_healthy

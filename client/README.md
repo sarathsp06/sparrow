@@ -251,14 +251,14 @@ channel = grpc.secure_channel("sparrow.example.com:50051", creds)
 
 ## Available Services
 
-| Service                      | Description                           |
-|------------------------------|---------------------------------------|
-| `WebhookService`             | Register, update, pause/resume webhooks |
-| `EventService`               | Push events, register event types     |
-| `SubscriptionService`        | Manage webhook-event subscriptions    |
-| `DeliveryService`            | Query delivery history and attempts   |
-| `HealthService`              | Webhook health metrics and summaries  |
-| `NamespaceService`           | Create and manage namespaces          |
+| Service                      | Description                           | Proto? |
+|------------------------------|---------------------------------------|--------|
+| `WebhookService`             | Register, update, pause/resume webhooks | Yes |
+| `EventService`               | Push events, register event types     | Yes |
+| `SubscriptionService`        | Manage webhook-event subscriptions    | Yes |
+| `DeliveryService`            | Query delivery history and attempts   | Yes |
+| `HealthService`              | Webhook health metrics and summaries  | Yes |
+| `NamespaceService`           | Create and manage namespaces          | No (Go-only, no generated client stubs) |
 
 ## Ports
 

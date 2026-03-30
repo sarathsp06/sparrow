@@ -105,7 +105,7 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, tenant
 		SELECT id, tenant_id, namespace, url, headers, timeout, active, description, health,
 		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-		       user_agent, content_type, created_at, updated_at
+		       user_agent, content_type, secret_headers, created_at, updated_at
 		FROM webhook_registrations 
 		WHERE tenant_id = $1 AND namespace = $2 AND active = true
 	`
@@ -141,6 +141,7 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, tenant
 			&wh.WebhookSecret,
 			&wh.UserAgent,
 			&wh.ContentType,
+			&wh.SecretHeaders,
 			&wh.CreatedAt,
 			&wh.UpdatedAt,
 		)

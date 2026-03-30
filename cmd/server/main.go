@@ -27,13 +27,13 @@ import (
 	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
 	"github.com/sarathsp06/sparrow/internal/health"
 	"github.com/sarathsp06/sparrow/internal/migration"
-	"github.com/sarathsp06/sparrow/internal/namespace"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/ui"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/pkg/crypto"
 	"github.com/sarathsp06/sparrow/pkg/storage/postgres"
 	pb "github.com/sarathsp06/sparrow/proto"
 	pbconnect "github.com/sarathsp06/sparrow/proto/protoconnect"
@@ -141,17 +141,27 @@ func main() {
 		log.Fatalf("Failed to bootstrap: %v", err)
 	}
 
-	// Create namespace repository and service
-	namespaceRepo := namespace.NewRepository(sqlxDB)
-
-	// Create namespace service
-	namespaceSvc := namespace.NewService(namespaceRepo, namespace.WithServiceLogger(logger))
+	// Initialize encryption service for secret headers
+	encKeyRaw := os.Getenv("SPARROW_ENCRYPTION_KEY")
+	encKey, err := crypto.ParseKey(encKeyRaw)
+	if err != nil {
+		log.Fatalf("Failed to parse SPARROW_ENCRYPTION_KEY: %v", err)
+	}
+	cryptoSvc, err := crypto.NewService(encKey)
+	if err != nil {
+		log.Fatalf("Failed to create crypto service: %v", err)
+	}
+	if cryptoSvc.Enabled() {
+		fmt.Println("🔐 Encryption enabled for secret headers")
+	} else {
+		fmt.Println("⚠️  SPARROW_ENCRYPTION_KEY not set — secret headers feature disabled")
+	}
 
 	// Create webhook repository
 	webhookRepo := store.NewRepositoryInterfaceWithTracing(store.NewRepository(sqlxDB), "")
 
 	// Initialize queue manager
-	queueManager, err := queue.NewManager(ctx, webhookRepo, dbPool)
+	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool)
 	if err != nil {
 		log.Fatalf("Failed to create queue manager: %v", err)
 	}
@@ -171,7 +181,7 @@ func main() {
 		grpc.MaxSendMsgSize(4<<20), // 4 MB max outbound message
 	)
 
-	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo)
+	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc)
 
 	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, ""))
 	pb.RegisterWebhookServiceServer(grpcServer, webhookGRPCServer)
@@ -180,15 +190,8 @@ func main() {
 	pb.RegisterDeliveryServiceServer(grpcServer, webhookGRPCServer)
 	pb.RegisterHealthServiceServer(grpcServer, webhookGRPCServer)
 
-	// Register Namespace gRPC service
-	namespaceGRPCServer := grpcserver.NewNamespaceServer(namespaceSvc)
-	pb.RegisterNamespaceServiceServer(grpcServer, namespaceGRPCServer)
-
 	// Initialize Connect-RPC server
 	webhookConnectServer := connectserver.NewWebhookConnectServer(webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer)
-
-	// Create Connect-RPC adapter for namespace services
-	namespaceConnectServer := connectserver.NewNamespaceConnectServer(namespaceGRPCServer)
 
 	// Create HTTP mux for Connect-RPC
 	mux := http.NewServeMux()
@@ -206,7 +209,6 @@ func main() {
 	mux.Handle(pbconnect.NewSubscriptionServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
 	mux.Handle(pbconnect.NewDeliveryServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
 	mux.Handle(pbconnect.NewHealthServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
-	mux.Handle(pbconnect.NewNamespaceServiceHandler(namespaceConnectServer, options, readLimit, sendLimit))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, queueManager, startTime)

@@ -18,17 +18,19 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/observability"
+	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 type WebhookService struct {
 	jobInserter queue.JobInserter
 	webhookRepo store.RepositoryInterface
+	crypto      *crypto.Service
 	logger      *slog.Logger
 	tracer      trace.Tracer
 	metrics     *observability.SparrowMetrics
@@ -37,11 +39,11 @@ type WebhookService struct {
 //go:generate gowrap gen -i WebhookServiceInterface -t ../../templates/opentelemetry.tmpl -o WebhookServiceInterface_otel.go
 type WebhookServiceInterface interface {
 	// Webhook Management
-	RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (string, time.Time, error)
+	RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error)
 	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error)
 	UnregisterWebhook(ctx context.Context, webhookID string, namespace string) error
 	ListWebhooks(ctx context.Context, namespace string, webhookID string, event string, activeOnly bool, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
-	UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate) error
+	UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string) error
 	PauseWebhook(ctx context.Context, webhookID string, namespace string, reason string) error
 	ResumeWebhook(ctx context.Context, webhookID string, namespace string) error
 	GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStatsData, error)
@@ -79,6 +81,10 @@ type WebhookServiceInterface interface {
 
 	// Repository access
 	GetWebhookRepo() store.RepositoryInterface
+
+	// Crypto
+	DecryptSecretHeaders(encrypted []byte) (map[string]string, error)
+	GetCrypto() *crypto.Service
 }
 
 type TemplateFunctionInfo struct {
@@ -89,7 +95,7 @@ type TemplateFunctionInfo struct {
 var _ WebhookServiceInterface = (*WebhookService)(nil)
 
 // NewWebhookService creates a new WebhookService instance
-func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.RepositoryInterface) *WebhookService {
+func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service) *WebhookService {
 	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
@@ -100,10 +106,44 @@ func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.Reposit
 	return &WebhookService{
 		jobInserter: queueManager,
 		webhookRepo: webhookRepo,
+		crypto:      cryptoSvc,
 		logger:      logger.NewLogger("webhook-service"),
 		tracer:      observability.GetTracer("sparrow.service.webhook"),
 		metrics:     metrics,
 	}
+}
+
+// EncryptSecretHeaders encrypts a plaintext secret headers map to bytes for storage.
+// Returns nil if the map is empty or nil, or if encryption is not configured.
+func (s *WebhookService) EncryptSecretHeaders(headers map[string]string) ([]byte, error) {
+	if len(headers) == 0 {
+		return nil, nil
+	}
+	if s.crypto == nil || !s.crypto.Enabled() {
+		return nil, fmt.Errorf("encryption is required for secret headers but SPARROW_ENCRYPTION_KEY is not configured")
+	}
+	return s.crypto.EncryptJSON(headers)
+}
+
+// DecryptSecretHeaders decrypts encrypted secret headers bytes back to a plaintext map.
+// Returns nil map if the encrypted data is nil/empty or if encryption is not configured.
+func (s *WebhookService) DecryptSecretHeaders(encrypted []byte) (map[string]string, error) {
+	if len(encrypted) == 0 {
+		return nil, nil
+	}
+	if s.crypto == nil || !s.crypto.Enabled() {
+		return nil, fmt.Errorf("encryption key not configured; cannot decrypt secret headers")
+	}
+	var headers map[string]string
+	if err := s.crypto.DecryptJSON(encrypted, &headers); err != nil {
+		return nil, fmt.Errorf("failed to decrypt secret headers: %w", err)
+	}
+	return headers, nil
+}
+
+// GetCrypto returns the crypto service for use by workers and handlers
+func (s *WebhookService) GetCrypto() *crypto.Service {
+	return s.crypto
 }
 
 // GetWebhookRepo returns the repository interface for direct access
@@ -143,7 +183,7 @@ func validateLabels(m map[string]string, fieldName string) error {
 	return nil
 }
 
-func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string) (string, time.Time, error) {
+func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error) {
 	ctx, span := s.tracer.Start(ctx, "webhook.register",
 		trace.WithAttributes(
 			attribute.String("namespace", namespace),
@@ -187,6 +227,15 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 		Timeout:     int(timeout),
 		Active:      active,
 		Description: description,
+	}
+
+	// Encrypt secret headers if provided
+	if len(secretHeaders) > 0 {
+		encrypted, err := s.EncryptSecretHeaders(secretHeaders)
+		if err != nil {
+			return "", time.Time{}, fmt.Errorf("failed to encrypt secret headers: %w", err)
+		}
+		registration.SecretHeaders = encrypted
 	}
 
 	// Build subscriptions slice for atomic creation
@@ -314,6 +363,15 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		}
 	}
 	storeWebhook.Headers = headersMap
+
+	// Encrypt secret headers if provided
+	if len(req.SecretHeaders) > 0 {
+		encrypted, err := s.EncryptSecretHeaders(req.SecretHeaders)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt secret headers: %w", err)
+		}
+		storeWebhook.SecretHeaders = encrypted
+	}
 
 	// Convert expected status codes
 	expectedCodes := make(pq.Int64Array, len(webhookReg.HTTPConfig.ExpectedStatusCodes))
@@ -660,7 +718,6 @@ func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID str
 	if err != nil {
 		return nil, fmt.Errorf("invalid delivery ID: %w", err)
 	}
-
 
 	attempts, err := s.webhookRepo.GetDeliveryAttempts(ctx, tenantID, id)
 	if err != nil {
@@ -1419,7 +1476,7 @@ func (s *WebhookService) GetNamespaceStats(ctx context.Context, namespace string
 }
 
 // UpdateWebhookConfig updates webhook configuration
-func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate) error {
+func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string) error {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateWebhookConfig")
 	defer span.End()
 
@@ -1517,6 +1574,14 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		webhook.CaptureResponseBody = httpConfig.CaptureResponseBody
 		webhook.FollowRedirects = httpConfig.FollowRedirects
 		webhook.VerifySSL = httpConfig.VerifySSL
+	}
+	// Encrypt and set secret headers if provided
+	if len(secretHeaders) > 0 {
+		encrypted, err := s.EncryptSecretHeaders(secretHeaders)
+		if err != nil {
+			return fmt.Errorf("failed to encrypt secret headers: %w", err)
+		}
+		webhook.SecretHeaders = encrypted
 	}
 	err = s.webhookRepo.UpdateWebhook(ctx, tenantID, webhook)
 	if err != nil {

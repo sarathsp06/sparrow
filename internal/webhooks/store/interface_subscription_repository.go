@@ -200,7 +200,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 			wr.timeout as wr_timeout, wr.active, wr.description, wr.health,
 			wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
 			wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
-			wr.user_agent, wr.content_type, wr.created_at as wr_created_at, wr.updated_at as wr_updated_at
+			wr.user_agent, wr.content_type, wr.secret_headers, wr.created_at as wr_created_at, wr.updated_at as wr_updated_at
 		FROM event_subscriptions es
 		JOIN webhook_registrations wr ON es.webhook_id = wr.id
 		WHERE es.tenant_id = $1 AND es.namespace = $2
@@ -248,6 +248,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 		WebhookSecret           string        `db:"webhook_secret"`
 		UserAgent               string        `db:"user_agent"`
 		ContentType             string        `db:"content_type"`
+		SecretHeaders           []byte        `db:"secret_headers"`
 		WRCreatedAt             time.Time     `db:"wr_created_at"`
 		WRUpdatedAt             time.Time     `db:"wr_updated_at"`
 	}
@@ -292,6 +293,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 			WebhookSecret:         row.WebhookSecret,
 			UserAgent:             row.UserAgent,
 			ContentType:           row.ContentType,
+			SecretHeaders:         row.SecretHeaders,
 			CreatedAt:             row.WRCreatedAt,
 			UpdatedAt:             row.WRUpdatedAt,
 		}

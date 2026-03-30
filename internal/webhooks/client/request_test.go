@@ -190,7 +190,7 @@ func TestPrepareDeliveryRequest(t *testing.T) {
 	payload := []byte(`{"user_id": "123"}`)
 	deliveryID := "delivery-456"
 
-	dr := PrepareDeliveryRequest(webhook, sub, event, deliveryID, payload)
+	dr := PrepareDeliveryRequest(webhook, sub, event, deliveryID, payload, nil)
 
 	if dr.WebhookID != webhookID {
 		t.Errorf("Expected WebhookID %s, got %s", webhookID, dr.WebhookID)
@@ -261,7 +261,7 @@ func TestPrepareDeliveryRequestWithoutSubscription(t *testing.T) {
 	payload := []byte(`{"user_id": "123"}`)
 	deliveryID := "delivery-456"
 
-	dr := PrepareDeliveryRequest(webhook, nil, event, deliveryID, payload)
+	dr := PrepareDeliveryRequest(webhook, nil, event, deliveryID, payload, nil)
 
 	if dr.Method != http.MethodPost {
 		t.Errorf("Expected default Method POST, got %s", dr.Method)
@@ -290,7 +290,7 @@ func TestPrepareDeliveryRequestDefaultTimeout(t *testing.T) {
 		Namespace: "default",
 	}
 
-	dr := PrepareDeliveryRequest(webhook, nil, event, "delivery-123", []byte(`{}`))
+	dr := PrepareDeliveryRequest(webhook, nil, event, "delivery-123", []byte(`{}`), nil)
 
 	if dr.Timeout != 30*time.Second {
 		t.Errorf("Expected default Timeout 30s, got %v", dr.Timeout)

@@ -38,7 +38,8 @@ type WebhookRegistration struct {
 	// HTTP Configuration
 	MaxRetries            int           `json:"max_retries" db:"max_retries"`
 	RetryBackoffSeconds   int           `json:"retry_backoff_seconds" db:"retry_backoff_seconds"`
-	CaptureResponseBody   bool          `json:"capture_response_body" db:"capture_response_body"`
+	// CaptureResponseBody controls stored response body size: false = up to 1 KB, true = up to 1 MB.
+	CaptureResponseBody bool `json:"capture_response_body" db:"capture_response_body"`
 	FollowRedirects       bool          `json:"follow_redirects" db:"follow_redirects"`
 	VerifySSL             bool          `json:"verify_ssl" db:"verify_ssl"`
 	RequestTimeoutSeconds int           `json:"request_timeout_seconds" db:"request_timeout_seconds"`
@@ -46,6 +47,7 @@ type WebhookRegistration struct {
 	WebhookSecret         string        `json:"webhook_secret" db:"webhook_secret"`
 	UserAgent             string        `json:"user_agent" db:"user_agent"`
 	ContentType           string        `json:"content_type" db:"content_type"`
+	SecretHeaders         []byte        `json:"secret_headers" db:"secret_headers"` // AES-256-GCM encrypted JSON of map[string]string
 	CreatedAt             time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt             time.Time     `json:"updated_at" db:"updated_at"`
 }
@@ -168,12 +170,13 @@ type EventRegistration struct {
 
 // WebhookUpdateFields represents fields that can be updated for a webhook
 type WebhookUpdateFields struct {
-	Events      []string                  `json:"events"`
-	URL         string                    `json:"url"`
-	Headers     types.Map[string, string] `json:"headers"`
-	Timeout     int                       `json:"timeout"`
-	Active      bool                      `json:"active"`
-	Description string                    `json:"description"`
+	Events        []string                  `json:"events"`
+	URL           string                    `json:"url"`
+	Headers       types.Map[string, string] `json:"headers"`
+	Timeout       int                       `json:"timeout"`
+	Active        bool                      `json:"active"`
+	Description   string                    `json:"description"`
+	SecretHeaders []byte                    `json:"secret_headers"` // Pre-encrypted ciphertext
 }
 
 // EventSubscription represents a subscription to an event for a webhook

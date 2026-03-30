@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -11,7 +12,9 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/pkg/storage"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
@@ -159,6 +162,20 @@ func toGRPCError(ctx context.Context, err error, fallbackMsg string) error {
 		return nil
 	}
 
+	// Check for known storage-level errors first (more reliable than string matching)
+	if errors.Is(err, storage.ErrNotFound) {
+		return status.Errorf(codes.NotFound, "%s: %v", fallbackMsg, err)
+	}
+	if errors.Is(err, storage.ErrForeignKeyViolation) {
+		return status.Errorf(codes.FailedPrecondition, "%s: a referenced resource does not exist", fallbackMsg)
+	}
+	if errors.Is(err, storage.ErrAlreadyExists) {
+		return status.Errorf(codes.AlreadyExists, "%s: resource already exists", fallbackMsg)
+	}
+	if errors.Is(err, storage.ErrNotNullViolation) {
+		return status.Errorf(codes.InvalidArgument, "%s: a required field is missing", fallbackMsg)
+	}
+
 	// Check for common error message patterns
 	errMsg := err.Error()
 
@@ -209,4 +226,22 @@ func paginationDefaults(p *pb.PaginationRequest) (limit, offset int32) {
 		limit = 100
 	}
 	return limit, offset
+}
+
+// maskSecretHeaders decrypts the encrypted secret headers and returns a map
+// with all values replaced by "••••••" for safe display in API responses.
+// Returns nil if there are no secret headers or decryption fails.
+func maskSecretHeaders(encrypted []byte, svc webhooks.WebhookServiceInterface) map[string]string {
+	if len(encrypted) == 0 {
+		return nil
+	}
+	decrypted, err := svc.DecryptSecretHeaders(encrypted)
+	if err != nil || len(decrypted) == 0 {
+		return nil
+	}
+	masked := make(map[string]string, len(decrypted))
+	for k := range decrypted {
+		masked[k] = "••••••"
+	}
+	return masked
 }
