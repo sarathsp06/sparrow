@@ -75,7 +75,13 @@ func TestSend(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewWebhookClient(nil)
+	client := NewWebhookClient(&Config{
+		Timeout:              30 * time.Second,
+		MaxIdleConns:         100,
+		MaxConnsPerHost:      10,
+		IdleConnTimeout:      90 * time.Second,
+		AllowPrivateNetworks: true, // httptest.NewServer binds to 127.0.0.1
+	})
 	ctx := context.Background()
 
 	req := &DeliveryRequest{
@@ -314,7 +320,13 @@ func BenchmarkSend(b *testing.B) {
 	}))
 	defer server.Close()
 
-	client := NewWebhookClient(nil)
+	client := NewWebhookClient(&Config{
+		Timeout:              30 * time.Second,
+		MaxIdleConns:         100,
+		MaxConnsPerHost:      10,
+		IdleConnTimeout:      90 * time.Second,
+		AllowPrivateNetworks: true, // httptest.NewServer binds to 127.0.0.1
+	})
 	ctx := context.Background()
 
 	// Use a relatively bigger payload

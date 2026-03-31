@@ -10,6 +10,12 @@ type Config struct {
 	IdleConnTimeout    time.Duration
 	DisableKeepAlives  bool
 	InsecureSkipVerify bool
+
+	// AllowPrivateNetworks disables SSRF protection, permitting webhooks
+	// to target loopback and private-network addresses. Useful for
+	// self-hosted deployments where webhook targets live on the same
+	// network, and required for tests that use httptest.NewServer.
+	AllowPrivateNetworks bool
 }
 
 // DefaultConfig returns the default configuration
