@@ -96,12 +96,4 @@ See [CONFIGURATION.md](CONFIGURATION.md) for deployment guides and all options.
 
 ## License
 
-[Business Source License 1.1](LICENSE) (BSL 1.1)
-
-**Licensor**: Sarath Sadasivan Pillai  
-**Change Date**: 2030-03-13  
-**Change License**: Apache License, Version 2.0
-
-You may use Sparrow freely for self-hosting, internal tooling, and non-commercial purposes. The license restricts offering Sparrow as a commercial Webhook Management Service to third parties. On the change date, the code becomes available under Apache 2.0.
-
-For commercial licensing inquiries: sarathsp06@gmail.com
+[MIT](LICENSE)
