@@ -66,31 +66,6 @@ All endpoints are available via both gRPC (`:50051`) and Connect-RPC HTTP/JSON (
 
 ---
 
-## API Reference
-
-Sparrow exposes 5 gRPC/Connect-RPC services. All endpoints are unauthenticated.
-
-| Service | RPCs | Purpose |
-|---------|------|---------|
-| **WebhookService** | RegisterWebhook, UnregisterWebhook, ListWebhooks, UpdateWebhookConfig, PauseWebhook, ResumeWebhook, GetNamespaceStats, GetTemplateFunctions | Webhook CRUD, pause/resume, namespace stats |
-| **EventService** | RegisterEvent, ListEvents, UpdateEvent, DeleteEvent, GetEvent, PushEvent, ListEventReports | Event type definitions and event ingestion |
-| **SubscriptionService** | CreateSubscription, GetSubscription, ListSubscriptions, UpdateSubscription, DeleteSubscription, TestSubscriptionTemplate | Link webhooks to events, payload transformation |
-| **DeliveryService** | GetDeliveryStatus, ListDeliveries, RetryDelivery, GetDeliveryAttempts | Delivery history, per-attempt details, manual retry |
-| **HealthService** | GetWebhookHealth, ListWebhooksByHealth, GetHealthSummary | Per-webhook health metrics and aggregates |
-
-### Key behaviors
-
-- **Subscriptions auto-created**: `RegisterWebhook` with an `events` list automatically creates one subscription per event.
-- **Payload transformation**: Subscriptions support Go templates to reshape the event payload before delivery. Use `TestSubscriptionTemplate` to validate templates.
-- **Label filtering**: Subscriptions can specify `label_filters` (AND logic). Only events whose `labels` match all filters trigger a delivery.
-- **Response body capture**: By default, up to 1 KB of the HTTP response body is stored per delivery attempt. Set `capture_response_body: true` in `WebhookHTTPConfig` to store up to 1 MB. The response is always read regardless of this setting.
-- **HMAC signing**: If `webhook_secret` is set, each request includes an `X-Webhook-Signature` header (HMAC-SHA256 of the request body).
-- **Secret headers**: Headers passed via `secret_headers` are stored encrypted and masked (`******`) in API responses.
-
-See [webhook.proto](proto/webhook.proto) for full message and field documentation.
-
----
-
 ## Configuration
 
 Sparrow is configured entirely via environment variables. No config files needed.
@@ -114,17 +89,19 @@ See [CONFIGURATION.md](CONFIGURATION.md) for deployment guides and all options.
 - [ARCHITECTURE.md](ARCHITECTURE.md) -- Package structure, dependency graph, design principles
 - [docs/TEMPLATE_FUNCTIONS.md](docs/TEMPLATE_FUNCTIONS.md) -- Payload transformation reference (22 template functions)
 - [client/README.md](client/README.md) -- gRPC client libraries (Go, JS, Python)
-- [web/README.md](web/README.md) -- Web dashboard development guide
+- [web/README.md](web/README.md) -- Web dashboard development and standalone deployment
 - [webhook.proto](webhook.proto) -- Service and message definitions
-
----
-
-## Built With
-
-This project was built with the help of [OpenCode](https://opencode.ai) -- an AI-powered coding agent for the terminal.
 
 ---
 
 ## License
 
-Business Source License 1.1 -- see [LICENSE](LICENSE) for details.
+[Business Source License 1.1](LICENSE) (BSL 1.1)
+
+**Licensor**: Sarath Sadasivan Pillai  
+**Change Date**: 2030-03-13  
+**Change License**: Apache License, Version 2.0
+
+You may use Sparrow freely for self-hosting, internal tooling, and non-commercial purposes. The license restricts offering Sparrow as a commercial Webhook Management Service to third parties. On the change date, the code becomes available under Apache 2.0.
+
+For commercial licensing inquiries: sarathsp06@gmail.com

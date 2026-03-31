@@ -28,9 +28,11 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 	}
 
 	// Fallback to legacy method for backward compatibility
-	timeout := int(req.Timeout)
-	if timeout == 0 && req.HttpConfig != nil && req.HttpConfig.RequestTimeoutSeconds > 0 {
+	var timeout int
+	if req.HttpConfig != nil && req.HttpConfig.RequestTimeoutSeconds > 0 {
 		timeout = int(req.HttpConfig.RequestTimeoutSeconds)
+	} else if req.Timeout > 0 { //nolint:staticcheck // backward compat with deprecated field
+		timeout = int(req.Timeout) //nolint:staticcheck // backward compat with deprecated field
 	}
 	if timeout == 0 {
 		timeout = 30 // Default timeout
@@ -121,7 +123,7 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 		url = req.Updates.Url
 		headers = req.Updates.Headers
 		secretHeaders = req.Updates.SecretHeaders
-		timeout = int(req.Updates.Timeout)
+		timeout = int(req.Updates.Timeout) //nolint:staticcheck // backward compat with deprecated field
 		active = req.Updates.Active
 		description = req.Updates.Description
 		if req.Updates.HttpConfig != nil {

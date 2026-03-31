@@ -1,6 +1,11 @@
 # Binaries
 grpc-server
+server
+main
+httpqueue
+benchmark
 build/
+cmd/*/migrate
 *.exe
 *.exe~
 *.dll

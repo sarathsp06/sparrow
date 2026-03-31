@@ -210,24 +210,6 @@ func toGRPCError(ctx context.Context, err error, fallbackMsg string) error {
 	return status.Errorf(codes.Internal, "%s", fallbackMsg)
 }
 
-// paginationDefaults extracts limit/offset from a PaginationRequest with sensible defaults.
-func paginationDefaults(p *pb.PaginationRequest) (limit, offset int32) {
-	limit = 20
-	offset = 0
-	if p != nil {
-		if p.Limit > 0 {
-			limit = p.Limit
-		}
-		if p.Offset > 0 {
-			offset = p.Offset
-		}
-	}
-	if limit > 100 {
-		limit = 100
-	}
-	return limit, offset
-}
-
 // maskSecretHeaders decrypts the encrypted secret headers and returns a map
 // with all values replaced by "••••••" for safe display in API responses.
 // Returns nil if there are no secret headers or decryption fails.

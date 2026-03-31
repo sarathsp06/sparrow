@@ -5,25 +5,28 @@ GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 OUTPUT ?= build/server-$(GOOS)-$(GOARCH)
 DATABASE_URL ?= 'postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable'
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS := -X github.com/sarathsp06/sparrow.Version=$(VERSION)
 
 
 build: ## Build the server binary for current OS/arch
 	mkdir -p build
-	go build -o $(OUTPUT) ./cmd/server
+	go build -ldflags "$(LDFLAGS)" -o $(OUTPUT) ./cmd/server
 
 build-ui: ## Build the frontend for embedding in the Go binary
-	cd web && npm run build
+	cd web && npm ci && npm run build
 
 build-with-ui: build-ui build ## Build frontend + server binary with embedded UI
 
-
-build-all: build-ui ## Build for common OS/arch combinations
+build-binaries: ## Cross-compile server binaries (assumes UI is already built)
 	mkdir -p build
-	GOOS=linux GOARCH=amd64 go build -ldflags "-w" -o build/server-linux-amd64 ./cmd/server
-	GOOS=linux GOARCH=arm64 go build -ldflags "-w" -o build/server-linux-arm64 ./cmd/server
-	GOOS=darwin GOARCH=amd64 go build -ldflags "-w" -o build/server-darwin-amd64 ./cmd/server
-	GOOS=darwin GOARCH=arm64 go build -ldflags "-w" -o build/server-darwin-arm64 ./cmd/server
-	GOOS=windows GOARCH=amd64 go build -ldflags "-w" -o build/server-windows-amd64.exe ./cmd/server
+	GOOS=linux GOARCH=amd64 go build -ldflags "-w -s $(LDFLAGS)" -o build/sparrow-linux-amd64 ./cmd/server
+	GOOS=linux GOARCH=arm64 go build -ldflags "-w -s $(LDFLAGS)" -o build/sparrow-linux-arm64 ./cmd/server
+	GOOS=darwin GOARCH=amd64 go build -ldflags "-w -s $(LDFLAGS)" -o build/sparrow-darwin-amd64 ./cmd/server
+	GOOS=darwin GOARCH=arm64 go build -ldflags "-w -s $(LDFLAGS)" -o build/sparrow-darwin-arm64 ./cmd/server
+	GOOS=windows GOARCH=amd64 go build -ldflags "-w -s $(LDFLAGS)" -o build/sparrow-windows-amd64.exe ./cmd/server
+
+build-all: build-ui build-binaries ## Build frontend + all cross-compiled binaries
 
 
 
@@ -71,4 +74,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui build-all run test test-integration clean generate docker-dev example docker-purge migrate lint fmt run-web help
+.PHONY: build build-ui build-with-ui build-binaries build-all run test test-integration clean generate docker-dev example docker-purge migrate lint fmt run-web help

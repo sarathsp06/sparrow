@@ -1,6 +1,6 @@
 # Sparrow Web Dashboard
 
-SvelteKit web dashboard for the Sparrow webhook delivery system. Builds to static files and is embedded into the Go server binary.
+SvelteKit web dashboard for the Sparrow webhook delivery system. Builds to static files and can be embedded into the Go server binary or deployed independently.
 
 ## Prerequisites
 
@@ -33,40 +33,31 @@ Build output goes to `../internal/ui/dist/` (the Go embed directory). The static
 2. Build the server: `go build ./cmd/server` (or `make build-with-ui` for both steps)
 3. Run with `SPARROW_SERVE_UI=true` -- the UI is served at `http://localhost:8080/`
 
+## Standalone Deployment
+
+The dashboard is a static SPA and can be served independently from any web server. Point `PUBLIC_API_URL` at your running Sparrow backend.
+
+```bash
+cd web
+npm install
+PUBLIC_API_URL=https://sparrow.example.com npm run build
+```
+
+The build output in `../internal/ui/dist/` contains only static files (`index.html`, JS, CSS, assets). Serve them with any static file server. Configure your server to fall back to `index.html` for all routes (SPA routing).
+
+When the dashboard runs on a different origin than the Sparrow API, set `CORS_ALLOWED_ORIGINS` on the Sparrow server:
+
+```bash
+CORS_ALLOWED_ORIGINS=https://dashboard.example.com ./server
+```
+
 ## Environment Variables
 
 | Variable | Default | Description |
 |---|---|---|
 | `PUBLIC_API_URL` | `http://localhost:8080` | Sparrow backend API URL (Connect-RPC HTTP/JSON) |
 
-Set this in `web/.env` for development. When embedded in the Go binary, the UI uses relative paths (`/`) to call the API on the same origin. See [CONFIGURATION.md](../CONFIGURATION.md) for the full list of backend env vars.
-
-## Project Structure
-
-```
-web/
-├── src/
-│   ├── app.html              # HTML shell
-│   ├── app.css               # Global styles (Tailwind CSS 4)
-│   ├── app.d.ts              # TypeScript declarations
-│   ├── lib/
-│   │   ├── services.ts       # Connect-RPC API clients
-│   │   ├── utils.ts          # Utility functions
-│   │   ├── components/       # Reusable Svelte components
-│   │   └── assets/           # Static assets (favicon, etc.)
-│   └── routes/               # SvelteKit pages
-│       ├── +layout.svelte    # Root layout (navigation)
-│       ├── +layout.ts        # Prerender + SPA config
-│       ├── +page.svelte      # Home / landing page
-│       ├── webhooks/         # Webhook management
-│       ├── events/           # Event management
-│       ├── namespaces/       # Namespace management
-│       ├── health/           # Health dashboard
-│       └── deliveries/       # Delivery details
-├── svelte.config.js          # SvelteKit config (static adapter)
-├── vite.config.ts            # Vite config
-└── package.json
-```
+Set this in `web/.env` for development. The default `npm run build` script sets `PUBLIC_API_URL=/` for embedded mode (same-origin). For standalone deployment, override it at build time to point at your Sparrow API server.
 
 ## Tech Stack
 
