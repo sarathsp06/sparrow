@@ -60,7 +60,6 @@ generate: ## Generate protobuf code and gRPC clients
 	rm -rf client/go client/js client/python
 	buf generate
 	go generate ./...
-	go run ./cmd/generate-docs
 
 lint: ## Run golangci-lint for linting
 	golangci-lint run -v --timeout 15m ./...

@@ -24,6 +24,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/pkg/crypto"
 	storePg "github.com/sarathsp06/sparrow/pkg/storage/postgres"
 	pbconnect "github.com/sarathsp06/sparrow/proto/protoconnect"
 )
@@ -128,26 +129,30 @@ func setupEnv(t *testing.T) *testEnv {
 	err = tenant.Bootstrap(ctx, tenantSvc, bootstrapCfg)
 	require.NoError(t, err, "failed to bootstrap default tenant")
 
-	// 8. Initialize queue manager (River)
-	queueMgr, err := queue.NewManager(ctx, webhookRepo, pgxPool)
+	// 8. Create crypto service (no-op for tests)
+	cryptoSvc, err := crypto.NewService(nil)
+	require.NoError(t, err, "failed to create crypto service")
+
+	// 9. Initialize queue manager (River)
+	queueMgr, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, pgxPool)
 	require.NoError(t, err, "failed to create queue manager")
 
 	err = queueMgr.Start(ctx)
 	require.NoError(t, err, "failed to start queue manager")
 
-	// 9. Create webhook service
-	webhookSvc := webhooks.NewWebhookService(queueMgr.GetJobInserter(), webhookRepo)
+	// 10. Create webhook service
+	webhookSvc := webhooks.NewWebhookService(queueMgr.GetJobInserter(), webhookRepo, cryptoSvc)
 
-	// 10. Create gRPC servers (needed for Connect-RPC adapters)
+	// 11. Create gRPC servers (needed for Connect-RPC adapters)
 	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookSvc, ""))
 
-	// 11. Create Connect-RPC adapters
+	// 12. Create Connect-RPC adapters
 	webhookConnectServer := connectserver.NewWebhookConnectServer(
 		webhookGRPCServer, webhookGRPCServer, webhookGRPCServer,
 		webhookGRPCServer, webhookGRPCServer,
 	)
 
-	// 12. Create HTTP mux and register all Connect-RPC handlers
+	// 13. Create HTTP mux and register all Connect-RPC handlers
 	mux := http.NewServeMux()
 
 	mux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer))
@@ -156,7 +161,7 @@ func setupEnv(t *testing.T) *testEnv {
 	mux.Handle(pbconnect.NewDeliveryServiceHandler(webhookConnectServer))
 	mux.Handle(pbconnect.NewHealthServiceHandler(webhookConnectServer))
 
-	// 13. Start HTTP server on a random free port
+	// 14. Start HTTP server on a random free port
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 

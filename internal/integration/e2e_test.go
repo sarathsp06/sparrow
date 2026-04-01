@@ -93,36 +93,12 @@ type testClients struct {
 }
 
 func newClients(env *testEnv) *testClients {
-	authInterceptor := connect.WithInterceptors(
-		&apiKeyInterceptor{key: env.rootAPIKey},
-	)
-
 	return &testClients{
-		webhook:      pbconnect.NewWebhookServiceClient(http.DefaultClient, env.baseURL, authInterceptor),
-		event:        pbconnect.NewEventServiceClient(http.DefaultClient, env.baseURL, authInterceptor),
-		subscription: pbconnect.NewSubscriptionServiceClient(http.DefaultClient, env.baseURL, authInterceptor),
-		delivery:     pbconnect.NewDeliveryServiceClient(http.DefaultClient, env.baseURL, authInterceptor),
+		webhook:      pbconnect.NewWebhookServiceClient(http.DefaultClient, env.baseURL),
+		event:        pbconnect.NewEventServiceClient(http.DefaultClient, env.baseURL),
+		subscription: pbconnect.NewSubscriptionServiceClient(http.DefaultClient, env.baseURL),
+		delivery:     pbconnect.NewDeliveryServiceClient(http.DefaultClient, env.baseURL),
 	}
-}
-
-// apiKeyInterceptor injects the Authorization header on every outgoing request.
-type apiKeyInterceptor struct {
-	key string
-}
-
-func (a *apiKeyInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		req.Header().Set("Authorization", authHeader(a.key))
-		return next(ctx, req)
-	}
-}
-
-func (a *apiKeyInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (a *apiKeyInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
 }
 
 // TestE2E_HappyPath exercises the full webhook delivery pipeline:
