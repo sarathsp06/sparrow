@@ -1,4 +1,8 @@
-![Work in Progress](https://img.shields.io/badge/Status-Work%20in%20Progress-orange?style=for-the-badge)
+[![CI](https://github.com/sarathsp06/sparrow/actions/workflows/ci.yml/badge.svg)](https://github.com/sarathsp06/sparrow/actions/workflows/ci.yml)
+[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
+[![gRPC](https://img.shields.io/badge/gRPC-Connect--RPC-244c5a?logo=grpc)](https://connectrpc.com)
 <div align="center">
 	<img src="./web/src/lib/assets/favicon.svg" alt="Sparrow" width="180" height="180" />
 	<h1 style="font-family:monospace;font-weight:900;color:#222;">sparrow</h1>
@@ -35,6 +39,15 @@ curl -s -X POST http://localhost:8080/webhook.EventService/PushEvent \
 ```
 
 Sparrow matches subscriptions, delivers the webhook with retries, and tracks health automatically.
+
+### Or Use the Web UI
+
+All of the above -- registering events, creating webhooks with subscriptions, pushing events, inspecting deliveries, and monitoring health -- can be done through the web dashboard at [localhost:8080](http://localhost:8080).
+
+1. **Events** → Register event types, push test events with live schema validation
+2. **Webhooks** → Register webhooks, manage subscriptions with payload transformation templates, pause/resume, edit configuration
+3. **Deliveries** → Inspect delivery status, view request/response bodies, retry failed deliveries
+4. **Health** → Monitor webhook health, view error category breakdowns, track success rates
 
 ---
 
