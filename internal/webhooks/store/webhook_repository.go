@@ -241,7 +241,9 @@ func (r *Repository) RegisterWebhookWithSubscriptions(ctx context.Context, tenan
 			return storage.Error(err)
 		}
 
-		registration.ID = uuid.New()
+		if registration.ID == uuid.Nil {
+			registration.ID = uuid.New()
+		}
 		registration.TenantID = tenantID
 		registration.Health = HealthUnknown
 

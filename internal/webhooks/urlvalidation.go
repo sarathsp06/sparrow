@@ -15,7 +15,7 @@ import (
 //   - Does not point to loopback, private, or link-local addresses
 //   - Does not target cloud metadata endpoints
 //   - Has a valid, non-empty host
-func ValidateWebhookURL(rawURL string) error {
+func ValidateWebhookURL(rawURL string, allowPrivateNetworks bool) error {
 	parsed, err := url.ParseRequestURI(rawURL)
 	if err != nil {
 		return fmt.Errorf("invalid URL: %w", err)
@@ -31,6 +31,12 @@ func ValidateWebhookURL(rawURL string) error {
 	host := parsed.Hostname()
 	if host == "" {
 		return fmt.Errorf("URL must have a non-empty host")
+	}
+
+	// Skip network-level SSRF checks when private networks are allowed
+	// (self-hosted deployments, integration tests with httptest.NewServer)
+	if allowPrivateNetworks {
+		return nil
 	}
 
 	// Check for IP addresses targeting internal networks

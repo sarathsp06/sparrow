@@ -160,8 +160,8 @@ func main() {
 	// Create webhook repository
 	webhookRepo := store.NewRepositoryInterfaceWithTracing(store.NewRepository(sqlxDB), "")
 
-	// Initialize queue manager
-	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool)
+	// Initialize queue manager (nil config = DefaultConfig with SSRF protection enabled)
+	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, nil)
 	if err != nil {
 		log.Fatalf("Failed to create queue manager: %v", err)
 	}

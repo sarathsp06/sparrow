@@ -28,12 +28,13 @@ import (
 )
 
 type WebhookService struct {
-	jobInserter queue.JobInserter
-	webhookRepo store.RepositoryInterface
-	crypto      *crypto.Service
-	logger      *slog.Logger
-	tracer      trace.Tracer
-	metrics     *observability.SparrowMetrics
+	jobInserter          queue.JobInserter
+	webhookRepo          store.RepositoryInterface
+	crypto               *crypto.Service
+	logger               *slog.Logger
+	tracer               trace.Tracer
+	metrics              *observability.SparrowMetrics
+	allowPrivateNetworks bool
 }
 
 //go:generate gowrap gen -i WebhookServiceInterface -t ../../templates/opentelemetry.tmpl -o WebhookServiceInterface_otel.go
@@ -95,7 +96,20 @@ type TemplateFunctionInfo struct {
 var _ WebhookServiceInterface = (*WebhookService)(nil)
 
 // NewWebhookService creates a new WebhookService instance
-func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service) *WebhookService {
+// WebhookServiceOption configures a WebhookService.
+type WebhookServiceOption func(*WebhookService)
+
+// WithAllowPrivateNetworks disables SSRF protection for webhook URL validation,
+// permitting loopback and private-network addresses. Useful for self-hosted
+// deployments where webhook targets live on the same network, and required for
+// integration tests that use httptest.NewServer.
+func WithAllowPrivateNetworks(allow bool) WebhookServiceOption {
+	return func(s *WebhookService) {
+		s.allowPrivateNetworks = allow
+	}
+}
+
+func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service, opts ...WebhookServiceOption) *WebhookService {
 	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
@@ -103,7 +117,7 @@ func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.Reposit
 		log.Error("Failed to initialize metrics", "error", err)
 	}
 
-	return &WebhookService{
+	svc := &WebhookService{
 		jobInserter: queueManager,
 		webhookRepo: webhookRepo,
 		crypto:      cryptoSvc,
@@ -111,6 +125,10 @@ func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.Reposit
 		tracer:      observability.GetTracer("sparrow.service.webhook"),
 		metrics:     metrics,
 	}
+	for _, opt := range opts {
+		opt(svc)
+	}
+	return svc
 }
 
 // EncryptSecretHeaders encrypts a plaintext secret headers map to bytes for storage.
@@ -207,7 +225,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	if url == "" {
 		return "", time.Time{}, fmt.Errorf("URL is required")
 	}
-	if err := ValidateWebhookURL(url); err != nil {
+	if err := ValidateWebhookURL(url, s.allowPrivateNetworks); err != nil {
 		return "", time.Time{}, err
 	}
 	if len(events) > 0 {
@@ -295,7 +313,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	}
 
 	// Validate webhook URL against SSRF
-	if err := ValidateWebhookURL(req.URL); err != nil {
+	if err := ValidateWebhookURL(req.URL, s.allowPrivateNetworks); err != nil {
 		return nil, err
 	}
 
@@ -1528,7 +1546,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		if normalizedURL == "" {
 			return fmt.Errorf("URL is required")
 		}
-		if err := ValidateWebhookURL(normalizedURL); err != nil {
+		if err := ValidateWebhookURL(normalizedURL, s.allowPrivateNetworks); err != nil {
 			return err
 		}
 		webhook.URL = normalizedURL

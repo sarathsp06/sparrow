@@ -22,6 +22,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/migration"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
+	webhookclient "github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
@@ -134,14 +135,18 @@ func setupEnv(t *testing.T) *testEnv {
 	require.NoError(t, err, "failed to create crypto service")
 
 	// 9. Initialize queue manager (River)
-	queueMgr, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, pgxPool)
+	// Allow private networks so httptest.NewServer (127.0.0.1) targets work.
+	clientCfg := webhookclient.DefaultConfig()
+	clientCfg.AllowPrivateNetworks = true
+
+	queueMgr, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, pgxPool, clientCfg)
 	require.NoError(t, err, "failed to create queue manager")
 
 	err = queueMgr.Start(ctx)
 	require.NoError(t, err, "failed to start queue manager")
 
 	// 10. Create webhook service
-	webhookSvc := webhooks.NewWebhookService(queueMgr.GetJobInserter(), webhookRepo, cryptoSvc)
+	webhookSvc := webhooks.NewWebhookService(queueMgr.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(true))
 
 	// 11. Create gRPC servers (needed for Connect-RPC adapters)
 	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookSvc, ""))

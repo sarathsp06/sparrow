@@ -12,6 +12,7 @@ import (
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 
 	"github.com/sarathsp06/sparrow/internal/logger"
+	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
@@ -24,7 +25,7 @@ type Manager struct {
 }
 
 // NewManager creates a new queue manager
-func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service, dbPool *pgxpool.Pool) (*Manager, error) {
+func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service, dbPool *pgxpool.Pool, clientConfig *client.Config) (*Manager, error) {
 	// Initialize River workers
 	riverWorkers := river.NewWorkers()
 
@@ -49,7 +50,7 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 	}
 
 	// Add workers with explicit generic types
-	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo, cryptoSvc))
+	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo, cryptoSvc, clientConfig))
 	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, manager.GetJobInserter()))
 
 	return manager, nil

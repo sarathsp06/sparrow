@@ -36,7 +36,7 @@ type WebhookWorker struct {
 }
 
 // NewWebhookWorker creates a new webhook worker
-func NewWebhookWorker(webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service) *WebhookWorker {
+func NewWebhookWorker(webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service, clientConfig *client.Config) *WebhookWorker {
 	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
@@ -45,8 +45,7 @@ func NewWebhookWorker(webhookRepo store.RepositoryInterface, cryptoSvc *crypto.S
 	}
 
 	// Initialize the centralized webhook client
-	// In a real app, we might pass config here
-	webhookClient := client.NewWebhookClient(nil)
+	webhookClient := client.NewWebhookClient(clientConfig)
 
 	return &WebhookWorker{
 		webhookRepo: webhookRepo,
