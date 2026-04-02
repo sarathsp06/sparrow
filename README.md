@@ -99,12 +99,20 @@ See [CONFIGURATION.md](CONFIGURATION.md) for deployment guides and all options.
 
 ## Documentation
 
-- [CONFIGURATION.md](CONFIGURATION.md) -- Deployment guides, all environment variables
-- [TECHNICAL.md](TECHNICAL.md) -- Architecture deep dive, queue design, health state machine, HTTP client details
-- [ARCHITECTURE.md](ARCHITECTURE.md) -- Package structure, dependency graph, design principles
-- [docs/TEMPLATE_FUNCTIONS.md](docs/TEMPLATE_FUNCTIONS.md) -- Payload transformation reference (22 template functions)
-- [client/README.md](client/README.md) -- gRPC client libraries (Go, JS, Python)
-- [web/README.md](web/README.md) -- Web dashboard development and standalone deployment
+**[sarathsp06.github.io/sparrow](https://sarathsp06.github.io/sparrow)** -- Full documentation site with guides, API reference, and deployment instructions.
+
+Quick links:
+
+- [Getting Started](https://sarathsp06.github.io/sparrow/getting-started/installation/)
+- [API Reference](https://sarathsp06.github.io/sparrow/reference/api/)
+- [Guides](https://sarathsp06.github.io/sparrow/guides/webhooks/)
+- [Deployment](https://sarathsp06.github.io/sparrow/deployment/docker-compose/)
+
+In-repo references:
+
+- [CONFIGURATION.md](CONFIGURATION.md) -- All environment variables
+- [TECHNICAL.md](TECHNICAL.md) -- Architecture deep dive, queue design, health state machine
+- [ARCHITECTURE.md](ARCHITECTURE.md) -- Package structure, dependency graph
 - [webhook.proto](webhook.proto) -- Service and message definitions
 
 ---
