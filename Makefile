@@ -57,7 +57,7 @@ clean: ## Clean up all build artifacts (Go, web, docs)
 	go clean -modcache
 	rm -rf web/build web/node_modules/.vite
 	rm -rf docs/dist docs/node_modules/.vite docs/.astro
-	rm -rf internal/ui/dist/*
+	find internal/ui/dist -mindepth 1 ! -name '.gitkeep' -delete 2>/dev/null || true
 	@echo "Clean complete"
 
 generate: ## Generate protobuf code and gRPC/ConnectRPC clients
