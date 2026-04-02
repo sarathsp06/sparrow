@@ -57,8 +57,7 @@ func main() {
 		otelConfig.OTLPEndpoint = otlpEndpoint
 	}
 
-	// Initialize OpenTelemetry
-	fmt.Println("🔭 Initializing OpenTelemetry...")
+	// Initialize OpenTelemetry (no-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset)
 	otelShutdown, err := observability.Setup(ctx, otelConfig)
 	if err != nil {
 		log.Printf("⚠️  Failed to setup OpenTelemetry: %v", err)
@@ -71,7 +70,11 @@ func main() {
 				log.Printf("Failed to shutdown OpenTelemetry: %v", err)
 			}
 		}()
-		fmt.Printf("✅ OpenTelemetry initialized (endpoint: %s, env: %s)\n", otelConfig.OTLPEndpoint, otelConfig.Environment)
+		if otelConfig.OTLPEndpoint != "" {
+			fmt.Printf("🔭 OpenTelemetry enabled (endpoint: %s, env: %s)\n", otelConfig.OTLPEndpoint, otelConfig.Environment)
+		} else {
+			fmt.Println("🔭 OpenTelemetry disabled (set OTEL_EXPORTER_OTLP_ENDPOINT to enable)")
+		}
 	}
 
 	// Database connection URL

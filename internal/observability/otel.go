@@ -36,13 +36,15 @@ type Config struct {
 	MetricInterval time.Duration
 }
 
-// DefaultConfig returns a default OpenTelemetry configuration
+// DefaultConfig returns a default OpenTelemetry configuration.
+// OTLPEndpoint is empty by default -- set it to enable export.
+// When OTLPEndpoint is empty, Setup() is a no-op (no exporters created).
 func DefaultConfig() *Config {
 	return &Config{
 		ServiceName:    "sparrow",
 		ServiceVersion: sparrow.Version,
 		Environment:    "development",
-		OTLPEndpoint:   "localhost:4318", // Default OTLP HTTP endpoint
+		OTLPEndpoint:   "", // empty = OTel export disabled
 		EnableTracing:  true,
 		EnableMetrics:  true,
 		SampleRate:     1.0, // Sample all traces in development
@@ -50,8 +52,24 @@ func DefaultConfig() *Config {
 	}
 }
 
-// Setup initializes OpenTelemetry with the provided configuration
+// Setup initializes OpenTelemetry with the provided configuration.
+// When config.OTLPEndpoint is empty, no exporters are created and a no-op
+// shutdown function is returned. This avoids noisy connection errors when
+// no collector is available.
 func Setup(ctx context.Context, config *Config) (func(context.Context) error, error) {
+	noop := func(context.Context) error { return nil }
+
+	// No endpoint configured -- skip all OTLP export.
+	if config.OTLPEndpoint == "" {
+		// Still install the propagator so trace context propagation works
+		// even without an exporter (e.g. inbound headers are parsed).
+		otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		))
+		return noop, nil
+	}
+
 	// Create resource with service information
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
@@ -119,7 +137,7 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 func setupTracing(ctx context.Context, res *resource.Resource, config *Config) (*sdktrace.TracerProvider, error) {
 	// Create OTLP trace exporter
 	opts := []otlptracehttp.Option{
-		otlptracehttp.WithEndpoint("localhost:4318"),
+		otlptracehttp.WithEndpoint(config.OTLPEndpoint),
 		otlptracehttp.WithInsecure(), // Use HTTP instead of HTTPS for local development
 	}
 
@@ -154,7 +172,7 @@ func setupTracing(ctx context.Context, res *resource.Resource, config *Config) (
 
 func newLoggerProvider(ctx context.Context, config *Config) (*log.LoggerProvider, error) {
 	opts := []otlploghttp.Option{
-		otlploghttp.WithEndpoint("localhost:4318"),
+		otlploghttp.WithEndpoint(config.OTLPEndpoint),
 		otlploghttp.WithInsecure(), // Use HTTP instead of HTTPS for local development
 	}
 
@@ -177,7 +195,7 @@ func newLoggerProvider(ctx context.Context, config *Config) (*log.LoggerProvider
 func setupMetrics(ctx context.Context, res *resource.Resource, config *Config) (*sdkmetric.MeterProvider, error) {
 	// Create OTLP metric exporter
 	opts := []otlpmetrichttp.Option{
-		otlpmetrichttp.WithEndpoint("localhost:4318"),
+		otlpmetrichttp.WithEndpoint(config.OTLPEndpoint),
 		otlpmetrichttp.WithInsecure(), // Use HTTP instead of HTTPS for local development
 	}
 
