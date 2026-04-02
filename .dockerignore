@@ -8,7 +8,8 @@ docs/
 
 # Prebuilt binaries (we compile in Docker)
 build/
-dist/
+# Top-level dist only; internal/ui/dist is needed for go:embed
+/dist/
 *.exe
 *.dll
 *.so

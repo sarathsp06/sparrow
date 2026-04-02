@@ -123,7 +123,7 @@ func parseProto(path string) (*ProtoFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open proto: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	parser := proto.NewParser(f)
 	definition, err := parser.Parse()
@@ -482,10 +482,7 @@ func buildTSService(pf *ProtoFile, svcName string, overlay *Overlay) (*TSService
 
 		// Errors
 		for _, e := range rpc.Errors {
-			tsRPC.Errors = append(tsRPC.Errors, TSError{
-				Code:        e.Code,
-				Description: e.Description,
-			})
+			tsRPC.Errors = append(tsRPC.Errors, TSError(e))
 		}
 
 		ts.RPCs = append(ts.RPCs, tsRPC)
@@ -591,24 +588,21 @@ func emitService(ts *TSService) string {
 
 	b.WriteString("import type { ApiService } from \"./types\";\n\n")
 	b.WriteString("const service: ApiService = {\n")
-	b.WriteString(fmt.Sprintf("  service: %s,\n", jsString(ts.Service)))
-	b.WriteString(fmt.Sprintf("  description:\n    %s,\n", jsString(ts.Description)))
+	fmt.Fprintf(&b, "  service: %s,\n", jsString(ts.Service))
+	fmt.Fprintf(&b, "  description:\n    %s,\n", jsString(ts.Description))
 
 	if ts.Notes != "" {
-		b.WriteString(fmt.Sprintf("  notes: %s,\n", jsTemplateLiteral(ts.Notes)))
+		fmt.Fprintf(&b, "  notes: %s,\n", jsTemplateLiteral(ts.Notes))
 	}
 
 	b.WriteString("  rpcs: [\n")
-	for i, rpc := range ts.RPCs {
+	for _, rpc := range ts.RPCs {
 		emitRPC(&b, &rpc)
-		if i < len(ts.RPCs)-1 {
-			// Already has trailing comma from emitRPC
-		}
 	}
 	b.WriteString("  ],\n")
 
 	if ts.Footer != "" {
-		b.WriteString(fmt.Sprintf("  footer: %s,\n", jsTemplateLiteral(ts.Footer)))
+		fmt.Fprintf(&b, "  footer: %s,\n", jsTemplateLiteral(ts.Footer))
 	}
 
 	b.WriteString("};\n\n")
@@ -619,8 +613,8 @@ func emitService(ts *TSService) string {
 
 func emitRPC(b *strings.Builder, rpc *TSRPC) {
 	b.WriteString("    {\n")
-	b.WriteString(fmt.Sprintf("      name: %s,\n", jsString(rpc.Name)))
-	b.WriteString(fmt.Sprintf("      description:\n        %s,\n", jsString(rpc.Description)))
+	fmt.Fprintf(b, "      name: %s,\n", jsString(rpc.Name))
+	fmt.Fprintf(b, "      description:\n        %s,\n", jsString(rpc.Description))
 
 	// Request
 	b.WriteString("      request: [\n")
@@ -642,7 +636,7 @@ func emitRPC(b *strings.Builder, rpc *TSRPC) {
 	if len(rpc.Errors) > 0 {
 		b.WriteString("      errors: [\n")
 		for _, e := range rpc.Errors {
-			b.WriteString(fmt.Sprintf("        { code: %s, description: %s },\n", jsString(e.Code), jsString(e.Description)))
+			fmt.Fprintf(b, "        { code: %s, description: %s },\n", jsString(e.Code), jsString(e.Description))
 		}
 		b.WriteString("      ],\n")
 	}
@@ -652,14 +646,14 @@ func emitRPC(b *strings.Builder, rpc *TSRPC) {
 
 func emitField(b *strings.Builder, f *TSField, indent string) {
 	b.WriteString(indent + "{ ")
-	b.WriteString(fmt.Sprintf("name: %s, ", jsString(f.Name)))
-	b.WriteString(fmt.Sprintf("type: %s, ", jsString(f.Type)))
+	fmt.Fprintf(b, "name: %s, ", jsString(f.Name))
+	fmt.Fprintf(b, "type: %s, ", jsString(f.Type))
 	if f.HasRequired {
-		b.WriteString(fmt.Sprintf("required: %v, ", f.Required))
+		fmt.Fprintf(b, "required: %v, ", f.Required)
 	}
-	b.WriteString(fmt.Sprintf("description: %s", jsString(f.Description)))
+	fmt.Fprintf(b, "description: %s", jsString(f.Description))
 	if f.Example != nil {
-		b.WriteString(fmt.Sprintf(", example: %s", jsValue(f.Example)))
+		fmt.Fprintf(b, ", example: %s", jsValue(f.Example))
 	}
 	b.WriteString(" },\n")
 }
@@ -740,11 +734,11 @@ func isJSIdentifier(s string) bool {
 	}
 	for i, c := range s {
 		if i == 0 {
-			if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '$') {
+			if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && c != '_' && c != '$' {
 				return false
 			}
 		} else {
-			if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '$') {
+			if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' && c != '$' {
 				return false
 			}
 		}
