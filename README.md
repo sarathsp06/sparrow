@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![gRPC](https://img.shields.io/badge/gRPC-Connect--RPC-244c5a?logo=grpc)](https://connectrpc.com)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://sarathsp06.github.io/sparrow)
 <div align="center">
 	<img src="./web/src/lib/assets/favicon.svg" alt="Sparrow" width="180" height="180" />
 	<h1 style="font-family:monospace;font-weight:900;color:#222;">sparrow</h1>

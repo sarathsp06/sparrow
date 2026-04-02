@@ -1,0 +1,26 @@
+---
+import Default from '@astrojs/starlight/components/Footer.astro';
+
+// Build date is set at build time (static site generation)
+const buildDate = new Date().toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+
+<Default><slot /></Default>
+<div class="build-date-footer">
+  Built on {buildDate}
+</div>
+
+<style>
+  .build-date-footer {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--sl-color-gray-3);
+    padding: 0.5rem 0 1rem;
+    border-top: 1px solid var(--sl-color-gray-6);
+    margin-top: 1rem;
+  }
+</style>

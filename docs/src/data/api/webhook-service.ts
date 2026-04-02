@@ -11,20 +11,20 @@ const service: ApiService = {
         "Creates a new webhook registration. Subscriptions are created automatically for each event in the events list.",
       request: [
         { name: "namespace", type: "string", required: true, description: "Namespace to register the webhook in. Must already exist.", example: "production" },
+        { name: "events", type: "string[]", description: "Event names this webhook should receive. At least one required.", example: ["order.created", "order.updated"] },
         { name: "url", type: "string", required: true, description: "Target URL for webhook deliveries (HTTP or HTTPS).", example: "https://example.com/hooks" },
-        { name: "events", type: "string[]", required: true, description: "Event names this webhook should receive. At least one required.", example: ["order.created", "order.updated"] },
         { name: "headers", type: "map<string, string>", description: "Custom HTTP headers included in every delivery request.", example: { "X-Source": "sparrow" } },
-        { name: "secret_headers", type: "map<string, string>", description: "Sensitive headers stored encrypted, masked in API responses." },
-        { name: "description", type: "string", description: "Human-readable description.", example: "Order notifications" },
         { name: "active", type: "bool", description: "Whether the webhook starts active. Default: true.", example: true },
+        { name: "description", type: "string", description: "Human-readable description.", example: "Order notifications" },
         { name: "http_config", type: "WebhookHTTPConfig", description: "HTTP delivery configuration (retries, timeouts, TLS, HMAC).", example: { max_retries: 5, webhook_secret: "whsec_your_secret_key" } },
+        { name: "secret_headers", type: "map<string, string>", description: "Sensitive headers stored encrypted, masked in API responses." },
       ],
       response: [
         { name: "webhook_id", type: "string", description: "Server-generated UUID for the new webhook.", example: "550e8400-e29b-41d4-a716-446655440000" },
         { name: "created_at", type: "Timestamp", description: "When the webhook was created.", example: "2025-01-15T10:30:00Z" },
       ],
       errors: [
-        { code: "ALREADY_EXISTS", description: "URL is already registered in the same namespace." },
+        { code: "ALREADY_EXISTS", description: "The URL is already registered in the same namespace." },
       ],
     },
     {
@@ -36,7 +36,7 @@ const service: ApiService = {
         { name: "namespace", type: "string", required: true, description: "Namespace the webhook belongs to.", example: "production" },
       ],
       errors: [
-        { code: "NOT_FOUND", description: "Webhook does not exist in the given namespace." },
+        { code: "NOT_FOUND", description: "The webhook_id does not exist in the given namespace." },
       ],
     },
     {
@@ -47,12 +47,12 @@ const service: ApiService = {
         { name: "namespace", type: "string", required: true, description: "Namespace to list webhooks from.", example: "production" },
         { name: "event", type: "string", description: "Filter to webhooks subscribed to this event." },
         { name: "active_only", type: "bool", description: "Only return active webhooks.", example: true },
-        { name: "webhook_id", type: "string", description: "Filter to a specific webhook by ID." },
         { name: "pagination", type: "PaginationRequest", description: "Pagination parameters (limit, offset).", example: { limit: 20 } },
+        { name: "webhook_id", type: "string", description: "Filter to a specific webhook by ID." },
       ],
       response: [
         { name: "webhooks", type: "RegisteredWebhook[]", description: "List of webhooks matching the filters." },
-        { name: "pagination", type: "PaginationResponse", description: "Pagination metadata (total_count, limit, offset)." },
+        { name: "pagination", type: "PaginationResponse", description: "Pagination parameters (limit, offset).", example: { limit: 20 } },
       ],
     },
     {
@@ -62,15 +62,16 @@ const service: ApiService = {
       request: [
         { name: "webhook_id", type: "string", required: true, description: "UUID of the webhook to update.", example: "550e8400-e29b-41d4-a716-446655440000" },
         { name: "namespace", type: "string", required: true, description: "Namespace the webhook belongs to.", example: "production" },
-        { name: "updates.url", type: "string", description: "New target URL." },
         { name: "updates.events", type: "string[]", description: "Replace all subscribed events." },
+        { name: "updates.url", type: "string", description: "New target URL." },
         { name: "updates.headers", type: "map<string, string>", description: "Replace all custom headers." },
-        { name: "updates.secret_headers", type: "map<string, string>", description: "Replace all secret headers." },
+        { name: "updates.active", type: "bool", description: "Set active/inactive status. Note: prefer PauseWebhook/ResumeWebhook RPCs for explicit lifecycle control with reason tracking." },
         { name: "updates.description", type: "string", description: "Updated description.", example: "Updated order webhook" },
         { name: "updates.http_config", type: "WebhookHTTPConfig", description: "Updated HTTP config (replaces entire config).", example: { max_retries: 5, request_timeout_seconds: 60 } },
+        { name: "updates.secret_headers", type: "map<string, string>", description: "Replace all secret headers." },
       ],
       errors: [
-        { code: "NOT_FOUND", description: "Webhook does not exist." },
+        { code: "NOT_FOUND", description: "The webhook does not exist." },
       ],
     },
     {
@@ -83,7 +84,7 @@ const service: ApiService = {
         { name: "reason", type: "string", description: "Human-readable reason for pausing.", example: "Endpoint maintenance" },
       ],
       errors: [
-        { code: "NOT_FOUND", description: "Webhook does not exist." },
+        { code: "NOT_FOUND", description: "The webhook does not exist." },
       ],
     },
     {
@@ -96,7 +97,7 @@ const service: ApiService = {
         { name: "reason", type: "string", description: "Human-readable reason for resuming." },
       ],
       errors: [
-        { code: "NOT_FOUND", description: "Webhook does not exist." },
+        { code: "NOT_FOUND", description: "The webhook does not exist." },
       ],
     },
     {
@@ -107,7 +108,7 @@ const service: ApiService = {
         { name: "namespace", type: "string", required: true, description: "Namespace to get statistics for.", example: "production" },
       ],
       response: [
-        { name: "namespace", type: "string", description: "The namespace.", example: "production" },
+        { name: "namespace", type: "string", description: "Namespace to get statistics for.", example: "production" },
         { name: "stats.total_webhooks", type: "int32", description: "Total registered webhooks (active + inactive).", example: 12 },
         { name: "stats.active_webhooks", type: "int32", description: "Currently active webhooks.", example: 10 },
         { name: "stats.total_deliveries", type: "int32", description: "Total deliveries ever created.", example: 5420 },
@@ -121,7 +122,8 @@ const service: ApiService = {
       name: "GetTemplateFunctions",
       description:
         "Returns the list of Go template functions available for payload transformation in subscriptions.",
-      request: [],
+      request: [
+      ],
       response: [
         { name: "functions", type: "TemplateFunction[]", description: "Available template functions with names and descriptions." },
         { name: "total_count", type: "int32", description: "Total number of available functions.", example: 42 },

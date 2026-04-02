@@ -4,6 +4,7 @@ server
 main
 httpqueue
 benchmark
+/gendocs
 build/
 cmd/*/migrate
 *.exe

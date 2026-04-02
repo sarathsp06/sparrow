@@ -14,20 +14,10 @@ const service: ApiService = {
         { name: "namespace", type: "string", required: true, description: "Namespace the delivery belongs to.", example: "production" },
       ],
       response: [
-        { name: "delivery.delivery_id", type: "string", description: "UUID of the delivery.", example: "d-550e8400-e29b-41d4-a716-446655440000" },
-        { name: "delivery.webhook_id", type: "string", description: "Target webhook UUID.", example: "550e8400-e29b-41d4-a716-446655440000" },
-        { name: "delivery.event_id", type: "string", description: "Triggering event UUID.", example: "e-550e8400-e29b-41d4-a716-446655440000" },
-        { name: "delivery.status", type: "WebhookDeliveryStatus", description: "Current status (PENDING, SENDING, SUCCESS, FAILED, RETRYING, EXPIRED).", example: "SUCCESS" },
-        { name: "delivery.attempt_count", type: "int32", description: "Number of attempts made.", example: 1 },
-        { name: "delivery.max_attempts", type: "int32", description: "Maximum attempts allowed.", example: 4 },
-        { name: "delivery.response_code", type: "int32", description: "HTTP status code from last attempt (0 if no response).", example: 200 },
-        { name: "delivery.response_body", type: "string", description: "Response body (up to 1 KB or 1 MB).", example: "{\"ok\":true}" },
-        { name: "delivery.request_body", type: "string", description: "Request body that was sent." },
-        { name: "delivery.error_category", type: "string", description: "Classified error category.", example: "success" },
-        { name: "delivery.error_message", type: "string", description: "Error message from last failed attempt." },
+        { name: "delivery", type: "WebhookDelivery", description: "Full delivery details including request/response bodies and error info." },
       ],
       errors: [
-        { code: "NOT_FOUND", description: "Delivery does not exist in the given namespace." },
+        { code: "NOT_FOUND", description: "The delivery_id does not exist in the given namespace." },
       ],
     },
     {
@@ -42,7 +32,7 @@ const service: ApiService = {
       ],
       response: [
         { name: "deliveries", type: "WebhookDelivery[]", description: "Deliveries matching filters, newest first." },
-        { name: "pagination", type: "PaginationResponse", description: "Pagination metadata." },
+        { name: "pagination", type: "PaginationResponse", required: false, description: "Pagination parameters.", example: { limit: 20 } },
       ],
     },
     {
@@ -69,6 +59,8 @@ const service: ApiService = {
       ],
       response: [
         { name: "attempts[].attempt_id", type: "string", description: "UUID of this attempt.", example: "a-110e8400-e29b-41d4-a716-446655440000" },
+        { name: "attempts[].delivery_id", type: "string", description: "UUID of the parent delivery this attempt belongs to." },
+        { name: "attempts[].webhook_id", type: "string", description: "UUID of the target webhook." },
         { name: "attempts[].success", type: "bool", description: "Whether the attempt succeeded.", example: true },
         { name: "attempts[].response_time", type: "int32", description: "Round-trip time in milliseconds.", example: 245 },
         { name: "attempts[].response_code", type: "int32", description: "HTTP status code (0 if no response).", example: 200 },
@@ -77,7 +69,7 @@ const service: ApiService = {
         { name: "attempts[].timestamp", type: "Timestamp", description: "When this attempt was made.", example: "2025-01-15T10:30:05Z" },
       ],
       errors: [
-        { code: "INVALID_ARGUMENT", description: "delivery_id is empty." },
+        { code: "INVALID_ARGUMENT", description: "Delivery_id is empty." },
       ],
     },
   ],

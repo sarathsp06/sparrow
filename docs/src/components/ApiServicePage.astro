@@ -5,6 +5,8 @@
  * curl + response JSON on right. Code examples are built automatically
  * from field `example` values — no hand-written curl/Go needed.
  *
+ * The base URL in curl examples is configurable via a client-side switcher.
+ *
  * Usage in MDX:
  *   import service from '../../../data/api/webhook-service';
  *   <ApiServicePage {...service} />
@@ -20,6 +22,8 @@ import type { ApiService, Field } from '../data/api/types';
 type Props = ApiService;
 
 const { service, description, notes, rpcs, footer } = Astro.props;
+
+const DEFAULT_HOST = 'localhost:8080';
 
 // Render optional markdown sections
 const notesHtml = notes ? await marked.parse(notes) : '';
@@ -50,7 +54,7 @@ function buildExampleObject(fields: Field[]): Record<string, unknown> {
  * Generate a curl command for a Connect-RPC endpoint.
  */
 function generateCurl(serviceName: string, rpcName: string, requestFields: Field[]): string {
-  const url = `http://localhost:8080/webhook.${serviceName}/${rpcName}`;
+  const url = `http://${DEFAULT_HOST}/webhook.${serviceName}/${rpcName}`;
   const body = buildExampleObject(requestFields);
   const hasBody = Object.keys(body).length > 0;
 
@@ -75,6 +79,22 @@ function generateResponseJson(responseFields: Field[]): string | null {
   return JSON.stringify(body, null, 2);
 }
 ---
+
+{/* Hostname switcher */}
+<div class="api-host-switcher">
+  <label class="api-host-label" for="api-host-input">Base URL</label>
+  <div class="api-host-input-wrap">
+    <span class="api-host-protocol">http://</span>
+    <input
+      type="text"
+      id="api-host-input"
+      class="api-host-input"
+      value={DEFAULT_HOST}
+      spellcheck="false"
+      autocomplete="off"
+    />
+  </div>
+</div>
 
 <p>{description}</p>
 
@@ -140,7 +160,116 @@ function generateResponseJson(responseFields: Field[]): string | null {
   </>
 )}
 
+<script define:vars={{ DEFAULT_HOST }}>
+  // Client-side hostname replacement for curl examples
+  const input = document.getElementById('api-host-input');
+  if (input) {
+    // Restore saved host from sessionStorage
+    const saved = sessionStorage.getItem('sparrow-api-host');
+    if (saved) {
+      input.value = saved;
+      replaceHost(DEFAULT_HOST, saved);
+    }
+
+    input.addEventListener('input', () => {
+      const newHost = input.value.trim();
+      if (!newHost) return;
+      sessionStorage.setItem('sparrow-api-host', newHost);
+      // Always replace from the current value in code blocks
+      replaceAllHosts(newHost);
+    });
+  }
+
+  function replaceAllHosts(newHost) {
+    // Find all curl code blocks and replace the host portion of URLs
+    const codeEls = document.querySelectorAll('.api-code-panel pre code');
+    codeEls.forEach((el) => {
+      // Match http://anything/webhook. and replace the host part
+      walkTextNodes(el, (text) => {
+        return text.replace(
+          /http:\/\/[^/\s]+\/webhook\./g,
+          `http://${newHost}/webhook.`
+        );
+      });
+    });
+  }
+
+  function replaceHost(oldHost, newHost) {
+    const codeEls = document.querySelectorAll('.api-code-panel pre code');
+    codeEls.forEach((el) => {
+      walkTextNodes(el, (text) => {
+        return text.replaceAll(
+          `http://${oldHost}/`,
+          `http://${newHost}/`
+        );
+      });
+    });
+  }
+
+  function walkTextNodes(el, transform) {
+    if (el.nodeType === Node.TEXT_NODE) {
+      const newText = transform(el.textContent);
+      if (newText !== el.textContent) {
+        el.textContent = newText;
+      }
+    } else {
+      el.childNodes.forEach((child) => walkTextNodes(child, transform));
+    }
+  }
+</script>
+
 <style>
+  /* Hostname switcher */
+  .api-host-switcher {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    background: var(--sl-color-gray-7, var(--sl-color-gray-6));
+  }
+
+  .api-host-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--sl-color-gray-3);
+    white-space: nowrap;
+  }
+
+  .api-host-input-wrap {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    font-family: var(--sl-font-mono);
+    font-size: 0.825rem;
+  }
+
+  .api-host-protocol {
+    color: var(--sl-color-gray-3);
+    user-select: none;
+  }
+
+  .api-host-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--sl-color-white);
+    font-family: var(--sl-font-mono);
+    font-size: 0.825rem;
+    padding: 0.2rem 0;
+  }
+
+  .api-host-input:focus {
+    border-bottom: 1px solid var(--sl-color-accent);
+  }
+
   /* Two-column layout per RPC */
   .api-rpc-section {
     scroll-margin-top: 2rem;

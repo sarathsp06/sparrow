@@ -65,6 +65,9 @@ generate: ## Generate protobuf code and gRPC/ConnectRPC clients
 	buf generate
 	go generate ./...
 
+generate-docs: ## Generate API reference docs from proto definitions
+	go run ./cmd/gendocs
+
 lint: ## Run golangci-lint for linting
 	golangci-lint run -v --timeout 15m ./...
 
@@ -77,4 +80,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui build-binaries build-all run test test-integration clean generate docker-dev example docker-purge migrate lint fmt run-web help
+.PHONY: build build-ui build-with-ui build-binaries build-all run test test-integration clean generate generate-docs docker-dev example docker-purge migrate lint fmt run-web help

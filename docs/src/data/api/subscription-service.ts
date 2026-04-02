@@ -25,13 +25,14 @@ const service: ApiService = {
         { name: "created_at", type: "Timestamp", description: "When the subscription was created.", example: "2025-01-15T10:30:00Z" },
       ],
       errors: [
-        { code: "ALREADY_EXISTS", description: "Webhook is already subscribed to this event in this namespace." },
-        { code: "NOT_FOUND", description: "Webhook does not exist." },
+        { code: "ALREADY_EXISTS", description: "The webhook is already subscribed to this event in this namespace." },
+        { code: "NOT_FOUND", description: "The webhook_id does not exist." },
       ],
     },
     {
       name: "GetSubscription",
-      description: "Returns a single subscription by ID.",
+      description:
+        "Returns a single subscription by ID.",
       request: [
         { name: "subscription_id", type: "string", required: true, description: "UUID of the subscription.", example: "7c9e6679-7425-40de-944b-e07fc1f90ae7" },
         { name: "namespace", type: "string", required: true, description: "Namespace the subscription belongs to.", example: "production" },
@@ -40,7 +41,7 @@ const service: ApiService = {
         { name: "subscription", type: "EventSubscription", description: "Full subscription details." },
       ],
       errors: [
-        { code: "NOT_FOUND", description: "Subscription does not exist in the given namespace." },
+        { code: "NOT_FOUND", description: "The subscription_id does not exist in the given namespace." },
       ],
     },
     {
@@ -48,14 +49,14 @@ const service: ApiService = {
       description:
         "Returns subscriptions in a namespace, optionally filtered by webhook_id or event_name. Paginated.",
       request: [
-        { name: "namespace", type: "string", required: true, description: "Namespace to list from.", example: "production" },
         { name: "webhook_id", type: "string", description: "Filter by webhook UUID.", example: "550e8400-e29b-41d4-a716-446655440000" },
         { name: "event_name", type: "string", description: "Filter by event type name." },
+        { name: "namespace", type: "string", required: true, description: "Namespace to list from.", example: "production" },
         { name: "pagination", type: "PaginationRequest", description: "Pagination parameters." },
       ],
       response: [
         { name: "subscriptions", type: "EventSubscription[]", description: "Matching subscriptions." },
-        { name: "pagination", type: "PaginationResponse", description: "Pagination metadata." },
+        { name: "pagination", type: "PaginationResponse", description: "Pagination parameters." },
       ],
     },
     {
@@ -73,7 +74,7 @@ const service: ApiService = {
         { name: "label_filters", type: "map<string, string>", description: "Updated label filters." },
       ],
       errors: [
-        { code: "NOT_FOUND", description: "Subscription does not exist." },
+        { code: "NOT_FOUND", description: "The subscription does not exist." },
       ],
     },
     {
@@ -85,7 +86,7 @@ const service: ApiService = {
         { name: "namespace", type: "string", required: true, description: "Namespace the subscription belongs to.", example: "production" },
       ],
       errors: [
-        { code: "NOT_FOUND", description: "Subscription does not exist." },
+        { code: "NOT_FOUND", description: "The subscription does not exist." },
       ],
     },
     {
@@ -101,8 +102,8 @@ const service: ApiService = {
         { name: "transformed_payload", type: "string", description: "The rendered template output.", example: "{\"id\": \"ord-123\", \"total\": \"99.99\"}" },
       ],
       errors: [
-        { code: "INVALID_ARGUMENT", description: "Template fails to parse or execute." },
-        { code: "NOT_FOUND", description: "Event name does not exist." },
+        { code: "INVALID_ARGUMENT", description: "The template fails to parse or execute." },
+        { code: "NOT_FOUND", description: "The event_name does not exist." },
       ],
     },
   ],

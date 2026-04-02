@@ -8,6 +8,9 @@ export default defineConfig({
     starlight({
       title: 'Sparrow',
       description: 'Self-hosted webhook delivery platform',
+      components: {
+        Footer: './src/components/Footer.astro',
+      },
       social: [
         {
           icon: 'github',

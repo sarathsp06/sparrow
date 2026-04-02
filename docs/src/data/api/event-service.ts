@@ -12,7 +12,7 @@ const service: ApiService = {
       request: [
         { name: "name", type: "string", required: true, description: "Unique event name (e.g., 'order.created'). Convention: dot-separated lowercase.", example: "order.created" },
         { name: "description", type: "string", description: "Human-readable description.", example: "Fired when a new order is placed" },
-        { name: "schema", type: "Struct (JSON)", description: "JSON Schema for payload validation.", example: { type: "object", properties: { order_id: { type: "string" }, amount: { type: "number" } }, required: ["order_id", "amount"] } },
+        { name: "schema", type: "Struct (JSON)", description: "JSON Schema for payload validation.", example: { properties: { amount: { type: "number" }, order_id: { type: "string" } }, required: ["order_id", "amount"], type: "object" } },
         { name: "metadata", type: "map<string, string>", description: "Arbitrary key-value metadata." },
         { name: "active", type: "bool", description: "Whether the event type is active. Default: true.", example: true },
       ],
@@ -33,21 +33,7 @@ const service: ApiService = {
       ],
       response: [
         { name: "events", type: "RegisteredEvent[]", description: "Event type definitions." },
-        { name: "pagination", type: "PaginationResponse", description: "Pagination metadata." },
-      ],
-    },
-    {
-      name: "GetEvent",
-      description:
-        "Returns a single event type by name, including its schema and auto-generated sample payload.",
-      request: [
-        { name: "name", type: "string", required: true, description: "Event name to look up.", example: "order.created" },
-      ],
-      response: [
-        { name: "event", type: "RegisteredEvent", description: "Event type definition with schema and sample_payload." },
-      ],
-      errors: [
-        { code: "NOT_FOUND", description: "Event name does not exist." },
+        { name: "pagination", type: "PaginationResponse", description: "Pagination parameters." },
       ],
     },
     {
@@ -62,7 +48,7 @@ const service: ApiService = {
         { name: "active", type: "bool", description: "Updated active flag." },
       ],
       errors: [
-        { code: "NOT_FOUND", description: "Event name does not exist." },
+        { code: "NOT_FOUND", description: "The event name does not exist." },
       ],
     },
     {
@@ -73,7 +59,21 @@ const service: ApiService = {
         { name: "name", type: "string", required: true, description: "Event name to delete.", example: "order.created" },
       ],
       errors: [
-        { code: "NOT_FOUND", description: "Event name does not exist." },
+        { code: "NOT_FOUND", description: "The event name does not exist." },
+      ],
+    },
+    {
+      name: "GetEvent",
+      description:
+        "Returns a single event type by name, including its schema and auto-generated sample payload.",
+      request: [
+        { name: "name", type: "string", required: true, description: "Event name to look up.", example: "order.created" },
+      ],
+      response: [
+        { name: "event", type: "RegisteredEvent", description: "Event type definition with schema and sample_payload." },
+      ],
+      errors: [
+        { code: "NOT_FOUND", description: "The event name does not exist." },
       ],
     },
     {
@@ -83,18 +83,18 @@ const service: ApiService = {
       request: [
         { name: "namespace", type: "string", required: true, description: "Namespace to push the event into.", example: "production" },
         { name: "event", type: "string", required: true, description: "Event type name (must match a registered event).", example: "order.created" },
-        { name: "payload", type: "Struct (JSON)", required: true, description: "Event payload. Validated against schema if one exists.", example: { order_id: "ord-123", amount: 99.99, currency: "USD" } },
+        { name: "payload", type: "Struct (JSON)", required: true, description: "Event payload. Validated against schema if one exists.", example: { amount: 99.99, currency: "USD", order_id: "ord-123" } },
         { name: "ttl_seconds", type: "int64", description: "TTL for delivery retries. 0 = no expiration." },
         { name: "metadata", type: "map<string, string>", description: "Metadata stored with event (not sent to webhooks)." },
         { name: "id", type: "string", description: "Client-provided event ID for idempotency." },
-        { name: "labels", type: "map<string, string>", description: "Labels for subscription label-filter matching.", example: { region: "us-east", priority: "high" } },
+        { name: "labels", type: "map<string, string>", description: "Labels for subscription label-filter matching.", example: { priority: "high", region: "us-east" } },
       ],
       response: [
         { name: "event_id", type: "string", description: "Server-generated UUID for the event instance.", example: "e-550e8400-e29b-41d4-a716-446655440000" },
       ],
       errors: [
-        { code: "NOT_FOUND", description: "Event name is not registered." },
-        { code: "INVALID_ARGUMENT", description: "Payload fails schema validation." },
+        { code: "INVALID_ARGUMENT", description: "The payload fails schema validation." },
+        { code: "NOT_FOUND", description: "The event name is not registered." },
       ],
     },
     {
@@ -108,7 +108,7 @@ const service: ApiService = {
       ],
       response: [
         { name: "events", type: "EventReport[]", description: "Event instances with delivery statistics." },
-        { name: "pagination", type: "PaginationResponse", description: "Pagination metadata." },
+        { name: "pagination", type: "PaginationResponse", description: "Pagination parameters. Max limit: 1000.", example: { limit: 25 } },
       ],
     },
   ],
