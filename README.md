@@ -98,52 +98,20 @@ See [CONFIGURATION.md](CONFIGURATION.md) for deployment guides and all options.
 
 ---
 
-## Kubernetes Deployment
+## Kubernetes
 
-Sparrow ships a Helm chart for Kubernetes. The chart expects you to bring your own PostgreSQL -- the bundled PostgreSQL is **off by default** and intended only for evaluation.
-
-### Install with an external database
+A Helm chart is included at [`charts/sparrow/`](charts/sparrow/). Bring your own PostgreSQL or enable the bundled one for evaluation:
 
 ```bash
+# External database (recommended for production)
 helm install sparrow charts/sparrow/ \
   --set secrets.databaseURL="postgres://user:pass@your-db:5432/sparrow?sslmode=require"
+
+# Bundled PostgreSQL (evaluation only)
+helm install sparrow charts/sparrow/ --set postgresql.enabled=true
 ```
 
-### Install with bundled PostgreSQL (evaluation only)
-
-```bash
-helm install sparrow charts/sparrow/ \
-  --set postgresql.enabled=true
-```
-
-### Common overrides
-
-```bash
-helm install sparrow charts/sparrow/ \
-  --set secrets.databaseURL="postgres://..." \
-  --set image.tag="0.3.0" \
-  --set ingress.enabled=true \
-  --set ingress.hosts[0].host=sparrow.example.com \
-  --set ingress.hosts[0].paths[0].path=/ \
-  --set ingress.hosts[0].paths[0].pathType=Prefix \
-  --set sparrow.extraEnv[0].name=OTEL_EXPORTER_OTLP_ENDPOINT \
-  --set sparrow.extraEnv[0].value="http://otel-collector:4318"
-```
-
-### Key chart values
-
-| Value | Default | Description |
-|-------|---------|-------------|
-| `image.repository` | `ghcr.io/sarathsp06/sparrow` | Docker image |
-| `image.tag` | `latest` | Image tag |
-| `secrets.databaseURL` | `""` | PostgreSQL connection string |
-| `postgresql.enabled` | `false` | Deploy bundled PostgreSQL StatefulSet |
-| `sparrow.serveUI` | `true` | Serve the embedded web dashboard |
-| `ingress.enabled` | `false` | Create an Ingress resource |
-| `autoscaling.enabled` | `false` | Enable HPA |
-| `sparrow.extraEnv` | `[]` | Additional env vars (OTel, CORS, etc.) |
-
-See [`charts/sparrow/values.yaml`](charts/sparrow/values.yaml) for the full reference.
+See [KUBERNETES.md](KUBERNETES.md) for the full deployment guide, all chart values, and examples.
 
 ---
 
@@ -161,6 +129,7 @@ Quick links:
 In-repo references:
 
 - [CONFIGURATION.md](CONFIGURATION.md) -- All environment variables
+- [KUBERNETES.md](KUBERNETES.md) -- Helm chart deployment guide
 - [TECHNICAL.md](TECHNICAL.md) -- Architecture deep dive, queue design, health state machine
 - [ARCHITECTURE.md](ARCHITECTURE.md) -- Package structure, dependency graph
 - [webhook.proto](webhook.proto) -- Service and message definitions
