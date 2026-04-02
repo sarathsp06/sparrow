@@ -1,0 +1,13 @@
+{{- if or (gt (int .Values.replicaCount) 1) .Values.autoscaling.enabled -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "sparrow.fullname" . }}
+  labels:
+    {{- include "sparrow.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      {{- include "sparrow.selectorLabels" . | nindent 6 }}
+{{- end }}

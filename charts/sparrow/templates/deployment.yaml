@@ -42,6 +42,13 @@ spec:
                 echo "Waiting for PostgreSQL..."
                 sleep 2
               done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 10m
+              memory: 32Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

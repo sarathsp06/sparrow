@@ -251,15 +251,30 @@ The chart configures liveness and readiness probes automatically:
 
 ---
 
+## Disruption Budget
+
+A `PodDisruptionBudget` is automatically created when `replicaCount > 1` or `autoscaling.enabled=true`. It sets `maxUnavailable: 1` so at least N-1 pods remain available during voluntary disruptions (node drains, upgrades).
+
+---
+
 ## Security
 
 The chart applies a hardened security context by default:
 
+**Sparrow containers:**
 - `runAsNonRoot: true` (UID 65532, matching the distroless image)
 - `readOnlyRootFilesystem: true`
 - `allowPrivilegeEscalation: false`
 - All capabilities dropped
 - `RuntimeDefault` seccomp profile
+
+**Bundled PostgreSQL** (when `postgresql.enabled=true`):
+- Runs as UID/GID 999 (the `postgres` user in the alpine image)
+- `RuntimeDefault` seccomp profile
+
+**Init containers** (wait-for-postgresql):
+- Resource-limited (10m CPU, 32Mi memory)
+- Read-only root filesystem, all capabilities dropped
 
 ---
 
