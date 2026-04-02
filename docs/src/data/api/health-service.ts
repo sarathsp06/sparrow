@@ -4,13 +4,6 @@ const service: ApiService = {
   service: "HealthService",
   description:
     "HealthService provides webhook health metrics derived from delivery outcomes. Health is computed per-webhook based on success rate and consecutive failures: HEALTHY (>90% success, <3 consecutive failures), DEGRADED (50-90% or 3-9 consecutive), UNHEALTHY (<50% or 10+ consecutive failures).",
-  notes: `### Health Status Thresholds
-
-| Status | Success Rate | Consecutive Failures |
-|--------|-------------|---------------------|
-| **HEALTHY** | > 90% | < 3 |
-| **DEGRADED** | 50-90% | 3-9 |
-| **UNHEALTHY** | < 50% | >= 10 |`,
   rpcs: [
     {
       name: "GetWebhookHealth",

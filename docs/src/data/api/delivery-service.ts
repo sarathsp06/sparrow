@@ -73,21 +73,6 @@ const service: ApiService = {
       ],
     },
   ],
-  footer: `## Delivery Status Lifecycle
-
-\`\`\`
-PENDING -> SENDING -> SUCCESS
-PENDING -> SENDING -> RETRYING -> SENDING -> ... -> SUCCESS | FAILED | EXPIRED
-\`\`\`
-
-| Status | Description |
-|--------|-------------|
-| \`PENDING\` | Queued, not yet attempted |
-| \`SENDING\` | HTTP request in flight |
-| \`SUCCESS\` | Endpoint returned an expected status code |
-| \`FAILED\` | All retries exhausted or non-retryable error |
-| \`RETRYING\` | Failed but will retry (server_error, timeout, connection_refused, network_error) |
-| \`EXPIRED\` | TTL elapsed before success |`,
 };
 
 export default service;

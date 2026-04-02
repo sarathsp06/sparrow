@@ -130,22 +130,6 @@ const service: ApiService = {
       ],
     },
   ],
-  footer: `## WebhookHTTPConfig
-
-Shared configuration object used in \`RegisterWebhook\` and \`UpdateWebhookConfig\`:
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| \`max_retries\` | \`int32\` | \`3\` | Retry attempts after failure (0-10). Only retryable errors trigger retries. |
-| \`retry_backoff_seconds\` | \`int32\` | \`60\` | Base backoff between retries. Exponential with jitter. |
-| \`capture_response_body\` | \`bool\` | \`false\` | Store up to 1 MB of response body (vs 1 KB default). |
-| \`follow_redirects\` | \`bool\` | \`true\` | Follow HTTP 3xx redirects. |
-| \`verify_ssl\` | \`bool\` | \`true\` | Verify TLS certificate chain. |
-| \`request_timeout_seconds\` | \`int32\` | \`30\` | Per-request timeout (1-300 seconds). |
-| \`expected_status_codes\` | \`int32[]\` | \`[200, 201, 202, 204]\` | Status codes treated as success. |
-| \`webhook_secret\` | \`string\` | \`""\` | HMAC-SHA256 signing secret. |
-| \`user_agent\` | \`string\` | \`"Sparrow-Webhook/1.0"\` | User-Agent header value. |
-| \`content_type\` | \`string\` | \`"application/json"\` | Content-Type header value. |`,
 };
 
 export default service;

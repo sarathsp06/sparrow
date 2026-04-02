@@ -191,7 +191,7 @@
         <a href="#getting-started" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Getting Started</a>
         <a href="#architecture" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Architecture</a>
         <a href="#comparison" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Comparison</a>
-        <a href="https://github.com/sarathsp06/sparrow" target="_blank" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Documentation</a>
+        <a href="https://sarathsp06.github.io/sparrow/" target="_blank" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Documentation</a>
       </nav>
       <div class="flex items-center gap-3">
         <a
@@ -522,7 +522,7 @@
         <p class="text-sm text-gray-400">Open source webhook delivery system</p>
         <div class="flex items-center gap-6">
           <a href="https://github.com/sarathsp06/sparrow" target="_blank" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">GitHub</a>
-          <a href="https://github.com/sarathsp06/sparrow#-documentation" target="_blank" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Docs</a>
+          <a href="https://sarathsp06.github.io/sparrow/" target="_blank" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Docs</a>
         </div>
       </div>
     </div>

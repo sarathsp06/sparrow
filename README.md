@@ -106,7 +106,7 @@ Quick links:
 
 - [Getting Started](https://sarathsp06.github.io/sparrow/getting-started/installation/)
 - [API Reference](https://sarathsp06.github.io/sparrow/reference/api/)
-- [Guides](https://sarathsp06.github.io/sparrow/guides/webhooks/)
+- [Architecture](https://sarathsp06.github.io/sparrow/reference/architecture/)
 - [Deployment](https://sarathsp06.github.io/sparrow/deployment/docker-compose/)
 
 In-repo references:
