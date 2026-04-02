@@ -1,6 +1,8 @@
 ---
 import Default from '@astrojs/starlight/components/Footer.astro';
 
+const version = import.meta.env.PUBLIC_APP_VERSION || null;
+
 // Build date is set at build time (static site generation)
 const buildDate = new Date().toLocaleDateString('en-US', {
   year: 'numeric',
@@ -11,7 +13,7 @@ const buildDate = new Date().toLocaleDateString('en-US', {
 
 <Default><slot /></Default>
 <div class="build-date-footer">
-  Built on {buildDate}
+  {version ? `v${version} · ` : ''}Built on {buildDate}
 </div>
 
 <style>

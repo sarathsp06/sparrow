@@ -6,6 +6,7 @@ GOARCH ?= $(shell go env GOARCH)
 OUTPUT ?= build/server-$(GOOS)-$(GOARCH)
 DATABASE_URL ?= 'postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable'
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+SEMVER  ?= $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0-dev")
 LDFLAGS := -X github.com/sarathsp06/sparrow.Version=$(VERSION)
 
 
@@ -14,7 +15,7 @@ build: ## Build the server binary for current OS/arch
 	go build -ldflags "$(LDFLAGS)" -o $(OUTPUT) ./cmd/server
 
 build-ui: ## Build the frontend for embedding in the Go binary
-	cd web && npm ci && npm run build
+	cd web && VITE_APP_VERSION=$(SEMVER) npm ci && VITE_APP_VERSION=$(SEMVER) npm run build
 
 build-with-ui: build-ui build ## Build frontend + server binary with embedded UI
 
@@ -31,7 +32,7 @@ build-all: build-ui build-binaries ## Build frontend + all cross-compiled binari
 
 
 docker-build: ## Build Docker image locally
-	docker build -t ghcr.io/sarathsp06/sparrow:$(VERSION) -t ghcr.io/sarathsp06/sparrow:latest --build-arg VERSION=$(VERSION) .
+	docker build -t ghcr.io/sarathsp06/sparrow:$(VERSION) -t ghcr.io/sarathsp06/sparrow:latest --build-arg VERSION=$(VERSION) --build-arg SEMVER=$(SEMVER) .
 
 docker-push: ## Push Docker image to GHCR (requires: docker login ghcr.io)
 	docker push ghcr.io/sarathsp06/sparrow:$(VERSION)

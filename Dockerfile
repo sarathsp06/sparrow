@@ -2,6 +2,8 @@
 # Frontend build stage
 FROM node:22-alpine AS frontend
 
+ARG SEMVER=dev
+
 WORKDIR /build/web
 
 # Copy package files first for better layer caching
@@ -18,7 +20,7 @@ COPY proto/webhook_pb.js proto/webhook_pb.d.ts /build/proto/
 
 # Build static frontend
 # adapter-static outputs to ../internal/ui/dist (i.e. /build/internal/ui/dist)
-RUN PUBLIC_API_URL=/ npm run build
+RUN VITE_APP_VERSION=${SEMVER} PUBLIC_API_URL=/ npm run build
 
 # Go build stage
 FROM golang:1.25-alpine AS builder

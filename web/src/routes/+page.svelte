@@ -518,6 +518,9 @@
         <div class="flex items-center gap-2">
           <img src={favicon} alt="Sparrow" class="w-6 h-6" />
           <span class="font-fira font-semibold text-gray-900">Sparrow</span>
+          {#if import.meta.env.VITE_APP_VERSION && import.meta.env.VITE_APP_VERSION !== 'dev'}
+            <span class="text-xs text-gray-400 font-fira">v{import.meta.env.VITE_APP_VERSION}</span>
+          {/if}
         </div>
         <p class="text-sm text-gray-400">Open source webhook delivery system</p>
         <div class="flex items-center gap-6">
