@@ -31,18 +31,6 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Guides',
-          items: [
-            { slug: 'guides/webhooks' },
-            { slug: 'guides/events' },
-            { slug: 'guides/subscriptions' },
-            { slug: 'guides/deliveries' },
-            { slug: 'guides/health' },
-            { slug: 'guides/namespaces' },
-            { slug: 'guides/client-libraries' },
-          ],
-        },
-        {
           label: 'API Reference',
           items: [
             { slug: 'reference/api' },
@@ -56,6 +44,7 @@ export default defineConfig({
         {
           label: 'Reference',
           items: [
+            { slug: 'reference/client-libraries' },
             { slug: 'reference/template-functions' },
             { slug: 'reference/error-classification' },
             { slug: 'reference/architecture' },
