@@ -30,8 +30,35 @@ build-all: build-ui build-binaries ## Build frontend + all cross-compiled binari
 
 
 
+docker-build: ## Build Docker image locally
+	docker build -t ghcr.io/sarathsp06/sparrow:$(VERSION) -t ghcr.io/sarathsp06/sparrow:latest --build-arg VERSION=$(VERSION) .
+
+docker-push: ## Push Docker image to GHCR (requires: docker login ghcr.io)
+	docker push ghcr.io/sarathsp06/sparrow:$(VERSION)
+	docker push ghcr.io/sarathsp06/sparrow:latest
+
+docker-dev: ## Run the development environment with Docker Compose
+	docker-compose -f docker-compose.yml up -d --build
+
 docker-purge: ## Stop and remove Docker containers, networks, volumes, and images created by Docker Compose for development
 	docker-compose -f docker-compose.yml down -v
+
+## -- Helm / Kubernetes --
+
+CHART_DIR := charts/sparrow
+
+helm-lint: ## Lint the Helm chart
+	helm lint $(CHART_DIR)
+
+helm-template: ## Render chart templates locally (dry-run)
+	helm template sparrow $(CHART_DIR) --set secrets.databaseURL="postgresql://user:pass@db:5432/sparrow?sslmode=disable"
+
+helm-template-pg: ## Render chart templates with bundled PostgreSQL enabled
+	helm template sparrow $(CHART_DIR) --set postgresql.enabled=true
+
+helm-package: ## Package the Helm chart into a .tgz archive
+	mkdir -p build
+	helm package $(CHART_DIR) -d build
 
 example: ## Run the gRPC client example
 	DATABASE_URL=$(DATABASE_URL) go run examples/grpc_client.go
@@ -73,13 +100,10 @@ generate-docs: ## Generate API reference docs from proto definitions
 lint: ## Run golangci-lint for linting
 	golangci-lint run -v --timeout 15m ./...
 
-docker-dev: ## Run the development environment with Docker Compose
-	docker-compose -f docker-compose.yml up -d --build
-
 fmt: ## Format the code
 	goimports -local github.com/sarathsp06/sparrow/  -w .
 
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui build-binaries build-all run test test-integration clean generate generate-docs docker-dev example docker-purge migrate lint fmt run-web help
+.PHONY: build build-ui build-with-ui build-binaries build-all run test test-integration clean generate generate-docs docker-build docker-push docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web help

@@ -1,0 +1,98 @@
+# -- Container image for the Sparrow server
+image:
+  repository: ghcr.io/sarathsp06/sparrow
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# -- Number of Sparrow pods
+# Safe to scale — Sparrow is stateless, all state is in Postgres + River queue.
+replicaCount: 1
+
+# -- Sparrow application configuration (non-secret env vars)
+sparrow:
+  # Serve the embedded SvelteKit web UI on port 8080
+  serveUI: "true"
+  # "development" = pretty logs; "production" = JSON structured logs
+  environment: production
+  # Comma-separated CORS origins for Connect-RPC; empty = permissive
+  corsAllowedOrigins: ""
+  # Extra env vars injected into the Sparrow container.
+  # Use this for OTEL_EXPORTER_OTLP_ENDPOINT or any other env var.
+  extraEnv: []
+  #  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+  #    value: "http://otel-collector.observability.svc.cluster.local:4318"
+
+# -- Secrets for Sparrow
+secrets:
+  # Postgres connection string. Required when postgresql.enabled=false.
+  # When postgresql.enabled=true and this is empty, it is auto-constructed.
+  databaseURL: ""
+  # 64-char hex key for HMAC webhook secret encryption.
+  # Generate with: openssl rand -hex 32
+  encryptionKey: ""
+  # Name of a pre-existing Kubernetes Secret containing 'DATABASE_URL' and
+  # 'SPARROW_ENCRYPTION_KEY' keys. When set, the chart does NOT create its own Secret.
+  existingSecret: ""
+
+# -- Built-in PostgreSQL (optional, OFF by default)
+# Enable for dev/staging. For production, keep disabled and provide secrets.databaseURL.
+postgresql:
+  enabled: false
+  image: postgres:15-alpine
+  auth:
+    database: sparrow
+    username: sparrow
+    password: sparrow
+  storage:
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# -- Kubernetes Service
+service:
+  type: ClusterIP
+  httpPort: 8080
+  grpcPort: 50051
+
+# -- Ingress (optional, OFF by default)
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  #  - host: sparrow.example.com
+  #    paths:
+  #      - path: /
+  #        pathType: Prefix
+  tls: []
+  #  - secretName: sparrow-tls
+  #    hosts:
+  #      - sparrow.example.com
+
+# -- Resource requests and limits for the Sparrow container
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# -- Horizontal Pod Autoscaler (optional, OFF by default)
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilization: 80
+
+# -- ServiceAccount (optional, OFF by default)
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}

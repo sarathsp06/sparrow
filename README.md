@@ -98,6 +98,55 @@ See [CONFIGURATION.md](CONFIGURATION.md) for deployment guides and all options.
 
 ---
 
+## Kubernetes Deployment
+
+Sparrow ships a Helm chart for Kubernetes. The chart expects you to bring your own PostgreSQL -- the bundled PostgreSQL is **off by default** and intended only for evaluation.
+
+### Install with an external database
+
+```bash
+helm install sparrow charts/sparrow/ \
+  --set secrets.databaseURL="postgres://user:pass@your-db:5432/sparrow?sslmode=require"
+```
+
+### Install with bundled PostgreSQL (evaluation only)
+
+```bash
+helm install sparrow charts/sparrow/ \
+  --set postgresql.enabled=true
+```
+
+### Common overrides
+
+```bash
+helm install sparrow charts/sparrow/ \
+  --set secrets.databaseURL="postgres://..." \
+  --set image.tag="0.3.0" \
+  --set ingress.enabled=true \
+  --set ingress.hosts[0].host=sparrow.example.com \
+  --set ingress.hosts[0].paths[0].path=/ \
+  --set ingress.hosts[0].paths[0].pathType=Prefix \
+  --set sparrow.extraEnv[0].name=OTEL_EXPORTER_OTLP_ENDPOINT \
+  --set sparrow.extraEnv[0].value="http://otel-collector:4318"
+```
+
+### Key chart values
+
+| Value | Default | Description |
+|-------|---------|-------------|
+| `image.repository` | `ghcr.io/sarathsp06/sparrow` | Docker image |
+| `image.tag` | `latest` | Image tag |
+| `secrets.databaseURL` | `""` | PostgreSQL connection string |
+| `postgresql.enabled` | `false` | Deploy bundled PostgreSQL StatefulSet |
+| `sparrow.serveUI` | `true` | Serve the embedded web dashboard |
+| `ingress.enabled` | `false` | Create an Ingress resource |
+| `autoscaling.enabled` | `false` | Enable HPA |
+| `sparrow.extraEnv` | `[]` | Additional env vars (OTel, CORS, etc.) |
+
+See [`charts/sparrow/values.yaml`](charts/sparrow/values.yaml) for the full reference.
+
+---
+
 ## Documentation
 
 **[sarathsp06.github.io/sparrow](https://sarathsp06.github.io/sparrow)** -- Full documentation site with guides, API reference, and deployment instructions.

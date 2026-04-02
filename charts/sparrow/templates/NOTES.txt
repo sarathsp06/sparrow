@@ -1,0 +1,31 @@
+Sparrow has been deployed!
+
+{{- if .Values.postgresql.enabled }}
+  Database: Built-in PostgreSQL (not recommended for production)
+{{- else }}
+  Database: External (provided via secrets.databaseURL)
+{{- end }}
+
+Get the application URL:
+{{- if .Values.ingress.enabled }}
+  {{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+  {{- end }}
+{{- else }}
+  kubectl port-forward svc/{{ include "sparrow.fullname" . }} 8080:{{ .Values.service.httpPort }}
+  Then open: http://localhost:8080
+{{- end }}
+
+gRPC endpoint:
+  kubectl port-forward svc/{{ include "sparrow.fullname" . }} 50051:{{ .Values.service.grpcPort }}
+  grpcurl -plaintext localhost:50051 list
+
+{{- if .Values.postgresql.enabled }}
+
+PostgreSQL shell:
+  kubectl exec -it {{ include "sparrow.fullname" . }}-postgresql-0 -- psql -U {{ .Values.postgresql.auth.username }} -d {{ .Values.postgresql.auth.database }}
+
+NOTE: The built-in PostgreSQL uses a PersistentVolumeClaim that persists after
+`helm uninstall`. To fully clean up, run:
+  kubectl delete pvc data-{{ include "sparrow.fullname" . }}-postgresql-0
+{{- end }}
