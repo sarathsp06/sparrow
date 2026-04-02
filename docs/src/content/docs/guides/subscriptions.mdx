@@ -1,0 +1,134 @@
+---
+title: Subscriptions
+description: Connect webhooks to events with optional payload transforms.
+sidebar:
+  order: 3
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Subscriptions connect a webhook to an event type. Each subscription can optionally transform the payload using Go templates before delivery.
+
+## Create a Subscription
+
+<Tabs>
+  <TabItem label="Connect-RPC (curl)">
+    ```bash
+    curl -X POST http://localhost:8080/webhook.SubscriptionService/CreateSubscription \
+      -H "Content-Type: application/json" \
+      -d '{
+        "webhookId": "YOUR_WEBHOOK_ID",
+        "eventName": "order.created",
+        "namespace": "default",
+        "active": true,
+        "labelFilters": {
+          "plan": "premium"
+        }
+      }'
+    ```
+  </TabItem>
+  <TabItem label="Go (Connect-RPC)">
+    ```go
+    resp, err := subClient.CreateSubscription(ctx, connect.NewRequest(&pb.CreateSubscriptionRequest{
+        WebhookId: webhookID,
+        EventName: "order.created",
+        Namespace: "default",
+        Active:    true,
+        LabelFilters: map[string]string{
+            "plan": "premium",
+        },
+    }))
+    ```
+  </TabItem>
+</Tabs>
+
+## Label Filters
+
+When a subscription has `labelFilters`, it only receives events whose labels are a superset of the filter. This lets you create targeted subscriptions:
+
+```bash
+# Only receives events where plan=enterprise AND region=eu-west-1
+curl -X POST http://localhost:8080/webhook.SubscriptionService/CreateSubscription \
+  -H "Content-Type: application/json" \
+  -d '{
+    "webhookId": "YOUR_WEBHOOK_ID",
+    "eventName": "order.created",
+    "namespace": "default",
+    "active": true,
+    "labelFilters": {
+      "plan": "enterprise",
+      "region": "eu-west-1"
+    }
+  }'
+```
+
+## Payload Transforms
+
+You can transform the event payload before delivery using Go's `text/template` syntax.
+
+### Enable Transform
+
+```bash
+curl -X POST http://localhost:8080/webhook.SubscriptionService/CreateSubscription \
+  -H "Content-Type: application/json" \
+  -d '{
+    "webhookId": "YOUR_WEBHOOK_ID",
+    "eventName": "order.created",
+    "namespace": "default",
+    "active": true,
+    "transformEnabled": true,
+    "transformTemplate": "{\"slack_text\": \"New order {{.payload.order_id}} from {{.payload.customer}} for ${{.payload.total}}\"}"
+  }'
+```
+
+When `transformEnabled` is true, the template output **replaces the entire delivery body**.
+
+### Template Context
+
+The template receives the full delivery envelope as its context:
+
+| Variable | Description |
+|----------|-------------|
+| `.version` | Envelope version (`"1"`) |
+| `.event_id` | Event UUID |
+| `.event_name` | Event type name |
+| `.namespace` | Namespace |
+| `.webhook_id` | Webhook UUID |
+| `.delivery_id` | Delivery UUID |
+| `.timestamp` | ISO 8601 timestamp |
+| `.attempt` | Attempt number |
+| `.payload` | Original event payload (nested object) |
+
+### Test a Template
+
+You can test a template without creating a subscription:
+
+```bash
+curl -X POST http://localhost:8080/webhook.SubscriptionService/TestSubscriptionTemplate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template": "{\"message\": \"Order {{.payload.order_id}} totaling ${{.payload.total}}\"}",
+    "samplePayload": {
+      "order_id": "ord_123",
+      "total": 49.99
+    }
+  }'
+```
+
+### Available Functions
+
+Sparrow provides 22+ built-in template functions. See the [Template Functions Reference](/sparrow/reference/template-functions/) for the complete list.
+
+Common examples:
+
+```
+{{ .payload | json }}                   # JSON encode
+{{ .payload.email | urlencode }}        # URL encode
+{{ .payload.secret | base64 }}          # Base64 encode
+{{ .payload.name | upper }}             # Uppercase
+{{ .payload.name | lower }}             # Lowercase
+{{ .payload.text | truncate 100 }}      # Truncate
+{{ .payload.text | ellipsis 50 }}       # Truncate with "..."
+{{ .payload.tags | join ", " }}         # Join array
+{{ default "N/A" .payload.optional }}   # Default value
+```

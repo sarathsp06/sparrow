@@ -1,0 +1,32 @@
+---
+/**
+ * ApiRequest: Compact inline property list for request fields.
+ * Scalar-inspired: field name + type badge + required indicator, description below.
+ */
+import type { Field } from '../data/api/types';
+
+interface Props {
+  fields: Field[];
+  title?: string;
+}
+
+const { fields, title = 'Request' } = Astro.props;
+---
+
+{fields.length > 0 && (
+  <div class="api-fields">
+    <h4 class="api-fields-title">{title}</h4>
+    <div class="api-fields-list">
+      {fields.map((field) => (
+        <div class="api-field">
+          <div class="api-field-header">
+            <code class="api-field-name">{field.name}</code>
+            <span class="api-field-type">{field.type}</span>
+            {field.required && <span class="api-field-required">required</span>}
+          </div>
+          <p class="api-field-description">{field.description}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+)}

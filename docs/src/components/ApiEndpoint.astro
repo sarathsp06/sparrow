@@ -1,0 +1,21 @@
+---
+/**
+ * ApiEndpoint: Displays endpoint header with method badge and path.
+ * Scalar-inspired: green POST badge + monospace path, clean and minimal.
+ */
+interface Props {
+  method: string;
+  path: string;
+  description: string;
+}
+
+const { method, path, description } = Astro.props;
+---
+
+<div class="api-endpoint">
+  <div class="api-endpoint-header">
+    <span class="method-badge method-post">{method}</span>
+    <code class="endpoint-path">{path}</code>
+  </div>
+  <p class="endpoint-description">{description}</p>
+</div>

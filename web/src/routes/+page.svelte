@@ -37,25 +37,25 @@
   const steps = [
     {
       num: "01",
-      title: "Register an Event",
-      description: "Define the event types your system will emit",
+      title: "Define an Event",
+      description: "Events describe what happens in your system. Register a type once, then emit it as many times as you need.",
       code: `curl -s -X POST http://localhost:8080/webhook.EventService/RegisterEvent \\
   -H "Content-Type: application/json" \\
   -d '{
     "name": "order.created",
-    "description": "New order placed",
+    "description": "Fired when a new order is placed",
     "active": true
   }'`,
     },
     {
       num: "02",
       title: "Register a Webhook",
-      description: "Point a URL at your events — subscriptions are created automatically",
+      description: "Point your endpoint at one or more events inside a namespace. Sparrow creates a subscription for each event automatically.",
       code: `curl -s -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \\
   -H "Content-Type: application/json" \\
   -d '{
     "namespace": "default",
-    "url": "https://httpbin.org/post",
+    "url": "https://testhooks.sarathsadasivan.com/hooks",
     "events": ["order.created"],
     "active": true
   }'`,
@@ -63,7 +63,7 @@
     {
       num: "03",
       title: "Push an Event",
-      description: "Emit an event — Sparrow delivers it with retries and health tracking",
+      description: "Emit an event with a JSON payload and optional labels. Sparrow matches subscriptions, fans out deliveries, and retries failures automatically.",
       code: `curl -s -X POST http://localhost:8080/webhook.EventService/PushEvent \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -72,7 +72,8 @@
     "payload": {
       "order_id": "ord_123",
       "amount": 99.99
-    }
+    },
+    "labels": { "region": "us-east", "priority": "high" }
   }'`,
     },
   ];
@@ -117,7 +118,7 @@
   ];
 
   // Values: true = supported, false = not supported, string = custom text
-  // Keep rows focused on differentiators — where Sparrow clearly stands out
+  // Rows must be factually accurate — do not misrepresent competitors
   const comparisonFeatures = [
     {
       feature: "Open Source",
@@ -125,7 +126,7 @@
     },
     {
       feature: "Self-Hosted",
-      sparrow: true, svix: "Enterprise", convoy: true, hookdeck: false, aws: false, diy: true,
+      sparrow: true, svix: true, convoy: true, hookdeck: false, aws: false, diy: true,
     },
     {
       feature: "No Per-Message Pricing",
@@ -136,28 +137,36 @@
       sparrow: true, svix: "SaaS", convoy: false, hookdeck: "SaaS", aws: "Managed", diy: "Varies",
     },
     {
+      feature: "gRPC / Connect-RPC Native",
+      sparrow: true, svix: false, convoy: false, hookdeck: false, aws: false, diy: false,
+    },
+    {
+      feature: "Payload Transformation",
+      sparrow: true, svix: "Paid", convoy: true, hookdeck: true, aws: "Partial", diy: false,
+    },
+    {
       feature: "Guaranteed Delivery & Retries",
       sparrow: true, svix: true, convoy: true, hookdeck: true, aws: "Partial", diy: false,
     },
     {
       feature: "Webhook Health Tracking",
-      sparrow: true, svix: true, convoy: "Partial", hookdeck: true, aws: false, diy: false,
+      sparrow: true, svix: true, convoy: true, hookdeck: true, aws: false, diy: false,
     },
     {
       feature: "OpenTelemetry Native",
-      sparrow: true, svix: false, convoy: false, hookdeck: false, aws: "X-Ray", diy: false,
+      sparrow: true, svix: "Enterprise", convoy: false, hookdeck: false, aws: "X-Ray", diy: false,
     },
     {
-      feature: "gRPC + REST API",
-      sparrow: true, svix: false, convoy: false, hookdeck: false, aws: "SDK", diy: "Varies",
+      feature: "Label-Based Filtering",
+      sparrow: true, svix: "Tags", convoy: false, hookdeck: "Rules", aws: "Rules", diy: false,
     },
     {
-      feature: "Payload Transformation",
-      sparrow: true, svix: false, convoy: true, hookdeck: true, aws: "Partial", diy: false,
+      feature: "Web Dashboard Included",
+      sparrow: true, svix: true, convoy: true, hookdeck: true, aws: true, diy: false,
     },
     {
       feature: "No Vendor Lock-In",
-      sparrow: true, svix: false, convoy: true, hookdeck: false, aws: false, diy: true,
+      sparrow: true, svix: "Partial", convoy: true, hookdeck: false, aws: false, diy: true,
     },
   ];
 </script>
@@ -334,10 +343,14 @@
 
       <div class="mt-10 max-w-4xl mx-auto text-center">
         <p class="text-gray-500 text-[0.9375rem]">
-          You can also create webhooks and manage subscriptions through the
+          Need a test endpoint? Use
+          <a href="https://testhooks.sarathsadasivan.com/" target="_blank" rel="noopener noreferrer" class="text-teal-600 hover:text-teal-700 font-medium">testhooks.sarathsadasivan.com</a>
+          to inspect webhook payloads. For fine-grained routing, create subscriptions with
+          <code class="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 font-fira text-sm">label_filters</code>
+          via the SubscriptionService — only events whose labels match will be delivered.
+          Manage everything through the
           <a href="/webhooks" class="text-teal-600 hover:text-teal-700 font-medium">web dashboard</a>
           at <code class="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 font-fira text-sm">localhost:8080</code>.
-          Sparrow handles delivery, retries, and health tracking automatically.
         </p>
       </div>
     </div>

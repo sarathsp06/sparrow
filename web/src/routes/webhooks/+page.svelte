@@ -7,6 +7,7 @@
   import HealthBadge from '$lib/components/HealthBadge.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
+  import FloatingAction from '$lib/components/FloatingAction.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
 
   let webhooks: RegisteredWebhook[] = $state([]);
@@ -155,6 +156,7 @@
         <p class="text-sm text-gray-500 mt-0.5">Manage registered webhooks</p>
       </div>
       <a
+        id="header-register-btn"
         href="/webhooks/register"
         class="inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition shadow-sm"
       >
@@ -416,3 +418,5 @@
   onconfirm={executeUnregister}
   oncancel={() => { confirmUnregister = false; webhookToUnregister = null; }}
 />
+
+<FloatingAction href="/webhooks/register" label="Register Webhook" targetSelector="#header-register-btn" />

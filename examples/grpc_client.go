@@ -99,7 +99,7 @@ func MainGRPC() {
 	registerReq := &pb.RegisterWebhookRequest{
 		Namespace: "default",
 		Events:    []string{"signup", "login"}, // This creates 2 subscriptions
-		Url:       "https://httpbin.org/post",
+		Url:       "https://testhooks.sarathsadasivan.com/hooks",
 		Headers: map[string]string{
 			"Authorization": "Bearer secret-token",
 			"X-App-Name":    "MyApp",
@@ -119,10 +119,11 @@ func MainGRPC() {
 		log.Printf("  Note: Created 2 event subscriptions (signup, login)")
 	}
 
-	// Example 1b: Create a direct subscription with template transformation
-	log.Println("\n=== Example 1b: Create Subscription with Template Transformation ===")
+	// Example 1b: Create a direct subscription with template transformation + label filters
+	log.Println("\n=== Example 1b: Create Subscription with Template + Label Filters ===")
 	if registerResp != nil {
-		// Create a subscription with Slack BlockKit template
+		// Create a subscription with Slack BlockKit template that only fires for
+		// premium signups in the us-east-1 region (label-based filtering).
 		slackTemplate := `{
   "blocks": [
     {
@@ -150,12 +151,18 @@ func MainGRPC() {
 
 		createSubReq := &pb.CreateSubscriptionRequest{
 			WebhookId:         registerResp.WebhookId,
-			EventName:         "user.premium_signup",
+			EventName:         "signup",
 			Namespace:         "default",
 			TransformEnabled:  true,
 			TransformTemplate: slackTemplate,
 			Headers: map[string]string{
 				"Content-Type": "application/json",
+			},
+			// Label filters: only events with BOTH these labels will trigger this subscription.
+			// Events without labels, or with different label values, are skipped.
+			LabelFilters: map[string]string{
+				"plan":   "premium",
+				"region": "us-east-1",
 			},
 		}
 
@@ -165,7 +172,8 @@ func MainGRPC() {
 		} else {
 			log.Printf("Subscription created successfully:")
 			log.Printf("  Subscription ID: %s", createSubResp.SubscriptionId)
-			log.Printf("  Features: Template transformation to Slack BlockKit format")
+			log.Printf("  Features: Template transformation + label-based filtering")
+			log.Printf("  Label Filters: plan=premium, region=us-east-1")
 		}
 	}
 
@@ -199,7 +207,7 @@ func MainGRPC() {
 	registerReq2 := &pb.RegisterWebhookRequest{
 		Namespace: "default",
 		Events:    []string{"order.created"},
-		Url:       "https://httpbin.org/post",
+		Url:       "https://testhooks.sarathsadasivan.com/hooks",
 		Headers: map[string]string{
 			"Content-Type":   "application/json",
 			"X-Service-Name": "OrderProcessor",
@@ -254,8 +262,8 @@ func MainGRPC() {
 	// Wait a moment before pushing events
 	time.Sleep(2 * time.Second)
 
-	// Example 4: Push a user signup event
-	log.Println("\n=== Example 4: Push User Signup Event ===")
+	// Example 4: Push a user signup event with labels
+	log.Println("\n=== Example 4: Push User Signup Event (with labels) ===")
 	eventPayload := map[string]any{
 		"user_id":   "user_12345",
 		"email":     "john.doe@default.com",
@@ -276,8 +284,16 @@ func MainGRPC() {
 		TtlSeconds: 3600, // 1 hour TTL
 		Metadata: map[string]string{
 			"source":   "api",
-			"region":   "us-east-1",
 			"trace_id": "trace_abc123",
+		},
+		// Labels enable selective subscription matching.
+		// The subscription from Example 1b has label_filters: plan=premium, region=us-east-1.
+		// This event matches because its labels are a superset of the subscription's filters.
+		// Subscriptions without label_filters (Example 1) still match all events.
+		Labels: map[string]string{
+			"plan":   "premium",
+			"region": "us-east-1",
+			"tier":   "enterprise", // extra labels are fine -- only filter keys must match
 		},
 	}
 
@@ -287,7 +303,8 @@ func MainGRPC() {
 	} else {
 		log.Printf("Event pushed successfully:")
 		log.Printf("  Event ID: %s", pushResp.EventId)
-		log.Printf("  Note: Webhook delivery uses subscription-specific config")
+		log.Printf("  Labels: plan=premium, region=us-east-1, tier=enterprise")
+		log.Printf("  Will match: subscription from Ex 1 (no filters) + Ex 1b (labels match)")
 	}
 
 	// Example 5: Push an order created event
@@ -393,7 +410,7 @@ func MainGRPC() {
 			Namespace: "default",
 			Updates: &pb.WebhookUpdateFields{
 				Events:      []string{"signup", "login", "order.created"}, // Add order.created subscription
-				Url:         "https://httpbin.org/post",
+				Url:         "https://testhooks.sarathsadasivan.com/hooks",
 				Active:      true,
 				Description: "Updated webhook with order events",
 			},
@@ -464,13 +481,14 @@ func MainGRPC() {
 	}
 
 	log.Println("\n=== All examples completed ===")
-	log.Println("\nKey Changes in Refactored System:")
-	log.Println("  - Webhooks and events are now decoupled via subscriptions")
-	log.Println("  - Each event subscription can have custom headers, method, timeout")
-	log.Println("  - Template-based payload transformation supported per subscription")
-	log.Println("  - Template functions available for payload transformation")
-	log.Println("  - Centralized HTTP client with consistent behavior")
+	log.Println("\nKey Concepts Demonstrated:")
+	log.Println("  - Namespace isolation: webhooks and events scoped to namespaces")
+	log.Println("  - Label-based filtering: subscriptions match events by labels (key=value pairs)")
+	log.Println("  - Subscriptions with no label_filters receive ALL events for their event type")
+	log.Println("  - Template-based payload transformation per subscription")
 	log.Println("  - HMAC-SHA256 signing for webhook security")
+	log.Println("  - Health tracking and delivery retries with error classification")
+	log.Println("  - Test your webhooks at https://testhooks.sarathsadasivan.com/")
 }
 
 // extractFirstLine extracts the first line from a multi-line description

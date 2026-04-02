@@ -1,0 +1,95 @@
+---
+title: Installation
+description: How to install and run Sparrow.
+sidebar:
+  order: 1
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Docker Compose (Recommended)
+
+The simplest way to run Sparrow. This starts PostgreSQL, runs migrations, and launches the server.
+
+```bash
+git clone https://github.com/sarathsp06/sparrow.git
+cd sparrow
+docker compose up -d
+```
+
+The server is available at:
+
+| Endpoint | URL |
+|----------|-----|
+| Web UI | http://localhost:8080 |
+| HTTP API (Connect-RPC) | http://localhost:8080 |
+| gRPC API | localhost:50051 |
+
+To stop:
+
+```bash
+docker compose down        # stop containers
+docker compose down -v     # stop and delete data
+```
+
+## Build from Source
+
+### Prerequisites
+
+- Go 1.25+
+- Node.js 22+ (for web UI)
+- PostgreSQL 15+
+
+### Build
+
+<Tabs>
+  <TabItem label="With UI">
+    ```bash
+    make build-with-ui
+    ```
+  </TabItem>
+  <TabItem label="Server Only">
+    ```bash
+    make build
+    ```
+  </TabItem>
+</Tabs>
+
+### Run
+
+```bash
+export DATABASE_URL=postgres://user:pass@localhost:5432/sparrow?sslmode=disable
+
+# Run migrations
+make migrate
+
+# Start the server with UI
+SPARROW_SERVE_UI=true ./build/server-*
+```
+
+## Pre-built Binaries
+
+Cross-compiled binaries are available for:
+
+- `linux/amd64`
+- `linux/arm64`
+- `darwin/amd64`
+- `darwin/arm64`
+- `windows/amd64`
+
+Build them all with:
+
+```bash
+make build-all
+```
+
+## Docker Image
+
+```bash
+docker build -t sparrow:latest .
+```
+
+The Dockerfile uses a 3-stage build:
+1. **Frontend** (`node:22-alpine`): Builds the SvelteKit UI
+2. **Backend** (`golang:1.25-alpine`): Compiles Go binaries with embedded UI
+3. **Runtime** (`distroless/static-debian12:nonroot`): Minimal production image

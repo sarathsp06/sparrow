@@ -25,6 +25,10 @@ plugins:
     out: client/go
     opt:
       - paths=source_relative
+  - plugin: buf.build/connectrpc/go
+    out: client/go
+    opt:
+      - paths=source_relative
 
   # JavaScript / TypeScript gRPC client (grpc-web compatible)
   - plugin: buf.build/protocolbuffers/js
@@ -34,6 +38,13 @@ plugins:
     opt:
       - import_style=typescript
       - mode=grpcweb
+
+  # JavaScript / TypeScript Connect-RPC client (ES modules)
+  - name: es
+    path: web/node_modules/.bin/protoc-gen-es
+    out: client/js/connect
+    opt:
+      - target=js+dts
 
   # Python gRPC client
   - plugin: buf.build/protocolbuffers/python

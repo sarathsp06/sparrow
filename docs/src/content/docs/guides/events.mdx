@@ -1,0 +1,109 @@
+---
+title: Events
+description: Register event types and push events.
+sidebar:
+  order: 2
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Events are the triggers for webhook deliveries. You register event types (schemas) and then push event instances that get routed to matching subscribers.
+
+## Register an Event Type
+
+<Tabs>
+  <TabItem label="Connect-RPC (curl)">
+    ```bash
+    curl -X POST http://localhost:8080/webhook.EventService/RegisterEvent \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "order.created",
+        "description": "Fires when a new order is placed",
+        "active": true,
+        "schema": {
+          "type": "object",
+          "properties": {
+            "order_id": {"type": "string"},
+            "total": {"type": "number"}
+          }
+        }
+      }'
+    ```
+  </TabItem>
+  <TabItem label="Go (Connect-RPC)">
+    ```go
+    resp, err := eventClient.RegisterEvent(ctx, connect.NewRequest(&pb.RegisterEventRequest{
+        Name:        "order.created",
+        Description: "Fires when a new order is placed",
+        Active:      true,
+    }))
+    ```
+  </TabItem>
+</Tabs>
+
+## Push an Event
+
+<Tabs>
+  <TabItem label="Connect-RPC (curl)">
+    ```bash
+    curl -X POST http://localhost:8080/webhook.EventService/PushEvent \
+      -H "Content-Type: application/json" \
+      -d '{
+        "namespace": "default",
+        "event": "order.created",
+        "payload": {
+          "order_id": "ord_456",
+          "customer": "alice@example.com",
+          "total": 149.99
+        },
+        "ttlSeconds": 3600,
+        "labels": {
+          "plan": "premium",
+          "region": "us-east-1"
+        }
+      }'
+    ```
+  </TabItem>
+  <TabItem label="Go (Connect-RPC)">
+    ```go
+    payload, _ := structpb.NewStruct(map[string]any{
+        "order_id": "ord_456",
+        "customer": "alice@example.com",
+        "total":    149.99,
+    })
+    resp, err := eventClient.PushEvent(ctx, connect.NewRequest(&pb.PushEventRequest{
+        Namespace:  "default",
+        Event:      "order.created",
+        Payload:    payload,
+        TtlSeconds: 3600,
+        Labels: map[string]string{
+            "plan":   "premium",
+            "region": "us-east-1",
+        },
+    }))
+    ```
+  </TabItem>
+</Tabs>
+
+## Event Labels
+
+Labels are key-value metadata attached to events. They enable **label-based filtering** on subscriptions -- only subscriptions whose `labelFilters` are a subset of the event's labels will receive the delivery.
+
+For example, if an event has labels `{"plan": "premium", "region": "us-east-1"}`:
+- A subscription with `labelFilters: {"plan": "premium"}` **matches** (subset)
+- A subscription with `labelFilters: {"plan": "free"}` **does not match**
+- A subscription with no `labelFilters` **matches** (empty set is a subset of everything)
+
+## Event TTL
+
+The `ttlSeconds` field sets how long the event record is retained. After expiry, the event data can be cleaned up. Deliveries are not affected -- they have their own lifecycle.
+
+## Processing Pipeline
+
+When you push an event:
+
+1. **Validation** -- Payload is validated against the registered event schema (if any)
+2. **Storage** -- Event record is inserted into the database
+3. **Enqueue** -- An async job is enqueued on the `events` queue
+4. **Fan-out** -- The event worker finds all matching subscriptions and creates delivery jobs
+5. **Delivery** -- Each delivery job sends an HTTP POST to the webhook URL

@@ -1,0 +1,88 @@
+---
+title: Quickstart
+description: Get up and running with Sparrow in 5 minutes.
+sidebar:
+  order: 2
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+This guide walks you through registering a webhook, pushing an event, and verifying delivery -- all using `curl`.
+
+:::note
+All examples use `http://localhost:8080` (Connect-RPC). Replace with your server URL in production.
+:::
+
+<Steps>
+
+1. **Register an event type**
+
+    ```bash
+    curl -X POST http://localhost:8080/webhook.EventService/RegisterEvent \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "order.created",
+        "description": "Fires when a new order is placed",
+        "active": true
+      }'
+    ```
+
+2. **Register a webhook**
+
+    ```bash
+    curl -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \
+      -H "Content-Type: application/json" \
+      -d '{
+        "namespace": "default",
+        "url": "https://testhooks.sarathsadasivan.com/hooks",
+        "events": ["order.created"],
+        "active": true
+      }'
+    ```
+
+    Save the `webhookId` from the response for later use.
+
+3. **Push an event**
+
+    ```bash
+    curl -X POST http://localhost:8080/webhook.EventService/PushEvent \
+      -H "Content-Type: application/json" \
+      -d '{
+        "namespace": "default",
+        "event": "order.created",
+        "payload": {
+          "order_id": "ord_123",
+          "customer": "alice@example.com",
+          "total": 49.99
+        },
+        "ttlSeconds": 3600
+      }'
+    ```
+
+4. **Check delivery status**
+
+    ```bash
+    curl -X POST http://localhost:8080/webhook.DeliveryService/ListDeliveries \
+      -H "Content-Type: application/json" \
+      -d '{
+        "webhookId": "YOUR_WEBHOOK_ID",
+        "namespace": "default",
+        "limit": 10
+      }'
+    ```
+
+</Steps>
+
+## What Just Happened?
+
+1. Sparrow stored the event and enqueued it for async processing
+2. The event worker found the matching subscription (created automatically when you registered the webhook with `events`)
+3. A delivery job was created and the webhook worker sent an HTTP POST to your URL
+4. The delivery status, response code, and response body were recorded
+
+## Next Steps
+
+- [Configure webhook secrets](/sparrow/guides/webhooks/) for HMAC signature verification
+- [Add payload transforms](/sparrow/guides/subscriptions/) using Go templates
+- [Monitor health](/sparrow/guides/health/) to track webhook reliability
+- [Use client libraries](/sparrow/guides/client-libraries/) for Go, JavaScript, or Python

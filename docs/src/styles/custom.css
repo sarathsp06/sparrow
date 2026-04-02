@@ -1,0 +1,160 @@
+/* Sparrow docs custom styles — Scalar-inspired API reference */
+
+:root {
+  --sl-color-accent-low: #1a1a2e;
+  --sl-color-accent: #4f46e5;
+  --sl-color-accent-high: #c7d2fe;
+  --sl-font: 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', sans-serif;
+  --sl-font-mono: 'Fira Code', 'JetBrains Mono', 'Cascadia Code', ui-monospace, monospace;
+}
+
+:root[data-theme='dark'] {
+  --sl-color-accent-low: #1e1b4b;
+  --sl-color-accent: #818cf8;
+  --sl-color-accent-high: #e0e7ff;
+}
+
+/* ─── API Endpoint Header ──────────────────────────────────── */
+
+.api-endpoint {
+  margin: 0.75rem 0 1.25rem;
+}
+
+.api-endpoint .api-endpoint-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.api-endpoint .method-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: var(--sl-font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.api-endpoint .method-post {
+  background-color: #065f46;
+  color: #6ee7b7;
+}
+
+.api-endpoint .endpoint-path {
+  font-family: var(--sl-font-mono);
+  font-size: 0.85rem;
+  color: var(--sl-color-white);
+  word-break: break-all;
+}
+
+.api-endpoint .endpoint-description {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  color: var(--sl-color-gray-2);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* ─── Field Property List (shared by Request + Response) ──── */
+
+.api-fields {
+  margin: 1rem 0;
+}
+
+.api-fields-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--sl-color-gray-3);
+}
+
+.api-fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.api-field {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--sl-color-gray-6);
+}
+
+.api-field:last-child {
+  border-bottom: none;
+}
+
+.api-field-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.api-field-name {
+  font-family: var(--sl-font-mono);
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--sl-color-white);
+  background: transparent;
+  padding: 0;
+}
+
+.api-field-type {
+  font-size: 0.725rem;
+  color: var(--sl-color-gray-3);
+  font-family: var(--sl-font-mono);
+}
+
+.api-field-required {
+  font-size: 0.675rem;
+  font-weight: 600;
+  color: #f87171;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.api-field-description {
+  margin: 0.2rem 0 0;
+  font-size: 0.825rem;
+  color: var(--sl-color-gray-2);
+  line-height: 1.5;
+}
+
+/* ─── Error Codes ─────────────────────────────────────────── */
+
+.api-errors {
+  margin: 1rem 0;
+}
+
+.api-errors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.api-error-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.825rem;
+}
+
+.api-error-code {
+  font-family: var(--sl-font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #f87171;
+  white-space: nowrap;
+  background: transparent;
+  padding: 0;
+}
+
+.api-error-desc {
+  color: var(--sl-color-gray-2);
+}

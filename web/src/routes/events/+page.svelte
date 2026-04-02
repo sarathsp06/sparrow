@@ -6,6 +6,7 @@
 	import type { RegisteredEvent } from '../../../../proto/webhook_pb.js';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
+	import FloatingAction from '$lib/components/FloatingAction.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
 
 	let events: RegisteredEvent[] = $state([]);
@@ -118,13 +119,14 @@
 				>
 					Push Test Event
 				</a>
-				<a
-					href="/events/register"
-					class="inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition shadow-sm"
-				>
-					<span class="text-lg leading-none">+</span>
-					Register Event
-				</a>
+			<a
+				id="header-register-btn"
+				href="/events/register"
+				class="inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition shadow-sm"
+			>
+				<span class="text-lg leading-none">+</span>
+				Register Event
+			</a>
 			</div>
 		</div>
 
@@ -364,3 +366,5 @@
 	onconfirm={executeDelete}
 	oncancel={() => { confirmDelete = false; eventToDelete = null; }}
 />
+
+<FloatingAction href="/events/register" label="Register Event" targetSelector="#header-register-btn" />

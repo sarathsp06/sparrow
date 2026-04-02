@@ -30,13 +30,15 @@ curl -s -X POST http://localhost:8080/webhook.EventService/RegisterEvent \
 # 2. Register a webhook (subscriptions are created automatically)
 curl -s -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \
   -H "Content-Type: application/json" \
-  -d '{"namespace": "default", "url": "https://httpbin.org/post", "events": ["order.created"], "active": true}'
+  -d '{"namespace": "default", "url": "https://testhooks.sarathsadasivan.com/hooks", "events": ["order.created"], "active": true}'
 
 # 3. Push an event
 curl -s -X POST http://localhost:8080/webhook.EventService/PushEvent \
   -H "Content-Type: application/json" \
   -d '{"namespace": "default", "event": "order.created", "payload": {"order_id": "ord_123", "amount": 99.99}}'
 ```
+
+> **Need a test endpoint?** Use `https://testhooks.sarathsadasivan.com/hooks` -- it accepts any webhook payload and lets you inspect the requests.
 
 Sparrow matches subscriptions, delivers the webhook with retries, and tracks health automatically.
 

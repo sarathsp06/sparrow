@@ -73,5 +73,10 @@ internal/ui/dist/*
 web/build/
 
 
+# Docs
+docs/node_modules/
+docs/dist/
+docs/.astro
+
 # AI
 .serena/

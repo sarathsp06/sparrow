@@ -1,0 +1,29 @@
+---
+/**
+ * ErrorCodes: Compact error code list with collapsible detail.
+ */
+interface ErrorCode {
+  code: string;
+  description: string;
+}
+
+interface Props {
+  codes: ErrorCode[];
+}
+
+const { codes } = Astro.props;
+---
+
+{codes.length > 0 && (
+  <div class="api-errors">
+    <h4 class="api-fields-title">Errors</h4>
+    <div class="api-errors-list">
+      {codes.map((err) => (
+        <div class="api-error-item">
+          <code class="api-error-code">{err.code}</code>
+          <span class="api-error-desc">{err.description}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+)}

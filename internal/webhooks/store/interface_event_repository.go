@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -11,10 +12,16 @@ import (
 // RegisterEvent registers a new event type within a tenant
 func (r *Repository) RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error {
 	event.TenantID = tenantID
+	now := time.Now()
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = now
+	}
+	event.UpdatedAt = now
+
 	query := `
 		INSERT INTO event_registrations (
-			tenant_id, name, description, schema, sample_payload, metadata, active
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+			tenant_id, name, description, schema, sample_payload, metadata, active, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 	_, err := r.conn.ExecContext(ctx, query,
 		event.TenantID,
@@ -24,6 +31,8 @@ func (r *Repository) RegisterEvent(ctx context.Context, tenantID uuid.UUID, even
 		event.SamplePayload,
 		event.Metadata,
 		event.Active,
+		event.CreatedAt,
+		event.UpdatedAt,
 	)
 	return storage.Error(err)
 }

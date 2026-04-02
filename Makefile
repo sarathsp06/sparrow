@@ -52,11 +52,15 @@ migrate: ## Run database migrations
 	DATABASE_URL=$(DATABASE_URL) go run ./cmd/migrate
 
 
-clean: ## Clean up build artifacts and Go module cache
+clean: ## Clean up all build artifacts (Go, web, docs)
 	rm -rf build
 	go clean -modcache
+	rm -rf web/build web/node_modules/.vite
+	rm -rf docs/dist docs/node_modules/.vite docs/.astro
+	rm -rf internal/ui/dist/*
+	@echo "Clean complete"
 
-generate: ## Generate protobuf code and gRPC clients
+generate: ## Generate protobuf code and gRPC/ConnectRPC clients
 	rm -rf client/go client/js client/python
 	buf generate
 	go generate ./...
