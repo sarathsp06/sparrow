@@ -14,16 +14,15 @@ Sparrow is a self-hosted webhook delivery platform with an event-driven architec
      Clients             │    Sparrow Server    │
   ┌──────────┐           │                      │
   │ gRPC     │──:50051──>│  internal/grpc       │──┐
-  │ clients  │           │  (6 services)        │  │
+  │ clients  │           │  (5 services)        │  │
   └──────────┘           │                      │  │
   ┌──────────┐           │  internal/connect    │  │  ┌──────────────┐
   │ HTTP/    │──:8080───>│  (Connect-RPC        │  ├─>│ Service Layer│
   │ Connect  │           │   adapter)           │  │  │ webhooks.Svc │
-  └──────────┘           │                      │  │  │ namespace.Svc│
-  ┌──────────┐           │  internal/ui         │  │  └──────┬───────┘
-  │ Browser  │──:8080───>│  (SvelteKit embed)   │  │         │
-  └──────────┘           └──────────────────────┘  │         v
-                                                   │  ┌──────────────┐
+  └──────────┘           │                      │  │  └──────┬───────┘
+  ┌──────────┐           │  internal/ui         │  │         │
+  │ Browser  │──:8080───>│  (SvelteKit embed)   │  │         v
+  └──────────┘           └──────────────────────┘  │  ┌──────────────┐
                                                    │  │  Repository  │
                                                    │  │  (sqlx/DBTX) │
                                                    │  └──────┬───────┘
@@ -31,9 +30,10 @@ Sparrow is a self-hosted webhook delivery platform with an event-driven architec
                                                    │         v
                          ┌─────────────────────┐   │  ┌──────────────┐
                          │  internal/webhooks/  │   │  │  PostgreSQL  │
-                         │  queue (River)       │<──┘  │  10 tables   │
-                         │  EventWorker         │      │  11 migrations│
-                         │  WebhookWorker       │      └──────────────┘
+                         │  queue (River)       │<──┘  └──────────────┘
+                         │  EventProcessing-    │
+                         │    Worker            │
+                         │  WebhookWorker       │
                          └─────────┬───────────┘
                                    │
                                    v
@@ -66,38 +66,35 @@ The same gRPC service implementations back both protocols with no code duplicati
 - **gRPC** on `:50051` for high-performance programmatic access
 - **Connect-RPC (HTTP/JSON)** on `:8080` for curl, browsers, and any HTTP client
 
-Five proto-defined services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`. A separate `NamespaceService` is implemented directly in Go (no proto definition) for namespace CRUD.
+Five proto-defined services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`.
 
 ## Package Structure
 
 ```
 cmd/server/main.go  (composition root — wires everything)
     │
-    ├── internal/tenant   ──→ pkg/storage
-    ├── internal/namespace ──→ pkg/storage
+    ├── internal/tenant    ──→ pkg/storage
     ├── internal/webhooks  ──→ pkg/storage, pkg/errors
     │       ├── store/     ──→ pkg/storage, pkg/types
     │       ├── queue/     ──→ store, client, pkg/errors, internal/observability
     │       └── client/    ──→ store (models only), pkg/errors
-    └── internal/grpc      ──→ all three domain packages (transport layer)
+    └── internal/grpc      ──→ domain packages (transport layer)
 ```
 
-`tenant`, `namespace`, and `webhooks` never import each other -- zero dependency cycles.
+`tenant` and `webhooks` never import each other -- zero dependency cycles.
 
 ### Domain Packages
 
 **`internal/tenant`** -- Tenant lifecycle. A default tenant is bootstrapped on first boot.
 
-**`internal/namespace`** -- Namespace CRUD for organizing webhooks and events.
-
 **`internal/webhooks`** -- Core business domain: events, subscriptions, deliveries, health tracking.
 - `store/` -- Data access (repository pattern, SQL queries)
-- `queue/` -- Async processing (River workers: `EventWorker`, `WebhookWorker`)
+- `queue/` -- Async processing (River workers: `EventProcessingWorker`, `WebhookWorker`)
 - `client/` -- HTTP delivery (request building, HMAC signing, templating)
 
 ### Infrastructure Packages
 
-**`internal/grpc`** -- gRPC service implementations. The only package that imports all three domain packages.
+**`internal/grpc`** -- gRPC service implementations. The only package that imports all domain packages.
 
 **`internal/connect`** -- Connect-RPC adapter. Wraps gRPC handlers for HTTP/JSON on `:8080`.
 
@@ -268,7 +265,7 @@ When a `webhook_secret` is configured, Sparrow signs every delivery for consumer
 
 ### Composition Root
 
-`cmd/server/main.go` is the only file that imports all three domain packages. It constructs repositories, services, and wires them together with explicit constructor functions -- no framework.
+`cmd/server/main.go` is the only file that imports all domain packages. It constructs repositories, services, and wires them together with explicit constructor functions -- no framework.
 
 ### Repository Per Domain
 
@@ -278,5 +275,4 @@ Each domain owns a `Repository` interface and implementation encapsulating all S
 
 Each domain package owns its tables:
 - `internal/tenant` -- `tenants`
-- `internal/namespace` -- `namespaces`
-- `internal/webhooks` -- all 8 webhook/event/delivery/health tables
+- `internal/webhooks` -- all webhook/event/delivery/health tables

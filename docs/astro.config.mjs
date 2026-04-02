@@ -27,6 +27,7 @@ export default defineConfig({
           items: [
             { slug: 'getting-started/installation' },
             { slug: 'getting-started/quickstart' },
+            { slug: 'getting-started/how-it-works' },
             { slug: 'getting-started/configuration' },
           ],
         },

@@ -84,7 +84,7 @@ function generateResponseJson(responseFields: Field[]): string | null {
 <div class="api-host-switcher">
   <label class="api-host-label" for="api-host-input">Base URL</label>
   <div class="api-host-input-wrap">
-    <span class="api-host-protocol">http://</span>
+    <button type="button" id="api-protocol-toggle" class="api-host-protocol-btn">http://</button>
     <input
       type="text"
       id="api-host-input"
@@ -161,46 +161,53 @@ function generateResponseJson(responseFields: Field[]): string | null {
 )}
 
 <script define:vars={{ DEFAULT_HOST }}>
-  // Client-side hostname replacement for curl examples
+  // Client-side hostname + protocol replacement for curl examples
   const input = document.getElementById('api-host-input');
+  const protocolBtn = document.getElementById('api-protocol-toggle');
+  let currentProtocol = sessionStorage.getItem('sparrow-api-protocol') || 'http://';
+
+  if (protocolBtn) {
+    protocolBtn.textContent = currentProtocol;
+  }
+
   if (input) {
     // Restore saved host from sessionStorage
-    const saved = sessionStorage.getItem('sparrow-api-host');
-    if (saved) {
-      input.value = saved;
-      replaceHost(DEFAULT_HOST, saved);
+    const savedHost = sessionStorage.getItem('sparrow-api-host');
+    if (savedHost) {
+      input.value = savedHost;
+    }
+
+    // Apply saved state on load
+    if (savedHost || currentProtocol !== 'http://') {
+      replaceAllUrls(currentProtocol, input.value.trim() || DEFAULT_HOST);
     }
 
     input.addEventListener('input', () => {
       const newHost = input.value.trim();
       if (!newHost) return;
       sessionStorage.setItem('sparrow-api-host', newHost);
-      // Always replace from the current value in code blocks
-      replaceAllHosts(newHost);
+      replaceAllUrls(currentProtocol, newHost);
     });
   }
 
-  function replaceAllHosts(newHost) {
-    // Find all curl code blocks and replace the host portion of URLs
+  if (protocolBtn) {
+    protocolBtn.addEventListener('click', () => {
+      currentProtocol = currentProtocol === 'http://' ? 'https://' : 'http://';
+      protocolBtn.textContent = currentProtocol;
+      sessionStorage.setItem('sparrow-api-protocol', currentProtocol);
+      const host = input ? input.value.trim() || DEFAULT_HOST : DEFAULT_HOST;
+      replaceAllUrls(currentProtocol, host);
+    });
+  }
+
+  function replaceAllUrls(protocol, host) {
+    // Find all curl code blocks and replace the full URL prefix
     const codeEls = document.querySelectorAll('.api-code-panel pre code');
     codeEls.forEach((el) => {
-      // Match http://anything/webhook. and replace the host part
       walkTextNodes(el, (text) => {
         return text.replace(
-          /http:\/\/[^/\s]+\/webhook\./g,
-          `http://${newHost}/webhook.`
-        );
-      });
-    });
-  }
-
-  function replaceHost(oldHost, newHost) {
-    const codeEls = document.querySelectorAll('.api-code-panel pre code');
-    codeEls.forEach((el) => {
-      walkTextNodes(el, (text) => {
-        return text.replaceAll(
-          `http://${oldHost}/`,
-          `http://${newHost}/`
+          /https?:\/\/[^/\s]+\/webhook\./g,
+          `${protocol}${host}/webhook.`
         );
       });
     });
@@ -249,9 +256,22 @@ function generateResponseJson(responseFields: Field[]): string | null {
     font-size: 0.825rem;
   }
 
-  .api-host-protocol {
-    color: var(--sl-color-gray-3);
-    user-select: none;
+  .api-host-protocol-btn {
+    color: var(--sl-color-accent);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--sl-font-mono);
+    font-size: 0.825rem;
+    padding: 0;
+    white-space: nowrap;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+  }
+
+  .api-host-protocol-btn:hover {
+    color: var(--sl-color-white);
   }
 
   .api-host-input {

@@ -1,11 +1,13 @@
 # api-overrides.yaml — Overlay for cmd/gendocs proto→TypeScript generator.
 #
-# Provides data that cannot be derived from proto/webhook.proto:
-#   - example values for fields
-#   - description overrides (proto comments are verbose; these are concise)
-#   - notes / footer markdown blocks
-#   - entity_types (message types NOT flattened)
+# Only data that CANNOT be derived from proto/webhook.proto:
 #   - service_order (generation order)
+#   - entity_types (message types NOT flattened)
+#   - example values for fields
+#   - notes / footer markdown blocks
+#
+# Descriptions come from proto comments via coalesce() fallback.
+# Do NOT duplicate proto descriptions here.
 
 service_order:
   - WebhookService
@@ -26,11 +28,7 @@ entity_types:
   - WebhookHTTPConfig
 
 services:
-  # ---------------------------------------------------------------------------
-  # WebhookService
-  # ---------------------------------------------------------------------------
   WebhookService:
-    description: "The WebhookService manages webhook registration, configuration, and lifecycle. All RPCs require a namespace. Webhooks are scoped to a single namespace."
     footer: |-
       ## WebhookHTTPConfig
 
@@ -50,182 +48,101 @@ services:
       | `content_type` | `string` | `"application/json"` | Content-Type header value. |
     rpcs:
       RegisterWebhook:
-        description: "Creates a new webhook registration. Subscriptions are created automatically for each event in the events list."
         fields:
-          # Request
           namespace:
-            description: "Namespace to register the webhook in. Must already exist."
             example: "production"
           url:
-            description: "Target URL for webhook deliveries (HTTP or HTTPS)."
             example: "https://example.com/hooks"
           events:
-            description: "Event names this webhook should receive. At least one required."
             example: ["order.created", "order.updated"]
           headers:
-            description: "Custom HTTP headers included in every delivery request."
             example:
               X-Source: "sparrow"
-          secret_headers:
-            description: "Sensitive headers stored encrypted, masked in API responses."
           description:
-            description: "Human-readable description."
             example: "Order notifications"
           active:
-            description: "Whether the webhook starts active. Default: true."
             example: true
           http_config:
-            description: "HTTP delivery configuration (retries, timeouts, TLS, HMAC)."
             example:
               max_retries: 5
               webhook_secret: "whsec_your_secret_key"
-          # Response
           webhook_id:
-            description: "Server-generated UUID for the new webhook."
             example: "550e8400-e29b-41d4-a716-446655440000"
           created_at:
-            description: "When the webhook was created."
             example: "2025-01-15T10:30:00Z"
-
       UnregisterWebhook:
-        description: "Permanently deletes a webhook and all its subscriptions. Associated delivery records are cascade-deleted."
         fields:
           webhook_id:
-            description: "UUID of the webhook to delete."
             example: "550e8400-e29b-41d4-a716-446655440000"
           namespace:
-            description: "Namespace the webhook belongs to."
             example: "production"
-
       ListWebhooks:
-        description: "Returns webhooks for a namespace with optional filters. Each webhook includes its current health status."
         fields:
           namespace:
-            description: "Namespace to list webhooks from."
             example: "production"
-          event:
-            description: "Filter to webhooks subscribed to this event."
           active_only:
-            description: "Only return active webhooks."
             example: true
-          webhook_id:
-            description: "Filter to a specific webhook by ID."
           pagination:
-            description: "Pagination parameters (limit, offset)."
             example:
               limit: 20
-          webhooks:
-            description: "List of webhooks matching the filters."
-          # response pagination handled by entity type (PaginationResponse)
-
       UpdateWebhookConfig:
-        description: "Patches one or more fields on an existing webhook. Only non-zero fields are applied. Updating events replaces the full subscription set."
         fields:
           webhook_id:
-            description: "UUID of the webhook to update."
             example: "550e8400-e29b-41d4-a716-446655440000"
           namespace:
-            description: "Namespace the webhook belongs to."
             example: "production"
-          updates.url:
-            description: "New target URL."
-          updates.events:
-            description: "Replace all subscribed events."
-          updates.headers:
-            description: "Replace all custom headers."
-          updates.secret_headers:
-            description: "Replace all secret headers."
           updates.description:
-            description: "Updated description."
             example: "Updated order webhook"
           updates.http_config:
-            description: "Updated HTTP config (replaces entire config)."
             example:
               max_retries: 5
               request_timeout_seconds: 60
-
       PauseWebhook:
-        description: "Sets a webhook to inactive. Paused webhooks are skipped during event fan-out. Existing in-flight deliveries are not cancelled."
         fields:
           webhook_id:
-            description: "UUID of the webhook to pause."
             example: "550e8400-e29b-41d4-a716-446655440000"
           namespace:
-            description: "Namespace the webhook belongs to."
             example: "production"
           reason:
-            description: "Human-readable reason for pausing."
             example: "Endpoint maintenance"
-
       ResumeWebhook:
-        description: "Re-activates a paused webhook. Events pushed while paused are not retroactively delivered."
         fields:
           webhook_id:
-            description: "UUID of the webhook to resume."
             example: "550e8400-e29b-41d4-a716-446655440000"
           namespace:
-            description: "Namespace the webhook belongs to."
             example: "production"
-          reason:
-            description: "Human-readable reason for resuming."
-
       GetNamespaceStats:
-        description: "Returns aggregate delivery statistics for a namespace: total/active webhooks, delivery counts, and success rate."
         fields:
-          # Request
           namespace:
-            description: "Namespace to get statistics for."
             example: "production"
-          # Response — note: response also has "namespace" field, same overlay key is fine
-          # because we override description for request fields only when needed
           stats.total_webhooks:
-            description: "Total registered webhooks (active + inactive)."
             example: 12
           stats.active_webhooks:
-            description: "Currently active webhooks."
             example: 10
           stats.total_deliveries:
-            description: "Total deliveries ever created."
             example: 5420
           stats.successful_deliveries:
-            description: "Deliveries in SUCCESS state."
             example: 5200
           stats.failed_deliveries:
-            description: "Deliveries in FAILED state."
             example: 120
           stats.pending_deliveries:
-            description: "Deliveries in PENDING/SENDING/RETRYING state."
             example: 100
           stats.success_rate:
-            description: "Success rate (0.0 to 1.0)."
             example: 0.96
-
       GetTemplateFunctions:
-        description: "Returns the list of Go template functions available for payload transformation in subscriptions."
         fields:
-          functions:
-            description: "Available template functions with names and descriptions."
           total_count:
-            description: "Total number of available functions."
             example: 42
 
-  # ---------------------------------------------------------------------------
-  # EventService
-  # ---------------------------------------------------------------------------
   EventService:
-    description: "The EventService manages event type definitions and event pushing. Event types must be registered before they can be pushed. Each event type has a unique name and an optional JSON schema for payload validation."
     rpcs:
       RegisterEvent:
-        description: "Creates a new event type definition. If a JSON schema is provided, all future PushEvent payloads are validated against it."
         fields:
           name:
-            description: "Unique event name (e.g., 'order.created'). Convention: dot-separated lowercase."
             example: "order.created"
           description:
-            description: "Human-readable description."
             example: "Fired when a new order is placed"
           schema:
-            description: "JSON Schema for payload validation."
             example:
               type: "object"
               properties:
@@ -234,225 +151,110 @@ services:
                 amount:
                   type: "number"
               required: ["order_id", "amount"]
-          metadata:
-            description: "Arbitrary key-value metadata."
           active:
-            description: "Whether the event type is active. Default: true."
             example: true
           created_at:
-            description: "When the event type was created."
             example: "2025-01-15T10:30:00Z"
-
       ListEvents:
-        description: "Returns all registered event types, optionally filtered to active-only. Paginated."
         fields:
           active_only:
-            description: "Only return active event types."
             example: true
-          pagination:
-            description: "Pagination parameters."
-          events:
-            description: "Event type definitions."
-
       GetEvent:
-        description: "Returns a single event type by name, including its schema and auto-generated sample payload."
         fields:
           name:
-            description: "Event name to look up."
             example: "order.created"
-          event:
-            description: "Event type definition with schema and sample_payload."
-
       UpdateEvent:
-        description: "Modifies an existing event type's description, schema, metadata, or active flag. Only non-zero fields are applied."
         fields:
           name:
-            description: "Event name to update."
             example: "order.created"
           description:
-            description: "Updated description."
             example: "Updated: Fired when a new order is placed"
-          schema:
-            description: "Updated JSON Schema."
-          metadata:
-            description: "Updated metadata."
-          active:
-            description: "Updated active flag."
-
       DeleteEvent:
-        description: "Permanently removes an event type definition. Existing subscriptions referencing this event are not automatically deleted."
         fields:
           name:
-            description: "Event name to delete."
             example: "order.created"
-
       PushEvent:
-        description: "Emits an event instance. The primary ingestion endpoint. On success, the event is persisted and deliveries are fanned out asynchronously to all matching subscriptions."
         fields:
           namespace:
-            description: "Namespace to push the event into."
             example: "production"
           event:
-            description: "Event type name (must match a registered event)."
             example: "order.created"
           payload:
-            description: "Event payload. Validated against schema if one exists."
             example:
               order_id: "ord-123"
               amount: 99.99
               currency: "USD"
-          ttl_seconds:
-            description: "TTL for delivery retries. 0 = no expiration."
-          metadata:
-            description: "Metadata stored with event (not sent to webhooks)."
-          id:
-            description: "Client-provided event ID for idempotency."
           labels:
-            description: "Labels for subscription label-filter matching."
             example:
               region: "us-east"
               priority: "high"
           event_id:
-            description: "Server-generated UUID for the event instance."
             example: "e-550e8400-e29b-41d4-a716-446655440000"
-
       ListEventReports:
-        description: "Returns pushed event instances with aggregated delivery statistics (webhook_count, successful/failed/pending). Newest first."
         fields:
           namespace:
-            description: "Namespace to list events from."
             example: "production"
           event_name:
-            description: "Filter to events of this type."
             example: "order.created"
           pagination:
-            description: "Pagination parameters. Max limit: 1000."
             example:
               limit: 25
-          events:
-            description: "Event instances with delivery statistics."
 
-  # ---------------------------------------------------------------------------
-  # SubscriptionService
-  # ---------------------------------------------------------------------------
   SubscriptionService:
-    description: "The SubscriptionService manages the mapping between webhooks and event types. A subscription links one webhook to one event name within a namespace. Subscriptions can optionally transform the payload using Go templates and filter events by labels."
     rpcs:
       CreateSubscription:
-        description: "Links a webhook to an event name in a namespace. Optionally configure per-subscription headers, HTTP method override, timeout, payload transformation, and label filters."
         fields:
           webhook_id:
-            description: "UUID of the webhook to subscribe."
             example: "550e8400-e29b-41d4-a716-446655440000"
           event_name:
-            description: "Event type name to subscribe to."
             example: "order.created"
           namespace:
-            description: "Namespace (must match webhook's namespace)."
             example: "production"
-          headers:
-            description: "Per-subscription headers (override webhook-level)."
-          method:
-            description: "HTTP method override. Default: POST."
-          timeout:
-            description: "Timeout override in seconds."
-          transform_enabled:
-            description: "Enable Go template payload transformation."
-          transform_template:
-            description: "Go template string for transformation."
           label_filters:
-            description: "Label filters for selective event matching (AND logic)."
             example:
               region: "us-east"
           subscription_id:
-            description: "Server-generated UUID for the subscription."
             example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
           created_at:
-            description: "When the subscription was created."
             example: "2025-01-15T10:30:00Z"
-
       GetSubscription:
-        description: "Returns a single subscription by ID."
         fields:
           subscription_id:
-            description: "UUID of the subscription."
             example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
           namespace:
-            description: "Namespace the subscription belongs to."
             example: "production"
-          subscription:
-            description: "Full subscription details."
-
       ListSubscriptions:
-        description: "Returns subscriptions in a namespace, optionally filtered by webhook_id or event_name. Paginated."
         fields:
           namespace:
-            description: "Namespace to list from."
             example: "production"
           webhook_id:
-            description: "Filter by webhook UUID."
             example: "550e8400-e29b-41d4-a716-446655440000"
-          event_name:
-            description: "Filter by event type name."
-          pagination:
-            description: "Pagination parameters."
-          subscriptions:
-            description: "Matching subscriptions."
-
       UpdateSubscription:
-        description: "Modifies a subscription's headers, method, timeout, transform settings, or label filters. Only non-zero fields are applied."
         fields:
           subscription_id:
-            description: "UUID of the subscription to update."
             example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
           namespace:
-            description: "Namespace the subscription belongs to."
             example: "production"
-          headers:
-            description: "Updated per-subscription headers."
-          method:
-            description: "Updated HTTP method."
-          timeout:
-            description: "Updated timeout in seconds."
           transform_enabled:
-            description: "Enable/disable transformation."
             example: true
-          transform_template:
-            description: "Updated Go template."
-          label_filters:
-            description: "Updated label filters."
-
       DeleteSubscription:
-        description: "Permanently removes a subscription. In-flight deliveries are not cancelled."
         fields:
           subscription_id:
-            description: "UUID of the subscription to delete."
             example: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
           namespace:
-            description: "Namespace the subscription belongs to."
             example: "production"
-
       TestSubscriptionTemplate:
-        description: "Renders a Go template against the sample payload of the given event type. Use this to validate templates before saving."
         fields:
           event_name:
-            description: "Event name to get the sample payload from."
             example: "order.created"
           transform_template:
-            description: "Go template to test."
             example: '{"id": "{{ .payload.order_id }}", "total": "{{ .payload.amount }}"}'
           namespace:
-            description: "Namespace."
             example: "production"
           transformed_payload:
-            description: "The rendered template output."
             example: '{"id": "ord-123", "total": "99.99"}'
 
-  # ---------------------------------------------------------------------------
-  # DeliveryService
-  # ---------------------------------------------------------------------------
   DeliveryService:
-    description: "The DeliveryService provides read access to delivery history and manual retry control. Deliveries are created automatically when an event is pushed. Each delivery tracks its status, HTTP response, error classification, and per-attempt history."
     footer: |-
       ## Delivery Status Lifecycle
 
@@ -471,125 +273,66 @@ services:
       | `EXPIRED` | TTL elapsed before success |
     rpcs:
       GetDeliveryStatus:
-        description: "Returns full details of a single delivery, including request body, response body, response code, error category, and retry state."
         fields:
-          # Request
           delivery_id:
-            description: "UUID of the delivery to retrieve."
             example: "d-550e8400-e29b-41d4-a716-446655440000"
           namespace:
-            description: "Namespace the delivery belongs to."
             example: "production"
-          # Response (flattened delivery.*)
           delivery.delivery_id:
-            description: "UUID of the delivery."
             example: "d-550e8400-e29b-41d4-a716-446655440000"
           delivery.webhook_id:
-            description: "Target webhook UUID."
             example: "550e8400-e29b-41d4-a716-446655440000"
           delivery.event_id:
-            description: "Triggering event UUID."
             example: "e-550e8400-e29b-41d4-a716-446655440000"
           delivery.status:
-            description: "Current status (PENDING, SENDING, SUCCESS, FAILED, RETRYING, EXPIRED)."
             example: "SUCCESS"
           delivery.attempt_count:
-            description: "Number of attempts made."
             example: 1
           delivery.max_attempts:
-            description: "Maximum attempts allowed."
             example: 4
           delivery.response_code:
-            description: "HTTP status code from last attempt (0 if no response)."
             example: 200
           delivery.response_body:
-            description: "Response body (up to 1 KB or 1 MB)."
             example: '{"ok":true}'
-          delivery.request_body:
-            description: "Request body that was sent."
           delivery.error_category:
-            description: "Classified error category."
             example: "success"
-          delivery.error_message:
-            description: "Error message from last failed attempt."
-
       ListDeliveries:
-        description: "Returns delivery records for a namespace, optionally filtered by webhook_id or event_id. Ordered by created_at descending."
         fields:
           namespace:
-            description: "Namespace to list deliveries from."
             example: "production"
           webhook_id:
-            description: "Filter by webhook UUID."
-            required: false
             example: "550e8400-e29b-41d4-a716-446655440000"
-          event_id:
-            description: "Filter by event UUID."
-            required: false
           pagination:
-            description: "Pagination parameters."
-            required: false
             example:
               limit: 20
-          deliveries:
-            description: "Deliveries matching filters, newest first."
-
       RetryDelivery:
-        description: "Re-enqueues deliveries for processing. Can target a specific delivery, all failed deliveries for a webhook, or both."
         fields:
           namespace:
-            description: "Namespace."
             example: "production"
           delivery_id:
-            description: "Specific delivery to retry."
-            required: false
             example: "d-550e8400-e29b-41d4-a716-446655440000"
-          webhook_id:
-            description: "Retry all failed/pending deliveries for this webhook."
-            required: false
-          force:
-            description: "Retry even successful deliveries (causes duplicates). Default: false."
-            required: false
           retried_count:
-            description: "Number of deliveries re-enqueued."
             example: 1
           delivery_ids:
-            description: "UUIDs of re-enqueued deliveries."
             example: ["d-550e8400-e29b-41d4-a716-446655440000"]
-
       GetDeliveryAttempts:
-        description: "Returns the per-attempt history for a delivery, ordered by timestamp. Each attempt includes response_time, response_code, error_message, and error_category."
         fields:
           delivery_id:
-            description: "UUID of the delivery."
             example: "d-550e8400-e29b-41d4-a716-446655440000"
-          # Response (flattened attempts[].*)
           attempts[].attempt_id:
-            description: "UUID of this attempt."
             example: "a-110e8400-e29b-41d4-a716-446655440000"
           attempts[].success:
-            description: "Whether the attempt succeeded."
             example: true
           attempts[].response_time:
-            description: "Round-trip time in milliseconds."
             example: 245
           attempts[].response_code:
-            description: "HTTP status code (0 if no response)."
             example: 200
-          attempts[].error_message:
-            description: "Error description (empty on success)."
           attempts[].error_category:
-            description: "Classified error category."
             example: "success"
           attempts[].timestamp:
-            description: "When this attempt was made."
             example: "2025-01-15T10:30:05Z"
 
-  # ---------------------------------------------------------------------------
-  # HealthService
-  # ---------------------------------------------------------------------------
   HealthService:
-    description: "The HealthService provides webhook health metrics derived from delivery outcomes. Health is computed per-webhook based on success rate and consecutive failures."
     notes: |-
       ### Health Status Thresholds
 
@@ -600,77 +343,46 @@ services:
       | **UNHEALTHY** | < 50% | >= 10 |
     rpcs:
       GetWebhookHealth:
-        description: "Returns health status and detailed metrics for a single webhook: total/successful/failed deliveries, consecutive failures, success rate, avg response time, and error category breakdown."
         fields:
-          # Request
           webhook_id:
-            description: "UUID of the webhook."
             example: "550e8400-e29b-41d4-a716-446655440000"
           namespace:
-            description: "Namespace the webhook belongs to."
             example: "production"
-          # Response
           health:
-            description: "Computed health status (HEALTHY, DEGRADED, UNHEALTHY, UNSPECIFIED)."
             example: "HEALTHY"
           metrics.total_deliveries:
-            description: "Total deliveries (all time)."
             example: 1520
           metrics.successful_deliveries:
-            description: "Successful deliveries."
             example: 1480
           metrics.failed_deliveries:
-            description: "Failed deliveries."
             example: 40
           metrics.consecutive_failures:
-            description: "Current consecutive failure streak."
             example: 0
           metrics.success_rate:
-            description: "Success rate (0.0 to 1.0)."
             example: 0.974
           metrics.avg_response_time:
-            description: "Average response time in ms."
             example: 245
           metrics.client_errors:
-            description: "HTTP 4xx errors (last 24h)."
             example: 2
           metrics.server_errors:
-            description: "HTTP 5xx errors (last 24h)."
             example: 5
           metrics.timeout_errors:
-            description: "Timeout errors (last 24h)."
             example: 1
           metrics.network_errors:
-            description: "Network-level errors (last 24h)."
             example: 0
-
       ListWebhooksByHealth:
-        description: "Returns all webhooks matching a given health status. Useful for finding degraded or unhealthy endpoints."
         fields:
           health:
-            description: "Health status to filter by (HEALTHY, DEGRADED, UNHEALTHY)."
             example: "HEALTH_UNHEALTHY"
-          pagination:
-            description: "Pagination parameters."
-            required: false
-          webhooks:
-            description: "Webhooks with the requested health status."
-
       GetHealthSummary:
-        description: "Returns aggregate counts of webhooks by health status (healthy, degraded, unhealthy, unknown) across all namespaces."
         fields:
           summary.healthy_count:
-            description: "Webhooks in HEALTHY state."
             example: 45
           summary.degraded_count:
-            description: "Webhooks in DEGRADED state."
             example: 3
           summary.unhealthy_count:
-            description: "Webhooks in UNHEALTHY state."
             example: 1
           summary.unknown_count:
-            description: "Webhooks with no delivery history."
             example: 2
           summary.total_count:
-            description: "Total webhooks."
             example: 51
