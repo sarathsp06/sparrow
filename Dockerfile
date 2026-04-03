@@ -41,7 +41,9 @@ COPY --from=frontend /build/internal/ui/dist/ /build/internal/ui/dist/
 
 # Build server (includes embedded UI via go:embed, runs migrations on startup)
 ARG VERSION=dev
-RUN CGO_ENABLED=0 GOOS=linux go build \
+ARG TARGETOS=linux
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags="-w -s -X github.com/sarathsp06/sparrow.Version=${VERSION}" \
     -trimpath \
     -o server ./cmd/server
