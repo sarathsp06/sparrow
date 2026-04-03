@@ -104,7 +104,44 @@ lint: ## Run golangci-lint for linting
 fmt: ## Format the code
 	goimports -local github.com/sarathsp06/sparrow/  -w .
 
+## -- Release --
+
+NEXT_VERSION ?=
+
+changelog: ## Generate changelog draft to stdout (use NEXT_VERSION=v0.2.0 to tag)
+ifdef NEXT_VERSION
+	git-cliff --config cliff.toml --tag $(NEXT_VERSION)
+else
+	git-cliff --config cliff.toml --unreleased
+endif
+
+release: ## Interactive release: generate changelog, edit, commit, tag (NEXT_VERSION=v0.2.0 required)
+ifndef NEXT_VERSION
+	$(error NEXT_VERSION is required. Usage: make release NEXT_VERSION=v0.2.0)
+endif
+	@echo "==> Generating changelog for $(NEXT_VERSION)..."
+	@git-cliff --config cliff.toml --tag $(NEXT_VERSION) -o CHANGELOG.md
+	@echo ""
+	@echo "==> CHANGELOG.md updated. Opening editor for review..."
+	@echo "    Edit the changelog, save, and close the editor to continue."
+	@echo "    To abort the release, delete all content and save."
+	@echo ""
+	@$${EDITOR:-vi} CHANGELOG.md
+	@if [ ! -s CHANGELOG.md ]; then \
+		echo "==> CHANGELOG.md is empty. Release aborted."; \
+		git checkout CHANGELOG.md 2>/dev/null; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "==> Committing changelog and tagging $(NEXT_VERSION)..."
+	@git add CHANGELOG.md
+	@git commit -m "chore(release): $(NEXT_VERSION)"
+	@git tag -a $(NEXT_VERSION) -m "Release $(NEXT_VERSION)"
+	@echo ""
+	@echo "==> Release $(NEXT_VERSION) created successfully!"
+	@echo "    To publish: git push origin main --tags"
+
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui build-binaries build-all run test test-integration clean generate generate-docs docker-build docker-push docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web help
+.PHONY: build build-ui build-with-ui build-binaries build-all run test test-integration clean generate generate-docs docker-build docker-push docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web help changelog release
