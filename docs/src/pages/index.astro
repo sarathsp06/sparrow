@@ -3,7 +3,7 @@
 // Faithfully reproduces the original SvelteKit marketing page design.
 import faviconSrc from '../assets/favicon.svg';
 const favicon = faviconSrc.src;
-const base = import.meta.env.BASE_URL;          // /sparrow in production
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/'); // ensure trailing slash
 const docsHome = `${base}getting-started/installation/`;
 const apiRef = `${base}reference/api/`;
 const githubURL = 'https://github.com/sarathsp06/sparrow';
@@ -378,7 +378,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 
 /* Gradient text utility */
 .lp-gradient-text {
-  background: linear-gradient(to right, #14b8a6, #0ea5e9);
+  background: linear-gradient(to right, #4f46e5, #7c3aed);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -392,9 +392,9 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   padding: 0.5rem 1rem;
   border-radius: 9999px;
   font-size: 0.875rem;
-  background: #f0fdfa;
-  border: 1px solid rgba(20, 184, 166, 0.3);
-  color: #0d9488;
+  background: #eef2ff;
+  border: 1px solid rgba(79, 70, 229, 0.3);
+  color: #4338ca;
   font-weight: 500;
 }
 
@@ -407,11 +407,11 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   font-size: 0.875rem;
   font-weight: 500;
   border-radius: 0.75rem;
-  background: #14b8a6;
+  background: #4f46e5;
   color: #fff;
   transition: background 0.2s;
 }
-.lp-btn-primary:hover { background: #0d9488; color: #fff; }
+.lp-btn-primary:hover { background: #4338ca; color: #fff; }
 
 .lp-btn-outline {
   display: inline-flex;
@@ -462,7 +462,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   color: #6b7280;
   transition: color 0.2s;
 }
-.lp-nav a:hover { color: #0d9488; }
+.lp-nav a:hover { color: #4338ca; }
 .lp-header-actions { display: flex; align-items: center; gap: 0.75rem; }
 
 @media (max-width: 768px) {
@@ -483,15 +483,15 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 .lp-hero-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(240, 253, 250, 0.6), #fff, rgba(240, 249, 255, 0.4));
+  background: linear-gradient(135deg, rgba(238, 242, 255, 0.6), #fff, rgba(237, 233, 254, 0.4));
 }
 .lp-hero-orb {
   position: absolute;
   border-radius: 50%;
   animation: pulse 4s ease-in-out infinite;
 }
-.lp-hero-orb-1 { top: 25%; left: 25%; width: 24rem; height: 24rem; background: rgba(204, 251, 241, 0.5); filter: blur(80px); }
-.lp-hero-orb-2 { bottom: 25%; right: 25%; width: 16rem; height: 16rem; background: rgba(224, 242, 254, 0.4); filter: blur(60px); animation-delay: 1.5s; }
+.lp-hero-orb-1 { top: 25%; left: 25%; width: 24rem; height: 24rem; background: rgba(199, 210, 254, 0.5); filter: blur(80px); }
+.lp-hero-orb-2 { bottom: 25%; right: 25%; width: 16rem; height: 16rem; background: rgba(221, 214, 254, 0.4); filter: blur(60px); animation-delay: 1.5s; }
 
 .lp-hero-grid {
   position: relative;
@@ -552,7 +552,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(204, 251, 241, 0.4), transparent 70%);
+  background: radial-gradient(circle, rgba(199, 210, 254, 0.4), transparent 70%);
   transform: scale(1.1);
   filter: blur(60px);
 }
@@ -561,8 +561,8 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   padding: 2rem;
   border-radius: 1.5rem;
   backdrop-filter: blur(4px);
-  background: linear-gradient(135deg, rgba(240, 253, 250, 0.6), rgba(255, 255, 255, 0.4), transparent);
-  border: 1px solid rgba(20, 184, 166, 0.2);
+  background: linear-gradient(135deg, rgba(238, 242, 255, 0.6), rgba(255, 255, 255, 0.4), transparent);
+  border: 1px solid rgba(79, 70, 229, 0.2);
 }
 .lp-hero-logo {
   display: block;
@@ -612,16 +612,16 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   transition: all 0.3s;
 }
 .lp-feature-card:hover {
-  border-color: rgba(20, 184, 166, 0.4);
-  box-shadow: 0 10px 25px -5px rgba(20, 184, 166, 0.05);
+  border-color: rgba(79, 70, 229, 0.4);
+  box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.05);
   transform: translateY(-4px);
 }
 .lp-feature-icon {
   width: 3rem; height: 3rem;
   display: flex; align-items: center; justify-content: center;
   border-radius: 0.75rem;
-  background: #f0fdfa;
-  color: #14b8a6;
+  background: #eef2ff;
+  color: #4f46e5;
   margin-bottom: 1.5rem;
 }
 .lp-feature-icon-sm { width: 2.5rem; height: 2.5rem; }
@@ -654,7 +654,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   background: rgba(249, 250, 251, 0.5);
   transition: border-color 0.3s;
 }
-.lp-arch-card:hover { border-color: rgba(20, 184, 166, 0.4); }
+.lp-arch-card:hover { border-color: rgba(79, 70, 229, 0.4); }
 .lp-arch-card-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
 .lp-arch-card h3 {
   font-family: 'Fira Code', monospace;
@@ -714,18 +714,18 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   background: #fff !important;
 }
 .lp-table-highlight {
-  background: rgba(240, 253, 250, 0.8) !important;
-  color: #0f766e !important;
-  border-left: 1px solid rgba(20, 184, 166, 0.25);
-  border-right: 1px solid rgba(20, 184, 166, 0.25);
+  background: rgba(238, 242, 255, 0.8) !important;
+  color: #3730a3 !important;
+  border-left: 1px solid rgba(79, 70, 229, 0.25);
+  border-right: 1px solid rgba(79, 70, 229, 0.25);
 }
-.lp-table-highlight-yes { background: rgba(240, 253, 250, 0.6) !important; }
+.lp-table-highlight-yes { background: rgba(238, 242, 255, 0.6) !important; }
 .lp-table-recommended { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
 .lp-table-rec-badge {
   display: inline-flex;
   padding: 0.125rem 0.625rem;
   border-radius: 9999px;
-  background: #14b8a6;
+  background: #4f46e5;
   color: #fff;
   font-size: 0.625rem;
   font-weight: 700;
@@ -750,7 +750,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   border-radius: 50%;
 }
 .lp-check { background: #dcfce7; color: #16a34a; }
-.lp-check-primary { background: #14b8a6; color: #fff; }
+.lp-check-primary { background: #4f46e5; color: #fff; }
 .lp-cross { background: #f3f4f6; color: #d1d5db; }
 .lp-cell-text {
   font-size: 0.75rem;
@@ -766,8 +766,8 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   margin-top: 3rem;
   padding: 2rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(20, 184, 166, 0.3);
-  background: linear-gradient(to right, rgba(240, 253, 250, 0.8), rgba(240, 249, 255, 0.6));
+  border: 1px solid rgba(79, 70, 229, 0.3);
+  background: linear-gradient(to right, rgba(238, 242, 255, 0.8), rgba(237, 233, 254, 0.6));
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
@@ -778,7 +778,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   font-family: 'Fira Code', monospace;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #0d9488;
+  color: #4338ca;
   margin: 0;
 }
 .lp-stat-label { font-size: 0.875rem; color: #6b7280; margin: 0.25rem 0 0; }
@@ -786,7 +786,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 /* ─── CTA ───────────────────────────────────────────────────── */
 .lp-cta-section {
   padding: 6rem 0;
-  background: linear-gradient(to bottom, #fff, rgba(240, 253, 250, 0.3));
+  background: linear-gradient(to bottom, #fff, rgba(238, 242, 255, 0.3));
 }
 .lp-cta-inner { text-align: center; max-width: 48rem; }
 .lp-cta-inner h2 {
@@ -818,7 +818,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 .lp-footer-inner > p { font-size: 0.875rem; color: #9ca3af; margin: 0; }
 .lp-footer-links { display: flex; gap: 1.5rem; }
 .lp-footer-links a { font-size: 0.875rem; color: #6b7280; transition: color 0.2s; }
-.lp-footer-links a:hover { color: #0d9488; }
+.lp-footer-links a:hover { color: #4338ca; }
 
 /* ─── ANIMATIONS ────────────────────────────────────────────── */
 @keyframes float {
