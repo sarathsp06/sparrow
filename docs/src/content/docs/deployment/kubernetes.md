@@ -63,7 +63,7 @@ This maps `localhost:8080` to the k3d Traefik ingress on port 80.
 
 ```bash
 make docker-build
-k3d image import sparrow:latest -c sparrow-dev
+k3d image import ghcr.io/sarathsp06/sparrow:latest -c sparrow-dev
 ```
 
 ### 3. Install the chart
@@ -71,7 +71,7 @@ k3d image import sparrow:latest -c sparrow-dev
 ```bash
 helm install sparrow charts/sparrow/ \
   --set postgresql.enabled=true \
-  --set image.repository=sparrow \
+  --set image.repository=ghcr.io/sarathsp06/sparrow \
   --set image.tag=latest \
   --set image.pullPolicy=Never \
   --set ingress.enabled=true \

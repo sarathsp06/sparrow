@@ -43,7 +43,7 @@ services:
       retries: 5
 
   sparrow:
-    image: sparrow:latest
+    image: ghcr.io/sarathsp06/sparrow:latest
     environment:
       DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
       SPARROW_SERVE_UI: "true"
