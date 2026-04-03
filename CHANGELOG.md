@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-04-03
+
+### Added
+
+- Standalone `deploy/docker-compose.yml` using published `ghcr.io/sarathsp06/sparrow` image -- users can run Sparrow without cloning the repo
+- Docker image badge in README linking to GitHub Container Registry
+
+### Changed
+
+- README quick start now shows inline docker-compose YAML (no git clone needed)
+- Docs installation and Docker Compose pages updated to use published image as primary path
+- Helm chart defaults `image.tag` to `.Chart.AppVersion` instead of `latest`
+- Cleaned up stale `SPARROW_ENCRYPTION_KEY` from root docker-compose.yml
+
 ## [0.2.0] - 2026-04-03
 
 ### Added
