@@ -4,75 +4,160 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## [0.3.0] - 2026-04-03
 
 ### Added
 
-- Standalone `deploy/docker-compose.yml` using published `ghcr.io/sarathsp06/sparrow` image -- users can run Sparrow without cloning the repo
-- Docker image badge in README linking to GitHub Container Registry
-
-### Changed
-
-- README quick start now shows inline docker-compose YAML (no git clone needed)
-- Docs installation and Docker Compose pages updated to use published image as primary path
-- Helm chart defaults `image.tag` to `.Chart.AppVersion` instead of `latest`
-- Cleaned up stale `SPARROW_ENCRYPTION_KEY` from root docker-compose.yml
-
-## [0.2.0] - 2026-04-03
+- standalone docker-compose, docs updates, and helm chart fix## [0.2.0] - 2026-04-03
+- improved README
 
 ### Added
 
-- Optional API key authentication via `SPARROW_API_KEY` environment variable with HTTP middleware and gRPC interceptors
-- Runtime config injection so the embedded SPA reads the API key without a rebuild
-- Helm chart with PodDisruptionBudget, PostgreSQL security context, and initContainer resource limits
-- Kubernetes deployment documentation and k8s Makefile targets
-- Release workflow with git-cliff for automated changelog generation (`make release`)
-- Clean semver injection into web UI, docs site, and Docker builds
-- Event subscription template dry-run API and UI (#10)
-- Namespace chooser in the web UI (#11)
-- Documentation site with proto-to-docs generator and hostname switcher
-- Marketing landing page on Astro/Starlight docs site
-
+- **docs**: add proto-to-docs generator, hostname switcher, and build footer
+- **web**: allow choosing and persisting namespace in UI (#11)
+- move marketing landing page from web app to docs site
+- add release workflow with git-cliff and changelog generation
+- add optional API key authentication via SPARROW_API_KEY
+- inject clean semver into web UI, docs site, and Docker builds
+- add Helm chart, k8s Makefile targets, and update CI/CD for releases
+- improve dependencoies
+- add event subscription template dry-run API and UI (#10)
+- use uuids
+- add support for templates
 ### Changed
 
-- Refactored webhook service based on protobuf evaluation (#8)
-- Optimized database interactions and fixed performance bottlenecks (#7)
-- Propagated protobuf Timestamp and Struct types (#5)
-- Used ghcr.io image references across docs and config
-
-### Fixed
-
-- OTLP export is now opt-in via `OTEL_EXPORTER_OTLP_ENDPOINT` (no more startup errors without collector)
-- CI workflow lint issues and reliable builds
-- Integration test failures (SSRF config and webhook ID mismatch)
-- Embedded UI placeholder for `go:embed` in CI
-- SvelteKit build failure from stale `PUBLIC_API_KEY` import
-- Broken docs site links (missing trailing slash on base URL)
-
+- **docs**: remove getting started section from landing page
+- updat make file
+- added back .gitkeep
+- add docs
+- fix tests
+- fix test adding allow loopback
+- use MIT License
+- update ci-cd and cleanup repo tree
+- improve docs
+- update removing auth
+- security fixes
+- fix lint
+- update web and README
+- security improvements
+- improved tenantisation and UI
+- update tenats and license
+- add clerk support
+- improve jsonschema
+- update README
+- update README
+- improve error categorization
+- refactor and improve UX
+- Refactor Webhook Service based on Protobuf Evaluation (#8)
+- Optimize database interactions and fix performance bottlenecks (#7)
+- fix lint
+- Propagate protobuf changes for Timestamp and Struct types (#5)
+- use TimeStamp
+- fix lint
+- improe README
+- improve telementry generator
+- improve README
+- update package.json
+- use latest githubcilint
+- add github ci
+- lint fix
+- improve benchmarking
+- improve benchmarking
+- improve benchmarking
+- update templates
+- generate sample data for event schema
+- remove handle registration event
+- add simplified version of json schema meta schema for web
+- improve readme
+- improve signature
+- cleanup migrations
+- move webhook client to a package:
+- fix max attempt retries
 ### Documentation
 
-- Kubernetes deployment guide
-- Docker Compose deployment guide
-- Getting started and installation docs
-- Project badges and web UI quick start section
-- Protobuf evaluation and recommendations (#6)
+- add Kubernetes deployment page to docs site, slim down KUBERNETES.md
+- move k8s details to KUBERNETES.md, slim down README
+- add documentation site link to README
+- add web UI quick start section and project badges
+- add Protobuf evaluation and recommendations (#6)
+### Fixed
 
-## [0.1.0] - 2025-11-14
+- **ci**: fix lint issues and CI workflow for reliable builds
+- **ci**: add .gitkeep to dist dir for go:embed
+- **docs**: fix broken links and sync landing page with indigo theme
+- **docs**: use ghcr.io image references in docs and config
+- **docs**: point docs links to GitHub Pages, remove redundant overlay sections
+- **docs**: remove stale references, add How It Works page, slim overlay, protocol toggle
+- **docs**: rename installation.md to .mdx and remove Guides section
+- **helm**: add PDB, PG security context, and initContainer resource limits
+- **otel**: make OTLP export opt-in via OTEL_EXPORTER_OTLP_ENDPOINT
+- **web**: remove static PUBLIC_API_KEY import that breaks SvelteKit build
+- use changelog content as release tag message and curate CHANGELOG.md
+- resolve integration test failures (SSRF config + webhook ID mismatch)
+- add .gitkeep to dist dir for go:embed## [0.1.0] - 2025-11-14
 
 ### Added
 
-- Core webhook registration, event management, and subscription system
-- Event fan-out with River job queue for async HTTP delivery
-- Go template transforms for subscription payloads
-- HMAC webhook signing
-- Delivery retries with exponential backoff and error classification
-- Health tracking with success rates and response time percentiles
-- gRPC and Connect-RPC dual-protocol API
-- SvelteKit embedded web UI
-- OpenTelemetry tracing, metrics, and structured logging
-- PostgreSQL storage with sqlx and migration tooling
-- Extensive test coverage (#4)
-- Docker multi-stage build (Node frontend + Go backend + distroless runtime)
-- Benchmarking tool with reservoir sampling
-- JSON schema validation for event payloads
+- Add extensive test coverage to the webhook service (#4)
+- Enhance SvelteKit frontend application (#3)
+### Changed
+
+- add api-key for completelness
+- Update README.md
+- improve max attempt
+- include request body in webhook delivery table and responses
+- implement resend delivery
+- report db metrics
+- working with sqlx
+- Update favicon.svg
+- Update favicon.svg
+- Update favicon.svg
+- fix lint errors
+- fix build errors
+- temporary
+- Update README.md
+- use custom sparrow
+- added new favicon
+- loading spin
+- update README
+- Update README.md
+- update make
+- improve makefile
+- improved readme
+- improved readme
+- cleanup
+- more ui improvements
+- improve UI
+- improve documentation
+- fix code
+- more test
+- add JSON validation
+- more UI
+- improve web
+- use MIT license
+- some UI fun
+- Correct function calls in gRPC and Connect servers (#2)
+- improve function signatures
+- otel logs
+- Add event schema and validation
+- Add event schema and validation
+- UI (#1)
+- add UI
+- add UI
+- add more statistics managements
+- add more functioins
+- improve README
+- more core functionalities
+- more trace for grpc and connectrpc added
+- basic working code
+- add connectrpx
+- use buf
+- remove unwanted sample code
+- Working with gRPC commands
+- grpc service
+### Fixed
+
+- add table svelte component
+- add meatures
+- add meatures
+- more telemetry
