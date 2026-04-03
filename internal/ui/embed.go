@@ -13,6 +13,8 @@ package ui
 
 import (
 	"embed"
+	"encoding/json"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -22,6 +24,13 @@ import (
 //go:embed all:dist
 var embeddedFS embed.FS
 
+// Config holds runtime configuration injected into the SPA HTML.
+type Config struct {
+	// APIKey is injected so the frontend can authenticate API requests.
+	// Empty string means no authentication.
+	APIKey string `json:"apiKey,omitempty"`
+}
+
 // Handler returns an http.Handler that serves the embedded SPA.
 // It serves static files from the embedded filesystem, and falls back to
 // index.html for any path that doesn't match a static file (SPA client-side routing).
@@ -29,7 +38,10 @@ var embeddedFS embed.FS
 // The apiPrefixes parameter specifies URL path prefixes that should NOT be
 // handled by the UI (e.g., "/sparrow.", "/health", "/ready"). These are left
 // for the API handlers registered on the same mux.
-func Handler(logger *slog.Logger, apiPrefixes []string) http.Handler {
+//
+// The config parameter is injected into index.html as a window.__SPARROW_CONFIG__
+// global so the SPA can read runtime configuration without a rebuild.
+func Handler(logger *slog.Logger, apiPrefixes []string, config *Config) http.Handler {
 	// Strip the "dist" prefix from the embedded FS so files are served from root.
 	staticFS, err := fs.Sub(embeddedFS, "dist")
 	if err != nil {
@@ -38,6 +50,9 @@ func Handler(logger *slog.Logger, apiPrefixes []string) http.Handler {
 	}
 
 	fileServer := http.FileServer(http.FS(staticFS))
+
+	// Pre-render the config script tag to inject into index.html.
+	configScript := buildConfigScript(config)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Don't serve UI for API routes — let them 404 naturally from the mux.
@@ -73,10 +88,33 @@ func Handler(logger *slog.Logger, apiPrefixes []string) http.Handler {
 			return
 		}
 
+		// Inject runtime config into the HTML <head>.
+		html := string(indexBytes)
+		if configScript != "" {
+			html = strings.Replace(html, "</head>", configScript+"</head>", 1)
+		}
+
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-cache")
-		w.Write(indexBytes) //nolint:errcheck
+		w.Write([]byte(html)) //nolint:errcheck
 	})
+}
+
+// buildConfigScript returns a <script> tag that sets window.__SPARROW_CONFIG__,
+// or an empty string if there is no config to inject.
+func buildConfigScript(config *Config) string {
+	if config == nil {
+		return ""
+	}
+	data, err := json.Marshal(config)
+	if err != nil {
+		return ""
+	}
+	// Only inject if there's something meaningful (not just "{}").
+	if string(data) == "{}" {
+		return ""
+	}
+	return fmt.Sprintf(`<script>window.__SPARROW_CONFIG__=%s;</script>`, data)
 }
 
 // Available reports whether the embedded UI contains a built frontend.

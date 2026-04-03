@@ -34,6 +34,9 @@ services:
       DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
       SPARROW_SERVE_UI: "true"
       SPARROW_ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      # Optional: Set to require API key for all API requests.
+      # The same value must be set as PUBLIC_API_KEY at frontend build time.
+      # SPARROW_API_KEY: "change-me-to-a-secure-random-string"
     depends_on:
       postgres:
         condition: service_healthy

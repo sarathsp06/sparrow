@@ -26,6 +26,7 @@ import (
 	connectserver "github.com/sarathsp06/sparrow/internal/connect"
 	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
 	"github.com/sarathsp06/sparrow/internal/health"
+	"github.com/sarathsp06/sparrow/internal/middleware"
 	"github.com/sarathsp06/sparrow/internal/migration"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/tenant"
@@ -160,6 +161,23 @@ func main() {
 		fmt.Println("⚠️  SPARROW_ENCRYPTION_KEY not set — secret headers feature disabled")
 	}
 
+	// Configure optional API key authentication.
+	// When SPARROW_API_KEY is set, all API requests (HTTP + gRPC) must include
+	// the key via X-API-Key header. Health/ready endpoints and static UI assets
+	// are excluded. When unset, all requests are allowed (open access).
+	apiKeyAuth := &middleware.APIKeyAuth{
+		APIKey: os.Getenv("SPARROW_API_KEY"),
+		ExcludedPathPrefixes: []string{
+			"/health",
+			"/ready",
+		},
+	}
+	if apiKeyAuth.Enabled() {
+		fmt.Println("🔑 API key authentication enabled (SPARROW_API_KEY is set)")
+	} else {
+		fmt.Println("⚠️  SPARROW_API_KEY not set — all endpoints are open (no authentication)")
+	}
+
 	// Create webhook repository
 	webhookRepo := store.NewRepositoryInterfaceWithTracing(store.NewRepository(sqlxDB), "")
 
@@ -177,9 +195,11 @@ func main() {
 
 	fmt.Println("🚀 River queue started successfully")
 
-	// Initialize gRPC server with OpenTelemetry instrumentation
+	// Initialize gRPC server with OpenTelemetry instrumentation and optional API key auth
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.ChainUnaryInterceptor(apiKeyAuth.UnaryServerInterceptor()),
+		grpc.ChainStreamInterceptor(apiKeyAuth.StreamServerInterceptor()),
 		grpc.MaxRecvMsgSize(4<<20), // 4 MB max inbound message
 		grpc.MaxSendMsgSize(4<<20), // 4 MB max outbound message
 	)
@@ -220,23 +240,33 @@ func main() {
 	mux.HandleFunc("/health", healthChecker.HealthHandler())
 	mux.HandleFunc("/ready", healthChecker.ReadyHandler())
 
-	// Serve embedded web UI if enabled
+	// Serve embedded web UI if enabled.
+	// When serving the UI, exclude UI asset paths from API key checks so the
+	// browser can load the SPA without an API key in the initial page load.
+	// The SPA then sends the API key via X-API-Key header on all Connect-RPC calls.
 	serveUI := os.Getenv("SPARROW_SERVE_UI") == "true" || os.Getenv("SPARROW_SERVE_UI") == "1"
 	if serveUI {
 		if ui.Available() {
-			mux.Handle("/", ui.Handler(logger, nil))
+			uiConfig := &ui.Config{APIKey: apiKeyAuth.APIKey}
+			mux.Handle("/", ui.Handler(logger, nil, uiConfig))
 			fmt.Println("🖥️  Embedded web UI enabled at http://localhost:8080/")
+			// Exclude static UI assets from API key checks
+			apiKeyAuth.ExcludedPathPrefixes = append(apiKeyAuth.ExcludedPathPrefixes,
+				"/_app/",   // SvelteKit immutable assets
+				"/favicon", // Favicon
+			)
 		} else {
 			fmt.Println("⚠️  SPARROW_SERVE_UI=true but no frontend build found. Build with: cd web && npm run build:static")
 		}
 	}
 
 	// Create HTTP server with OpenTelemetry instrumentation
+	// Middleware order (outer to inner): CORS -> API Key -> mux
 	corsHandler := buildCORSHandler()
 
 	httpServer := &http.Server{
 		Addr:              ":8080",
-		Handler:           corsHandler.Handler(mux),
+		Handler:           corsHandler.Handler(apiKeyAuth.HTTPMiddleware(mux)),
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,
@@ -282,6 +312,11 @@ func main() {
 	fmt.Println("   Readiness check: http://localhost:8080/ready")
 	if serveUI && ui.Available() {
 		fmt.Println("   Web UI: http://localhost:8080/")
+	}
+	if apiKeyAuth.Enabled() {
+		fmt.Println("   Auth: API key required (X-API-Key header)")
+	} else {
+		fmt.Println("   Auth: disabled (set SPARROW_API_KEY to enable)")
 	}
 	if otelShutdown != nil {
 		fmt.Printf("   OTLP endpoint: %s\n", otelConfig.OTLPEndpoint)
@@ -333,7 +368,7 @@ func buildCORSHandler() *cors.Cors {
 	return cors.New(cors.Options{
 		AllowedOrigins:   origins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type", "Connect-Protocol-Version", "Connect-Timeout-Ms", "Grpc-Timeout", "X-Grpc-Web", "X-User-Agent"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", "Connect-Protocol-Version", "Connect-Timeout-Ms", "Grpc-Timeout", "X-Grpc-Web", "X-User-Agent", "X-API-Key"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	})

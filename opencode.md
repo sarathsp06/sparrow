@@ -12,7 +12,7 @@
 
 Sparrow is a **self-hosted webhook delivery platform** with an event-driven architecture. It accepts webhook registrations, event definitions, and subscriptions (with Go-template payload transformation), then fans out events into a River job queue for async HTTP delivery with retries, health tracking, and error classification.
 
-There is **no authentication or authorization layer** -- all endpoints are open. A default tenant is auto-provisioned on startup and used for all operations.
+Sparrow supports **optional API key authentication** via the `SPARROW_API_KEY` environment variable. When set, all API requests (HTTP/Connect-RPC and gRPC) must include the key in the `X-API-Key` header. When unset, all endpoints are open. This is designed for internal tooling deployments behind a VPN. A default tenant is auto-provisioned on startup and used for all operations.
 
 ```
                          ┌─────────────────────┐
@@ -66,6 +66,7 @@ There is **no authentication or authorization layer** -- all endpoints are open.
 │   ├── grpc/            # gRPC service implementations (handlers)
 │   ├── health/          # Health check endpoint
 │   ├── logger/          # Structured slog setup with OTel bridge
+│   ├── middleware/       # HTTP & gRPC middleware (API key auth)
 │   ├── namespace/       # Namespace CRUD (service, repository, models)
 │   ├── observability/   # OTel setup (traces, metrics, logs via OTLP)
 │   ├── tenant/          # Tenant bootstrap (default tenant auto-creation)
@@ -113,6 +114,7 @@ cmd/server/main.go
 ├── internal/grpc
 ├── internal/connect
 ├── internal/health
+├── internal/middleware
 ├── internal/ui
 ├── pkg/storage/postgres
 └── proto / proto/protoconnect
@@ -141,6 +143,7 @@ internal/tenant ──────────> pkg/storage
 internal/namespace ───────> pkg/storage
 
 internal/observability ───> (leaf: only OTel externals)
+internal/middleware ──────> (leaf: crypto/subtle, google.golang.org/grpc)
 pkg/storage ──────────────> (leaf: database/sql, sqlx)
 pkg/errors ───────────────> (leaf: net, syscall)
 ```
@@ -165,6 +168,53 @@ pkg/errors ───────────────> (leaf: net, syscall)
 ## Tenant Model
 
 There is no authentication. A **default tenant** (`00000000-0000-0000-0000-000000000001`) is auto-created on startup via `tenant.Bootstrap()`. All operations use this tenant ID. The tenant infrastructure (table, columns, foreign keys) is retained for future use.
+
+## API Key Authentication
+
+Sparrow provides **optional API key authentication** via the `SPARROW_API_KEY` environment variable. This is a basic shared-secret mechanism designed for internal tooling behind a VPN.
+
+### How It Works
+
+| Aspect | Detail |
+|--------|--------|
+| **Env Var** | `SPARROW_API_KEY` |
+| **Header** | `X-API-Key: <key>` |
+| **Query Param** | `?api_key=<key>` (HTTP only, for curl convenience) |
+| **gRPC Metadata** | `x-api-key: <key>` |
+| **When unset** | All endpoints are open (no auth enforced) |
+| **When set** | Every API request must include the key |
+| **Excluded paths** | `/health`, `/ready`, `/_app/*`, `/favicon*` (static UI assets) |
+| **Comparison** | Constant-time (`crypto/subtle.ConstantTimeCompare`) |
+
+### Package: `internal/middleware`
+```go
+type APIKeyAuth struct {
+    APIKey               string
+    ExcludedPathPrefixes []string
+}
+
+func (a *APIKeyAuth) HTTPMiddleware(next http.Handler) http.Handler    // Wraps HTTP mux
+func (a *APIKeyAuth) UnaryServerInterceptor() grpc.UnaryServerInterceptor  // gRPC unary
+func (a *APIKeyAuth) StreamServerInterceptor() grpc.StreamServerInterceptor // gRPC stream
+```
+
+### Frontend Integration
+When the embedded UI is served (`SPARROW_SERVE_UI=true`), the Go server injects the API key into `index.html` as `window.__SPARROW_CONFIG__ = {apiKey: "..."}`. The SvelteKit SPA reads this at runtime and attaches the `X-API-Key` header to all Connect-RPC requests via a transport interceptor. No frontend rebuild is needed when changing the key.
+
+### Usage Examples
+```bash
+# With API key
+curl -H "X-API-Key: my-secret" http://localhost:8080/sparrow.v1.WebhookService/ListWebhooks
+
+# Via query param
+curl "http://localhost:8080/sparrow.v1.WebhookService/ListWebhooks?api_key=my-secret"
+
+# gRPC with grpcurl
+grpcurl -plaintext -H "x-api-key: my-secret" localhost:50051 sparrow.v1.WebhookService/ListWebhooks
+
+# Without API key (when SPARROW_API_KEY is not set -- open access)
+curl http://localhost:8080/sparrow.v1.WebhookService/ListWebhooks
+```
 
 ---
 
@@ -493,6 +543,7 @@ Sparrow Server
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `DATABASE_URL` | PostgreSQL connection string | required |
+| `SPARROW_API_KEY` | API key for authentication (optional) | -- (open access) |
 | `SPARROW_SERVE_UI` | Serve embedded SvelteKit UI | `"false"` |
 | `CORS_ALLOWED_ORIGINS` | CORS origins for Connect-RPC | -- |
 | `ENVIRONMENT` | `"development"` or `"production"` | -- |
@@ -580,6 +631,52 @@ Startup order: postgres (healthy) -> migrate (exits) -> sparrow (starts)
 | `fmt` | Format code |
 | `example` | Run example |
 | `run-web` | Run web UI dev server |
+| `changelog` | Generate changelog draft (stdout) |
+| `release` | Interactive release: changelog, edit, commit, tag |
+
+---
+
+## Release Workflow
+
+### Prerequisites
+- `git-cliff` installed (`brew install git-cliff`)
+- Conventional Commit messages (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `perf:`, etc.)
+
+### Configuration Files
+- **`cliff.toml`** -- git-cliff config. Maps Conventional Commits to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) categories (feat->Added, fix->Fixed, etc.). Strips commit bodies via `commit_preprocessors` to keep entries clean.
+- **`CHANGELOG.md`** -- Auto-generated, then curated. Do not edit the header; edit individual entries during `make release`.
+
+### Commands
+
+```bash
+# Preview unreleased changes
+make changelog
+
+# Preview what a tagged release would look like
+make changelog NEXT_VERSION=v0.2.0
+
+# Create a release (interactive)
+make release NEXT_VERSION=v0.2.0
+```
+
+### Release Flow (`make release NEXT_VERSION=vX.Y.Z`)
+1. Generates `CHANGELOG.md` with all history tagged at `NEXT_VERSION`
+2. Opens `$EDITOR` (defaults to `vi`) for curation -- clean up entries, reword, remove noise
+3. If you save an empty file, the release is aborted
+4. Commits `CHANGELOG.md` with message `chore(release): vX.Y.Z`
+5. Creates annotated git tag `vX.Y.Z`
+6. Prints reminder to `git push origin main --tags`
+
+### Commit Type -> Changelog Category Mapping
+| Commit Prefix | Changelog Section |
+|---------------|-------------------|
+| `feat:` | Added |
+| `fix:` | Fixed |
+| `perf:`, `refactor:`, `style:`, `chore:` | Changed |
+| `docs:` | Documentation |
+| `body: .*security` | Security |
+| `test:`, `ci:`, `build:`, `chore(release):` | Skipped |
+| Everything else (catch-all) | Changed |
 
 ---
 
@@ -632,14 +729,13 @@ func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequ
 
 ## Known Gaps / Not Yet Implemented
 
-1. **No authentication/authorization** -- all endpoints are open
-2. **No rate limiting** at the API level
-3. **No dead letter queue** -- failed deliveries stay in deliveries table
-4. **No integration/E2E tests**
-5. **No API versioning** in proto
-6. **No payload size limits** enforcement
-7. **No tenant usage quotas** (events/month, deliveries, etc.)
-8. **No scheduled/delayed webhooks**
+1. **No rate limiting** at the API level
+2. **No dead letter queue** -- failed deliveries stay in deliveries table
+3. **No integration/E2E tests**
+4. **No API versioning** in proto
+5. **No payload size limits** enforcement
+6. **No tenant usage quotas** (events/month, deliveries, etc.)
+7. **No scheduled/delayed webhooks**
 
 ---
 
@@ -657,3 +753,4 @@ func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequ
 | Multi-Tenancy | Mar 2026 | Tenants, namespaces, batch fan-out, pgxpool tuning, 6 composite indexes |
 | UI Modernization | Mar 2026 | Marketing landing page, Getting Started with curl commands, protoc-gen-es |
 | Auth Removal | Mar 2026 | Removed all auth/RBAC/audit code, simplified to open self-hosted deployment |
+| API Key Auth | Apr 2026 | Optional API key auth via SPARROW_API_KEY, HTTP middleware + gRPC interceptor, runtime config injection for embedded UI |
