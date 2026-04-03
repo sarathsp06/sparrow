@@ -2,33 +2,30 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
+/* Override Tailwind's default mono stack to use Fira Code first */
+@theme {
+	--font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	--font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
 @layer base {
 	.button {
 		@apply bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold shadow-md transition;
 	}
 	.text-primary {
-   	 @apply text-gray-500
-  	}
-  	.border-primary {
-   	 @apply border-blue-500
-  	}
+		@apply text-gray-500;
+	}
+	.border-primary {
+		@apply border-blue-500;
+	}
 	html, body {
 		@apply font-mono bg-gray-50 text-gray-900 text-base;
 	}
 	h1, h2, h3, h4, h5, h6 {
 		@apply font-bold text-gray-800;
 	}
-		a {
-			@apply text-gray-700 hover:text-gray-900 transition-colors;
-			text-decoration: none;
-		}
-}
-
-/* Landing page utilities — use Inter (sans) for marketing content,
-   Fira Code (mono) for code snippets and tech labels. */
-.font-inter {
-	font-family: 'Inter', system-ui, sans-serif;
-}
-.font-fira {
-	font-family: 'Fira Code', ui-monospace, monospace;
+	a {
+		@apply text-gray-700 hover:text-gray-900 transition-colors;
+		text-decoration: none;
+	}
 }

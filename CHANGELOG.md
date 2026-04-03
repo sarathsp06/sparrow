@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.3.1] - 2026-04-03
+
+### Changed
+
+- Unified Fira Code as the default font across web app, docs site, and landing page
+- Docs site (Starlight) now loads Google Fonts and uses Fira Code for all body text
+- Landing page uses Fira Code as default body font, Inter for descriptive paragraphs
+- Web app Tailwind theme overrides `--font-mono` to use Fira Code explicitly
+- Refactored README to follow open-source conventions
+
 ## [0.3.0] - 2026-04-03
 
 ### Added

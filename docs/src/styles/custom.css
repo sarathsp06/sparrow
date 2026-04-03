@@ -1,11 +1,15 @@
 /* Sparrow docs custom styles — Scalar-inspired API reference */
 
+/* Load Fira Code + Inter from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
   --sl-color-accent-low: #1a1a2e;
   --sl-color-accent: #4f46e5;
   --sl-color-accent-high: #c7d2fe;
-  --sl-font: 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', sans-serif;
-  --sl-font-mono: 'Fira Code', 'JetBrains Mono', 'Cascadia Code', ui-monospace, monospace;
+  /* Monospace-first: match the SvelteKit web app aesthetic */
+  --sl-font: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --sl-font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 :root[data-theme='dark'] {
