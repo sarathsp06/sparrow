@@ -136,7 +136,9 @@ endif
 	@echo "==> Committing changelog and tagging $(NEXT_VERSION)..."
 	@git add CHANGELOG.md
 	@git commit -m "chore(release): $(NEXT_VERSION)"
-	@git tag -a $(NEXT_VERSION) -m "Release $(NEXT_VERSION)"
+	@# Extract this release's section from the curated CHANGELOG.md for the tag annotation.
+	@VER=$$(echo $(NEXT_VERSION) | sed 's/^v//'); \
+	awk "/^## .*$$VER/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md | git tag -a $(NEXT_VERSION) -F -
 	@echo ""
 	@echo "==> Release $(NEXT_VERSION) created successfully!"
 	@echo "    To publish: git push origin main --tags"
