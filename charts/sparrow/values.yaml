@@ -1,7 +1,8 @@
 # -- Container image for the Sparrow server
 image:
   repository: ghcr.io/sarathsp06/sparrow
-  tag: latest
+  # Defaults to .Chart.AppVersion when empty
+  tag: ""
   pullPolicy: IfNotPresent
 
 # -- Number of Sparrow pods

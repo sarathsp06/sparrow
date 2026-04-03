@@ -9,11 +9,33 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 ## Docker Compose (Recommended)
 
-The simplest way to run Sparrow. This starts PostgreSQL, runs migrations, and launches the server.
+The simplest way to run Sparrow. No need to clone the repo -- save this `docker-compose.yml` anywhere and start it:
+
+```yaml title="docker-compose.yml"
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: sparrow
+      POSTGRES_USER: sparrow
+      POSTGRES_PASSWORD: sparrow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sparrow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  sparrow:
+    image: ghcr.io/sarathsp06/sparrow:latest
+    environment:
+      DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
+      SPARROW_SERVE_UI: "true"
+    ports: ["8080:8080", "50051:50051"]
+    depends_on:
+      postgres: { condition: service_healthy }
+```
 
 ```bash
-git clone https://github.com/sarathsp06/sparrow.git
-cd sparrow
 docker compose up -d
 ```
 
@@ -85,8 +107,10 @@ make build-all
 
 ## Docker Image
 
+Pre-built multi-arch images (linux/amd64, linux/arm64) are published to GitHub Container Registry:
+
 ```bash
-docker build -t ghcr.io/sarathsp06/sparrow:latest .
+docker pull ghcr.io/sarathsp06/sparrow:latest
 ```
 
 The Dockerfile uses a 3-stage build:

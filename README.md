@@ -1,6 +1,7 @@
 [![CI](https://github.com/sarathsp06/sparrow/actions/workflows/ci.yml/badge.svg)](https://github.com/sarathsp06/sparrow/actions/workflows/ci.yml)
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/ghcr.io-sarathsp06%2Fsparrow-blue?logo=docker)](https://github.com/sarathsp06/sparrow/pkgs/container/sparrow)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![gRPC](https://img.shields.io/badge/gRPC-Connect--RPC-244c5a?logo=grpc)](https://connectrpc.com)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://sarathsp06.github.io/sparrow)
@@ -14,11 +15,38 @@
 
 ## Quick Start
 
+Save this `docker-compose.yml` anywhere and run `docker compose up -d` -- no need to clone the repo:
+
+```yaml
+# docker-compose.yml
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: sparrow
+      POSTGRES_USER: sparrow
+      POSTGRES_PASSWORD: sparrow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sparrow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  sparrow:
+    image: ghcr.io/sarathsp06/sparrow:latest
+    environment:
+      DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
+      SPARROW_SERVE_UI: "true"
+    ports: ["8080:8080", "50051:50051"]
+    depends_on:
+      postgres: { condition: service_healthy }
+```
+
 ```bash
 docker compose up -d
 ```
 
-Postgres, migrations, and the server with the web UI all start automatically. Open `http://localhost:8080/`.
+Open `http://localhost:8080/` for the web UI, or use the API directly:
 
 ### Try It Out
 
