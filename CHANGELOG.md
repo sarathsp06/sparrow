@@ -4,12 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [Unreleased]
+## [0.2.0] - 2026-04-03
 
 ### Added
 
 - **docs**: add proto-to-docs generator, hostname switcher, and build footer
 - **web**: allow choosing and persisting namespace in UI (#11)
+- add release workflow with git-cliff and changelog generation
+- add optional API key authentication via SPARROW_API_KEY
 - inject clean semver into web UI, docs site, and Docker builds
 - add Helm chart, k8s Makefile targets, and update CI/CD for releases
 - improve dependencoies
@@ -75,6 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **ci**: fix lint issues and CI workflow for reliable builds
 - **ci**: add .gitkeep to dist dir for go:embed
+- **docs**: use ghcr.io image references in docs and config
 - **docs**: point docs links to GitHub Pages, remove redundant overlay sections
 - **docs**: remove stale references, add How It Works page, slim overlay, protocol toggle
 - **docs**: rename installation.md to .mdx and remove Guides section
