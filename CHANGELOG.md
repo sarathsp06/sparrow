@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Event subscription template dry-run API and UI (#10)
 - Namespace chooser in the web UI (#11)
 - Documentation site with proto-to-docs generator and hostname switcher
+- Marketing landing page on Astro/Starlight docs site
 
 ### Changed
 
@@ -32,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI workflow lint issues and reliable builds
 - Integration test failures (SSRF config and webhook ID mismatch)
 - Embedded UI placeholder for `go:embed` in CI
+- SvelteKit build failure from stale `PUBLIC_API_KEY` import
+- Broken docs site links (missing trailing slash on base URL)
 
 ### Documentation
 
