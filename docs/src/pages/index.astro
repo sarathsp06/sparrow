@@ -5,6 +5,7 @@ import faviconSrc from '../assets/favicon.svg';
 const favicon = faviconSrc.src;
 const base = import.meta.env.BASE_URL;          // /sparrow in production
 const docsHome = `${base}getting-started/installation/`;
+const apiRef = `${base}reference/api/`;
 const githubURL = 'https://github.com/sarathsp06/sparrow';
 
 const features = [
@@ -37,50 +38,6 @@ const features = [
     icon: 'M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z M12 2a3 3 0 0 0-3 3v1a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z',
     title: 'HMAC Signing & TLS',
     description: 'Every delivery can be HMAC-SHA256 signed with a per-webhook secret. Sensitive headers are stored encrypted and masked in API responses.',
-  },
-];
-
-const steps = [
-  {
-    num: '01',
-    title: 'Define an Event',
-    description: 'Events describe what happens in your system. Register a type once, then emit it as many times as you need.',
-    code: `curl -s -X POST http://localhost:8080/webhook.EventService/RegisterEvent \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "name": "order.created",
-    "description": "Fired when a new order is placed",
-    "active": true
-  }'`,
-  },
-  {
-    num: '02',
-    title: 'Register a Webhook',
-    description: 'Point your endpoint at one or more events inside a namespace. Sparrow creates a subscription for each event automatically.',
-    code: `curl -s -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "namespace": "default",
-    "url": "https://example.com/hooks",
-    "events": ["order.created"],
-    "active": true
-  }'`,
-  },
-  {
-    num: '03',
-    title: 'Push an Event',
-    description: 'Emit an event with a JSON payload and optional labels. Sparrow matches subscriptions, fans out deliveries, and retries failures automatically.',
-    code: `curl -s -X POST http://localhost:8080/webhook.EventService/PushEvent \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "namespace": "default",
-    "event": "order.created",
-    "payload": {
-      "order_id": "ord_123",
-      "amount": 99.99
-    },
-    "labels": { "region": "us-east", "priority": "high" }
-  }'`,
   },
 ];
 
@@ -164,17 +121,17 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
       </a>
       <nav class="lp-nav">
         <a href="#features">Features</a>
-        <a href="#getting-started">Getting Started</a>
         <a href="#architecture">Architecture</a>
         <a href="#comparison">Comparison</a>
         <a href={docsHome}>Documentation</a>
+        <a href={apiRef}>API Reference</a>
       </nav>
       <div class="lp-header-actions">
         <a href={githubURL} target="_blank" rel="noopener" class="lp-btn-outline">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
           GitHub
         </a>
-        <a href={docsHome} class="lp-btn-primary">Get Started</a>
+        <a href={docsHome} class="lp-btn-primary">Documentation</a>
       </div>
     </div>
   </header>
@@ -205,7 +162,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 
         <div class="lp-hero-ctas">
           <a href={docsHome} class="lp-btn-primary lp-btn-lg">
-            Get Started
+            Documentation
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </a>
           <a href={githubURL} target="_blank" rel="noopener" class="lp-btn-outline lp-btn-lg">
@@ -253,36 +210,6 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
             <p>{f.description}</p>
           </div>
         ))}
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================================ -->
-  <!-- GETTING STARTED                                              -->
-  <!-- ============================================================ -->
-  <section id="getting-started" class="lp-section lp-section-alt">
-    <div class="lp-container">
-      <div class="lp-section-header">
-        <div class="lp-badge"><span>Getting Started</span></div>
-        <h2>Up and Running <span class="lp-gradient-text">in Minutes</span></h2>
-        <p>Start Sparrow with <code>docker compose up -d</code> then run these three commands</p>
-      </div>
-      <div class="lp-steps">
-        {steps.map(s => (
-          <div class="lp-step-card">
-            <span class="lp-step-num">{s.num}</span>
-            <h3>{s.title}</h3>
-            <p>{s.description}</p>
-            <div class="lp-code-block"><code>{s.code}</code></div>
-          </div>
-        ))}
-      </div>
-      <div class="lp-steps-footer">
-        <p>
-          For fine-grained routing, create subscriptions with <code>label_filters</code> via the
-          <a href={`${base}reference/api/subscription-service/`}>Subscription Service</a> —
-          only events whose labels match will be delivered.
-        </p>
       </div>
     </div>
   </section>
@@ -390,7 +317,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
       <p>Join the developers using Sparrow to power their event-driven architectures. Open source and free to use.</p>
       <div class="lp-hero-ctas">
         <a href={docsHome} class="lp-btn-primary lp-btn-lg">
-          Get Started
+          Documentation
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </a>
         <a href={githubURL} target="_blank" rel="noopener" class="lp-btn-outline lp-btn-lg">
@@ -711,70 +638,6 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   color: #6b7280;
   margin: 0;
 }
-
-/* ─── GETTING STARTED ───────────────────────────────────────── */
-.lp-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  max-width: 56rem;
-  margin: 0 auto;
-}
-.lp-step-card {
-  position: relative;
-  padding: 2rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(229, 231, 235, 0.8);
-  background: #fff;
-}
-.lp-step-num {
-  position: absolute;
-  top: 1.5rem; right: 1.5rem;
-  font-family: 'Fira Code', monospace;
-  font-size: 3rem;
-  font-weight: 700;
-  color: #ccfbf1;
-}
-.lp-step-card h3 {
-  font-family: 'Fira Code', monospace;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #0d9488;
-  margin: 0 0 0.5rem;
-}
-.lp-step-card > p {
-  font-size: 0.9375rem;
-  color: #6b7280;
-  margin: 0 0 1.25rem;
-}
-.lp-code-block {
-  border-radius: 0.5rem;
-  padding: 1rem;
-  overflow-x: auto;
-  background: #111827;
-}
-.lp-code-block code {
-  font-family: 'Fira Code', monospace;
-  font-size: 0.8125rem;
-  color: #5eead4;
-  white-space: pre;
-  background: transparent;
-  padding: 0;
-}
-.lp-steps-footer {
-  max-width: 56rem;
-  margin: 2.5rem auto 0;
-  text-align: center;
-}
-.lp-steps-footer p {
-  font-size: 0.9375rem;
-  color: #6b7280;
-}
-.lp-steps-footer a {
-  color: #0d9488;
-  font-weight: 500;
-}
-.lp-steps-footer a:hover { color: #0f766e; }
 
 /* ─── ARCHITECTURE ──────────────────────────────────────────── */
 .lp-arch-grid {
