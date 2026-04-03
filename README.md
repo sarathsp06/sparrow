@@ -2,168 +2,148 @@
 [![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/ghcr.io-sarathsp06%2Fsparrow-blue?logo=docker)](https://github.com/sarathsp06/sparrow/pkgs/container/sparrow)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org)
-[![gRPC](https://img.shields.io/badge/gRPC-Connect--RPC-244c5a?logo=grpc)](https://connectrpc.com)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://sarathsp06.github.io/sparrow)
-<div align="center">
-	<img src="./web/src/lib/assets/favicon.svg" alt="Sparrow" width="180" height="180" />
-	<h1 style="font-family:monospace;font-weight:900;color:#222;">sparrow</h1>
-	<p style="font-size:1.1em;color:#555;">Reliable webhook delivery with retries, health tracking, and full observability</p>
-</div>
 
----
+<p align="center">
+  <img src="./web/src/lib/assets/favicon.svg" alt="Sparrow" width="120" height="120" />
+</p>
+
+# Sparrow
+
+Self-hosted webhook delivery platform with async fan-out, retries, health tracking, and observability. Built for teams that need reliable outbound webhooks without depending on a third-party service.
+
+## Features
+
+- **Event-driven fan-out** -- push one event, deliver to all matching subscriptions
+- **Reliable delivery** -- at-least-once semantics with configurable retries and exponential backoff
+- **Payload transformation** -- Go templates per subscription to reshape payloads before delivery
+- **Health tracking** -- per-webhook success rates, error classification, and automatic degradation detection
+- **HMAC signing** -- every delivery is signed so receivers can verify authenticity
+- **Dual-protocol API** -- gRPC on `:50051` and Connect-RPC (HTTP/JSON) on `:8080`
+- **Web dashboard** -- embedded UI for managing webhooks, events, deliveries, and health
+- **Observability** -- OpenTelemetry traces, metrics, and structured logs via OTLP
 
 ## Quick Start
 
-Save this `docker-compose.yml` anywhere and run `docker compose up -d` -- no need to clone the repo:
-
-```yaml
-# docker-compose.yml
-services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: sparrow
-      POSTGRES_USER: sparrow
-      POSTGRES_PASSWORD: sparrow
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sparrow"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  sparrow:
-    image: ghcr.io/sarathsp06/sparrow:latest
-    environment:
-      DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
-      SPARROW_SERVE_UI: "true"
-    ports: ["8080:8080", "50051:50051"]
-    depends_on:
-      postgres: { condition: service_healthy }
-```
+Download [`deploy/docker-compose.yml`](deploy/docker-compose.yml) and start it:
 
 ```bash
+curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
 docker compose up -d
 ```
 
-Open `http://localhost:8080/` for the web UI, or use the API directly:
+Open **http://localhost:8080** for the web UI.
 
-### Try It Out
+### Send your first event
 
 ```bash
-# 1. Register an event type
-curl -s -X POST http://localhost:8080/webhook.EventService/RegisterEvent \
+# Register an event type
+curl -X POST http://localhost:8080/webhook.EventService/RegisterEvent \
   -H "Content-Type: application/json" \
-  -d '{"name": "order.created", "description": "New order placed", "active": true}'
+  -d '{"name": "order.created", "description": "New order", "active": true}'
 
-# 2. Register a webhook (subscriptions are created automatically)
-curl -s -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \
+# Register a webhook (subscription is created automatically)
+curl -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \
   -H "Content-Type: application/json" \
-  -d '{"namespace": "default", "url": "https://testhooks.sarathsadasivan.com/hooks", "events": ["order.created"], "active": true}'
+  -d '{"namespace": "default", "url": "https://httpbin.org/post", "events": ["order.created"], "active": true}'
 
-# 3. Push an event
-curl -s -X POST http://localhost:8080/webhook.EventService/PushEvent \
+# Push an event -- Sparrow fans out and delivers
+curl -X POST http://localhost:8080/webhook.EventService/PushEvent \
   -H "Content-Type: application/json" \
   -d '{"namespace": "default", "event": "order.created", "payload": {"order_id": "ord_123", "amount": 99.99}}'
 ```
 
-> **Need a test endpoint?** Use `https://testhooks.sarathsadasivan.com/hooks` -- it accepts any webhook payload and lets you inspect the requests.
+Check delivery status in the web UI at **Deliveries**, or query the API:
 
-Sparrow matches subscriptions, delivers the webhook with retries, and tracks health automatically.
-
-### Or Use the Web UI
-
-All of the above -- registering events, creating webhooks with subscriptions, pushing events, inspecting deliveries, and monitoring health -- can be done through the web dashboard at [localhost:8080](http://localhost:8080).
-
-1. **Events** → Register event types, push test events with live schema validation
-2. **Webhooks** → Register webhooks, manage subscriptions with payload transformation templates, pause/resume, edit configuration
-3. **Deliveries** → Inspect delivery status, view request/response bodies, retry failed deliveries
-4. **Health** → Monitor webhook health, view error category breakdowns, track success rates
-
----
-
-## How It Works
-
-```
-PushEvent
-  -> Validate payload against event schema (if defined)
-  -> Persist event record
-  -> Enqueue fan-out job
-     -> Match subscriptions by (namespace, event_name, label_filters)
-     -> Apply Go template transformation per subscription (if enabled)
-     -> Create one delivery record per matching subscription
-     -> Enqueue delivery jobs
-        -> HTTP POST to webhook URL with HMAC signature
-        -> Record attempt (response code, response time, error category)
-        -> On success: mark delivered, update health metrics
-        -> On failure: classify error, retry with exponential backoff (if retryable)
-        -> Store response body (up to 1 KB by default, 1 MB if capture_response_body is on)
+```bash
+curl -X POST http://localhost:8080/webhook.DeliveryService/ListDeliveries \
+  -H "Content-Type: application/json" \
+  -d '{"namespace": "default", "limit": 5}'
 ```
 
-**Delivery guarantees**: Events are persisted in PostgreSQL before any delivery is attempted. The River job queue provides at-least-once delivery semantics with configurable retries (default: 3 attempts, 60s backoff).
+## Use Cases
 
-**Error classification**: Failures are categorized as `client_error` (4xx, not retried), `server_error` (5xx, retried), `timeout` (retried), `connection_refused` (retried), `network_error` (retried), `dns_error` (not retried), or `tls_error` (not retried).
+- **SaaS webhook notifications** -- notify customer endpoints when resources change
+- **Internal event bus** -- fan out domain events to downstream services over HTTP
+- **Reliability layer** -- add retries, health tracking, and observability to existing webhook flows
+- **Development and testing** -- inspect deliveries, replay failed events, test payload transforms
 
-**Health tracking**: Per-webhook health is computed from delivery outcomes -- healthy (>90% success rate, <3 consecutive failures), degraded (50-90% or 3-9 consecutive), unhealthy (<50% or 10+ consecutive).
+## Architecture
 
-All endpoints are available via both gRPC (`:50051`) and Connect-RPC HTTP/JSON (`:8080`).
+```
+PushEvent API
+  -> persist event in PostgreSQL
+  -> enqueue fan-out job (River)
+     -> match subscriptions, apply transforms, create deliveries
+     -> enqueue delivery jobs
+        -> HTTP POST with HMAC signature
+        -> retry on failure (server errors, timeouts, network errors)
+        -> track health per webhook
+```
 
----
+Events are persisted before delivery. The [River](https://riverqueue.com) job queue provides at-least-once delivery with configurable retries (default: 3 attempts, 60s backoff). Failures are classified into retryable (5xx, timeout, connection refused, network error) and non-retryable (4xx, DNS, TLS) categories.
+
+See [TECHNICAL.md](TECHNICAL.md) for the full pipeline design, queue configuration, error classification, and health state machine.
 
 ## Configuration
 
-Sparrow is configured entirely via environment variables. No config files needed.
+All configuration is via environment variables:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | Yes | -- | PostgreSQL connection string |
-| `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard on `:8080` |
-| `ENVIRONMENT` | No | -- | `development` or `production` (affects logging/OTel) |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
-| `CORS_ALLOWED_ORIGINS` | No | -- | Allowed CORS origins for Connect-RPC |
+| `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard |
+| `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP endpoint for traces/metrics/logs |
 
-See [CONFIGURATION.md](CONFIGURATION.md) for deployment guides and all options.
+See [CONFIGURATION.md](CONFIGURATION.md) for the full list.
 
----
+## Deployment
 
-## Kubernetes
+### Docker
 
-A Helm chart is included at [`charts/sparrow/`](charts/sparrow/). Bring your own PostgreSQL or enable the bundled one for evaluation:
+Pre-built multi-arch images (linux/amd64, linux/arm64) are published on every release:
 
 ```bash
-# External database (recommended for production)
-helm install sparrow charts/sparrow/ \
-  --set secrets.databaseURL="postgres://user:pass@your-db:5432/sparrow?sslmode=require"
-
-# Bundled PostgreSQL (evaluation only)
-helm install sparrow charts/sparrow/ --set postgresql.enabled=true
+docker pull ghcr.io/sarathsp06/sparrow:latest
 ```
 
-See [KUBERNETES.md](KUBERNETES.md) for the full deployment guide, all chart values, and examples.
+See [Docker Compose deployment guide](https://sarathsp06.github.io/sparrow/deployment/docker-compose/) for details.
 
----
+### Kubernetes
+
+A Helm chart is included at [`charts/sparrow/`](charts/sparrow/):
+
+```bash
+helm install sparrow charts/sparrow/ \
+  --set secrets.databaseURL="postgres://user:pass@your-db:5432/sparrow?sslmode=require"
+```
+
+See [Kubernetes deployment guide](https://sarathsp06.github.io/sparrow/deployment/kubernetes/) for all chart values and examples.
 
 ## Documentation
 
-**[sarathsp06.github.io/sparrow](https://sarathsp06.github.io/sparrow)** -- Full documentation site with guides, API reference, and deployment instructions.
+**[sarathsp06.github.io/sparrow](https://sarathsp06.github.io/sparrow)**
 
-Quick links:
+- [Getting Started](https://sarathsp06.github.io/sparrow/getting-started/installation/) -- installation and quickstart
+- [API Reference](https://sarathsp06.github.io/sparrow/reference/api/) -- all RPCs and message types
+- [Architecture](https://sarathsp06.github.io/sparrow/reference/architecture/) -- system design overview
 
-- [Getting Started](https://sarathsp06.github.io/sparrow/getting-started/installation/)
-- [API Reference](https://sarathsp06.github.io/sparrow/reference/api/)
-- [Architecture](https://sarathsp06.github.io/sparrow/reference/architecture/)
-- [Docker Compose](https://sarathsp06.github.io/sparrow/deployment/docker-compose/)
-- [Kubernetes](https://sarathsp06.github.io/sparrow/deployment/kubernetes/)
+In-repo docs: [CONFIGURATION.md](CONFIGURATION.md) | [KUBERNETES.md](KUBERNETES.md) | [TECHNICAL.md](TECHNICAL.md) | [ARCHITECTURE.md](ARCHITECTURE.md) | [webhook.proto](webhook.proto)
 
-In-repo references:
+## Contributing
 
-- [CONFIGURATION.md](CONFIGURATION.md) -- All environment variables
-- [KUBERNETES.md](KUBERNETES.md) -- Helm chart deployment guide
-- [TECHNICAL.md](TECHNICAL.md) -- Architecture deep dive, queue design, health state machine
-- [ARCHITECTURE.md](ARCHITECTURE.md) -- Package structure, dependency graph
-- [webhook.proto](webhook.proto) -- Service and message definitions
+Contributions are welcome. Please open an issue to discuss larger changes before submitting a PR.
 
----
+```bash
+git clone https://github.com/sarathsp06/sparrow.git
+cd sparrow
+make build-with-ui   # build server + embedded UI
+make test            # run tests
+make lint            # run linters
+```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the package structure and dependency graph.
 
 ## License
 
