@@ -1,0 +1,969 @@
+---
+// Full custom landing page — bypasses Starlight layout entirely.
+// Faithfully reproduces the original SvelteKit marketing page design.
+import faviconSrc from '../assets/favicon.svg';
+const favicon = faviconSrc.src;
+const base = import.meta.env.BASE_URL;          // /sparrow in production
+const docsHome = `${base}getting-started/installation/`;
+const githubURL = 'https://github.com/sarathsp06/sparrow';
+
+const features = [
+  {
+    icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+    title: 'Guaranteed Delivery',
+    description: 'Events are persisted in PostgreSQL before delivery begins. The River job queue provides at-least-once delivery with configurable retries (default: 3 attempts).',
+  },
+  {
+    icon: 'M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15',
+    title: 'Intelligent Retries',
+    description: 'Exponential backoff with configurable intervals. Errors are classified into retryable (5xx, timeout, connection refused, network) and non-retryable (4xx, DNS, TLS).',
+  },
+  {
+    icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+    title: 'Namespace Isolation',
+    description: 'Organize webhooks and events into namespaces. Each namespace has independent subscriptions, deliveries, and health tracking.',
+  },
+  {
+    icon: 'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z',
+    title: 'gRPC + Connect-RPC',
+    description: 'Native gRPC on :50051 and Connect-RPC (HTTP/JSON) on :8080. Use curl, gRPC clients, or the built-in web dashboard — same API, same behavior.',
+  },
+  {
+    icon: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
+    title: 'Complete Observability',
+    description: 'OpenTelemetry traces, metrics, and structured logs exported via OTLP. Per-webhook health tracking with error category breakdown (client, server, timeout, network).',
+  },
+  {
+    icon: 'M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z M12 2a3 3 0 0 0-3 3v1a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z',
+    title: 'HMAC Signing & TLS',
+    description: 'Every delivery can be HMAC-SHA256 signed with a per-webhook secret. Sensitive headers are stored encrypted and masked in API responses.',
+  },
+];
+
+const steps = [
+  {
+    num: '01',
+    title: 'Define an Event',
+    description: 'Events describe what happens in your system. Register a type once, then emit it as many times as you need.',
+    code: `curl -s -X POST http://localhost:8080/webhook.EventService/RegisterEvent \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "order.created",
+    "description": "Fired when a new order is placed",
+    "active": true
+  }'`,
+  },
+  {
+    num: '02',
+    title: 'Register a Webhook',
+    description: 'Point your endpoint at one or more events inside a namespace. Sparrow creates a subscription for each event automatically.',
+    code: `curl -s -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "namespace": "default",
+    "url": "https://example.com/hooks",
+    "events": ["order.created"],
+    "active": true
+  }'`,
+  },
+  {
+    num: '03',
+    title: 'Push an Event',
+    description: 'Emit an event with a JSON payload and optional labels. Sparrow matches subscriptions, fans out deliveries, and retries failures automatically.',
+    code: `curl -s -X POST http://localhost:8080/webhook.EventService/PushEvent \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "namespace": "default",
+    "event": "order.created",
+    "payload": {
+      "order_id": "ord_123",
+      "amount": 99.99
+    },
+    "labels": { "region": "us-east", "priority": "high" }
+  }'`,
+  },
+];
+
+const archCards = [
+  {
+    icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+    title: 'API Layer',
+    description: 'High-performance gRPC server with REST gateway for maximum flexibility and throughput.',
+    tags: ['gRPC', 'REST', 'Gateway'],
+  },
+  {
+    icon: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
+    title: 'Service Layer',
+    description: 'Core business logic handling event routing, subscription matching, and delivery orchestration.',
+    tags: ['Events', 'Subscriptions', 'Routing'],
+  },
+  {
+    icon: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+    title: 'Queue System',
+    description: 'Reliable message queuing with worker pools for scalable, concurrent webhook processing.',
+    tags: ['Workers', 'Queues', 'Concurrency'],
+  },
+  {
+    icon: 'M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7zM9 4v16M4 9h16M4 14h16',
+    title: 'Storage Layer',
+    description: 'PostgreSQL-backed persistence with full ACID guarantees for events, subscriptions, and delivery logs.',
+    tags: ['PostgreSQL', 'ACID', 'Logs'],
+  },
+];
+
+const techStack = ['Go', 'PostgreSQL', 'gRPC', 'SvelteKit', 'OpenTelemetry'];
+
+const comparisonServices = [
+  { key: 'sparrow', name: 'Sparrow', highlight: true },
+  { key: 'svix', name: 'Svix' },
+  { key: 'convoy', name: 'Convoy' },
+  { key: 'hookdeck', name: 'Hookdeck' },
+  { key: 'aws', name: 'AWS EventBridge / SNS' },
+  { key: 'diy', name: 'DIY' },
+];
+
+type CellValue = boolean | string;
+const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
+  { feature: 'Open Source', sparrow: true, svix: 'Partial', convoy: true, hookdeck: false, aws: false, diy: 'N/A' },
+  { feature: 'Self-Hosted', sparrow: true, svix: true, convoy: true, hookdeck: false, aws: false, diy: true },
+  { feature: 'No Per-Message Pricing', sparrow: true, svix: false, convoy: true, hookdeck: false, aws: false, diy: true },
+  { feature: 'Minimal Infra (Binary + Postgres)', sparrow: true, svix: 'SaaS', convoy: false, hookdeck: 'SaaS', aws: 'Managed', diy: 'Varies' },
+  { feature: 'gRPC / Connect-RPC Native', sparrow: true, svix: false, convoy: false, hookdeck: false, aws: false, diy: false },
+  { feature: 'Payload Transformation', sparrow: true, svix: 'Paid', convoy: true, hookdeck: true, aws: 'Partial', diy: false },
+  { feature: 'Guaranteed Delivery & Retries', sparrow: true, svix: true, convoy: true, hookdeck: true, aws: 'Partial', diy: false },
+  { feature: 'Webhook Health Tracking', sparrow: true, svix: true, convoy: true, hookdeck: true, aws: false, diy: false },
+  { feature: 'OpenTelemetry Native', sparrow: true, svix: 'Enterprise', convoy: false, hookdeck: false, aws: 'X-Ray', diy: false },
+  { feature: 'Label-Based Filtering', sparrow: true, svix: 'Tags', convoy: false, hookdeck: 'Rules', aws: 'Rules', diy: false },
+  { feature: 'Web Dashboard Included', sparrow: true, svix: true, convoy: true, hookdeck: true, aws: true, diy: false },
+  { feature: 'No Vendor Lock-In', sparrow: true, svix: 'Partial', convoy: true, hookdeck: false, aws: false, diy: true },
+];
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sparrow — Modern Event-Driven Webhook Delivery System</title>
+  <meta name="description" content="High-performance, production-ready webhook delivery system with guaranteed delivery, intelligent retries, and complete observability." />
+  <link rel="icon" href={favicon} type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+
+<body class="lp">
+  <!-- ============================================================ -->
+  <!-- HEADER                                                       -->
+  <!-- ============================================================ -->
+  <header class="lp-header">
+    <div class="lp-container lp-header-inner">
+      <a href={base} class="lp-logo">
+        <img src={favicon} alt="Sparrow" width="32" height="32" />
+        <span>Sparrow</span>
+      </a>
+      <nav class="lp-nav">
+        <a href="#features">Features</a>
+        <a href="#getting-started">Getting Started</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#comparison">Comparison</a>
+        <a href={docsHome}>Documentation</a>
+      </nav>
+      <div class="lp-header-actions">
+        <a href={githubURL} target="_blank" rel="noopener" class="lp-btn-outline">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+        <a href={docsHome} class="lp-btn-primary">Get Started</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================ -->
+  <!-- HERO                                                         -->
+  <!-- ============================================================ -->
+  <section class="lp-hero">
+    <div class="lp-hero-bg">
+      <div class="lp-hero-orb lp-hero-orb-1"></div>
+      <div class="lp-hero-orb lp-hero-orb-2"></div>
+    </div>
+    <div class="lp-container lp-hero-grid">
+      <div class="lp-hero-content">
+        <div class="lp-badge">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <span>High-Performance Webhook Delivery</span>
+        </div>
+
+        <h1>
+          Modern <span class="lp-gradient-text">Event-Driven</span><br />
+          Webhook System
+        </h1>
+
+        <p class="lp-hero-desc">
+          Production-ready webhook delivery with guaranteed delivery, intelligent retries, and complete observability. Enterprise-grade infrastructure out of the box.
+        </p>
+
+        <div class="lp-hero-ctas">
+          <a href={docsHome} class="lp-btn-primary lp-btn-lg">
+            Get Started
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </a>
+          <a href={githubURL} target="_blank" rel="noopener" class="lp-btn-outline lp-btn-lg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+
+        <div class="lp-tech-stack">
+          <p>Built with</p>
+          <div class="lp-tech-tags">
+            {techStack.map(t => <span>{t}</span>)}
+          </div>
+        </div>
+      </div>
+
+      <div class="lp-hero-visual">
+        <div class="lp-hero-logo-wrap">
+          <div class="lp-hero-logo-glow"></div>
+          <div class="lp-hero-logo-card">
+            <img src={favicon} alt="Sparrow" width="320" height="320" class="lp-hero-logo" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- FEATURES                                                     -->
+  <!-- ============================================================ -->
+  <section id="features" class="lp-section">
+    <div class="lp-container">
+      <div class="lp-section-header">
+        <div class="lp-badge"><span>Core Features</span></div>
+        <h2>Enterprise-Grade <span class="lp-gradient-text">Webhook Infrastructure</span></h2>
+        <p>Everything you need to build reliable event-driven systems at scale</p>
+      </div>
+      <div class="lp-feature-grid">
+        {features.map(f => (
+          <div class="lp-feature-card">
+            <div class="lp-feature-icon">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d={f.icon}/></svg>
+            </div>
+            <h3>{f.title}</h3>
+            <p>{f.description}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- GETTING STARTED                                              -->
+  <!-- ============================================================ -->
+  <section id="getting-started" class="lp-section lp-section-alt">
+    <div class="lp-container">
+      <div class="lp-section-header">
+        <div class="lp-badge"><span>Getting Started</span></div>
+        <h2>Up and Running <span class="lp-gradient-text">in Minutes</span></h2>
+        <p>Start Sparrow with <code>docker compose up -d</code> then run these three commands</p>
+      </div>
+      <div class="lp-steps">
+        {steps.map(s => (
+          <div class="lp-step-card">
+            <span class="lp-step-num">{s.num}</span>
+            <h3>{s.title}</h3>
+            <p>{s.description}</p>
+            <div class="lp-code-block"><code>{s.code}</code></div>
+          </div>
+        ))}
+      </div>
+      <div class="lp-steps-footer">
+        <p>
+          For fine-grained routing, create subscriptions with <code>label_filters</code> via the
+          <a href={`${base}reference/api/subscription-service/`}>Subscription Service</a> —
+          only events whose labels match will be delivered.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- ARCHITECTURE                                                 -->
+  <!-- ============================================================ -->
+  <section id="architecture" class="lp-section">
+    <div class="lp-container">
+      <div class="lp-section-header">
+        <div class="lp-badge"><span>Architecture</span></div>
+        <h2>Built for <span class="lp-gradient-text">Scale & Reliability</span></h2>
+        <p>A modern, layered architecture designed for high-throughput webhook delivery</p>
+      </div>
+      <div class="lp-arch-grid">
+        {archCards.map(c => (
+          <div class="lp-arch-card">
+            <div class="lp-arch-card-header">
+              <div class="lp-feature-icon lp-feature-icon-sm">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d={c.icon}/></svg>
+              </div>
+              <h3>{c.title}</h3>
+            </div>
+            <p>{c.description}</p>
+            <div class="lp-arch-tags">
+              {c.tags.map(tag => <span>{tag}</span>)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- COMPARISON                                                   -->
+  <!-- ============================================================ -->
+  <section id="comparison" class="lp-section lp-section-alt">
+    <div class="lp-container">
+      <div class="lp-section-header">
+        <div class="lp-badge"><span>Why Sparrow?</span></div>
+        <h2>How Sparrow <span class="lp-gradient-text">Compares</span></h2>
+        <p>There are many ways to deliver webhooks. Here's why teams choose Sparrow.</p>
+      </div>
+
+      <div class="lp-table-wrap">
+        <table class="lp-comparison-table">
+          <thead>
+            <tr>
+              <th class="lp-table-feature-col">Feature</th>
+              {comparisonServices.map(svc => (
+                <th class:list={[svc.highlight && 'lp-table-highlight']}>
+                  {svc.highlight ? (
+                    <div class="lp-table-recommended">
+                      <span class="lp-table-rec-badge">Recommended</span>
+                      <span>{svc.name}</span>
+                    </div>
+                  ) : svc.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {comparisonFeatures.map((row, i) => (
+              <tr class:list={[i % 2 !== 0 && 'lp-table-alt-row']}>
+                <td class:list={['lp-table-feature-col', i % 2 !== 0 && 'lp-table-alt-row']}>{row.feature}</td>
+                {comparisonServices.map(svc => {
+                  const val = row[svc.key];
+                  return (
+                    <td class:list={[svc.highlight && 'lp-table-highlight', svc.highlight && val === true && 'lp-table-highlight-yes']}>
+                      {val === true ? (
+                        <span class:list={['lp-check', svc.highlight && 'lp-check-primary']}>
+                          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
+                        </span>
+                      ) : val === false ? (
+                        <span class="lp-cross">
+                          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
+                        </span>
+                      ) : (
+                        <span class="lp-cell-text">{val}</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="lp-stats-bar">
+        <div class="lp-stat"><p class="lp-stat-value">$0</p><p class="lp-stat-label">Per-message cost</p></div>
+        <div class="lp-stat"><p class="lp-stat-value">1 Binary</p><p class="lp-stat-label">Single Go binary + Postgres</p></div>
+        <div class="lp-stat"><p class="lp-stat-value">100%</p><p class="lp-stat-label">Open source, no gated features</p></div>
+        <div class="lp-stat"><p class="lp-stat-value">Minutes</p><p class="lp-stat-label">Docker Compose to production</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- CTA                                                          -->
+  <!-- ============================================================ -->
+  <section class="lp-cta-section">
+    <div class="lp-container lp-cta-inner">
+      <h2>Ready to Build <span class="lp-gradient-text">Reliable Webhooks</span>?</h2>
+      <p>Join the developers using Sparrow to power their event-driven architectures. Open source and free to use.</p>
+      <div class="lp-hero-ctas">
+        <a href={docsHome} class="lp-btn-primary lp-btn-lg">
+          Get Started
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+        <a href={githubURL} target="_blank" rel="noopener" class="lp-btn-outline lp-btn-lg">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Star on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- FOOTER                                                       -->
+  <!-- ============================================================ -->
+  <footer class="lp-footer">
+    <div class="lp-container lp-footer-inner">
+      <div class="lp-logo">
+        <img src={favicon} alt="Sparrow" width="24" height="24" />
+        <span>Sparrow</span>
+      </div>
+      <p>Open source webhook delivery system</p>
+      <div class="lp-footer-links">
+        <a href={githubURL} target="_blank" rel="noopener">GitHub</a>
+        <a href={docsHome}>Docs</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
+
+<style>
+/* ================================================================
+   Landing Page Styles — scoped to .lp
+   Faithful port of the original SvelteKit marketing page
+   ================================================================ */
+
+/* Reset / base */
+.lp {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #111827;
+  background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+.lp *, .lp *::before, .lp *::after { box-sizing: border-box; }
+.lp a { text-decoration: none; }
+.lp code {
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background: #e5e7eb;
+  color: #374151;
+  font-family: 'Fira Code', ui-monospace, monospace;
+  font-size: 0.875rem;
+}
+
+/* Container */
+.lp-container { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem; }
+
+/* Gradient text utility */
+.lp-gradient-text {
+  background: linear-gradient(to right, #14b8a6, #0ea5e9);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Badge */
+.lp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  background: #f0fdfa;
+  border: 1px solid rgba(20, 184, 166, 0.3);
+  color: #0d9488;
+  font-weight: 500;
+}
+
+/* Buttons */
+.lp-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 0.75rem;
+  background: #14b8a6;
+  color: #fff;
+  transition: background 0.2s;
+}
+.lp-btn-primary:hover { background: #0d9488; color: #fff; }
+
+.lp-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  transition: background 0.2s;
+}
+.lp-btn-outline:hover { background: #f9fafb; color: #374151; }
+
+.lp-btn-lg { padding: 0.75rem 1.75rem; font-size: 1rem; }
+
+/* ─── HEADER ────────────────────────────────────────────────── */
+.lp-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 50;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.6);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.lp-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 4rem;
+}
+.lp-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.lp-logo span {
+  font-family: 'Fira Code', monospace;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+}
+.lp-nav { display: flex; align-items: center; gap: 2rem; }
+.lp-nav a {
+  font-size: 0.875rem;
+  color: #6b7280;
+  transition: color 0.2s;
+}
+.lp-nav a:hover { color: #0d9488; }
+.lp-header-actions { display: flex; align-items: center; gap: 0.75rem; }
+
+@media (max-width: 768px) {
+  .lp-nav { display: none; }
+  .lp-header-actions .lp-btn-outline { display: none; }
+}
+
+/* ─── HERO ──────────────────────────────────────────────────── */
+.lp-hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 4rem;
+  overflow: hidden;
+}
+.lp-hero-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(240, 253, 250, 0.6), #fff, rgba(240, 249, 255, 0.4));
+}
+.lp-hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  animation: pulse 4s ease-in-out infinite;
+}
+.lp-hero-orb-1 { top: 25%; left: 25%; width: 24rem; height: 24rem; background: rgba(204, 251, 241, 0.5); filter: blur(80px); }
+.lp-hero-orb-2 { bottom: 25%; right: 25%; width: 16rem; height: 16rem; background: rgba(224, 242, 254, 0.4); filter: blur(60px); animation-delay: 1.5s; }
+
+.lp-hero-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+@media (max-width: 1024px) { .lp-hero-grid { grid-template-columns: 1fr; } }
+
+.lp-hero-content { display: flex; flex-direction: column; gap: 2rem; }
+
+.lp-hero-content h1 {
+  font-family: 'Fira Code', monospace;
+  font-size: clamp(2.25rem, 5vw, 3.75rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: #111827;
+  margin: 0;
+}
+.lp-hero-desc {
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: #6b7280;
+  max-width: 36rem;
+  margin: 0;
+}
+.lp-hero-ctas { display: flex; flex-wrap: wrap; gap: 1rem; }
+
+.lp-tech-stack {
+  padding-top: 2rem;
+  border-top: 1px solid #e5e7eb;
+}
+.lp-tech-stack p {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #9ca3af;
+  margin: 0 0 0.75rem;
+}
+.lp-tech-tags { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.lp-tech-tags span {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-family: 'Fira Code', monospace;
+  border-radius: 0.375rem;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Hero visual */
+.lp-hero-visual { display: flex; justify-content: center; }
+@media (min-width: 1024px) { .lp-hero-visual { justify-content: flex-end; } }
+
+.lp-hero-logo-wrap { position: relative; }
+.lp-hero-logo-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(204, 251, 241, 0.4), transparent 70%);
+  transform: scale(1.1);
+  filter: blur(60px);
+}
+.lp-hero-logo-card {
+  position: relative;
+  padding: 2rem;
+  border-radius: 1.5rem;
+  backdrop-filter: blur(4px);
+  background: linear-gradient(135deg, rgba(240, 253, 250, 0.6), rgba(255, 255, 255, 0.4), transparent);
+  border: 1px solid rgba(20, 184, 166, 0.2);
+}
+.lp-hero-logo {
+  display: block;
+  width: clamp(14rem, 20vw, 20rem);
+  height: auto;
+  filter: drop-shadow(0 25px 25px rgba(0, 0, 0, 0.15));
+  animation: float 6s ease-in-out infinite;
+}
+
+/* ─── SECTIONS ──────────────────────────────────────────────── */
+.lp-section { padding: 6rem 0; }
+.lp-section-alt { background: rgba(249, 250, 251, 0.7); }
+
+.lp-section-header {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+.lp-section-header .lp-badge { margin-bottom: 1.5rem; }
+.lp-section-header h2 {
+  font-family: 'Fira Code', monospace;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-weight: 700;
+  margin: 0 0 1rem;
+  color: #111827;
+}
+.lp-section-header > p {
+  font-size: 1.125rem;
+  color: #6b7280;
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+/* ─── FEATURES ──────────────────────────────────────────────── */
+.lp-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+@media (max-width: 1024px) { .lp-feature-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .lp-feature-grid { grid-template-columns: 1fr; } }
+
+.lp-feature-card {
+  padding: 2rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  background: rgba(249, 250, 251, 0.5);
+  transition: all 0.3s;
+}
+.lp-feature-card:hover {
+  border-color: rgba(20, 184, 166, 0.4);
+  box-shadow: 0 10px 25px -5px rgba(20, 184, 166, 0.05);
+  transform: translateY(-4px);
+}
+.lp-feature-icon {
+  width: 3rem; height: 3rem;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 0.75rem;
+  background: #f0fdfa;
+  color: #14b8a6;
+  margin-bottom: 1.5rem;
+}
+.lp-feature-icon-sm { width: 2.5rem; height: 2.5rem; }
+.lp-feature-card h3 {
+  font-family: 'Fira Code', monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.75rem;
+}
+.lp-feature-card p {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* ─── GETTING STARTED ───────────────────────────────────────── */
+.lp-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 56rem;
+  margin: 0 auto;
+}
+.lp-step-card {
+  position: relative;
+  padding: 2rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  background: #fff;
+}
+.lp-step-num {
+  position: absolute;
+  top: 1.5rem; right: 1.5rem;
+  font-family: 'Fira Code', monospace;
+  font-size: 3rem;
+  font-weight: 700;
+  color: #ccfbf1;
+}
+.lp-step-card h3 {
+  font-family: 'Fira Code', monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0d9488;
+  margin: 0 0 0.5rem;
+}
+.lp-step-card > p {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  margin: 0 0 1.25rem;
+}
+.lp-code-block {
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+  background: #111827;
+}
+.lp-code-block code {
+  font-family: 'Fira Code', monospace;
+  font-size: 0.8125rem;
+  color: #5eead4;
+  white-space: pre;
+  background: transparent;
+  padding: 0;
+}
+.lp-steps-footer {
+  max-width: 56rem;
+  margin: 2.5rem auto 0;
+  text-align: center;
+}
+.lp-steps-footer p {
+  font-size: 0.9375rem;
+  color: #6b7280;
+}
+.lp-steps-footer a {
+  color: #0d9488;
+  font-weight: 500;
+}
+.lp-steps-footer a:hover { color: #0f766e; }
+
+/* ─── ARCHITECTURE ──────────────────────────────────────────── */
+.lp-arch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+@media (max-width: 640px) { .lp-arch-grid { grid-template-columns: 1fr; } }
+
+.lp-arch-card {
+  padding: 2rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  background: rgba(249, 250, 251, 0.5);
+  transition: border-color 0.3s;
+}
+.lp-arch-card:hover { border-color: rgba(20, 184, 166, 0.4); }
+.lp-arch-card-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+.lp-arch-card h3 {
+  font-family: 'Fira Code', monospace;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+.lp-arch-card > p {
+  font-size: 0.9375rem;
+  color: #6b7280;
+  margin: 0 0 1rem;
+  line-height: 1.6;
+}
+.lp-arch-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.lp-arch-tags span {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-family: 'Fira Code', monospace;
+  border-radius: 0.25rem;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* ─── COMPARISON TABLE ──────────────────────────────────────── */
+.lp-table-wrap {
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.lp-comparison-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.lp-comparison-table thead tr { border-bottom: 1px solid #e5e7eb; }
+.lp-comparison-table th {
+  padding: 1rem 1rem;
+  text-align: center;
+  font-weight: 600;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  background: rgba(249, 250, 251, 0.5);
+}
+.lp-table-feature-col {
+  text-align: left !important;
+  min-width: 200px;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fff !important;
+}
+.lp-table-highlight {
+  background: rgba(240, 253, 250, 0.8) !important;
+  color: #0f766e !important;
+  border-left: 1px solid rgba(20, 184, 166, 0.25);
+  border-right: 1px solid rgba(20, 184, 166, 0.25);
+}
+.lp-table-highlight-yes { background: rgba(240, 253, 250, 0.6) !important; }
+.lp-table-recommended { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+.lp-table-rec-badge {
+  display: inline-flex;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  background: #14b8a6;
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.lp-comparison-table td {
+  padding: 0.875rem 1rem;
+  text-align: center;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+  font-weight: 500;
+}
+.lp-comparison-table tbody tr:last-child td { border-bottom: none; }
+.lp-table-alt-row { background: rgba(249, 250, 251, 0.3); }
+
+.lp-check, .lp-cross {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem; height: 1.5rem;
+  border-radius: 50%;
+}
+.lp-check { background: #dcfce7; color: #16a34a; }
+.lp-check-primary { background: #14b8a6; color: #fff; }
+.lp-cross { background: #f3f4f6; color: #d1d5db; }
+.lp-cell-text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #9ca3af;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background: rgba(243, 244, 246, 0.8);
+}
+
+/* Stats bar */
+.lp-stats-bar {
+  margin-top: 3rem;
+  padding: 2rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(20, 184, 166, 0.3);
+  background: linear-gradient(to right, rgba(240, 253, 250, 0.8), rgba(240, 249, 255, 0.6));
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  text-align: center;
+}
+@media (max-width: 640px) { .lp-stats-bar { grid-template-columns: repeat(2, 1fr); } }
+.lp-stat-value {
+  font-family: 'Fira Code', monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0d9488;
+  margin: 0;
+}
+.lp-stat-label { font-size: 0.875rem; color: #6b7280; margin: 0.25rem 0 0; }
+
+/* ─── CTA ───────────────────────────────────────────────────── */
+.lp-cta-section {
+  padding: 6rem 0;
+  background: linear-gradient(to bottom, #fff, rgba(240, 253, 250, 0.3));
+}
+.lp-cta-inner { text-align: center; max-width: 48rem; }
+.lp-cta-inner h2 {
+  font-family: 'Fira Code', monospace;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-weight: 700;
+  margin: 0 0 1.5rem;
+  color: #111827;
+}
+.lp-cta-inner > p {
+  font-size: 1.125rem;
+  color: #6b7280;
+  margin: 0 0 2rem;
+}
+.lp-cta-inner .lp-hero-ctas { justify-content: center; }
+
+/* ─── FOOTER ────────────────────────────────────────────────── */
+.lp-footer {
+  padding: 3rem 0;
+  border-top: 1px solid #e5e7eb;
+}
+.lp-footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+.lp-footer-inner > p { font-size: 0.875rem; color: #9ca3af; margin: 0; }
+.lp-footer-links { display: flex; gap: 1.5rem; }
+.lp-footer-links a { font-size: 0.875rem; color: #6b7280; transition: color 0.2s; }
+.lp-footer-links a:hover { color: #0d9488; }
+
+/* ─── ANIMATIONS ────────────────────────────────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+</style>
