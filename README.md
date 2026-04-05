@@ -19,6 +19,7 @@ Self-hosted webhook delivery platform with async fan-out, retries, health tracki
 - **Payload transformation** -- Go templates per subscription to reshape payloads before delivery
 - **Health tracking** -- per-webhook success rates, error classification, and automatic degradation detection
 - **HMAC signing** -- every delivery is signed so receivers can verify authenticity
+- **Encryption at rest** -- webhook secrets and sensitive headers are envelope-encrypted (AES-256-GCM) with auto-generated keys
 - **Dual-protocol API** -- gRPC on `:50051` and Connect-RPC (HTTP/JSON) on `:8080`
 - **Web dashboard** -- embedded UI for managing webhooks, events, deliveries, and health
 - **Observability** -- OpenTelemetry traces, metrics, and structured logs via OTLP
@@ -81,7 +82,7 @@ PushEvent API
         -> track health per webhook
 ```
 
-Events are persisted before delivery. The [River](https://riverqueue.com) job queue provides at-least-once delivery with configurable retries (default: 3 attempts, 60s backoff). Failures are classified into retryable (5xx, timeout, connection refused, network error) and non-retryable (4xx, DNS, TLS) categories.
+Events are persisted before delivery. The [River](https://riverqueue.com) job queue provides at-least-once delivery with configurable retries (default: 3 attempts, 60s backoff). Failures are classified into retryable (5xx, timeout, connection refused, network error) and non-retryable (4xx, DNS, TLS) categories. Webhook secrets and sensitive headers are envelope-encrypted at rest using AES-256-GCM with per-record data encryption keys.
 
 See the [architecture reference](docs/src/content/docs/reference/architecture.md) for the full pipeline design, error classification, and health state machine.
 
@@ -94,6 +95,7 @@ All configuration is via environment variables:
 | `DATABASE_URL` | Yes | -- | PostgreSQL connection string |
 | `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard |
 | `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header |
+| `SPARROW_ENCRYPTION_KEY` | No | auto-generated | 64-char hex key for envelope encryption of secrets (auto-generated on first boot if not set) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP endpoint for traces/metrics/logs |
 
 See the [configuration reference](docs/src/content/docs/getting-started/configuration.md) for the full list.

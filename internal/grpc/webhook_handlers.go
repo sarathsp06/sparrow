@@ -92,7 +92,7 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 				VerifySsl:             reg.VerifySSL,
 				RequestTimeoutSeconds: int32(reg.RequestTimeoutSeconds),
 				ExpectedStatusCodes:   convertExpectedStatusCodes(reg.ExpectedStatusCodes),
-				WebhookSecret:         maskSecret(reg.WebhookSecret),
+				WebhookSecret:         maskEncryptedSecret(reg.WebhookSecret, s.service),
 				UserAgent:             reg.UserAgent,
 				ContentType:           reg.ContentType,
 			},

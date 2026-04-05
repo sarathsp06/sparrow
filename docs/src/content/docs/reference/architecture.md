@@ -86,7 +86,7 @@ erDiagram
         string url
         bool active
         string health
-        string webhook_secret
+        bytea webhook_secret "envelope-encrypted"
     }
 
     event_subscriptions {
@@ -347,9 +347,41 @@ def verify_webhook(raw_body: bytes, timestamp: str, signature: str, secret: str)
         secret.encode(), message.encode(), hashlib.sha256
     ).hexdigest()
 
-    if not hmac.compare_digest(expected, signature):
-        raise ValueError("Signature mismatch")
+        if not hmac.compare_digest(expected, signature):
+            raise ValueError("Signature mismatch")
 ```
+
+---
+
+## Encryption at Rest
+
+Webhook secrets (`webhook_secret`) and sensitive headers (`secret_headers`) are encrypted at rest using **envelope encryption** with AES-256-GCM.
+
+### How It Works
+
+Each encrypted value uses a unique random data encryption key (DEK). The DEK is wrapped (encrypted) by the master key encryption key (KEK) and stored alongside the ciphertext:
+
+```
+[version:1] [edek_len:2 LE] [wrapped_dek:60] [nonce:12] [ciphertext+tag]
+```
+
+- **Version byte** (`0x01`) identifies the envelope format
+- **Wrapped DEK** (60 bytes) = 12-byte nonce + 32-byte DEK + 16-byte GCM tag
+- **Data ciphertext** uses its own 12-byte nonce + GCM authenticated encryption
+
+### Key Resolution
+
+The KEK is resolved on startup in priority order:
+
+1. `SPARROW_ENCRYPTION_KEY` environment variable (64-char hex = 32 bytes)
+2. Previously stored key in the `system_settings` database table
+3. Auto-generated random key, persisted to `system_settings`
+
+Encryption is always enabled -- there is no "disabled" mode. If no key is provided, one is generated automatically.
+
+### Backward Compatibility
+
+The `Decrypt()` function auto-detects the format: if the version byte indicates envelope encryption, it uses envelope decryption; otherwise, it falls back to legacy direct AES-256-GCM decryption. This ensures existing encrypted data remains readable without migration.
 
 ---
 

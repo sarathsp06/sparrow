@@ -160,6 +160,16 @@ func PrepareDeliveryRequest(
 		timeout = 30 * time.Second // Default
 	}
 
+	// Decrypt webhook secret for HMAC signing.
+	// If decryption fails (e.g. key rotated), the webhook still delivers
+	// without a signature — same resilience as secret header decryption.
+	var webhookSecret string
+	if cryptoSvc != nil && len(webhook.WebhookSecret) > 0 {
+		if decrypted, err := cryptoSvc.DecryptString(webhook.WebhookSecret); err == nil {
+			webhookSecret = decrypted
+		}
+	}
+
 	return &DeliveryRequest{
 		WebhookID:  webhook.ID,
 		DeliveryID: deliveryID,
@@ -167,7 +177,7 @@ func PrepareDeliveryRequest(
 		Method:     method,
 		Headers:    headers,
 		Payload:    payload,
-		Secret:     webhook.WebhookSecret,
+		Secret:     webhookSecret,
 		Timeout:    timeout,
 		RetryCount: 0, // Initial attempt
 		MaxRetries: webhook.MaxRetries,

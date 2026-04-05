@@ -10,6 +10,7 @@ import (
 
 	sparrow "github.com/sarathsp06/sparrow"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 func TestBuildRequest(t *testing.T) {
@@ -161,10 +162,26 @@ func TestPrepareDeliveryRequest(t *testing.T) {
 	webhookID := uuid.New()
 	eventID := uuid.New()
 
+	// Create a crypto service for encrypting/decrypting the webhook secret
+	_, key, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatalf("Failed to generate key: %v", err)
+	}
+	cryptoSvc, err := crypto.NewService(key)
+	if err != nil {
+		t.Fatalf("Failed to create crypto service: %v", err)
+	}
+
+	// Encrypt the webhook secret (simulates what the service layer does on register)
+	encryptedSecret, err := cryptoSvc.EncryptString("secret123")
+	if err != nil {
+		t.Fatalf("Failed to encrypt secret: %v", err)
+	}
+
 	webhook := &store.WebhookRegistration{
 		ID:                    webhookID,
 		URL:                   "https://example.com/webhook",
-		WebhookSecret:         "secret123",
+		WebhookSecret:         encryptedSecret,
 		RequestTimeoutSeconds: 15,
 		MaxRetries:            3,
 		Headers: map[string]string{
@@ -190,7 +207,7 @@ func TestPrepareDeliveryRequest(t *testing.T) {
 	payload := []byte(`{"user_id": "123"}`)
 	deliveryID := "delivery-456"
 
-	dr := PrepareDeliveryRequest(webhook, sub, event, deliveryID, payload, nil)
+	dr := PrepareDeliveryRequest(webhook, sub, event, deliveryID, payload, cryptoSvc)
 
 	if dr.WebhookID != webhookID {
 		t.Errorf("Expected WebhookID %s, got %s", webhookID, dr.WebhookID)
@@ -208,8 +225,8 @@ func TestPrepareDeliveryRequest(t *testing.T) {
 		t.Errorf("Expected Method POST, got %s", dr.Method)
 	}
 
-	if dr.Secret != webhook.WebhookSecret {
-		t.Errorf("Expected Secret %s, got %s", webhook.WebhookSecret, dr.Secret)
+	if dr.Secret != "secret123" {
+		t.Errorf("Expected Secret 'secret123', got %s", dr.Secret)
 	}
 
 	if dr.Timeout != 20*time.Second {

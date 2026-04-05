@@ -261,6 +261,19 @@ When a `webhook_secret` is configured, Sparrow signs every delivery for consumer
   </TabItem>
 </Tabs>
 
+## Encryption at Rest
+
+Webhook secrets and sensitive headers are encrypted at rest using **envelope encryption** (AES-256-GCM). Each value gets a unique random data encryption key (DEK), wrapped by the master key encryption key (KEK).
+
+**Wire format:** `[version:1] [edek_len:2] [wrapped_dek:60] [nonce:12] [ciphertext+tag]`
+
+**Key resolution** (priority order):
+1. `SPARROW_ENCRYPTION_KEY` env var (64-char hex)
+2. Stored key in `system_settings` table
+3. Auto-generated and persisted on first boot
+
+Encryption is always enabled. Existing data in the legacy direct AES-256-GCM format is auto-detected and decrypted transparently.
+
 ## Design Principles
 
 ### Composition Root

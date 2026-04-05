@@ -85,6 +85,7 @@ type WebhookServiceInterface interface {
 
 	// Crypto
 	DecryptSecretHeaders(encrypted []byte) (map[string]string, error)
+	DecryptWebhookSecret(encrypted []byte) (string, error)
 	GetCrypto() *crypto.Service
 }
 
@@ -157,6 +158,30 @@ func (s *WebhookService) DecryptSecretHeaders(encrypted []byte) (map[string]stri
 		return nil, fmt.Errorf("failed to decrypt secret headers: %w", err)
 	}
 	return headers, nil
+}
+
+// EncryptWebhookSecret encrypts a plaintext webhook secret string to bytes for storage.
+// Returns nil if the secret is empty, or if encryption is not configured.
+func (s *WebhookService) EncryptWebhookSecret(secret string) ([]byte, error) {
+	if secret == "" {
+		return nil, nil
+	}
+	if s.crypto == nil || !s.crypto.Enabled() {
+		return nil, fmt.Errorf("encryption is required for webhook secrets but SPARROW_ENCRYPTION_KEY is not configured")
+	}
+	return s.crypto.EncryptString(secret)
+}
+
+// DecryptWebhookSecret decrypts encrypted webhook secret bytes back to a plaintext string.
+// Returns "" if the encrypted data is nil/empty or if encryption is not configured.
+func (s *WebhookService) DecryptWebhookSecret(encrypted []byte) (string, error) {
+	if len(encrypted) == 0 {
+		return "", nil
+	}
+	if s.crypto == nil || !s.crypto.Enabled() {
+		return "", fmt.Errorf("encryption key not configured; cannot decrypt webhook secret")
+	}
+	return s.crypto.DecryptString(encrypted)
 }
 
 // GetCrypto returns the crypto service for use by workers and handlers
@@ -366,7 +391,6 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		FollowRedirects:       webhookReg.HTTPConfig.FollowRedirects,
 		VerifySSL:             webhookReg.HTTPConfig.VerifySSL,
 		RequestTimeoutSeconds: webhookReg.HTTPConfig.RequestTimeoutSeconds,
-		WebhookSecret:         webhookReg.HTTPConfig.WebhookSecret,
 		UserAgent:             webhookReg.HTTPConfig.UserAgent,
 		ContentType:           webhookReg.HTTPConfig.ContentType,
 		CreatedAt:             time.Now(),
@@ -381,6 +405,15 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		}
 	}
 	storeWebhook.Headers = headersMap
+
+	// Encrypt webhook secret if provided
+	if webhookReg.HTTPConfig.WebhookSecret != "" {
+		encSecret, err := s.EncryptWebhookSecret(webhookReg.HTTPConfig.WebhookSecret)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt webhook secret: %w", err)
+		}
+		storeWebhook.WebhookSecret = encSecret
+	}
 
 	// Encrypt secret headers if provided
 	if len(req.SecretHeaders) > 0 {
@@ -1580,7 +1613,11 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 			webhook.ExpectedStatusCodes = int64Codes
 		}
 		if httpConfig.WebhookSecret != "" {
-			webhook.WebhookSecret = httpConfig.WebhookSecret
+			encSecret, err := s.EncryptWebhookSecret(httpConfig.WebhookSecret)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt webhook secret: %w", err)
+			}
+			webhook.WebhookSecret = encSecret
 		}
 		if httpConfig.UserAgent != "" {
 			webhook.UserAgent = httpConfig.UserAgent

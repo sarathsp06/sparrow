@@ -35,6 +35,8 @@ services:
       SPARROW_SERVE_UI: "true"
       # Optional: require an API key for all requests
       # SPARROW_API_KEY: "change-me-to-a-secure-random-string"
+      # Optional: explicit encryption key (auto-generated if omitted)
+      # SPARROW_ENCRYPTION_KEY: "your-64-char-hex-key-from-openssl-rand-hex-32"
     depends_on:
       postgres:
         condition: service_healthy

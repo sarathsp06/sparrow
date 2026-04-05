@@ -65,7 +65,7 @@ Sparrow runs migrations on startup automatically -- no separate migration step o
 | `DATABASE_URL` | Yes | -- | PostgreSQL connection string (auto-set via Railway reference variable) |
 | `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard |
 | `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests |
-| `SPARROW_ENCRYPTION_KEY` | No | -- | 64-char hex key for AES-256-GCM encryption of webhook secrets |
+| `SPARROW_ENCRYPTION_KEY` | No | auto-generated | 64-char hex key for envelope encryption of secrets (auto-generated if not set) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP endpoint for traces, metrics, and logs |
 
 ## Using the Docker Image Directly

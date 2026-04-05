@@ -152,6 +152,21 @@ func maskSecret(secret string) string {
 	return secret[:4] + strings.Repeat("*", len(secret)-4)
 }
 
+// maskEncryptedSecret decrypts an encrypted webhook secret and masks it for
+// safe display in API responses. Returns "" if the secret is empty or
+// decryption fails (e.g. key rotated/removed).
+func maskEncryptedSecret(encrypted []byte, svc webhooks.WebhookServiceInterface) string {
+	if len(encrypted) == 0 {
+		return ""
+	}
+	plaintext, err := svc.DecryptWebhookSecret(encrypted)
+	if err != nil || plaintext == "" {
+		// Can't decrypt — show a generic mask so the user knows a secret exists
+		return "••••••"
+	}
+	return maskSecret(plaintext)
+}
+
 // toGRPCError maps service-layer errors to appropriate gRPC status codes.
 // It checks for known error types (not found, validation)
 // and returns a properly-coded gRPC status error.

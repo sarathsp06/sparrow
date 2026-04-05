@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"log/slog"
@@ -145,20 +147,23 @@ func main() {
 		log.Fatalf("Failed to bootstrap: %v", err)
 	}
 
-	// Initialize encryption service for secret headers
-	encKeyRaw := os.Getenv("SPARROW_ENCRYPTION_KEY")
-	encKey, err := crypto.ParseKey(encKeyRaw)
+	// Initialize encryption service.
+	// Priority: 1) SPARROW_ENCRYPTION_KEY env var, 2) system_settings DB key, 3) auto-generate.
+	// Encryption is always enabled — a KEK is guaranteed after this block.
+	encKey, err := resolveEncryptionKey(ctx, sqlxDB)
 	if err != nil {
-		log.Fatalf("Failed to parse SPARROW_ENCRYPTION_KEY: %v", err)
+		log.Fatalf("Failed to resolve encryption key: %v", err)
 	}
 	cryptoSvc, err := crypto.NewService(encKey)
 	if err != nil {
 		log.Fatalf("Failed to create crypto service: %v", err)
 	}
-	if cryptoSvc.Enabled() {
-		fmt.Println("🔐 Encryption enabled for secret headers")
-	} else {
-		fmt.Println("⚠️  SPARROW_ENCRYPTION_KEY not set — secret headers feature disabled")
+	fmt.Println("🔐 Encryption enabled (envelope encryption with per-record DEK)")
+
+	// Re-encrypt any plaintext webhook_secret values that were converted from TEXT to BYTEA
+	// by migration 000015. These are raw UTF-8 bytes, not envelope-encrypted.
+	if err := migrateWebhookSecrets(ctx, sqlxDB, cryptoSvc); err != nil {
+		log.Printf("⚠️  Failed to migrate webhook secrets: %v (non-fatal, will retry on next restart)", err)
 	}
 
 	// Configure optional API key authentication.
@@ -372,4 +377,109 @@ func buildCORSHandler() *cors.Cors {
 		AllowCredentials: true,
 		MaxAge:           300,
 	})
+}
+
+// resolveEncryptionKey determines the 32-byte KEK using this priority:
+//  1. SPARROW_ENCRYPTION_KEY env var (64 hex chars)
+//  2. Previously auto-generated key in system_settings table
+//  3. Generate a new key, persist it in system_settings, and use it
+//
+// This ensures encryption is always enabled without requiring manual setup.
+func resolveEncryptionKey(ctx context.Context, db *postgres.SQLXDB) ([]byte, error) {
+	// 1. Check env var first (always takes precedence)
+	if raw := os.Getenv("SPARROW_ENCRYPTION_KEY"); raw != "" {
+		key, err := crypto.ParseKey(raw)
+		if err != nil {
+			return nil, fmt.Errorf("invalid SPARROW_ENCRYPTION_KEY: %w", err)
+		}
+		fmt.Println("🔑 Using encryption key from SPARROW_ENCRYPTION_KEY env var")
+		return key, nil
+	}
+
+	// 2. Check system_settings table for previously auto-generated key
+	var storedHex []byte
+	err := db.GetContext(ctx, &storedHex,
+		`SELECT value FROM system_settings WHERE key = 'encryption_key'`)
+	if err == nil && len(storedHex) > 0 {
+		// Value is stored as hex-encoded bytes
+		key, err := hex.DecodeString(string(storedHex))
+		if err != nil {
+			return nil, fmt.Errorf("invalid stored encryption key: %w", err)
+		}
+		if len(key) != 32 {
+			return nil, fmt.Errorf("stored encryption key has wrong length: %d bytes (expected 32)", len(key))
+		}
+		fmt.Println("🔑 Using auto-generated encryption key from database")
+		return key, nil
+	}
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to query system_settings: %w", err)
+	}
+
+	// 3. Generate a new key and persist it
+	hexKey, key, err := crypto.GenerateKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate encryption key: %w", err)
+	}
+
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO system_settings (key, value) VALUES ('encryption_key', $1)
+		 ON CONFLICT (key) DO NOTHING`,
+		[]byte(hexKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to persist encryption key: %w", err)
+	}
+
+	fmt.Println("🔑 Generated and stored new encryption key in database")
+	fmt.Println("   TIP: Set SPARROW_ENCRYPTION_KEY env var for portability across deployments")
+	return key, nil
+}
+
+// migrateWebhookSecrets re-encrypts any webhook_secret values that were
+// converted from TEXT to BYTEA by migration 000015 but are not yet
+// envelope-encrypted. These are raw UTF-8 bytes of the original plaintext.
+func migrateWebhookSecrets(ctx context.Context, db *postgres.SQLXDB, cryptoSvc *crypto.Service) error {
+	type row struct {
+		ID            string `db:"id"`
+		WebhookSecret []byte `db:"webhook_secret"`
+	}
+
+	var rows []row
+	err := db.SelectContext(ctx, &rows,
+		`SELECT id, webhook_secret FROM webhook_registrations WHERE webhook_secret IS NOT NULL`)
+	if err != nil {
+		return fmt.Errorf("query webhook secrets: %w", err)
+	}
+
+	var migrated int
+	for _, r := range rows {
+		if len(r.WebhookSecret) == 0 {
+			continue
+		}
+		// Skip already envelope-encrypted values
+		if crypto.IsEnvelopeEncrypted(r.WebhookSecret) {
+			continue
+		}
+
+		// The value is raw plaintext bytes (from TEXT->BYTEA cast).
+		// Encrypt it with envelope encryption.
+		plaintext := string(r.WebhookSecret)
+		encrypted, err := cryptoSvc.EncryptString(plaintext)
+		if err != nil {
+			return fmt.Errorf("encrypt webhook secret for %s: %w", r.ID, err)
+		}
+
+		_, err = db.ExecContext(ctx,
+			`UPDATE webhook_registrations SET webhook_secret = $1 WHERE id = $2`,
+			encrypted, r.ID)
+		if err != nil {
+			return fmt.Errorf("update webhook secret for %s: %w", r.ID, err)
+		}
+		migrated++
+	}
+
+	if migrated > 0 {
+		fmt.Printf("🔐 Migrated %d webhook secret(s) to envelope encryption\n", migrated)
+	}
+	return nil
 }

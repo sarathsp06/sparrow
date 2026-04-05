@@ -245,7 +245,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 		VerifySSL               bool          `db:"verify_ssl"`
 		RequestTimeoutSeconds   int           `db:"request_timeout_seconds"`
 		ExpectedStatusCodesJSON pq.Int64Array `db:"expected_status_codes"`
-		WebhookSecret           string        `db:"webhook_secret"`
+		WebhookSecret           []byte        `db:"webhook_secret"`
 		UserAgent               string        `db:"user_agent"`
 		ContentType             string        `db:"content_type"`
 		SecretHeaders           []byte        `db:"secret_headers"`

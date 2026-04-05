@@ -165,3 +165,65 @@ func TestDecrypt_WrongKey(t *testing.T) {
 	_, err = svc2.Decrypt(ciphertext)
 	assert.Error(t, err)
 }
+
+func TestDecrypt_BackwardCompatibility(t *testing.T) {
+	// Simulate legacy direct-encrypted data by calling directDecrypt's inverse
+	// (the old Encrypt format: nonce || ciphertext || tag, no envelope prefix).
+	svc, err := NewService(testKey())
+	require.NoError(t, err)
+
+	plaintext := []byte("legacy secret headers data")
+
+	// Manually create legacy direct-encrypted data using the KEK AEAD directly
+	nonce := make([]byte, svc.aead.NonceSize())
+	for i := range nonce {
+		nonce[i] = byte(i) // deterministic nonce for test
+	}
+	legacyCiphertext := svc.aead.Seal(nonce, nonce, plaintext, nil)
+
+	// The new Decrypt should fall back to direct decryption for legacy data
+	assert.False(t, IsEnvelopeEncrypted(legacyCiphertext))
+	decrypted, err := svc.Decrypt(legacyCiphertext)
+	require.NoError(t, err)
+	assert.Equal(t, plaintext, decrypted)
+}
+
+func TestEncryptString_DecryptString(t *testing.T) {
+	svc, err := NewService(testKey())
+	require.NoError(t, err)
+
+	// Normal string
+	ct, err := svc.EncryptString("whsec_abc123")
+	require.NoError(t, err)
+	assert.NotNil(t, ct)
+
+	decrypted, err := svc.DecryptString(ct)
+	require.NoError(t, err)
+	assert.Equal(t, "whsec_abc123", decrypted)
+
+	// Empty string returns nil
+	ct, err = svc.EncryptString("")
+	require.NoError(t, err)
+	assert.Nil(t, ct)
+
+	decrypted, err = svc.DecryptString(nil)
+	require.NoError(t, err)
+	assert.Equal(t, "", decrypted)
+}
+
+func TestGenerateKey(t *testing.T) {
+	hexKey, rawKey, err := GenerateKey()
+	require.NoError(t, err)
+	assert.Len(t, rawKey, 32)
+	assert.Len(t, hexKey, 64)
+
+	// Should be usable to create a service
+	svc, err := NewService(rawKey)
+	require.NoError(t, err)
+	assert.True(t, svc.Enabled())
+
+	// Hex should round-trip
+	parsed, err := ParseKey(hexKey)
+	require.NoError(t, err)
+	assert.Equal(t, rawKey, parsed)
+}

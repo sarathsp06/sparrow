@@ -36,15 +36,15 @@ type WebhookRegistration struct {
 	Description string                    `json:"description" db:"description"`
 	Health      WebhookHealth             `json:"health" db:"health"`
 	// HTTP Configuration
-	MaxRetries            int           `json:"max_retries" db:"max_retries"`
-	RetryBackoffSeconds   int           `json:"retry_backoff_seconds" db:"retry_backoff_seconds"`
+	MaxRetries          int `json:"max_retries" db:"max_retries"`
+	RetryBackoffSeconds int `json:"retry_backoff_seconds" db:"retry_backoff_seconds"`
 	// CaptureResponseBody controls stored response body size: false = up to 1 KB, true = up to 1 MB.
-	CaptureResponseBody bool `json:"capture_response_body" db:"capture_response_body"`
+	CaptureResponseBody   bool          `json:"capture_response_body" db:"capture_response_body"`
 	FollowRedirects       bool          `json:"follow_redirects" db:"follow_redirects"`
 	VerifySSL             bool          `json:"verify_ssl" db:"verify_ssl"`
 	RequestTimeoutSeconds int           `json:"request_timeout_seconds" db:"request_timeout_seconds"`
 	ExpectedStatusCodes   pq.Int64Array `json:"expected_status_codes" db:"expected_status_codes"`
-	WebhookSecret         string        `json:"webhook_secret" db:"webhook_secret"`
+	WebhookSecret         []byte        `json:"webhook_secret" db:"webhook_secret"` // Envelope-encrypted HMAC signing key
 	UserAgent             string        `json:"user_agent" db:"user_agent"`
 	ContentType           string        `json:"content_type" db:"content_type"`
 	SecretHeaders         []byte        `json:"secret_headers" db:"secret_headers"` // AES-256-GCM encrypted JSON of map[string]string
