@@ -83,7 +83,7 @@ PushEvent API
 
 Events are persisted before delivery. The [River](https://riverqueue.com) job queue provides at-least-once delivery with configurable retries (default: 3 attempts, 60s backoff). Failures are classified into retryable (5xx, timeout, connection refused, network error) and non-retryable (4xx, DNS, TLS) categories.
 
-See [TECHNICAL.md](TECHNICAL.md) for the full pipeline design, queue configuration, error classification, and health state machine.
+See the [architecture reference](docs/src/content/docs/reference/architecture.md) for the full pipeline design, error classification, and health state machine.
 
 ## Configuration
 
@@ -96,7 +96,7 @@ All configuration is via environment variables:
 | `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP endpoint for traces/metrics/logs |
 
-See [CONFIGURATION.md](CONFIGURATION.md) for the full list.
+See the [configuration reference](docs/src/content/docs/getting-started/configuration.md) for the full list.
 
 ## Deployment
 
@@ -135,7 +135,7 @@ See [Kubernetes deployment guide](https://sarathsp06.github.io/sparrow/deploymen
 
 API reference docs are generated from [`webhook.proto`](webhook.proto) using [proto2astro](https://github.com/sarathsp06/proto2astro).
 
-In-repo docs: [CONFIGURATION.md](CONFIGURATION.md) | [KUBERNETES.md](KUBERNETES.md) | [TECHNICAL.md](TECHNICAL.md) | [ARCHITECTURE.md](ARCHITECTURE.md) | [webhook.proto](webhook.proto)
+In-repo docs: [Configuration](docs/src/content/docs/getting-started/configuration.md) | [Architecture](docs/src/content/docs/reference/architecture.md) | [Kubernetes](docs/src/content/docs/deployment/kubernetes.md) | [webhook.proto](webhook.proto)
 
 ## Contributing
 
@@ -149,7 +149,7 @@ make test            # run tests
 make lint            # run linters
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the package structure and dependency graph.
+See the [architecture reference](docs/src/content/docs/reference/architecture.md) for the package structure and dependency graph.
 
 ## License
 

@@ -1,22 +1,9 @@
-# Sparrow -- Technical Reference
-
-This document covers Sparrow's internal architecture and design details. For configuration and deployment, see [CONFIGURATION.md](CONFIGURATION.md). For quick start, see [README.md](README.md).
-
+---
+title: Architecture
+description: System design, data model, event pipeline, and internal architecture.
 ---
 
-## Table of Contents
-
-- [Architecture Overview](#architecture-overview)
-- [Data Model](#data-model)
-- [Event Processing Pipeline](#event-processing-pipeline)
-- [Error Classification & Retry Logic](#error-classification--retry-logic)
-- [Health State Machine](#health-state-machine)
-- [HTTP Client Design](#http-client-design)
-- [Web UI Architecture](#web-ui-architecture)
-
----
-
-## Architecture Overview
+## Overview
 
 ```mermaid
 graph LR
@@ -163,44 +150,6 @@ WebhookWorker.Work()
     v
 Target URL receives webhook payload
 ```
-
----
-
-## Error Classification & Retry Logic
-
-The `pkg/errors/` package implements a taxonomy-based error classifier that inspects Go errors to determine retryability:
-
-```mermaid
-flowchart LR
-    Err[Go error] --> Unwrap[Unwrap error chain]
-
-    Unwrap --> URLErr[*url.Error]
-    Unwrap --> NetErr[net.Error]
-    Unwrap --> TLS[TLS errors]
-    Unwrap --> DNS[*net.DNSError]
-    Unwrap --> OpErr[*net.OpError]
-    Unwrap --> Sys[*os.SyscallError]
-    Unwrap --> Errno[syscall.Errno]
-    Unwrap --> Str[String pattern fallback]
-
-    URLErr & NetErr & OpErr & Sys & Errno & Str --> Retryable
-    TLS & DNS --> NonRetryable
-
-    subgraph Retryable [Retryable -> River retries]
-        R1[5xx server error]
-        R2[Timeout]
-        R3[Connection refused]
-        R4[Network error<br>ECONNRESET / EPIPE / EHOSTUNREACH]
-    end
-
-    subgraph NonRetryable [Non-retryable -> stop]
-        NR1[4xx client error]
-        NR2[DNS resolution failure]
-        NR3[TLS/SSL handshake failure]
-    end
-```
-
-Non-retryable errors return `nil` to River (stopping retries); retryable errors return an `error` to trigger River's built-in retry mechanism.
 
 ---
 
@@ -404,9 +353,70 @@ def verify_webhook(raw_body: bytes, timestamp: str, signature: str, secret: str)
 
 ---
 
-## Web UI Architecture
+## Package Structure
 
-The web dashboard is a SvelteKit application that compiles to static files and is embedded into the Go binary via `go:embed`. See [web/README.md](web/README.md) for development setup.
+```
+cmd/server/main.go  (composition root — wires everything)
+    │
+    ├── internal/tenant    ──→ pkg/storage
+    ├── internal/webhooks  ──→ pkg/storage, pkg/errors
+    │       ├── store/     ──→ pkg/storage, pkg/types
+    │       ├── queue/     ──→ store, client, pkg/errors, internal/observability
+    │       └── client/    ──→ store (models only), pkg/errors
+    └── internal/grpc      ──→ both domain packages (transport layer)
+```
+
+`tenant` and `webhooks` never import each other. Zero cycles.
+
+### Domain Packages
+
+**`internal/tenant`** -- Tenant lifecycle. A default tenant is bootstrapped on first boot.
+
+- Tables: `tenants`
+
+**`internal/webhooks`** -- Core business domain: namespaces, events, subscriptions, deliveries, health tracking.
+
+- Tables: `namespaces`, `webhook_registrations`, `event_registrations`, `event_subscriptions`, `event_records`, `webhook_deliveries`, `webhook_health_events`, `webhook_health_summaries`, `webhook_health_state`
+- Sub-packages:
+  - `store/` -- Data access (repository pattern, SQL queries)
+  - `queue/` -- Async processing (River workers: `EventWorker`, `WebhookWorker`)
+  - `client/` -- HTTP delivery (request building, HMAC signing, templating)
+
+### Infrastructure Packages
+
+**`internal/grpc`** -- gRPC service implementations (transport layer). 5 proto-defined service handlers delegating to domain services. The only package that imports both domain packages.
+
+**`internal/connect`** -- Connect-RPC adapter. Wraps gRPC handlers for HTTP/JSON access on `:8080`.
+
+**`internal/observability`** -- OpenTelemetry setup (traces, metrics, logs via OTLP).
+
+**`internal/ui`** -- Embedded SvelteKit frontend (`go:embed`).
+
+**`internal/config`** -- Environment variable loading.
+
+**`internal/health`** -- Health check endpoint.
+
+### Shared Packages
+
+- `pkg/storage` -- `DB`/`DBTX` interfaces, `WithTransaction` helper, SQL error translation
+- `pkg/errors` -- Error classification (9 categories, retryability determination)
+- `pkg/types` -- Shared utility types
+
+### Design Principles
+
+**Composition root in `main.go`** -- `cmd/server/main.go` is the only file that imports both domain packages. It constructs repositories, services, and wires them together. No framework -- just constructor functions and explicit wiring.
+
+**Repository per domain, not per table** -- Each domain owns a `Repository` interface and implementation. The repository encapsulates all SQL for that domain's tables.
+
+**Schema ownership** -- Each domain package owns its tables: `internal/tenant` owns `tenants`, `internal/webhooks` owns the other 9 tables.
+
+**No shared models** -- No shared "models" package and no ORM. Each package defines its own models matching its own SQL schemas. The only shared infrastructure is `pkg/storage` (DB abstraction) and `pkg/types` (generic utilities).
+
+---
+
+## Web UI
+
+The web dashboard is a SvelteKit application that compiles to static files and is embedded into the Go binary via `go:embed`.
 
 **Build pipeline:**
 1. `cd web && npm run build` -- compiles SvelteKit to static files in `internal/ui/dist/`
