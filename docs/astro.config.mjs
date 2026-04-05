@@ -14,6 +14,32 @@ export default defineConfig({
       editLink: { baseUrl: "https://github.com/sarathsp06/sparrow/edit/main/docs/" },
       sidebar: [
         {
+          label: 'Getting Started',
+          items: [
+            { slug: 'getting-started/installation' },
+            { slug: 'getting-started/quickstart' },
+            { slug: 'getting-started/configuration' },
+            { slug: 'getting-started/how-it-works' },
+          ],
+        },
+        {
+          label: 'Deployment',
+          items: [
+            { slug: 'deployment/docker-compose' },
+            { slug: 'deployment/railway' },
+            { slug: 'deployment/kubernetes' },
+          ],
+        },
+        {
+          label: 'Reference',
+          items: [
+            { slug: 'reference/architecture' },
+            { slug: 'reference/error-classification' },
+            { slug: 'reference/template-functions' },
+            { slug: 'reference/client-libraries' },
+          ],
+        },
+        {
           label: 'Guides',
           items: [
             { slug: 'guides/comment-guide' },
