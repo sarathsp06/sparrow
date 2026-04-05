@@ -7,32 +7,29 @@ const service: ApiService = {
   "rpcs": [
     {
       "name": "CreateSubscription",
-      "description": "CreateSubscription links a webhook to an event name in a namespace. Optionally configure per-subscription headers, HTTP method override, timeout override, payload transformation (Go template), and label filters for selective matching.",
+      "description": "CreateSubscription links a webhook to an event name in a namespace. Optionally configure per-subscription headers, HTTP method override, timeout override, payload transformation (Go template), and label filters for selective matching. Errors: ALREADY_EXISTS if the webhook is already subscribed to this event in this namespace. Errors: NOT_FOUND if the webhook_id does not exist.",
       "request": [
         {
           "name": "webhook_id",
           "type": "string",
-          "required": true,
-          "description": "UUID of the webhook to subscribe. Required. The webhook must exist in the specified namespace. @example \"550e8400-e29b-41d4-a716-446655440000\"",
+          "description": "UUID of the webhook to subscribe. Required. The webhook must exist in the specified namespace.",
           "example": "550e8400-e29b-41d4-a716-446655440000"
         },
         {
           "name": "event_name",
           "type": "string",
-          "required": true,
-          "description": "Event type name to subscribe to. Required. @example \"order.created\"",
+          "description": "Event type name to subscribe to. Required.",
           "example": "order.created"
         },
         {
           "name": "namespace",
           "type": "string",
-          "required": true,
-          "description": "Namespace for the subscription. Required. Must match the webhook's namespace. @example \"production\"",
+          "description": "Namespace for the subscription. Required. Must match the webhook's namespace.",
           "example": "production"
         },
         {
           "name": "headers",
-          "type": "map\u003cstring, string\u003e",
+          "type": "map<string, string>",
           "description": "Per-subscription HTTP headers. Optional. Merged with (and overrides) webhook-level headers on delivery."
         },
         {
@@ -57,8 +54,8 @@ const service: ApiService = {
         },
         {
           "name": "label_filters",
-          "type": "map\u003cstring, string\u003e",
-          "description": "Label filters for selective event matching. Optional. Only events with labels matching all key-value pairs will trigger this subscription. @example {\"region\": \"us-east\"}",
+          "type": "map<string, string>",
+          "description": "Label filters for selective event matching. Optional. Only events with labels matching all key-value pairs will trigger this subscription.",
           "example": {
             "region": "us-east"
           }
@@ -68,43 +65,31 @@ const service: ApiService = {
         {
           "name": "subscription_id",
           "type": "string",
-          "description": "Server-generated UUID of the new subscription. @example \"7c9e6679-7425-40de-944b-e07fc1f90ae7\"",
+          "description": "Server-generated UUID of the new subscription.",
           "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
         },
         {
           "name": "created_at",
           "type": "Timestamp",
-          "description": "When the subscription was created. @example \"2025-01-15T10:30:00Z\"",
+          "description": "When the subscription was created.",
           "example": "2025-01-15T10:30:00Z"
-        }
-      ],
-      "errors": [
-        {
-          "code": "ALREADY_EXISTS",
-          "description": "The webhook is already subscribed to this event in this namespace."
-        },
-        {
-          "code": "NOT_FOUND",
-          "description": "The webhook_id does not exist."
         }
       ]
     },
     {
       "name": "GetSubscription",
-      "description": "GetSubscription returns a single subscription by ID.",
+      "description": "GetSubscription returns a single subscription by ID. Errors: NOT_FOUND if the subscription_id does not exist in the given namespace.",
       "request": [
         {
           "name": "subscription_id",
           "type": "string",
-          "required": true,
-          "description": "UUID of the subscription to retrieve. Required. @example \"7c9e6679-7425-40de-944b-e07fc1f90ae7\"",
+          "description": "UUID of the subscription to retrieve. Required.",
           "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
         },
         {
           "name": "namespace",
           "type": "string",
-          "required": true,
-          "description": "Namespace the subscription belongs to. Required. @example \"production\"",
+          "description": "Namespace the subscription belongs to. Required.",
           "example": "production"
         }
       ],
@@ -113,12 +98,6 @@ const service: ApiService = {
           "name": "subscription",
           "type": "EventSubscription",
           "description": "Full subscription details."
-        }
-      ],
-      "errors": [
-        {
-          "code": "NOT_FOUND",
-          "description": "The subscription_id does not exist in the given namespace."
         }
       ]
     },
@@ -129,7 +108,7 @@ const service: ApiService = {
         {
           "name": "webhook_id",
           "type": "string",
-          "description": "Filter by webhook UUID. Optional. @example \"550e8400-e29b-41d4-a716-446655440000\"",
+          "description": "Filter by webhook UUID. Optional.",
           "example": "550e8400-e29b-41d4-a716-446655440000"
         },
         {
@@ -140,8 +119,7 @@ const service: ApiService = {
         {
           "name": "namespace",
           "type": "string",
-          "required": true,
-          "description": "Namespace to list subscriptions from. Required. @example \"production\"",
+          "description": "Namespace to list subscriptions from. Required.",
           "example": "production"
         },
         {
@@ -165,25 +143,23 @@ const service: ApiService = {
     },
     {
       "name": "UpdateSubscription",
-      "description": "UpdateSubscription modifies a subscription's headers, method, timeout, transform settings, or label filters. Only non-zero fields are applied.",
+      "description": "UpdateSubscription modifies a subscription's headers, method, timeout, transform settings, or label filters. Only non-zero fields are applied. Errors: NOT_FOUND if the subscription does not exist.",
       "request": [
         {
           "name": "subscription_id",
           "type": "string",
-          "required": true,
-          "description": "UUID of the subscription to update. Required. @example \"7c9e6679-7425-40de-944b-e07fc1f90ae7\"",
+          "description": "UUID of the subscription to update. Required.",
           "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
         },
         {
           "name": "namespace",
           "type": "string",
-          "required": true,
-          "description": "Namespace the subscription belongs to. Required. @example \"production\"",
+          "description": "Namespace the subscription belongs to. Required.",
           "example": "production"
         },
         {
           "name": "headers",
-          "type": "map\u003cstring, string\u003e",
+          "type": "map<string, string>",
           "description": "Updated per-subscription headers. Replaces existing headers when set."
         },
         {
@@ -199,7 +175,7 @@ const service: ApiService = {
         {
           "name": "transform_enabled",
           "type": "bool",
-          "description": "Updated transform enabled flag. @example true",
+          "description": "Updated transform enabled flag.",
           "example": true
         },
         {
@@ -209,66 +185,49 @@ const service: ApiService = {
         },
         {
           "name": "label_filters",
-          "type": "map\u003cstring, string\u003e",
+          "type": "map<string, string>",
           "description": "Updated label filters. Replaces existing filters when set."
-        }
-      ],
-      "errors": [
-        {
-          "code": "NOT_FOUND",
-          "description": "The subscription does not exist."
         }
       ]
     },
     {
       "name": "DeleteSubscription",
-      "description": "DeleteSubscription permanently removes a subscription. Existing in-flight deliveries for this subscription are not cancelled.",
+      "description": "DeleteSubscription permanently removes a subscription. Existing in-flight deliveries for this subscription are not cancelled. Errors: NOT_FOUND if the subscription does not exist.",
       "request": [
         {
           "name": "subscription_id",
           "type": "string",
-          "required": true,
-          "description": "UUID of the subscription to delete. Required. @example \"7c9e6679-7425-40de-944b-e07fc1f90ae7\"",
+          "description": "UUID of the subscription to delete. Required.",
           "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
         },
         {
           "name": "namespace",
           "type": "string",
-          "required": true,
-          "description": "Namespace the subscription belongs to. Required. @example \"production\"",
+          "description": "Namespace the subscription belongs to. Required.",
           "example": "production"
-        }
-      ],
-      "errors": [
-        {
-          "code": "NOT_FOUND",
-          "description": "The subscription does not exist."
         }
       ]
     },
     {
       "name": "TestSubscriptionTemplate",
-      "description": "TestSubscriptionTemplate renders a Go template against the sample payload of the given event type. Returns the transformed output string. Use this to validate templates before saving them on a subscription.",
+      "description": "TestSubscriptionTemplate renders a Go template against the sample payload of the given event type. Returns the transformed output string. Use this to validate templates before saving them on a subscription. Errors: INVALID_ARGUMENT if the template fails to parse or execute. Errors: NOT_FOUND if the event_name does not exist.",
       "request": [
         {
           "name": "event_name",
           "type": "string",
-          "required": true,
-          "description": "Event name to get the sample payload from. Required. The event type must have a schema defined for a sample payload to be generated. @example \"order.created\"",
+          "description": "Event name to get the sample payload from. Required. The event type must have a schema defined for a sample payload to be generated.",
           "example": "order.created"
         },
         {
           "name": "transform_template",
           "type": "string",
-          "required": true,
-          "description": "Go template string to test. Required. The template is executed with the event's sample_payload as its data context. @example \"{\\\"id\\\": \\\"{{ .payload.order_id }}\\\", \\\"total\\\": \\\"{{ .payload.amount }}\\\"}\"",
+          "description": "Go template string to test. Required. The template is executed with the event's sample_payload as its data context.",
           "example": "{\"id\": \"{{ .payload.order_id }}\", \"total\": \"{{ .payload.amount }}\"}"
         },
         {
           "name": "namespace",
           "type": "string",
-          "required": true,
-          "description": "Namespace. Required. @example \"production\"",
+          "description": "Namespace. Required.",
           "example": "production"
         }
       ],
@@ -276,18 +235,8 @@ const service: ApiService = {
         {
           "name": "transformed_payload",
           "type": "string",
-          "description": "The template output after rendering against the sample payload. This is exactly what would be sent as the delivery request body if this template were applied to a subscription. @example \"{\\\"id\\\": \\\"ord-123\\\", \\\"total\\\": \\\"99.99\\\"}\"",
+          "description": "The template output after rendering against the sample payload. This is exactly what would be sent as the delivery request body if this template were applied to a subscription.",
           "example": "{\"id\": \"ord-123\", \"total\": \"99.99\"}"
-        }
-      ],
-      "errors": [
-        {
-          "code": "INVALID_ARGUMENT",
-          "description": "The template fails to parse or execute."
-        },
-        {
-          "code": "NOT_FOUND",
-          "description": "The event_name does not exist."
         }
       ]
     }

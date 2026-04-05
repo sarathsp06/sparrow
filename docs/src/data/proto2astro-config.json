@@ -79,10 +79,21 @@
       ]
     },
     {
+      "label": "Guides",
+      "items": [
+        {
+          "slug": "guides/comment-guide"
+        }
+      ]
+    },
+    {
       "label": "Deployment",
       "items": [
         {
           "slug": "deployment/docker-compose"
+        },
+        {
+          "slug": "deployment/railway"
         },
         {
           "slug": "deployment/kubernetes"
