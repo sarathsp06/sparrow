@@ -255,11 +255,11 @@ func main() {
 			uiConfig := &ui.Config{APIKey: apiKeyAuth.APIKey}
 			mux.Handle("/", ui.Handler(logger, nil, uiConfig))
 			fmt.Println("🖥️  Embedded web UI enabled at http://localhost:8080/")
-			// Exclude static UI assets from API key checks
-			apiKeyAuth.ExcludedPathPrefixes = append(apiKeyAuth.ExcludedPathPrefixes,
-				"/_app/",   // SvelteKit immutable assets
-				"/favicon", // Favicon
-			)
+			// When the UI is served on the same port as the API, only
+			// require the API key for Connect-RPC paths. The UI shell and
+			// SPA routes are served without auth; the embedded config
+			// script injects the key so the SPA sends it on API calls.
+			apiKeyAuth.RequiredPathPrefixes = []string{"/sparrow.v1."}
 		} else {
 			fmt.Println("⚠️  SPARROW_SERVE_UI=true but no frontend build found. Build with: cd web && npm run build:static")
 		}
