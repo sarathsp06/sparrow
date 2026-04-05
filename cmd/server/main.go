@@ -221,8 +221,9 @@ func main() {
 	// Initialize Connect-RPC server
 	webhookConnectServer := connectserver.NewWebhookConnectServer(webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer)
 
-	// Create HTTP mux for Connect-RPC
-	mux := http.NewServeMux()
+	// Create API mux for Connect-RPC and health endpoints.
+	// This mux is wrapped with API key auth middleware.
+	apiMux := http.NewServeMux()
 	otelInterceptor, err := otelconnect.NewInterceptor()
 	if err != nil {
 		log.Fatal(err)
@@ -232,46 +233,50 @@ func main() {
 	// Enforce request/response body size limits on Connect-RPC handlers
 	readLimit := connect.WithReadMaxBytes(4 << 20) // 4 MB
 	sendLimit := connect.WithSendMaxBytes(4 << 20) // 4 MB
-	mux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
-	mux.Handle(pbconnect.NewEventServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
-	mux.Handle(pbconnect.NewSubscriptionServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
-	mux.Handle(pbconnect.NewDeliveryServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
-	mux.Handle(pbconnect.NewHealthServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
+	apiMux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
+	apiMux.Handle(pbconnect.NewEventServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
+	apiMux.Handle(pbconnect.NewSubscriptionServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
+	apiMux.Handle(pbconnect.NewDeliveryServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
+	apiMux.Handle(pbconnect.NewHealthServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, queueManager, startTime)
 
-	// Add health and readiness endpoints
-	mux.HandleFunc("/health", healthChecker.HealthHandler())
-	mux.HandleFunc("/ready", healthChecker.ReadyHandler())
+	// Health and readiness endpoints bypass API key auth.
+	apiMux.HandleFunc("/health", healthChecker.HealthHandler())
+	apiMux.HandleFunc("/ready", healthChecker.ReadyHandler())
+
+	// Top-level mux composes the auth-protected API and the open UI.
+	// API routes (/sparrow.v1.*, /health, /ready) go through apiKeyAuth.
+	// UI routes (everything else) are served directly without auth — the
+	// embedded config script injects the API key for the SPA to use.
+	topMux := http.NewServeMux()
+	topMux.Handle("/sparrow.v1.", apiKeyAuth.HTTPMiddleware(apiMux))
+	topMux.Handle("/health", apiMux)
+	topMux.Handle("/ready", apiMux)
 
 	// Serve embedded web UI if enabled.
-	// When serving the UI, exclude UI asset paths from API key checks so the
-	// browser can load the SPA without an API key in the initial page load.
-	// The SPA then sends the API key via X-API-Key header on all Connect-RPC calls.
 	serveUI := os.Getenv("SPARROW_SERVE_UI") == "true" || os.Getenv("SPARROW_SERVE_UI") == "1"
 	if serveUI {
 		if ui.Available() {
 			uiConfig := &ui.Config{APIKey: apiKeyAuth.APIKey}
-			mux.Handle("/", ui.Handler(logger, nil, uiConfig))
+			topMux.Handle("/", ui.Handler(logger, nil, uiConfig))
 			fmt.Println("🖥️  Embedded web UI enabled at http://localhost:8080/")
-			// When the UI is served on the same port as the API, only
-			// require the API key for Connect-RPC paths. The UI shell and
-			// SPA routes are served without auth; the embedded config
-			// script injects the key so the SPA sends it on API calls.
-			apiKeyAuth.RequiredPathPrefixes = []string{"/sparrow.v1."}
 		} else {
 			fmt.Println("⚠️  SPARROW_SERVE_UI=true but no frontend build found. Build with: cd web && npm run build:static")
 		}
+	} else {
+		// When UI is not served, protect everything with API key auth.
+		topMux.Handle("/", apiKeyAuth.HTTPMiddleware(apiMux))
 	}
 
 	// Create HTTP server with OpenTelemetry instrumentation
-	// Middleware order (outer to inner): CORS -> API Key -> mux
+	// Middleware order (outer to inner): CORS -> top-level mux
 	corsHandler := buildCORSHandler()
 
 	httpServer := &http.Server{
 		Addr:              ":8080",
-		Handler:           corsHandler.Handler(apiKeyAuth.HTTPMiddleware(mux)),
+		Handler:           corsHandler.Handler(topMux),
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,

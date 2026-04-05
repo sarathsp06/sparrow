@@ -28,15 +28,8 @@ type APIKeyAuth struct {
 	APIKey string
 
 	// ExcludedPathPrefixes are HTTP path prefixes that bypass authentication
-	// (e.g., "/health", "/ready", static UI assets).
+	// (e.g., "/health", "/ready").
 	ExcludedPathPrefixes []string
-
-	// RequiredPathPrefixes, when non-empty, restricts authentication to only
-	// paths matching one of these prefixes. All other paths pass through
-	// without a key check. This is useful when the embedded UI is served on
-	// the same port as the API: UI routes are open, API routes require a key.
-	// When empty, all paths require authentication (minus ExcludedPathPrefixes).
-	RequiredPathPrefixes []string
 }
 
 // Enabled reports whether API key authentication is active.
@@ -61,22 +54,6 @@ func (a *APIKeyAuth) HTTPMiddleware(next http.Handler) http.Handler {
 		// Skip auth for excluded paths.
 		for _, prefix := range a.ExcludedPathPrefixes {
 			if strings.HasPrefix(r.URL.Path, prefix) {
-				next.ServeHTTP(w, r)
-				return
-			}
-		}
-
-		// When RequiredPathPrefixes is set, only enforce auth on matching
-		// paths. Everything else (UI routes, static assets) passes through.
-		if len(a.RequiredPathPrefixes) > 0 {
-			requiresAuth := false
-			for _, prefix := range a.RequiredPathPrefixes {
-				if strings.HasPrefix(r.URL.Path, prefix) {
-					requiresAuth = true
-					break
-				}
-			}
-			if !requiresAuth {
 				next.ServeHTTP(w, r)
 				return
 			}
