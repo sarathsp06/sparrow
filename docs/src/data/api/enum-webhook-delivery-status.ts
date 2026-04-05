@@ -3,7 +3,7 @@ import type { ApiEnum } from "./types";
 const enumData: ApiEnum = {
   "name": "WebhookDeliveryStatus",
   "package": "webhook",
-  "description": "WebhookDeliveryStatus tracks the lifecycle of a single delivery. State transitions: PENDING -> SENDING -> SUCCESS PENDING -> SENDING -> RETRYING -> SENDING -> ... -> SUCCESS | FAILED | EXPIRED Terminal states: SUCCESS, FAILED, EXPIRED.",
+  "description": "WebhookDeliveryStatus tracks the lifecycle of a single delivery. State transitions: PENDING -\u003e SENDING -\u003e SUCCESS PENDING -\u003e SENDING -\u003e RETRYING -\u003e SENDING -\u003e ... -\u003e SUCCESS | FAILED | EXPIRED Terminal states: SUCCESS, FAILED, EXPIRED.",
   "values": [
     {
       "name": "DELIVERY_UNSPECIFIED",
@@ -40,9 +40,6 @@ const enumData: ApiEnum = {
       "number": 6,
       "description": "Delivery TTL elapsed before it could succeed. The event's ttl_seconds determines the expiration window. No further retries will be attempted."
     }
-  ],
-  "usedBy": [
-    "DeliveryService"
   ]
 };
 

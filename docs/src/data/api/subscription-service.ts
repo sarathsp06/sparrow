@@ -13,42 +13,42 @@ const service: ApiService = {
           "name": "webhook_id",
           "type": "string",
           "required": true,
-          "description": "UUID of the webhook to subscribe. Required. The webhook must exist in the specified namespace.",
+          "description": "UUID of the webhook to subscribe. Required. The webhook must exist in the specified namespace. @example \"550e8400-e29b-41d4-a716-446655440000\"",
           "example": "550e8400-e29b-41d4-a716-446655440000"
         },
         {
           "name": "event_name",
           "type": "string",
           "required": true,
-          "description": "Event type name to subscribe to. Required.",
+          "description": "Event type name to subscribe to. Required. @example \"order.created\"",
           "example": "order.created"
         },
         {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace for the subscription. Required. Must match the webhook's namespace.",
+          "description": "Namespace for the subscription. Required. Must match the webhook's namespace. @example \"production\"",
           "example": "production"
         },
         {
           "name": "headers",
-          "type": "map<string, string>",
+          "type": "map\u003cstring, string\u003e",
           "description": "Per-subscription HTTP headers. Optional. Merged with (and overrides) webhook-level headers on delivery."
         },
         {
           "name": "method",
           "type": "string",
-          "description": "HTTP method override. Optional."
+          "description": "HTTP method override. Optional. Default: \"POST\"."
         },
         {
           "name": "timeout",
           "type": "int32",
-          "description": "Timeout override in seconds. Optional.  webhook's timeout."
+          "description": "Timeout override in seconds. Optional. Default: use webhook's timeout."
         },
         {
           "name": "transform_enabled",
           "type": "bool",
-          "description": "Enable Go template payload transformation."
+          "description": "Enable Go template payload transformation. Default: false."
         },
         {
           "name": "transform_template",
@@ -57,8 +57,8 @@ const service: ApiService = {
         },
         {
           "name": "label_filters",
-          "type": "map<string, string>",
-          "description": "Label filters for selective event matching. Optional. Only events with labels matching all key-value pairs will trigger this subscription.",
+          "type": "map\u003cstring, string\u003e",
+          "description": "Label filters for selective event matching. Optional. Only events with labels matching all key-value pairs will trigger this subscription. @example {\"region\": \"us-east\"}",
           "example": {
             "region": "us-east"
           }
@@ -68,13 +68,13 @@ const service: ApiService = {
         {
           "name": "subscription_id",
           "type": "string",
-          "description": "Server-generated UUID of the new subscription.",
+          "description": "Server-generated UUID of the new subscription. @example \"7c9e6679-7425-40de-944b-e07fc1f90ae7\"",
           "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
         },
         {
           "name": "created_at",
           "type": "Timestamp",
-          "description": "When the subscription was created.",
+          "description": "When the subscription was created. @example \"2025-01-15T10:30:00Z\"",
           "example": "2025-01-15T10:30:00Z"
         }
       ],
@@ -97,14 +97,14 @@ const service: ApiService = {
           "name": "subscription_id",
           "type": "string",
           "required": true,
-          "description": "UUID of the subscription to retrieve. Required.",
+          "description": "UUID of the subscription to retrieve. Required. @example \"7c9e6679-7425-40de-944b-e07fc1f90ae7\"",
           "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
         },
         {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace the subscription belongs to. Required.",
+          "description": "Namespace the subscription belongs to. Required. @example \"production\"",
           "example": "production"
         }
       ],
@@ -129,7 +129,7 @@ const service: ApiService = {
         {
           "name": "webhook_id",
           "type": "string",
-          "description": "Filter by webhook UUID. Optional.",
+          "description": "Filter by webhook UUID. Optional. @example \"550e8400-e29b-41d4-a716-446655440000\"",
           "example": "550e8400-e29b-41d4-a716-446655440000"
         },
         {
@@ -141,13 +141,13 @@ const service: ApiService = {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace to list subscriptions from. Required.",
+          "description": "Namespace to list subscriptions from. Required. @example \"production\"",
           "example": "production"
         },
         {
           "name": "pagination",
           "type": "PaginationRequest",
-          "description": "Pagination parameters.  offset=0."
+          "description": "Pagination parameters. Default: limit=50, offset=0."
         }
       ],
       "response": [
@@ -171,19 +171,19 @@ const service: ApiService = {
           "name": "subscription_id",
           "type": "string",
           "required": true,
-          "description": "UUID of the subscription to update. Required.",
+          "description": "UUID of the subscription to update. Required. @example \"7c9e6679-7425-40de-944b-e07fc1f90ae7\"",
           "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
         },
         {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace the subscription belongs to. Required.",
+          "description": "Namespace the subscription belongs to. Required. @example \"production\"",
           "example": "production"
         },
         {
           "name": "headers",
-          "type": "map<string, string>",
+          "type": "map\u003cstring, string\u003e",
           "description": "Updated per-subscription headers. Replaces existing headers when set."
         },
         {
@@ -199,7 +199,7 @@ const service: ApiService = {
         {
           "name": "transform_enabled",
           "type": "bool",
-          "description": "Updated transform enabled flag.",
+          "description": "Updated transform enabled flag. @example true",
           "example": true
         },
         {
@@ -209,7 +209,7 @@ const service: ApiService = {
         },
         {
           "name": "label_filters",
-          "type": "map<string, string>",
+          "type": "map\u003cstring, string\u003e",
           "description": "Updated label filters. Replaces existing filters when set."
         }
       ],
@@ -228,14 +228,14 @@ const service: ApiService = {
           "name": "subscription_id",
           "type": "string",
           "required": true,
-          "description": "UUID of the subscription to delete. Required.",
+          "description": "UUID of the subscription to delete. Required. @example \"7c9e6679-7425-40de-944b-e07fc1f90ae7\"",
           "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
         },
         {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace the subscription belongs to. Required.",
+          "description": "Namespace the subscription belongs to. Required. @example \"production\"",
           "example": "production"
         }
       ],
@@ -254,21 +254,21 @@ const service: ApiService = {
           "name": "event_name",
           "type": "string",
           "required": true,
-          "description": "Event name to get the sample payload from. Required. The event type must have a schema defined for a sample payload to be generated.",
+          "description": "Event name to get the sample payload from. Required. The event type must have a schema defined for a sample payload to be generated. @example \"order.created\"",
           "example": "order.created"
         },
         {
           "name": "transform_template",
           "type": "string",
           "required": true,
-          "description": "Go template string to test. Required. The template is executed with the event's sample_payload as its data context.",
+          "description": "Go template string to test. Required. The template is executed with the event's sample_payload as its data context. @example \"{\\\"id\\\": \\\"{{ .payload.order_id }}\\\", \\\"total\\\": \\\"{{ .payload.amount }}\\\"}\"",
           "example": "{\"id\": \"{{ .payload.order_id }}\", \"total\": \"{{ .payload.amount }}\"}"
         },
         {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace. Required.",
+          "description": "Namespace. Required. @example \"production\"",
           "example": "production"
         }
       ],
@@ -276,7 +276,7 @@ const service: ApiService = {
         {
           "name": "transformed_payload",
           "type": "string",
-          "description": "The template output after rendering against the sample payload. This is exactly what would be sent as the delivery request body if this template were applied to a subscription.",
+          "description": "The template output after rendering against the sample payload. This is exactly what would be sent as the delivery request body if this template were applied to a subscription. @example \"{\\\"id\\\": \\\"ord-123\\\", \\\"total\\\": \\\"99.99\\\"}\"",
           "example": "{\"id\": \"ord-123\", \"total\": \"99.99\"}"
         }
       ],

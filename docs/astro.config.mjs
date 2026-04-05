@@ -1,26 +1,39 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
-import config from './src/data/proto2astro-config.json';
-
-// This file is scaffold-only: proto2astro writes it once and never overwrites it.
-// All proto-derived and YAML-derived values are read from proto2astro-config.json
-// (which IS regenerated on every `proto2astro generate` run).
-//
-// Feel free to customize this file — add integrations, Vite config, i18n, etc.
 
 export default defineConfig({
-  ...(config.site && { site: config.site }),
-  ...(config.base && { base: config.base }),
+  site: "https://sarathsp06.github.io",
+  base: "/sparrow",
   integrations: [
     starlight({
-      title: config.title,
-      description: config.description,
-      ...(config.logo && { logo: { src: config.logo } }),
-      ...(config.social?.length && { social: config.social }),
-      ...(config.editLink && { editLink: { baseUrl: config.editLink } }),
-      ...(Object.keys(config.components ?? {}).length && { components: config.components }),
-      sidebar: config.sidebar,
-      customCss: ['./src/styles/custom.css', ...(config.customCss ?? [])],
+      title: "Sparrow",
+      description: "Self-hosted webhook delivery platform",
+      social: [
+        { icon: "github", label: "GitHub", href: "https://github.com/sarathsp06/sparrow" },
+      ],
+      editLink: { baseUrl: "https://github.com/sarathsp06/sparrow/edit/main/docs/" },
+      sidebar: [
+        {
+          label: 'Guides',
+          items: [
+            { slug: 'guides/comment-guide' },
+          ],
+        },
+        {
+          label: 'API Reference',
+          items: [
+            { slug: 'reference/api' },
+            { slug: 'reference/api/webhook-service' },
+            { slug: 'reference/api/event-service' },
+            { slug: 'reference/api/subscription-service' },
+            { slug: 'reference/api/delivery-service' },
+            { slug: 'reference/api/health-service' },
+            { slug: 'reference/api/enum-webhook-delivery-status' },
+            { slug: 'reference/api/enum-webhook-health' },
+          ],
+        },
+      ],
+      customCss: ['./src/styles/custom.css'],
     }),
   ],
 });

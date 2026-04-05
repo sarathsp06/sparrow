@@ -13,13 +13,13 @@ const service: ApiService = {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace to register the webhook in. Required. The namespace must already exist (created via the NamespaceService).",
+          "description": "Namespace to register the webhook in. Required. The namespace must already exist (created via the NamespaceService). @example \"production\"",
           "example": "production"
         },
         {
           "name": "events",
           "type": "string[]",
-          "description": "Event names this webhook should receive. At least one is required. A subscription is automatically created for each event name listed here.",
+          "description": "Event names this webhook should receive. At least one is required. A subscription is automatically created for each event name listed here. @example [\"order.created\", \"order.updated\"]",
           "example": [
             "order.created",
             "order.updated"
@@ -29,13 +29,13 @@ const service: ApiService = {
           "name": "url",
           "type": "string",
           "required": true,
-          "description": "Target URL that will receive HTTP POST requests for each delivery. Must be a valid HTTP or HTTPS URL. Required.",
+          "description": "Target URL that will receive HTTP POST requests for each delivery. Must be a valid HTTP or HTTPS URL. Required. @example \"https://example.com/hooks\"",
           "example": "https://example.com/hooks"
         },
         {
           "name": "headers",
-          "type": "map<string, string>",
-          "description": "Custom HTTP headers included in every delivery request to this webhook. These are visible in API responses. For sensitive values (API keys, tokens), use secret_headers instead.",
+          "type": "map\u003cstring, string\u003e",
+          "description": "Custom HTTP headers included in every delivery request to this webhook. These are visible in API responses. For sensitive values (API keys, tokens), use secret_headers instead. @example {\"X-Source\": \"sparrow\"}",
           "example": {
             "X-Source": "sparrow"
           }
@@ -43,19 +43,19 @@ const service: ApiService = {
         {
           "name": "active",
           "type": "bool",
-          "description": "Whether the webhook starts in active state.  Inactive webhooks are skipped during event fan-out.",
+          "description": "Whether the webhook starts in active state. Default: true. Inactive webhooks are skipped during event fan-out. @example true",
           "example": true
         },
         {
           "name": "description",
           "type": "string",
-          "description": "Human-readable description of the webhook's purpose. Optional.",
+          "description": "Human-readable description of the webhook's purpose. Optional. @example \"Order notifications\"",
           "example": "Order notifications"
         },
         {
           "name": "http_config",
           "type": "WebhookHTTPConfig",
-          "description": "HTTP delivery configuration (retries, timeouts, TLS, HMAC, etc.). Optional -- all fields have sensible defaults if omitted.",
+          "description": "HTTP delivery configuration (retries, timeouts, TLS, HMAC, etc.). Optional -- all fields have sensible defaults if omitted. @example {\"max_retries\": 5, \"webhook_secret\": \"whsec_your_secret_key\"}",
           "example": {
             "max_retries": 5,
             "webhook_secret": "whsec_your_secret_key"
@@ -63,7 +63,7 @@ const service: ApiService = {
         },
         {
           "name": "secret_headers",
-          "type": "map<string, string>",
+          "type": "map\u003cstring, string\u003e",
           "description": "Sensitive HTTP headers stored encrypted at rest (e.g., Authorization, API keys). Values are masked as \"******\" in all API responses -- only keys are visible. Included in delivery requests alongside regular headers."
         }
       ],
@@ -71,13 +71,13 @@ const service: ApiService = {
         {
           "name": "webhook_id",
           "type": "string",
-          "description": "Server-generated UUID for the new webhook. Use this ID for all subsequent operations (update, pause, resume, unregister).",
+          "description": "Server-generated UUID for the new webhook. Use this ID for all subsequent operations (update, pause, resume, unregister). @example \"550e8400-e29b-41d4-a716-446655440000\"",
           "example": "550e8400-e29b-41d4-a716-446655440000"
         },
         {
           "name": "created_at",
           "type": "Timestamp",
-          "description": "Timestamp when the webhook was created.",
+          "description": "Timestamp when the webhook was created. @example \"2025-01-15T10:30:00Z\"",
           "example": "2025-01-15T10:30:00Z"
         }
       ],
@@ -96,14 +96,14 @@ const service: ApiService = {
           "name": "webhook_id",
           "type": "string",
           "required": true,
-          "description": "UUID of the webhook to delete. Required.",
+          "description": "UUID of the webhook to delete. Required. @example \"550e8400-e29b-41d4-a716-446655440000\"",
           "example": "550e8400-e29b-41d4-a716-446655440000"
         },
         {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace the webhook belongs to. Required.",
+          "description": "Namespace the webhook belongs to. Required. @example \"production\"",
           "example": "production"
         }
       ],
@@ -122,7 +122,7 @@ const service: ApiService = {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace to list webhooks from. Required.",
+          "description": "Namespace to list webhooks from. Required. @example \"production\"",
           "example": "production"
         },
         {
@@ -133,13 +133,13 @@ const service: ApiService = {
         {
           "name": "active_only",
           "type": "bool",
-          "description": "When true, only return active (non-paused) webhooks.  (return all).",
+          "description": "When true, only return active (non-paused) webhooks. Default: false (return all). @example true",
           "example": true
         },
         {
           "name": "pagination",
           "type": "PaginationRequest",
-          "description": "Pagination parameters.  offset=0.",
+          "description": "Pagination parameters. Default: limit=50, offset=0. @example {\"limit\": 20}",
           "example": {
             "limit": 20
           }
@@ -171,14 +171,14 @@ const service: ApiService = {
           "name": "webhook_id",
           "type": "string",
           "required": true,
-          "description": "UUID of the webhook to update. Required.",
+          "description": "UUID of the webhook to update. Required. @example \"550e8400-e29b-41d4-a716-446655440000\"",
           "example": "550e8400-e29b-41d4-a716-446655440000"
         },
         {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace the webhook belongs to. Required.",
+          "description": "Namespace the webhook belongs to. Required. @example \"production\"",
           "example": "production"
         },
         {
@@ -193,7 +193,7 @@ const service: ApiService = {
         },
         {
           "name": "updates.headers",
-          "type": "map<string, string>",
+          "type": "map\u003cstring, string\u003e",
           "description": "Replace all custom headers. Omit to leave unchanged. Pass an empty map to clear all headers."
         },
         {
@@ -204,13 +204,13 @@ const service: ApiService = {
         {
           "name": "updates.description",
           "type": "string",
-          "description": "Updated human-readable description. Omit to leave unchanged.",
+          "description": "Updated human-readable description. Omit to leave unchanged. @example \"Updated order webhook\"",
           "example": "Updated order webhook"
         },
         {
           "name": "updates.http_config",
           "type": "WebhookHTTPConfig",
-          "description": "Updated HTTP delivery configuration. Omit to leave unchanged. When set, the entire http_config is replaced (not merged field-by-field).",
+          "description": "Updated HTTP delivery configuration. Omit to leave unchanged. When set, the entire http_config is replaced (not merged field-by-field). @example {\"max_retries\": 5, \"request_timeout_seconds\": 60}",
           "example": {
             "max_retries": 5,
             "request_timeout_seconds": 60
@@ -218,7 +218,7 @@ const service: ApiService = {
         },
         {
           "name": "updates.secret_headers",
-          "type": "map<string, string>",
+          "type": "map\u003cstring, string\u003e",
           "description": "Replace all secret headers. Omit to leave unchanged. Pass an empty map to clear all secret headers."
         }
       ],
@@ -237,20 +237,20 @@ const service: ApiService = {
           "name": "webhook_id",
           "type": "string",
           "required": true,
-          "description": "UUID of the webhook to pause. Required.",
+          "description": "UUID of the webhook to pause. Required. @example \"550e8400-e29b-41d4-a716-446655440000\"",
           "example": "550e8400-e29b-41d4-a716-446655440000"
         },
         {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace the webhook belongs to. Required.",
+          "description": "Namespace the webhook belongs to. Required. @example \"production\"",
           "example": "production"
         },
         {
           "name": "reason",
           "type": "string",
-          "description": "Human-readable reason for pausing (stored for audit purposes). Optional.",
+          "description": "Human-readable reason for pausing (stored for audit purposes). Optional. @example \"Endpoint maintenance\"",
           "example": "Endpoint maintenance"
         }
       ],
@@ -269,14 +269,14 @@ const service: ApiService = {
           "name": "webhook_id",
           "type": "string",
           "required": true,
-          "description": "UUID of the webhook to resume. Required.",
+          "description": "UUID of the webhook to resume. Required. @example \"550e8400-e29b-41d4-a716-446655440000\"",
           "example": "550e8400-e29b-41d4-a716-446655440000"
         },
         {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace the webhook belongs to. Required.",
+          "description": "Namespace the webhook belongs to. Required. @example \"production\"",
           "example": "production"
         },
         {
@@ -300,7 +300,7 @@ const service: ApiService = {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace to get statistics for. Required.",
+          "description": "Namespace to get statistics for. Required. @example \"production\"",
           "example": "production"
         }
       ],
@@ -313,43 +313,43 @@ const service: ApiService = {
         {
           "name": "stats.total_webhooks",
           "type": "int32",
-          "description": "Total number of registered webhooks in this namespace (active + inactive).",
+          "description": "Total number of registered webhooks in this namespace (active + inactive). @example 12",
           "example": 12
         },
         {
           "name": "stats.active_webhooks",
           "type": "int32",
-          "description": "Number of currently active (non-paused) webhooks.",
+          "description": "Number of currently active (non-paused) webhooks. @example 10",
           "example": 10
         },
         {
           "name": "stats.total_deliveries",
           "type": "int32",
-          "description": "Total number of deliveries ever created in this namespace.",
+          "description": "Total number of deliveries ever created in this namespace. @example 5420",
           "example": 5420
         },
         {
           "name": "stats.successful_deliveries",
           "type": "int32",
-          "description": "Number of deliveries in terminal SUCCESS state.",
+          "description": "Number of deliveries in terminal SUCCESS state. @example 5200",
           "example": 5200
         },
         {
           "name": "stats.failed_deliveries",
           "type": "int32",
-          "description": "Number of deliveries in terminal FAILED state.",
+          "description": "Number of deliveries in terminal FAILED state. @example 120",
           "example": 120
         },
         {
           "name": "stats.pending_deliveries",
           "type": "int32",
-          "description": "Number of deliveries in PENDING, SENDING, or RETRYING state.",
+          "description": "Number of deliveries in PENDING, SENDING, or RETRYING state. @example 100",
           "example": 100
         },
         {
           "name": "stats.success_rate",
           "type": "double",
-          "description": "Overall delivery success rate as a decimal between 0.0 and 1.0. Computed as successful_deliveries / total_deliveries. 0.0 if no deliveries.",
+          "description": "Overall delivery success rate as a decimal between 0.0 and 1.0. Computed as successful_deliveries / total_deliveries. 0.0 if no deliveries. @example 0.96",
           "example": 0.96
         }
       ]
@@ -367,7 +367,7 @@ const service: ApiService = {
         {
           "name": "total_count",
           "type": "int32",
-          "description": "Total number of available functions.",
+          "description": "Total number of available functions. @example 42",
           "example": 42
         }
       ]

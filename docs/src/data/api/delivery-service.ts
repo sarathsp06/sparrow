@@ -3,7 +3,7 @@ import type { ApiService } from "./types";
 const service: ApiService = {
   "service": "DeliveryService",
   "package": "webhook",
-  "description": "DeliveryService provides read access to delivery history and manual retry control. Deliveries are created automatically when an event is pushed. Each delivery tracks its status (pending -> sending -> success/failed/retrying/expired), HTTP response code, response body (up to 1 KB by default, 1 MB if capture_response_body is enabled), error classification, and per-attempt history.",
+  "description": "DeliveryService provides read access to delivery history and manual retry control. Deliveries are created automatically when an event is pushed. Each delivery tracks its status (pending -\u003e sending -\u003e success/failed/retrying/expired), HTTP response code, response body (up to 1 KB by default, 1 MB if capture_response_body is enabled), error classification, and per-attempt history.",
   "rpcs": [
     {
       "name": "GetDeliveryStatus",
@@ -13,14 +13,14 @@ const service: ApiService = {
           "name": "delivery_id",
           "type": "string",
           "required": true,
-          "description": "UUID of the delivery to retrieve. Required.",
+          "description": "UUID of the delivery to retrieve. Required. @example \"d-550e8400-e29b-41d4-a716-446655440000\"",
           "example": "d-550e8400-e29b-41d4-a716-446655440000"
         },
         {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace the delivery belongs to. Required.",
+          "description": "Namespace the delivery belongs to. Required. @example \"production\"",
           "example": "production"
         }
       ],
@@ -46,13 +46,13 @@ const service: ApiService = {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace to list deliveries from. Required.",
+          "description": "Namespace to list deliveries from. Required. @example \"production\"",
           "example": "production"
         },
         {
           "name": "webhook_id",
           "type": "string",
-          "description": "Filter by webhook UUID. Optional.",
+          "description": "Filter by webhook UUID. Optional. @example \"550e8400-e29b-41d4-a716-446655440000\"",
           "example": "550e8400-e29b-41d4-a716-446655440000"
         },
         {
@@ -63,7 +63,7 @@ const service: ApiService = {
         {
           "name": "pagination",
           "type": "PaginationRequest",
-          "description": "Pagination parameters.  offset=0.",
+          "description": "Pagination parameters. Default: limit=50, offset=0. @example {\"limit\": 20}",
           "example": {
             "limit": 20
           }
@@ -90,13 +90,13 @@ const service: ApiService = {
           "name": "namespace",
           "type": "string",
           "required": true,
-          "description": "Namespace. Required.",
+          "description": "Namespace. Required. @example \"production\"",
           "example": "production"
         },
         {
           "name": "delivery_id",
           "type": "string",
-          "description": "UUID of a specific delivery to retry. Optional.",
+          "description": "UUID of a specific delivery to retry. Optional. @example \"d-550e8400-e29b-41d4-a716-446655440000\"",
           "example": "d-550e8400-e29b-41d4-a716-446655440000"
         },
         {
@@ -107,20 +107,20 @@ const service: ApiService = {
         {
           "name": "force",
           "type": "bool",
-          "description": "When true, retry even successful deliveries.  Use with caution: this causes duplicate delivery to the target endpoint."
+          "description": "When true, retry even successful deliveries. Default: false. Use with caution: this causes duplicate delivery to the target endpoint."
         }
       ],
       "response": [
         {
           "name": "retried_count",
           "type": "int32",
-          "description": "Number of deliveries that were re-enqueued.",
+          "description": "Number of deliveries that were re-enqueued. @example 1",
           "example": 1
         },
         {
           "name": "delivery_ids",
           "type": "string[]",
-          "description": "UUIDs of the deliveries that were re-enqueued.",
+          "description": "UUIDs of the deliveries that were re-enqueued. @example [\"d-550e8400-e29b-41d4-a716-446655440000\"]",
           "example": [
             "d-550e8400-e29b-41d4-a716-446655440000"
           ]
@@ -135,7 +135,7 @@ const service: ApiService = {
           "name": "delivery_id",
           "type": "string",
           "required": true,
-          "description": "UUID of the delivery to get attempts for. Required.",
+          "description": "UUID of the delivery to get attempts for. Required. @example \"d-550e8400-e29b-41d4-a716-446655440000\"",
           "example": "d-550e8400-e29b-41d4-a716-446655440000"
         }
       ],
@@ -143,7 +143,7 @@ const service: ApiService = {
         {
           "name": "attempts[].attempt_id",
           "type": "string",
-          "description": "Server-generated UUID for this attempt.",
+          "description": "Server-generated UUID for this attempt. @example \"a-110e8400-e29b-41d4-a716-446655440000\"",
           "example": "a-110e8400-e29b-41d4-a716-446655440000"
         },
         {
@@ -159,19 +159,19 @@ const service: ApiService = {
         {
           "name": "attempts[].success",
           "type": "bool",
-          "description": "Whether this attempt resulted in a successful delivery (response code matched expected_status_codes).",
+          "description": "Whether this attempt resulted in a successful delivery (response code matched expected_status_codes). @example true",
           "example": true
         },
         {
           "name": "attempts[].response_time",
           "type": "int32",
-          "description": "Round-trip time in milliseconds from sending the request to receiving the full response (or timeout/error). 0 if no connection was established.",
+          "description": "Round-trip time in milliseconds from sending the request to receiving the full response (or timeout/error). 0 if no connection was established. @example 245",
           "example": 245
         },
         {
           "name": "attempts[].response_code",
           "type": "int32",
-          "description": "HTTP response status code. 0 if no response was received (timeout, connection refused, DNS error, etc.).",
+          "description": "HTTP response status code. 0 if no response was received (timeout, connection refused, DNS error, etc.). @example 200",
           "example": 200
         },
         {
@@ -182,13 +182,13 @@ const service: ApiService = {
         {
           "name": "attempts[].error_category",
           "type": "string",
-          "description": "Classified error category for this attempt. Values: \"success\", \"client_error\", \"server_error\", \"timeout\", \"connection_refused\", \"network_error\", \"dns_error\", \"tls_error\", \"unknown\".",
+          "description": "Classified error category for this attempt. Values: \"success\", \"client_error\", \"server_error\", \"timeout\", \"connection_refused\", \"network_error\", \"dns_error\", \"tls_error\", \"unknown\". @example \"success\"",
           "example": "success"
         },
         {
           "name": "attempts[].timestamp",
           "type": "Timestamp",
-          "description": "When this attempt was made.",
+          "description": "When this attempt was made. @example \"2025-01-15T10:30:05Z\"",
           "example": "2025-01-15T10:30:05Z"
         }
       ],

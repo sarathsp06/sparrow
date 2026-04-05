@@ -100,6 +100,12 @@ See [CONFIGURATION.md](CONFIGURATION.md) for the full list.
 
 ## Deployment
 
+### Railway
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https://github.com/sarathsp06/sparrow&plugins=postgresql&envs=SPARROW_SERVE_UI,DATABASE_URL&SPARROW_SERVE_UIDefault=true)
+
+One click deploys Sparrow + PostgreSQL on Railway. See the [Railway deployment guide](https://sarathsp06.github.io/sparrow/deployment/railway/) for details.
+
 ### Docker
 
 Pre-built multi-arch images (linux/amd64, linux/arm64) are published on every release:
