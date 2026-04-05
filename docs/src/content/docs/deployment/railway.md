@@ -1,22 +1,11 @@
 ---
 title: Railway Deployment
-description: Deploy Sparrow to Railway with one click.
+description: Deploy Sparrow to Railway with a managed PostgreSQL database.
 ---
 
 Deploy Sparrow to [Railway](https://railway.com) with a managed PostgreSQL database. Railway handles the build, deploy, and TLS -- no Docker or Kubernetes needed.
 
-## One-Click Deploy
-
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https://github.com/sarathsp06/sparrow&plugins=postgresql&envs=SPARROW_SERVE_UI,DATABASE_URL&SPARROW_SERVE_UIDefault=true)
-
-This creates two services:
-
-1. **Sparrow** -- built from the repo's Dockerfile
-2. **PostgreSQL** -- Railway-managed database (auto-provisioned)
-
-## Manual Setup
-
-If you prefer to configure things yourself:
+## Setup
 
 ### 1. Create a new project
 
@@ -38,9 +27,9 @@ Add these variables to the Sparrow service:
 |----------|-------|
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (Railway reference variable) |
 | `SPARROW_SERVE_UI` | `true` |
-| `SPARROW_API_KEY` | *(optional)* a random secret string |
+| `SPARROW_API_KEY` | *(optional)* use `${{secret(32)}}` to auto-generate |
 
-Railway automatically injects `DATABASE_URL` when you link the PostgreSQL plugin using a reference variable.
+Railway automatically injects `DATABASE_URL` when you link the PostgreSQL service using a reference variable.
 
 ### 5. Expose the service
 
@@ -73,7 +62,7 @@ Sparrow runs migrations on startup automatically -- no separate migration step o
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DATABASE_URL` | Yes | -- | PostgreSQL connection string (auto-set by Railway plugin) |
+| `DATABASE_URL` | Yes | -- | PostgreSQL connection string (auto-set via Railway reference variable) |
 | `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard |
 | `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests |
 | `SPARROW_ENCRYPTION_KEY` | No | -- | 64-char hex key for AES-256-GCM encryption of webhook secrets |

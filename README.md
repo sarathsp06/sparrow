@@ -102,9 +102,7 @@ See [CONFIGURATION.md](CONFIGURATION.md) for the full list.
 
 ### Railway
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https://github.com/sarathsp06/sparrow&plugins=postgresql&envs=SPARROW_SERVE_UI,DATABASE_URL&SPARROW_SERVE_UIDefault=true)
-
-One click deploys Sparrow + PostgreSQL on Railway. See the [Railway deployment guide](https://sarathsp06.github.io/sparrow/deployment/railway/) for details.
+Deploy Sparrow + PostgreSQL on Railway with zero infrastructure. See the [Railway deployment guide](https://sarathsp06.github.io/sparrow/deployment/railway/) for setup steps.
 
 ### Docker
 
