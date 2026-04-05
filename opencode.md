@@ -161,7 +161,7 @@ pkg/errors ───────────────> (leaf: net, syscall)
 | **HealthService** | `WebhookServer` | GetWebhookHealth, ListWebhooksByHealth, GetHealthSummary | `health_handlers.go` | Yes |
 | **NamespaceService** | `NamespaceServer` | CreateNamespace, GetNamespace, ListNamespaces, UpdateNamespace, DeleteNamespace | `namespace_server.go` | No (Go-only) |
 
-**Serving**: gRPC on `:50051` (with reflection), Connect-RPC on `:8080` (with CORS + embedded UI).
+**Serving**: gRPC on `:50051` (with reflection), Connect-RPC + embedded UI on `:8080` (chi router, CORS, route-group auth).
 
 ---
 
@@ -183,7 +183,7 @@ Sparrow provides **optional API key authentication** via the `SPARROW_API_KEY` e
 | **gRPC Metadata** | `x-api-key: <key>` |
 | **When unset** | All endpoints are open (no auth enforced) |
 | **When set** | Every API request must include the key |
-| **Excluded paths** | `/health`, `/ready`, `/_app/*`, `/favicon*` (static UI assets) |
+| **Excluded paths** | `/health`, `/ready`, UI catch-all (chi route groups handle auth separation) |
 | **Comparison** | Constant-time (`crypto/subtle.ConstantTimeCompare`) |
 
 ### Package: `internal/middleware`
@@ -204,16 +204,16 @@ When the embedded UI is served (`SPARROW_SERVE_UI=true`), the Go server injects 
 ### Usage Examples
 ```bash
 # With API key
-curl -H "X-API-Key: my-secret" http://localhost:8080/sparrow.v1.WebhookService/ListWebhooks
+curl -H "X-API-Key: my-secret" http://localhost:8080/webhook.WebhookService/ListWebhooks
 
 # Via query param
-curl "http://localhost:8080/sparrow.v1.WebhookService/ListWebhooks?api_key=my-secret"
+curl "http://localhost:8080/webhook.WebhookService/ListWebhooks?api_key=my-secret"
 
 # gRPC with grpcurl
-grpcurl -plaintext -H "x-api-key: my-secret" localhost:50051 sparrow.v1.WebhookService/ListWebhooks
+grpcurl -plaintext -H "x-api-key: my-secret" localhost:50051 webhook.WebhookService/ListWebhooks
 
 # Without API key (when SPARROW_API_KEY is not set -- open access)
-curl http://localhost:8080/sparrow.v1.WebhookService/ListWebhooks
+curl http://localhost:8080/webhook.WebhookService/ListWebhooks
 ```
 
 ---
@@ -246,6 +246,48 @@ WebhookWorker.Work()
     v
 Target URL receives webhook payload
 ```
+
+---
+
+## HTTP Routing (chi router)
+
+The HTTP server uses [chi](https://github.com/go-chi/chi) for routing with middleware groups. This ensures API routes always take precedence over the SPA catch-all and allows per-group middleware (auth on API, no auth on health/UI).
+
+### Route Table
+
+| Pattern | Handler | Auth | Notes |
+|---------|---------|------|-------|
+| `/webhook.WebhookService/*` | Connect-RPC | Yes | 8 RPCs |
+| `/webhook.EventService/*` | Connect-RPC | Yes | 7 RPCs |
+| `/webhook.SubscriptionService/*` | Connect-RPC | Yes | 6 RPCs |
+| `/webhook.DeliveryService/*` | Connect-RPC | Yes | 4 RPCs |
+| `/webhook.HealthService/*` | Connect-RPC | Yes | 3 RPCs |
+| `GET /health` | Health check | No | JSON health status |
+| `GET /ready` | Readiness | No | JSON readiness status |
+| `* (NotFound)` | UI SPA | No | Only GET/HEAD serve HTML; other methods return JSON 404 |
+
+### Middleware Chain
+
+```
+Request
+  │
+  ├── CORS (global, via r.Use)
+  │
+  ├── /webhook.*  ──> API Key Auth (group middleware) ──> Connect-RPC handler
+  │
+  ├── /health, /ready ──> Health handler (no auth)
+  │
+  └── * (NotFound) ──> UI SPA handler (no auth, GET/HEAD only)
+                       Non-GET/HEAD ──> JSON {"error":"not found"} 404
+```
+
+### Why chi
+
+The previous stdlib `http.ServeMux` setup used a two-tier mux (`topMux` → `apiMux`) with a path prefix `/sparrow.v1.` that didn't match the actual Connect-RPC paths (`/webhook.*`). When the embedded UI was enabled, the SPA catch-all intercepted API requests and returned HTML. Chi solves this with:
+
+1. **Explicit route registration** — each Connect-RPC handler is registered at its exact path
+2. **Route groups with middleware** — API key auth applies only to API routes
+3. **NotFound handler** — SPA catch-all only fires for unmatched paths; explicit routes always win
 
 ---
 
@@ -754,3 +796,4 @@ func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequ
 | UI Modernization | Mar 2026 | Marketing landing page, Getting Started with curl commands, protoc-gen-es |
 | Auth Removal | Mar 2026 | Removed all auth/RBAC/audit code, simplified to open self-hosted deployment |
 | API Key Auth | Apr 2026 | Optional API key auth via SPARROW_API_KEY, HTTP middleware + gRPC interceptor, runtime config injection for embedded UI |
+| Chi Router | Apr 2026 | Replaced stdlib two-tier mux with chi router, fixed routing bug where Connect-RPC paths were unreachable (wrong `/sparrow.v1.` prefix), route-group auth separation, JSON 404 for non-GET to unknown paths |

@@ -18,6 +18,7 @@ import (
 	"connectrpc.com/connect"
 	"connectrpc.com/otelconnect"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
@@ -221,62 +222,92 @@ func main() {
 	// Initialize Connect-RPC server
 	webhookConnectServer := connectserver.NewWebhookConnectServer(webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer)
 
-	// Create API mux for Connect-RPC and health endpoints.
-	// This mux is wrapped with API key auth middleware.
-	apiMux := http.NewServeMux()
+	// Create API mux for Connect-RPC and health endpoints using chi router.
+	// Chi provides clean route grouping: API routes get auth middleware,
+	// health endpoints and UI are open.
+	r := chi.NewRouter()
+
+	// Global middleware: CORS
+	corsHandler := buildCORSHandler()
+	r.Use(corsHandler.Handler)
+
 	otelInterceptor, err := otelconnect.NewInterceptor()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	options := connect.WithInterceptors(otelInterceptor)
-	// Enforce request/response body size limits on Connect-RPC handlers
-	readLimit := connect.WithReadMaxBytes(4 << 20) // 4 MB
-	sendLimit := connect.WithSendMaxBytes(4 << 20) // 4 MB
-	apiMux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
-	apiMux.Handle(pbconnect.NewEventServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
-	apiMux.Handle(pbconnect.NewSubscriptionServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
-	apiMux.Handle(pbconnect.NewDeliveryServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
-	apiMux.Handle(pbconnect.NewHealthServiceHandler(webhookConnectServer, options, readLimit, sendLimit))
+	connectOpts := []connect.HandlerOption{
+		connect.WithInterceptors(otelInterceptor),
+		connect.WithReadMaxBytes(4 << 20), // 4 MB
+		connect.WithSendMaxBytes(4 << 20), // 4 MB
+	}
+
+	// API routes — protected by API key auth.
+	// Each Connect-RPC handler returns (path, handler) where path is a
+	// prefix like "/webhook.WebhookService/". Chi's Handle with a
+	// wildcard pattern routes all RPCs under that prefix to the handler.
+	r.Group(func(r chi.Router) {
+		r.Use(apiKeyAuth.HTTPMiddleware)
+
+		for _, makeHandler := range []func() (string, http.Handler){
+			func() (string, http.Handler) {
+				return pbconnect.NewWebhookServiceHandler(webhookConnectServer, connectOpts...)
+			},
+			func() (string, http.Handler) {
+				return pbconnect.NewEventServiceHandler(webhookConnectServer, connectOpts...)
+			},
+			func() (string, http.Handler) {
+				return pbconnect.NewSubscriptionServiceHandler(webhookConnectServer, connectOpts...)
+			},
+			func() (string, http.Handler) {
+				return pbconnect.NewDeliveryServiceHandler(webhookConnectServer, connectOpts...)
+			},
+			func() (string, http.Handler) {
+				return pbconnect.NewHealthServiceHandler(webhookConnectServer, connectOpts...)
+			},
+		} {
+			path, handler := makeHandler()
+			r.Handle(path+"*", handler)
+		}
+	})
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, queueManager, startTime)
 
 	// Health and readiness endpoints bypass API key auth.
-	apiMux.HandleFunc("/health", healthChecker.HealthHandler())
-	apiMux.HandleFunc("/ready", healthChecker.ReadyHandler())
-
-	// Top-level mux composes the auth-protected API and the open UI.
-	// API routes (/sparrow.v1.*, /health, /ready) go through apiKeyAuth.
-	// UI routes (everything else) are served directly without auth — the
-	// embedded config script injects the API key for the SPA to use.
-	topMux := http.NewServeMux()
-	topMux.Handle("/sparrow.v1.", apiKeyAuth.HTTPMiddleware(apiMux))
-	topMux.Handle("/health", apiMux)
-	topMux.Handle("/ready", apiMux)
+	r.Get("/health", healthChecker.HealthHandler())
+	r.Get("/ready", healthChecker.ReadyHandler())
 
 	// Serve embedded web UI if enabled.
+	// The UI handler is registered as the NotFound handler so it acts as
+	// a catch-all for paths that don't match any API or health route.
+	// Chi's explicit routes always take precedence — API requests can
+	// never accidentally be served HTML by the SPA.
 	serveUI := os.Getenv("SPARROW_SERVE_UI") == "true" || os.Getenv("SPARROW_SERVE_UI") == "1"
 	if serveUI {
 		if ui.Available() {
 			uiConfig := &ui.Config{APIKey: apiKeyAuth.APIKey}
-			topMux.Handle("/", ui.Handler(logger, nil, uiConfig))
+			uiHandler := ui.Handler(logger, uiConfig)
+			r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+				// Serve SPA only for GET/HEAD requests. Non-GET to unknown
+				// paths returns a JSON 404 so API clients never get HTML.
+				if r.Method != http.MethodGet && r.Method != http.MethodHead {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusNotFound)
+					_, _ = w.Write([]byte(`{"error":"not found"}`))
+					return
+				}
+				uiHandler.ServeHTTP(w, r)
+			})
 			fmt.Println("🖥️  Embedded web UI enabled at http://localhost:8080/")
 		} else {
 			fmt.Println("⚠️  SPARROW_SERVE_UI=true but no frontend build found. Build with: cd web && npm run build:static")
 		}
-	} else {
-		// When UI is not served, protect everything with API key auth.
-		topMux.Handle("/", apiKeyAuth.HTTPMiddleware(apiMux))
 	}
-
-	// Create HTTP server with OpenTelemetry instrumentation
-	// Middleware order (outer to inner): CORS -> top-level mux
-	corsHandler := buildCORSHandler()
 
 	httpServer := &http.Server{
 		Addr:              ":8080",
-		Handler:           corsHandler.Handler(topMux),
+		Handler:           r,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       120 * time.Second,

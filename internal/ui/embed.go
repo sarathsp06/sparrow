@@ -1,9 +1,9 @@
 // Package ui provides an embedded SPA file server for the Sparrow web frontend.
 //
 // The static build output from web/build/ is embedded at compile time.
-// When SPARROW_SERVE_UI=true, the Go binary serves the frontend on the same
-// port as the Connect-RPC API, eliminating the need for a separate frontend
-// deployment in self-hosted scenarios.
+// When SPARROW_SERVE_UI=true, the Go binary serves the frontend on the
+// same port as the Connect-RPC API. Chi router ensures API routes always
+// take precedence; the UI handler is registered as the NotFound fallback.
 //
 // Build the frontend first:
 //
@@ -35,13 +35,9 @@ type Config struct {
 // It serves static files from the embedded filesystem, and falls back to
 // index.html for any path that doesn't match a static file (SPA client-side routing).
 //
-// The apiPrefixes parameter specifies URL path prefixes that should NOT be
-// handled by the UI (e.g., "/sparrow.", "/health", "/ready"). These are left
-// for the API handlers registered on the same mux.
-//
 // The config parameter is injected into index.html as a window.__SPARROW_CONFIG__
 // global so the SPA can read runtime configuration without a rebuild.
-func Handler(logger *slog.Logger, apiPrefixes []string, config *Config) http.Handler {
+func Handler(logger *slog.Logger, config *Config) http.Handler {
 	// Strip the "dist" prefix from the embedded FS so files are served from root.
 	staticFS, err := fs.Sub(embeddedFS, "dist")
 	if err != nil {
@@ -55,14 +51,6 @@ func Handler(logger *slog.Logger, apiPrefixes []string, config *Config) http.Han
 	configScript := buildConfigScript(config)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Don't serve UI for API routes — let them 404 naturally from the mux.
-		for _, prefix := range apiPrefixes {
-			if strings.HasPrefix(r.URL.Path, prefix) {
-				http.NotFound(w, r)
-				return
-			}
-		}
-
 		// Try to serve the requested file directly.
 		path := strings.TrimPrefix(r.URL.Path, "/")
 
