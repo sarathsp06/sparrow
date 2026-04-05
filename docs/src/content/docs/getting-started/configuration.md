@@ -13,6 +13,8 @@ All configuration is done via environment variables. No config files needed.
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | Yes | -- | PostgreSQL connection string |
 | `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard on `:8080` |
+| `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests |
+| `SPARROW_ENCRYPTION_KEY` | No | -- | 64-char hex key (32 bytes) for AES-256-GCM encryption of webhook secret headers |
 | `ENVIRONMENT` | No | -- | `development` or `production` (affects logging/OTel) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
 | `CORS_ALLOWED_ORIGINS` | No | -- | Allowed CORS origins for Connect-RPC |
@@ -50,4 +52,6 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
 
 ## Default Tenant
 
-There is no authentication. A default tenant (`00000000-0000-0000-0000-000000000001`) is auto-created on startup. All operations use this tenant. The tenant infrastructure is retained for future multi-tenant support.
+A default tenant (`00000000-0000-0000-0000-000000000001`) is auto-created on startup. All operations use this tenant. The tenant infrastructure is retained for future multi-tenant support.
+
+Authentication is optional -- set `SPARROW_API_KEY` to require a shared secret on all API requests. When unset, all endpoints are open (designed for internal deployments behind a VPN).

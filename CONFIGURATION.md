@@ -10,6 +10,8 @@ All configuration is done via environment variables. No config files needed.
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | Yes | -- | PostgreSQL connection string |
 | `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard on `:8080` |
+| `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests |
+| `SPARROW_ENCRYPTION_KEY` | No | -- | 64-char hex key (32 bytes) for AES-256-GCM encryption of webhook secret headers |
 | `ENVIRONMENT` | No | -- | `development` or `production` (affects logging/OTel) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
 | `CORS_ALLOWED_ORIGINS` | No | -- | Allowed CORS origins for Connect-RPC |

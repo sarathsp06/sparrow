@@ -9,26 +9,24 @@ This document describes Sparrow's package structure, dependency graph, and desig
 ```
 cmd/server/main.go  (composition root — wires everything)
     │
-    ├── internal/tenant   ──→ pkg/storage
-    ├── internal/namespace ──→ pkg/storage
+    ├── internal/tenant    ──→ pkg/storage
     ├── internal/webhooks  ──→ pkg/storage, pkg/errors
     │       ├── store/     ──→ pkg/storage, pkg/types
     │       ├── queue/     ──→ store, client, pkg/errors, internal/observability
     │       └── client/    ──→ store (models only), pkg/errors
-    └── internal/grpc      ──→ all three domain packages (transport layer)
+    └── internal/grpc      ──→ both domain packages (transport layer)
 ```
 
-`tenant`, `namespace`, and `webhooks` never import each other.
+`tenant` and `webhooks` never import each other.
 
 ### Dependency Matrix
 
 ```
-              imports:  tenant  namespace  webhooks
-  tenant         -        No       No
-  namespace      No        -       No
-  webhooks       No       No        -
-  grpc          Yes      Yes      Yes
-  main.go       Yes      Yes      Yes
+              imports:  tenant  webhooks
+  tenant         -       No
+  webhooks       No       -
+  grpc          Yes     Yes
+  main.go       Yes     Yes
 ```
 
 Zero cycles.
@@ -43,13 +41,9 @@ Zero cycles.
 
 - Tables: `tenants`
 
-**`internal/namespace`** -- Namespace CRUD for organizing webhooks and events.
+**`internal/webhooks`** -- Core business domain: namespaces, events, subscriptions, deliveries, health tracking.
 
-- Tables: `namespaces`
-
-**`internal/webhooks`** -- Core business domain: events, subscriptions, deliveries, health tracking.
-
-- Tables: `webhook_registrations`, `event_registrations`, `event_subscriptions`, `event_records`, `webhook_deliveries`, `webhook_health_events`, `webhook_health_summaries`, `webhook_health_state`
+- Tables: `namespaces`, `webhook_registrations`, `event_registrations`, `event_subscriptions`, `event_records`, `webhook_deliveries`, `webhook_health_events`, `webhook_health_summaries`, `webhook_health_state`
 - Sub-packages:
   - `store/` -- Data access (repository pattern, SQL queries)
   - `queue/` -- Async processing (River workers: `EventWorker`, `WebhookWorker`)
@@ -59,8 +53,8 @@ Zero cycles.
 
 **`internal/grpc`** -- gRPC service implementations (transport layer).
 
-- 6 service handlers delegating to domain services
-- The only package that imports all three domain packages
+- 5 proto-defined service handlers delegating to domain services
+- The only package that imports both domain packages
 
 **`internal/connect`** -- Connect-RPC adapter.
 
@@ -86,7 +80,7 @@ Zero cycles.
 
 ### Composition Root in `main.go`
 
-`cmd/server/main.go` is the only file that imports all three domain packages. It constructs repositories, services, and wires them together. No framework -- just constructor functions and explicit wiring.
+`cmd/server/main.go` is the only file that imports both domain packages. It constructs repositories, services, and wires them together. No framework -- just constructor functions and explicit wiring.
 
 ### Repository Per Domain, Not Per Table
 
@@ -97,8 +91,7 @@ Each domain owns a `Repository` interface and implementation. The repository enc
 Each domain package owns its tables:
 
 - `internal/tenant` -- `tenants`
-- `internal/namespace` -- `namespaces`
-- `internal/webhooks` -- all 8 webhook/event/delivery/health tables
+- `internal/webhooks` -- `namespaces` + all 8 webhook/event/delivery/health tables
 
 ### No Shared Models
 

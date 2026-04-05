@@ -53,7 +53,7 @@ graph LR
 - **Job Queue** -- River (Postgres-based)
 - **API** -- gRPC (`:50051`) + Connect-RPC/HTTP (`:8080`)
 - **Protobuf** -- buf.build toolchain
-- **Web UI** -- SvelteKit 5 + TypeScript + Tailwind CSS 4 (embedded static build)
+- **Web UI** -- SvelteKit 2 + Svelte 5 (Runes) + TypeScript + Tailwind CSS 4 (embedded static build)
 - **Observability** -- OpenTelemetry (traces, metrics, logs via OTLP)
 - **DB Access** -- pgx/v5 + sqlx (OTel-instrumented)
 - **Container** -- Multi-stage Dockerfile (distroless nonroot)
@@ -65,7 +65,7 @@ The same gRPC service implementations back both protocols -- no code duplication
 - **gRPC** on `:50051` for high-performance programmatic access
 - **Connect-RPC (HTTP/JSON)** on `:8080` for curl, browsers, and any HTTP client
 
-Five proto-defined services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`. A separate `NamespaceService` is implemented directly in Go (no proto definition) for namespace CRUD.
+Five proto-defined services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`. Namespace management is handled through RPCs on `WebhookService` (e.g., `GetNamespaceStats`).
 
 ---
 
