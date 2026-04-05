@@ -38,11 +38,11 @@ docker-push: ## Push Docker image to GHCR (requires: docker login ghcr.io)
 	docker push ghcr.io/sarathsp06/sparrow:$(VERSION)
 	docker push ghcr.io/sarathsp06/sparrow:latest
 
-docker-dev: ## Run the development environment with Docker Compose
-	docker-compose -f docker-compose.yml up -d --build
+docker-dev: ## Run the development environment with Docker Compose (builds from source)
+	docker compose -f docker-compose.dev.yml up -d --build
 
 docker-purge: ## Stop and remove Docker containers, networks, volumes, and images created by Docker Compose for development
-	docker-compose -f docker-compose.yml down -v
+	docker compose -f docker-compose.dev.yml down -v
 
 ## -- Helm / Kubernetes --
 

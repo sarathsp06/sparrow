@@ -130,8 +130,10 @@ func setupEnv(t *testing.T) *testEnv {
 	err = tenant.Bootstrap(ctx, tenantSvc, bootstrapCfg)
 	require.NoError(t, err, "failed to bootstrap default tenant")
 
-	// 8. Create crypto service (no-op for tests)
-	cryptoSvc, err := crypto.NewService(nil)
+	// 8. Create crypto service with a test encryption key
+	_, testKey, err := crypto.GenerateKey()
+	require.NoError(t, err, "failed to generate test encryption key")
+	cryptoSvc, err := crypto.NewService(testKey)
 	require.NoError(t, err, "failed to create crypto service")
 
 	// 9. Initialize queue manager (River)
