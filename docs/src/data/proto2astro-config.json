@@ -79,14 +79,6 @@
       ]
     },
     {
-      "label": "Guides",
-      "items": [
-        {
-          "slug": "guides/comment-guide"
-        }
-      ]
-    },
-    {
       "label": "Deployment",
       "items": [
         {

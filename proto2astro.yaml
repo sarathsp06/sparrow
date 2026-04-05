@@ -33,9 +33,6 @@ sidebar:
         - slug: reference/template-functions
         - slug: reference/error-classification
         - slug: reference/architecture
-    - label: Guides
-      items:
-        - slug: guides/comment-guide
     - label: Deployment
       items:
         - slug: deployment/docker-compose
