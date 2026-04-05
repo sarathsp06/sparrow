@@ -43,7 +43,6 @@ logs/
 Dockerfile*
 .dockerignore
 docker-compose*.yml
-otel-collector-config.yml
 
 # Development-only files
 setup.sh

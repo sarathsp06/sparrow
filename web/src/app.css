@@ -5,7 +5,6 @@
 /* Override Tailwind's default mono stack to use Fira Code first */
 @theme {
 	--font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-	--font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 @layer base {

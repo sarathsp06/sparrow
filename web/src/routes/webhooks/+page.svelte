@@ -258,18 +258,69 @@
         </div>
       </div>
     {:else if webhooks.length === 0}
-      <div class="bg-white border border-gray-200 rounded-lg">
-        <EmptyState
-          icon="webhook"
-          title="No webhooks registered"
-          description="Get started by registering your first webhook to begin receiving event notifications."
-        >
-          {#snippet action()}
-            <a href="/webhooks/register" class="inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition">
-              Register Webhook
-            </a>
-          {/snippet}
-        </EmptyState>
+      <div class="bg-white border border-gray-200 rounded-lg p-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+          <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+            <span class="material-symbols-outlined text-3xl text-gray-400">webhook</span>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-900 mb-1">No webhooks registered</h3>
+          <p class="text-sm text-gray-500 max-w-md mx-auto">Register a webhook, define events, subscribe, and push -- Sparrow handles the rest.</p>
+        </div>
+
+        <!-- How it works: 4-step flow -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div class="relative border border-gray-200 rounded-lg p-4">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-900 text-white text-xs font-bold">1</span>
+              <span class="text-sm font-semibold text-gray-900">Register</span>
+            </div>
+            <p class="text-xs text-gray-500 leading-relaxed">Register a webhook endpoint with its target URL and namespace.</p>
+            <code class="block mt-2 text-[10px] text-gray-400 bg-gray-50 rounded px-2 py-1 truncate">POST /webhook.WebhookService/RegisterWebhook</code>
+          </div>
+          <div class="relative border border-gray-200 rounded-lg p-4">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-900 text-white text-xs font-bold">2</span>
+              <span class="text-sm font-semibold text-gray-900">Define Events</span>
+            </div>
+            <p class="text-xs text-gray-500 leading-relaxed">Create event types with optional JSON schemas for validation.</p>
+            <code class="block mt-2 text-[10px] text-gray-400 bg-gray-50 rounded px-2 py-1 truncate">POST /webhook.EventService/RegisterEvent</code>
+          </div>
+          <div class="relative border border-gray-200 rounded-lg p-4">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-900 text-white text-xs font-bold">3</span>
+              <span class="text-sm font-semibold text-gray-900">Subscribe</span>
+            </div>
+            <p class="text-xs text-gray-500 leading-relaxed">Subscribe webhooks to events with optional payload transforms.</p>
+            <code class="block mt-2 text-[10px] text-gray-400 bg-gray-50 rounded px-2 py-1 truncate">POST /webhook.SubscriptionService/CreateSubscription</code>
+          </div>
+          <div class="relative border border-gray-200 rounded-lg p-4">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-900 text-white text-xs font-bold">4</span>
+              <span class="text-sm font-semibold text-gray-900">Push</span>
+            </div>
+            <p class="text-xs text-gray-500 leading-relaxed">Push events and Sparrow fans out deliveries with retries and tracking.</p>
+            <code class="block mt-2 text-[10px] text-gray-400 bg-gray-50 rounded px-2 py-1 truncate">POST /webhook.EventService/PushEvent</code>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <a href="/webhooks/register" class="inline-flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition shadow-sm">
+            <span class="text-lg leading-none">+</span>
+            Register Webhook
+          </a>
+          <a
+            href="https://sarathsp06.github.io/sparrow/getting-started/how-it-works/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition"
+          >
+            <span class="material-symbols-outlined text-base">menu_book</span>
+            Read the docs
+            <span class="material-symbols-outlined text-xs">open_in_new</span>
+          </a>
+        </div>
       </div>
     {:else if filteredWebhooks.length === 0}
       <div class="bg-white border border-gray-200 rounded-lg">

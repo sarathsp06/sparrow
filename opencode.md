@@ -602,24 +602,24 @@ Sparrow Server
 ## Deployment Topology
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                      docker compose                              │
-├──────────────┬──────────────┬───────────────┬────────────────────┤
-│   postgres   │   migrate    │    sparrow    │   otel-collector   │
-│  :5432       │ (run-once)   │  :8080 :50051 │   :4317 :4318     │
-│              │              │               │                    │
-│ postgres:15  │ /app/tools/  │ /app/server   │ otel/contrib       │
-│  -alpine     │   migrate    │               │                    │
-│              │              │ Env:          │ Config:            │
-│ DB: sparrow  │ Depends:     │  DATABASE_URL │  otel-collector-   │
-│ User:sparrow │  postgres    │  SPARROW_*    │   config.yml       │
-│              │  (healthy)   │               │                    │
-│ Healthcheck: │              │ Depends:      │                    │
-│  pg_isready  │ restart: no  │  migrate      │                    │
-│  5s interval │              │  (completed)  │                    │
-└──────────────┴──────────────┴───────────────┴────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                    docker compose                     │
+├──────────────────┬───────────────────────────────────┤
+│     postgres     │           sparrow                 │
+│    :5432         │        :8080 :50051               │
+│                  │                                   │
+│  postgres:15     │  /app/server                      │
+│   -alpine        │                                   │
+│                  │  Env:                              │
+│  DB: sparrow     │   DATABASE_URL                    │
+│  User: sparrow   │   SPARROW_API_KEY (optional)      │
+│                  │   SPARROW_SERVE_UI                 │
+│  Healthcheck:    │                                   │
+│   pg_isready     │  Depends:                         │
+│   5s interval    │   postgres (healthy)               │
+└──────────────────┴───────────────────────────────────┘
 
-Startup order: postgres (healthy) -> migrate (exits) -> sparrow (starts)
+Startup order: postgres (healthy) -> sparrow (starts)
 ```
 
 ### Dockerfile (3-stage)
@@ -633,8 +633,8 @@ Startup order: postgres (healthy) -> migrate (exits) -> sparrow (starts)
 
 **Stack**: SvelteKit 2, Svelte 5, Tailwind CSS v4, Vite 7, adapter-static (SPA mode)  
 **Output**: `../internal/ui/dist` (embedded in Go binary via `go:embed`)  
-**Fonts**: Inter (`font-inter`) for marketing content, Fira Code (`font-fira`) for code/monospace  
-**UI library**: flowbite-svelte  
+**Fonts**: Fira Code (`font-mono`) for all UI text (terminal aesthetic)  
+**UI library**: Tailwind CSS v4 (hand-built components; flowbite-svelte is a dead dependency)  
 **API layer**: Connect-RPC via `@connectrpc/connect-web`, protobuf types from `proto/webhook_pb.js`
 
 ### Route Structure

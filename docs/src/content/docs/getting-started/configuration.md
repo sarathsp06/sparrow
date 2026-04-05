@@ -66,12 +66,10 @@ Sparrow uses two connection pools:
 
 ## Observability
 
-Sparrow exports traces, metrics, and logs via OpenTelemetry (OTLP). Set `OTEL_EXPORTER_OTLP_ENDPOINT` to enable.
-
-The included `docker-compose.yml` ships with an OTel Collector sidecar. To use your own collector or observability stack, point the env var to your OTLP endpoint:
+Sparrow exports traces, metrics, and logs via OpenTelemetry (OTLP). Set `OTEL_EXPORTER_OTLP_ENDPOINT` to point to your collector:
 
 ```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4318
 ```
 
 ### Exported Metrics

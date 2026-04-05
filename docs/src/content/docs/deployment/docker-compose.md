@@ -97,10 +97,8 @@ SPARROW_SERVE_UI=true ./build/server-*
 
 ## Observability
 
-Sparrow exports traces, metrics, and logs via OpenTelemetry (OTLP). Set `OTEL_EXPORTER_OTLP_ENDPOINT` to enable:
+Sparrow exports traces, metrics, and logs via OpenTelemetry (OTLP). Set `OTEL_EXPORTER_OTLP_ENDPOINT` to point to your collector:
 
 ```bash
-OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4318
 ```
-
-The development compose file in the repo root ships with an OTel Collector sidecar. To use your own collector, point the environment variable to your OTLP endpoint.
