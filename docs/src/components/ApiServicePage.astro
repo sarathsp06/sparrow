@@ -22,6 +22,7 @@ import type { ApiService, Field } from '../data/api/types';
 type Props = ApiService;
 
 const { service, description, notes, rpcs, footer } = Astro.props;
+const pkg = Astro.props.package || service;
 
 const DEFAULT_HOST = 'localhost:8080';
 
@@ -53,8 +54,8 @@ function buildExampleObject(fields: Field[]): Record<string, unknown> {
 /**
  * Generate a curl command for a Connect-RPC endpoint.
  */
-function generateCurl(serviceName: string, rpcName: string, requestFields: Field[]): string {
-  const url = `http://${DEFAULT_HOST}/webhook.${serviceName}/${rpcName}`;
+function generateCurl(packageName: string, serviceName: string, rpcName: string, requestFields: Field[]): string {
+  const url = `http://${DEFAULT_HOST}/${packageName}.${serviceName}/${rpcName}`;
   const body = buildExampleObject(requestFields);
   const hasBody = Object.keys(body).length > 0;
 
@@ -101,7 +102,7 @@ function generateResponseJson(responseFields: Field[]): string | null {
 {notesHtml && <div class="api-markdown-section" set:html={notesHtml} />}
 
 {rpcs.map((rpc, idx) => {
-  const curl = generateCurl(service, rpc.name, rpc.request);
+  const curl = generateCurl(pkg, service, rpc.name, rpc.request);
   const responseJson = rpc.response ? generateResponseJson(rpc.response) : null;
 
   return (
@@ -114,7 +115,7 @@ function generateResponseJson(responseFields: Field[]): string | null {
 
             <ApiEndpoint
               method="POST"
-              path={`/webhook.${service}/${rpc.name}`}
+              path={`/${pkg}.${service}/${rpc.name}`}
               description={rpc.description}
             />
 
@@ -206,8 +207,8 @@ function generateResponseJson(responseFields: Field[]): string | null {
     codeEls.forEach((el) => {
       walkTextNodes(el, (text) => {
         return text.replace(
-          /https?:\/\/[^/\s]+\/webhook\./g,
-          `${protocol}${host}/webhook.`
+          /https?:\/\/[^/\s]+\//g,
+          `${protocol}${host}/`
         );
       });
     });

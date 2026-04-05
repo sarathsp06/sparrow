@@ -1,0 +1,93 @@
+{
+  "title": "Sparrow",
+  "description": "Self-hosted webhook delivery platform",
+  "site": "https://sarathsp06.github.io",
+  "base": "/sparrow",
+  "social": [
+    {
+      "icon": "github",
+      "label": "GitHub",
+      "href": "https://github.com/sarathsp06/sparrow"
+    }
+  ],
+  "editLink": "https://github.com/sarathsp06/sparrow/edit/main/docs/",
+  "components": {
+    "Footer": "./src/components/Footer.astro"
+  },
+  "sidebar": [
+    {
+      "label": "Getting Started",
+      "items": [
+        {
+          "slug": "getting-started/installation"
+        },
+        {
+          "slug": "getting-started/quickstart"
+        },
+        {
+          "slug": "getting-started/how-it-works"
+        },
+        {
+          "slug": "getting-started/configuration"
+        }
+      ]
+    },
+    {
+      "label": "API Reference",
+      "items": [
+        {
+          "slug": "reference/api"
+        },
+        {
+          "slug": "reference/api/webhook-service"
+        },
+        {
+          "slug": "reference/api/event-service"
+        },
+        {
+          "slug": "reference/api/subscription-service"
+        },
+        {
+          "slug": "reference/api/delivery-service"
+        },
+        {
+          "slug": "reference/api/health-service"
+        },
+        {
+          "slug": "reference/api/enum-webhook-delivery-status"
+        },
+        {
+          "slug": "reference/api/enum-webhook-health"
+        }
+      ]
+    },
+    {
+      "label": "Reference",
+      "items": [
+        {
+          "slug": "reference/client-libraries"
+        },
+        {
+          "slug": "reference/template-functions"
+        },
+        {
+          "slug": "reference/error-classification"
+        },
+        {
+          "slug": "reference/architecture"
+        }
+      ]
+    },
+    {
+      "label": "Deployment",
+      "items": [
+        {
+          "slug": "deployment/docker-compose"
+        },
+        {
+          "slug": "deployment/kubernetes"
+        }
+      ]
+    }
+  ]
+}

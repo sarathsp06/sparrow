@@ -193,9 +193,11 @@ service HealthService {
 message PaginationRequest {
   // Maximum number of items to return. Clamped to server max (typically 250).
   // Default: 50.
+  // @example 20
   int32 limit = 1;
 
   // Number of items to skip before returning results. Default: 0.
+  // @example 0
   int32 offset = 2;
 }
 
@@ -291,11 +293,13 @@ message WebhookHTTPConfig {
   // Only retryable error categories trigger retries (server_error, timeout,
   // connection_refused, network_error). Client errors (4xx), DNS errors,
   // and TLS errors are never retried regardless of this setting.
+  // @example 5
   int32 max_retries = 1;
 
   // Base backoff duration in seconds between retry attempts.
   // Range: 1-3600. Default: 60. Actual backoff uses exponential increase
   // with jitter: base * 2^(attempt-1) + random jitter.
+  // @example 60
   int32 retry_backoff_seconds = 2;
 
   // Controls the maximum size of stored response body per delivery attempt.
@@ -303,25 +307,30 @@ message WebhookHTTPConfig {
   // When true: up to 1 MB of the response body is stored.
   // Note: the response body is always read from the connection regardless of this
   // flag (required for HTTP connection reuse). This only controls how much is persisted.
+  // @example false
   bool capture_response_body = 3;
 
   // Whether to follow HTTP 3xx redirects when delivering webhooks.
   // Default: true. Set to false to treat redirects as the final response.
+  // @example true
   bool follow_redirects = 4;
 
   // Whether to verify the target endpoint's TLS certificate chain.
   // Default: true. Set to false only for development/testing with self-signed certs.
   // Disabling this in production is a security risk.
+  // @example true
   bool verify_ssl = 5;
 
   // Per-request timeout in seconds. If the target endpoint does not respond
   // within this duration, the attempt is classified as a timeout error (retryable).
   // Range: 1-300. Default: 30.
+  // @example 30
   int32 request_timeout_seconds = 6;
 
   // HTTP status codes that Sparrow treats as a successful delivery.
   // Default: [200, 201, 202, 204]. Any response code not in this list
   // is classified as a client_error (4xx) or server_error (5xx) based on range.
+  // @example [200, 201, 202, 204]
   repeated int32 expected_status_codes = 7;
 
   // Shared secret used for HMAC-SHA256 request signing. When set, Sparrow
@@ -329,14 +338,17 @@ message WebhookHTTPConfig {
   // the hex-encoded HMAC of the request body. The receiving endpoint can
   // verify authenticity by recomputing the HMAC.
   // Leave empty to disable signing.
+  // @example "whsec_your_secret_key"
   string webhook_secret = 8;
 
   // Value of the User-Agent header sent with every delivery request.
   // Default: "Sparrow-Webhook/1.0".
+  // @example "Sparrow-Webhook/1.0"
   string user_agent = 9;
 
   // Content-Type header for delivery requests.
   // Default: "application/json". Change if your endpoint expects a different media type.
+  // @example "application/json"
   string content_type = 10;
 }
 
@@ -350,19 +362,23 @@ message WebhookHTTPConfig {
 message RegisterWebhookRequest {
   // Namespace to register the webhook in. Required.
   // The namespace must already exist (created via the NamespaceService).
+  // @example "production"
   string namespace = 1;
 
   // Event names this webhook should receive. At least one is required.
   // A subscription is automatically created for each event name listed here.
+  // @example ["order.created", "order.updated"]
   repeated string events = 2;
 
   // Target URL that will receive HTTP POST requests for each delivery.
   // Must be a valid HTTP or HTTPS URL. Required.
+  // @example "https://example.com/hooks"
   string url = 3;
 
   // Custom HTTP headers included in every delivery request to this webhook.
   // These are visible in API responses. For sensitive values (API keys, tokens),
   // use secret_headers instead.
+  // @example {"X-Source": "sparrow"}
   map<string, string> headers = 4;
 
   // Deprecated: use http_config.request_timeout_seconds instead.
@@ -370,13 +386,16 @@ message RegisterWebhookRequest {
 
   // Whether the webhook starts in active state. Default: true.
   // Inactive webhooks are skipped during event fan-out.
+  // @example true
   bool active = 6;
 
   // Human-readable description of the webhook's purpose. Optional.
+  // @example "Order notifications"
   string description = 7;
 
   // HTTP delivery configuration (retries, timeouts, TLS, HMAC, etc.).
   // Optional -- all fields have sensible defaults if omitted.
+  // @example {"max_retries": 5, "webhook_secret": "whsec_your_secret_key"}
   WebhookHTTPConfig http_config = 8;
 
   // Sensitive HTTP headers stored encrypted at rest (e.g., Authorization, API keys).
@@ -389,6 +408,7 @@ message RegisterWebhookRequest {
 message RegisterWebhookResponse {
   // Server-generated UUID for the new webhook. Use this ID for all
   // subsequent operations (update, pause, resume, unregister).
+  // @example "550e8400-e29b-41d4-a716-446655440000"
   string webhook_id = 1;
 
   // Deprecated: use gRPC status codes to determine success/failure.
@@ -398,6 +418,7 @@ message RegisterWebhookResponse {
   string message = 3 [deprecated = true];
 
   // Timestamp when the webhook was created.
+  // @example "2025-01-15T10:30:00Z"
   google.protobuf.Timestamp created_at = 4;
 }
 
@@ -405,9 +426,11 @@ message RegisterWebhookResponse {
 // This cascade-deletes all subscriptions, deliveries, and health data for the webhook.
 message UnregisterWebhookRequest {
   // UUID of the webhook to delete. Required.
+  // @example "550e8400-e29b-41d4-a716-446655440000"
   string webhook_id = 1;
 
   // Namespace the webhook belongs to. Required.
+  // @example "production"
   string namespace = 2;
 }
 
@@ -429,15 +452,18 @@ message UnregisterWebhookResponse {
 // At minimum, namespace is required. All other fields are optional filters.
 message ListWebhooksRequest {
   // Namespace to list webhooks from. Required.
+  // @example "production"
   string namespace = 1;
 
   // Filter to only webhooks subscribed to this event name. Optional.
   string event = 2;
 
   // When true, only return active (non-paused) webhooks. Default: false (return all).
+  // @example true
   bool active_only = 3;
 
   // Pagination parameters. Default: limit=50, offset=0.
+  // @example {"limit": 20}
   PaginationRequest pagination = 4;
 
   // Filter to a specific webhook by ID. Optional.
@@ -541,10 +567,12 @@ message WebhookUpdateFields {
   bool active = 5;
 
   // Updated human-readable description. Omit to leave unchanged.
+  // @example "Updated order webhook"
   string description = 6;
 
   // Updated HTTP delivery configuration. Omit to leave unchanged.
   // When set, the entire http_config is replaced (not merged field-by-field).
+  // @example {"max_retries": 5, "request_timeout_seconds": 60}
   WebhookHTTPConfig http_config = 7;
 
   // Replace all secret headers. Omit to leave unchanged.
@@ -555,9 +583,11 @@ message WebhookUpdateFields {
 // UpdateWebhookConfigRequest applies partial updates to an existing webhook.
 message UpdateWebhookConfigRequest {
   // UUID of the webhook to update. Required.
+  // @example "550e8400-e29b-41d4-a716-446655440000"
   string webhook_id = 1;
 
   // Namespace the webhook belongs to. Required.
+  // @example "production"
   string namespace = 2;
 
   // Fields to update. Only non-zero fields are applied. Required.
@@ -582,12 +612,15 @@ message UpdateWebhookConfigResponse {
 // Existing in-flight deliveries are not cancelled.
 message PauseWebhookRequest {
   // UUID of the webhook to pause. Required.
+  // @example "550e8400-e29b-41d4-a716-446655440000"
   string webhook_id = 1;
 
   // Namespace the webhook belongs to. Required.
+  // @example "production"
   string namespace = 2;
 
   // Human-readable reason for pausing (stored for audit purposes). Optional.
+  // @example "Endpoint maintenance"
   string reason = 3;
 }
 
@@ -604,9 +637,11 @@ message PauseWebhookResponse {
 // Events pushed while the webhook was paused are not retroactively delivered.
 message ResumeWebhookRequest {
   // UUID of the webhook to resume. Required.
+  // @example "550e8400-e29b-41d4-a716-446655440000"
   string webhook_id = 1;
 
   // Namespace the webhook belongs to. Required.
+  // @example "production"
   string namespace = 2;
 
   // Human-readable reason for resuming. Optional.
@@ -631,14 +666,17 @@ message ResumeWebhookResponse {
 message RegisterEventRequest {
   // Unique event name (e.g., "order.created", "payment.completed"). Required.
   // Convention: use dot-separated lowercase names.
+  // @example "order.created"
   string name = 1;
 
   // Human-readable description of what this event represents. Optional.
+  // @example "Fired when a new order is placed"
   string description = 2;
 
   // JSON Schema for validating PushEvent payloads. Optional.
   // When set, all future PushEvent calls for this event type must conform to this schema.
   // Passed as a google.protobuf.Struct (JSON object).
+  // @example {"type": "object", "properties": {"order_id": {"type": "string"}, "amount": {"type": "number"}}, "required": ["order_id", "amount"]}
   google.protobuf.Struct schema = 3;
 
   // Arbitrary key-value metadata attached to the event type definition. Optional.
@@ -646,6 +684,7 @@ message RegisterEventRequest {
 
   // Whether the event type is active. Default: true.
   // Inactive event types cannot receive new PushEvent calls.
+  // @example true
   bool active = 5;
 }
 
@@ -662,12 +701,14 @@ message RegisterEventResponse {
   string message = 3 [deprecated = true];
 
   // Timestamp when the event type was created.
+  // @example "2025-01-15T10:30:00Z"
   google.protobuf.Timestamp created_at = 4;
 }
 
 // ListEventsRequest specifies filters for listing registered event types.
 message ListEventsRequest {
   // When true, only return active event types. Default: false (return all).
+  // @example true
   bool active_only = 1;
 
   // Pagination parameters. Default: limit=50, offset=0.
@@ -729,9 +770,11 @@ message ListEventsResponse {
 // All fields except name are optional; only non-zero fields are applied.
 message UpdateEventRequest {
   // Event name to update. Required. This is the lookup key (not a UUID).
+  // @example "order.created"
   string name = 1;
 
   // Updated description. Omit to leave unchanged.
+  // @example "Updated: Fired when a new order is placed"
   string description = 2;
 
   // Updated JSON Schema for payload validation. Omit to leave unchanged.
@@ -757,6 +800,7 @@ message UpdateEventResponse {
 // GetEventRequest retrieves a single event type definition by name.
 message GetEventRequest {
   // Event name to look up. Required.
+  // @example "order.created"
   string name = 1;
 }
 
@@ -771,6 +815,7 @@ message GetEventResponse {
 // They will simply stop matching any future events.
 message DeleteEventRequest {
   // Event name to delete. Required.
+  // @example "order.created"
   string name = 1;
 }
 
@@ -794,16 +839,19 @@ message DeleteEventResponse {
 message PushEventRequest {
   // Namespace to push the event into. Required.
   // Only subscriptions in this namespace are matched.
+  // @example "production"
   string namespace = 1;
 
   // Event type name (must match a registered event type). Required.
   // Subscriptions with matching event_name in this namespace will receive deliveries.
+  // @example "order.created"
   string event = 2;
 
   // Event payload as a JSON object. Required.
   // If the event type has a schema, this payload is validated against it before acceptance.
   // This payload (or its template-transformed version) becomes the HTTP request body
   // sent to each matching webhook.
+  // @example {"order_id": "ord-123", "amount": 99.99, "currency": "USD"}
   google.protobuf.Struct payload = 3;
 
   // Time-to-live in seconds for delivery retries. Optional.
@@ -825,6 +873,7 @@ message PushEventRequest {
   // When set, only subscriptions whose label_filters are a subset of these labels
   // will receive deliveries. Labels use AND logic: all filter keys must match.
   // Subscriptions with no label_filters match all events regardless of labels.
+  // @example {"region": "us-east", "priority": "high"}
   map<string, string> labels = 7;
 }
 
@@ -833,6 +882,7 @@ message PushEventRequest {
 message PushEventResponse {
   // Server-generated UUID for the event instance.
   // Use this ID to query delivery status via DeliveryService.ListDeliveries.
+  // @example "e-550e8400-e29b-41d4-a716-446655440000"
   string event_id = 1;
 
   // Deprecated: use gRPC status codes.
@@ -888,12 +938,15 @@ message EventReport {
 // ListEventReportsRequest specifies filters for listing pushed event instances.
 message ListEventReportsRequest {
   // Namespace to list events from. Required.
+  // @example "production"
   string namespace = 1;
 
   // Filter to events of this type name. Optional.
+  // @example "order.created"
   optional string event_name = 2;
 
   // Pagination parameters. Default: limit=50, offset=0. Max limit: 1000.
+  // @example {"limit": 25}
   PaginationRequest pagination = 3;
 
   // Deprecated: use pagination.limit.
@@ -985,13 +1038,16 @@ message EventSubscription {
 message CreateSubscriptionRequest {
   // UUID of the webhook to subscribe. Required.
   // The webhook must exist in the specified namespace.
+  // @example "550e8400-e29b-41d4-a716-446655440000"
   string webhook_id = 1;
 
   // Event type name to subscribe to. Required.
+  // @example "order.created"
   string event_name = 2;
 
   // Namespace for the subscription. Required.
   // Must match the webhook's namespace.
+  // @example "production"
   string namespace = 3;
 
   // Per-subscription HTTP headers. Optional.
@@ -1013,15 +1069,18 @@ message CreateSubscriptionRequest {
 
   // Label filters for selective event matching. Optional.
   // Only events with labels matching all key-value pairs will trigger this subscription.
+  // @example {"region": "us-east"}
   map<string, string> label_filters = 9;
 }
 
 // CreateSubscriptionResponse confirms successful subscription creation.
 message CreateSubscriptionResponse {
   // Server-generated UUID of the new subscription.
+  // @example "7c9e6679-7425-40de-944b-e07fc1f90ae7"
   string subscription_id = 1;
 
   // When the subscription was created.
+  // @example "2025-01-15T10:30:00Z"
   google.protobuf.Timestamp created_at = 4;
 
   // Deprecated: use gRPC status codes.
@@ -1034,9 +1093,11 @@ message CreateSubscriptionResponse {
 // GetSubscriptionRequest retrieves a single subscription by ID.
 message GetSubscriptionRequest {
   // UUID of the subscription to retrieve. Required.
+  // @example "7c9e6679-7425-40de-944b-e07fc1f90ae7"
   string subscription_id = 1;
 
   // Namespace the subscription belongs to. Required.
+  // @example "production"
   string namespace = 2;
 }
 
@@ -1055,12 +1116,14 @@ message GetSubscriptionResponse {
 // ListSubscriptionsRequest specifies filters for listing subscriptions.
 message ListSubscriptionsRequest {
   // Filter by webhook UUID. Optional.
+  // @example "550e8400-e29b-41d4-a716-446655440000"
   string webhook_id = 1;
 
   // Filter by event type name. Optional.
   string event_name = 4;
 
   // Namespace to list subscriptions from. Required.
+  // @example "production"
   string namespace = 2;
 
   // Pagination parameters. Default: limit=50, offset=0.
@@ -1089,9 +1152,11 @@ message ListSubscriptionsResponse {
 // Only non-zero/non-empty fields are applied; omitted fields are left unchanged.
 message UpdateSubscriptionRequest {
   // UUID of the subscription to update. Required.
+  // @example "7c9e6679-7425-40de-944b-e07fc1f90ae7"
   string subscription_id = 1;
 
   // Namespace the subscription belongs to. Required.
+  // @example "production"
   string namespace = 7;
 
   // Updated per-subscription headers. Replaces existing headers when set.
@@ -1104,6 +1169,7 @@ message UpdateSubscriptionRequest {
   int32 timeout = 4;
 
   // Updated transform enabled flag.
+  // @example true
   bool transform_enabled = 5;
 
   // Updated Go template. Use TestSubscriptionTemplate to validate before saving.
@@ -1126,9 +1192,11 @@ message UpdateSubscriptionResponse {
 // In-flight deliveries for this subscription are not cancelled.
 message DeleteSubscriptionRequest {
   // UUID of the subscription to delete. Required.
+  // @example "7c9e6679-7425-40de-944b-e07fc1f90ae7"
   string subscription_id = 1;
 
   // Namespace the subscription belongs to. Required.
+  // @example "production"
   string namespace = 2;
 }
 
@@ -1175,13 +1243,16 @@ message ListSubscriptionsByEventResponse {
 message TestSubscriptionTemplateRequest {
   // Event name to get the sample payload from. Required.
   // The event type must have a schema defined for a sample payload to be generated.
+  // @example "order.created"
   string event_name = 1;
 
   // Go template string to test. Required.
   // The template is executed with the event's sample_payload as its data context.
+  // @example "{\"id\": \"{{ .payload.order_id }}\", \"total\": \"{{ .payload.amount }}\"}"
   string transform_template = 2;
 
   // Namespace. Required.
+  // @example "production"
   string namespace = 3;
 }
 
@@ -1190,6 +1261,7 @@ message TestSubscriptionTemplateResponse {
   // The template output after rendering against the sample payload.
   // This is exactly what would be sent as the delivery request body
   // if this template were applied to a subscription.
+  // @example "{\"id\": \"ord-123\", \"total\": \"99.99\"}"
   string transformed_payload = 1;
 }
 
@@ -1261,9 +1333,11 @@ message WebhookDelivery {
 // GetDeliveryStatusRequest retrieves a single delivery by ID.
 message GetDeliveryStatusRequest {
   // UUID of the delivery to retrieve. Required.
+  // @example "d-550e8400-e29b-41d4-a716-446655440000"
   string delivery_id = 1;
 
   // Namespace the delivery belongs to. Required.
+  // @example "production"
   string namespace = 2;
 }
 
@@ -1283,15 +1357,18 @@ message GetDeliveryStatusResponse {
 // Results are always ordered by created_at descending (newest first).
 message ListDeliveriesRequest {
   // Namespace to list deliveries from. Required.
+  // @example "production"
   string namespace = 1;
 
   // Filter by webhook UUID. Optional.
+  // @example "550e8400-e29b-41d4-a716-446655440000"
   string webhook_id = 2;
 
   // Filter by event UUID. Optional.
   string event_id = 3;
 
   // Pagination parameters. Default: limit=50, offset=0.
+  // @example {"limit": 20}
   PaginationRequest pagination = 4;
 }
 
@@ -1315,9 +1392,11 @@ message ListDeliveriesResponse {
 // Without force=true, only FAILED and PENDING deliveries are retried.
 message RetryDeliveryRequest {
   // Namespace. Required.
+  // @example "production"
   string namespace = 1;
 
   // UUID of a specific delivery to retry. Optional.
+  // @example "d-550e8400-e29b-41d4-a716-446655440000"
   string delivery_id = 2;
 
   // UUID of a webhook -- retry all its failed/pending deliveries. Optional.
@@ -1331,9 +1410,11 @@ message RetryDeliveryRequest {
 // RetryDeliveryResponse reports how many deliveries were re-enqueued.
 message RetryDeliveryResponse {
   // Number of deliveries that were re-enqueued.
+  // @example 1
   int32 retried_count = 1;
 
   // UUIDs of the deliveries that were re-enqueued.
+  // @example ["d-550e8400-e29b-41d4-a716-446655440000"]
   repeated string delivery_ids = 2;
 
   // Deprecated: use gRPC status codes.
@@ -1348,6 +1429,7 @@ message RetryDeliveryResponse {
 // Each attempt is an immutable record of one HTTP round-trip (or failure to connect).
 message DeliveryAttempt {
   // Server-generated UUID for this attempt.
+  // @example "a-110e8400-e29b-41d4-a716-446655440000"
   string attempt_id = 1;
 
   // UUID of the parent delivery this attempt belongs to.
@@ -1358,14 +1440,17 @@ message DeliveryAttempt {
 
   // Whether this attempt resulted in a successful delivery
   // (response code matched expected_status_codes).
+  // @example true
   bool success = 4;
 
   // Round-trip time in milliseconds from sending the request to receiving
   // the full response (or timeout/error). 0 if no connection was established.
+  // @example 245
   int32 response_time = 5;
 
   // HTTP response status code. 0 if no response was received
   // (timeout, connection refused, DNS error, etc.).
+  // @example 200
   int32 response_code = 6;
 
   // Error message describing the failure. Empty string on success.
@@ -1376,15 +1461,18 @@ message DeliveryAttempt {
   // Classified error category for this attempt.
   // Values: "success", "client_error", "server_error", "timeout",
   // "connection_refused", "network_error", "dns_error", "tls_error", "unknown".
+  // @example "success"
   string error_category = 8;
 
   // When this attempt was made.
+  // @example "2025-01-15T10:30:05Z"
   google.protobuf.Timestamp timestamp = 9;
 }
 
 // GetDeliveryAttemptsRequest retrieves the attempt history for a delivery.
 message GetDeliveryAttemptsRequest {
   // UUID of the delivery to get attempts for. Required.
+  // @example "d-550e8400-e29b-41d4-a716-446655440000"
   string delivery_id = 1;
 }
 
@@ -1402,9 +1490,11 @@ message GetDeliveryAttemptsResponse {
 // GetWebhookHealthRequest retrieves health status for a single webhook.
 message GetWebhookHealthRequest {
   // UUID of the webhook. Required.
+  // @example "550e8400-e29b-41d4-a716-446655440000"
   string webhook_id = 1;
 
   // Namespace the webhook belongs to. Required.
+  // @example "production"
   string namespace = 2;
 }
 
@@ -1416,16 +1506,20 @@ message WebhookHealthMetrics {
   string webhook_id = 1;
 
   // Total number of deliveries ever made to this webhook (all time).
+  // @example 1520
   int32 total_deliveries = 2;
 
   // Number of deliveries that succeeded (terminal SUCCESS status).
+  // @example 1480
   int32 successful_deliveries = 3;
 
   // Number of deliveries that failed permanently (terminal FAILED status).
+  // @example 40
   int32 failed_deliveries = 4;
 
   // Current streak of consecutive failed deliveries. Resets to 0 on any success.
   // Used for health status computation: 3-9 = DEGRADED, 10+ = UNHEALTHY.
+  // @example 0
   int32 consecutive_failures = 5;
 
   // Timestamp of the most recent successful delivery. Null if the webhook has never succeeded.
@@ -1437,9 +1531,11 @@ message WebhookHealthMetrics {
   // Success rate as a decimal between 0.0 and 1.0.
   // Computed as successful_deliveries / total_deliveries.
   // Used for health thresholds: >0.9 = HEALTHY, 0.5-0.9 = DEGRADED, <0.5 = UNHEALTHY.
+  // @example 0.974
   double success_rate = 8;
 
   // Average response time in milliseconds across all delivery attempts.
+  // @example 245
   int32 avg_response_time = 9;
 
   // When the health metrics record was first created.
@@ -1451,18 +1547,22 @@ message WebhookHealthMetrics {
   // Count of client errors (HTTP 4xx) in the last 24 hours.
   // Client errors are never retried -- typically indicates a misconfigured endpoint
   // (wrong URL, missing auth, payload format mismatch).
+  // @example 2
   int32 client_errors = 12;
 
   // Count of server errors (HTTP 5xx) in the last 24 hours.
   // Server errors are retried according to the webhook's retry configuration.
+  // @example 5
   int32 server_errors = 13;
 
   // Count of timeout errors in the last 24 hours.
   // Timeouts are retried. May indicate the endpoint is slow or overloaded.
+  // @example 1
   int32 timeout_errors = 14;
 
   // Count of network-level errors in the last 24 hours.
   // Includes DNS failures, TLS errors, connection refused, and other transport errors.
+  // @example 0
   int32 network_errors = 15;
 }
 
@@ -1473,6 +1573,7 @@ message GetWebhookHealthResponse {
 
   // Computed health status based on success_rate and consecutive_failures.
   // Returns HEALTH_UNSPECIFIED if the webhook has no delivery history.
+  // @example "HEALTHY"
   WebhookHealth health = 4;
 
   // Detailed health metrics. Null if the webhook has no delivery history.
@@ -1489,6 +1590,7 @@ message GetWebhookHealthResponse {
 message ListWebhooksByHealthRequest {
   // Health status to filter by. Required.
   // Use HEALTH_UNHEALTHY to find problematic endpoints, HEALTH_DEGRADED for early warnings.
+  // @example "HEALTH_UNHEALTHY"
   WebhookHealth health = 1;
 
   // Pagination parameters. Default: limit=50, offset=0.
@@ -1521,18 +1623,23 @@ message GetHealthSummaryRequest {}
 // Useful for dashboards and monitoring alerts.
 message HealthSummary {
   // Number of webhooks in HEALTHY state (>90% success rate, <3 consecutive failures).
+  // @example 45
   int32 healthy_count = 1;
 
   // Number of webhooks in DEGRADED state (50-90% success rate or 3-9 consecutive failures).
+  // @example 3
   int32 degraded_count = 2;
 
   // Number of webhooks in UNHEALTHY state (<50% success rate or 10+ consecutive failures).
+  // @example 1
   int32 unhealthy_count = 3;
 
   // Number of webhooks with no delivery history (HEALTH_UNSPECIFIED).
+  // @example 2
   int32 unknown_count = 4;
 
   // Total number of webhooks (sum of all categories above).
+  // @example 51
   int32 total_count = 5;
 }
 
@@ -1555,6 +1662,7 @@ message GetHealthSummaryResponse {
 // GetNamespaceStatsRequest retrieves aggregate delivery statistics for a namespace.
 message GetNamespaceStatsRequest {
   // Namespace to get statistics for. Required.
+  // @example "production"
   string namespace = 1;
 }
 
@@ -1562,25 +1670,32 @@ message GetNamespaceStatsRequest {
 // Useful for dashboard summaries and capacity monitoring.
 message NamespaceStats {
   // Total number of registered webhooks in this namespace (active + inactive).
+  // @example 12
   int32 total_webhooks = 1;
 
   // Number of currently active (non-paused) webhooks.
+  // @example 10
   int32 active_webhooks = 2;
 
   // Total number of deliveries ever created in this namespace.
+  // @example 5420
   int32 total_deliveries = 3;
 
   // Number of deliveries in terminal SUCCESS state.
+  // @example 5200
   int32 successful_deliveries = 4;
 
   // Number of deliveries in terminal FAILED state.
+  // @example 120
   int32 failed_deliveries = 5;
 
   // Number of deliveries in PENDING, SENDING, or RETRYING state.
+  // @example 100
   int32 pending_deliveries = 6;
 
   // Overall delivery success rate as a decimal between 0.0 and 1.0.
   // Computed as successful_deliveries / total_deliveries. 0.0 if no deliveries.
+  // @example 0.96
   double success_rate = 7;
 }
 
@@ -1624,6 +1739,7 @@ message GetTemplateFunctionsResponse {
   repeated TemplateFunction functions = 1;
 
   // Total number of available functions.
+  // @example 42
   int32 total_count = 2;
 
   // Deprecated: use gRPC status codes.

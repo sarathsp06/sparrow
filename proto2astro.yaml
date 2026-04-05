@@ -1,0 +1,57 @@
+title: "Sparrow"
+description: "Self-hosted webhook delivery platform"
+site: "https://sarathsp06.github.io"
+base: "/sparrow"
+edit_link: "https://github.com/sarathsp06/sparrow/edit/main/docs/"
+
+social:
+  - icon: github
+    label: GitHub
+    href: https://github.com/sarathsp06/sparrow
+
+proto:
+  paths:
+    - ./proto/webhook.proto
+
+out_dir: ./docs
+
+components:
+  Footer: "./src/components/Footer.astro"
+
+sidebar:
+  before:
+    - label: Getting Started
+      items:
+        - slug: getting-started/installation
+        - slug: getting-started/quickstart
+        - slug: getting-started/how-it-works
+        - slug: getting-started/configuration
+  after:
+    - label: Reference
+      items:
+        - slug: reference/client-libraries
+        - slug: reference/template-functions
+        - slug: reference/error-classification
+        - slug: reference/architecture
+    - label: Deployment
+      items:
+        - slug: deployment/docker-compose
+        - slug: deployment/kubernetes
+
+service_order:
+  - WebhookService
+  - EventService
+  - SubscriptionService
+  - DeliveryService
+  - HealthService
+
+entity_types:
+  - RegisteredWebhook
+  - RegisteredEvent
+  - EventSubscription
+  - EventReport
+  - WebhookDelivery
+  - TemplateFunction
+  - PaginationRequest
+  - PaginationResponse
+  - WebhookHTTPConfig

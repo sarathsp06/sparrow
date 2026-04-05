@@ -96,7 +96,7 @@ generate: ## Generate protobuf code and gRPC/ConnectRPC clients
 	go generate ./...
 
 generate-docs: ## Generate API reference docs from proto definitions
-	go run ./cmd/gendocs
+	proto2astro generate
 
 lint: ## Run golangci-lint for linting
 	golangci-lint run -v --timeout 15m ./...
