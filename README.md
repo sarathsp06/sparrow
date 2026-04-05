@@ -12,6 +12,8 @@
 
 Self-hosted webhook delivery platform with async fan-out, retries, health tracking, and observability. Built for teams that need reliable outbound webhooks without depending on a third-party service.
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
 ## Features
 
 - **Event-driven fan-out** -- push one event, deliver to all matching subscriptions
@@ -103,6 +105,8 @@ See the [configuration reference](docs/src/content/docs/getting-started/configur
 ## Deployment
 
 ### Railway
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
 Deploy Sparrow + PostgreSQL on Railway with zero infrastructure. See the [Railway deployment guide](https://sarathsp06.github.io/sparrow/deployment/railway/) for setup steps.
 

@@ -5,6 +5,8 @@ description: Deploy Sparrow to Railway with a managed PostgreSQL database.
 
 Deploy Sparrow to [Railway](https://railway.com) with a managed PostgreSQL database. Railway handles the build, deploy, and TLS -- no Docker or Kubernetes needed.
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
 ## Setup
 
 ### 1. Create a new project
