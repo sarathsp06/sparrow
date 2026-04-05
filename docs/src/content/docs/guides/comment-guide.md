@@ -5,7 +5,7 @@ description: How to write proto comments for rich documentation
 
 # Proto Comment Guide
 
-This page documents the comment conventions supported by proto2astro. 
+This page documents the comment conventions supported by [proto2astro](https://github.com/sarathsp06/proto2astro). 
 When you annotate your `.proto` files using these patterns, the documentation 
 generator will automatically extract structured information and display it in the API reference.
 

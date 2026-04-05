@@ -129,6 +129,8 @@ See [Kubernetes deployment guide](https://sarathsp06.github.io/sparrow/deploymen
 - [API Reference](https://sarathsp06.github.io/sparrow/reference/api/) -- all RPCs and message types
 - [Architecture](https://sarathsp06.github.io/sparrow/reference/architecture/) -- system design overview
 
+API reference docs are generated from [`webhook.proto`](webhook.proto) using [proto2astro](https://github.com/sarathsp06/proto2astro).
+
 In-repo docs: [CONFIGURATION.md](CONFIGURATION.md) | [KUBERNETES.md](KUBERNETES.md) | [TECHNICAL.md](TECHNICAL.md) | [ARCHITECTURE.md](ARCHITECTURE.md) | [webhook.proto](webhook.proto)
 
 ## Contributing
