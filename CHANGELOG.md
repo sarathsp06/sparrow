@@ -4,62 +4,55 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [0.5.1] - 2026-04-05
+## [0.5.2] - 2026-04-05
 
-### Documentation
+### Changed
 
-- Add Railway one-click deploy button to README, docs, and landing page
-
-## [0.5.0] - 2026-04-05
-
-### Added
-
-- Envelope encryption (AES-256-GCM with per-record DEKs) for webhook secrets and sensitive headers
-- Auto-generated encryption key on first boot with `system_settings` persistence
-- Backward-compatible decryption of legacy direct-encrypted data
-- Railway deployment template and documentation
-
-### Documentation
-
-- Consolidate root markdown files into docs site
-- Add proto2astro attribution with repo link in README and comment guide
-- Update architecture, configuration, and deployment docs for envelope encryption
-
+- migrate docs to proto2astro v0.4.1 JSON-based config pattern
 ### Fixed
 
-- Remove broken Railway one-click deploy button
+- enable encryption in integration tests and add dev docker-compose
+- remove Guides from sidebar and enforce correct section order
+- restore missing sidebar sections in docs (Getting Started, Deployment, Reference)## [0.5.1] - 2026-04-05
 
-## [0.4.0] - 2026-04-05
+### Documentation
+
+- add Railway one-click deploy button to README, docs, and landing page## [0.5.0] - 2026-04-05
 
 ### Added
 
-- migrate docs generation from custom gendocs to proto2astro
+- envelope encryption for webhook secrets and sensitive headers
+- add Railway deployment template and docs
+### Documentation
 
-## [0.3.2] - 2026-04-03
+- consolidate root markdown files into docs site
+- add proto2astro attribution with repo link in README and comment guide
+- fix inaccuracies in architecture, config, and technical docs
+### Fixed
+
+- remove broken Railway one-click deploy button## [0.4.0] - 2026-04-05
+
+### Added
+
+- migrate docs generation from custom gendocs to proto2astro## [0.3.2] - 2026-04-03
 
 ### Changed
 
 - exclude SESSION_NOTES.md from version control
 ### Fixed
 
-- multi-arch Docker build for Apple Silicon support
-
-## [0.3.1] - 2026-04-03
+- multi-arch Docker build for Apple Silicon support## [0.3.1] - 2026-04-03
 
 ### Added
 
 - unify Fira Code as default font across web app, docs, and landing page
 ### Documentation
 
-- refactor README to follow open-source conventions
-
-## [0.3.0] - 2026-04-03
+- refactor README to follow open-source conventions## [0.3.0] - 2026-04-03
 
 ### Added
 
-- standalone docker-compose, docs updates, and helm chart fix
-
-## [0.2.0] - 2026-04-03
+- standalone docker-compose, docs updates, and helm chart fix## [0.2.0] - 2026-04-03
 
 ### Added
 
@@ -144,9 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **web**: remove static PUBLIC_API_KEY import that breaks SvelteKit build
 - use changelog content as release tag message and curate CHANGELOG.md
 - resolve integration test failures (SSRF config + webhook ID mismatch)
-- add .gitkeep to dist dir for go:embed
-
-## [0.1.0] - 2025-11-14
+- add .gitkeep to dist dir for go:embed## [0.1.0] - 2025-11-14
 
 ### Added
 
