@@ -4,12 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.5.0] - 2026-04-05
+
+### Added
+
+- Envelope encryption (AES-256-GCM with per-record DEKs) for webhook secrets and sensitive headers
+- Auto-generated encryption key on first boot with `system_settings` persistence
+- Backward-compatible decryption of legacy direct-encrypted data
+- Railway deployment template and documentation
+
+### Documentation
+
+- Consolidate root markdown files into docs site
+- Add proto2astro attribution with repo link in README and comment guide
+- Update architecture, configuration, and deployment docs for envelope encryption
+
+### Fixed
+
+- Remove broken Railway one-click deploy button
 
 ## [0.4.0] - 2026-04-05
 
 ### Added
 
-- Migrate docs generation from custom gendocs to proto2astro
+- migrate docs generation from custom gendocs to proto2astro
 
 ## [0.3.2] - 2026-04-03
 
@@ -18,18 +36,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - exclude SESSION_NOTES.md from version control
 ### Fixed
 
-- multi-arch Docker build for Apple Silicon support## [0.3.1] - 2026-04-03
+- multi-arch Docker build for Apple Silicon support
+
+## [0.3.1] - 2026-04-03
 
 ### Added
 
 - unify Fira Code as default font across web app, docs, and landing page
 ### Documentation
 
-- refactor README to follow open-source conventions## [0.3.0] - 2026-04-03
+- refactor README to follow open-source conventions
+
+## [0.3.0] - 2026-04-03
 
 ### Added
 
-- standalone docker-compose, docs updates, and helm chart fix## [0.2.0] - 2026-04-03
+- standalone docker-compose, docs updates, and helm chart fix
+
+## [0.2.0] - 2026-04-03
 
 ### Added
 
@@ -114,7 +138,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **web**: remove static PUBLIC_API_KEY import that breaks SvelteKit build
 - use changelog content as release tag message and curate CHANGELOG.md
 - resolve integration test failures (SSRF config + webhook ID mismatch)
-- add .gitkeep to dist dir for go:embed## [0.1.0] - 2025-11-14
+- add .gitkeep to dist dir for go:embed
+
+## [0.1.0] - 2025-11-14
 
 ### Added
 
