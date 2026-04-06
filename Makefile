@@ -136,7 +136,11 @@ endif
 	@echo "==> Release $(NEXT_VERSION) created successfully!"
 	@echo "    To publish: git push origin main --tags"
 
+setup: ## Configure local repo (git hooks, etc.)
+	git config core.hooksPath .githooks
+	@echo "Git hooks configured (.githooks/)"
+
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui release-dry-run run test test-integration clean generate generate-docs docker-build docker-push docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web help changelog release
+.PHONY: build build-ui build-with-ui release-dry-run run test test-integration clean generate generate-docs docker-build docker-push docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web help changelog release setup

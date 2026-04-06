@@ -1,0 +1,13 @@
+#!/bin/sh
+# Ensure internal/ui/dist/.gitkeep exists.
+# The SvelteKit static adapter wipes the dist/ directory on every build,
+# which deletes .gitkeep. This hook restores it and stages it automatically.
+
+GITKEEP="internal/ui/dist/.gitkeep"
+
+if [ ! -f "$GITKEEP" ]; then
+    mkdir -p "$(dirname "$GITKEEP")"
+    touch "$GITKEEP"
+fi
+
+git add "$GITKEEP"
