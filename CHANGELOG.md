@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-04-06
+
+### Added
+
+- `unexpected_status` error category for webhook deliveries where the HTTP response code is valid (2xx/3xx) but doesn't match the webhook's `expected_status_codes` — fixes paradox where a failed delivery was classified as "success"
+- Shared error category utilities in web UI — `getCategoryBadge`, `getCategoryDisplay`, and `ERROR_CATEGORIES` extracted from 4 duplicated copies into `utils.ts`
+- `unexpected_status` filter option in delivery error category dropdowns (deliveries page and webhook detail page)
+
+### Changed
+
+- Renamed "Schema" filter label to "Schema Match" on event reports page for clarity
+- Removed redundant root `docker-compose.yml` (identical to `deploy/docker-compose.yml`)
+
+### Fixed
+
+- Webhook deliveries responding with 2xx/3xx status codes not in `expected_status_codes` are now classified as `unexpected_status` instead of `success`
+
 ## [0.9.3] - 2026-04-06
 
 ### Added
