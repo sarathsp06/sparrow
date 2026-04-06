@@ -5,10 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.1] - 2026-04-06
+## [0.9.2] - 2026-04-06
 
 ### Fixed
 
+- Restore clean git state in release workflow before GoReleaser (fixes failed releases for v0.8.1, v0.9.0, v0.9.1)
 - Add pre-commit hook to restore `internal/ui/dist/.gitkeep` after SvelteKit builds
 
 ## [0.9.0] - 2026-04-06
