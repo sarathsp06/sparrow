@@ -19,7 +19,7 @@ Sparrow supports **optional API key authentication** via the `SPARROW_API_KEY` e
      Clients             │    Sparrow Server    │
   ┌──────────┐           │                      │
   │ gRPC     │──:50051──>│  internal/grpc       │──┐
-  │ clients  │           │  (6 services)        │  │
+  │ clients  │           │  (5 services)        │  │
   └──────────┘           │                      │  │
   ┌──────────┐           │  internal/connect    │  │  ┌──────────────┐
   │ HTTP/    │──:8080───>│  (Connect-RPC        │  ├─>│ Service Layer│
@@ -722,6 +722,22 @@ make release NEXT_VERSION=v0.2.0
 
 ---
 
+## Design Principles
+
+> These principles are codified in `plan.md` and apply to all Sparrow development.
+
+1. **Deterministic bulk operations** -- All bulk actions (re-push events, retry deliveries) use a snapshot-based batch pattern. When a user searches with filters and opts into a bulk action, the matching IDs are snapshotted into a `batch_jobs` row at query time. The bulk action operates on that snapshot, NOT a live re-query. This guarantees what-you-see = what-you-act-on.
+
+2. **Soft validation over hard rejection** -- Schema validation produces warnings, not errors. Events are always accepted and stored. Invalid payloads are tagged (`schema_valid=false`), not discarded.
+
+3. **Graceful degradation** -- When a non-critical step fails (e.g., Go template transform), fall back to a safe default (envelope payload) rather than failing the entire operation.
+
+4. **Generic infrastructure over per-feature tables** -- Shared concerns (batch jobs, future: scheduled jobs, etc.) use generic tables with `job_type` + JSONB `data` columns. Each job type defines its own data schema within JSONB.
+
+5. **Implicit infrastructure, explicit actions** -- Batch jobs are an implementation detail. Users see "re-push ID" and "retry ID", not "batch job IDs". The batch mechanism is invisible; the user's mental model is: search -> act on results.
+
+---
+
 ## Code Patterns & Conventions
 
 ### What to Check When Reviewing
@@ -778,6 +794,8 @@ func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequ
 5. **No payload size limits** enforcement
 6. **No tenant usage quotas** (events/month, deliveries, etc.)
 7. **No scheduled/delayed webhooks**
+8. **No search filters** on event reports or deliveries (in progress -- see `plan.md`)
+9. **No bulk re-push / retry** (in progress -- see `plan.md`)
 
 ---
 
@@ -797,3 +815,4 @@ func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequ
 | Auth Removal | Mar 2026 | Removed all auth/RBAC/audit code, simplified to open self-hosted deployment |
 | API Key Auth | Apr 2026 | Optional API key auth via SPARROW_API_KEY, HTTP middleware + gRPC interceptor, runtime config injection for embedded UI |
 | Chi Router | Apr 2026 | Replaced stdlib two-tier mux with chi router, fixed routing bug where Connect-RPC paths were unreachable (wrong `/sparrow.v1.` prefix), route-group auth separation, JSON 404 for non-GET to unknown paths |
+| Search & Retry | Apr 2026 | Soft schema validation, template fallback, search filters, deterministic batch re-push/retry (see `plan.md`) |

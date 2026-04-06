@@ -180,8 +180,10 @@ type PaginationRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Maximum number of items to return. Clamped to server max (typically 250).
 	// Default: 50.
+	// @example 20
 	Limit int32 `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
 	// Number of items to skip before returning results. Default: 0.
+	// @example 0
 	Offset        int32 `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -306,43 +308,53 @@ type WebhookHTTPConfig struct {
 	// Only retryable error categories trigger retries (server_error, timeout,
 	// connection_refused, network_error). Client errors (4xx), DNS errors,
 	// and TLS errors are never retried regardless of this setting.
+	// @example 5
 	MaxRetries int32 `protobuf:"varint,1,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
 	// Base backoff duration in seconds between retry attempts.
 	// Range: 1-3600. Default: 60. Actual backoff uses exponential increase
 	// with jitter: base * 2^(attempt-1) + random jitter.
+	// @example 60
 	RetryBackoffSeconds int32 `protobuf:"varint,2,opt,name=retry_backoff_seconds,json=retryBackoffSeconds,proto3" json:"retry_backoff_seconds,omitempty"`
 	// Controls the maximum size of stored response body per delivery attempt.
 	// When false (default): up to 1 KB of the response body is stored.
 	// When true: up to 1 MB of the response body is stored.
 	// Note: the response body is always read from the connection regardless of this
 	// flag (required for HTTP connection reuse). This only controls how much is persisted.
+	// @example false
 	CaptureResponseBody bool `protobuf:"varint,3,opt,name=capture_response_body,json=captureResponseBody,proto3" json:"capture_response_body,omitempty"`
 	// Whether to follow HTTP 3xx redirects when delivering webhooks.
 	// Default: true. Set to false to treat redirects as the final response.
+	// @example true
 	FollowRedirects bool `protobuf:"varint,4,opt,name=follow_redirects,json=followRedirects,proto3" json:"follow_redirects,omitempty"`
 	// Whether to verify the target endpoint's TLS certificate chain.
 	// Default: true. Set to false only for development/testing with self-signed certs.
 	// Disabling this in production is a security risk.
+	// @example true
 	VerifySsl bool `protobuf:"varint,5,opt,name=verify_ssl,json=verifySsl,proto3" json:"verify_ssl,omitempty"`
 	// Per-request timeout in seconds. If the target endpoint does not respond
 	// within this duration, the attempt is classified as a timeout error (retryable).
 	// Range: 1-300. Default: 30.
+	// @example 30
 	RequestTimeoutSeconds int32 `protobuf:"varint,6,opt,name=request_timeout_seconds,json=requestTimeoutSeconds,proto3" json:"request_timeout_seconds,omitempty"`
 	// HTTP status codes that Sparrow treats as a successful delivery.
 	// Default: [200, 201, 202, 204]. Any response code not in this list
 	// is classified as a client_error (4xx) or server_error (5xx) based on range.
+	// @example [200, 201, 202, 204]
 	ExpectedStatusCodes []int32 `protobuf:"varint,7,rep,packed,name=expected_status_codes,json=expectedStatusCodes,proto3" json:"expected_status_codes,omitempty"`
 	// Shared secret used for HMAC-SHA256 request signing. When set, Sparrow
 	// includes an X-Webhook-Signature header on every delivery containing
 	// the hex-encoded HMAC of the request body. The receiving endpoint can
 	// verify authenticity by recomputing the HMAC.
 	// Leave empty to disable signing.
+	// @example "whsec_your_secret_key"
 	WebhookSecret string `protobuf:"bytes,8,opt,name=webhook_secret,json=webhookSecret,proto3" json:"webhook_secret,omitempty"`
 	// Value of the User-Agent header sent with every delivery request.
 	// Default: "Sparrow-Webhook/1.0".
+	// @example "Sparrow-Webhook/1.0"
 	UserAgent string `protobuf:"bytes,9,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
 	// Content-Type header for delivery requests.
 	// Default: "application/json". Change if your endpoint expects a different media type.
+	// @example "application/json"
 	ContentType   string `protobuf:"bytes,10,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -455,26 +467,33 @@ type RegisterWebhookRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Namespace to register the webhook in. Required.
 	// The namespace must already exist (created via the NamespaceService).
+	// @example "production"
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Event names this webhook should receive. At least one is required.
 	// A subscription is automatically created for each event name listed here.
+	// @example ["order.created", "order.updated"]
 	Events []string `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
 	// Target URL that will receive HTTP POST requests for each delivery.
 	// Must be a valid HTTP or HTTPS URL. Required.
+	// @example "https://example.com/hooks"
 	Url string `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
 	// Custom HTTP headers included in every delivery request to this webhook.
 	// These are visible in API responses. For sensitive values (API keys, tokens),
 	// use secret_headers instead.
+	// @example {"X-Source": "sparrow"}
 	Headers map[string]string `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Deprecated: use http_config.request_timeout_seconds instead.
 	Timeout int32 `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	// Whether the webhook starts in active state. Default: true.
 	// Inactive webhooks are skipped during event fan-out.
+	// @example true
 	Active bool `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`
 	// Human-readable description of the webhook's purpose. Optional.
+	// @example "Order notifications"
 	Description string `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`
 	// HTTP delivery configuration (retries, timeouts, TLS, HMAC, etc.).
 	// Optional -- all fields have sensible defaults if omitted.
+	// @example {"max_retries": 5, "webhook_secret": "whsec_your_secret_key"}
 	HttpConfig *WebhookHTTPConfig `protobuf:"bytes,8,opt,name=http_config,json=httpConfig,proto3" json:"http_config,omitempty"`
 	// Sensitive HTTP headers stored encrypted at rest (e.g., Authorization, API keys).
 	// Values are masked as "******" in all API responses -- only keys are visible.
@@ -582,6 +601,7 @@ type RegisterWebhookResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Server-generated UUID for the new webhook. Use this ID for all
 	// subsequent operations (update, pause, resume, unregister).
+	// @example "550e8400-e29b-41d4-a716-446655440000"
 	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
 	// Deprecated: use gRPC status codes to determine success/failure.
 	//
@@ -592,6 +612,7 @@ type RegisterWebhookResponse struct {
 	// Deprecated: Marked as deprecated in proto/webhook.proto.
 	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	// Timestamp when the webhook was created.
+	// @example "2025-01-15T10:30:00Z"
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -662,8 +683,10 @@ func (x *RegisterWebhookResponse) GetCreatedAt() *timestamppb.Timestamp {
 type UnregisterWebhookRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID of the webhook to delete. Required.
+	// @example "550e8400-e29b-41d4-a716-446655440000"
 	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
 	// Namespace the webhook belongs to. Required.
+	// @example "production"
 	Namespace     string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -780,12 +803,15 @@ func (x *UnregisterWebhookResponse) GetMessage() string {
 type ListWebhooksRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Namespace to list webhooks from. Required.
+	// @example "production"
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Filter to only webhooks subscribed to this event name. Optional.
 	Event string `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
 	// When true, only return active (non-paused) webhooks. Default: false (return all).
+	// @example true
 	ActiveOnly bool `protobuf:"varint,3,opt,name=active_only,json=activeOnly,proto3" json:"active_only,omitempty"`
 	// Pagination parameters. Default: limit=50, offset=0.
+	// @example {"limit": 20}
 	Pagination *PaginationRequest `protobuf:"bytes,4,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	// Filter to a specific webhook by ID. Optional.
 	// When set, returns at most one result.
@@ -1132,9 +1158,11 @@ type WebhookUpdateFields struct {
 	// for explicit lifecycle control with reason tracking.
 	Active bool `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
 	// Updated human-readable description. Omit to leave unchanged.
+	// @example "Updated order webhook"
 	Description string `protobuf:"bytes,6,opt,name=description,proto3" json:"description,omitempty"`
 	// Updated HTTP delivery configuration. Omit to leave unchanged.
 	// When set, the entire http_config is replaced (not merged field-by-field).
+	// @example {"max_retries": 5, "request_timeout_seconds": 60}
 	HttpConfig *WebhookHTTPConfig `protobuf:"bytes,7,opt,name=http_config,json=httpConfig,proto3" json:"http_config,omitempty"`
 	// Replace all secret headers. Omit to leave unchanged.
 	// Pass an empty map to clear all secret headers.
@@ -1233,8 +1261,10 @@ func (x *WebhookUpdateFields) GetSecretHeaders() map[string]string {
 type UpdateWebhookConfigRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID of the webhook to update. Required.
+	// @example "550e8400-e29b-41d4-a716-446655440000"
 	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
 	// Namespace the webhook belongs to. Required.
+	// @example "production"
 	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Fields to update. Only non-zero fields are applied. Required.
 	Updates       *WebhookUpdateFields `protobuf:"bytes,3,opt,name=updates,proto3" json:"updates,omitempty"`
@@ -1360,10 +1390,13 @@ func (x *UpdateWebhookConfigResponse) GetMessage() string {
 type PauseWebhookRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID of the webhook to pause. Required.
+	// @example "550e8400-e29b-41d4-a716-446655440000"
 	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
 	// Namespace the webhook belongs to. Required.
+	// @example "production"
 	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Human-readable reason for pausing (stored for audit purposes). Optional.
+	// @example "Endpoint maintenance"
 	Reason        string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1486,8 +1519,10 @@ func (x *PauseWebhookResponse) GetMessage() string {
 type ResumeWebhookRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID of the webhook to resume. Required.
+	// @example "550e8400-e29b-41d4-a716-446655440000"
 	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
 	// Namespace the webhook belongs to. Required.
+	// @example "production"
 	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Human-readable reason for resuming. Optional.
 	Reason        string `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
@@ -1613,17 +1648,21 @@ type RegisterEventRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Unique event name (e.g., "order.created", "payment.completed"). Required.
 	// Convention: use dot-separated lowercase names.
+	// @example "order.created"
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Human-readable description of what this event represents. Optional.
+	// @example "Fired when a new order is placed"
 	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	// JSON Schema for validating PushEvent payloads. Optional.
 	// When set, all future PushEvent calls for this event type must conform to this schema.
 	// Passed as a google.protobuf.Struct (JSON object).
+	// @example {"type": "object", "properties": {"order_id": {"type": "string"}, "amount": {"type": "number"}}, "required": ["order_id", "amount"]}
 	Schema *structpb.Struct `protobuf:"bytes,3,opt,name=schema,proto3" json:"schema,omitempty"`
 	// Arbitrary key-value metadata attached to the event type definition. Optional.
 	Metadata map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Whether the event type is active. Default: true.
 	// Inactive event types cannot receive new PushEvent calls.
+	// @example true
 	Active        bool `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1697,21 +1736,10 @@ func (x *RegisterEventRequest) GetActive() bool {
 // RegisterEventResponse confirms successful event type creation.
 type RegisterEventResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: returns the event name (identical to the name in the request).
-	// Use the name from the request instead.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
+	// The event type name.
 	EventId string `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	// Timestamp when the event type was created.
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the event type was created.
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1746,26 +1774,9 @@ func (*RegisterEventResponse) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{18}
 }
 
-// Deprecated: Marked as deprecated in proto/webhook.proto.
 func (x *RegisterEventResponse) GetEventId() string {
 	if x != nil {
 		return x.EventId
-	}
-	return ""
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RegisterEventResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RegisterEventResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
 	}
 	return ""
 }
@@ -1781,6 +1792,7 @@ func (x *RegisterEventResponse) GetCreatedAt() *timestamppb.Timestamp {
 type ListEventsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// When true, only return active event types. Default: false (return all).
+	// @example true
 	ActiveOnly bool `protobuf:"varint,1,opt,name=active_only,json=activeOnly,proto3" json:"active_only,omitempty"`
 	// Pagination parameters. Default: limit=50, offset=0.
 	Pagination    *PaginationRequest `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
@@ -2052,8 +2064,10 @@ func (x *ListEventsResponse) GetTotalCount() int32 {
 type UpdateEventRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Event name to update. Required. This is the lookup key (not a UUID).
+	// @example "order.created"
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Updated description. Omit to leave unchanged.
+	// @example "Updated: Fired when a new order is placed"
 	Description string `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
 	// Updated JSON Schema for payload validation. Omit to leave unchanged.
 	// Note: changing the schema does not retroactively validate previously pushed events.
@@ -2196,6 +2210,7 @@ func (x *UpdateEventResponse) GetMessage() string {
 type GetEventRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Event name to look up. Required.
+	// @example "order.created"
 	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2290,6 +2305,7 @@ func (x *GetEventResponse) GetEvent() *RegisteredEvent {
 type DeleteEventRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Event name to delete. Required.
+	// @example "order.created"
 	Name          string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2401,14 +2417,17 @@ type PushEventRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Namespace to push the event into. Required.
 	// Only subscriptions in this namespace are matched.
+	// @example "production"
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Event type name (must match a registered event type). Required.
 	// Subscriptions with matching event_name in this namespace will receive deliveries.
+	// @example "order.created"
 	Event string `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
 	// Event payload as a JSON object. Required.
 	// If the event type has a schema, this payload is validated against it before acceptance.
 	// This payload (or its template-transformed version) becomes the HTTP request body
 	// sent to each matching webhook.
+	// @example {"order_id": "ord-123", "amount": 99.99, "currency": "USD"}
 	Payload *structpb.Struct `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	// Time-to-live in seconds for delivery retries. Optional.
 	// When set, deliveries that haven't succeeded within this window transition to EXPIRED.
@@ -2426,6 +2445,7 @@ type PushEventRequest struct {
 	// When set, only subscriptions whose label_filters are a subset of these labels
 	// will receive deliveries. Labels use AND logic: all filter keys must match.
 	// Subscriptions with no label_filters match all events regardless of labels.
+	// @example {"region": "us-east", "priority": "high"}
 	Labels        map[string]string `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2516,15 +2536,14 @@ type PushEventResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Server-generated UUID for the event instance.
 	// Use this ID to query delivery status via DeliveryService.ListDeliveries.
+	// @example "e-550e8400-e29b-41d4-a716-446655440000"
 	EventId string `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	// Schema validation warnings. Populated when the event payload does not match
+	// the registered JSON schema. The event is still accepted and stored, but
+	// schema_valid is set to false on the event record. Each string describes
+	// a specific validation failure (e.g., "field 'amount': expected number, got string").
+	// Empty when the payload passes validation or no schema is registered.
+	Warnings      []string `protobuf:"bytes,2,rep,name=warnings,proto3" json:"warnings,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2566,20 +2585,11 @@ func (x *PushEventResponse) GetEventId() string {
 	return ""
 }
 
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *PushEventResponse) GetSuccess() bool {
+func (x *PushEventResponse) GetWarnings() []string {
 	if x != nil {
-		return x.Success
+		return x.Warnings
 	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *PushEventResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
+	return nil
 }
 
 // EventReport represents a pushed event instance with aggregated delivery statistics.
@@ -2610,8 +2620,13 @@ type EventReport struct {
 	FailedDeliveries int32 `protobuf:"varint,10,opt,name=failed_deliveries,json=failedDeliveries,proto3" json:"failed_deliveries,omitempty"`
 	// Number of deliveries still in progress (PENDING, SENDING, or RETRYING status).
 	PendingDeliveries int32 `protobuf:"varint,11,opt,name=pending_deliveries,json=pendingDeliveries,proto3" json:"pending_deliveries,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Whether the event payload matched the registered JSON schema at push time.
+	// Always true when no schema is registered for the event type.
+	// When false, the event was still accepted and delivered, but the payload
+	// did not conform to the schema. Check PushEventResponse.warnings for details.
+	SchemaValid   bool `protobuf:"varint,12,opt,name=schema_valid,json=schemaValid,proto3" json:"schema_valid,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *EventReport) Reset() {
@@ -2721,14 +2736,24 @@ func (x *EventReport) GetPendingDeliveries() int32 {
 	return 0
 }
 
+func (x *EventReport) GetSchemaValid() bool {
+	if x != nil {
+		return x.SchemaValid
+	}
+	return false
+}
+
 // ListEventReportsRequest specifies filters for listing pushed event instances.
 type ListEventReportsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Namespace to list events from. Required.
+	// @example "production"
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Filter to events of this type name. Optional.
+	// @example "order.created"
 	EventName *string `protobuf:"bytes,2,opt,name=event_name,json=eventName,proto3,oneof" json:"event_name,omitempty"`
 	// Pagination parameters. Default: limit=50, offset=0. Max limit: 1000.
+	// @example {"limit": 25}
 	Pagination *PaginationRequest `protobuf:"bytes,3,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	// Deprecated: use pagination.limit.
 	//
@@ -3067,11 +3092,14 @@ type CreateSubscriptionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID of the webhook to subscribe. Required.
 	// The webhook must exist in the specified namespace.
+	// @example "550e8400-e29b-41d4-a716-446655440000"
 	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
 	// Event type name to subscribe to. Required.
+	// @example "order.created"
 	EventName string `protobuf:"bytes,2,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
 	// Namespace for the subscription. Required.
 	// Must match the webhook's namespace.
+	// @example "production"
 	Namespace string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Per-subscription HTTP headers. Optional.
 	// Merged with (and overrides) webhook-level headers on delivery.
@@ -3087,6 +3115,7 @@ type CreateSubscriptionRequest struct {
 	TransformTemplate string `protobuf:"bytes,8,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`
 	// Label filters for selective event matching. Optional.
 	// Only events with labels matching all key-value pairs will trigger this subscription.
+	// @example {"region": "us-east"}
 	LabelFilters  map[string]string `protobuf:"bytes,9,rep,name=label_filters,json=labelFilters,proto3" json:"label_filters,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3189,8 +3218,10 @@ func (x *CreateSubscriptionRequest) GetLabelFilters() map[string]string {
 type CreateSubscriptionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Server-generated UUID of the new subscription.
+	// @example "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 	SubscriptionId string `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
 	// When the subscription was created.
+	// @example "2025-01-15T10:30:00Z"
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// Deprecated: use gRPC status codes.
 	//
@@ -3268,8 +3299,10 @@ func (x *CreateSubscriptionResponse) GetMessage() string {
 type GetSubscriptionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID of the subscription to retrieve. Required.
+	// @example "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 	SubscriptionId string `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
 	// Namespace the subscription belongs to. Required.
+	// @example "production"
 	Namespace     string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3393,10 +3426,12 @@ func (x *GetSubscriptionResponse) GetMessage() string {
 type ListSubscriptionsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Filter by webhook UUID. Optional.
+	// @example "550e8400-e29b-41d4-a716-446655440000"
 	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
 	// Filter by event type name. Optional.
 	EventName string `protobuf:"bytes,4,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
 	// Namespace to list subscriptions from. Required.
+	// @example "production"
 	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Pagination parameters. Default: limit=50, offset=0.
 	Pagination    *PaginationRequest `protobuf:"bytes,3,opt,name=pagination,proto3" json:"pagination,omitempty"`
@@ -3558,8 +3593,10 @@ func (x *ListSubscriptionsResponse) GetMessage() string {
 type UpdateSubscriptionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID of the subscription to update. Required.
+	// @example "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 	SubscriptionId string `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
 	// Namespace the subscription belongs to. Required.
+	// @example "production"
 	Namespace string `protobuf:"bytes,7,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Updated per-subscription headers. Replaces existing headers when set.
 	Headers map[string]string `protobuf:"bytes,2,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -3568,6 +3605,7 @@ type UpdateSubscriptionRequest struct {
 	// Updated timeout override in seconds.
 	Timeout int32 `protobuf:"varint,4,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	// Updated transform enabled flag.
+	// @example true
 	TransformEnabled bool `protobuf:"varint,5,opt,name=transform_enabled,json=transformEnabled,proto3" json:"transform_enabled,omitempty"`
 	// Updated Go template. Use TestSubscriptionTemplate to validate before saving.
 	TransformTemplate string `protobuf:"bytes,6,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`
@@ -3729,8 +3767,10 @@ func (x *UpdateSubscriptionResponse) GetMessage() string {
 type DeleteSubscriptionRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID of the subscription to delete. Required.
+	// @example "7c9e6679-7425-40de-944b-e07fc1f90ae7"
 	SubscriptionId string `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
 	// Namespace the subscription belongs to. Required.
+	// @example "production"
 	Namespace     string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3995,11 +4035,14 @@ type TestSubscriptionTemplateRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Event name to get the sample payload from. Required.
 	// The event type must have a schema defined for a sample payload to be generated.
+	// @example "order.created"
 	EventName string `protobuf:"bytes,1,opt,name=event_name,json=eventName,proto3" json:"event_name,omitempty"`
 	// Go template string to test. Required.
 	// The template is executed with the event's sample_payload as its data context.
+	// @example "{\"id\": \"{{ .payload.order_id }}\", \"total\": \"{{ .payload.amount }}\"}"
 	TransformTemplate string `protobuf:"bytes,2,opt,name=transform_template,json=transformTemplate,proto3" json:"transform_template,omitempty"`
 	// Namespace. Required.
+	// @example "production"
 	Namespace     string `protobuf:"bytes,3,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4062,6 +4105,7 @@ type TestSubscriptionTemplateResponse struct {
 	// The template output after rendering against the sample payload.
 	// This is exactly what would be sent as the delivery request body
 	// if this template were applied to a subscription.
+	// @example "{\"id\": \"ord-123\", \"total\": \"99.99\"}"
 	TransformedPayload string `protobuf:"bytes,1,opt,name=transformed_payload,json=transformedPayload,proto3" json:"transformed_payload,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
@@ -4293,8 +4337,10 @@ func (x *WebhookDelivery) GetErrorCategory() string {
 type GetDeliveryStatusRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID of the delivery to retrieve. Required.
+	// @example "d-550e8400-e29b-41d4-a716-446655440000"
 	DeliveryId string `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`
 	// Namespace the delivery belongs to. Required.
+	// @example "production"
 	Namespace     string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4419,12 +4465,15 @@ func (x *GetDeliveryStatusResponse) GetMessage() string {
 type ListDeliveriesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Namespace to list deliveries from. Required.
+	// @example "production"
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Filter by webhook UUID. Optional.
+	// @example "550e8400-e29b-41d4-a716-446655440000"
 	WebhookId string `protobuf:"bytes,2,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
 	// Filter by event UUID. Optional.
 	EventId string `protobuf:"bytes,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
 	// Pagination parameters. Default: limit=50, offset=0.
+	// @example {"limit": 20}
 	Pagination    *PaginationRequest `protobuf:"bytes,4,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4573,8 +4622,10 @@ func (x *ListDeliveriesResponse) GetMessage() string {
 type RetryDeliveryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Namespace. Required.
+	// @example "production"
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// UUID of a specific delivery to retry. Optional.
+	// @example "d-550e8400-e29b-41d4-a716-446655440000"
 	DeliveryId string `protobuf:"bytes,2,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`
 	// UUID of a webhook -- retry all its failed/pending deliveries. Optional.
 	WebhookId string `protobuf:"bytes,3,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
@@ -4647,8 +4698,10 @@ func (x *RetryDeliveryRequest) GetForce() bool {
 type RetryDeliveryResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Number of deliveries that were re-enqueued.
+	// @example 1
 	RetriedCount int32 `protobuf:"varint,1,opt,name=retried_count,json=retriedCount,proto3" json:"retried_count,omitempty"`
 	// UUIDs of the deliveries that were re-enqueued.
+	// @example ["d-550e8400-e29b-41d4-a716-446655440000"]
 	DeliveryIds []string `protobuf:"bytes,2,rep,name=delivery_ids,json=deliveryIds,proto3" json:"delivery_ids,omitempty"`
 	// Deprecated: use gRPC status codes.
 	//
@@ -4728,6 +4781,7 @@ func (x *RetryDeliveryResponse) GetMessage() string {
 type DeliveryAttempt struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Server-generated UUID for this attempt.
+	// @example "a-110e8400-e29b-41d4-a716-446655440000"
 	AttemptId string `protobuf:"bytes,1,opt,name=attempt_id,json=attemptId,proto3" json:"attempt_id,omitempty"`
 	// UUID of the parent delivery this attempt belongs to.
 	DeliveryId string `protobuf:"bytes,2,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`
@@ -4735,12 +4789,15 @@ type DeliveryAttempt struct {
 	WebhookId string `protobuf:"bytes,3,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
 	// Whether this attempt resulted in a successful delivery
 	// (response code matched expected_status_codes).
+	// @example true
 	Success bool `protobuf:"varint,4,opt,name=success,proto3" json:"success,omitempty"`
 	// Round-trip time in milliseconds from sending the request to receiving
 	// the full response (or timeout/error). 0 if no connection was established.
+	// @example 245
 	ResponseTime int32 `protobuf:"varint,5,opt,name=response_time,json=responseTime,proto3" json:"response_time,omitempty"`
 	// HTTP response status code. 0 if no response was received
 	// (timeout, connection refused, DNS error, etc.).
+	// @example 200
 	ResponseCode int32 `protobuf:"varint,6,opt,name=response_code,json=responseCode,proto3" json:"response_code,omitempty"`
 	// Error message describing the failure. Empty string on success.
 	// Contains the raw error from the HTTP client (e.g., "context deadline exceeded",
@@ -4749,8 +4806,10 @@ type DeliveryAttempt struct {
 	// Classified error category for this attempt.
 	// Values: "success", "client_error", "server_error", "timeout",
 	// "connection_refused", "network_error", "dns_error", "tls_error", "unknown".
+	// @example "success"
 	ErrorCategory string `protobuf:"bytes,8,opt,name=error_category,json=errorCategory,proto3" json:"error_category,omitempty"`
 	// When this attempt was made.
+	// @example "2025-01-15T10:30:05Z"
 	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4853,6 +4912,7 @@ func (x *DeliveryAttempt) GetTimestamp() *timestamppb.Timestamp {
 type GetDeliveryAttemptsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID of the delivery to get attempts for. Required.
+	// @example "d-550e8400-e29b-41d4-a716-446655440000"
 	DeliveryId    string `protobuf:"bytes,1,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4946,8 +5006,10 @@ func (x *GetDeliveryAttemptsResponse) GetAttempts() []*DeliveryAttempt {
 type GetWebhookHealthRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// UUID of the webhook. Required.
+	// @example "550e8400-e29b-41d4-a716-446655440000"
 	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
 	// Namespace the webhook belongs to. Required.
+	// @example "production"
 	Namespace     string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5005,13 +5067,17 @@ type WebhookHealthMetrics struct {
 	// UUID of the webhook these metrics belong to.
 	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
 	// Total number of deliveries ever made to this webhook (all time).
+	// @example 1520
 	TotalDeliveries int32 `protobuf:"varint,2,opt,name=total_deliveries,json=totalDeliveries,proto3" json:"total_deliveries,omitempty"`
 	// Number of deliveries that succeeded (terminal SUCCESS status).
+	// @example 1480
 	SuccessfulDeliveries int32 `protobuf:"varint,3,opt,name=successful_deliveries,json=successfulDeliveries,proto3" json:"successful_deliveries,omitempty"`
 	// Number of deliveries that failed permanently (terminal FAILED status).
+	// @example 40
 	FailedDeliveries int32 `protobuf:"varint,4,opt,name=failed_deliveries,json=failedDeliveries,proto3" json:"failed_deliveries,omitempty"`
 	// Current streak of consecutive failed deliveries. Resets to 0 on any success.
 	// Used for health status computation: 3-9 = DEGRADED, 10+ = UNHEALTHY.
+	// @example 0
 	ConsecutiveFailures int32 `protobuf:"varint,5,opt,name=consecutive_failures,json=consecutiveFailures,proto3" json:"consecutive_failures,omitempty"`
 	// Timestamp of the most recent successful delivery. Null if the webhook has never succeeded.
 	LastSuccessAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=last_success_at,json=lastSuccessAt,proto3" json:"last_success_at,omitempty"`
@@ -5020,8 +5086,10 @@ type WebhookHealthMetrics struct {
 	// Success rate as a decimal between 0.0 and 1.0.
 	// Computed as successful_deliveries / total_deliveries.
 	// Used for health thresholds: >0.9 = HEALTHY, 0.5-0.9 = DEGRADED, <0.5 = UNHEALTHY.
+	// @example 0.974
 	SuccessRate float64 `protobuf:"fixed64,8,opt,name=success_rate,json=successRate,proto3" json:"success_rate,omitempty"`
 	// Average response time in milliseconds across all delivery attempts.
+	// @example 245
 	AvgResponseTime int32 `protobuf:"varint,9,opt,name=avg_response_time,json=avgResponseTime,proto3" json:"avg_response_time,omitempty"`
 	// When the health metrics record was first created.
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
@@ -5030,15 +5098,19 @@ type WebhookHealthMetrics struct {
 	// Count of client errors (HTTP 4xx) in the last 24 hours.
 	// Client errors are never retried -- typically indicates a misconfigured endpoint
 	// (wrong URL, missing auth, payload format mismatch).
+	// @example 2
 	ClientErrors int32 `protobuf:"varint,12,opt,name=client_errors,json=clientErrors,proto3" json:"client_errors,omitempty"`
 	// Count of server errors (HTTP 5xx) in the last 24 hours.
 	// Server errors are retried according to the webhook's retry configuration.
+	// @example 5
 	ServerErrors int32 `protobuf:"varint,13,opt,name=server_errors,json=serverErrors,proto3" json:"server_errors,omitempty"`
 	// Count of timeout errors in the last 24 hours.
 	// Timeouts are retried. May indicate the endpoint is slow or overloaded.
+	// @example 1
 	TimeoutErrors int32 `protobuf:"varint,14,opt,name=timeout_errors,json=timeoutErrors,proto3" json:"timeout_errors,omitempty"`
 	// Count of network-level errors in the last 24 hours.
 	// Includes DNS failures, TLS errors, connection refused, and other transport errors.
+	// @example 0
 	NetworkErrors int32 `protobuf:"varint,15,opt,name=network_errors,json=networkErrors,proto3" json:"network_errors,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5186,6 +5258,7 @@ type GetWebhookHealthResponse struct {
 	WebhookId string `protobuf:"bytes,3,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
 	// Computed health status based on success_rate and consecutive_failures.
 	// Returns HEALTH_UNSPECIFIED if the webhook has no delivery history.
+	// @example "HEALTHY"
 	Health WebhookHealth `protobuf:"varint,4,opt,name=health,proto3,enum=webhook.WebhookHealth" json:"health,omitempty"`
 	// Detailed health metrics. Null if the webhook has no delivery history.
 	Metrics *WebhookHealthMetrics `protobuf:"bytes,5,opt,name=metrics,proto3" json:"metrics,omitempty"`
@@ -5273,6 +5346,7 @@ type ListWebhooksByHealthRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Health status to filter by. Required.
 	// Use HEALTH_UNHEALTHY to find problematic endpoints, HEALTH_DEGRADED for early warnings.
+	// @example "HEALTH_UNHEALTHY"
 	Health WebhookHealth `protobuf:"varint,1,opt,name=health,proto3,enum=webhook.WebhookHealth" json:"health,omitempty"`
 	// Pagination parameters. Default: limit=50, offset=0.
 	Pagination    *PaginationRequest `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
@@ -5458,14 +5532,19 @@ func (*GetHealthSummaryRequest) Descriptor() ([]byte, []int) {
 type HealthSummary struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Number of webhooks in HEALTHY state (>90% success rate, <3 consecutive failures).
+	// @example 45
 	HealthyCount int32 `protobuf:"varint,1,opt,name=healthy_count,json=healthyCount,proto3" json:"healthy_count,omitempty"`
 	// Number of webhooks in DEGRADED state (50-90% success rate or 3-9 consecutive failures).
+	// @example 3
 	DegradedCount int32 `protobuf:"varint,2,opt,name=degraded_count,json=degradedCount,proto3" json:"degraded_count,omitempty"`
 	// Number of webhooks in UNHEALTHY state (<50% success rate or 10+ consecutive failures).
+	// @example 1
 	UnhealthyCount int32 `protobuf:"varint,3,opt,name=unhealthy_count,json=unhealthyCount,proto3" json:"unhealthy_count,omitempty"`
 	// Number of webhooks with no delivery history (HEALTH_UNSPECIFIED).
+	// @example 2
 	UnknownCount int32 `protobuf:"varint,4,opt,name=unknown_count,json=unknownCount,proto3" json:"unknown_count,omitempty"`
 	// Total number of webhooks (sum of all categories above).
+	// @example 51
 	TotalCount    int32 `protobuf:"varint,5,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5610,6 +5689,7 @@ func (x *GetHealthSummaryResponse) GetMessage() string {
 type GetNamespaceStatsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Namespace to get statistics for. Required.
+	// @example "production"
 	Namespace     string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5657,19 +5737,26 @@ func (x *GetNamespaceStatsRequest) GetNamespace() string {
 type NamespaceStats struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Total number of registered webhooks in this namespace (active + inactive).
+	// @example 12
 	TotalWebhooks int32 `protobuf:"varint,1,opt,name=total_webhooks,json=totalWebhooks,proto3" json:"total_webhooks,omitempty"`
 	// Number of currently active (non-paused) webhooks.
+	// @example 10
 	ActiveWebhooks int32 `protobuf:"varint,2,opt,name=active_webhooks,json=activeWebhooks,proto3" json:"active_webhooks,omitempty"`
 	// Total number of deliveries ever created in this namespace.
+	// @example 5420
 	TotalDeliveries int32 `protobuf:"varint,3,opt,name=total_deliveries,json=totalDeliveries,proto3" json:"total_deliveries,omitempty"`
 	// Number of deliveries in terminal SUCCESS state.
+	// @example 5200
 	SuccessfulDeliveries int32 `protobuf:"varint,4,opt,name=successful_deliveries,json=successfulDeliveries,proto3" json:"successful_deliveries,omitempty"`
 	// Number of deliveries in terminal FAILED state.
+	// @example 120
 	FailedDeliveries int32 `protobuf:"varint,5,opt,name=failed_deliveries,json=failedDeliveries,proto3" json:"failed_deliveries,omitempty"`
 	// Number of deliveries in PENDING, SENDING, or RETRYING state.
+	// @example 100
 	PendingDeliveries int32 `protobuf:"varint,6,opt,name=pending_deliveries,json=pendingDeliveries,proto3" json:"pending_deliveries,omitempty"`
 	// Overall delivery success rate as a decimal between 0.0 and 1.0.
 	// Computed as successful_deliveries / total_deliveries. 0.0 if no deliveries.
+	// @example 0.96
 	SuccessRate   float64 `protobuf:"fixed64,7,opt,name=success_rate,json=successRate,proto3" json:"success_rate,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -5934,6 +6021,7 @@ type GetTemplateFunctionsResponse struct {
 	// Available template functions with names and descriptions.
 	Functions []*TemplateFunction `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
 	// Total number of available functions.
+	// @example 42
 	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	// Deprecated: use gRPC status codes.
 	//
@@ -6158,13 +6246,11 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x06active\x18\x05 \x01(\bR\x06active\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xad\x01\n" +
-	"\x15RegisterEventResponse\x12\x1d\n" +
-	"\bevent_id\x18\x01 \x01(\tB\x02\x18\x01R\aeventId\x12\x1c\n" +
-	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\x129\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"m\n" +
+	"\x15RegisterEventResponse\x12\x19\n" +
+	"\bevent_id\x18\x01 \x01(\tR\aeventId\x129\n" +
 	"\n" +
-	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"p\n" +
+	"created_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"p\n" +
 	"\x11ListEventsRequest\x12\x1f\n" +
 	"\vactive_only\x18\x01 \x01(\bR\n" +
 	"activeOnly\x12:\n" +
@@ -6231,11 +6317,10 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x05\n" +
-	"\x03_id\"j\n" +
+	"\x03_id\"J\n" +
 	"\x11PushEventResponse\x12\x19\n" +
-	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1c\n" +
-	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\"\xa7\x04\n" +
+	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1a\n" +
+	"\bwarnings\x18\x02 \x03(\tR\bwarnings\"\xca\x04\n" +
 	"\vEventReport\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1d\n" +
@@ -6251,7 +6336,8 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x15successful_deliveries\x18\t \x01(\x05R\x14successfulDeliveries\x12+\n" +
 	"\x11failed_deliveries\x18\n" +
 	" \x01(\x05R\x10failedDeliveries\x12-\n" +
-	"\x12pending_deliveries\x18\v \x01(\x05R\x11pendingDeliveries\x1a;\n" +
+	"\x12pending_deliveries\x18\v \x01(\x05R\x11pendingDeliveries\x12!\n" +
+	"\fschema_valid\x18\f \x01(\bR\vschemaValid\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xdc\x01\n" +

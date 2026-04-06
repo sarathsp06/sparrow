@@ -27,8 +27,8 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 
 	query := `
 		INSERT INTO event_records (
-			id, tenant_id, namespace, event, payload, ttl, metadata, labels, created_at, expires_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, created_at, expires_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
 	metadataJSON, err := json.Marshal(event.Metadata)
@@ -50,6 +50,7 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 		event.TTL,
 		metadataJSON,
 		labelsJSON,
+		event.SchemaValid,
 		event.CreatedAt,
 		event.ExpiresAt,
 	)
@@ -59,7 +60,7 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 // GetEventByID gets an event record by ID within a tenant
 func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (*EventRecord, error) {
 	query := `
-		SELECT id, tenant_id, namespace, event, payload, ttl, metadata, labels, created_at, expires_at
+		SELECT id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, created_at, expires_at
 		FROM event_records
 		WHERE id = $1 AND tenant_id = $2
 	`
@@ -103,7 +104,7 @@ func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, n
 	// Build base query
 	baseQuery := fmt.Sprintf(`
 		SELECT
-			id, tenant_id, namespace, event, payload, ttl, metadata, labels, created_at, expires_at
+			id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, created_at, expires_at
 		FROM event_records
 		WHERE %s
 		  AND ($%d IS NULL OR event = $%d)
@@ -179,7 +180,7 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 	// Build base query with delivery stats from health events
 	baseQuery := fmt.Sprintf(`
 		SELECT
-			er.id, er.tenant_id, er.namespace, er.event, er.payload, er.ttl, er.metadata, er.labels, er.created_at, er.expires_at,
+			er.id, er.tenant_id, er.namespace, er.event, er.payload, er.ttl, er.metadata, er.labels, er.schema_valid, er.created_at, er.expires_at,
 			COALESCE(ds.webhook_count, 0) as webhook_count,
 			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
 			COALESCE(ds.failed_deliveries, 0) as failed_deliveries,

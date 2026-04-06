@@ -2,34 +2,30 @@ package grpc
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/sarathsp06/sparrow/internal/webhooks"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
-// PushEvent pushes an event that triggers registered webhooks
+// PushEvent pushes an event that triggers registered webhooks.
+// Schema validation is soft: events are always accepted and stored.
+// If the payload does not match the registered schema, warnings are
+// returned in the response but the event is still processed.
 func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest) (*pb.PushEventResponse, error) {
 	var payload map[string]any
 	if req.Payload != nil {
 		payload = req.Payload.AsMap()
 	}
-	eventID, err := s.service.PushEvent(ctx, req.Namespace, req.Event, payload, req.TtlSeconds, req.Metadata, req.Labels)
+	eventID, warnings, err := s.service.PushEvent(ctx, req.Namespace, req.Event, payload, req.TtlSeconds, req.Metadata, req.Labels)
 	if err != nil {
-		// Return InvalidArgument for schema validation errors so the client
-		// gets actionable feedback instead of a generic Internal error.
-		var schemaErr *webhooks.SchemaValidationError
-		if errors.As(err, &schemaErr) {
-			return nil, status.Errorf(codes.InvalidArgument, "%v", err)
-		}
 		return nil, toGRPCError(ctx, err, "failed to push event")
 	}
 	return &pb.PushEventResponse{
-		EventId: eventID,
+		EventId:  eventID,
+		Warnings: warnings,
 	}, nil
 }
 
@@ -188,6 +184,7 @@ func (s *WebhookServer) ListEventReports(ctx context.Context, req *pb.ListEventR
 			SuccessfulDeliveries: event.SuccessfulDeliveries,
 			FailedDeliveries:     event.FailedDeliveries,
 			PendingDeliveries:    event.PendingDeliveries,
+			SchemaValid:          event.SchemaValid,
 		}
 		pbEvents = append(pbEvents, pbEvent)
 	}

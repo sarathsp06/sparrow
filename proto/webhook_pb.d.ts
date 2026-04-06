@@ -21,6 +21,7 @@ export declare type PaginationRequest = Message<"webhook.PaginationRequest"> & {
   /**
    * Maximum number of items to return. Clamped to server max (typically 250).
    * Default: 50.
+   * @example 20
    *
    * @generated from field: int32 limit = 1;
    */
@@ -28,6 +29,7 @@ export declare type PaginationRequest = Message<"webhook.PaginationRequest"> & {
 
   /**
    * Number of items to skip before returning results. Default: 0.
+   * @example 0
    *
    * @generated from field: int32 offset = 2;
    */
@@ -89,6 +91,7 @@ export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
    * Only retryable error categories trigger retries (server_error, timeout,
    * connection_refused, network_error). Client errors (4xx), DNS errors,
    * and TLS errors are never retried regardless of this setting.
+   * @example 5
    *
    * @generated from field: int32 max_retries = 1;
    */
@@ -98,6 +101,7 @@ export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
    * Base backoff duration in seconds between retry attempts.
    * Range: 1-3600. Default: 60. Actual backoff uses exponential increase
    * with jitter: base * 2^(attempt-1) + random jitter.
+   * @example 60
    *
    * @generated from field: int32 retry_backoff_seconds = 2;
    */
@@ -109,6 +113,7 @@ export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
    * When true: up to 1 MB of the response body is stored.
    * Note: the response body is always read from the connection regardless of this
    * flag (required for HTTP connection reuse). This only controls how much is persisted.
+   * @example false
    *
    * @generated from field: bool capture_response_body = 3;
    */
@@ -117,6 +122,7 @@ export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
   /**
    * Whether to follow HTTP 3xx redirects when delivering webhooks.
    * Default: true. Set to false to treat redirects as the final response.
+   * @example true
    *
    * @generated from field: bool follow_redirects = 4;
    */
@@ -126,6 +132,7 @@ export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
    * Whether to verify the target endpoint's TLS certificate chain.
    * Default: true. Set to false only for development/testing with self-signed certs.
    * Disabling this in production is a security risk.
+   * @example true
    *
    * @generated from field: bool verify_ssl = 5;
    */
@@ -135,6 +142,7 @@ export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
    * Per-request timeout in seconds. If the target endpoint does not respond
    * within this duration, the attempt is classified as a timeout error (retryable).
    * Range: 1-300. Default: 30.
+   * @example 30
    *
    * @generated from field: int32 request_timeout_seconds = 6;
    */
@@ -144,6 +152,7 @@ export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
    * HTTP status codes that Sparrow treats as a successful delivery.
    * Default: [200, 201, 202, 204]. Any response code not in this list
    * is classified as a client_error (4xx) or server_error (5xx) based on range.
+   * @example [200, 201, 202, 204]
    *
    * @generated from field: repeated int32 expected_status_codes = 7;
    */
@@ -155,6 +164,7 @@ export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
    * the hex-encoded HMAC of the request body. The receiving endpoint can
    * verify authenticity by recomputing the HMAC.
    * Leave empty to disable signing.
+   * @example "whsec_your_secret_key"
    *
    * @generated from field: string webhook_secret = 8;
    */
@@ -163,6 +173,7 @@ export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
   /**
    * Value of the User-Agent header sent with every delivery request.
    * Default: "Sparrow-Webhook/1.0".
+   * @example "Sparrow-Webhook/1.0"
    *
    * @generated from field: string user_agent = 9;
    */
@@ -171,6 +182,7 @@ export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
   /**
    * Content-Type header for delivery requests.
    * Default: "application/json". Change if your endpoint expects a different media type.
+   * @example "application/json"
    *
    * @generated from field: string content_type = 10;
    */
@@ -194,6 +206,7 @@ export declare type RegisterWebhookRequest = Message<"webhook.RegisterWebhookReq
   /**
    * Namespace to register the webhook in. Required.
    * The namespace must already exist (created via the NamespaceService).
+   * @example "production"
    *
    * @generated from field: string namespace = 1;
    */
@@ -202,6 +215,7 @@ export declare type RegisterWebhookRequest = Message<"webhook.RegisterWebhookReq
   /**
    * Event names this webhook should receive. At least one is required.
    * A subscription is automatically created for each event name listed here.
+   * @example ["order.created", "order.updated"]
    *
    * @generated from field: repeated string events = 2;
    */
@@ -210,6 +224,7 @@ export declare type RegisterWebhookRequest = Message<"webhook.RegisterWebhookReq
   /**
    * Target URL that will receive HTTP POST requests for each delivery.
    * Must be a valid HTTP or HTTPS URL. Required.
+   * @example "https://example.com/hooks"
    *
    * @generated from field: string url = 3;
    */
@@ -219,6 +234,7 @@ export declare type RegisterWebhookRequest = Message<"webhook.RegisterWebhookReq
    * Custom HTTP headers included in every delivery request to this webhook.
    * These are visible in API responses. For sensitive values (API keys, tokens),
    * use secret_headers instead.
+   * @example {"X-Source": "sparrow"}
    *
    * @generated from field: map<string, string> headers = 4;
    */
@@ -234,6 +250,7 @@ export declare type RegisterWebhookRequest = Message<"webhook.RegisterWebhookReq
   /**
    * Whether the webhook starts in active state. Default: true.
    * Inactive webhooks are skipped during event fan-out.
+   * @example true
    *
    * @generated from field: bool active = 6;
    */
@@ -241,6 +258,7 @@ export declare type RegisterWebhookRequest = Message<"webhook.RegisterWebhookReq
 
   /**
    * Human-readable description of the webhook's purpose. Optional.
+   * @example "Order notifications"
    *
    * @generated from field: string description = 7;
    */
@@ -249,6 +267,7 @@ export declare type RegisterWebhookRequest = Message<"webhook.RegisterWebhookReq
   /**
    * HTTP delivery configuration (retries, timeouts, TLS, HMAC, etc.).
    * Optional -- all fields have sensible defaults if omitted.
+   * @example {"max_retries": 5, "webhook_secret": "whsec_your_secret_key"}
    *
    * @generated from field: webhook.WebhookHTTPConfig http_config = 8;
    */
@@ -279,6 +298,7 @@ export declare type RegisterWebhookResponse = Message<"webhook.RegisterWebhookRe
   /**
    * Server-generated UUID for the new webhook. Use this ID for all
    * subsequent operations (update, pause, resume, unregister).
+   * @example "550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string webhook_id = 1;
    */
@@ -302,6 +322,7 @@ export declare type RegisterWebhookResponse = Message<"webhook.RegisterWebhookRe
 
   /**
    * Timestamp when the webhook was created.
+   * @example "2025-01-15T10:30:00Z"
    *
    * @generated from field: google.protobuf.Timestamp created_at = 4;
    */
@@ -323,6 +344,7 @@ export declare const RegisterWebhookResponseSchema: GenMessage<RegisterWebhookRe
 export declare type UnregisterWebhookRequest = Message<"webhook.UnregisterWebhookRequest"> & {
   /**
    * UUID of the webhook to delete. Required.
+   * @example "550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string webhook_id = 1;
    */
@@ -330,6 +352,7 @@ export declare type UnregisterWebhookRequest = Message<"webhook.UnregisterWebhoo
 
   /**
    * Namespace the webhook belongs to. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 2;
    */
@@ -381,6 +404,7 @@ export declare const UnregisterWebhookResponseSchema: GenMessage<UnregisterWebho
 export declare type ListWebhooksRequest = Message<"webhook.ListWebhooksRequest"> & {
   /**
    * Namespace to list webhooks from. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 1;
    */
@@ -395,6 +419,7 @@ export declare type ListWebhooksRequest = Message<"webhook.ListWebhooksRequest">
 
   /**
    * When true, only return active (non-paused) webhooks. Default: false (return all).
+   * @example true
    *
    * @generated from field: bool active_only = 3;
    */
@@ -402,6 +427,7 @@ export declare type ListWebhooksRequest = Message<"webhook.ListWebhooksRequest">
 
   /**
    * Pagination parameters. Default: limit=50, offset=0.
+   * @example {"limit": 20}
    *
    * @generated from field: webhook.PaginationRequest pagination = 4;
    */
@@ -634,6 +660,7 @@ export declare type WebhookUpdateFields = Message<"webhook.WebhookUpdateFields">
 
   /**
    * Updated human-readable description. Omit to leave unchanged.
+   * @example "Updated order webhook"
    *
    * @generated from field: string description = 6;
    */
@@ -642,6 +669,7 @@ export declare type WebhookUpdateFields = Message<"webhook.WebhookUpdateFields">
   /**
    * Updated HTTP delivery configuration. Omit to leave unchanged.
    * When set, the entire http_config is replaced (not merged field-by-field).
+   * @example {"max_retries": 5, "request_timeout_seconds": 60}
    *
    * @generated from field: webhook.WebhookHTTPConfig http_config = 7;
    */
@@ -670,6 +698,7 @@ export declare const WebhookUpdateFieldsSchema: GenMessage<WebhookUpdateFields>;
 export declare type UpdateWebhookConfigRequest = Message<"webhook.UpdateWebhookConfigRequest"> & {
   /**
    * UUID of the webhook to update. Required.
+   * @example "550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string webhook_id = 1;
    */
@@ -677,6 +706,7 @@ export declare type UpdateWebhookConfigRequest = Message<"webhook.UpdateWebhookC
 
   /**
    * Namespace the webhook belongs to. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 2;
    */
@@ -735,6 +765,7 @@ export declare const UpdateWebhookConfigResponseSchema: GenMessage<UpdateWebhook
 export declare type PauseWebhookRequest = Message<"webhook.PauseWebhookRequest"> & {
   /**
    * UUID of the webhook to pause. Required.
+   * @example "550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string webhook_id = 1;
    */
@@ -742,6 +773,7 @@ export declare type PauseWebhookRequest = Message<"webhook.PauseWebhookRequest">
 
   /**
    * Namespace the webhook belongs to. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 2;
    */
@@ -749,6 +781,7 @@ export declare type PauseWebhookRequest = Message<"webhook.PauseWebhookRequest">
 
   /**
    * Human-readable reason for pausing (stored for audit purposes). Optional.
+   * @example "Endpoint maintenance"
    *
    * @generated from field: string reason = 3;
    */
@@ -799,6 +832,7 @@ export declare const PauseWebhookResponseSchema: GenMessage<PauseWebhookResponse
 export declare type ResumeWebhookRequest = Message<"webhook.ResumeWebhookRequest"> & {
   /**
    * UUID of the webhook to resume. Required.
+   * @example "550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string webhook_id = 1;
    */
@@ -806,6 +840,7 @@ export declare type ResumeWebhookRequest = Message<"webhook.ResumeWebhookRequest
 
   /**
    * Namespace the webhook belongs to. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 2;
    */
@@ -864,6 +899,7 @@ export declare type RegisterEventRequest = Message<"webhook.RegisterEventRequest
   /**
    * Unique event name (e.g., "order.created", "payment.completed"). Required.
    * Convention: use dot-separated lowercase names.
+   * @example "order.created"
    *
    * @generated from field: string name = 1;
    */
@@ -871,6 +907,7 @@ export declare type RegisterEventRequest = Message<"webhook.RegisterEventRequest
 
   /**
    * Human-readable description of what this event represents. Optional.
+   * @example "Fired when a new order is placed"
    *
    * @generated from field: string description = 2;
    */
@@ -880,6 +917,7 @@ export declare type RegisterEventRequest = Message<"webhook.RegisterEventRequest
    * JSON Schema for validating PushEvent payloads. Optional.
    * When set, all future PushEvent calls for this event type must conform to this schema.
    * Passed as a google.protobuf.Struct (JSON object).
+   * @example {"type": "object", "properties": {"order_id": {"type": "string"}, "amount": {"type": "number"}}, "required": ["order_id", "amount"]}
    *
    * @generated from field: google.protobuf.Struct schema = 3;
    */
@@ -895,6 +933,7 @@ export declare type RegisterEventRequest = Message<"webhook.RegisterEventRequest
   /**
    * Whether the event type is active. Default: true.
    * Inactive event types cannot receive new PushEvent calls.
+   * @example true
    *
    * @generated from field: bool active = 5;
    */
@@ -914,34 +953,16 @@ export declare const RegisterEventRequestSchema: GenMessage<RegisterEventRequest
  */
 export declare type RegisterEventResponse = Message<"webhook.RegisterEventResponse"> & {
   /**
-   * Deprecated: returns the event name (identical to the name in the request).
-   * Use the name from the request instead.
+   * The event type name.
    *
-   * @generated from field: string event_id = 1 [deprecated = true];
-   * @deprecated
+   * @generated from field: string event_id = 1;
    */
   eventId: string;
 
   /**
-   * Deprecated: use gRPC status codes.
+   * When the event type was created.
    *
-   * @generated from field: bool success = 2 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 3 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
-
-  /**
-   * Timestamp when the event type was created.
-   *
-   * @generated from field: google.protobuf.Timestamp created_at = 4;
+   * @generated from field: google.protobuf.Timestamp created_at = 2;
    */
   createdAt?: Timestamp;
 };
@@ -960,6 +981,7 @@ export declare const RegisterEventResponseSchema: GenMessage<RegisterEventRespon
 export declare type ListEventsRequest = Message<"webhook.ListEventsRequest"> & {
   /**
    * When true, only return active event types. Default: false (return all).
+   * @example true
    *
    * @generated from field: bool active_only = 1;
    */
@@ -1119,6 +1141,7 @@ export declare const ListEventsResponseSchema: GenMessage<ListEventsResponse>;
 export declare type UpdateEventRequest = Message<"webhook.UpdateEventRequest"> & {
   /**
    * Event name to update. Required. This is the lookup key (not a UUID).
+   * @example "order.created"
    *
    * @generated from field: string name = 1;
    */
@@ -1126,6 +1149,7 @@ export declare type UpdateEventRequest = Message<"webhook.UpdateEventRequest"> &
 
   /**
    * Updated description. Omit to leave unchanged.
+   * @example "Updated: Fired when a new order is placed"
    *
    * @generated from field: string description = 2;
    */
@@ -1197,6 +1221,7 @@ export declare const UpdateEventResponseSchema: GenMessage<UpdateEventResponse>;
 export declare type GetEventRequest = Message<"webhook.GetEventRequest"> & {
   /**
    * Event name to look up. Required.
+   * @example "order.created"
    *
    * @generated from field: string name = 1;
    */
@@ -1239,6 +1264,7 @@ export declare const GetEventResponseSchema: GenMessage<GetEventResponse>;
 export declare type DeleteEventRequest = Message<"webhook.DeleteEventRequest"> & {
   /**
    * Event name to delete. Required.
+   * @example "order.created"
    *
    * @generated from field: string name = 1;
    */
@@ -1292,6 +1318,7 @@ export declare type PushEventRequest = Message<"webhook.PushEventRequest"> & {
   /**
    * Namespace to push the event into. Required.
    * Only subscriptions in this namespace are matched.
+   * @example "production"
    *
    * @generated from field: string namespace = 1;
    */
@@ -1300,6 +1327,7 @@ export declare type PushEventRequest = Message<"webhook.PushEventRequest"> & {
   /**
    * Event type name (must match a registered event type). Required.
    * Subscriptions with matching event_name in this namespace will receive deliveries.
+   * @example "order.created"
    *
    * @generated from field: string event = 2;
    */
@@ -1310,6 +1338,7 @@ export declare type PushEventRequest = Message<"webhook.PushEventRequest"> & {
    * If the event type has a schema, this payload is validated against it before acceptance.
    * This payload (or its template-transformed version) becomes the HTTP request body
    * sent to each matching webhook.
+   * @example {"order_id": "ord-123", "amount": 99.99, "currency": "USD"}
    *
    * @generated from field: google.protobuf.Struct payload = 3;
    */
@@ -1347,6 +1376,7 @@ export declare type PushEventRequest = Message<"webhook.PushEventRequest"> & {
    * When set, only subscriptions whose label_filters are a subset of these labels
    * will receive deliveries. Labels use AND logic: all filter keys must match.
    * Subscriptions with no label_filters match all events regardless of labels.
+   * @example {"region": "us-east", "priority": "high"}
    *
    * @generated from field: map<string, string> labels = 7;
    */
@@ -1369,26 +1399,22 @@ export declare type PushEventResponse = Message<"webhook.PushEventResponse"> & {
   /**
    * Server-generated UUID for the event instance.
    * Use this ID to query delivery status via DeliveryService.ListDeliveries.
+   * @example "e-550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string event_id = 1;
    */
   eventId: string;
 
   /**
-   * Deprecated: use gRPC status codes.
+   * Schema validation warnings. Populated when the event payload does not match
+   * the registered JSON schema. The event is still accepted and stored, but
+   * schema_valid is set to false on the event record. Each string describes
+   * a specific validation failure (e.g., "field 'amount': expected number, got string").
+   * Empty when the payload passes validation or no schema is registered.
    *
-   * @generated from field: bool success = 2 [deprecated = true];
-   * @deprecated
+   * @generated from field: repeated string warnings = 2;
    */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 3 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
+  warnings: string[];
 };
 
 /**
@@ -1482,6 +1508,16 @@ export declare type EventReport = Message<"webhook.EventReport"> & {
    * @generated from field: int32 pending_deliveries = 11;
    */
   pendingDeliveries: number;
+
+  /**
+   * Whether the event payload matched the registered JSON schema at push time.
+   * Always true when no schema is registered for the event type.
+   * When false, the event was still accepted and delivered, but the payload
+   * did not conform to the schema. Check PushEventResponse.warnings for details.
+   *
+   * @generated from field: bool schema_valid = 12;
+   */
+  schemaValid: boolean;
 };
 
 /**
@@ -1498,6 +1534,7 @@ export declare const EventReportSchema: GenMessage<EventReport>;
 export declare type ListEventReportsRequest = Message<"webhook.ListEventReportsRequest"> & {
   /**
    * Namespace to list events from. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 1;
    */
@@ -1505,6 +1542,7 @@ export declare type ListEventReportsRequest = Message<"webhook.ListEventReportsR
 
   /**
    * Filter to events of this type name. Optional.
+   * @example "order.created"
    *
    * @generated from field: optional string event_name = 2;
    */
@@ -1512,6 +1550,7 @@ export declare type ListEventReportsRequest = Message<"webhook.ListEventReportsR
 
   /**
    * Pagination parameters. Default: limit=50, offset=0. Max limit: 1000.
+   * @example {"limit": 25}
    *
    * @generated from field: webhook.PaginationRequest pagination = 3;
    */
@@ -1714,6 +1753,7 @@ export declare type CreateSubscriptionRequest = Message<"webhook.CreateSubscript
   /**
    * UUID of the webhook to subscribe. Required.
    * The webhook must exist in the specified namespace.
+   * @example "550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string webhook_id = 1;
    */
@@ -1721,6 +1761,7 @@ export declare type CreateSubscriptionRequest = Message<"webhook.CreateSubscript
 
   /**
    * Event type name to subscribe to. Required.
+   * @example "order.created"
    *
    * @generated from field: string event_name = 2;
    */
@@ -1729,6 +1770,7 @@ export declare type CreateSubscriptionRequest = Message<"webhook.CreateSubscript
   /**
    * Namespace for the subscription. Required.
    * Must match the webhook's namespace.
+   * @example "production"
    *
    * @generated from field: string namespace = 3;
    */
@@ -1774,6 +1816,7 @@ export declare type CreateSubscriptionRequest = Message<"webhook.CreateSubscript
   /**
    * Label filters for selective event matching. Optional.
    * Only events with labels matching all key-value pairs will trigger this subscription.
+   * @example {"region": "us-east"}
    *
    * @generated from field: map<string, string> label_filters = 9;
    */
@@ -1794,6 +1837,7 @@ export declare const CreateSubscriptionRequestSchema: GenMessage<CreateSubscript
 export declare type CreateSubscriptionResponse = Message<"webhook.CreateSubscriptionResponse"> & {
   /**
    * Server-generated UUID of the new subscription.
+   * @example "7c9e6679-7425-40de-944b-e07fc1f90ae7"
    *
    * @generated from field: string subscription_id = 1;
    */
@@ -1801,6 +1845,7 @@ export declare type CreateSubscriptionResponse = Message<"webhook.CreateSubscrip
 
   /**
    * When the subscription was created.
+   * @example "2025-01-15T10:30:00Z"
    *
    * @generated from field: google.protobuf.Timestamp created_at = 4;
    */
@@ -1837,6 +1882,7 @@ export declare const CreateSubscriptionResponseSchema: GenMessage<CreateSubscrip
 export declare type GetSubscriptionRequest = Message<"webhook.GetSubscriptionRequest"> & {
   /**
    * UUID of the subscription to retrieve. Required.
+   * @example "7c9e6679-7425-40de-944b-e07fc1f90ae7"
    *
    * @generated from field: string subscription_id = 1;
    */
@@ -1844,6 +1890,7 @@ export declare type GetSubscriptionRequest = Message<"webhook.GetSubscriptionReq
 
   /**
    * Namespace the subscription belongs to. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 2;
    */
@@ -1900,6 +1947,7 @@ export declare const GetSubscriptionResponseSchema: GenMessage<GetSubscriptionRe
 export declare type ListSubscriptionsRequest = Message<"webhook.ListSubscriptionsRequest"> & {
   /**
    * Filter by webhook UUID. Optional.
+   * @example "550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string webhook_id = 1;
    */
@@ -1914,6 +1962,7 @@ export declare type ListSubscriptionsRequest = Message<"webhook.ListSubscription
 
   /**
    * Namespace to list subscriptions from. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 2;
    */
@@ -1993,6 +2042,7 @@ export declare const ListSubscriptionsResponseSchema: GenMessage<ListSubscriptio
 export declare type UpdateSubscriptionRequest = Message<"webhook.UpdateSubscriptionRequest"> & {
   /**
    * UUID of the subscription to update. Required.
+   * @example "7c9e6679-7425-40de-944b-e07fc1f90ae7"
    *
    * @generated from field: string subscription_id = 1;
    */
@@ -2000,6 +2050,7 @@ export declare type UpdateSubscriptionRequest = Message<"webhook.UpdateSubscript
 
   /**
    * Namespace the subscription belongs to. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 7;
    */
@@ -2028,6 +2079,7 @@ export declare type UpdateSubscriptionRequest = Message<"webhook.UpdateSubscript
 
   /**
    * Updated transform enabled flag.
+   * @example true
    *
    * @generated from field: bool transform_enabled = 5;
    */
@@ -2092,6 +2144,7 @@ export declare const UpdateSubscriptionResponseSchema: GenMessage<UpdateSubscrip
 export declare type DeleteSubscriptionRequest = Message<"webhook.DeleteSubscriptionRequest"> & {
   /**
    * UUID of the subscription to delete. Required.
+   * @example "7c9e6679-7425-40de-944b-e07fc1f90ae7"
    *
    * @generated from field: string subscription_id = 1;
    */
@@ -2099,6 +2152,7 @@ export declare type DeleteSubscriptionRequest = Message<"webhook.DeleteSubscript
 
   /**
    * Namespace the subscription belongs to. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 2;
    */
@@ -2230,6 +2284,7 @@ export declare type TestSubscriptionTemplateRequest = Message<"webhook.TestSubsc
   /**
    * Event name to get the sample payload from. Required.
    * The event type must have a schema defined for a sample payload to be generated.
+   * @example "order.created"
    *
    * @generated from field: string event_name = 1;
    */
@@ -2238,6 +2293,7 @@ export declare type TestSubscriptionTemplateRequest = Message<"webhook.TestSubsc
   /**
    * Go template string to test. Required.
    * The template is executed with the event's sample_payload as its data context.
+   * @example "{\"id\": \"{{ .payload.order_id }}\", \"total\": \"{{ .payload.amount }}\"}"
    *
    * @generated from field: string transform_template = 2;
    */
@@ -2245,6 +2301,7 @@ export declare type TestSubscriptionTemplateRequest = Message<"webhook.TestSubsc
 
   /**
    * Namespace. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 3;
    */
@@ -2267,6 +2324,7 @@ export declare type TestSubscriptionTemplateResponse = Message<"webhook.TestSubs
    * The template output after rendering against the sample payload.
    * This is exactly what would be sent as the delivery request body
    * if this template were applied to a subscription.
+   * @example "{\"id\": \"ord-123\", \"total\": \"99.99\"}"
    *
    * @generated from field: string transformed_payload = 1;
    */
@@ -2418,6 +2476,7 @@ export declare const WebhookDeliverySchema: GenMessage<WebhookDelivery>;
 export declare type GetDeliveryStatusRequest = Message<"webhook.GetDeliveryStatusRequest"> & {
   /**
    * UUID of the delivery to retrieve. Required.
+   * @example "d-550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string delivery_id = 1;
    */
@@ -2425,6 +2484,7 @@ export declare type GetDeliveryStatusRequest = Message<"webhook.GetDeliveryStatu
 
   /**
    * Namespace the delivery belongs to. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 2;
    */
@@ -2482,6 +2542,7 @@ export declare const GetDeliveryStatusResponseSchema: GenMessage<GetDeliveryStat
 export declare type ListDeliveriesRequest = Message<"webhook.ListDeliveriesRequest"> & {
   /**
    * Namespace to list deliveries from. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 1;
    */
@@ -2489,6 +2550,7 @@ export declare type ListDeliveriesRequest = Message<"webhook.ListDeliveriesReque
 
   /**
    * Filter by webhook UUID. Optional.
+   * @example "550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string webhook_id = 2;
    */
@@ -2503,6 +2565,7 @@ export declare type ListDeliveriesRequest = Message<"webhook.ListDeliveriesReque
 
   /**
    * Pagination parameters. Default: limit=50, offset=0.
+   * @example {"limit": 20}
    *
    * @generated from field: webhook.PaginationRequest pagination = 4;
    */
@@ -2568,6 +2631,7 @@ export declare const ListDeliveriesResponseSchema: GenMessage<ListDeliveriesResp
 export declare type RetryDeliveryRequest = Message<"webhook.RetryDeliveryRequest"> & {
   /**
    * Namespace. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 1;
    */
@@ -2575,6 +2639,7 @@ export declare type RetryDeliveryRequest = Message<"webhook.RetryDeliveryRequest
 
   /**
    * UUID of a specific delivery to retry. Optional.
+   * @example "d-550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string delivery_id = 2;
    */
@@ -2610,6 +2675,7 @@ export declare const RetryDeliveryRequestSchema: GenMessage<RetryDeliveryRequest
 export declare type RetryDeliveryResponse = Message<"webhook.RetryDeliveryResponse"> & {
   /**
    * Number of deliveries that were re-enqueued.
+   * @example 1
    *
    * @generated from field: int32 retried_count = 1;
    */
@@ -2617,6 +2683,7 @@ export declare type RetryDeliveryResponse = Message<"webhook.RetryDeliveryRespon
 
   /**
    * UUIDs of the deliveries that were re-enqueued.
+   * @example ["d-550e8400-e29b-41d4-a716-446655440000"]
    *
    * @generated from field: repeated string delivery_ids = 2;
    */
@@ -2655,6 +2722,7 @@ export declare const RetryDeliveryResponseSchema: GenMessage<RetryDeliveryRespon
 export declare type DeliveryAttempt = Message<"webhook.DeliveryAttempt"> & {
   /**
    * Server-generated UUID for this attempt.
+   * @example "a-110e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string attempt_id = 1;
    */
@@ -2677,6 +2745,7 @@ export declare type DeliveryAttempt = Message<"webhook.DeliveryAttempt"> & {
   /**
    * Whether this attempt resulted in a successful delivery
    * (response code matched expected_status_codes).
+   * @example true
    *
    * @generated from field: bool success = 4;
    */
@@ -2685,6 +2754,7 @@ export declare type DeliveryAttempt = Message<"webhook.DeliveryAttempt"> & {
   /**
    * Round-trip time in milliseconds from sending the request to receiving
    * the full response (or timeout/error). 0 if no connection was established.
+   * @example 245
    *
    * @generated from field: int32 response_time = 5;
    */
@@ -2693,6 +2763,7 @@ export declare type DeliveryAttempt = Message<"webhook.DeliveryAttempt"> & {
   /**
    * HTTP response status code. 0 if no response was received
    * (timeout, connection refused, DNS error, etc.).
+   * @example 200
    *
    * @generated from field: int32 response_code = 6;
    */
@@ -2711,6 +2782,7 @@ export declare type DeliveryAttempt = Message<"webhook.DeliveryAttempt"> & {
    * Classified error category for this attempt.
    * Values: "success", "client_error", "server_error", "timeout",
    * "connection_refused", "network_error", "dns_error", "tls_error", "unknown".
+   * @example "success"
    *
    * @generated from field: string error_category = 8;
    */
@@ -2718,6 +2790,7 @@ export declare type DeliveryAttempt = Message<"webhook.DeliveryAttempt"> & {
 
   /**
    * When this attempt was made.
+   * @example "2025-01-15T10:30:05Z"
    *
    * @generated from field: google.protobuf.Timestamp timestamp = 9;
    */
@@ -2738,6 +2811,7 @@ export declare const DeliveryAttemptSchema: GenMessage<DeliveryAttempt>;
 export declare type GetDeliveryAttemptsRequest = Message<"webhook.GetDeliveryAttemptsRequest"> & {
   /**
    * UUID of the delivery to get attempts for. Required.
+   * @example "d-550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string delivery_id = 1;
    */
@@ -2779,6 +2853,7 @@ export declare const GetDeliveryAttemptsResponseSchema: GenMessage<GetDeliveryAt
 export declare type GetWebhookHealthRequest = Message<"webhook.GetWebhookHealthRequest"> & {
   /**
    * UUID of the webhook. Required.
+   * @example "550e8400-e29b-41d4-a716-446655440000"
    *
    * @generated from field: string webhook_id = 1;
    */
@@ -2786,6 +2861,7 @@ export declare type GetWebhookHealthRequest = Message<"webhook.GetWebhookHealthR
 
   /**
    * Namespace the webhook belongs to. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 2;
    */
@@ -2815,6 +2891,7 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
 
   /**
    * Total number of deliveries ever made to this webhook (all time).
+   * @example 1520
    *
    * @generated from field: int32 total_deliveries = 2;
    */
@@ -2822,6 +2899,7 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
 
   /**
    * Number of deliveries that succeeded (terminal SUCCESS status).
+   * @example 1480
    *
    * @generated from field: int32 successful_deliveries = 3;
    */
@@ -2829,6 +2907,7 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
 
   /**
    * Number of deliveries that failed permanently (terminal FAILED status).
+   * @example 40
    *
    * @generated from field: int32 failed_deliveries = 4;
    */
@@ -2837,6 +2916,7 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
   /**
    * Current streak of consecutive failed deliveries. Resets to 0 on any success.
    * Used for health status computation: 3-9 = DEGRADED, 10+ = UNHEALTHY.
+   * @example 0
    *
    * @generated from field: int32 consecutive_failures = 5;
    */
@@ -2860,6 +2940,7 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
    * Success rate as a decimal between 0.0 and 1.0.
    * Computed as successful_deliveries / total_deliveries.
    * Used for health thresholds: >0.9 = HEALTHY, 0.5-0.9 = DEGRADED, <0.5 = UNHEALTHY.
+   * @example 0.974
    *
    * @generated from field: double success_rate = 8;
    */
@@ -2867,6 +2948,7 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
 
   /**
    * Average response time in milliseconds across all delivery attempts.
+   * @example 245
    *
    * @generated from field: int32 avg_response_time = 9;
    */
@@ -2890,6 +2972,7 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
    * Count of client errors (HTTP 4xx) in the last 24 hours.
    * Client errors are never retried -- typically indicates a misconfigured endpoint
    * (wrong URL, missing auth, payload format mismatch).
+   * @example 2
    *
    * @generated from field: int32 client_errors = 12;
    */
@@ -2898,6 +2981,7 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
   /**
    * Count of server errors (HTTP 5xx) in the last 24 hours.
    * Server errors are retried according to the webhook's retry configuration.
+   * @example 5
    *
    * @generated from field: int32 server_errors = 13;
    */
@@ -2906,6 +2990,7 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
   /**
    * Count of timeout errors in the last 24 hours.
    * Timeouts are retried. May indicate the endpoint is slow or overloaded.
+   * @example 1
    *
    * @generated from field: int32 timeout_errors = 14;
    */
@@ -2914,6 +2999,7 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
   /**
    * Count of network-level errors in the last 24 hours.
    * Includes DNS failures, TLS errors, connection refused, and other transport errors.
+   * @example 0
    *
    * @generated from field: int32 network_errors = 15;
    */
@@ -2942,6 +3028,7 @@ export declare type GetWebhookHealthResponse = Message<"webhook.GetWebhookHealth
   /**
    * Computed health status based on success_rate and consecutive_failures.
    * Returns HEALTH_UNSPECIFIED if the webhook has no delivery history.
+   * @example "HEALTHY"
    *
    * @generated from field: webhook.WebhookHealth health = 4;
    */
@@ -2986,6 +3073,7 @@ export declare type ListWebhooksByHealthRequest = Message<"webhook.ListWebhooksB
   /**
    * Health status to filter by. Required.
    * Use HEALTH_UNHEALTHY to find problematic endpoints, HEALTH_DEGRADED for early warnings.
+   * @example "HEALTH_UNHEALTHY"
    *
    * @generated from field: webhook.WebhookHealth health = 1;
    */
@@ -3080,6 +3168,7 @@ export declare const GetHealthSummaryRequestSchema: GenMessage<GetHealthSummaryR
 export declare type HealthSummary = Message<"webhook.HealthSummary"> & {
   /**
    * Number of webhooks in HEALTHY state (>90% success rate, <3 consecutive failures).
+   * @example 45
    *
    * @generated from field: int32 healthy_count = 1;
    */
@@ -3087,6 +3176,7 @@ export declare type HealthSummary = Message<"webhook.HealthSummary"> & {
 
   /**
    * Number of webhooks in DEGRADED state (50-90% success rate or 3-9 consecutive failures).
+   * @example 3
    *
    * @generated from field: int32 degraded_count = 2;
    */
@@ -3094,6 +3184,7 @@ export declare type HealthSummary = Message<"webhook.HealthSummary"> & {
 
   /**
    * Number of webhooks in UNHEALTHY state (<50% success rate or 10+ consecutive failures).
+   * @example 1
    *
    * @generated from field: int32 unhealthy_count = 3;
    */
@@ -3101,6 +3192,7 @@ export declare type HealthSummary = Message<"webhook.HealthSummary"> & {
 
   /**
    * Number of webhooks with no delivery history (HEALTH_UNSPECIFIED).
+   * @example 2
    *
    * @generated from field: int32 unknown_count = 4;
    */
@@ -3108,6 +3200,7 @@ export declare type HealthSummary = Message<"webhook.HealthSummary"> & {
 
   /**
    * Total number of webhooks (sum of all categories above).
+   * @example 51
    *
    * @generated from field: int32 total_count = 5;
    */
@@ -3164,6 +3257,7 @@ export declare const GetHealthSummaryResponseSchema: GenMessage<GetHealthSummary
 export declare type GetNamespaceStatsRequest = Message<"webhook.GetNamespaceStatsRequest"> & {
   /**
    * Namespace to get statistics for. Required.
+   * @example "production"
    *
    * @generated from field: string namespace = 1;
    */
@@ -3185,6 +3279,7 @@ export declare const GetNamespaceStatsRequestSchema: GenMessage<GetNamespaceStat
 export declare type NamespaceStats = Message<"webhook.NamespaceStats"> & {
   /**
    * Total number of registered webhooks in this namespace (active + inactive).
+   * @example 12
    *
    * @generated from field: int32 total_webhooks = 1;
    */
@@ -3192,6 +3287,7 @@ export declare type NamespaceStats = Message<"webhook.NamespaceStats"> & {
 
   /**
    * Number of currently active (non-paused) webhooks.
+   * @example 10
    *
    * @generated from field: int32 active_webhooks = 2;
    */
@@ -3199,6 +3295,7 @@ export declare type NamespaceStats = Message<"webhook.NamespaceStats"> & {
 
   /**
    * Total number of deliveries ever created in this namespace.
+   * @example 5420
    *
    * @generated from field: int32 total_deliveries = 3;
    */
@@ -3206,6 +3303,7 @@ export declare type NamespaceStats = Message<"webhook.NamespaceStats"> & {
 
   /**
    * Number of deliveries in terminal SUCCESS state.
+   * @example 5200
    *
    * @generated from field: int32 successful_deliveries = 4;
    */
@@ -3213,6 +3311,7 @@ export declare type NamespaceStats = Message<"webhook.NamespaceStats"> & {
 
   /**
    * Number of deliveries in terminal FAILED state.
+   * @example 120
    *
    * @generated from field: int32 failed_deliveries = 5;
    */
@@ -3220,6 +3319,7 @@ export declare type NamespaceStats = Message<"webhook.NamespaceStats"> & {
 
   /**
    * Number of deliveries in PENDING, SENDING, or RETRYING state.
+   * @example 100
    *
    * @generated from field: int32 pending_deliveries = 6;
    */
@@ -3228,6 +3328,7 @@ export declare type NamespaceStats = Message<"webhook.NamespaceStats"> & {
   /**
    * Overall delivery success rate as a decimal between 0.0 and 1.0.
    * Computed as successful_deliveries / total_deliveries. 0.0 if no deliveries.
+   * @example 0.96
    *
    * @generated from field: double success_rate = 7;
    */
@@ -3342,6 +3443,7 @@ export declare type GetTemplateFunctionsResponse = Message<"webhook.GetTemplateF
 
   /**
    * Total number of available functions.
+   * @example 42
    *
    * @generated from field: int32 total_count = 2;
    */

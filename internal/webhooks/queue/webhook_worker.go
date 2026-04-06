@@ -142,9 +142,25 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			eventRecord.Payload,
 		))
 		if err != nil {
-			log.ErrorContext(ctx, "Failed to transform payload", "error", err)
-			_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Template transformation failed: %v", err), "unknown")
-			return fmt.Errorf("template transformation failed: %w", err)
+			// Graceful degradation: template transform failed, fall back to
+			// envelope payload instead of failing the delivery. Template errors
+			// are not transient (retrying won't fix a bad template), so we log
+			// the warning and continue with the default payload format.
+			log.WarnContext(ctx, "Template transformation failed, falling back to envelope payload",
+				"error", err,
+				"subscription_id", args.SubscriptionID,
+				"delivery_id", args.DeliveryID,
+			)
+			payloadBytes, err = client.BuildEnvelopePayload(
+				args.EventID,
+				eventRecord.Event,
+				job.Attempt,
+				defaultPayload,
+			)
+			if err != nil {
+				log.ErrorContext(ctx, "Failed to marshal fallback envelope payload", "error", err)
+				return err
+			}
 		}
 	} else {
 		// Use default JSON envelope

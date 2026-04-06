@@ -690,19 +690,11 @@ message RegisterEventRequest {
 
 // RegisterEventResponse confirms successful event type creation.
 message RegisterEventResponse {
-  // Deprecated: returns the event name (identical to the name in the request).
-  // Use the name from the request instead.
-  string event_id = 1 [deprecated = true];
+  // The event type name.
+  string event_id = 1;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 2 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 3 [deprecated = true];
-
-  // Timestamp when the event type was created.
-  // @example "2025-01-15T10:30:00Z"
-  google.protobuf.Timestamp created_at = 4;
+  // When the event type was created.
+  google.protobuf.Timestamp created_at = 2;
 }
 
 // ListEventsRequest specifies filters for listing registered event types.
@@ -885,11 +877,12 @@ message PushEventResponse {
   // @example "e-550e8400-e29b-41d4-a716-446655440000"
   string event_id = 1;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 2 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 3 [deprecated = true];
+  // Schema validation warnings. Populated when the event payload does not match
+  // the registered JSON schema. The event is still accepted and stored, but
+  // schema_valid is set to false on the event record. Each string describes
+  // a specific validation failure (e.g., "field 'amount': expected number, got string").
+  // Empty when the payload passes validation or no schema is registered.
+  repeated string warnings = 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -933,6 +926,12 @@ message EventReport {
 
   // Number of deliveries still in progress (PENDING, SENDING, or RETRYING status).
   int32 pending_deliveries = 11;
+
+  // Whether the event payload matched the registered JSON schema at push time.
+  // Always true when no schema is registered for the event type.
+  // When false, the event was still accepted and delivered, but the payload
+  // did not conform to the schema. Check PushEventResponse.warnings for details.
+  bool schema_valid = 12;
 }
 
 // ListEventReportsRequest specifies filters for listing pushed event instances.

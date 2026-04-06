@@ -170,7 +170,7 @@ func TestPushEvent_WithValidLabels(t *testing.T) {
 	})).Return(nil)
 	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
 
-	eventID, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, labels)
+	eventID, _, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, labels)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
 	repo.AssertExpectations(t)
@@ -191,7 +191,7 @@ func TestPushEvent_WithNilLabels(t *testing.T) {
 	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
 
-	eventID, err := service.PushEvent(ctx, "default", "test.event", nil, 0, nil, nil)
+	eventID, _, err := service.PushEvent(ctx, "default", "test.event", nil, 0, nil, nil)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
 	repo.AssertExpectations(t)
@@ -228,7 +228,7 @@ func TestPushEvent_WithInvalidLabels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := service.PushEvent(ctx, "default", "some.event", nil, 0, nil, tt.labels)
+			_, _, err := service.PushEvent(ctx, "default", "some.event", nil, 0, nil, tt.labels)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.errMsg)
 			// Ensure no repo calls were made — validation should short-circuit.

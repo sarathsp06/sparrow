@@ -293,7 +293,7 @@ func TestWebhookService_PushEvent_AutoRegister(t *testing.T) {
 	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
 
-	eventID, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, nil)
+	eventID, _, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
@@ -319,7 +319,7 @@ func TestWebhookService_PushEvent_ExistingEvent(t *testing.T) {
 	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
 
-	eventID, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, nil)
+	eventID, _, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
@@ -342,7 +342,7 @@ func TestWebhookService_PushEvent_InactiveEvent(t *testing.T) {
 		Active: false,
 	}, nil)
 
-	_, err := service.PushEvent(ctx, "default", "user.deleted", nil, 0, nil, nil)
+	_, _, err := service.PushEvent(ctx, "default", "user.deleted", nil, 0, nil, nil)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "inactive")

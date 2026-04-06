@@ -3,6 +3,7 @@ package webhooks
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"regexp"
@@ -55,7 +56,7 @@ type WebhookServiceInterface interface {
 	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error
 	DeleteEvent(ctx context.Context, name string) error
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
-	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string) (string, error)
+	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string) (string, []string, error)
 	ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int32) ([]*store.EventReportWithStats, int32, error)
 
 	// Subscription Management
@@ -569,7 +570,7 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 }
 
 // PushEvent pushes an event
-func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string) (string, error) {
+func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string) (string, []string, error) {
 	ctx, span := s.tracer.Start(ctx, "event.push",
 		trace.WithAttributes(
 			attribute.String("namespace", namespace),
@@ -590,18 +591,18 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		err := fmt.Errorf("namespace is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "namespace is required")
-		return "", err
+		return "", nil, err
 	}
 	if event == "" {
 		err := fmt.Errorf("event is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event is required")
-		return "", err
+		return "", nil, err
 	}
 	if err := validateLabels(labels, "labels"); err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "invalid labels")
-		return "", err
+		return "", nil, err
 	}
 
 	// Lookup registered event, auto-registering if it doesn't exist yet.
@@ -610,7 +611,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event lookup failed")
 		s.logger.ErrorContext(ctx, "Failed to lookup event registration", "event", event, "error", err)
-		return "", fmt.Errorf("failed to lookup event registration: %w", err)
+		return "", nil, fmt.Errorf("failed to lookup event registration: %w", err)
 	}
 	if eventReg == nil {
 		// Auto-register the event so callers don't have to pre-register every
@@ -625,7 +626,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 			span.RecordError(err)
 			span.SetStatus(otelcodes.Error, "auto-registration failed")
 			s.logger.ErrorContext(ctx, "Failed to auto-register event", "event", event, "error", err)
-			return "", fmt.Errorf("failed to auto-register event: %w", err)
+			return "", nil, fmt.Errorf("failed to auto-register event: %w", err)
 		}
 		s.logger.InfoContext(ctx, "Auto-registered new event type", "event", event)
 	}
@@ -634,14 +635,34 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event inactive")
 		s.logger.ErrorContext(ctx, "Event is inactive", "event", event)
-		return "", err
+		return "", nil, err
 	}
 
-	// Validate payload against event schema if present
+	// Soft schema validation: validate payload against event schema if present.
+	// Events are always accepted and stored regardless of schema match.
+	// Invalid payloads are tagged (schema_valid=false) with per-field warnings.
+	var warnings []string
+	schemaValid := true
 	if len(eventReg.Schema) != 0 && payload != nil {
 		if err := ValidateJSONSchema(eventReg.Schema, payload); err != nil {
-			s.logger.ErrorContext(ctx, "Payload does not match event schema", "event", event, "error", err)
-			return "", fmt.Errorf("payload does not match event schema: %w", err)
+			var schemaErr *SchemaValidationError
+			if errors.As(err, &schemaErr) {
+				schemaValid = false
+				warnings = schemaErr.Warnings()
+				s.logger.WarnContext(ctx, "Payload does not match event schema (accepted with warnings)",
+					"event", event,
+					"warning_count", len(warnings),
+				)
+				span.SetAttributes(attribute.Bool("schema_valid", false))
+			} else {
+				// Non-schema error (e.g., schema compilation failure) -- still accept
+				schemaValid = false
+				warnings = []string{err.Error()}
+				s.logger.WarnContext(ctx, "Schema validation encountered unexpected error (accepted with warnings)",
+					"event", event,
+					"error", err,
+				)
+			}
 		}
 	}
 
@@ -656,19 +677,20 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 
 	// Store the event record in database first
 	eventRecord := &store.EventRecord{
-		ID:        uuid.MustParse(eventID),
-		Namespace: namespace,
-		Event:     event,
-		Payload:   payload,
-		TTL:       ttl,
-		Metadata:  metadata,
-		Labels:    labels,
-		CreatedAt: time.Now(),
+		ID:          uuid.MustParse(eventID),
+		Namespace:   namespace,
+		Event:       event,
+		Payload:     payload,
+		TTL:         ttl,
+		Metadata:    metadata,
+		Labels:      labels,
+		SchemaValid: schemaValid,
+		CreatedAt:   time.Now(),
 	}
 
 	if err := s.webhookRepo.StoreEvent(ctx, tenantID, eventRecord); err != nil {
 		s.logger.ErrorContext(ctx, "Failed to store event record", "error", err, "event_id", eventID)
-		return "", fmt.Errorf("failed to store event record: %w", err)
+		return "", nil, fmt.Errorf("failed to store event record: %w", err)
 	}
 
 	// Create event processing job with minimal data
@@ -701,7 +723,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 				"delete_error", delErr,
 			)
 		}
-		return "", fmt.Errorf("failed to schedule event processing: %w", err)
+		return "", nil, fmt.Errorf("failed to schedule event processing: %w", err)
 	}
 
 	// Record metrics
@@ -716,7 +738,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		"namespace", namespace,
 		"event", event,
 	)
-	return eventID, nil
+	return eventID, warnings, nil
 }
 
 // GetDeliveryStatus gets the status of a webhook delivery.
@@ -1670,6 +1692,23 @@ func (e *SchemaValidationError) Error() string {
 		}
 	}
 	return fmt.Sprintf("%s: %s", e.Message, strings.Join(parts, "; "))
+}
+
+// Warnings returns per-field validation messages suitable for API responses.
+// Each warning is a human-readable string describing a specific validation failure.
+func (e *SchemaValidationError) Warnings() []string {
+	var warnings []string
+	for field, msg := range e.Details {
+		if field == "" {
+			warnings = append(warnings, msg)
+		} else {
+			warnings = append(warnings, fmt.Sprintf("field '%s': %s", field, msg))
+		}
+	}
+	if len(warnings) == 0 {
+		warnings = append(warnings, e.Message)
+	}
+	return warnings
 }
 
 // ValidateJSONSchema validates a payload against a JSON schema string.

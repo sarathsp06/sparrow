@@ -74,13 +74,18 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, tenantID uuid.
 
 	query := `
 		INSERT INTO event_records (
-			id, tenant_id, namespace, event, payload, ttl, metadata, created_at, expires_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, created_at, expires_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
 	metadataJSON, err := json.Marshal(event.Metadata)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+
+	labelsJSON, err := json.Marshal(event.Labels)
+	if err != nil {
+		return fmt.Errorf("failed to marshal labels: %w", err)
 	}
 
 	_, err = tx.Exec(ctx, query,
@@ -91,6 +96,8 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, tenantID uuid.
 		event.Payload,
 		event.TTL,
 		metadataJSON,
+		labelsJSON,
+		event.SchemaValid,
 		event.CreatedAt,
 		event.ExpiresAt,
 	)
