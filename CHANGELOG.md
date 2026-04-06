@@ -168,6 +168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add extensive test coverage to the webhook service (#4)
 - Enhance SvelteKit frontend application (#3)
+
 ### Changed
 
 - add api-key for completelness
