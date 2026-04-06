@@ -98,6 +98,16 @@ service EventService {
   // (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
   rpc ListEventReports(ListEventReportsRequest) returns (ListEventReportsResponse);
 
+  // RePushEvent replays a single previously pushed event as if it were pushed fresh.
+  // Loads the original event record (payload, namespace, event name, labels, metadata)
+  // and pushes it through the standard PushEvent pipeline: schema validation against
+  // the CURRENT event type schema, new event_id generation, and fan-out to all
+  // matching subscriptions. The original event is not modified.
+  // Returns the new event_id and any schema validation warnings.
+  // Errors: NOT_FOUND if the event_id does not exist.
+  // Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.
+  rpc RePushEvent(RePushEventRequest) returns (RePushEventResponse);
+
   // RePushEvents executes a deterministic batch re-push of events whose IDs were
   // previously snapshotted via ListEventReports with prepare_repush=true.
   // Each event is re-pushed as if it were pushed fresh: new event_id, current schema validation.
@@ -1016,6 +1026,27 @@ message ListEventReportsResponse {
   // Batch ID for deterministic re-push. Only populated when
   // prepare_repush=true was set in the request. Pass to RePushEvents.
   string repush_id = 6;
+}
+
+// RePushEventRequest replays a single previously pushed event.
+message RePushEventRequest {
+  // UUID of the original event to replay. Required.
+  // The event must exist in the event_records table.
+  // @example "e-550e8400-e29b-41d4-a716-446655440000"
+  string event_id = 1;
+}
+
+// RePushEventResponse returns the new event created by the replay.
+message RePushEventResponse {
+  // Server-generated UUID for the new event instance.
+  // This is a brand-new event; the original event is not modified.
+  // @example "e-660e8400-e29b-41d4-a716-446655440001"
+  string event_id = 1;
+
+  // Schema validation warnings for the re-pushed payload.
+  // The original payload is validated against the CURRENT event type schema.
+  // Empty when the payload passes validation or no schema is registered.
+  repeated string warnings = 2;
 }
 
 // ---------------------------------------------------------------------------

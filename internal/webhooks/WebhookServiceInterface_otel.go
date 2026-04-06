@@ -627,6 +627,31 @@ func (_d WebhookServiceInterfaceWithTracing) PushEvent(ctx context.Context, name
 	return _d.WebhookServiceInterface.PushEvent(ctx, namespace, event, payload, ttlSeconds, metadata, labels)
 }
 
+// RePushEvent implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) RePushEvent(ctx context.Context, eventID string) (s1 string, sa1 []string, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.RePushEvent")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":     ctx,
+				"eventID": eventID}, map[string]interface{}{
+				"s1":  s1,
+				"sa1": sa1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.RePushEvent(ctx, eventID)
+}
+
 // RePushEvents implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) RePushEvents(ctx context.Context, repushID string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.RePushEvents")

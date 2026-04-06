@@ -83,6 +83,9 @@ const (
 	// EventServiceListEventReportsProcedure is the fully-qualified name of the EventService's
 	// ListEventReports RPC.
 	EventServiceListEventReportsProcedure = "/webhook.EventService/ListEventReports"
+	// EventServiceRePushEventProcedure is the fully-qualified name of the EventService's RePushEvent
+	// RPC.
+	EventServiceRePushEventProcedure = "/webhook.EventService/RePushEvent"
 	// EventServiceRePushEventsProcedure is the fully-qualified name of the EventService's RePushEvents
 	// RPC.
 	EventServiceRePushEventsProcedure = "/webhook.EventService/RePushEvents"
@@ -483,6 +486,15 @@ type EventServiceClient interface {
 	// ordered by created_at descending. Each report includes delivery stats
 	// (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
 	ListEventReports(context.Context, *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error)
+	// RePushEvent replays a single previously pushed event as if it were pushed fresh.
+	// Loads the original event record (payload, namespace, event name, labels, metadata)
+	// and pushes it through the standard PushEvent pipeline: schema validation against
+	// the CURRENT event type schema, new event_id generation, and fan-out to all
+	// matching subscriptions. The original event is not modified.
+	// Returns the new event_id and any schema validation warnings.
+	// Errors: NOT_FOUND if the event_id does not exist.
+	// Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.
+	RePushEvent(context.Context, *connect.Request[proto.RePushEventRequest]) (*connect.Response[proto.RePushEventResponse], error)
 	// RePushEvents executes a deterministic batch re-push of events whose IDs were
 	// previously snapshotted via ListEventReports with prepare_repush=true.
 	// Each event is re-pushed as if it were pushed fresh: new event_id, current schema validation.
@@ -553,6 +565,12 @@ func NewEventServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(eventServiceMethods.ByName("ListEventReports")),
 			connect.WithClientOptions(opts...),
 		),
+		rePushEvent: connect.NewClient[proto.RePushEventRequest, proto.RePushEventResponse](
+			httpClient,
+			baseURL+EventServiceRePushEventProcedure,
+			connect.WithSchema(eventServiceMethods.ByName("RePushEvent")),
+			connect.WithClientOptions(opts...),
+		),
 		rePushEvents: connect.NewClient[proto.RePushEventsRequest, proto.RePushEventsResponse](
 			httpClient,
 			baseURL+EventServiceRePushEventsProcedure,
@@ -583,6 +601,7 @@ type eventServiceClient struct {
 	getEvent         *connect.Client[proto.GetEventRequest, proto.GetEventResponse]
 	pushEvent        *connect.Client[proto.PushEventRequest, proto.PushEventResponse]
 	listEventReports *connect.Client[proto.ListEventReportsRequest, proto.ListEventReportsResponse]
+	rePushEvent      *connect.Client[proto.RePushEventRequest, proto.RePushEventResponse]
 	rePushEvents     *connect.Client[proto.RePushEventsRequest, proto.RePushEventsResponse]
 	getRepushStatus  *connect.Client[proto.GetRepushStatusRequest, proto.GetRepushStatusResponse]
 	cancelRepush     *connect.Client[proto.CancelRepushRequest, proto.CancelRepushResponse]
@@ -621,6 +640,11 @@ func (c *eventServiceClient) PushEvent(ctx context.Context, req *connect.Request
 // ListEventReports calls webhook.EventService.ListEventReports.
 func (c *eventServiceClient) ListEventReports(ctx context.Context, req *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error) {
 	return c.listEventReports.CallUnary(ctx, req)
+}
+
+// RePushEvent calls webhook.EventService.RePushEvent.
+func (c *eventServiceClient) RePushEvent(ctx context.Context, req *connect.Request[proto.RePushEventRequest]) (*connect.Response[proto.RePushEventResponse], error) {
+	return c.rePushEvent.CallUnary(ctx, req)
 }
 
 // RePushEvents calls webhook.EventService.RePushEvents.
@@ -671,6 +695,15 @@ type EventServiceHandler interface {
 	// ordered by created_at descending. Each report includes delivery stats
 	// (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
 	ListEventReports(context.Context, *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error)
+	// RePushEvent replays a single previously pushed event as if it were pushed fresh.
+	// Loads the original event record (payload, namespace, event name, labels, metadata)
+	// and pushes it through the standard PushEvent pipeline: schema validation against
+	// the CURRENT event type schema, new event_id generation, and fan-out to all
+	// matching subscriptions. The original event is not modified.
+	// Returns the new event_id and any schema validation warnings.
+	// Errors: NOT_FOUND if the event_id does not exist.
+	// Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.
+	RePushEvent(context.Context, *connect.Request[proto.RePushEventRequest]) (*connect.Response[proto.RePushEventResponse], error)
 	// RePushEvents executes a deterministic batch re-push of events whose IDs were
 	// previously snapshotted via ListEventReports with prepare_repush=true.
 	// Each event is re-pushed as if it were pushed fresh: new event_id, current schema validation.
@@ -737,6 +770,12 @@ func NewEventServiceHandler(svc EventServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(eventServiceMethods.ByName("ListEventReports")),
 		connect.WithHandlerOptions(opts...),
 	)
+	eventServiceRePushEventHandler := connect.NewUnaryHandler(
+		EventServiceRePushEventProcedure,
+		svc.RePushEvent,
+		connect.WithSchema(eventServiceMethods.ByName("RePushEvent")),
+		connect.WithHandlerOptions(opts...),
+	)
 	eventServiceRePushEventsHandler := connect.NewUnaryHandler(
 		EventServiceRePushEventsProcedure,
 		svc.RePushEvents,
@@ -771,6 +810,8 @@ func NewEventServiceHandler(svc EventServiceHandler, opts ...connect.HandlerOpti
 			eventServicePushEventHandler.ServeHTTP(w, r)
 		case EventServiceListEventReportsProcedure:
 			eventServiceListEventReportsHandler.ServeHTTP(w, r)
+		case EventServiceRePushEventProcedure:
+			eventServiceRePushEventHandler.ServeHTTP(w, r)
 		case EventServiceRePushEventsProcedure:
 			eventServiceRePushEventsHandler.ServeHTTP(w, r)
 		case EventServiceGetRepushStatusProcedure:
@@ -812,6 +853,10 @@ func (UnimplementedEventServiceHandler) PushEvent(context.Context, *connect.Requ
 
 func (UnimplementedEventServiceHandler) ListEventReports(context.Context, *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.EventService.ListEventReports is not implemented"))
+}
+
+func (UnimplementedEventServiceHandler) RePushEvent(context.Context, *connect.Request[proto.RePushEventRequest]) (*connect.Response[proto.RePushEventResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.EventService.RePushEvent is not implemented"))
 }
 
 func (UnimplementedEventServiceHandler) RePushEvents(context.Context, *connect.Request[proto.RePushEventsRequest]) (*connect.Response[proto.RePushEventsResponse], error) {

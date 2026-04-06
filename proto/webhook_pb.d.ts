@@ -1639,6 +1639,59 @@ export declare type ListEventReportsResponse = Message<"webhook.ListEventReports
 export declare const ListEventReportsResponseSchema: GenMessage<ListEventReportsResponse>;
 
 /**
+ * RePushEventRequest replays a single previously pushed event.
+ *
+ * @generated from message webhook.RePushEventRequest
+ */
+export declare type RePushEventRequest = Message<"webhook.RePushEventRequest"> & {
+  /**
+   * UUID of the original event to replay. Required.
+   * The event must exist in the event_records table.
+   * @example "e-550e8400-e29b-41d4-a716-446655440000"
+   *
+   * @generated from field: string event_id = 1;
+   */
+  eventId: string;
+};
+
+/**
+ * Describes the message webhook.RePushEventRequest.
+ * Use `create(RePushEventRequestSchema)` to create a new message.
+ */
+export declare const RePushEventRequestSchema: GenMessage<RePushEventRequest>;
+
+/**
+ * RePushEventResponse returns the new event created by the replay.
+ *
+ * @generated from message webhook.RePushEventResponse
+ */
+export declare type RePushEventResponse = Message<"webhook.RePushEventResponse"> & {
+  /**
+   * Server-generated UUID for the new event instance.
+   * This is a brand-new event; the original event is not modified.
+   * @example "e-660e8400-e29b-41d4-a716-446655440001"
+   *
+   * @generated from field: string event_id = 1;
+   */
+  eventId: string;
+
+  /**
+   * Schema validation warnings for the re-pushed payload.
+   * The original payload is validated against the CURRENT event type schema.
+   * Empty when the payload passes validation or no schema is registered.
+   *
+   * @generated from field: repeated string warnings = 2;
+   */
+  warnings: string[];
+};
+
+/**
+ * Describes the message webhook.RePushEventResponse.
+ * Use `create(RePushEventResponseSchema)` to create a new message.
+ */
+export declare const RePushEventResponseSchema: GenMessage<RePushEventResponse>;
+
+/**
  * EventSubscription is the full representation of a subscription linking
  * a webhook to an event type within a namespace.
  *
@@ -4179,6 +4232,23 @@ export declare const EventService: GenService<{
     methodKind: "unary";
     input: typeof ListEventReportsRequestSchema;
     output: typeof ListEventReportsResponseSchema;
+  },
+  /**
+   * RePushEvent replays a single previously pushed event as if it were pushed fresh.
+   * Loads the original event record (payload, namespace, event name, labels, metadata)
+   * and pushes it through the standard PushEvent pipeline: schema validation against
+   * the CURRENT event type schema, new event_id generation, and fan-out to all
+   * matching subscriptions. The original event is not modified.
+   * Returns the new event_id and any schema validation warnings.
+   * Errors: NOT_FOUND if the event_id does not exist.
+   * Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.
+   *
+   * @generated from rpc webhook.EventService.RePushEvent
+   */
+  rePushEvent: {
+    methodKind: "unary";
+    input: typeof RePushEventRequestSchema;
+    output: typeof RePushEventResponseSchema;
   },
   /**
    * RePushEvents executes a deterministic batch re-push of events whose IDs were

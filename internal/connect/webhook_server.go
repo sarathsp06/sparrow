@@ -162,6 +162,14 @@ func (s *WebhookConnectServer) ListEventReports(ctx context.Context, req *connec
 	return connect.NewResponse(res), nil
 }
 
+func (s *WebhookConnectServer) RePushEvent(ctx context.Context, req *connect.Request[pb.RePushEventRequest]) (*connect.Response[pb.RePushEventResponse], error) {
+	res, err := s.grpcService.RePushEvent(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
 func (s *WebhookConnectServer) RePushEvents(ctx context.Context, req *connect.Request[pb.RePushEventsRequest]) (*connect.Response[pb.RePushEventsResponse], error) {
 	res, err := s.grpcService.RePushEvents(ctx, req.Msg)
 	if err != nil {

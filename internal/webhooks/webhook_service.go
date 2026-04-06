@@ -57,6 +57,7 @@ type WebhookServiceInterface interface {
 	DeleteEvent(ctx context.Context, name string) error
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
 	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string) (string, []string, error)
+	RePushEvent(ctx context.Context, eventID string) (string, []string, error)
 	ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error)
 
 	// Subscription Management
@@ -747,6 +748,73 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		"event", event,
 	)
 	return eventID, warnings, nil
+}
+
+// RePushEvent replays a previously pushed event as if it were pushed fresh.
+// It loads the original event record and calls PushEvent with the same payload,
+// namespace, event name, metadata, and labels. The payload is validated against
+// the CURRENT event type schema. Returns a new event_id and any warnings.
+func (s *WebhookService) RePushEvent(ctx context.Context, eventID string) (string, []string, error) {
+	ctx, span := s.tracer.Start(ctx, "event.repush",
+		trace.WithAttributes(
+			attribute.String("original_event_id", eventID),
+		),
+	)
+	defer span.End()
+
+	s.logger.InfoContext(ctx, "Processing single event re-push",
+		"original_event_id", eventID,
+	)
+
+	tenantID := tenant.DefaultTenantID
+
+	// Parse and validate event ID
+	id, err := uuid.Parse(eventID)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "invalid event ID")
+		return "", nil, fmt.Errorf("invalid event ID: %w", err)
+	}
+
+	// Load original event record
+	original, err := s.webhookRepo.GetEventByID(ctx, tenantID, id)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "failed to load original event")
+		s.logger.ErrorContext(ctx, "Failed to load original event for re-push",
+			"event_id", eventID,
+			"error", err,
+		)
+		return "", nil, fmt.Errorf("failed to load original event: %w", err)
+	}
+	if original == nil {
+		err := fmt.Errorf("event not found: %s", eventID)
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "event not found")
+		return "", nil, err
+	}
+
+	// Re-push through the standard PushEvent pipeline.
+	// This gives us: current schema validation, new event_id, fan-out to matching subscriptions.
+	newEventID, warnings, err := s.PushEvent(ctx, original.Namespace, original.Event, original.Payload, original.TTL, original.Metadata, original.Labels)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "re-push failed")
+		s.logger.ErrorContext(ctx, "Failed to re-push event",
+			"original_event_id", eventID,
+			"error", err,
+		)
+		return "", nil, fmt.Errorf("failed to re-push event: %w", err)
+	}
+
+	span.SetStatus(otelcodes.Ok, "event re-pushed successfully")
+	span.SetAttributes(attribute.String("new_event_id", newEventID))
+
+	s.logger.InfoContext(ctx, "Event re-pushed successfully",
+		"original_event_id", eventID,
+		"new_event_id", newEventID,
+	)
+	return newEventID, warnings, nil
 }
 
 // GetDeliveryStatus gets the status of a webhook delivery.

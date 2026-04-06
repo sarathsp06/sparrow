@@ -224,6 +224,24 @@ func (s *WebhookServer) ListEventReports(ctx context.Context, req *pb.ListEventR
 	}, nil
 }
 
+// RePushEvent replays a single previously pushed event as if it were pushed fresh.
+// Loads the original event record and re-pushes through the standard PushEvent pipeline.
+func (s *WebhookServer) RePushEvent(ctx context.Context, req *pb.RePushEventRequest) (*pb.RePushEventResponse, error) {
+	if req.EventId == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "event_id is required")
+	}
+
+	newEventID, warnings, err := s.service.RePushEvent(ctx, req.EventId)
+	if err != nil {
+		return nil, toGRPCError(ctx, err, "failed to re-push event")
+	}
+
+	return &pb.RePushEventResponse{
+		EventId:  newEventID,
+		Warnings: warnings,
+	}, nil
+}
+
 // RePushEvents starts a batch re-push of events previously snapshotted via ListEventReports.
 func (s *WebhookServer) RePushEvents(ctx context.Context, req *pb.RePushEventsRequest) (*pb.RePushEventsResponse, error) {
 	if req.RepushId == "" {
