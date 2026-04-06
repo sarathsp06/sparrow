@@ -261,54 +261,72 @@
       <div class="bg-white border border-gray-200 rounded-lg p-8">
         <!-- Header -->
         <div class="text-center mb-8">
-          <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-            <span class="material-symbols-outlined text-3xl text-gray-400">webhook</span>
-          </div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-1">No webhooks registered</h3>
-          <p class="text-sm text-gray-500 max-w-md mx-auto">Register a webhook, define events, subscribe, and push -- Sparrow handles the rest.</p>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">Get started in 3 steps</h3>
+          <p class="text-sm text-gray-500 max-w-lg mx-auto">Create an event, register a webhook to receive it, then push the event. Sparrow delivers it with retries and tracking.</p>
         </div>
 
-        <!-- How it works: 4-step flow -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div class="relative border border-gray-200 rounded-lg p-4">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-900 text-white text-xs font-bold">1</span>
-              <span class="text-sm font-semibold text-gray-900">Register</span>
+        <!-- 3-step flow -->
+        <div class="max-w-2xl mx-auto mb-8">
+          <!-- Step 1 -->
+          <div class="flex gap-4 mb-1">
+            <div class="flex flex-col items-center">
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-900 text-white text-sm font-bold shrink-0">1</span>
+              <div class="w-px h-full bg-gray-200 mt-1"></div>
             </div>
-            <p class="text-xs text-gray-500 leading-relaxed">Register a webhook endpoint with its target URL and namespace.</p>
-            <code class="block mt-2 text-[10px] text-gray-400 bg-gray-50 rounded px-2 py-1 truncate">POST /webhook.WebhookService/RegisterWebhook</code>
+            <div class="pb-6">
+              <h4 class="text-sm font-semibold text-gray-900 mb-1">Create an event</h4>
+              <p class="text-sm text-gray-500 mb-2">Define what happened in your system -- like <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">order.created</code> or <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">user.signed_up</code>.</p>
+              <a href="/events" class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 transition">
+                Go to Events <span class="text-[10px]">&rarr;</span>
+              </a>
+            </div>
           </div>
-          <div class="relative border border-gray-200 rounded-lg p-4">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-900 text-white text-xs font-bold">2</span>
-              <span class="text-sm font-semibold text-gray-900">Define Events</span>
+
+          <!-- Step 2 -->
+          <div class="flex gap-4 mb-1">
+            <div class="flex flex-col items-center">
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-900 text-white text-sm font-bold shrink-0">2</span>
+              <div class="w-px h-full bg-gray-200 mt-1"></div>
             </div>
-            <p class="text-xs text-gray-500 leading-relaxed">Create event types with optional JSON schemas for validation.</p>
-            <code class="block mt-2 text-[10px] text-gray-400 bg-gray-50 rounded px-2 py-1 truncate">POST /webhook.EventService/RegisterEvent</code>
+            <div class="pb-6">
+              <h4 class="text-sm font-semibold text-gray-900 mb-1">Register a webhook</h4>
+              <p class="text-sm text-gray-500 mb-2">Add your endpoint URL and pick the events it should receive. Sparrow auto-creates the subscriptions for you.</p>
+              <a href="/webhooks/register" class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 transition">
+                Register a webhook <span class="text-[10px]">&rarr;</span>
+              </a>
+            </div>
           </div>
-          <div class="relative border border-gray-200 rounded-lg p-4">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-900 text-white text-xs font-bold">3</span>
-              <span class="text-sm font-semibold text-gray-900">Subscribe</span>
+
+          <!-- Step 3 -->
+          <div class="flex gap-4 mb-1">
+            <div class="flex flex-col items-center">
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-900 text-white text-sm font-bold shrink-0">3</span>
             </div>
-            <p class="text-xs text-gray-500 leading-relaxed">Subscribe webhooks to events with optional payload transforms.</p>
-            <code class="block mt-2 text-[10px] text-gray-400 bg-gray-50 rounded px-2 py-1 truncate">POST /webhook.SubscriptionService/CreateSubscription</code>
+            <div class="pb-2">
+              <h4 class="text-sm font-semibold text-gray-900 mb-1">Push an event</h4>
+              <p class="text-sm text-gray-500 mb-2">Send an event payload and watch Sparrow deliver it to your webhook. Check the result in <a href="/deliveries" class="underline hover:text-gray-900">Deliveries</a>.</p>
+              <a href="/events/push" class="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 transition">
+                Push an event <span class="text-[10px]">&rarr;</span>
+              </a>
+            </div>
           </div>
-          <div class="relative border border-gray-200 rounded-lg p-4">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-900 text-white text-xs font-bold">4</span>
-              <span class="text-sm font-semibold text-gray-900">Push</span>
-            </div>
-            <p class="text-xs text-gray-500 leading-relaxed">Push events and Sparrow fans out deliveries with retries and tracking.</p>
-            <code class="block mt-2 text-[10px] text-gray-400 bg-gray-50 rounded px-2 py-1 truncate">POST /webhook.EventService/PushEvent</code>
+        </div>
+
+        <!-- After you're set up -->
+        <div class="max-w-2xl mx-auto border-t border-gray-100 pt-6 mb-6">
+          <p class="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-3">Then customize</p>
+          <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm text-gray-500">
+            <span>Payload transforms on subscriptions</span>
+            <span>Retry policies and timeouts</span>
+            <span>HMAC signature verification</span>
+            <span>Health monitoring</span>
           </div>
         </div>
 
         <!-- Actions -->
         <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <a href="/webhooks/register" class="inline-flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition shadow-sm">
-            <span class="text-lg leading-none">+</span>
-            Register Webhook
+          <a href="/events" class="inline-flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition shadow-sm">
+            Start with Step 1
           </a>
           <a
             href="https://sarathsp06.github.io/sparrow/getting-started/how-it-works/"
@@ -316,9 +334,8 @@
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition"
           >
-            <span class="material-symbols-outlined text-base">menu_book</span>
-            Read the docs
-            <span class="material-symbols-outlined text-xs">open_in_new</span>
+            Read the full guide
+            <span class="material-symbols-outlined text-sm">open_in_new</span>
           </a>
         </div>
       </div>
