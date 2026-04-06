@@ -260,13 +260,119 @@
     {:else if webhooks.length === 0}
       <div class="bg-white border border-gray-200 rounded-lg p-8">
         <!-- Header -->
-        <div class="text-center mb-8">
-          <h3 class="text-xl font-bold text-gray-900 mb-2">Get started in 3 steps</h3>
-          <p class="text-sm text-gray-500 max-w-lg mx-auto">Create an event, register a webhook to receive it, then push the event. Sparrow delivers it with retries and tracking.</p>
+        <div class="text-center mb-6">
+          <h3 class="text-xl font-bold text-gray-900 mb-2">How Sparrow works</h3>
+          <p class="text-sm text-gray-500 max-w-lg mx-auto">Register events and webhooks, push events, and Sparrow fans out deliveries with retries and health tracking.</p>
         </div>
 
-        <!-- 3-step flow -->
+        <!-- Compact flow diagram -->
+        <div class="max-w-3xl mx-auto mb-8">
+          <div class="bg-gray-50 border border-gray-200 rounded-lg p-5">
+            <!-- Flow: horizontal on desktop, vertical on mobile -->
+            <div class="hidden sm:flex items-center justify-center gap-0">
+              <!-- Push Event -->
+              <div class="flex flex-col items-center text-center min-w-0">
+                <div class="w-10 h-10 rounded-lg bg-gray-900 text-white flex items-center justify-center mb-1.5">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                </div>
+                <span class="text-xs font-semibold text-gray-900">Push Event</span>
+              </div>
+              <div class="w-8 border-t-2 border-dashed border-gray-300 shrink-0"></div>
+              <!-- Event Worker -->
+              <div class="flex flex-col items-center text-center min-w-0">
+                <div class="w-10 h-10 rounded-lg bg-gray-900 text-white flex items-center justify-center mb-1.5">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                </div>
+                <span class="text-xs font-semibold text-gray-900">Event Worker</span>
+                <span class="text-[10px] text-gray-400">find subscriptions</span>
+              </div>
+              <div class="w-8 border-t-2 border-dashed border-gray-300 shrink-0"></div>
+              <!-- Fan Out -->
+              <div class="flex flex-col items-center text-center min-w-0">
+                <div class="w-10 h-10 rounded-lg bg-gray-900 text-white flex items-center justify-center mb-1.5">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                </div>
+                <span class="text-xs font-semibold text-gray-900">Fan Out</span>
+                <span class="text-[10px] text-gray-400">create deliveries</span>
+              </div>
+              <div class="w-8 border-t-2 border-dashed border-gray-300 shrink-0"></div>
+              <!-- Webhook Worker -->
+              <div class="flex flex-col items-center text-center min-w-0">
+                <div class="w-10 h-10 rounded-lg bg-gray-900 text-white flex items-center justify-center mb-1.5">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                </div>
+                <span class="text-xs font-semibold text-gray-900">Deliver</span>
+                <span class="text-[10px] text-gray-400">HTTP POST + HMAC</span>
+              </div>
+              <div class="w-8 border-t-2 border-dashed border-gray-300 shrink-0"></div>
+              <!-- Result -->
+              <div class="flex flex-col items-center text-center min-w-0">
+                <div class="flex gap-1.5">
+                  <div class="flex flex-col items-center">
+                    <div class="w-10 h-10 rounded-lg bg-green-600 text-white flex items-center justify-center mb-1.5">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    </div>
+                    <span class="text-xs font-semibold text-green-700">Done</span>
+                  </div>
+                  <div class="flex flex-col items-center">
+                    <div class="w-10 h-10 rounded-lg bg-amber-500 text-white flex items-center justify-center mb-1.5">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    </div>
+                    <span class="text-xs font-semibold text-amber-600">Retry</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mobile: vertical flow -->
+            <div class="sm:hidden flex flex-col items-center gap-0">
+              <div class="flex items-center gap-3 w-full max-w-xs">
+                <div class="w-9 h-9 rounded-lg bg-gray-900 text-white flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                </div>
+                <div><span class="text-xs font-semibold text-gray-900">Push Event</span></div>
+              </div>
+              <div class="h-4 w-px border-l-2 border-dashed border-gray-300"></div>
+              <div class="flex items-center gap-3 w-full max-w-xs">
+                <div class="w-9 h-9 rounded-lg bg-gray-900 text-white flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                </div>
+                <div><span class="text-xs font-semibold text-gray-900">Event Worker</span> <span class="text-[10px] text-gray-400">-- find subscriptions</span></div>
+              </div>
+              <div class="h-4 w-px border-l-2 border-dashed border-gray-300"></div>
+              <div class="flex items-center gap-3 w-full max-w-xs">
+                <div class="w-9 h-9 rounded-lg bg-gray-900 text-white flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                </div>
+                <div><span class="text-xs font-semibold text-gray-900">Fan Out</span> <span class="text-[10px] text-gray-400">-- create deliveries</span></div>
+              </div>
+              <div class="h-4 w-px border-l-2 border-dashed border-gray-300"></div>
+              <div class="flex items-center gap-3 w-full max-w-xs">
+                <div class="w-9 h-9 rounded-lg bg-gray-900 text-white flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                </div>
+                <div><span class="text-xs font-semibold text-gray-900">Deliver</span> <span class="text-[10px] text-gray-400">-- HTTP POST + HMAC</span></div>
+              </div>
+              <div class="h-4 w-px border-l-2 border-dashed border-gray-300"></div>
+              <div class="flex items-center gap-3 w-full max-w-xs">
+                <div class="flex gap-1.5 shrink-0">
+                  <div class="w-9 h-9 rounded-lg bg-green-600 text-white flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <div class="w-9 h-9 rounded-lg bg-amber-500 text-white flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  </div>
+                </div>
+                <div><span class="text-xs font-semibold text-green-700">Done</span> <span class="text-gray-400">/</span> <span class="text-xs font-semibold text-amber-600">Retry with backoff</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3-step getting started -->
         <div class="max-w-2xl mx-auto mb-8">
+          <p class="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-4">Get started in 3 steps</p>
+
           <!-- Step 1 -->
           <div class="flex gap-4 mb-1">
             <div class="flex flex-col items-center">
@@ -332,10 +438,10 @@
             href="https://sarathsp06.github.io/sparrow/getting-started/how-it-works/"
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition"
+            class="inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-700 px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-400 transition shadow-sm"
           >
-            Read the full guide
-            <span class="material-symbols-outlined text-sm">open_in_new</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+            Read the docs
           </a>
         </div>
       </div>

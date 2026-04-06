@@ -7,7 +7,47 @@ sidebar:
 
 import { Steps } from '@astrojs/starlight/components';
 
-Sparrow has four core concepts that work together to deliver webhooks reliably.
+Sparrow accepts webhook registrations and event definitions, fans out events to matching subscribers, and delivers them reliably with retries and health tracking.
+
+## The Full Flow
+
+<Steps>
+
+1. **Register an event type** — tell Sparrow what events exist in your system.
+
+2. **Register a webhook** — provide a URL and the events it should receive. Sparrow creates subscriptions automatically.
+
+3. **Push an event** — when something happens, send the event payload to Sparrow:
+
+    ```bash
+    curl -X POST http://localhost:8080/webhook.EventService/PushEvent \
+      -H "Content-Type: application/json" \
+      -d '{
+        "namespace": "default",
+        "event": "order.created",
+        "payload": {"order_id": "ord_123", "total": 49.99}
+      }'
+    ```
+
+4. **Sparrow fans out** — the event worker finds all active subscriptions matching the event name and namespace, applies any payload transforms, and creates a delivery job for each.
+
+5. **Webhook delivery** — the webhook worker sends an HTTP POST to each URL with the payload, HMAC signature (if configured), and Sparrow headers. Failed deliveries are retried with exponential backoff.
+
+6. **Track results** — query delivery status, health metrics, and error categories through the API or the web UI.
+
+</Steps>
+
+```
+Push Event ──→ Event Worker ──→ Find Subscriptions ──→ Create Deliveries
+                                                            │
+                                                            v
+                                                     Webhook Worker
+                                                       │        │
+                                                    Success    Failure
+                                                       │        │
+                                                    Record    Retry with
+                                                    result    backoff
+```
 
 ## Core Concepts
 
@@ -68,46 +108,6 @@ A **delivery** is a single attempt (or series of retry attempts) to send an even
 - Response time
 - Error classification (timeout, DNS, TLS, connection refused, etc.)
 - Retry count and next attempt time
-
-## The Full Flow
-
-<Steps>
-
-1. **Register an event type** — tell Sparrow what events exist in your system.
-
-2. **Register a webhook** — provide a URL and the events it should receive. Sparrow creates subscriptions automatically.
-
-3. **Push an event** — when something happens, send the event payload to Sparrow:
-
-    ```bash
-    curl -X POST http://localhost:8080/webhook.EventService/PushEvent \
-      -H "Content-Type: application/json" \
-      -d '{
-        "namespace": "default",
-        "event": "order.created",
-        "payload": {"order_id": "ord_123", "total": 49.99}
-      }'
-    ```
-
-4. **Sparrow fans out** — the event worker finds all active subscriptions matching the event name and namespace, applies any payload transforms, and creates a delivery job for each.
-
-5. **Webhook delivery** — the webhook worker sends an HTTP POST to each URL with the payload, HMAC signature (if configured), and Sparrow headers. Failed deliveries are retried with exponential backoff.
-
-6. **Track results** — query delivery status, health metrics, and error categories through the API or the web UI.
-
-</Steps>
-
-```
-Push Event ──→ Event Worker ──→ Find Subscriptions ──→ Create Deliveries
-                                                            │
-                                                            v
-                                                     Webhook Worker
-                                                       │        │
-                                                    Success    Failure
-                                                       │        │
-                                                    Record    Retry with
-                                                    result    backoff
-```
 
 ## Key Design Decisions
 
