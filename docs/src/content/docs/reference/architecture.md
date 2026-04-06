@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: System design, data model, event pipeline, and internal architecture.
+description: System design, event pipeline, and internal architecture.
 ---
 
 ## Overview
@@ -53,72 +53,6 @@ The same gRPC service implementations back both protocols -- no code duplication
 - **Connect-RPC (HTTP/JSON)** on `:8080` for curl, browsers, and any HTTP client
 
 Five proto-defined services: `WebhookService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`. Namespace management is handled through RPCs on `WebhookService` (e.g., `GetNamespaceStats`).
-
----
-
-## Data Model
-
-```mermaid
-erDiagram
-    tenants ||--o{ event_registrations : "owns"
-    tenants ||--o{ webhook_registrations : "owns"
-    tenants ||--o{ event_subscriptions : "owns"
-    tenants ||--o{ event_records : "owns"
-
-    tenants {
-        uuid id PK
-        string name
-        string slug UK
-        string status
-        jsonb settings
-        timestamp created_at
-        timestamp updated_at
-    }
-
-    webhook_registrations ||--o{ event_subscriptions : "has"
-    webhook_registrations ||--o{ webhook_deliveries : "has"
-    event_records ||--o{ webhook_deliveries : "triggers"
-
-    webhook_registrations {
-        uuid id PK
-        uuid tenant_id FK
-        string namespace
-        string url
-        bool active
-        string health
-        bytea webhook_secret "envelope-encrypted"
-    }
-
-    event_subscriptions {
-        uuid id PK
-        uuid webhook_id FK
-        string event_name
-        string namespace
-        bool transform_enabled
-        text transform_template
-    }
-
-    event_records {
-        uuid id PK
-        uuid tenant_id FK
-        string event
-        string namespace
-        jsonb payload
-    }
-
-    webhook_deliveries {
-        uuid id PK
-        uuid webhook_id FK
-        uuid event_id FK
-        uuid subscription_id FK
-        string status
-        int attempts
-    }
-```
-
-### Tenant Isolation
-
-Every domain table has a `tenant_id` column with a foreign key to `tenants`. All queries are scoped by tenant ID. A default tenant (`00000000-0000-0000-0000-000000000001`) is auto-created on first boot.
 
 ---
 
