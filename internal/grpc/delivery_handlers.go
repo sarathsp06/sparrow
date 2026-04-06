@@ -4,10 +4,12 @@ import (
 	"context"
 	"strings"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
@@ -44,13 +46,68 @@ func (s *WebhookServer) GetDeliveryStatus(ctx context.Context, req *pb.GetDelive
 
 // ListDeliveries retrieves delivery history with filters
 func (s *WebhookServer) ListDeliveries(ctx context.Context, req *pb.ListDeliveriesRequest) (*pb.ListDeliveriesResponse, error) {
-	var limit, offset int32
-	if req.Pagination != nil {
-		limit = req.Pagination.Limit
-		offset = req.Pagination.Offset
+	// Build filter from request
+	filter := store.DeliveryFilter{
+		Namespace: req.Namespace,
 	}
 
-	deliveries, totalCount, err := s.service.ListDeliveries(ctx, req.Namespace, req.WebhookId, req.EventId, limit, offset)
+	// Pagination
+	if req.Pagination != nil {
+		filter.Limit = int(req.Pagination.Limit)
+		filter.Offset = int(req.Pagination.Offset)
+	}
+
+	// Webhook ID filter
+	if req.WebhookId != "" {
+		id, err := uuid.Parse(req.WebhookId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid webhook_id: %v", err)
+		}
+		filter.WebhookID = &id
+	}
+
+	// Event ID filter
+	if req.EventId != "" {
+		id, err := uuid.Parse(req.EventId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid event_id: %v", err)
+		}
+		filter.EventID = &id
+	}
+
+	// Status filter
+	if req.Status != nil {
+		filter.Status = req.Status
+	}
+
+	// Error category filter
+	if req.ErrorCategory != nil {
+		filter.ErrorCategory = req.ErrorCategory
+	}
+
+	// Subscription ID filter
+	if req.SubscriptionId != nil {
+		id, err := uuid.Parse(*req.SubscriptionId)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid subscription_id: %v", err)
+		}
+		filter.SubscriptionID = &id
+	}
+
+	// Time range filters
+	if req.CreatedAfter != nil {
+		t := req.CreatedAfter.AsTime()
+		filter.CreatedAfter = &t
+	}
+	if req.CreatedBefore != nil {
+		t := req.CreatedBefore.AsTime()
+		filter.CreatedBefore = &t
+	}
+
+	// Batch snapshot opt-in
+	filter.PrepareRetry = req.PrepareRetry
+
+	deliveries, totalCount, retryID, err := s.service.ListDeliveries(ctx, filter)
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to list deliveries")
 	}
@@ -79,9 +136,10 @@ func (s *WebhookServer) ListDeliveries(ctx context.Context, req *pb.ListDeliveri
 		Deliveries: pbDeliveries,
 		Pagination: &pb.PaginationResponse{
 			TotalCount: totalCount,
-			Limit:      limit,
-			Offset:     offset,
+			Limit:      int32(filter.Limit),
+			Offset:     int32(filter.Offset),
 		},
+		RetryId: retryID,
 	}, nil
 }
 
@@ -127,5 +185,58 @@ func (s *WebhookServer) GetDeliveryAttempts(ctx context.Context, req *pb.GetDeli
 
 	return &pb.GetDeliveryAttemptsResponse{
 		Attempts: pbAttempts,
+	}, nil
+}
+
+// RetryDeliveries starts a batch retry of deliveries previously snapshotted via ListDeliveries.
+func (s *WebhookServer) RetryDeliveries(ctx context.Context, req *pb.RetryDeliveriesRequest) (*pb.RetryDeliveriesResponse, error) {
+	if req.RetryId == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "retry_id is required")
+	}
+
+	if err := s.service.RetryDeliveries(ctx, req.RetryId); err != nil {
+		return nil, toGRPCError(ctx, err, "failed to start batch retry")
+	}
+
+	batch, err := s.service.GetRetryStatus(ctx, req.RetryId)
+	if err != nil {
+		return nil, toGRPCError(ctx, err, "failed to get retry status")
+	}
+
+	return &pb.RetryDeliveriesResponse{
+		RetryId: req.RetryId,
+		Total:   int32(batch.Total),
+		Status:  string(batch.Status),
+	}, nil
+}
+
+// GetRetryStatus returns the current progress of a batch delivery retry.
+func (s *WebhookServer) GetRetryStatus(ctx context.Context, req *pb.GetRetryStatusRequest) (*pb.GetRetryStatusResponse, error) {
+	if req.RetryId == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "retry_id is required")
+	}
+
+	batch, err := s.service.GetRetryStatus(ctx, req.RetryId)
+	if err != nil {
+		return nil, toGRPCError(ctx, err, "failed to get retry status")
+	}
+
+	return &pb.GetRetryStatusResponse{
+		Batch: batchJobToProto(batch),
+	}, nil
+}
+
+// CancelRetry aborts a pending or in-progress batch delivery retry.
+func (s *WebhookServer) CancelRetry(ctx context.Context, req *pb.CancelRetryRequest) (*pb.CancelRetryResponse, error) {
+	if req.RetryId == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "retry_id is required")
+	}
+
+	if err := s.service.CancelRetry(ctx, req.RetryId); err != nil {
+		return nil, toGRPCError(ctx, err, "failed to cancel retry")
+	}
+
+	return &pb.CancelRetryResponse{
+		Status: string(store.BatchStatusCancelled),
 	}, nil
 }

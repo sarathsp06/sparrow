@@ -162,6 +162,30 @@ func (s *WebhookConnectServer) ListEventReports(ctx context.Context, req *connec
 	return connect.NewResponse(res), nil
 }
 
+func (s *WebhookConnectServer) RePushEvents(ctx context.Context, req *connect.Request[pb.RePushEventsRequest]) (*connect.Response[pb.RePushEventsResponse], error) {
+	res, err := s.grpcService.RePushEvents(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
+func (s *WebhookConnectServer) GetRepushStatus(ctx context.Context, req *connect.Request[pb.GetRepushStatusRequest]) (*connect.Response[pb.GetRepushStatusResponse], error) {
+	res, err := s.grpcService.GetRepushStatus(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
+func (s *WebhookConnectServer) CancelRepush(ctx context.Context, req *connect.Request[pb.CancelRepushRequest]) (*connect.Response[pb.CancelRepushResponse], error) {
+	res, err := s.grpcService.CancelRepush(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
 // SubscriptionService Implementation
 func (s *WebhookConnectServer) CreateSubscription(ctx context.Context, req *connect.Request[pb.CreateSubscriptionRequest]) (*connect.Response[pb.CreateSubscriptionResponse], error) {
 	res, err := s.grpcService.CreateSubscription(ctx, req.Msg)
@@ -238,6 +262,30 @@ func (s *WebhookConnectServer) RetryDelivery(ctx context.Context, req *connect.R
 
 func (s *WebhookConnectServer) GetDeliveryAttempts(ctx context.Context, req *connect.Request[pb.GetDeliveryAttemptsRequest]) (*connect.Response[pb.GetDeliveryAttemptsResponse], error) {
 	res, err := s.grpcService.GetDeliveryAttempts(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
+func (s *WebhookConnectServer) RetryDeliveries(ctx context.Context, req *connect.Request[pb.RetryDeliveriesRequest]) (*connect.Response[pb.RetryDeliveriesResponse], error) {
+	res, err := s.grpcService.RetryDeliveries(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
+func (s *WebhookConnectServer) GetRetryStatus(ctx context.Context, req *connect.Request[pb.GetRetryStatusRequest]) (*connect.Response[pb.GetRetryStatusResponse], error) {
+	res, err := s.grpcService.GetRetryStatus(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
+func (s *WebhookConnectServer) CancelRetry(ctx context.Context, req *connect.Request[pb.CancelRetryRequest]) (*connect.Response[pb.CancelRetryResponse], error) {
+	res, err := s.grpcService.CancelRetry(ctx, req.Msg)
 	if err != nil {
 		return nil, err
 	}

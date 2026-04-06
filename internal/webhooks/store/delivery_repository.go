@@ -312,6 +312,105 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 	return deliveries, totalCount, nil
 }
 
+// ListDeliveriesFiltered retrieves delivery records using dynamic filter criteria.
+// This is the unified replacement for GetDeliveriesByWebhookID, GetDeliveriesByEventPaginated,
+// and ListDeliveriesPaginated — all filter combinations are handled by a single query builder.
+func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, int, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	// Always filter by tenant via the webhook_registrations join
+	conditions = append(conditions, fmt.Sprintf("wr.tenant_id = $%d", argIdx))
+	args = append(args, tenantID)
+	argIdx++
+
+	if filter.Namespace != "" {
+		conditions = append(conditions, fmt.Sprintf("wr.namespace = $%d", argIdx))
+		args = append(args, filter.Namespace)
+		argIdx++
+	}
+
+	if filter.WebhookID != nil {
+		conditions = append(conditions, fmt.Sprintf("wd.webhook_id = $%d", argIdx))
+		args = append(args, *filter.WebhookID)
+		argIdx++
+	}
+
+	if filter.EventID != nil {
+		conditions = append(conditions, fmt.Sprintf("wd.event_id = $%d", argIdx))
+		args = append(args, *filter.EventID)
+		argIdx++
+	}
+
+	if filter.Status != nil {
+		conditions = append(conditions, fmt.Sprintf("wd.status = $%d", argIdx))
+		args = append(args, *filter.Status)
+		argIdx++
+	}
+
+	if filter.ErrorCategory != nil {
+		conditions = append(conditions, fmt.Sprintf("wd.error_category = $%d", argIdx))
+		args = append(args, *filter.ErrorCategory)
+		argIdx++
+	}
+
+	if filter.SubscriptionID != nil {
+		conditions = append(conditions, fmt.Sprintf("wd.subscription_id = $%d", argIdx))
+		args = append(args, *filter.SubscriptionID)
+		argIdx++
+	}
+
+	if filter.CreatedAfter != nil {
+		conditions = append(conditions, fmt.Sprintf("wd.created_at >= $%d", argIdx))
+		args = append(args, *filter.CreatedAfter)
+		argIdx++
+	}
+
+	if filter.CreatedBefore != nil {
+		conditions = append(conditions, fmt.Sprintf("wd.created_at <= $%d", argIdx))
+		args = append(args, *filter.CreatedBefore)
+		argIdx++
+	}
+
+	whereClause := strings.Join(conditions, " AND ")
+
+	// Count query
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE %s
+	`, whereClause)
+
+	var totalCount int
+	err := r.conn.GetContext(ctx, &totalCount, countQuery, args...)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	// Main query
+	query := fmt.Sprintf(`
+		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
+		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
+		       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE %s
+		ORDER BY wd.created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argIdx, argIdx+1)
+
+	queryArgs := append(args, filter.Limit, filter.Offset)
+	var deliveries []*WebhookDelivery
+	err = r.conn.SelectContext(ctx, &deliveries, query, queryArgs...)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	return deliveries, totalCount, nil
+}
+
 // GetRetriableDeliveries finds webhook deliveries eligible for retry attempts within a tenant.
 func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, force bool) ([]*WebhookDelivery, error) {
 	query := `

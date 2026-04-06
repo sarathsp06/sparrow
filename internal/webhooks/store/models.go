@@ -1,6 +1,7 @@
 package store
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -121,6 +122,34 @@ type EventReportWithStats struct {
 	PendingDeliveries    int32 `json:"pending_deliveries" db:"pending_deliveries"`
 }
 
+// EventReportFilter defines filter criteria for listing event reports.
+type EventReportFilter struct {
+	Namespace     string
+	EventName     *string
+	SchemaValid   *bool
+	Labels        map[string]string // JSONB containment filter
+	CreatedAfter  *time.Time
+	CreatedBefore *time.Time
+	Limit         int
+	Offset        int
+	PrepareRepush bool // When true, snapshot matching IDs into a batch job and return repush_id
+}
+
+// DeliveryFilter defines filter criteria for listing deliveries.
+type DeliveryFilter struct {
+	Namespace      string
+	WebhookID      *uuid.UUID
+	EventID        *uuid.UUID
+	Status         *string
+	ErrorCategory  *string
+	SubscriptionID *uuid.UUID
+	CreatedAfter   *time.Time
+	CreatedBefore  *time.Time
+	Limit          int
+	Offset         int
+	PrepareRetry   bool // When true, snapshot matching IDs into a batch job and return retry_id
+}
+
 // WebhookHealthSummary represents aggregated health metrics for a webhook
 type WebhookHealthSummary struct {
 	ID                   uuid.UUID `json:"id" db:"id"`
@@ -213,3 +242,61 @@ type SubscriptionWithWebhook struct {
 	Subscription *EventSubscription
 	Webhook      *WebhookRegistration
 }
+
+// BatchJobStatus represents the lifecycle state of a batch job.
+type BatchJobStatus string
+
+const (
+	BatchStatusPending    BatchJobStatus = "pending"
+	BatchStatusProcessing BatchJobStatus = "processing"
+	BatchStatusCompleted  BatchJobStatus = "completed"
+	BatchStatusFailed     BatchJobStatus = "failed"
+	BatchStatusCancelled  BatchJobStatus = "cancelled"
+)
+
+// BatchJobType represents the type of batch operation.
+type BatchJobType string
+
+const (
+	BatchTypeEventRepush   BatchJobType = "event_repush"
+	BatchTypeDeliveryRetry BatchJobType = "delivery_retry"
+)
+
+// BatchJobData is the JSONB payload stored in batch_jobs.data.
+// It contains the snapshotted item IDs and the filter that produced them.
+type BatchJobData struct {
+	ItemIDs []string       `json:"item_ids"`
+	Filter  map[string]any `json:"filter,omitempty"`
+}
+
+// BatchJob represents a row in the batch_jobs table.
+type BatchJob struct {
+	ID         uuid.UUID       `json:"id" db:"id"`
+	TenantID   uuid.UUID       `json:"tenant_id" db:"tenant_id"`
+	Namespace  string          `json:"namespace" db:"namespace"`
+	JobType    BatchJobType    `json:"job_type" db:"job_type"`
+	Status     BatchJobStatus  `json:"status" db:"status"`
+	Data       json.RawMessage `json:"data" db:"data"`
+	Total      int             `json:"total" db:"total"`
+	Processed  int             `json:"processed" db:"processed"`
+	Failed     int             `json:"failed" db:"failed"`
+	TTLSeconds int             `json:"ttl_seconds" db:"ttl_seconds"`
+	CreatedAt  time.Time       `json:"created_at" db:"created_at"`
+	ExpiresAt  time.Time       `json:"expires_at" db:"expires_at"`
+	UpdatedAt  time.Time       `json:"updated_at" db:"updated_at"`
+}
+
+// GetData unmarshals the JSONB data field into a BatchJobData struct.
+func (b *BatchJob) GetData() (*BatchJobData, error) {
+	var data BatchJobData
+	if err := json.Unmarshal(b.Data, &data); err != nil {
+		return nil, err
+	}
+	return &data, nil
+}
+
+// MaxBatchSize is the maximum number of items allowed in a single batch.
+const MaxBatchSize = 10000
+
+// DefaultBatchTTLSeconds is the default TTL for batch jobs (15 minutes).
+const DefaultBatchTTLSeconds = 900

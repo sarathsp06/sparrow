@@ -83,6 +83,15 @@ const (
 	// EventServiceListEventReportsProcedure is the fully-qualified name of the EventService's
 	// ListEventReports RPC.
 	EventServiceListEventReportsProcedure = "/webhook.EventService/ListEventReports"
+	// EventServiceRePushEventsProcedure is the fully-qualified name of the EventService's RePushEvents
+	// RPC.
+	EventServiceRePushEventsProcedure = "/webhook.EventService/RePushEvents"
+	// EventServiceGetRepushStatusProcedure is the fully-qualified name of the EventService's
+	// GetRepushStatus RPC.
+	EventServiceGetRepushStatusProcedure = "/webhook.EventService/GetRepushStatus"
+	// EventServiceCancelRepushProcedure is the fully-qualified name of the EventService's CancelRepush
+	// RPC.
+	EventServiceCancelRepushProcedure = "/webhook.EventService/CancelRepush"
 	// SubscriptionServiceCreateSubscriptionProcedure is the fully-qualified name of the
 	// SubscriptionService's CreateSubscription RPC.
 	SubscriptionServiceCreateSubscriptionProcedure = "/webhook.SubscriptionService/CreateSubscription"
@@ -113,6 +122,15 @@ const (
 	// DeliveryServiceGetDeliveryAttemptsProcedure is the fully-qualified name of the DeliveryService's
 	// GetDeliveryAttempts RPC.
 	DeliveryServiceGetDeliveryAttemptsProcedure = "/webhook.DeliveryService/GetDeliveryAttempts"
+	// DeliveryServiceRetryDeliveriesProcedure is the fully-qualified name of the DeliveryService's
+	// RetryDeliveries RPC.
+	DeliveryServiceRetryDeliveriesProcedure = "/webhook.DeliveryService/RetryDeliveries"
+	// DeliveryServiceGetRetryStatusProcedure is the fully-qualified name of the DeliveryService's
+	// GetRetryStatus RPC.
+	DeliveryServiceGetRetryStatusProcedure = "/webhook.DeliveryService/GetRetryStatus"
+	// DeliveryServiceCancelRetryProcedure is the fully-qualified name of the DeliveryService's
+	// CancelRetry RPC.
+	DeliveryServiceCancelRetryProcedure = "/webhook.DeliveryService/CancelRetry"
 	// HealthServiceGetWebhookHealthProcedure is the fully-qualified name of the HealthService's
 	// GetWebhookHealth RPC.
 	HealthServiceGetWebhookHealthProcedure = "/webhook.HealthService/GetWebhookHealth"
@@ -465,6 +483,21 @@ type EventServiceClient interface {
 	// ordered by created_at descending. Each report includes delivery stats
 	// (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
 	ListEventReports(context.Context, *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error)
+	// RePushEvents executes a deterministic batch re-push of events whose IDs were
+	// previously snapshotted via ListEventReports with prepare_repush=true.
+	// Each event is re-pushed as if it were pushed fresh: new event_id, current schema validation.
+	// The batch is processed asynchronously via a River job; poll GetRepushStatus for progress.
+	// Errors: NOT_FOUND if the repush_id does not exist or has expired.
+	// Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.
+	RePushEvents(context.Context, *connect.Request[proto.RePushEventsRequest]) (*connect.Response[proto.RePushEventsResponse], error)
+	// GetRepushStatus returns the current progress of a batch re-push operation.
+	// Errors: NOT_FOUND if the repush_id does not exist or has expired.
+	GetRepushStatus(context.Context, *connect.Request[proto.GetRepushStatusRequest]) (*connect.Response[proto.GetRepushStatusResponse], error)
+	// CancelRepush aborts a batch re-push that is pending or in progress.
+	// Items already processed are not rolled back.
+	// Errors: NOT_FOUND if the repush_id does not exist.
+	// Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.
+	CancelRepush(context.Context, *connect.Request[proto.CancelRepushRequest]) (*connect.Response[proto.CancelRepushResponse], error)
 }
 
 // NewEventServiceClient constructs a client for the webhook.EventService service. By default, it
@@ -520,6 +553,24 @@ func NewEventServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(eventServiceMethods.ByName("ListEventReports")),
 			connect.WithClientOptions(opts...),
 		),
+		rePushEvents: connect.NewClient[proto.RePushEventsRequest, proto.RePushEventsResponse](
+			httpClient,
+			baseURL+EventServiceRePushEventsProcedure,
+			connect.WithSchema(eventServiceMethods.ByName("RePushEvents")),
+			connect.WithClientOptions(opts...),
+		),
+		getRepushStatus: connect.NewClient[proto.GetRepushStatusRequest, proto.GetRepushStatusResponse](
+			httpClient,
+			baseURL+EventServiceGetRepushStatusProcedure,
+			connect.WithSchema(eventServiceMethods.ByName("GetRepushStatus")),
+			connect.WithClientOptions(opts...),
+		),
+		cancelRepush: connect.NewClient[proto.CancelRepushRequest, proto.CancelRepushResponse](
+			httpClient,
+			baseURL+EventServiceCancelRepushProcedure,
+			connect.WithSchema(eventServiceMethods.ByName("CancelRepush")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -532,6 +583,9 @@ type eventServiceClient struct {
 	getEvent         *connect.Client[proto.GetEventRequest, proto.GetEventResponse]
 	pushEvent        *connect.Client[proto.PushEventRequest, proto.PushEventResponse]
 	listEventReports *connect.Client[proto.ListEventReportsRequest, proto.ListEventReportsResponse]
+	rePushEvents     *connect.Client[proto.RePushEventsRequest, proto.RePushEventsResponse]
+	getRepushStatus  *connect.Client[proto.GetRepushStatusRequest, proto.GetRepushStatusResponse]
+	cancelRepush     *connect.Client[proto.CancelRepushRequest, proto.CancelRepushResponse]
 }
 
 // RegisterEvent calls webhook.EventService.RegisterEvent.
@@ -569,6 +623,21 @@ func (c *eventServiceClient) ListEventReports(ctx context.Context, req *connect.
 	return c.listEventReports.CallUnary(ctx, req)
 }
 
+// RePushEvents calls webhook.EventService.RePushEvents.
+func (c *eventServiceClient) RePushEvents(ctx context.Context, req *connect.Request[proto.RePushEventsRequest]) (*connect.Response[proto.RePushEventsResponse], error) {
+	return c.rePushEvents.CallUnary(ctx, req)
+}
+
+// GetRepushStatus calls webhook.EventService.GetRepushStatus.
+func (c *eventServiceClient) GetRepushStatus(ctx context.Context, req *connect.Request[proto.GetRepushStatusRequest]) (*connect.Response[proto.GetRepushStatusResponse], error) {
+	return c.getRepushStatus.CallUnary(ctx, req)
+}
+
+// CancelRepush calls webhook.EventService.CancelRepush.
+func (c *eventServiceClient) CancelRepush(ctx context.Context, req *connect.Request[proto.CancelRepushRequest]) (*connect.Response[proto.CancelRepushResponse], error) {
+	return c.cancelRepush.CallUnary(ctx, req)
+}
+
 // EventServiceHandler is an implementation of the webhook.EventService service.
 type EventServiceHandler interface {
 	// RegisterEvent creates a new event type definition.
@@ -602,6 +671,21 @@ type EventServiceHandler interface {
 	// ordered by created_at descending. Each report includes delivery stats
 	// (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
 	ListEventReports(context.Context, *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error)
+	// RePushEvents executes a deterministic batch re-push of events whose IDs were
+	// previously snapshotted via ListEventReports with prepare_repush=true.
+	// Each event is re-pushed as if it were pushed fresh: new event_id, current schema validation.
+	// The batch is processed asynchronously via a River job; poll GetRepushStatus for progress.
+	// Errors: NOT_FOUND if the repush_id does not exist or has expired.
+	// Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.
+	RePushEvents(context.Context, *connect.Request[proto.RePushEventsRequest]) (*connect.Response[proto.RePushEventsResponse], error)
+	// GetRepushStatus returns the current progress of a batch re-push operation.
+	// Errors: NOT_FOUND if the repush_id does not exist or has expired.
+	GetRepushStatus(context.Context, *connect.Request[proto.GetRepushStatusRequest]) (*connect.Response[proto.GetRepushStatusResponse], error)
+	// CancelRepush aborts a batch re-push that is pending or in progress.
+	// Items already processed are not rolled back.
+	// Errors: NOT_FOUND if the repush_id does not exist.
+	// Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.
+	CancelRepush(context.Context, *connect.Request[proto.CancelRepushRequest]) (*connect.Response[proto.CancelRepushResponse], error)
 }
 
 // NewEventServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -653,6 +737,24 @@ func NewEventServiceHandler(svc EventServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(eventServiceMethods.ByName("ListEventReports")),
 		connect.WithHandlerOptions(opts...),
 	)
+	eventServiceRePushEventsHandler := connect.NewUnaryHandler(
+		EventServiceRePushEventsProcedure,
+		svc.RePushEvents,
+		connect.WithSchema(eventServiceMethods.ByName("RePushEvents")),
+		connect.WithHandlerOptions(opts...),
+	)
+	eventServiceGetRepushStatusHandler := connect.NewUnaryHandler(
+		EventServiceGetRepushStatusProcedure,
+		svc.GetRepushStatus,
+		connect.WithSchema(eventServiceMethods.ByName("GetRepushStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	eventServiceCancelRepushHandler := connect.NewUnaryHandler(
+		EventServiceCancelRepushProcedure,
+		svc.CancelRepush,
+		connect.WithSchema(eventServiceMethods.ByName("CancelRepush")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/webhook.EventService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case EventServiceRegisterEventProcedure:
@@ -669,6 +771,12 @@ func NewEventServiceHandler(svc EventServiceHandler, opts ...connect.HandlerOpti
 			eventServicePushEventHandler.ServeHTTP(w, r)
 		case EventServiceListEventReportsProcedure:
 			eventServiceListEventReportsHandler.ServeHTTP(w, r)
+		case EventServiceRePushEventsProcedure:
+			eventServiceRePushEventsHandler.ServeHTTP(w, r)
+		case EventServiceGetRepushStatusProcedure:
+			eventServiceGetRepushStatusHandler.ServeHTTP(w, r)
+		case EventServiceCancelRepushProcedure:
+			eventServiceCancelRepushHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -704,6 +812,18 @@ func (UnimplementedEventServiceHandler) PushEvent(context.Context, *connect.Requ
 
 func (UnimplementedEventServiceHandler) ListEventReports(context.Context, *connect.Request[proto.ListEventReportsRequest]) (*connect.Response[proto.ListEventReportsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.EventService.ListEventReports is not implemented"))
+}
+
+func (UnimplementedEventServiceHandler) RePushEvents(context.Context, *connect.Request[proto.RePushEventsRequest]) (*connect.Response[proto.RePushEventsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.EventService.RePushEvents is not implemented"))
+}
+
+func (UnimplementedEventServiceHandler) GetRepushStatus(context.Context, *connect.Request[proto.GetRepushStatusRequest]) (*connect.Response[proto.GetRepushStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.EventService.GetRepushStatus is not implemented"))
+}
+
+func (UnimplementedEventServiceHandler) CancelRepush(context.Context, *connect.Request[proto.CancelRepushRequest]) (*connect.Response[proto.CancelRepushResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.EventService.CancelRepush is not implemented"))
 }
 
 // SubscriptionServiceClient is a client for the webhook.SubscriptionService service.
@@ -964,6 +1084,21 @@ type DeliveryServiceClient interface {
 	// Each attempt includes response_time, response_code, error_message, and error_category.
 	// Errors: INVALID_ARGUMENT if delivery_id is empty.
 	GetDeliveryAttempts(context.Context, *connect.Request[proto.GetDeliveryAttemptsRequest]) (*connect.Response[proto.GetDeliveryAttemptsResponse], error)
+	// RetryDeliveries executes a deterministic batch retry of deliveries whose IDs were
+	// previously snapshotted via ListDeliveries with prepare_retry=true.
+	// Each delivery is reset to pending and re-enqueued for HTTP delivery.
+	// The batch is processed asynchronously via a River job; poll GetRetryStatus for progress.
+	// Errors: NOT_FOUND if the retry_id does not exist or has expired.
+	// Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.
+	RetryDeliveries(context.Context, *connect.Request[proto.RetryDeliveriesRequest]) (*connect.Response[proto.RetryDeliveriesResponse], error)
+	// GetRetryStatus returns the current progress of a batch retry operation.
+	// Errors: NOT_FOUND if the retry_id does not exist or has expired.
+	GetRetryStatus(context.Context, *connect.Request[proto.GetRetryStatusRequest]) (*connect.Response[proto.GetRetryStatusResponse], error)
+	// CancelRetry aborts a batch retry that is pending or in progress.
+	// Items already processed are not rolled back.
+	// Errors: NOT_FOUND if the retry_id does not exist.
+	// Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.
+	CancelRetry(context.Context, *connect.Request[proto.CancelRetryRequest]) (*connect.Response[proto.CancelRetryResponse], error)
 }
 
 // NewDeliveryServiceClient constructs a client for the webhook.DeliveryService service. By default,
@@ -1001,6 +1136,24 @@ func NewDeliveryServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithSchema(deliveryServiceMethods.ByName("GetDeliveryAttempts")),
 			connect.WithClientOptions(opts...),
 		),
+		retryDeliveries: connect.NewClient[proto.RetryDeliveriesRequest, proto.RetryDeliveriesResponse](
+			httpClient,
+			baseURL+DeliveryServiceRetryDeliveriesProcedure,
+			connect.WithSchema(deliveryServiceMethods.ByName("RetryDeliveries")),
+			connect.WithClientOptions(opts...),
+		),
+		getRetryStatus: connect.NewClient[proto.GetRetryStatusRequest, proto.GetRetryStatusResponse](
+			httpClient,
+			baseURL+DeliveryServiceGetRetryStatusProcedure,
+			connect.WithSchema(deliveryServiceMethods.ByName("GetRetryStatus")),
+			connect.WithClientOptions(opts...),
+		),
+		cancelRetry: connect.NewClient[proto.CancelRetryRequest, proto.CancelRetryResponse](
+			httpClient,
+			baseURL+DeliveryServiceCancelRetryProcedure,
+			connect.WithSchema(deliveryServiceMethods.ByName("CancelRetry")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -1010,6 +1163,9 @@ type deliveryServiceClient struct {
 	listDeliveries      *connect.Client[proto.ListDeliveriesRequest, proto.ListDeliveriesResponse]
 	retryDelivery       *connect.Client[proto.RetryDeliveryRequest, proto.RetryDeliveryResponse]
 	getDeliveryAttempts *connect.Client[proto.GetDeliveryAttemptsRequest, proto.GetDeliveryAttemptsResponse]
+	retryDeliveries     *connect.Client[proto.RetryDeliveriesRequest, proto.RetryDeliveriesResponse]
+	getRetryStatus      *connect.Client[proto.GetRetryStatusRequest, proto.GetRetryStatusResponse]
+	cancelRetry         *connect.Client[proto.CancelRetryRequest, proto.CancelRetryResponse]
 }
 
 // GetDeliveryStatus calls webhook.DeliveryService.GetDeliveryStatus.
@@ -1032,6 +1188,21 @@ func (c *deliveryServiceClient) GetDeliveryAttempts(ctx context.Context, req *co
 	return c.getDeliveryAttempts.CallUnary(ctx, req)
 }
 
+// RetryDeliveries calls webhook.DeliveryService.RetryDeliveries.
+func (c *deliveryServiceClient) RetryDeliveries(ctx context.Context, req *connect.Request[proto.RetryDeliveriesRequest]) (*connect.Response[proto.RetryDeliveriesResponse], error) {
+	return c.retryDeliveries.CallUnary(ctx, req)
+}
+
+// GetRetryStatus calls webhook.DeliveryService.GetRetryStatus.
+func (c *deliveryServiceClient) GetRetryStatus(ctx context.Context, req *connect.Request[proto.GetRetryStatusRequest]) (*connect.Response[proto.GetRetryStatusResponse], error) {
+	return c.getRetryStatus.CallUnary(ctx, req)
+}
+
+// CancelRetry calls webhook.DeliveryService.CancelRetry.
+func (c *deliveryServiceClient) CancelRetry(ctx context.Context, req *connect.Request[proto.CancelRetryRequest]) (*connect.Response[proto.CancelRetryResponse], error) {
+	return c.cancelRetry.CallUnary(ctx, req)
+}
+
 // DeliveryServiceHandler is an implementation of the webhook.DeliveryService service.
 type DeliveryServiceHandler interface {
 	// GetDeliveryStatus returns full details of a single delivery, including
@@ -1050,6 +1221,21 @@ type DeliveryServiceHandler interface {
 	// Each attempt includes response_time, response_code, error_message, and error_category.
 	// Errors: INVALID_ARGUMENT if delivery_id is empty.
 	GetDeliveryAttempts(context.Context, *connect.Request[proto.GetDeliveryAttemptsRequest]) (*connect.Response[proto.GetDeliveryAttemptsResponse], error)
+	// RetryDeliveries executes a deterministic batch retry of deliveries whose IDs were
+	// previously snapshotted via ListDeliveries with prepare_retry=true.
+	// Each delivery is reset to pending and re-enqueued for HTTP delivery.
+	// The batch is processed asynchronously via a River job; poll GetRetryStatus for progress.
+	// Errors: NOT_FOUND if the retry_id does not exist or has expired.
+	// Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.
+	RetryDeliveries(context.Context, *connect.Request[proto.RetryDeliveriesRequest]) (*connect.Response[proto.RetryDeliveriesResponse], error)
+	// GetRetryStatus returns the current progress of a batch retry operation.
+	// Errors: NOT_FOUND if the retry_id does not exist or has expired.
+	GetRetryStatus(context.Context, *connect.Request[proto.GetRetryStatusRequest]) (*connect.Response[proto.GetRetryStatusResponse], error)
+	// CancelRetry aborts a batch retry that is pending or in progress.
+	// Items already processed are not rolled back.
+	// Errors: NOT_FOUND if the retry_id does not exist.
+	// Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.
+	CancelRetry(context.Context, *connect.Request[proto.CancelRetryRequest]) (*connect.Response[proto.CancelRetryResponse], error)
 }
 
 // NewDeliveryServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -1083,6 +1269,24 @@ func NewDeliveryServiceHandler(svc DeliveryServiceHandler, opts ...connect.Handl
 		connect.WithSchema(deliveryServiceMethods.ByName("GetDeliveryAttempts")),
 		connect.WithHandlerOptions(opts...),
 	)
+	deliveryServiceRetryDeliveriesHandler := connect.NewUnaryHandler(
+		DeliveryServiceRetryDeliveriesProcedure,
+		svc.RetryDeliveries,
+		connect.WithSchema(deliveryServiceMethods.ByName("RetryDeliveries")),
+		connect.WithHandlerOptions(opts...),
+	)
+	deliveryServiceGetRetryStatusHandler := connect.NewUnaryHandler(
+		DeliveryServiceGetRetryStatusProcedure,
+		svc.GetRetryStatus,
+		connect.WithSchema(deliveryServiceMethods.ByName("GetRetryStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
+	deliveryServiceCancelRetryHandler := connect.NewUnaryHandler(
+		DeliveryServiceCancelRetryProcedure,
+		svc.CancelRetry,
+		connect.WithSchema(deliveryServiceMethods.ByName("CancelRetry")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/webhook.DeliveryService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DeliveryServiceGetDeliveryStatusProcedure:
@@ -1093,6 +1297,12 @@ func NewDeliveryServiceHandler(svc DeliveryServiceHandler, opts ...connect.Handl
 			deliveryServiceRetryDeliveryHandler.ServeHTTP(w, r)
 		case DeliveryServiceGetDeliveryAttemptsProcedure:
 			deliveryServiceGetDeliveryAttemptsHandler.ServeHTTP(w, r)
+		case DeliveryServiceRetryDeliveriesProcedure:
+			deliveryServiceRetryDeliveriesHandler.ServeHTTP(w, r)
+		case DeliveryServiceGetRetryStatusProcedure:
+			deliveryServiceGetRetryStatusHandler.ServeHTTP(w, r)
+		case DeliveryServiceCancelRetryProcedure:
+			deliveryServiceCancelRetryHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1116,6 +1326,18 @@ func (UnimplementedDeliveryServiceHandler) RetryDelivery(context.Context, *conne
 
 func (UnimplementedDeliveryServiceHandler) GetDeliveryAttempts(context.Context, *connect.Request[proto.GetDeliveryAttemptsRequest]) (*connect.Response[proto.GetDeliveryAttemptsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.DeliveryService.GetDeliveryAttempts is not implemented"))
+}
+
+func (UnimplementedDeliveryServiceHandler) RetryDeliveries(context.Context, *connect.Request[proto.RetryDeliveriesRequest]) (*connect.Response[proto.RetryDeliveriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.DeliveryService.RetryDeliveries is not implemented"))
+}
+
+func (UnimplementedDeliveryServiceHandler) GetRetryStatus(context.Context, *connect.Request[proto.GetRetryStatusRequest]) (*connect.Response[proto.GetRetryStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.DeliveryService.GetRetryStatus is not implemented"))
+}
+
+func (UnimplementedDeliveryServiceHandler) CancelRetry(context.Context, *connect.Request[proto.CancelRetryRequest]) (*connect.Response[proto.CancelRetryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("webhook.DeliveryService.CancelRetry is not implemented"))
 }
 
 // HealthServiceClient is a client for the webhook.HealthService service.

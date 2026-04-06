@@ -97,6 +97,24 @@ service EventService {
   // ordered by created_at descending. Each report includes delivery stats
   // (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
   rpc ListEventReports(ListEventReportsRequest) returns (ListEventReportsResponse);
+
+  // RePushEvents executes a deterministic batch re-push of events whose IDs were
+  // previously snapshotted via ListEventReports with prepare_repush=true.
+  // Each event is re-pushed as if it were pushed fresh: new event_id, current schema validation.
+  // The batch is processed asynchronously via a River job; poll GetRepushStatus for progress.
+  // Errors: NOT_FOUND if the repush_id does not exist or has expired.
+  // Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.
+  rpc RePushEvents(RePushEventsRequest) returns (RePushEventsResponse);
+
+  // GetRepushStatus returns the current progress of a batch re-push operation.
+  // Errors: NOT_FOUND if the repush_id does not exist or has expired.
+  rpc GetRepushStatus(GetRepushStatusRequest) returns (GetRepushStatusResponse);
+
+  // CancelRepush aborts a batch re-push that is pending or in progress.
+  // Items already processed are not rolled back.
+  // Errors: NOT_FOUND if the repush_id does not exist.
+  // Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.
+  rpc CancelRepush(CancelRepushRequest) returns (CancelRepushResponse);
 }
 
 // SubscriptionService manages the mapping between webhooks and event types.
@@ -162,6 +180,24 @@ service DeliveryService {
   // Each attempt includes response_time, response_code, error_message, and error_category.
   // Errors: INVALID_ARGUMENT if delivery_id is empty.
   rpc GetDeliveryAttempts(GetDeliveryAttemptsRequest) returns (GetDeliveryAttemptsResponse);
+
+  // RetryDeliveries executes a deterministic batch retry of deliveries whose IDs were
+  // previously snapshotted via ListDeliveries with prepare_retry=true.
+  // Each delivery is reset to pending and re-enqueued for HTTP delivery.
+  // The batch is processed asynchronously via a River job; poll GetRetryStatus for progress.
+  // Errors: NOT_FOUND if the retry_id does not exist or has expired.
+  // Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.
+  rpc RetryDeliveries(RetryDeliveriesRequest) returns (RetryDeliveriesResponse);
+
+  // GetRetryStatus returns the current progress of a batch retry operation.
+  // Errors: NOT_FOUND if the retry_id does not exist or has expired.
+  rpc GetRetryStatus(GetRetryStatusRequest) returns (GetRetryStatusResponse);
+
+  // CancelRetry aborts a batch retry that is pending or in progress.
+  // Items already processed are not rolled back.
+  // Errors: NOT_FOUND if the retry_id does not exist.
+  // Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.
+  rpc CancelRetry(CancelRetryRequest) returns (CancelRetryResponse);
 }
 
 // HealthService provides webhook health metrics derived from delivery outcomes.
@@ -948,11 +984,25 @@ message ListEventReportsRequest {
   // @example {"limit": 25}
   PaginationRequest pagination = 3;
 
-  // Deprecated: use pagination.limit.
-  int32 limit = 4 [deprecated = true];
+  // Filter by schema validation status. When set, only events matching
+  // the specified schema_valid value are returned.
+  optional bool schema_valid = 6;
 
-  // Deprecated: use pagination.offset.
-  int32 offset = 5 [deprecated = true];
+  // Filter by labels using JSONB containment. Only events whose labels
+  // contain all specified key-value pairs are returned.
+  // @example {"region": "us-east"}
+  map<string, string> labels = 7;
+
+  // Filter to events created at or after this timestamp.
+  google.protobuf.Timestamp created_after = 8;
+
+  // Filter to events created at or before this timestamp.
+  google.protobuf.Timestamp created_before = 9;
+
+  // When true, snapshot all matching event IDs (up to 10,000) into a
+  // batch job and return a repush_id in the response. Pass that ID to
+  // RePushEvents to re-push the exact set of events that matched this query.
+  bool prepare_repush = 10;
 }
 
 // ListEventReportsResponse contains pushed event instances with delivery statistics.
@@ -963,14 +1013,9 @@ message ListEventReportsResponse {
   // Pagination metadata.
   PaginationResponse pagination = 5;
 
-  // Deprecated: use pagination.total_count.
-  int32 total_count = 2 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  bool success = 3 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 4 [deprecated = true];
+  // Batch ID for deterministic re-push. Only populated when
+  // prepare_repush=true was set in the request. Pass to RePushEvents.
+  string repush_id = 6;
 }
 
 // ---------------------------------------------------------------------------
@@ -1369,6 +1414,28 @@ message ListDeliveriesRequest {
   // Pagination parameters. Default: limit=50, offset=0.
   // @example {"limit": 20}
   PaginationRequest pagination = 4;
+
+  // Filter by delivery status. Optional.
+  // @example "failed"
+  optional string status = 5;
+
+  // Filter by error classification. Optional.
+  // @example "server_error"
+  optional string error_category = 6;
+
+  // Filter by subscription UUID. Optional.
+  optional string subscription_id = 7;
+
+  // Filter to deliveries created at or after this timestamp.
+  google.protobuf.Timestamp created_after = 8;
+
+  // Filter to deliveries created at or before this timestamp.
+  google.protobuf.Timestamp created_before = 9;
+
+  // When true, snapshot all matching delivery IDs (up to 10,000) into a
+  // batch job and return a retry_id in the response. Pass that ID to
+  // RetryDeliveries to retry the exact set that matched this query.
+  bool prepare_retry = 10;
 }
 
 // ListDeliveriesResponse contains the paginated list of deliveries.
@@ -1379,11 +1446,9 @@ message ListDeliveriesResponse {
   // Pagination metadata.
   PaginationResponse pagination = 2;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 3 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 4 [deprecated = true];
+  // Batch ID for deterministic retry. Only populated when
+  // prepare_retry=true was set in the request. Pass to RetryDeliveries.
+  string retry_id = 5;
 }
 
 // RetryDeliveryRequest re-enqueues one or more deliveries for reprocessing.
@@ -1746,4 +1811,127 @@ message GetTemplateFunctionsResponse {
 
   // Deprecated: use gRPC status codes.
   string message = 4 [deprecated = true];
+}
+
+// ---------------------------------------------------------------------------
+// Batch operation messages (deterministic re-push / retry)
+// ---------------------------------------------------------------------------
+
+// BatchJobStatus represents the lifecycle of a batch job.
+// Valid values: pending, processing, completed, failed, cancelled.
+message BatchJobStatus {
+  // Current status of the batch job.
+  // @example "processing"
+  string status = 1;
+
+  // Total number of items in the batch.
+  int32 total = 2;
+
+  // Number of items successfully processed so far.
+  int32 processed = 3;
+
+  // Number of items that failed processing.
+  int32 failed = 4;
+
+  // When the batch job was created.
+  google.protobuf.Timestamp created_at = 5;
+
+  // When the batch job expires (created_at + ttl_seconds).
+  google.protobuf.Timestamp expires_at = 6;
+}
+
+// --- Event Re-push batch RPCs ---
+
+// RePushEventsRequest starts a batch re-push of events.
+// The repush_id must have been obtained from ListEventReports with prepare_repush=true.
+message RePushEventsRequest {
+  // Batch ID returned by ListEventReports when prepare_repush=true.
+  // @required
+  string repush_id = 1;
+}
+
+// RePushEventsResponse confirms the batch re-push has been enqueued.
+message RePushEventsResponse {
+  // Batch ID for polling status.
+  string repush_id = 1;
+
+  // Total number of events that will be re-pushed.
+  int32 total = 2;
+
+  // Current status (will be "processing" on success).
+  string status = 3;
+}
+
+// GetRepushStatusRequest polls the progress of a batch re-push.
+message GetRepushStatusRequest {
+  // Batch ID returned by RePushEvents or ListEventReports.
+  // @required
+  string repush_id = 1;
+}
+
+// GetRepushStatusResponse returns current batch re-push progress.
+message GetRepushStatusResponse {
+  // Full batch job status.
+  BatchJobStatus batch = 1;
+}
+
+// CancelRepushRequest aborts a pending or in-progress batch re-push.
+message CancelRepushRequest {
+  // Batch ID to cancel.
+  // @required
+  string repush_id = 1;
+}
+
+// CancelRepushResponse confirms the cancellation.
+message CancelRepushResponse {
+  // Current status after cancellation (will be "cancelled").
+  string status = 1;
+}
+
+// --- Delivery Retry batch RPCs ---
+
+// RetryDeliveriesRequest starts a batch retry of deliveries.
+// The retry_id must have been obtained from ListDeliveries with prepare_retry=true.
+message RetryDeliveriesRequest {
+  // Batch ID returned by ListDeliveries when prepare_retry=true.
+  // @required
+  string retry_id = 1;
+}
+
+// RetryDeliveriesResponse confirms the batch retry has been enqueued.
+message RetryDeliveriesResponse {
+  // Batch ID for polling status.
+  string retry_id = 1;
+
+  // Total number of deliveries that will be retried.
+  int32 total = 2;
+
+  // Current status (will be "processing" on success).
+  string status = 3;
+}
+
+// GetRetryStatusRequest polls the progress of a batch retry.
+message GetRetryStatusRequest {
+  // Batch ID returned by RetryDeliveries or ListDeliveries.
+  // @required
+  string retry_id = 1;
+}
+
+// GetRetryStatusResponse returns current batch retry progress.
+message GetRetryStatusResponse {
+  // Full batch job status.
+  BatchJobStatus batch = 1;
+}
+
+// CancelRetryRequest aborts a pending or in-progress batch retry.
+message CancelRetryRequest {
+  // Batch ID to cancel.
+  // @required
+  string retry_id = 1;
+}
+
+// CancelRetryResponse confirms the cancellation.
+message CancelRetryResponse {
+  // Current status after cancellation (will be "cancelled").
+  string status = 1;
 }

@@ -2755,14 +2755,21 @@ type ListEventReportsRequest struct {
 	// Pagination parameters. Default: limit=50, offset=0. Max limit: 1000.
 	// @example {"limit": 25}
 	Pagination *PaginationRequest `protobuf:"bytes,3,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: use pagination.limit.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Limit int32 `protobuf:"varint,4,opt,name=limit,proto3" json:"limit,omitempty"`
-	// Deprecated: use pagination.offset.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Offset        int32 `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
+	// Filter by schema validation status. When set, only events matching
+	// the specified schema_valid value are returned.
+	SchemaValid *bool `protobuf:"varint,6,opt,name=schema_valid,json=schemaValid,proto3,oneof" json:"schema_valid,omitempty"`
+	// Filter by labels using JSONB containment. Only events whose labels
+	// contain all specified key-value pairs are returned.
+	// @example {"region": "us-east"}
+	Labels map[string]string `protobuf:"bytes,7,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Filter to events created at or after this timestamp.
+	CreatedAfter *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_after,json=createdAfter,proto3" json:"created_after,omitempty"`
+	// Filter to events created at or before this timestamp.
+	CreatedBefore *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_before,json=createdBefore,proto3" json:"created_before,omitempty"`
+	// When true, snapshot all matching event IDs (up to 10,000) into a
+	// batch job and return a repush_id in the response. Pass that ID to
+	// RePushEvents to re-push the exact set of events that matched this query.
+	PrepareRepush bool `protobuf:"varint,10,opt,name=prepare_repush,json=prepareRepush,proto3" json:"prepare_repush,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2818,20 +2825,39 @@ func (x *ListEventReportsRequest) GetPagination() *PaginationRequest {
 	return nil
 }
 
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventReportsRequest) GetLimit() int32 {
-	if x != nil {
-		return x.Limit
+func (x *ListEventReportsRequest) GetSchemaValid() bool {
+	if x != nil && x.SchemaValid != nil {
+		return *x.SchemaValid
 	}
-	return 0
+	return false
 }
 
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventReportsRequest) GetOffset() int32 {
+func (x *ListEventReportsRequest) GetLabels() map[string]string {
 	if x != nil {
-		return x.Offset
+		return x.Labels
 	}
-	return 0
+	return nil
+}
+
+func (x *ListEventReportsRequest) GetCreatedAfter() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAfter
+	}
+	return nil
+}
+
+func (x *ListEventReportsRequest) GetCreatedBefore() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedBefore
+	}
+	return nil
+}
+
+func (x *ListEventReportsRequest) GetPrepareRepush() bool {
+	if x != nil {
+		return x.PrepareRepush
+	}
+	return false
 }
 
 // ListEventReportsResponse contains pushed event instances with delivery statistics.
@@ -2841,18 +2867,9 @@ type ListEventReportsResponse struct {
 	Events []*EventReport `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
 	// Pagination metadata.
 	Pagination *PaginationResponse `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: use pagination.total_count.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	// Batch ID for deterministic re-push. Only populated when
+	// prepare_repush=true was set in the request. Pass to RePushEvents.
+	RepushId      string `protobuf:"bytes,6,opt,name=repush_id,json=repushId,proto3" json:"repush_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2901,26 +2918,9 @@ func (x *ListEventReportsResponse) GetPagination() *PaginationResponse {
 	return nil
 }
 
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventReportsResponse) GetTotalCount() int32 {
+func (x *ListEventReportsResponse) GetRepushId() string {
 	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventReportsResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventReportsResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
+		return x.RepushId
 	}
 	return ""
 }
@@ -4474,7 +4474,23 @@ type ListDeliveriesRequest struct {
 	EventId string `protobuf:"bytes,3,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
 	// Pagination parameters. Default: limit=50, offset=0.
 	// @example {"limit": 20}
-	Pagination    *PaginationRequest `protobuf:"bytes,4,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	Pagination *PaginationRequest `protobuf:"bytes,4,opt,name=pagination,proto3" json:"pagination,omitempty"`
+	// Filter by delivery status. Optional.
+	// @example "failed"
+	Status *string `protobuf:"bytes,5,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	// Filter by error classification. Optional.
+	// @example "server_error"
+	ErrorCategory *string `protobuf:"bytes,6,opt,name=error_category,json=errorCategory,proto3,oneof" json:"error_category,omitempty"`
+	// Filter by subscription UUID. Optional.
+	SubscriptionId *string `protobuf:"bytes,7,opt,name=subscription_id,json=subscriptionId,proto3,oneof" json:"subscription_id,omitempty"`
+	// Filter to deliveries created at or after this timestamp.
+	CreatedAfter *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_after,json=createdAfter,proto3" json:"created_after,omitempty"`
+	// Filter to deliveries created at or before this timestamp.
+	CreatedBefore *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_before,json=createdBefore,proto3" json:"created_before,omitempty"`
+	// When true, snapshot all matching delivery IDs (up to 10,000) into a
+	// batch job and return a retry_id in the response. Pass that ID to
+	// RetryDeliveries to retry the exact set that matched this query.
+	PrepareRetry  bool `protobuf:"varint,10,opt,name=prepare_retry,json=prepareRetry,proto3" json:"prepare_retry,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4537,6 +4553,48 @@ func (x *ListDeliveriesRequest) GetPagination() *PaginationRequest {
 	return nil
 }
 
+func (x *ListDeliveriesRequest) GetStatus() string {
+	if x != nil && x.Status != nil {
+		return *x.Status
+	}
+	return ""
+}
+
+func (x *ListDeliveriesRequest) GetErrorCategory() string {
+	if x != nil && x.ErrorCategory != nil {
+		return *x.ErrorCategory
+	}
+	return ""
+}
+
+func (x *ListDeliveriesRequest) GetSubscriptionId() string {
+	if x != nil && x.SubscriptionId != nil {
+		return *x.SubscriptionId
+	}
+	return ""
+}
+
+func (x *ListDeliveriesRequest) GetCreatedAfter() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAfter
+	}
+	return nil
+}
+
+func (x *ListDeliveriesRequest) GetCreatedBefore() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedBefore
+	}
+	return nil
+}
+
+func (x *ListDeliveriesRequest) GetPrepareRetry() bool {
+	if x != nil {
+		return x.PrepareRetry
+	}
+	return false
+}
+
 // ListDeliveriesResponse contains the paginated list of deliveries.
 type ListDeliveriesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -4544,14 +4602,9 @@ type ListDeliveriesResponse struct {
 	Deliveries []*WebhookDelivery `protobuf:"bytes,1,rep,name=deliveries,proto3" json:"deliveries,omitempty"`
 	// Pagination metadata.
 	Pagination *PaginationResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	// Batch ID for deterministic retry. Only populated when
+	// prepare_retry=true was set in the request. Pass to RetryDeliveries.
+	RetryId       string `protobuf:"bytes,5,opt,name=retry_id,json=retryId,proto3" json:"retry_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4600,18 +4653,9 @@ func (x *ListDeliveriesResponse) GetPagination() *PaginationResponse {
 	return nil
 }
 
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListDeliveriesResponse) GetSuccess() bool {
+func (x *ListDeliveriesResponse) GetRetryId() string {
 	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListDeliveriesResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
+		return x.RetryId
 	}
 	return ""
 }
@@ -6095,6 +6139,695 @@ func (x *GetTemplateFunctionsResponse) GetMessage() string {
 	return ""
 }
 
+// BatchJobStatus represents the lifecycle of a batch job.
+// Valid values: pending, processing, completed, failed, cancelled.
+type BatchJobStatus struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Current status of the batch job.
+	// @example "processing"
+	Status string `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	// Total number of items in the batch.
+	Total int32 `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	// Number of items successfully processed so far.
+	Processed int32 `protobuf:"varint,3,opt,name=processed,proto3" json:"processed,omitempty"`
+	// Number of items that failed processing.
+	Failed int32 `protobuf:"varint,4,opt,name=failed,proto3" json:"failed,omitempty"`
+	// When the batch job was created.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the batch job expires (created_at + ttl_seconds).
+	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchJobStatus) Reset() {
+	*x = BatchJobStatus{}
+	mi := &file_proto_webhook_proto_msgTypes[72]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchJobStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchJobStatus) ProtoMessage() {}
+
+func (x *BatchJobStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[72]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchJobStatus.ProtoReflect.Descriptor instead.
+func (*BatchJobStatus) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{72}
+}
+
+func (x *BatchJobStatus) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *BatchJobStatus) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *BatchJobStatus) GetProcessed() int32 {
+	if x != nil {
+		return x.Processed
+	}
+	return 0
+}
+
+func (x *BatchJobStatus) GetFailed() int32 {
+	if x != nil {
+		return x.Failed
+	}
+	return 0
+}
+
+func (x *BatchJobStatus) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *BatchJobStatus) GetExpiresAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return nil
+}
+
+// RePushEventsRequest starts a batch re-push of events.
+// The repush_id must have been obtained from ListEventReports with prepare_repush=true.
+type RePushEventsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch ID returned by ListEventReports when prepare_repush=true.
+	// @required
+	RepushId      string `protobuf:"bytes,1,opt,name=repush_id,json=repushId,proto3" json:"repush_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RePushEventsRequest) Reset() {
+	*x = RePushEventsRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RePushEventsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RePushEventsRequest) ProtoMessage() {}
+
+func (x *RePushEventsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RePushEventsRequest.ProtoReflect.Descriptor instead.
+func (*RePushEventsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *RePushEventsRequest) GetRepushId() string {
+	if x != nil {
+		return x.RepushId
+	}
+	return ""
+}
+
+// RePushEventsResponse confirms the batch re-push has been enqueued.
+type RePushEventsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch ID for polling status.
+	RepushId string `protobuf:"bytes,1,opt,name=repush_id,json=repushId,proto3" json:"repush_id,omitempty"`
+	// Total number of events that will be re-pushed.
+	Total int32 `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	// Current status (will be "processing" on success).
+	Status        string `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RePushEventsResponse) Reset() {
+	*x = RePushEventsResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RePushEventsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RePushEventsResponse) ProtoMessage() {}
+
+func (x *RePushEventsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RePushEventsResponse.ProtoReflect.Descriptor instead.
+func (*RePushEventsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *RePushEventsResponse) GetRepushId() string {
+	if x != nil {
+		return x.RepushId
+	}
+	return ""
+}
+
+func (x *RePushEventsResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *RePushEventsResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+// GetRepushStatusRequest polls the progress of a batch re-push.
+type GetRepushStatusRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch ID returned by RePushEvents or ListEventReports.
+	// @required
+	RepushId      string `protobuf:"bytes,1,opt,name=repush_id,json=repushId,proto3" json:"repush_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRepushStatusRequest) Reset() {
+	*x = GetRepushStatusRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRepushStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRepushStatusRequest) ProtoMessage() {}
+
+func (x *GetRepushStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRepushStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetRepushStatusRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *GetRepushStatusRequest) GetRepushId() string {
+	if x != nil {
+		return x.RepushId
+	}
+	return ""
+}
+
+// GetRepushStatusResponse returns current batch re-push progress.
+type GetRepushStatusResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Full batch job status.
+	Batch         *BatchJobStatus `protobuf:"bytes,1,opt,name=batch,proto3" json:"batch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRepushStatusResponse) Reset() {
+	*x = GetRepushStatusResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[76]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRepushStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRepushStatusResponse) ProtoMessage() {}
+
+func (x *GetRepushStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[76]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRepushStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetRepushStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{76}
+}
+
+func (x *GetRepushStatusResponse) GetBatch() *BatchJobStatus {
+	if x != nil {
+		return x.Batch
+	}
+	return nil
+}
+
+// CancelRepushRequest aborts a pending or in-progress batch re-push.
+type CancelRepushRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch ID to cancel.
+	// @required
+	RepushId      string `protobuf:"bytes,1,opt,name=repush_id,json=repushId,proto3" json:"repush_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelRepushRequest) Reset() {
+	*x = CancelRepushRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[77]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelRepushRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelRepushRequest) ProtoMessage() {}
+
+func (x *CancelRepushRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[77]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelRepushRequest.ProtoReflect.Descriptor instead.
+func (*CancelRepushRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{77}
+}
+
+func (x *CancelRepushRequest) GetRepushId() string {
+	if x != nil {
+		return x.RepushId
+	}
+	return ""
+}
+
+// CancelRepushResponse confirms the cancellation.
+type CancelRepushResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Current status after cancellation (will be "cancelled").
+	Status        string `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelRepushResponse) Reset() {
+	*x = CancelRepushResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[78]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelRepushResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelRepushResponse) ProtoMessage() {}
+
+func (x *CancelRepushResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[78]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelRepushResponse.ProtoReflect.Descriptor instead.
+func (*CancelRepushResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{78}
+}
+
+func (x *CancelRepushResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+// RetryDeliveriesRequest starts a batch retry of deliveries.
+// The retry_id must have been obtained from ListDeliveries with prepare_retry=true.
+type RetryDeliveriesRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch ID returned by ListDeliveries when prepare_retry=true.
+	// @required
+	RetryId       string `protobuf:"bytes,1,opt,name=retry_id,json=retryId,proto3" json:"retry_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RetryDeliveriesRequest) Reset() {
+	*x = RetryDeliveriesRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[79]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RetryDeliveriesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RetryDeliveriesRequest) ProtoMessage() {}
+
+func (x *RetryDeliveriesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[79]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RetryDeliveriesRequest.ProtoReflect.Descriptor instead.
+func (*RetryDeliveriesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{79}
+}
+
+func (x *RetryDeliveriesRequest) GetRetryId() string {
+	if x != nil {
+		return x.RetryId
+	}
+	return ""
+}
+
+// RetryDeliveriesResponse confirms the batch retry has been enqueued.
+type RetryDeliveriesResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch ID for polling status.
+	RetryId string `protobuf:"bytes,1,opt,name=retry_id,json=retryId,proto3" json:"retry_id,omitempty"`
+	// Total number of deliveries that will be retried.
+	Total int32 `protobuf:"varint,2,opt,name=total,proto3" json:"total,omitempty"`
+	// Current status (will be "processing" on success).
+	Status        string `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RetryDeliveriesResponse) Reset() {
+	*x = RetryDeliveriesResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[80]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RetryDeliveriesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RetryDeliveriesResponse) ProtoMessage() {}
+
+func (x *RetryDeliveriesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[80]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RetryDeliveriesResponse.ProtoReflect.Descriptor instead.
+func (*RetryDeliveriesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{80}
+}
+
+func (x *RetryDeliveriesResponse) GetRetryId() string {
+	if x != nil {
+		return x.RetryId
+	}
+	return ""
+}
+
+func (x *RetryDeliveriesResponse) GetTotal() int32 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *RetryDeliveriesResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+// GetRetryStatusRequest polls the progress of a batch retry.
+type GetRetryStatusRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch ID returned by RetryDeliveries or ListDeliveries.
+	// @required
+	RetryId       string `protobuf:"bytes,1,opt,name=retry_id,json=retryId,proto3" json:"retry_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRetryStatusRequest) Reset() {
+	*x = GetRetryStatusRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[81]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRetryStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRetryStatusRequest) ProtoMessage() {}
+
+func (x *GetRetryStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[81]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRetryStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetRetryStatusRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{81}
+}
+
+func (x *GetRetryStatusRequest) GetRetryId() string {
+	if x != nil {
+		return x.RetryId
+	}
+	return ""
+}
+
+// GetRetryStatusResponse returns current batch retry progress.
+type GetRetryStatusResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Full batch job status.
+	Batch         *BatchJobStatus `protobuf:"bytes,1,opt,name=batch,proto3" json:"batch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRetryStatusResponse) Reset() {
+	*x = GetRetryStatusResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[82]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRetryStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRetryStatusResponse) ProtoMessage() {}
+
+func (x *GetRetryStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[82]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRetryStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetRetryStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{82}
+}
+
+func (x *GetRetryStatusResponse) GetBatch() *BatchJobStatus {
+	if x != nil {
+		return x.Batch
+	}
+	return nil
+}
+
+// CancelRetryRequest aborts a pending or in-progress batch retry.
+type CancelRetryRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Batch ID to cancel.
+	// @required
+	RetryId       string `protobuf:"bytes,1,opt,name=retry_id,json=retryId,proto3" json:"retry_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelRetryRequest) Reset() {
+	*x = CancelRetryRequest{}
+	mi := &file_proto_webhook_proto_msgTypes[83]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelRetryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelRetryRequest) ProtoMessage() {}
+
+func (x *CancelRetryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[83]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelRetryRequest.ProtoReflect.Descriptor instead.
+func (*CancelRetryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{83}
+}
+
+func (x *CancelRetryRequest) GetRetryId() string {
+	if x != nil {
+		return x.RetryId
+	}
+	return ""
+}
+
+// CancelRetryResponse confirms the cancellation.
+type CancelRetryResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Current status after cancellation (will be "cancelled").
+	Status        string `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelRetryResponse) Reset() {
+	*x = CancelRetryResponse{}
+	mi := &file_proto_webhook_proto_msgTypes[84]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelRetryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelRetryResponse) ProtoMessage() {}
+
+func (x *CancelRetryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_webhook_proto_msgTypes[84]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelRetryResponse.ProtoReflect.Descriptor instead.
+func (*CancelRetryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_webhook_proto_rawDescGZIP(), []int{84}
+}
+
+func (x *CancelRetryResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
 var File_proto_webhook_proto protoreflect.FileDescriptor
 
 const file_proto_webhook_proto_rawDesc = "" +
@@ -6340,26 +7073,31 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\fschema_valid\x18\f \x01(\bR\vschemaValid\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xdc\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8b\x04\n" +
 	"\x17ListEventReportsRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\"\n" +
 	"\n" +
 	"event_name\x18\x02 \x01(\tH\x00R\teventName\x88\x01\x01\x12:\n" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\x12\x18\n" +
-	"\x05limit\x18\x04 \x01(\x05B\x02\x18\x01R\x05limit\x12\x1a\n" +
-	"\x06offset\x18\x05 \x01(\x05B\x02\x18\x01R\x06offsetB\r\n" +
-	"\v_event_name\"\xe6\x01\n" +
+	"pagination\x12&\n" +
+	"\fschema_valid\x18\x06 \x01(\bH\x01R\vschemaValid\x88\x01\x01\x12D\n" +
+	"\x06labels\x18\a \x03(\v2,.webhook.ListEventReportsRequest.LabelsEntryR\x06labels\x12?\n" +
+	"\rcreated_after\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\fcreatedAfter\x12A\n" +
+	"\x0ecreated_before\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\rcreatedBefore\x12%\n" +
+	"\x0eprepare_repush\x18\n" +
+	" \x01(\bR\rprepareRepush\x1a9\n" +
+	"\vLabelsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\r\n" +
+	"\v_event_nameB\x0f\n" +
+	"\r_schema_valid\"\xa2\x01\n" +
 	"\x18ListEventReportsResponse\x12,\n" +
 	"\x06events\x18\x01 \x03(\v2\x14.webhook.EventReportR\x06events\x12;\n" +
 	"\n" +
 	"pagination\x18\x05 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\x12#\n" +
-	"\vtotal_count\x18\x02 \x01(\x05B\x02\x18\x01R\n" +
-	"totalCount\x12\x1c\n" +
-	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\xaf\x05\n" +
+	"pagination\x12\x1b\n" +
+	"\trepush_id\x18\x06 \x01(\tR\brepushId\"\xaf\x05\n" +
 	"\x11EventSubscription\x12'\n" +
 	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12\x1d\n" +
 	"\n" +
@@ -6505,7 +7243,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x19GetDeliveryStatusResponse\x124\n" +
 	"\bdelivery\x18\x01 \x01(\v2\x18.webhook.WebhookDeliveryR\bdelivery\x12\x1c\n" +
 	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\"\xab\x01\n" +
+	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\"\xfd\x03\n" +
 	"\x15ListDeliveriesRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1d\n" +
 	"\n" +
@@ -6513,16 +7251,25 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\bevent_id\x18\x03 \x01(\tR\aeventId\x12:\n" +
 	"\n" +
 	"pagination\x18\x04 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\"\xcb\x01\n" +
+	"pagination\x12\x1b\n" +
+	"\x06status\x18\x05 \x01(\tH\x00R\x06status\x88\x01\x01\x12*\n" +
+	"\x0eerror_category\x18\x06 \x01(\tH\x01R\rerrorCategory\x88\x01\x01\x12,\n" +
+	"\x0fsubscription_id\x18\a \x01(\tH\x02R\x0esubscriptionId\x88\x01\x01\x12?\n" +
+	"\rcreated_after\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\fcreatedAfter\x12A\n" +
+	"\x0ecreated_before\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\rcreatedBefore\x12#\n" +
+	"\rprepare_retry\x18\n" +
+	" \x01(\bR\fprepareRetryB\t\n" +
+	"\a_statusB\x11\n" +
+	"\x0f_error_categoryB\x12\n" +
+	"\x10_subscription_id\"\xaa\x01\n" +
 	"\x16ListDeliveriesResponse\x128\n" +
 	"\n" +
 	"deliveries\x18\x01 \x03(\v2\x18.webhook.WebhookDeliveryR\n" +
 	"deliveries\x12;\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\x12\x1c\n" +
-	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\x8a\x01\n" +
+	"pagination\x12\x19\n" +
+	"\bretry_id\x18\x05 \x01(\tR\aretryId\"\x8a\x01\n" +
 	"\x14RetryDeliveryRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1f\n" +
 	"\vdelivery_id\x18\x02 \x01(\tR\n" +
@@ -6634,7 +7381,44 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
 	"totalCount\x12\x1c\n" +
 	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage*\xb5\x01\n" +
+	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\xea\x01\n" +
+	"\x0eBatchJobStatus\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x1c\n" +
+	"\tprocessed\x18\x03 \x01(\x05R\tprocessed\x12\x16\n" +
+	"\x06failed\x18\x04 \x01(\x05R\x06failed\x129\n" +
+	"\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"2\n" +
+	"\x13RePushEventsRequest\x12\x1b\n" +
+	"\trepush_id\x18\x01 \x01(\tR\brepushId\"a\n" +
+	"\x14RePushEventsResponse\x12\x1b\n" +
+	"\trepush_id\x18\x01 \x01(\tR\brepushId\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\"5\n" +
+	"\x16GetRepushStatusRequest\x12\x1b\n" +
+	"\trepush_id\x18\x01 \x01(\tR\brepushId\"H\n" +
+	"\x17GetRepushStatusResponse\x12-\n" +
+	"\x05batch\x18\x01 \x01(\v2\x17.webhook.BatchJobStatusR\x05batch\"2\n" +
+	"\x13CancelRepushRequest\x12\x1b\n" +
+	"\trepush_id\x18\x01 \x01(\tR\brepushId\".\n" +
+	"\x14CancelRepushResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"3\n" +
+	"\x16RetryDeliveriesRequest\x12\x19\n" +
+	"\bretry_id\x18\x01 \x01(\tR\aretryId\"b\n" +
+	"\x17RetryDeliveriesResponse\x12\x19\n" +
+	"\bretry_id\x18\x01 \x01(\tR\aretryId\x12\x14\n" +
+	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\tR\x06status\"2\n" +
+	"\x15GetRetryStatusRequest\x12\x19\n" +
+	"\bretry_id\x18\x01 \x01(\tR\aretryId\"G\n" +
+	"\x16GetRetryStatusResponse\x12-\n" +
+	"\x05batch\x18\x01 \x01(\v2\x17.webhook.BatchJobStatusR\x05batch\"/\n" +
+	"\x12CancelRetryRequest\x12\x19\n" +
+	"\bretry_id\x18\x01 \x01(\tR\aretryId\"-\n" +
+	"\x13CancelRetryResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status*\xb5\x01\n" +
 	"\x15WebhookDeliveryStatus\x12\x18\n" +
 	"\x14DELIVERY_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10DELIVERY_PENDING\x10\x01\x12\x14\n" +
@@ -6656,7 +7440,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\fPauseWebhook\x12\x1c.webhook.PauseWebhookRequest\x1a\x1d.webhook.PauseWebhookResponse\x12N\n" +
 	"\rResumeWebhook\x12\x1d.webhook.ResumeWebhookRequest\x1a\x1e.webhook.ResumeWebhookResponse\x12Z\n" +
 	"\x11GetNamespaceStats\x12!.webhook.GetNamespaceStatsRequest\x1a\".webhook.GetNamespaceStatsResponse\x12c\n" +
-	"\x14GetTemplateFunctions\x12$.webhook.GetTemplateFunctionsRequest\x1a%.webhook.GetTemplateFunctionsResponse2\x97\x04\n" +
+	"\x14GetTemplateFunctions\x12$.webhook.GetTemplateFunctionsRequest\x1a%.webhook.GetTemplateFunctionsResponse2\x87\x06\n" +
 	"\fEventService\x12N\n" +
 	"\rRegisterEvent\x12\x1d.webhook.RegisterEventRequest\x1a\x1e.webhook.RegisterEventResponse\x12E\n" +
 	"\n" +
@@ -6665,19 +7449,25 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vDeleteEvent\x12\x1b.webhook.DeleteEventRequest\x1a\x1c.webhook.DeleteEventResponse\x12?\n" +
 	"\bGetEvent\x12\x18.webhook.GetEventRequest\x1a\x19.webhook.GetEventResponse\x12B\n" +
 	"\tPushEvent\x12\x19.webhook.PushEventRequest\x1a\x1a.webhook.PushEventResponse\x12W\n" +
-	"\x10ListEventReports\x12 .webhook.ListEventReportsRequest\x1a!.webhook.ListEventReportsResponse2\xd5\x04\n" +
+	"\x10ListEventReports\x12 .webhook.ListEventReportsRequest\x1a!.webhook.ListEventReportsResponse\x12K\n" +
+	"\fRePushEvents\x12\x1c.webhook.RePushEventsRequest\x1a\x1d.webhook.RePushEventsResponse\x12T\n" +
+	"\x0fGetRepushStatus\x12\x1f.webhook.GetRepushStatusRequest\x1a .webhook.GetRepushStatusResponse\x12K\n" +
+	"\fCancelRepush\x12\x1c.webhook.CancelRepushRequest\x1a\x1d.webhook.CancelRepushResponse2\xd5\x04\n" +
 	"\x13SubscriptionService\x12]\n" +
 	"\x12CreateSubscription\x12\".webhook.CreateSubscriptionRequest\x1a#.webhook.CreateSubscriptionResponse\x12T\n" +
 	"\x0fGetSubscription\x12\x1f.webhook.GetSubscriptionRequest\x1a .webhook.GetSubscriptionResponse\x12Z\n" +
 	"\x11ListSubscriptions\x12!.webhook.ListSubscriptionsRequest\x1a\".webhook.ListSubscriptionsResponse\x12]\n" +
 	"\x12UpdateSubscription\x12\".webhook.UpdateSubscriptionRequest\x1a#.webhook.UpdateSubscriptionResponse\x12]\n" +
 	"\x12DeleteSubscription\x12\".webhook.DeleteSubscriptionRequest\x1a#.webhook.DeleteSubscriptionResponse\x12o\n" +
-	"\x18TestSubscriptionTemplate\x12(.webhook.TestSubscriptionTemplateRequest\x1a).webhook.TestSubscriptionTemplateResponse2\xf2\x02\n" +
+	"\x18TestSubscriptionTemplate\x12(.webhook.TestSubscriptionTemplateRequest\x1a).webhook.TestSubscriptionTemplateResponse2\xe5\x04\n" +
 	"\x0fDeliveryService\x12Z\n" +
 	"\x11GetDeliveryStatus\x12!.webhook.GetDeliveryStatusRequest\x1a\".webhook.GetDeliveryStatusResponse\x12Q\n" +
 	"\x0eListDeliveries\x12\x1e.webhook.ListDeliveriesRequest\x1a\x1f.webhook.ListDeliveriesResponse\x12N\n" +
 	"\rRetryDelivery\x12\x1d.webhook.RetryDeliveryRequest\x1a\x1e.webhook.RetryDeliveryResponse\x12`\n" +
-	"\x13GetDeliveryAttempts\x12#.webhook.GetDeliveryAttemptsRequest\x1a$.webhook.GetDeliveryAttemptsResponse2\xa6\x02\n" +
+	"\x13GetDeliveryAttempts\x12#.webhook.GetDeliveryAttemptsRequest\x1a$.webhook.GetDeliveryAttemptsResponse\x12T\n" +
+	"\x0fRetryDeliveries\x12\x1f.webhook.RetryDeliveriesRequest\x1a .webhook.RetryDeliveriesResponse\x12Q\n" +
+	"\x0eGetRetryStatus\x12\x1e.webhook.GetRetryStatusRequest\x1a\x1f.webhook.GetRetryStatusResponse\x12H\n" +
+	"\vCancelRetry\x12\x1b.webhook.CancelRetryRequest\x1a\x1c.webhook.CancelRetryResponse2\xa6\x02\n" +
 	"\rHealthService\x12W\n" +
 	"\x10GetWebhookHealth\x12 .webhook.GetWebhookHealthRequest\x1a!.webhook.GetWebhookHealthResponse\x12c\n" +
 	"\x14ListWebhooksByHealth\x12$.webhook.ListWebhooksByHealthRequest\x1a%.webhook.ListWebhooksByHealthResponse\x12W\n" +
@@ -6696,7 +7486,7 @@ func file_proto_webhook_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_webhook_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 90)
+var file_proto_webhook_proto_msgTypes = make([]protoimpl.MessageInfo, 104)
 var file_proto_webhook_proto_goTypes = []any{
 	(WebhookDeliveryStatus)(0),               // 0: webhook.WebhookDeliveryStatus
 	(WebhookHealth)(0),                       // 1: webhook.WebhookHealth
@@ -6772,168 +7562,203 @@ var file_proto_webhook_proto_goTypes = []any{
 	(*TemplateFunction)(nil),                 // 71: webhook.TemplateFunction
 	(*GetTemplateFunctionsRequest)(nil),      // 72: webhook.GetTemplateFunctionsRequest
 	(*GetTemplateFunctionsResponse)(nil),     // 73: webhook.GetTemplateFunctionsResponse
-	nil,                                      // 74: webhook.RegisterWebhookRequest.HeadersEntry
-	nil,                                      // 75: webhook.RegisterWebhookRequest.SecretHeadersEntry
-	nil,                                      // 76: webhook.RegisteredWebhook.HeadersEntry
-	nil,                                      // 77: webhook.RegisteredWebhook.SecretHeadersEntry
-	nil,                                      // 78: webhook.WebhookUpdateFields.HeadersEntry
-	nil,                                      // 79: webhook.WebhookUpdateFields.SecretHeadersEntry
-	nil,                                      // 80: webhook.RegisterEventRequest.MetadataEntry
-	nil,                                      // 81: webhook.RegisteredEvent.MetadataEntry
-	nil,                                      // 82: webhook.UpdateEventRequest.MetadataEntry
-	nil,                                      // 83: webhook.PushEventRequest.MetadataEntry
-	nil,                                      // 84: webhook.PushEventRequest.LabelsEntry
-	nil,                                      // 85: webhook.EventReport.MetadataEntry
-	nil,                                      // 86: webhook.EventSubscription.HeadersEntry
-	nil,                                      // 87: webhook.EventSubscription.LabelFiltersEntry
-	nil,                                      // 88: webhook.CreateSubscriptionRequest.HeadersEntry
-	nil,                                      // 89: webhook.CreateSubscriptionRequest.LabelFiltersEntry
-	nil,                                      // 90: webhook.UpdateSubscriptionRequest.HeadersEntry
-	nil,                                      // 91: webhook.UpdateSubscriptionRequest.LabelFiltersEntry
-	(*timestamppb.Timestamp)(nil),            // 92: google.protobuf.Timestamp
-	(*structpb.Struct)(nil),                  // 93: google.protobuf.Struct
+	(*BatchJobStatus)(nil),                   // 74: webhook.BatchJobStatus
+	(*RePushEventsRequest)(nil),              // 75: webhook.RePushEventsRequest
+	(*RePushEventsResponse)(nil),             // 76: webhook.RePushEventsResponse
+	(*GetRepushStatusRequest)(nil),           // 77: webhook.GetRepushStatusRequest
+	(*GetRepushStatusResponse)(nil),          // 78: webhook.GetRepushStatusResponse
+	(*CancelRepushRequest)(nil),              // 79: webhook.CancelRepushRequest
+	(*CancelRepushResponse)(nil),             // 80: webhook.CancelRepushResponse
+	(*RetryDeliveriesRequest)(nil),           // 81: webhook.RetryDeliveriesRequest
+	(*RetryDeliveriesResponse)(nil),          // 82: webhook.RetryDeliveriesResponse
+	(*GetRetryStatusRequest)(nil),            // 83: webhook.GetRetryStatusRequest
+	(*GetRetryStatusResponse)(nil),           // 84: webhook.GetRetryStatusResponse
+	(*CancelRetryRequest)(nil),               // 85: webhook.CancelRetryRequest
+	(*CancelRetryResponse)(nil),              // 86: webhook.CancelRetryResponse
+	nil,                                      // 87: webhook.RegisterWebhookRequest.HeadersEntry
+	nil,                                      // 88: webhook.RegisterWebhookRequest.SecretHeadersEntry
+	nil,                                      // 89: webhook.RegisteredWebhook.HeadersEntry
+	nil,                                      // 90: webhook.RegisteredWebhook.SecretHeadersEntry
+	nil,                                      // 91: webhook.WebhookUpdateFields.HeadersEntry
+	nil,                                      // 92: webhook.WebhookUpdateFields.SecretHeadersEntry
+	nil,                                      // 93: webhook.RegisterEventRequest.MetadataEntry
+	nil,                                      // 94: webhook.RegisteredEvent.MetadataEntry
+	nil,                                      // 95: webhook.UpdateEventRequest.MetadataEntry
+	nil,                                      // 96: webhook.PushEventRequest.MetadataEntry
+	nil,                                      // 97: webhook.PushEventRequest.LabelsEntry
+	nil,                                      // 98: webhook.EventReport.MetadataEntry
+	nil,                                      // 99: webhook.ListEventReportsRequest.LabelsEntry
+	nil,                                      // 100: webhook.EventSubscription.HeadersEntry
+	nil,                                      // 101: webhook.EventSubscription.LabelFiltersEntry
+	nil,                                      // 102: webhook.CreateSubscriptionRequest.HeadersEntry
+	nil,                                      // 103: webhook.CreateSubscriptionRequest.LabelFiltersEntry
+	nil,                                      // 104: webhook.UpdateSubscriptionRequest.HeadersEntry
+	nil,                                      // 105: webhook.UpdateSubscriptionRequest.LabelFiltersEntry
+	(*timestamppb.Timestamp)(nil),            // 106: google.protobuf.Timestamp
+	(*structpb.Struct)(nil),                  // 107: google.protobuf.Struct
 }
 var file_proto_webhook_proto_depIdxs = []int32{
-	74,  // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
+	87,  // 0: webhook.RegisterWebhookRequest.headers:type_name -> webhook.RegisterWebhookRequest.HeadersEntry
 	4,   // 1: webhook.RegisterWebhookRequest.http_config:type_name -> webhook.WebhookHTTPConfig
-	75,  // 2: webhook.RegisterWebhookRequest.secret_headers:type_name -> webhook.RegisterWebhookRequest.SecretHeadersEntry
-	92,  // 3: webhook.RegisterWebhookResponse.created_at:type_name -> google.protobuf.Timestamp
+	88,  // 2: webhook.RegisterWebhookRequest.secret_headers:type_name -> webhook.RegisterWebhookRequest.SecretHeadersEntry
+	106, // 3: webhook.RegisterWebhookResponse.created_at:type_name -> google.protobuf.Timestamp
 	2,   // 4: webhook.ListWebhooksRequest.pagination:type_name -> webhook.PaginationRequest
-	76,  // 5: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
+	89,  // 5: webhook.RegisteredWebhook.headers:type_name -> webhook.RegisteredWebhook.HeadersEntry
 	1,   // 6: webhook.RegisteredWebhook.health:type_name -> webhook.WebhookHealth
-	92,  // 7: webhook.RegisteredWebhook.created_at:type_name -> google.protobuf.Timestamp
-	92,  // 8: webhook.RegisteredWebhook.updated_at:type_name -> google.protobuf.Timestamp
+	106, // 7: webhook.RegisteredWebhook.created_at:type_name -> google.protobuf.Timestamp
+	106, // 8: webhook.RegisteredWebhook.updated_at:type_name -> google.protobuf.Timestamp
 	4,   // 9: webhook.RegisteredWebhook.http_config:type_name -> webhook.WebhookHTTPConfig
-	77,  // 10: webhook.RegisteredWebhook.secret_headers:type_name -> webhook.RegisteredWebhook.SecretHeadersEntry
+	90,  // 10: webhook.RegisteredWebhook.secret_headers:type_name -> webhook.RegisteredWebhook.SecretHeadersEntry
 	10,  // 11: webhook.ListWebhooksResponse.webhooks:type_name -> webhook.RegisteredWebhook
 	3,   // 12: webhook.ListWebhooksResponse.pagination:type_name -> webhook.PaginationResponse
-	78,  // 13: webhook.WebhookUpdateFields.headers:type_name -> webhook.WebhookUpdateFields.HeadersEntry
+	91,  // 13: webhook.WebhookUpdateFields.headers:type_name -> webhook.WebhookUpdateFields.HeadersEntry
 	4,   // 14: webhook.WebhookUpdateFields.http_config:type_name -> webhook.WebhookHTTPConfig
-	79,  // 15: webhook.WebhookUpdateFields.secret_headers:type_name -> webhook.WebhookUpdateFields.SecretHeadersEntry
+	92,  // 15: webhook.WebhookUpdateFields.secret_headers:type_name -> webhook.WebhookUpdateFields.SecretHeadersEntry
 	12,  // 16: webhook.UpdateWebhookConfigRequest.updates:type_name -> webhook.WebhookUpdateFields
-	93,  // 17: webhook.RegisterEventRequest.schema:type_name -> google.protobuf.Struct
-	80,  // 18: webhook.RegisterEventRequest.metadata:type_name -> webhook.RegisterEventRequest.MetadataEntry
-	92,  // 19: webhook.RegisterEventResponse.created_at:type_name -> google.protobuf.Timestamp
+	107, // 17: webhook.RegisterEventRequest.schema:type_name -> google.protobuf.Struct
+	93,  // 18: webhook.RegisterEventRequest.metadata:type_name -> webhook.RegisterEventRequest.MetadataEntry
+	106, // 19: webhook.RegisterEventResponse.created_at:type_name -> google.protobuf.Timestamp
 	2,   // 20: webhook.ListEventsRequest.pagination:type_name -> webhook.PaginationRequest
-	93,  // 21: webhook.RegisteredEvent.schema:type_name -> google.protobuf.Struct
-	93,  // 22: webhook.RegisteredEvent.sample_payload:type_name -> google.protobuf.Struct
-	81,  // 23: webhook.RegisteredEvent.metadata:type_name -> webhook.RegisteredEvent.MetadataEntry
-	92,  // 24: webhook.RegisteredEvent.created_at:type_name -> google.protobuf.Timestamp
-	92,  // 25: webhook.RegisteredEvent.updated_at:type_name -> google.protobuf.Timestamp
+	107, // 21: webhook.RegisteredEvent.schema:type_name -> google.protobuf.Struct
+	107, // 22: webhook.RegisteredEvent.sample_payload:type_name -> google.protobuf.Struct
+	94,  // 23: webhook.RegisteredEvent.metadata:type_name -> webhook.RegisteredEvent.MetadataEntry
+	106, // 24: webhook.RegisteredEvent.created_at:type_name -> google.protobuf.Timestamp
+	106, // 25: webhook.RegisteredEvent.updated_at:type_name -> google.protobuf.Timestamp
 	22,  // 26: webhook.ListEventsResponse.events:type_name -> webhook.RegisteredEvent
 	3,   // 27: webhook.ListEventsResponse.pagination:type_name -> webhook.PaginationResponse
-	93,  // 28: webhook.UpdateEventRequest.schema:type_name -> google.protobuf.Struct
-	82,  // 29: webhook.UpdateEventRequest.metadata:type_name -> webhook.UpdateEventRequest.MetadataEntry
+	107, // 28: webhook.UpdateEventRequest.schema:type_name -> google.protobuf.Struct
+	95,  // 29: webhook.UpdateEventRequest.metadata:type_name -> webhook.UpdateEventRequest.MetadataEntry
 	22,  // 30: webhook.GetEventResponse.event:type_name -> webhook.RegisteredEvent
-	93,  // 31: webhook.PushEventRequest.payload:type_name -> google.protobuf.Struct
-	83,  // 32: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
-	84,  // 33: webhook.PushEventRequest.labels:type_name -> webhook.PushEventRequest.LabelsEntry
-	93,  // 34: webhook.EventReport.payload:type_name -> google.protobuf.Struct
-	85,  // 35: webhook.EventReport.metadata:type_name -> webhook.EventReport.MetadataEntry
-	92,  // 36: webhook.EventReport.created_at:type_name -> google.protobuf.Timestamp
+	107, // 31: webhook.PushEventRequest.payload:type_name -> google.protobuf.Struct
+	96,  // 32: webhook.PushEventRequest.metadata:type_name -> webhook.PushEventRequest.MetadataEntry
+	97,  // 33: webhook.PushEventRequest.labels:type_name -> webhook.PushEventRequest.LabelsEntry
+	107, // 34: webhook.EventReport.payload:type_name -> google.protobuf.Struct
+	98,  // 35: webhook.EventReport.metadata:type_name -> webhook.EventReport.MetadataEntry
+	106, // 36: webhook.EventReport.created_at:type_name -> google.protobuf.Timestamp
 	2,   // 37: webhook.ListEventReportsRequest.pagination:type_name -> webhook.PaginationRequest
-	32,  // 38: webhook.ListEventReportsResponse.events:type_name -> webhook.EventReport
-	3,   // 39: webhook.ListEventReportsResponse.pagination:type_name -> webhook.PaginationResponse
-	86,  // 40: webhook.EventSubscription.headers:type_name -> webhook.EventSubscription.HeadersEntry
-	92,  // 41: webhook.EventSubscription.created_at:type_name -> google.protobuf.Timestamp
-	92,  // 42: webhook.EventSubscription.updated_at:type_name -> google.protobuf.Timestamp
-	87,  // 43: webhook.EventSubscription.label_filters:type_name -> webhook.EventSubscription.LabelFiltersEntry
-	88,  // 44: webhook.CreateSubscriptionRequest.headers:type_name -> webhook.CreateSubscriptionRequest.HeadersEntry
-	89,  // 45: webhook.CreateSubscriptionRequest.label_filters:type_name -> webhook.CreateSubscriptionRequest.LabelFiltersEntry
-	92,  // 46: webhook.CreateSubscriptionResponse.created_at:type_name -> google.protobuf.Timestamp
-	35,  // 47: webhook.GetSubscriptionResponse.subscription:type_name -> webhook.EventSubscription
-	2,   // 48: webhook.ListSubscriptionsRequest.pagination:type_name -> webhook.PaginationRequest
-	35,  // 49: webhook.ListSubscriptionsResponse.subscriptions:type_name -> webhook.EventSubscription
-	3,   // 50: webhook.ListSubscriptionsResponse.pagination:type_name -> webhook.PaginationResponse
-	90,  // 51: webhook.UpdateSubscriptionRequest.headers:type_name -> webhook.UpdateSubscriptionRequest.HeadersEntry
-	91,  // 52: webhook.UpdateSubscriptionRequest.label_filters:type_name -> webhook.UpdateSubscriptionRequest.LabelFiltersEntry
-	35,  // 53: webhook.ListSubscriptionsByEventResponse.subscriptions:type_name -> webhook.EventSubscription
-	3,   // 54: webhook.ListSubscriptionsByEventResponse.pagination:type_name -> webhook.PaginationResponse
-	0,   // 55: webhook.WebhookDelivery.status:type_name -> webhook.WebhookDeliveryStatus
-	92,  // 56: webhook.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
-	92,  // 57: webhook.WebhookDelivery.last_attempted_at:type_name -> google.protobuf.Timestamp
-	92,  // 58: webhook.WebhookDelivery.next_retry_at:type_name -> google.protobuf.Timestamp
-	92,  // 59: webhook.WebhookDelivery.expires_at:type_name -> google.protobuf.Timestamp
-	50,  // 60: webhook.GetDeliveryStatusResponse.delivery:type_name -> webhook.WebhookDelivery
-	2,   // 61: webhook.ListDeliveriesRequest.pagination:type_name -> webhook.PaginationRequest
-	50,  // 62: webhook.ListDeliveriesResponse.deliveries:type_name -> webhook.WebhookDelivery
-	3,   // 63: webhook.ListDeliveriesResponse.pagination:type_name -> webhook.PaginationResponse
-	92,  // 64: webhook.DeliveryAttempt.timestamp:type_name -> google.protobuf.Timestamp
-	57,  // 65: webhook.GetDeliveryAttemptsResponse.attempts:type_name -> webhook.DeliveryAttempt
-	92,  // 66: webhook.WebhookHealthMetrics.last_success_at:type_name -> google.protobuf.Timestamp
-	92,  // 67: webhook.WebhookHealthMetrics.last_failure_at:type_name -> google.protobuf.Timestamp
-	92,  // 68: webhook.WebhookHealthMetrics.created_at:type_name -> google.protobuf.Timestamp
-	92,  // 69: webhook.WebhookHealthMetrics.updated_at:type_name -> google.protobuf.Timestamp
-	1,   // 70: webhook.GetWebhookHealthResponse.health:type_name -> webhook.WebhookHealth
-	61,  // 71: webhook.GetWebhookHealthResponse.metrics:type_name -> webhook.WebhookHealthMetrics
-	1,   // 72: webhook.ListWebhooksByHealthRequest.health:type_name -> webhook.WebhookHealth
-	2,   // 73: webhook.ListWebhooksByHealthRequest.pagination:type_name -> webhook.PaginationRequest
-	10,  // 74: webhook.ListWebhooksByHealthResponse.webhooks:type_name -> webhook.RegisteredWebhook
-	3,   // 75: webhook.ListWebhooksByHealthResponse.pagination:type_name -> webhook.PaginationResponse
-	66,  // 76: webhook.GetHealthSummaryResponse.summary:type_name -> webhook.HealthSummary
-	69,  // 77: webhook.GetNamespaceStatsResponse.stats:type_name -> webhook.NamespaceStats
-	71,  // 78: webhook.GetTemplateFunctionsResponse.functions:type_name -> webhook.TemplateFunction
-	5,   // 79: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
-	7,   // 80: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
-	9,   // 81: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
-	13,  // 82: webhook.WebhookService.UpdateWebhookConfig:input_type -> webhook.UpdateWebhookConfigRequest
-	15,  // 83: webhook.WebhookService.PauseWebhook:input_type -> webhook.PauseWebhookRequest
-	17,  // 84: webhook.WebhookService.ResumeWebhook:input_type -> webhook.ResumeWebhookRequest
-	68,  // 85: webhook.WebhookService.GetNamespaceStats:input_type -> webhook.GetNamespaceStatsRequest
-	72,  // 86: webhook.WebhookService.GetTemplateFunctions:input_type -> webhook.GetTemplateFunctionsRequest
-	19,  // 87: webhook.EventService.RegisterEvent:input_type -> webhook.RegisterEventRequest
-	21,  // 88: webhook.EventService.ListEvents:input_type -> webhook.ListEventsRequest
-	24,  // 89: webhook.EventService.UpdateEvent:input_type -> webhook.UpdateEventRequest
-	28,  // 90: webhook.EventService.DeleteEvent:input_type -> webhook.DeleteEventRequest
-	26,  // 91: webhook.EventService.GetEvent:input_type -> webhook.GetEventRequest
-	30,  // 92: webhook.EventService.PushEvent:input_type -> webhook.PushEventRequest
-	33,  // 93: webhook.EventService.ListEventReports:input_type -> webhook.ListEventReportsRequest
-	36,  // 94: webhook.SubscriptionService.CreateSubscription:input_type -> webhook.CreateSubscriptionRequest
-	38,  // 95: webhook.SubscriptionService.GetSubscription:input_type -> webhook.GetSubscriptionRequest
-	40,  // 96: webhook.SubscriptionService.ListSubscriptions:input_type -> webhook.ListSubscriptionsRequest
-	42,  // 97: webhook.SubscriptionService.UpdateSubscription:input_type -> webhook.UpdateSubscriptionRequest
-	44,  // 98: webhook.SubscriptionService.DeleteSubscription:input_type -> webhook.DeleteSubscriptionRequest
-	48,  // 99: webhook.SubscriptionService.TestSubscriptionTemplate:input_type -> webhook.TestSubscriptionTemplateRequest
-	51,  // 100: webhook.DeliveryService.GetDeliveryStatus:input_type -> webhook.GetDeliveryStatusRequest
-	53,  // 101: webhook.DeliveryService.ListDeliveries:input_type -> webhook.ListDeliveriesRequest
-	55,  // 102: webhook.DeliveryService.RetryDelivery:input_type -> webhook.RetryDeliveryRequest
-	58,  // 103: webhook.DeliveryService.GetDeliveryAttempts:input_type -> webhook.GetDeliveryAttemptsRequest
-	60,  // 104: webhook.HealthService.GetWebhookHealth:input_type -> webhook.GetWebhookHealthRequest
-	63,  // 105: webhook.HealthService.ListWebhooksByHealth:input_type -> webhook.ListWebhooksByHealthRequest
-	65,  // 106: webhook.HealthService.GetHealthSummary:input_type -> webhook.GetHealthSummaryRequest
-	6,   // 107: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
-	8,   // 108: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
-	11,  // 109: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
-	14,  // 110: webhook.WebhookService.UpdateWebhookConfig:output_type -> webhook.UpdateWebhookConfigResponse
-	16,  // 111: webhook.WebhookService.PauseWebhook:output_type -> webhook.PauseWebhookResponse
-	18,  // 112: webhook.WebhookService.ResumeWebhook:output_type -> webhook.ResumeWebhookResponse
-	70,  // 113: webhook.WebhookService.GetNamespaceStats:output_type -> webhook.GetNamespaceStatsResponse
-	73,  // 114: webhook.WebhookService.GetTemplateFunctions:output_type -> webhook.GetTemplateFunctionsResponse
-	20,  // 115: webhook.EventService.RegisterEvent:output_type -> webhook.RegisterEventResponse
-	23,  // 116: webhook.EventService.ListEvents:output_type -> webhook.ListEventsResponse
-	25,  // 117: webhook.EventService.UpdateEvent:output_type -> webhook.UpdateEventResponse
-	29,  // 118: webhook.EventService.DeleteEvent:output_type -> webhook.DeleteEventResponse
-	27,  // 119: webhook.EventService.GetEvent:output_type -> webhook.GetEventResponse
-	31,  // 120: webhook.EventService.PushEvent:output_type -> webhook.PushEventResponse
-	34,  // 121: webhook.EventService.ListEventReports:output_type -> webhook.ListEventReportsResponse
-	37,  // 122: webhook.SubscriptionService.CreateSubscription:output_type -> webhook.CreateSubscriptionResponse
-	39,  // 123: webhook.SubscriptionService.GetSubscription:output_type -> webhook.GetSubscriptionResponse
-	41,  // 124: webhook.SubscriptionService.ListSubscriptions:output_type -> webhook.ListSubscriptionsResponse
-	43,  // 125: webhook.SubscriptionService.UpdateSubscription:output_type -> webhook.UpdateSubscriptionResponse
-	45,  // 126: webhook.SubscriptionService.DeleteSubscription:output_type -> webhook.DeleteSubscriptionResponse
-	49,  // 127: webhook.SubscriptionService.TestSubscriptionTemplate:output_type -> webhook.TestSubscriptionTemplateResponse
-	52,  // 128: webhook.DeliveryService.GetDeliveryStatus:output_type -> webhook.GetDeliveryStatusResponse
-	54,  // 129: webhook.DeliveryService.ListDeliveries:output_type -> webhook.ListDeliveriesResponse
-	56,  // 130: webhook.DeliveryService.RetryDelivery:output_type -> webhook.RetryDeliveryResponse
-	59,  // 131: webhook.DeliveryService.GetDeliveryAttempts:output_type -> webhook.GetDeliveryAttemptsResponse
-	62,  // 132: webhook.HealthService.GetWebhookHealth:output_type -> webhook.GetWebhookHealthResponse
-	64,  // 133: webhook.HealthService.ListWebhooksByHealth:output_type -> webhook.ListWebhooksByHealthResponse
-	67,  // 134: webhook.HealthService.GetHealthSummary:output_type -> webhook.GetHealthSummaryResponse
-	107, // [107:135] is the sub-list for method output_type
-	79,  // [79:107] is the sub-list for method input_type
-	79,  // [79:79] is the sub-list for extension type_name
-	79,  // [79:79] is the sub-list for extension extendee
-	0,   // [0:79] is the sub-list for field type_name
+	99,  // 38: webhook.ListEventReportsRequest.labels:type_name -> webhook.ListEventReportsRequest.LabelsEntry
+	106, // 39: webhook.ListEventReportsRequest.created_after:type_name -> google.protobuf.Timestamp
+	106, // 40: webhook.ListEventReportsRequest.created_before:type_name -> google.protobuf.Timestamp
+	32,  // 41: webhook.ListEventReportsResponse.events:type_name -> webhook.EventReport
+	3,   // 42: webhook.ListEventReportsResponse.pagination:type_name -> webhook.PaginationResponse
+	100, // 43: webhook.EventSubscription.headers:type_name -> webhook.EventSubscription.HeadersEntry
+	106, // 44: webhook.EventSubscription.created_at:type_name -> google.protobuf.Timestamp
+	106, // 45: webhook.EventSubscription.updated_at:type_name -> google.protobuf.Timestamp
+	101, // 46: webhook.EventSubscription.label_filters:type_name -> webhook.EventSubscription.LabelFiltersEntry
+	102, // 47: webhook.CreateSubscriptionRequest.headers:type_name -> webhook.CreateSubscriptionRequest.HeadersEntry
+	103, // 48: webhook.CreateSubscriptionRequest.label_filters:type_name -> webhook.CreateSubscriptionRequest.LabelFiltersEntry
+	106, // 49: webhook.CreateSubscriptionResponse.created_at:type_name -> google.protobuf.Timestamp
+	35,  // 50: webhook.GetSubscriptionResponse.subscription:type_name -> webhook.EventSubscription
+	2,   // 51: webhook.ListSubscriptionsRequest.pagination:type_name -> webhook.PaginationRequest
+	35,  // 52: webhook.ListSubscriptionsResponse.subscriptions:type_name -> webhook.EventSubscription
+	3,   // 53: webhook.ListSubscriptionsResponse.pagination:type_name -> webhook.PaginationResponse
+	104, // 54: webhook.UpdateSubscriptionRequest.headers:type_name -> webhook.UpdateSubscriptionRequest.HeadersEntry
+	105, // 55: webhook.UpdateSubscriptionRequest.label_filters:type_name -> webhook.UpdateSubscriptionRequest.LabelFiltersEntry
+	35,  // 56: webhook.ListSubscriptionsByEventResponse.subscriptions:type_name -> webhook.EventSubscription
+	3,   // 57: webhook.ListSubscriptionsByEventResponse.pagination:type_name -> webhook.PaginationResponse
+	0,   // 58: webhook.WebhookDelivery.status:type_name -> webhook.WebhookDeliveryStatus
+	106, // 59: webhook.WebhookDelivery.created_at:type_name -> google.protobuf.Timestamp
+	106, // 60: webhook.WebhookDelivery.last_attempted_at:type_name -> google.protobuf.Timestamp
+	106, // 61: webhook.WebhookDelivery.next_retry_at:type_name -> google.protobuf.Timestamp
+	106, // 62: webhook.WebhookDelivery.expires_at:type_name -> google.protobuf.Timestamp
+	50,  // 63: webhook.GetDeliveryStatusResponse.delivery:type_name -> webhook.WebhookDelivery
+	2,   // 64: webhook.ListDeliveriesRequest.pagination:type_name -> webhook.PaginationRequest
+	106, // 65: webhook.ListDeliveriesRequest.created_after:type_name -> google.protobuf.Timestamp
+	106, // 66: webhook.ListDeliveriesRequest.created_before:type_name -> google.protobuf.Timestamp
+	50,  // 67: webhook.ListDeliveriesResponse.deliveries:type_name -> webhook.WebhookDelivery
+	3,   // 68: webhook.ListDeliveriesResponse.pagination:type_name -> webhook.PaginationResponse
+	106, // 69: webhook.DeliveryAttempt.timestamp:type_name -> google.protobuf.Timestamp
+	57,  // 70: webhook.GetDeliveryAttemptsResponse.attempts:type_name -> webhook.DeliveryAttempt
+	106, // 71: webhook.WebhookHealthMetrics.last_success_at:type_name -> google.protobuf.Timestamp
+	106, // 72: webhook.WebhookHealthMetrics.last_failure_at:type_name -> google.protobuf.Timestamp
+	106, // 73: webhook.WebhookHealthMetrics.created_at:type_name -> google.protobuf.Timestamp
+	106, // 74: webhook.WebhookHealthMetrics.updated_at:type_name -> google.protobuf.Timestamp
+	1,   // 75: webhook.GetWebhookHealthResponse.health:type_name -> webhook.WebhookHealth
+	61,  // 76: webhook.GetWebhookHealthResponse.metrics:type_name -> webhook.WebhookHealthMetrics
+	1,   // 77: webhook.ListWebhooksByHealthRequest.health:type_name -> webhook.WebhookHealth
+	2,   // 78: webhook.ListWebhooksByHealthRequest.pagination:type_name -> webhook.PaginationRequest
+	10,  // 79: webhook.ListWebhooksByHealthResponse.webhooks:type_name -> webhook.RegisteredWebhook
+	3,   // 80: webhook.ListWebhooksByHealthResponse.pagination:type_name -> webhook.PaginationResponse
+	66,  // 81: webhook.GetHealthSummaryResponse.summary:type_name -> webhook.HealthSummary
+	69,  // 82: webhook.GetNamespaceStatsResponse.stats:type_name -> webhook.NamespaceStats
+	71,  // 83: webhook.GetTemplateFunctionsResponse.functions:type_name -> webhook.TemplateFunction
+	106, // 84: webhook.BatchJobStatus.created_at:type_name -> google.protobuf.Timestamp
+	106, // 85: webhook.BatchJobStatus.expires_at:type_name -> google.protobuf.Timestamp
+	74,  // 86: webhook.GetRepushStatusResponse.batch:type_name -> webhook.BatchJobStatus
+	74,  // 87: webhook.GetRetryStatusResponse.batch:type_name -> webhook.BatchJobStatus
+	5,   // 88: webhook.WebhookService.RegisterWebhook:input_type -> webhook.RegisterWebhookRequest
+	7,   // 89: webhook.WebhookService.UnregisterWebhook:input_type -> webhook.UnregisterWebhookRequest
+	9,   // 90: webhook.WebhookService.ListWebhooks:input_type -> webhook.ListWebhooksRequest
+	13,  // 91: webhook.WebhookService.UpdateWebhookConfig:input_type -> webhook.UpdateWebhookConfigRequest
+	15,  // 92: webhook.WebhookService.PauseWebhook:input_type -> webhook.PauseWebhookRequest
+	17,  // 93: webhook.WebhookService.ResumeWebhook:input_type -> webhook.ResumeWebhookRequest
+	68,  // 94: webhook.WebhookService.GetNamespaceStats:input_type -> webhook.GetNamespaceStatsRequest
+	72,  // 95: webhook.WebhookService.GetTemplateFunctions:input_type -> webhook.GetTemplateFunctionsRequest
+	19,  // 96: webhook.EventService.RegisterEvent:input_type -> webhook.RegisterEventRequest
+	21,  // 97: webhook.EventService.ListEvents:input_type -> webhook.ListEventsRequest
+	24,  // 98: webhook.EventService.UpdateEvent:input_type -> webhook.UpdateEventRequest
+	28,  // 99: webhook.EventService.DeleteEvent:input_type -> webhook.DeleteEventRequest
+	26,  // 100: webhook.EventService.GetEvent:input_type -> webhook.GetEventRequest
+	30,  // 101: webhook.EventService.PushEvent:input_type -> webhook.PushEventRequest
+	33,  // 102: webhook.EventService.ListEventReports:input_type -> webhook.ListEventReportsRequest
+	75,  // 103: webhook.EventService.RePushEvents:input_type -> webhook.RePushEventsRequest
+	77,  // 104: webhook.EventService.GetRepushStatus:input_type -> webhook.GetRepushStatusRequest
+	79,  // 105: webhook.EventService.CancelRepush:input_type -> webhook.CancelRepushRequest
+	36,  // 106: webhook.SubscriptionService.CreateSubscription:input_type -> webhook.CreateSubscriptionRequest
+	38,  // 107: webhook.SubscriptionService.GetSubscription:input_type -> webhook.GetSubscriptionRequest
+	40,  // 108: webhook.SubscriptionService.ListSubscriptions:input_type -> webhook.ListSubscriptionsRequest
+	42,  // 109: webhook.SubscriptionService.UpdateSubscription:input_type -> webhook.UpdateSubscriptionRequest
+	44,  // 110: webhook.SubscriptionService.DeleteSubscription:input_type -> webhook.DeleteSubscriptionRequest
+	48,  // 111: webhook.SubscriptionService.TestSubscriptionTemplate:input_type -> webhook.TestSubscriptionTemplateRequest
+	51,  // 112: webhook.DeliveryService.GetDeliveryStatus:input_type -> webhook.GetDeliveryStatusRequest
+	53,  // 113: webhook.DeliveryService.ListDeliveries:input_type -> webhook.ListDeliveriesRequest
+	55,  // 114: webhook.DeliveryService.RetryDelivery:input_type -> webhook.RetryDeliveryRequest
+	58,  // 115: webhook.DeliveryService.GetDeliveryAttempts:input_type -> webhook.GetDeliveryAttemptsRequest
+	81,  // 116: webhook.DeliveryService.RetryDeliveries:input_type -> webhook.RetryDeliveriesRequest
+	83,  // 117: webhook.DeliveryService.GetRetryStatus:input_type -> webhook.GetRetryStatusRequest
+	85,  // 118: webhook.DeliveryService.CancelRetry:input_type -> webhook.CancelRetryRequest
+	60,  // 119: webhook.HealthService.GetWebhookHealth:input_type -> webhook.GetWebhookHealthRequest
+	63,  // 120: webhook.HealthService.ListWebhooksByHealth:input_type -> webhook.ListWebhooksByHealthRequest
+	65,  // 121: webhook.HealthService.GetHealthSummary:input_type -> webhook.GetHealthSummaryRequest
+	6,   // 122: webhook.WebhookService.RegisterWebhook:output_type -> webhook.RegisterWebhookResponse
+	8,   // 123: webhook.WebhookService.UnregisterWebhook:output_type -> webhook.UnregisterWebhookResponse
+	11,  // 124: webhook.WebhookService.ListWebhooks:output_type -> webhook.ListWebhooksResponse
+	14,  // 125: webhook.WebhookService.UpdateWebhookConfig:output_type -> webhook.UpdateWebhookConfigResponse
+	16,  // 126: webhook.WebhookService.PauseWebhook:output_type -> webhook.PauseWebhookResponse
+	18,  // 127: webhook.WebhookService.ResumeWebhook:output_type -> webhook.ResumeWebhookResponse
+	70,  // 128: webhook.WebhookService.GetNamespaceStats:output_type -> webhook.GetNamespaceStatsResponse
+	73,  // 129: webhook.WebhookService.GetTemplateFunctions:output_type -> webhook.GetTemplateFunctionsResponse
+	20,  // 130: webhook.EventService.RegisterEvent:output_type -> webhook.RegisterEventResponse
+	23,  // 131: webhook.EventService.ListEvents:output_type -> webhook.ListEventsResponse
+	25,  // 132: webhook.EventService.UpdateEvent:output_type -> webhook.UpdateEventResponse
+	29,  // 133: webhook.EventService.DeleteEvent:output_type -> webhook.DeleteEventResponse
+	27,  // 134: webhook.EventService.GetEvent:output_type -> webhook.GetEventResponse
+	31,  // 135: webhook.EventService.PushEvent:output_type -> webhook.PushEventResponse
+	34,  // 136: webhook.EventService.ListEventReports:output_type -> webhook.ListEventReportsResponse
+	76,  // 137: webhook.EventService.RePushEvents:output_type -> webhook.RePushEventsResponse
+	78,  // 138: webhook.EventService.GetRepushStatus:output_type -> webhook.GetRepushStatusResponse
+	80,  // 139: webhook.EventService.CancelRepush:output_type -> webhook.CancelRepushResponse
+	37,  // 140: webhook.SubscriptionService.CreateSubscription:output_type -> webhook.CreateSubscriptionResponse
+	39,  // 141: webhook.SubscriptionService.GetSubscription:output_type -> webhook.GetSubscriptionResponse
+	41,  // 142: webhook.SubscriptionService.ListSubscriptions:output_type -> webhook.ListSubscriptionsResponse
+	43,  // 143: webhook.SubscriptionService.UpdateSubscription:output_type -> webhook.UpdateSubscriptionResponse
+	45,  // 144: webhook.SubscriptionService.DeleteSubscription:output_type -> webhook.DeleteSubscriptionResponse
+	49,  // 145: webhook.SubscriptionService.TestSubscriptionTemplate:output_type -> webhook.TestSubscriptionTemplateResponse
+	52,  // 146: webhook.DeliveryService.GetDeliveryStatus:output_type -> webhook.GetDeliveryStatusResponse
+	54,  // 147: webhook.DeliveryService.ListDeliveries:output_type -> webhook.ListDeliveriesResponse
+	56,  // 148: webhook.DeliveryService.RetryDelivery:output_type -> webhook.RetryDeliveryResponse
+	59,  // 149: webhook.DeliveryService.GetDeliveryAttempts:output_type -> webhook.GetDeliveryAttemptsResponse
+	82,  // 150: webhook.DeliveryService.RetryDeliveries:output_type -> webhook.RetryDeliveriesResponse
+	84,  // 151: webhook.DeliveryService.GetRetryStatus:output_type -> webhook.GetRetryStatusResponse
+	86,  // 152: webhook.DeliveryService.CancelRetry:output_type -> webhook.CancelRetryResponse
+	62,  // 153: webhook.HealthService.GetWebhookHealth:output_type -> webhook.GetWebhookHealthResponse
+	64,  // 154: webhook.HealthService.ListWebhooksByHealth:output_type -> webhook.ListWebhooksByHealthResponse
+	67,  // 155: webhook.HealthService.GetHealthSummary:output_type -> webhook.GetHealthSummaryResponse
+	122, // [122:156] is the sub-list for method output_type
+	88,  // [88:122] is the sub-list for method input_type
+	88,  // [88:88] is the sub-list for extension type_name
+	88,  // [88:88] is the sub-list for extension extendee
+	0,   // [0:88] is the sub-list for field type_name
 }
 
 func init() { file_proto_webhook_proto_init() }
@@ -6943,13 +7768,14 @@ func file_proto_webhook_proto_init() {
 	}
 	file_proto_webhook_proto_msgTypes[28].OneofWrappers = []any{}
 	file_proto_webhook_proto_msgTypes[31].OneofWrappers = []any{}
+	file_proto_webhook_proto_msgTypes[51].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_webhook_proto_rawDesc), len(file_proto_webhook_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   90,
+			NumMessages:   104,
 			NumExtensions: 0,
 			NumServices:   5,
 		},

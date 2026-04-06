@@ -20,6 +20,7 @@ const (
 	// Queue names
 	QueueEventProcessing = "events"
 	QueueWebhookDelivery = "webhooks"
+	QueueBatchJobs       = "batch_jobs"
 	QueueDefault         = river.QueueDefault
 )
 
@@ -74,6 +75,27 @@ func (w WebhookArgs) InsertOpts() river.InsertOpts {
 // Kind returns the job kind for River queue
 func (WebhookArgs) Kind() string {
 	return "webhook_delivery"
+}
+
+// BatchJobArgs represents a batch job processing task (event repush or delivery retry).
+// The batch data (item IDs, type) is stored in the batch_jobs table; this job just
+// carries the reference.
+type BatchJobArgs struct {
+	TenantID string `json:"tenant_id"`
+	BatchID  string `json:"batch_id"`
+}
+
+var _ river.JobArgsWithInsertOpts = (*BatchJobArgs)(nil)
+
+func (BatchJobArgs) InsertOpts() river.InsertOpts {
+	return river.InsertOpts{
+		Queue: QueueBatchJobs,
+	}
+}
+
+// Kind returns the job kind for River queue
+func (BatchJobArgs) Kind() string {
+	return "batch_processing"
 }
 
 type jobInserter struct {

@@ -242,3 +242,18 @@ func maskSecretHeaders(encrypted []byte, svc webhooks.WebhookServiceInterface) m
 	}
 	return masked
 }
+
+// batchJobToProto converts a store.BatchJob to the protobuf BatchJobStatus message.
+func batchJobToProto(batch *store.BatchJob) *pb.BatchJobStatus {
+	if batch == nil {
+		return nil
+	}
+	return &pb.BatchJobStatus{
+		Status:    string(batch.Status),
+		Total:     int32(batch.Total),
+		Processed: int32(batch.Processed),
+		Failed:    int32(batch.Failed),
+		CreatedAt: convertTimeToProto(batch.CreatedAt),
+		ExpiresAt: convertTimeToProto(batch.ExpiresAt),
+	}
+}

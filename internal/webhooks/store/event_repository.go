@@ -239,6 +239,158 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 	return events, totalCount, nil
 }
 
+// ListEventReportsFiltered retrieves event records with delivery statistics using
+// dynamic filter criteria. This replaces the older ListEventReportsWithStats for
+// callers that need schema_valid, labels, or time-range filtering.
+func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, int, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	// Always filter by tenant
+	conditions = append(conditions, fmt.Sprintf("er.tenant_id = $%d", argIdx))
+	args = append(args, tenantID)
+	argIdx++
+
+	if filter.Namespace != "" {
+		conditions = append(conditions, fmt.Sprintf("er.namespace = $%d", argIdx))
+		args = append(args, filter.Namespace)
+		argIdx++
+	}
+
+	if filter.EventName != nil {
+		conditions = append(conditions, fmt.Sprintf("er.event = $%d", argIdx))
+		args = append(args, *filter.EventName)
+		argIdx++
+	}
+
+	if filter.SchemaValid != nil {
+		conditions = append(conditions, fmt.Sprintf("er.schema_valid = $%d", argIdx))
+		args = append(args, *filter.SchemaValid)
+		argIdx++
+	}
+
+	if len(filter.Labels) > 0 {
+		labelsJSON, err := json.Marshal(filter.Labels)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to marshal label filter: %w", err)
+		}
+		conditions = append(conditions, fmt.Sprintf("er.labels @> $%d::jsonb", argIdx))
+		args = append(args, string(labelsJSON))
+		argIdx++
+	}
+
+	if filter.CreatedAfter != nil {
+		conditions = append(conditions, fmt.Sprintf("er.created_at >= $%d", argIdx))
+		args = append(args, *filter.CreatedAfter)
+		argIdx++
+	}
+
+	if filter.CreatedBefore != nil {
+		conditions = append(conditions, fmt.Sprintf("er.created_at <= $%d", argIdx))
+		args = append(args, *filter.CreatedBefore)
+		argIdx++
+	}
+
+	whereClause := strings.Join(conditions, " AND ")
+
+	// Build main query with delivery stats
+	baseQuery := fmt.Sprintf(`
+		SELECT
+			er.id, er.tenant_id, er.namespace, er.event, er.payload, er.ttl,
+			er.metadata, er.labels, er.schema_valid, er.created_at, er.expires_at,
+			COALESCE(ds.webhook_count, 0) as webhook_count,
+			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
+			COALESCE(ds.failed_deliveries, 0) as failed_deliveries,
+			COALESCE(ds.pending_deliveries, 0) as pending_deliveries
+		FROM event_records er
+		LEFT JOIN (
+			SELECT
+				wd.event_id,
+				COUNT(DISTINCT wd.webhook_id) as webhook_count,
+				SUM(CASE WHEN wh.success = true THEN 1 ELSE 0 END) as successful_deliveries,
+				SUM(CASE WHEN wh.success = false THEN 1 ELSE 0 END) as failed_deliveries,
+				COUNT(CASE WHEN wd.status IN ('pending', 'sending', 'retrying') THEN 1 END) as pending_deliveries
+			FROM webhook_deliveries wd
+			LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id
+			GROUP BY wd.event_id
+		) ds ON er.id = ds.event_id
+		WHERE %s
+		ORDER BY er.created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, whereClause, argIdx, argIdx+1)
+
+	// Build count query using the same conditions but without table alias prefix
+	// We need to rebuild conditions using plain column names (no "er." prefix).
+	var countConditions []string
+	var countArgs []any
+	countArgIdx := 1
+
+	countConditions = append(countConditions, fmt.Sprintf("tenant_id = $%d", countArgIdx))
+	countArgs = append(countArgs, tenantID)
+	countArgIdx++
+
+	if filter.Namespace != "" {
+		countConditions = append(countConditions, fmt.Sprintf("namespace = $%d", countArgIdx))
+		countArgs = append(countArgs, filter.Namespace)
+		countArgIdx++
+	}
+
+	if filter.EventName != nil {
+		countConditions = append(countConditions, fmt.Sprintf("event = $%d", countArgIdx))
+		countArgs = append(countArgs, *filter.EventName)
+		countArgIdx++
+	}
+
+	if filter.SchemaValid != nil {
+		countConditions = append(countConditions, fmt.Sprintf("schema_valid = $%d", countArgIdx))
+		countArgs = append(countArgs, *filter.SchemaValid)
+		countArgIdx++
+	}
+
+	if len(filter.Labels) > 0 {
+		labelsJSON, err := json.Marshal(filter.Labels)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to marshal label filter: %w", err)
+		}
+		countConditions = append(countConditions, fmt.Sprintf("labels @> $%d::jsonb", countArgIdx))
+		countArgs = append(countArgs, string(labelsJSON))
+		countArgIdx++
+	}
+
+	if filter.CreatedAfter != nil {
+		countConditions = append(countConditions, fmt.Sprintf("created_at >= $%d", countArgIdx))
+		countArgs = append(countArgs, *filter.CreatedAfter)
+		countArgIdx++
+	}
+
+	if filter.CreatedBefore != nil {
+		countConditions = append(countConditions, fmt.Sprintf("created_at <= $%d", countArgIdx))
+		countArgs = append(countArgs, *filter.CreatedBefore)
+		countArgIdx++ //nolint:ineffassign // kept for clarity and future extensibility
+	}
+
+	countWhereClause := strings.Join(countConditions, " AND ")
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM event_records WHERE %s`, countWhereClause)
+
+	// Execute main query
+	queryArgs := append(args, filter.Limit, filter.Offset)
+	var events []*EventReportWithStats
+	err := r.conn.SelectContext(ctx, &events, baseQuery, queryArgs...)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	// Get total count
+	var totalCount int
+	err = r.conn.GetContext(ctx, &totalCount, countQuery, countArgs...)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	return events, totalCount, nil
+}
+
 // DeleteEventByID deletes an event record by its ID within a tenant.
 // Used as a compensation action when downstream operations (e.g. job insertion) fail
 // after the event has already been stored.

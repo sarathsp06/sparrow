@@ -57,7 +57,7 @@ type WebhookServiceInterface interface {
 	DeleteEvent(ctx context.Context, name string) error
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
 	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string) (string, []string, error)
-	ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int32) ([]*store.EventReportWithStats, int32, error)
+	ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error)
 
 	// Subscription Management
 	CreateSubscription(ctx context.Context, webhookID, eventName, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error)
@@ -70,13 +70,21 @@ type WebhookServiceInterface interface {
 	// Delivery Management
 	GetDeliveryStatus(ctx context.Context, deliveryID string, namespace string) (*store.WebhookDelivery, error)
 	GetDeliveryAttempts(ctx context.Context, deliveryID string) ([]*store.WebhookHealthEvent, error)
-	ListDeliveries(ctx context.Context, namespace string, webhookID string, eventID string, limit, offset int32) ([]*store.WebhookDelivery, int32, error)
+	ListDeliveries(ctx context.Context, filter store.DeliveryFilter) ([]*store.WebhookDelivery, int32, string, error)
 	RetryDelivery(ctx context.Context, namespace string, deliveryID string, webhookID string, force bool) ([]string, int32, error)
 
 	// Health Management
 	GetWebhookHealth(ctx context.Context, webhookID string, namespace string) (*WebhookHealthData, error)
 	ListWebhooksByHealth(ctx context.Context, health store.WebhookHealth, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
 	GetHealthSummary(ctx context.Context) (*HealthSummaryData, error)
+
+	// Batch Operations
+	RePushEvents(ctx context.Context, repushID string) error
+	GetRepushStatus(ctx context.Context, repushID string) (*store.BatchJob, error)
+	CancelRepush(ctx context.Context, repushID string) error
+	RetryDeliveries(ctx context.Context, retryID string) error
+	GetRetryStatus(ctx context.Context, retryID string) (*store.BatchJob, error)
+	CancelRetry(ctx context.Context, retryID string) error
 
 	// Metadata
 	GetTemplateFunctions() []TemplateFunctionInfo
@@ -802,51 +810,79 @@ func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID str
 }
 
 // ListDeliveries retrieves delivery history with filters.
-// When namespace is empty, returns deliveries across all namespaces.
-func (s *WebhookService) ListDeliveries(ctx context.Context, namespace string, webhookID string, eventID string, limit, offset int32) ([]*store.WebhookDelivery, int32, error) {
+// Supports filtering by namespace, webhook, event, status, error_category,
+// subscription, and time range via the DeliveryFilter struct.
+// When PrepareRetry is true, snapshots all matching delivery IDs into a batch job and returns the batch ID.
+func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.DeliveryFilter) ([]*store.WebhookDelivery, int32, string, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.ListDeliveries")
 	defer span.End()
 
-	s.logger.InfoContext(ctx, "Listing deliveries", "namespace", namespace, "webhook_id", webhookID, "event_id", eventID, "limit", limit, "offset", offset)
+	s.logger.InfoContext(ctx, "Listing deliveries",
+		"namespace", filter.Namespace,
+		"webhook_id", filter.WebhookID,
+		"event_id", filter.EventID,
+		"status", filter.Status,
+		"error_category", filter.ErrorCategory,
+		"prepare_retry", filter.PrepareRetry,
+		"limit", filter.Limit,
+		"offset", filter.Offset)
 
 	tenantID := tenant.DefaultTenantID
 
-	if limit <= 0 {
-		limit = 50
+	if filter.Limit <= 0 {
+		filter.Limit = 50
 	}
-	if offset < 0 {
-		offset = 0
-	}
-
-	var deliveries []*store.WebhookDelivery
-	var totalCount int
-	var err error
-
-	if webhookID != "" {
-		var id uuid.UUID
-		id, err = uuid.Parse(webhookID)
-		if err != nil {
-			return nil, 0, fmt.Errorf("invalid webhook ID: %w", err)
-		}
-		deliveries, totalCount, err = s.webhookRepo.GetDeliveriesByWebhookID(ctx, tenantID, id, namespace, int(limit), int(offset))
-	} else if eventID != "" {
-		var id uuid.UUID
-		id, err = uuid.Parse(eventID)
-		if err != nil {
-			return nil, 0, fmt.Errorf("invalid event ID: %w", err)
-		}
-		deliveries, totalCount, err = s.webhookRepo.GetDeliveriesByEventPaginated(ctx, tenantID, id, namespace, int(limit), int(offset))
-	} else {
-		// List all deliveries, optionally filtered by namespace
-		deliveries, totalCount, err = s.webhookRepo.ListDeliveriesPaginated(ctx, tenantID, namespace, int(limit), int(offset))
+	if filter.Offset < 0 {
+		filter.Offset = 0
 	}
 
+	deliveries, totalCount, err := s.webhookRepo.ListDeliveriesFiltered(ctx, tenantID, filter)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to list deliveries", "error", err)
-		return nil, 0, fmt.Errorf("failed to retrieve deliveries: %w", err)
+		return nil, 0, "", fmt.Errorf("failed to retrieve deliveries: %w", err)
 	}
 
-	return deliveries, int32(totalCount), nil
+	// Snapshot matching IDs into a batch job if requested
+	var retryID string
+	if filter.PrepareRetry {
+		ids, err := s.webhookRepo.SnapshotDeliveryIDs(ctx, tenantID, filter)
+		if err != nil {
+			s.logger.ErrorContext(ctx, "Failed to snapshot delivery IDs for retry", "error", err)
+			return nil, 0, "", fmt.Errorf("failed to prepare retry: %w", err)
+		}
+		if len(ids) > 0 {
+			filterMap := map[string]any{
+				"namespace": filter.Namespace,
+			}
+			if filter.WebhookID != nil {
+				filterMap["webhook_id"] = filter.WebhookID.String()
+			}
+			if filter.EventID != nil {
+				filterMap["event_id"] = filter.EventID.String()
+			}
+			if filter.Status != nil {
+				filterMap["status"] = *filter.Status
+			}
+			if filter.ErrorCategory != nil {
+				filterMap["error_category"] = *filter.ErrorCategory
+			}
+			batchData := &store.BatchJobData{
+				ItemIDs: ids,
+				Filter:  filterMap,
+			}
+			batchJob, err := s.webhookRepo.CreateBatchJob(ctx, tenantID, filter.Namespace, store.BatchTypeDeliveryRetry, batchData)
+			if err != nil {
+				s.logger.ErrorContext(ctx, "Failed to create batch job for retry", "error", err)
+				return nil, 0, "", fmt.Errorf("failed to create retry batch: %w", err)
+			}
+			retryID = batchJob.ID.String()
+			s.logger.InfoContext(ctx, "Created retry batch job",
+				"retry_id", retryID,
+				"delivery_count", len(ids))
+		}
+	}
+
+	return deliveries, int32(totalCount), retryID, nil
 }
 
 // RetryDelivery manually retries failed or pending webhook deliveries
@@ -1742,54 +1778,93 @@ func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
 }
 
 // ListEventReports lists event records with delivery statistics in descending order by creation time.
-// When namespace is empty, returns reports across all namespaces.
-func (s *WebhookService) ListEventReports(ctx context.Context, namespace string, eventName *string, limit, offset int32) ([]*store.EventReportWithStats, int32, error) {
+// Supports filtering by namespace, event name, schema_valid, labels, and time range.
+// When PrepareRepush is true, snapshots all matching event IDs into a batch job and returns the batch ID.
+func (s *WebhookService) ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.ListEventReports")
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing list event reports request",
-		"namespace", namespace,
-		"event_name", eventName,
-		"limit", limit,
-		"offset", offset)
+		"namespace", filter.Namespace,
+		"event_name", filter.EventName,
+		"prepare_repush", filter.PrepareRepush,
+		"limit", filter.Limit,
+		"offset", filter.Offset)
 
 	tenantID := tenant.DefaultTenantID
 
 	// Set default limit if not provided or out of range
-	if limit <= 0 {
-		limit = 50
-	} else if limit > 1000 {
-		limit = 1000
+	if filter.Limit <= 0 {
+		filter.Limit = 50
+	} else if filter.Limit > 1000 {
+		filter.Limit = 1000
 	}
 
 	// Ensure offset is not negative
-	if offset < 0 {
-		offset = 0
+	if filter.Offset < 0 {
+		filter.Offset = 0
 	}
 
-	events, totalCount, err := s.webhookRepo.ListEventReportsWithStats(ctx, tenantID, namespace, eventName, int(limit), int(offset))
+	events, totalCount, err := s.webhookRepo.ListEventReportsFiltered(ctx, tenantID, filter)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to list event reports", "namespace", namespace, "event_name", eventName, "error", err)
+		s.logger.ErrorContext(ctx, "Failed to list event reports", "namespace", filter.Namespace, "event_name", filter.EventName, "error", err)
 		span.SetStatus(otelcodes.Error, err.Error())
-		return nil, 0, fmt.Errorf("failed to list event reports: %w", err)
+		return nil, 0, "", fmt.Errorf("failed to list event reports: %w", err)
+	}
+
+	// Snapshot matching IDs into a batch job if requested
+	var repushID string
+	if filter.PrepareRepush {
+		ids, err := s.webhookRepo.SnapshotEventIDs(ctx, tenantID, filter)
+		if err != nil {
+			s.logger.ErrorContext(ctx, "Failed to snapshot event IDs for repush", "error", err)
+			return nil, 0, "", fmt.Errorf("failed to prepare repush: %w", err)
+		}
+		if len(ids) > 0 {
+			filterMap := map[string]any{
+				"namespace": filter.Namespace,
+			}
+			if filter.EventName != nil {
+				filterMap["event_name"] = *filter.EventName
+			}
+			if filter.SchemaValid != nil {
+				filterMap["schema_valid"] = *filter.SchemaValid
+			}
+			if len(filter.Labels) > 0 {
+				filterMap["labels"] = filter.Labels
+			}
+			batchData := &store.BatchJobData{
+				ItemIDs: ids,
+				Filter:  filterMap,
+			}
+			batchJob, err := s.webhookRepo.CreateBatchJob(ctx, tenantID, filter.Namespace, store.BatchTypeEventRepush, batchData)
+			if err != nil {
+				s.logger.ErrorContext(ctx, "Failed to create batch job for repush", "error", err)
+				return nil, 0, "", fmt.Errorf("failed to create repush batch: %w", err)
+			}
+			repushID = batchJob.ID.String()
+			s.logger.InfoContext(ctx, "Created repush batch job",
+				"repush_id", repushID,
+				"event_count", len(ids))
+		}
 	}
 
 	s.logger.InfoContext(ctx, "Successfully listed event reports",
-		"namespace", namespace,
-		"event_name", eventName,
+		"namespace", filter.Namespace,
+		"event_name", filter.EventName,
 		"count", len(events),
 		"total", totalCount)
 
 	span.SetAttributes(
-		attribute.String("namespace", namespace),
+		attribute.String("namespace", filter.Namespace),
 		attribute.Int("count", len(events)),
 		attribute.Int("total", totalCount),
 	)
-	if eventName != nil {
-		span.SetAttributes(attribute.String("event_name", *eventName))
+	if filter.EventName != nil {
+		span.SetAttributes(attribute.String("event_name", *filter.EventName))
 	}
 
-	return events, int32(totalCount), nil
+	return events, int32(totalCount), repushID, nil
 }
 
 // Subscription Management Implementation
@@ -2018,4 +2093,219 @@ func (s *WebhookService) GetTemplateFunctions() []TemplateFunctionInfo {
 		}
 	}
 	return res
+}
+
+// --- Batch Operations ---
+
+// RePushEvents starts async processing of a batch re-push.
+// The batch must exist, belong to the tenant, be of type event_repush, and be in pending status.
+func (s *WebhookService) RePushEvents(ctx context.Context, repushID string) error {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.RePushEvents")
+	defer span.End()
+
+	tenantID := tenant.DefaultTenantID
+
+	batchUUID, err := uuid.Parse(repushID)
+	if err != nil {
+		return fmt.Errorf("invalid repush_id: %w", err)
+	}
+
+	batch, err := s.webhookRepo.GetBatchJob(ctx, tenantID, batchUUID)
+	if err != nil {
+		return fmt.Errorf("failed to get batch job: %w", err)
+	}
+	if batch == nil {
+		return fmt.Errorf("batch job not found")
+	}
+	if batch.JobType != store.BatchTypeEventRepush {
+		return fmt.Errorf("batch job is not an event repush")
+	}
+	if batch.Status != store.BatchStatusPending {
+		return fmt.Errorf("batch job is not in pending status (current: %s)", batch.Status)
+	}
+	if time.Now().After(batch.ExpiresAt) {
+		return fmt.Errorf("batch job has expired")
+	}
+
+	// Transition to processing and enqueue the River job
+	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batchUUID, store.BatchStatusProcessing); err != nil {
+		return fmt.Errorf("failed to update batch status: %w", err)
+	}
+
+	_, err = s.jobInserter.Insert(ctx, &queue.BatchJobArgs{
+		TenantID: tenantID.String(),
+		BatchID:  repushID,
+	})
+	if err != nil {
+		// Roll back status on enqueue failure
+		_ = s.webhookRepo.UpdateBatchJobStatus(ctx, batchUUID, store.BatchStatusPending)
+		return fmt.Errorf("failed to enqueue batch job: %w", err)
+	}
+
+	s.logger.InfoContext(ctx, "Batch re-push enqueued", "repush_id", repushID, "total", batch.Total)
+	return nil
+}
+
+// GetRepushStatus returns the current state of a batch re-push.
+func (s *WebhookService) GetRepushStatus(ctx context.Context, repushID string) (*store.BatchJob, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.GetRepushStatus")
+	defer span.End()
+
+	tenantID := tenant.DefaultTenantID
+
+	batchUUID, err := uuid.Parse(repushID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid repush_id: %w", err)
+	}
+
+	batch, err := s.webhookRepo.GetBatchJob(ctx, tenantID, batchUUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get batch job: %w", err)
+	}
+	if batch == nil {
+		return nil, fmt.Errorf("batch job not found")
+	}
+	if batch.JobType != store.BatchTypeEventRepush {
+		return nil, fmt.Errorf("batch job is not an event repush")
+	}
+	return batch, nil
+}
+
+// CancelRepush aborts a pending or in-progress batch re-push.
+func (s *WebhookService) CancelRepush(ctx context.Context, repushID string) error {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.CancelRepush")
+	defer span.End()
+
+	tenantID := tenant.DefaultTenantID
+
+	batchUUID, err := uuid.Parse(repushID)
+	if err != nil {
+		return fmt.Errorf("invalid repush_id: %w", err)
+	}
+
+	batch, err := s.webhookRepo.GetBatchJob(ctx, tenantID, batchUUID)
+	if err != nil {
+		return fmt.Errorf("failed to get batch job: %w", err)
+	}
+	if batch == nil {
+		return fmt.Errorf("batch job not found")
+	}
+	if batch.JobType != store.BatchTypeEventRepush {
+		return fmt.Errorf("batch job is not an event repush")
+	}
+	if batch.Status == store.BatchStatusCompleted || batch.Status == store.BatchStatusCancelled {
+		return fmt.Errorf("batch job is already in terminal state: %s", batch.Status)
+	}
+
+	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batchUUID, store.BatchStatusCancelled); err != nil {
+		return fmt.Errorf("failed to cancel batch job: %w", err)
+	}
+
+	s.logger.InfoContext(ctx, "Batch re-push cancelled", "repush_id", repushID)
+	return nil
+}
+
+// RetryDeliveries starts async processing of a batch delivery retry.
+func (s *WebhookService) RetryDeliveries(ctx context.Context, retryID string) error {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.RetryDeliveries")
+	defer span.End()
+
+	tenantID := tenant.DefaultTenantID
+
+	batchUUID, err := uuid.Parse(retryID)
+	if err != nil {
+		return fmt.Errorf("invalid retry_id: %w", err)
+	}
+
+	batch, err := s.webhookRepo.GetBatchJob(ctx, tenantID, batchUUID)
+	if err != nil {
+		return fmt.Errorf("failed to get batch job: %w", err)
+	}
+	if batch == nil {
+		return fmt.Errorf("batch job not found")
+	}
+	if batch.JobType != store.BatchTypeDeliveryRetry {
+		return fmt.Errorf("batch job is not a delivery retry")
+	}
+	if batch.Status != store.BatchStatusPending {
+		return fmt.Errorf("batch job is not in pending status (current: %s)", batch.Status)
+	}
+	if time.Now().After(batch.ExpiresAt) {
+		return fmt.Errorf("batch job has expired")
+	}
+
+	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batchUUID, store.BatchStatusProcessing); err != nil {
+		return fmt.Errorf("failed to update batch status: %w", err)
+	}
+
+	_, err = s.jobInserter.Insert(ctx, &queue.BatchJobArgs{
+		TenantID: tenantID.String(),
+		BatchID:  retryID,
+	})
+	if err != nil {
+		_ = s.webhookRepo.UpdateBatchJobStatus(ctx, batchUUID, store.BatchStatusPending)
+		return fmt.Errorf("failed to enqueue batch job: %w", err)
+	}
+
+	s.logger.InfoContext(ctx, "Batch delivery retry enqueued", "retry_id", retryID, "total", batch.Total)
+	return nil
+}
+
+// GetRetryStatus returns the current state of a batch delivery retry.
+func (s *WebhookService) GetRetryStatus(ctx context.Context, retryID string) (*store.BatchJob, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.GetRetryStatus")
+	defer span.End()
+
+	tenantID := tenant.DefaultTenantID
+
+	batchUUID, err := uuid.Parse(retryID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid retry_id: %w", err)
+	}
+
+	batch, err := s.webhookRepo.GetBatchJob(ctx, tenantID, batchUUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get batch job: %w", err)
+	}
+	if batch == nil {
+		return nil, fmt.Errorf("batch job not found")
+	}
+	if batch.JobType != store.BatchTypeDeliveryRetry {
+		return nil, fmt.Errorf("batch job is not a delivery retry")
+	}
+	return batch, nil
+}
+
+// CancelRetry aborts a pending or in-progress batch delivery retry.
+func (s *WebhookService) CancelRetry(ctx context.Context, retryID string) error {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.CancelRetry")
+	defer span.End()
+
+	tenantID := tenant.DefaultTenantID
+
+	batchUUID, err := uuid.Parse(retryID)
+	if err != nil {
+		return fmt.Errorf("invalid retry_id: %w", err)
+	}
+
+	batch, err := s.webhookRepo.GetBatchJob(ctx, tenantID, batchUUID)
+	if err != nil {
+		return fmt.Errorf("failed to get batch job: %w", err)
+	}
+	if batch == nil {
+		return fmt.Errorf("batch job not found")
+	}
+	if batch.JobType != store.BatchTypeDeliveryRetry {
+		return fmt.Errorf("batch job is not a delivery retry")
+	}
+	if batch.Status == store.BatchStatusCompleted || batch.Status == store.BatchStatusCancelled {
+		return fmt.Errorf("batch job is already in terminal state: %s", batch.Status)
+	}
+
+	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batchUUID, store.BatchStatusCancelled); err != nil {
+		return fmt.Errorf("failed to cancel batch job: %w", err)
+	}
+
+	s.logger.InfoContext(ctx, "Batch delivery retry cancelled", "retry_id", retryID)
+	return nil
 }

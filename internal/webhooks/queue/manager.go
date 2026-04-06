@@ -35,6 +35,7 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 			QueueDefault:         {MaxWorkers: 5},
 			QueueEventProcessing: {MaxWorkers: 20, FetchPollInterval: time.Second * 2}, // Event processing queue
 			QueueWebhookDelivery: {MaxWorkers: 20, FetchPollInterval: time.Second * 2}, // Webhook delivery queue
+			QueueBatchJobs:       {MaxWorkers: 5, FetchPollInterval: time.Second * 5},  // Batch job processing queue
 		},
 		Workers: riverWorkers,
 	})
@@ -52,6 +53,7 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 	// Add workers with explicit generic types
 	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo, cryptoSvc, clientConfig))
 	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, manager.GetJobInserter()))
+	river.AddWorker(riverWorkers, NewBatchJobWorker(webhookRepo, manager.GetJobInserter()))
 
 	return manager, nil
 }

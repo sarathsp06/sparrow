@@ -1557,20 +1557,44 @@ export declare type ListEventReportsRequest = Message<"webhook.ListEventReportsR
   pagination?: PaginationRequest;
 
   /**
-   * Deprecated: use pagination.limit.
+   * Filter by schema validation status. When set, only events matching
+   * the specified schema_valid value are returned.
    *
-   * @generated from field: int32 limit = 4 [deprecated = true];
-   * @deprecated
+   * @generated from field: optional bool schema_valid = 6;
    */
-  limit: number;
+  schemaValid?: boolean;
 
   /**
-   * Deprecated: use pagination.offset.
+   * Filter by labels using JSONB containment. Only events whose labels
+   * contain all specified key-value pairs are returned.
+   * @example {"region": "us-east"}
    *
-   * @generated from field: int32 offset = 5 [deprecated = true];
-   * @deprecated
+   * @generated from field: map<string, string> labels = 7;
    */
-  offset: number;
+  labels: { [key: string]: string };
+
+  /**
+   * Filter to events created at or after this timestamp.
+   *
+   * @generated from field: google.protobuf.Timestamp created_after = 8;
+   */
+  createdAfter?: Timestamp;
+
+  /**
+   * Filter to events created at or before this timestamp.
+   *
+   * @generated from field: google.protobuf.Timestamp created_before = 9;
+   */
+  createdBefore?: Timestamp;
+
+  /**
+   * When true, snapshot all matching event IDs (up to 10,000) into a
+   * batch job and return a repush_id in the response. Pass that ID to
+   * RePushEvents to re-push the exact set of events that matched this query.
+   *
+   * @generated from field: bool prepare_repush = 10;
+   */
+  prepareRepush: boolean;
 };
 
 /**
@@ -1600,28 +1624,12 @@ export declare type ListEventReportsResponse = Message<"webhook.ListEventReports
   pagination?: PaginationResponse;
 
   /**
-   * Deprecated: use pagination.total_count.
+   * Batch ID for deterministic re-push. Only populated when
+   * prepare_repush=true was set in the request. Pass to RePushEvents.
    *
-   * @generated from field: int32 total_count = 2 [deprecated = true];
-   * @deprecated
+   * @generated from field: string repush_id = 6;
    */
-  totalCount: number;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 3 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 4 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
+  repushId: string;
 };
 
 /**
@@ -2570,6 +2578,52 @@ export declare type ListDeliveriesRequest = Message<"webhook.ListDeliveriesReque
    * @generated from field: webhook.PaginationRequest pagination = 4;
    */
   pagination?: PaginationRequest;
+
+  /**
+   * Filter by delivery status. Optional.
+   * @example "failed"
+   *
+   * @generated from field: optional string status = 5;
+   */
+  status?: string;
+
+  /**
+   * Filter by error classification. Optional.
+   * @example "server_error"
+   *
+   * @generated from field: optional string error_category = 6;
+   */
+  errorCategory?: string;
+
+  /**
+   * Filter by subscription UUID. Optional.
+   *
+   * @generated from field: optional string subscription_id = 7;
+   */
+  subscriptionId?: string;
+
+  /**
+   * Filter to deliveries created at or after this timestamp.
+   *
+   * @generated from field: google.protobuf.Timestamp created_after = 8;
+   */
+  createdAfter?: Timestamp;
+
+  /**
+   * Filter to deliveries created at or before this timestamp.
+   *
+   * @generated from field: google.protobuf.Timestamp created_before = 9;
+   */
+  createdBefore?: Timestamp;
+
+  /**
+   * When true, snapshot all matching delivery IDs (up to 10,000) into a
+   * batch job and return a retry_id in the response. Pass that ID to
+   * RetryDeliveries to retry the exact set that matched this query.
+   *
+   * @generated from field: bool prepare_retry = 10;
+   */
+  prepareRetry: boolean;
 };
 
 /**
@@ -2599,20 +2653,12 @@ export declare type ListDeliveriesResponse = Message<"webhook.ListDeliveriesResp
   pagination?: PaginationResponse;
 
   /**
-   * Deprecated: use gRPC status codes.
+   * Batch ID for deterministic retry. Only populated when
+   * prepare_retry=true was set in the request. Pass to RetryDeliveries.
    *
-   * @generated from field: bool success = 3 [deprecated = true];
-   * @deprecated
+   * @generated from field: string retry_id = 5;
    */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 4 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
+  retryId: string;
 };
 
 /**
@@ -3473,6 +3519,339 @@ export declare type GetTemplateFunctionsResponse = Message<"webhook.GetTemplateF
 export declare const GetTemplateFunctionsResponseSchema: GenMessage<GetTemplateFunctionsResponse>;
 
 /**
+ * BatchJobStatus represents the lifecycle of a batch job.
+ * Valid values: pending, processing, completed, failed, cancelled.
+ *
+ * @generated from message webhook.BatchJobStatus
+ */
+export declare type BatchJobStatus = Message<"webhook.BatchJobStatus"> & {
+  /**
+   * Current status of the batch job.
+   * @example "processing"
+   *
+   * @generated from field: string status = 1;
+   */
+  status: string;
+
+  /**
+   * Total number of items in the batch.
+   *
+   * @generated from field: int32 total = 2;
+   */
+  total: number;
+
+  /**
+   * Number of items successfully processed so far.
+   *
+   * @generated from field: int32 processed = 3;
+   */
+  processed: number;
+
+  /**
+   * Number of items that failed processing.
+   *
+   * @generated from field: int32 failed = 4;
+   */
+  failed: number;
+
+  /**
+   * When the batch job was created.
+   *
+   * @generated from field: google.protobuf.Timestamp created_at = 5;
+   */
+  createdAt?: Timestamp;
+
+  /**
+   * When the batch job expires (created_at + ttl_seconds).
+   *
+   * @generated from field: google.protobuf.Timestamp expires_at = 6;
+   */
+  expiresAt?: Timestamp;
+};
+
+/**
+ * Describes the message webhook.BatchJobStatus.
+ * Use `create(BatchJobStatusSchema)` to create a new message.
+ */
+export declare const BatchJobStatusSchema: GenMessage<BatchJobStatus>;
+
+/**
+ * RePushEventsRequest starts a batch re-push of events.
+ * The repush_id must have been obtained from ListEventReports with prepare_repush=true.
+ *
+ * @generated from message webhook.RePushEventsRequest
+ */
+export declare type RePushEventsRequest = Message<"webhook.RePushEventsRequest"> & {
+  /**
+   * Batch ID returned by ListEventReports when prepare_repush=true.
+   * @required
+   *
+   * @generated from field: string repush_id = 1;
+   */
+  repushId: string;
+};
+
+/**
+ * Describes the message webhook.RePushEventsRequest.
+ * Use `create(RePushEventsRequestSchema)` to create a new message.
+ */
+export declare const RePushEventsRequestSchema: GenMessage<RePushEventsRequest>;
+
+/**
+ * RePushEventsResponse confirms the batch re-push has been enqueued.
+ *
+ * @generated from message webhook.RePushEventsResponse
+ */
+export declare type RePushEventsResponse = Message<"webhook.RePushEventsResponse"> & {
+  /**
+   * Batch ID for polling status.
+   *
+   * @generated from field: string repush_id = 1;
+   */
+  repushId: string;
+
+  /**
+   * Total number of events that will be re-pushed.
+   *
+   * @generated from field: int32 total = 2;
+   */
+  total: number;
+
+  /**
+   * Current status (will be "processing" on success).
+   *
+   * @generated from field: string status = 3;
+   */
+  status: string;
+};
+
+/**
+ * Describes the message webhook.RePushEventsResponse.
+ * Use `create(RePushEventsResponseSchema)` to create a new message.
+ */
+export declare const RePushEventsResponseSchema: GenMessage<RePushEventsResponse>;
+
+/**
+ * GetRepushStatusRequest polls the progress of a batch re-push.
+ *
+ * @generated from message webhook.GetRepushStatusRequest
+ */
+export declare type GetRepushStatusRequest = Message<"webhook.GetRepushStatusRequest"> & {
+  /**
+   * Batch ID returned by RePushEvents or ListEventReports.
+   * @required
+   *
+   * @generated from field: string repush_id = 1;
+   */
+  repushId: string;
+};
+
+/**
+ * Describes the message webhook.GetRepushStatusRequest.
+ * Use `create(GetRepushStatusRequestSchema)` to create a new message.
+ */
+export declare const GetRepushStatusRequestSchema: GenMessage<GetRepushStatusRequest>;
+
+/**
+ * GetRepushStatusResponse returns current batch re-push progress.
+ *
+ * @generated from message webhook.GetRepushStatusResponse
+ */
+export declare type GetRepushStatusResponse = Message<"webhook.GetRepushStatusResponse"> & {
+  /**
+   * Full batch job status.
+   *
+   * @generated from field: webhook.BatchJobStatus batch = 1;
+   */
+  batch?: BatchJobStatus;
+};
+
+/**
+ * Describes the message webhook.GetRepushStatusResponse.
+ * Use `create(GetRepushStatusResponseSchema)` to create a new message.
+ */
+export declare const GetRepushStatusResponseSchema: GenMessage<GetRepushStatusResponse>;
+
+/**
+ * CancelRepushRequest aborts a pending or in-progress batch re-push.
+ *
+ * @generated from message webhook.CancelRepushRequest
+ */
+export declare type CancelRepushRequest = Message<"webhook.CancelRepushRequest"> & {
+  /**
+   * Batch ID to cancel.
+   * @required
+   *
+   * @generated from field: string repush_id = 1;
+   */
+  repushId: string;
+};
+
+/**
+ * Describes the message webhook.CancelRepushRequest.
+ * Use `create(CancelRepushRequestSchema)` to create a new message.
+ */
+export declare const CancelRepushRequestSchema: GenMessage<CancelRepushRequest>;
+
+/**
+ * CancelRepushResponse confirms the cancellation.
+ *
+ * @generated from message webhook.CancelRepushResponse
+ */
+export declare type CancelRepushResponse = Message<"webhook.CancelRepushResponse"> & {
+  /**
+   * Current status after cancellation (will be "cancelled").
+   *
+   * @generated from field: string status = 1;
+   */
+  status: string;
+};
+
+/**
+ * Describes the message webhook.CancelRepushResponse.
+ * Use `create(CancelRepushResponseSchema)` to create a new message.
+ */
+export declare const CancelRepushResponseSchema: GenMessage<CancelRepushResponse>;
+
+/**
+ * RetryDeliveriesRequest starts a batch retry of deliveries.
+ * The retry_id must have been obtained from ListDeliveries with prepare_retry=true.
+ *
+ * @generated from message webhook.RetryDeliveriesRequest
+ */
+export declare type RetryDeliveriesRequest = Message<"webhook.RetryDeliveriesRequest"> & {
+  /**
+   * Batch ID returned by ListDeliveries when prepare_retry=true.
+   * @required
+   *
+   * @generated from field: string retry_id = 1;
+   */
+  retryId: string;
+};
+
+/**
+ * Describes the message webhook.RetryDeliveriesRequest.
+ * Use `create(RetryDeliveriesRequestSchema)` to create a new message.
+ */
+export declare const RetryDeliveriesRequestSchema: GenMessage<RetryDeliveriesRequest>;
+
+/**
+ * RetryDeliveriesResponse confirms the batch retry has been enqueued.
+ *
+ * @generated from message webhook.RetryDeliveriesResponse
+ */
+export declare type RetryDeliveriesResponse = Message<"webhook.RetryDeliveriesResponse"> & {
+  /**
+   * Batch ID for polling status.
+   *
+   * @generated from field: string retry_id = 1;
+   */
+  retryId: string;
+
+  /**
+   * Total number of deliveries that will be retried.
+   *
+   * @generated from field: int32 total = 2;
+   */
+  total: number;
+
+  /**
+   * Current status (will be "processing" on success).
+   *
+   * @generated from field: string status = 3;
+   */
+  status: string;
+};
+
+/**
+ * Describes the message webhook.RetryDeliveriesResponse.
+ * Use `create(RetryDeliveriesResponseSchema)` to create a new message.
+ */
+export declare const RetryDeliveriesResponseSchema: GenMessage<RetryDeliveriesResponse>;
+
+/**
+ * GetRetryStatusRequest polls the progress of a batch retry.
+ *
+ * @generated from message webhook.GetRetryStatusRequest
+ */
+export declare type GetRetryStatusRequest = Message<"webhook.GetRetryStatusRequest"> & {
+  /**
+   * Batch ID returned by RetryDeliveries or ListDeliveries.
+   * @required
+   *
+   * @generated from field: string retry_id = 1;
+   */
+  retryId: string;
+};
+
+/**
+ * Describes the message webhook.GetRetryStatusRequest.
+ * Use `create(GetRetryStatusRequestSchema)` to create a new message.
+ */
+export declare const GetRetryStatusRequestSchema: GenMessage<GetRetryStatusRequest>;
+
+/**
+ * GetRetryStatusResponse returns current batch retry progress.
+ *
+ * @generated from message webhook.GetRetryStatusResponse
+ */
+export declare type GetRetryStatusResponse = Message<"webhook.GetRetryStatusResponse"> & {
+  /**
+   * Full batch job status.
+   *
+   * @generated from field: webhook.BatchJobStatus batch = 1;
+   */
+  batch?: BatchJobStatus;
+};
+
+/**
+ * Describes the message webhook.GetRetryStatusResponse.
+ * Use `create(GetRetryStatusResponseSchema)` to create a new message.
+ */
+export declare const GetRetryStatusResponseSchema: GenMessage<GetRetryStatusResponse>;
+
+/**
+ * CancelRetryRequest aborts a pending or in-progress batch retry.
+ *
+ * @generated from message webhook.CancelRetryRequest
+ */
+export declare type CancelRetryRequest = Message<"webhook.CancelRetryRequest"> & {
+  /**
+   * Batch ID to cancel.
+   * @required
+   *
+   * @generated from field: string retry_id = 1;
+   */
+  retryId: string;
+};
+
+/**
+ * Describes the message webhook.CancelRetryRequest.
+ * Use `create(CancelRetryRequestSchema)` to create a new message.
+ */
+export declare const CancelRetryRequestSchema: GenMessage<CancelRetryRequest>;
+
+/**
+ * CancelRetryResponse confirms the cancellation.
+ *
+ * @generated from message webhook.CancelRetryResponse
+ */
+export declare type CancelRetryResponse = Message<"webhook.CancelRetryResponse"> & {
+  /**
+   * Current status after cancellation (will be "cancelled").
+   *
+   * @generated from field: string status = 1;
+   */
+  status: string;
+};
+
+/**
+ * Describes the message webhook.CancelRetryResponse.
+ * Use `create(CancelRetryResponseSchema)` to create a new message.
+ */
+export declare const CancelRetryResponseSchema: GenMessage<CancelRetryResponse>;
+
+/**
  * WebhookDeliveryStatus tracks the lifecycle of a single delivery.
  *
  * State transitions:
@@ -3801,6 +4180,45 @@ export declare const EventService: GenService<{
     input: typeof ListEventReportsRequestSchema;
     output: typeof ListEventReportsResponseSchema;
   },
+  /**
+   * RePushEvents executes a deterministic batch re-push of events whose IDs were
+   * previously snapshotted via ListEventReports with prepare_repush=true.
+   * Each event is re-pushed as if it were pushed fresh: new event_id, current schema validation.
+   * The batch is processed asynchronously via a River job; poll GetRepushStatus for progress.
+   * Errors: NOT_FOUND if the repush_id does not exist or has expired.
+   * Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.
+   *
+   * @generated from rpc webhook.EventService.RePushEvents
+   */
+  rePushEvents: {
+    methodKind: "unary";
+    input: typeof RePushEventsRequestSchema;
+    output: typeof RePushEventsResponseSchema;
+  },
+  /**
+   * GetRepushStatus returns the current progress of a batch re-push operation.
+   * Errors: NOT_FOUND if the repush_id does not exist or has expired.
+   *
+   * @generated from rpc webhook.EventService.GetRepushStatus
+   */
+  getRepushStatus: {
+    methodKind: "unary";
+    input: typeof GetRepushStatusRequestSchema;
+    output: typeof GetRepushStatusResponseSchema;
+  },
+  /**
+   * CancelRepush aborts a batch re-push that is pending or in progress.
+   * Items already processed are not rolled back.
+   * Errors: NOT_FOUND if the repush_id does not exist.
+   * Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.
+   *
+   * @generated from rpc webhook.EventService.CancelRepush
+   */
+  cancelRepush: {
+    methodKind: "unary";
+    input: typeof CancelRepushRequestSchema;
+    output: typeof CancelRepushResponseSchema;
+  },
 }>;
 
 /**
@@ -3945,6 +4363,45 @@ export declare const DeliveryService: GenService<{
     methodKind: "unary";
     input: typeof GetDeliveryAttemptsRequestSchema;
     output: typeof GetDeliveryAttemptsResponseSchema;
+  },
+  /**
+   * RetryDeliveries executes a deterministic batch retry of deliveries whose IDs were
+   * previously snapshotted via ListDeliveries with prepare_retry=true.
+   * Each delivery is reset to pending and re-enqueued for HTTP delivery.
+   * The batch is processed asynchronously via a River job; poll GetRetryStatus for progress.
+   * Errors: NOT_FOUND if the retry_id does not exist or has expired.
+   * Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.
+   *
+   * @generated from rpc webhook.DeliveryService.RetryDeliveries
+   */
+  retryDeliveries: {
+    methodKind: "unary";
+    input: typeof RetryDeliveriesRequestSchema;
+    output: typeof RetryDeliveriesResponseSchema;
+  },
+  /**
+   * GetRetryStatus returns the current progress of a batch retry operation.
+   * Errors: NOT_FOUND if the retry_id does not exist or has expired.
+   *
+   * @generated from rpc webhook.DeliveryService.GetRetryStatus
+   */
+  getRetryStatus: {
+    methodKind: "unary";
+    input: typeof GetRetryStatusRequestSchema;
+    output: typeof GetRetryStatusResponseSchema;
+  },
+  /**
+   * CancelRetry aborts a batch retry that is pending or in progress.
+   * Items already processed are not rolled back.
+   * Errors: NOT_FOUND if the retry_id does not exist.
+   * Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.
+   *
+   * @generated from rpc webhook.DeliveryService.CancelRetry
+   */
+  cancelRetry: {
+    methodKind: "unary";
+    input: typeof CancelRetryRequestSchema;
+    output: typeof CancelRetryResponseSchema;
   },
 }>;
 

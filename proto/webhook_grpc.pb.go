@@ -456,6 +456,9 @@ const (
 	EventService_GetEvent_FullMethodName         = "/webhook.EventService/GetEvent"
 	EventService_PushEvent_FullMethodName        = "/webhook.EventService/PushEvent"
 	EventService_ListEventReports_FullMethodName = "/webhook.EventService/ListEventReports"
+	EventService_RePushEvents_FullMethodName     = "/webhook.EventService/RePushEvents"
+	EventService_GetRepushStatus_FullMethodName  = "/webhook.EventService/GetRepushStatus"
+	EventService_CancelRepush_FullMethodName     = "/webhook.EventService/CancelRepush"
 )
 
 // EventServiceClient is the client API for EventService service.
@@ -498,6 +501,21 @@ type EventServiceClient interface {
 	// ordered by created_at descending. Each report includes delivery stats
 	// (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
 	ListEventReports(ctx context.Context, in *ListEventReportsRequest, opts ...grpc.CallOption) (*ListEventReportsResponse, error)
+	// RePushEvents executes a deterministic batch re-push of events whose IDs were
+	// previously snapshotted via ListEventReports with prepare_repush=true.
+	// Each event is re-pushed as if it were pushed fresh: new event_id, current schema validation.
+	// The batch is processed asynchronously via a River job; poll GetRepushStatus for progress.
+	// Errors: NOT_FOUND if the repush_id does not exist or has expired.
+	// Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.
+	RePushEvents(ctx context.Context, in *RePushEventsRequest, opts ...grpc.CallOption) (*RePushEventsResponse, error)
+	// GetRepushStatus returns the current progress of a batch re-push operation.
+	// Errors: NOT_FOUND if the repush_id does not exist or has expired.
+	GetRepushStatus(ctx context.Context, in *GetRepushStatusRequest, opts ...grpc.CallOption) (*GetRepushStatusResponse, error)
+	// CancelRepush aborts a batch re-push that is pending or in progress.
+	// Items already processed are not rolled back.
+	// Errors: NOT_FOUND if the repush_id does not exist.
+	// Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.
+	CancelRepush(ctx context.Context, in *CancelRepushRequest, opts ...grpc.CallOption) (*CancelRepushResponse, error)
 }
 
 type eventServiceClient struct {
@@ -578,6 +596,36 @@ func (c *eventServiceClient) ListEventReports(ctx context.Context, in *ListEvent
 	return out, nil
 }
 
+func (c *eventServiceClient) RePushEvents(ctx context.Context, in *RePushEventsRequest, opts ...grpc.CallOption) (*RePushEventsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RePushEventsResponse)
+	err := c.cc.Invoke(ctx, EventService_RePushEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *eventServiceClient) GetRepushStatus(ctx context.Context, in *GetRepushStatusRequest, opts ...grpc.CallOption) (*GetRepushStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRepushStatusResponse)
+	err := c.cc.Invoke(ctx, EventService_GetRepushStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *eventServiceClient) CancelRepush(ctx context.Context, in *CancelRepushRequest, opts ...grpc.CallOption) (*CancelRepushResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelRepushResponse)
+	err := c.cc.Invoke(ctx, EventService_CancelRepush_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // EventServiceServer is the server API for EventService service.
 // All implementations must embed UnimplementedEventServiceServer
 // for forward compatibility.
@@ -618,6 +666,21 @@ type EventServiceServer interface {
 	// ordered by created_at descending. Each report includes delivery stats
 	// (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
 	ListEventReports(context.Context, *ListEventReportsRequest) (*ListEventReportsResponse, error)
+	// RePushEvents executes a deterministic batch re-push of events whose IDs were
+	// previously snapshotted via ListEventReports with prepare_repush=true.
+	// Each event is re-pushed as if it were pushed fresh: new event_id, current schema validation.
+	// The batch is processed asynchronously via a River job; poll GetRepushStatus for progress.
+	// Errors: NOT_FOUND if the repush_id does not exist or has expired.
+	// Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.
+	RePushEvents(context.Context, *RePushEventsRequest) (*RePushEventsResponse, error)
+	// GetRepushStatus returns the current progress of a batch re-push operation.
+	// Errors: NOT_FOUND if the repush_id does not exist or has expired.
+	GetRepushStatus(context.Context, *GetRepushStatusRequest) (*GetRepushStatusResponse, error)
+	// CancelRepush aborts a batch re-push that is pending or in progress.
+	// Items already processed are not rolled back.
+	// Errors: NOT_FOUND if the repush_id does not exist.
+	// Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.
+	CancelRepush(context.Context, *CancelRepushRequest) (*CancelRepushResponse, error)
 	mustEmbedUnimplementedEventServiceServer()
 }
 
@@ -648,6 +711,15 @@ func (UnimplementedEventServiceServer) PushEvent(context.Context, *PushEventRequ
 }
 func (UnimplementedEventServiceServer) ListEventReports(context.Context, *ListEventReportsRequest) (*ListEventReportsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListEventReports not implemented")
+}
+func (UnimplementedEventServiceServer) RePushEvents(context.Context, *RePushEventsRequest) (*RePushEventsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RePushEvents not implemented")
+}
+func (UnimplementedEventServiceServer) GetRepushStatus(context.Context, *GetRepushStatusRequest) (*GetRepushStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRepushStatus not implemented")
+}
+func (UnimplementedEventServiceServer) CancelRepush(context.Context, *CancelRepushRequest) (*CancelRepushResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelRepush not implemented")
 }
 func (UnimplementedEventServiceServer) mustEmbedUnimplementedEventServiceServer() {}
 func (UnimplementedEventServiceServer) testEmbeddedByValue()                      {}
@@ -796,6 +868,60 @@ func _EventService_ListEventReports_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EventService_RePushEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RePushEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EventServiceServer).RePushEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EventService_RePushEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EventServiceServer).RePushEvents(ctx, req.(*RePushEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EventService_GetRepushStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRepushStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EventServiceServer).GetRepushStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EventService_GetRepushStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EventServiceServer).GetRepushStatus(ctx, req.(*GetRepushStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EventService_CancelRepush_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelRepushRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EventServiceServer).CancelRepush(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EventService_CancelRepush_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EventServiceServer).CancelRepush(ctx, req.(*CancelRepushRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // EventService_ServiceDesc is the grpc.ServiceDesc for EventService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -830,6 +956,18 @@ var EventService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListEventReports",
 			Handler:    _EventService_ListEventReports_Handler,
+		},
+		{
+			MethodName: "RePushEvents",
+			Handler:    _EventService_RePushEvents_Handler,
+		},
+		{
+			MethodName: "GetRepushStatus",
+			Handler:    _EventService_GetRepushStatus_Handler,
+		},
+		{
+			MethodName: "CancelRepush",
+			Handler:    _EventService_CancelRepush_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -1183,6 +1321,9 @@ const (
 	DeliveryService_ListDeliveries_FullMethodName      = "/webhook.DeliveryService/ListDeliveries"
 	DeliveryService_RetryDelivery_FullMethodName       = "/webhook.DeliveryService/RetryDelivery"
 	DeliveryService_GetDeliveryAttempts_FullMethodName = "/webhook.DeliveryService/GetDeliveryAttempts"
+	DeliveryService_RetryDeliveries_FullMethodName     = "/webhook.DeliveryService/RetryDeliveries"
+	DeliveryService_GetRetryStatus_FullMethodName      = "/webhook.DeliveryService/GetRetryStatus"
+	DeliveryService_CancelRetry_FullMethodName         = "/webhook.DeliveryService/CancelRetry"
 )
 
 // DeliveryServiceClient is the client API for DeliveryService service.
@@ -1211,6 +1352,21 @@ type DeliveryServiceClient interface {
 	// Each attempt includes response_time, response_code, error_message, and error_category.
 	// Errors: INVALID_ARGUMENT if delivery_id is empty.
 	GetDeliveryAttempts(ctx context.Context, in *GetDeliveryAttemptsRequest, opts ...grpc.CallOption) (*GetDeliveryAttemptsResponse, error)
+	// RetryDeliveries executes a deterministic batch retry of deliveries whose IDs were
+	// previously snapshotted via ListDeliveries with prepare_retry=true.
+	// Each delivery is reset to pending and re-enqueued for HTTP delivery.
+	// The batch is processed asynchronously via a River job; poll GetRetryStatus for progress.
+	// Errors: NOT_FOUND if the retry_id does not exist or has expired.
+	// Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.
+	RetryDeliveries(ctx context.Context, in *RetryDeliveriesRequest, opts ...grpc.CallOption) (*RetryDeliveriesResponse, error)
+	// GetRetryStatus returns the current progress of a batch retry operation.
+	// Errors: NOT_FOUND if the retry_id does not exist or has expired.
+	GetRetryStatus(ctx context.Context, in *GetRetryStatusRequest, opts ...grpc.CallOption) (*GetRetryStatusResponse, error)
+	// CancelRetry aborts a batch retry that is pending or in progress.
+	// Items already processed are not rolled back.
+	// Errors: NOT_FOUND if the retry_id does not exist.
+	// Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.
+	CancelRetry(ctx context.Context, in *CancelRetryRequest, opts ...grpc.CallOption) (*CancelRetryResponse, error)
 }
 
 type deliveryServiceClient struct {
@@ -1261,6 +1417,36 @@ func (c *deliveryServiceClient) GetDeliveryAttempts(ctx context.Context, in *Get
 	return out, nil
 }
 
+func (c *deliveryServiceClient) RetryDeliveries(ctx context.Context, in *RetryDeliveriesRequest, opts ...grpc.CallOption) (*RetryDeliveriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RetryDeliveriesResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_RetryDeliveries_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) GetRetryStatus(ctx context.Context, in *GetRetryStatusRequest, opts ...grpc.CallOption) (*GetRetryStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetRetryStatusResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_GetRetryStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *deliveryServiceClient) CancelRetry(ctx context.Context, in *CancelRetryRequest, opts ...grpc.CallOption) (*CancelRetryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelRetryResponse)
+	err := c.cc.Invoke(ctx, DeliveryService_CancelRetry_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DeliveryServiceServer is the server API for DeliveryService service.
 // All implementations must embed UnimplementedDeliveryServiceServer
 // for forward compatibility.
@@ -1287,6 +1473,21 @@ type DeliveryServiceServer interface {
 	// Each attempt includes response_time, response_code, error_message, and error_category.
 	// Errors: INVALID_ARGUMENT if delivery_id is empty.
 	GetDeliveryAttempts(context.Context, *GetDeliveryAttemptsRequest) (*GetDeliveryAttemptsResponse, error)
+	// RetryDeliveries executes a deterministic batch retry of deliveries whose IDs were
+	// previously snapshotted via ListDeliveries with prepare_retry=true.
+	// Each delivery is reset to pending and re-enqueued for HTTP delivery.
+	// The batch is processed asynchronously via a River job; poll GetRetryStatus for progress.
+	// Errors: NOT_FOUND if the retry_id does not exist or has expired.
+	// Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.
+	RetryDeliveries(context.Context, *RetryDeliveriesRequest) (*RetryDeliveriesResponse, error)
+	// GetRetryStatus returns the current progress of a batch retry operation.
+	// Errors: NOT_FOUND if the retry_id does not exist or has expired.
+	GetRetryStatus(context.Context, *GetRetryStatusRequest) (*GetRetryStatusResponse, error)
+	// CancelRetry aborts a batch retry that is pending or in progress.
+	// Items already processed are not rolled back.
+	// Errors: NOT_FOUND if the retry_id does not exist.
+	// Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.
+	CancelRetry(context.Context, *CancelRetryRequest) (*CancelRetryResponse, error)
 	mustEmbedUnimplementedDeliveryServiceServer()
 }
 
@@ -1308,6 +1509,15 @@ func (UnimplementedDeliveryServiceServer) RetryDelivery(context.Context, *RetryD
 }
 func (UnimplementedDeliveryServiceServer) GetDeliveryAttempts(context.Context, *GetDeliveryAttemptsRequest) (*GetDeliveryAttemptsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetDeliveryAttempts not implemented")
+}
+func (UnimplementedDeliveryServiceServer) RetryDeliveries(context.Context, *RetryDeliveriesRequest) (*RetryDeliveriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RetryDeliveries not implemented")
+}
+func (UnimplementedDeliveryServiceServer) GetRetryStatus(context.Context, *GetRetryStatusRequest) (*GetRetryStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRetryStatus not implemented")
+}
+func (UnimplementedDeliveryServiceServer) CancelRetry(context.Context, *CancelRetryRequest) (*CancelRetryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelRetry not implemented")
 }
 func (UnimplementedDeliveryServiceServer) mustEmbedUnimplementedDeliveryServiceServer() {}
 func (UnimplementedDeliveryServiceServer) testEmbeddedByValue()                         {}
@@ -1402,6 +1612,60 @@ func _DeliveryService_GetDeliveryAttempts_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DeliveryService_RetryDeliveries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RetryDeliveriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).RetryDeliveries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_RetryDeliveries_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).RetryDeliveries(ctx, req.(*RetryDeliveriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_GetRetryStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRetryStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).GetRetryStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_GetRetryStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).GetRetryStatus(ctx, req.(*GetRetryStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DeliveryService_CancelRetry_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelRetryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeliveryServiceServer).CancelRetry(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeliveryService_CancelRetry_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeliveryServiceServer).CancelRetry(ctx, req.(*CancelRetryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DeliveryService_ServiceDesc is the grpc.ServiceDesc for DeliveryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1424,6 +1688,18 @@ var DeliveryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetDeliveryAttempts",
 			Handler:    _DeliveryService_GetDeliveryAttempts_Handler,
+		},
+		{
+			MethodName: "RetryDeliveries",
+			Handler:    _DeliveryService_RetryDeliveries_Handler,
+		},
+		{
+			MethodName: "GetRetryStatus",
+			Handler:    _DeliveryService_GetRetryStatus_Handler,
+		},
+		{
+			MethodName: "CancelRetry",
+			Handler:    _DeliveryService_CancelRetry_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -39,6 +39,52 @@ func NewWebhookServiceInterfaceWithTracing(base WebhookServiceInterface, instanc
 	return d
 }
 
+// CancelRepush implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) CancelRepush(ctx context.Context, repushID string) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.CancelRepush")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"repushID": repushID}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.CancelRepush(ctx, repushID)
+}
+
+// CancelRetry implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) CancelRetry(ctx context.Context, retryID string) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.CancelRetry")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":     ctx,
+				"retryID": retryID}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.CancelRetry(ctx, retryID)
+}
+
 // CreateSubscription implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) CreateSubscription(ctx context.Context, webhookID string, eventName string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (s1 string, t1 time.Time, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.CreateSubscription")
@@ -263,6 +309,54 @@ func (_d WebhookServiceInterfaceWithTracing) GetNamespaceStats(ctx context.Conte
 	return _d.WebhookServiceInterface.GetNamespaceStats(ctx, namespace)
 }
 
+// GetRepushStatus implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) GetRepushStatus(ctx context.Context, repushID string) (bp1 *store.BatchJob, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetRepushStatus")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"repushID": repushID}, map[string]interface{}{
+				"bp1": bp1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.GetRepushStatus(ctx, repushID)
+}
+
+// GetRetryStatus implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) GetRetryStatus(ctx context.Context, retryID string) (bp1 *store.BatchJob, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetRetryStatus")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":     ctx,
+				"retryID": retryID}, map[string]interface{}{
+				"bp1": bp1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.GetRetryStatus(ctx, retryID)
+}
+
 // GetSubscription implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) GetSubscription(ctx context.Context, subscriptionID string, namespace string) (ep1 *store.EventSubscription, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetSubscription")
@@ -314,19 +408,16 @@ func (_d WebhookServiceInterfaceWithTracing) GetWebhookHealth(ctx context.Contex
 }
 
 // ListDeliveries implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) ListDeliveries(ctx context.Context, namespace string, webhookID string, eventID string, limit int32, offset int32) (wpa1 []*store.WebhookDelivery, i1 int32, err error) {
+func (_d WebhookServiceInterfaceWithTracing) ListDeliveries(ctx context.Context, filter store.DeliveryFilter) (wpa1 []*store.WebhookDelivery, i1 int32, s1 string, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListDeliveries")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":       ctx,
-				"namespace": namespace,
-				"webhookID": webhookID,
-				"eventID":   eventID,
-				"limit":     limit,
-				"offset":    offset}, map[string]interface{}{
+				"ctx":    ctx,
+				"filter": filter}, map[string]interface{}{
 				"wpa1": wpa1,
 				"i1":   i1,
+				"s1":   s1,
 				"err":  err})
 		} else if err != nil {
 			_span.RecordError(err)
@@ -339,22 +430,20 @@ func (_d WebhookServiceInterfaceWithTracing) ListDeliveries(ctx context.Context,
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.ListDeliveries(ctx, namespace, webhookID, eventID, limit, offset)
+	return _d.WebhookServiceInterface.ListDeliveries(ctx, filter)
 }
 
 // ListEventReports implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) ListEventReports(ctx context.Context, namespace string, eventName *string, limit int32, offset int32) (epa1 []*store.EventReportWithStats, i1 int32, err error) {
+func (_d WebhookServiceInterfaceWithTracing) ListEventReports(ctx context.Context, filter store.EventReportFilter) (epa1 []*store.EventReportWithStats, i1 int32, s1 string, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListEventReports")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":       ctx,
-				"namespace": namespace,
-				"eventName": eventName,
-				"limit":     limit,
-				"offset":    offset}, map[string]interface{}{
+				"ctx":    ctx,
+				"filter": filter}, map[string]interface{}{
 				"epa1": epa1,
 				"i1":   i1,
+				"s1":   s1,
 				"err":  err})
 		} else if err != nil {
 			_span.RecordError(err)
@@ -367,7 +456,7 @@ func (_d WebhookServiceInterfaceWithTracing) ListEventReports(ctx context.Contex
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.ListEventReports(ctx, namespace, eventName, limit, offset)
+	return _d.WebhookServiceInterface.ListEventReports(ctx, filter)
 }
 
 // ListEvents implements WebhookServiceInterface
@@ -538,6 +627,29 @@ func (_d WebhookServiceInterfaceWithTracing) PushEvent(ctx context.Context, name
 	return _d.WebhookServiceInterface.PushEvent(ctx, namespace, event, payload, ttlSeconds, metadata, labels)
 }
 
+// RePushEvents implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) RePushEvents(ctx context.Context, repushID string) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.RePushEvents")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"repushID": repushID}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.RePushEvents(ctx, repushID)
+}
+
 // RegisterEvent implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (s1 string, t1 time.Time, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.RegisterEvent")
@@ -621,6 +733,29 @@ func (_d WebhookServiceInterfaceWithTracing) ResumeWebhook(ctx context.Context, 
 		_span.End()
 	}()
 	return _d.WebhookServiceInterface.ResumeWebhook(ctx, webhookID, namespace)
+}
+
+// RetryDeliveries implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) RetryDeliveries(ctx context.Context, retryID string) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.RetryDeliveries")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":     ctx,
+				"retryID": retryID}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.RetryDeliveries(ctx, retryID)
 }
 
 // RetryDelivery implements WebhookServiceInterface

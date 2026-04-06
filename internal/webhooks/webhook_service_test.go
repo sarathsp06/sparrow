@@ -94,6 +94,16 @@ func (m *mockRepo) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.UU
 	return args.Get(0).([]*store.WebhookDelivery), args.Int(1), args.Error(2)
 }
 
+func (m *mockRepo) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter store.DeliveryFilter) ([]*store.WebhookDelivery, int, error) {
+	args := m.Called(ctx, tenantID, filter)
+	return args.Get(0).([]*store.WebhookDelivery), args.Int(1), args.Error(2)
+}
+
+func (m *mockRepo) ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter store.EventReportFilter) ([]*store.EventReportWithStats, int, error) {
+	args := m.Called(ctx, tenantID, filter)
+	return args.Get(0).([]*store.EventReportWithStats), args.Int(1), args.Error(2)
+}
+
 func (m *mockRepo) CreateSubscription(ctx context.Context, tenantID uuid.UUID, sub *store.EventSubscription) error {
 	args := m.Called(ctx, tenantID, sub)
 	sub.ID = uuid.New()
@@ -197,17 +207,22 @@ func TestWebhookService_ListDeliveries_Pagination(t *testing.T) {
 
 	ctx := testContext()
 	namespace := "default"
-	limit := int32(20)
-	offset := int32(0)
 
 	expectedDeliveries := []*store.WebhookDelivery{
 		{ID: uuid.New(), WebhookID: uuid.New(), EventID: uuid.New()},
 	}
 
-	repo.On("ListDeliveriesPaginated", mock.Anything, mock.Anything, namespace, int(limit), int(offset)).
-		Return(expectedDeliveries, 1, nil)
+	// The service normalises limit/offset, so match the filter as built by the service.
+	repo.On("ListDeliveriesFiltered", mock.Anything, mock.Anything, mock.MatchedBy(func(f store.DeliveryFilter) bool {
+		return f.Namespace == namespace && f.Limit == 20 && f.Offset == 0
+	})).Return(expectedDeliveries, 1, nil)
 
-	deliveries, totalCount, err := service.ListDeliveries(ctx, namespace, "", "", limit, offset)
+	filter := store.DeliveryFilter{
+		Namespace: namespace,
+		Limit:     20,
+		Offset:    0,
+	}
+	deliveries, totalCount, _, err := service.ListDeliveries(ctx, filter)
 
 	assert.NoError(t, err)
 	assert.Equal(t, int32(1), totalCount)

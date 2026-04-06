@@ -58,6 +58,8 @@ type RepositoryInterface interface {
 	GetEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (*EventRecord, error)
 	ListEventReports(ctx context.Context, tenantID uuid.UUID, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
 	ListEventReportsWithStats(ctx context.Context, tenantID uuid.UUID, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
+	ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, int, error)
+	ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, int, error)
 	GetEventDeliveryStats(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (int32, int32, int32, int32, error)
 
 	// Webhook Health Management
@@ -73,6 +75,15 @@ type RepositoryInterface interface {
 	GetWebhooksByHealthPaginated(ctx context.Context, tenantID uuid.UUID, health WebhookHealth, limit, offset int) ([]*WebhookRegistration, int, error)
 	GetHealthSummary(ctx context.Context, tenantID uuid.UUID) (map[WebhookHealth]int, error)
 	GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, namespace string) (*NamespaceStats, error)
+
+	// Batch Job Management
+	CreateBatchJob(ctx context.Context, tenantID uuid.UUID, namespace string, jobType BatchJobType, data *BatchJobData) (*BatchJob, error)
+	GetBatchJob(ctx context.Context, tenantID uuid.UUID, batchID uuid.UUID) (*BatchJob, error)
+	UpdateBatchJobStatus(ctx context.Context, batchID uuid.UUID, status BatchJobStatus) error
+	UpdateBatchJobProgress(ctx context.Context, batchID uuid.UUID, processedDelta, failedDelta int) error
+	CleanupExpiredBatchJobs(ctx context.Context) (int, error)
+	SnapshotEventIDs(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]string, error)
+	SnapshotDeliveryIDs(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]string, error)
 }
 
 var _ RepositoryInterface = (*Repository)(nil)
