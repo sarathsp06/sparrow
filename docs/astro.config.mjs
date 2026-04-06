@@ -32,17 +32,9 @@ export default defineConfig({
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
 mermaid.initialize({
   startOnLoad: false,
-  theme: 'dark',
-  themeVariables: {
-    primaryColor: '#4f46e5',
-    primaryTextColor: '#e0e7ff',
-    primaryBorderColor: '#818cf8',
-    lineColor: '#818cf8',
-    secondaryColor: '#1e1b4b',
-    tertiaryColor: '#1a1a2e',
-    fontFamily: 'Fira Code, ui-monospace, monospace',
-    fontSize: '14px',
-  },
+  theme: 'default',
+  fontFamily: 'Fira Code, ui-monospace, monospace',
+  fontSize: 14,
 });
 async function renderMermaid() {
   if (document.querySelectorAll('.mermaid').length > 0) {
