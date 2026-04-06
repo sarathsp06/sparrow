@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import rehypeMermaidLite from 'rehype-mermaid-lite';
 import proto2astroConfig from './src/data/proto2astro-config.json';
 
 export default defineConfig({
@@ -10,6 +11,7 @@ export default defineConfig({
       type: 'shiki',
       excludeLangs: ['mermaid'],
     },
+    rehypePlugins: [rehypeMermaidLite],
   },
   integrations: [
     starlight({
@@ -43,16 +45,6 @@ mermaid.initialize({
   },
 });
 async function renderMermaid() {
-  const blocks = document.querySelectorAll('pre[data-language="mermaid"]');
-  for (const pre of blocks) {
-    const wrapper = pre.closest('.expressive-code') || pre.parentElement;
-    const copyBtn = wrapper.querySelector('[data-code]');
-    const raw = copyBtn ? copyBtn.getAttribute('data-code') : pre.textContent;
-    const container = document.createElement('div');
-    container.classList.add('mermaid');
-    container.textContent = raw;
-    wrapper.replaceWith(container);
-  }
   if (document.querySelectorAll('.mermaid').length > 0) {
     await mermaid.run({ querySelector: '.mermaid' });
   }
