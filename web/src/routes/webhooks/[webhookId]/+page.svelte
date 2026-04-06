@@ -8,7 +8,7 @@
     healthClient,
     subscriptionClient,
   } from '$lib/services';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
 
   import type {
     EventSubscription,
@@ -17,6 +17,7 @@
     WebhookHealthMetrics,
   } from '../../../../../proto/webhook_pb.js';
   import type { Timestamp } from '@bufbuild/protobuf/wkt';
+  import { timestampFromDate } from '@bufbuild/protobuf/wkt';
   import { WebhookDeliveryStatus, WebhookHealth } from '../../../../../proto/webhook_pb.js';
   import HealthBadge from '$lib/components/HealthBadge.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
@@ -24,6 +25,7 @@
   import EmptyState from '$lib/components/EmptyState.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import SubscriptionManager from '$lib/components/SubscriptionManager.svelte';
+  import BatchProgress from '$lib/components/BatchProgress.svelte';
 
   let webhook: RegisteredWebhook | undefined = $state();
   let deliveries: WebhookDelivery[] = $state([]);
@@ -73,10 +75,35 @@
   let offset = $state(0);
   let totalCount = $state(0);
 
+  // Delivery filters
+  let deliveryStatusFilter = $state('');
+  let deliveryErrorCategoryFilter = $state('');
+  let deliveryCreatedAfterFilter = $state('');
+  let deliveryCreatedBeforeFilter = $state('');
+
+  // Batch retry state
+  let retryId = $state('');
+  let batchStatus = $state<{ status: string; total: number; processed: number; failed: number } | undefined>();
+  let preparingRetry = $state(false);
+  let confirmRetry = $state(false);
+  let retryTotal = $state(0);
+  let pollingTimer: ReturnType<typeof setInterval> | undefined;
+
   const webhookId = page.params.webhookId ?? '';
 
   let currentPage = $derived(Math.floor(offset / limit) + 1);
   let totalPages = $derived(Math.max(1, Math.ceil(totalCount / limit)));
+
+  let hasDeliveryFilters = $derived(
+    deliveryStatusFilter !== '' ||
+    deliveryErrorCategoryFilter !== '' ||
+    deliveryCreatedAfterFilter !== '' ||
+    deliveryCreatedBeforeFilter !== ''
+  );
+
+  onDestroy(() => {
+    if (pollingTimer) clearInterval(pollingTimer);
+  });
 
   function formatPayload(payload: string): string {
     try { return JSON.stringify(JSON.parse(payload), null, 2); }
@@ -102,12 +129,20 @@
 
       // Use the webhook's own namespace for related data
       const ns = webhook.namespace;
+
+      // Build delivery request with filters
+      const deliveryReq: Record<string, any> = {
+        webhookId,
+        namespace: ns,
+        pagination: { limit, offset },
+      };
+      if (deliveryStatusFilter) deliveryReq.status = deliveryStatusFilter;
+      if (deliveryErrorCategoryFilter) deliveryReq.errorCategory = deliveryErrorCategoryFilter;
+      if (deliveryCreatedAfterFilter) deliveryReq.createdAfter = timestampFromDate(new Date(deliveryCreatedAfterFilter));
+      if (deliveryCreatedBeforeFilter) deliveryReq.createdBefore = timestampFromDate(new Date(deliveryCreatedBeforeFilter));
+
       const [deliveriesRes, healthRes, subscriptionsRes] = await Promise.all([
-        deliveryClient.listDeliveries({
-          webhookId,
-          namespace: ns,
-          pagination: { limit, offset },
-        }),
+        deliveryClient.listDeliveries(deliveryReq),
         healthClient.getWebhookHealth({ webhookId, namespace: ns }),
         subscriptionClient.listSubscriptions({ webhookId, namespace: ns }),
       ]);
@@ -337,6 +372,103 @@
 
   function handlePageChange(pageNum: number) {
     offset = (pageNum - 1) * limit;
+    fetchData();
+  }
+
+  function applyDeliveryFilters() {
+    offset = 0;
+    fetchData();
+  }
+
+  function clearDeliveryFilters() {
+    deliveryStatusFilter = '';
+    deliveryErrorCategoryFilter = '';
+    deliveryCreatedAfterFilter = '';
+    deliveryCreatedBeforeFilter = '';
+    applyDeliveryFilters();
+  }
+
+  // -- Batch Retry --
+
+  async function prepareRetryBatch() {
+    if (!webhook) return;
+    preparingRetry = true;
+    try {
+      const req: Record<string, any> = {
+        webhookId,
+        namespace: webhook.namespace,
+        pagination: { limit: 1, offset: 0 },
+        prepareRetry: true,
+      };
+      if (deliveryStatusFilter) req.status = deliveryStatusFilter;
+      if (deliveryErrorCategoryFilter) req.errorCategory = deliveryErrorCategoryFilter;
+      if (deliveryCreatedAfterFilter) req.createdAfter = timestampFromDate(new Date(deliveryCreatedAfterFilter));
+      if (deliveryCreatedBeforeFilter) req.createdBefore = timestampFromDate(new Date(deliveryCreatedBeforeFilter));
+
+      const res = await deliveryClient.listDeliveries(req);
+      if (res.retryId) {
+        retryId = res.retryId;
+        retryTotal = res.pagination?.totalCount || 0;
+        confirmRetry = true;
+      } else {
+        error = 'No matching deliveries to retry.';
+      }
+    } catch (e: any) {
+      error = `Failed to prepare retry: ${e.message}`;
+    } finally {
+      preparingRetry = false;
+    }
+  }
+
+  async function executeRetry() {
+    confirmRetry = false;
+    if (!retryId) return;
+    try {
+      const res = await deliveryClient.retryDeliveries({ retryId });
+      batchStatus = { status: res.status, total: res.total, processed: 0, failed: 0 };
+      startRetryPolling();
+    } catch (e: any) {
+      error = `Failed to start retry: ${e.message}`;
+    }
+  }
+
+  function startRetryPolling() {
+    if (pollingTimer) clearInterval(pollingTimer);
+    pollingTimer = setInterval(async () => {
+      if (!retryId) { stopRetryPolling(); return; }
+      try {
+        const res = await deliveryClient.getRetryStatus({ retryId });
+        if (res.batch) {
+          batchStatus = {
+            status: res.batch.status,
+            total: res.batch.total,
+            processed: res.batch.processed,
+            failed: res.batch.failed,
+          };
+          if (res.batch.status === 'completed' || res.batch.status === 'failed' || res.batch.status === 'cancelled') {
+            stopRetryPolling();
+          }
+        }
+      } catch {
+        stopRetryPolling();
+      }
+    }, 2000);
+  }
+
+  function stopRetryPolling() {
+    if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = undefined; }
+  }
+
+  async function cancelRetryBatch() {
+    if (!retryId) return;
+    try {
+      await deliveryClient.cancelRetry({ retryId });
+    } catch (e: any) {
+      error = `Failed to cancel retry: ${e.message}`;
+    }
+  }
+
+  function onBatchDone() {
     fetchData();
   }
 
@@ -641,6 +773,98 @@
 
       <!-- Deliveries Tab -->
       {#if activeTab === 'deliveries'}
+        <!-- Delivery filters -->
+        <div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+          <div class="flex flex-wrap items-end gap-3">
+            <div class="w-full sm:w-32">
+              <label for="del-status" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Status</label>
+              <select
+                id="del-status"
+                bind:value={deliveryStatusFilter}
+                onchange={applyDeliveryFilters}
+                class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+              >
+                <option value="">All</option>
+                <option value="pending">Pending</option>
+                <option value="sending">Sending</option>
+                <option value="success">Success</option>
+                <option value="failed">Failed</option>
+                <option value="retrying">Retrying</option>
+                <option value="expired">Expired</option>
+              </select>
+            </div>
+            <div class="w-full sm:w-36">
+              <label for="del-error" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Error Category</label>
+              <select
+                id="del-error"
+                bind:value={deliveryErrorCategoryFilter}
+                onchange={applyDeliveryFilters}
+                class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+              >
+                <option value="">All</option>
+                <option value="client_error">Client (4xx)</option>
+                <option value="server_error">Server (5xx)</option>
+                <option value="timeout">Timeout</option>
+                <option value="dns_error">DNS</option>
+                <option value="tls_error">TLS</option>
+                <option value="connection_refused">Conn Refused</option>
+                <option value="network_error">Network</option>
+              </select>
+            </div>
+            <div class="w-full sm:w-44">
+              <label for="del-after" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Created After</label>
+              <input
+                id="del-after"
+                type="datetime-local"
+                bind:value={deliveryCreatedAfterFilter}
+                onchange={applyDeliveryFilters}
+                class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+              />
+            </div>
+            <div class="w-full sm:w-44">
+              <label for="del-before" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Created Before</label>
+              <input
+                id="del-before"
+                type="datetime-local"
+                bind:value={deliveryCreatedBeforeFilter}
+                onchange={applyDeliveryFilters}
+                class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+              />
+            </div>
+            <div class="flex items-center gap-2">
+              {#if hasDeliveryFilters}
+                <button
+                  onclick={clearDeliveryFilters}
+                  class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                >
+                  Clear
+                </button>
+              {/if}
+              {#if totalCount > 0}
+                <button
+                  onclick={prepareRetryBatch}
+                  disabled={preparingRetry}
+                  class="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition"
+                >
+                  {preparingRetry ? 'Preparing...' : 'Retry All Matching'}
+                </button>
+              {/if}
+            </div>
+          </div>
+        </div>
+
+        <!-- Batch progress -->
+        {#if batchStatus}
+          <div class="mb-4">
+            <BatchProgress
+              batch={batchStatus}
+              label="Retry Deliveries"
+              oncancel={cancelRetryBatch}
+              ondone={onBatchDone}
+            />
+          </div>
+        {/if}
+
         <div class="bg-white rounded-lg border border-gray-200">
           {#if deliveries.length === 0}
             <EmptyState
@@ -1120,4 +1344,15 @@
   variant="danger"
   onconfirm={executeUnregister}
   oncancel={() => { confirmUnregister = false; }}
+/>
+
+<!-- Confirm Retry Dialog -->
+<ConfirmDialog
+  open={confirmRetry}
+  title="Retry Deliveries"
+  message="This will retry {retryTotal} matching deliver{retryTotal !== 1 ? 'ies' : 'y'} for this webhook. Continue?"
+  confirmLabel="Retry"
+  variant="warning"
+  onconfirm={executeRetry}
+  oncancel={() => { confirmRetry = false; retryId = ''; }}
 />

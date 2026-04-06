@@ -45,6 +45,7 @@
   <nav class="px-2 flex items-center flex-wrap gap-2 md:gap-8 text-lg font-medium">
     <a href="/webhooks" class="hover:text-primary transition">Webhooks</a>
     <a href="/events" class="hover:text-primary transition">Events</a>
+    <a href="/deliveries" class="hover:text-primary transition">Deliveries</a>
     <a href="/health" class="hover:text-primary transition">Health</a>
 
     <a href="https://sarathsp06.github.io/sparrow/" target="_blank" class="hover:text-primary transition text-base">

@@ -146,6 +146,7 @@
                 <thead>
                     <tr class="border-b border-gray-200 bg-gray-50/50">
                         <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Event ID</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Schema</th>
                         <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Namespace</th>
                         <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Created At</th>
                         <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Deliveries</th>
@@ -163,6 +164,13 @@
                                 <span class="block sm:hidden mt-0.5">
                                     <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{report.namespace || 'N/A'}</span>
                                 </span>
+                            </td>
+                            <td class="px-4 py-3 hidden sm:table-cell">
+                                {#if report.schemaValid}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-50 text-green-700">Valid</span>
+                                {:else}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-700">Invalid</span>
+                                {/if}
                             </td>
                             <td class="px-4 py-3 hidden sm:table-cell">
                                 <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{report.namespace || 'N/A'}</span>
