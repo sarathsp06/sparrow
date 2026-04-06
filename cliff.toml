@@ -44,7 +44,7 @@ trim = true
 
 [git]
 conventional_commits = true
-filter_unconventional = false
+filter_unconventional = true
 split_commits = false
 protect_breaking_commits = true
 filter_commits = false
@@ -76,6 +76,4 @@ commit_parsers = [
   { message = "^ci", skip = true },
   { message = "^build", skip = true },
   { body = ".*security", group = "Security" },
-  # Catch-all for non-conventional commits
-  { message = ".*", group = "Changed" },
 ]

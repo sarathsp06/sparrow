@@ -1,0 +1,12 @@
+# Minimal release Dockerfile used by GoReleaser (dockers_v2).
+# The Go binary is pre-built by GoReleaser and placed in $TARGETPLATFORM/.
+FROM gcr.io/distroless/static-debian12:nonroot
+
+WORKDIR /app
+
+ARG TARGETPLATFORM
+COPY ${TARGETPLATFORM}/sparrow /app/server
+
+EXPOSE 50051 8080
+
+ENTRYPOINT ["/app/server"]

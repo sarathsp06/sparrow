@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: server
+    main: ./cmd/server
+    binary: sparrow
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -w -s -X github.com/sarathsp06/sparrow.Version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: server
+    ids:
+      - server
+    name_template: "sparrow-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  # We curate CHANGELOG.md locally via git-cliff + `make release`.
+  # GoReleaser skips its own changelog generation; the GitHub Release
+  # body comes from the header template below.
+  disable: true
+
+release:
+  github:
+    owner: sarathsp06
+    name: sparrow
+  header: |
+    ## Sparrow {{ .Tag }}
+
+    See [CHANGELOG.md](https://github.com/sarathsp06/sparrow/blob/main/CHANGELOG.md) for full details.
+  extra_files:
+    - glob: build/sparrow-*.tgz
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+dockers_v2:
+  - images:
+      - "ghcr.io/sarathsp06/sparrow"
+    tags:
+      - "{{ .Version }}"
+      - "latest"
+    dockerfile: Dockerfile.release
+    extra_files:
+      - internal/ui/dist

@@ -19,15 +19,8 @@ build-ui: ## Build the frontend for embedding in the Go binary
 
 build-with-ui: build-ui build ## Build frontend + server binary with embedded UI
 
-build-binaries: ## Cross-compile server binaries (assumes UI is already built)
-	mkdir -p build
-	GOOS=linux GOARCH=amd64 go build -ldflags "-w -s $(LDFLAGS)" -o build/sparrow-linux-amd64 ./cmd/server
-	GOOS=linux GOARCH=arm64 go build -ldflags "-w -s $(LDFLAGS)" -o build/sparrow-linux-arm64 ./cmd/server
-	GOOS=darwin GOARCH=amd64 go build -ldflags "-w -s $(LDFLAGS)" -o build/sparrow-darwin-amd64 ./cmd/server
-	GOOS=darwin GOARCH=arm64 go build -ldflags "-w -s $(LDFLAGS)" -o build/sparrow-darwin-arm64 ./cmd/server
-	GOOS=windows GOARCH=amd64 go build -ldflags "-w -s $(LDFLAGS)" -o build/sparrow-windows-amd64.exe ./cmd/server
-
-build-all: build-ui build-binaries ## Build frontend + all cross-compiled binaries
+release-dry-run: build-ui ## Test GoReleaser locally (no publish)
+	goreleaser release --snapshot --clean
 
 
 
@@ -146,4 +139,4 @@ endif
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui build-binaries build-all run test test-integration clean generate generate-docs docker-build docker-push docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web help changelog release
+.PHONY: build build-ui build-with-ui release-dry-run run test test-integration clean generate generate-docs docker-build docker-push docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web help changelog release
