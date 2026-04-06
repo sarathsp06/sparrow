@@ -269,8 +269,19 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		return nil
 	}
 
-	// Failure case - classify the HTTP status code error
-	errorCategory := sparrowerrors.ClassifyHTTPStatus(resp.StatusCode)
+	// Failure case - classify the error.
+	// If the status code is in a standard error range (4xx, 5xx), classify by HTTP range.
+	// If it's a 2xx/3xx that simply didn't match expected_status_codes, use unexpected_status.
+	var errorCategory sparrowerrors.ErrorCategory
+	httpCategory := sparrowerrors.ClassifyHTTPStatus(resp.StatusCode)
+	if httpCategory == sparrowerrors.CategorySuccess || httpCategory == sparrowerrors.CategoryUnknown {
+		// The HTTP status itself is OK (2xx) or ambiguous (1xx/3xx), but it wasn't
+		// in the webhook's expected_status_codes list. This is a configuration/contract
+		// mismatch, not a server error.
+		errorCategory = sparrowerrors.CategoryUnexpectedStatus
+	} else {
+		errorCategory = httpCategory
+	}
 	errorMessage := fmt.Sprintf("HTTP %d: %s", resp.StatusCode, resp.Status)
 	span.SetStatus(otelcodes.Error, "webhook delivery failed")
 	span.SetAttributes(attribute.String("error_category", string(errorCategory)))

@@ -48,18 +48,28 @@ const (
 	// Typically retryable.
 	CategoryNetworkError ErrorCategory = "network_error"
 
+	// CategoryUnexpectedStatus indicates the HTTP response code did not match
+	// the webhook's configured expected_status_codes. For example, a 201 response
+	// when only 200 is expected. The server responded, but the status is not
+	// considered successful by the webhook's configuration.
+	// Not retryable - the target responded correctly from its perspective;
+	// the mismatch is a configuration or contract issue.
+	CategoryUnexpectedStatus ErrorCategory = "unexpected_status"
+
 	// CategoryUnknown is used when the error cannot be classified.
 	CategoryUnknown ErrorCategory = "unknown"
 )
 
 // IsRetryableCategory returns whether a given error category is worth retrying.
 // Client errors (4xx) are never retried. DNS and TLS errors are generally
-// not retried since they indicate configuration problems.
+// not retried since they indicate configuration problems. Unexpected status
+// codes are not retried since the server responded -- the issue is a
+// mismatch between the response and the webhook's expected_status_codes.
 func IsRetryableCategory(cat ErrorCategory) bool {
 	switch cat {
 	case CategoryServerError, CategoryTimeout, CategoryConnectionRefused, CategoryNetworkError:
 		return true
-	case CategoryClientError, CategoryDNSError, CategoryTLSError:
+	case CategoryClientError, CategoryDNSError, CategoryTLSError, CategoryUnexpectedStatus:
 		return false
 	default:
 		return false

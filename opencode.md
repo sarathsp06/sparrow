@@ -354,12 +354,13 @@ const (
     CategoryTLSError          = "tls_error"
     CategoryConnectionRefused = "connection_refused"  // RETRYABLE
     CategoryNetworkError      = "network_error"       // RETRYABLE
+    CategoryUnexpectedStatus  = "unexpected_status"   // 2xx/3xx not in expected_status_codes
     CategoryUnknown           = "unknown"
 )
 ```
 
 **Retryable**: `server_error`, `timeout`, `connection_refused`, `network_error`  
-**Not retryable**: `client_error`, `dns_error`, `tls_error`
+**Not retryable**: `client_error`, `dns_error`, `tls_error`, `unexpected_status`
 
 ---
 

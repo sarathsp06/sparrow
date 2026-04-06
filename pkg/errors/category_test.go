@@ -223,6 +223,7 @@ func TestIsRetryableCategory(t *testing.T) {
 		{CategoryTLSError, false},
 		{CategoryConnectionRefused, true},
 		{CategoryNetworkError, true},
+		{CategoryUnexpectedStatus, false},
 		{CategoryUnknown, false},
 	}
 
