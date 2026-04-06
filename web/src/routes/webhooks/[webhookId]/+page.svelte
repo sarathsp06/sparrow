@@ -8,6 +8,7 @@
     healthClient,
     subscriptionClient,
   } from '$lib/services';
+  import { getCategoryBadge, ERROR_CATEGORIES } from '$lib/utils';
   import { onMount, onDestroy } from 'svelte';
 
   import type {
@@ -481,18 +482,7 @@
     return 'text-red-600';
   });
 
-  function getCategoryBadge(category: string): { label: string; classes: string } {
-    switch (category) {
-      case 'client_error': return { label: '4xx', classes: 'bg-orange-50 text-orange-700 border-orange-200' };
-      case 'server_error': return { label: '5xx', classes: 'bg-red-50 text-red-700 border-red-200' };
-      case 'timeout': return { label: 'Timeout', classes: 'bg-yellow-50 text-yellow-700 border-yellow-200' };
-      case 'dns_error': return { label: 'DNS', classes: 'bg-purple-50 text-purple-700 border-purple-200' };
-      case 'tls_error': return { label: 'TLS', classes: 'bg-purple-50 text-purple-700 border-purple-200' };
-      case 'connection_refused': return { label: 'Conn Refused', classes: 'bg-purple-50 text-purple-700 border-purple-200' };
-      case 'network_error': return { label: 'Network', classes: 'bg-purple-50 text-purple-700 border-purple-200' };
-      default: return { label: category || 'Unknown', classes: 'bg-gray-50 text-gray-700 border-gray-200' };
-    }
-  }
+
 </script>
 
 <svelte:head>
@@ -802,13 +792,9 @@
                 class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
               >
                 <option value="">All</option>
-                <option value="client_error">Client (4xx)</option>
-                <option value="server_error">Server (5xx)</option>
-                <option value="timeout">Timeout</option>
-                <option value="dns_error">DNS</option>
-                <option value="tls_error">TLS</option>
-                <option value="connection_refused">Conn Refused</option>
-                <option value="network_error">Network</option>
+                {#each ERROR_CATEGORIES as cat}
+                    <option value={cat.value}>{cat.label}</option>
+                {/each}
               </select>
             </div>
             <div class="w-full sm:w-44">

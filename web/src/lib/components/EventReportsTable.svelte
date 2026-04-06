@@ -2,6 +2,7 @@
     import type { EventReport, WebhookDelivery, DeliveryAttempt } from '../../../../proto/webhook_pb.js';
     import { WebhookDeliveryStatus } from '../../../../proto/webhook_pb.js';
     import { deliveryClient } from '$lib/services';
+    import { getCategoryBadge } from '$lib/utils';
     import StatusBadge from './StatusBadge.svelte';
     import EmptyState from './EmptyState.svelte';
     import favicon from '$lib/assets/favicon.svg';
@@ -42,18 +43,6 @@
         }
     }
 
-    function getCategoryBadge(category: string): { label: string; classes: string } {
-        switch (category) {
-            case 'client_error': return { label: '4xx', classes: 'bg-orange-50 text-orange-700 border-orange-200' };
-            case 'server_error': return { label: '5xx', classes: 'bg-red-50 text-red-700 border-red-200' };
-            case 'timeout': return { label: 'Timeout', classes: 'bg-yellow-50 text-yellow-700 border-yellow-200' };
-            case 'dns_error': return { label: 'DNS', classes: 'bg-purple-50 text-purple-700 border-purple-200' };
-            case 'tls_error': return { label: 'TLS', classes: 'bg-purple-50 text-purple-700 border-purple-200' };
-            case 'connection_refused': return { label: 'Conn Refused', classes: 'bg-purple-50 text-purple-700 border-purple-200' };
-            case 'network_error': return { label: 'Network', classes: 'bg-purple-50 text-purple-700 border-purple-200' };
-            default: return { label: category || 'Unknown', classes: 'bg-gray-50 text-gray-700 border-gray-200' };
-        }
-    }
 
     async function toggleRow(eventId: string, namespace: string) {
         if (expandedRows.has(eventId)) {

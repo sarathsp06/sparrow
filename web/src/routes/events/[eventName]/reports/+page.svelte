@@ -275,7 +275,7 @@
                     />
                 </div>
                 <div class="w-full sm:w-32">
-                    <label for="schema-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Schema</label>
+                    <label for="schema-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Schema Match</label>
                     <select
                         id="schema-filter"
                         bind:value={schemaValidFilter}

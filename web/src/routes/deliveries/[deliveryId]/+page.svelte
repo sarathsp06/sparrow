@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { deliveryClient as client } from "$lib";
+  import { getCategoryDisplay } from '$lib/utils';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
   import { onMount } from 'svelte';
   import type { WebhookDelivery } from "../../../../../proto/webhook_pb.js";
@@ -40,19 +41,6 @@
     }
   }
 
-  function getCategoryDisplay(category: string): { label: string; color: string; bgColor: string; borderColor: string } {
-    switch (category) {
-      case 'client_error': return { label: '4xx Client Error', color: 'text-orange-700', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' };
-      case 'server_error': return { label: '5xx Server Error', color: 'text-red-700', bgColor: 'bg-red-50', borderColor: 'border-red-200' };
-      case 'timeout': return { label: 'Timeout', color: 'text-yellow-700', bgColor: 'bg-yellow-50', borderColor: 'border-yellow-200' };
-      case 'dns_error': return { label: 'DNS Error', color: 'text-purple-700', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' };
-      case 'tls_error': return { label: 'TLS Error', color: 'text-purple-700', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' };
-      case 'connection_refused': return { label: 'Connection Refused', color: 'text-purple-700', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' };
-      case 'network_error': return { label: 'Network Error', color: 'text-purple-700', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' };
-      case 'success': return { label: 'Success', color: 'text-green-700', bgColor: 'bg-green-50', borderColor: 'border-green-200' };
-      default: return { label: category || 'Unknown', color: 'text-gray-700', bgColor: 'bg-gray-50', borderColor: 'border-gray-200' };
-    }
-  }
 </script>
 
 <svelte:head>
