@@ -1,6 +1,6 @@
 [build]
-builder = "IMAGE"
-image = "ghcr.io/sarathsp06/sparrow:latest"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "/app/server"
