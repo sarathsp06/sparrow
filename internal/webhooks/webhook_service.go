@@ -967,12 +967,14 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 	tenantID := tenant.DefaultTenantID
 
 	// Validate required fields
-	if namespace == "" {
-		return nil, 0, fmt.Errorf("namespace is required")
-	}
-
 	if deliveryID == "" && webhookID == "" {
 		return nil, 0, fmt.Errorf("either delivery_id or webhook_id is required")
+	}
+
+	// Namespace is required for webhook-level retry (multiple deliveries),
+	// but optional for single-delivery retry (delivery_id is globally unique within a tenant).
+	if namespace == "" && webhookID != "" {
+		return nil, 0, fmt.Errorf("namespace is required for webhook-level retry")
 	}
 
 	if deliveryID != "" && webhookID != "" {
