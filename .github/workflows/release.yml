@@ -62,6 +62,15 @@ jobs:
           mkdir -p build
           helm package charts/sparrow/ -d build
 
+      - name: Restore clean git state
+        run: |
+          # SvelteKit adapter deletes .gitkeep; restore it
+          touch internal/ui/dist/.gitkeep
+          # Revert build-time modifications to tracked files
+          git checkout charts/sparrow/Chart.yaml
+          # Remove any lockfile artifacts from npm ci
+          git checkout web/yarn.lock 2>/dev/null || true
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
