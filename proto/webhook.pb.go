@@ -338,7 +338,8 @@ type WebhookHTTPConfig struct {
 	RequestTimeoutSeconds int32 `protobuf:"varint,6,opt,name=request_timeout_seconds,json=requestTimeoutSeconds,proto3" json:"request_timeout_seconds,omitempty"`
 	// HTTP status codes that Sparrow treats as a successful delivery.
 	// Default: [200, 201, 202, 204]. Any response code not in this list
-	// is classified as a client_error (4xx) or server_error (5xx) based on range.
+	// is classified as "client_error" (4xx), "server_error" (5xx), or
+	// "unexpected_status" (2xx/3xx not in list) based on the HTTP status range.
 	// @example [200, 201, 202, 204]
 	ExpectedStatusCodes []int32 `protobuf:"varint,7,rep,packed,name=expected_status_codes,json=expectedStatusCodes,proto3" json:"expected_status_codes,omitempty"`
 	// Shared secret used for HMAC-SHA256 request signing. When set, Sparrow
@@ -4299,7 +4300,8 @@ type WebhookDelivery struct {
 	// Classified error category from the most recent attempt.
 	// Values: "success", "client_error" (4xx, not retried), "server_error" (5xx, retried),
 	// "timeout" (retried), "connection_refused" (retried), "network_error" (retried),
-	// "dns_error" (not retried), "tls_error" (not retried), "unknown".
+	// "dns_error" (not retried), "tls_error" (not retried), "unexpected_status" (not retried,
+	// response code did not match expected_status_codes), "unknown".
 	ErrorCategory string `protobuf:"bytes,15,opt,name=error_category,json=errorCategory,proto3" json:"error_category,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4956,7 +4958,8 @@ type DeliveryAttempt struct {
 	ErrorMessage string `protobuf:"bytes,7,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
 	// Classified error category for this attempt.
 	// Values: "success", "client_error", "server_error", "timeout",
-	// "connection_refused", "network_error", "dns_error", "tls_error", "unknown".
+	// "connection_refused", "network_error", "dns_error", "tls_error",
+	// "unexpected_status", "unknown".
 	// @example "success"
 	ErrorCategory string `protobuf:"bytes,8,opt,name=error_category,json=errorCategory,proto3" json:"error_category,omitempty"`
 	// When this attempt was made.
