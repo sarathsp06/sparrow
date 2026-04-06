@@ -74,13 +74,11 @@ migrate: ## Run database migrations
 
 
 clean: ## Clean up all build artifacts (Go, web, docs)
-	rm -rf build
+	rm -rf build dist
 	go clean -modcache
 	rm -rf web/build web/node_modules/.vite
 	rm -rf docs/dist docs/node_modules/.vite docs/.astro
 	rm -rf internal/ui/dist
-	mkdir -p internal/ui/dist
-	touch	internal/ui/dist/.gitkeep
 	@echo "Clean complete"
 
 generate: ## Generate protobuf code and gRPC/ConnectRPC clients
@@ -88,7 +86,17 @@ generate: ## Generate protobuf code and gRPC/ConnectRPC clients
 	buf generate
 	go generate ./...
 
-generate-docs: ## Generate API reference docs from proto definitions
+DIAGRAMS_DIR := docs/src/assets/diagrams
+DIAGRAMS_CFG := $(DIAGRAMS_DIR)/mermaid-config.json
+DIAGRAMS_SRC := $(wildcard $(DIAGRAMS_DIR)/*.mmd)
+DIAGRAMS_SVG := $(DIAGRAMS_SRC:.mmd=.svg)
+
+diagrams: $(DIAGRAMS_SVG) ## Re-render mermaid diagrams to SVG
+
+$(DIAGRAMS_DIR)/%.svg: $(DIAGRAMS_DIR)/%.mmd $(DIAGRAMS_CFG)
+	npx --yes @mermaid-js/mermaid-cli -i $< -o $@ -c $(DIAGRAMS_CFG) --backgroundColor transparent
+
+generate-docs: diagrams ## Generate API reference docs and diagrams from proto definitions
 	proto2astro generate
 
 lint: ## Run golangci-lint for linting
@@ -143,4 +151,4 @@ setup: ## Configure local repo (git hooks, etc.)
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui release-dry-run run test test-integration clean generate generate-docs docker-build docker-push docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web help changelog release setup
+.PHONY: build build-ui build-with-ui release-dry-run run test test-integration clean generate generate-docs diagrams docker-build docker-push docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web help changelog release setup
