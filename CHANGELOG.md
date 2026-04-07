@@ -4,201 +4,273 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.11.0] - 2026-04-07
+
+### Added
+
+- **health**: add unexpected_status error category to health metrics (full stack: migration, store, service, proto, gRPC, UI)
+
+### Changed
+
+- **docs**: replace client-side mermaid with pre-rendered SVGs (zero client JS, ~2MB lighter)
+- Add Makefile `diagrams` target with Make pattern rule for incremental re-rendering
+- Wire diagram re-rendering into `npm run dev` and `npm run build` in docs
+- Clean up .gitignore, remove obsolete pre-commit hook for .gitkeep
+
+### Fixed
+
+- **delivery**: only require namespace for webhook-level retry (fixes /deliveries page retry button)
+- **docs**: use default (light) mermaid theme
+- **docs**: use rehype-mermaid-lite to fix mermaid diagram rendering
 
 ## [0.10.0] - 2026-04-06
 
 ### Added
 
-- `unexpected_status` error category for webhook deliveries where the HTTP response code is valid (2xx/3xx) but doesn't match the webhook's `expected_status_codes` — fixes paradox where a failed delivery was classified as "success"
-- Shared error category utilities in web UI — `getCategoryBadge`, `getCategoryDisplay`, and `ERROR_CATEGORIES` extracted from 4 duplicated copies into `utils.ts`
-- `unexpected_status` filter option in delivery error category dropdowns (deliveries page and webhook detail page)
-
+- **ui**: add unexpected_status error category, deduplicate badge utilities
 ### Changed
 
-- Renamed "Schema" filter label to "Schema Match" on event reports page for clarity
-- Removed redundant root `docker-compose.yml` (identical to `deploy/docker-compose.yml`)
+- remove redundant root docker-compose.yml
+- regenerate proto code with updated error_category docs
+### Documentation
 
+- add client-side mermaid rendering, remove volatile data model section
 ### Fixed
 
-- Webhook deliveries responding with 2xx/3xx status codes not in `expected_status_codes` are now classified as `unexpected_status` instead of `success`
-
-## [0.9.3] - 2026-04-06
+- add unexpected_status error category for status code mismatches## [0.9.3] - 2026-04-06
 
 ### Added
 
-- RePushEvent RPC for single event replay — loads the original event and re-pushes it through the standard PushEvent pipeline with current schema validation
+- add RePushEvent RPC for single event replay
+### Fixed
+
+- revert Railway to Dockerfile-based builds## [0.9.2] - 2026-04-06
 
 ### Fixed
 
-- Revert Railway to Dockerfile-based builds
+- **ci**: restore clean git state before GoReleaser## [0.9.1] - 2026-04-06
 
-## [0.9.2] - 2026-04-06
+### Changed
 
-### Fixed
-
-- Restore clean git state in release workflow before GoReleaser (fixes failed releases for v0.8.1, v0.9.0, v0.9.1)
-- Add pre-commit hook to restore `internal/ui/dist/.gitkeep` after SvelteKit builds
-
-## [0.9.0] - 2026-04-06
+- add pre-commit hook to restore internal/ui/dist/.gitkeep## [0.9.0] - 2026-04-06
 
 ### Added
 
-- Search filters, batch re-push, and batch retry controls in web UI (event reports, deliveries, webhook detail pages)
-- New deliveries page with full filter bar and bulk retry
-- BatchProgress component for tracking batch job status with polling
-- Compact visual flow diagram in webhooks empty state showing the full delivery pipeline
-- Lead with "The Full Flow" section in how-it-works docs page
-
+- **ui**: search filters, batch re-push, and batch retry for web UI
+- lead with full flow diagram in docs and webhooks empty state
 ### Changed
 
-- Migrate release pipeline to GoReleaser
-- Docs link in webhooks empty state styled as a proper button
-
-## [0.8.1] - 2026-04-06
+- migrate release pipeline to GoReleaser## [0.8.1] - 2026-04-06
 
 ### Fixed
 
-- Use pre-built GHCR image for Railway deployment instead of Dockerfile build
-
-## [0.8.0] - 2026-04-06
+- use pre-built GHCR image for Railway deployment instead of Dockerfile build## [0.8.0] - 2026-04-06
 
 ### Added
 
-- Rich search filters for event reports (schema_valid, labels, date range) and deliveries (status, error_category, subscription, date range)
-- Deterministic batch re-push and retry with snapshot-based pattern
-- New RPCs: RePushEvents, GetRepushStatus, CancelRepush, RetryDeliveries, GetRetryStatus, CancelRetry
-- Soft schema validation with warnings (events always accepted, tagged with schema_valid)
-- Template transform graceful fallback to envelope payload on failure
-
-## [0.7.1] - 2026-04-06
+- search filters, deterministic batch re-push and retry
+- soft schema validation, template fallback, and implementation plan## [0.7.1] - 2026-04-06
 
 ### Fixed
 
-- Rewrite webhooks empty state with correct getting-started flow
-
-## [0.7.0] - 2026-04-05
+- rewrite webhooks empty state with correct getting-started flow## [0.7.0] - 2026-04-05
 
 ### Added
 
-- Getting-started empty state for webhooks page
-
-### Changed
-
-- Remove unused Inter font and OTel collector config
-
-## [0.6.0] - 2026-04-05
+- add getting-started empty state for webhooks, remove unused Inter font and otel-collector config## [0.6.0] - 2026-04-05
 
 ### Fixed
 
-- Replace stdlib mux with chi router to fix Connect-RPC routing bug where API paths were unreachable
-
-## [0.5.4] - 2026-04-05
+- replace stdlib mux with chi router to fix Connect-RPC routing bug## [0.5.4] - 2026-04-05
 
 ### Changed
 
-- Split API and UI into separate muxes for cleaner auth boundary
-
-## [0.5.3] - 2026-04-05
+- split API and UI into separate muxes for cleaner auth boundary## [0.5.3] - 2026-04-05
 
 ### Fixed
 
-- Allow UI routes through API key auth when embedded UI is served
-
-## [0.5.2] - 2026-04-05
+- allow UI routes through API key auth when embedded UI is served## [0.5.2] - 2026-04-05
 
 ### Changed
 
-- Migrate docs to proto2astro v0.4.1 JSON-based config pattern
-
+- migrate docs to proto2astro v0.4.1 JSON-based config pattern
 ### Fixed
 
-- Enable encryption in integration tests and add dev docker-compose
-- Restore missing sidebar sections in docs (Getting Started, Deployment, Reference)
-
-## [0.5.1] - 2026-04-05
+- enable encryption in integration tests and add dev docker-compose
+- remove Guides from sidebar and enforce correct section order
+- restore missing sidebar sections in docs (Getting Started, Deployment, Reference)## [0.5.1] - 2026-04-05
 
 ### Documentation
 
-- Add Railway one-click deploy button to README, docs, and landing page
-
-## [0.5.0] - 2026-04-05
+- add Railway one-click deploy button to README, docs, and landing page## [0.5.0] - 2026-04-05
 
 ### Added
 
-- Envelope encryption for webhook secrets and sensitive headers
-- Railway deployment template and docs
-
+- envelope encryption for webhook secrets and sensitive headers
+- add Railway deployment template and docs
 ### Documentation
 
-- Consolidate root markdown files into docs site
-- Fix inaccuracies in architecture, config, and technical docs
-
+- consolidate root markdown files into docs site
+- add proto2astro attribution with repo link in README and comment guide
+- fix inaccuracies in architecture, config, and technical docs
 ### Fixed
 
-- Make OTLP export opt-in via OTEL_EXPORTER_OTLP_ENDPOINT
-
-## [0.4.0] - 2026-04-05
+- remove broken Railway one-click deploy button## [0.4.0] - 2026-04-05
 
 ### Added
 
-- Migrate docs generation from custom gendocs to proto2astro
+- migrate docs generation from custom gendocs to proto2astro## [0.3.2] - 2026-04-03
 
-## [0.3.2] - 2026-04-03
+### Changed
 
+- exclude SESSION_NOTES.md from version control
 ### Fixed
 
-- Multi-arch Docker build for Apple Silicon support
-
-## [0.3.1] - 2026-04-03
+- multi-arch Docker build for Apple Silicon support## [0.3.1] - 2026-04-03
 
 ### Added
 
-- Unify Fira Code as default font across web app, docs, and landing page
-
+- unify Fira Code as default font across web app, docs, and landing page
 ### Documentation
 
-- Refactor README to follow open-source conventions
-
-## [0.3.0] - 2026-04-03
+- refactor README to follow open-source conventions## [0.3.0] - 2026-04-03
 
 ### Added
 
-- Standalone docker-compose for quick deployment
-- Helm chart with PDB, PostgreSQL security context, and initContainer resource limits
-
-## [0.2.0] - 2026-04-03
+- standalone docker-compose, docs updates, and helm chart fix## [0.2.0] - 2026-04-03
 
 ### Added
 
-- Namespace UI with chooser and persistence (#11)
-- Proto-to-docs generator with hostname switcher
-- Marketing landing page (moved from web app to docs site)
-- Release workflow with git-cliff and changelog generation
-- Optional API key authentication via SPARROW_API_KEY
-- Semver injection into web UI, docs site, and Docker builds
-- Helm chart, Kubernetes Makefile targets, and CI/CD for releases
-- Event subscription template dry-run API and UI (#10)
-- Go template transforms for subscription payloads
-- Kubernetes deployment docs
+- **docs**: add proto-to-docs generator, hostname switcher, and build footer
+- **web**: allow choosing and persisting namespace in UI (#11)
+- move marketing landing page from web app to docs site
+- add release workflow with git-cliff and changelog generation
+- add optional API key authentication via SPARROW_API_KEY
+- inject clean semver into web UI, docs site, and Docker builds
+- add Helm chart, k8s Makefile targets, and update CI/CD for releases
+- improve dependencoies
+- add event subscription template dry-run API and UI (#10)
+- use uuids
+- add support for templates
+### Changed
 
+- **docs**: remove getting started section from landing page
+- updat make file
+- added back .gitkeep
+- add docs
+- fix tests
+- fix test adding allow loopback
+- use MIT License
+- update ci-cd and cleanup repo tree
+- improve docs
+- fix lint
+- update web and README
+- security improvements
+- improved tenantisation and UI
+- update tenats and license
+- add clerk support
+- improve jsonschema
+- update README
+- update README
+- improve error categorization
+- refactor and improve UX
+- fix lint
+- use TimeStamp
+- fix lint
+- improe README
+- improve telementry generator
+- improve README
+- update package.json
+- use latest githubcilint
+- add github ci
+- lint fix
+- improve benchmarking
+- improve benchmarking
+- improve benchmarking
+- update templates
+- generate sample data for event schema
+- remove handle registration event
+- add simplified version of json schema meta schema for web
+- improve readme
+- improve signature
+- cleanup migrations
+- move webhook client to a package:
+- fix max attempt retries
+### Documentation
+
+- add Kubernetes deployment page to docs site, slim down KUBERNETES.md
+- move k8s details to KUBERNETES.md, slim down README
+- add documentation site link to README
+- add web UI quick start section and project badges
+- add Protobuf evaluation and recommendations (#6)
 ### Fixed
 
-- CI workflow reliability (lint, go:embed placeholder)
-- Docs links, broken references, and landing page sync
-- Integration test failures (SSRF config, webhook ID mismatch)
-
-## [0.1.0] - 2025-11-14
+- **ci**: fix lint issues and CI workflow for reliable builds
+- **ci**: add .gitkeep to dist dir for go:embed
+- **docs**: fix broken links and sync landing page with indigo theme
+- **docs**: use ghcr.io image references in docs and config
+- **docs**: point docs links to GitHub Pages, remove redundant overlay sections
+- **docs**: remove stale references, add How It Works page, slim overlay, protocol toggle
+- **docs**: rename installation.md to .mdx and remove Guides section
+- **helm**: add PDB, PG security context, and initContainer resource limits
+- **otel**: make OTLP export opt-in via OTEL_EXPORTER_OTLP_ENDPOINT
+- **web**: remove static PUBLIC_API_KEY import that breaks SvelteKit build
+- use changelog content as release tag message and curate CHANGELOG.md
+- resolve integration test failures (SSRF config + webhook ID mismatch)
+- add .gitkeep to dist dir for go:embed## [0.1.0] - 2025-11-14
 
 ### Added
 
-- Core webhook delivery platform: register webhooks, define events, create subscriptions
-- Async HTTP delivery via River job queue with retries and exponential backoff
-- gRPC and Connect-RPC dual-protocol API
-- SvelteKit embedded web UI
-- HMAC webhook signing
-- Error classification (9 categories with retryability)
-- Webhook health tracking (events, summaries, state)
-- OpenTelemetry observability (traces, metrics, structured logs)
-- JSON schema validation for event payloads
-- Extensive test coverage (#4)
-- Benchmarking tool with reservoir sampling
+- Add extensive test coverage to the webhook service (#4)
+- Enhance SvelteKit frontend application (#3)
+### Changed
+
+- add api-key for completelness
+- improve max attempt
+- include request body in webhook delivery table and responses
+- implement resend delivery
+- report db metrics
+- working with sqlx
+- fix lint errors
+- fix build errors
+- temporary
+- use custom sparrow
+- added new favicon
+- loading spin
+- update README
+- update make
+- improve makefile
+- improved readme
+- improved readme
+- cleanup
+- more ui improvements
+- improve UI
+- improve documentation
+- fix code
+- more test
+- add JSON validation
+- more UI
+- improve web
+- use MIT license
+- some UI fun
+- improve function signatures
+- otel logs
+- add UI
+- add UI
+- add more statistics managements
+- add more functioins
+- improve README
+- more core functionalities
+- more trace for grpc and connectrpc added
+- basic working code
+- remove unwanted sample code
+- grpc service
+### Fix
+
+- Correct function calls in gRPC and Connect servers (#2)
+### Fixed
+
+- add table svelte component
+- add meatures
+- add meatures
+- more telemetry
