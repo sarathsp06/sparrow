@@ -3,9 +3,19 @@ title: Architecture
 description: System design, event pipeline, and internal architecture.
 ---
 
+import ThemeDiagram from '../../../components/ThemeDiagram.astro';
+import systemOverviewLight from '../../../assets/diagrams/system-overview-light.svg';
+import systemOverviewDark from '../../../assets/diagrams/system-overview-dark.svg';
+import healthStateMachineLight from '../../../assets/diagrams/health-state-machine-light.svg';
+import healthStateMachineDark from '../../../assets/diagrams/health-state-machine-dark.svg';
+
 ## Overview
 
-![System overview diagram showing the Sparrow architecture: your application pushes events via HTTP/gRPC to the dual-protocol API, which stores events in PostgreSQL and enqueues them. EventWorker fans out to matching subscriptions, WebhookWorker delivers via HTTP POST with HMAC signing, and the embedded SvelteKit UI connects via Connect-RPC.](../../../assets/diagrams/system-overview.svg)
+<ThemeDiagram
+  light={systemOverviewLight}
+  dark={systemOverviewDark}
+  alt="System overview diagram showing the Sparrow architecture: your application pushes events via HTTP/gRPC to the dual-protocol API, which stores events in PostgreSQL and enqueues them. EventWorker fans out to matching subscriptions, WebhookWorker delivers via HTTP POST with HMAC signing, and the embedded SvelteKit UI connects via Connect-RPC."
+/>
 
 ### Tech Stack
 
@@ -65,7 +75,11 @@ Target URL receives webhook payload
 
 Event-sourced health calculation with a 24-hour lookback window:
 
-![Health state machine diagram showing transitions between unknown, healthy, degraded, and unhealthy states based on success rates and consecutive failures, with a 24-hour inactivity timeout back to unknown.](../../../assets/diagrams/health-state-machine.svg)
+<ThemeDiagram
+  light={healthStateMachineLight}
+  dark={healthStateMachineDark}
+  alt="Health state machine diagram showing transitions between unknown, healthy, degraded, and unhealthy states based on success rates and consecutive failures, with a 24-hour inactivity timeout back to unknown."
+/>
 
 **How it works:**
 1. Each delivery outcome is recorded as a health event

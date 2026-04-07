@@ -18,6 +18,31 @@
   --sl-color-accent-high: #e0e7ff;
 }
 
+/* ─── Theme-Aware Diagrams ─────────────────────────────────── */
+
+.theme-diagram {
+  margin: 1.5rem 0;
+}
+
+.theme-diagram img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
+
+:root[data-theme='light'] .theme-diagram-dark,
+:root:not([data-theme='dark']) .theme-diagram-dark {
+  display: none;
+}
+
+:root[data-theme='dark'] .theme-diagram-light {
+  display: none;
+}
+
+:root[data-theme='dark'] .theme-diagram-dark {
+  display: block;
+}
+
 /* ─── API Endpoint Header ──────────────────────────────────── */
 
 .api-endpoint {
