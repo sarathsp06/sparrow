@@ -5,33 +5,7 @@ description: System design, event pipeline, and internal architecture.
 
 ## Overview
 
-```mermaid
-graph LR
-    App[Your Application] -->|PushEvent<br>HTTP / gRPC| API
-
-    subgraph Sparrow
-        API[Dual-Protocol API<br>gRPC :50051 · HTTP :8080]
-        DB[(PostgreSQL)]
-        EQ[Events Queue]
-        WQ[Webhooks Queue]
-        EW[EventWorker]
-        WW[WebhookWorker]
-        Health[Health Tracker]
-
-        API -->|Store event| DB
-        API -->|Enqueue| EQ
-        EQ --> EW
-        EW -->|Find matching<br>subscriptions| DB
-        EW -->|Fan-out jobs| WQ
-        WQ --> WW
-        WW -->|Load config +<br>transform payload| DB
-        WW -->|Record outcome| DB
-        WW -->|Update| Health
-    end
-
-    WW -->|HTTP POST<br>HMAC-signed| Endpoint[External Endpoints]
-    UI[Embedded SvelteKit UI] -->|Connect-RPC| API
-```
+![System overview diagram showing the Sparrow architecture: your application pushes events via HTTP/gRPC to the dual-protocol API, which stores events in PostgreSQL and enqueues them. EventWorker fans out to matching subscriptions, WebhookWorker delivers via HTTP POST with HMAC signing, and the embedded SvelteKit UI connects via Connect-RPC.](../../../assets/diagrams/system-overview.svg)
 
 ### Tech Stack
 
@@ -91,27 +65,7 @@ Target URL receives webhook payload
 
 Event-sourced health calculation with a 24-hour lookback window:
 
-```mermaid
-stateDiagram-v2
-    [*] --> unknown
-
-    unknown --> healthy : >=90% success rate\n(3+ events)
-    unknown --> degraded : <90% success rate\n(5+ events)
-    unknown --> unhealthy : 5+ consecutive failures\nOR <80% rate (10+ events)
-
-    healthy --> degraded : Success rate drops <90%
-    healthy --> unhealthy : 5+ consecutive failures
-
-    degraded --> healthy : Success rate recovers >=90%
-    degraded --> unhealthy : 5+ consecutive failures\nOR <80% rate (10+ events)
-
-    unhealthy --> degraded : Partial recovery
-    unhealthy --> healthy : Full recovery >=90%
-
-    healthy --> unknown : No events in 24h
-    degraded --> unknown : No events in 24h
-    unhealthy --> unknown : No events in 24h
-```
+![Health state machine diagram showing transitions between unknown, healthy, degraded, and unhealthy states based on success rates and consecutive failures, with a 24-hour inactivity timeout back to unknown.](../../../assets/diagrams/health-state-machine.svg)
 
 **How it works:**
 1. Each delivery outcome is recorded as a health event
