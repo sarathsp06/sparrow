@@ -29,13 +29,12 @@ Sparrow encrypts webhook secrets and sensitive headers at rest using **envelope 
 
 ### Key Management
 
-The encryption key is resolved in priority order:
+The encryption key is resolved on startup:
 
 1. **Environment variable** -- `SPARROW_ENCRYPTION_KEY` (64-char hex string = 32 bytes)
-2. **Database** -- If no env var is set, Sparrow checks the `system_settings` table for a previously generated key
-3. **Auto-generate** -- If neither exists, a random key is generated and persisted to `system_settings`
+2. **Auto-generate** -- If no env var is set, a temporary key is generated and printed to stdout
 
-Encryption works out of the box with zero configuration. For production deployments where you want explicit control over the key, set the environment variable:
+The key is **never** stored in the database. If no env var is set, the generated key is ephemeral — restarting without persisting the key means previously encrypted data becomes unreadable. For production, always set the environment variable:
 
 ```bash
 # Generate a key

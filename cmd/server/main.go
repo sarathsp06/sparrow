@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"log/slog"
@@ -167,9 +165,9 @@ func main() {
 	}
 
 	// Initialize encryption service.
-	// Priority: 1) SPARROW_ENCRYPTION_KEY env var, 2) system_settings DB key, 3) auto-generate.
-	// Encryption is always enabled — a KEK is guaranteed after this block.
-	encKey, err := resolveEncryptionKey(ctx, sqlxDB)
+	// Priority: SPARROW_ENCRYPTION_KEY env var. If unset, a temporary key is
+	// generated for this session and printed to stdout.
+	encKey, err := resolveEncryptionKey()
 	if err != nil {
 		log.Fatalf("Failed to resolve encryption key: %v", err)
 	}
@@ -471,14 +469,17 @@ func buildCORSHandler() *cors.Cors {
 	})
 }
 
-// resolveEncryptionKey determines the 32-byte KEK using this priority:
-//  1. SPARROW_ENCRYPTION_KEY env var (64 hex chars)
-//  2. Previously auto-generated key in system_settings table
-//  3. Generate a new key, persist it in system_settings, and use it
+// resolveEncryptionKey determines the 32-byte KEK.
 //
-// This ensures encryption is always enabled without requiring manual setup.
-func resolveEncryptionKey(ctx context.Context, db *postgres.SQLXDB) ([]byte, error) {
-	// 1. Check env var first (always takes precedence)
+// If SPARROW_ENCRYPTION_KEY is set, it is parsed as a 64-char hex string.
+// If not set, a random key is generated for this session and printed to
+// stdout so the operator can persist it. The key is NOT stored in the
+// database — storing the encryption key next to the data it protects
+// defeats the purpose of encryption at rest.
+//
+// WARNING: If no env var is set and the server restarts, a new key is
+// generated and previously encrypted data becomes unreadable.
+func resolveEncryptionKey() ([]byte, error) {
 	if raw := os.Getenv("SPARROW_ENCRYPTION_KEY"); raw != "" {
 		key, err := crypto.ParseKey(raw)
 		if err != nil {
@@ -488,42 +489,19 @@ func resolveEncryptionKey(ctx context.Context, db *postgres.SQLXDB) ([]byte, err
 		return key, nil
 	}
 
-	// 2. Check system_settings table for previously auto-generated key
-	var storedHex []byte
-	err := db.GetContext(ctx, &storedHex,
-		`SELECT value FROM system_settings WHERE key = 'encryption_key'`)
-	if err == nil && len(storedHex) > 0 {
-		// Value is stored as hex-encoded bytes
-		key, err := hex.DecodeString(string(storedHex))
-		if err != nil {
-			return nil, fmt.Errorf("invalid stored encryption key: %w", err)
-		}
-		if len(key) != 32 {
-			return nil, fmt.Errorf("stored encryption key has wrong length: %d bytes (expected 32)", len(key))
-		}
-		fmt.Println("🔑 Using auto-generated encryption key from database")
-		return key, nil
-	}
-	if err != nil && err != sql.ErrNoRows {
-		return nil, fmt.Errorf("failed to query system_settings: %w", err)
-	}
-
-	// 3. Generate a new key and persist it
+	// Auto-generate for convenience (dev/first-run). Print the key so the
+	// operator can save it before any data is encrypted with it.
 	hexKey, key, err := crypto.GenerateKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate encryption key: %w", err)
 	}
 
-	_, err = db.ExecContext(ctx,
-		`INSERT INTO system_settings (key, value) VALUES ('encryption_key', $1)
-		 ON CONFLICT (key) DO NOTHING`,
-		[]byte(hexKey))
-	if err != nil {
-		return nil, fmt.Errorf("failed to persist encryption key: %w", err)
-	}
-
-	fmt.Println("🔑 Generated and stored new encryption key in database")
-	fmt.Println("   TIP: Set SPARROW_ENCRYPTION_KEY env var for portability across deployments")
+	fmt.Println("⚠️  SPARROW_ENCRYPTION_KEY not set — generated a temporary key for this session")
+	fmt.Println("   Any data encrypted with this key will be UNREADABLE after restart unless you persist the key.")
+	fmt.Println("")
+	fmt.Printf("   export SPARROW_ENCRYPTION_KEY=%s\n", hexKey)
+	fmt.Println("")
+	fmt.Println("   Add this to your environment or .env file before encrypting production data.")
 	return key, nil
 }
 

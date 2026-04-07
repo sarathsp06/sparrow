@@ -273,13 +273,12 @@ Each encrypted value uses a unique random data encryption key (DEK). The DEK is 
 
 ### Key Resolution
 
-The KEK is resolved on startup in priority order:
+The KEK is resolved on startup:
 
 1. `SPARROW_ENCRYPTION_KEY` environment variable (64-char hex = 32 bytes)
-2. Previously stored key in the `system_settings` database table
-3. Auto-generated random key, persisted to `system_settings`
+2. If not set, a temporary key is auto-generated for the session and printed to stdout
 
-Encryption is always enabled -- there is no "disabled" mode. If no key is provided, one is generated automatically.
+The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. If no env var is set, the generated key is ephemeral — restarting without setting the env var produces a new key and any previously encrypted data becomes unreadable.
 
 ### Backward Compatibility
 

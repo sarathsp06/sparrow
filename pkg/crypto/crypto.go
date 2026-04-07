@@ -2,8 +2,8 @@
 // for sensitive data such as secret headers and webhook secrets.
 //
 // The Key Encryption Key (KEK) is loaded from the SPARROW_ENCRYPTION_KEY
-// environment variable (64 hex chars = 32 bytes) or auto-generated on first
-// boot and persisted in the system_settings table.
+// environment variable (64 hex chars = 32 bytes). If not set, a temporary
+// key is generated for the current session and printed to stdout.
 //
 // # Envelope Encryption
 //
