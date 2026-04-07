@@ -223,7 +223,7 @@
                     </div>
 
                     <!-- Error category breakdown bar -->
-                    {@const totalErrors = (metrics.clientErrors || 0) + (metrics.serverErrors || 0) + (metrics.timeoutErrors || 0) + (metrics.networkErrors || 0)}
+                    {@const totalErrors = (metrics.clientErrors || 0) + (metrics.serverErrors || 0) + (metrics.timeoutErrors || 0) + (metrics.networkErrors || 0) + (metrics.unexpectedStatusErrors || 0)}
                     {#if totalErrors > 0}
                       <div class="flex items-center gap-3">
                         <div class="flex-1 h-2 rounded-full overflow-hidden flex bg-gray-100">
@@ -239,12 +239,16 @@
                           {#if metrics.networkErrors > 0}
                             <div class="bg-purple-400 h-full" style="width: {(metrics.networkErrors / totalErrors) * 100}%"></div>
                           {/if}
+                          {#if metrics.unexpectedStatusErrors > 0}
+                            <div class="bg-amber-400 h-full" style="width: {(metrics.unexpectedStatusErrors / totalErrors) * 100}%"></div>
+                          {/if}
                         </div>
                         <div class="flex items-center gap-2 text-[10px] text-gray-500 shrink-0">
                           {#if metrics.clientErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>{metrics.clientErrors} 4xx</span>{/if}
                           {#if metrics.serverErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>{metrics.serverErrors} 5xx</span>{/if}
                           {#if metrics.timeoutErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>{metrics.timeoutErrors} timeout</span>{/if}
                           {#if metrics.networkErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>{metrics.networkErrors} network</span>{/if}
+                          {#if metrics.unexpectedStatusErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>{metrics.unexpectedStatusErrors} unexpected</span>{/if}
                         </div>
                       </div>
                     {/if}

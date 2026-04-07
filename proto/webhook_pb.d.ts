@@ -3106,6 +3106,16 @@ export declare type WebhookHealthMetrics = Message<"webhook.WebhookHealthMetrics
    * @generated from field: int32 network_errors = 15;
    */
   networkErrors: number;
+
+  /**
+   * Count of unexpected status errors in the last 24 hours.
+   * These occur when the HTTP response code is valid (2xx/3xx) but doesn't match
+   * the webhook's expected_status_codes list. Not retried.
+   * @example 0
+   *
+   * @generated from field: int32 unexpected_status_errors = 16;
+   */
+  unexpectedStatusErrors: number;
 };
 
 /**

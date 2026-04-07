@@ -152,24 +152,25 @@ type DeliveryFilter struct {
 
 // WebhookHealthSummary represents aggregated health metrics for a webhook
 type WebhookHealthSummary struct {
-	ID                   uuid.UUID `json:"id" db:"id"`
-	WebhookID            uuid.UUID `json:"webhook_id" db:"webhook_id"`
-	WindowStart          time.Time `json:"window_start" db:"window_start"`
-	WindowEnd            time.Time `json:"window_end" db:"window_end"`
-	TotalDeliveries      int       `json:"total_deliveries" db:"total_deliveries"`
-	SuccessfulDeliveries int       `json:"successful_deliveries" db:"successful_deliveries"`
-	FailedDeliveries     int       `json:"failed_deliveries" db:"failed_deliveries"`
-	SuccessRate          float64   `json:"success_rate" db:"success_rate"`           // 0.0 to 1.0
-	AvgResponseTime      int       `json:"avg_response_time" db:"avg_response_time"` // milliseconds
-	MinResponseTime      int       `json:"min_response_time" db:"min_response_time"` // milliseconds
-	MaxResponseTime      int       `json:"max_response_time" db:"max_response_time"` // milliseconds
-	P95ResponseTime      int       `json:"p95_response_time" db:"p95_response_time"` // milliseconds
-	ClientErrors         int       `json:"client_errors" db:"client_errors"`         // 4xx error count
-	ServerErrors         int       `json:"server_errors" db:"server_errors"`         // 5xx error count
-	TimeoutErrors        int       `json:"timeout_errors" db:"timeout_errors"`       // timeout error count
-	NetworkErrors        int       `json:"network_errors" db:"network_errors"`       // network/dns/tls/connection error count
-	CreatedAt            time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt            time.Time `json:"updated_at" db:"updated_at"`
+	ID                     uuid.UUID `json:"id" db:"id"`
+	WebhookID              uuid.UUID `json:"webhook_id" db:"webhook_id"`
+	WindowStart            time.Time `json:"window_start" db:"window_start"`
+	WindowEnd              time.Time `json:"window_end" db:"window_end"`
+	TotalDeliveries        int       `json:"total_deliveries" db:"total_deliveries"`
+	SuccessfulDeliveries   int       `json:"successful_deliveries" db:"successful_deliveries"`
+	FailedDeliveries       int       `json:"failed_deliveries" db:"failed_deliveries"`
+	SuccessRate            float64   `json:"success_rate" db:"success_rate"`                         // 0.0 to 1.0
+	AvgResponseTime        int       `json:"avg_response_time" db:"avg_response_time"`               // milliseconds
+	MinResponseTime        int       `json:"min_response_time" db:"min_response_time"`               // milliseconds
+	MaxResponseTime        int       `json:"max_response_time" db:"max_response_time"`               // milliseconds
+	P95ResponseTime        int       `json:"p95_response_time" db:"p95_response_time"`               // milliseconds
+	ClientErrors           int       `json:"client_errors" db:"client_errors"`                       // 4xx error count
+	ServerErrors           int       `json:"server_errors" db:"server_errors"`                       // 5xx error count
+	TimeoutErrors          int       `json:"timeout_errors" db:"timeout_errors"`                     // timeout error count
+	NetworkErrors          int       `json:"network_errors" db:"network_errors"`                     // network/dns/tls/connection error count
+	UnexpectedStatusErrors int       `json:"unexpected_status_errors" db:"unexpected_status_errors"` // 2xx/3xx not in expected_status_codes
+	CreatedAt              time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // WebhookHealthMetrics represents current health state and recent metrics

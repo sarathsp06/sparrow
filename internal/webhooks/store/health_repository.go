@@ -214,6 +214,7 @@ func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID uuid
 			SUM(CASE WHEN error_category = 'server_error' THEN 1 ELSE 0 END) as server_errors,
 			SUM(CASE WHEN error_category = 'timeout' THEN 1 ELSE 0 END) as timeout_errors,
 			SUM(CASE WHEN error_category IN ('network_error', 'dns_error', 'tls_error', 'connection_refused') THEN 1 ELSE 0 END) as network_errors,
+			SUM(CASE WHEN error_category = 'unexpected_status' THEN 1 ELSE 0 END) as unexpected_status_errors,
 			NOW() as created_at,
 			NOW() as updated_at
 		FROM webhook_health_events
@@ -307,7 +308,7 @@ func (r *Repository) GetWebhookHealthTimeSeries(ctx context.Context, webhookID u
 
 // AggregateHealthSummaries computes hourly health summaries from raw health events
 // and inserts them into the webhook_health_summaries table.
-// Includes error category breakdown (client_errors, server_errors, timeout_errors, network_errors).
+// Includes error category breakdown (client_errors, server_errors, timeout_errors, network_errors, unexpected_status_errors).
 // Returns the number of summaries processed.
 func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) {
 	query := `
@@ -315,7 +316,7 @@ func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) 
 			id, webhook_id, window_start, window_end,
 			total_deliveries, successful_deliveries, failed_deliveries,
 			success_rate, avg_response_time, min_response_time, max_response_time, p95_response_time,
-			client_errors, server_errors, timeout_errors, network_errors,
+			client_errors, server_errors, timeout_errors, network_errors, unexpected_status_errors,
 			created_at, updated_at
 		)
 		SELECT
@@ -335,6 +336,7 @@ func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) 
 			SUM(CASE WHEN error_category = 'server_error' THEN 1 ELSE 0 END) AS server_errors,
 			SUM(CASE WHEN error_category = 'timeout' THEN 1 ELSE 0 END) AS timeout_errors,
 			SUM(CASE WHEN error_category IN ('network_error', 'dns_error', 'tls_error', 'connection_refused') THEN 1 ELSE 0 END) AS network_errors,
+			SUM(CASE WHEN error_category = 'unexpected_status' THEN 1 ELSE 0 END) AS unexpected_status_errors,
 			NOW(),
 			NOW()
 		FROM webhook_health_events
@@ -353,6 +355,7 @@ func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) 
 			server_errors = EXCLUDED.server_errors,
 			timeout_errors = EXCLUDED.timeout_errors,
 			network_errors = EXCLUDED.network_errors,
+			unexpected_status_errors = EXCLUDED.unexpected_status_errors,
 			updated_at = NOW()
 	`
 

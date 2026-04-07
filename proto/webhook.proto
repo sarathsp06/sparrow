@@ -1662,6 +1662,12 @@ message WebhookHealthMetrics {
   // Includes DNS failures, TLS errors, connection refused, and other transport errors.
   // @example 0
   int32 network_errors = 15;
+
+  // Count of unexpected status errors in the last 24 hours.
+  // These occur when the HTTP response code is valid (2xx/3xx) but doesn't match
+  // the webhook's expected_status_codes list. Not retried.
+  // @example 0
+  int32 unexpected_status_errors = 16;
 }
 
 // GetWebhookHealthResponse returns health status and metrics for a webhook.

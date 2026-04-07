@@ -1199,10 +1199,11 @@ type WebhookHealthData struct {
 	UpdatedAt            time.Time           `json:"updated_at"`
 
 	// Error category breakdown
-	ClientErrors  int `json:"client_errors"`  // 4xx responses
-	ServerErrors  int `json:"server_errors"`  // 5xx responses
-	TimeoutErrors int `json:"timeout_errors"` // Timeouts
-	NetworkErrors int `json:"network_errors"` // DNS, TLS, connection refused, and other network errors
+	ClientErrors           int `json:"client_errors"`            // 4xx responses
+	ServerErrors           int `json:"server_errors"`            // 5xx responses
+	TimeoutErrors          int `json:"timeout_errors"`           // Timeouts
+	NetworkErrors          int `json:"network_errors"`           // DNS, TLS, connection refused, and other network errors
+	UnexpectedStatusErrors int `json:"unexpected_status_errors"` // 2xx/3xx not in expected_status_codes
 }
 
 // HealthSummaryData represents health summary information
@@ -1534,6 +1535,7 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 		healthData.ServerErrors = healthSummary.ServerErrors
 		healthData.TimeoutErrors = healthSummary.TimeoutErrors
 		healthData.NetworkErrors = healthSummary.NetworkErrors
+		healthData.UnexpectedStatusErrors = healthSummary.UnexpectedStatusErrors
 	}
 
 	s.logger.InfoContext(ctx, "Webhook health retrieved successfully",

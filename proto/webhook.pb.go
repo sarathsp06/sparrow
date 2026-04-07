@@ -5266,8 +5266,13 @@ type WebhookHealthMetrics struct {
 	// Includes DNS failures, TLS errors, connection refused, and other transport errors.
 	// @example 0
 	NetworkErrors int32 `protobuf:"varint,15,opt,name=network_errors,json=networkErrors,proto3" json:"network_errors,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Count of unexpected status errors in the last 24 hours.
+	// These occur when the HTTP response code is valid (2xx/3xx) but doesn't match
+	// the webhook's expected_status_codes list. Not retried.
+	// @example 0
+	UnexpectedStatusErrors int32 `protobuf:"varint,16,opt,name=unexpected_status_errors,json=unexpectedStatusErrors,proto3" json:"unexpected_status_errors,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *WebhookHealthMetrics) Reset() {
@@ -5401,6 +5406,13 @@ func (x *WebhookHealthMetrics) GetTimeoutErrors() int32 {
 func (x *WebhookHealthMetrics) GetNetworkErrors() int32 {
 	if x != nil {
 		return x.NetworkErrors
+	}
+	return 0
+}
+
+func (x *WebhookHealthMetrics) GetUnexpectedStatusErrors() int32 {
+	if x != nil {
+		return x.UnexpectedStatusErrors
 	}
 	return 0
 }
@@ -7418,7 +7430,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x17GetWebhookHealthRequest\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\xda\x05\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\x94\x06\n" +
 	"\x14WebhookHealthMetrics\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12)\n" +
@@ -7438,7 +7450,8 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\rclient_errors\x18\f \x01(\x05R\fclientErrors\x12#\n" +
 	"\rserver_errors\x18\r \x01(\x05R\fserverErrors\x12%\n" +
 	"\x0etimeout_errors\x18\x0e \x01(\x05R\rtimeoutErrors\x12%\n" +
-	"\x0enetwork_errors\x18\x0f \x01(\x05R\rnetworkErrors\"\xde\x01\n" +
+	"\x0enetwork_errors\x18\x0f \x01(\x05R\rnetworkErrors\x128\n" +
+	"\x18unexpected_status_errors\x18\x10 \x01(\x05R\x16unexpectedStatusErrors\"\xde\x01\n" +
 	"\x18GetWebhookHealthResponse\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x03 \x01(\tR\twebhookId\x12.\n" +
