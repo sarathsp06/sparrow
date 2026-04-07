@@ -42,10 +42,28 @@ checksum:
   name_template: "checksums.txt"
 
 changelog:
-  # We curate CHANGELOG.md locally via git-cliff + `make release`.
-  # GoReleaser skips its own changelog generation; the GitHub Release
-  # body comes from the header template below.
-  disable: true
+  sort: asc
+  filters:
+    exclude:
+      - "^test"
+      - "^ci"
+      - "^build"
+      - "^chore\\(release\\)"
+  groups:
+    - title: Added
+      regexp: "^feat"
+      order: 0
+    - title: Fixed
+      regexp: "^fix"
+      order: 1
+    - title: Changed
+      regexp: "^(perf|refactor|style|chore)"
+      order: 2
+    - title: Documentation
+      regexp: "^docs"
+      order: 3
+    - title: Other
+      order: 999
 
 release:
   github:
@@ -54,19 +72,9 @@ release:
   header: |
     ## Sparrow {{ .Tag }}
 
-    See [CHANGELOG.md](https://github.com/sarathsp06/sparrow/blob/main/CHANGELOG.md) for full details.
+    See [CHANGELOG.md](https://github.com/sarathsp06/sparrow/blob/main/CHANGELOG.md) for the full project history.
   extra_files:
     - glob: build/sparrow-*.tgz
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
-
-dockers_v2:
-  - images:
-      - "ghcr.io/sarathsp06/sparrow"
-    tags:
-      - "{{ .Version }}"
-      - "latest"
-    dockerfile: Dockerfile.release
-    extra_files:
-      - internal/ui/dist

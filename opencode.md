@@ -665,64 +665,64 @@ Startup order: postgres (healthy) -> sparrow (starts)
 | `build` | Build server binary |
 | `build-ui` | Build frontend UI |
 | `build-with-ui` | Build server + embedded UI |
-| `build-all` | Cross-platform builds |
+| `release-dry-run` | Test GoReleaser locally (no publish) |
 | `run` | Run server locally |
 | `test` | Run tests |
+| `test-integration` | Run integration tests (requires Docker) |
 | `migrate` | Run database migrations |
 | `clean` | Remove build artifacts |
-| `generate` | buf generate + go generate + docs |
+| `generate` | buf generate + go generate |
 | `lint` | Run linters (golangci-lint) |
 | `docker-dev` | Docker compose dev environment |
 | `docker-purge` | Purge docker dev resources |
 | `fmt` | Format code |
-| `example` | Run example |
+| `example` | Run gRPC client example |
 | `run-web` | Run web UI dev server |
-| `changelog` | Generate changelog draft (stdout) |
-| `release` | Interactive release: changelog, edit, commit, tag |
+| `helm-lint` | Lint the Helm chart |
+| `helm-template` | Render chart templates locally |
+| `helm-package` | Package the Helm chart |
+| `diagrams` | Re-render mermaid diagrams to SVG |
+| `generate-docs` | Generate API reference docs and diagrams |
 
 ---
 
 ## Release Workflow
 
+Releases are fully automated via CI. No local tooling required beyond git.
+
 ### Prerequisites
-- `git-cliff` installed (`brew install git-cliff`)
 - Conventional Commit messages (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `perf:`, etc.)
 
 ### Configuration Files
-- **`cliff.toml`** -- git-cliff config. Maps Conventional Commits to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) categories (feat->Added, fix->Fixed, etc.). Strips commit bodies via `commit_preprocessors` to keep entries clean.
-- **`CHANGELOG.md`** -- Auto-generated, then curated. Do not edit the header; edit individual entries during `make release`.
+- **`.goreleaser.yml`** -- GoReleaser v2 config. Builds cross-platform binaries, generates GitHub Release notes from conventional commits, attaches Helm chart archive.
+- **`CHANGELOG.md`** -- Hand-curated project history. Updated manually for major releases; not auto-generated.
 
-### Commands
+### How to Release
 
 ```bash
-# Preview unreleased changes
-make changelog
-
-# Preview what a tagged release would look like
-make changelog NEXT_VERSION=v0.2.0
-
-# Create a release (interactive)
-make release NEXT_VERSION=v0.2.0
+# Create and push a tag -- CI does everything else
+git tag v1.1.0
+git push origin main --tags
 ```
 
-### Release Flow (`make release NEXT_VERSION=vX.Y.Z`)
-1. Generates `CHANGELOG.md` with all history tagged at `NEXT_VERSION`
-2. Opens `$EDITOR` (defaults to `vi`) for curation -- clean up entries, reword, remove noise
-3. If you save an empty file, the release is aborted
-4. Commits `CHANGELOG.md` with message `chore(release): vX.Y.Z`
-5. Creates annotated git tag `vX.Y.Z`
-6. Prints reminder to `git push origin main --tags`
+### What Happens in CI (`release.yml`)
+1. Builds the SvelteKit frontend (`make build-ui`)
+2. Packages the Helm chart with the release version
+3. Runs GoReleaser which:
+   - Cross-compiles binaries (Linux/macOS amd64+arm64, Windows amd64)
+   - Generates GitHub Release notes grouped by commit type (Added, Fixed, Changed, Documentation)
+   - Creates archives with LICENSE and README
+   - Attaches Helm chart `.tgz` as a release artifact
+   - Publishes checksums
 
-### Commit Type -> Changelog Category Mapping
-| Commit Prefix | Changelog Section |
-|---------------|-------------------|
+### Commit Type -> Release Notes Mapping
+| Commit Prefix | Release Section |
+|---------------|-----------------|
 | `feat:` | Added |
 | `fix:` | Fixed |
 | `perf:`, `refactor:`, `style:`, `chore:` | Changed |
 | `docs:` | Documentation |
-| `body: .*security` | Security |
-| `test:`, `ci:`, `build:`, `chore(release):` | Skipped |
-| Everything else (catch-all) | Changed |
+| `test:`, `ci:`, `build:`, `chore(release):` | Excluded |
 
 ---
 

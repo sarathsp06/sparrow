@@ -1,3 +1,0 @@
-#!/bin/sh
-# No-op: internal/ui/dist/ is fully gitignored.
-# The SvelteKit static adapter creates the directory on every build.

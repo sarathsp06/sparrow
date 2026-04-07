@@ -22,15 +22,6 @@ build-with-ui: build-ui build ## Build frontend + server binary with embedded UI
 release-dry-run: build-ui ## Test GoReleaser locally (no publish)
 	goreleaser release --snapshot --clean
 
-
-
-docker-build: ## Build Docker image locally
-	docker build -t ghcr.io/sarathsp06/sparrow:$(VERSION) -t ghcr.io/sarathsp06/sparrow:latest --build-arg VERSION=$(VERSION) --build-arg SEMVER=$(SEMVER) .
-
-docker-push: ## Push Docker image to GHCR (requires: docker login ghcr.io)
-	docker push ghcr.io/sarathsp06/sparrow:$(VERSION)
-	docker push ghcr.io/sarathsp06/sparrow:latest
-
 docker-dev: ## Run the development environment with Docker Compose (builds from source)
 	docker compose -f docker-compose.dev.yml up -d --build
 
@@ -105,50 +96,7 @@ lint: ## Run golangci-lint for linting
 fmt: ## Format the code
 	goimports -local github.com/sarathsp06/sparrow/  -w .
 
-## -- Release --
-
-NEXT_VERSION ?=
-
-changelog: ## Generate changelog draft to stdout (use NEXT_VERSION=v0.2.0 to tag)
-ifdef NEXT_VERSION
-	git-cliff --config cliff.toml --tag $(NEXT_VERSION)
-else
-	git-cliff --config cliff.toml --unreleased
-endif
-
-release: ## Interactive release: generate changelog, edit, commit, tag (NEXT_VERSION=v0.2.0 required)
-ifndef NEXT_VERSION
-	$(error NEXT_VERSION is required. Usage: make release NEXT_VERSION=v0.2.0)
-endif
-	@echo "==> Generating changelog for $(NEXT_VERSION)..."
-	@git-cliff --config cliff.toml --tag $(NEXT_VERSION) -o CHANGELOG.md
-	@echo ""
-	@echo "==> CHANGELOG.md updated. Opening editor for review..."
-	@echo "    Edit the changelog, save, and close the editor to continue."
-	@echo "    To abort the release, delete all content and save."
-	@echo ""
-	@$${EDITOR:-vi} CHANGELOG.md
-	@if [ ! -s CHANGELOG.md ]; then \
-		echo "==> CHANGELOG.md is empty. Release aborted."; \
-		git checkout CHANGELOG.md 2>/dev/null; \
-		exit 1; \
-	fi
-	@echo ""
-	@echo "==> Committing changelog and tagging $(NEXT_VERSION)..."
-	@git add CHANGELOG.md
-	@git commit -m "chore(release): $(NEXT_VERSION)"
-	@# Extract this release's section from the curated CHANGELOG.md for the tag annotation.
-	@VER=$$(echo $(NEXT_VERSION) | sed 's/^v//'); \
-	awk "/^## .*$$VER/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md | git tag -a $(NEXT_VERSION) -F -
-	@echo ""
-	@echo "==> Release $(NEXT_VERSION) created successfully!"
-	@echo "    To publish: git push origin main --tags"
-
-setup: ## Configure local repo (git hooks, etc.)
-	git config core.hooksPath .githooks
-	@echo "Git hooks configured (.githooks/)"
-
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui release-dry-run run test test-integration clean generate generate-docs diagrams docker-build docker-push docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web help changelog release setup
+.PHONY: build build-ui build-with-ui release-dry-run run test test-integration clean generate generate-docs diagrams docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web help
