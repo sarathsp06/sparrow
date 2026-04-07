@@ -18,7 +18,8 @@
     WebhookHealthMetrics,
   } from '../../../../../proto/webhook_pb.js';
   import type { Timestamp } from '@bufbuild/protobuf/wkt';
-  import { timestampFromDate } from '@bufbuild/protobuf/wkt';
+  import { timestampFromDate, FieldMaskSchema } from '@bufbuild/protobuf/wkt';
+  import { create } from '@bufbuild/protobuf';
   import { WebhookDeliveryStatus, WebhookHealth } from '../../../../../proto/webhook_pb.js';
   import HealthBadge from '$lib/components/HealthBadge.svelte';
   import CopyableId from '$lib/components/CopyableId.svelte';
@@ -62,12 +63,15 @@
     userAgent: 'Sparrow-Webhook/1.0',
     contentType: 'application/json',
     headers: {} as Record<string, string>,
-    secretHeaders: {} as Record<string, string>,
   });
   let configHeaderKey = $state('');
   let configHeaderValue = $state('');
   let configSecretHeaderKey = $state('');
   let configSecretHeaderValue = $state('');
+  // Track existing secret header keys that haven't been replaced (display-only, never sent back)
+  let existingSecretHeaderKeys = $state<Set<string>>(new Set());
+  // Track newly added or replaced secret headers (these are the only ones sent to the backend)
+  let newSecretHeaders = $state<Record<string, string>>({});
 
   // Unregister confirmation
   let confirmUnregister = $state(false);
@@ -228,6 +232,7 @@
         webhookId,
         namespace: webhook.namespace,
         updates: { url: trimmedUrl, active: webhook.active },
+        updateMask: create(FieldMaskSchema, { paths: ['url', 'active'] }),
       });
       editingUrl = false;
       await fetchData();
@@ -251,12 +256,15 @@
       followRedirects: webhook.httpConfig?.followRedirects ?? true,
       verifySsl: webhook.httpConfig?.verifySsl ?? true,
       expectedStatusCodes: (webhook.httpConfig?.expectedStatusCodes || [200, 201, 202, 204]).join(', '),
-      webhookSecret: webhook.httpConfig?.webhookSecret || '',
+      webhookSecret: '',
       userAgent: webhook.httpConfig?.userAgent || 'Sparrow-Webhook/1.0',
       contentType: webhook.httpConfig?.contentType || 'application/json',
       headers: { ...(webhook.headers || {}) },
-      secretHeaders: { ...(webhook.secretHeaders || {}) },
     };
+    // Track existing secret header keys (masked values — never sent back)
+    existingSecretHeaderKeys = new Set(Object.keys(webhook.secretHeaders || {}));
+    // No new secret headers initially
+    newSecretHeaders = {};
     configHeaderKey = '';
     configHeaderValue = '';
     configSecretHeaderKey = '';
@@ -284,15 +292,23 @@
 
   function addConfigSecretHeader() {
     if (configSecretHeaderKey.trim() && configSecretHeaderValue.trim()) {
-      configForm.secretHeaders = { ...configForm.secretHeaders, [configSecretHeaderKey.trim()]: configSecretHeaderValue.trim() };
+      const key = configSecretHeaderKey.trim();
+      // If replacing an existing key, remove it from the "existing" set
+      existingSecretHeaderKeys.delete(key);
+      existingSecretHeaderKeys = new Set(existingSecretHeaderKeys);
+      // Track as a new/replaced header with the actual plaintext value
+      newSecretHeaders = { ...newSecretHeaders, [key]: configSecretHeaderValue.trim() };
       configSecretHeaderKey = '';
       configSecretHeaderValue = '';
     }
   }
 
   function removeConfigSecretHeader(key: string) {
-    const { [key]: _, ...rest } = configForm.secretHeaders;
-    configForm.secretHeaders = rest;
+    // Remove from both tracking sets
+    existingSecretHeaderKeys.delete(key);
+    existingSecretHeaderKeys = new Set(existingSecretHeaderKeys);
+    const { [key]: _, ...rest } = newSecretHeaders;
+    newSecretHeaders = rest;
   }
 
   async function saveConfig() {
@@ -317,15 +333,27 @@
       if (!trimmedUrl) { error = 'URL is required'; savingConfig = false; return; }
       try { new URL(trimmedUrl); } catch { error = 'Enter a valid URL'; savingConfig = false; return; }
 
+      // Build the field mask: always include non-sensitive fields,
+      // only include secrets when the user explicitly provided new values.
+      const maskPaths = ['url', 'active', 'description', 'headers', 'http_config'];
+      const hasNewSecretHeaders = Object.keys(newSecretHeaders).length > 0;
+      if (hasNewSecretHeaders) {
+        maskPaths.push('secret_headers');
+      }
+      if (configForm.webhookSecret) {
+        maskPaths.push('http_config.webhook_secret');
+      }
+
       await webhookClient.updateWebhookConfig({
         webhookId,
         namespace: webhook.namespace,
+        updateMask: create(FieldMaskSchema, { paths: maskPaths }),
         updates: {
           url: trimmedUrl,
           active: configForm.active,
           description: configForm.description,
           headers: configForm.headers,
-          secretHeaders: configForm.secretHeaders,
+          ...(hasNewSecretHeaders ? { secretHeaders: newSecretHeaders } : {}),
           httpConfig: {
             maxRetries: configForm.maxRetries,
             retryBackoffSeconds: configForm.retryBackoffSeconds,
@@ -334,7 +362,7 @@
             followRedirects: configForm.followRedirects,
             verifySsl: configForm.verifySsl,
             expectedStatusCodes: statusCodes,
-            webhookSecret: configForm.webhookSecret,
+            ...(configForm.webhookSecret ? { webhookSecret: configForm.webhookSecret } : {}),
             userAgent: configForm.userAgent,
             contentType: configForm.contentType,
           },
@@ -1151,13 +1179,28 @@
                 <!-- Secret Headers -->
                 <div class="border-t border-gray-100 pt-4">
                   <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Secret Headers</h4>
-                  <p class="text-[10px] text-gray-400 mb-3">Encrypted headers for sensitive values (API keys, tokens). Existing values are masked — enter a new value to replace.</p>
-                  {#if Object.keys(configForm.secretHeaders).length > 0}
+                  <p class="text-[10px] text-gray-400 mb-3">Encrypted headers for sensitive values (API keys, tokens). Existing values are preserved unless you remove or replace them.</p>
+                  {#if existingSecretHeaderKeys.size > 0 || Object.keys(newSecretHeaders).length > 0}
                     <div class="space-y-1.5 mb-3">
-                      {#each Object.entries(configForm.secretHeaders) as [key, value]}
+                      {#each [...existingSecretHeaderKeys] as key}
                         <div class="flex items-center gap-2">
                           <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{key}</span>
-                          <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate text-gray-400">{value === '••••••' ? '••••••' : '••••••'}</span>
+                          <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate text-gray-400">••••••</span>
+                          <button
+                            onclick={() => removeConfigSecretHeader(key)}
+                            class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition"
+                            aria-label="Remove secret header {key}"
+                          >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      {/each}
+                      {#each Object.entries(newSecretHeaders) as [key, value]}
+                        <div class="flex items-center gap-2">
+                          <span class="flex-1 text-xs font-mono bg-green-50 px-2 py-1.5 rounded border border-green-200 truncate">{key}</span>
+                          <span class="flex-1 text-xs font-mono bg-green-50 px-2 py-1.5 rounded border border-green-200 truncate text-green-600">new value set</span>
                           <button
                             onclick={() => removeConfigSecretHeader(key)}
                             class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition"

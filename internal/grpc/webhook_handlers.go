@@ -141,7 +141,12 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 			}
 		}
 	}
-	err := s.service.UpdateWebhookConfig(ctx, req.WebhookId, req.Namespace, events, url, headers, timeout, active, description, httpConfig, secretHeaders)
+	// Extract field mask paths (nil mask = legacy behavior)
+	var updateMask []string
+	if req.UpdateMask != nil {
+		updateMask = req.UpdateMask.GetPaths()
+	}
+	err := s.service.UpdateWebhookConfig(ctx, req.WebhookId, req.Namespace, events, url, headers, timeout, active, description, httpConfig, secretHeaders, updateMask)
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to update webhook config")
 	}

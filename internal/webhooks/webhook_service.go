@@ -48,7 +48,7 @@ type WebhookServiceInterface interface {
 	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error)
 	UnregisterWebhook(ctx context.Context, webhookID string, namespace string) error
 	ListWebhooks(ctx context.Context, namespace string, webhookID string, event string, activeOnly bool, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
-	UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string) error
+	UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, updateMask []string) error
 	PauseWebhook(ctx context.Context, webhookID string, namespace string, reason string) error
 	ResumeWebhook(ctx context.Context, webhookID string, namespace string) error
 	GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStatsData, error)
@@ -1659,14 +1659,22 @@ func (s *WebhookService) GetNamespaceStats(ctx context.Context, namespace string
 	return res, nil
 }
 
-// UpdateWebhookConfig updates webhook configuration
-func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string) error {
+// UpdateWebhookConfig updates webhook configuration.
+// When updateMask is non-empty, only the listed field paths are applied.
+// When updateMask is empty, falls back to legacy behavior (all non-zero fields applied).
+//
+// Supported mask paths:
+//
+//	"url", "active", "description", "events", "headers",
+//	"secret_headers", "http_config", "http_config.webhook_secret"
+func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, updateMask []string) error {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateWebhookConfig")
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing update webhook config request",
 		"webhook_id", webhookID,
-		"namespace", namespace)
+		"namespace", namespace,
+		"update_mask", updateMask)
 
 	if webhookID == "" {
 		return fmt.Errorf("webhook ID is required")
@@ -1690,16 +1698,29 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	if webhook == nil {
 		return fmt.Errorf("webhook not found")
 	}
+
+	// Build a set for O(1) lookup. When empty, all non-zero fields are applied (legacy).
+	mask := make(map[string]bool, len(updateMask))
+	for _, p := range updateMask {
+		mask[p] = true
+	}
+	useMask := len(mask) > 0
+
+	shouldUpdate := func(field string) bool {
+		if !useMask {
+			return true // legacy: apply everything
+		}
+		return mask[field]
+	}
+
 	// Update subscriptions if events are provided
-	if len(events) > 0 {
-		// Build new subscriptions slice
+	if shouldUpdate("events") && len(events) > 0 {
 		var newSubs []*store.EventSubscription
 		for _, event := range events {
 			newSubs = append(newSubs, &store.EventSubscription{
 				EventName: event,
 			})
 		}
-		// Atomically replace all subscriptions in a single transaction
 		if err := s.webhookRepo.ReplaceWebhookSubscriptions(ctx, tenantID, webhookUUID, namespace, newSubs); err != nil {
 			s.logger.ErrorContext(ctx, "Failed to replace webhook subscriptions",
 				"webhook_id", webhookID,
@@ -1707,7 +1728,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 			return fmt.Errorf("failed to update webhook subscriptions: %w", err)
 		}
 	}
-	if url != "" {
+	if shouldUpdate("url") && url != "" {
 		normalizedURL := strings.TrimSpace(url)
 		if normalizedURL == "" {
 			return fmt.Errorf("URL is required")
@@ -1717,18 +1738,21 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		}
 		webhook.URL = normalizedURL
 	}
-	if headers != nil {
+	if shouldUpdate("headers") && headers != nil {
 		webhook.Headers = headers
 	}
-	if timeout > 0 {
-		webhook.Timeout = timeout
+	if shouldUpdate("active") {
+		webhook.Active = active
 	}
-	webhook.Active = active
-	if description != "" {
+	if shouldUpdate("description") && description != "" {
 		webhook.Description = description
 	}
+	// Legacy timeout (deprecated, but still supported)
+	if !useMask && timeout > 0 {
+		webhook.Timeout = timeout
+	}
 	// Apply HTTP config updates if provided
-	if httpConfig != nil {
+	if shouldUpdate("http_config") && httpConfig != nil {
 		if httpConfig.MaxRetries > 0 {
 			webhook.MaxRetries = httpConfig.MaxRetries
 		}
@@ -1745,7 +1769,16 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 			}
 			webhook.ExpectedStatusCodes = int64Codes
 		}
-		if httpConfig.WebhookSecret != "" {
+		// Only update the webhook secret if explicitly requested via mask.
+		// Without mask (legacy mode), non-empty secret is applied.
+		// With mask, "http_config.webhook_secret" must be in the mask.
+		updateSecret := false
+		if useMask {
+			updateSecret = mask["http_config.webhook_secret"]
+		} else {
+			updateSecret = httpConfig.WebhookSecret != ""
+		}
+		if updateSecret && httpConfig.WebhookSecret != "" {
 			encSecret, err := s.EncryptWebhookSecret(httpConfig.WebhookSecret)
 			if err != nil {
 				return fmt.Errorf("failed to encrypt webhook secret: %w", err)
@@ -1758,13 +1791,12 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		if httpConfig.ContentType != "" {
 			webhook.ContentType = httpConfig.ContentType
 		}
-		// Booleans are applied directly (can't distinguish "not set" from "set to false")
 		webhook.CaptureResponseBody = httpConfig.CaptureResponseBody
 		webhook.FollowRedirects = httpConfig.FollowRedirects
 		webhook.VerifySSL = httpConfig.VerifySSL
 	}
-	// Encrypt and set secret headers if provided
-	if len(secretHeaders) > 0 {
+	// Encrypt and set secret headers if in mask (or legacy non-empty)
+	if shouldUpdate("secret_headers") && len(secretHeaders) > 0 {
 		encrypted, err := s.EncryptSecretHeaders(secretHeaders)
 		if err != nil {
 			return fmt.Errorf("failed to encrypt secret headers: %w", err)

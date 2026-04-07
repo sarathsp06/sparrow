@@ -4,7 +4,7 @@
 
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import type { JsonObject, Message } from "@bufbuild/protobuf";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import type { FieldMask, Timestamp } from "@bufbuild/protobuf/wkt";
 
 /**
  * Describes the file proto/webhook.proto.
@@ -714,11 +714,32 @@ export declare type UpdateWebhookConfigRequest = Message<"webhook.UpdateWebhookC
   namespace: string;
 
   /**
-   * Fields to update. Only non-zero fields are applied. Required.
+   * Fields to update. Required.
    *
    * @generated from field: webhook.WebhookUpdateFields updates = 3;
    */
   updates?: WebhookUpdateFields;
+
+  /**
+   * Specifies which fields in `updates` should be applied.
+   * Only fields listed in the mask are written; unlisted fields are ignored.
+   * This prevents accidental overwrites of sensitive fields (e.g. secrets).
+   *
+   * Supported paths (top-level fields of WebhookUpdateFields):
+   *   "url", "active", "description", "events", "headers",
+   *   "secret_headers", "http_config"
+   *
+   * To update the webhook secret within http_config, include
+   * "http_config.webhook_secret" in the mask. Without it, the existing
+   * encrypted secret is preserved even when http_config is updated.
+   *
+   * When omitted or empty, falls back to legacy behavior: all non-zero
+   * fields in `updates` are applied (not recommended for new clients).
+   * @example {"paths": ["url", "active", "http_config"]}
+   *
+   * @generated from field: google.protobuf.FieldMask update_mask = 4;
+   */
+  updateMask?: FieldMask;
 };
 
 /**
