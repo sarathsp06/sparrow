@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.11.1] - 2026-04-07
+
+### Added
+
+- Configurable gRPC and HTTP ports via `SPARROW_GRPC_PORT` and `SPARROW_HTTP_PORT` env vars
+- `SPARROW_ALLOW_PRIVATE_NETWORKS` env var to allow localhost/private IPs as webhook URLs in dev/testing
+- `ServiceError` type for structured gRPC error propagation with client-safe messages
+- `formatAPIError()` frontend utility to strip gRPC code prefixes and avoid double-prefixed error messages
+- `CopyableId` component with hover clipboard icon for click-to-copy IDs across all list views
+
+### Changed
+
+- Health badge shows em dash instead of "Unknown" for webhooks with no deliveries yet, with tooltip
+- Health dashboard "Unknown" summary card renamed to "No Data"
+
+### Fixed
+
+- **security**: harden template execution (CPU timeout), add security headers middleware, restrict CORS in production
+- Error messages from URL validation, encryption, event state, and batch operations now propagate to the client instead of being swallowed into generic "internal" errors
+
 ## [0.11.0] - 2026-04-07
 
 ### Added
