@@ -5,7 +5,6 @@ import (
 	"flag"
 	"os"
 
-	"github.com/sarathsp06/sparrow/internal/config"
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/migration"
 )
@@ -24,15 +23,18 @@ func main() {
 	// Initialize logger
 	log := logger.NewLogger("migration")
 
-	// Load configuration
-	cfg := config.Load()
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		databaseURL = "postgres://localhost/riverqueue?sslmode=disable"
+	}
+
 	log.InfoContext(ctx, "Starting database migration",
-		"database_url", cfg.DatabaseURL,
+		"database_url", databaseURL,
 		"direction", *direction,
 	)
 
 	// Run all migrations using the migration package
-	if err := migration.RunAllMigrations(ctx, cfg.DatabaseURL, *direction, *steps, *version, log); err != nil {
+	if err := migration.RunAllMigrations(ctx, databaseURL, *direction, *steps, *version, log); err != nil {
 		log.ErrorContext(ctx, "Failed to run migrations", "error", err)
 		os.Exit(1)
 	}
