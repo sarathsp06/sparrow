@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.11.2] - 2026-04-07
+
+### Fixed
+
+- **ci**: fix data race in template timeout path (buffer returned to pool while goroutine still writing)
+- **ci**: add `continue-on-error` for govulncheck (upstream panic with Go 1.25 + x/tools)
+- **ci**: skip Puppeteer/Chromium diagram regeneration when pre-rendered SVGs already exist (fixes Ubuntu 24.04+ AppArmor sandbox failure)
+- **ci**: add missing UI dist placeholder to test job (fixes `[setup failed]` for `cmd/server` and `internal/ui` tests)
+
+### Documentation
+
+- Fix Python HMAC verification example indentation in architecture docs
+- Remove incorrect "OTel Collector sidecar" claim from docker-compose docs
+
 ## [0.11.1] - 2026-04-07
 
 ### Added
