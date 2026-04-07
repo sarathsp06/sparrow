@@ -884,7 +884,7 @@
                   {#each deliveries as delivery}
                     <tr class="hover:bg-gray-50 transition">
                       <td class="px-4 py-3">
-                        <CopyableId id={delivery.deliveryId} truncate={12} />
+                        <CopyableId id={delivery.deliveryId} href="/deliveries/{delivery.deliveryId}" truncate={12} />
                         <!-- Show event ID inline on mobile -->
                         <span class="block sm:hidden mt-0.5"><CopyableId id={delivery.eventId} truncate={12} /></span>
                       </td>

@@ -3,6 +3,7 @@
   import { deliveryClient as client } from "$lib";
   import { getCategoryDisplay, formatAPIError } from '$lib/utils';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
+  import CopyableId from '$lib/components/CopyableId.svelte';
   import { onMount } from 'svelte';
   import type { WebhookDelivery } from "../../../../../proto/webhook_pb.js";
   import { WebhookDeliveryStatus } from "../../../../../proto/webhook_pb.js";
@@ -98,7 +99,7 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <div>
             <h1 class="text-2xl font-bold text-gray-900">Delivery Details</h1>
-            <p class="text-sm text-gray-500 mt-0.5 font-mono">{delivery.deliveryId}</p>
+            <div class="mt-0.5"><CopyableId id={delivery.deliveryId} truncate={0} /></div>
           </div>
           <StatusBadge status={delivery.status} />
         </div>
@@ -108,13 +109,11 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
             <div class="px-6 py-4">
               <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Webhook ID</p>
-              <a href={`/webhooks/${delivery.webhookId}`} class="text-sm font-mono text-blue-600 hover:text-blue-800 transition">
-                {delivery.webhookId}
-              </a>
+              <CopyableId id={delivery.webhookId} href="/webhooks/{delivery.webhookId}" truncate={0} />
             </div>
             <div class="px-6 py-4">
               <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Event ID</p>
-              <p class="text-sm font-mono text-gray-900">{delivery.eventId}</p>
+              <CopyableId id={delivery.eventId} truncate={0} />
             </div>
           </div>
 

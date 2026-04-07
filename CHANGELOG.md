@@ -8,69 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **docs**: Theme-aware diagrams — separate light and dark SVGs that switch automatically with Starlight's theme toggle
-- `ThemeDiagram.astro` component for zero-JS theme-based image switching via CSS `[data-theme]`
-- Dark-mode mermaid config with slate-based palette (dark fills, light text, muted borders)
-
-### Changed
-
-- Diagram build script now generates both `-light.svg` and `-dark.svg` variants per `.mmd` source file
-- Architecture docs page converted to `.mdx` to support Astro component imports
-
-## [0.11.2] - 2026-04-07
-
-### Fixed
-
-- **ci**: fix data race in template timeout path (buffer returned to pool while goroutine still writing)
-- **ci**: add `continue-on-error` for govulncheck (upstream panic with Go 1.25 + x/tools)
-- **ci**: skip Puppeteer/Chromium diagram regeneration when pre-rendered SVGs already exist (fixes Ubuntu 24.04+ AppArmor sandbox failure)
-- **ci**: add missing UI dist placeholder to test job (fixes `[setup failed]` for `cmd/server` and `internal/ui` tests)
+- **docs**: theme-aware diagrams with separate light and dark SVGs## [0.11.2] - 2026-04-07
 
 ### Documentation
 
-- Fix Python HMAC verification example indentation in architecture docs
-- Remove incorrect "OTel Collector sidecar" claim from docker-compose docs
+- fix Python HMAC indentation, remove stale OTel sidecar reference, update plan.md status markers
+### Fixed
 
-## [0.11.1] - 2026-04-07
+- **ci**: resolve data race, govulncheck panic, Puppeteer sandbox, and test setup failures## [0.11.1] - 2026-04-07
 
 ### Added
 
-- Configurable gRPC and HTTP ports via `SPARROW_GRPC_PORT` and `SPARROW_HTTP_PORT` env vars
-- `SPARROW_ALLOW_PRIVATE_NETWORKS` env var to allow localhost/private IPs as webhook URLs in dev/testing
-- `ServiceError` type for structured gRPC error propagation with client-safe messages
-- `formatAPIError()` frontend utility to strip gRPC code prefixes and avoid double-prefixed error messages
-- `CopyableId` component with hover clipboard icon for click-to-copy IDs across all list views
-
-### Changed
-
-- Health badge shows em dash instead of "Unknown" for webhooks with no deliveries yet, with tooltip
-- Health dashboard "Unknown" summary card renamed to "No Data"
-
+- address tester feedback -- error messages, ports, private networks, health UX, copyable IDs
 ### Fixed
 
-- **security**: harden template execution (CPU timeout), add security headers middleware, restrict CORS in production
-- Error messages from URL validation, encryption, event state, and batch operations now propagate to the client instead of being swallowed into generic "internal" errors
-
-## [0.11.0] - 2026-04-07
+- **security**: harden template execution, HTTP headers, CORS, and CI## [0.11.0] - 2026-04-07
 
 ### Added
 
-- **health**: add unexpected_status error category to health metrics (full stack: migration, store, service, proto, gRPC, UI)
-
+- **health**: add unexpected_status error category to health metrics
 ### Changed
 
-- **docs**: replace client-side mermaid with pre-rendered SVGs (zero client JS, ~2MB lighter)
-- Add Makefile `diagrams` target with Make pattern rule for incremental re-rendering
-- Wire diagram re-rendering into `npm run dev` and `npm run build` in docs
-- Clean up .gitignore, remove obsolete pre-commit hook for .gitkeep
-
+- **docs**: replace client-side mermaid with pre-rendered SVGs
+- clean up gitignore, add Makefile diagrams target
 ### Fixed
 
-- **delivery**: only require namespace for webhook-level retry (fixes /deliveries page retry button)
+- **delivery**: only require namespace for webhook-level retry
 - **docs**: use default (light) mermaid theme
-- **docs**: use rehype-mermaid-lite to fix mermaid diagram rendering
-
-## [0.10.0] - 2026-04-06
+- **docs**: use rehype-mermaid-lite to fix mermaid diagram rendering## [0.10.0] - 2026-04-06
 
 ### Added
 

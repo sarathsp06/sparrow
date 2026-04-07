@@ -15,7 +15,8 @@
   let healthSummary: HealthSummary | undefined = $state();
   let namespaceStats: NamespaceStats | undefined = $state();
   let unhealthyWebhooks: RegisteredWebhook[] = $state([]);
-  let unhealthyMetrics: Map<string, WebhookHealthMetrics> = $state(new Map());
+  let degradedWebhooks: RegisteredWebhook[] = $state([]);
+  let webhookMetrics: Map<string, WebhookHealthMetrics> = $state(new Map());
   let loading = $state(true);
   let error = $state("");
 
@@ -23,24 +24,28 @@
     loading = true;
     error = "";
     try {
-      const [summaryRes, statsRes] = await Promise.all([
+      const [summaryRes, statsRes, unhealthyRes, degradedRes] = await Promise.all([
         healthClient.getHealthSummary({}),
         webhookClient.getNamespaceStats({ namespace: '' }),
+        healthClient.listWebhooksByHealth({
+          health: WebhookHealth.HEALTH_UNHEALTHY,
+          pagination: { limit: 20, offset: 0 },
+        }),
+        healthClient.listWebhooksByHealth({
+          health: WebhookHealth.HEALTH_DEGRADED,
+          pagination: { limit: 20, offset: 0 },
+        }),
       ]);
       healthSummary = summaryRes.summary;
       namespaceStats = statsRes.stats;
-
-      // Fetch unhealthy webhooks with their health metrics
-      const unhealthyRes = await healthClient.listWebhooksByHealth({
-        health: WebhookHealth.HEALTH_UNHEALTHY,
-        pagination: { limit: 10, offset: 0 },
-      });
       unhealthyWebhooks = unhealthyRes.webhooks || [];
+      degradedWebhooks = degradedRes.webhooks || [];
 
-      // Fetch health metrics for each unhealthy webhook
+      // Fetch health metrics for all unhealthy + degraded webhooks
+      const allWebhooks = [...unhealthyWebhooks, ...degradedWebhooks];
       const metricsMap = new Map<string, WebhookHealthMetrics>();
       await Promise.all(
-        unhealthyWebhooks.map(async (wh) => {
+        allWebhooks.map(async (wh) => {
           try {
             const healthRes = await healthClient.getWebhookHealth({
               webhookId: wh.webhookId,
@@ -54,7 +59,7 @@
           }
         })
       );
-      unhealthyMetrics = metricsMap;
+      webhookMetrics = metricsMap;
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to load health data');
     } finally {
@@ -196,68 +201,94 @@
           </div>
         {/if}
 
-        <!-- Unhealthy Webhooks with Error Breakdown -->
+        <!-- Webhooks Requiring Attention -->
+        {#snippet webhookCard(wh: RegisteredWebhook)}
+          {@const metrics = webhookMetrics.get(wh.webhookId)}
+          <a
+            href="/webhooks/{wh.webhookId}"
+            class="block bg-white rounded-lg border border-gray-200 px-4 py-4 hover:border-gray-300 hover:shadow-sm transition"
+          >
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="text-sm font-medium text-gray-900 truncate">{wh.description || 'Webhook'}</span>
+                <HealthBadge health={wh.health} size="sm" />
+                <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{wh.namespace}</span>
+              </div>
+              <CopyableId id={wh.webhookId} />
+            </div>
+
+            {#if metrics}
+              <div class="flex items-center gap-4 text-xs text-gray-500 mb-2">
+                <span>Success rate: <span class="font-medium {metrics.successRate >= 0.8 ? 'text-yellow-600' : 'text-red-600'}">{(metrics.successRate * 100).toFixed(1)}%</span></span>
+                <span>Failed: <span class="font-medium text-red-600">{metrics.failedDeliveries}</span></span>
+                <span>Consecutive: <span class="font-medium text-red-600">{metrics.consecutiveFailures}</span></span>
+              </div>
+
+              <!-- Error category breakdown bar -->
+              {@const totalErrors = (metrics.clientErrors || 0) + (metrics.serverErrors || 0) + (metrics.timeoutErrors || 0) + (metrics.networkErrors || 0) + (metrics.unexpectedStatusErrors || 0)}
+              {#if totalErrors > 0}
+                <div class="flex items-center gap-3">
+                  <div class="flex-1 h-2 rounded-full overflow-hidden flex bg-gray-100">
+                    {#if metrics.clientErrors > 0}
+                      <div class="bg-orange-400 h-full" style="width: {(metrics.clientErrors / totalErrors) * 100}%"></div>
+                    {/if}
+                    {#if metrics.serverErrors > 0}
+                      <div class="bg-red-400 h-full" style="width: {(metrics.serverErrors / totalErrors) * 100}%"></div>
+                    {/if}
+                    {#if metrics.timeoutErrors > 0}
+                      <div class="bg-yellow-400 h-full" style="width: {(metrics.timeoutErrors / totalErrors) * 100}%"></div>
+                    {/if}
+                    {#if metrics.networkErrors > 0}
+                      <div class="bg-purple-400 h-full" style="width: {(metrics.networkErrors / totalErrors) * 100}%"></div>
+                    {/if}
+                    {#if metrics.unexpectedStatusErrors > 0}
+                      <div class="bg-amber-400 h-full" style="width: {(metrics.unexpectedStatusErrors / totalErrors) * 100}%"></div>
+                    {/if}
+                  </div>
+                  <div class="flex items-center gap-2 text-[10px] text-gray-500 shrink-0">
+                    {#if metrics.clientErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>{metrics.clientErrors} 4xx</span>{/if}
+                    {#if metrics.serverErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>{metrics.serverErrors} 5xx</span>{/if}
+                    {#if metrics.timeoutErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>{metrics.timeoutErrors} timeout</span>{/if}
+                    {#if metrics.networkErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>{metrics.networkErrors} network</span>{/if}
+                    {#if metrics.unexpectedStatusErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>{metrics.unexpectedStatusErrors} unexpected</span>{/if}
+                  </div>
+                </div>
+              {/if}
+            {/if}
+          </a>
+        {/snippet}
+
         {#if unhealthyWebhooks.length > 0}
           <div>
             <h2 class="text-lg font-semibold text-gray-900 mb-1">Unhealthy Webhooks</h2>
-            <p class="text-sm text-gray-500 mb-4">Webhooks with delivery failures (last 24 hours)</p>
+            <p class="text-sm text-gray-500 mb-4">Critical: &lt;50% success rate or 10+ consecutive failures</p>
             <div class="space-y-3">
               {#each unhealthyWebhooks as wh}
-                {@const metrics = unhealthyMetrics.get(wh.webhookId)}
-                <a
-                  href="/webhooks/{wh.webhookId}"
-                  class="block bg-white rounded-lg border border-gray-200 px-4 py-4 hover:border-gray-300 hover:shadow-sm transition"
-                >
-                  <div class="flex items-center justify-between mb-2">
-                    <div class="flex items-center gap-2 min-w-0">
-                      <span class="text-sm font-medium text-gray-900 truncate">{wh.description || 'Webhook'}</span>
-                      <HealthBadge health={wh.health} size="sm" />
-                      <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{wh.namespace}</span>
-                    </div>
-                    <CopyableId id={wh.webhookId} />
-                  </div>
-
-                  {#if metrics}
-                    <div class="flex items-center gap-4 text-xs text-gray-500 mb-2">
-                      <span>Success rate: <span class="font-medium {metrics.successRate >= 0.8 ? 'text-yellow-600' : 'text-red-600'}">{(metrics.successRate * 100).toFixed(1)}%</span></span>
-                      <span>Failed: <span class="font-medium text-red-600">{metrics.failedDeliveries}</span></span>
-                      <span>Consecutive: <span class="font-medium text-red-600">{metrics.consecutiveFailures}</span></span>
-                    </div>
-
-                    <!-- Error category breakdown bar -->
-                    {@const totalErrors = (metrics.clientErrors || 0) + (metrics.serverErrors || 0) + (metrics.timeoutErrors || 0) + (metrics.networkErrors || 0) + (metrics.unexpectedStatusErrors || 0)}
-                    {#if totalErrors > 0}
-                      <div class="flex items-center gap-3">
-                        <div class="flex-1 h-2 rounded-full overflow-hidden flex bg-gray-100">
-                          {#if metrics.clientErrors > 0}
-                            <div class="bg-orange-400 h-full" style="width: {(metrics.clientErrors / totalErrors) * 100}%"></div>
-                          {/if}
-                          {#if metrics.serverErrors > 0}
-                            <div class="bg-red-400 h-full" style="width: {(metrics.serverErrors / totalErrors) * 100}%"></div>
-                          {/if}
-                          {#if metrics.timeoutErrors > 0}
-                            <div class="bg-yellow-400 h-full" style="width: {(metrics.timeoutErrors / totalErrors) * 100}%"></div>
-                          {/if}
-                          {#if metrics.networkErrors > 0}
-                            <div class="bg-purple-400 h-full" style="width: {(metrics.networkErrors / totalErrors) * 100}%"></div>
-                          {/if}
-                          {#if metrics.unexpectedStatusErrors > 0}
-                            <div class="bg-amber-400 h-full" style="width: {(metrics.unexpectedStatusErrors / totalErrors) * 100}%"></div>
-                          {/if}
-                        </div>
-                        <div class="flex items-center gap-2 text-[10px] text-gray-500 shrink-0">
-                          {#if metrics.clientErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>{metrics.clientErrors} 4xx</span>{/if}
-                          {#if metrics.serverErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>{metrics.serverErrors} 5xx</span>{/if}
-                          {#if metrics.timeoutErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>{metrics.timeoutErrors} timeout</span>{/if}
-                          {#if metrics.networkErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>{metrics.networkErrors} network</span>{/if}
-                          {#if metrics.unexpectedStatusErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>{metrics.unexpectedStatusErrors} unexpected</span>{/if}
-                        </div>
-                      </div>
-                    {/if}
-                  {/if}
-                </a>
+                {@render webhookCard(wh)}
               {/each}
             </div>
+          </div>
+        {/if}
+
+        {#if degradedWebhooks.length > 0}
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900 mb-1">Degraded Webhooks</h2>
+            <p class="text-sm text-gray-500 mb-4">Warning: 50-90% success rate or 3-9 consecutive failures</p>
+            <div class="space-y-3">
+              {#each degradedWebhooks as wh}
+                {@render webhookCard(wh)}
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        {#if unhealthyWebhooks.length === 0 && degradedWebhooks.length === 0}
+          <div class="bg-white rounded-lg border border-gray-200 px-6 py-8 text-center">
+            <svg class="w-10 h-10 text-green-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="text-sm font-medium text-gray-900">All webhooks are healthy</p>
+            <p class="text-xs text-gray-500 mt-1">No webhooks require attention right now</p>
           </div>
         {/if}
       </div>

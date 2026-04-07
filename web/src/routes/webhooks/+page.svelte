@@ -494,7 +494,7 @@
                       {#if wh.description}
                         <span class="text-xs text-gray-500 truncate max-w-xs">{wh.description}</span>
                       {/if}
-                      <CopyableId id={wh.webhookId} />
+                      <CopyableId id={wh.webhookId} href="/webhooks/{wh.webhookId}" />
                       <!-- Show namespace + events inline on mobile -->
                       <span class="text-xs text-gray-400 md:hidden">ns: {wh.namespace}</span>
                       <div class="flex flex-wrap gap-1 mt-1 sm:hidden">
