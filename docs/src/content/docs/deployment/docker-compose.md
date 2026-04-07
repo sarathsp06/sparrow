@@ -78,7 +78,7 @@ docker pull ghcr.io/sarathsp06/sparrow:0.2.0
 
 ## Development (Build from Source)
 
-The repo root contains a `docker-compose.yml` that builds from source and includes an OTel Collector sidecar. This is useful for development:
+The repo root contains a `docker-compose.yml` that builds from source. This is useful for development:
 
 ```bash
 git clone https://github.com/sarathsp06/sparrow.git

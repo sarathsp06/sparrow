@@ -798,8 +798,6 @@ func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequ
 5. **No payload size limits** enforcement
 6. **No tenant usage quotas** (events/month, deliveries, etc.)
 7. **No scheduled/delayed webhooks**
-8. **No search filters** on event reports or deliveries (in progress -- see `plan.md`)
-9. **No bulk re-push / retry** (in progress -- see `plan.md`)
 
 ---
 

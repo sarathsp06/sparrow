@@ -20,7 +20,7 @@ These principles apply globally to Sparrow, not just this feature set:
 
 ## Part 1: Soft Schema Validation + Template Fallback
 
-**Status**: Not started
+**Status**: Complete (v0.8.0)
 
 ### Migration 000016: `add_schema_valid`
 - Add `schema_valid BOOLEAN NOT NULL DEFAULT true` to `event_records`
@@ -50,7 +50,7 @@ These principles apply globally to Sparrow, not just this feature set:
 
 ## Part 2: Search Filters
 
-**Status**: Not started
+**Status**: Complete (v0.8.0)
 
 ### ListEventReports Enhancements
 Request fields:
@@ -77,7 +77,7 @@ Response fields:
 
 ## Part 3: Single Event Re-push
 
-**Status**: Not started
+**Status**: Complete (v0.9.0)
 
 ### New RPC: `EventService.RePushEvent`
 - Input: `event_id` (UUID of original event)
@@ -90,7 +90,7 @@ Response fields:
 
 ## Part 4: Deterministic Batch Operations
 
-**Status**: Not started
+**Status**: Complete (v0.8.0)
 
 ### Migration 000017: `add_batch_jobs`
 ```sql
@@ -158,7 +158,7 @@ CREATE INDEX idx_batch_jobs_expires_at ON batch_jobs (expires_at) WHERE status N
 
 ## Part 5: Delivery Retry by Filter
 
-**Status**: Not started
+**Status**: Complete (v0.8.0)
 
 Covered by Part 2 (filters on ListDeliveries) + Part 4 (batch-based retry via `prepare_retry` + `RetryDeliveries`).
 
@@ -168,7 +168,7 @@ Existing single-delivery `RetryDelivery` RPC remains unchanged.
 
 ## Part 6: Web UI
 
-**Status**: Not started
+**Status**: Complete (v0.9.0)
 
 ### Event Reports Page (`/events/[eventName]/reports`)
 - Add filter controls: schema_valid toggle, labels input, date range picker
@@ -190,7 +190,7 @@ Existing single-delivery `RetryDelivery` RPC remains unchanged.
 
 ## Part 7: Docs Fixes
 
-**Status**: Not started
+**Status**: Complete (v0.11.2)
 
 - Fix Python HMAC indentation in `architecture.mdx` (lines 350-351)
 - Fix OTel sidecar reference in `docker-compose.md` (line 81)

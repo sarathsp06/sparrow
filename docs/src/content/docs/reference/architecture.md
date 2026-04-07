@@ -235,8 +235,8 @@ def verify_webhook(raw_body: bytes, timestamp: str, signature: str, secret: str)
         secret.encode(), message.encode(), hashlib.sha256
     ).hexdigest()
 
-        if not hmac.compare_digest(expected, signature):
-            raise ValueError("Signature mismatch")
+    if not hmac.compare_digest(expected, signature):
+        raise ValueError("Signature mismatch")
 ```
 
 ---
