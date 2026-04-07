@@ -17,7 +17,7 @@ All configuration is done via environment variables. No config files needed.
 | `SPARROW_ENCRYPTION_KEY` | No | auto-generated | 64-char hex key (32 bytes) for envelope encryption of webhook secrets and headers |
 | `ENVIRONMENT` | No | -- | `development` or `production` (affects logging/OTel) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
-| `CORS_ALLOWED_ORIGINS` | No | -- | Allowed CORS origins for Connect-RPC |
+| `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of allowed CORS origins (e.g. `https://ui.example.com,https://admin.example.com`). Required when the UI is hosted separately from the API. In production (`ENVIRONMENT=production`), cross-origin requests are blocked by default; in development, all origins are allowed. |
 | `PUBLIC_API_URL` | No | `/` | API base URL for the frontend (dev only) |
 
 ## Encryption

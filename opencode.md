@@ -588,7 +588,7 @@ Sparrow Server
 | `DATABASE_URL` | PostgreSQL connection string | required |
 | `SPARROW_API_KEY` | API key for authentication (optional) | -- (open access) |
 | `SPARROW_SERVE_UI` | Serve embedded SvelteKit UI | `"false"` |
-| `CORS_ALLOWED_ORIGINS` | CORS origins for Connect-RPC | -- |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated CORS origins (e.g. `https://ui.example.com,https://admin.example.com`). Required when UI is hosted separately. Production blocks cross-origin by default. | -- |
 | `ENVIRONMENT` | `"development"` or `"production"` | -- |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP export endpoint | -- |
 

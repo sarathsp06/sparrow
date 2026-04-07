@@ -71,6 +71,15 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 	c.metrics.RecordRequest()
 
 	httpReq, err := BuildRequest(ctx, req)
+
+	// Return the pooled header map now that BuildRequest has copied the
+	// values into http.Header. Holding the map longer would be a leak
+	// since nothing else reads DeliveryRequest.Headers after this point.
+	if req.Headers != nil {
+		PutHeaderMap(req.Headers)
+		req.Headers = nil
+	}
+
 	if err != nil {
 		return nil, 0, err
 	}

@@ -1,14 +1,22 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"text/template"
+	"time"
 )
 
 // MaxTemplateOutputBytes is the maximum allowed output size from a template
 // execution. Templates producing output larger than this are aborted to
 // prevent denial-of-service via crafted templates.
 const MaxTemplateOutputBytes = 1 * 1024 * 1024 // 1 MB
+
+// TemplateExecutionTimeout limits CPU time for template execution.
+// Go's text/template has no built-in cancellation, so we run Execute in
+// a goroutine and abandon it on timeout. This prevents a malicious
+// template with tight loops from monopolising a worker indefinitely.
+const TemplateExecutionTimeout = 5 * time.Second
 
 // limitedWriter wraps a bytes.Buffer and enforces a maximum write size.
 // Once the limit is exceeded, all subsequent writes return an error.
@@ -54,7 +62,9 @@ func NewTemplateEngineWithCacheSize(maxSize int) *TemplateEngine {
 }
 
 // Execute processes a template with the given data.
-// Output is limited to MaxTemplateOutputBytes to prevent DoS.
+// Output is limited to MaxTemplateOutputBytes and execution time is limited
+// to TemplateExecutionTimeout to prevent denial-of-service via crafted
+// templates that consume unbounded CPU or produce unbounded output.
 func (e *TemplateEngine) Execute(tmplStr string, data any) ([]byte, error) {
 	if tmplStr == "" {
 		return nil, nil
@@ -73,8 +83,26 @@ func (e *TemplateEngine) Execute(tmplStr string, data any) ([]byte, error) {
 	// Wrap with a size-limited writer to prevent runaway output
 	lw := &limitedWriter{buf: buf, limit: MaxTemplateOutputBytes}
 
-	if err := tmpl.Execute(lw, data); err != nil {
-		return nil, fmt.Errorf("failed to execute template: %w", err)
+	// SEC: Run template execution with a CPU timeout. Go's text/template
+	// has no cancellation support, so we run Execute in a goroutine and
+	// abandon it if it exceeds the deadline. The goroutine will eventually
+	// terminate when it hits the output size limit or completes, but the
+	// caller is not blocked past the timeout.
+	ctx, cancel := context.WithTimeout(context.Background(), TemplateExecutionTimeout)
+	defer cancel()
+
+	execErr := make(chan error, 1)
+	go func() {
+		execErr <- tmpl.Execute(lw, data)
+	}()
+
+	select {
+	case err := <-execErr:
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute template: %w", err)
+		}
+	case <-ctx.Done():
+		return nil, fmt.Errorf("template execution timed out after %v (possible infinite loop)", TemplateExecutionTimeout)
 	}
 
 	// Copy bytes since we're returning the buffer to the pool

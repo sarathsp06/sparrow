@@ -44,8 +44,15 @@ import (
 )
 
 func main() {
-	// Load .env file if present (ignored if missing)
-	_ = godotenv.Load()
+	// Load .env file if present, but only outside production.
+	// In production containers a .env file should not exist, but if one
+	// is accidentally present it could silently override critical env vars
+	// (DATABASE_URL, SPARROW_API_KEY, SPARROW_ENCRYPTION_KEY).
+	// We check ENVIRONMENT from the real OS env first (before godotenv)
+	// to avoid the chicken-and-egg problem.
+	if os.Getenv("ENVIRONMENT") != "production" {
+		_ = godotenv.Load()
+	}
 
 	ctx := context.Background()
 	startTime := time.Now() // Track service start time for uptime calculation
@@ -227,7 +234,8 @@ func main() {
 	// health endpoints and UI are open.
 	r := chi.NewRouter()
 
-	// Global middleware: CORS
+	// Global middleware: security headers, then CORS
+	r.Use(middleware.SecurityHeaders)
 	corsHandler := buildCORSHandler()
 	r.Use(corsHandler.Handler)
 
@@ -384,11 +392,29 @@ func main() {
 
 // buildCORSHandler creates a CORS handler configured via the CORS_ALLOWED_ORIGINS
 // environment variable. When set, only the listed origins (comma-separated) are
-// allowed. When unset or empty, all origins are allowed (development mode).
+// allowed. When unset: production defaults to no cross-origin access,
+// development defaults to allow-all for convenience.
+//
+// If the UI is served separately (not embedded via SPARROW_SERVE_UI), the
+// operator must set CORS_ALLOWED_ORIGINS to the UI's origin, e.g.:
+//
+//	CORS_ALLOWED_ORIGINS=https://sparrow-ui.internal.example.com
 func buildCORSHandler() *cors.Cors {
 	originsEnv := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if originsEnv == "" {
-		fmt.Println("⚠️  CORS_ALLOWED_ORIGINS not set — allowing all origins (not recommended for production)")
+		// SEC: Defaulting to allow-all lets any website make API calls on
+		// behalf of a user who has network access. In production, restrict
+		// by default — the embedded UI is same-origin and doesn't need CORS.
+		// If the UI is hosted separately, the operator must set
+		// CORS_ALLOWED_ORIGINS explicitly.
+		if os.Getenv("ENVIRONMENT") == "production" {
+			fmt.Println("🔒 CORS: production mode — cross-origin requests blocked")
+			fmt.Println("   If the UI is hosted separately, set CORS_ALLOWED_ORIGINS to the UI origin")
+			return cors.New(cors.Options{
+				AllowedOrigins: []string{}, // no origins allowed
+			})
+		}
+		fmt.Println("⚠️  CORS_ALLOWED_ORIGINS not set — allowing all origins (development mode, not for production)")
 		return cors.AllowAll()
 	}
 
@@ -401,7 +427,14 @@ func buildCORSHandler() *cors.Cors {
 	}
 
 	if len(origins) == 0 {
-		fmt.Println("⚠️  CORS_ALLOWED_ORIGINS is empty — allowing all origins (not recommended for production)")
+		if os.Getenv("ENVIRONMENT") == "production" {
+			fmt.Println("🔒 CORS: production mode — cross-origin requests blocked (CORS_ALLOWED_ORIGINS is empty)")
+			fmt.Println("   If the UI is hosted separately, set CORS_ALLOWED_ORIGINS to the UI origin")
+			return cors.New(cors.Options{
+				AllowedOrigins: []string{},
+			})
+		}
+		fmt.Println("⚠️  CORS_ALLOWED_ORIGINS is empty — allowing all origins (development mode, not for production)")
 		return cors.AllowAll()
 	}
 

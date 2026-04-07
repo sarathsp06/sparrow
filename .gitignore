@@ -82,3 +82,8 @@ docs/index.html
 .serena/
 .opencode/
 SESSION_NOTES.md
+
+# Security reports (generated, not committed)
+security_best_practices_report.md
+sparrow-threat-model.md
+security_fixes_report.md

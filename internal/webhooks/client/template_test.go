@@ -3,6 +3,7 @@ package client
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNewTemplateEngine(t *testing.T) {
@@ -254,5 +255,28 @@ func BenchmarkExecuteComplex(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = engine.Execute(tmpl, data)
+	}
+}
+
+func TestExecuteTimeout(t *testing.T) {
+	engine := NewTemplateEngine()
+
+	// This template creates a deeply nested loop that burns CPU.
+	// With the timeout, it should be interrupted within TemplateExecutionTimeout.
+	tmpl := `{{range $a := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $b := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $c := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $d := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $e := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $f := split "," "a,b,c,d,e,f,g,h,i,j"}}{{range $g := split "," "a,b,c,d,e,f,g,h,i,j"}}{{$a}}{{end}}{{end}}{{end}}{{end}}{{end}}{{end}}{{end}}`
+
+	start := time.Now()
+	_, err := engine.Execute(tmpl, nil)
+	elapsed := time.Since(start)
+
+	// Should have errored (either timeout or output size limit)
+	if err == nil {
+		t.Fatal("Expected error from expensive template, got nil")
+	}
+
+	// Should complete within a reasonable margin above the timeout
+	maxExpected := TemplateExecutionTimeout + 2*time.Second
+	if elapsed > maxExpected {
+		t.Errorf("Template execution took %v, expected to be interrupted within %v", elapsed, maxExpected)
 	}
 }

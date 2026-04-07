@@ -15,7 +15,10 @@ sparrow:
   serveUI: "true"
   # "development" = pretty logs; "production" = JSON structured logs
   environment: production
-  # Comma-separated CORS origins for Connect-RPC; empty = permissive
+  # Comma-separated list of allowed CORS origins for Connect-RPC.
+  # Required when the UI is hosted separately from the API.
+  # Example: "https://ui.example.com,https://admin.example.com"
+  # Empty + ENVIRONMENT=production = cross-origin blocked (same-origin UI needs no CORS).
   corsAllowedOrigins: ""
   # Extra env vars injected into the Sparrow container.
   # Use this for OTEL_EXPORTER_OTLP_ENDPOINT or any other env var.
