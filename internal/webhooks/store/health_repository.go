@@ -72,9 +72,15 @@ func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID uui
 //
 //	"unhealthy" (<80% success or >=5 consecutive failures), "unknown" (insufficient data).
 func (r *Repository) CalculateWebhookHealth(ctx context.Context, webhookID uuid.UUID, lookbackHours int) (string, error) {
-	// Get recent event statistics
+	// Get recent delivery statistics (count unique deliveries, not attempts)
 	query := `
-		SELECT COUNT(*), COALESCE(AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END), 0)
+		SELECT 
+			COUNT(DISTINCT delivery_id),
+			COALESCE(
+				CASE WHEN COUNT(DISTINCT delivery_id) > 0
+				     THEN COUNT(DISTINCT CASE WHEN success THEN delivery_id END)::FLOAT / COUNT(DISTINCT delivery_id)
+				     ELSE 0
+				END, 0)
 		FROM webhook_health_events
 		WHERE webhook_id = $1 AND timestamp >= NOW() - INTERVAL '1 hour' * $2
 	`
@@ -174,38 +180,24 @@ func (r *Repository) GetWebhookHealthState(ctx context.Context, webhookID uuid.U
 }
 
 // GetWebhookHealthSummary provides aggregated performance metrics over a time window.
-// First attempts to retrieve pre-computed summaries from webhook_health_summaries table.
-// If no pre-computed data exists, calculates metrics on-the-fly from webhook_health_events.
-// Includes delivery counts, success rates, and response time percentiles (avg, min, max, p95).
+// Always computes metrics in real-time from webhook_health_events for accuracy.
+// Uses COUNT(DISTINCT delivery_id) for delivery counts to avoid inflating numbers
+// when a single delivery has multiple attempts (retries).
+// Includes delivery counts, success rates, response time percentiles, and error breakdown.
 func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID uuid.UUID, hours int) (*WebhookHealthSummary, error) {
-	// First try to get from pre-computed summaries
 	query := `
-		SELECT id, webhook_id, window_start, window_end, total_deliveries, successful_deliveries,
-		       failed_deliveries, success_rate, avg_response_time, min_response_time,
-		       max_response_time, p95_response_time, created_at, updated_at
-		FROM webhook_health_summaries
-		WHERE webhook_id = $1 
-		  AND window_start >= NOW() - INTERVAL '1 hour' * $2
-		ORDER BY window_start DESC
-		LIMIT 1
-	`
-
-	var summary WebhookHealthSummary
-	err := r.conn.GetContext(ctx, &summary, query, webhookID, hours)
-	if err == nil {
-		return &summary, nil
-	}
-
-	// If no pre-computed summary exists, compute on-the-fly
-	realTimeQuery := `
 		SELECT 
 			$1::uuid as webhook_id,
 			NOW() - INTERVAL '1 hour' * $2 as window_start,
 			NOW() as window_end,
-			COUNT(*) as total_deliveries,
-			SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful_deliveries,
-			SUM(CASE WHEN success THEN 0 ELSE 1 END) as failed_deliveries,
-			COALESCE(AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END), 0) as success_rate,
+			COUNT(DISTINCT delivery_id) as total_deliveries,
+			COUNT(DISTINCT CASE WHEN success THEN delivery_id END) as successful_deliveries,
+			COUNT(DISTINCT delivery_id) - COUNT(DISTINCT CASE WHEN success THEN delivery_id END) as failed_deliveries,
+			COALESCE(
+				CASE WHEN COUNT(DISTINCT delivery_id) > 0
+				     THEN COUNT(DISTINCT CASE WHEN success THEN delivery_id END)::FLOAT / COUNT(DISTINCT delivery_id)
+				     ELSE 0
+				END, 0) as success_rate,
 			COALESCE(AVG(response_time), 0)::INTEGER as avg_response_time,
 			COALESCE(MIN(response_time), 0) as min_response_time,
 			COALESCE(MAX(response_time), 0) as max_response_time,
@@ -222,14 +214,13 @@ func (r *Repository) GetWebhookHealthSummary(ctx context.Context, webhookID uuid
 		  AND timestamp >= NOW() - INTERVAL '1 hour' * $2
 	`
 
-	err = r.conn.GetContext(ctx, &summary, realTimeQuery, webhookID, hours)
+	var summary WebhookHealthSummary
+	err := r.conn.GetContext(ctx, &summary, query, webhookID, hours)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
 
-	// Generate a synthetic ID for the real-time summary
 	summary.ID = uuid.New()
-
 	return &summary, nil
 }
 
@@ -324,10 +315,14 @@ func (r *Repository) AggregateHealthSummaries(ctx context.Context) (int, error) 
 			webhook_id,
 			date_trunc('hour', timestamp) AS window_start,
 			date_trunc('hour', timestamp) + INTERVAL '1 hour' AS window_end,
-			COUNT(*) AS total_deliveries,
-			SUM(CASE WHEN success THEN 1 ELSE 0 END) AS successful_deliveries,
-			SUM(CASE WHEN success THEN 0 ELSE 1 END) AS failed_deliveries,
-			COALESCE(AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END), 0) AS success_rate,
+			COUNT(DISTINCT delivery_id) AS total_deliveries,
+			COUNT(DISTINCT CASE WHEN success THEN delivery_id END) AS successful_deliveries,
+			COUNT(DISTINCT delivery_id) - COUNT(DISTINCT CASE WHEN success THEN delivery_id END) AS failed_deliveries,
+			COALESCE(
+				CASE WHEN COUNT(DISTINCT delivery_id) > 0
+				     THEN COUNT(DISTINCT CASE WHEN success THEN delivery_id END)::FLOAT / COUNT(DISTINCT delivery_id)
+				     ELSE 0
+				END, 0) AS success_rate,
 			COALESCE(AVG(response_time), 0)::INTEGER AS avg_response_time,
 			COALESCE(MIN(response_time), 0) AS min_response_time,
 			COALESCE(MAX(response_time), 0) AS max_response_time,
