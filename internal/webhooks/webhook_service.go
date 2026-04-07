@@ -19,6 +19,8 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
+	"google.golang.org/grpc/codes"
+
 	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/tenant"
@@ -26,6 +28,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
+	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
 type WebhookService struct {
@@ -149,7 +152,7 @@ func (s *WebhookService) EncryptSecretHeaders(headers map[string]string) ([]byte
 		return nil, nil
 	}
 	if s.crypto == nil || !s.crypto.Enabled() {
-		return nil, fmt.Errorf("encryption is required for secret headers but SPARROW_ENCRYPTION_KEY is not configured")
+		return nil, svcerrors.FailedPrecondition("encryption is required for secret headers but SPARROW_ENCRYPTION_KEY is not configured")
 	}
 	return s.crypto.EncryptJSON(headers)
 }
@@ -161,7 +164,7 @@ func (s *WebhookService) DecryptSecretHeaders(encrypted []byte) (map[string]stri
 		return nil, nil
 	}
 	if s.crypto == nil || !s.crypto.Enabled() {
-		return nil, fmt.Errorf("encryption key not configured; cannot decrypt secret headers")
+		return nil, svcerrors.FailedPrecondition("encryption key not configured; cannot decrypt secret headers")
 	}
 	var headers map[string]string
 	if err := s.crypto.DecryptJSON(encrypted, &headers); err != nil {
@@ -177,7 +180,7 @@ func (s *WebhookService) EncryptWebhookSecret(secret string) ([]byte, error) {
 		return nil, nil
 	}
 	if s.crypto == nil || !s.crypto.Enabled() {
-		return nil, fmt.Errorf("encryption is required for webhook secrets but SPARROW_ENCRYPTION_KEY is not configured")
+		return nil, svcerrors.FailedPrecondition("encryption is required for webhook secrets but SPARROW_ENCRYPTION_KEY is not configured")
 	}
 	return s.crypto.EncryptString(secret)
 }
@@ -189,7 +192,7 @@ func (s *WebhookService) DecryptWebhookSecret(encrypted []byte) (string, error) 
 		return "", nil
 	}
 	if s.crypto == nil || !s.crypto.Enabled() {
-		return "", fmt.Errorf("encryption key not configured; cannot decrypt webhook secret")
+		return "", svcerrors.FailedPrecondition("encryption key not configured; cannot decrypt webhook secret")
 	}
 	return s.crypto.DecryptString(encrypted)
 }
@@ -355,7 +358,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	// Convert request to internal webhook registration
 	webhookReg, err := req.ToWebhookRegistration()
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert webhook registration request: %w", err)
+		return nil, svcerrors.Wrapf(err, codes.InvalidArgument, "invalid webhook configuration: %v", err)
 	}
 
 	// Generate ID if not provided
@@ -640,7 +643,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		s.logger.InfoContext(ctx, "Auto-registered new event type", "event", event)
 	}
 	if !eventReg.Active {
-		err := fmt.Errorf("event '%s' is inactive", event)
+		err := svcerrors.FailedPreconditionf("event '%s' is inactive", event)
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event inactive")
 		s.logger.ErrorContext(ctx, "Event is inactive", "event", event)
@@ -773,7 +776,7 @@ func (s *WebhookService) RePushEvent(ctx context.Context, eventID string) (strin
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "invalid event ID")
-		return "", nil, fmt.Errorf("invalid event ID: %w", err)
+		return "", nil, svcerrors.InvalidInputf("invalid event ID: %v", err)
 	}
 
 	// Load original event record
@@ -968,17 +971,17 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 
 	// Validate required fields
 	if deliveryID == "" && webhookID == "" {
-		return nil, 0, fmt.Errorf("either delivery_id or webhook_id is required")
+		return nil, 0, svcerrors.InvalidInput("either delivery_id or webhook_id is required")
 	}
 
 	// Namespace is required for webhook-level retry (multiple deliveries),
 	// but optional for single-delivery retry (delivery_id is globally unique within a tenant).
 	if namespace == "" && webhookID != "" {
-		return nil, 0, fmt.Errorf("namespace is required for webhook-level retry")
+		return nil, 0, svcerrors.InvalidInput("namespace is required for webhook-level retry")
 	}
 
 	if deliveryID != "" && webhookID != "" {
-		return nil, 0, fmt.Errorf("only one of delivery_id or webhook_id can be specified")
+		return nil, 0, svcerrors.InvalidInput("only one of delivery_id or webhook_id can be specified")
 	}
 
 	var deliveriesToResubmit []*store.WebhookDelivery
@@ -1002,7 +1005,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 
 		// Check if delivery can be resubmitted
 		if !force && delivery.Status == store.StatusSuccess {
-			return nil, 0, fmt.Errorf("delivery already succeeded. Use force to resubmit anyway")
+			return nil, 0, svcerrors.FailedPrecondition("delivery already succeeded. Use force to resubmit anyway")
 		}
 
 		deliveriesToResubmit = []*store.WebhookDelivery{delivery}
@@ -1086,7 +1089,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 	}
 
 	if resubmittedCount == 0 {
-		return nil, 0, fmt.Errorf("failed to resubmit any deliveries")
+		return nil, 0, svcerrors.FailedPrecondition("failed to resubmit any deliveries")
 	}
 
 	s.logger.InfoContext(ctx, "Webhook deliveries resubmitted successfully",
@@ -2149,7 +2152,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 
 	result, err := engine.TransformPayload(transformTemplate, data)
 	if err != nil {
-		return "", fmt.Errorf("template transformation failed: %w", err)
+		return "", svcerrors.Wrapf(err, codes.InvalidArgument, "template transformation failed: %v", err)
 	}
 
 	return string(result), nil
@@ -2179,7 +2182,7 @@ func (s *WebhookService) RePushEvents(ctx context.Context, repushID string) erro
 
 	batchUUID, err := uuid.Parse(repushID)
 	if err != nil {
-		return fmt.Errorf("invalid repush_id: %w", err)
+		return svcerrors.InvalidInputf("invalid repush_id: %v", err)
 	}
 
 	batch, err := s.webhookRepo.GetBatchJob(ctx, tenantID, batchUUID)
@@ -2190,13 +2193,13 @@ func (s *WebhookService) RePushEvents(ctx context.Context, repushID string) erro
 		return fmt.Errorf("batch job not found")
 	}
 	if batch.JobType != store.BatchTypeEventRepush {
-		return fmt.Errorf("batch job is not an event repush")
+		return svcerrors.FailedPrecondition("batch job is not an event repush")
 	}
 	if batch.Status != store.BatchStatusPending {
-		return fmt.Errorf("batch job is not in pending status (current: %s)", batch.Status)
+		return svcerrors.FailedPreconditionf("batch job is not in pending status (current: %s)", batch.Status)
 	}
 	if time.Now().After(batch.ExpiresAt) {
-		return fmt.Errorf("batch job has expired")
+		return svcerrors.FailedPrecondition("batch job has expired")
 	}
 
 	// Transition to processing and enqueue the River job
@@ -2227,7 +2230,7 @@ func (s *WebhookService) GetRepushStatus(ctx context.Context, repushID string) (
 
 	batchUUID, err := uuid.Parse(repushID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid repush_id: %w", err)
+		return nil, svcerrors.InvalidInputf("invalid repush_id: %v", err)
 	}
 
 	batch, err := s.webhookRepo.GetBatchJob(ctx, tenantID, batchUUID)
@@ -2238,7 +2241,7 @@ func (s *WebhookService) GetRepushStatus(ctx context.Context, repushID string) (
 		return nil, fmt.Errorf("batch job not found")
 	}
 	if batch.JobType != store.BatchTypeEventRepush {
-		return nil, fmt.Errorf("batch job is not an event repush")
+		return nil, svcerrors.FailedPrecondition("batch job is not an event repush")
 	}
 	return batch, nil
 }
@@ -2252,7 +2255,7 @@ func (s *WebhookService) CancelRepush(ctx context.Context, repushID string) erro
 
 	batchUUID, err := uuid.Parse(repushID)
 	if err != nil {
-		return fmt.Errorf("invalid repush_id: %w", err)
+		return svcerrors.InvalidInputf("invalid repush_id: %v", err)
 	}
 
 	batch, err := s.webhookRepo.GetBatchJob(ctx, tenantID, batchUUID)
@@ -2263,10 +2266,10 @@ func (s *WebhookService) CancelRepush(ctx context.Context, repushID string) erro
 		return fmt.Errorf("batch job not found")
 	}
 	if batch.JobType != store.BatchTypeEventRepush {
-		return fmt.Errorf("batch job is not an event repush")
+		return svcerrors.FailedPrecondition("batch job is not an event repush")
 	}
 	if batch.Status == store.BatchStatusCompleted || batch.Status == store.BatchStatusCancelled {
-		return fmt.Errorf("batch job is already in terminal state: %s", batch.Status)
+		return svcerrors.FailedPreconditionf("batch job is already in terminal state: %s", batch.Status)
 	}
 
 	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batchUUID, store.BatchStatusCancelled); err != nil {
@@ -2286,7 +2289,7 @@ func (s *WebhookService) RetryDeliveries(ctx context.Context, retryID string) er
 
 	batchUUID, err := uuid.Parse(retryID)
 	if err != nil {
-		return fmt.Errorf("invalid retry_id: %w", err)
+		return svcerrors.InvalidInputf("invalid retry_id: %v", err)
 	}
 
 	batch, err := s.webhookRepo.GetBatchJob(ctx, tenantID, batchUUID)
@@ -2297,13 +2300,13 @@ func (s *WebhookService) RetryDeliveries(ctx context.Context, retryID string) er
 		return fmt.Errorf("batch job not found")
 	}
 	if batch.JobType != store.BatchTypeDeliveryRetry {
-		return fmt.Errorf("batch job is not a delivery retry")
+		return svcerrors.FailedPrecondition("batch job is not a delivery retry")
 	}
 	if batch.Status != store.BatchStatusPending {
-		return fmt.Errorf("batch job is not in pending status (current: %s)", batch.Status)
+		return svcerrors.FailedPreconditionf("batch job is not in pending status (current: %s)", batch.Status)
 	}
 	if time.Now().After(batch.ExpiresAt) {
-		return fmt.Errorf("batch job has expired")
+		return svcerrors.FailedPrecondition("batch job has expired")
 	}
 
 	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batchUUID, store.BatchStatusProcessing); err != nil {
@@ -2332,7 +2335,7 @@ func (s *WebhookService) GetRetryStatus(ctx context.Context, retryID string) (*s
 
 	batchUUID, err := uuid.Parse(retryID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid retry_id: %w", err)
+		return nil, svcerrors.InvalidInputf("invalid retry_id: %v", err)
 	}
 
 	batch, err := s.webhookRepo.GetBatchJob(ctx, tenantID, batchUUID)
@@ -2343,7 +2346,7 @@ func (s *WebhookService) GetRetryStatus(ctx context.Context, retryID string) (*s
 		return nil, fmt.Errorf("batch job not found")
 	}
 	if batch.JobType != store.BatchTypeDeliveryRetry {
-		return nil, fmt.Errorf("batch job is not a delivery retry")
+		return nil, svcerrors.FailedPrecondition("batch job is not a delivery retry")
 	}
 	return batch, nil
 }
@@ -2357,7 +2360,7 @@ func (s *WebhookService) CancelRetry(ctx context.Context, retryID string) error 
 
 	batchUUID, err := uuid.Parse(retryID)
 	if err != nil {
-		return fmt.Errorf("invalid retry_id: %w", err)
+		return svcerrors.InvalidInputf("invalid retry_id: %v", err)
 	}
 
 	batch, err := s.webhookRepo.GetBatchJob(ctx, tenantID, batchUUID)
@@ -2368,10 +2371,10 @@ func (s *WebhookService) CancelRetry(ctx context.Context, retryID string) error 
 		return fmt.Errorf("batch job not found")
 	}
 	if batch.JobType != store.BatchTypeDeliveryRetry {
-		return fmt.Errorf("batch job is not a delivery retry")
+		return svcerrors.FailedPrecondition("batch job is not a delivery retry")
 	}
 	if batch.Status == store.BatchStatusCompleted || batch.Status == store.BatchStatusCancelled {
-		return fmt.Errorf("batch job is already in terminal state: %s", batch.Status)
+		return svcerrors.FailedPreconditionf("batch job is already in terminal state: %s", batch.Status)
 	}
 
 	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batchUUID, store.BatchStatusCancelled); err != nil {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { eventClient as client, JSONSchemaMetaSchema, jsonToJsonSchema } from '$lib';
+  import { formatAPIError } from '$lib/utils';
   import {
     createAjvValidator,
     JSONEditor,
@@ -68,7 +69,7 @@
       await client.registerEvent(req);
       goto('/events');
     } catch (e: any) {
-      error = 'Failed to register event: ' + e.message;
+      error = formatAPIError(e, 'Failed to register event');
     } finally {
       submitting = false;
     }

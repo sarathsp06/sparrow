@@ -35,6 +35,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/ui"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
+	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
@@ -93,6 +94,16 @@ func main() {
 	if databaseURL == "" {
 		databaseURL = "postgres://localhost/riverqueue?sslmode=disable"
 		fmt.Println("🔧 Using default database URL. Set DATABASE_URL environment variable for custom connection.")
+	}
+
+	// Server ports (configurable to avoid conflicts, e.g., macOS AirPlay Receiver uses 50051)
+	grpcPort := os.Getenv("SPARROW_GRPC_PORT")
+	if grpcPort == "" {
+		grpcPort = "50051"
+	}
+	httpPort := os.Getenv("SPARROW_HTTP_PORT")
+	if httpPort == "" {
+		httpPort = "8080"
 	}
 
 	// Run database migrations before anything else touches the DB.
@@ -191,11 +202,23 @@ func main() {
 		fmt.Println("⚠️  SPARROW_API_KEY not set — all endpoints are open (no authentication)")
 	}
 
+	// Private network access for webhook URLs
+	// When true, localhost/private IPs are allowed as webhook targets.
+	// Useful for local dev or self-hosted deployments where targets are on the same network.
+	allowPrivateNetworks := strings.EqualFold(os.Getenv("SPARROW_ALLOW_PRIVATE_NETWORKS"), "true")
+	if allowPrivateNetworks {
+		fmt.Println("⚠️  SPARROW_ALLOW_PRIVATE_NETWORKS=true — SSRF protection relaxed (loopback/private IPs allowed)")
+	}
+
 	// Create webhook repository
 	webhookRepo := store.NewRepositoryInterfaceWithTracing(store.NewRepository(sqlxDB), "")
 
-	// Initialize queue manager (nil config = DefaultConfig with SSRF protection enabled)
-	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, nil)
+	// Initialize webhook HTTP client config
+	clientConfig := client.DefaultConfig()
+	clientConfig.AllowPrivateNetworks = allowPrivateNetworks
+
+	// Initialize queue manager
+	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig)
 	if err != nil {
 		log.Fatalf("Failed to create queue manager: %v", err)
 	}
@@ -217,7 +240,7 @@ func main() {
 		grpc.MaxSendMsgSize(4<<20), // 4 MB max outbound message
 	)
 
-	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc)
+	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(allowPrivateNetworks))
 
 	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, ""))
 	pb.RegisterWebhookServiceServer(grpcServer, webhookGRPCServer)
@@ -307,14 +330,14 @@ func main() {
 				}
 				uiHandler.ServeHTTP(w, r)
 			})
-			fmt.Println("🖥️  Embedded web UI enabled at http://localhost:8080/")
+			fmt.Println("🖥️  Embedded web UI enabled at http://localhost:" + httpPort + "/")
 		} else {
 			fmt.Println("⚠️  SPARROW_SERVE_UI=true but no frontend build found. Build with: cd web && npm run build:static")
 		}
 	}
 
 	httpServer := &http.Server{
-		Addr:              ":8080",
+		Addr:              ":" + httpPort,
 		Handler:           r,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -324,14 +347,14 @@ func main() {
 	}
 
 	// Start gRPC server
-	lis, err := net.Listen("tcp", ":50051")
+	lis, err := net.Listen("tcp", ":"+grpcPort)
 	if err != nil {
-		log.Fatalf("Failed to listen on port 50051: %v", err)
+		log.Fatalf("Failed to listen on port %s: %v", grpcPort, err)
 	}
 
 	fmt.Println("🌐 Starting servers...")
-	fmt.Println("   gRPC server: localhost:50051")
-	fmt.Println("   Connect-RPC (HTTP): localhost:8080")
+	fmt.Printf("   gRPC server: localhost:%s\n", grpcPort)
+	fmt.Printf("   Connect-RPC (HTTP): localhost:%s\n", httpPort)
 
 	// Register reflection service on gRPC server.
 	reflection.Register(grpcServer)
@@ -355,12 +378,12 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	fmt.Println("🎯 HTTP Queue Server is running...")
-	fmt.Println("   gRPC server: localhost:50051")
-	fmt.Println("   Connect-RPC (HTTP): localhost:8080")
-	fmt.Println("   Health check: http://localhost:8080/health")
-	fmt.Println("   Readiness check: http://localhost:8080/ready")
+	fmt.Printf("   gRPC server: localhost:%s\n", grpcPort)
+	fmt.Printf("   Connect-RPC (HTTP): localhost:%s\n", httpPort)
+	fmt.Printf("   Health check: http://localhost:%s/health\n", httpPort)
+	fmt.Printf("   Readiness check: http://localhost:%s/ready\n", httpPort)
 	if serveUI && ui.Available() {
-		fmt.Println("   Web UI: http://localhost:8080/")
+		fmt.Printf("   Web UI: http://localhost:%s/\n", httpPort)
 	}
 	if apiKeyAuth.Enabled() {
 		fmt.Println("   Auth: API key required (X-API-Key header)")

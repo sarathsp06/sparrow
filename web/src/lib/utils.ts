@@ -198,9 +198,52 @@ function getCategoryDisplay(category: string): {
   }
 }
 
+// -- API error formatting --
+
+/**
+ * Extracts a clean, user-friendly error message from a Connect-RPC / gRPC error.
+ *
+ * Connect-RPC errors have the form: "[code] message" (e.g., "[invalid_argument] loopback
+ * addresses are not allowed"). This function:
+ *   1. Strips the "[code] " prefix since it's not useful to end users.
+ *   2. Optionally prepends a context prefix (e.g., "Failed to register webhook").
+ *      The prefix is only added if the error message doesn't already start with
+ *      something similar (avoids "Failed to register webhook: failed to register webhook").
+ *
+ * @param err - The caught error (typically a ConnectError)
+ * @param contextPrefix - Optional context like "Failed to register webhook"
+ * @returns A clean, actionable error message string
+ */
+function formatAPIError(err: unknown, contextPrefix?: string): string {
+  let msg = (err as any)?.message ?? String(err);
+
+  // Strip gRPC code prefix: "[internal] ...", "[invalid_argument] ...", etc.
+  msg = msg.replace(/^\[[\w_]+\]\s*/, "");
+
+  if (!msg) {
+    return contextPrefix ?? "An unexpected error occurred";
+  }
+
+  // If no prefix requested, return the raw message
+  if (!contextPrefix) {
+    return msg;
+  }
+
+  // Avoid double-prefix: if the message already starts with something similar
+  // to the prefix (case-insensitive), skip the prefix.
+  const prefixLower = contextPrefix.toLowerCase().replace(/^failed to\s+/i, "");
+  const msgLower = msg.toLowerCase();
+  if (msgLower.startsWith("failed to " + prefixLower) || msgLower.startsWith(prefixLower)) {
+    return msg;
+  }
+
+  return `${contextPrefix}: ${msg}`;
+}
+
 export {
   ERROR_CATEGORIES,
   JSONSchemaMetaSchema,
+  formatAPIError,
   getCategoryBadge,
   getCategoryDisplay,
   jsonToJsonSchema,

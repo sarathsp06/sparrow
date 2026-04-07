@@ -8,6 +8,7 @@
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import FloatingAction from '$lib/components/FloatingAction.svelte';
 	import Pagination from '$lib/components/Pagination.svelte';
+	import { formatAPIError } from '$lib/utils';
 
 	let events: RegisteredEvent[] = $state([]);
 	let loading = $state(true);
@@ -48,7 +49,7 @@
 			events = res.events || [];
 			totalCount = res.pagination?.totalCount || 0;
 		} catch (e: any) {
-			error = `Failed to load events: ${e.message}`;
+			error = formatAPIError(e, 'Failed to load events');
 		} finally {
 			loading = false;
 		}
@@ -75,7 +76,7 @@
 			eventToDelete = null;
 			await fetchEvents();
 		} catch (e: any) {
-			error = `Failed to delete event: ${e.message}`;
+			error = formatAPIError(e, 'Failed to delete event');
 			confirmDelete = false;
 		}
 	}

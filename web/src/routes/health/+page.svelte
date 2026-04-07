@@ -1,5 +1,6 @@
 <script lang="ts">
   import { healthClient, webhookClient } from "$lib/services";
+  import { formatAPIError } from "$lib/utils";
   import { onMount } from "svelte";
   import type {
     HealthSummary,
@@ -9,6 +10,7 @@
   } from "../../../../proto/webhook_pb.js";
   import { WebhookHealth } from "../../../../proto/webhook_pb.js";
   import HealthBadge from "$lib/components/HealthBadge.svelte";
+  import CopyableId from "$lib/components/CopyableId.svelte";
 
   let healthSummary: HealthSummary | undefined = $state();
   let namespaceStats: NamespaceStats | undefined = $state();
@@ -54,7 +56,7 @@
       );
       unhealthyMetrics = metricsMap;
     } catch (e: any) {
-      error = `Failed to load health data: ${e.message}`;
+      error = formatAPIError(e, 'Failed to load health data');
     } finally {
       loading = false;
     }
@@ -146,9 +148,9 @@
                 <p class="text-3xl font-bold text-red-600">{healthSummary.unhealthyCount}</p>
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mt-1">Unhealthy</p>
               </div>
-              <div class="bg-white rounded-lg border border-gray-200 px-4 py-4 text-center">
+              <div class="bg-white rounded-lg border border-gray-200 px-4 py-4 text-center" title="Webhooks with no deliveries yet">
                 <p class="text-3xl font-bold text-gray-400">{healthSummary.unknownCount}</p>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mt-1">Unknown</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mt-1">No Data</p>
               </div>
             </div>
           </div>
@@ -212,7 +214,7 @@
                       <HealthBadge health={wh.health} size="sm" />
                       <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{wh.namespace}</span>
                     </div>
-                    <span class="text-xs font-mono text-gray-400 shrink-0 ml-2">{wh.webhookId.substring(0, 8)}...</span>
+                    <CopyableId id={wh.webhookId} />
                   </div>
 
                   {#if metrics}

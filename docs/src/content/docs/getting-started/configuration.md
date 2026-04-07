@@ -12,9 +12,12 @@ All configuration is done via environment variables. No config files needed.
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | Yes | -- | PostgreSQL connection string |
-| `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard on `:8080` |
+| `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard on the HTTP port |
 | `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests |
 | `SPARROW_ENCRYPTION_KEY` | No | auto-generated | 64-char hex key (32 bytes) for envelope encryption of webhook secrets and headers |
+| `SPARROW_GRPC_PORT` | No | `50051` | gRPC listen port. macOS users: AirPlay Receiver uses 50051 — change this or disable AirPlay Receiver in System Settings > General > AirDrop & Handoff |
+| `SPARROW_HTTP_PORT` | No | `8080` | HTTP / Connect-RPC listen port (also serves the web UI) |
+| `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private IP addresses as webhook URLs. Enable for local development and testing |
 | `ENVIRONMENT` | No | -- | `development` or `production` (affects logging/OTel) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
 | `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of allowed CORS origins (e.g. `https://ui.example.com,https://admin.example.com`). Required when the UI is hosted separately from the API. In production (`ENVIRONMENT=production`), cross-origin requests are blocked by default; in development, all origins are allowed. |

@@ -8,6 +8,7 @@
   } from "svelte-jsoneditor";
 
   import { eventClient as client } from "$lib/services";
+  import { formatAPIError } from '$lib/utils';
   import { onMount } from "svelte";
   import type { RegisteredEvent } from "../../../../../proto/webhook_pb.js";
 
@@ -55,7 +56,7 @@
         event = availableEvents[0].name;
       }
     } catch (e: any) {
-      error = `Failed to load available events: ${e.message}`;
+      error = formatAPIError(e, 'Failed to load available events');
     } finally {
       loadingEvents = false;
     }

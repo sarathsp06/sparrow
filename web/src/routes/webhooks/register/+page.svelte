@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { eventClient, webhookClient as client } from '$lib/services';
+  import { formatAPIError } from '$lib/utils';
   import { onMount } from 'svelte';
   import type { RegisteredEvent } from '../../../../../proto/webhook_pb.js';
 
@@ -48,7 +49,7 @@
       const res = await eventClient.listEvents({ activeOnly: true });
       allEvents = res.events || [];
     } catch (e: any) {
-      error = `Failed to load events: ${e.message}`;
+      error = formatAPIError(e, 'Failed to load events');
     }
   });
 
@@ -134,7 +135,7 @@
       await client.registerWebhook(req);
       goto('/webhooks');
     } catch (e: any) {
-      error = `Failed to register webhook: ${e.message}`;
+      error = formatAPIError(e, 'Failed to register webhook');
     } finally {
       submitting = false;
     }

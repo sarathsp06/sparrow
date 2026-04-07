@@ -14,6 +14,7 @@ import (
 
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 	"github.com/sarathsp06/sparrow/pkg/storage"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
@@ -168,16 +169,26 @@ func maskEncryptedSecret(encrypted []byte, svc webhooks.WebhookServiceInterface)
 }
 
 // toGRPCError maps service-layer errors to appropriate gRPC status codes.
-// It checks for known error types (not found, validation)
-// and returns a properly-coded gRPC status error.
-// Internal errors are logged server-side but NOT exposed to the client —
-// only the fallbackMsg is returned to prevent leaking implementation details.
+//
+// Resolution order:
+//  1. ServiceError — service/validation code explicitly marks errors as
+//     client-safe with a gRPC code. This is the preferred mechanism.
+//  2. Storage sentinel errors — ErrNotFound, ErrAlreadyExists, etc.
+//  3. String-matching fallback — legacy allowlist for errors that haven't
+//     been converted to ServiceError yet.
+//  4. Default — codes.Internal with only the fallbackMsg (no internals leaked).
 func toGRPCError(ctx context.Context, err error, fallbackMsg string) error {
 	if err == nil {
 		return nil
 	}
 
-	// Check for known storage-level errors first (more reliable than string matching)
+	// 1. ServiceError — explicitly marked as client-safe by service layer.
+	var svcErr *svcerrors.ServiceError
+	if errors.As(err, &svcErr) {
+		return status.Errorf(svcErr.GRPCCode, "%s", svcErr.ClientMessage())
+	}
+
+	// 2. Storage sentinel errors (more reliable than string matching).
 	if errors.Is(err, storage.ErrNotFound) {
 		return status.Errorf(codes.NotFound, "%s: %v", fallbackMsg, err)
 	}
@@ -191,15 +202,15 @@ func toGRPCError(ctx context.Context, err error, fallbackMsg string) error {
 		return status.Errorf(codes.InvalidArgument, "%s: a required field is missing", fallbackMsg)
 	}
 
-	// Check for common error message patterns
+	// 3. String-matching fallback — covers errors not yet converted to ServiceError.
 	errMsg := err.Error()
 
-	// "not found" errors — safe to include in response
+	// "not found" anywhere in the message
 	if strings.Contains(errMsg, "not found") {
 		return status.Errorf(codes.NotFound, "%s: %v", fallbackMsg, err)
 	}
 
-	// Validation / input errors — safe to include in response
+	// Required-field / basic validation errors
 	if strings.HasPrefix(errMsg, "namespace is required") ||
 		strings.HasPrefix(errMsg, "webhook_id is required") ||
 		strings.HasPrefix(errMsg, "webhook ID is required") ||
@@ -215,12 +226,37 @@ func toGRPCError(ctx context.Context, err error, fallbackMsg string) error {
 		strings.Contains(errMsg, "already exists") ||
 		strings.Contains(errMsg, "already paused") ||
 		strings.Contains(errMsg, "already active") ||
-		strings.Contains(errMsg, "namespace is required for namespace-scoped access") {
+		strings.Contains(errMsg, "namespace is required for namespace-scoped access") ||
+		// URL validation / SSRF errors
+		strings.Contains(errMsg, "not allowed") ||
+		strings.Contains(errMsg, "only http and https are allowed") ||
+		strings.Contains(errMsg, "must have a non-empty host") ||
+		strings.Contains(errMsg, "cannot resolve URL host") ||
+		strings.Contains(errMsg, "resolves to blocked address") ||
+		strings.HasPrefix(errMsg, "invalid URL") ||
+		// Label validation errors
+		strings.HasPrefix(errMsg, "labels:") ||
+		strings.HasPrefix(errMsg, "label_filters:") ||
+		// Template errors
+		strings.Contains(errMsg, "template transformation failed") {
 		return status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	// Default to internal error — log the real error but do NOT expose it to the client.
-	// Returning internal error details (SQL errors, stack traces, etc.) is a security risk.
+	// State / precondition errors (operation not valid in current state)
+	if strings.Contains(errMsg, "is inactive") ||
+		strings.Contains(errMsg, "already succeeded") ||
+		strings.Contains(errMsg, "encryption is required") ||
+		strings.Contains(errMsg, "encryption key not configured") ||
+		strings.Contains(errMsg, "batch job is not") ||
+		strings.Contains(errMsg, "batch job has expired") ||
+		strings.Contains(errMsg, "not in pending status") ||
+		strings.Contains(errMsg, "is already in terminal state") ||
+		strings.Contains(errMsg, "only one of") ||
+		strings.Contains(errMsg, "failed to resubmit") {
+		return status.Errorf(codes.FailedPrecondition, "%v", err)
+	}
+
+	// 4. Default — log the real error but do NOT expose internals to the client.
 	slog.ErrorContext(ctx, "internal error", "fallback_msg", fallbackMsg, "error", err)
 	return status.Errorf(codes.Internal, "%s", fallbackMsg)
 }

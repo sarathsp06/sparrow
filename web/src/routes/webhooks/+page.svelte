@@ -5,10 +5,12 @@
   import type { RegisteredWebhook } from '../../../../proto/webhook_pb.js';
   import { WebhookHealth } from '../../../../proto/webhook_pb.js';
   import HealthBadge from '$lib/components/HealthBadge.svelte';
+  import CopyableId from '$lib/components/CopyableId.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
   import FloatingAction from '$lib/components/FloatingAction.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
+  import { formatAPIError } from '$lib/utils';
 
   let webhooks: RegisteredWebhook[] = $state([]);
   let loading = $state(true);
@@ -87,7 +89,7 @@
       };
     } catch (e: any) {
       console.error(e);
-      error = e.message || 'Failed to load webhooks';
+      error = formatAPIError(e, 'Failed to load webhooks');
     } finally {
       loading = false;
     }
@@ -123,7 +125,7 @@
       webhookToUnregister = null;
       await fetchWebhooks();
     } catch (e: any) {
-      error = `Failed to unregister webhook: ${e.message}`;
+      error = formatAPIError(e, 'Failed to unregister webhook');
       confirmUnregister = false;
     }
   }
@@ -138,7 +140,7 @@
       }
       await fetchWebhooks();
     } catch (e: any) {
-      error = `Failed to update webhook: ${(e as Error).message}`;
+      error = formatAPIError(e, 'Failed to update webhook');
     }
   }
 </script>
@@ -492,7 +494,7 @@
                       {#if wh.description}
                         <span class="text-xs text-gray-500 truncate max-w-xs">{wh.description}</span>
                       {/if}
-                      <span class="text-xs text-gray-400 font-mono">{wh.webhookId.substring(0, 8)}...</span>
+                      <CopyableId id={wh.webhookId} />
                       <!-- Show namespace + events inline on mobile -->
                       <span class="text-xs text-gray-400 md:hidden">ns: {wh.namespace}</span>
                       <div class="flex flex-wrap gap-1 mt-1 sm:hidden">

@@ -8,7 +8,7 @@
     healthClient,
     subscriptionClient,
   } from '$lib/services';
-  import { getCategoryBadge, ERROR_CATEGORIES } from '$lib/utils';
+  import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError } from '$lib/utils';
   import { onMount, onDestroy } from 'svelte';
 
   import type {
@@ -21,6 +21,7 @@
   import { timestampFromDate } from '@bufbuild/protobuf/wkt';
   import { WebhookDeliveryStatus, WebhookHealth } from '../../../../../proto/webhook_pb.js';
   import HealthBadge from '$lib/components/HealthBadge.svelte';
+  import CopyableId from '$lib/components/CopyableId.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
   import EmptyState from '$lib/components/EmptyState.svelte';
@@ -153,7 +154,7 @@
       healthMetrics = healthRes.metrics;
       subscriptions = subscriptionsRes.subscriptions || [];
     } catch (e: any) {
-      error = `Failed to load data: ${e.message}`;
+      error = formatAPIError(e, 'Failed to load data');
     } finally {
       loading = false;
     }
@@ -171,7 +172,7 @@
       }
       await fetchData();
     } catch (e: any) {
-      error = `Failed to update status: ${e.message}`;
+      error = formatAPIError(e, 'Failed to update status');
     }
   }
 
@@ -185,7 +186,7 @@
       confirmUnregister = false;
       goto('/webhooks');
     } catch (e: any) {
-      error = `Failed to unregister webhook: ${e.message}`;
+      error = formatAPIError(e, 'Failed to unregister webhook');
       confirmUnregister = false;
     }
   }
@@ -198,7 +199,7 @@
       });
       await fetchData();
     } catch (e: any) {
-      error = `Failed to resend delivery: ${e.message}`;
+      error = formatAPIError(e, 'Failed to resend delivery');
     }
   }
 
@@ -231,7 +232,7 @@
       editingUrl = false;
       await fetchData();
     } catch (e: any) {
-      error = `Failed to update URL: ${e.message}`;
+      error = formatAPIError(e, 'Failed to update URL');
     } finally {
       savingUrl = false;
     }
@@ -342,7 +343,7 @@
       editingConfig = false;
       await fetchData();
     } catch (e: any) {
-      error = `Failed to update configuration: ${e.message}`;
+      error = formatAPIError(e, 'Failed to update configuration');
     } finally {
       savingConfig = false;
     }
@@ -415,7 +416,7 @@
         error = 'No matching deliveries to retry.';
       }
     } catch (e: any) {
-      error = `Failed to prepare retry: ${e.message}`;
+      error = formatAPIError(e, 'Failed to prepare retry');
     } finally {
       preparingRetry = false;
     }
@@ -429,7 +430,7 @@
       batchStatus = { status: res.status, total: res.total, processed: 0, failed: 0 };
       startRetryPolling();
     } catch (e: any) {
-      error = `Failed to start retry: ${e.message}`;
+      error = formatAPIError(e, 'Failed to start retry');
     }
   }
 
@@ -465,7 +466,7 @@
     try {
       await deliveryClient.cancelRetry({ retryId });
     } catch (e: any) {
-      error = `Failed to cancel retry: ${e.message}`;
+      error = formatAPIError(e, 'Failed to cancel retry');
     }
   }
 
@@ -883,11 +884,11 @@
                   {#each deliveries as delivery}
                     <tr class="hover:bg-gray-50 transition">
                       <td class="px-4 py-3">
-                        <span class="font-mono text-xs text-gray-700">{delivery.deliveryId.substring(0, 12)}...</span>
+                        <CopyableId id={delivery.deliveryId} truncate={12} />
                         <!-- Show event ID inline on mobile -->
-                        <span class="block sm:hidden font-mono text-xs text-gray-400 mt-0.5">{delivery.eventId.substring(0, 12)}...</span>
+                        <span class="block sm:hidden mt-0.5"><CopyableId id={delivery.eventId} truncate={12} /></span>
                       </td>
-                      <td class="px-4 py-3 font-mono text-xs text-gray-700 hidden sm:table-cell">{delivery.eventId.substring(0, 16)}...</td>
+                      <td class="px-4 py-3 hidden sm:table-cell"><CopyableId id={delivery.eventId} truncate={16} /></td>
                       <td class="px-4 py-3">
                         <div class="flex items-center gap-1.5">
                           <StatusBadge status={delivery.status} />

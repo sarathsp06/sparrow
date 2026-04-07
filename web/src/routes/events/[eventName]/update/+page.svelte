@@ -2,7 +2,7 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { eventClient as client } from "$lib/services";
-  import { JSONSchemaMetaSchema, jsonToJsonSchema, toJSONObject } from "$lib/utils";
+  import { JSONSchemaMetaSchema, jsonToJsonSchema, toJSONObject, formatAPIError } from "$lib/utils";
   import { onMount } from "svelte";
   import {
     createAjvValidator,
@@ -41,7 +41,7 @@
         error = "Event not found";
       }
     } catch (e: any) {
-      error = `Failed to load event details: ${e.message}`;
+      error = formatAPIError(e, 'Failed to load event details');
     } finally {
       loading = false;
     }
@@ -83,7 +83,7 @@
       await client.updateEvent(req);
       goto("/events");
     } catch (e: any) {
-      error = `Failed to update event: ${e.message}`;
+      error = formatAPIError(e, 'Failed to update event');
     } finally {
       submitting = false;
     }

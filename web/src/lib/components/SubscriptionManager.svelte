@@ -4,6 +4,7 @@
     webhookClient,
     eventClient,
   } from "$lib/services";
+  import { formatAPIError } from "$lib/utils";
   import { onMount } from "svelte";
 
   import type {
@@ -12,6 +13,7 @@
     RegisteredEvent,
   } from "../../../../proto/webhook_pb";
   import ConfirmDialog from "$lib/components/ConfirmDialog.svelte";
+  import CopyableId from "$lib/components/CopyableId.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
 
   let {
@@ -189,7 +191,7 @@
       subscriptions = response.subscriptions;
       onRefresh?.();
     } catch (e: any) {
-      error = `Failed to fetch subscriptions: ${e.message}`;
+      error = formatAPIError(e, 'Failed to fetch subscriptions');
     } finally {
       loading = false;
     }
@@ -227,7 +229,7 @@
       resetForm();
       await fetchSubscriptions();
     } catch (e: any) {
-      error = `Failed to ${modalMode === "create" ? "create" : "update"} subscription: ${e.message}`;
+      error = formatAPIError(e, `Failed to ${modalMode === "create" ? "create" : "update"} subscription`);
     }
   }
 
@@ -271,7 +273,7 @@
       subscriptionToDelete = null;
       await fetchSubscriptions();
     } catch (e: any) {
-      error = `Failed to delete subscription: ${e.message}`;
+      error = formatAPIError(e, 'Failed to delete subscription');
       confirmDeleteOpen = false;
     }
   }
@@ -295,7 +297,7 @@
       templateFunctions = response.functions;
       showTemplateDocs = true;
     } catch (e: any) {
-      error = `Failed to fetch template functions: ${e.message}`;
+      error = formatAPIError(e, 'Failed to fetch template functions');
     } finally {
       loadingTemplateFunctions = false;
     }
@@ -487,9 +489,7 @@
                         ).toLocaleDateString()
                       : "N/A"}</span
                   >
-                  <span class="font-mono text-gray-400"
-                    >{subscription.subscriptionId.substring(0, 12)}...</span
-                  >
+                  <CopyableId id={subscription.subscriptionId} truncate={12} />
                 </div>
 
                 <!-- Template preview -->

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { deliveryClient as client } from "$lib";
-  import { getCategoryDisplay } from '$lib/utils';
+  import { getCategoryDisplay, formatAPIError } from '$lib/utils';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
   import { onMount } from 'svelte';
   import type { WebhookDelivery } from "../../../../../proto/webhook_pb.js";
@@ -21,7 +21,7 @@
       });
       delivery = res.delivery;
     } catch (e: any) {
-      error = `Failed to load delivery details: ${e.message}`;
+      error = formatAPIError(e, 'Failed to load delivery details');
     } finally {
       loading = false;
     }

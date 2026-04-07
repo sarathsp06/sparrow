@@ -4,6 +4,7 @@
     import { deliveryClient } from '$lib/services';
     import { getCategoryBadge } from '$lib/utils';
     import StatusBadge from './StatusBadge.svelte';
+    import CopyableId from './CopyableId.svelte';
     import EmptyState from './EmptyState.svelte';
     import favicon from '$lib/assets/favicon.svg';
 
@@ -148,7 +149,7 @@
                     {#each eventReports as report}
                         <tr class="hover:bg-gray-50 transition">
                             <td class="px-4 py-3">
-                                <span class="font-mono text-xs text-gray-700">{report.eventId.substring(0, 12)}...</span>
+                                <CopyableId id={report.eventId} truncate={12} />
                                 <!-- Show namespace inline on mobile -->
                                 <span class="block sm:hidden mt-0.5">
                                     <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{report.namespace || 'N/A'}</span>
@@ -226,12 +227,7 @@
                                                         {#each deliveriesByEvent.get(report.eventId) ?? [] as delivery}
                                                             <tr class="hover:bg-white transition {expandedDeliveries.has(delivery.deliveryId) ? 'bg-blue-50/30' : ''}">
                                                                 <td class="px-3 py-2">
-                                                                    <a
-                                                                        href="/webhooks/{delivery.webhookId}"
-                                                                        class="font-mono text-blue-600 hover:text-blue-800 hover:underline transition"
-                                                                    >
-                                                                        {delivery.webhookId.substring(0, 12)}...
-                                                                    </a>
+                                                                    <CopyableId id={delivery.webhookId} href="/webhooks/{delivery.webhookId}" truncate={12} />
                                                                 </td>
                                                                 <td class="px-3 py-2">
                                                                     <div class="flex items-center gap-1.5">

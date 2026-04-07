@@ -5,6 +5,7 @@
     import { onMount, onDestroy } from 'svelte';
     import type { EventReport, RegisteredEvent } from '../../../../../../proto/webhook_pb.js';
     import { timestampFromDate } from '@bufbuild/protobuf/wkt';
+    import { formatAPIError } from '$lib/utils';
     import BatchProgress from '$lib/components/BatchProgress.svelte';
     import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
@@ -47,7 +48,7 @@
             }
         } catch (e: any) {
             console.error('Failed to fetch event details:', e);
-            error = `Failed to load event details: ${e.message}`;
+            error = formatAPIError(e, 'Failed to load event details');
         }
     }
 
@@ -100,7 +101,7 @@
             currentPage = pageNum;
         } catch (e: any) {
             console.error('Failed to fetch event reports:', e);
-            error = `Failed to load event reports: ${e.message}`;
+            error = formatAPIError(e, 'Failed to load event reports');
         } finally {
             loading = false;
         }
@@ -151,7 +152,7 @@
                 error = 'No matching events to re-push.';
             }
         } catch (e: any) {
-            error = `Failed to prepare re-push: ${e.message}`;
+            error = formatAPIError(e, 'Failed to prepare re-push');
         } finally {
             preparingRepush = false;
         }
@@ -165,7 +166,7 @@
             batchStatus = { status: res.status, total: res.total, processed: 0, failed: 0 };
             startPolling();
         } catch (e: any) {
-            error = `Failed to start re-push: ${e.message}`;
+            error = formatAPIError(e, 'Failed to start re-push');
         }
     }
 
@@ -201,7 +202,7 @@
         try {
             await client.cancelRepush({ repushId });
         } catch (e: any) {
-            error = `Failed to cancel re-push: ${e.message}`;
+            error = formatAPIError(e, 'Failed to cancel re-push');
         }
     }
 

@@ -1,11 +1,12 @@
 <script lang="ts">
     import { deliveryClient } from '$lib/services';
-    import { getCategoryBadge, ERROR_CATEGORIES } from '$lib/utils';
+    import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError } from '$lib/utils';
     import { onMount, onDestroy } from 'svelte';
     import type { WebhookDelivery } from '../../../../proto/webhook_pb.js';
     import { WebhookDeliveryStatus } from '../../../../proto/webhook_pb.js';
     import { timestampFromDate } from '@bufbuild/protobuf/wkt';
     import StatusBadge from '$lib/components/StatusBadge.svelte';
+    import CopyableId from '$lib/components/CopyableId.svelte';
     import Pagination from '$lib/components/Pagination.svelte';
     import EmptyState from '$lib/components/EmptyState.svelte';
     import BatchProgress from '$lib/components/BatchProgress.svelte';
@@ -80,7 +81,7 @@
             currentPage = pageNum;
         } catch (e: any) {
             console.error('Failed to fetch deliveries:', e);
-            error = `Failed to load deliveries: ${e.message}`;
+            error = formatAPIError(e, 'Failed to load deliveries');
         } finally {
             loading = false;
         }
@@ -128,7 +129,7 @@
             await deliveryClient.retryDelivery({ deliveryId, namespace: namespaceFilter.trim() });
             await fetchDeliveries(currentPage);
         } catch (e: any) {
-            error = `Failed to retry delivery: ${e.message}`;
+            error = formatAPIError(e, 'Failed to retry delivery');
         } finally {
             retryingDeliveries.delete(deliveryId);
             retryingDeliveries = new Set(retryingDeliveries);
@@ -151,7 +152,7 @@
                 error = 'No matching deliveries to retry.';
             }
         } catch (e: any) {
-            error = `Failed to prepare retry: ${e.message}`;
+            error = formatAPIError(e, 'Failed to prepare retry');
         } finally {
             preparingRetry = false;
         }
@@ -165,7 +166,7 @@
             batchStatus = { status: res.status, total: res.total, processed: 0, failed: 0 };
             startPolling();
         } catch (e: any) {
-            error = `Failed to start retry: ${e.message}`;
+            error = formatAPIError(e, 'Failed to start retry');
         }
     }
 
@@ -201,7 +202,7 @@
         try {
             await deliveryClient.cancelRetry({ retryId });
         } catch (e: any) {
-            error = `Failed to cancel retry: ${e.message}`;
+            error = formatAPIError(e, 'Failed to cancel retry');
         }
     }
 
@@ -446,17 +447,13 @@
                             {#each deliveries as delivery}
                                 <tr class="hover:bg-gray-50 transition">
                                     <td class="px-4 py-3">
-                                        <a href="/deliveries/{delivery.deliveryId}" class="font-mono text-xs text-blue-600 hover:text-blue-800 hover:underline transition">
-                                            {delivery.deliveryId.substring(0, 12)}...
-                                        </a>
+                                        <CopyableId id={delivery.deliveryId} href="/deliveries/{delivery.deliveryId}" truncate={12} />
                                     </td>
                                     <td class="px-4 py-3 hidden sm:table-cell">
-                                        <a href="/webhooks/{delivery.webhookId}" class="font-mono text-xs text-blue-600 hover:text-blue-800 hover:underline transition">
-                                            {delivery.webhookId.substring(0, 12)}...
-                                        </a>
+                                        <CopyableId id={delivery.webhookId} href="/webhooks/{delivery.webhookId}" truncate={12} />
                                     </td>
-                                    <td class="px-4 py-3 font-mono text-xs text-gray-700 hidden sm:table-cell">
-                                        {delivery.eventId.substring(0, 12)}...
+                                    <td class="px-4 py-3 hidden sm:table-cell">
+                                        <CopyableId id={delivery.eventId} truncate={12} />
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-1.5">
