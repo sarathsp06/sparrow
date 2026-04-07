@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [0.11.3] - 2026-04-07
+
+### Added
+
+- **docs**: Theme-aware diagrams — separate light and dark SVGs that switch automatically with Starlight's theme toggle
+- `ThemeDiagram.astro` component for zero-JS theme-based image switching via CSS `[data-theme]`
+- Dark-mode mermaid config with slate-based palette (dark fills, light text, muted borders)
+
+### Changed
+
+- Diagram build script now generates both `-light.svg` and `-dark.svg` variants per `.mmd` source file
+- Architecture docs page converted to `.mdx` to support Astro component imports
+
 ## [0.11.2] - 2026-04-07
 
 ### Fixed
