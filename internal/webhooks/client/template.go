@@ -78,7 +78,6 @@ func (e *TemplateEngine) Execute(tmplStr string, data any) ([]byte, error) {
 
 	// Get buffer from pool
 	buf := GetBuffer()
-	defer PutBuffer(buf)
 
 	// Wrap with a size-limited writer to prevent runaway output
 	lw := &limitedWriter{buf: buf, limit: MaxTemplateOutputBytes}
@@ -98,10 +97,15 @@ func (e *TemplateEngine) Execute(tmplStr string, data any) ([]byte, error) {
 
 	select {
 	case err := <-execErr:
+		// Goroutine finished — we own the buffer, safe to pool it.
+		defer PutBuffer(buf)
 		if err != nil {
 			return nil, fmt.Errorf("failed to execute template: %w", err)
 		}
 	case <-ctx.Done():
+		// Timeout — the goroutine is still running and writing to buf.
+		// We must NOT return buf to the pool; let it be GC'd when the
+		// goroutine finishes.
 		return nil, fmt.Errorf("template execution timed out after %v (possible infinite loop)", TemplateExecutionTimeout)
 	}
 
