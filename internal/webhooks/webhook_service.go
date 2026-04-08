@@ -1067,12 +1067,15 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 			continue
 		}
 
-		// Queue the webhook for delivery
+		// Queue the webhook for delivery.
+		// Use a fresh expiry so retried deliveries don't immediately expire
+		// when the original event TTL has already elapsed.
+		retryExpiresAt := time.Now().Add(24 * time.Hour)
 		_, err = s.jobInserter.Insert(ctx, &queue.WebhookArgs{
 			DeliveryID: delivery.ID.String(),
 			WebhookID:  delivery.WebhookID.String(),
 			EventID:    delivery.EventID.String(),
-			ExpiresAt:  delivery.ExpiresAt,
+			ExpiresAt:  retryExpiresAt,
 			Namespace:  webhook.Namespace,
 			TenantID:   tenantID.String(),
 		})

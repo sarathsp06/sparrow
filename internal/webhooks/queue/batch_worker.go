@@ -243,14 +243,15 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 			subID = delivery.SubscriptionID.String()
 		}
 
-		// Enqueue webhook delivery job
+		// Enqueue webhook delivery job with a fresh expiry so retried
+		// deliveries don't immediately expire when the original TTL has elapsed.
 		_, err = w.jobInserter.Insert(ctx, &WebhookArgs{
 			TenantID:       tenantID.String(),
 			DeliveryID:     deliveryID.String(),
 			WebhookID:      delivery.WebhookID.String(),
 			SubscriptionID: subID,
 			EventID:        delivery.EventID.String(),
-			ExpiresAt:      delivery.ExpiresAt,
+			ExpiresAt:      time.Now().Add(24 * time.Hour),
 			Namespace:      webhook.Namespace,
 		})
 		if err != nil {
