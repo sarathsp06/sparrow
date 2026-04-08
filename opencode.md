@@ -3,7 +3,7 @@
 > **Keep this file up to date.** Whenever a relevant change is made to the codebase -- new features, architectural changes, schema migrations, configuration changes, or dependency updates -- update the corresponding section(s) in this file so it remains a reliable single-source-of-truth for AI-assisted development.
 
 **Module**: `github.com/sarathsp06/sparrow`  
-**Go**: 1.25  
+**Go**: 1.26  
 **Repository**: `/Users/sarathsadasivanpillai/projects/httpqueue`
 
 ---
@@ -632,7 +632,7 @@ Startup order: postgres (healthy) -> sparrow (starts)
 
 ### Dockerfile (3-stage)
 1. **`frontend`** (`node:22-alpine`): `npm run build` (SvelteKit static adapter)
-2. **`builder`** (`golang:1.25-alpine`): Compiles `server` + `migrate` binaries with embedded UI
+2. **`builder`** (`golang:1.26-alpine`): Compiles `server` + `migrate` binaries with embedded UI
 3. **Final** (`distroless/static-debian12:nonroot`): Minimal runtime, ports 50051 + 8080
 
 ---

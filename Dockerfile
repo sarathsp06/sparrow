@@ -23,7 +23,7 @@ COPY proto/webhook_pb.js proto/webhook_pb.d.ts /build/proto/
 RUN VITE_APP_VERSION=${SEMVER} PUBLIC_API_URL=/ npm run build
 
 # Go build stage
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26.1-alpine AS builder
 
 RUN apk add --no-cache git ca-certificates tzdata
 

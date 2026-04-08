@@ -1,5 +1,5 @@
 [![CI](https://github.com/sarathsp06/sparrow/actions/workflows/ci.yml/badge.svg)](https://github.com/sarathsp06/sparrow/actions/workflows/ci.yml)
-[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/ghcr.io-sarathsp06%2Fsparrow-blue?logo=docker)](https://github.com/sarathsp06/sparrow/pkgs/container/sparrow)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://sarathsp06.github.io/sparrow)

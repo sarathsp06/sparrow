@@ -64,7 +64,7 @@ docker compose down -v     # stop and delete data
 
 ### Prerequisites
 
-- Go 1.25+
+- Go 1.26+
 - Node.js 22+ (for web UI)
 - PostgreSQL 15+
 
@@ -121,5 +121,5 @@ docker pull ghcr.io/sarathsp06/sparrow:latest
 
 The Dockerfile uses a 3-stage build:
 1. **Frontend** (`node:22-alpine`): Builds the SvelteKit UI
-2. **Backend** (`golang:1.25-alpine`): Compiles Go binaries with embedded UI
+2. **Backend** (`golang:1.26-alpine`): Compiles Go binaries with embedded UI
 3. **Runtime** (`distroless/static-debian12:nonroot`): Minimal production image
