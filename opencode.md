@@ -61,7 +61,7 @@ Sparrow supports **optional API key authentication** via the `SPARROW_API_KEY` e
 │   ├── migrate/         # DB migration runner
 │   └── benchmark/       # Load testing tool with reservoir sampling
 ├── internal/
-│   ├── config/          # Config loading (DATABASE_URL from env)
+│   ├── config/          # Structured config loading (envconfig from env vars)
 │   ├── connect/         # Connect-RPC adapter (delegates to grpc servers)
 │   ├── grpc/            # gRPC service implementations (handlers)
 │   ├── health/          # Health check endpoint
@@ -143,6 +143,7 @@ internal/tenant ──────────> pkg/storage
 internal/namespace ───────> pkg/storage
 
 internal/observability ───> (leaf: only OTel externals)
+internal/config ─────────> (leaf: kelseyhightower/envconfig)
 internal/middleware ──────> (leaf: crypto/subtle, google.golang.org/grpc)
 pkg/storage ──────────────> (leaf: database/sql, sqlx)
 pkg/errors ───────────────> (leaf: net, syscall)
@@ -582,15 +583,18 @@ Sparrow Server
 
 ## Configuration
 
+All configuration is loaded from environment variables via the `internal/config` package using [kelseyhightower/envconfig](https://github.com/kelseyhightower/envconfig). The `config.Load()` function returns a `*config.Config` struct that is passed through `cmd/server/main.go` to all subsystems.
+
 ### Environment Variables
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | required |
+| `DATABASE_URL` | PostgreSQL connection string | `"postgres://localhost/riverqueue?sslmode=disable"` |
 | `SPARROW_API_KEY` | API key for authentication (optional) | -- (open access) |
-| `SPARROW_SERVE_UI` | Serve embedded SvelteKit UI | `"false"` |
+| `SPARROW_SERVE_UI` | Serve embedded SvelteKit UI | `false` |
 | `SPARROW_GRPC_PORT` | gRPC listen port. Note: macOS AirPlay Receiver may conflict on 50051. | `"50051"` |
 | `SPARROW_HTTP_PORT` | HTTP/Connect-RPC listen port | `"8080"` |
-| `SPARROW_ALLOW_PRIVATE_NETWORKS` | Allow localhost/private IPs as webhook URLs (dev/testing) | `"false"` |
+| `SPARROW_ALLOW_PRIVATE_NETWORKS` | Allow localhost/private IPs as webhook URLs (dev/testing) | `false` |
+| `SPARROW_ENCRYPTION_KEY` | 64-char hex string (32 bytes) KEK for envelope encryption | -- (auto-generated temp key) |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated CORS origins (e.g. `https://ui.example.com,https://admin.example.com`). Required when UI is hosted separately. Production blocks cross-origin by default. | -- |
 | `ENVIRONMENT` | `"development"` or `"production"` | -- |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP export endpoint | -- |

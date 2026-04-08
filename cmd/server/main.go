@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"github.com/sarathsp06/sparrow/internal/config"
 	connectserver "github.com/sarathsp06/sparrow/internal/connect"
 	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
 	"github.com/sarathsp06/sparrow/internal/health"
@@ -53,18 +54,24 @@ func main() {
 		_ = godotenv.Load()
 	}
 
+	// Load structured configuration from environment variables.
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
 	ctx := context.Background()
 	startTime := time.Now() // Track service start time for uptime calculation
 
 	// Configure OpenTelemetry
 	otelConfig := observability.DefaultConfig()
 
-	if env := os.Getenv("ENVIRONMENT"); env != "" {
-		otelConfig.Environment = env
+	if cfg.Environment != "" {
+		otelConfig.Environment = cfg.Environment
 	}
 
-	if otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"); otlpEndpoint != "" {
-		otelConfig.OTLPEndpoint = otlpEndpoint
+	if cfg.OTLPEndpoint != "" {
+		otelConfig.OTLPEndpoint = cfg.OTLPEndpoint
 	}
 
 	// Initialize OpenTelemetry (no-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset)
@@ -87,30 +94,13 @@ func main() {
 		}
 	}
 
-	// Database connection URL
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		databaseURL = "postgres://localhost/riverqueue?sslmode=disable"
-		fmt.Println("🔧 Using default database URL. Set DATABASE_URL environment variable for custom connection.")
-	}
-
-	// Server ports (configurable to avoid conflicts, e.g., macOS AirPlay Receiver uses 50051)
-	grpcPort := os.Getenv("SPARROW_GRPC_PORT")
-	if grpcPort == "" {
-		grpcPort = "50051"
-	}
-	httpPort := os.Getenv("SPARROW_HTTP_PORT")
-	if httpPort == "" {
-		httpPort = "8080"
-	}
-
 	// Run database migrations before anything else touches the DB.
 	// This covers both River queue schema and application schema migrations.
 	// golang-migrate uses PostgreSQL advisory locks, so concurrent server
 	// instances won't conflict.
 	migrationLogger := slog.Default()
 	fmt.Println("📦 Running database migrations...")
-	if err := migration.RunAllMigrations(ctx, databaseURL, "up", 0, 0, migrationLogger); err != nil {
+	if err := migration.RunAllMigrations(ctx, cfg.DatabaseURL, "up", 0, 0, migrationLogger); err != nil {
 		log.Fatalf("Failed to run database migrations: %v", err)
 	}
 	fmt.Println("✅ Database migrations completed")
@@ -119,7 +109,7 @@ func main() {
 	// River runs 45 concurrent workers (20 events + 20 webhooks + 5 default)
 	// so we need enough connections to avoid starvation. The default pgxpool
 	// MaxConns is max(4, NumCPU) which is far too low.
-	pgxConfig, err := pgxpool.ParseConfig(databaseURL)
+	pgxConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Failed to parse database URL for pgxpool: %v", err)
 	}
@@ -140,7 +130,7 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	sqlxDB, err := postgres.Open(databaseURL, 3,
+	sqlxDB, err := postgres.Open(cfg.DatabaseURL, 3,
 		postgres.WithMaxOpenConnections(25),
 		postgres.WithMaxIdleConnections(25),
 		postgres.WithConnectionMaxLifeTime(5*time.Minute),
@@ -167,7 +157,7 @@ func main() {
 	// Initialize encryption service.
 	// Priority: SPARROW_ENCRYPTION_KEY env var. If unset, a temporary key is
 	// generated for this session and printed to stdout.
-	encKey, err := resolveEncryptionKey()
+	encKey, err := resolveEncryptionKey(cfg)
 	if err != nil {
 		log.Fatalf("Failed to resolve encryption key: %v", err)
 	}
@@ -188,7 +178,7 @@ func main() {
 	// the key via X-API-Key header. Health/ready endpoints and static UI assets
 	// are excluded. When unset, all requests are allowed (open access).
 	apiKeyAuth := &middleware.APIKeyAuth{
-		APIKey: os.Getenv("SPARROW_API_KEY"),
+		APIKey: cfg.APIKey,
 		ExcludedPathPrefixes: []string{
 			"/health",
 			"/ready",
@@ -203,8 +193,7 @@ func main() {
 	// Private network access for webhook URLs
 	// When true, localhost/private IPs are allowed as webhook targets.
 	// Useful for local dev or self-hosted deployments where targets are on the same network.
-	allowPrivateNetworks := strings.EqualFold(os.Getenv("SPARROW_ALLOW_PRIVATE_NETWORKS"), "true")
-	if allowPrivateNetworks {
+	if cfg.AllowPrivateNetworks {
 		fmt.Println("⚠️  SPARROW_ALLOW_PRIVATE_NETWORKS=true — SSRF protection relaxed (loopback/private IPs allowed)")
 	}
 
@@ -213,7 +202,7 @@ func main() {
 
 	// Initialize webhook HTTP client config
 	clientConfig := client.DefaultConfig()
-	clientConfig.AllowPrivateNetworks = allowPrivateNetworks
+	clientConfig.AllowPrivateNetworks = cfg.AllowPrivateNetworks
 
 	// Initialize queue manager
 	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig)
@@ -238,7 +227,7 @@ func main() {
 		grpc.MaxSendMsgSize(4<<20), // 4 MB max outbound message
 	)
 
-	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(allowPrivateNetworks))
+	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks))
 
 	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, ""))
 	pb.RegisterWebhookServiceServer(grpcServer, webhookGRPCServer)
@@ -257,7 +246,7 @@ func main() {
 
 	// Global middleware: security headers, then CORS
 	r.Use(middleware.SecurityHeaders)
-	corsHandler := buildCORSHandler()
+	corsHandler := buildCORSHandler(cfg)
 	r.Use(corsHandler.Handler)
 
 	otelInterceptor, err := otelconnect.NewInterceptor()
@@ -312,8 +301,7 @@ func main() {
 	// a catch-all for paths that don't match any API or health route.
 	// Chi's explicit routes always take precedence — API requests can
 	// never accidentally be served HTML by the SPA.
-	serveUI := os.Getenv("SPARROW_SERVE_UI") == "true" || os.Getenv("SPARROW_SERVE_UI") == "1"
-	if serveUI {
+	if cfg.ServeUI {
 		if ui.Available() {
 			uiConfig := &ui.Config{APIKey: apiKeyAuth.APIKey}
 			uiHandler := ui.Handler(logger, uiConfig)
@@ -328,14 +316,14 @@ func main() {
 				}
 				uiHandler.ServeHTTP(w, r)
 			})
-			fmt.Println("🖥️  Embedded web UI enabled at http://localhost:" + httpPort + "/")
+			fmt.Println("🖥️  Embedded web UI enabled at http://localhost:" + cfg.HTTPPort + "/")
 		} else {
 			fmt.Println("⚠️  SPARROW_SERVE_UI=true but no frontend build found. Build with: cd web && npm run build:static")
 		}
 	}
 
 	httpServer := &http.Server{
-		Addr:              ":" + httpPort,
+		Addr:              ":" + cfg.HTTPPort,
 		Handler:           r,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -345,14 +333,14 @@ func main() {
 	}
 
 	// Start gRPC server
-	lis, err := net.Listen("tcp", ":"+grpcPort)
+	lis, err := net.Listen("tcp", ":"+cfg.GRPCPort)
 	if err != nil {
-		log.Fatalf("Failed to listen on port %s: %v", grpcPort, err)
+		log.Fatalf("Failed to listen on port %s: %v", cfg.GRPCPort, err)
 	}
 
 	fmt.Println("🌐 Starting servers...")
-	fmt.Printf("   gRPC server: localhost:%s\n", grpcPort)
-	fmt.Printf("   Connect-RPC (HTTP): localhost:%s\n", httpPort)
+	fmt.Printf("   gRPC server: localhost:%s\n", cfg.GRPCPort)
+	fmt.Printf("   Connect-RPC (HTTP): localhost:%s\n", cfg.HTTPPort)
 
 	// Register reflection service on gRPC server.
 	reflection.Register(grpcServer)
@@ -376,12 +364,12 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	fmt.Println("🎯 HTTP Queue Server is running...")
-	fmt.Printf("   gRPC server: localhost:%s\n", grpcPort)
-	fmt.Printf("   Connect-RPC (HTTP): localhost:%s\n", httpPort)
-	fmt.Printf("   Health check: http://localhost:%s/health\n", httpPort)
-	fmt.Printf("   Readiness check: http://localhost:%s/ready\n", httpPort)
-	if serveUI && ui.Available() {
-		fmt.Printf("   Web UI: http://localhost:%s/\n", httpPort)
+	fmt.Printf("   gRPC server: localhost:%s\n", cfg.GRPCPort)
+	fmt.Printf("   Connect-RPC (HTTP): localhost:%s\n", cfg.HTTPPort)
+	fmt.Printf("   Health check: http://localhost:%s/health\n", cfg.HTTPPort)
+	fmt.Printf("   Readiness check: http://localhost:%s/ready\n", cfg.HTTPPort)
+	if cfg.ServeUI && ui.Available() {
+		fmt.Printf("   Web UI: http://localhost:%s/\n", cfg.HTTPPort)
 	}
 	if apiKeyAuth.Enabled() {
 		fmt.Println("   Auth: API key required (X-API-Key header)")
@@ -411,24 +399,24 @@ func main() {
 	fmt.Println("👋 Shutdown complete")
 }
 
-// buildCORSHandler creates a CORS handler configured via the CORS_ALLOWED_ORIGINS
-// environment variable. When set, only the listed origins (comma-separated) are
-// allowed. When unset: production defaults to no cross-origin access,
-// development defaults to allow-all for convenience.
+// buildCORSHandler creates a CORS handler configured via cfg.CORSAllowedOrigins.
+// When set, only the listed origins are allowed. When unset: production defaults
+// to no cross-origin access, development defaults to allow-all for convenience.
 //
 // If the UI is served separately (not embedded via SPARROW_SERVE_UI), the
 // operator must set CORS_ALLOWED_ORIGINS to the UI's origin, e.g.:
 //
 //	CORS_ALLOWED_ORIGINS=https://sparrow-ui.internal.example.com
-func buildCORSHandler() *cors.Cors {
-	originsEnv := os.Getenv("CORS_ALLOWED_ORIGINS")
-	if originsEnv == "" {
+func buildCORSHandler(cfg *config.Config) *cors.Cors {
+	origins := cfg.CORSAllowedOrigins
+
+	if len(origins) == 0 || (len(origins) == 1 && origins[0] == "") {
 		// SEC: Defaulting to allow-all lets any website make API calls on
 		// behalf of a user who has network access. In production, restrict
 		// by default — the embedded UI is same-origin and doesn't need CORS.
 		// If the UI is hosted separately, the operator must set
 		// CORS_ALLOWED_ORIGINS explicitly.
-		if os.Getenv("ENVIRONMENT") == "production" {
+		if cfg.IsProduction() {
 			fmt.Println("🔒 CORS: production mode — cross-origin requests blocked")
 			fmt.Println("   If the UI is hosted separately, set CORS_ALLOWED_ORIGINS to the UI origin")
 			return cors.New(cors.Options{
@@ -439,16 +427,17 @@ func buildCORSHandler() *cors.Cors {
 		return cors.AllowAll()
 	}
 
-	var origins []string
-	for _, o := range strings.Split(originsEnv, ",") {
+	// Filter out any empty strings from the slice.
+	var filtered []string
+	for _, o := range origins {
 		o = strings.TrimSpace(o)
 		if o != "" {
-			origins = append(origins, o)
+			filtered = append(filtered, o)
 		}
 	}
 
-	if len(origins) == 0 {
-		if os.Getenv("ENVIRONMENT") == "production" {
+	if len(filtered) == 0 {
+		if cfg.IsProduction() {
 			fmt.Println("🔒 CORS: production mode — cross-origin requests blocked (CORS_ALLOWED_ORIGINS is empty)")
 			fmt.Println("   If the UI is hosted separately, set CORS_ALLOWED_ORIGINS to the UI origin")
 			return cors.New(cors.Options{
@@ -459,9 +448,9 @@ func buildCORSHandler() *cors.Cors {
 		return cors.AllowAll()
 	}
 
-	fmt.Printf("🔒 CORS allowed origins: %v\n", origins)
+	fmt.Printf("🔒 CORS allowed origins: %v\n", filtered)
 	return cors.New(cors.Options{
-		AllowedOrigins:   origins,
+		AllowedOrigins:   filtered,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type", "Connect-Protocol-Version", "Connect-Timeout-Ms", "Grpc-Timeout", "X-Grpc-Web", "X-User-Agent", "X-API-Key"},
 		AllowCredentials: true,
@@ -471,7 +460,7 @@ func buildCORSHandler() *cors.Cors {
 
 // resolveEncryptionKey determines the 32-byte KEK.
 //
-// If SPARROW_ENCRYPTION_KEY is set, it is parsed as a 64-char hex string.
+// If cfg.EncryptionKey is set, it is parsed as a 64-char hex string.
 // If not set, a random key is generated for this session and printed to
 // stdout so the operator can persist it. The key is NOT stored in the
 // database — storing the encryption key next to the data it protects
@@ -479,9 +468,9 @@ func buildCORSHandler() *cors.Cors {
 //
 // WARNING: If no env var is set and the server restarts, a new key is
 // generated and previously encrypted data becomes unreadable.
-func resolveEncryptionKey() ([]byte, error) {
-	if raw := os.Getenv("SPARROW_ENCRYPTION_KEY"); raw != "" {
-		key, err := crypto.ParseKey(raw)
+func resolveEncryptionKey(cfg *config.Config) ([]byte, error) {
+	if cfg.EncryptionKey != "" {
+		key, err := crypto.ParseKey(cfg.EncryptionKey)
 		if err != nil {
 			return nil, fmt.Errorf("invalid SPARROW_ENCRYPTION_KEY: %w", err)
 		}
