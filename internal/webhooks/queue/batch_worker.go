@@ -143,18 +143,16 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 			continue
 		}
 
-		// Create a new event record (fresh ID, same payload/namespace/event)
+		// Create a new event record (fresh ID, same payload/namespace/event).
+		// Preserve the original TTL. TTL=0 means no expiry -- StoreEvent
+		// will set ExpiresAt to the far-future sentinel automatically.
 		newID := uuid.New()
-		ttl := original.TTL
-		if ttl <= 0 {
-			ttl = 3600 * 24
-		}
 		newEvent := &store.EventRecord{
 			ID:          newID,
 			Namespace:   original.Namespace,
 			Event:       original.Event,
 			Payload:     original.Payload,
-			TTL:         ttl,
+			TTL:         original.TTL,
 			Metadata:    original.Metadata,
 			Labels:      original.Labels,
 			SchemaValid: true, // Will be re-validated by event worker
@@ -173,7 +171,7 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 			EventID:    newID.String(),
 			Namespace:  original.Namespace,
 			Event:      original.Event,
-			TTLSeconds: ttl,
+			TTLSeconds: original.TTL,
 			Metadata:   original.Metadata,
 			Labels:     original.Labels,
 			CreatedAt:  newEvent.CreatedAt,
@@ -243,15 +241,15 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 			subID = delivery.SubscriptionID.String()
 		}
 
-		// Enqueue webhook delivery job with a fresh expiry so retried
-		// deliveries don't immediately expire when the original TTL has elapsed.
+		// Enqueue webhook delivery job. Manual batch retries never expire --
+		// use far-future sentinel so TTL doesn't apply to explicit retries.
 		_, err = w.jobInserter.Insert(ctx, &WebhookArgs{
 			TenantID:       tenantID.String(),
 			DeliveryID:     deliveryID.String(),
 			WebhookID:      delivery.WebhookID.String(),
 			SubscriptionID: subID,
 			EventID:        delivery.EventID.String(),
-			ExpiresAt:      time.Now().Add(24 * time.Hour),
+			ExpiresAt:      store.NoExpiryTime,
 			Namespace:      webhook.Namespace,
 		})
 		if err != nil {

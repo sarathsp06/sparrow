@@ -84,8 +84,13 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		"event", args.Event,
 	)
 
-	// Create webhook delivery jobs for each subscription
-	expiresAt := time.Now().Add(time.Duration(args.TTLSeconds) * time.Second)
+	// Calculate expiry: TTL=0 means no expiry (far-future sentinel).
+	var expiresAt time.Time
+	if args.TTLSeconds <= 0 {
+		expiresAt = store.NoExpiryTime
+	} else {
+		expiresAt = time.Now().Add(time.Duration(args.TTLSeconds) * time.Second)
+	}
 
 	// Build all deliveries and job args in memory first, then batch-insert.
 	deliveries := make([]*store.WebhookDelivery, 0, len(subscriptions))

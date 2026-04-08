@@ -69,7 +69,11 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, tenantID uuid.
 		event.CreatedAt = time.Now()
 	}
 	if event.ExpiresAt.IsZero() {
-		event.ExpiresAt = time.Now().Add(time.Duration(event.TTL) * time.Second)
+		if event.TTL <= 0 {
+			event.ExpiresAt = NoExpiryTime
+		} else {
+			event.ExpiresAt = time.Now().Add(time.Duration(event.TTL) * time.Second)
+		}
 	}
 
 	query := `

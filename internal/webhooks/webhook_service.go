@@ -678,10 +678,10 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		}
 	}
 
-	// Set default TTL if not provided
+	// TTL=0 means no expiry (default). Only positive values enable expiry.
 	ttl := ttlSeconds
-	if ttl <= 0 {
-		ttl = 3600 * 24 // Default 1 day
+	if ttl < 0 {
+		ttl = 0
 	}
 
 	// Generate event ID
@@ -1068,14 +1068,12 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		}
 
 		// Queue the webhook for delivery.
-		// Use a fresh expiry so retried deliveries don't immediately expire
-		// when the original event TTL has already elapsed.
-		retryExpiresAt := time.Now().Add(24 * time.Hour)
+		// Manual retries never expire -- use far-future sentinel so TTL doesn't apply.
 		_, err = s.jobInserter.Insert(ctx, &queue.WebhookArgs{
 			DeliveryID: delivery.ID.String(),
 			WebhookID:  delivery.WebhookID.String(),
 			EventID:    delivery.EventID.String(),
-			ExpiresAt:  retryExpiresAt,
+			ExpiresAt:  store.NoExpiryTime,
 			Namespace:  webhook.Namespace,
 			TenantID:   tenantID.String(),
 		})

@@ -24,6 +24,11 @@ const (
 // to indicate a catch-all subscription that receives every event in the namespace.
 const CatchAllEventName = "*"
 
+// NoExpiryTime is the sentinel value used for ExpiresAt when TTL=0 (no expiry).
+// Deliveries with this expiry are never considered expired by the worker.
+// Also used for manual retries, which should never expire regardless of original TTL.
+var NoExpiryTime = time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC)
+
 // WebhookRegistration represents a registered webhook
 type WebhookRegistration struct {
 	ID        uuid.UUID `json:"id" db:"id"`
