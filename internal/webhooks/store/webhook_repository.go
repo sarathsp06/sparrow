@@ -192,7 +192,7 @@ func (r *Repository) GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, 
 			SELECT
 				COUNT(wd.id) as total_deliveries,
 				COUNT(wd.id) FILTER (WHERE wd.status = 'success') as successful_deliveries,
-				COUNT(wd.id) FILTER (WHERE wd.status IN ('failed', 'expired')) as failed_deliveries,
+				COUNT(wd.id) FILTER (WHERE wd.status = 'failed') as failed_deliveries,
 				COUNT(wd.id) FILTER (WHERE wd.status IN ('pending', 'sending', 'retrying')) as pending_deliveries
 			FROM webhook_deliveries wd
 			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
