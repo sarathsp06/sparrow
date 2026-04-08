@@ -664,18 +664,21 @@
       <!-- Health Metrics -->
       {#if healthMetrics}
         <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
-          <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Health Metrics</h2>
+          <div class="flex items-baseline justify-between mb-4">
+            <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Health Metrics</h2>
+            <span class="text-[10px] text-gray-400 font-mono">Last 24 hours</span>
+          </div>
           <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
             <div>
               <p class="text-xs text-gray-500">Success Rate</p>
               <p class="text-xl font-bold {successRateColor}">{successRatePercent}%</p>
             </div>
             <div>
-              <p class="text-xs text-gray-500">Total</p>
+              <p class="text-xs text-gray-500">Deliveries</p>
               <p class="text-xl font-bold text-gray-900">{healthMetrics.totalDeliveries}</p>
             </div>
             <div>
-              <p class="text-xs text-gray-500">Successful</p>
+              <p class="text-xs text-gray-500">Succeeded</p>
               <p class="text-xl font-bold text-green-600">{healthMetrics.successfulDeliveries}</p>
             </div>
             <div>
