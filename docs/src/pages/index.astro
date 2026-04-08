@@ -1,6 +1,7 @@
 ---
 // Full custom landing page — bypasses Starlight layout entirely.
 // Faithfully reproduces the original SvelteKit marketing page design.
+import '../styles/sparrow-tokens.css';
 import faviconSrc from '../assets/favicon.svg';
 const favicon = faviconSrc.src;
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/'); // ensure trailing slash
@@ -363,9 +364,9 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 .lp {
   margin: 0;
   padding: 0;
-  font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: #111827;
-  background: #fff;
+  font-family: var(--sp-font-mono);
+  color: var(--sp-text);
+  background: var(--sp-bg);
   -webkit-font-smoothing: antialiased;
 }
 .lp *, .lp *::before, .lp *::after { box-sizing: border-box; }
@@ -373,8 +374,8 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 .lp code {
   padding: 0.125rem 0.5rem;
   border-radius: 0.25rem;
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--sp-code-bg);
+  color: var(--sp-code-text);
   font-family: inherit;
   font-size: 0.875rem;
 }
@@ -384,7 +385,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 
 /* Gradient text utility */
 .lp-gradient-text {
-  background: linear-gradient(to right, #4f46e5, #7c3aed);
+  background: linear-gradient(to right, var(--sp-brand-primary), var(--sp-brand-secondary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -398,9 +399,9 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   padding: 0.5rem 1rem;
   border-radius: 9999px;
   font-size: 0.875rem;
-  background: #eef2ff;
-  border: 1px solid rgba(79, 70, 229, 0.3);
-  color: #4338ca;
+  background: var(--sp-badge-bg);
+  border: 1px solid var(--sp-badge-border);
+  color: var(--sp-badge-text);
   font-weight: 500;
 }
 
@@ -410,30 +411,30 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1.25rem;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--sp-font-body);
   font-size: 0.875rem;
   font-weight: 500;
   border-radius: 0.75rem;
-  background: #4f46e5;
-  color: #fff;
+  background: var(--sp-brand-primary);
+  color: var(--sp-bg);
   transition: background 0.2s;
 }
-.lp-btn-primary:hover { background: #4338ca; color: #fff; }
+.lp-btn-primary:hover { background: var(--sp-brand-primary-hover); color: var(--sp-bg); }
 
 .lp-btn-outline {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1.25rem;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--sp-font-body);
   font-size: 0.875rem;
   font-weight: 500;
   border-radius: 0.75rem;
-  border: 1px solid #e5e7eb;
-  color: #374151;
+  border: 1px solid var(--sp-border);
+  color: var(--sp-text-secondary);
   transition: background 0.2s;
 }
-.lp-btn-outline:hover { background: #f9fafb; color: #374151; }
+.lp-btn-outline:hover { background: var(--sp-bg-hover); color: var(--sp-text-secondary); }
 
 .lp-btn-lg { padding: 0.75rem 1.75rem; font-size: 1rem; }
 
@@ -442,7 +443,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 50;
-  border-bottom: 1px solid rgba(229, 231, 235, 0.6);
+  border-bottom: 1px solid var(--sp-border-lighter);
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -459,19 +460,19 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   gap: 0.75rem;
 }
 .lp-logo span {
-  font-family: 'Fira Code', monospace;
+  font-family: var(--sp-font-mono);
   font-size: 1.25rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--sp-text);
 }
 .lp-nav { display: flex; align-items: center; gap: 2rem; }
 .lp-nav a {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--sp-font-body);
   font-size: 0.875rem;
-  color: #6b7280;
+  color: var(--sp-text-muted);
   transition: color 0.2s;
 }
-.lp-nav a:hover { color: #4338ca; }
+.lp-nav a:hover { color: var(--sp-brand-primary-hover); }
 .lp-header-actions { display: flex; align-items: center; gap: 0.75rem; }
 
 @media (max-width: 768px) {
@@ -492,15 +493,15 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 .lp-hero-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(238, 242, 255, 0.6), #fff, rgba(237, 233, 254, 0.4));
+  background: linear-gradient(135deg, var(--sp-indigo-tint), var(--sp-bg), var(--sp-violet-tint));
 }
 .lp-hero-orb {
   position: absolute;
   border-radius: 50%;
   animation: pulse 4s ease-in-out infinite;
 }
-.lp-hero-orb-1 { top: 25%; left: 25%; width: 24rem; height: 24rem; background: rgba(199, 210, 254, 0.5); filter: blur(80px); }
-.lp-hero-orb-2 { bottom: 25%; right: 25%; width: 16rem; height: 16rem; background: rgba(221, 214, 254, 0.4); filter: blur(60px); animation-delay: 1.5s; }
+.lp-hero-orb-1 { top: 25%; left: 25%; width: 24rem; height: 24rem; background: var(--sp-glow-indigo); filter: blur(80px); }
+.lp-hero-orb-2 { bottom: 25%; right: 25%; width: 16rem; height: 16rem; background: var(--sp-glow-violet); filter: blur(60px); animation-delay: 1.5s; }
 
 .lp-hero-grid {
   position: relative;
@@ -515,18 +516,18 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 .lp-hero-content { display: flex; flex-direction: column; gap: 2rem; }
 
 .lp-hero-content h1 {
-  font-family: 'Fira Code', monospace;
+  font-family: var(--sp-font-mono);
   font-size: clamp(2.25rem, 5vw, 3.75rem);
   font-weight: 700;
   line-height: 1.15;
-  color: #111827;
+  color: var(--sp-text);
   margin: 0;
 }
 .lp-hero-desc {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--sp-font-body);
   font-size: 1.125rem;
   line-height: 1.7;
-  color: #6b7280;
+  color: var(--sp-text-muted);
   max-width: 36rem;
   margin: 0;
 }
@@ -543,23 +544,23 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 
 .lp-tech-stack {
   padding-top: 2rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--sp-border);
 }
 .lp-tech-stack p {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #9ca3af;
+  color: var(--sp-text-subtle);
   margin: 0 0 0.75rem;
 }
 .lp-tech-tags { display: flex; flex-wrap: wrap; gap: 0.75rem; }
 .lp-tech-tags span {
   padding: 0.25rem 0.75rem;
   font-size: 0.75rem;
-  font-family: 'Fira Code', monospace;
+  font-family: var(--sp-font-mono);
   border-radius: 0.375rem;
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--sp-tag-bg);
+  color: var(--sp-text-muted);
 }
 
 /* Hero visual */
@@ -571,7 +572,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(199, 210, 254, 0.4), transparent 70%);
+  background: radial-gradient(circle, var(--sp-glow-indigo-soft), transparent 70%);
   transform: scale(1.1);
   filter: blur(60px);
 }
@@ -580,8 +581,8 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   padding: 2rem;
   border-radius: 1.5rem;
   backdrop-filter: blur(4px);
-  background: linear-gradient(135deg, rgba(238, 242, 255, 0.6), rgba(255, 255, 255, 0.4), transparent);
-  border: 1px solid rgba(79, 70, 229, 0.2);
+  background: linear-gradient(135deg, var(--sp-indigo-tint), rgba(255, 255, 255, 0.4), transparent);
+  border: 1px solid var(--sp-brand-primary-20);
 }
 .lp-hero-logo {
   display: block;
@@ -593,7 +594,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 
 /* ─── SECTIONS ──────────────────────────────────────────────── */
 .lp-section { padding: 6rem 0; }
-.lp-section-alt { background: rgba(249, 250, 251, 0.7); }
+.lp-section-alt { background: var(--sp-bg-alt); }
 
 .lp-section-header {
   text-align: center;
@@ -601,15 +602,15 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 }
 .lp-section-header .lp-badge { margin-bottom: 1.5rem; }
 .lp-section-header h2 {
-  font-family: 'Fira Code', monospace;
+  font-family: var(--sp-font-mono);
   font-size: clamp(1.5rem, 3vw, 2.25rem);
   font-weight: 700;
   margin: 0 0 1rem;
-  color: #111827;
+  color: var(--sp-text);
 }
 .lp-section-header > p {
   font-size: 1.125rem;
-  color: #6b7280;
+  color: var(--sp-text-muted);
   max-width: 48rem;
   margin: 0 auto;
 }
@@ -626,35 +627,35 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 .lp-feature-card {
   padding: 2rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(229, 231, 235, 0.8);
-  background: rgba(249, 250, 251, 0.5);
+  border: 1px solid var(--sp-border-light);
+  background: var(--sp-bg-card);
   transition: all 0.3s;
 }
 .lp-feature-card:hover {
-  border-color: rgba(79, 70, 229, 0.4);
-  box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.05);
+  border-color: var(--sp-brand-primary-40);
+  box-shadow: 0 10px 25px -5px var(--sp-brand-primary-5);
   transform: translateY(-4px);
 }
 .lp-feature-icon {
   width: 3rem; height: 3rem;
   display: flex; align-items: center; justify-content: center;
   border-radius: 0.75rem;
-  background: #eef2ff;
-  color: #4f46e5;
+  background: var(--sp-badge-bg);
+  color: var(--sp-brand-primary);
   margin-bottom: 1.5rem;
 }
 .lp-feature-icon-sm { width: 2.5rem; height: 2.5rem; }
 .lp-feature-card h3 {
-  font-family: 'Fira Code', monospace;
+  font-family: var(--sp-font-mono);
   font-size: 1.25rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--sp-text);
   margin: 0 0 0.75rem;
 }
 .lp-feature-card p {
   font-size: 0.9375rem;
   line-height: 1.7;
-  color: #6b7280;
+  color: var(--sp-text-muted);
   margin: 0;
 }
 
@@ -669,22 +670,22 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 .lp-arch-card {
   padding: 2rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(229, 231, 235, 0.8);
-  background: rgba(249, 250, 251, 0.5);
+  border: 1px solid var(--sp-border-light);
+  background: var(--sp-bg-card);
   transition: border-color 0.3s;
 }
-.lp-arch-card:hover { border-color: rgba(79, 70, 229, 0.4); }
+.lp-arch-card:hover { border-color: var(--sp-brand-primary-40); }
 .lp-arch-card-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
 .lp-arch-card h3 {
-  font-family: 'Fira Code', monospace;
+  font-family: var(--sp-font-mono);
   font-size: 1.125rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--sp-text);
   margin: 0;
 }
 .lp-arch-card > p {
   font-size: 0.9375rem;
-  color: #6b7280;
+  color: var(--sp-text-muted);
   margin: 0 0 1rem;
   line-height: 1.6;
 }
@@ -692,18 +693,18 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 .lp-arch-tags span {
   padding: 0.25rem 0.625rem;
   font-size: 0.75rem;
-  font-family: 'Fira Code', monospace;
+  font-family: var(--sp-font-mono);
   border-radius: 0.25rem;
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--sp-tag-bg);
+  color: var(--sp-text-muted);
 }
 
 /* ─── COMPARISON TABLE ──────────────────────────────────────── */
 .lp-table-wrap {
   overflow-x: auto;
   border-radius: 0.75rem;
-  border: 1px solid rgba(229, 231, 235, 0.8);
-  background: #fff;
+  border: 1px solid var(--sp-border-light);
+  background: var(--sp-bg);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 .lp-comparison-table {
@@ -712,17 +713,17 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   border-collapse: collapse;
   font-size: 0.875rem;
 }
-.lp-comparison-table thead tr { border-bottom: 1px solid #e5e7eb; }
+.lp-comparison-table thead tr { border-bottom: 1px solid var(--sp-border); }
 .lp-comparison-table th {
   padding: 1rem 1rem;
   text-align: center;
   font-weight: 600;
-  font-family: 'Fira Code', monospace;
+  font-family: var(--sp-font-mono);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #6b7280;
-  background: rgba(249, 250, 251, 0.5);
+  color: var(--sp-text-muted);
+  background: var(--sp-bg-card);
 }
 .lp-table-feature-col {
   text-align: left !important;
@@ -730,22 +731,22 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   position: sticky;
   left: 0;
   z-index: 1;
-  background: #fff !important;
+  background: var(--sp-bg) !important;
 }
 .lp-table-highlight {
-  background: rgba(238, 242, 255, 0.8) !important;
-  color: #3730a3 !important;
-  border-left: 1px solid rgba(79, 70, 229, 0.25);
-  border-right: 1px solid rgba(79, 70, 229, 0.25);
+  background: var(--sp-indigo-tint-strong) !important;
+  color: var(--sp-brand-primary-dark) !important;
+  border-left: 1px solid var(--sp-brand-primary-25);
+  border-right: 1px solid var(--sp-brand-primary-25);
 }
-.lp-table-highlight-yes { background: rgba(238, 242, 255, 0.6) !important; }
+.lp-table-highlight-yes { background: var(--sp-indigo-tint) !important; }
 .lp-table-recommended { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
 .lp-table-rec-badge {
   display: inline-flex;
   padding: 0.125rem 0.625rem;
   border-radius: 9999px;
-  background: #4f46e5;
-  color: #fff;
+  background: var(--sp-brand-primary);
+  color: var(--sp-bg);
   font-size: 0.625rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -754,12 +755,12 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 .lp-comparison-table td {
   padding: 0.875rem 1rem;
   text-align: center;
-  border-bottom: 1px solid #f3f4f6;
-  color: #374151;
+  border-bottom: 1px solid var(--sp-border-subtle);
+  color: var(--sp-text-secondary);
   font-weight: 500;
 }
 .lp-comparison-table tbody tr:last-child td { border-bottom: none; }
-.lp-table-alt-row { background: rgba(249, 250, 251, 0.3); }
+.lp-table-alt-row { background: var(--sp-bg-card-subtle); }
 
 .lp-check, .lp-cross {
   display: inline-flex;
@@ -768,13 +769,13 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   width: 1.5rem; height: 1.5rem;
   border-radius: 50%;
 }
-.lp-check { background: #dcfce7; color: #16a34a; }
-.lp-check-primary { background: #4f46e5; color: #fff; }
-.lp-cross { background: #f3f4f6; color: #d1d5db; }
+.lp-check { background: var(--sp-success-bg); color: var(--sp-success-text); }
+.lp-check-primary { background: var(--sp-brand-primary); color: var(--sp-bg); }
+.lp-cross { background: var(--sp-muted-icon-bg); color: var(--sp-muted-icon-text); }
 .lp-cell-text {
   font-size: 0.75rem;
   font-weight: 500;
-  color: #9ca3af;
+  color: var(--sp-text-subtle);
   padding: 0.125rem 0.5rem;
   border-radius: 0.25rem;
   background: rgba(243, 244, 246, 0.8);
@@ -785,8 +786,8 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   margin-top: 3rem;
   padding: 2rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(79, 70, 229, 0.3);
-  background: linear-gradient(to right, rgba(238, 242, 255, 0.8), rgba(237, 233, 254, 0.6));
+  border: 1px solid var(--sp-brand-primary-30);
+  background: linear-gradient(to right, var(--sp-indigo-tint-strong), var(--sp-violet-tint-medium));
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1.5rem;
@@ -794,30 +795,30 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 }
 @media (max-width: 640px) { .lp-stats-bar { grid-template-columns: repeat(2, 1fr); } }
 .lp-stat-value {
-  font-family: 'Fira Code', monospace;
+  font-family: var(--sp-font-mono);
   font-size: 1.5rem;
   font-weight: 700;
-  color: #4338ca;
+  color: var(--sp-brand-primary-hover);
   margin: 0;
 }
-.lp-stat-label { font-size: 0.875rem; color: #6b7280; margin: 0.25rem 0 0; }
+.lp-stat-label { font-size: 0.875rem; color: var(--sp-text-muted); margin: 0.25rem 0 0; }
 
 /* ─── CTA ───────────────────────────────────────────────────── */
 .lp-cta-section {
   padding: 6rem 0;
-  background: linear-gradient(to bottom, #fff, rgba(238, 242, 255, 0.3));
+  background: linear-gradient(to bottom, var(--sp-bg), var(--sp-indigo-tint-subtle));
 }
 .lp-cta-inner { text-align: center; max-width: 48rem; }
 .lp-cta-inner h2 {
-  font-family: 'Fira Code', monospace;
+  font-family: var(--sp-font-mono);
   font-size: clamp(1.5rem, 3vw, 2.25rem);
   font-weight: 700;
   margin: 0 0 1.5rem;
-  color: #111827;
+  color: var(--sp-text);
 }
 .lp-cta-inner > p {
   font-size: 1.125rem;
-  color: #6b7280;
+  color: var(--sp-text-muted);
   margin: 0 0 2rem;
 }
 .lp-cta-inner .lp-hero-ctas { justify-content: center; }
@@ -825,7 +826,7 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 /* ─── FOOTER ────────────────────────────────────────────────── */
 .lp-footer {
   padding: 3rem 0;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--sp-border);
 }
 .lp-footer-inner {
   display: flex;
@@ -834,10 +835,10 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
   flex-wrap: wrap;
   gap: 1.5rem;
 }
-.lp-footer-inner > p { font-size: 0.875rem; color: #9ca3af; margin: 0; }
+.lp-footer-inner > p { font-size: 0.875rem; color: var(--sp-text-subtle); margin: 0; }
 .lp-footer-links { display: flex; gap: 1.5rem; }
-.lp-footer-links a { font-size: 0.875rem; color: #6b7280; transition: color 0.2s; }
-.lp-footer-links a:hover { color: #4338ca; }
+.lp-footer-links a { font-size: 0.875rem; color: var(--sp-text-muted); transition: color 0.2s; }
+.lp-footer-links a:hover { color: var(--sp-brand-primary-hover); }
 
 /* ─── ANIMATIONS ────────────────────────────────────────────── */
 @keyframes float {

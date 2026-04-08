@@ -1,15 +1,18 @@
 /* Sparrow docs custom styles — Scalar-inspired API reference */
 
+/* Shared design tokens (single source of truth for brand colors & fonts) */
+@import './sparrow-tokens.css';
+
 /* Load Fira Code + Inter from Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
+  /* Map Sparrow tokens → Starlight variables */
   --sl-color-accent-low: #1a1a2e;
-  --sl-color-accent: #4f46e5;
+  --sl-color-accent: var(--sp-brand-primary);
   --sl-color-accent-high: #c7d2fe;
-  /* Monospace-first: match the SvelteKit web app aesthetic */
-  --sl-font: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --sl-font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --sl-font: var(--sp-font-mono);
+  --sl-font-mono: var(--sp-font-mono);
 }
 
 :root[data-theme='dark'] {

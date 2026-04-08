@@ -1,0 +1,73 @@
+/* ================================================================
+   Sparrow Design Tokens
+   Single source of truth for brand colors, fonts, and surfaces.
+   Consumed by:
+     - Starlight docs theme (custom.css maps these to --sl-* vars)
+     - Landing page (index.astro references these directly)
+   ================================================================ */
+
+:root {
+  /* ─── Brand ──────────────────────────────────────────────── */
+  --sp-brand-primary: #4f46e5;           /* indigo-600 */
+  --sp-brand-primary-hover: #4338ca;     /* indigo-700 */
+  --sp-brand-primary-dark: #3730a3;      /* indigo-800 */
+  --sp-brand-secondary: #7c3aed;         /* violet-600 */
+
+  /* Brand at various opacities (used for borders, glows, shadows) */
+  --sp-brand-primary-5: rgba(79, 70, 229, 0.05);
+  --sp-brand-primary-20: rgba(79, 70, 229, 0.2);
+  --sp-brand-primary-25: rgba(79, 70, 229, 0.25);
+  --sp-brand-primary-30: rgba(79, 70, 229, 0.3);
+  --sp-brand-primary-40: rgba(79, 70, 229, 0.4);
+
+  /* ─── Text ───────────────────────────────────────────────── */
+  --sp-text: #111827;                    /* gray-900 */
+  --sp-text-secondary: #374151;          /* gray-700 */
+  --sp-text-muted: #6b7280;             /* gray-500 */
+  --sp-text-subtle: #9ca3af;            /* gray-400 */
+
+  /* ─── Surfaces ───────────────────────────────────────────── */
+  --sp-bg: #ffffff;
+  --sp-bg-alt: rgba(249, 250, 251, 0.7);            /* ~gray-50 */
+  --sp-bg-card: rgba(249, 250, 251, 0.5);
+  --sp-bg-card-subtle: rgba(249, 250, 251, 0.3);
+  --sp-bg-hover: #f9fafb;                            /* gray-50 */
+
+  /* ─── Borders ────────────────────────────────────────────── */
+  --sp-border: #e5e7eb;                              /* gray-200 */
+  --sp-border-light: rgba(229, 231, 235, 0.8);
+  --sp-border-lighter: rgba(229, 231, 235, 0.6);
+  --sp-border-subtle: #f3f4f6;                       /* gray-100 */
+
+  /* ─── Badge / Tag ────────────────────────────────────────── */
+  --sp-badge-bg: #eef2ff;               /* indigo-50 */
+  --sp-badge-border: var(--sp-brand-primary-30);
+  --sp-badge-text: var(--sp-brand-primary-hover);
+  --sp-tag-bg: #f3f4f6;                 /* gray-100 */
+
+  /* ─── Code ───────────────────────────────────────────────── */
+  --sp-code-bg: #e5e7eb;                /* gray-200 */
+  --sp-code-text: #374151;              /* gray-700 */
+
+  /* ─── Status ─────────────────────────────────────────────── */
+  --sp-success-bg: #dcfce7;             /* green-100 */
+  --sp-success-text: #16a34a;           /* green-600 */
+  --sp-muted-icon-bg: #f3f4f6;          /* gray-100 */
+  --sp-muted-icon-text: #d1d5db;        /* gray-300 */
+
+  /* ─── Indigo tints (hero gradients, highlights) ──────────── */
+  --sp-indigo-tint: rgba(238, 242, 255, 0.6);       /* ~indigo-50 */
+  --sp-indigo-tint-strong: rgba(238, 242, 255, 0.8);
+  --sp-indigo-tint-subtle: rgba(238, 242, 255, 0.3);
+  --sp-violet-tint: rgba(237, 233, 254, 0.4);       /* ~violet-50 */
+  --sp-violet-tint-medium: rgba(237, 233, 254, 0.6);
+
+  /* Decorative orbs / glows */
+  --sp-glow-indigo: rgba(199, 210, 254, 0.5);       /* ~indigo-200 */
+  --sp-glow-indigo-soft: rgba(199, 210, 254, 0.4);
+  --sp-glow-violet: rgba(221, 214, 254, 0.4);       /* ~violet-200 */
+
+  /* ─── Fonts ──────────────────────────────────────────────── */
+  --sp-font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --sp-font-body: 'Inter', system-ui, sans-serif;
+}
