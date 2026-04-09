@@ -149,7 +149,7 @@
                     {#each eventReports as report}
                         <tr class="hover:bg-gray-50 transition">
                             <td class="px-4 py-3">
-                                <CopyableId id={report.eventId} truncate={12} />
+                                <CopyableId id={report.eventId} href="/events/instances/{report.eventId}" truncate={12} />
                                 <!-- Show namespace inline on mobile -->
                                 <span class="block sm:hidden mt-0.5">
                                     <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{report.namespace || 'N/A'}</span>

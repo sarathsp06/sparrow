@@ -917,9 +917,9 @@
                       <td class="px-4 py-3">
                         <CopyableId id={delivery.deliveryId} href="/deliveries/{delivery.deliveryId}" truncate={12} />
                         <!-- Show event ID inline on mobile -->
-                        <span class="block sm:hidden mt-0.5"><CopyableId id={delivery.eventId} truncate={12} /></span>
+                        <span class="block sm:hidden mt-0.5"><CopyableId id={delivery.eventId} href="/events/instances/{delivery.eventId}" truncate={12} /></span>
                       </td>
-                      <td class="px-4 py-3 hidden sm:table-cell"><CopyableId id={delivery.eventId} truncate={16} /></td>
+                      <td class="px-4 py-3 hidden sm:table-cell"><CopyableId id={delivery.eventId} href="/events/instances/{delivery.eventId}" truncate={16} /></td>
                       <td class="px-4 py-3">
                         <div class="flex items-center gap-1.5">
                           <StatusBadge status={delivery.status} />

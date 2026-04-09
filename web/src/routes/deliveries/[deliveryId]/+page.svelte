@@ -113,7 +113,7 @@
             </div>
             <div class="px-6 py-4">
               <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Event ID</p>
-              <CopyableId id={delivery.eventId} truncate={0} />
+              <CopyableId id={delivery.eventId} href="/events/instances/{delivery.eventId}" truncate={0} />
             </div>
           </div>
 

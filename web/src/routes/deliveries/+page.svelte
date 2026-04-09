@@ -453,7 +453,7 @@
                                         <CopyableId id={delivery.webhookId} href="/webhooks/{delivery.webhookId}" truncate={12} />
                                     </td>
                                     <td class="px-4 py-3 hidden sm:table-cell">
-                                        <CopyableId id={delivery.eventId} truncate={12} />
+                                        <CopyableId id={delivery.eventId} href="/events/instances/{delivery.eventId}" truncate={12} />
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-1.5">

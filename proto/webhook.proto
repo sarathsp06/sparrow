@@ -99,12 +99,16 @@ service EventService {
   // (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
   rpc ListEventReports(ListEventReportsRequest) returns (ListEventReportsResponse);
 
+  // GetEventRecord retrieves a single pushed event instance by its UUID.
+  // Returns the event record with its payload, metadata, labels, and aggregated
+  // delivery statistics (webhook_count, successful/failed/pending counts).
+  // This is different from GetEvent which returns an event type definition by name.
+  // Errors: NOT_FOUND if the event_id does not exist.
+  // Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.
+  rpc GetEventRecord(GetEventRecordRequest) returns (GetEventRecordResponse);
+
   // RePushEvent replays a single previously pushed event as if it were pushed fresh.
-  // Loads the original event record (payload, namespace, event name, labels, metadata)
-  // and pushes it through the standard PushEvent pipeline: schema validation against
-  // the CURRENT event type schema, new event_id generation, and fan-out to all
-  // matching subscriptions. The original event is not modified.
-  // Returns the new event_id and any schema validation warnings.
+  // Loads the original event record and re-pushes through the standard PushEvent pipeline.
   // Errors: NOT_FOUND if the event_id does not exist.
   // Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.
   rpc RePushEvent(RePushEventRequest) returns (RePushEventResponse);
@@ -1066,6 +1070,25 @@ message RePushEventResponse {
   // The original payload is validated against the CURRENT event type schema.
   // Empty when the payload passes validation or no schema is registered.
   repeated string warnings = 2;
+}
+
+// GetEventRecordRequest retrieves a single pushed event instance by UUID.
+message GetEventRecordRequest {
+  // UUID of the event instance. Required.
+  // @example "e-550e8400-e29b-41d4-a716-446655440000"
+  string event_id = 1;
+}
+
+// GetEventRecordResponse returns the event instance with delivery statistics.
+message GetEventRecordResponse {
+  // The event instance with aggregated delivery statistics.
+  EventReport event = 1;
+
+  // Labels attached when the event was pushed.
+  map<string, string> labels = 2;
+
+  // When the event expires (based on TTL). Zero value if no TTL was set.
+  google.protobuf.Timestamp expires_at = 3;
 }
 
 // ---------------------------------------------------------------------------

@@ -456,6 +456,7 @@ const (
 	EventService_GetEvent_FullMethodName         = "/webhook.EventService/GetEvent"
 	EventService_PushEvent_FullMethodName        = "/webhook.EventService/PushEvent"
 	EventService_ListEventReports_FullMethodName = "/webhook.EventService/ListEventReports"
+	EventService_GetEventRecord_FullMethodName   = "/webhook.EventService/GetEventRecord"
 	EventService_RePushEvent_FullMethodName      = "/webhook.EventService/RePushEvent"
 	EventService_RePushEvents_FullMethodName     = "/webhook.EventService/RePushEvents"
 	EventService_GetRepushStatus_FullMethodName  = "/webhook.EventService/GetRepushStatus"
@@ -502,12 +503,15 @@ type EventServiceClient interface {
 	// ordered by created_at descending. Each report includes delivery stats
 	// (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
 	ListEventReports(ctx context.Context, in *ListEventReportsRequest, opts ...grpc.CallOption) (*ListEventReportsResponse, error)
+	// GetEventRecord retrieves a single pushed event instance by its UUID.
+	// Returns the event record with its payload, metadata, labels, and aggregated
+	// delivery statistics (webhook_count, successful/failed/pending counts).
+	// This is different from GetEvent which returns an event type definition by name.
+	// Errors: NOT_FOUND if the event_id does not exist.
+	// Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.
+	GetEventRecord(ctx context.Context, in *GetEventRecordRequest, opts ...grpc.CallOption) (*GetEventRecordResponse, error)
 	// RePushEvent replays a single previously pushed event as if it were pushed fresh.
-	// Loads the original event record (payload, namespace, event name, labels, metadata)
-	// and pushes it through the standard PushEvent pipeline: schema validation against
-	// the CURRENT event type schema, new event_id generation, and fan-out to all
-	// matching subscriptions. The original event is not modified.
-	// Returns the new event_id and any schema validation warnings.
+	// Loads the original event record and re-pushes through the standard PushEvent pipeline.
 	// Errors: NOT_FOUND if the event_id does not exist.
 	// Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.
 	RePushEvent(ctx context.Context, in *RePushEventRequest, opts ...grpc.CallOption) (*RePushEventResponse, error)
@@ -606,6 +610,16 @@ func (c *eventServiceClient) ListEventReports(ctx context.Context, in *ListEvent
 	return out, nil
 }
 
+func (c *eventServiceClient) GetEventRecord(ctx context.Context, in *GetEventRecordRequest, opts ...grpc.CallOption) (*GetEventRecordResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetEventRecordResponse)
+	err := c.cc.Invoke(ctx, EventService_GetEventRecord_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *eventServiceClient) RePushEvent(ctx context.Context, in *RePushEventRequest, opts ...grpc.CallOption) (*RePushEventResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RePushEventResponse)
@@ -686,12 +700,15 @@ type EventServiceServer interface {
 	// ordered by created_at descending. Each report includes delivery stats
 	// (webhook_count, successful/failed/pending counts). Paginated, max 1000 per page.
 	ListEventReports(context.Context, *ListEventReportsRequest) (*ListEventReportsResponse, error)
+	// GetEventRecord retrieves a single pushed event instance by its UUID.
+	// Returns the event record with its payload, metadata, labels, and aggregated
+	// delivery statistics (webhook_count, successful/failed/pending counts).
+	// This is different from GetEvent which returns an event type definition by name.
+	// Errors: NOT_FOUND if the event_id does not exist.
+	// Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.
+	GetEventRecord(context.Context, *GetEventRecordRequest) (*GetEventRecordResponse, error)
 	// RePushEvent replays a single previously pushed event as if it were pushed fresh.
-	// Loads the original event record (payload, namespace, event name, labels, metadata)
-	// and pushes it through the standard PushEvent pipeline: schema validation against
-	// the CURRENT event type schema, new event_id generation, and fan-out to all
-	// matching subscriptions. The original event is not modified.
-	// Returns the new event_id and any schema validation warnings.
+	// Loads the original event record and re-pushes through the standard PushEvent pipeline.
 	// Errors: NOT_FOUND if the event_id does not exist.
 	// Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.
 	RePushEvent(context.Context, *RePushEventRequest) (*RePushEventResponse, error)
@@ -740,6 +757,9 @@ func (UnimplementedEventServiceServer) PushEvent(context.Context, *PushEventRequ
 }
 func (UnimplementedEventServiceServer) ListEventReports(context.Context, *ListEventReportsRequest) (*ListEventReportsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListEventReports not implemented")
+}
+func (UnimplementedEventServiceServer) GetEventRecord(context.Context, *GetEventRecordRequest) (*GetEventRecordResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetEventRecord not implemented")
 }
 func (UnimplementedEventServiceServer) RePushEvent(context.Context, *RePushEventRequest) (*RePushEventResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RePushEvent not implemented")
@@ -900,6 +920,24 @@ func _EventService_ListEventReports_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _EventService_GetEventRecord_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetEventRecordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EventServiceServer).GetEventRecord(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EventService_GetEventRecord_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EventServiceServer).GetEventRecord(ctx, req.(*GetEventRecordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _EventService_RePushEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RePushEventRequest)
 	if err := dec(in); err != nil {
@@ -1006,6 +1044,10 @@ var EventService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListEventReports",
 			Handler:    _EventService_ListEventReports_Handler,
+		},
+		{
+			MethodName: "GetEventRecord",
+			Handler:    _EventService_GetEventRecord_Handler,
 		},
 		{
 			MethodName: "RePushEvent",

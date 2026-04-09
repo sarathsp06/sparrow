@@ -125,6 +125,58 @@ func (s *WebhookServer) GetEvent(ctx context.Context, req *pb.GetEventRequest) (
 	}, nil
 }
 
+// GetEventRecord retrieves a single pushed event instance by UUID with delivery statistics.
+func (s *WebhookServer) GetEventRecord(ctx context.Context, req *pb.GetEventRecordRequest) (*pb.GetEventRecordResponse, error) {
+	if req.EventId == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "event_id is required")
+	}
+
+	record, webhookCount, successCount, failedCount, pendingCount, err := s.service.GetEventRecord(ctx, req.EventId)
+	if err != nil {
+		return nil, toGRPCError(ctx, err, "failed to get event record")
+	}
+	if record == nil {
+		return nil, status.Error(codes.NotFound, "event record not found")
+	}
+
+	// Convert payload to protobuf Struct
+	payloadStruct, err := convertMapToStruct(record.Payload)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to convert payload: %v", err)
+	}
+
+	// Convert metadata
+	metadata := make(map[string]string)
+	for k, v := range record.Metadata {
+		metadata[k] = v
+	}
+
+	// Convert labels
+	labels := make(map[string]string)
+	for k, v := range record.Labels {
+		labels[k] = v
+	}
+
+	return &pb.GetEventRecordResponse{
+		Event: &pb.EventReport{
+			EventId:              record.ID.String(),
+			Namespace:            record.Namespace,
+			EventName:            record.Event,
+			Payload:              payloadStruct,
+			Metadata:             metadata,
+			CreatedAt:            convertTimeToProto(record.CreatedAt),
+			TtlSeconds:           record.TTL,
+			WebhookCount:         webhookCount,
+			SuccessfulDeliveries: successCount,
+			FailedDeliveries:     failedCount,
+			PendingDeliveries:    pendingCount,
+			SchemaValid:          record.SchemaValid,
+		},
+		Labels:    labels,
+		ExpiresAt: convertTimeToProto(record.ExpiresAt),
+	}, nil
+}
+
 // ListEventReports lists all events in descending order, with optional filters
 func (s *WebhookServer) ListEventReports(ctx context.Context, req *pb.ListEventReportsRequest) (*pb.ListEventReportsResponse, error) {
 	// Build filter from request

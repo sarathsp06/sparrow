@@ -61,6 +61,7 @@ type WebhookServiceInterface interface {
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
 	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string) (string, []string, error)
 	RePushEvent(ctx context.Context, eventID string) (string, []string, error)
+	GetEventRecord(ctx context.Context, eventID string) (*store.EventRecord, int32, int32, int32, int32, error)
 	ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error)
 
 	// Subscription Management
@@ -818,6 +819,52 @@ func (s *WebhookService) RePushEvent(ctx context.Context, eventID string) (strin
 		"new_event_id", newEventID,
 	)
 	return newEventID, warnings, nil
+}
+
+// GetEventRecord retrieves a single pushed event instance by UUID with delivery statistics.
+func (s *WebhookService) GetEventRecord(ctx context.Context, eventID string) (*store.EventRecord, int32, int32, int32, int32, error) {
+	ctx, span := s.tracer.Start(ctx, "event.get_record",
+		trace.WithAttributes(
+			attribute.String("event_id", eventID),
+		),
+	)
+	defer span.End()
+
+	tenantID := tenant.DefaultTenantID
+
+	// Parse and validate event ID
+	id, err := uuid.Parse(eventID)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "invalid event ID")
+		return nil, 0, 0, 0, 0, svcerrors.InvalidInputf("invalid event ID: %v", err)
+	}
+
+	// Load event record
+	record, err := s.webhookRepo.GetEventByID(ctx, tenantID, id)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "failed to load event record")
+		return nil, 0, 0, 0, 0, fmt.Errorf("failed to load event record: %w", err)
+	}
+	if record == nil {
+		return nil, 0, 0, 0, 0, nil
+	}
+
+	// Get delivery statistics
+	webhookCount, successCount, failedCount, pendingCount, err := s.webhookRepo.GetEventDeliveryStats(ctx, tenantID, id)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "failed to get delivery stats")
+		s.logger.ErrorContext(ctx, "Failed to get delivery stats for event record",
+			"event_id", eventID,
+			"error", err,
+		)
+		// Return the record without stats rather than failing entirely
+		return record, 0, 0, 0, 0, nil
+	}
+
+	return record, webhookCount, successCount, failedCount, pendingCount, nil
 }
 
 // GetDeliveryStatus gets the status of a webhook delivery.

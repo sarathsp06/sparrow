@@ -262,6 +262,34 @@ func (_d WebhookServiceInterfaceWithTracing) GetEvent(ctx context.Context, name 
 	return _d.WebhookServiceInterface.GetEvent(ctx, name)
 }
 
+// GetEventRecord implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) GetEventRecord(ctx context.Context, eventID string) (ep1 *store.EventRecord, i1 int32, i2 int32, i3 int32, i4 int32, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetEventRecord")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":     ctx,
+				"eventID": eventID}, map[string]interface{}{
+				"ep1": ep1,
+				"i1":  i1,
+				"i2":  i2,
+				"i3":  i3,
+				"i4":  i4,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.GetEventRecord(ctx, eventID)
+}
+
 // GetHealthSummary implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) GetHealthSummary(ctx context.Context) (hp1 *HealthSummaryData, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetHealthSummary")

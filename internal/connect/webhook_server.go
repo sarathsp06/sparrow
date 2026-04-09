@@ -154,6 +154,14 @@ func (s *WebhookConnectServer) GetEvent(ctx context.Context, req *connect.Reques
 	return connect.NewResponse(res), nil
 }
 
+func (s *WebhookConnectServer) GetEventRecord(ctx context.Context, req *connect.Request[pb.GetEventRecordRequest]) (*connect.Response[pb.GetEventRecordResponse], error) {
+	res, err := s.grpcService.GetEventRecord(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(res), nil
+}
+
 func (s *WebhookConnectServer) ListEventReports(ctx context.Context, req *connect.Request[pb.ListEventReportsRequest]) (*connect.Response[pb.ListEventReportsResponse], error) {
 	res, err := s.grpcService.ListEventReports(ctx, req.Msg)
 	if err != nil {

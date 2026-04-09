@@ -1714,6 +1714,61 @@ export declare type RePushEventResponse = Message<"webhook.RePushEventResponse">
 export declare const RePushEventResponseSchema: GenMessage<RePushEventResponse>;
 
 /**
+ * GetEventRecordRequest retrieves a single pushed event instance by UUID.
+ *
+ * @generated from message webhook.GetEventRecordRequest
+ */
+export declare type GetEventRecordRequest = Message<"webhook.GetEventRecordRequest"> & {
+  /**
+   * UUID of the event instance. Required.
+   * @example "e-550e8400-e29b-41d4-a716-446655440000"
+   *
+   * @generated from field: string event_id = 1;
+   */
+  eventId: string;
+};
+
+/**
+ * Describes the message webhook.GetEventRecordRequest.
+ * Use `create(GetEventRecordRequestSchema)` to create a new message.
+ */
+export declare const GetEventRecordRequestSchema: GenMessage<GetEventRecordRequest>;
+
+/**
+ * GetEventRecordResponse returns the event instance with delivery statistics.
+ *
+ * @generated from message webhook.GetEventRecordResponse
+ */
+export declare type GetEventRecordResponse = Message<"webhook.GetEventRecordResponse"> & {
+  /**
+   * The event instance with aggregated delivery statistics.
+   *
+   * @generated from field: webhook.EventReport event = 1;
+   */
+  event?: EventReport;
+
+  /**
+   * Labels attached when the event was pushed.
+   *
+   * @generated from field: map<string, string> labels = 2;
+   */
+  labels: { [key: string]: string };
+
+  /**
+   * When the event expires (based on TTL). Zero value if no TTL was set.
+   *
+   * @generated from field: google.protobuf.Timestamp expires_at = 3;
+   */
+  expiresAt?: Timestamp;
+};
+
+/**
+ * Describes the message webhook.GetEventRecordResponse.
+ * Use `create(GetEventRecordResponseSchema)` to create a new message.
+ */
+export declare const GetEventRecordResponseSchema: GenMessage<GetEventRecordResponse>;
+
+/**
  * EventSubscription is the full representation of a subscription linking
  * a webhook to an event type within a namespace.
  *
@@ -4268,12 +4323,23 @@ export declare const EventService: GenService<{
     output: typeof ListEventReportsResponseSchema;
   },
   /**
+   * GetEventRecord retrieves a single pushed event instance by its UUID.
+   * Returns the event record with its payload, metadata, labels, and aggregated
+   * delivery statistics (webhook_count, successful/failed/pending counts).
+   * This is different from GetEvent which returns an event type definition by name.
+   * Errors: NOT_FOUND if the event_id does not exist.
+   * Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.
+   *
+   * @generated from rpc webhook.EventService.GetEventRecord
+   */
+  getEventRecord: {
+    methodKind: "unary";
+    input: typeof GetEventRecordRequestSchema;
+    output: typeof GetEventRecordResponseSchema;
+  },
+  /**
    * RePushEvent replays a single previously pushed event as if it were pushed fresh.
-   * Loads the original event record (payload, namespace, event name, labels, metadata)
-   * and pushes it through the standard PushEvent pipeline: schema validation against
-   * the CURRENT event type schema, new event_id generation, and fan-out to all
-   * matching subscriptions. The original event is not modified.
-   * Returns the new event_id and any schema validation warnings.
+   * Loads the original event record and re-pushes through the standard PushEvent pipeline.
    * Errors: NOT_FOUND if the event_id does not exist.
    * Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.
    *
