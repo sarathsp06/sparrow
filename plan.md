@@ -198,6 +198,37 @@ Existing single-delivery `RetryDelivery` RPC remains unchanged.
 
 ---
 
+## Part 8: Idempotency Keys on PushEvent
+
+**Status**: Complete (v1.1.1)
+
+### Migration 000020: `add_idempotency_key`
+- Add `idempotency_key VARCHAR(255)` (nullable) to `event_records`
+- Partial unique index: `UNIQUE (tenant_id, namespace, idempotency_key) WHERE idempotency_key IS NOT NULL`
+
+### Proto Changes
+- `PushEventRequest`: reuse existing `optional string id = 6` as the idempotency key
+- `PushEventResponse`: add `bool duplicate = 3`
+
+### Model Changes
+- `EventRecord`: add `IdempotencyKey *string` field
+
+### Repository Changes
+- Add `GetEventByIdempotencyKey(ctx, tenantID, namespace, key)` method
+- Update all event INSERT/SELECT queries to include `idempotency_key`
+
+### Service Changes
+- `PushEvent` signature changed: `(ctx, namespace, event, payload, ttlSeconds, metadata, labels, idempotencyKey *string) (string, bool, []string, error)`
+- When idempotency key is provided, check for existing event before inserting
+- If duplicate found, return existing event ID + `duplicate=true` (no re-processing)
+- `RePushEvent` and batch `RePushEvents` pass `nil` for idempotency key -- re-pushes are never deduplicated
+
+### gRPC Handler Changes
+- Wire `req.Id` (optional string) as `idempotencyKey *string`
+- Return `Duplicate` flag in `PushEventResponse`
+
+---
+
 ## Implementation Order
 
 ```
@@ -206,6 +237,7 @@ Part 1 --> Part 2 --> Part 4 --> Part 6
                    Part 3 (parallel with Part 4)
 
 Part 7 (parallel with everything)
+Part 8 (parallel with everything)
 ```
 
 ## Decisions Log
@@ -221,3 +253,6 @@ Part 7 (parallel with everything)
 | Batch scope | All matching IDs (not just page) | "Re-push all" means all |
 | Batch table design | Generic `job_type` + JSONB `data` | Extensible for future batch types |
 | Batch visibility | Implicit (repush_id/retry_id) | User sees actions, not infrastructure |
+| Idempotency key column | Separate `idempotency_key` (nullable VARCHAR) | String flexibility, not coupled to event UUID |
+| Re-push dedup | RePushEvent passes nil key | Re-push must never be deduplicated |
+| Idempotency index | Partial unique index (WHERE NOT NULL) | No overhead for events without idempotency keys |

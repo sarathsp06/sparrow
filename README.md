@@ -18,6 +18,7 @@ Self-hosted webhook delivery platform with async fan-out, retries, health tracki
 
 - **Event-driven fan-out** -- push one event, deliver to all matching subscriptions
 - **Reliable delivery** -- at-least-once semantics with configurable retries and exponential backoff
+- **Idempotent event ingestion** -- optional idempotency keys on PushEvent to prevent duplicate processing
 - **Payload transformation** -- Go templates per subscription to reshape payloads before delivery
 - **Health tracking** -- per-webhook success rates, error classification, and automatic degradation detection
 - **HMAC signing** -- every delivery is signed so receivers can verify authenticity

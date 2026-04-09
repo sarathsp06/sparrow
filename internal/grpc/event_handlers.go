@@ -21,13 +21,22 @@ func (s *WebhookServer) PushEvent(ctx context.Context, req *pb.PushEventRequest)
 	if req.Payload != nil {
 		payload = req.Payload.AsMap()
 	}
-	eventID, warnings, err := s.service.PushEvent(ctx, req.Namespace, req.Event, payload, req.TtlSeconds, req.Metadata, req.Labels)
+
+	// Pass the client-provided idempotency key (req.Id) to the service.
+	// When nil/empty the service skips deduplication.
+	var idempotencyKey *string
+	if req.Id != nil {
+		idempotencyKey = req.Id
+	}
+
+	eventID, duplicate, warnings, err := s.service.PushEvent(ctx, req.Namespace, req.Event, payload, req.TtlSeconds, req.Metadata, req.Labels, idempotencyKey)
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to push event")
 	}
 	return &pb.PushEventResponse{
-		EventId:  eventID,
-		Warnings: warnings,
+		EventId:   eventID,
+		Warnings:  warnings,
+		Duplicate: duplicate,
 	}, nil
 }
 

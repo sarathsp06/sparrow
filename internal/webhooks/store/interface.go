@@ -45,6 +45,7 @@ type RepositoryInterface interface {
 
 	// Event Record and Delivery Management
 	StoreEvent(ctx context.Context, tenantID uuid.UUID, event *EventRecord) error
+	GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, namespace, idempotencyKey string) (*EventRecord, error)
 	CreateDelivery(ctx context.Context, tenantID uuid.UUID, delivery *WebhookDelivery) error
 	BatchCreateDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery) error
 	UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error

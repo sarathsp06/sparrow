@@ -59,7 +59,7 @@ type WebhookServiceInterface interface {
 	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error
 	DeleteEvent(ctx context.Context, name string) error
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
-	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string) (string, []string, error)
+	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (string, bool, []string, error)
 	RePushEvent(ctx context.Context, eventID string) (string, []string, error)
 	GetEventRecord(ctx context.Context, eventID string) (*store.EventRecord, int32, int32, int32, int32, error)
 	ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error)
@@ -582,8 +582,13 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 	return registrations, int32(totalCount), nil
 }
 
-// PushEvent pushes an event
-func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string) (string, []string, error) {
+// PushEvent pushes an event.
+// When idempotencyKey is non-nil and non-empty, duplicate detection is
+// performed: if an event with the same key already exists within the
+// (tenant, namespace), the existing event_id is returned with
+// isDuplicate=true and no new event or deliveries are created.
+// Re-push/re-enqueue flows pass nil, so they are never deduplicated.
+func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (string, bool, []string, error) {
 	ctx, span := s.tracer.Start(ctx, "event.push",
 		trace.WithAttributes(
 			attribute.String("namespace", namespace),
@@ -604,18 +609,42 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		err := fmt.Errorf("namespace is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "namespace is required")
-		return "", nil, err
+		return "", false, nil, err
 	}
 	if event == "" {
 		err := fmt.Errorf("event is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event is required")
-		return "", nil, err
+		return "", false, nil, err
 	}
 	if err := validateLabels(labels, "labels"); err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "invalid labels")
-		return "", nil, err
+		return "", false, nil, err
+	}
+
+	// Idempotency check: if the caller provided an idempotency key, look up
+	// an existing event with the same key in this (tenant, namespace). When
+	// found, return the existing event_id immediately — no new record, no
+	// new deliveries. This check is intentionally skipped for re-push flows
+	// (which pass nil) so that replays always create new events.
+	if idempotencyKey != nil && *idempotencyKey != "" {
+		existing, err := s.webhookRepo.GetEventByIdempotencyKey(ctx, tenantID, namespace, *idempotencyKey)
+		if err != nil {
+			span.RecordError(err)
+			span.SetStatus(otelcodes.Error, "idempotency lookup failed")
+			s.logger.ErrorContext(ctx, "Failed to check idempotency key", "idempotency_key", *idempotencyKey, "error", err)
+			return "", false, nil, fmt.Errorf("failed to check idempotency key: %w", err)
+		}
+		if existing != nil {
+			span.SetAttributes(attribute.Bool("duplicate", true))
+			span.SetStatus(otelcodes.Ok, "duplicate event (idempotent)")
+			s.logger.InfoContext(ctx, "Duplicate event detected via idempotency key",
+				"idempotency_key", *idempotencyKey,
+				"existing_event_id", existing.ID.String(),
+			)
+			return existing.ID.String(), true, nil, nil
+		}
 	}
 
 	// Lookup registered event, auto-registering if it doesn't exist yet.
@@ -624,7 +653,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event lookup failed")
 		s.logger.ErrorContext(ctx, "Failed to lookup event registration", "event", event, "error", err)
-		return "", nil, fmt.Errorf("failed to lookup event registration: %w", err)
+		return "", false, nil, fmt.Errorf("failed to lookup event registration: %w", err)
 	}
 	if eventReg == nil {
 		// Auto-register the event so callers don't have to pre-register every
@@ -639,7 +668,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 			span.RecordError(err)
 			span.SetStatus(otelcodes.Error, "auto-registration failed")
 			s.logger.ErrorContext(ctx, "Failed to auto-register event", "event", event, "error", err)
-			return "", nil, fmt.Errorf("failed to auto-register event: %w", err)
+			return "", false, nil, fmt.Errorf("failed to auto-register event: %w", err)
 		}
 		s.logger.InfoContext(ctx, "Auto-registered new event type", "event", event)
 	}
@@ -648,7 +677,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event inactive")
 		s.logger.ErrorContext(ctx, "Event is inactive", "event", event)
-		return "", nil, err
+		return "", false, nil, err
 	}
 
 	// Soft schema validation: validate payload against event schema if present.
@@ -690,20 +719,21 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 
 	// Store the event record in database first
 	eventRecord := &store.EventRecord{
-		ID:          uuid.MustParse(eventID),
-		Namespace:   namespace,
-		Event:       event,
-		Payload:     payload,
-		TTL:         ttl,
-		Metadata:    metadata,
-		Labels:      labels,
-		SchemaValid: schemaValid,
-		CreatedAt:   time.Now(),
+		ID:             uuid.MustParse(eventID),
+		Namespace:      namespace,
+		Event:          event,
+		Payload:        payload,
+		TTL:            ttl,
+		Metadata:       metadata,
+		Labels:         labels,
+		SchemaValid:    schemaValid,
+		IdempotencyKey: idempotencyKey,
+		CreatedAt:      time.Now(),
 	}
 
 	if err := s.webhookRepo.StoreEvent(ctx, tenantID, eventRecord); err != nil {
 		s.logger.ErrorContext(ctx, "Failed to store event record", "error", err, "event_id", eventID)
-		return "", nil, fmt.Errorf("failed to store event record: %w", err)
+		return "", false, nil, fmt.Errorf("failed to store event record: %w", err)
 	}
 
 	// Create event processing job with minimal data
@@ -736,7 +766,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 				"delete_error", delErr,
 			)
 		}
-		return "", nil, fmt.Errorf("failed to schedule event processing: %w", err)
+		return "", false, nil, fmt.Errorf("failed to schedule event processing: %w", err)
 	}
 
 	// Record metrics
@@ -751,7 +781,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		"namespace", namespace,
 		"event", event,
 	)
-	return eventID, warnings, nil
+	return eventID, false, warnings, nil
 }
 
 // RePushEvent replays a previously pushed event as if it were pushed fresh.
@@ -798,9 +828,10 @@ func (s *WebhookService) RePushEvent(ctx context.Context, eventID string) (strin
 		return "", nil, err
 	}
 
-	// Re-push through the standard PushEvent pipeline.
+	// Re-push through the standard PushEvent pipeline with nil idempotency key.
+	// This ensures re-pushes always create new events and are never deduplicated.
 	// This gives us: current schema validation, new event_id, fan-out to matching subscriptions.
-	newEventID, warnings, err := s.PushEvent(ctx, original.Namespace, original.Event, original.Payload, original.TTL, original.Metadata, original.Labels)
+	newEventID, _, warnings, err := s.PushEvent(ctx, original.Namespace, original.Event, original.Payload, original.TTL, original.Metadata, original.Labels, nil)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "re-push failed")
@@ -1924,7 +1955,7 @@ func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
 	}
 
 	// Extract detailed per-field errors from the evaluation result
-	details := result.GetDetailedErrors()
+	details := result.DetailedErrors()
 
 	return &SchemaValidationError{
 		Message: "payload validation failed",

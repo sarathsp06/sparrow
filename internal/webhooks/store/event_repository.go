@@ -31,8 +31,8 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 
 	query := `
 		INSERT INTO event_records (
-			id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, created_at, expires_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 
 	metadataJSON, err := json.Marshal(event.Metadata)
@@ -55,6 +55,7 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 		metadataJSON,
 		labelsJSON,
 		event.SchemaValid,
+		event.IdempotencyKey,
 		event.CreatedAt,
 		event.ExpiresAt,
 	)
@@ -64,7 +65,7 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 // GetEventByID gets an event record by ID within a tenant
 func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (*EventRecord, error) {
 	query := `
-		SELECT id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, created_at, expires_at
+		SELECT id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
 		FROM event_records
 		WHERE id = $1 AND tenant_id = $2
 	`
@@ -72,6 +73,26 @@ func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, event
 	var eventRow EventRecord
 
 	err := r.conn.GetContext(ctx, &eventRow, query, eventID, tenantID)
+	if err != nil {
+		if storage.IsNotFound(storage.Error(err)) {
+			return nil, nil
+		}
+		return nil, storage.Error(err)
+	}
+	return &eventRow, nil
+}
+
+// GetEventByIdempotencyKey looks up an event record by its client-provided idempotency key.
+// Returns nil, nil when no matching record exists.
+func (r *Repository) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, namespace, idempotencyKey string) (*EventRecord, error) {
+	query := `
+		SELECT id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
+		FROM event_records
+		WHERE tenant_id = $1 AND namespace = $2 AND idempotency_key = $3
+	`
+
+	var eventRow EventRecord
+	err := r.conn.GetContext(ctx, &eventRow, query, tenantID, namespace, idempotencyKey)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
@@ -108,7 +129,7 @@ func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, n
 	// Build base query
 	baseQuery := fmt.Sprintf(`
 		SELECT
-			id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, created_at, expires_at
+			id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
 		FROM event_records
 		WHERE %s
 		  AND ($%d IS NULL OR event = $%d)

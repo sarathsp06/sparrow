@@ -463,6 +463,32 @@ func (_d RepositoryInterfaceWithTracing) GetEventByID(ctx context.Context, tenan
 	return _d.RepositoryInterface.GetEventByID(ctx, tenantID, eventID)
 }
 
+// GetEventByIdempotencyKey implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, namespace string, idempotencyKey string) (ep1 *EventRecord, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetEventByIdempotencyKey")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":            ctx,
+				"tenantID":       tenantID,
+				"namespace":      namespace,
+				"idempotencyKey": idempotencyKey}, map[string]interface{}{
+				"ep1": ep1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.GetEventByIdempotencyKey(ctx, tenantID, namespace, idempotencyKey)
+}
+
 // GetEventByName implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) GetEventByName(ctx context.Context, tenantID uuid.UUID, eventName string) (ep1 *EventRegistration, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetEventByName")

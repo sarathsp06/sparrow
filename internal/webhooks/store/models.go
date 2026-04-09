@@ -60,17 +60,18 @@ type WebhookRegistration struct {
 
 // EventRecord represents an event that was pushed
 type EventRecord struct {
-	ID          uuid.UUID                 `json:"id" db:"id"`
-	TenantID    uuid.UUID                 `json:"tenant_id" db:"tenant_id"`
-	Namespace   string                    `json:"namespace" db:"namespace"`
-	Event       string                    `json:"event" db:"event"`
-	Payload     types.Map[string, any]    `json:"payload" db:"payload"`
-	TTL         int64                     `json:"ttl" db:"ttl"`
-	Metadata    types.Map[string, string] `json:"metadata" db:"metadata"`
-	Labels      types.Map[string, string] `json:"labels" db:"labels"`
-	SchemaValid bool                      `json:"schema_valid" db:"schema_valid"`
-	CreatedAt   time.Time                 `json:"created_at" db:"created_at"`
-	ExpiresAt   time.Time                 `json:"expires_at" db:"expires_at"`
+	ID             uuid.UUID                 `json:"id" db:"id"`
+	TenantID       uuid.UUID                 `json:"tenant_id" db:"tenant_id"`
+	Namespace      string                    `json:"namespace" db:"namespace"`
+	Event          string                    `json:"event" db:"event"`
+	Payload        types.Map[string, any]    `json:"payload" db:"payload"`
+	TTL            int64                     `json:"ttl" db:"ttl"`
+	Metadata       types.Map[string, string] `json:"metadata" db:"metadata"`
+	Labels         types.Map[string, string] `json:"labels" db:"labels"`
+	SchemaValid    bool                      `json:"schema_valid" db:"schema_valid"`
+	IdempotencyKey *string                   `json:"idempotency_key,omitempty" db:"idempotency_key"`
+	CreatedAt      time.Time                 `json:"created_at" db:"created_at"`
+	ExpiresAt      time.Time                 `json:"expires_at" db:"expires_at"`
 }
 
 // WebhookDelivery represents a webhook delivery attempt

@@ -2569,7 +2569,11 @@ type PushEventResponse struct {
 	// schema_valid is set to false on the event record. Each string describes
 	// a specific validation failure (e.g., "field 'amount': expected number, got string").
 	// Empty when the payload passes validation or no schema is registered.
-	Warnings      []string `protobuf:"bytes,2,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	Warnings []string `protobuf:"bytes,2,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	// True when the request was deduplicated by idempotency key.
+	// The returned event_id belongs to the previously created event.
+	// No new event record or deliveries are created.
+	Duplicate     bool `protobuf:"varint,3,opt,name=duplicate,proto3" json:"duplicate,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2616,6 +2620,13 @@ func (x *PushEventResponse) GetWarnings() []string {
 		return x.Warnings
 	}
 	return nil
+}
+
+func (x *PushEventResponse) GetDuplicate() bool {
+	if x != nil {
+		return x.Duplicate
+	}
+	return false
 }
 
 // EventReport represents a pushed event instance with aggregated delivery statistics.
@@ -7310,10 +7321,11 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x05\n" +
-	"\x03_id\"J\n" +
+	"\x03_id\"h\n" +
 	"\x11PushEventResponse\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1a\n" +
-	"\bwarnings\x18\x02 \x03(\tR\bwarnings\"\xca\x04\n" +
+	"\bwarnings\x18\x02 \x03(\tR\bwarnings\x12\x1c\n" +
+	"\tduplicate\x18\x03 \x01(\bR\tduplicate\"\xca\x04\n" +
 	"\vEventReport\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1d\n" +

@@ -626,19 +626,21 @@ func (_d WebhookServiceInterfaceWithTracing) PauseWebhook(ctx context.Context, w
 }
 
 // PushEvent implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string) (s1 string, sa1 []string, err error) {
+func (_d WebhookServiceInterfaceWithTracing) PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (s1 string, b1 bool, sa1 []string, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.PushEvent")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":        ctx,
-				"namespace":  namespace,
-				"event":      event,
-				"payload":    payload,
-				"ttlSeconds": ttlSeconds,
-				"metadata":   metadata,
-				"labels":     labels}, map[string]interface{}{
+				"ctx":            ctx,
+				"namespace":      namespace,
+				"event":          event,
+				"payload":        payload,
+				"ttlSeconds":     ttlSeconds,
+				"metadata":       metadata,
+				"labels":         labels,
+				"idempotencyKey": idempotencyKey}, map[string]interface{}{
 				"s1":  s1,
+				"b1":  b1,
 				"sa1": sa1,
 				"err": err})
 		} else if err != nil {
@@ -652,7 +654,7 @@ func (_d WebhookServiceInterfaceWithTracing) PushEvent(ctx context.Context, name
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.PushEvent(ctx, namespace, event, payload, ttlSeconds, metadata, labels)
+	return _d.WebhookServiceInterface.PushEvent(ctx, namespace, event, payload, ttlSeconds, metadata, labels, idempotencyKey)
 }
 
 // RePushEvent implements WebhookServiceInterface

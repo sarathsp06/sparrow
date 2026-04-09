@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-04-09
+
+### Added
+
+- Idempotency keys on PushEvent -- pass an optional `id` field to deduplicate events. Duplicate pushes return the existing event ID with a `duplicate` flag instead of creating a new event
+- Migration 000020: `idempotency_key` column on `event_records` with partial unique index `(tenant_id, namespace, idempotency_key) WHERE idempotency_key IS NOT NULL`
+- `GetEventByIdempotencyKey` repository method for deduplication lookups
+- `bool duplicate = 3` field in `PushEventResponse` proto message
+
+### Changed
+
+- `PushEvent` service signature now accepts an optional `idempotencyKey *string` parameter
+- RePushEvent and batch RePushEvents always pass nil for idempotency key, ensuring re-pushes are never deduplicated
+
 ## [1.0.0] - 2026-04-07
 
 First stable release of Sparrow -- a self-hosted webhook delivery platform with

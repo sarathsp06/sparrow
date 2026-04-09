@@ -1437,6 +1437,15 @@ export declare type PushEventResponse = Message<"webhook.PushEventResponse"> & {
    * @generated from field: repeated string warnings = 2;
    */
   warnings: string[];
+
+  /**
+   * True when the request was deduplicated by idempotency key.
+   * The returned event_id belongs to the previously created event.
+   * No new event record or deliveries are created.
+   *
+   * @generated from field: bool duplicate = 3;
+   */
+  duplicate: boolean;
 };
 
 /**

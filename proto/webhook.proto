@@ -952,6 +952,11 @@ message PushEventResponse {
   // a specific validation failure (e.g., "field 'amount': expected number, got string").
   // Empty when the payload passes validation or no schema is registered.
   repeated string warnings = 2;
+
+  // True when the request was deduplicated by idempotency key.
+  // The returned event_id belongs to the previously created event.
+  // No new event record or deliveries are created.
+  bool duplicate = 3;
 }
 
 // ---------------------------------------------------------------------------

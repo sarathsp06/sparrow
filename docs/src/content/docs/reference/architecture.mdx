@@ -47,9 +47,10 @@ PushEvent RPC
     │
     v
 EventService.PushEvent()
-    │  1. Validate payload against registered event schema
-    │  2. Insert event_record
-    │  3. Enqueue EventArgs job (River, "events" queue)
+    │  1. If idempotency key provided, check for existing event (dedup)
+    │  2. Validate payload against registered event schema
+    │  3. Insert event_record (with optional idempotency_key)
+    │  4. Enqueue EventArgs job (River, "events" queue)
     v
 EventProcessingWorker.Work()
     │  1. Load event from DB

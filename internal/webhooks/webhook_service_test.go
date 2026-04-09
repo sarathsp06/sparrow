@@ -133,6 +133,15 @@ func (m *mockRepo) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *st
 	return args.Error(0)
 }
 
+func (m *mockRepo) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, namespace, idempotencyKey string) (*store.EventRecord, error) {
+	args := m.Called(ctx, tenantID, namespace, idempotencyKey)
+	res := args.Get(0)
+	if res == nil {
+		return nil, args.Error(1)
+	}
+	return res.(*store.EventRecord), args.Error(1)
+}
+
 // testContext returns a context for testing.
 func testContext() context.Context {
 	return context.Background()
@@ -308,7 +317,7 @@ func TestWebhookService_PushEvent_AutoRegister(t *testing.T) {
 	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
 
-	eventID, _, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, nil)
+	eventID, _, _, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
@@ -334,7 +343,7 @@ func TestWebhookService_PushEvent_ExistingEvent(t *testing.T) {
 	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
 
-	eventID, _, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, nil)
+	eventID, _, _, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
@@ -357,7 +366,7 @@ func TestWebhookService_PushEvent_InactiveEvent(t *testing.T) {
 		Active: false,
 	}, nil)
 
-	_, _, err := service.PushEvent(ctx, "default", "user.deleted", nil, 0, nil, nil)
+	_, _, _, err := service.PushEvent(ctx, "default", "user.deleted", nil, 0, nil, nil, nil)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "inactive")

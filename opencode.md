@@ -37,7 +37,7 @@ Sparrow supports **optional API key authentication** via the `SPARROW_API_KEY` e
                          ┌─────────────────────┐   │  ┌──────────────┐
                          │  internal/webhooks/  │   │  │  PostgreSQL  │
                          │  queue (River)       │<──┘  │  10 tables   │
-                         │  EventWorker         │      │  11 migrations│
+                         │  EventWorker         │      │  20 migrations│
                          │  WebhookWorker       │      └──────────────┘
                          └─────────┬───────────┘
                                    │
@@ -85,7 +85,7 @@ Sparrow supports **optional API key authentication** via the `SPARROW_API_KEY` e
 │   └── webhook_pb.d.ts  # protoc-gen-es types (web UI)
 ├── client/              # Generated clients (Go, JS, Python)
 ├── db/
-│   └── migrations/      # 11 migration pairs (.up.sql / .down.sql)
+│   └── migrations/      # 20 migration pairs (.up.sql / .down.sql)
 ├── web/                 # SvelteKit frontend source
 ├── buf.gen.yaml         # Buf code generation config (Go, JS/TS clients, protoc-gen-es for web UI)
 ├── buf.yaml             # Buf module config
@@ -226,9 +226,10 @@ PushEvent RPC
     │
     v
 EventService.PushEvent()
-    │  1. Validate payload against registered event schema
-    │  2. Insert event_record
-    │  3. Enqueue EventArgs job (River, "events" queue)
+    │  1. If idempotency key provided, check for existing event (dedup)
+    │  2. Validate payload against registered event schema
+    │  3. Insert event_record (with optional idempotency_key)
+    │  4. Enqueue EventArgs job (River, "events" queue)
     v
 EventProcessingWorker.Work()
     │  1. Load event from DB
@@ -506,7 +507,7 @@ nsServer      := grpc.NewNamespaceServer(nsSvc)
 | `event_registrations` | 8 | `(tenant_id, name)` | Composite PK (no UUID) |
 | `webhook_registrations` | 20 | `id` | (tenant_id, namespace) FK to namespaces |
 | `event_subscriptions` | 11 | `id` | FK webhook_id, transform template |
-| `event_records` | 9 | `id` | FK tenant, TTL + expires_at |
+| `event_records` | 10 | `id` | FK tenant, TTL + expires_at, idempotency_key (nullable, partial unique) |
 | `webhook_deliveries` | 16 | `id` | FK webhook+event+subscription, status enum |
 | `webhook_health_events` | 9 | `id` | FK webhook, error_category |
 | `webhook_health_summaries` | 17 | `id` | (webhook_id, window_start, window_end) UNIQUE |
@@ -523,6 +524,11 @@ nsServer      := grpc.NewNamespaceServer(nsSvc)
 | `idx_event_records_tenant_ns_created` | `(tenant_id, namespace, created_at DESC)` | Event listing |
 | `idx_event_records_tenant_event_created` | `(tenant_id, event, created_at DESC)` | Event name filtering |
 | `idx_webhook_registrations_tenant_ns_active` | `(tenant_id, namespace, active)` | Filtered webhook listing |
+
+#### Idempotency index (added in migration 000020)
+| Index | Columns | Purpose |
+|-------|---------|---------|
+| `idx_event_records_idempotency` | `(tenant_id, namespace, idempotency_key) WHERE idempotency_key IS NOT NULL` | Partial unique index for PushEvent deduplication |
 
 ### Foreign Key Cascade Map
 ```
@@ -797,11 +803,10 @@ func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequ
 
 1. **No rate limiting** at the API level
 2. **No dead letter queue** -- failed deliveries stay in deliveries table
-3. **No integration/E2E tests**
-4. **No API versioning** in proto
-5. **No payload size limits** enforcement
-6. **No tenant usage quotas** (events/month, deliveries, etc.)
-7. **No scheduled/delayed webhooks**
+3. **No API versioning** in proto
+4. **No payload size limits** enforcement
+5. **No tenant usage quotas** (events/month, deliveries, etc.)
+6. **No scheduled/delayed webhooks**
 
 ---
 
@@ -822,3 +827,4 @@ func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequ
 | API Key Auth | Apr 2026 | Optional API key auth via SPARROW_API_KEY, HTTP middleware + gRPC interceptor, runtime config injection for embedded UI |
 | Chi Router | Apr 2026 | Replaced stdlib two-tier mux with chi router, fixed routing bug where Connect-RPC paths were unreachable (wrong `/sparrow.v1.` prefix), route-group auth separation, JSON 404 for non-GET to unknown paths |
 | Search & Retry | Apr 2026 | Soft schema validation, template fallback, search filters, deterministic batch re-push/retry (see `plan.md`) |
+| Idempotency | Apr 2026 | Idempotency keys on PushEvent via optional `id` field, partial unique index, `duplicate` flag in response, re-push bypasses dedup |
