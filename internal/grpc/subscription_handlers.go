@@ -40,11 +40,7 @@ func (s *WebhookServer) GetSubscription(ctx context.Context, req *pb.GetSubscrip
 
 // ListSubscriptions lists all subscriptions for a webhook
 func (s *WebhookServer) ListSubscriptions(ctx context.Context, req *pb.ListSubscriptionsRequest) (*pb.ListSubscriptionsResponse, error) {
-	var limit, offset int32
-	if req.Pagination != nil {
-		limit = req.Pagination.Limit
-		offset = req.Pagination.Offset
-	}
+	limit, offset := extractPagination(req.Pagination)
 
 	subs, totalCount, err := s.service.ListSubscriptions(ctx, req.Namespace, req.WebhookId, req.EventName, limit, offset)
 	if err != nil {

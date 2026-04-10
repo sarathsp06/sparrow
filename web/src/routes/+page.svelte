@@ -13,9 +13,9 @@
       description: "Exponential backoff with configurable intervals. Errors are classified into retryable (5xx, timeout, connection refused, network) and non-retryable (4xx, DNS, TLS).",
     },
     {
-      icon: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
-      title: "Namespace Isolation",
-      description: "Organize webhooks and events into namespaces. Each namespace has independent subscriptions, deliveries, and health tracking.",
+      icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0 1 12 2.944a11.955 11.955 0 0 1-8.618 3.04A12.02 12.02 0 0 0 3 12c0 3.209 1.262 6.126 3.318 8.28A11.966 11.966 0 0 0 12 23.056a11.966 11.966 0 0 0 5.682-2.776A12.018 12.018 0 0 0 21 12c0-1.395-.236-2.735-.673-3.984",
+      title: "Idempotent Event Delivery",
+      description: "Deduplicate events with optional idempotency keys. Duplicate pushes are detected and safely returned without re-processing -- critical for financial, healthcare, and compliance-sensitive workflows.",
     },
     {
       icon: "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z",
@@ -118,33 +118,6 @@
     },
   ];
 
-  const archCards = [
-    {
-      icon: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
-      title: "API Layer",
-      description: "High-performance gRPC server with REST gateway for maximum flexibility and throughput.",
-      tags: ["gRPC", "REST", "Gateway"],
-    },
-    {
-      icon: "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
-      title: "Service Layer",
-      description: "Core business logic handling event routing, subscription matching, and delivery orchestration.",
-      tags: ["Events", "Subscriptions", "Routing"],
-    },
-    {
-      icon: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
-      title: "Queue System",
-      description: "Reliable message queuing with worker pools for scalable, concurrent webhook processing.",
-      tags: ["Workers", "Queues", "Concurrency"],
-    },
-    {
-      icon: "M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7zM9 4v16M4 9h16M4 14h16",
-      title: "Storage Layer",
-      description: "PostgreSQL-backed persistence with full ACID guarantees for events, subscriptions, and delivery logs.",
-      tags: ["PostgreSQL", "ACID", "Logs"],
-    },
-  ];
-
   const techStack = ["Go", "PostgreSQL", "gRPC", "SvelteKit", "OpenTelemetry"];
 
   const comparisonServices = [
@@ -239,7 +212,6 @@
         <a href="#features" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Features</a>
         <a href="#security" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Security</a>
         <a href="#getting-started" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Getting Started</a>
-        <a href="#architecture" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Architecture</a>
         <a href="#comparison" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Comparison</a>
         <a href="https://sarathsp06.github.io/sparrow/" target="_blank" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Documentation</a>
       </nav>
@@ -466,44 +438,6 @@
           <a href="/webhooks" class="text-teal-600 hover:text-teal-700 font-medium">web dashboard</a>
           at <code class="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 font-fira text-sm">localhost:8080</code>.
         </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================================ -->
-  <!-- ARCHITECTURE SECTION -->
-  <!-- ============================================================ -->
-  <section id="architecture" class="py-24 bg-gray-50/70">
-    <div class="max-w-[1400px] mx-auto px-6">
-      <div class="text-center mb-16">
-        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm mb-6 bg-teal-50 border border-teal-200/60">
-          <span class="text-teal-600 font-medium">Architecture</span>
-        </div>
-        <h2 class="text-3xl md:text-4xl font-bold font-fira mb-4">
-          Built for <span class="bg-gradient-to-r from-teal-500 to-sky-500 bg-clip-text text-transparent">Scale & Reliability</span>
-        </h2>
-        <p class="text-lg max-w-3xl mx-auto text-gray-500">A modern, layered architecture designed for high-throughput webhook delivery</p>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {#each archCards as card}
-          <div class="p-8 rounded-xl border border-gray-200/80 bg-white transition-all duration-300 hover:border-teal-300/60">
-            <div class="flex items-center gap-4 mb-4">
-              <div class="w-10 h-10 flex items-center justify-center rounded-lg bg-teal-50">
-                <svg class="w-5 h-5 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d={card.icon}/>
-                </svg>
-              </div>
-              <h3 class="text-lg font-semibold font-fira text-gray-900">{card.title}</h3>
-            </div>
-            <p class="mb-4 text-gray-500 text-[0.9375rem]">{card.description}</p>
-            <div class="flex flex-wrap gap-2">
-              {#each card.tags as tag}
-                <span class="px-2.5 py-1 text-xs font-fira rounded bg-gray-100 text-gray-500">{tag}</span>
-              {/each}
-            </div>
-          </div>
-        {/each}
       </div>
     </div>
   </section>

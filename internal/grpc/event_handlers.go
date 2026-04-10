@@ -60,11 +60,7 @@ func (s *WebhookServer) RegisterEvent(ctx context.Context, req *pb.RegisterEvent
 
 // ListEvents lists all registered events
 func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsRequest) (*pb.ListEventsResponse, error) {
-	var limit, offset int32
-	if req.Pagination != nil {
-		limit = req.Pagination.Limit
-		offset = req.Pagination.Offset
-	}
+	limit, offset := extractPagination(req.Pagination)
 
 	events, totalCount, err := s.service.ListEvents(ctx, req.ActiveOnly, limit, offset)
 	if err != nil {
@@ -194,10 +190,9 @@ func (s *WebhookServer) ListEventReports(ctx context.Context, req *pb.ListEventR
 	}
 
 	// Pagination
-	if req.Pagination != nil {
-		filter.Limit = int(req.Pagination.Limit)
-		filter.Offset = int(req.Pagination.Offset)
-	}
+	pLimit, pOffset := extractPagination(req.Pagination)
+	filter.Limit = int(pLimit)
+	filter.Offset = int(pOffset)
 	if filter.Limit <= 0 {
 		filter.Limit = 50
 	} else if filter.Limit > 1000 {

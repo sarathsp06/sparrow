@@ -14,49 +14,7 @@ import (
 
 // CreateSubscription creates a new event subscription within a tenant
 func (r *Repository) CreateSubscription(ctx context.Context, tenantID uuid.UUID, sub *EventSubscription) error {
-	if sub.ID == uuid.Nil {
-		sub.ID = uuid.New()
-	}
-	sub.TenantID = tenantID
-	now := time.Now()
-	if sub.CreatedAt.IsZero() {
-		sub.CreatedAt = now
-	}
-	sub.UpdatedAt = now
-
-	query := `
-		INSERT INTO event_subscriptions (
-			id, tenant_id, webhook_id, event_name, namespace, headers, method,
-			transform_enabled, transform_template, timeout, label_filters, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-	`
-
-	headersJSON, err := json.Marshal(sub.Headers)
-	if err != nil {
-		return fmt.Errorf("failed to marshal headers: %w", err)
-	}
-
-	labelFiltersJSON, err := json.Marshal(sub.LabelFilters)
-	if err != nil {
-		return fmt.Errorf("failed to marshal label_filters: %w", err)
-	}
-
-	_, err = r.conn.ExecContext(ctx, query,
-		sub.ID,
-		sub.TenantID,
-		sub.WebhookID,
-		sub.EventName,
-		sub.Namespace,
-		headersJSON,
-		sub.Method,
-		sub.TransformEnabled,
-		sub.TransformTemplate,
-		sub.Timeout,
-		labelFiltersJSON,
-		sub.CreatedAt,
-		sub.UpdatedAt,
-	)
-	return storage.Error(err)
+	return insertSubscription(ctx, r.conn, tenantID, sub)
 }
 
 // GetSubscription gets a subscription by ID within a tenant

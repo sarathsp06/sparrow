@@ -21,23 +21,7 @@ func (s *WebhookServer) GetDeliveryStatus(ctx context.Context, req *pb.GetDelive
 	}
 	var pbDelivery *pb.WebhookDelivery
 	if delivery != nil {
-		pbDelivery = &pb.WebhookDelivery{
-			DeliveryId:      delivery.ID.String(),
-			WebhookId:       delivery.WebhookID.String(),
-			EventId:         delivery.EventID.String(),
-			Status:          convertDeliveryStatus(delivery.Status),
-			AttemptCount:    int32(delivery.AttemptCount),
-			MaxAttempts:     int32(delivery.MaxAttempts),
-			CreatedAt:       convertTimeToProto(delivery.CreatedAt),
-			LastAttemptedAt: convertPtrTimeToProto(delivery.LastAttemptedAt),
-			NextRetryAt:     convertPtrTimeToProto(delivery.NextRetryAt),
-			ExpiresAt:       convertTimeToProto(delivery.ExpiresAt),
-			ResponseCode:    int32(delivery.ResponseCode),
-			ResponseBody:    delivery.ResponseBody,
-			ErrorMessage:    delivery.ErrorMessage,
-			RequestBody:     delivery.RequestBody,
-			ErrorCategory:   delivery.ErrorCategory,
-		}
+		pbDelivery = convertDeliveryToProto(delivery)
 	}
 	return &pb.GetDeliveryStatusResponse{
 		Delivery: pbDelivery,
@@ -52,10 +36,9 @@ func (s *WebhookServer) ListDeliveries(ctx context.Context, req *pb.ListDeliveri
 	}
 
 	// Pagination
-	if req.Pagination != nil {
-		filter.Limit = int(req.Pagination.Limit)
-		filter.Offset = int(req.Pagination.Offset)
-	}
+	pLimit, pOffset := extractPagination(req.Pagination)
+	filter.Limit = int(pLimit)
+	filter.Offset = int(pOffset)
 
 	// Webhook ID filter
 	if req.WebhookId != "" {
@@ -113,24 +96,7 @@ func (s *WebhookServer) ListDeliveries(ctx context.Context, req *pb.ListDeliveri
 	}
 	var pbDeliveries []*pb.WebhookDelivery
 	for _, delivery := range deliveries {
-		pbDelivery := &pb.WebhookDelivery{
-			DeliveryId:      delivery.ID.String(),
-			WebhookId:       delivery.WebhookID.String(),
-			EventId:         delivery.EventID.String(),
-			Status:          convertDeliveryStatus(delivery.Status),
-			AttemptCount:    int32(delivery.AttemptCount),
-			MaxAttempts:     int32(delivery.MaxAttempts),
-			CreatedAt:       convertTimeToProto(delivery.CreatedAt),
-			LastAttemptedAt: convertPtrTimeToProto(delivery.LastAttemptedAt),
-			NextRetryAt:     convertPtrTimeToProto(delivery.NextRetryAt),
-			ExpiresAt:       convertTimeToProto(delivery.ExpiresAt),
-			ResponseCode:    int32(delivery.ResponseCode),
-			ResponseBody:    delivery.ResponseBody,
-			ErrorMessage:    delivery.ErrorMessage,
-			RequestBody:     delivery.RequestBody,
-			ErrorCategory:   delivery.ErrorCategory,
-		}
-		pbDeliveries = append(pbDeliveries, pbDelivery)
+		pbDeliveries = append(pbDeliveries, convertDeliveryToProto(delivery))
 	}
 	return &pb.ListDeliveriesResponse{
 		Deliveries: pbDeliveries,

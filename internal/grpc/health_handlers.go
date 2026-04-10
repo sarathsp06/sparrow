@@ -82,11 +82,7 @@ func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWe
 		storeHealth = store.HealthUnknown
 	}
 
-	var limit, offset int32
-	if req.Pagination != nil {
-		limit = req.Pagination.Limit
-		offset = req.Pagination.Offset
-	}
+	limit, offset := extractPagination(req.Pagination)
 
 	webhooks, totalCount, err := s.service.ListWebhooksByHealth(ctx, storeHealth, limit, offset)
 	if err != nil {
@@ -98,19 +94,7 @@ func (s *WebhookServer) ListWebhooksByHealth(ctx context.Context, req *pb.ListWe
 
 	pbWebhooks := make([]*pb.RegisteredWebhook, len(webhooks))
 	for i, webhook := range webhooks {
-		pbWebhooks[i] = &pb.RegisteredWebhook{
-			WebhookId:   webhook.ID.String(),
-			Namespace:   webhook.Namespace,
-			Events:      eventsMap[webhook.ID.String()],
-			Url:         webhook.URL,
-			Headers:     webhook.Headers,
-			Timeout:     int32(webhook.Timeout),
-			Active:      webhook.Active,
-			Description: webhook.Description,
-			Health:      convertWebhookHealth(webhook.Health),
-			CreatedAt:   convertTimeToProto(webhook.CreatedAt),
-			UpdatedAt:   convertTimeToProto(webhook.UpdatedAt),
-		}
+		pbWebhooks[i] = convertWebhookRegToProto(webhook, eventsMap[webhook.ID.String()], s.service)
 	}
 
 	return &pb.ListWebhooksByHealthResponse{

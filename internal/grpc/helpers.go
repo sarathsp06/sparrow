@@ -223,6 +223,74 @@ func maskSecretHeaders(encrypted []byte, svc webhooks.WebhookServiceInterface) m
 	return masked
 }
 
+// extractPagination extracts limit and offset from a PaginationRequest.
+// Returns (0, 0) when pagination is nil, which the service layer normalizes.
+func extractPagination(p *pb.PaginationRequest) (limit, offset int32) {
+	if p != nil {
+		return p.Limit, p.Offset
+	}
+	return 0, 0
+}
+
+// convertDeliveryToProto converts a store.WebhookDelivery to the protobuf WebhookDelivery message.
+func convertDeliveryToProto(d *store.WebhookDelivery) *pb.WebhookDelivery {
+	if d == nil {
+		return nil
+	}
+	return &pb.WebhookDelivery{
+		DeliveryId:      d.ID.String(),
+		WebhookId:       d.WebhookID.String(),
+		EventId:         d.EventID.String(),
+		Status:          convertDeliveryStatus(d.Status),
+		AttemptCount:    int32(d.AttemptCount),
+		MaxAttempts:     int32(d.MaxAttempts),
+		CreatedAt:       convertTimeToProto(d.CreatedAt),
+		LastAttemptedAt: convertPtrTimeToProto(d.LastAttemptedAt),
+		NextRetryAt:     convertPtrTimeToProto(d.NextRetryAt),
+		ExpiresAt:       convertTimeToProto(d.ExpiresAt),
+		ResponseCode:    int32(d.ResponseCode),
+		ResponseBody:    d.ResponseBody,
+		ErrorMessage:    d.ErrorMessage,
+		RequestBody:     d.RequestBody,
+		ErrorCategory:   d.ErrorCategory,
+	}
+}
+
+// convertWebhookRegToProto converts a store.WebhookRegistration to the protobuf
+// RegisteredWebhook message. events is the pre-fetched event list for this webhook.
+// svc is used for secret masking (decryption).
+func convertWebhookRegToProto(reg *store.WebhookRegistration, events []string, svc webhooks.WebhookServiceInterface) *pb.RegisteredWebhook {
+	if reg == nil {
+		return nil
+	}
+	return &pb.RegisteredWebhook{
+		WebhookId:     reg.ID.String(),
+		Namespace:     reg.Namespace,
+		Events:        events,
+		Url:           reg.URL,
+		Headers:       reg.Headers,
+		Timeout:       int32(reg.Timeout),
+		Active:        reg.Active,
+		Description:   reg.Description,
+		Health:        convertWebhookHealth(reg.Health),
+		CreatedAt:     convertTimeToProto(reg.CreatedAt),
+		UpdatedAt:     convertTimeToProto(reg.UpdatedAt),
+		SecretHeaders: maskSecretHeaders(reg.SecretHeaders, svc),
+		HttpConfig: &pb.WebhookHTTPConfig{
+			MaxRetries:            int32(reg.MaxRetries),
+			RetryBackoffSeconds:   int32(reg.RetryBackoffSeconds),
+			CaptureResponseBody:   reg.CaptureResponseBody,
+			FollowRedirects:       reg.FollowRedirects,
+			VerifySsl:             reg.VerifySSL,
+			RequestTimeoutSeconds: int32(reg.RequestTimeoutSeconds),
+			ExpectedStatusCodes:   convertExpectedStatusCodes(reg.ExpectedStatusCodes),
+			WebhookSecret:         maskEncryptedSecret(reg.WebhookSecret, svc),
+			UserAgent:             reg.UserAgent,
+			ContentType:           reg.ContentType,
+		},
+	}
+}
+
 // batchJobToProto converts a store.BatchJob to the protobuf BatchJobStatus message.
 func batchJobToProto(batch *store.BatchJob) *pb.BatchJobStatus {
 	if batch == nil {

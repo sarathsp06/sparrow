@@ -59,11 +59,7 @@ func (s *WebhookServer) UnregisterWebhook(ctx context.Context, req *pb.Unregiste
 
 // ListWebhooks lists all registered webhooks for a namespace
 func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRequest) (*pb.ListWebhooksResponse, error) {
-	var limit, offset int32
-	if req.Pagination != nil {
-		limit = req.Pagination.Limit
-		offset = req.Pagination.Offset
-	}
+	limit, offset := extractPagination(req.Pagination)
 
 	regs, totalCount, err := s.service.ListWebhooks(ctx, req.Namespace, req.WebhookId, req.Event, req.ActiveOnly, limit, offset)
 	if err != nil {
@@ -75,32 +71,7 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 
 	pbWebhooks := make([]*pb.RegisteredWebhook, len(regs))
 	for i, reg := range regs {
-		pbWebhooks[i] = &pb.RegisteredWebhook{
-			WebhookId:     reg.ID.String(),
-			Namespace:     reg.Namespace,
-			Events:        eventsMap[reg.ID.String()],
-			Url:           reg.URL,
-			Headers:       reg.Headers,
-			Timeout:       int32(reg.Timeout),
-			Active:        reg.Active,
-			Description:   reg.Description,
-			Health:        convertWebhookHealth(reg.Health),
-			CreatedAt:     convertTimeToProto(reg.CreatedAt),
-			UpdatedAt:     convertTimeToProto(reg.UpdatedAt),
-			SecretHeaders: maskSecretHeaders(reg.SecretHeaders, s.service),
-			HttpConfig: &pb.WebhookHTTPConfig{
-				MaxRetries:            int32(reg.MaxRetries),
-				RetryBackoffSeconds:   int32(reg.RetryBackoffSeconds),
-				CaptureResponseBody:   reg.CaptureResponseBody,
-				FollowRedirects:       reg.FollowRedirects,
-				VerifySsl:             reg.VerifySSL,
-				RequestTimeoutSeconds: int32(reg.RequestTimeoutSeconds),
-				ExpectedStatusCodes:   convertExpectedStatusCodes(reg.ExpectedStatusCodes),
-				WebhookSecret:         maskEncryptedSecret(reg.WebhookSecret, s.service),
-				UserAgent:             reg.UserAgent,
-				ContentType:           reg.ContentType,
-			},
-		}
+		pbWebhooks[i] = convertWebhookRegToProto(reg, eventsMap[reg.ID.String()], s.service)
 	}
 	return &pb.ListWebhooksResponse{
 		Webhooks: pbWebhooks,
