@@ -174,9 +174,7 @@ func maskEncryptedSecret(encrypted []byte, svc webhooks.WebhookServiceInterface)
 //  1. ServiceError — service/validation code explicitly marks errors as
 //     client-safe with a gRPC code. This is the preferred mechanism.
 //  2. Storage sentinel errors — ErrNotFound, ErrAlreadyExists, etc.
-//  3. String-matching fallback — legacy allowlist for errors that haven't
-//     been converted to ServiceError yet.
-//  4. Default — codes.Internal with only the fallbackMsg (no internals leaked).
+//  3. Default — codes.Internal with only the fallbackMsg (no internals leaked).
 func toGRPCError(ctx context.Context, err error, fallbackMsg string) error {
 	if err == nil {
 		return nil
@@ -202,61 +200,7 @@ func toGRPCError(ctx context.Context, err error, fallbackMsg string) error {
 		return status.Errorf(codes.InvalidArgument, "%s: a required field is missing", fallbackMsg)
 	}
 
-	// 3. String-matching fallback — covers errors not yet converted to ServiceError.
-	errMsg := err.Error()
-
-	// "not found" anywhere in the message
-	if strings.Contains(errMsg, "not found") {
-		return status.Errorf(codes.NotFound, "%s: %v", fallbackMsg, err)
-	}
-
-	// Required-field / basic validation errors
-	if strings.HasPrefix(errMsg, "namespace is required") ||
-		strings.HasPrefix(errMsg, "webhook_id is required") ||
-		strings.HasPrefix(errMsg, "webhook ID is required") ||
-		strings.HasPrefix(errMsg, "delivery ID is required") ||
-		strings.HasPrefix(errMsg, "event name is required") ||
-		strings.HasPrefix(errMsg, "event names cannot be empty") ||
-		strings.HasPrefix(errMsg, "empty event name not allowed") ||
-		strings.HasPrefix(errMsg, "URL is required") ||
-		strings.HasPrefix(errMsg, "event is required") ||
-		strings.Contains(errMsg, "invalid webhook ID") ||
-		strings.Contains(errMsg, "invalid delivery ID") ||
-		strings.Contains(errMsg, "invalid subscription ID") ||
-		strings.Contains(errMsg, "already exists") ||
-		strings.Contains(errMsg, "already paused") ||
-		strings.Contains(errMsg, "already active") ||
-		strings.Contains(errMsg, "namespace is required for namespace-scoped access") ||
-		// URL validation / SSRF errors
-		strings.Contains(errMsg, "not allowed") ||
-		strings.Contains(errMsg, "only http and https are allowed") ||
-		strings.Contains(errMsg, "must have a non-empty host") ||
-		strings.Contains(errMsg, "cannot resolve URL host") ||
-		strings.Contains(errMsg, "resolves to blocked address") ||
-		strings.HasPrefix(errMsg, "invalid URL") ||
-		// Label validation errors
-		strings.HasPrefix(errMsg, "labels:") ||
-		strings.HasPrefix(errMsg, "label_filters:") ||
-		// Template errors
-		strings.Contains(errMsg, "template transformation failed") {
-		return status.Errorf(codes.InvalidArgument, "%v", err)
-	}
-
-	// State / precondition errors (operation not valid in current state)
-	if strings.Contains(errMsg, "is inactive") ||
-		strings.Contains(errMsg, "already succeeded") ||
-		strings.Contains(errMsg, "encryption is required") ||
-		strings.Contains(errMsg, "encryption key not configured") ||
-		strings.Contains(errMsg, "batch job is not") ||
-		strings.Contains(errMsg, "batch job has expired") ||
-		strings.Contains(errMsg, "not in pending status") ||
-		strings.Contains(errMsg, "is already in terminal state") ||
-		strings.Contains(errMsg, "only one of") ||
-		strings.Contains(errMsg, "failed to resubmit") {
-		return status.Errorf(codes.FailedPrecondition, "%v", err)
-	}
-
-	// 4. Default — log the real error but do NOT expose internals to the client.
+	// 3. Default — log the real error but do NOT expose internals to the client.
 	slog.ErrorContext(ctx, "internal error", "fallback_msg", fallbackMsg, "error", err)
 	return status.Errorf(codes.Internal, "%s", fallbackMsg)
 }

@@ -115,13 +115,24 @@ func (hc *Checker) Health(ctx context.Context) (HealthResponse, int) {
 	return healthResponse, httpStatus
 }
 
-// Ready performs a simple readiness check
-func (hc *Checker) Ready() ReadyResponse {
+// Ready performs a readiness check, verifying that the database is reachable.
+func (hc *Checker) Ready(ctx context.Context) (ReadyResponse, int) {
+	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	if err := hc.dbPool.Ping(pingCtx); err != nil {
+		return ReadyResponse{
+			Status:    "not ready",
+			Timestamp: time.Now().UTC().Format(time.RFC3339),
+			Version:   sparrow.Version,
+		}, http.StatusServiceUnavailable
+	}
+
 	return ReadyResponse{
 		Status:    "ready",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 		Version:   sparrow.Version,
-	}
+	}, http.StatusOK
 }
 
 // HealthHandler returns an HTTP handler for health checks
@@ -143,9 +154,9 @@ func (hc *Checker) ReadyHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		readyResponse := hc.Ready()
+		readyResponse, httpStatus := hc.Ready(r.Context())
 
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(httpStatus)
 		if err := json.NewEncoder(w).Encode(readyResponse); err != nil {
 			http.Error(w, "Failed to encode ready response", http.StatusInternalServerError)
 		}

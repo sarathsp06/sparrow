@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+
+	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
 // WebhookRegistration represents a webhook registration with HTTP configuration
@@ -30,12 +32,12 @@ type WebhookRegistration struct {
 
 // WebhookHTTPConfig contains HTTP-specific configuration for webhook delivery
 type WebhookHTTPConfig struct {
-	MaxRetries            int      `db:"max_retries" json:"max_retries"`
-	RetryBackoffSeconds   int      `db:"retry_backoff_seconds" json:"retry_backoff_seconds"`
+	MaxRetries          int `db:"max_retries" json:"max_retries"`
+	RetryBackoffSeconds int `db:"retry_backoff_seconds" json:"retry_backoff_seconds"`
 	// CaptureResponseBody controls the stored response body size limit per delivery attempt.
 	// false (default): stores up to 1 KB. true: stores up to 1 MB.
 	// The response body is always read regardless of this setting (required for HTTP connection reuse).
-	CaptureResponseBody bool `db:"capture_response_body" json:"capture_response_body"`
+	CaptureResponseBody   bool     `db:"capture_response_body" json:"capture_response_body"`
 	FollowRedirects       bool     `db:"follow_redirects" json:"follow_redirects"`
 	VerifySSL             bool     `db:"verify_ssl" json:"verify_ssl"`
 	RequestTimeoutSeconds int      `db:"request_timeout_seconds" json:"request_timeout_seconds"`
@@ -83,29 +85,29 @@ func (config WebhookHTTPConfig) IsSuccessStatusCode(statusCode int) bool {
 // ValidateConfig validates the HTTP configuration
 func (config WebhookHTTPConfig) ValidateConfig() error {
 	if config.MaxRetries < 0 || config.MaxRetries > 10 {
-		return fmt.Errorf("max_retries must be between 0 and 10, got %d", config.MaxRetries)
+		return svcerrors.InvalidInputf("max_retries must be between 0 and 10, got %d", config.MaxRetries)
 	}
 
 	if config.RetryBackoffSeconds <= 0 || config.RetryBackoffSeconds > 3600 {
-		return fmt.Errorf("retry_backoff_seconds must be between 1 and 3600, got %d", config.RetryBackoffSeconds)
+		return svcerrors.InvalidInputf("retry_backoff_seconds must be between 1 and 3600, got %d", config.RetryBackoffSeconds)
 	}
 
 	if config.RequestTimeoutSeconds <= 0 || config.RequestTimeoutSeconds > 300 {
-		return fmt.Errorf("request_timeout_seconds must be between 1 and 300, got %d", config.RequestTimeoutSeconds)
+		return svcerrors.InvalidInputf("request_timeout_seconds must be between 1 and 300, got %d", config.RequestTimeoutSeconds)
 	}
 
 	if len(config.ExpectedStatusCodes) == 0 {
-		return fmt.Errorf("expected_status_codes cannot be empty")
+		return svcerrors.InvalidInput("expected_status_codes cannot be empty")
 	}
 
 	for _, code := range config.ExpectedStatusCodes {
 		if code < 100 || code > 599 {
-			return fmt.Errorf("invalid HTTP status code: %d", code)
+			return svcerrors.InvalidInputf("invalid HTTP status code: %d", code)
 		}
 	}
 
 	if config.ContentType == "" {
-		return fmt.Errorf("content_type cannot be empty")
+		return svcerrors.InvalidInput("content_type cannot be empty")
 	}
 
 	return nil

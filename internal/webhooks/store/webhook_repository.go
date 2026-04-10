@@ -8,20 +8,25 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
-// RegisterWebhook creates a new webhook registration with duplicate prevention.
+// RegisterWebhook creates a new webhook registration.
+// Returns storage.ErrAlreadyExists if a webhook with the same tenant, namespace,
+// and URL already exists.
 func (r *Repository) RegisterWebhook(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration) error {
 	// Check for existing webhook with same tenant, namespace and url
 	checkQuery := `SELECT id FROM webhook_registrations WHERE tenant_id = $1 AND namespace = $2 AND url = $3 LIMIT 1`
 	var existingID uuid.UUID
 	err := r.conn.GetContext(ctx, &existingID, checkQuery, tenantID, registration.Namespace, registration.URL)
 	if err == nil && existingID != uuid.Nil {
-		// Already exists, treat as success
-		return nil
+		// Already exists — return explicit error so the gRPC handler can
+		// return codes.AlreadyExists to the caller.
+		registration.ID = existingID
+		return storage.ErrAlreadyExists
 	} else if err != nil && !storage.IsNotFound(storage.Error(err)) {
 		// DB error
 		return storage.Error(err)
@@ -232,11 +237,10 @@ func (r *Repository) RegisterWebhookWithSubscriptions(ctx context.Context, tenan
 		var existingID uuid.UUID
 		err := tx.GetContext(ctx, &existingID, checkQuery, tenantID, registration.Namespace, registration.URL)
 		if err == nil && existingID != uuid.Nil {
-			// Already exists, treat as success (commit empty tx).
-			// Set the caller's ID to the existing one so the returned
-			// webhook ID is valid for subsequent API calls.
+			// Already exists — return explicit error so the caller can
+			// decide how to handle duplicates.
 			registration.ID = existingID
-			return nil
+			return storage.ErrAlreadyExists
 		} else if err != nil && !storage.IsNotFound(storage.Error(err)) {
 			return storage.Error(err)
 		}
@@ -337,51 +341,60 @@ func (r *Repository) RegisterWebhookWithSubscriptions(ctx context.Context, tenan
 // and creates new ones. This prevents the partial-update bug where old subscriptions
 // could be deleted but new ones fail to create.
 func (r *Repository) ReplaceWebhookSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, newSubscriptions []*EventSubscription) error {
+	// When called through RunInTransaction, r.conn is already a tx.
+	// When called standalone, wrap in a new transaction for atomicity.
+	if _, isTx := r.conn.(*sqlx.Tx); isTx {
+		return r.replaceWebhookSubscriptions(ctx, r.conn, tenantID, webhookID, namespace, newSubscriptions)
+	}
 	return storage.WithTransaction(r.db, func(tx storage.DBTX) error {
-		// Delete all existing subscriptions for this webhook
-		deleteQuery := `DELETE FROM event_subscriptions WHERE tenant_id = $1 AND webhook_id = $2`
-		_, err := tx.ExecContext(ctx, deleteQuery, tenantID, webhookID)
-		if err != nil {
-			return fmt.Errorf("failed to delete existing subscriptions: %w", storage.Error(err))
-		}
-
-		// Create new subscriptions
-		for _, sub := range newSubscriptions {
-			if sub.ID == uuid.Nil {
-				sub.ID = uuid.New()
-			}
-			sub.TenantID = tenantID
-			sub.WebhookID = webhookID
-			sub.Namespace = namespace
-			now := time.Now()
-			if sub.CreatedAt.IsZero() {
-				sub.CreatedAt = now
-			}
-			sub.UpdatedAt = now
-
-			headersJSON, err := json.Marshal(sub.Headers)
-			if err != nil {
-				return fmt.Errorf("failed to marshal subscription headers: %w", err)
-			}
-
-			subQuery := `
-				INSERT INTO event_subscriptions (
-					id, tenant_id, webhook_id, event_name, namespace, headers, method,
-					transform_enabled, transform_template, timeout, created_at, updated_at
-				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-			`
-			_, err = tx.ExecContext(ctx, subQuery,
-				sub.ID, sub.TenantID, sub.WebhookID, sub.EventName, sub.Namespace,
-				headersJSON, sub.Method, sub.TransformEnabled, sub.TransformTemplate,
-				sub.Timeout, sub.CreatedAt, sub.UpdatedAt,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to create subscription for event %s: %w", sub.EventName, storage.Error(err))
-			}
-		}
-
-		return nil
+		return r.replaceWebhookSubscriptions(ctx, tx, tenantID, webhookID, namespace, newSubscriptions)
 	})
+}
+
+func (r *Repository) replaceWebhookSubscriptions(ctx context.Context, conn storage.DBTX, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, newSubscriptions []*EventSubscription) error {
+	// Delete all existing subscriptions for this webhook
+	deleteQuery := `DELETE FROM event_subscriptions WHERE tenant_id = $1 AND webhook_id = $2`
+	_, err := conn.ExecContext(ctx, deleteQuery, tenantID, webhookID)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing subscriptions: %w", storage.Error(err))
+	}
+
+	// Create new subscriptions
+	for _, sub := range newSubscriptions {
+		if sub.ID == uuid.Nil {
+			sub.ID = uuid.New()
+		}
+		sub.TenantID = tenantID
+		sub.WebhookID = webhookID
+		sub.Namespace = namespace
+		now := time.Now()
+		if sub.CreatedAt.IsZero() {
+			sub.CreatedAt = now
+		}
+		sub.UpdatedAt = now
+
+		headersJSON, err := json.Marshal(sub.Headers)
+		if err != nil {
+			return fmt.Errorf("failed to marshal subscription headers: %w", err)
+		}
+
+		subQuery := `
+			INSERT INTO event_subscriptions (
+				id, tenant_id, webhook_id, event_name, namespace, headers, method,
+				transform_enabled, transform_template, timeout, created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		`
+		_, err = conn.ExecContext(ctx, subQuery,
+			sub.ID, sub.TenantID, sub.WebhookID, sub.EventName, sub.Namespace,
+			headersJSON, sub.Method, sub.TransformEnabled, sub.TransformTemplate,
+			sub.Timeout, sub.CreatedAt, sub.UpdatedAt,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create subscription for event %s: %w", sub.EventName, storage.Error(err))
+		}
+	}
+
+	return nil
 }
 
 // GetWebhookByID gets a webhook by ID within a tenant, optionally filtered by namespace.
@@ -415,9 +428,6 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 	var result WebhookRegistration
 	err := r.conn.GetContext(ctx, &result, query, args...)
 	if err != nil {
-		if storage.IsNotFound(storage.Error(err)) {
-			return nil, nil
-		}
 		return nil, storage.Error(err)
 	}
 
@@ -487,69 +497,10 @@ func (r *Repository) GetWebhooksByHealthPaginated(ctx context.Context, tenantID 
 		LIMIT $3 OFFSET $4
 	`
 
-	type webhookRow struct {
-		ID                    uuid.UUID     `db:"id"`
-		TenantID              uuid.UUID     `db:"tenant_id"`
-		Namespace             string        `db:"namespace"`
-		URL                   string        `db:"url"`
-		HeadersJSON           []byte        `db:"headers"`
-		Timeout               int           `db:"timeout"`
-		Active                bool          `db:"active"`
-		Description           string        `db:"description"`
-		Health                string        `db:"health"`
-		MaxRetries            int           `db:"max_retries"`
-		RetryBackoffSeconds   int           `db:"retry_backoff_seconds"`
-		CaptureResponseBody   bool          `db:"capture_response_body"`
-		FollowRedirects       bool          `db:"follow_redirects"`
-		VerifySSL             bool          `db:"verify_ssl"`
-		RequestTimeoutSeconds int           `db:"request_timeout_seconds"`
-		ExpectedStatusCodes   pq.Int64Array `db:"expected_status_codes"`
-		WebhookSecret         []byte        `db:"webhook_secret"`
-		UserAgent             string        `db:"user_agent"`
-		ContentType           string        `db:"content_type"`
-		SecretHeaders         []byte        `db:"secret_headers"`
-		CreatedAt             time.Time     `db:"created_at"`
-		UpdatedAt             time.Time     `db:"updated_at"`
-	}
-
-	var rows []webhookRow
-	err = r.conn.SelectContext(ctx, &rows, query, tenantID, string(health), limit, offset)
+	var webhooks []*WebhookRegistration
+	err = r.conn.SelectContext(ctx, &webhooks, query, tenantID, string(health), limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
-	}
-
-	var webhooks []*WebhookRegistration
-	for _, row := range rows {
-		webhook := &WebhookRegistration{
-			ID:                    row.ID,
-			TenantID:              row.TenantID,
-			Namespace:             row.Namespace,
-			URL:                   row.URL,
-			Timeout:               row.Timeout,
-			Active:                row.Active,
-			Description:           row.Description,
-			Health:                WebhookHealth(row.Health),
-			MaxRetries:            row.MaxRetries,
-			RetryBackoffSeconds:   row.RetryBackoffSeconds,
-			CaptureResponseBody:   row.CaptureResponseBody,
-			FollowRedirects:       row.FollowRedirects,
-			VerifySSL:             row.VerifySSL,
-			RequestTimeoutSeconds: row.RequestTimeoutSeconds,
-			WebhookSecret:         row.WebhookSecret,
-			UserAgent:             row.UserAgent,
-			ContentType:           row.ContentType,
-			SecretHeaders:         row.SecretHeaders,
-			CreatedAt:             row.CreatedAt,
-			UpdatedAt:             row.UpdatedAt,
-		}
-
-		if err := json.Unmarshal(row.HeadersJSON, &webhook.Headers); err != nil {
-			return nil, 0, fmt.Errorf("failed to unmarshal headers: %w", err)
-		}
-
-		webhook.ExpectedStatusCodes = row.ExpectedStatusCodes
-
-		webhooks = append(webhooks, webhook)
 	}
 
 	return webhooks, totalCount, nil

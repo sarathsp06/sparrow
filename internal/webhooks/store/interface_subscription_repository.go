@@ -70,9 +70,6 @@ func (r *Repository) GetSubscription(ctx context.Context, tenantID uuid.UUID, id
 	var sub EventSubscription
 	err := r.conn.GetContext(ctx, &sub, query, tenantID, id)
 	if err != nil {
-		if storage.IsNotFound(storage.Error(err)) {
-			return nil, nil
-		}
 		return nil, storage.Error(err)
 	}
 	return &sub, nil
@@ -159,6 +156,33 @@ func (r *Repository) ListSubscriptionsByNamespace(ctx context.Context, tenantID 
 		return nil, 0, storage.Error(err)
 	}
 	return subs, totalCount, nil
+}
+
+// ListSubscriptionsByWebhookIDs batch-fetches subscriptions for multiple webhooks in a single query.
+// Returns all subscriptions belonging to any of the given webhook IDs.
+func (r *Repository) ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID uuid.UUID, webhookIDs []uuid.UUID) ([]*EventSubscription, error) {
+	if len(webhookIDs) == 0 {
+		return nil, nil
+	}
+	query := `
+		SELECT id, tenant_id, webhook_id, event_name, namespace, headers, method,
+		       transform_enabled, transform_template, timeout, label_filters, created_at, updated_at
+		FROM event_subscriptions
+		WHERE tenant_id = $1 AND webhook_id = ANY($2)
+		ORDER BY webhook_id, created_at DESC
+	`
+
+	ids := make(pq.StringArray, len(webhookIDs))
+	for i, id := range webhookIDs {
+		ids[i] = id.String()
+	}
+
+	var subs []*EventSubscription
+	err := r.conn.SelectContext(ctx, &subs, query, tenantID, ids)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
+	return subs, nil
 }
 
 // GetSubscriptionsByEvent finds all active subscriptions for a specific event in a namespace within a tenant.

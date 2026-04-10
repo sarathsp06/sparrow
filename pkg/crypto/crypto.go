@@ -82,6 +82,8 @@ func ParseKey(raw string) ([]byte, error) {
 
 // GenerateKey generates a cryptographically random 32-byte key and returns
 // it as a 64-character hex string suitable for SPARROW_ENCRYPTION_KEY.
+// This is primarily used in tests; production deployments should generate
+// keys externally via: openssl rand -hex 32
 func GenerateKey() (string, []byte, error) {
 	key := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, key); err != nil {

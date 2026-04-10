@@ -29,6 +29,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
 type WebhookService struct {
@@ -221,20 +222,20 @@ var labelKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 // validateLabels checks that a labels/label_filters map meets size and format constraints.
 func validateLabels(m map[string]string, fieldName string) error {
 	if len(m) > maxLabelsPerMap {
-		return fmt.Errorf("%s: too many entries (%d), maximum is %d", fieldName, len(m), maxLabelsPerMap)
+		return svcerrors.InvalidInputf("%s: too many entries (%d), maximum is %d", fieldName, len(m), maxLabelsPerMap)
 	}
 	for k, v := range m {
 		if k == "" {
-			return fmt.Errorf("%s: key must not be empty", fieldName)
+			return svcerrors.InvalidInputf("%s: key must not be empty", fieldName)
 		}
 		if len(k) > maxLabelKeyLen {
-			return fmt.Errorf("%s: key %q exceeds maximum length of %d characters", fieldName, k, maxLabelKeyLen)
+			return svcerrors.InvalidInputf("%s: key %q exceeds maximum length of %d characters", fieldName, k, maxLabelKeyLen)
 		}
 		if !labelKeyPattern.MatchString(k) {
-			return fmt.Errorf("%s: key %q contains invalid characters (allowed: alphanumeric, '.', '_', '-')", fieldName, k)
+			return svcerrors.InvalidInputf("%s: key %q contains invalid characters (allowed: alphanumeric, '.', '_', '-')", fieldName, k)
 		}
 		if len(v) > maxLabelValueLen {
-			return fmt.Errorf("%s: value for key %q exceeds maximum length of %d characters", fieldName, k, maxLabelValueLen)
+			return svcerrors.InvalidInputf("%s: value for key %q exceeds maximum length of %d characters", fieldName, k, maxLabelValueLen)
 		}
 	}
 	return nil
@@ -259,10 +260,10 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	)
 
 	if namespace == "" {
-		return "", time.Time{}, fmt.Errorf("namespace is required")
+		return "", time.Time{}, svcerrors.InvalidInput("namespace is required")
 	}
 	if url == "" {
-		return "", time.Time{}, fmt.Errorf("URL is required")
+		return "", time.Time{}, svcerrors.InvalidInput("URL is required")
 	}
 	if err := ValidateWebhookURL(url, s.allowPrivateNetworks); err != nil {
 		return "", time.Time{}, err
@@ -271,7 +272,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 		s.logger.InfoContext(ctx, "Validating event names", "events", events, "contains_empty", slices.Contains(events, ""))
 		if slices.Contains(events, "") {
 			s.logger.ErrorContext(ctx, "Event names validation failed", "events", events)
-			return "", time.Time{}, fmt.Errorf("event names cannot be empty")
+			return "", time.Time{}, svcerrors.InvalidInput("event names cannot be empty")
 		}
 	}
 	if timeout <= 0 {
@@ -348,7 +349,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	tenantID := tenant.DefaultTenantID
 
 	if req.Namespace == "" {
-		return nil, fmt.Errorf("namespace is required")
+		return nil, svcerrors.InvalidInput("namespace is required")
 	}
 
 	// Validate webhook URL against SSRF
@@ -370,7 +371,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	// Validate event names exist
 	for _, event := range req.Events {
 		if event == "" {
-			return nil, fmt.Errorf("empty event name not allowed")
+			return nil, svcerrors.InvalidInput("empty event name not allowed")
 		}
 		// Check if event is registered
 		events, _, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, false, 1000, 0)
@@ -387,7 +388,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 
 	webhookID, err := uuid.Parse(webhookReg.ID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid webhook ID: %w", err)
+		return nil, svcerrors.Wrapf(err, codes.InvalidArgument, "invalid webhook ID")
 	}
 
 	// Convert internal webhook to store model for database operation
@@ -492,17 +493,17 @@ func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string
 		"namespace", namespace,
 	)
 	if webhookID == "" {
-		return fmt.Errorf("webhook_id is required")
+		return svcerrors.InvalidInput("webhook_id is required")
 	}
 	if namespace == "" {
-		return fmt.Errorf("namespace is required")
+		return svcerrors.InvalidInput("namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
 
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
-		return fmt.Errorf("invalid webhook ID: %w", err)
+		return svcerrors.Wrapf(err, codes.InvalidArgument, "invalid webhook ID")
 	}
 
 	// Check if webhook exists in namespace
@@ -548,16 +549,19 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 	if webhookID != "" {
 		id, err := uuid.Parse(webhookID)
 		if err != nil {
-			return nil, 0, fmt.Errorf("invalid webhook ID: %w", err)
+			return nil, 0, svcerrors.Wrapf(err, codes.InvalidArgument, "invalid webhook ID")
 		}
 
 		// When looking up by ID, namespace can be empty — try without namespace filter
 		if namespace != "" {
 			reg, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
 			if err != nil {
+				if storage.IsNotFound(err) {
+					return []*store.WebhookRegistration{}, 0, nil
+				}
 				return nil, 0, fmt.Errorf("failed to retrieve webhook: %w", err)
 			}
-			if reg == nil || (activeOnly && !reg.Active) {
+			if activeOnly && !reg.Active {
 				return []*store.WebhookRegistration{}, 0, nil
 			}
 			return []*store.WebhookRegistration{reg}, 1, nil
@@ -606,13 +610,13 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 
 	// Validate required fields
 	if namespace == "" {
-		err := fmt.Errorf("namespace is required")
+		err := svcerrors.InvalidInput("namespace is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "namespace is required")
 		return "", false, nil, err
 	}
 	if event == "" {
-		err := fmt.Errorf("event is required")
+		err := svcerrors.InvalidInput("event is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event is required")
 		return "", false, nil, err
@@ -736,7 +740,14 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		return "", false, nil, fmt.Errorf("failed to store event record: %w", err)
 	}
 
-	// Create event processing job with minimal data
+	// Create event processing job with minimal data.
+	//
+	// NOTE: Cross-driver transaction gap — the event INSERT above uses sqlx
+	// while the River job INSERT below uses pgx. These cannot share a
+	// database transaction. If the River insert fails, we compensate by
+	// deleting the orphaned event record (see error handling below).
+	// This is an accepted architectural tradeoff; making both drivers share
+	// a transaction would require migrating all app queries to pgx.
 	eventArgs := queue.EventArgs{
 		EventID:    eventID,
 		Namespace:  namespace,
@@ -822,7 +833,7 @@ func (s *WebhookService) RePushEvent(ctx context.Context, eventID string) (strin
 		return "", nil, fmt.Errorf("failed to load original event: %w", err)
 	}
 	if original == nil {
-		err := fmt.Errorf("event not found: %s", eventID)
+		err := svcerrors.NotFoundErrorf("event not found: %s", eventID)
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event not found")
 		return "", nil, err
@@ -909,14 +920,14 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 		"namespace", namespace)
 
 	if deliveryID == "" {
-		return nil, fmt.Errorf("delivery ID is required")
+		return nil, svcerrors.InvalidInput("delivery ID is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
 
 	id, err := uuid.Parse(deliveryID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid delivery ID: %w", err)
+		return nil, svcerrors.Wrapf(err, codes.InvalidArgument, "invalid delivery ID")
 	}
 
 	delivery, err := s.webhookRepo.GetDeliveryByID(ctx, tenantID, id, namespace)
@@ -925,7 +936,7 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 		return nil, fmt.Errorf("failed to retrieve delivery status: %w", err)
 	}
 	if delivery == nil {
-		return nil, fmt.Errorf("delivery not found")
+		return nil, svcerrors.NotFoundError("delivery not found")
 	}
 	return delivery, nil
 }
@@ -941,12 +952,12 @@ func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID str
 	s.logger.InfoContext(ctx, "Getting delivery attempts", "delivery_id", deliveryID, "tenant_id", tenantID.String())
 
 	if deliveryID == "" {
-		return nil, fmt.Errorf("delivery ID is required")
+		return nil, svcerrors.InvalidInput("delivery ID is required")
 	}
 
 	id, err := uuid.Parse(deliveryID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid delivery ID: %w", err)
+		return nil, svcerrors.Wrapf(err, codes.InvalidArgument, "invalid delivery ID")
 	}
 
 	attempts, err := s.webhookRepo.GetDeliveryAttempts(ctx, tenantID, id)
@@ -1067,7 +1078,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 	if deliveryID != "" {
 		id, err := uuid.Parse(deliveryID)
 		if err != nil {
-			return nil, 0, fmt.Errorf("invalid delivery ID: %w", err)
+			return nil, 0, svcerrors.Wrapf(err, codes.InvalidArgument, "invalid delivery ID")
 		}
 
 		// Resubmit specific delivery
@@ -1078,7 +1089,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		}
 
 		if delivery == nil {
-			return nil, 0, fmt.Errorf("delivery not found")
+			return nil, 0, svcerrors.NotFoundError("delivery not found")
 		}
 
 		// Check if delivery can be resubmitted
@@ -1090,18 +1101,14 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 	} else {
 		id, err := uuid.Parse(webhookID)
 		if err != nil {
-			return nil, 0, fmt.Errorf("invalid webhook ID: %w", err)
+			return nil, 0, svcerrors.Wrapf(err, codes.InvalidArgument, "invalid webhook ID")
 		}
 
 		// Resubmit all failed/pending deliveries for webhook
-		webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
+		_, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "Failed to get webhook", "error", err)
 			return nil, 0, fmt.Errorf("failed to retrieve webhook: %w", err)
-		}
-
-		if webhook == nil {
-			return nil, 0, fmt.Errorf("webhook not found")
 		}
 
 		// Get retriable deliveries
@@ -1185,17 +1192,17 @@ func (s *WebhookService) PauseWebhook(ctx context.Context, webhookID string, nam
 
 	s.logger.InfoContext(ctx, "Pausing webhook", "webhook_id", webhookID, "namespace", namespace, "reason", reason)
 	if webhookID == "" {
-		return fmt.Errorf("webhook ID is required")
+		return svcerrors.InvalidInput("webhook ID is required")
 	}
 	if namespace == "" {
-		return fmt.Errorf("namespace is required")
+		return svcerrors.InvalidInput("namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
 
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
-		return fmt.Errorf("invalid webhook ID: %w", err)
+		return svcerrors.Wrapf(err, codes.InvalidArgument, "invalid webhook ID")
 	}
 
 	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
@@ -1203,11 +1210,8 @@ func (s *WebhookService) PauseWebhook(ctx context.Context, webhookID string, nam
 		s.logger.ErrorContext(ctx, "Failed to get webhook", "error", err)
 		return fmt.Errorf("failed to retrieve webhook: %w", err)
 	}
-	if webhook == nil {
-		return fmt.Errorf("webhook not found")
-	}
 	if !webhook.Active {
-		return fmt.Errorf("webhook is already paused")
+		return svcerrors.FailedPrecondition("webhook is already paused")
 	}
 	webhook.Active = false
 	webhook.UpdatedAt = time.Now()
@@ -1230,17 +1234,17 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, na
 		"namespace", namespace)
 
 	if webhookID == "" {
-		return fmt.Errorf("webhook ID is required")
+		return svcerrors.InvalidInput("webhook ID is required")
 	}
 	if namespace == "" {
-		return fmt.Errorf("namespace is required")
+		return svcerrors.InvalidInput("namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
 
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
-		return fmt.Errorf("invalid webhook ID: %w", err)
+		return svcerrors.Wrapf(err, codes.InvalidArgument, "invalid webhook ID")
 	}
 
 	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
@@ -1248,11 +1252,8 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, na
 		s.logger.ErrorContext(ctx, "Failed to get webhook", "error", err)
 		return fmt.Errorf("failed to retrieve webhook: %w", err)
 	}
-	if webhook == nil {
-		return fmt.Errorf("webhook not found")
-	}
 	if webhook.Active {
-		return fmt.Errorf("webhook is already active")
+		return svcerrors.FailedPrecondition("webhook is already active")
 	}
 	webhook.Active = true
 	webhook.UpdatedAt = time.Now()
@@ -1342,7 +1343,7 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 
 	s.logger.InfoContext(ctx, "Processing event registration request", "name", name, "description", description)
 	if name == "" {
-		return "", time.Time{}, fmt.Errorf("event name is required")
+		return "", time.Time{}, svcerrors.InvalidInput("event name is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -1355,7 +1356,7 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 		return "", time.Time{}, fmt.Errorf("failed to check existing event: %w", err)
 	}
 	if existingEvent != nil {
-		return "", time.Time{}, fmt.Errorf("event already exists")
+		return "", time.Time{}, svcerrors.InvalidInput("event already exists")
 	}
 
 	// Generate sample payload from schema
@@ -1429,7 +1430,7 @@ func (s *WebhookService) UpdateEvent(ctx context.Context, name string, descripti
 
 	// Validate required fields
 	if name == "" {
-		return fmt.Errorf("event name is required")
+		return svcerrors.InvalidInput("event name is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -1444,7 +1445,7 @@ func (s *WebhookService) UpdateEvent(ctx context.Context, name string, descripti
 	}
 
 	if existingEvent == nil {
-		return fmt.Errorf("event not found")
+		return svcerrors.NotFoundError("event not found")
 	}
 
 	// Update event fields
@@ -1483,7 +1484,7 @@ func (s *WebhookService) DeleteEvent(ctx context.Context, name string) error {
 
 	// Validate required fields
 	if name == "" {
-		return fmt.Errorf("event name is required")
+		return svcerrors.InvalidInput("event name is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -1498,7 +1499,7 @@ func (s *WebhookService) DeleteEvent(ctx context.Context, name string) error {
 	}
 
 	if existingEvent == nil {
-		return fmt.Errorf("event not found")
+		return svcerrors.NotFoundError("event not found")
 	}
 
 	// Delete the event
@@ -1521,7 +1522,7 @@ func (s *WebhookService) GetEvent(ctx context.Context, name string) (*store.Even
 
 	s.logger.InfoContext(ctx, "Processing get event request", "name", name)
 	if name == "" {
-		return nil, fmt.Errorf("event name is required")
+		return nil, svcerrors.InvalidInput("event name is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -1548,18 +1549,18 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 
 	// Validate required fields
 	if webhookID == "" {
-		return nil, fmt.Errorf("webhook ID is required")
+		return nil, svcerrors.InvalidInput("webhook ID is required")
 	}
 
 	if namespace == "" {
-		return nil, fmt.Errorf("namespace is required")
+		return nil, svcerrors.InvalidInput("namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
 
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid webhook ID: %w", err)
+		return nil, svcerrors.Wrapf(err, codes.InvalidArgument, "invalid webhook ID")
 	}
 
 	// Get webhook to verify it exists and get current health
@@ -1568,13 +1569,7 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "Failed to get webhook")
 		s.logger.ErrorContext(ctx, "Failed to get webhook", "error", err)
-		return nil, fmt.Errorf("webhook not found: %w", err)
-	}
-
-	if webhook == nil {
-		span.SetStatus(otelcodes.Error, "Webhook not found")
-		s.logger.ErrorContext(ctx, "Webhook not found", "webhook_id", webhookID)
-		return nil, fmt.Errorf("webhook not found")
+		return nil, svcerrors.Wrapf(err, codes.NotFound, "webhook not found")
 	}
 
 	// Get health state (current status and consecutive failures)
@@ -1756,26 +1751,23 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		"update_mask", updateMask)
 
 	if webhookID == "" {
-		return fmt.Errorf("webhook ID is required")
+		return svcerrors.InvalidInput("webhook ID is required")
 	}
 	if namespace == "" {
-		return fmt.Errorf("namespace is required")
+		return svcerrors.InvalidInput("namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
 
 	webhookUUID, err := uuid.Parse(webhookID)
 	if err != nil {
-		return fmt.Errorf("invalid webhook ID: %w", err)
+		return svcerrors.Wrapf(err, codes.InvalidArgument, "invalid webhook ID")
 	}
 
 	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, webhookUUID, namespace)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to get webhook", "error", err)
 		return fmt.Errorf("failed to retrieve webhook: %w", err)
-	}
-	if webhook == nil {
-		return fmt.Errorf("webhook not found")
 	}
 
 	// Build a set for O(1) lookup. When empty, all non-zero fields are applied (legacy).
@@ -1792,25 +1784,22 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		return mask[field]
 	}
 
-	// Update subscriptions if events are provided
-	if shouldUpdate("events") && len(events) > 0 {
-		var newSubs []*store.EventSubscription
+	// Build new subscription list (pure logic, no DB calls)
+	var newSubs []*store.EventSubscription
+	replaceEvents := shouldUpdate("events") && len(events) > 0
+	if replaceEvents {
 		for _, event := range events {
 			newSubs = append(newSubs, &store.EventSubscription{
 				EventName: event,
 			})
 		}
-		if err := s.webhookRepo.ReplaceWebhookSubscriptions(ctx, tenantID, webhookUUID, namespace, newSubs); err != nil {
-			s.logger.ErrorContext(ctx, "Failed to replace webhook subscriptions",
-				"webhook_id", webhookID,
-				"error", err)
-			return fmt.Errorf("failed to update webhook subscriptions: %w", err)
-		}
 	}
+
+	// Apply config mutations to the in-memory webhook (pure logic, no DB calls)
 	if shouldUpdate("url") && url != "" {
 		normalizedURL := strings.TrimSpace(url)
 		if normalizedURL == "" {
-			return fmt.Errorf("URL is required")
+			return svcerrors.InvalidInput("URL is required")
 		}
 		if err := ValidateWebhookURL(normalizedURL, s.allowPrivateNetworks); err != nil {
 			return err
@@ -1882,7 +1871,16 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		}
 		webhook.SecretHeaders = encrypted
 	}
-	err = s.webhookRepo.UpdateWebhook(ctx, tenantID, webhook)
+
+	// Persist subscription replacement + webhook update atomically.
+	err = s.webhookRepo.RunInTransaction(func(txRepo store.RepositoryInterface) error {
+		if replaceEvents {
+			if err := txRepo.ReplaceWebhookSubscriptions(ctx, tenantID, webhookUUID, namespace, newSubs); err != nil {
+				return fmt.Errorf("failed to update webhook subscriptions: %w", err)
+			}
+		}
+		return txRepo.UpdateWebhook(ctx, tenantID, webhook)
+	})
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to update webhook config",
 			"webhook_id", webhookID,
@@ -2059,14 +2057,14 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 	s.logger.InfoContext(ctx, "Creating subscription", "webhook_id", webhookID, "event_name", eventName, "namespace", namespace)
 
 	if namespace == "" {
-		return "", time.Time{}, fmt.Errorf("namespace is required")
+		return "", time.Time{}, svcerrors.InvalidInput("namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
 
 	id, err := uuid.Parse(webhookID)
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("invalid webhook ID: %w", err)
+		return "", time.Time{}, svcerrors.Wrapf(err, codes.InvalidArgument, "invalid webhook ID")
 	}
 
 	if err := validateLabels(labelFilters, "label_filters"); err != nil {
@@ -2096,27 +2094,27 @@ func (s *WebhookService) GetSubscription(ctx context.Context, subscriptionID str
 	tenantID := tenant.DefaultTenantID
 
 	if namespace == "" {
-		return nil, fmt.Errorf("namespace is required")
+		return nil, svcerrors.InvalidInput("namespace is required")
 	}
 
 	id, err := uuid.Parse(subscriptionID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid subscription ID: %w", err)
+		return nil, svcerrors.Wrapf(err, codes.InvalidArgument, "invalid subscription ID")
 	}
 
 	sub, err := s.webhookRepo.GetSubscription(ctx, tenantID, id)
 	if err != nil {
 		return nil, err
 	}
-	if sub != nil && sub.Namespace != namespace {
-		return nil, fmt.Errorf("subscription not found in namespace")
+	if sub.Namespace != namespace {
+		return nil, svcerrors.NotFoundError("subscription not found in namespace")
 	}
 	return sub, nil
 }
 
 func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error) {
 	if namespace == "" {
-		return nil, 0, fmt.Errorf("namespace is required")
+		return nil, 0, svcerrors.InvalidInput("namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -2136,7 +2134,7 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 		var id uuid.UUID
 		id, err = uuid.Parse(webhookID)
 		if err != nil {
-			return nil, 0, fmt.Errorf("invalid webhook ID: %w", err)
+			return nil, 0, svcerrors.Wrapf(err, codes.InvalidArgument, "invalid webhook ID")
 		}
 		subs, err = s.webhookRepo.ListSubscriptions(ctx, tenantID, id)
 		totalCount = len(subs)
@@ -2177,12 +2175,12 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 	tenantID := tenant.DefaultTenantID
 
 	if namespace == "" {
-		return fmt.Errorf("namespace is required")
+		return svcerrors.InvalidInput("namespace is required")
 	}
 
 	id, err := uuid.Parse(subscriptionID)
 	if err != nil {
-		return fmt.Errorf("invalid subscription ID: %w", err)
+		return svcerrors.Wrapf(err, codes.InvalidArgument, "invalid subscription ID")
 	}
 
 	if err := validateLabels(labelFilters, "label_filters"); err != nil {
@@ -2193,8 +2191,8 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 	if err != nil {
 		return err
 	}
-	if sub == nil || sub.Namespace != namespace {
-		return fmt.Errorf("subscription not found in namespace")
+	if sub.Namespace != namespace {
+		return svcerrors.NotFoundError("subscription not found in namespace")
 	}
 
 	sub.Headers = headers
@@ -2211,20 +2209,20 @@ func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID 
 	tenantID := tenant.DefaultTenantID
 
 	if namespace == "" {
-		return fmt.Errorf("namespace is required")
+		return svcerrors.InvalidInput("namespace is required")
 	}
 
 	id, err := uuid.Parse(subscriptionID)
 	if err != nil {
-		return fmt.Errorf("invalid subscription ID: %w", err)
+		return svcerrors.Wrapf(err, codes.InvalidArgument, "invalid subscription ID")
 	}
 
 	sub, err := s.webhookRepo.GetSubscription(ctx, tenantID, id)
 	if err != nil {
 		return err
 	}
-	if sub == nil || sub.Namespace != namespace {
-		return fmt.Errorf("subscription not found in namespace")
+	if sub.Namespace != namespace {
+		return svcerrors.NotFoundError("subscription not found in namespace")
 	}
 
 	return s.webhookRepo.DeleteSubscription(ctx, tenantID, sub.ID)
@@ -2237,7 +2235,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 	s.logger.InfoContext(ctx, "Processing test subscription template request", "event_name", eventName, "namespace", namespace)
 
 	if eventName == "" {
-		return "", fmt.Errorf("event name is required")
+		return "", svcerrors.InvalidInput("event name is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -2247,7 +2245,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		return "", fmt.Errorf("failed to get event: %w", err)
 	}
 	if event == nil {
-		return "", fmt.Errorf("event not found")
+		return "", svcerrors.NotFoundError("event not found")
 	}
 
 	engine := client.NewTemplateEngine()
@@ -2301,7 +2299,7 @@ func (s *WebhookService) RePushEvents(ctx context.Context, repushID string) erro
 		return fmt.Errorf("failed to get batch job: %w", err)
 	}
 	if batch == nil {
-		return fmt.Errorf("batch job not found")
+		return svcerrors.NotFoundError("batch job not found")
 	}
 	if batch.JobType != store.BatchTypeEventRepush {
 		return svcerrors.FailedPrecondition("batch job is not an event repush")
@@ -2349,7 +2347,7 @@ func (s *WebhookService) GetRepushStatus(ctx context.Context, repushID string) (
 		return nil, fmt.Errorf("failed to get batch job: %w", err)
 	}
 	if batch == nil {
-		return nil, fmt.Errorf("batch job not found")
+		return nil, svcerrors.NotFoundError("batch job not found")
 	}
 	if batch.JobType != store.BatchTypeEventRepush {
 		return nil, svcerrors.FailedPrecondition("batch job is not an event repush")
@@ -2374,7 +2372,7 @@ func (s *WebhookService) CancelRepush(ctx context.Context, repushID string) erro
 		return fmt.Errorf("failed to get batch job: %w", err)
 	}
 	if batch == nil {
-		return fmt.Errorf("batch job not found")
+		return svcerrors.NotFoundError("batch job not found")
 	}
 	if batch.JobType != store.BatchTypeEventRepush {
 		return svcerrors.FailedPrecondition("batch job is not an event repush")
@@ -2408,7 +2406,7 @@ func (s *WebhookService) RetryDeliveries(ctx context.Context, retryID string) er
 		return fmt.Errorf("failed to get batch job: %w", err)
 	}
 	if batch == nil {
-		return fmt.Errorf("batch job not found")
+		return svcerrors.NotFoundError("batch job not found")
 	}
 	if batch.JobType != store.BatchTypeDeliveryRetry {
 		return svcerrors.FailedPrecondition("batch job is not a delivery retry")
@@ -2454,7 +2452,7 @@ func (s *WebhookService) GetRetryStatus(ctx context.Context, retryID string) (*s
 		return nil, fmt.Errorf("failed to get batch job: %w", err)
 	}
 	if batch == nil {
-		return nil, fmt.Errorf("batch job not found")
+		return nil, svcerrors.NotFoundError("batch job not found")
 	}
 	if batch.JobType != store.BatchTypeDeliveryRetry {
 		return nil, svcerrors.FailedPrecondition("batch job is not a delivery retry")
@@ -2479,7 +2477,7 @@ func (s *WebhookService) CancelRetry(ctx context.Context, retryID string) error 
 		return fmt.Errorf("failed to get batch job: %w", err)
 	}
 	if batch == nil {
-		return fmt.Errorf("batch job not found")
+		return svcerrors.NotFoundError("batch job not found")
 	}
 	if batch.JobType != store.BatchTypeDeliveryRetry {
 		return svcerrors.FailedPrecondition("batch job is not a delivery retry")

@@ -59,6 +59,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Invalid configuration: %v", err)
+	}
 
 	ctx := context.Background()
 	startTime := time.Now() // Track service start time for uptime calculation

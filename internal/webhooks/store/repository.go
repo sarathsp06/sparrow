@@ -56,6 +56,14 @@ func (r *Repository) WithConn(conn storage.DBTX) *Repository {
 	}
 }
 
+// RunInTransaction executes fn within a database transaction. The fn
+// receives a transactional RepositoryInterface backed by the same tx.
+func (r *Repository) RunInTransaction(fn func(RepositoryInterface) error) error {
+	return storage.WithTransaction(r.db, func(tx storage.DBTX) error {
+		return fn(r.WithConn(tx))
+	})
+}
+
 // StoreEventTx persists an event record within an existing database transaction.
 // Automatically generates UUID if event.ID is empty and sets created_at/expires_at timestamps.
 // The expires_at is calculated from TTL (time-to-live) in seconds from creation time.

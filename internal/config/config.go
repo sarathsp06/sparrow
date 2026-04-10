@@ -9,6 +9,8 @@ package config
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 
 	"github.com/kelseyhightower/envconfig"
 )
@@ -80,4 +82,38 @@ func Load() (*Config, error) {
 // IsProduction returns true when Environment is set to "production".
 func (c *Config) IsProduction() bool {
 	return c.Environment == "production"
+}
+
+// Validate checks configuration values for sanity.
+// Call after Load() and before using the config.
+func (c *Config) Validate() error {
+	if err := validatePort(c.GRPCPort, "SPARROW_GRPC_PORT"); err != nil {
+		return err
+	}
+	if err := validatePort(c.HTTPPort, "SPARROW_HTTP_PORT"); err != nil {
+		return err
+	}
+	if c.EncryptionKey == "" {
+		return fmt.Errorf("SPARROW_ENCRYPTION_KEY is required (generate with: openssl rand -hex 32)")
+	}
+	if c.DatabaseURL == "" {
+		return fmt.Errorf("DATABASE_URL is required")
+	}
+	return nil
+}
+
+// validatePort checks that a port string is a valid TCP port number (1-65535).
+func validatePort(port, envVar string) error {
+	n, err := strconv.Atoi(port)
+	if err != nil {
+		return fmt.Errorf("%s: invalid port %q: %w", envVar, port, err)
+	}
+	if n < 1 || n > 65535 {
+		return fmt.Errorf("%s: port %d out of range (1-65535)", envVar, n)
+	}
+	// Check for conflicts with well-known restricted ports (optional, warn-only)
+	if _, err := net.ResolveTCPAddr("tcp", ":"+port); err != nil {
+		return fmt.Errorf("%s: cannot bind to port %s: %w", envVar, port, err)
+	}
+	return nil
 }

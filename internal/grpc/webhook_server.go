@@ -2,8 +2,13 @@ package grpc
 
 import (
 	"context"
+	"log/slog"
 
+	"github.com/google/uuid"
+
+	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
@@ -30,16 +35,29 @@ func NewWebhookServer(service webhooks.WebhookServiceInterface) *WebhookServer {
 	}
 }
 
-// Helper function to get events for a webhook from subscriptions
-// Used by webhook handlers in other files
-func (s *WebhookServer) getWebhookEvents(ctx context.Context, webhookID string, namespace string) []string {
-	subs, _, err := s.service.ListSubscriptions(ctx, namespace, webhookID, "", 1000, 0)
+// getWebhookEventsMap batch-fetches event names for multiple webhooks in a single query,
+// returning a map from webhook ID string to a slice of subscribed event names.
+func (s *WebhookServer) getWebhookEventsMap(ctx context.Context, webhookRegs []*store.WebhookRegistration) map[string][]string {
+	if len(webhookRegs) == 0 {
+		return map[string][]string{}
+	}
+
+	webhookIDs := make([]uuid.UUID, len(webhookRegs))
+	for i, reg := range webhookRegs {
+		webhookIDs[i] = reg.ID
+	}
+
+	tenantID := tenant.DefaultTenantID
+	subs, err := s.service.GetWebhookRepo().ListSubscriptionsByWebhookIDs(ctx, tenantID, webhookIDs)
 	if err != nil {
-		return []string{}
+		slog.ErrorContext(ctx, "failed to batch-fetch subscriptions", "error", err)
+		return map[string][]string{}
 	}
-	events := make([]string, 0, len(subs))
+
+	result := make(map[string][]string, len(webhookIDs))
 	for _, sub := range subs {
-		events = append(events, sub.EventName)
+		key := sub.WebhookID.String()
+		result[key] = append(result[key], sub.EventName)
 	}
-	return events
+	return result
 }

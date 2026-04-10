@@ -94,7 +94,19 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 		w.logger.ErrorContext(ctx, "Failed to update final batch progress", "error", err)
 	}
 
-	// Set terminal status
+	// Re-read the batch from DB to get cumulative totals for the terminal
+	// status decision. The local processed/failed counters only reflect
+	// the last chunk (they're reset after each periodic flush).
+	batch, err = w.webhookRepo.GetBatchJob(ctx, tenantID, batchID)
+	if err != nil {
+		w.logger.ErrorContext(ctx, "Failed to re-read batch for terminal status", "error", err)
+		// Fall back to using the last-chunk values if re-read fails
+	} else if batch != nil {
+		processed = batch.Processed
+		failed = batch.Failed
+	}
+
+	// Set terminal status using cumulative totals
 	finalStatus := store.BatchStatusCompleted
 	if failed > 0 && processed == 0 {
 		finalStatus = store.BatchStatusFailed
@@ -229,7 +241,7 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 
 		// Get webhook for namespace info
 		webhook, err := w.webhookRepo.GetWebhookByID(ctx, tenantID, delivery.WebhookID, namespace)
-		if err != nil || webhook == nil {
+		if err != nil {
 			w.logger.ErrorContext(ctx, "Failed to get webhook for delivery retry", "delivery_id", idStr, "webhook_id", delivery.WebhookID, "error", err)
 			failed++
 			continue

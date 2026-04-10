@@ -85,6 +85,15 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 	}
 
 	// TODO: Support per-request TLS settings if needed (e.g. overriding config)
+
+	// Apply per-webhook request timeout if set, overriding the global client timeout.
+	if req.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, req.Timeout)
+		defer cancel()
+		httpReq = httpReq.WithContext(ctx)
+	}
+
 	start := time.Now()
 	resp, err := c.httpClient.Do(httpReq)
 	duration := time.Since(start)
@@ -109,12 +118,12 @@ func (c *WebhookClient) TransformPayload(tmplStr string, data WebhookTemplateCon
 	return c.tmpl.TransformPayload(tmplStr, data)
 }
 
-// ReadBody reads the response body safely using a pooled buffer
+// ReadBody reads the response body safely using a pooled buffer.
+// The caller is responsible for closing resp.Body.
 func ReadBody(resp *http.Response, limit int64) ([]byte, error) {
 	if resp == nil || resp.Body == nil {
 		return nil, nil
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	// Use buffer from pool for reading
 	buf := GetBuffer()

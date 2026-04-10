@@ -69,12 +69,16 @@ func (s *WebhookServer) ListWebhooks(ctx context.Context, req *pb.ListWebhooksRe
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to list webhooks")
 	}
+
+	// Batch-fetch events for all webhooks (single query instead of N+1)
+	eventsMap := s.getWebhookEventsMap(ctx, regs)
+
 	pbWebhooks := make([]*pb.RegisteredWebhook, len(regs))
 	for i, reg := range regs {
 		pbWebhooks[i] = &pb.RegisteredWebhook{
 			WebhookId:     reg.ID.String(),
 			Namespace:     reg.Namespace,
-			Events:        s.getWebhookEvents(ctx, reg.ID.String(), reg.Namespace),
+			Events:        eventsMap[reg.ID.String()],
 			Url:           reg.URL,
 			Headers:       reg.Headers,
 			Timeout:       int32(reg.Timeout),

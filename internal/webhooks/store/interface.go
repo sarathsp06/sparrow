@@ -11,6 +11,11 @@ import (
 //
 //go:generate gowrap gen -i RepositoryInterface   -t ../../../templates/opentelemetry.tmpl --o RepositoryInterface_otel.go
 type RepositoryInterface interface {
+	// RunInTransaction executes fn within a database transaction.
+	// The fn receives a transactional RepositoryInterface; all calls
+	// through it share the same underlying transaction.
+	RunInTransaction(fn func(RepositoryInterface) error) error
+
 	// Webhook Management
 	RegisterWebhook(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration) error
 	UnregisterWebhook(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) error
@@ -28,6 +33,7 @@ type RepositoryInterface interface {
 	ListSubscriptionsByNamespace(ctx context.Context, tenantID uuid.UUID, namespace string, limit, offset int) ([]*EventSubscription, int, error)
 	GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string, labels map[string]string) ([]*EventSubscription, error)
 	GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string, labels map[string]string) ([]*SubscriptionWithWebhook, error)
+	ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID uuid.UUID, webhookIDs []uuid.UUID) ([]*EventSubscription, error)
 
 	// Event Management (event registrations are tenant-scoped)
 	RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error
