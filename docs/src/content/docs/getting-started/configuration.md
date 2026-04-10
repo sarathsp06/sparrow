@@ -14,7 +14,7 @@ All configuration is done via environment variables. No config files needed.
 | `DATABASE_URL` | Yes | -- | PostgreSQL connection string |
 | `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard on the HTTP port |
 | `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests |
-| `SPARROW_ENCRYPTION_KEY` | No | auto-generated | 64-char hex key (32 bytes) for envelope encryption of webhook secrets and headers |
+| `SPARROW_ENCRYPTION_KEY` | Yes | -- | 64-char hex key (32 bytes) for envelope encryption of webhook secrets and headers. Generate with `openssl rand -hex 32` |
 | `SPARROW_GRPC_PORT` | No | `50051` | gRPC listen port. macOS users: AirPlay Receiver uses 50051 — change this or disable AirPlay Receiver in System Settings > General > AirDrop & Handoff |
 | `SPARROW_HTTP_PORT` | No | `8080` | HTTP / Connect-RPC listen port (also serves the web UI) |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private IP addresses as webhook URLs. Enable for local development and testing |
@@ -29,12 +29,9 @@ Sparrow encrypts webhook secrets and sensitive headers at rest using **envelope 
 
 ### Key Management
 
-The encryption key is resolved on startup:
+The encryption key is provided via the `SPARROW_ENCRYPTION_KEY` environment variable (64-char hex string = 32 bytes). The server will not start without it.
 
-1. **Environment variable** -- `SPARROW_ENCRYPTION_KEY` (64-char hex string = 32 bytes)
-2. **Auto-generate** -- If no env var is set, a temporary key is generated and printed to stdout
-
-The key is **never** stored in the database. If no env var is set, the generated key is ephemeral — restarting without persisting the key means previously encrypted data becomes unreadable. For production, always set the environment variable:
+The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager, Kubernetes Secret, or `.env` file to provide the key:
 
 ```bash
 # Generate a key

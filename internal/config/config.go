@@ -49,9 +49,8 @@ type Config struct {
 	AllowPrivateNetworks bool `envconfig:"SPARROW_ALLOW_PRIVATE_NETWORKS" default:"false"`
 
 	// EncryptionKey is a 64-character hex string (32 bytes) used as the KEK
-	// for envelope encryption of webhook secrets. If empty, a temporary key
-	// is generated at startup (data encrypted with it will be unreadable
-	// after restart).
+	// for envelope encryption of webhook secrets. Required -- the server will
+	// not start without it. Generate with: openssl rand -hex 32
 	// Env: SPARROW_ENCRYPTION_KEY
 	EncryptionKey string `envconfig:"SPARROW_ENCRYPTION_KEY" default:""`
 

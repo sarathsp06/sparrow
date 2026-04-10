@@ -35,10 +35,10 @@ services:
     environment:
       DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
       SPARROW_SERVE_UI: "true"
+      # Required: 64-char hex key for envelope encryption (generate with: openssl rand -hex 32)
+      SPARROW_ENCRYPTION_KEY: "${SPARROW_ENCRYPTION_KEY:?Set SPARROW_ENCRYPTION_KEY (generate with: openssl rand -hex 32)}"
       # Optional: require an API key for all requests
       # SPARROW_API_KEY: "change-me-to-a-secure-random-string"
-      # Optional: explicit encryption key (auto-generated if omitted)
-      # SPARROW_ENCRYPTION_KEY: "your-64-char-hex-key-from-openssl-rand-hex-32"
     depends_on:
       postgres: { condition: service_healthy }
 

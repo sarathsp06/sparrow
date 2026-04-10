@@ -600,7 +600,7 @@ All configuration is loaded from environment variables via the `internal/config`
 | `SPARROW_GRPC_PORT` | gRPC listen port. Note: macOS AirPlay Receiver may conflict on 50051. | `"50051"` |
 | `SPARROW_HTTP_PORT` | HTTP/Connect-RPC listen port | `"8080"` |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | Allow localhost/private IPs as webhook URLs (dev/testing) | `false` |
-| `SPARROW_ENCRYPTION_KEY` | 64-char hex string (32 bytes) KEK for envelope encryption | -- (auto-generated temp key) |
+| `SPARROW_ENCRYPTION_KEY` | 64-char hex string (32 bytes) KEK for envelope encryption. Required. Generate with `openssl rand -hex 32` | -- |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated CORS origins (e.g. `https://ui.example.com,https://admin.example.com`). Required when UI is hosted separately. Production blocks cross-origin by default. | -- |
 | `ENVIRONMENT` | `"development"` or `"production"` | -- |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP export endpoint | -- |

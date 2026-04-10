@@ -155,8 +155,7 @@ func main() {
 	}
 
 	// Initialize encryption service.
-	// Priority: SPARROW_ENCRYPTION_KEY env var. If unset, a temporary key is
-	// generated for this session and printed to stdout.
+	// SPARROW_ENCRYPTION_KEY is required. The server will not start without it.
 	encKey, err := resolveEncryptionKey(cfg)
 	if err != nil {
 		log.Fatalf("Failed to resolve encryption key: %v", err)
@@ -460,37 +459,20 @@ func buildCORSHandler(cfg *config.Config) *cors.Cors {
 
 // resolveEncryptionKey determines the 32-byte KEK.
 //
-// If cfg.EncryptionKey is set, it is parsed as a 64-char hex string.
-// If not set, a random key is generated for this session and printed to
-// stdout so the operator can persist it. The key is NOT stored in the
+// cfg.EncryptionKey must be set to a 64-character hex string (32 bytes).
+// The server will not start without it. The key is NOT stored in the
 // database — storing the encryption key next to the data it protects
 // defeats the purpose of encryption at rest.
 //
-// WARNING: If no env var is set and the server restarts, a new key is
-// generated and previously encrypted data becomes unreadable.
+// Generate a key with: openssl rand -hex 32
 func resolveEncryptionKey(cfg *config.Config) ([]byte, error) {
-	if cfg.EncryptionKey != "" {
-		key, err := crypto.ParseKey(cfg.EncryptionKey)
-		if err != nil {
-			return nil, fmt.Errorf("invalid SPARROW_ENCRYPTION_KEY: %w", err)
-		}
-		fmt.Println("🔑 Using encryption key from SPARROW_ENCRYPTION_KEY env var")
-		return key, nil
+	if cfg.EncryptionKey == "" {
+		return nil, fmt.Errorf("SPARROW_ENCRYPTION_KEY is required. Generate one with: openssl rand -hex 32")
 	}
-
-	// Auto-generate for convenience (dev/first-run). Print the key so the
-	// operator can save it before any data is encrypted with it.
-	hexKey, key, err := crypto.GenerateKey()
+	key, err := crypto.ParseKey(cfg.EncryptionKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate encryption key: %w", err)
+		return nil, fmt.Errorf("invalid SPARROW_ENCRYPTION_KEY: %w", err)
 	}
-
-	fmt.Println("⚠️  SPARROW_ENCRYPTION_KEY not set — generated a temporary key for this session")
-	fmt.Println("   Any data encrypted with this key will be UNREADABLE after restart unless you persist the key.")
-	fmt.Println("")
-	fmt.Printf("   export SPARROW_ENCRYPTION_KEY=%s\n", hexKey)
-	fmt.Println("")
-	fmt.Println("   Add this to your environment or .env file before encrypting production data.")
 	return key, nil
 }
 

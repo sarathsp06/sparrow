@@ -135,7 +135,7 @@ All chart values are documented with comments in [`values.yaml`](https://github.
 
 **`secrets.databaseURL`** -- PostgreSQL connection string. Required when `postgresql.enabled=false`. When using an existing Kubernetes Secret, set `secrets.existingSecret` instead -- it must contain `DATABASE_URL` and `SPARROW_ENCRYPTION_KEY` keys.
 
-**`secrets.encryptionKey`** -- 64-char hex key for envelope encryption of webhook secrets and headers. Generate with `openssl rand -hex 32`. Optional -- if unset, a random key is auto-generated on first boot and stored in the database.
+**`secrets.encryptionKey`** -- 64-char hex key for envelope encryption of webhook secrets and headers. Generate with `openssl rand -hex 32`. Required -- the server will not start without it.
 
 **`sparrow.extraEnv`** -- Inject arbitrary environment variables. Use this for OpenTelemetry, feature flags, or any env var Sparrow supports:
 

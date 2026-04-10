@@ -274,12 +274,9 @@ Each encrypted value uses a unique random data encryption key (DEK). The DEK is 
 
 ### Key Resolution
 
-The KEK is resolved on startup:
+The KEK is provided via the `SPARROW_ENCRYPTION_KEY` environment variable (64-char hex = 32 bytes). The server will not start without it. Generate one with `openssl rand -hex 32`.
 
-1. `SPARROW_ENCRYPTION_KEY` environment variable (64-char hex = 32 bytes)
-2. If not set, a temporary key is auto-generated for the session and printed to stdout
-
-The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. If no env var is set, the generated key is ephemeral — restarting without setting the env var produces a new key and any previously encrypted data becomes unreadable.
+The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager, Kubernetes Secret, or `.env` file to provide the key.
 
 ### Backward Compatibility
 
