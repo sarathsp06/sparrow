@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-04-10
+
+### Changed
+
+- Landing page rewritten with honest positioning: "Webhook delivery you own." hero, 4 focused feature cards, comparison table that includes rows where Sparrow loses, and "When to use / When not to" section
+- SDK guides moved from standalone "SDK Guides" sidebar section into "Getting Started" for a natural onboarding flow
+- Client Libraries reference page thinned to a pointer page (full content now lives in SDK guides)
+- Removed enterprise-grade language, stats bar, and "Recommended" badge from landing page comparison
+
 ## [1.2.0] - 2026-04-10
 
 ### Added
