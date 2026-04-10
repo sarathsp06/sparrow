@@ -29,6 +29,15 @@
         },
         {
           "slug": "getting-started/configuration"
+        },
+        {
+          "slug": "getting-started/go"
+        },
+        {
+          "slug": "getting-started/python"
+        },
+        {
+          "slug": "getting-started/typescript"
         }
       ]
     },
@@ -62,25 +71,8 @@
       ]
     },
     {
-      "label": "SDK Guides",
-      "items": [
-        {
-          "slug": "guides/go"
-        },
-        {
-          "slug": "guides/python"
-        },
-        {
-          "slug": "guides/typescript"
-        }
-      ]
-    },
-    {
       "label": "Reference",
       "items": [
-        {
-          "slug": "reference/client-libraries"
-        },
         {
           "slug": "reference/template-functions"
         },
