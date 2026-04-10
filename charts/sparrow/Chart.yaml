@@ -3,7 +3,7 @@ name: sparrow
 description: Self-hosted webhook delivery platform with async HTTP delivery, retries, and health tracking
 type: application
 version: 0.1.0
-appVersion: "0.1.0"
+appVersion: "1.2.0"
 home: https://github.com/sarathsp06/sparrow
 maintainers:
   - name: sarathsp06

@@ -190,6 +190,10 @@
       feature: "No Vendor Lock-In",
       sparrow: true, svix: "Partial", convoy: true, hookdeck: false, aws: false, diy: true,
     },
+    {
+      feature: "Multi-Language Client SDKs",
+      sparrow: true, svix: true, convoy: true, hookdeck: true, aws: true, diy: false,
+    },
   ];
 </script>
 
@@ -213,6 +217,7 @@
         <a href="#security" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Security</a>
         <a href="#getting-started" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Getting Started</a>
         <a href="#comparison" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Comparison</a>
+        <a href="https://sarathsp06.github.io/sparrow/guides/go/" target="_blank" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">SDKs</a>
         <a href="https://sarathsp06.github.io/sparrow/" target="_blank" class="text-sm text-gray-500 hover:text-teal-600 transition-colors">Documentation</a>
       </nav>
       <div class="flex items-center gap-3">
@@ -438,6 +443,27 @@
           <a href="/webhooks" class="text-teal-600 hover:text-teal-700 font-medium">web dashboard</a>
           at <code class="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 font-fira text-sm">localhost:8080</code>.
         </p>
+      </div>
+
+      <div class="mt-8 max-w-4xl mx-auto">
+        <div class="p-6 rounded-xl border border-teal-200/60 bg-teal-50/40">
+          <div class="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-teal-100">
+              <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h4 class="font-semibold font-fira text-gray-900 mb-1">Prefer a client library?</h4>
+              <p class="text-sm text-gray-500">Skip curl and use native SDKs for
+                <a href="https://sarathsp06.github.io/sparrow/guides/go/" target="_blank" class="text-teal-600 hover:text-teal-700 font-medium">Go</a>,
+                <a href="https://sarathsp06.github.io/sparrow/guides/python/" target="_blank" class="text-teal-600 hover:text-teal-700 font-medium">Python</a>, and
+                <a href="https://sarathsp06.github.io/sparrow/guides/typescript/" target="_blank" class="text-teal-600 hover:text-teal-700 font-medium">TypeScript</a>.
+                Connect-RPC (HTTP/JSON) and gRPC transports supported.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>

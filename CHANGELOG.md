@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.0] - 2026-04-10
 
+### Added
+
+- SDK guides for Go, Python, and TypeScript in the documentation site with step-by-step integration examples, API key authentication, label filters, TLS configuration, and error handling
+- Python client packaging (`pyproject.toml`, `__init__.py`, `py.typed`) -- now pip-installable with `pip install -e client/python`
+- TypeScript Connect-RPC client packaging (`package.json`) with proper peer dependencies and exports
+- "SDK Guides" section in docs sidebar linking to per-language guides
+- "Multi-Language Client SDKs" row in landing page comparison table
+- Client library callout in Getting Started section with links to Go, Python, and TypeScript guides
+- "SDKs" link in landing page navigation bar
+
 ### Fixed
 
 - N+1 query in ListWebhooks and ListWebhooksByHealth -- subscription events are now batch-fetched in a single query via `ListSubscriptionsByWebhookIDs`
@@ -17,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `RegisterWebhook` and `RegisterWebhookWithSubscriptions` silently returned nil on duplicate URL instead of `ErrAlreadyExists`
 - Readiness probe now pings the database and returns 503 if unreachable
 - Helm chart now validates `secrets.encryptionKey` is set via `{{ required }}` template function
+- Go client import paths in README and docs corrected from `client/go/proto` to `proto` (the actual module path)
 
 ### Changed
 
@@ -27,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified `GetWebhooksByHealthPaginated` implementation using `SelectContext` instead of manual row scanning
 - Documented PushEvent cross-driver transaction gap (sqlx vs pgxpool)
 - Documented `GenerateKey` as a test/development utility in crypto package
+- Deduplicated code patterns across service, repository, gRPC handler, and worker layers (13 extracted helpers)
+- Client libraries reference page now links to dedicated SDK guides and uses correct import paths
+- `.gitignore` updated with negation rules to track packaging files within generated client directories
 
 ## [1.1.2] - 2026-04-10
 
