@@ -11,6 +11,12 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
+// deliveryColumns is the canonical SELECT column list for webhook_deliveries (aliased as wd).
+// Used by all delivery query functions to avoid repeating the same 16-column list.
+const deliveryColumns = `wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
+		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
+		       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category`
+
 // CreateDelivery creates a new webhook delivery record for tracking delivery attempts.
 // tenantID is accepted for interface consistency; the delivery is implicitly tenant-scoped via webhook_id.
 func (r *Repository) CreateDelivery(ctx context.Context, tenantID uuid.UUID, delivery *WebhookDelivery) error {
@@ -129,24 +135,20 @@ func (r *Repository) GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, de
 	var args []any
 
 	if namespace != "" {
-		query = `
-			SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
-			       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-			       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
+		query = fmt.Sprintf(`
+			SELECT %s
 			FROM webhook_deliveries wd
 			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 			WHERE wd.id = $1 AND wr.tenant_id = $2 AND wr.namespace = $3
-		`
+		`, deliveryColumns)
 		args = []any{deliveryID, tenantID, namespace}
 	} else {
-		query = `
-			SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
-			       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-			       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
+		query = fmt.Sprintf(`
+			SELECT %s
 			FROM webhook_deliveries wd
 			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 			WHERE wd.id = $1 AND wr.tenant_id = $2
-		`
+		`, deliveryColumns)
 		args = []any{deliveryID, tenantID}
 	}
 
@@ -179,16 +181,14 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid
 	}
 
 	// Then get paginated results
-	query := `
-		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
-		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wd.webhook_id = $1 AND wr.tenant_id = $2 AND wr.namespace = $3
 		ORDER BY wd.created_at DESC
 		LIMIT $4 OFFSET $5
-	`
+	`, deliveryColumns)
 
 	var deliveries []*WebhookDelivery
 	err = r.conn.SelectContext(ctx, &deliveries, query, webhookID, tenantID, namespace, limit, offset)
@@ -216,16 +216,14 @@ func (r *Repository) GetDeliveriesByEventPaginated(ctx context.Context, tenantID
 	}
 
 	// Then get paginated results
-	query := `
-		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
-		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wd.event_id = $1 AND wr.tenant_id = $2 AND wr.namespace = $3
 		ORDER BY wd.created_at DESC
 		LIMIT $4 OFFSET $5
-	`
+	`, deliveryColumns)
 
 	var deliveries []*WebhookDelivery
 	err = r.conn.SelectContext(ctx, &deliveries, query, eventID, tenantID, namespace, limit, offset)
@@ -259,16 +257,14 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 		}
 
 		// Then get paginated results
-		query = `
-			SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
-			       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-			       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
+		query = fmt.Sprintf(`
+			SELECT %s
 			FROM webhook_deliveries wd
 			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 			WHERE wr.tenant_id = $1 AND wr.namespace = $2
 			ORDER BY wd.created_at DESC
 			LIMIT $3 OFFSET $4
-		`
+		`, deliveryColumns)
 
 		var deliveries []*WebhookDelivery
 		err = r.conn.SelectContext(ctx, &deliveries, query, tenantID, namespace, limit, offset)
@@ -292,16 +288,14 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 		return nil, 0, storage.Error(err)
 	}
 
-	query = `
-		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
-		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
+	query = fmt.Sprintf(`
+		SELECT %s
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wr.tenant_id = $1
 		ORDER BY wd.created_at DESC
 		LIMIT $2 OFFSET $3
-	`
+	`, deliveryColumns)
 
 	var deliveries []*WebhookDelivery
 	err = r.conn.SelectContext(ctx, &deliveries, query, tenantID, limit, offset)
@@ -316,11 +310,53 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 // This is the unified replacement for GetDeliveriesByWebhookID, GetDeliveriesByEventPaginated,
 // and ListDeliveriesPaginated — all filter combinations are handled by a single query builder.
 func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, int, error) {
+	conditions, args, argIdx := buildDeliveryFilterConditions(tenantID, filter)
+
+	whereClause := strings.Join(conditions, " AND ")
+
+	// Count query
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*)
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE %s
+	`, whereClause)
+
+	var totalCount int
+	err := r.conn.GetContext(ctx, &totalCount, countQuery, args...)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	// Main query
+	query := fmt.Sprintf(`
+		SELECT %s
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
+		WHERE %s
+		ORDER BY wd.created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, deliveryColumns, whereClause, argIdx, argIdx+1)
+
+	queryArgs := append(args, filter.Limit, filter.Offset)
+	var deliveries []*WebhookDelivery
+	err = r.conn.SelectContext(ctx, &deliveries, query, queryArgs...)
+	if err != nil {
+		return nil, 0, storage.Error(err)
+	}
+
+	return deliveries, totalCount, nil
+}
+
+// buildDeliveryFilterConditions builds the shared WHERE-clause conditions from a
+// DeliveryFilter. Returns the conditions slice, args slice, and the next placeholder index.
+// Used by both ListDeliveriesFiltered and SnapshotDeliveryIDs to avoid duplicating the
+// filter→SQL mapping.
+func buildDeliveryFilterConditions(tenantID uuid.UUID, filter DeliveryFilter) ([]string, []any, int) {
 	var conditions []string
 	var args []any
 	argIdx := 1
 
-	// Always filter by tenant via the webhook_registrations join
 	conditions = append(conditions, fmt.Sprintf("wr.tenant_id = $%d", argIdx))
 	args = append(args, tenantID)
 	argIdx++
@@ -373,42 +409,7 @@ func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.U
 		argIdx++
 	}
 
-	whereClause := strings.Join(conditions, " AND ")
-
-	// Count query
-	countQuery := fmt.Sprintf(`
-		SELECT COUNT(*)
-		FROM webhook_deliveries wd
-		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE %s
-	`, whereClause)
-
-	var totalCount int
-	err := r.conn.GetContext(ctx, &totalCount, countQuery, args...)
-	if err != nil {
-		return nil, 0, storage.Error(err)
-	}
-
-	// Main query
-	query := fmt.Sprintf(`
-		SELECT wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
-		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
-		       wd.response_code, wd.response_body, wd.error_message, wd.request_body, wd.error_category
-		FROM webhook_deliveries wd
-		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE %s
-		ORDER BY wd.created_at DESC
-		LIMIT $%d OFFSET $%d
-	`, whereClause, argIdx, argIdx+1)
-
-	queryArgs := append(args, filter.Limit, filter.Offset)
-	var deliveries []*WebhookDelivery
-	err = r.conn.SelectContext(ctx, &deliveries, query, queryArgs...)
-	if err != nil {
-		return nil, 0, storage.Error(err)
-	}
-
-	return deliveries, totalCount, nil
+	return conditions, args, argIdx
 }
 
 // GetRetriableDeliveries finds webhook deliveries eligible for retry attempts within a tenant.

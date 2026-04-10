@@ -268,53 +268,10 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 // dynamic filter criteria. This replaces the older ListEventReportsWithStats for
 // callers that need schema_valid, labels, or time-range filtering.
 func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, int, error) {
-	var conditions []string
-	var args []any
-	argIdx := 1
-
-	// Always filter by tenant
-	conditions = append(conditions, fmt.Sprintf("er.tenant_id = $%d", argIdx))
-	args = append(args, tenantID)
-	argIdx++
-
-	if filter.Namespace != "" {
-		conditions = append(conditions, fmt.Sprintf("er.namespace = $%d", argIdx))
-		args = append(args, filter.Namespace)
-		argIdx++
-	}
-
-	if filter.EventName != nil {
-		conditions = append(conditions, fmt.Sprintf("er.event = $%d", argIdx))
-		args = append(args, *filter.EventName)
-		argIdx++
-	}
-
-	if filter.SchemaValid != nil {
-		conditions = append(conditions, fmt.Sprintf("er.schema_valid = $%d", argIdx))
-		args = append(args, *filter.SchemaValid)
-		argIdx++
-	}
-
-	if len(filter.Labels) > 0 {
-		labelsJSON, err := json.Marshal(filter.Labels)
-		if err != nil {
-			return nil, 0, fmt.Errorf("failed to marshal label filter: %w", err)
-		}
-		conditions = append(conditions, fmt.Sprintf("er.labels @> $%d::jsonb", argIdx))
-		args = append(args, string(labelsJSON))
-		argIdx++
-	}
-
-	if filter.CreatedAfter != nil {
-		conditions = append(conditions, fmt.Sprintf("er.created_at >= $%d", argIdx))
-		args = append(args, *filter.CreatedAfter)
-		argIdx++
-	}
-
-	if filter.CreatedBefore != nil {
-		conditions = append(conditions, fmt.Sprintf("er.created_at <= $%d", argIdx))
-		args = append(args, *filter.CreatedBefore)
-		argIdx++
+	// Build conditions with "er." prefix for the main query (which has a LEFT JOIN)
+	conditions, args, argIdx, err := buildEventReportFilterConditions(tenantID, filter, "er.")
+	if err != nil {
+		return nil, 0, err
 	}
 
 	whereClause := strings.Join(conditions, " AND ")
@@ -345,54 +302,10 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 		LIMIT $%d OFFSET $%d
 	`, whereClause, argIdx, argIdx+1)
 
-	// Build count query using the same conditions but without table alias prefix
-	// We need to rebuild conditions using plain column names (no "er." prefix).
-	var countConditions []string
-	var countArgs []any
-	countArgIdx := 1
-
-	countConditions = append(countConditions, fmt.Sprintf("tenant_id = $%d", countArgIdx))
-	countArgs = append(countArgs, tenantID)
-	countArgIdx++
-
-	if filter.Namespace != "" {
-		countConditions = append(countConditions, fmt.Sprintf("namespace = $%d", countArgIdx))
-		countArgs = append(countArgs, filter.Namespace)
-		countArgIdx++
-	}
-
-	if filter.EventName != nil {
-		countConditions = append(countConditions, fmt.Sprintf("event = $%d", countArgIdx))
-		countArgs = append(countArgs, *filter.EventName)
-		countArgIdx++
-	}
-
-	if filter.SchemaValid != nil {
-		countConditions = append(countConditions, fmt.Sprintf("schema_valid = $%d", countArgIdx))
-		countArgs = append(countArgs, *filter.SchemaValid)
-		countArgIdx++
-	}
-
-	if len(filter.Labels) > 0 {
-		labelsJSON, err := json.Marshal(filter.Labels)
-		if err != nil {
-			return nil, 0, fmt.Errorf("failed to marshal label filter: %w", err)
-		}
-		countConditions = append(countConditions, fmt.Sprintf("labels @> $%d::jsonb", countArgIdx))
-		countArgs = append(countArgs, string(labelsJSON))
-		countArgIdx++
-	}
-
-	if filter.CreatedAfter != nil {
-		countConditions = append(countConditions, fmt.Sprintf("created_at >= $%d", countArgIdx))
-		countArgs = append(countArgs, *filter.CreatedAfter)
-		countArgIdx++
-	}
-
-	if filter.CreatedBefore != nil {
-		countConditions = append(countConditions, fmt.Sprintf("created_at <= $%d", countArgIdx))
-		countArgs = append(countArgs, *filter.CreatedBefore)
-		countArgIdx++ //nolint:ineffassign // kept for clarity and future extensibility
+	// Build count query using the same filter but without table alias prefix
+	countConditions, countArgs, _, err := buildEventReportFilterConditions(tenantID, filter, "")
+	if err != nil {
+		return nil, 0, err
 	}
 
 	countWhereClause := strings.Join(countConditions, " AND ")
@@ -401,7 +314,7 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 	// Execute main query
 	queryArgs := append(args, filter.Limit, filter.Offset)
 	var events []*EventReportWithStats
-	err := r.conn.SelectContext(ctx, &events, baseQuery, queryArgs...)
+	err = r.conn.SelectContext(ctx, &events, baseQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -414,6 +327,62 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 	}
 
 	return events, totalCount, nil
+}
+
+// buildEventReportFilterConditions builds the shared WHERE-clause conditions from an
+// EventReportFilter. prefix is prepended to column names (e.g. "er." for aliased queries,
+// "" for bare-table queries). Returns the conditions slice, args, and next placeholder index.
+// Used by ListEventReportsFiltered and SnapshotEventIDs.
+func buildEventReportFilterConditions(tenantID uuid.UUID, filter EventReportFilter, prefix string) ([]string, []any, int, error) {
+	var conditions []string
+	var args []any
+	argIdx := 1
+
+	conditions = append(conditions, fmt.Sprintf("%stenant_id = $%d", prefix, argIdx))
+	args = append(args, tenantID)
+	argIdx++
+
+	if filter.Namespace != "" {
+		conditions = append(conditions, fmt.Sprintf("%snamespace = $%d", prefix, argIdx))
+		args = append(args, filter.Namespace)
+		argIdx++
+	}
+
+	if filter.EventName != nil {
+		conditions = append(conditions, fmt.Sprintf("%sevent = $%d", prefix, argIdx))
+		args = append(args, *filter.EventName)
+		argIdx++
+	}
+
+	if filter.SchemaValid != nil {
+		conditions = append(conditions, fmt.Sprintf("%sschema_valid = $%d", prefix, argIdx))
+		args = append(args, *filter.SchemaValid)
+		argIdx++
+	}
+
+	if len(filter.Labels) > 0 {
+		labelsJSON, err := json.Marshal(filter.Labels)
+		if err != nil {
+			return nil, nil, 0, fmt.Errorf("failed to marshal label filter: %w", err)
+		}
+		conditions = append(conditions, fmt.Sprintf("%slabels @> $%d::jsonb", prefix, argIdx))
+		args = append(args, string(labelsJSON))
+		argIdx++
+	}
+
+	if filter.CreatedAfter != nil {
+		conditions = append(conditions, fmt.Sprintf("%screated_at >= $%d", prefix, argIdx))
+		args = append(args, *filter.CreatedAfter)
+		argIdx++
+	}
+
+	if filter.CreatedBefore != nil {
+		conditions = append(conditions, fmt.Sprintf("%screated_at <= $%d", prefix, argIdx))
+		args = append(args, *filter.CreatedBefore)
+		argIdx++
+	}
+
+	return conditions, args, argIdx, nil
 }
 
 // DeleteEventByID deletes an event record by its ID within a tenant.

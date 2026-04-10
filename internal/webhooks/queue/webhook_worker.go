@@ -200,13 +200,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		_ = w.webhookRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err), string(errorCategory))
 
 		// Record health event and update health state
-		webhookUUID := uuid.MustParse(args.WebhookID)
-		if healthErr := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, uuid.MustParse(args.DeliveryID), false, int(duration.Milliseconds()), 0, err.Error(), string(errorCategory)); healthErr != nil {
-			log.ErrorContext(ctx, "Failed to record health event", "error", healthErr)
-		}
-		if healthErr := w.webhookRepo.UpdateWebhookHealthState(ctx, webhookUUID, false, time.Now()); healthErr != nil {
-			log.ErrorContext(ctx, "Failed to update webhook health state", "error", healthErr)
-		}
+		w.recordHealthOutcome(ctx, log, args.WebhookID, args.DeliveryID, false, int(duration.Milliseconds()), 0, err.Error(), string(errorCategory))
 
 		// For non-retryable error categories (DNS, TLS), cancel River retries
 		// by returning nil instead of an error. The delivery is already marked failed.
@@ -258,13 +252,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			log.ErrorContext(ctx, "Failed to update delivery status to success", "error", err)
 		}
 
-		webhookUUID := uuid.MustParse(args.WebhookID)
-		if healthErr := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, uuid.MustParse(args.DeliveryID), true, int(duration.Milliseconds()), resp.StatusCode, "", string(sparrowerrors.CategorySuccess)); healthErr != nil {
-			log.ErrorContext(ctx, "Failed to record health event", "error", healthErr)
-		}
-		if healthErr := w.webhookRepo.UpdateWebhookHealthState(ctx, webhookUUID, true, time.Now()); healthErr != nil {
-			log.ErrorContext(ctx, "Failed to update webhook health state", "error", healthErr)
-		}
+		w.recordHealthOutcome(ctx, log, args.WebhookID, args.DeliveryID, true, int(duration.Milliseconds()), resp.StatusCode, "", string(sparrowerrors.CategorySuccess))
 
 		return nil
 	}
@@ -292,13 +280,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		log.ErrorContext(ctx, "Failed to update delivery status to failed", "error", err)
 	}
 
-	webhookUUID := uuid.MustParse(args.WebhookID)
-	if healthErr := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, uuid.MustParse(args.DeliveryID), false, int(duration.Milliseconds()), resp.StatusCode, errorMessage, string(errorCategory)); healthErr != nil {
-		log.ErrorContext(ctx, "Failed to record health event", "error", healthErr)
-	}
-	if healthErr := w.webhookRepo.UpdateWebhookHealthState(ctx, webhookUUID, false, time.Now()); healthErr != nil {
-		log.ErrorContext(ctx, "Failed to update webhook health state", "error", healthErr)
-	}
+	w.recordHealthOutcome(ctx, log, args.WebhookID, args.DeliveryID, false, int(duration.Milliseconds()), resp.StatusCode, errorMessage, string(errorCategory))
 
 	log.WarnContext(ctx, "Webhook delivery failed",
 		"status_code", resp.StatusCode,
@@ -317,6 +299,20 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 
 	return fmt.Errorf("webhook delivery failed: %s", errorMessage)
+}
+
+// recordHealthOutcome records a webhook health event and updates the health state.
+// This is the shared implementation for all delivery outcome paths (success, client error, server error).
+func (w *WebhookWorker) recordHealthOutcome(ctx context.Context, log *slog.Logger, webhookID, deliveryID string, success bool, durationMs int, statusCode int, errorMessage string, errorCategory string) {
+	webhookUUID := uuid.MustParse(webhookID)
+	deliveryUUID := uuid.MustParse(deliveryID)
+
+	if err := w.webhookRepo.RecordWebhookHealthEvent(ctx, webhookUUID, deliveryUUID, success, durationMs, statusCode, errorMessage, errorCategory); err != nil {
+		log.ErrorContext(ctx, "Failed to record health event", "error", err)
+	}
+	if err := w.webhookRepo.UpdateWebhookHealthState(ctx, webhookUUID, success, time.Now()); err != nil {
+		log.ErrorContext(ctx, "Failed to update webhook health state", "error", err)
+	}
 }
 
 // Helper function for status code checking (re-implemented as standalone or private method)
