@@ -14,79 +14,60 @@ Sparrow provides generated client stubs for Go, JavaScript/TypeScript, and Pytho
 | **Connect-RPC** (recommended) | 8080 | HTTP/JSON, browsers, proxies, standard `net/http` |
 | **gRPC** | 50051 | HTTP/2 streaming, existing gRPC infrastructure |
 
-## Go (Connect-RPC)
+:::tip
+For step-by-step integration guides with full examples, see:
+- [Go SDK Guide](/sparrow/guides/go/)
+- [Python SDK Guide](/sparrow/guides/python/)
+- [TypeScript SDK Guide](/sparrow/guides/typescript/)
+:::
 
-Connect-RPC uses standard `net/http` -- no special transport, no HTTP/2 requirement.
+## Go
 
-### Installation
+The Go client is part of the main Sparrow module. Import directly:
+
+<Tabs>
+<TabItem label="Connect-RPC (Recommended)">
 
 ```bash
-go get github.com/sarathsp06/sparrow/client/go/proto
+go get github.com/sarathsp06/sparrow
 go get connectrpc.com/connect
 ```
 
-### Usage
-
 ```go
-package main
-
 import (
-    "context"
-    "log"
-    "net/http"
-
     "connectrpc.com/connect"
-    "google.golang.org/protobuf/types/known/structpb"
 
-    pb "github.com/sarathsp06/sparrow/client/go/proto"
-    pbconnect "github.com/sarathsp06/sparrow/client/go/proto/protoconnect"
+    pb "github.com/sarathsp06/sparrow/proto"
+    pbconnect "github.com/sarathsp06/sparrow/proto/protoconnect"
 )
 
-func main() {
-    httpClient := http.DefaultClient
-    webhookClient := pbconnect.NewWebhookServiceClient(httpClient, "http://localhost:8080")
-    eventClient := pbconnect.NewEventServiceClient(httpClient, "http://localhost:8080")
+httpClient := http.DefaultClient
+client := pbconnect.NewWebhookServiceClient(httpClient, "http://localhost:8080")
 
-    ctx := context.Background()
-
-    // Register a webhook
-    resp, err := webhookClient.RegisterWebhook(ctx, connect.NewRequest(&pb.RegisterWebhookRequest{
-        Namespace: "default",
-        Url:       "https://testhooks.sarathsadasivan.com/hooks",
-        Events:    []string{"order.created"},
-        Active:    true,
-    }))
-    if err != nil {
-        log.Fatal(err)
-    }
-    log.Printf("Webhook ID: %s", resp.Msg.GetWebhookId())
-
-    // Push an event
-    payload, _ := structpb.NewStruct(map[string]any{
-        "order_id": "ord_456",
-        "total":    149.99,
-    })
-    pushResp, err := eventClient.PushEvent(ctx, connect.NewRequest(&pb.PushEventRequest{
-        Namespace:  "default",
-        Event:      "order.created",
-        Payload:    payload,
-        TtlSeconds: 3600,
-    }))
-    if err != nil {
-        log.Fatal(err)
-    }
-    log.Printf("Event ID: %s", pushResp.Msg.GetEventId())
-}
+resp, err := client.RegisterWebhook(ctx, connect.NewRequest(&pb.RegisterWebhookRequest{
+    Namespace: "default",
+    Url:       "https://example.com/webhook",
+    Events:    []string{"order.created"},
+    Active:    true,
+}))
 ```
 
-## Go (gRPC)
+</TabItem>
+<TabItem label="gRPC">
 
 ```bash
-go get github.com/sarathsp06/sparrow/client/go/proto
+go get github.com/sarathsp06/sparrow
 go get google.golang.org/grpc
 ```
 
 ```go
+import (
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+    pb "github.com/sarathsp06/sparrow/proto"
+)
+
 conn, err := grpc.NewClient("localhost:50051",
     grpc.WithTransportCredentials(insecure.NewCredentials()),
 )
@@ -95,39 +76,55 @@ defer conn.Close()
 client := pb.NewWebhookServiceClient(conn)
 resp, err := client.RegisterWebhook(ctx, &pb.RegisterWebhookRequest{
     Namespace: "default",
-    Url:       "https://testhooks.sarathsadasivan.com/hooks",
+    Url:       "https://example.com/webhook",
     Events:    []string{"order.created"},
     Active:    true,
 })
 ```
 
-## JavaScript / TypeScript (Connect-RPC)
+</TabItem>
+</Tabs>
+
+## JavaScript / TypeScript
+
+Connect-RPC client for browsers and Node.js:
 
 ```bash
-npm install @connectrpc/connect @connectrpc/connect-web @bufbuild/protobuf
+npm install @bufbuild/protobuf @connectrpc/connect @connectrpc/connect-web
 ```
 
+Copy `client/js/connect/proto/` into your project, then:
+
 ```typescript
-import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
+import { createConnectTransport } from "@connectrpc/connect-web";
+import { WebhookService } from "./lib/sparrow/webhook_pb";
 
 const transport = createConnectTransport({
   baseUrl: "http://localhost:8080",
 });
 
-// Use with generated service definitions from client/js/connect/
+const client = createClient(WebhookService, transport);
+
+const resp = await client.registerWebhook({
+  namespace: "default",
+  url: "https://example.com/webhook",
+  events: ["order.created"],
+  active: true,
+});
 ```
 
-## Python (gRPC)
+## Python
+
+gRPC client (no Connect-RPC plugin available for Python):
 
 ```bash
-pip install grpcio grpcio-tools protobuf
+pip install grpcio protobuf
 ```
 
 ```python
 import grpc
 from proto import webhook_pb2, webhook_pb2_grpc
-from google.protobuf.struct_pb2 import Struct
 
 channel = grpc.insecure_channel("localhost:50051")
 stub = webhook_pb2_grpc.WebhookServiceStub(channel)
@@ -136,12 +133,22 @@ response = stub.RegisterWebhook(
     webhook_pb2.RegisterWebhookRequest(
         namespace="default",
         events=["order.created"],
-        url="https://testhooks.sarathsadasivan.com/hooks",
+        url="https://example.com/webhook",
         active=True,
     )
 )
 print(f"Webhook ID: {response.webhook_id}")
 ```
+
+## Available Services
+
+| Service | Description |
+|---|---|
+| `WebhookService` | Register, update, pause/resume webhooks |
+| `EventService` | Push events, register event types, re-push |
+| `SubscriptionService` | Manage webhook-event subscriptions |
+| `DeliveryService` | Query delivery history, retry deliveries |
+| `HealthService` | Webhook health metrics and summaries |
 
 ## Regenerating Clients
 

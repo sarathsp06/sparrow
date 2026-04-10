@@ -1,0 +1,37 @@
+{
+  "name": "@sparrow-webhooks/connect",
+  "version": "1.1.1",
+  "description": "TypeScript Connect-RPC client for Sparrow webhook delivery platform",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sarathsp06/sparrow",
+    "directory": "client/js/connect"
+  },
+  "homepage": "https://sarathsp06.github.io/sparrow",
+  "exports": {
+    ".": {
+      "import": "./proto/webhook_pb.js",
+      "types": "./proto/webhook_pb.d.ts"
+    },
+    "./proto/*": "./proto/*"
+  },
+  "main": "./proto/webhook_pb.js",
+  "types": "./proto/webhook_pb.d.ts",
+  "files": [
+    "proto/"
+  ],
+  "peerDependencies": {
+    "@bufbuild/protobuf": "^2.0.0",
+    "@connectrpc/connect": "^2.0.0",
+    "@connectrpc/connect-web": "^2.0.0"
+  },
+  "keywords": [
+    "sparrow",
+    "webhooks",
+    "connect-rpc",
+    "protobuf",
+    "grpc"
+  ]
+}

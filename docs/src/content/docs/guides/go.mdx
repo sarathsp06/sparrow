@@ -1,0 +1,320 @@
+---
+title: Go SDK
+description: Integrate Sparrow webhooks into your Go application using Connect-RPC or gRPC.
+sidebar:
+  order: 1
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Sparrow provides generated Go client stubs for both **Connect-RPC** (recommended) and **gRPC**. The Go client is part of the main Sparrow module -- no separate dependency needed.
+
+## Installation
+
+<Tabs>
+<TabItem label="Connect-RPC (Recommended)">
+
+```bash
+go get github.com/sarathsp06/sparrow
+go get connectrpc.com/connect
+```
+
+</TabItem>
+<TabItem label="gRPC">
+
+```bash
+go get github.com/sarathsp06/sparrow
+go get google.golang.org/grpc
+```
+
+</TabItem>
+</Tabs>
+
+## Quick Start
+
+<Steps>
+
+1. **Import the packages**
+
+    <Tabs>
+    <TabItem label="Connect-RPC">
+
+    ```go
+    import (
+        "connectrpc.com/connect"
+
+        pb "github.com/sarathsp06/sparrow/proto"
+        pbconnect "github.com/sarathsp06/sparrow/proto/protoconnect"
+    )
+    ```
+
+    </TabItem>
+    <TabItem label="gRPC">
+
+    ```go
+    import (
+        "google.golang.org/grpc"
+        "google.golang.org/grpc/credentials/insecure"
+
+        pb "github.com/sarathsp06/sparrow/proto"
+    )
+    ```
+
+    </TabItem>
+    </Tabs>
+
+2. **Create a client**
+
+    <Tabs>
+    <TabItem label="Connect-RPC">
+
+    Connect-RPC uses standard `net/http` -- no special transport, no HTTP/2 requirement, works through any proxy.
+
+    ```go
+    httpClient := http.DefaultClient
+    webhookClient := pbconnect.NewWebhookServiceClient(httpClient, "http://localhost:8080")
+    eventClient := pbconnect.NewEventServiceClient(httpClient, "http://localhost:8080")
+    ```
+
+    </TabItem>
+    <TabItem label="gRPC">
+
+    ```go
+    conn, err := grpc.NewClient("localhost:50051",
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer conn.Close()
+
+    webhookClient := pb.NewWebhookServiceClient(conn)
+    eventClient := pb.NewEventServiceClient(conn)
+    ```
+
+    </TabItem>
+    </Tabs>
+
+3. **Register a webhook and push an event**
+
+    <Tabs>
+    <TabItem label="Connect-RPC">
+
+    ```go
+    ctx := context.Background()
+
+    // Register a webhook
+    resp, err := webhookClient.RegisterWebhook(ctx, connect.NewRequest(&pb.RegisterWebhookRequest{
+        Namespace: "default",
+        Url:       "https://example.com/webhook",
+        Events:    []string{"order.created"},
+        Active:    true,
+    }))
+    if err != nil {
+        log.Fatal(err)
+    }
+    log.Printf("Webhook ID: %s", resp.Msg.GetWebhookId())
+
+    // Push an event
+    payload, _ := structpb.NewStruct(map[string]any{
+        "order_id": "ord_456",
+        "total":    149.99,
+    })
+    pushResp, err := eventClient.PushEvent(ctx, connect.NewRequest(&pb.PushEventRequest{
+        Namespace:  "default",
+        Event:      "order.created",
+        Payload:    payload,
+        TtlSeconds: 3600,
+    }))
+    if err != nil {
+        log.Fatal(err)
+    }
+    log.Printf("Event ID: %s", pushResp.Msg.GetEventId())
+    ```
+
+    </TabItem>
+    <TabItem label="gRPC">
+
+    ```go
+    ctx := context.Background()
+
+    // Register a webhook
+    resp, err := webhookClient.RegisterWebhook(ctx, &pb.RegisterWebhookRequest{
+        Namespace: "default",
+        Url:       "https://example.com/webhook",
+        Events:    []string{"order.created"},
+        Active:    true,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    log.Printf("Webhook ID: %s", resp.WebhookId)
+
+    // Push an event
+    payload, _ := structpb.NewStruct(map[string]any{
+        "order_id": "ord_456",
+        "total":    149.99,
+    })
+    pushResp, err := eventClient.PushEvent(ctx, &pb.PushEventRequest{
+        Namespace:  "default",
+        Event:      "order.created",
+        Payload:    payload,
+        TtlSeconds: 3600,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    log.Printf("Event ID: %s", pushResp.EventId)
+    ```
+
+    </TabItem>
+    </Tabs>
+
+</Steps>
+
+## API Key Authentication
+
+If the Sparrow server has `SPARROW_API_KEY` set, include the key in requests:
+
+<Tabs>
+<TabItem label="Connect-RPC">
+
+```go
+// Create an interceptor that adds the API key header
+type apiKeyInterceptor struct {
+    key string
+}
+
+func (i *apiKeyInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+    return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+        req.Header().Set("X-API-Key", i.key)
+        return next(ctx, req)
+    }
+}
+
+func (i *apiKeyInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+    return next // not needed for Sparrow (no streaming RPCs)
+}
+
+func (i *apiKeyInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+    return next
+}
+
+// Use the interceptor when creating clients
+interceptor := &apiKeyInterceptor{key: "your-api-key"}
+client := pbconnect.NewWebhookServiceClient(
+    http.DefaultClient,
+    "http://localhost:8080",
+    connect.WithInterceptors(interceptor),
+)
+```
+
+</TabItem>
+<TabItem label="gRPC">
+
+```go
+// Per-RPC credentials
+type apiKeyCredentials struct {
+    key string
+}
+
+func (c apiKeyCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+    return map[string]string{"x-api-key": c.key}, nil
+}
+
+func (c apiKeyCredentials) RequireTransportSecurity() bool { return false }
+
+// Use when dialing
+conn, err := grpc.NewClient("localhost:50051",
+    grpc.WithTransportCredentials(insecure.NewCredentials()),
+    grpc.WithPerRPCCredentials(apiKeyCredentials{key: "your-api-key"}),
+)
+```
+
+</TabItem>
+</Tabs>
+
+## Label Filters
+
+Subscriptions can use label filters to receive only matching events:
+
+```go
+// Create a subscription that only receives premium plan events
+subResp, err := subscriptionClient.CreateSubscription(ctx, connect.NewRequest(&pb.CreateSubscriptionRequest{
+    WebhookId: webhookID,
+    EventName: "order.created",
+    Namespace: "default",
+    Active:    true,
+    LabelFilters: map[string]string{
+        "plan": "premium",
+    },
+}))
+
+// Push an event with labels -- only matching subscriptions trigger delivery
+pushResp, err := eventClient.PushEvent(ctx, connect.NewRequest(&pb.PushEventRequest{
+    Namespace:  "default",
+    Event:      "order.created",
+    Payload:    payload,
+    TtlSeconds: 3600,
+    Labels: map[string]string{
+        "plan":   "premium",
+        "region": "us-east-1",
+    },
+}))
+```
+
+## TLS Configuration
+
+<Tabs>
+<TabItem label="Connect-RPC">
+
+Connect-RPC uses standard `net/http`, so TLS configuration is straightforward:
+
+```go
+httpClient := &http.Client{
+    Transport: &http.Transport{
+        TLSClientConfig: &tls.Config{
+            // your TLS config
+        },
+    },
+    Timeout: 30 * time.Second,
+}
+client := pbconnect.NewWebhookServiceClient(httpClient, "https://sparrow.example.com:8080")
+```
+
+</TabItem>
+<TabItem label="gRPC">
+
+```go
+creds, err := credentials.NewClientTLSFromFile("ca-cert.pem", "")
+if err != nil {
+    log.Fatal(err)
+}
+
+conn, err := grpc.NewClient("sparrow.example.com:50051",
+    grpc.WithTransportCredentials(creds),
+)
+```
+
+</TabItem>
+</Tabs>
+
+## Available Services
+
+| Client Constructor | Description |
+|---|---|
+| `NewWebhookServiceClient` | Register, update, pause/resume webhooks |
+| `NewEventServiceClient` | Push events, register event types, re-push |
+| `NewSubscriptionServiceClient` | Manage webhook-event subscriptions |
+| `NewDeliveryServiceClient` | Query delivery history, retry deliveries |
+| `NewHealthServiceClient` | Webhook health metrics and summaries |
+
+## Full Example
+
+See the complete working example in the [client README](https://github.com/sarathsp06/sparrow/blob/main/client/README.md#go-connect-rpc----recommended).
+
+## Next Steps
+
+- [API Reference](/sparrow/reference/api/) -- full RPC documentation
+- [Template Functions](/sparrow/reference/template-functions/) -- payload transformation
+- [Error Classification](/sparrow/reference/error-classification/) -- delivery error handling

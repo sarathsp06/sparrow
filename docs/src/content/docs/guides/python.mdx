@@ -1,0 +1,200 @@
+---
+title: Python SDK
+description: Integrate Sparrow webhooks into your Python application using gRPC.
+sidebar:
+  order: 2
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Sparrow provides generated Python gRPC client stubs. No Connect-RPC plugin is available for Python, so the gRPC transport on port 50051 is used.
+
+## Installation
+
+<Tabs>
+<TabItem label="pip install (from source)">
+
+```bash
+cd client/python
+pip install -e .
+```
+
+This installs `grpcio` and `protobuf` as dependencies.
+
+</TabItem>
+<TabItem label="Dependencies only">
+
+If you prefer to use the proto stubs directly without installing as a package:
+
+```bash
+pip install grpcio protobuf
+```
+
+Then copy `client/python/proto/` into your project.
+
+</TabItem>
+</Tabs>
+
+## Quick Start
+
+<Steps>
+
+1. **Import the stubs**
+
+    ```python
+    import grpc
+    from proto import webhook_pb2, webhook_pb2_grpc
+    from google.protobuf.struct_pb2 import Struct
+    ```
+
+2. **Create a channel and stubs**
+
+    ```python
+    channel = grpc.insecure_channel("localhost:50051")
+
+    webhook_stub = webhook_pb2_grpc.WebhookServiceStub(channel)
+    event_stub = webhook_pb2_grpc.EventServiceStub(channel)
+    subscription_stub = webhook_pb2_grpc.SubscriptionServiceStub(channel)
+    delivery_stub = webhook_pb2_grpc.DeliveryServiceStub(channel)
+    health_stub = webhook_pb2_grpc.HealthServiceStub(channel)
+    ```
+
+3. **Register a webhook and push an event**
+
+    ```python
+    # Register an event type
+    event_stub.RegisterEvent(
+        webhook_pb2.RegisterEventRequest(
+            name="order.created",
+            description="Fires when a new order is placed",
+            active=True,
+        )
+    )
+
+    # Register a webhook
+    response = webhook_stub.RegisterWebhook(
+        webhook_pb2.RegisterWebhookRequest(
+            namespace="default",
+            events=["order.created"],
+            url="https://example.com/webhook",
+            active=True,
+        )
+    )
+    webhook_id = response.webhook_id
+    print(f"Webhook registered: {webhook_id}")
+
+    # Push an event
+    payload = Struct()
+    payload.update({"order_id": "ord_123", "total": 49.99})
+
+    push_response = event_stub.PushEvent(
+        webhook_pb2.PushEventRequest(
+            namespace="default",
+            event="order.created",
+            payload=payload,
+            ttl_seconds=3600,
+            labels={"plan": "premium", "region": "us-east-1"},
+        )
+    )
+    print(f"Event pushed: {push_response.event_id}")
+    ```
+
+</Steps>
+
+## API Key Authentication
+
+If the Sparrow server has `SPARROW_API_KEY` set, include the key as gRPC metadata:
+
+```python
+metadata = [("x-api-key", "your-api-key")]
+
+response = webhook_stub.RegisterWebhook(
+    webhook_pb2.RegisterWebhookRequest(
+        namespace="default",
+        events=["order.created"],
+        url="https://example.com/webhook",
+        active=True,
+    ),
+    metadata=metadata,
+)
+```
+
+To apply the API key globally, use a channel interceptor:
+
+```python
+class ApiKeyInterceptor(grpc.UnaryUnaryClientInterceptor):
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+
+    def intercept_unary_unary(self, continuation, client_call_details, request):
+        metadata = list(client_call_details.metadata or [])
+        metadata.append(("x-api-key", self.api_key))
+        new_details = grpc.ClientCallDetails(
+            client_call_details.method,
+            client_call_details.timeout,
+            metadata,
+            client_call_details.credentials,
+            client_call_details.wait_for_ready,
+            client_call_details.compression,
+        )
+        return continuation(new_details, request)
+
+# Apply to the channel
+channel = grpc.intercept_channel(
+    grpc.insecure_channel("localhost:50051"),
+    ApiKeyInterceptor("your-api-key"),
+)
+```
+
+## Checking Deliveries
+
+```python
+deliveries = delivery_stub.ListDeliveries(
+    webhook_pb2.ListDeliveriesRequest(
+        webhook_id=webhook_id,
+        namespace="default",
+        limit=10,
+    )
+)
+for d in deliveries.deliveries:
+    print(f"Delivery {d.id}: status={d.status} attempts={d.attempt_count}")
+```
+
+## Checking Webhook Health
+
+```python
+health = health_stub.GetWebhookHealth(
+    webhook_pb2.GetWebhookHealthRequest(
+        webhook_id=webhook_id,
+        namespace="default",
+    )
+)
+print(f"Health: {health.health_status}, success_rate={health.success_rate:.1f}%")
+```
+
+## TLS Configuration
+
+```python
+# Load a CA certificate
+with open("ca-cert.pem", "rb") as f:
+    ca_cert = f.read()
+
+credentials = grpc.ssl_channel_credentials(root_certificates=ca_cert)
+channel = grpc.secure_channel("sparrow.example.com:50051", credentials)
+```
+
+## Available Stubs
+
+| Stub Class | Description |
+|---|---|
+| `WebhookServiceStub` | Register, update, pause/resume webhooks |
+| `EventServiceStub` | Push events, register event types, re-push |
+| `SubscriptionServiceStub` | Manage webhook-event subscriptions |
+| `DeliveryServiceStub` | Query delivery history, retry deliveries |
+| `HealthServiceStub` | Webhook health metrics and summaries |
+
+## Next Steps
+
+- [API Reference](/sparrow/reference/api/) -- full RPC documentation
+- [Template Functions](/sparrow/reference/template-functions/) -- payload transformation
+- [Error Classification](/sparrow/reference/error-classification/) -- delivery error handling
