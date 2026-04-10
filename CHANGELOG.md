@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-04-10
+
+### Fixed
+
+- N+1 query in ListWebhooks and ListWebhooksByHealth -- subscription events are now batch-fetched in a single query via `ListSubscriptionsByWebhookIDs`
+- Batch worker terminal status decision used stale local counters after periodic flush; now re-reads cumulative totals from DB
+- Double close of HTTP response body in webhook client `ReadBody`
+- Non-atomic `UpdateWebhookConfig` -- webhook update and subscription replacement now run in a single transaction via `RunInTransaction`
+- `GetWebhookByID` and `GetSubscription` returned `(nil, nil)` for not-found instead of `(nil, ErrNotFound)`
+- `RegisterWebhook` and `RegisterWebhookWithSubscriptions` silently returned nil on duplicate URL instead of `ErrAlreadyExists`
+- Readiness probe now pings the database and returns 503 if unreachable
+- Helm chart now validates `secrets.encryptionKey` is set via `{{ required }}` template function
+
+### Changed
+
+- Per-webhook request timeout applied via `context.WithTimeout` using the configured `request_timeout_seconds`
+- Service-layer validation errors now use typed `svcerrors.ServiceError` with explicit gRPC codes, replacing the fragile string-matching fallback block in `toGRPCError`
+- Landing page compliance tags changed from "HIPAA-Ready" / "SOC 2" to "Audit-Friendly" / "Compliance-Ready"
+- Added `config.Validate()` with port range, encryption key, and DATABASE_URL checks on startup
+- Simplified `GetWebhooksByHealthPaginated` implementation using `SelectContext` instead of manual row scanning
+- Documented PushEvent cross-driver transaction gap (sqlx vs pgxpool)
+- Documented `GenerateKey` as a test/development utility in crypto package
+
 ## [1.1.2] - 2026-04-10
 
 ### Changed
