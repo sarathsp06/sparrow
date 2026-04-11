@@ -287,6 +287,7 @@ func convertWebhookRegToProto(reg *store.WebhookRegistration, events []string, s
 			WebhookSecret:         maskEncryptedSecret(reg.WebhookSecret, svc),
 			UserAgent:             reg.UserAgent,
 			ContentType:           reg.ContentType,
+			RateLimitRps:          float64PtrToFloat32Ptr(reg.RateLimitRPS),
 		},
 	}
 }

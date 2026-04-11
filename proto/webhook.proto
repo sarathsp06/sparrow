@@ -402,6 +402,12 @@ message WebhookHTTPConfig {
   // Default: "application/json". Change if your endpoint expects a different media type.
   // @example "application/json"
   string content_type = 10;
+
+  // Maximum requests per second for this webhook. When set, Sparrow uses a
+  // leaky bucket to space deliveries evenly, preventing bursts.
+  // When omitted (or 0), no rate limit is applied.
+  // @example 10.0
+  optional float rate_limit_rps = 11;
 }
 
 // ---------------------------------------------------------------------------

@@ -73,8 +73,8 @@ func insertWebhookRegistration(ctx context.Context, conn storage.DBTX, tenantID 
 			id, tenant_id, namespace, url, headers, timeout, active, description, health,
 			max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			user_agent, content_type, secret_headers, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+			user_agent, content_type, secret_headers, rate_limit_rps, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
 	`
 
 	_, err = conn.ExecContext(ctx, query,
@@ -98,6 +98,7 @@ func insertWebhookRegistration(ctx context.Context, conn storage.DBTX, tenantID 
 		registration.UserAgent,
 		registration.ContentType,
 		registration.SecretHeaders,
+		registration.RateLimitRPS,
 		registration.CreatedAt,
 		registration.UpdatedAt,
 	)
@@ -156,7 +157,7 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 		SELECT DISTINCT wr.id, wr.tenant_id, wr.namespace, wr.url, wr.headers, wr.timeout, wr.active, wr.description, wr.health,
 		       wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
 		       wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
-		       wr.user_agent, wr.content_type, wr.secret_headers, wr.created_at, wr.updated_at
+		       wr.user_agent, wr.content_type, wr.secret_headers, wr.rate_limit_rps, wr.created_at, wr.updated_at
 		FROM webhook_registrations wr
 		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
 		WHERE %s
@@ -309,7 +310,7 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			SELECT id, tenant_id, namespace, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			       user_agent, content_type, secret_headers, created_at, updated_at
+			       user_agent, content_type, secret_headers, rate_limit_rps, created_at, updated_at
 			FROM webhook_registrations
 			WHERE id = $1 AND tenant_id = $2 AND namespace = $3
 		`
@@ -319,7 +320,7 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			SELECT id, tenant_id, namespace, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			       user_agent, content_type, secret_headers, created_at, updated_at
+			       user_agent, content_type, secret_headers, rate_limit_rps, created_at, updated_at
 			FROM webhook_registrations
 			WHERE id = $1 AND tenant_id = $2
 		`
@@ -354,7 +355,7 @@ func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webh
 		    verify_ssl = $13, request_timeout_seconds = $14,
 		    expected_status_codes = $15, webhook_secret = $16,
 		    user_agent = $17, content_type = $18,
-		    secret_headers = $19, updated_at = NOW()
+		    secret_headers = $19, rate_limit_rps = $20, updated_at = NOW()
 		WHERE id = $1 AND tenant_id = $2 AND namespace = $3
 	`
 
@@ -366,7 +367,7 @@ func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webh
 		webhook.VerifySSL, webhook.RequestTimeoutSeconds,
 		pq.Array(webhook.ExpectedStatusCodes), webhook.WebhookSecret,
 		webhook.UserAgent, webhook.ContentType,
-		webhook.SecretHeaders,
+		webhook.SecretHeaders, webhook.RateLimitRPS,
 	)
 	return storage.Error(err)
 }
@@ -391,7 +392,7 @@ func (r *Repository) GetWebhooksByHealthPaginated(ctx context.Context, tenantID 
 		       active, description, health,
 		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-		       user_agent, content_type, secret_headers, created_at, updated_at
+		       user_agent, content_type, secret_headers, rate_limit_rps, created_at, updated_at
 		FROM webhook_registrations
 		WHERE tenant_id = $1 AND health = $2
 		ORDER BY created_at DESC
@@ -454,5 +455,64 @@ func insertSubscription(ctx context.Context, conn storage.DBTX, tenantID uuid.UU
 		sub.CreatedAt,
 		sub.UpdatedAt,
 	)
+	return storage.Error(err)
+}
+
+// AcquireDeliverySlot atomically advances the leaky bucket for a webhook and
+// returns the slot time assigned to this delivery plus the configured rate.
+// If the webhook has no rate limit state row, returns (zero time, 0, nil)
+// meaning "no rate limit configured — send immediately".
+func (r *Repository) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (time.Time, float64, error) {
+	// Atomic UPDATE that advances next_delivery_at by 1/rate_limit_rps.
+	// If the bucket has drained (next_delivery_at <= NOW()), the next slot
+	// starts from NOW() + interval. Otherwise it extends from the current
+	// next_delivery_at. The RETURNING clause gives us the NEW next_delivery_at
+	// (the slot AFTER ours) and the rate. Our slot = returned - interval.
+	query := `
+		UPDATE webhook_rate_limit_state rls
+		SET next_delivery_at =
+			CASE
+				WHEN rls.next_delivery_at <= NOW()
+				THEN NOW() + (interval '1 second' / wr.rate_limit_rps)
+				ELSE rls.next_delivery_at + (interval '1 second' / wr.rate_limit_rps)
+			END
+		FROM webhook_registrations wr
+		WHERE rls.webhook_id = wr.id AND rls.webhook_id = $1
+		RETURNING rls.next_delivery_at, wr.rate_limit_rps
+	`
+
+	var result struct {
+		NextDeliveryAt time.Time `db:"next_delivery_at"`
+		RateLimitRPS   float64   `db:"rate_limit_rps"`
+	}
+	err := r.conn.GetContext(ctx, &result, query, webhookID)
+	if err != nil {
+		// sql.ErrNoRows means no rate limit state row — no limit configured
+		if storage.IsNotFound(err) {
+			return time.Time{}, 0, nil
+		}
+		return time.Time{}, 0, storage.Error(err)
+	}
+
+	return result.NextDeliveryAt, result.RateLimitRPS, nil
+}
+
+// UpsertRateLimitState creates or resets the rate limit state row for a webhook.
+// Called when a webhook is created or updated with a rate limit.
+func (r *Repository) UpsertRateLimitState(ctx context.Context, webhookID uuid.UUID) error {
+	query := `
+		INSERT INTO webhook_rate_limit_state (webhook_id, next_delivery_at)
+		VALUES ($1, NOW())
+		ON CONFLICT (webhook_id) DO UPDATE SET next_delivery_at = NOW()
+	`
+	_, err := r.conn.ExecContext(ctx, query, webhookID)
+	return storage.Error(err)
+}
+
+// DeleteRateLimitState removes the rate limit state row for a webhook.
+// Called when rate limiting is removed from a webhook.
+func (r *Repository) DeleteRateLimitState(ctx context.Context, webhookID uuid.UUID) error {
+	query := `DELETE FROM webhook_rate_limit_state WHERE webhook_id = $1`
+	_, err := r.conn.ExecContext(ctx, query, webhookID)
 	return storage.Error(err)
 }

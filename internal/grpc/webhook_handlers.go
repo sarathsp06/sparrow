@@ -113,6 +113,7 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 				WebhookSecret:         req.Updates.HttpConfig.WebhookSecret,
 				UserAgent:             req.Updates.HttpConfig.UserAgent,
 				ContentType:           req.Updates.HttpConfig.ContentType,
+				RateLimitRPS:          float32PtrToFloat64Ptr(req.Updates.HttpConfig.RateLimitRps),
 			}
 		}
 	}

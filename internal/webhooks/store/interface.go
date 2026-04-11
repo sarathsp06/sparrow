@@ -91,6 +91,11 @@ type RepositoryInterface interface {
 	CleanupExpiredBatchJobs(ctx context.Context) (int, error)
 	SnapshotEventIDs(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]string, error)
 	SnapshotDeliveryIDs(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]string, error)
+
+	// Rate Limiting
+	AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (time.Time, float64, error)
+	UpsertRateLimitState(ctx context.Context, webhookID uuid.UUID) error
+	DeleteRateLimitState(ctx context.Context, webhookID uuid.UUID) error
 }
 
 var _ RepositoryInterface = (*Repository)(nil)

@@ -48,6 +48,11 @@ const (
 	// Typically retryable.
 	CategoryNetworkError ErrorCategory = "network_error"
 
+	// CategoryRateLimited indicates a 429 Too Many Requests response.
+	// Retryable - the server is temporarily rejecting requests due to rate
+	// limiting. The delivery should be retried after the Retry-After period.
+	CategoryRateLimited ErrorCategory = "rate_limited"
+
 	// CategoryUnexpectedStatus indicates the HTTP response code did not match
 	// the webhook's configured expected_status_codes. For example, a 201 response
 	// when only 200 is expected. The server responded, but the status is not
@@ -67,7 +72,7 @@ const (
 // mismatch between the response and the webhook's expected_status_codes.
 func IsRetryableCategory(cat ErrorCategory) bool {
 	switch cat {
-	case CategoryServerError, CategoryTimeout, CategoryConnectionRefused, CategoryNetworkError:
+	case CategoryServerError, CategoryTimeout, CategoryConnectionRefused, CategoryNetworkError, CategoryRateLimited:
 		return true
 	case CategoryClientError, CategoryDNSError, CategoryTLSError, CategoryUnexpectedStatus:
 		return false
@@ -81,6 +86,8 @@ func ClassifyHTTPStatus(statusCode int) ErrorCategory {
 	switch {
 	case statusCode >= 200 && statusCode < 300:
 		return CategorySuccess
+	case statusCode == 429:
+		return CategoryRateLimited
 	case statusCode >= 400 && statusCode < 500:
 		return CategoryClientError
 	case statusCode >= 500:

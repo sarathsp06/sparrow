@@ -25,6 +25,7 @@ func ConvertProtoHTTPConfig(protoConfig *pb.WebhookHTTPConfig) *webhooks.Webhook
 		WebhookSecret:         protoConfig.WebhookSecret,
 		UserAgent:             protoConfig.UserAgent,
 		ContentType:           protoConfig.ContentType,
+		RateLimitRPS:          float32PtrToFloat64Ptr(protoConfig.RateLimitRps),
 	}
 
 	// Convert expected status codes
@@ -75,6 +76,7 @@ func ConvertInternalHTTPConfig(config *webhooks.WebhookHTTPConfig) *pb.WebhookHT
 		WebhookSecret:         config.WebhookSecret,
 		UserAgent:             config.UserAgent,
 		ContentType:           config.ContentType,
+		RateLimitRps:          float64PtrToFloat32Ptr(config.RateLimitRPS),
 	}
 
 	// Convert expected status codes
@@ -156,4 +158,22 @@ func ConvertWebhookRegistrationToProto(webhook *webhooks.WebhookRegistration) *p
 	}
 
 	return protoWebhook
+}
+
+// float32PtrToFloat64Ptr converts *float32 (proto) to *float64 (internal model).
+func float32PtrToFloat64Ptr(f *float32) *float64 {
+	if f == nil {
+		return nil
+	}
+	v := float64(*f)
+	return &v
+}
+
+// float64PtrToFloat32Ptr converts *float64 (internal model) to *float32 (proto).
+func float64PtrToFloat32Ptr(f *float64) *float32 {
+	if f == nil {
+		return nil
+	}
+	v := float32(*f)
+	return &v
 }

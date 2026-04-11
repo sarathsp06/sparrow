@@ -39,6 +39,31 @@ func NewRepositoryInterfaceWithTracing(base RepositoryInterface, instance string
 	return d
 }
 
+// AcquireDeliverySlot implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (t1 time.Time, f1 float64, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.AcquireDeliverySlot")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"webhookID": webhookID}, map[string]interface{}{
+				"t1":  t1,
+				"f1":  f1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.AcquireDeliverySlot(ctx, webhookID)
+}
+
 // AggregateHealthSummaries implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) AggregateHealthSummaries(ctx context.Context) (i1 int, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.AggregateHealthSummaries")
@@ -278,6 +303,29 @@ func (_d RepositoryInterfaceWithTracing) DeleteEventByID(ctx context.Context, te
 		_span.End()
 	}()
 	return _d.RepositoryInterface.DeleteEventByID(ctx, tenantID, eventID)
+}
+
+// DeleteRateLimitState implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) DeleteRateLimitState(ctx context.Context, webhookID uuid.UUID) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.DeleteRateLimitState")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"webhookID": webhookID}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.DeleteRateLimitState(ctx, webhookID)
 }
 
 // DeleteSubscription implements RepositoryInterface
@@ -1622,4 +1670,27 @@ func (_d RepositoryInterfaceWithTracing) UpdateWebhookHealthState(ctx context.Co
 		_span.End()
 	}()
 	return _d.RepositoryInterface.UpdateWebhookHealthState(ctx, webhookID, success, eventTimestamp)
+}
+
+// UpsertRateLimitState implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) UpsertRateLimitState(ctx context.Context, webhookID uuid.UUID) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.UpsertRateLimitState")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"webhookID": webhookID}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.UpsertRateLimitState(ctx, webhookID)
 }

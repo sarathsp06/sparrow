@@ -28,7 +28,7 @@ func TestClassifyHTTPStatus(t *testing.T) {
 		{"404 Not Found", 404, CategoryClientError},
 		{"410 Gone", 410, CategoryClientError},
 		{"422 Unprocessable", 422, CategoryClientError},
-		{"429 Too Many Requests", 429, CategoryClientError},
+		{"429 Too Many Requests", 429, CategoryRateLimited},
 		{"499 edge", 499, CategoryClientError},
 		{"500 Internal Server Error", 500, CategoryServerError},
 		{"502 Bad Gateway", 502, CategoryServerError},
@@ -223,6 +223,7 @@ func TestIsRetryableCategory(t *testing.T) {
 		{CategoryTLSError, false},
 		{CategoryConnectionRefused, true},
 		{CategoryNetworkError, true},
+		{CategoryRateLimited, true},
 		{CategoryUnexpectedStatus, false},
 		{CategoryUnknown, false},
 	}

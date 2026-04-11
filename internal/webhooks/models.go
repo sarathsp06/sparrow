@@ -45,6 +45,7 @@ type WebhookHTTPConfig struct {
 	WebhookSecret         string   `db:"webhook_secret" json:"webhook_secret,omitempty"`
 	UserAgent             string   `db:"user_agent" json:"user_agent"`
 	ContentType           string   `db:"content_type" json:"content_type"`
+	RateLimitRPS          *float64 `db:"rate_limit_rps" json:"rate_limit_rps,omitempty"`
 }
 
 // DefaultWebhookHTTPConfig returns default HTTP configuration
@@ -110,6 +111,12 @@ func (config WebhookHTTPConfig) ValidateConfig() error {
 		return svcerrors.InvalidInput("content_type cannot be empty")
 	}
 
+	// RateLimitRPS: nil is fine (no limit), but if set, must be positive.
+	// Matches the DB constraint: CHECK (rate_limit_rps IS NULL OR rate_limit_rps > 0)
+	if config.RateLimitRPS != nil && *config.RateLimitRPS <= 0 {
+		return svcerrors.InvalidInputf("rate_limit_rps must be positive, got %f", *config.RateLimitRPS)
+	}
+
 	return nil
 }
 
@@ -155,6 +162,11 @@ func (config *WebhookHTTPConfig) ApplyConfig(other *WebhookHTTPConfig) {
 	config.CaptureResponseBody = other.CaptureResponseBody
 	config.FollowRedirects = other.FollowRedirects
 	config.VerifySSL = other.VerifySSL
+
+	// RateLimitRPS is a pointer: nil means "don't change", non-nil overrides (including to set a limit)
+	if other.RateLimitRPS != nil {
+		config.RateLimitRPS = other.RateLimitRPS
+	}
 }
 
 // StringArray is a wrapper for PostgreSQL string arrays
@@ -268,6 +280,7 @@ type HTTPConfigUpdate struct {
 	WebhookSecret         string
 	UserAgent             string
 	ContentType           string
+	RateLimitRPS          *float64
 }
 
 // WebhookRegistrationRequest represents a request to create/update a webhook registration
@@ -281,6 +294,7 @@ type WebhookRegistrationRequest struct {
 	Active        *bool              `json:"active,omitempty"`
 	Description   string             `json:"description,omitempty"`
 	HTTPConfig    *WebhookHTTPConfig `json:"http_config,omitempty"`
+	RateLimitRPS  *float64           `json:"rate_limit_rps,omitempty"`
 }
 
 // ToWebhookRegistration converts the request to a WebhookRegistration

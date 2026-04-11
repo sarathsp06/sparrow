@@ -357,7 +357,12 @@ type WebhookHTTPConfig struct {
 	// Content-Type header for delivery requests.
 	// Default: "application/json". Change if your endpoint expects a different media type.
 	// @example "application/json"
-	ContentType   string `protobuf:"bytes,10,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	ContentType string `protobuf:"bytes,10,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	// Maximum requests per second for this webhook. When set, Sparrow uses a
+	// leaky bucket to space deliveries evenly, preventing bursts.
+	// When omitted (or 0), no rate limit is applied.
+	// @example 10.0
+	RateLimitRps  *float32 `protobuf:"fixed32,11,opt,name=rate_limit_rps,json=rateLimitRps,proto3,oneof" json:"rate_limit_rps,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -460,6 +465,13 @@ func (x *WebhookHTTPConfig) GetContentType() string {
 		return x.ContentType
 	}
 	return ""
+}
+
+func (x *WebhookHTTPConfig) GetRateLimitRps() float32 {
+	if x != nil && x.RateLimitRps != nil {
+		return *x.RateLimitRps
+	}
+	return 0
 }
 
 // RegisterWebhookRequest provides all parameters needed to register a new webhook.
@@ -7109,7 +7121,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vtotal_count\x18\x01 \x01(\x05R\n" +
 	"totalCount\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x03 \x01(\x05R\x06offset\"\xbb\x03\n" +
+	"\x06offset\x18\x03 \x01(\x05R\x06offset\"\xf9\x03\n" +
 	"\x11WebhookHTTPConfig\x12\x1f\n" +
 	"\vmax_retries\x18\x01 \x01(\x05R\n" +
 	"maxRetries\x122\n" +
@@ -7124,7 +7136,9 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\n" +
 	"user_agent\x18\t \x01(\tR\tuserAgent\x12!\n" +
 	"\fcontent_type\x18\n" +
-	" \x01(\tR\vcontentType\"\x92\x04\n" +
+	" \x01(\tR\vcontentType\x12)\n" +
+	"\x0erate_limit_rps\x18\v \x01(\x02H\x00R\frateLimitRps\x88\x01\x01B\x11\n" +
+	"\x0f_rate_limit_rps\"\x92\x04\n" +
 	"\x16RegisterWebhookRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x16\n" +
 	"\x06events\x18\x02 \x03(\tR\x06events\x12\x10\n" +
@@ -8070,6 +8084,7 @@ func file_proto_webhook_proto_init() {
 	if File_proto_webhook_proto != nil {
 		return
 	}
+	file_proto_webhook_proto_msgTypes[2].OneofWrappers = []any{}
 	file_proto_webhook_proto_msgTypes[28].OneofWrappers = []any{}
 	file_proto_webhook_proto_msgTypes[31].OneofWrappers = []any{}
 	file_proto_webhook_proto_msgTypes[55].OneofWrappers = []any{}

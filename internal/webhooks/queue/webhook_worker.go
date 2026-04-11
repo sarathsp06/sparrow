@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -127,6 +129,34 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 
 	log.InfoContext(ctx, "Processing webhook delivery", "event_id", args.EventID, "url", webhook.URL)
+
+	// Rate limiting: check leaky bucket before sending.
+	// AcquireDeliverySlot atomically advances the bucket and returns the slot
+	// assigned to this delivery. If the slot is in the future, snooze the job.
+	if webhook.RateLimitRPS != nil && *webhook.RateLimitRPS > 0 {
+		nextDeliveryAt, rateLimitRPS, err := w.webhookRepo.AcquireDeliverySlot(ctx, uuid.MustParse(args.WebhookID))
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to acquire delivery slot", "error", err, "webhook_id", args.WebhookID)
+			// Non-fatal: proceed without rate limiting rather than failing delivery
+		} else if rateLimitRPS > 0 {
+			// Our slot = nextDeliveryAt - (1/rateLimitRPS)
+			interval := time.Duration(float64(time.Second) / rateLimitRPS)
+			mySlot := nextDeliveryAt.Add(-interval)
+			delay := time.Until(mySlot)
+			if delay > 0 {
+				log.InfoContext(ctx, "Rate limited, snoozing delivery",
+					"webhook_id", args.WebhookID,
+					"delivery_id", args.DeliveryID,
+					"snooze_until", mySlot,
+					"delay", delay,
+					"rate_limit_rps", rateLimitRPS,
+				)
+				span.SetAttributes(attribute.Float64("rate_limit_rps", rateLimitRPS))
+				span.SetAttributes(attribute.String("rate_limit_action", "snoozed"))
+				return river.JobSnooze(delay)
+			}
+		}
+	}
 
 	defaultPayload := eventRecord.Payload
 
@@ -257,6 +287,32 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		return nil
 	}
 
+	// Handle 429 Too Many Requests: snooze the job based on Retry-After header.
+	// This doesn't count as a retry attempt — the target is explicitly asking us to slow down.
+	if resp.StatusCode == http.StatusTooManyRequests {
+		snoozeDuration := parseRetryAfter(resp.Header.Get("Retry-After"))
+
+		log.WarnContext(ctx, "Target returned 429 Too Many Requests, snoozing delivery",
+			"delivery_id", args.DeliveryID,
+			"webhook_id", args.WebhookID,
+			"snooze_duration", snoozeDuration,
+			"retry_after_header", resp.Header.Get("Retry-After"),
+		)
+		span.SetAttributes(
+			attribute.String("rate_limit_action", "snoozed_429"),
+			attribute.Int64("snooze_seconds", int64(snoozeDuration.Seconds())),
+		)
+
+		// Record the 429 as a health event (the endpoint is overloaded)
+		w.recordHealthOutcome(ctx, log, args.WebhookID, args.DeliveryID, false,
+			int(duration.Milliseconds()), resp.StatusCode,
+			"HTTP 429: Too Many Requests", string(sparrowerrors.CategoryRateLimited))
+
+		// Don't update delivery status to failed — we're going to retry via snooze.
+		// The delivery remains in its current status (pending/retrying).
+		return river.JobSnooze(snoozeDuration)
+	}
+
 	// Failure case - classify the error.
 	// If the status code is in a standard error range (4xx, 5xx), classify by HTTP range.
 	// If it's a 2xx/3xx that simply didn't match expected_status_codes, use unexpected_status.
@@ -328,4 +384,48 @@ func isSuccessStatusCode(statusCode int, expectedStatusCodes []int64) bool {
 		// For now, exact match or simple 2xx default
 	}
 	return false
+}
+
+// defaultRetryAfter is the default snooze duration when a 429 response
+// has no Retry-After header or the header can't be parsed.
+const defaultRetryAfter = 60 * time.Second
+
+// maxRetryAfter caps the snooze duration to prevent a misbehaving server
+// from parking our jobs for unreasonable durations.
+const maxRetryAfter = 15 * time.Minute
+
+// parseRetryAfter extracts a delay duration from an HTTP Retry-After header.
+// The header can be either a number of seconds (e.g. "120") or an HTTP-date
+// (e.g. "Thu, 01 Dec 2025 16:00:00 GMT"). Returns defaultRetryAfter if the
+// header is empty or unparseable. Clamps to maxRetryAfter.
+func parseRetryAfter(header string) time.Duration {
+	if header == "" {
+		return defaultRetryAfter
+	}
+
+	// Try parsing as seconds (most common for rate limiting)
+	if seconds, err := strconv.Atoi(header); err == nil {
+		d := time.Duration(seconds) * time.Second
+		if d <= 0 {
+			return defaultRetryAfter
+		}
+		if d > maxRetryAfter {
+			return maxRetryAfter
+		}
+		return d
+	}
+
+	// Try parsing as HTTP-date (RFC 7231 §7.1.1.1)
+	if t, err := time.Parse(time.RFC1123, header); err == nil {
+		d := time.Until(t)
+		if d <= 0 {
+			return defaultRetryAfter
+		}
+		if d > maxRetryAfter {
+			return maxRetryAfter
+		}
+		return d
+	}
+
+	return defaultRetryAfter
 }

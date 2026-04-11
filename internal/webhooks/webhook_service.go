@@ -502,6 +502,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		RequestTimeoutSeconds: webhookReg.HTTPConfig.RequestTimeoutSeconds,
 		UserAgent:             webhookReg.HTTPConfig.UserAgent,
 		ContentType:           webhookReg.HTTPConfig.ContentType,
+		RateLimitRPS:          webhookReg.HTTPConfig.RateLimitRPS,
 		CreatedAt:             time.Now(),
 		UpdatedAt:             time.Now(),
 	}
@@ -560,6 +561,17 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "failed to register webhook")
 		return nil, fmt.Errorf("failed to register webhook: %w", err)
+	}
+
+	// Initialize rate limit state if rate limiting is configured
+	if storeWebhook.RateLimitRPS != nil {
+		if err := s.webhookRepo.UpsertRateLimitState(ctx, webhookID); err != nil {
+			s.logger.WarnContext(ctx, "Failed to initialize rate limit state",
+				"webhook_id", webhookReg.ID,
+				"error", err,
+			)
+			// Non-fatal: the rate limit row will be created on first delivery slot acquisition
+		}
 	}
 
 	// Update metrics
@@ -1888,6 +1900,17 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		webhook.CaptureResponseBody = httpConfig.CaptureResponseBody
 		webhook.FollowRedirects = httpConfig.FollowRedirects
 		webhook.VerifySSL = httpConfig.VerifySSL
+		// RateLimitRPS: pointer field — nil means "not provided" (keep existing),
+		// non-nil overrides. With mask, "http_config.rate_limit_rps" must be in the mask.
+		updateRateLimit := false
+		if useMask {
+			updateRateLimit = mask["http_config.rate_limit_rps"]
+		} else {
+			updateRateLimit = httpConfig.RateLimitRPS != nil
+		}
+		if updateRateLimit {
+			webhook.RateLimitRPS = httpConfig.RateLimitRPS
+		}
 	}
 	// Encrypt and set secret headers if in mask (or legacy non-empty)
 	if shouldUpdate("secret_headers") && len(secretHeaders) > 0 {
@@ -1913,6 +1936,25 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 			"error", err)
 		return fmt.Errorf("failed to update webhook configuration: %w", err)
 	}
+
+	// Manage rate limit state: upsert when rate limit is set, delete when cleared
+	if webhook.RateLimitRPS != nil {
+		if err := s.webhookRepo.UpsertRateLimitState(ctx, webhookUUID); err != nil {
+			s.logger.WarnContext(ctx, "Failed to upsert rate limit state",
+				"webhook_id", webhookID,
+				"error", err,
+			)
+		}
+	} else {
+		// Rate limit removed (or was never set) — clean up any existing state
+		if err := s.webhookRepo.DeleteRateLimitState(ctx, webhookUUID); err != nil {
+			s.logger.WarnContext(ctx, "Failed to delete rate limit state",
+				"webhook_id", webhookID,
+				"error", err,
+			)
+		}
+	}
+
 	s.logger.InfoContext(ctx, "Webhook configuration updated successfully",
 		"webhook_id", webhookID)
 	return nil

@@ -188,6 +188,16 @@ export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
    * @generated from field: string content_type = 10;
    */
   contentType: string;
+
+  /**
+   * Maximum requests per second for this webhook. When set, Sparrow uses a
+   * leaky bucket to space deliveries evenly, preventing bursts.
+   * When omitted (or 0), no rate limit is applied.
+   * @example 10.0
+   *
+   * @generated from field: optional float rate_limit_rps = 11;
+   */
+  rateLimitRps?: number;
 };
 
 /**
