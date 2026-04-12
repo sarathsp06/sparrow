@@ -75,6 +75,12 @@ clean: ## Clean up all build artifacts (Go, web, docs)
 generate: ## Generate protobuf code and gRPC/ConnectRPC clients
 	rm -rf client/go client/js client/python
 	buf generate
+	cp client/_templates/js/connect/package.json client/js/connect/package.json
+	cp client/_templates/python/pyproject.toml client/python/pyproject.toml
+	cp client/_templates/python/README.md client/python/README.md
+	cp client/_templates/python/__init__.py client/python/__init__.py
+	cp client/_templates/python/proto/__init__.py client/python/proto/__init__.py
+	cp client/_templates/python/py.typed client/python/py.typed
 	go generate ./...
 
 DIAGRAMS_DIR := docs/src/assets/diagrams
