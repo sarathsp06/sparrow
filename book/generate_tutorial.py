@@ -233,11 +233,14 @@ def gotcha(num, title, text):
 def section(title):
     return Paragraph(title, styles["SectionHead"])
 
-def lesson_header(num, title):
+def lesson_header(num, title, anchor=None):
     tag = f"LESSON {num}" if num else ""
+    title_text = title
+    if anchor:
+        title_text = f'<a name="{anchor}"/>{title}'
     return [
         Paragraph(tag, styles["LessonTag"]),
-        Paragraph(title, styles["LessonTitle"]),
+        Paragraph(title_text, styles["LessonTitle"]),
     ]
 
 def hr():
@@ -550,7 +553,8 @@ toc_full = [
 ]
 
 for tag, title, desc in toc_full:
-    line = f'<b>{tag}</b> &nbsp; {title}'
+    anchor = tag.replace(" ", "").lower()
+    line = f'<a href="#{anchor}"><b>{tag}</b> &nbsp; {title}</a>'
     if desc:
         line += f'<br/><font size="9" color="{GRAY_600.hexval()}">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{desc}</font>'
     story.append(Paragraph(line, styles["TOCEntry"]))
@@ -573,7 +577,7 @@ story.append(body('<b>Source Code:</b> https://github.com/sarathsp06/sparrow'))
 # LESSON 1: $state() -- with compiler + signal + proxy internals
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(1, "Reactive State with $state()"))
+story.extend(lesson_header(1, "Reactive State with $state()", anchor="lesson1"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -832,7 +836,7 @@ story.extend(gotcha(2, "$state() is not a regular function",
 # LESSON 2: $derived() -- with derived signal internals
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(2, "Computed Values with $derived()"))
+story.extend(lesson_header(2, "Computed Values with $derived()", anchor="lesson2"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -946,7 +950,7 @@ story.extend(gotcha(2, "Don't mutate inside $derived",
 # LESSON 3: $props() -- with compiled output internals
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(3, "Components &amp; Props with $props()"))
+story.extend(lesson_header(3, "Components & Props with $props()", anchor="lesson3"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -1075,7 +1079,7 @@ story.extend(gotcha(2, "Default values only apply when undefined",
 # LESSON 4: {#if}
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(4, "Conditional Rendering with {#if}"))
+story.extend(lesson_header(4, "Conditional Rendering with {#if}", anchor="lesson4"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -1129,7 +1133,7 @@ story.extend(gotcha(2, "Empty arrays are truthy",
 # LESSON 5: {#each}
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(5, "Rendering Lists with {#each}"))
+story.extend(lesson_header(5, "Rendering Lists with {#each}", anchor="lesson5"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -1189,7 +1193,7 @@ story.extend(gotcha(2, "Destructuring in the loop",
 # LESSON 6: {@const}
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(6, "Inline Constants with {@const}"))
+story.extend(lesson_header(6, "Inline Constants with {@const}", anchor="lesson6"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -1252,7 +1256,7 @@ story.extend(gotcha(3, "No async",
 # LESSON 7: Event Handling
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(7, "Event Handling"))
+story.extend(lesson_header(7, "Event Handling", anchor="lesson7"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -1330,7 +1334,7 @@ story.extend(gotcha(2, "Svelte 5 vs Svelte 4 syntax",
 # LESSON 8: $effect() -- with dependency tracking internals
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(8, "Side Effects with $effect()"))
+story.extend(lesson_header(8, "Side Effects with $effect()", anchor="lesson8"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -1467,7 +1471,7 @@ story.extend(gotcha(3, "$effect runs after render",
 # LESSON 9: Snippets & Render
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(9, "Snippets &amp; Render"))
+story.extend(lesson_header(9, "Snippets & Render", anchor="lesson9"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -1573,7 +1577,7 @@ story.extend(gotcha(2, "Snippet scope",
 # LESSON 10: Two-Way Binding
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(10, "Two-Way Binding"))
+story.extend(lesson_header(10, "Two-Way Binding", anchor="lesson10"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -1654,7 +1658,7 @@ story.extend(gotcha(2, "$bindable is opt-in",
 # LESSON 11: Lifecycle
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(11, "Lifecycle Hooks"))
+story.extend(lesson_header(11, "Lifecycle Hooks", anchor="lesson11"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -1723,7 +1727,7 @@ story.extend(gotcha(2, "Don't forget cleanup",
 # LESSON 12: Async Data Fetching
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(12, "Async Data Fetching"))
+story.extend(lesson_header(12, "Async Data Fetching", anchor="lesson12"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -1829,7 +1833,7 @@ story.extend(gotcha(2, "Promise.all is all-or-nothing",
 # LESSON 13: Layout & Navigation
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(13, "Layout &amp; Navigation"))
+story.extend(lesson_header(13, "Layout & Navigation", anchor="lesson13"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -1928,7 +1932,7 @@ story.extend(gotcha(2, "goto() vs &lt;a&gt;",
 # LESSON 14: Component Composition
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(14, "Component Composition"))
+story.extend(lesson_header(14, "Component Composition", anchor="lesson14"))
 
 story.append(section("The Problem"))
 story.append(body(
@@ -2032,7 +2036,7 @@ story.append(bullet('<b>Type everything</b> -- <font face="Courier">interface Pr
 # LESSON 15: The Build Pipeline (was Lesson 17)
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(15, "The Build Pipeline"))
+story.extend(lesson_header(15, "The Build Pipeline", anchor="lesson15"))
 
 story.append(body(
     "This lesson traces the complete build pipeline for Sparrow's frontend -- from "
@@ -2263,7 +2267,7 @@ story.append(code_block(
 # LESSON 16: The Full Stack (was Lesson 19)
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header(16, "The Full Stack"))
+story.extend(lesson_header(16, "The Full Stack", anchor="lesson16"))
 
 story.append(body(
     "This final lesson traces a complete path through Sparrow's stack -- from protobuf "
@@ -2484,7 +2488,7 @@ story.append(body(
 # EXPANDED REFERENCE CARD
 # ============================================================================
 story.append(PageBreak())
-story.extend(lesson_header("", "Quick Reference Card"))
+story.extend(lesson_header("", "Quick Reference Card", anchor="reference"))
 
 ref_data = [
     ["Concept", "Syntax", "Use When"],
