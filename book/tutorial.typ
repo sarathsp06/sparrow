@@ -78,13 +78,14 @@ The `$state()` rune tells the Svelte compiler to track a variable. When that var
 
 #source-code("web/src/routes/health/+page.svelte, lines 15-21")[
 ```
+let healthSummary: HealthSummary | undefined = $state();
+let namespaceStats: NamespaceStats | undefined = $state();
+let unhealthyWebhooks: RegisteredWebhook[] = $state([]);
+let degradedWebhooks: RegisteredWebhook[] = $state([]);
+let webhookMetrics: Map<string, WebhookHealthMetrics>
+  = $state(new Map());
 let loading = $state(true);
-let error = $state('');
-let healthSummary = $state<HealthSummary | undefined>();
-let unhealthyWebhooks = $state<RegisteredWebhook[]>([]);
-let degradedWebhooks = $state<RegisteredWebhook[]>([]);
-let webhookMetrics = $state(new Map<string, HealthMetrics>());
-let namespaceStats = $state<NamespaceStats[]>([]);
+let error = $state("");
 ```
 ]
 
@@ -94,11 +95,11 @@ let namespaceStats = $state<NamespaceStats[]>([]);
 
 - `let error = $state('')` --- An empty string means no error. If a fetch fails, `error = 'Something went wrong'` makes an error banner appear.
 
-- `$state<HealthSummary | undefined>()` --- The angle brackets are a generic type parameter (TypeScript). `HealthSummary | undefined` is a union type: the variable is either a HealthSummary object or undefined. Empty parentheses `()` mean no initial value = undefined.
+- `let healthSummary: HealthSummary | undefined = $state()` --- Same idea, different style. Here the type is written on the variable (`: HealthSummary | undefined`) instead of as a generic on `$state`.
 
-- `$state<RegisteredWebhook[]>([])` --- `RegisteredWebhook[]` means "an array of RegisteredWebhook objects". The `[]` inside parens is the initial value: empty array.
+- `let unhealthyWebhooks: RegisteredWebhook[] = $state([])` --- `RegisteredWebhook[]` means "an array of RegisteredWebhook objects". The `[]` passed to `$state` is the initial empty list.
 
-- `$state(new Map<string, HealthMetrics>())` --- A Map is like a dictionary. `Map<string, HealthMetrics>` = keys are strings, values are HealthMetrics objects. Initialized empty.
+- `let webhookMetrics: Map<string, WebhookHealthMetrics> = $state(new Map())` --- A Map is like a dictionary. Keys are webhook IDs (`string`), values are health metric objects. Initialized empty.
 
 == How Reactivity Triggers
 
@@ -396,16 +397,13 @@ This creates a `display` value that automatically recomputes whenever `truncate`
 ```
 let filteredWebhooks = $derived.by(() => {
   let result = webhooks;
-  if (healthFilter) {
-    result = result.filter(
-      (wh) => wh.health === healthFilter
-    );
-  }
   if (urlSearch.trim()) {
     const q = urlSearch.toLowerCase();
-    result = result.filter((wh) =>
+    result = result.filter(w =>
       wh.url.toLowerCase().includes(q) ||
-      wh.description?.toLowerCase().includes(q)
+      wh.description.toLowerCase().includes(q) ||
+      wh.webhookId.toLowerCase().includes(q) ||
+      wh.namespace.toLowerCase().includes(q)
     );
   }
   return result;
@@ -417,9 +415,11 @@ let filteredWebhooks = $derived.by(() => {
 
 - `$derived.by(() => { ... })` --- When the computation needs multiple statements, use `$derived.by()` with a function body.
 
-- `.filter((wh) => wh.health === healthFilter)` --- `.filter()` creates a new array keeping only elements where the callback returns true.
+- `result = result.filter(w => ...)` --- `.filter()` creates a new array keeping only elements where the callback returns true.
 
-- `wh.description?.toLowerCase()` --- The `?.` is optional chaining. `description` might be undefined. Without `?.`, calling `.toLowerCase()` on undefined would crash.
+- `wh.description.toLowerCase()` --- In Sparrow's generated type, `description` is always a string on this page, so optional chaining is not needed.
+
+Sparrow also applies `healthFilter` on the server side in `fetchWebhooks()` (via `healthClient.listWebhooksByHealth(...)`) before this derived runs. That keeps client work small and pagination accurate.
 
 == \$derived vs \$state: When to Use Which
 
@@ -500,7 +500,7 @@ let { id, href, truncate = 8 }: Props = $props();
 ```
 interface Props {
   open: boolean;
-  title: string;
+  title?: string;
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
@@ -1274,6 +1274,7 @@ export const webhookClient = createClient(WebhookService, transport);
 export const eventClient = createClient(EventService, transport);
 export const deliveryClient = createClient(DeliveryService, transport);
 export const healthClient = createClient(HealthService, transport);
+export const subscriptionClient = createClient(SubscriptionService, transport);
 ```
 ]
 
@@ -1779,6 +1780,103 @@ The most important property of this architecture is the unbroken type chain. A f
 
 
 // ═══════════════════════════════════════════════════════════════════════════
+// LESSON 16: Production Hardening Patterns
+// ═══════════════════════════════════════════════════════════════════════════
+
+#pagebreak()
+#lesson-header("16", "Production Hardening Patterns")
+
+This chapter connects Svelte 5 language features to production concerns in Sparrow: browser-only boundaries, stable API communication, and resilient error messages.
+
+== Pattern 1: Browser-Only Runtime Config
+
+#source-code("web/src/lib/services.ts, lines 25-33")[
+```
+const runtimeConfig: SparrowConfig =
+  (typeof window !== "undefined" && window.__SPARROW_CONFIG__) || {};
+
+const apiKey: string = runtimeConfig.apiKey || "";
+
+const apiKeyInterceptor: Interceptor = (next) => async (req) => {
+  req.header.set("X-API-Key", apiKey);
+  return next(req);
+};
+```
+]
+
+- `typeof window !== "undefined"` prevents SSR crashes.
+- The interceptor is only enabled when the key exists, so local open-access mode works without code changes.
+
+== Pattern 2: Predictable Async UX
+
+#source-code("web/src/routes/deliveries/+page.svelte, lines 72-87")[
+```
+async function fetchDeliveries(pageNum: number = 1) {
+  loading = true;
+  error = '';
+  try {
+    const req = buildRequest(pageNum);
+    const res = await deliveryClient.listDeliveries(req);
+    deliveries = res.deliveries || [];
+    totalCount = res.pagination?.totalCount || 0;
+    currentPage = pageNum;
+  } catch (e: any) {
+    error = formatAPIError(e, 'Failed to load deliveries');
+  } finally {
+    loading = false;
+  }
+}
+```
+]
+
+This is Sparrow's baseline fetch contract:
+
+- set `loading` first
+- clear previous `error`
+- apply response values in one place
+- normalize errors through `formatAPIError`
+- clear loading in `finally`
+
+== Pattern 3: Cancel Timers in Lifecycle Cleanup
+
+#source-code("web/src/routes/deliveries/+page.svelte, lines 39, 44-46")[
+```
+let pollingTimer: ReturnType<typeof setInterval> | undefined;
+
+onDestroy(() => {
+  if (pollingTimer) clearInterval(pollingTimer);
+});
+```
+]
+
+If you start polling, observers, or timeouts, always add cleanup. This avoids memory leaks and duplicate network traffic when navigating between pages.
+
+== Pattern 4: Consistent Error Communication
+
+#source-code("web/src/lib/utils.ts, lines 217-241")[
+```
+function formatAPIError(err: unknown, contextPrefix?: string): string {
+  let msg = (err as any)?.message ?? String(err);
+  msg = msg.replace(/^\[[\w_]+\]\s*/, "");
+  if (!msg) return contextPrefix ?? "An unexpected error occurred";
+  if (!contextPrefix) return msg;
+  return `${contextPrefix}: ${msg}`;
+}
+```
+]
+
+This keeps error text user-friendly and avoids leaking transport-specific wrappers (`[internal]`, `[invalid_argument]`) into the UI.
+
+== Quick Production Checklist
+
+- Browser API access guarded with `typeof window`
+- Fetch logic follows loading/error/finally contract
+- Long-running effects cleaned up on unmount
+- UI errors normalized through shared formatter
+- Bulk actions expose progress and cancel controls (`BatchProgress`)
+
+
+// ═══════════════════════════════════════════════════════════════════════════
 // QUICK REFERENCE CARD
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1795,6 +1893,10 @@ The most important property of this architecture is the unbroken type chain. A f
   tb[Reactive state],
   tc[\$state(initialValue)],
   td[Data you set directly],
+
+  tb[Shallow reactive ref],
+  tc[\$state.raw(obj)],
+  td[Large read-mostly data],
 
   tb[Computed value],
   tc[\$derived(expr)\ \$derived.by(() => \{ \})],
