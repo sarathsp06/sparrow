@@ -112,11 +112,13 @@ styles.add(ParagraphStyle(
     "LessonTag", parent=styles["Normal"],
     fontSize=11, leading=14, textColor=ACCENT,
     spaceBefore=0, spaceAfter=2, fontName="Inter-Bold",
+    keepWithNext=True,
 ))
 styles.add(ParagraphStyle(
     "LessonTitle", parent=styles["Heading1"],
     fontSize=22, leading=26, textColor=PRIMARY,
     spaceBefore=0, spaceAfter=12, fontName="Inter-Bold",
+    keepWithNext=True,
 ))
 
 # Section heading
@@ -124,6 +126,7 @@ styles.add(ParagraphStyle(
     "SectionHead", parent=styles["Heading2"],
     fontSize=14, leading=18, textColor=PRIMARY,
     spaceBefore=16, spaceAfter=6, fontName="Inter-Bold",
+    keepWithNext=True,
 ))
 
 # Body text
@@ -138,6 +141,7 @@ styles.add(ParagraphStyle(
     "Source", parent=styles["Normal"],
     fontSize=9, leading=12, textColor=BLUE,
     spaceBefore=8, spaceAfter=4, fontName="Inter-Italic",
+    keepWithNext=True,
 ))
 
 # Code block
@@ -218,6 +222,13 @@ def code_block(code_text):
 def source_ref(text):
     return Paragraph(f"Source: {text}", styles["Source"])
 
+def source_code(ref_text, code_text):
+    """Return a source reference + code block kept together on one page."""
+    return KeepTogether([
+        source_ref(ref_text),
+        code_block(code_text),
+    ])
+
 def body(text):
     return Paragraph(text, styles["Body"])
 
@@ -225,10 +236,11 @@ def bullet(text):
     return Paragraph(f"<bullet>&bull;</bullet> {text}", styles["BulletItem"])
 
 def gotcha(num, title, text):
-    return [
+    """Return a gotcha block kept together so the heading never orphans."""
+    return [KeepTogether([
         Paragraph(f"Gotcha {num}: {title}", styles["GotchaHead"]),
         Paragraph(text, styles["Gotcha"]),
-    ]
+    ])]
 
 def section(title):
     return Paragraph(title, styles["SectionHead"])
@@ -2637,11 +2649,10 @@ t.setStyle(TableStyle([
     ("LEFTPADDING", (0, 0), (-1, -1), 6),
     ("RIGHTPADDING", (0, 0), (-1, -1), 6),
 ]))
-story.append(t)
+story.append(KeepTogether([t]))
 
 # TypeScript cheat sheet
 story.append(Spacer(1, 0.3 * inch))
-story.append(Paragraph("Key TypeScript Syntax Explained in This Tutorial", styles["SectionHead"]))
 
 ts_data = [
     ["Syntax", "Meaning", "Example"],
@@ -2683,7 +2694,10 @@ t2.setStyle(TableStyle([
     ("LEFTPADDING", (0, 0), (-1, -1), 6),
     ("RIGHTPADDING", (0, 0), (-1, -1), 6),
 ]))
-story.append(t2)
+story.append(KeepTogether([
+    Paragraph("Key TypeScript Syntax Explained in This Tutorial", styles["SectionHead"]),
+    t2,
+]))
 
 # ===== FINAL PAGE =====
 story.append(Spacer(1, 0.5 * inch))
