@@ -96,6 +96,9 @@ $(DIAGRAMS_DIR)/%.svg: $(DIAGRAMS_DIR)/%.mmd $(DIAGRAMS_CFG)
 generate-docs: diagrams ## Generate API reference docs and diagrams from proto definitions
 	proto2astro generate
 
+book: ## Build the Svelte 5 tutorial PDF with Typst
+	typst compile --font-path book/fonts book/tutorial.typ book/svelte5-tutorial.pdf
+
 lint: ## Run golangci-lint for linting
 	golangci-lint run -v --timeout 15m ./...
 
@@ -105,4 +108,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui release-dry-run run test test-integration clean generate generate-docs diagrams docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web help
+.PHONY: build build-ui build-with-ui release-dry-run run test test-integration clean generate generate-docs diagrams docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web book help
