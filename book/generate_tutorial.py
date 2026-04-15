@@ -630,14 +630,53 @@ story.append(bullet(
 ))
 
 story.append(section("How Reactivity Triggers"))
-story.append(body("To update a <font face='Courier'>$state</font> variable, use plain assignment:"))
+story.append(body(
+    "Whether a mutation triggers a UI update depends on the <b>type</b> of value "
+    "wrapped by <font face='Courier'>$state()</font>. This is the single most important "
+    "table in this tutorial:"
+))
 story.append(code_block(
-    '// This triggers a UI update:\n'
-    'loading = false;\n\n'
-    '// Replacing the whole array:\n'
-    'unhealthyWebhooks = result.webhooks;\n\n'
-    '// For Maps, reassign the whole Map:\n'
-    'webhookMetrics = newMap;'
+    "Type            Mutation               Detected?  Why\n"
+    "---             ---                    ---        ---\n"
+    "Primitive       count = 5              Yes        Compiler emits $.set()\n"
+    "(number,                                          which notifies dependents\n"
+    " string, bool)\n"
+    "\n"
+    "Plain object    obj.name = 'new'       Yes        Proxy set trap fires,\n"
+    "                                                  updates per-property signal\n"
+    "\n"
+    "Array           arr.push(item)         Yes        Proxy set trap fires on\n"
+    "                arr[0] = x             Yes        index and length changes\n"
+    "\n"
+    "Map             map.set('k', v)        NO         .set() uses internal slots\n"
+    "                                                  that bypass Proxy traps\n"
+    "\n"
+    "Set             set.add(v)             NO         Same: .add() bypasses\n"
+    "                                                  Proxy traps\n"
+    "\n"
+    "Date            date.setHours(12)      NO         Same: mutation methods\n"
+    "                                                  operate on internal slots"
+))
+story.append(body(
+    "For Maps, Sets, and Dates, you must <b>reassign the entire variable</b> to "
+    "trigger an update:"
+))
+story.append(code_block(
+    '// Primitives -- plain assignment:\n'
+    'loading = false;              // $.set() fires\n\n'
+    '// Objects -- property assignment:\n'
+    'webhook.url = newUrl;         // Proxy set trap fires\n\n'
+    '// Arrays -- mutation works:\n'
+    'items.push(newItem);          // Proxy set trap fires\n'
+    'items = [...items, newItem];  // Also works (reassignment)\n\n'
+    '// Maps -- MUST reassign:\n'
+    'webhookMetrics.set(id, m);    // SILENT. No UI update.\n'
+    'webhookMetrics = new Map(     // Correct: reassign\n'
+    '  [...webhookMetrics, [id, m]]\n'
+    ');\n\n'
+    '// Sets -- MUST reassign:\n'
+    'tags.add("new");              // SILENT. No UI update.\n'
+    'tags = new Set([...tags, "new"]);  // Correct'
 ))
 story.append(body(
     "The key insight: <font face='Courier'>$state()</font> is a compiler directive, not a regular function. At "
@@ -780,6 +819,51 @@ story.append(code_block(
     "    }\n"
     "  });\n"
     "}"
+))
+
+story.append(section("Why Maps, Sets, and Dates Are Not Reactive"))
+story.append(body(
+    "The proxy system works by intercepting property access (<font face='Courier'>get</font> "
+    "trap) and property assignment (<font face='Courier'>set</font> trap). For plain objects "
+    "and arrays, <font face='Courier'>obj.name = x</font> triggers the proxy's "
+    "<font face='Courier'>set</font> trap, which updates the per-property signal. "
+    "But Map, Set, and Date use a different mechanism."
+))
+story.append(body(
+    "When you call <font face='Courier'>map.set('key', value)</font>, JavaScript does this:"
+))
+story.append(code_block(
+    "// What happens at the JS engine level:\n"
+    "//\n"
+    "// 1. map.set  ->  Proxy GET trap fires (reading 'set')\n"
+    "//                 Returns the native Map.prototype.set fn\n"
+    "//\n"
+    "// 2. map.set('key', value)\n"
+    "//    -> Map.prototype.set runs on the RAW Map\n"
+    "//    -> Mutates the Map's [[MapData]] internal slot\n"
+    "//    -> Proxy SET trap NEVER fires\n"
+    "//       (no property was assigned on the proxy object)\n"
+    "//\n"
+    "// The proxy can see you LOOKED UP .set (step 1),\n"
+    "// but cannot see the MUTATION (step 2) because\n"
+    "// it happens inside the engine's C++ implementation,\n"
+    "// not through a property assignment.\n"
+    "//\n"
+    "// Same for Set.add(), Set.delete(), Date.setHours(),\n"
+    "// and all other built-in methods that operate on\n"
+    "// internal slots rather than ordinary properties."
+))
+story.append(body(
+    "Think of it like a Go struct with unexported fields: you can call methods on it, "
+    "but an external wrapper cannot intercept what those methods do internally. The "
+    "Proxy is the external wrapper; the Map's internal storage is the unexported field."
+))
+story.append(body(
+    "<b>Vue 3 handles this differently</b> -- its <font face='Courier'>reactive()</font> "
+    "wraps Map/Set methods (like <font face='Courier'>.set()</font>) with custom functions "
+    "that manually trigger reactivity. Svelte chose not to do this, keeping the proxy "
+    "implementation simpler and more predictable. The trade-off is that you must remember "
+    "to reassign Maps and Sets."
 ))
 
 story.append(section("$state.raw: Opting Out of Deep Tracking"))
@@ -1113,6 +1197,15 @@ story.append(body(
     "<font face='Courier'>{#if}</font> removes elements from the DOM when the condition is false. It doesn't hide "
     "them with CSS. Any internal state (scroll position, input values) is lost."
 ))
+story.append(body(
+    "<b>Why destroy instead of hide?</b> Svelte could set <font face='Courier'>display: none</font> "
+    "and keep elements in the DOM, but that has real costs: hidden DOM nodes still consume "
+    "memory, their event listeners remain active, and any <font face='Courier'>$effect</font> "
+    "inside the branch keeps running. Destroying the branch means zero cost when it's not "
+    "shown -- no DOM nodes, no event listeners, no effects. For a webhook dashboard with "
+    "hundreds of conditional sections, this adds up. If you need to preserve internal state "
+    "across visibility toggles, use CSS (<font face='Courier'>class:hidden</font>) instead."
+))
 
 story.append(section("Inline Ternaries in Attributes"))
 story.append(code_block(
@@ -1182,7 +1275,13 @@ story.append(bullet(
 ))
 
 story.extend(gotcha(1, "Keyed vs Unkeyed Lists",
-    "For reorderable lists, add a key: <font face='Courier'>{#each items as item (item.id)}</font>."
+    "For reorderable lists, add a key: <font face='Courier'>{#each items as item (item.id)}</font>. "
+    "<b>Why?</b> Without a key, Svelte matches DOM nodes by <i>index</i>. If you remove "
+    "item 2 from a list of 5, Svelte updates items 2-4 in place and destroys item 5 -- "
+    "even though only item 2 was removed. With a key, Svelte matches by identity: it "
+    "destroys only the removed item's DOM node and leaves the rest untouched. This matters "
+    "when items have internal state (focused inputs, animations, component instances). Think "
+    "of it like a database primary key: without it, the DB can't tell which row you mean."
 ))
 story.extend(gotcha(2, "Destructuring in the loop",
     "You can destructure: <font face='Courier'>{#each webhooks as { url, webhookId }}</font>."
@@ -1457,7 +1556,14 @@ story.append(body(
 ))
 
 story.extend(gotcha(1, "Don't use $effect for derived state",
-    "Never write <font face='Courier'>$effect(() =&gt; { count = items.length })</font>. Use <font face='Courier'>$derived</font> instead. Effects that only set state are a code smell."
+    "Never write <font face='Courier'>$effect(() =&gt; { count = items.length })</font>. Use <font face='Courier'>$derived</font> instead. "
+    "<b>Why?</b> Effects that set <font face='Courier'>$state</font> variables create a hidden dependency cycle: "
+    "the effect reads a signal (triggering registration), sets another signal (marking dependents "
+    "dirty), which may trigger more effects. In the worst case, this causes an infinite loop. "
+    "Even when it works, it creates an unnecessary intermediate state: the UI renders once with "
+    "the stale value, then again with the updated one (two renders instead of one). "
+    "<font face='Courier'>$derived</font> avoids both problems -- it computes the value lazily, inline, "
+    "with no intermediate state."
 ))
 story.extend(gotcha(2, "Cleanup is critical",
     "If your effect creates timers, observers, or event listeners, always return a cleanup function. Forgetting cleanup causes memory leaks."
