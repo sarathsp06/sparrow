@@ -104,30 +104,41 @@ let namespaceStats = $state<NamespaceStats[]>([]);
 
 Whether a mutation triggers a UI update depends on the *type* of value wrapped by `$state()`. This is the single most important table in this tutorial:
 
-#code-block[
-```
-Type            Mutation               Detected?  Why
----             ---                    ---        ---
-Primitive       count = 5              Yes        Compiler emits $.set()
-(number,                                          which notifies dependents
- string, bool)
+#ref-table(
+  columns: (1in, 1.8in, 0.9in, 2.8in),
 
-Plain object    obj.name = 'new'       Yes        Proxy set trap fires,
-                                                  updates per-property signal
+  table.header(th[Type], th[Mutation], th[Detected?], th[Why]),
 
-Array           arr.push(item)         Yes        Proxy set trap fires on
-                arr[0] = x             Yes        index and length changes
+  td[Primitive\ (number, string, bool)],
+  tc[count = 5],
+  td[Yes],
+  td[Compiler emits \$.set() which notifies dependents],
 
-Map             map.set('k', v)        NO         .set() uses internal slots
-                                                  that bypass Proxy traps
+  td[Plain object],
+  tc[obj.name = 'new'],
+  td[Yes],
+  td[Proxy set trap fires, updates per-property signal],
 
-Set             set.add(v)             NO         Same: .add() bypasses
-                                                  Proxy traps
+  td[Array],
+  tc[arr.push(item)\ arr\[0\] = x],
+  td[Yes\ Yes],
+  td[Proxy set trap fires on index and length changes],
 
-Date            date.setHours(12)      NO         Same: mutation methods
-                                                  operate on internal slots
-```
-]
+  td[Map],
+  tc[map.set('k', v)],
+  td[*NO*],
+  td[.set() uses internal slots that bypass Proxy traps],
+
+  td[Set],
+  tc[set.add(v)],
+  td[*NO*],
+  td[Same: .add() bypasses Proxy traps],
+
+  td[Date],
+  tc[date.setHours(12)],
+  td[*NO*],
+  td[Same: mutation methods operate on internal slots],
+)
 
 For Maps, Sets, and Dates, you must *reassign the entire variable* to trigger an update:
 
@@ -1566,228 +1577,11 @@ EmptyState provides structure (icon, title) and a snippet slot for custom conten
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-// LESSON 15: The Build Pipeline
+// LESSON 15: The Full Stack
 // ═══════════════════════════════════════════════════════════════════════════
 
 #pagebreak()
-#lesson-header("15", "The Build Pipeline")
-
-This lesson traces the complete build pipeline for Sparrow's frontend---from `.svelte` source files to a single Go binary with the UI embedded. Every config file shown is from the actual Sparrow codebase.
-
-== Pipeline Overview
-
-#code-block[
-```
-+-------------+    +----------+    +--------------+
-| .svelte     |    | Vite +   |    | adapter-     |
-| .ts files   |--->| SvelteKit|--->| static       |
-| (web/src/)  |    | compiler |    | (SPA output) |
-+-------------+    +----------+    +------+-------+
-                                          |
-                                          v
-                                   +--------------+
-                                   | internal/ui/ |
-                                   | dist/        |
-                                   +------+-------+
-                                          |
-                   +----------+            | go:embed
-                   | go build |<-----------+
-                   | (single  |
-                   |  binary) |
-                   +----------+
-```
-]
-
-== Step 1: Vite + SvelteKit Compilation
-
-Vite is the build tool that orchestrates everything. It calls the Svelte compiler as a plugin for each `.svelte` file, then bundles, tree-shakes, and minifies the output.
-
-#source-code("web/vite.config.ts")[
-```
-import { sveltekit } from '@sveltejs/kit/vite';
-import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
-
-export default defineConfig({
-  plugins: [
-    tailwindcss(),   // Tailwind v4 -- CSS at build time
-    sveltekit(),     // Svelte compiler + SvelteKit routing
-  ],
-  resolve: {
-    alias: {
-      // Force ESM for protobuf (Vite needs ESM)
-      '@bufbuild/protobuf': resolve(
-        __dirname,
-        './node_modules/@bufbuild/protobuf/dist/esm'
-      ),
-    },
-  },
-});
-```
-]
-
-The plugin order matters: Tailwind runs first (processes `@import 'tailwindcss'` in CSS), then SvelteKit compiles `.svelte` files, and Vite handles bundling and tree-shaking.
-
-== Step 2: adapter-static (SPA Mode)
-
-SvelteKit supports multiple deployment targets via adapters. Sparrow uses `adapter-static` which pre-renders to static HTML/JS/CSS files. The `fallback: 'index.html'` option enables SPA mode---all routes are handled client-side.
-
-#source-code("web/svelte.config.js")[
-```
-import staticAdapter from '@sveltejs/adapter-static';
-
-const config = {
-  kit: {
-    adapter: staticAdapter({
-      pages: '../internal/ui/dist',  // output dir
-      assets: '../internal/ui/dist',
-      fallback: 'index.html',        // SPA mode
-      strict: false  // allow non-prerendered routes
-    }),
-  }
-};
-```
-]
-
-The output directory is `../internal/ui/dist`---this places the built frontend exactly where the Go embed directive expects it.
-
-== Step 3: go:embed (Compile into Binary)
-
-Go's `embed` package bakes files into the binary at compile time. Sparrow uses `//go:embed all:dist` to include the entire frontend build output. The `all:` prefix includes dotfiles and hidden files.
-
-#source-code("internal/ui/embed.go, lines 24-25, 40-88")[
-```
-// Real Sparrow code (internal/ui/embed.go):
-//go:embed all:dist
-var embeddedFS embed.FS
-
-func Handler(logger *slog.Logger,
-             config *Config) http.Handler {
-  staticFS, _ := fs.Sub(embeddedFS, "dist")
-  fileServer := http.FileServer(http.FS(staticFS))
-  configScript := buildConfigScript(config)
-
-  return http.HandlerFunc(func(w http.ResponseWriter,
-                               r *http.Request) {
-    path := strings.TrimPrefix(r.URL.Path, "/")
-
-    // Try to serve static file directly
-    if path != "" {
-      if f, err := staticFS.Open(path); err == nil {
-        _ = f.Close()
-        // Immutable assets get 1-year cache
-        if strings.HasPrefix(path,
-            "_app/immutable/") {
-          w.Header().Set("Cache-Control",
-            "public, max-age=31536000, immutable")
-        }
-        fileServer.ServeHTTP(w, r)
-        return
-      }
-    }
-
-    // SPA fallback: serve index.html
-    indexBytes, _ := fs.ReadFile(staticFS,
-      "index.html")
-    html := string(indexBytes)
-    // Inject runtime config into </head>
-    if configScript != "" {
-      html = strings.Replace(html,
-        "</head>", configScript+"</head>", 1)
-    }
-    w.Header().Set("Content-Type",
-      "text/html; charset=utf-8")
-    w.Write([]byte(html))
-  })
-}
-```
-]
-
-== Step 4: Docker Multi-Stage Build
-
-The Dockerfile chains all stages together: Node builds the frontend, Go compiles the binary with the embedded UI, and the final image is distroless (no shell, no package manager, minimal attack surface).
-
-#source-code("Dockerfile, lines 2-63")[
-```
-# Stage 1: Build frontend (Dockerfile, lines 2-23)
-FROM node:22-alpine AS frontend
-WORKDIR /build/web
-COPY web/package.json web/package-lock.json* ./
-RUN npm ci --ignore-scripts
-COPY web/ .
-# Proto files needed by SvelteKit imports:
-COPY proto/webhook_pb.js proto/webhook_pb.d.ts \
-     /build/proto/
-RUN PUBLIC_API_URL=/ npm run build
-# Output: /build/internal/ui/dist/
-
-# Stage 2: Build Go binary (lines 25-49)
-FROM golang:1.26.1-alpine AS builder
-WORKDIR /build
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-COPY --from=frontend /build/internal/ui/dist/ \
-     /build/internal/ui/dist/
-RUN CGO_ENABLED=0 go build \
-    -ldflags="-w -s" -trimpath \
-    -o server ./cmd/server
-
-# Stage 3: Runtime (lines 51-63)
-FROM gcr.io/distroless/static-debian12:nonroot
-COPY --from=builder /build/server /app/server
-EXPOSE 50051 8080
-ENTRYPOINT ["/app/server"]
-```
-]
-
-== Runtime Config Injection
-
-The Go server injects runtime configuration (like the API key) into `index.html` on every request---no frontend rebuild needed when configuration changes. The SPA reads `window.__SPARROW_CONFIG__` at startup.
-
-#code-block[
-```
-// Go server injects into </head>:
-<script>window.__SPARROW_CONFIG__={"apiKey":"..."};</script>
-
-// SvelteKit reads it (web/src/lib/services.ts):
-const runtimeConfig =
-  (typeof window !== 'undefined'
-    && window.__SPARROW_CONFIG__) || {};
-const apiKey = runtimeConfig.apiKey || '';
-```
-]
-
-== What Gets Shipped: Bundle Size
-
-Because Svelte compiles away the framework, your bundle contains only the runtime primitives you actually use (signals, effects, template helpers) plus your compiled component code. There is no large framework runtime to download and parse. Approximate industry figures (minified + gzipped):
-
-#code-block[
-```
-Framework runtime sizes (approx, min+gzip):
-
-Framework           Runtime shipped    Notes
----                 ---                ---
-React 18 + DOM      ~42-44 KB          Always included
-Vue 3               ~33 KB             Always included
-Angular 17+         ~90-130 KB         Varies by features
-Svelte 5            ~5-8 KB            Tree-shaken; only
-                                       used primitives
-
-The Svelte runtime is smaller because the compiler
-inlines only the helpers each component actually uses.
-React and Vue ship their entire reconciler/VDOM engine
-regardless of app complexity.
-```
-]
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// LESSON 16: The Full Stack
-// ═══════════════════════════════════════════════════════════════════════════
-
-#pagebreak()
-#lesson-header("16", "The Full Stack")
+#lesson-header("15", "The Full Stack")
 
 This final lesson traces a complete path through Sparrow's stack---from protobuf definition to compiled Svelte component, embedded in a Go binary, served to the browser. Every technology choice at each layer exists for a concrete reason.
 

@@ -56,17 +56,10 @@
   v(2pt)
 }
 
-/// Code block — monospace on gray background.
+/// Code block — thin wrapper; visual styling is handled by the
+/// `show raw.where(block: true)` rule in `tutorial-doc`.
 #let code-block(code-text, lang: none) = {
-  block(
-    width: 100%,
-    fill: code-bg,
-    stroke: 0.5pt + code-border,
-    inset: 8pt,
-    radius: 2pt,
-    below: 8pt,
-    text(font: "Fira Code", size: 9pt, code-text),
-  )
+  code-text
 }
 
 /// Source reference immediately followed by a code block, kept together.
