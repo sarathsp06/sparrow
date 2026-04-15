@@ -18,189 +18,14 @@
 // COVER PAGE — O'Reilly style
 // ═══════════════════════════════════════════════════════════════════════════
 
-#page(
-  margin: 0pt,
-  footer: none,
-)[
-  #set text(font: "Inter")
-
-  // White background
-  #place(top + left, rect(width: 100%, height: 100%, fill: white))
-
-  // Top colored band — svelte orange
-  #place(top + left, rect(width: 100%, height: 12pt, fill: svelte-orange))
-
-  // Top-left: series branding
-  #place(top + left, dx: 48pt, dy: 36pt)[
-    #text(fill: rgb("#666666"), size: 9pt, weight: "bold", tracking: 1pt)[SPARROW ENGINEERING SERIES]
-  ]
-
-  // Thin rule below branding
-  #place(top + left, dx: 48pt, dy: 56pt,
-    rect(width: 516pt, height: 0.5pt, fill: rgb("#cccccc")),
-  )
-
-  // ── Illustration: The Disappearing Framework ──
-  // Abstract code blocks dissolving from left to right,
-  // symbolizing source code that compiles away into nothing.
-  #place(top + left, dx: 80pt, dy: 100pt)[
-    #box(width: 460pt, height: 280pt)[
-      // Source code blocks (solid, visible)
-      #place(left + top, dx: 0pt, dy: 20pt,
-        rect(width: 60pt, height: 18pt, fill: svelte-orange, radius: 2pt),
-      )
-      #place(left + top, dx: 0pt, dy: 44pt,
-        rect(width: 90pt, height: 18pt, fill: rgb("#e8846b"), radius: 2pt),
-      )
-      #place(left + top, dx: 10pt, dy: 68pt,
-        rect(width: 70pt, height: 18pt, fill: rgb("#d4a08a"), radius: 2pt),
-      )
-      #place(left + top, dx: 0pt, dy: 92pt,
-        rect(width: 50pt, height: 18pt, fill: svelte-orange, radius: 2pt),
-      )
-      #place(left + top, dx: 0pt, dy: 116pt,
-        rect(width: 80pt, height: 18pt, fill: rgb("#e8846b"), radius: 2pt),
-      )
-      #place(left + top, dx: 10pt, dy: 140pt,
-        rect(width: 55pt, height: 18pt, fill: rgb("#d4a08a"), radius: 2pt),
-      )
-      #place(left + top, dx: 0pt, dy: 164pt,
-        rect(width: 45pt, height: 18pt, fill: svelte-orange, radius: 2pt),
-      )
-
-      // Middle — fragments breaking apart
-      #place(left + top, dx: 140pt, dy: 30pt,
-        rect(width: 40pt, height: 14pt, fill: rgb(255, 62, 0, 180), radius: 2pt),
-      )
-      #place(left + top, dx: 155pt, dy: 55pt,
-        rect(width: 30pt, height: 12pt, fill: rgb(255, 62, 0, 140), radius: 2pt),
-      )
-      #place(left + top, dx: 145pt, dy: 78pt,
-        rect(width: 35pt, height: 13pt, fill: rgb(255, 62, 0, 120), radius: 2pt),
-      )
-      #place(left + top, dx: 160pt, dy: 105pt,
-        rect(width: 25pt, height: 11pt, fill: rgb(255, 62, 0, 100), radius: 2pt),
-      )
-      #place(left + top, dx: 148pt, dy: 130pt,
-        rect(width: 28pt, height: 12pt, fill: rgb(255, 62, 0, 80), radius: 2pt),
-      )
-      #place(left + top, dx: 155pt, dy: 155pt,
-        rect(width: 22pt, height: 10pt, fill: rgb(255, 62, 0, 60), radius: 2pt),
-      )
-
-      // Scattered particles — dissolving
-      #place(left + top, dx: 220pt, dy: 25pt,
-        rect(width: 18pt, height: 8pt, fill: rgb(255, 62, 0, 80), radius: 1pt),
-      )
-      #place(left + top, dx: 240pt, dy: 60pt,
-        rect(width: 14pt, height: 7pt, fill: rgb(255, 62, 0, 60), radius: 1pt),
-      )
-      #place(left + top, dx: 225pt, dy: 90pt,
-        rect(width: 16pt, height: 6pt, fill: rgb(255, 62, 0, 50), radius: 1pt),
-      )
-      #place(left + top, dx: 245pt, dy: 120pt,
-        rect(width: 12pt, height: 6pt, fill: rgb(255, 62, 0, 40), radius: 1pt),
-      )
-      #place(left + top, dx: 230pt, dy: 148pt,
-        rect(width: 10pt, height: 5pt, fill: rgb(255, 62, 0, 30), radius: 1pt),
-      )
-
-      // Almost gone — faint dots
-      #place(left + top, dx: 290pt, dy: 35pt,
-        rect(width: 8pt, height: 4pt, fill: rgb(255, 62, 0, 30), radius: 1pt),
-      )
-      #place(left + top, dx: 300pt, dy: 70pt,
-        rect(width: 6pt, height: 3pt, fill: rgb(255, 62, 0, 20), radius: 1pt),
-      )
-      #place(left + top, dx: 295pt, dy: 105pt,
-        rect(width: 7pt, height: 4pt, fill: rgb(255, 62, 0, 15), radius: 1pt),
-      )
-      #place(left + top, dx: 305pt, dy: 140pt,
-        rect(width: 5pt, height: 3pt, fill: rgb(255, 62, 0, 10), radius: 1pt),
-      )
-
-      // Ghost traces — barely visible
-      #place(left + top, dx: 350pt, dy: 50pt,
-        rect(width: 4pt, height: 3pt, fill: rgb(255, 62, 0, 8), radius: 1pt),
-      )
-      #place(left + top, dx: 360pt, dy: 90pt,
-        rect(width: 3pt, height: 2pt, fill: rgb(255, 62, 0, 5), radius: 1pt),
-      )
-      #place(left + top, dx: 355pt, dy: 130pt,
-        rect(width: 3pt, height: 2pt, fill: rgb(255, 62, 0, 4), radius: 1pt),
-      )
-
-      // Labels beneath
-      #place(left + bottom, dx: 10pt, dy: -8pt,
-        text(fill: rgb("#999999"), size: 7pt, weight: "bold", tracking: 0.5pt)[SOURCE],
-      )
-      #place(left + bottom, dx: 155pt, dy: -8pt,
-        text(fill: rgb("#bbbbbb"), size: 7pt, weight: "bold", tracking: 0.5pt)[COMPILE],
-      )
-      #place(left + bottom, dx: 330pt, dy: -8pt,
-        text(fill: rgb("#dddddd"), size: 7pt, weight: "bold", tracking: 0.5pt)[RUNTIME],
-      )
-
-      // Arrows showing direction
-      #place(left + bottom, dx: 60pt, dy: -10pt,
-        text(fill: rgb("#cccccc"), size: 9pt)[→],
-      )
-      #place(left + bottom, dx: 210pt, dy: -10pt,
-        text(fill: rgb("#dddddd"), size: 9pt)[→],
-      )
-    ]
-  ]
-
-  // ── Title area ──
-  #place(top + left, dx: 48pt, dy: 420pt)[
-    #text(fill: rgb("#333333"), size: 52pt, weight: "bold")[Svelte 5 Tutorial]
-  ]
-
-  // Subtitle
-  #place(top + left, dx: 48pt, dy: 488pt)[
-    #text(fill: rgb("#555555"), size: 22pt, style: "italic")[The Disappearing Framework]
-  ]
-
-  // Description
-  #place(top + left, dx: 48pt, dy: 530pt)[
-    #box(width: 420pt)[
-      #text(fill: rgb("#666666"), size: 12pt)[
-        A backend engineer's guide to high-performance reactivity
-        and compiler-driven UI. All examples from a real production codebase.
-      ]
-    ]
-  ]
-
-  // Orange band — bottom section
-  #place(bottom + left, dy: -120pt,
-    rect(width: 100%, height: 4pt, fill: svelte-orange),
-  )
-
-  // Bottom info area
-  #place(bottom + left, dx: 48pt, dy: -70pt)[
-    #text(fill: svelte-orange, size: 11pt, weight: "bold")[Svelte 5 Runes · SvelteKit · TypeScript]
-  ]
-
-  #place(bottom + left, dx: 48pt, dy: -46pt)[
-    #text(fill: rgb("#888888"), size: 9pt)[
-      16 Lessons · Built by & for Backend Engineers · #version
-    ]
-  ]
-
-  // Bottom-right: publisher-style logo area
-  #place(bottom + right, dx: -48pt, dy: -50pt)[
-    #box(
-      stroke: 1.5pt + svelte-orange,
-      radius: 2pt,
-      inset: (x: 10pt, y: 6pt),
-    )[
-      #text(fill: svelte-orange, size: 9pt, weight: "bold", tracking: 0.5pt)[SPARROW]
-    ]
-  ]
-
-  // Bottom orange band
-  #place(bottom + left, rect(width: 100%, height: 12pt, fill: svelte-orange))
-]
+#cover-page(
+  title: "Svelte 5 Tutorial",
+  subtitle: "The Disappearing Framework",
+  tagline: [A backend engineer's guide to high-performance reactivity
+    and compiler-driven UI. All examples from a real production codebase.],
+  version: version,
+  meta: [16 Lessons · Built by & for Backend Engineers · #version],
+)
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -215,7 +40,7 @@ This tutorial is an attempt to learn and teach Svelte 5 through the lens of a re
 
 By exploring how Svelte 5 is used to build Sparrow's management UI, you'll see how runes like \$state and \$derived solve actual engineering problems---from handling complex delivery filters to visualizing real-time batch progress.
 
-The Sparrow source code is available on GitHub: #text(fill: blue)[#underline[https://github.com/sarathsp06/sparrow]]
+The Sparrow source code is available on GitHub: #link-text[#underline[https://github.com/sarathsp06/sparrow]]
 
 #v(8pt)
 #hr()
@@ -2166,146 +1991,132 @@ The most important property of this architecture is the unbroken type chain. A f
 #pagebreak()
 #lesson-header("", "Quick Reference Card")
 
-#table(
+#ref-table(
   columns: (1.3in, 2.7in, 2.5in),
-  align: (left, left, left),
-  stroke: 0.5pt + code-border,
-  inset: 6pt,
 
   // Header row
-  table.header(
-    table.cell(fill: rgb("#f3f4f6"), text(weight: "bold", fill: primary, size: 9pt)[Concept]),
-    table.cell(fill: rgb("#f3f4f6"), text(weight: "bold", fill: primary, size: 9pt)[Syntax]),
-    table.cell(fill: rgb("#f3f4f6"), text(weight: "bold", fill: primary, size: 9pt)[Use When]),
-  ),
+  table.header(th[Concept], th[Syntax], th[Use When]),
 
   // Data rows
-  text(weight: "bold", size: 9pt)[Reactive state],
-  text(font: "Fira Code", size: 8.5pt)[\$state(initialValue)],
-  text(size: 9pt)[Data you set directly],
+  tb[Reactive state],
+  tc[\$state(initialValue)],
+  td[Data you set directly],
 
-  text(weight: "bold", size: 9pt)[Computed value],
-  text(font: "Fira Code", size: 8.5pt)[\$derived(expr)\ \$derived.by(() => \{ \})],
-  text(size: 9pt)[Value calculated from state],
+  tb[Computed value],
+  tc[\$derived(expr)\ \$derived.by(() => \{ \})],
+  td[Value calculated from state],
 
-  text(weight: "bold", size: 9pt)[Side effects],
-  text(font: "Fira Code", size: 8.5pt)[\$effect(() => \{\ ...\ return () => cleanup;\ \})],
-  text(size: 9pt)[Timers, DOM, browser APIs],
+  tb[Side effects],
+  tc[\$effect(() => \{\ ...\ return () => cleanup;\ \})],
+  td[Timers, DOM, browser APIs],
 
-  text(weight: "bold", size: 9pt)[Component props],
-  text(font: "Fira Code", size: 8.5pt)[let \{ a, b \} = \$props()],
-  text(size: 9pt)[Receiving data from parent],
+  tb[Component props],
+  tc[let \{ a, b \} = \$props()],
+  td[Receiving data from parent],
 
-  text(weight: "bold", size: 9pt)[Two-way prop],
-  text(font: "Fira Code", size: 8.5pt)[x = \$bindable(\[\])],
-  text(size: 9pt)[Parent reads/writes child state],
+  tb[Two-way prop],
+  tc[x = \$bindable(\[\])],
+  td[Parent reads/writes child state],
 
-  text(weight: "bold", size: 9pt)[Conditional],
-  text(font: "Fira Code", size: 8.5pt, raw("{#if cond}  {:else if}  {:else}  {/if}")),
-  text(size: 9pt)[Show/hide DOM sections],
+  tb[Conditional],
+  tc(raw("{#if cond}  {:else if}  {:else}  {/if}")),
+  td[Show/hide DOM sections],
 
-  text(weight: "bold", size: 9pt)[List rendering],
-  text(font: "Fira Code", size: 8.5pt, raw("{#each arr as item}  {#each arr as x (key)}")),
-  text(size: 9pt)[Rendering arrays],
+  tb[List rendering],
+  tc(raw("{#each arr as item}  {#each arr as x (key)}")),
+  td[Rendering arrays],
 
-  text(weight: "bold", size: 9pt)[Inline constant],
-  text(font: "Fira Code", size: 8.5pt, raw("{@const x = expr}")),
-  text(size: 9pt)[Avoid repeated expressions],
+  tb[Inline constant],
+  tc(raw("{@const x = expr}")),
+  td[Avoid repeated expressions],
 
-  text(weight: "bold", size: 9pt)[Snippet (define)],
-  text(font: "Fira Code", size: 8.5pt, raw("{#snippet name(params)}  HTML...  {/snippet}")),
-  text(size: 9pt)[Reusable template blocks],
+  tb[Snippet (define)],
+  tc(raw("{#snippet name(params)}  HTML...  {/snippet}")),
+  td[Reusable template blocks],
 
-  text(weight: "bold", size: 9pt)[Snippet (render)],
-  text(font: "Fira Code", size: 8.5pt, raw("{@render name(args)}")),
-  text(size: 9pt)[Calling a snippet],
+  tb[Snippet (render)],
+  tc(raw("{@render name(args)}")),
+  td[Calling a snippet],
 
-  text(weight: "bold", size: 9pt)[Event handler],
-  text(font: "Fira Code", size: 8.5pt)[onclick=\{handler\}\ onclick=\{(e) => \{\}\}],
-  text(size: 9pt)[User interactions],
+  tb[Event handler],
+  tc[onclick=\{handler\}\ onclick=\{(e) => \{\}\}],
+  td[User interactions],
 
-  text(weight: "bold", size: 9pt)[Two-way binding],
-  text(font: "Fira Code", size: 8.5pt)[bind:value=\{x\}],
-  text(size: 9pt)[Form inputs],
+  tb[Two-way binding],
+  tc[bind:value=\{x\}],
+  td[Form inputs],
 
-  text(weight: "bold", size: 9pt)[Lifecycle],
-  text(font: "Fira Code", size: 8.5pt)[onMount(fn)\ onDestroy(fn)],
-  text(size: 9pt)[Setup/cleanup],
+  tb[Lifecycle],
+  tc[onMount(fn)\ onDestroy(fn)],
+  td[Setup/cleanup],
 
-  text(weight: "bold", size: 9pt)[Head elements],
-  text(font: "Fira Code", size: 8.5pt, raw("<svelte:head>  <title>...</title>  </svelte:head>")),
-  text(size: 9pt)[Per-page title/meta],
+  tb[Head elements],
+  tc(raw("<svelte:head>  <title>...</title>  </svelte:head>")),
+  td[Per-page title/meta],
 )
 
 #v(0.3in)
 
 == Key TypeScript Syntax Explained in This Tutorial
 
-#table(
+#ref-table(
   columns: (1.5in, 2.2in, 2.8in),
-  align: (left, left, left),
-  stroke: 0.5pt + code-border,
-  inset: 6pt,
 
   // Header
-  table.header(
-    table.cell(fill: rgb("#f3f4f6"), text(weight: "bold", fill: primary, size: 9pt)[Syntax]),
-    table.cell(fill: rgb("#f3f4f6"), text(weight: "bold", fill: primary, size: 9pt)[Meaning]),
-    table.cell(fill: rgb("#f3f4f6"), text(weight: "bold", fill: primary, size: 9pt)[Example]),
-  ),
+  table.header(th[Syntax], th[Meaning], th[Example]),
 
   // Data rows
-  text(font: "Fira Code", size: 8.5pt)[x: string],
-  text(size: 9pt)[Type annotation],
-  text(font: "Fira Code", size: 8.5pt)[let name: string = 'hi'],
+  tc[x: string],
+  td[Type annotation],
+  tc[let name: string = 'hi'],
 
-  text(font: "Fira Code", size: 8.5pt)[x?: string],
-  text(size: 9pt)[Optional property],
-  text(font: "Fira Code", size: 8.5pt)[interface \{ href?: string \}],
+  tc[x?: string],
+  td[Optional property],
+  tc[interface \{ href?: string \}],
 
-  text(font: "Fira Code", size: 8.5pt)[A | B],
-  text(size: 9pt)[Union type (A or B)],
-  text(font: "Fira Code", size: 8.5pt)[string | undefined],
+  tc[A | B],
+  td[Union type (A or B)],
+  tc[string | undefined],
 
-  text(font: "Fira Code", size: 8.5pt)[T\[\]],
-  text(size: 9pt)[Array of type T],
-  text(font: "Fira Code", size: 8.5pt)[RegisteredWebhook\[\]],
+  tc[T\[\]],
+  td[Array of type T],
+  tc[RegisteredWebhook\[\]],
 
-  text(font: "Fira Code", size: 8.5pt)[Map\<K, V\>],
-  text(size: 9pt)[Map with key/value types],
-  text(font: "Fira Code", size: 8.5pt)[Map\<string, Metrics\>],
+  tc[Map\<K, V\>],
+  td[Map with key/value types],
+  tc[Map\<string, Metrics\>],
 
-  text(font: "Fira Code", size: 8.5pt)[() => void],
-  text(size: 9pt)[Fn, no args, no return],
-  text(font: "Fira Code", size: 8.5pt)[onconfirm: () => void],
+  tc[() => void],
+  td[Fn, no args, no return],
+  tc[onconfirm: () => void],
 
-  text(font: "Fira Code", size: 8.5pt)[x?.y],
-  text(size: 9pt)[Optional chaining],
-  text(font: "Fira Code", size: 8.5pt)[desc?.toLowerCase()],
+  tc[x?.y],
+  td[Optional chaining],
+  tc[desc?.toLowerCase()],
 
-  text(font: "Fira Code", size: 8.5pt)[\<T\>()],
-  text(size: 9pt)[Generic type parameter],
-  text(font: "Fira Code", size: 8.5pt)[\$state\<Webhook\[\]\>(\[\])],
+  tc[\<T\>()],
+  td[Generic type parameter],
+  tc[\$state\<Webhook\[\]\>(\[\])],
 
-  text(font: "Fira Code", size: 8.5pt)[interface],
-  text(size: 9pt)[Object shape definition],
-  text(font: "Fira Code", size: 8.5pt)[interface Props \{ ... \}],
+  tc[interface],
+  td[Object shape definition],
+  tc[interface Props \{ ... \}],
 
-  text(font: "Fira Code", size: 8.5pt)[Snippet],
-  text(size: 9pt)[Renderable template type],
-  text(font: "Fira Code", size: 8.5pt)[action?: Snippet],
+  tc[Snippet],
+  td[Renderable template type],
+  tc[action?: Snippet],
 
-  text(font: "Fira Code", size: 8.5pt)[ReturnType\<T\>],
-  text(size: 9pt)[Extract return type],
-  text(font: "Fira Code", size: 8.5pt)[ReturnType\<typeof setTimeout\>],
+  tc[ReturnType\<T\>],
+  td[Extract return type],
+  tc[ReturnType\<typeof setTimeout\>],
 
-  text(font: "Fira Code", size: 8.5pt)[Record\<K,V\>],
-  text(size: 9pt)[Object with typed keys],
-  text(font: "Fira Code", size: 8.5pt)[Record\<string, string\>],
+  tc[Record\<K,V\>],
+  td[Object with typed keys],
+  tc[Record\<string, string\>],
 
-  text(font: "Fira Code", size: 8.5pt)[as any],
-  text(size: 9pt)[Type assertion],
-  text(font: "Fira Code", size: 8.5pt)[(err as any)?.message],
+  tc[as any],
+  td[Type assertion],
+  tc[(err as any)?.message],
 )
 
 #v(0.5in)
@@ -2313,4 +2124,4 @@ The most important property of this architecture is the unbroken type chain. A f
 #v(0.1in)
 
 All code examples from the Sparrow webhook platform. \
-#text(fill: blue)[https://github.com/sarathsp06/sparrow]
+#link-text[https://github.com/sarathsp06/sparrow]
