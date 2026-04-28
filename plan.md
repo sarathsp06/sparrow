@@ -1,6 +1,8 @@
-# Sparrow Implementation Plan: Search, Filter, Re-push & Retry
+# Sparrow Implementation Plan
 
 > This plan captures all design decisions made during planning. Implementation should follow this document. Update it as decisions change.
+
+> **This plan must be evaluated and updated frequently.** After completing any part, re-assess priorities, update statuses, and revise remaining items based on what was learned. Stale plans lead to wasted effort.
 
 ## Design Principles
 
@@ -16,229 +18,336 @@ These principles apply globally to Sparrow, not just this feature set:
 
 5. **Implicit infrastructure, explicit actions** -- Batch jobs are an implementation detail. Users see "re-push ID" and "retry ID", not "batch job IDs". The batch mechanism is invisible; the user's mental model is: search -> act on results.
 
+6. **Postgres-only, no Redis** -- Sparrow's operational simplicity is a competitive advantage over Svix. All queuing, state, and caching uses PostgreSQL (via River). Do not introduce Redis or other external dependencies without strong justification.
+
+7. **Self-hosted first** -- Features should be useful for teams running Sparrow behind a VPN for internal webhook delivery. Multi-tenant SaaS features are lower priority than operational excellence.
+
 ---
 
-## Part 1: Soft Schema Validation + Template Fallback
+## Current State (as of v1.2.1)
+
+### What's Implemented
+
+| Area | Status | Details |
+|------|--------|---------|
+| Core webhook pipeline | Complete | Register, subscribe, push, fan-out, deliver, retry |
+| 5 proto services, 34 RPCs | Complete | Webhook, Event, Subscription, Delivery, Health + Go-only Namespace |
+| Dual protocol (gRPC + Connect-RPC) | Complete | :50051 gRPC, :8080 HTTP/Connect |
+| SvelteKit admin UI | Complete | 13 pages: webhooks, events, deliveries, health, event instances |
+| Go template transforms | Complete | Per-subscription payload transformation with caching |
+| HMAC-SHA256 signing | Complete | `X-Sparrow-Signature-256` + `X-Sparrow-Timestamp` |
+| SSRF protection | Complete | Blocks private/loopback/metadata IPs, validates redirects |
+| Envelope encryption | Complete | AES-256-GCM for webhook secrets + secret headers |
+| Health tracking | Complete | State machine (healthy/degraded/unhealthy), rolling summaries |
+| Soft schema validation | Complete | Warnings not errors, `schema_valid` flag on events |
+| Batch re-push/retry | Complete | Deterministic snapshot-based, up to 10K items, async via River |
+| Idempotency keys | Complete | Optional dedup on PushEvent, partial unique index |
+| Per-webhook rate limiting | Complete | Leaky bucket (`rate_limit_rps`), 429 Retry-After parsing |
+| Error classification | Complete | 10 categories including `rate_limited`, retryability flags |
+| API key auth | Complete | Optional `SPARROW_API_KEY`, HTTP + gRPC, constant-time compare |
+| Security headers | Complete | nosniff, DENY framing, strict referrer, no FLoC |
+| OTel observability | Complete | Traces, metrics, logs, job trace propagation, gowrap wrappers |
+| 21 DB migrations | Complete | 11 tables including `webhook_rate_limit_state` |
+| Helm chart | Complete | `charts/sparrow/` |
+| CI/CD + GoReleaser | Complete | Cross-platform binaries, Helm chart artifact |
+
+### Known Gaps (vs Svix and general best practices)
+
+| Gap | Priority | Notes |
+|-----|----------|-------|
+| No dead letter queue | High | Failed deliveries stuck in deliveries table forever |
+| No API-level rate limiting | Medium | Per-webhook rate limiting exists, but API endpoints are unthrottled |
+| No asymmetric signatures | Medium | Only HMAC-SHA256; Svix supports Ed25519 |
+| No CLI tool | Medium | Users rely on grpcurl / curl |
+| No payload size limits | Medium | Unbounded event payloads |
+| No data retention / cleanup | High | No TTL-based purge of old events/deliveries |
+| No scheduled/delayed webhooks | Low | Not in Svix OSS either |
+| No API versioning | Low | Single proto, no v1/v2 namespacing |
+| Limited client SDKs | Medium | Go/JS/Python generated; no Java/Ruby/C#/PHP |
+| `opencode.md` stale | High | Several inaccuracies (see Part 10) |
+
+---
+
+## Completed Parts (v0.8.0 -- v1.2.1)
+
+### Part 1: Soft Schema Validation + Template Fallback
 
 **Status**: Complete (v0.8.0)
 
-### Migration 000016: `add_schema_valid`
-- Add `schema_valid BOOLEAN NOT NULL DEFAULT true` to `event_records`
+- Migration 000016: `schema_valid BOOLEAN` on `event_records`
+- `PushEvent` always stores, sets `schema_valid=false` + warnings on mismatch
+- `WebhookWorker` falls back to envelope payload on template failure
 
-### Proto Changes
-- `PushEventResponse`: add `repeated string warnings = 4`
-- `EventReport`: add `bool schema_valid = 12`
-
-### Service Changes
-- `PushEvent` signature: `(eventID string, warnings []string, err error)`
-- Always stores event regardless of schema match
-- Sets `schema_valid=false` + populates per-field warnings on validation failure
-- Remove hard rejection path (currently returns InvalidArgument)
-
-### Repository Changes
-- Add `schema_valid` to all event INSERT/SELECT queries
-- Fix `StoreEventTx` missing `labels` column (latent bug from migration 000012)
-
-### gRPC Handler Changes
-- Wire `warnings` from service into `PushEventResponse`
-- Remove `SchemaValidationError` -> `codes.InvalidArgument` special case in event_handlers.go
-
-### Worker Changes
-- `WebhookWorker`: on template transform failure, log warning, fall back to `BuildEnvelopePayload`, continue delivery (do NOT return error to River)
-
----
-
-## Part 2: Search Filters
+### Part 2: Search Filters
 
 **Status**: Complete (v0.8.0)
 
-### ListEventReports Enhancements
-Request fields:
-- `optional bool schema_valid` -- filter by validation status
-- `map<string, string> labels` -- JSONB containment filter (`labels @> ?`)
-- `google.protobuf.Timestamp created_after` / `created_before` -- time range
-- `bool prepare_repush` -- opt-in: snapshot matching IDs into batch_jobs, return repush_id
+- `ListEventReports`: schema_valid, labels, date range, `prepare_repush` opt-in
+- `ListDeliveries`: status, error_category, subscription, date range, `prepare_retry` opt-in
 
-Response fields:
-- `string repush_id` -- populated only when `prepare_repush=true`
-
-### ListDeliveries Enhancements
-Request fields:
-- `optional string status` -- filter by delivery status
-- `optional string error_category` -- filter by error classification
-- `optional string subscription_id` -- filter by subscription
-- `google.protobuf.Timestamp created_after` / `created_before`
-- `bool prepare_retry` -- opt-in: snapshot matching IDs, return retry_id
-
-Response fields:
-- `string retry_id` -- populated only when `prepare_retry=true`
-
----
-
-## Part 3: Single Event Re-push
+### Part 3: Single Event Re-push
 
 **Status**: Complete (v0.9.0)
 
-### New RPC: `EventService.RePushEvent`
-- Input: `event_id` (UUID of original event)
-- Loads original `event_record` (payload, namespace, event name)
-- Calls PushEvent logic with same payload -> schema validates against CURRENT schema
-- Returns new `event_id` + `warnings`
-- This is "replay this event as if it were pushed fresh"
+- `EventService.RePushEvent`: replay original event through current schema
 
----
-
-## Part 4: Deterministic Batch Operations
+### Part 4: Deterministic Batch Operations
 
 **Status**: Complete (v0.8.0)
 
-### Migration 000017: `add_batch_jobs`
-```sql
-CREATE TABLE batch_jobs (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    namespace     VARCHAR(255) NOT NULL,
-    job_type      VARCHAR(50) NOT NULL,
-    status        VARCHAR(20) NOT NULL DEFAULT 'pending',
-    data          JSONB NOT NULL,
-    total         INTEGER NOT NULL DEFAULT 0,
-    processed     INTEGER NOT NULL DEFAULT 0,
-    failed        INTEGER NOT NULL DEFAULT 0,
-    ttl_seconds   INTEGER NOT NULL DEFAULT 900,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at    TIMESTAMPTZ NOT NULL,
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+- Migration 000017: `batch_jobs` table
+- `BatchJobWorker` (queue: `batch_jobs`, 5 workers, 5s poll)
+- RPCs: RePushEvents, GetRepushStatus, CancelRepush, RetryDeliveries, GetRetryStatus, CancelRetry
+- 10K item cap, 15min TTL, cancellation checks every 25 items
 
-CREATE INDEX idx_batch_jobs_tenant_status ON batch_jobs (tenant_id, status);
-CREATE INDEX idx_batch_jobs_expires_at ON batch_jobs (expires_at) WHERE status NOT IN ('completed', 'cancelled');
-```
-
-### Job Types
-- `event_repush` -- data: `{item_ids: [...], filter: {...}}`
-- `delivery_retry` -- data: `{item_ids: [...], filter: {...}}`
-
-### Batch Size Cap
-- 10,000 items maximum per batch
-- If filter matches > 10K, return error asking user to narrow filter
-
-### Batch TTL
-- 15 minutes (900 seconds) default
-- `ttl_seconds` stored on row, `expires_at = created_at + ttl_seconds`
-- Periodic cleanup of expired rows
-
-### Batch Creation Flow (opt-in via `prepare_repush` / `prepare_retry`)
-1. Run filter query WITHOUT pagination (up to 10K cap)
-2. Snapshot all matching IDs into `data.item_ids`
-3. Store filter params in `data.filter` for audit
-4. Return batch ID as `repush_id` / `retry_id`
-
-### New EventService RPCs
-- `RePushEvents(repush_id)` -> validate batch, set status=processing, enqueue River job
-- `GetRepushStatus(repush_id)` -> return status/total/processed/failed
-- `CancelRepush(repush_id)` -> set status=cancelled
-
-### New DeliveryService RPCs
-- `RetryDeliveries(retry_id)` -> same pattern
-- `GetRetryStatus(retry_id)` -> same
-- `CancelRetry(retry_id)` -> same
-
-### River Worker: `BatchJobWorker`
-- Queue: `batch_jobs`
-- Reads batch, dispatches by `job_type`
-- Checks batch status before each item (abort if `cancelled`)
-- Updates progress counters periodically
-- Sets final status: `completed` or `failed`
-
-### Cleanup
-- Opportunistic: on batch creation, delete expired rows
-- Or periodic River cron job
-
----
-
-## Part 5: Delivery Retry by Filter
+### Part 5: Delivery Retry by Filter
 
 **Status**: Complete (v0.8.0)
 
-Covered by Part 2 (filters on ListDeliveries) + Part 4 (batch-based retry via `prepare_retry` + `RetryDeliveries`).
+- Covered by Part 2 filters + Part 4 batch retry
 
-Existing single-delivery `RetryDelivery` RPC remains unchanged.
-
----
-
-## Part 6: Web UI
+### Part 6: Web UI
 
 **Status**: Complete (v0.9.0)
 
-### Event Reports Page (`/events/[eventName]/reports`)
-- Add filter controls: schema_valid toggle, labels input, date range picker
-- "Re-push All Matching" button: sets `prepare_repush=true`, shows count, confirms, calls `RePushEvents`
-- Progress bar via polling `GetRepushStatus`
-- Per-row "Re-push" button (single `RePushEvent`)
+- Event reports page with filters + bulk re-push
+- Deliveries page with filters + bulk retry
+- Webhook detail page with delivery filters
 
-### New Deliveries Page (`/deliveries`)
-- Full delivery list with filters: status, error_category, webhook, event, subscription, date range
-- "Retry All Matching" button with batch pattern
-- Progress bar via polling `GetRetryStatus`
-- Per-row "Retry" button (existing `RetryDelivery`)
-
-### Webhook Detail Page (`/webhooks/[webhookId]`)
-- Add delivery filters: status, error_category
-- Bulk retry button
-
----
-
-## Part 7: Docs Fixes
+### Part 7: Docs Fixes
 
 **Status**: Complete (v0.11.2)
 
-- Fix Python HMAC indentation in `architecture.mdx` (lines 350-351)
-- Fix OTel sidecar reference in `docker-compose.md` (line 81)
-- Fix `opencode.md`: 5 services not 6, landing page is redirect, no namespace package
-
----
-
-## Part 8: Idempotency Keys on PushEvent
+### Part 8: Idempotency Keys on PushEvent
 
 **Status**: Complete (v1.1.1)
 
-### Migration 000020: `add_idempotency_key`
-- Add `idempotency_key VARCHAR(255)` (nullable) to `event_records`
-- Partial unique index: `UNIQUE (tenant_id, namespace, idempotency_key) WHERE idempotency_key IS NOT NULL`
+- Migration 000020: `idempotency_key` column + partial unique index
+- `PushEventResponse.duplicate` flag
+- RePushEvent bypasses dedup (nil key)
+
+### Part 9: Per-Webhook Rate Limiting
+
+**Status**: Complete (v1.2.1)
+
+- Migration 000021: `rate_limit_rps` on `webhook_registrations` + `webhook_rate_limit_state` table
+- Leaky bucket algorithm in `WebhookWorker` via `AcquireDeliverySlot`
+- HTTP 429 `Retry-After` header parsing (seconds and HTTP-date formats, capped at 15min)
+- `rate_limited` error category (retryable) in `pkg/errors`
+
+---
+
+## Part 10: Docs Sync
+
+**Status**: Pending
+
+The `opencode.md` file has drifted from the actual codebase. Fix all inaccuracies:
+
+- Rate limiting IS implemented (remove from "Known Gaps", add to features)
+- 21 migrations, not 20; 11 tables, not 10
+- 34 proto RPCs across 5 services (update RPC counts in service table)
+- Error categories: 10 not 9 (add `rate_limited`)
+- UI routes: remove `/namespaces` (doesn't exist), add `/events/register`, `/events/instances/[eventId]`, `/deliveries/[deliveryId]`
+- Queue config: add `batch_jobs` queue (5 workers, 5s poll)
+- Add SecurityHeaders middleware to middleware section
+- Update Known Gaps to reflect current state
+
+---
+
+## Part 11: Dead Letter Queue
+
+**Status**: Pending
+
+**Priority**: High -- currently failed deliveries accumulate forever with no mechanism to surface, redrive, or purge them.
+
+### Design
+
+After all retry attempts are exhausted, a delivery enters `failed` terminal state. Today it sits in `webhook_deliveries` indefinitely. A DLQ mechanism should:
+
+1. **Surface failed deliveries clearly** -- dedicated `ListDLQ` RPC filtered to terminal-failed deliveries past max attempts
+2. **Redrive** -- `RedriveDLQ` RPC: re-enqueue failed deliveries for another round of attempts (resets attempt counter)
+3. **Bulk redrive** -- reuse existing batch infrastructure (`batch_jobs` with `job_type = "dlq_redrive"`)
+4. **Per-webhook DLQ depth metric** -- OTel gauge `sparrow.dlq.depth` by webhook_id
+5. **UI** -- DLQ tab on webhook detail page + global DLQ view
+
+### Why not a separate table?
+
+Failed deliveries already have all the data (payload, headers, target URL, error info). A separate DLQ table would duplicate storage. Instead, use a filtered view: `status = 'failed' AND attempts >= max_attempts`.
+
+### Migration
+
+- Add index: `idx_webhook_deliveries_dlq ON webhook_deliveries (webhook_id, status) WHERE status = 'failed'`
 
 ### Proto Changes
-- `PushEventRequest`: reuse existing `optional string id = 6` as the idempotency key
-- `PushEventResponse`: add `bool duplicate = 3`
 
-### Model Changes
-- `EventRecord`: add `IdempotencyKey *string` field
+- `DeliveryService.ListDLQ(namespace, webhook_id, page_size, page_token)` -> paginated failed deliveries
+- `DeliveryService.RedriveDLQ(namespace, webhook_id)` -> redrive all failed for a webhook
+- `DeliveryService.RedriveDelivery(delivery_id)` -> redrive single delivery
 
-### Repository Changes
-- Add `GetEventByIdempotencyKey(ctx, tenantID, namespace, key)` method
-- Update all event INSERT/SELECT queries to include `idempotency_key`
+---
 
-### Service Changes
-- `PushEvent` signature changed: `(ctx, namespace, event, payload, ttlSeconds, metadata, labels, idempotencyKey *string) (string, bool, []string, error)`
-- When idempotency key is provided, check for existing event before inserting
-- If duplicate found, return existing event ID + `duplicate=true` (no re-processing)
-- `RePushEvent` and batch `RePushEvents` pass `nil` for idempotency key -- re-pushes are never deduplicated
+## Part 12: Data Retention & Cleanup
 
-### gRPC Handler Changes
-- Wire `req.Id` (optional string) as `idempotencyKey *string`
-- Return `Duplicate` flag in `PushEventResponse`
+**Status**: Pending
+
+**Priority**: High -- without cleanup, tables grow unbounded. Event records, deliveries, health events, and batch jobs all need TTL-based purging.
+
+### Design
+
+River periodic (cron) job that runs cleanup on a configurable schedule.
+
+### Configuration
+
+New env vars:
+- `SPARROW_RETENTION_EVENTS_DAYS` -- default 30. Delete event_records older than N days.
+- `SPARROW_RETENTION_DELIVERIES_DAYS` -- default 30. Delete webhook_deliveries + delivery attempts older than N days.
+- `SPARROW_RETENTION_HEALTH_EVENTS_DAYS` -- default 7. Delete webhook_health_events older than N days.
+- `SPARROW_RETENTION_BATCH_JOBS_DAYS` -- default 1. Delete completed/cancelled/expired batch_jobs older than N days.
+
+### Implementation
+
+- New `RetentionWorker` as a River periodic job (runs every hour)
+- Deletes in batches (1000 rows per DELETE) to avoid long-held locks
+- Logs rows deleted per table per run
+- OTel counter: `sparrow.retention.rows_deleted` by table
+
+### Migration
+
+- Add `created_at` indexes on tables that lack them for efficient range deletes
+
+---
+
+## Part 13: Payload Size Limits
+
+**Status**: Pending
+
+**Priority**: Medium
+
+### Design
+
+- New config: `SPARROW_MAX_PAYLOAD_BYTES` (default: 256KB)
+- Enforced in `PushEvent` service method before DB insert
+- Returns `codes.InvalidArgument` with clear message
+- Also enforced on template output (transformed payload)
+
+### Proto Changes
+
+None -- enforcement is server-side only.
+
+---
+
+## Part 14: Asymmetric Webhook Signatures (Ed25519)
+
+**Status**: Pending
+
+**Priority**: Medium -- HMAC-SHA256 is sufficient for most internal use cases, but Ed25519 enables verification without sharing a secret (consumers only need the public key).
+
+### Design
+
+- Per-webhook `signature_type` field: `hmac_sha256` (default) or `ed25519`
+- When `ed25519`: generate Ed25519 keypair on webhook registration, store private key (encrypted), expose public key via API
+- Signing: `Ed25519(timestamp.payload)`, same message format as HMAC
+- Headers: `X-Sparrow-Signature-Ed25519` + existing `X-Sparrow-Timestamp`
+- Verification libraries: provide examples in docs for Go, Python, JS
+
+### Migration
+
+- Add `signature_type VARCHAR(20) NOT NULL DEFAULT 'hmac_sha256'` to `webhook_registrations`
+- Add `signing_public_key TEXT` to `webhook_registrations`
+- Store encrypted Ed25519 private key in existing `webhook_secret` column (envelope encryption handles it)
+
+---
+
+## Part 15: CLI Tool
+
+**Status**: Pending
+
+**Priority**: Medium -- currently users need grpcurl or curl for all operations. A dedicated CLI improves DX significantly.
+
+### Design
+
+Standalone Go binary (`cmd/cli/`) using cobra. Connects to Sparrow server via Connect-RPC (HTTP).
+
+### Commands
+
+```
+sparrow-cli webhooks list [--namespace NS]
+sparrow-cli webhooks register --url URL --namespace NS [--secret SECRET]
+sparrow-cli webhooks pause ID
+sparrow-cli webhooks resume ID
+sparrow-cli events list [--namespace NS]
+sparrow-cli events register --name NAME [--schema FILE]
+sparrow-cli events push --name NAME --namespace NS --payload FILE|STDIN
+sparrow-cli deliveries list [--status STATUS] [--webhook-id ID]
+sparrow-cli deliveries retry ID
+sparrow-cli health summary [--namespace NS]
+sparrow-cli config  # show server connection info
+```
+
+### Configuration
+
+- `SPARROW_URL` env var (default: `http://localhost:8080`)
+- `SPARROW_API_KEY` env var (reuse existing)
+- Optional `~/.sparrow.yaml` config file
+
+---
+
+## Part 16: API-Level Rate Limiting
+
+**Status**: Pending
+
+**Priority**: Medium -- per-webhook delivery rate limiting exists, but API endpoints have no request throttling. Important for public-facing deployments.
+
+### Design
+
+- Token bucket per API key (or per-IP if no API key)
+- Configurable via `SPARROW_API_RATE_LIMIT` (requests/second, default: 100)
+- Returns HTTP 429 with `Retry-After` header
+- Implemented as chi middleware (HTTP) + gRPC interceptor
+- State stored in-memory (process-local) -- acceptable for single-instance deployments
+- For multi-instance: optional PostgreSQL-backed limiter using `pg_advisory_lock`
+
+---
+
+## Future Considerations (Not Planned)
+
+These are features identified from the Svix comparison that are **not currently planned** but documented for future reference:
+
+| Feature | Rationale for deferring |
+|---------|------------------------|
+| Multi-tenant SaaS mode | Sparrow is designed for self-hosted internal use. Tenant infrastructure exists in the DB but activating it requires auth, isolation, and billing -- a different product. |
+| Consumer app portal (embeddable UI) | Requires multi-tenancy. Sparrow's UI is admin-only. |
+| FIFO endpoint ordering | Niche requirement. River doesn't support strict ordering without serialization. Would require per-endpoint queue partitioning. |
+| Polling endpoints | Low demand for self-hosted use. Adds complexity to delivery model. |
+| Object storage sinks (S3/GCS) | Specialized. Can be done via Go template + custom subscription type later. |
+| Connector endpoints (Slack, etc.) | Better handled by users via template transforms + Slack webhook URLs. |
+| Email notifications on failure | Requires email infrastructure (SMTP config, templates). Could add later with a webhook-to-email bridge pattern. |
+| Operational webhooks (meta-webhooks) | Low priority for single-tenant. Could use existing subscription mechanism to subscribe to internal events. |
+| More client SDKs (Java, Ruby, C#, PHP) | Generated clients work but are thin. Could auto-generate from proto using buf + connect-es ecosystem. Prioritize when there's user demand. |
 
 ---
 
 ## Implementation Order
 
 ```
-Part 1 --> Part 2 --> Part 4 --> Part 6
-                  \
-                   Part 3 (parallel with Part 4)
+Completed:
+  Part 1 --> Part 2 --> Part 4 --> Part 6
+                    \
+                     Part 3 (parallel with Part 4)
+  Part 7 (parallel)
+  Part 8 (parallel)
+  Part 9 (parallel)
 
-Part 7 (parallel with everything)
-Part 8 (parallel with everything)
+Next:
+  Part 10 (docs sync) -- immediate, no code changes
+  Part 11 (DLQ) ──────> Part 12 (retention) -- DLQ first so retention doesn't delete un-redriven failures
+  Part 13 (payload limits) -- independent
+  Part 14 (Ed25519) -- independent
+  Part 15 (CLI) -- independent
+  Part 16 (API rate limiting) -- independent
 ```
+
+---
 
 ## Decisions Log
 
@@ -256,3 +365,12 @@ Part 8 (parallel with everything)
 | Idempotency key column | Separate `idempotency_key` (nullable VARCHAR) | String flexibility, not coupled to event UUID |
 | Re-push dedup | RePushEvent passes nil key | Re-push must never be deduplicated |
 | Idempotency index | Partial unique index (WHERE NOT NULL) | No overhead for events without idempotency keys |
+| Rate limiting algorithm | Leaky bucket (DB-backed) | Simple, predictable, no Redis needed |
+| DLQ approach | Filtered view, not separate table | Failed deliveries already have all data; avoid duplication |
+| Retention strategy | River periodic job, batched deletes | Avoids long locks, configurable per table |
+| Ed25519 key storage | Reuse envelope encryption | Consistent with existing secret storage pattern |
+| CLI transport | Connect-RPC over HTTP | Same protocol as web UI, reuses API key auth |
+| API rate limiting state | In-memory (single instance) | Simplest. Upgrade to PG-backed if multi-instance needed |
+| Redis dependency | No | Postgres-only is a competitive advantage over Svix OSS |
+| Multi-tenant activation | Deferred | Different product; infrastructure retained but not activated |
+| Consumer portal | Deferred | Requires multi-tenancy; admin UI serves current use case |

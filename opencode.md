@@ -4,7 +4,7 @@
 
 **Module**: `github.com/sarathsp06/sparrow`  
 **Go**: 1.26  
-**Repository**: `/Users/sarathsadasivanpillai/projects/httpqueue`
+**Repository**: `/Users/sarathsadasivanpillai/projects/sparrow`
 
 ---
 
@@ -36,8 +36,8 @@ Sparrow supports **optional API key authentication** via the `SPARROW_API_KEY` e
                                                    │         v
                          ┌─────────────────────┐   │  ┌──────────────┐
                          │  internal/webhooks/  │   │  │  PostgreSQL  │
-                         │  queue (River)       │<──┘  │  10 tables   │
-                         │  EventWorker         │      │  20 migrations│
+                         │  queue (River)       │<──┘  │  11 tables   │
+                         │  EventWorker         │      │  21 migrations│
                          │  WebhookWorker       │      └──────────────┘
                          └─────────┬───────────┘
                                    │
@@ -66,7 +66,7 @@ Sparrow supports **optional API key authentication** via the `SPARROW_API_KEY` e
 │   ├── grpc/            # gRPC service implementations (handlers)
 │   ├── health/          # Health check endpoint
 │   ├── logger/          # Structured slog setup with OTel bridge
-│   ├── middleware/       # HTTP & gRPC middleware (API key auth)
+│   ├── middleware/       # HTTP & gRPC middleware (API key auth, security headers)
 │   ├── namespace/       # Namespace CRUD (service, repository, models)
 │   ├── observability/   # OTel setup (traces, metrics, logs via OTLP)
 │   ├── tenant/          # Tenant bootstrap (default tenant auto-creation)
@@ -76,7 +76,7 @@ Sparrow supports **optional API key authentication** via the `SPARROW_API_KEY` e
 │       ├── queue/       # River job queue (EventWorker, WebhookWorker)
 │       └── store/       # Repository (75+ methods), models, interface
 ├── pkg/
-│   ├── errors/          # Error classification (9 categories, retryability)
+│   ├── errors/          # Error classification (10 categories, retryability)
 │   ├── storage/         # DB/DBTX interfaces, WithTransaction, error translation
 │   └── types/           # Shared types
 ├── proto/               # Generated protobuf Go + JS/TS code
@@ -85,11 +85,11 @@ Sparrow supports **optional API key authentication** via the `SPARROW_API_KEY` e
 │   └── webhook_pb.d.ts  # protoc-gen-es types (web UI)
 ├── client/              # Generated clients (Go, JS, Python)
 ├── db/
-│   └── migrations/      # 20 migration pairs (.up.sql / .down.sql)
+│   └── migrations/      # 21 migration pairs (.up.sql / .down.sql)
 ├── web/                 # SvelteKit frontend source
 ├── buf.gen.yaml         # Buf code generation config (Go, JS/TS clients, protoc-gen-es for web UI)
 ├── buf.yaml             # Buf module config
-├── webhook.proto        # Single proto file defining all 6 services
+├── webhook.proto        # Single proto file defining all 5 services
 ├── Dockerfile           # 3-stage: Node frontend -> Go build -> distroless
 ├── docker-compose.yml   # Postgres + migrate + sparrow + OTel collector
 ├── Makefile             # build, test, lint, migrate, generate, docker targets
@@ -156,9 +156,9 @@ pkg/errors ───────────────> (leaf: net, syscall)
 | Service | Server Struct | RPCs | File | Proto? |
 |---------|---------------|------|------|--------|
 | **WebhookService** | `WebhookServer` | RegisterWebhook, UnregisterWebhook, ListWebhooks, UpdateWebhookConfig, PauseWebhook, ResumeWebhook, GetNamespaceStats, GetTemplateFunctions | `webhook_handlers.go` | Yes |
-| **EventService** | `WebhookServer` | RegisterEvent, ListEvents, UpdateEvent, DeleteEvent, GetEvent, PushEvent, ListEventReports | `event_handlers.go` | Yes |
+| **EventService** | `WebhookServer` | RegisterEvent, ListEvents, UpdateEvent, DeleteEvent, GetEvent, PushEvent, ListEventReports, GetEventRecord, RePushEvent, RePushEvents, GetRepushStatus, CancelRepush | `event_handlers.go` | Yes |
 | **SubscriptionService** | `WebhookServer` | CreateSubscription, GetSubscription, ListSubscriptions, UpdateSubscription, DeleteSubscription, TestSubscriptionTemplate | `subscription_handlers.go` | Yes |
-| **DeliveryService** | `WebhookServer` | GetDeliveryStatus, ListDeliveries, RetryDelivery, GetDeliveryAttempts | `delivery_handlers.go` | Yes |
+| **DeliveryService** | `WebhookServer` | GetDeliveryStatus, ListDeliveries, RetryDelivery, GetDeliveryAttempts, RetryDeliveries, GetRetryStatus, CancelRetry | `delivery_handlers.go` | Yes |
 | **HealthService** | `WebhookServer` | GetWebhookHealth, ListWebhooksByHealth, GetHealthSummary | `health_handlers.go` | Yes |
 | **NamespaceService** | `NamespaceServer` | CreateNamespace, GetNamespace, ListNamespaces, UpdateNamespace, DeleteNamespace | `namespace_server.go` | No (Go-only) |
 
@@ -260,9 +260,9 @@ The HTTP server uses [chi](https://github.com/go-chi/chi) for routing with middl
 | Pattern | Handler | Auth | Notes |
 |---------|---------|------|-------|
 | `/webhook.WebhookService/*` | Connect-RPC | Yes | 8 RPCs |
-| `/webhook.EventService/*` | Connect-RPC | Yes | 7 RPCs |
+| `/webhook.EventService/*` | Connect-RPC | Yes | 12 RPCs |
 | `/webhook.SubscriptionService/*` | Connect-RPC | Yes | 6 RPCs |
-| `/webhook.DeliveryService/*` | Connect-RPC | Yes | 4 RPCs |
+| `/webhook.DeliveryService/*` | Connect-RPC | Yes | 7 RPCs |
 | `/webhook.HealthService/*` | Connect-RPC | Yes | 3 RPCs |
 | `GET /health` | Health check | No | JSON health status |
 | `GET /ready` | Readiness | No | JSON readiness status |
@@ -357,11 +357,12 @@ const (
     CategoryConnectionRefused = "connection_refused"  // RETRYABLE
     CategoryNetworkError      = "network_error"       // RETRYABLE
     CategoryUnexpectedStatus  = "unexpected_status"   // 2xx/3xx not in expected_status_codes
+    CategoryRateLimited       = "rate_limited"        // HTTP 429 -- RETRYABLE
     CategoryUnknown           = "unknown"
 )
 ```
 
-**Retryable**: `server_error`, `timeout`, `connection_refused`, `network_error`  
+**Retryable**: `server_error`, `timeout`, `connection_refused`, `network_error`, `rate_limited`  
 **Not retryable**: `client_error`, `dns_error`, `tls_error`, `unexpected_status`
 
 ---
@@ -374,6 +375,7 @@ const (
 | `default` | 5 | default |
 | `events` | 20 | 2s |
 | `webhooks` | 20 | 2s |
+| `batch_jobs` | 5 | 5s |
 
 ### Job Types
 ```go
@@ -426,7 +428,7 @@ nsServer      := grpc.NewNamespaceServer(nsSvc)
 
 ---
 
-## Database Schema (10 Tables)
+## Database Schema (11 Tables)
 
 ### Entity Relationship Diagram
 
@@ -505,13 +507,15 @@ nsServer      := grpc.NewNamespaceServer(nsSvc)
 | `tenants` | 5 | `id` | Slug unique, default tenant auto-created |
 | `namespaces` | 6 | `id` | (tenant_id, name) UNIQUE |
 | `event_registrations` | 8 | `(tenant_id, name)` | Composite PK (no UUID) |
-| `webhook_registrations` | 20 | `id` | (tenant_id, namespace) FK to namespaces |
+| `webhook_registrations` | 22 | `id` | (tenant_id, namespace) FK to namespaces, rate_limit_rps |
 | `event_subscriptions` | 11 | `id` | FK webhook_id, transform template |
 | `event_records` | 10 | `id` | FK tenant, TTL + expires_at, idempotency_key (nullable, partial unique) |
 | `webhook_deliveries` | 16 | `id` | FK webhook+event+subscription, status enum |
 | `webhook_health_events` | 9 | `id` | FK webhook, error_category |
 | `webhook_health_summaries` | 17 | `id` | (webhook_id, window_start, window_end) UNIQUE |
 | `webhook_health_state` | 8 | `id` | webhook_id UNIQUE |
+| `batch_jobs` | 11 | `id` | Generic batch infrastructure, job_type + JSONB data |
+| `webhook_rate_limit_state` | 5 | `webhook_id` | Leaky bucket state for per-webhook rate limiting |
 
 ### Index Inventory
 
@@ -659,12 +663,14 @@ Startup order: postgres (healthy) -> sparrow (starts)
 | `/webhooks/register` | Register new webhook |
 | `/webhooks/[webhookId]` | Webhook detail + deliveries |
 | `/events` | Event type list |
+| `/events/register` | Register new event type |
 | `/events/push` | Push event form |
 | `/events/[eventName]/update` | Edit event type |
 | `/events/[eventName]/reports` | Event delivery reports |
+| `/events/instances/[eventId]` | Event instance detail |
 | `/health` | Webhook health dashboard |
-| `/namespaces` | Namespace management |
 | `/deliveries` | Delivery list |
+| `/deliveries/[deliveryId]` | Delivery detail |
 
 ---
 
@@ -801,12 +807,13 @@ func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequ
 
 ## Known Gaps / Not Yet Implemented
 
-1. **No rate limiting** at the API level
+1. **No API-level rate limiting** -- per-webhook delivery rate limiting exists, but API endpoints are unthrottled
 2. **No dead letter queue** -- failed deliveries stay in deliveries table
 3. **No API versioning** in proto
 4. **No payload size limits** enforcement
 5. **No tenant usage quotas** (events/month, deliveries, etc.)
 6. **No scheduled/delayed webhooks**
+7. **No data retention / cleanup** -- tables grow unbounded
 
 ---
 
@@ -828,3 +835,4 @@ func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequ
 | Chi Router | Apr 2026 | Replaced stdlib two-tier mux with chi router, fixed routing bug where Connect-RPC paths were unreachable (wrong `/sparrow.v1.` prefix), route-group auth separation, JSON 404 for non-GET to unknown paths |
 | Search & Retry | Apr 2026 | Soft schema validation, template fallback, search filters, deterministic batch re-push/retry (see `plan.md`) |
 | Idempotency | Apr 2026 | Idempotency keys on PushEvent via optional `id` field, partial unique index, `duplicate` flag in response, re-push bypasses dedup |
+| Rate Limiting | Apr 2026 | Per-webhook leaky bucket rate limiting (`rate_limit_rps`), HTTP 429 Retry-After parsing, `rate_limited` error category |
