@@ -37,7 +37,7 @@ Sparrow supports **optional API key authentication** via the `SPARROW_API_KEY` e
                          ┌─────────────────────┐   │  ┌──────────────┐
                          │  internal/webhooks/  │   │  │  PostgreSQL  │
                          │  queue (River)       │<──┘  │  11 tables   │
-                         │  EventWorker         │      │  21 migrations│
+                         │  EventWorker         │      │  22 migrations│
                          │  WebhookWorker       │      └──────────────┘
                          └─────────┬───────────┘
                                    │
@@ -85,7 +85,7 @@ Sparrow supports **optional API key authentication** via the `SPARROW_API_KEY` e
 │   └── webhook_pb.d.ts  # protoc-gen-es types (web UI)
 ├── client/              # Generated clients (Go, JS, Python)
 ├── db/
-│   └── migrations/      # 21 migration pairs (.up.sql / .down.sql)
+│   └── migrations/      # 22 migration pairs (.up.sql / .down.sql)
 ├── web/                 # SvelteKit frontend source
 ├── buf.gen.yaml         # Buf code generation config (Go, JS/TS clients, protoc-gen-es for web UI)
 ├── buf.yaml             # Buf module config
@@ -507,7 +507,7 @@ nsServer      := grpc.NewNamespaceServer(nsSvc)
 | `tenants` | 5 | `id` | Slug unique, default tenant auto-created |
 | `namespaces` | 6 | `id` | (tenant_id, name) UNIQUE |
 | `event_registrations` | 8 | `(tenant_id, name)` | Composite PK (no UUID) |
-| `webhook_registrations` | 22 | `id` | (tenant_id, namespace) FK to namespaces, rate_limit_rps |
+| `webhook_registrations` | 23 | `id` | (tenant_id, namespace) FK to namespaces, rate_limit_rps, ed25519_private_key |
 | `event_subscriptions` | 11 | `id` | FK webhook_id, transform template |
 | `event_records` | 10 | `id` | FK tenant, TTL + expires_at, idempotency_key (nullable, partial unique) |
 | `webhook_deliveries` | 16 | `id` | FK webhook+event+subscription, status enum |
@@ -836,3 +836,4 @@ func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequ
 | Search & Retry | Apr 2026 | Soft schema validation, template fallback, search filters, deterministic batch re-push/retry (see `plan.md`) |
 | Idempotency | Apr 2026 | Idempotency keys on PushEvent via optional `id` field, partial unique index, `duplicate` flag in response, re-push bypasses dedup |
 | Rate Limiting | Apr 2026 | Per-webhook leaky bucket rate limiting (`rate_limit_rps`), HTTP 429 Retry-After parsing, `rate_limited` error category |
+| Ed25519 Signing | Apr 2026 | Dual HMAC-SHA256 + Ed25519 signing on every delivery, per-webhook keypair, public key exposed via API |

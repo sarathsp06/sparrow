@@ -627,9 +627,13 @@ type RegisterWebhookResponse struct {
 	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	// Timestamp when the webhook was created.
 	// @example "2025-01-15T10:30:00Z"
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// Hex-encoded Ed25519 public key for asymmetric webhook signature verification.
+	// Share this key with webhook consumers so they can verify the
+	// X-Sparrow-Signature-Ed25519 header on deliveries.
+	SigningPublicKey string `protobuf:"bytes,5,opt,name=signing_public_key,json=signingPublicKey,proto3" json:"signing_public_key,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *RegisterWebhookResponse) Reset() {
@@ -690,6 +694,13 @@ func (x *RegisterWebhookResponse) GetCreatedAt() *timestamppb.Timestamp {
 		return x.CreatedAt
 	}
 	return nil
+}
+
+func (x *RegisterWebhookResponse) GetSigningPublicKey() string {
+	if x != nil {
+		return x.SigningPublicKey
+	}
+	return ""
 }
 
 // UnregisterWebhookRequest identifies a webhook to permanently delete.
@@ -933,8 +944,12 @@ type RegisteredWebhook struct {
 	// Secret headers with values masked as "******". Keys are shown for display;
 	// actual values are never exposed through the API.
 	SecretHeaders map[string]string `protobuf:"bytes,13,rep,name=secret_headers,json=secretHeaders,proto3" json:"secret_headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Hex-encoded Ed25519 public key for asymmetric webhook signature verification.
+	// Consumers use this key to verify the X-Sparrow-Signature-Ed25519 header
+	// without needing access to the signing secret.
+	SigningPublicKey string `protobuf:"bytes,14,opt,name=signing_public_key,json=signingPublicKey,proto3" json:"signing_public_key,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *RegisteredWebhook) Reset() {
@@ -1056,6 +1071,13 @@ func (x *RegisteredWebhook) GetSecretHeaders() map[string]string {
 		return x.SecretHeaders
 	}
 	return nil
+}
+
+func (x *RegisteredWebhook) GetSigningPublicKey() string {
+	if x != nil {
+		return x.SigningPublicKey
+	}
+	return ""
 }
 
 // ListWebhooksResponse contains the paginated list of webhooks matching the query.
@@ -7155,14 +7177,15 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a@\n" +
 	"\x12SecretHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xaf\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xdd\x01\n" +
 	"\x17RegisterWebhookResponse\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
 	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
 	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\x129\n" +
 	"\n" +
-	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"W\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12,\n" +
+	"\x12signing_public_key\x18\x05 \x01(\tR\x10signingPublicKey\"W\n" +
 	"\x18UnregisterWebhookRequest\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
@@ -7179,7 +7202,7 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"pagination\x18\x04 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
 	"pagination\x12\x1d\n" +
 	"\n" +
-	"webhook_id\x18\x05 \x01(\tR\twebhookId\"\xc8\x05\n" +
+	"webhook_id\x18\x05 \x01(\tR\twebhookId\"\xf6\x05\n" +
 	"\x11RegisteredWebhook\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
@@ -7198,7 +7221,8 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12;\n" +
 	"\vhttp_config\x18\f \x01(\v2\x1a.webhook.WebhookHTTPConfigR\n" +
 	"httpConfig\x12T\n" +
-	"\x0esecret_headers\x18\r \x03(\v2-.webhook.RegisteredWebhook.SecretHeadersEntryR\rsecretHeaders\x1a:\n" +
+	"\x0esecret_headers\x18\r \x03(\v2-.webhook.RegisteredWebhook.SecretHeadersEntryR\rsecretHeaders\x12,\n" +
+	"\x12signing_public_key\x18\x0e \x01(\tR\x10signingPublicKey\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a@\n" +

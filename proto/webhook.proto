@@ -478,6 +478,11 @@ message RegisterWebhookResponse {
   // Timestamp when the webhook was created.
   // @example "2025-01-15T10:30:00Z"
   google.protobuf.Timestamp created_at = 4;
+
+  // Hex-encoded Ed25519 public key for asymmetric webhook signature verification.
+  // Share this key with webhook consumers so they can verify the
+  // X-Sparrow-Signature-Ed25519 header on deliveries.
+  string signing_public_key = 5;
 }
 
 // UnregisterWebhookRequest identifies a webhook to permanently delete.
@@ -574,6 +579,11 @@ message RegisteredWebhook {
   // Secret headers with values masked as "******". Keys are shown for display;
   // actual values are never exposed through the API.
   map<string, string> secret_headers = 13;
+
+  // Hex-encoded Ed25519 public key for asymmetric webhook signature verification.
+  // Consumers use this key to verify the X-Sparrow-Signature-Ed25519 header
+  // without needing access to the signing secret.
+  string signing_public_key = 14;
 }
 
 // ListWebhooksResponse contains the paginated list of webhooks matching the query.

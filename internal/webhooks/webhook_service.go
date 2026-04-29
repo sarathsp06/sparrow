@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -525,6 +526,20 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		storeWebhook.WebhookSecret = encSecret
 	}
 
+	// Generate Ed25519 keypair for asymmetric signing.
+	// The private key is envelope-encrypted and stored; the public key is derived at runtime.
+	if s.crypto != nil && s.crypto.Enabled() {
+		_, privKey, err := ed25519.GenerateKey(nil) // crypto/rand by default
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate Ed25519 keypair: %w", err)
+		}
+		encPrivKey, err := s.crypto.EncryptString(string(privKey))
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt Ed25519 private key: %w", err)
+		}
+		storeWebhook.Ed25519PrivateKey = encPrivKey
+	}
+
 	// Encrypt secret headers if provided
 	if len(req.SecretHeaders) > 0 {
 		encrypted, err := s.EncryptSecretHeaders(req.SecretHeaders)
@@ -589,6 +604,10 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	)
 
 	span.SetStatus(otelcodes.Ok, "webhook created successfully")
+
+	// Attach encrypted Ed25519 key so the handler can derive the public key for the response
+	webhookReg.Ed25519EncryptedPrivateKey = storeWebhook.Ed25519PrivateKey
+
 	return webhookReg, nil
 }
 

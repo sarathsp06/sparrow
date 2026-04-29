@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/hex"
 	"errors"
 	"log/slog"
 	"strings"
@@ -264,18 +266,19 @@ func convertWebhookRegToProto(reg *store.WebhookRegistration, events []string, s
 		return nil
 	}
 	return &pb.RegisteredWebhook{
-		WebhookId:     reg.ID.String(),
-		Namespace:     reg.Namespace,
-		Events:        events,
-		Url:           reg.URL,
-		Headers:       reg.Headers,
-		Timeout:       int32(reg.Timeout),
-		Active:        reg.Active,
-		Description:   reg.Description,
-		Health:        convertWebhookHealth(reg.Health),
-		CreatedAt:     convertTimeToProto(reg.CreatedAt),
-		UpdatedAt:     convertTimeToProto(reg.UpdatedAt),
-		SecretHeaders: maskSecretHeaders(reg.SecretHeaders, svc),
+		WebhookId:        reg.ID.String(),
+		Namespace:        reg.Namespace,
+		Events:           events,
+		Url:              reg.URL,
+		Headers:          reg.Headers,
+		Timeout:          int32(reg.Timeout),
+		Active:           reg.Active,
+		Description:      reg.Description,
+		Health:           convertWebhookHealth(reg.Health),
+		CreatedAt:        convertTimeToProto(reg.CreatedAt),
+		UpdatedAt:        convertTimeToProto(reg.UpdatedAt),
+		SecretHeaders:    maskSecretHeaders(reg.SecretHeaders, svc),
+		SigningPublicKey: deriveEd25519PublicKeyHex(reg.Ed25519PrivateKey, svc),
 		HttpConfig: &pb.WebhookHTTPConfig{
 			MaxRetries:            int32(reg.MaxRetries),
 			RetryBackoffSeconds:   int32(reg.RetryBackoffSeconds),
@@ -305,4 +308,26 @@ func batchJobToProto(batch *store.BatchJob) *pb.BatchJobStatus {
 		CreatedAt: convertTimeToProto(batch.CreatedAt),
 		ExpiresAt: convertTimeToProto(batch.ExpiresAt),
 	}
+}
+
+// deriveEd25519PublicKeyHex decrypts the envelope-encrypted Ed25519 private key
+// and returns the hex-encoded public key. Returns "" on any error or if the key is absent.
+func deriveEd25519PublicKeyHex(encryptedPrivKey []byte, svc webhooks.WebhookServiceInterface) string {
+	if len(encryptedPrivKey) == 0 {
+		return ""
+	}
+	cryptoSvc := svc.GetCrypto()
+	if cryptoSvc == nil {
+		return ""
+	}
+	decrypted, err := cryptoSvc.DecryptString(encryptedPrivKey)
+	if err != nil {
+		return ""
+	}
+	privKey := ed25519.PrivateKey([]byte(decrypted))
+	if len(privKey) != ed25519.PrivateKeySize {
+		return ""
+	}
+	pubKey := privKey.Public().(ed25519.PublicKey)
+	return hex.EncodeToString(pubKey)
 }

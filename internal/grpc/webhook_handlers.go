@@ -22,8 +22,9 @@ func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWeb
 			return nil, toGRPCError(ctx, err, "failed to register webhook")
 		}
 		return &pb.RegisterWebhookResponse{
-			WebhookId: webhook.ID,
-			CreatedAt: convertTimeToProto(webhook.CreatedAt),
+			WebhookId:        webhook.ID,
+			CreatedAt:        convertTimeToProto(webhook.CreatedAt),
+			SigningPublicKey: deriveEd25519PublicKeyHex(webhook.Ed25519EncryptedPrivateKey, s.service),
 		}, nil
 	}
 

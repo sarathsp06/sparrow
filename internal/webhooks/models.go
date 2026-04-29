@@ -26,6 +26,10 @@ type WebhookRegistration struct {
 	// HTTP Configuration
 	HTTPConfig WebhookHTTPConfig `json:"http_config"`
 
+	// Ed25519EncryptedPrivateKey holds the envelope-encrypted Ed25519 private key.
+	// Only populated on creation; used to derive the public key for API responses.
+	Ed25519EncryptedPrivateKey []byte `json:"-"`
+
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }

@@ -36,6 +36,7 @@ These principles apply globally to Sparrow, not just this feature set:
 | SvelteKit admin UI | Complete | 13 pages: webhooks, events, deliveries, health, event instances |
 | Go template transforms | Complete | Per-subscription payload transformation with caching |
 | HMAC-SHA256 signing | Complete | `X-Sparrow-Signature-256` + `X-Sparrow-Timestamp` |
+| Ed25519 signing | Complete | Dual signing (HMAC + Ed25519) on every delivery, per-webhook keypair, public key via API |
 | SSRF protection | Complete | Blocks private/loopback/metadata IPs, validates redirects |
 | Envelope encryption | Complete | AES-256-GCM for webhook secrets + secret headers |
 | Health tracking | Complete | State machine (healthy/degraded/unhealthy), rolling summaries |
@@ -47,7 +48,7 @@ These principles apply globally to Sparrow, not just this feature set:
 | API key auth | Complete | Optional `SPARROW_API_KEY`, HTTP + gRPC, constant-time compare |
 | Security headers | Complete | nosniff, DENY framing, strict referrer, no FLoC |
 | OTel observability | Complete | Traces, metrics, logs, job trace propagation, gowrap wrappers |
-| 21 DB migrations | Complete | 11 tables including `webhook_rate_limit_state` |
+| 22 DB migrations | Complete | 11 tables including `webhook_rate_limit_state` |
 | Helm chart | Complete | `charts/sparrow/` |
 | CI/CD + GoReleaser | Complete | Cross-platform binaries, Helm chart artifact |
 
@@ -57,7 +58,6 @@ These principles apply globally to Sparrow, not just this feature set:
 |-----|----------|-------|
 | No dead letter queue | High | Failed deliveries stuck in deliveries table forever |
 | No API-level rate limiting | Medium | Per-webhook rate limiting exists, but API endpoints are unthrottled |
-| No asymmetric signatures | Medium | Only HMAC-SHA256; Svix supports Ed25519 |
 | No CLI tool | Medium | Users rely on grpcurl / curl |
 | No payload size limits | Medium | Unbounded event payloads |
 | No data retention / cleanup | High | No TTL-based purge of old events/deliveries |
@@ -238,23 +238,29 @@ None -- enforcement is server-side only.
 
 ## Part 14: Asymmetric Webhook Signatures (Ed25519)
 
-**Status**: Pending
+**Status**: Complete
 
-**Priority**: Medium -- HMAC-SHA256 is sufficient for most internal use cases, but Ed25519 enables verification without sharing a secret (consumers only need the public key).
+### Design (as implemented)
 
-### Design
-
-- Per-webhook `signature_type` field: `hmac_sha256` (default) or `ed25519`
-- When `ed25519`: generate Ed25519 keypair on webhook registration, store private key (encrypted), expose public key via API
-- Signing: `Ed25519(timestamp.payload)`, same message format as HMAC
-- Headers: `X-Sparrow-Signature-Ed25519` + existing `X-Sparrow-Timestamp`
-- Verification libraries: provide examples in docs for Go, Python, JS
+- **Dual signing**: Every delivery is signed with both HMAC-SHA256 and Ed25519. No `signature_type` configuration needed.
+- **Ed25519 keypair generated once** at webhook registration, private key envelope-encrypted (AES-256-GCM) and stored in `ed25519_private_key` column.
+- **Public key derived at runtime** from the private key (`ed25519.PrivateKey.Public()`). Not stored separately.
+- **Signing**: `Ed25519Sign(privateKey, timestamp + "." + payload)`, same message format as HMAC.
+- **Headers**: `X-Sparrow-Signature-Ed25519` (hex-encoded) alongside existing `X-Sparrow-Signature-256` and `X-Sparrow-Timestamp`.
+- **Public key exposed** via `signing_public_key` field on `RegisterWebhookResponse` and `RegisteredWebhook` proto messages (hex-encoded).
+- **Consumers choose** which signature to verify -- HMAC (requires shared secret) or Ed25519 (requires only the public key).
 
 ### Migration
 
-- Add `signature_type VARCHAR(20) NOT NULL DEFAULT 'hmac_sha256'` to `webhook_registrations`
-- Add `signing_public_key TEXT` to `webhook_registrations`
-- Store encrypted Ed25519 private key in existing `webhook_secret` column (envelope encryption handles it)
+- 000022: Add `ed25519_private_key BYTEA` column to `webhook_registrations`
+
+### Key decisions vs original plan
+
+| Original plan | Actual implementation | Rationale |
+|---|---|---|
+| `signature_type` column | No column; always dual-sign | Simpler, no config needed, negligible cost |
+| `signing_public_key` column | Derived at runtime | Public key is always derivable from private key |
+| Store private key in `webhook_secret` | Separate `ed25519_private_key` column | Different values; HMAC secret and Ed25519 key coexist |
 
 ---
 
@@ -342,7 +348,7 @@ Next:
   Part 10 (docs sync) -- immediate, no code changes
   Part 11 (DLQ) ──────> Part 12 (retention) -- DLQ first so retention doesn't delete un-redriven failures
   Part 13 (payload limits) -- independent
-  Part 14 (Ed25519) -- independent
+  Part 14 (Ed25519) -- COMPLETE
   Part 15 (CLI) -- independent
   Part 16 (API rate limiting) -- independent
 ```
@@ -369,6 +375,8 @@ Next:
 | DLQ approach | Filtered view, not separate table | Failed deliveries already have all data; avoid duplication |
 | Retention strategy | River periodic job, batched deletes | Avoids long locks, configurable per table |
 | Ed25519 key storage | Reuse envelope encryption | Consistent with existing secret storage pattern |
+| Ed25519 signing model | Always dual-sign (HMAC + Ed25519) | No config needed, negligible cost, consumer chooses which to verify |
+| Ed25519 public key storage | Derived at runtime from private key | One fewer column, public key always derivable |
 | CLI transport | Connect-RPC over HTTP | Same protocol as web UI, reuses API key auth |
 | API rate limiting state | In-memory (single instance) | Simplest. Upgrade to PG-backed if multi-instance needed |
 | Redis dependency | No | Postgres-only is a competitive advantage over Svix OSS |

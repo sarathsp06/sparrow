@@ -73,8 +73,8 @@ func insertWebhookRegistration(ctx context.Context, conn storage.DBTX, tenantID 
 			id, tenant_id, namespace, url, headers, timeout, active, description, health,
 			max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			user_agent, content_type, secret_headers, rate_limit_rps, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+			user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
 	`
 
 	_, err = conn.ExecContext(ctx, query,
@@ -99,6 +99,7 @@ func insertWebhookRegistration(ctx context.Context, conn storage.DBTX, tenantID 
 		registration.ContentType,
 		registration.SecretHeaders,
 		registration.RateLimitRPS,
+		registration.Ed25519PrivateKey,
 		registration.CreatedAt,
 		registration.UpdatedAt,
 	)
@@ -157,7 +158,7 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 		SELECT DISTINCT wr.id, wr.tenant_id, wr.namespace, wr.url, wr.headers, wr.timeout, wr.active, wr.description, wr.health,
 		       wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
 		       wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
-		       wr.user_agent, wr.content_type, wr.secret_headers, wr.rate_limit_rps, wr.created_at, wr.updated_at
+		       wr.user_agent, wr.content_type, wr.secret_headers, wr.rate_limit_rps, wr.ed25519_private_key, wr.created_at, wr.updated_at
 		FROM webhook_registrations wr
 		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
 		WHERE %s
@@ -310,7 +311,7 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			SELECT id, tenant_id, namespace, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			       user_agent, content_type, secret_headers, rate_limit_rps, created_at, updated_at
+			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, created_at, updated_at
 			FROM webhook_registrations
 			WHERE id = $1 AND tenant_id = $2 AND namespace = $3
 		`
@@ -320,7 +321,7 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 			SELECT id, tenant_id, namespace, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-			       user_agent, content_type, secret_headers, rate_limit_rps, created_at, updated_at
+			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, created_at, updated_at
 			FROM webhook_registrations
 			WHERE id = $1 AND tenant_id = $2
 		`
@@ -392,7 +393,7 @@ func (r *Repository) GetWebhooksByHealthPaginated(ctx context.Context, tenantID 
 		       active, description, health,
 		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-		       user_agent, content_type, secret_headers, rate_limit_rps, created_at, updated_at
+		       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, created_at, updated_at
 		FROM webhook_registrations
 		WHERE tenant_id = $1 AND health = $2
 		ORDER BY created_at DESC

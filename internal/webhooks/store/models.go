@@ -55,6 +55,7 @@ type WebhookRegistration struct {
 	ContentType           string        `json:"content_type" db:"content_type"`
 	SecretHeaders         []byte        `json:"secret_headers" db:"secret_headers"`           // AES-256-GCM encrypted JSON of map[string]string
 	RateLimitRPS          *float64      `json:"rate_limit_rps,omitempty" db:"rate_limit_rps"` // Optional requests-per-second limit (leaky bucket)
+	Ed25519PrivateKey     []byte        `json:"-" db:"ed25519_private_key"`                   // Envelope-encrypted Ed25519 private key for asymmetric signing
 	CreatedAt             time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt             time.Time     `json:"updated_at" db:"updated_at"`
 }

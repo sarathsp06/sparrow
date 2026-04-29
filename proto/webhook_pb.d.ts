@@ -338,6 +338,15 @@ export declare type RegisterWebhookResponse = Message<"webhook.RegisterWebhookRe
    * @generated from field: google.protobuf.Timestamp created_at = 4;
    */
   createdAt?: Timestamp;
+
+  /**
+   * Hex-encoded Ed25519 public key for asymmetric webhook signature verification.
+   * Share this key with webhook consumers so they can verify the
+   * X-Sparrow-Signature-Ed25519 header on deliveries.
+   *
+   * @generated from field: string signing_public_key = 5;
+   */
+  signingPublicKey: string;
 };
 
 /**
@@ -560,6 +569,15 @@ export declare type RegisteredWebhook = Message<"webhook.RegisteredWebhook"> & {
    * @generated from field: map<string, string> secret_headers = 13;
    */
   secretHeaders: { [key: string]: string };
+
+  /**
+   * Hex-encoded Ed25519 public key for asymmetric webhook signature verification.
+   * Consumers use this key to verify the X-Sparrow-Signature-Ed25519 header
+   * without needing access to the signing secret.
+   *
+   * @generated from field: string signing_public_key = 14;
+   */
+  signingPublicKey: string;
 };
 
 /**
