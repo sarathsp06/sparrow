@@ -1,24 +1,139 @@
-/* Sparrow docs custom styles — Scalar-inspired API reference */
+/* Sparrow docs — Technical Precision theme for Starlight */
 
-/* Shared design tokens (single source of truth for brand colors & fonts) */
+/* Shared design tokens (single source of truth) */
 @import './sparrow-tokens.css';
 
-/* Load Fira Code + Inter from Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+/* Load Inter + Fira Code */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
 
-:root {
-  /* Map Sparrow tokens → Starlight variables */
-  --sl-color-accent-low: #1a1a2e;
+/* ─── Starlight Variable Mapping ───────────────────────────── */
+
+:root,
+:root[data-theme='light'],
+:root[data-theme='dark'] {
+  /* Force dark mode always — Technical Precision is dark-only */
+  --sl-color-bg: var(--sp-surface);
+  --sl-color-bg-nav: var(--sp-surface-container-low);
+  --sl-color-bg-sidebar: var(--sp-surface-container-lowest);
+  --sl-color-bg-inline-code: var(--sp-surface-container-high);
+
+  --sl-color-hairline-shade: var(--sp-outline-variant);
+  --sl-color-hairline-light: var(--sp-border-subtle);
+  --sl-color-hairline: var(--sp-outline-variant);
+
+  --sl-color-accent-low: var(--sp-brand-primary-10);
   --sl-color-accent: var(--sp-brand-primary);
-  --sl-color-accent-high: #c7d2fe;
-  --sl-font: var(--sp-font-mono);
+  --sl-color-accent-high: var(--sp-primary);
+
+  --sl-color-white: var(--sp-on-surface);
+  --sl-color-gray-1: var(--sp-on-surface);
+  --sl-color-gray-2: var(--sp-on-surface-variant);
+  --sl-color-gray-3: var(--sp-outline);
+  --sl-color-gray-4: var(--sp-outline-variant);
+  --sl-color-gray-5: var(--sp-surface-container-high);
+  --sl-color-gray-6: var(--sp-surface-container);
+  --sl-color-gray-7: var(--sp-surface-container-lowest);
+  --sl-color-black: var(--sp-surface);
+
+  --sl-color-text: var(--sp-on-surface);
+  --sl-color-text-accent: var(--sp-primary);
+
+  /* Typography */
+  --sl-font: var(--sp-font-body);
   --sl-font-mono: var(--sp-font-mono);
+  --sl-text-h1: 600 2rem/1.2 var(--sp-font-body);
+  --sl-text-h2: 600 1.5rem/1.3 var(--sp-font-body);
+  --sl-text-h3: 600 1.25rem/1.3 var(--sp-font-body);
+  --sl-text-h4: 600 1.125rem/1.4 var(--sp-font-body);
+  --sl-text-body: 400 0.875rem/1.5 var(--sp-font-body);
+  --sl-text-body-sm: 400 0.8125rem/1.5 var(--sp-font-body);
+  --sl-text-code: 400 0.8125rem/1.6 var(--sp-font-mono);
+  --sl-text-xs: 400 0.75rem/1.4 var(--sp-font-body);
+
+  /* Content width */
+  --sl-content-width: 52rem;
+  --sl-sidebar-width: 18rem;
+
+  /* Borders */
+  --sl-border-radius: var(--sp-radius);
 }
 
-:root[data-theme='dark'] {
-  --sl-color-accent-low: #1e1b4b;
-  --sl-color-accent: #818cf8;
-  --sl-color-accent-high: #e0e7ff;
+/* ─── Global dark body ─────────────────────────────────────── */
+
+html {
+  color-scheme: dark;
+}
+
+/* ─── Sidebar refinements ──────────────────────────────────── */
+
+starlight-menu-button + nav {
+  border-right: 1px solid var(--sp-outline-variant);
+}
+
+nav.sidebar a[aria-current='page'] {
+  background: var(--sp-brand-primary-10);
+  border-left: 2px solid var(--sp-brand-primary);
+  color: var(--sp-primary);
+}
+
+/* ─── Code blocks ──────────────────────────────────────────── */
+
+pre {
+  background: var(--sp-surface-container-lowest) !important;
+  border: 1px solid var(--sp-outline-variant);
+  border-radius: var(--sp-radius);
+}
+
+code {
+  font-family: var(--sp-font-mono);
+  font-size: 0.8125rem;
+}
+
+:not(pre) > code {
+  background: var(--sp-surface-container-high);
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--sp-radius);
+  color: var(--sp-secondary);
+}
+
+/* ─── Links ────────────────────────────────────────────────── */
+
+.sl-markdown-content a {
+  color: var(--sp-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(189, 194, 255, 0.3);
+  transition: text-decoration-color 0.15s;
+}
+
+.sl-markdown-content a:hover {
+  text-decoration-color: var(--sp-primary);
+}
+
+/* ─── Tables ───────────────────────────────────────────────── */
+
+.sl-markdown-content table {
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.sl-markdown-content th {
+  background: var(--sp-surface-container);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
+  color: var(--sp-on-surface-variant);
+}
+
+.sl-markdown-content td,
+.sl-markdown-content th {
+  border: 1px solid var(--sp-outline-variant);
+  padding: 0.5rem 0.75rem;
+}
+
+.sl-markdown-content tr:nth-child(even) {
+  background: var(--sp-surface-container-lowest);
 }
 
 /* ─── Theme-Aware Diagrams ─────────────────────────────────── */
@@ -30,7 +145,7 @@
 .theme-diagram img {
   max-width: 100%;
   height: auto;
-  border-radius: 0.5rem;
+  border-radius: var(--sp-radius-lg);
 }
 
 :root[data-theme='light'] .theme-diagram-dark,
@@ -63,35 +178,35 @@
   display: inline-flex;
   align-items: center;
   padding: 0.2rem 0.6rem;
-  border-radius: 0.25rem;
-  font-size: 0.7rem;
+  border-radius: var(--sp-radius);
+  font-size: 0.6875rem;
   font-weight: 700;
-  font-family: var(--sl-font-mono);
+  font-family: var(--sp-font-mono);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .api-endpoint .method-post {
-  background-color: #065f46;
-  color: #6ee7b7;
+  background-color: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
 }
 
 .api-endpoint .endpoint-path {
-  font-family: var(--sl-font-mono);
-  font-size: 0.85rem;
-  color: var(--sl-color-white);
+  font-family: var(--sp-font-mono);
+  font-size: 0.8125rem;
+  color: var(--sp-on-surface);
   word-break: break-all;
 }
 
 .api-endpoint .endpoint-description {
   margin-top: 0.5rem;
   margin-bottom: 0;
-  color: var(--sl-color-gray-2);
-  font-size: 0.9rem;
+  color: var(--sp-on-surface-variant);
+  font-size: 0.875rem;
   line-height: 1.6;
 }
 
-/* ─── Field Property List (shared by Request + Response) ──── */
+/* ─── Field Property List ──────────────────────────────────── */
 
 .api-fields {
   margin: 1rem 0;
@@ -99,11 +214,11 @@
 
 .api-fields-title {
   margin: 0 0 0.5rem;
-  font-size: 0.8rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--sl-color-gray-3);
+  color: var(--sp-outline);
 }
 
 .api-fields-list {
@@ -114,7 +229,7 @@
 
 .api-field {
   padding: 0.5rem 0;
-  border-bottom: 1px solid var(--sl-color-gray-6);
+  border-bottom: 1px solid var(--sp-outline-variant);
 }
 
 .api-field:last-child {
@@ -129,36 +244,36 @@
 }
 
 .api-field-name {
-  font-family: var(--sl-font-mono);
-  font-size: 0.825rem;
+  font-family: var(--sp-font-mono);
+  font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--sl-color-white);
+  color: var(--sp-on-surface);
   background: transparent;
   padding: 0;
 }
 
 .api-field-type {
-  font-size: 0.725rem;
-  color: var(--sl-color-gray-3);
-  font-family: var(--sl-font-mono);
+  font-size: 0.6875rem;
+  color: var(--sp-outline);
+  font-family: var(--sp-font-mono);
 }
 
 .api-field-required {
-  font-size: 0.675rem;
+  font-size: 0.625rem;
   font-weight: 600;
-  color: #f87171;
+  color: var(--sp-error);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .api-field-description {
   margin: 0.2rem 0 0;
-  font-size: 0.825rem;
-  color: var(--sl-color-gray-2);
+  font-size: 0.8125rem;
+  color: var(--sp-on-surface-variant);
   line-height: 1.5;
 }
 
-/* ─── Error Codes ─────────────────────────────────────────── */
+/* ─── Error Codes ──────────────────────────────────────────── */
 
 .api-errors {
   margin: 1rem 0;
@@ -174,19 +289,51 @@
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
-  font-size: 0.825rem;
+  font-size: 0.8125rem;
 }
 
 .api-error-code {
-  font-family: var(--sl-font-mono);
+  font-family: var(--sp-font-mono);
   font-size: 0.75rem;
   font-weight: 600;
-  color: #f87171;
+  color: var(--sp-error);
   white-space: nowrap;
   background: transparent;
   padding: 0;
 }
 
 .api-error-desc {
-  color: var(--sl-color-gray-2);
+  color: var(--sp-on-surface-variant);
+}
+
+/* ─── Starlight overrides for forced dark ──────────────────── */
+
+/* Force the theme toggle to always show dark */
+starlight-theme-select {
+  display: none;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--sp-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--sp-surface-container-highest);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sp-outline-variant);
+}
+
+/* Selection */
+::selection {
+  background: rgba(129, 140, 248, 0.3);
+  color: var(--sp-on-surface);
 }

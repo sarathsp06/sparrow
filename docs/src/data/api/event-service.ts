@@ -55,10 +55,14 @@ const service: ApiService = {
       ],
       "response": [
         {
+          "name": "event_id",
+          "type": "string",
+          "description": "The event type name."
+        },
+        {
           "name": "created_at",
           "type": "Timestamp",
-          "description": "Timestamp when the event type was created.",
-          "example": "2025-01-15T10:30:00Z"
+          "description": "When the event type was created."
         }
       ]
     },
@@ -212,6 +216,16 @@ const service: ApiService = {
           "type": "string",
           "description": "Server-generated UUID for the event instance. Use this ID to query delivery status via DeliveryService.ListDeliveries.",
           "example": "e-550e8400-e29b-41d4-a716-446655440000"
+        },
+        {
+          "name": "warnings",
+          "type": "string[]",
+          "description": "Schema validation warnings. Populated when the event payload does not match the registered JSON schema. The event is still accepted and stored, but schema_valid is set to false on the event record. Each string describes a specific validation failure (e.g., \"field 'amount': expected number, got string\"). Empty when the payload passes validation or no schema is registered."
+        },
+        {
+          "name": "duplicate",
+          "type": "bool",
+          "description": "True when the request was deduplicated by idempotency key. The returned event_id belongs to the previously created event. No new event record or deliveries are created."
         }
       ]
     },
@@ -238,6 +252,34 @@ const service: ApiService = {
           "example": {
             "limit": 25
           }
+        },
+        {
+          "name": "schema_valid",
+          "type": "bool",
+          "description": "Filter by schema validation status. When set, only events matching the specified schema_valid value are returned."
+        },
+        {
+          "name": "labels",
+          "type": "map<string, string>",
+          "description": "Filter by labels using JSONB containment. Only events whose labels contain all specified key-value pairs are returned.",
+          "example": {
+            "region": "us-east"
+          }
+        },
+        {
+          "name": "created_after",
+          "type": "Timestamp",
+          "description": "Filter to events created at or after this timestamp."
+        },
+        {
+          "name": "created_before",
+          "type": "Timestamp",
+          "description": "Filter to events created at or before this timestamp."
+        },
+        {
+          "name": "prepare_repush",
+          "type": "bool",
+          "description": "When true, snapshot all matching event IDs (up to 10,000) into a batch job and return a repush_id in the response. Pass that ID to RePushEvents to re-push the exact set of events that matched this query."
         }
       ],
       "response": [
@@ -250,6 +292,158 @@ const service: ApiService = {
           "name": "pagination",
           "type": "PaginationResponse",
           "description": "Pagination metadata."
+        },
+        {
+          "name": "repush_id",
+          "type": "string",
+          "description": "Batch ID for deterministic re-push. Only populated when prepare_repush=true was set in the request. Pass to RePushEvents."
+        }
+      ]
+    },
+    {
+      "name": "GetEventRecord",
+      "description": "GetEventRecord retrieves a single pushed event instance by its UUID. Returns the event record with its payload, metadata, labels, and aggregated delivery statistics (webhook_count, successful/failed/pending counts). This is different from GetEvent which returns an event type definition by name. Errors: NOT_FOUND if the event_id does not exist. Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.",
+      "request": [
+        {
+          "name": "event_id",
+          "type": "string",
+          "description": "UUID of the event instance. Required.",
+          "example": "e-550e8400-e29b-41d4-a716-446655440000"
+        }
+      ],
+      "response": [
+        {
+          "name": "event",
+          "type": "EventReport",
+          "description": "The event instance with aggregated delivery statistics."
+        },
+        {
+          "name": "labels",
+          "type": "map<string, string>",
+          "description": "Labels attached when the event was pushed."
+        },
+        {
+          "name": "expires_at",
+          "type": "Timestamp",
+          "description": "When the event expires (based on TTL). Zero value if no TTL was set."
+        }
+      ]
+    },
+    {
+      "name": "RePushEvent",
+      "description": "RePushEvent replays a single previously pushed event as if it were pushed fresh. Loads the original event record and re-pushes through the standard PushEvent pipeline. Errors: NOT_FOUND if the event_id does not exist. Errors: INVALID_ARGUMENT if the event_id is not a valid UUID.",
+      "request": [
+        {
+          "name": "event_id",
+          "type": "string",
+          "description": "UUID of the original event to replay. Required. The event must exist in the event_records table.",
+          "example": "e-550e8400-e29b-41d4-a716-446655440000"
+        }
+      ],
+      "response": [
+        {
+          "name": "event_id",
+          "type": "string",
+          "description": "Server-generated UUID for the new event instance. This is a brand-new event; the original event is not modified.",
+          "example": "e-660e8400-e29b-41d4-a716-446655440001"
+        },
+        {
+          "name": "warnings",
+          "type": "string[]",
+          "description": "Schema validation warnings for the re-pushed payload. The original payload is validated against the CURRENT event type schema. Empty when the payload passes validation or no schema is registered."
+        }
+      ]
+    },
+    {
+      "name": "RePushEvents",
+      "description": "RePushEvents executes a deterministic batch re-push of events whose IDs were previously snapshotted via ListEventReports with prepare_repush=true. Each event is re-pushed as if it were pushed fresh: new event_id, current schema validation. The batch is processed asynchronously via a River job; poll GetRepushStatus for progress. Errors: NOT_FOUND if the repush_id does not exist or has expired. Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.",
+      "request": [
+        {
+          "name": "repush_id",
+          "type": "string",
+          "required": true,
+          "description": "Batch ID returned by ListEventReports when prepare_repush=true."
+        }
+      ],
+      "response": [
+        {
+          "name": "repush_id",
+          "type": "string",
+          "description": "Batch ID for polling status."
+        },
+        {
+          "name": "total",
+          "type": "int32",
+          "description": "Total number of events that will be re-pushed."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "description": "Current status (will be \"processing\" on success)."
+        }
+      ]
+    },
+    {
+      "name": "GetRepushStatus",
+      "description": "GetRepushStatus returns the current progress of a batch re-push operation. Errors: NOT_FOUND if the repush_id does not exist or has expired.",
+      "request": [
+        {
+          "name": "repush_id",
+          "type": "string",
+          "required": true,
+          "description": "Batch ID returned by RePushEvents or ListEventReports."
+        }
+      ],
+      "response": [
+        {
+          "name": "batch.status",
+          "type": "string",
+          "description": "Current status of the batch job.",
+          "example": "processing"
+        },
+        {
+          "name": "batch.total",
+          "type": "int32",
+          "description": "Total number of items in the batch."
+        },
+        {
+          "name": "batch.processed",
+          "type": "int32",
+          "description": "Number of items successfully processed so far."
+        },
+        {
+          "name": "batch.failed",
+          "type": "int32",
+          "description": "Number of items that failed processing."
+        },
+        {
+          "name": "batch.created_at",
+          "type": "Timestamp",
+          "description": "When the batch job was created."
+        },
+        {
+          "name": "batch.expires_at",
+          "type": "Timestamp",
+          "description": "When the batch job expires (created_at + ttl_seconds)."
+        }
+      ]
+    },
+    {
+      "name": "CancelRepush",
+      "description": "CancelRepush aborts a batch re-push that is pending or in progress. Items already processed are not rolled back. Errors: NOT_FOUND if the repush_id does not exist. Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.",
+      "request": [
+        {
+          "name": "repush_id",
+          "type": "string",
+          "required": true,
+          "description": "Batch ID to cancel."
+        }
+      ],
+      "response": [
+        {
+          "name": "status",
+          "type": "string",
+          "description": "Current status after cancellation (will be \"cancelled\")."
         }
       ]
     }

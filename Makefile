@@ -83,17 +83,8 @@ generate: ## Generate protobuf code and gRPC/ConnectRPC clients
 	cp client/_templates/python/py.typed client/python/py.typed
 	go generate ./...
 
-DIAGRAMS_DIR := docs/src/assets/diagrams
-DIAGRAMS_CFG := $(DIAGRAMS_DIR)/mermaid-config.json
-DIAGRAMS_SRC := $(wildcard $(DIAGRAMS_DIR)/*.mmd)
-DIAGRAMS_SVG := $(DIAGRAMS_SRC:.mmd=.svg)
-
-diagrams: $(DIAGRAMS_SVG) ## Re-render mermaid diagrams to SVG
-
-$(DIAGRAMS_DIR)/%.svg: $(DIAGRAMS_DIR)/%.mmd $(DIAGRAMS_CFG)
-	npx --yes @mermaid-js/mermaid-cli -i $< -o $@ -c $(DIAGRAMS_CFG) --backgroundColor transparent
-
-generate-docs: diagrams ## Generate API reference docs and diagrams from proto definitions
+generate-docs: ## Generate API reference docs and diagrams from proto definitions
+	cd docs && npm run diagrams
 	proto2astro generate
 
 book: ## Build the Svelte 5 tutorial PDF with Typst
@@ -108,4 +99,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui release-dry-run run test test-integration clean generate generate-docs diagrams docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web book help
+.PHONY: build build-ui build-with-ui release-dry-run run test test-integration clean generate generate-docs docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web book help

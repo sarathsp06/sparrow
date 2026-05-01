@@ -1,353 +1,334 @@
 ---
-// Full custom landing page — bypasses Starlight layout entirely.
-// Faithfully reproduces the original SvelteKit marketing page design.
+// Landing page — Stripe-inspired layout with Technical Precision tokens.
 import '../styles/sparrow-tokens.css';
 import faviconSrc from '../assets/favicon.svg';
 const favicon = faviconSrc.src;
-const base = import.meta.env.BASE_URL.replace(/\/?$/, '/'); // ensure trailing slash
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const docsHome = `${base}getting-started/installation/`;
 const apiRef = `${base}reference/api/`;
 const githubURL = 'https://github.com/sarathsp06/sparrow';
-
-const features = [
-  {
-    icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
-    title: 'Guaranteed Delivery',
-    description: 'Events are persisted in PostgreSQL before delivery begins. The River job queue provides at-least-once delivery with configurable retries (default: 3 attempts).',
-  },
-  {
-    icon: 'M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15',
-    title: 'Intelligent Retries',
-    description: 'Exponential backoff with configurable intervals. Errors are classified into retryable (5xx, timeout, connection refused, network) and non-retryable (4xx, DNS, TLS).',
-  },
-  {
-    icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
-    title: 'Namespace Isolation',
-    description: 'Organize webhooks and events into namespaces. Each namespace has independent subscriptions, deliveries, and health tracking.',
-  },
-  {
-    icon: 'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z',
-    title: 'gRPC + Connect-RPC',
-    description: 'Native gRPC on :50051 and Connect-RPC (HTTP/JSON) on :8080. Use curl, gRPC clients, or the built-in web dashboard — same API, same behavior.',
-  },
-  {
-    icon: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
-    title: 'Complete Observability',
-    description: 'OpenTelemetry traces, metrics, and structured logs exported via OTLP. Per-webhook health tracking with error category breakdown (client, server, timeout, network).',
-  },
-  {
-    icon: 'M12 22s-8-4.5-8-11.8A8 8 0 0 1 12 2a8 8 0 0 1 8 8.2c0 7.3-8 11.8-8 11.8z M12 2a3 3 0 0 0-3 3v1a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z',
-    title: 'Security & Encryption',
-    description: 'HMAC-SHA256 signed deliveries for authenticity verification. Webhook secrets and sensitive headers are envelope-encrypted at rest with per-record keys.',
-  },
-];
-
-const archCards = [
-  {
-    icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
-    title: 'API Layer',
-    description: 'High-performance gRPC server with REST gateway for maximum flexibility and throughput.',
-    tags: ['gRPC', 'REST', 'Gateway'],
-  },
-  {
-    icon: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
-    title: 'Service Layer',
-    description: 'Core business logic handling event routing, subscription matching, and delivery orchestration.',
-    tags: ['Events', 'Subscriptions', 'Routing'],
-  },
-  {
-    icon: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
-    title: 'Queue System',
-    description: 'Reliable message queuing with worker pools for scalable, concurrent webhook processing.',
-    tags: ['Workers', 'Queues', 'Concurrency'],
-  },
-  {
-    icon: 'M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7zM9 4v16M4 9h16M4 14h16',
-    title: 'Storage Layer',
-    description: 'PostgreSQL-backed persistence with full ACID guarantees for events, subscriptions, and delivery logs.',
-    tags: ['PostgreSQL', 'ACID', 'Logs'],
-  },
-];
-
-const techStack = ['Go', 'PostgreSQL', 'gRPC', 'SvelteKit', 'OpenTelemetry'];
-
-const comparisonServices = [
-  { key: 'sparrow', name: 'Sparrow', highlight: true },
-  { key: 'svix', name: 'Svix' },
-  { key: 'convoy', name: 'Convoy' },
-  { key: 'hookdeck', name: 'Hookdeck' },
-  { key: 'aws', name: 'AWS EventBridge / SNS' },
-  { key: 'diy', name: 'DIY' },
-];
-
-type CellValue = boolean | string;
-const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
-  { feature: 'Open Source', sparrow: true, svix: 'Partial', convoy: true, hookdeck: false, aws: false, diy: 'N/A' },
-  { feature: 'Self-Hosted', sparrow: true, svix: true, convoy: true, hookdeck: false, aws: false, diy: true },
-  { feature: 'No Per-Message Pricing', sparrow: true, svix: false, convoy: true, hookdeck: false, aws: false, diy: true },
-  { feature: 'Minimal Infra (Binary + Postgres)', sparrow: true, svix: 'SaaS', convoy: false, hookdeck: 'SaaS', aws: 'Managed', diy: 'Varies' },
-  { feature: 'gRPC / Connect-RPC Native', sparrow: true, svix: false, convoy: false, hookdeck: false, aws: false, diy: false },
-  { feature: 'Payload Transformation', sparrow: true, svix: 'Paid', convoy: true, hookdeck: true, aws: 'Partial', diy: false },
-  { feature: 'Guaranteed Delivery & Retries', sparrow: true, svix: true, convoy: true, hookdeck: true, aws: 'Partial', diy: false },
-  { feature: 'Webhook Health Tracking', sparrow: true, svix: true, convoy: true, hookdeck: true, aws: false, diy: false },
-  { feature: 'OpenTelemetry Native', sparrow: true, svix: 'Enterprise', convoy: false, hookdeck: false, aws: 'X-Ray', diy: false },
-  { feature: 'Label-Based Filtering', sparrow: true, svix: 'Tags', convoy: false, hookdeck: 'Rules', aws: 'Rules', diy: false },
-  { feature: 'Web Dashboard Included', sparrow: true, svix: true, convoy: true, hookdeck: true, aws: true, diy: false },
-  { feature: 'No Vendor Lock-In', sparrow: true, svix: 'Partial', convoy: true, hookdeck: false, aws: false, diy: true },
-];
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sparrow — Modern Event-Driven Webhook Delivery System</title>
-  <meta name="description" content="High-performance, production-ready webhook delivery system with guaranteed delivery, intelligent retries, and complete observability." />
+  <title>Sparrow — Webhook Infrastructure for Developers</title>
+  <meta name="description" content="Open-source webhook delivery with guaranteed delivery, intelligent retries, dual signatures, and OpenTelemetry observability. One binary, one database." />
+  <meta name="color-scheme" content="dark" />
   <link rel="icon" href={favicon} type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
 </head>
 
-<body class="lp">
-  <!-- ============================================================ -->
-  <!-- HEADER                                                       -->
-  <!-- ============================================================ -->
-  <header class="lp-header">
-    <div class="lp-container lp-header-inner">
-      <a href={base} class="lp-logo">
-        <img src={favicon} alt="Sparrow" width="32" height="32" />
-        <span>Sparrow</span>
-      </a>
-      <nav class="lp-nav">
-        <a href="#features">Features</a>
-        <a href="#architecture">Architecture</a>
-        <a href="#comparison">Comparison</a>
-        <a href={docsHome}>Documentation</a>
-        <a href={apiRef}>API Reference</a>
-      </nav>
-      <div class="lp-header-actions">
-        <a href={githubURL} target="_blank" rel="noopener" class="lp-btn-outline">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-          GitHub
+<body class="sp">
+
+  <!-- NAV -->
+  <nav class="sp-nav">
+    <div class="sp-w">
+      <div class="sp-nav-inner">
+        <a href={base} class="sp-logo">
+          <img src={favicon} alt="" width="28" height="28" />
+          <span>Sparrow</span>
         </a>
-        <a href={docsHome} class="lp-btn-primary">Documentation</a>
+        <div class="sp-nav-links">
+          <a href={docsHome}>Docs</a>
+          <a href={apiRef}>API</a>
+          <a href={`${base}getting-started/quickstart/`}>Quickstart</a>
+          <a href={`${base}reference/architecture/`}>Architecture</a>
+        </div>
+        <div class="sp-nav-end">
+          <a href={githubURL} target="_blank" rel="noopener" class="sp-nav-gh">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          </a>
+          <a href={docsHome} class="sp-btn">Get started<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+        </div>
       </div>
     </div>
-  </header>
+  </nav>
 
-  <!-- ============================================================ -->
-  <!-- HERO                                                         -->
-  <!-- ============================================================ -->
-  <section class="lp-hero">
-    <div class="lp-hero-bg">
-      <div class="lp-hero-orb lp-hero-orb-1"></div>
-      <div class="lp-hero-orb lp-hero-orb-2"></div>
-    </div>
-    <div class="lp-container lp-hero-grid">
-      <div class="lp-hero-content">
-        <div class="lp-badge">
-          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-          <span>High-Performance Webhook Delivery</span>
-        </div>
-
-        <h1>
-          Modern <span class="lp-gradient-text">Event-Driven</span><br />
-          Webhook System
-        </h1>
-
-        <p class="lp-hero-desc">
-          Production-ready webhook delivery with guaranteed delivery, intelligent retries, and complete observability. Enterprise-grade infrastructure out of the box.
-        </p>
-
-        <div class="lp-hero-ctas">
-          <a href={docsHome} class="lp-btn-primary lp-btn-lg">
-            Documentation
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </a>
-          <a href={githubURL} target="_blank" rel="noopener" class="lp-btn-outline lp-btn-lg">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
-            View on GitHub
-          </a>
-        </div>
-
-        <div class="lp-railway-deploy">
-          <a href="https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic" target="_blank" rel="noopener">
-            <img src="https://railway.com/button.svg" alt="Deploy on Railway" />
-          </a>
-        </div>
-
-        <div class="lp-tech-stack">
-          <p>Built with</p>
-          <div class="lp-tech-tags">
-            {techStack.map(t => <span>{t}</span>)}
+  <!-- HERO -->
+  <section class="sp-hero">
+    <div class="sp-hero-mesh"></div>
+    <div class="sp-w">
+      <div class="sp-hero-grid">
+        <div class="sp-hero-text">
+          <h1>Webhook infrastructure<br/>for developers</h1>
+          <p class="sp-hero-sub">
+            Sparrow is open-source webhook delivery with guaranteed at-least-once delivery,
+            intelligent retries, and full observability. One binary. One database. Production-ready in minutes.
+          </p>
+          <div class="sp-hero-actions">
+            <a href={docsHome} class="sp-btn sp-btn-lg">Get started<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+            <a href={apiRef} class="sp-btn-ghost sp-btn-lg">API reference</a>
+          </div>
+          <div class="sp-hero-meta">
+            <span class="sp-hero-meta-item"><span class="sp-dot sp-dot-live"></span>Open source</span>
+            <span class="sp-hero-meta-sep"></span>
+            <span class="sp-hero-meta-item">Go + PostgreSQL</span>
+            <span class="sp-hero-meta-sep"></span>
+            <span class="sp-hero-meta-item">34 API endpoints</span>
           </div>
         </div>
-      </div>
-
-      <div class="lp-hero-visual">
-        <div class="lp-hero-logo-wrap">
-          <div class="lp-hero-logo-glow"></div>
-          <div class="lp-hero-logo-card">
-            <img src={favicon} alt="Sparrow" width="320" height="320" class="lp-hero-logo" />
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================================ -->
-  <!-- FEATURES                                                     -->
-  <!-- ============================================================ -->
-  <section id="features" class="lp-section">
-    <div class="lp-container">
-      <div class="lp-section-header">
-        <div class="lp-badge"><span>Core Features</span></div>
-        <h2>Enterprise-Grade <span class="lp-gradient-text">Webhook Infrastructure</span></h2>
-        <p>Everything you need to build reliable event-driven systems at scale</p>
-      </div>
-      <div class="lp-feature-grid">
-        {features.map(f => (
-          <div class="lp-feature-card">
-            <div class="lp-feature-icon">
-              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d={f.icon}/></svg>
+        <div class="sp-hero-visual">
+          <div class="sp-terminal">
+            <div class="sp-terminal-bar">
+              <div class="sp-terminal-dots"><span></span><span></span><span></span></div>
+              <span class="sp-terminal-title">terminal</span>
+              <div class="sp-terminal-spacer"></div>
             </div>
-            <h3>{f.title}</h3>
-            <p>{f.description}</p>
+            <div class="sp-terminal-body">
+              <code><span class="sp-t-muted">$</span> curl -X POST http://localhost:8080/webhook.EventService/PushEvent \</code>
+              <code>  <span class="sp-t-flag">-H</span> <span class="sp-t-str">"Content-Type: application/json"</span> \</code>
+              <code>  <span class="sp-t-flag">-H</span> <span class="sp-t-str">"X-API-Key: sk_live_..."</span> \</code>
+              <code>  <span class="sp-t-flag">-d</span> <span class="sp-t-str">'{`{`}</span></code>
+              <code>    <span class="sp-t-key">"namespace"</span>: <span class="sp-t-str">"payments"</span>,</code>
+              <code>    <span class="sp-t-key">"event"</span>:     <span class="sp-t-str">"invoice.paid"</span>,</code>
+              <code>    <span class="sp-t-key">"payload"</span>:   <span class="sp-t-str">'{`{`}"id":"inv_01","amount":4999{`}`}'</span>,</code>
+              <code>    <span class="sp-t-key">"id"</span>:        <span class="sp-t-str">"idem_abc123"</span></code>
+              <code>  <span class="sp-t-str">{`}`}'</span></code>
+              <code></code>
+              <code><span class="sp-t-muted">// Response</span></code>
+              <code>{`{`}</code>
+              <code>  <span class="sp-t-key">"eventId"</span>:   <span class="sp-t-str">"evt_7f3a..."</span>,</code>
+              <code>  <span class="sp-t-key">"duplicate"</span>: <span class="sp-t-bool">false</span></code>
+              <code>{`}`}</code>
+            </div>
           </div>
-        ))}
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ============================================================ -->
-  <!-- ARCHITECTURE                                                 -->
-  <!-- ============================================================ -->
-  <section id="architecture" class="lp-section">
-    <div class="lp-container">
-      <div class="lp-section-header">
-        <div class="lp-badge"><span>Architecture</span></div>
-        <h2>Built for <span class="lp-gradient-text">Scale & Reliability</span></h2>
-        <p>A modern, layered architecture designed for high-throughput webhook delivery</p>
-      </div>
-      <div class="lp-arch-grid">
-        {archCards.map(c => (
-          <div class="lp-arch-card">
-            <div class="lp-arch-card-header">
-              <div class="lp-feature-icon lp-feature-icon-sm">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d={c.icon}/></svg>
+  <!-- FEATURES — two-column alternating -->
+  <section class="sp-section">
+    <div class="sp-w">
+
+      <!-- Feature 1: Delivery Pipeline -->
+      <div class="sp-feature-row">
+        <div class="sp-feature-text">
+          <span class="sp-label">DELIVERY PIPELINE</span>
+          <h2>Every event delivered. Every failure classified.</h2>
+          <p>Events are persisted in PostgreSQL before delivery begins. River workers fan out to matching subscriptions, apply Go template transforms, and deliver via HTTP with exponential backoff.</p>
+          <p>Errors are classified into 10 categories — retryable (5xx, timeout, 429, connection refused) and non-retryable (4xx, DNS, TLS) — so you always know why a delivery failed.</p>
+          <a href={`${base}getting-started/how-it-works/`} class="sp-link">How it works<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+        </div>
+        <div class="sp-feature-visual">
+          <div class="sp-pipeline">
+            <div class="sp-pipeline-step">
+              <div class="sp-pipeline-num">01</div>
+              <div class="sp-pipeline-content">
+                <span class="sp-pipeline-name">PushEvent</span>
+                <span class="sp-pipeline-desc">Validate, persist, dedup</span>
               </div>
-              <h3>{c.title}</h3>
             </div>
-            <p>{c.description}</p>
-            <div class="lp-arch-tags">
-              {c.tags.map(tag => <span>{tag}</span>)}
+            <div class="sp-pipeline-line"></div>
+            <div class="sp-pipeline-step">
+              <div class="sp-pipeline-num sp-c-cyan">02</div>
+              <div class="sp-pipeline-content">
+                <span class="sp-pipeline-name">Fan-out</span>
+                <span class="sp-pipeline-desc">Match subscriptions, transform</span>
+              </div>
+            </div>
+            <div class="sp-pipeline-line"></div>
+            <div class="sp-pipeline-step">
+              <div class="sp-pipeline-num sp-c-cyan">03</div>
+              <div class="sp-pipeline-content">
+                <span class="sp-pipeline-name">Queue</span>
+                <span class="sp-pipeline-desc">River workers, rate limiting</span>
+              </div>
+            </div>
+            <div class="sp-pipeline-line"></div>
+            <div class="sp-pipeline-step">
+              <div class="sp-pipeline-num">04</div>
+              <div class="sp-pipeline-content">
+                <span class="sp-pipeline-name">Deliver</span>
+                <span class="sp-pipeline-desc">HTTP POST, HMAC + Ed25519</span>
+              </div>
+            </div>
+            <div class="sp-pipeline-line"></div>
+            <div class="sp-pipeline-step">
+              <div class="sp-pipeline-num sp-c-amber">05</div>
+              <div class="sp-pipeline-content">
+                <span class="sp-pipeline-name">Retry</span>
+                <span class="sp-pipeline-desc">Classify, backoff, health track</span>
+              </div>
             </div>
           </div>
-        ))}
+        </div>
+      </div>
+
+      <!-- Feature 2: Security -->
+      <div class="sp-feature-row sp-feature-row-reverse">
+        <div class="sp-feature-text">
+          <span class="sp-label">SECURITY</span>
+          <h2>Dual cryptographic signatures on every delivery</h2>
+          <p>Every webhook delivery is signed with both <code>HMAC-SHA256</code> and <code>Ed25519</code>. Consumers choose which to verify — shared secret or public key. No configuration needed; both signatures ship on every request.</p>
+          <p>Secrets and sensitive headers are envelope-encrypted at rest using AES-256-GCM with per-record keys. SSRF protection blocks private, loopback, and cloud metadata IPs.</p>
+          <a href={`${base}reference/api/webhook-service/`} class="sp-link">Webhook API<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+        </div>
+        <div class="sp-feature-visual">
+          <div class="sp-terminal sp-terminal-sm">
+            <div class="sp-terminal-bar">
+              <div class="sp-terminal-dots"><span></span><span></span><span></span></div>
+              <span class="sp-terminal-title">delivery headers</span>
+              <div class="sp-terminal-spacer"></div>
+            </div>
+            <div class="sp-terminal-body">
+              <code><span class="sp-t-key">X-Sparrow-Timestamp</span>: <span class="sp-t-str">1714567890</span></code>
+              <code><span class="sp-t-key">X-Sparrow-Signature-256</span>:</code>
+              <code>  <span class="sp-t-str">sha256=a1b2c3d4e5f6...</span></code>
+              <code><span class="sp-t-key">X-Sparrow-Signature-Ed25519</span>:</code>
+              <code>  <span class="sp-t-str">ed25519=9f8e7d6c5b4a...</span></code>
+              <code><span class="sp-t-key">Content-Type</span>: <span class="sp-t-str">application/json</span></code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 3: Observability -->
+      <div class="sp-feature-row">
+        <div class="sp-feature-text">
+          <span class="sp-label">OBSERVABILITY</span>
+          <h2>Traces, metrics, and logs — built in, not bolted on</h2>
+          <p>OpenTelemetry traces propagate through every River job. Structured logs and metrics export via OTLP to your collector of choice. Per-webhook health tracking classifies delivery outcomes into healthy, degraded, or unhealthy states.</p>
+          <p>The embedded SvelteKit dashboard gives you a real-time view of deliveries, health, and event history — no external tooling needed for day-one visibility.</p>
+          <a href={`${base}reference/architecture/`} class="sp-link">Architecture<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+        </div>
+        <div class="sp-feature-visual">
+          <div class="sp-metrics">
+            <div class="sp-metric">
+              <span class="sp-metric-label">DELIVERIES / 24H</span>
+              <span class="sp-metric-value">12,847</span>
+              <span class="sp-metric-bar"><span style="width:92%"></span></span>
+            </div>
+            <div class="sp-metric">
+              <span class="sp-metric-label">SUCCESS RATE</span>
+              <span class="sp-metric-value sp-c-cyan">99.7%</span>
+              <span class="sp-metric-bar sp-metric-bar-cyan"><span style="width:99.7%"></span></span>
+            </div>
+            <div class="sp-metric">
+              <span class="sp-metric-label">P95 LATENCY</span>
+              <span class="sp-metric-value">142ms</span>
+              <span class="sp-metric-bar"><span style="width:28%"></span></span>
+            </div>
+            <div class="sp-metric">
+              <span class="sp-metric-label">ACTIVE WEBHOOKS</span>
+              <span class="sp-metric-value">38</span>
+              <span class="sp-metric-bar"><span style="width:45%"></span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CAPABILITIES — horizontal strip -->
+  <section class="sp-section sp-section-muted">
+    <div class="sp-w">
+      <span class="sp-label">ALSO INCLUDED</span>
+      <div class="sp-caps-grid">
+        <div class="sp-cap">
+          <h3>Payload transforms</h3>
+          <p>Go template transforms per subscription with safe fallback to envelope payload on failure.</p>
+        </div>
+        <div class="sp-cap">
+          <h3>Idempotency keys</h3>
+          <p>Deduplicate events at push time with optional idempotency keys and partial unique indexes.</p>
+        </div>
+        <div class="sp-cap">
+          <h3>Per-webhook rate limits</h3>
+          <p>Leaky bucket rate limiting per webhook. 429 Retry-After parsing with cap at 15 minutes.</p>
+        </div>
+        <div class="sp-cap">
+          <h3>Namespace isolation</h3>
+          <p>Organize webhooks into namespaces with independent subscriptions, deliveries, and health.</p>
+        </div>
+        <div class="sp-cap">
+          <h3>Batch operations</h3>
+          <p>Snapshot-based bulk re-push and retry. What you search is what you act on — deterministic.</p>
+        </div>
+        <div class="sp-cap">
+          <h3>gRPC + HTTP</h3>
+          <p>Native gRPC on :50051 and Connect-RPC on :8080. Same API, same behavior.</p>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ============================================================ -->
-  <!-- COMPARISON                                                   -->
-  <!-- ============================================================ -->
-  <section id="comparison" class="lp-section lp-section-alt">
-    <div class="lp-container">
-      <div class="lp-section-header">
-        <div class="lp-badge"><span>Why Sparrow?</span></div>
-        <h2>How Sparrow <span class="lp-gradient-text">Compares</span></h2>
-        <p>There are many ways to deliver webhooks. Here's why teams choose Sparrow.</p>
-      </div>
-
-      <div class="lp-table-wrap">
-        <table class="lp-comparison-table">
-          <thead>
-            <tr>
-              <th class="lp-table-feature-col">Feature</th>
-              {comparisonServices.map(svc => (
-                <th class:list={[svc.highlight && 'lp-table-highlight']}>
-                  {svc.highlight ? (
-                    <div class="lp-table-recommended">
-                      <span class="lp-table-rec-badge">Recommended</span>
-                      <span>{svc.name}</span>
-                    </div>
-                  ) : svc.name}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {comparisonFeatures.map((row, i) => (
-              <tr class:list={[i % 2 !== 0 && 'lp-table-alt-row']}>
-                <td class:list={['lp-table-feature-col', i % 2 !== 0 && 'lp-table-alt-row']}>{row.feature}</td>
-                {comparisonServices.map(svc => {
-                  const val = row[svc.key];
-                  return (
-                    <td class:list={[svc.highlight && 'lp-table-highlight', svc.highlight && val === true && 'lp-table-highlight-yes']}>
-                      {val === true ? (
-                        <span class:list={['lp-check', svc.highlight && 'lp-check-primary']}>
-                          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
-                        </span>
-                      ) : val === false ? (
-                        <span class="lp-cross">
-                          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M6 18L18 6M6 6l12 12"/></svg>
-                        </span>
-                      ) : (
-                        <span class="lp-cell-text">{val}</span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="lp-stats-bar">
-        <div class="lp-stat"><p class="lp-stat-value">$0</p><p class="lp-stat-label">Per-message cost</p></div>
-        <div class="lp-stat"><p class="lp-stat-value">1 Binary</p><p class="lp-stat-label">Single Go binary + Postgres</p></div>
-        <div class="lp-stat"><p class="lp-stat-value">100%</p><p class="lp-stat-label">Open source, no gated features</p></div>
-        <div class="lp-stat"><p class="lp-stat-value">Minutes</p><p class="lp-stat-label">Docker Compose to production</p></div>
+  <!-- GET STARTED -->
+  <section class="sp-section">
+    <div class="sp-w">
+      <div class="sp-feature-row">
+        <div class="sp-feature-text">
+          <span class="sp-label">GET STARTED</span>
+          <h2>Docker Compose to production</h2>
+          <p>Sparrow ships as a single Go binary. Add PostgreSQL and you have a production webhook system. No Redis, no Kafka, no additional infrastructure.</p>
+          <div class="sp-hero-actions" style="margin-top:1.5rem">
+            <a href={docsHome} class="sp-btn sp-btn-lg">Installation guide<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+            <a href="https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic" target="_blank" rel="noopener" class="sp-btn-ghost sp-btn-lg">Deploy on Railway</a>
+          </div>
+        </div>
+        <div class="sp-feature-visual">
+          <div class="sp-terminal sp-terminal-sm">
+            <div class="sp-terminal-bar">
+              <div class="sp-terminal-dots"><span></span><span></span><span></span></div>
+              <span class="sp-terminal-title">docker-compose.yml</span>
+              <div class="sp-terminal-spacer"></div>
+            </div>
+            <div class="sp-terminal-body">
+              <code><span class="sp-t-key">services</span>:</code>
+              <code>  <span class="sp-t-key">sparrow</span>:</code>
+              <code>    <span class="sp-t-key">image</span>: <span class="sp-t-str">ghcr.io/sarathsp06/sparrow:latest</span></code>
+              <code>    <span class="sp-t-key">ports</span>:</code>
+              <code>      - <span class="sp-t-str">"8080:8080"</span></code>
+              <code>      - <span class="sp-t-str">"50051:50051"</span></code>
+              <code>    <span class="sp-t-key">environment</span>:</code>
+              <code>      <span class="sp-t-key">DATABASE_URL</span>: <span class="sp-t-str">postgres://sparrow:...</span></code>
+              <code>      <span class="sp-t-key">SPARROW_SERVE_UI</span>: <span class="sp-t-bool">true</span></code>
+              <code>      <span class="sp-t-key">SPARROW_ENCRYPTION_KEY</span>: <span class="sp-t-str">${`{ENCRYPTION_KEY}`}</span></code>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ============================================================ -->
-  <!-- CTA                                                          -->
-  <!-- ============================================================ -->
-  <section class="lp-cta-section">
-    <div class="lp-container lp-cta-inner">
-      <h2>Ready to Build <span class="lp-gradient-text">Reliable Webhooks</span>?</h2>
-      <p>Join the developers using Sparrow to power their event-driven architectures. Open source and free to use.</p>
-      <div class="lp-hero-ctas">
-        <a href={docsHome} class="lp-btn-primary lp-btn-lg">
-          Documentation
-          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </a>
-        <a href={githubURL} target="_blank" rel="noopener" class="lp-btn-outline lp-btn-lg">
-          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          Star on GitHub
-        </a>
+  <!-- FOOTER -->
+  <footer class="sp-footer">
+    <div class="sp-w">
+      <div class="sp-footer-inner">
+        <div class="sp-footer-col">
+          <a href={base} class="sp-logo sp-logo-sm">
+            <img src={favicon} alt="" width="18" height="18" />
+            <span>Sparrow</span>
+          </a>
+          <p class="sp-footer-desc">Open-source webhook delivery infrastructure.</p>
+        </div>
+        <div class="sp-footer-col">
+          <span class="sp-footer-heading">Product</span>
+          <a href={docsHome}>Documentation</a>
+          <a href={apiRef}>API Reference</a>
+          <a href={`${base}getting-started/quickstart/`}>Quickstart</a>
+        </div>
+        <div class="sp-footer-col">
+          <span class="sp-footer-heading">Deploy</span>
+          <a href={`${base}deployment/docker-compose/`}>Docker Compose</a>
+          <a href={`${base}deployment/kubernetes/`}>Kubernetes</a>
+          <a href={`${base}deployment/railway/`}>Railway</a>
+        </div>
+        <div class="sp-footer-col">
+          <span class="sp-footer-heading">Resources</span>
+          <a href={githubURL} target="_blank" rel="noopener">GitHub</a>
+          <a href={`${base}reference/architecture/`}>Architecture</a>
+          <a href={`${base}reference/error-classification/`}>Error Reference</a>
+        </div>
       </div>
-    </div>
-  </section>
-
-  <!-- ============================================================ -->
-  <!-- FOOTER                                                       -->
-  <!-- ============================================================ -->
-  <footer class="lp-footer">
-    <div class="lp-container lp-footer-inner">
-      <div class="lp-logo">
-        <img src={favicon} alt="Sparrow" width="24" height="24" />
-        <span>Sparrow</span>
-      </div>
-      <p>Open source webhook delivery system</p>
-      <div class="lp-footer-links">
-        <a href={githubURL} target="_blank" rel="noopener">GitHub</a>
-        <a href={docsHome}>Docs</a>
+      <div class="sp-footer-bottom">
+        <span>Open source under MIT license</span>
       </div>
     </div>
   </footer>
@@ -356,497 +337,391 @@ const comparisonFeatures: { feature: string;[k: string]: CellValue }[] = [
 
 <style>
 /* ================================================================
-   Landing Page Styles — scoped to .lp
-   Faithful port of the original SvelteKit marketing page
+   Sparrow Landing — Stripe-inspired, Technical Precision tokens
    ================================================================ */
 
-/* Reset / base */
-.lp {
-  margin: 0;
-  padding: 0;
-  font-family: var(--sp-font-mono);
-  color: var(--sp-text);
-  background: var(--sp-bg);
+/* --- Reset / Base --- */
+.sp {
+  margin: 0; padding: 0;
+  font-family: var(--sp-font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--sp-on-surface);
+  background: var(--sp-surface);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
-.lp *, .lp *::before, .lp *::after { box-sizing: border-box; }
-.lp a { text-decoration: none; }
-.lp code {
-  padding: 0.125rem 0.5rem;
-  border-radius: 0.25rem;
-  background: var(--sp-code-bg);
-  color: var(--sp-code-text);
-  font-family: inherit;
-  font-size: 0.875rem;
+.sp *, .sp *::before, .sp *::after { box-sizing: border-box; }
+.sp a { text-decoration: none; color: inherit; }
+.sp code {
+  font-family: var(--sp-font-mono);
+  font-size: 13px;
 }
 
-/* Container */
-.lp-container { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem; }
+/* --- Layout --- */
+.sp-w { max-width: 1120px; margin: 0 auto; padding: 0 1.5rem; }
 
-/* Gradient text utility */
-.lp-gradient-text {
-  background: linear-gradient(to right, var(--sp-brand-primary), var(--sp-brand-secondary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+/* --- Colors --- */
+.sp-c-cyan { color: var(--sp-secondary) !important; }
+.sp-c-amber { color: var(--sp-tertiary) !important; }
 
-/* Badge */
-.lp-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  background: var(--sp-badge-bg);
-  border: 1px solid var(--sp-badge-border);
-  color: var(--sp-badge-text);
-  font-weight: 500;
-}
-
-/* Buttons */
-.lp-btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1.25rem;
-  font-family: var(--sp-font-body);
-  font-size: 0.875rem;
-  font-weight: 500;
-  border-radius: 0.75rem;
-  background: var(--sp-brand-primary);
-  color: var(--sp-bg);
-  transition: background 0.2s;
-}
-.lp-btn-primary:hover { background: var(--sp-brand-primary-hover); color: var(--sp-bg); }
-
-.lp-btn-outline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1.25rem;
-  font-family: var(--sp-font-body);
-  font-size: 0.875rem;
-  font-weight: 500;
-  border-radius: 0.75rem;
-  border: 1px solid var(--sp-border);
-  color: var(--sp-text-secondary);
-  transition: background 0.2s;
-}
-.lp-btn-outline:hover { background: var(--sp-bg-hover); color: var(--sp-text-secondary); }
-
-.lp-btn-lg { padding: 0.75rem 1.75rem; font-size: 1rem; }
-
-/* ─── HEADER ────────────────────────────────────────────────── */
-.lp-header {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  z-index: 50;
-  border-bottom: 1px solid var(--sp-border-lighter);
-  background: rgba(255, 255, 255, 0.8);
+/* --- Nav --- */
+.sp-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(18, 19, 25, 0.8);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--sp-outline-variant);
 }
-.lp-header-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 4rem;
+.sp-nav-inner {
+  display: flex; align-items: center; height: 3.25rem;
 }
-.lp-logo {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+.sp-logo {
+  display: flex; align-items: center; gap: 0.5rem;
 }
-.lp-logo span {
-  font-family: var(--sp-font-mono);
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--sp-text);
+.sp-logo span {
+  font-weight: 600; font-size: 0.9375rem; letter-spacing: -0.02em;
 }
-.lp-nav { display: flex; align-items: center; gap: 2rem; }
-.lp-nav a {
-  font-family: var(--sp-font-body);
-  font-size: 0.875rem;
-  color: var(--sp-text-muted);
-  transition: color 0.2s;
+.sp-logo-sm span { font-size: 0.8125rem; }
+.sp-nav-links {
+  display: flex; align-items: center; gap: 1.5rem; margin-left: 2.5rem;
 }
-.lp-nav a:hover { color: var(--sp-brand-primary-hover); }
-.lp-header-actions { display: flex; align-items: center; gap: 0.75rem; }
+.sp-nav-links a {
+  font-size: 13px; font-weight: 500; color: var(--sp-outline);
+  transition: color 0.12s;
+}
+.sp-nav-links a:hover { color: var(--sp-on-surface); }
+.sp-nav-end {
+  margin-left: auto; display: flex; align-items: center; gap: 0.75rem;
+}
+.sp-nav-gh {
+  color: var(--sp-outline); transition: color 0.12s;
+}
+.sp-nav-gh:hover { color: var(--sp-on-surface); }
 
 @media (max-width: 768px) {
-  .lp-nav { display: none; }
-  .lp-header-actions .lp-btn-outline { display: none; }
+  .sp-nav-links { display: none; }
 }
 
-/* ─── HERO ──────────────────────────────────────────────────── */
-.lp-hero {
+/* --- Buttons --- */
+.sp-btn {
+  display: inline-flex; align-items: center; gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  font-family: var(--sp-font-body); font-size: 13px; font-weight: 600;
+  border-radius: var(--sp-radius);
+  background: var(--sp-primary-container); color: #fff;
+  transition: background 0.12s, box-shadow 0.12s;
+  border: none; letter-spacing: -0.01em;
+}
+.sp-btn:hover {
+  background: var(--sp-brand-primary-hover); color: #fff;
+  box-shadow: 0 0 24px rgba(129,140,248,0.15);
+}
+.sp-btn-lg { padding: 0.5rem 1.125rem; font-size: 14px; }
+
+.sp-btn-ghost {
+  display: inline-flex; align-items: center; gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  font-family: var(--sp-font-body); font-size: 13px; font-weight: 500;
+  border-radius: var(--sp-radius);
+  border: 1px solid var(--sp-outline-variant);
+  color: var(--sp-on-surface-variant); background: transparent;
+  transition: border-color 0.12s, color 0.12s;
+}
+.sp-btn-ghost:hover { border-color: var(--sp-outline); color: var(--sp-on-surface); }
+.sp-btn-ghost.sp-btn-lg { padding: 0.5rem 1.125rem; font-size: 14px; }
+
+/* --- Hero --- */
+.sp-hero {
   position: relative;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 4rem;
+  padding: 7.5rem 0 5rem;
   overflow: hidden;
 }
-.lp-hero-bg {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--sp-indigo-tint), var(--sp-bg), var(--sp-violet-tint));
+.sp-hero-mesh {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 25% 0%, rgba(129,140,248,0.08), transparent 60%),
+    radial-gradient(ellipse 40% 60% at 75% 100%, rgba(93,230,255,0.04), transparent 50%);
 }
-.lp-hero-orb {
-  position: absolute;
-  border-radius: 50%;
-  animation: pulse 4s ease-in-out infinite;
-}
-.lp-hero-orb-1 { top: 25%; left: 25%; width: 24rem; height: 24rem; background: var(--sp-glow-indigo); filter: blur(80px); }
-.lp-hero-orb-2 { bottom: 25%; right: 25%; width: 16rem; height: 16rem; background: var(--sp-glow-violet); filter: blur(60px); animation-delay: 1.5s; }
-
-.lp-hero-grid {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3rem;
+.sp-hero-grid {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4rem;
   align-items: center;
 }
-@media (max-width: 1024px) { .lp-hero-grid { grid-template-columns: 1fr; } }
+@media (max-width: 960px) {
+  .sp-hero-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+}
 
-.lp-hero-content { display: flex; flex-direction: column; gap: 2rem; }
+.sp-hero-text h1 {
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 600; line-height: 1.15;
+  letter-spacing: -0.025em;
+  margin: 0 0 1.25rem;
+}
+.sp-hero-sub {
+  font-size: 15px; line-height: 1.65;
+  color: var(--sp-on-surface-variant);
+  max-width: 32rem; margin: 0 0 2rem;
+}
+.sp-hero-actions {
+  display: flex; flex-wrap: wrap; gap: 0.625rem;
+}
+.sp-hero-meta {
+  display: flex; align-items: center; gap: 0.75rem;
+  margin-top: 2.5rem; padding-top: 1.5rem;
+  border-top: 1px solid var(--sp-outline-variant);
+}
+.sp-hero-meta-item {
+  display: flex; align-items: center; gap: 0.375rem;
+  font-size: 12px; font-weight: 500; color: var(--sp-outline);
+  letter-spacing: 0.01em;
+}
+.sp-hero-meta-sep {
+  width: 3px; height: 3px; border-radius: 50%;
+  background: var(--sp-outline-variant);
+}
+.sp-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+}
+.sp-dot-live {
+  background: var(--sp-secondary);
+  box-shadow: 0 0 6px var(--sp-secondary);
+  animation: pulse 2.5s ease-in-out infinite;
+}
 
-.lp-hero-content h1 {
+/* --- Terminal --- */
+.sp-terminal {
+  border: 1px solid var(--sp-outline-variant);
+  border-radius: var(--sp-radius-lg);
+  background: var(--sp-surface-container-lowest);
+  overflow: hidden;
+}
+.sp-terminal-sm { font-size: 12px; }
+.sp-terminal-bar {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--sp-outline-variant);
+  background: var(--sp-surface-container);
+}
+.sp-terminal-dots {
+  display: flex; gap: 5px;
+}
+.sp-terminal-dots span {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--sp-surface-container-highest);
+}
+.sp-terminal-title {
   font-family: var(--sp-font-mono);
-  font-size: clamp(2.25rem, 5vw, 3.75rem);
-  font-weight: 700;
-  line-height: 1.15;
-  color: var(--sp-text);
-  margin: 0;
+  font-size: 11px; font-weight: 500;
+  color: var(--sp-outline);
+  letter-spacing: 0.02em;
 }
-.lp-hero-desc {
-  font-family: var(--sp-font-body);
-  font-size: 1.125rem;
-  line-height: 1.7;
-  color: var(--sp-text-muted);
-  max-width: 36rem;
-  margin: 0;
-}
-.lp-hero-ctas { display: flex; flex-wrap: wrap; gap: 1rem; }
-
-.lp-railway-deploy {
-  margin-top: 0.5rem;
-}
-.lp-railway-deploy img {
-  height: 2.5rem;
-  transition: opacity 0.2s;
-}
-.lp-railway-deploy img:hover { opacity: 0.85; }
-
-.lp-tech-stack {
-  padding-top: 2rem;
-  border-top: 1px solid var(--sp-border);
-}
-.lp-tech-stack p {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--sp-text-subtle);
-  margin: 0 0 0.75rem;
-}
-.lp-tech-tags { display: flex; flex-wrap: wrap; gap: 0.75rem; }
-.lp-tech-tags span {
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
+.sp-terminal-spacer { flex: 1; }
+.sp-terminal-body {
+  padding: 1rem 1.25rem;
   font-family: var(--sp-font-mono);
-  border-radius: 0.375rem;
-  background: var(--sp-tag-bg);
-  color: var(--sp-text-muted);
-}
-
-/* Hero visual */
-.lp-hero-visual { display: flex; justify-content: center; }
-@media (min-width: 1024px) { .lp-hero-visual { justify-content: flex-end; } }
-
-.lp-hero-logo-wrap { position: relative; }
-.lp-hero-logo-glow {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--sp-glow-indigo-soft), transparent 70%);
-  transform: scale(1.1);
-  filter: blur(60px);
-}
-.lp-hero-logo-card {
-  position: relative;
-  padding: 2rem;
-  border-radius: 1.5rem;
-  backdrop-filter: blur(4px);
-  background: linear-gradient(135deg, var(--sp-indigo-tint), rgba(255, 255, 255, 0.4), transparent);
-  border: 1px solid var(--sp-brand-primary-20);
-}
-.lp-hero-logo {
-  display: block;
-  width: clamp(14rem, 20vw, 20rem);
-  height: auto;
-  filter: drop-shadow(0 25px 25px rgba(0, 0, 0, 0.15));
-  animation: float 6s ease-in-out infinite;
-}
-
-/* ─── SECTIONS ──────────────────────────────────────────────── */
-.lp-section { padding: 6rem 0; }
-.lp-section-alt { background: var(--sp-bg-alt); }
-
-.lp-section-header {
-  text-align: center;
-  margin-bottom: 4rem;
-}
-.lp-section-header .lp-badge { margin-bottom: 1.5rem; }
-.lp-section-header h2 {
-  font-family: var(--sp-font-mono);
-  font-size: clamp(1.5rem, 3vw, 2.25rem);
-  font-weight: 700;
-  margin: 0 0 1rem;
-  color: var(--sp-text);
-}
-.lp-section-header > p {
-  font-size: 1.125rem;
-  color: var(--sp-text-muted);
-  max-width: 48rem;
-  margin: 0 auto;
-}
-
-/* ─── FEATURES ──────────────────────────────────────────────── */
-.lp-feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.5rem;
-}
-@media (max-width: 1024px) { .lp-feature-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 640px) { .lp-feature-grid { grid-template-columns: 1fr; } }
-
-.lp-feature-card {
-  padding: 2rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--sp-border-light);
-  background: var(--sp-bg-card);
-  transition: all 0.3s;
-}
-.lp-feature-card:hover {
-  border-color: var(--sp-brand-primary-40);
-  box-shadow: 0 10px 25px -5px var(--sp-brand-primary-5);
-  transform: translateY(-4px);
-}
-.lp-feature-icon {
-  width: 3rem; height: 3rem;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 0.75rem;
-  background: var(--sp-badge-bg);
-  color: var(--sp-brand-primary);
-  margin-bottom: 1.5rem;
-}
-.lp-feature-icon-sm { width: 2.5rem; height: 2.5rem; }
-.lp-feature-card h3 {
-  font-family: var(--sp-font-mono);
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--sp-text);
-  margin: 0 0 0.75rem;
-}
-.lp-feature-card p {
-  font-size: 0.9375rem;
-  line-height: 1.7;
-  color: var(--sp-text-muted);
-  margin: 0;
-}
-
-/* ─── ARCHITECTURE ──────────────────────────────────────────── */
-.lp-arch-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
-}
-@media (max-width: 640px) { .lp-arch-grid { grid-template-columns: 1fr; } }
-
-.lp-arch-card {
-  padding: 2rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--sp-border-light);
-  background: var(--sp-bg-card);
-  transition: border-color 0.3s;
-}
-.lp-arch-card:hover { border-color: var(--sp-brand-primary-40); }
-.lp-arch-card-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
-.lp-arch-card h3 {
-  font-family: var(--sp-font-mono);
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--sp-text);
-  margin: 0;
-}
-.lp-arch-card > p {
-  font-size: 0.9375rem;
-  color: var(--sp-text-muted);
-  margin: 0 0 1rem;
-  line-height: 1.6;
-}
-.lp-arch-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.lp-arch-tags span {
-  padding: 0.25rem 0.625rem;
-  font-size: 0.75rem;
-  font-family: var(--sp-font-mono);
-  border-radius: 0.25rem;
-  background: var(--sp-tag-bg);
-  color: var(--sp-text-muted);
-}
-
-/* ─── COMPARISON TABLE ──────────────────────────────────────── */
-.lp-table-wrap {
+  font-size: 13px; line-height: 1.7;
   overflow-x: auto;
-  border-radius: 0.75rem;
-  border: 1px solid var(--sp-border-light);
-  background: var(--sp-bg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
-.lp-comparison-table {
-  width: 100%;
-  min-width: 900px;
-  border-collapse: collapse;
-  font-size: 0.875rem;
+.sp-terminal-body code {
+  display: block; white-space: pre;
+  color: var(--sp-on-surface-variant);
 }
-.lp-comparison-table thead tr { border-bottom: 1px solid var(--sp-border); }
-.lp-comparison-table th {
-  padding: 1rem 1rem;
-  text-align: center;
-  font-weight: 600;
+.sp-t-muted { color: var(--sp-outline); }
+.sp-t-flag { color: var(--sp-primary); }
+.sp-t-str { color: var(--sp-secondary); }
+.sp-t-key { color: var(--sp-primary); }
+.sp-t-bool { color: var(--sp-tertiary); }
+
+/* --- Sections --- */
+.sp-section { padding: 5rem 0; }
+.sp-section-muted { background: var(--sp-surface-container-lowest); }
+
+.sp-label {
+  display: inline-block;
   font-family: var(--sp-font-mono);
-  font-size: 0.75rem;
-  text-transform: uppercase;
+  font-size: 11px; font-weight: 600;
   letter-spacing: 0.05em;
-  color: var(--sp-text-muted);
-  background: var(--sp-bg-card);
-}
-.lp-table-feature-col {
-  text-align: left !important;
-  min-width: 200px;
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  background: var(--sp-bg) !important;
-}
-.lp-table-highlight {
-  background: var(--sp-indigo-tint-strong) !important;
-  color: var(--sp-brand-primary-dark) !important;
-  border-left: 1px solid var(--sp-brand-primary-25);
-  border-right: 1px solid var(--sp-brand-primary-25);
-}
-.lp-table-highlight-yes { background: var(--sp-indigo-tint) !important; }
-.lp-table-recommended { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
-.lp-table-rec-badge {
-  display: inline-flex;
-  padding: 0.125rem 0.625rem;
-  border-radius: 9999px;
-  background: var(--sp-brand-primary);
-  color: var(--sp-bg);
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-.lp-comparison-table td {
-  padding: 0.875rem 1rem;
-  text-align: center;
-  border-bottom: 1px solid var(--sp-border-subtle);
-  color: var(--sp-text-secondary);
-  font-weight: 500;
-}
-.lp-comparison-table tbody tr:last-child td { border-bottom: none; }
-.lp-table-alt-row { background: var(--sp-bg-card-subtle); }
-
-.lp-check, .lp-cross {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem; height: 1.5rem;
-  border-radius: 50%;
-}
-.lp-check { background: var(--sp-success-bg); color: var(--sp-success-text); }
-.lp-check-primary { background: var(--sp-brand-primary); color: var(--sp-bg); }
-.lp-cross { background: var(--sp-muted-icon-bg); color: var(--sp-muted-icon-text); }
-.lp-cell-text {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--sp-text-subtle);
-  padding: 0.125rem 0.5rem;
-  border-radius: 0.25rem;
-  background: rgba(243, 244, 246, 0.8);
+  color: var(--sp-primary-container);
+  margin-bottom: 1rem;
 }
 
-/* Stats bar */
-.lp-stats-bar {
-  margin-top: 3rem;
-  padding: 2rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--sp-brand-primary-30);
-  background: linear-gradient(to right, var(--sp-indigo-tint-strong), var(--sp-violet-tint-medium));
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
-  text-align: center;
+/* --- Feature rows (Stripe alternating layout) --- */
+.sp-feature-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 4rem; align-items: center;
+  margin-bottom: 6rem;
 }
-@media (max-width: 640px) { .lp-stats-bar { grid-template-columns: repeat(2, 1fr); } }
-.lp-stat-value {
+.sp-feature-row:last-child { margin-bottom: 0; }
+.sp-feature-row-reverse { direction: rtl; }
+.sp-feature-row-reverse > * { direction: ltr; }
+
+@media (max-width: 768px) {
+  .sp-feature-row, .sp-feature-row-reverse { grid-template-columns: 1fr; gap: 2rem; direction: ltr; }
+}
+
+.sp-feature-text h2 {
+  font-size: clamp(1.25rem, 2.5vw, 1.625rem);
+  font-weight: 600; line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin: 0 0 1rem;
+}
+.sp-feature-text p {
+  font-size: 14px; line-height: 1.65;
+  color: var(--sp-on-surface-variant);
+  margin: 0 0 0.75rem;
+}
+.sp-feature-text p:last-of-type { margin-bottom: 1.25rem; }
+.sp-feature-text code {
+  background: var(--sp-surface-container-high);
+  padding: 0.1rem 0.35rem; border-radius: var(--sp-radius);
+  font-size: 12px; color: var(--sp-secondary);
+}
+
+.sp-link {
+  display: inline-flex; align-items: center; gap: 0.375rem;
+  font-size: 14px; font-weight: 600;
+  color: var(--sp-primary-container);
+  transition: gap 0.15s;
+}
+.sp-link:hover { gap: 0.625rem; color: var(--sp-primary); }
+
+/* --- Pipeline visual --- */
+.sp-pipeline {
+  display: flex; flex-direction: column;
+  gap: 0;
+}
+.sp-pipeline-step {
+  display: flex; align-items: flex-start; gap: 0.875rem;
+  padding: 0.875rem 1.125rem;
+  border: 1px solid var(--sp-outline-variant);
+  border-radius: var(--sp-radius);
+  background: var(--sp-surface-container);
+  transition: border-color 0.12s;
+}
+.sp-pipeline-step:hover { border-color: var(--sp-outline); }
+.sp-pipeline-num {
   font-family: var(--sp-font-mono);
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--sp-brand-primary-hover);
+  font-size: 12px; font-weight: 700;
+  color: var(--sp-primary-container);
+  min-width: 1.5rem; padding-top: 1px;
+}
+.sp-pipeline-content { display: flex; flex-direction: column; gap: 0.125rem; }
+.sp-pipeline-name {
+  font-family: var(--sp-font-mono);
+  font-size: 13px; font-weight: 600;
+  color: var(--sp-on-surface);
+}
+.sp-pipeline-desc {
+  font-size: 12px; color: var(--sp-on-surface-variant);
+}
+.sp-pipeline-line {
+  width: 1px; height: 16px;
+  margin-left: 1.875rem;
+  background: var(--sp-outline-variant);
+}
+
+/* --- Metrics visual --- */
+.sp-metrics {
+  display: flex; flex-direction: column; gap: 1.25rem;
+  padding: 1.5rem;
+  border: 1px solid var(--sp-outline-variant);
+  border-radius: var(--sp-radius-lg);
+  background: var(--sp-surface-container);
+}
+.sp-metric { display: flex; flex-direction: column; gap: 0.375rem; }
+.sp-metric-label {
+  font-family: var(--sp-font-mono);
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--sp-outline);
+}
+.sp-metric-value {
+  font-family: var(--sp-font-mono);
+  font-size: 20px; font-weight: 700;
+  color: var(--sp-on-surface);
+  letter-spacing: -0.02em;
+}
+.sp-metric-bar {
+  height: 3px; border-radius: 2px;
+  background: var(--sp-surface-container-highest);
+  overflow: hidden;
+}
+.sp-metric-bar span {
+  display: block; height: 100%; border-radius: 2px;
+  background: var(--sp-primary-container);
+}
+.sp-metric-bar-cyan span { background: var(--sp-secondary); }
+
+/* --- Capabilities grid --- */
+.sp-caps-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--sp-outline-variant);
+  border: 1px solid var(--sp-outline-variant);
+  border-radius: var(--sp-radius);
+  overflow: hidden;
+  margin-top: 1.5rem;
+}
+@media (max-width: 768px) { .sp-caps-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .sp-caps-grid { grid-template-columns: 1fr; } }
+
+.sp-cap {
+  padding: 1.25rem 1.5rem;
+  background: var(--sp-surface-container);
+}
+.sp-cap h3 {
+  font-size: 14px; font-weight: 600;
+  color: var(--sp-on-surface);
+  margin: 0 0 0.375rem;
+  letter-spacing: -0.01em;
+}
+.sp-cap p {
+  font-size: 13px; line-height: 1.55;
+  color: var(--sp-on-surface-variant);
   margin: 0;
 }
-.lp-stat-label { font-size: 0.875rem; color: var(--sp-text-muted); margin: 0.25rem 0 0; }
 
-/* ─── CTA ───────────────────────────────────────────────────── */
-.lp-cta-section {
-  padding: 6rem 0;
-  background: linear-gradient(to bottom, var(--sp-bg), var(--sp-indigo-tint-subtle));
+/* --- Footer --- */
+.sp-footer {
+  padding: 4rem 0 2rem;
+  border-top: 1px solid var(--sp-outline-variant);
 }
-.lp-cta-inner { text-align: center; max-width: 48rem; }
-.lp-cta-inner h2 {
-  font-family: var(--sp-font-mono);
-  font-size: clamp(1.5rem, 3vw, 2.25rem);
-  font-weight: 700;
-  margin: 0 0 1.5rem;
-  color: var(--sp-text);
+.sp-footer-inner {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 3rem;
 }
-.lp-cta-inner > p {
-  font-size: 1.125rem;
-  color: var(--sp-text-muted);
-  margin: 0 0 2rem;
+@media (max-width: 768px) {
+  .sp-footer-inner { grid-template-columns: 1fr 1fr; gap: 2rem; }
 }
-.lp-cta-inner .lp-hero-ctas { justify-content: center; }
+.sp-footer-col {
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.sp-footer-desc {
+  font-size: 13px; color: var(--sp-outline);
+  margin: 0.5rem 0 0; max-width: 20rem;
+  line-height: 1.5;
+}
+.sp-footer-heading {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--sp-outline);
+  margin-bottom: 0.25rem;
+}
+.sp-footer-col a {
+  font-size: 13px; color: var(--sp-on-surface-variant);
+  transition: color 0.12s;
+}
+.sp-footer-col a:hover { color: var(--sp-on-surface); }
+.sp-footer-bottom {
+  margin-top: 3rem; padding-top: 1.5rem;
+  border-top: 1px solid var(--sp-outline-variant);
+  font-size: 12px; color: var(--sp-outline);
+}
 
-/* ─── FOOTER ────────────────────────────────────────────────── */
-.lp-footer {
-  padding: 3rem 0;
-  border-top: 1px solid var(--sp-border);
-}
-.lp-footer-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1.5rem;
-}
-.lp-footer-inner > p { font-size: 0.875rem; color: var(--sp-text-subtle); margin: 0; }
-.lp-footer-links { display: flex; gap: 1.5rem; }
-.lp-footer-links a { font-size: 0.875rem; color: var(--sp-text-muted); transition: color 0.2s; }
-.lp-footer-links a:hover { color: var(--sp-brand-primary-hover); }
-
-/* ─── ANIMATIONS ────────────────────────────────────────────── */
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
+/* --- Animations --- */
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--sp-secondary); }
+  50% { opacity: 0.4; box-shadow: 0 0 3px var(--sp-secondary); }
 }
 </style>

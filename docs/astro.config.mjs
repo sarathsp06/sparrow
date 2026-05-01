@@ -8,6 +8,9 @@ export default defineConfig({
   integrations: [
     starlight({
       title: proto2astroConfig.title,
+      logo: {
+        src: './src/assets/favicon.svg',
+      },
       description: proto2astroConfig.description,
       social: proto2astroConfig.social,
       editLink: { baseUrl: proto2astroConfig.editLink },

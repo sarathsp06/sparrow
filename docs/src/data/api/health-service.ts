@@ -118,6 +118,12 @@ const service: ApiService = {
           "type": "int32",
           "description": "Count of network-level errors in the last 24 hours. Includes DNS failures, TLS errors, connection refused, and other transport errors.",
           "example": 0
+        },
+        {
+          "name": "metrics.unexpected_status_errors",
+          "type": "int32",
+          "description": "Count of unexpected status errors in the last 24 hours. These occur when the HTTP response code is valid (2xx/3xx) but doesn't match the webhook's expected_status_codes list. Not retried.",
+          "example": 0
         }
       ]
     },

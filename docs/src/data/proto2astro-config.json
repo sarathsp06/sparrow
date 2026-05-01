@@ -29,15 +29,6 @@
         },
         {
           "slug": "getting-started/configuration"
-        },
-        {
-          "slug": "getting-started/go"
-        },
-        {
-          "slug": "getting-started/python"
-        },
-        {
-          "slug": "getting-started/typescript"
         }
       ]
     },
@@ -73,6 +64,9 @@
     {
       "label": "Reference",
       "items": [
+        {
+          "slug": "reference/client-libraries"
+        },
         {
           "slug": "reference/template-functions"
         },

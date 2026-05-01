@@ -22,6 +22,8 @@ These principles apply globally to Sparrow, not just this feature set:
 
 7. **Self-hosted first** -- Features should be useful for teams running Sparrow behind a VPN for internal webhook delivery. Multi-tenant SaaS features are lower priority than operational excellence.
 
+8. **Explicit and verbose execution** -- When performing tasks (especially multi-step ones like UI redesigns, refactors, or debugging), narrate every action clearly: what is being done, why, what the expected outcome is, and what was actually observed. This applies to both human and AI-assisted development. Silent changes lead to confusion; over-communication is preferred.
+
 ---
 
 ## Current State (as of v1.2.1)

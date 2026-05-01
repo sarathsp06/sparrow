@@ -58,6 +58,38 @@ const service: ApiService = {
           "example": {
             "limit": 20
           }
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "description": "Filter by delivery status. Optional.",
+          "example": "failed"
+        },
+        {
+          "name": "error_category",
+          "type": "string",
+          "description": "Filter by error classification. Optional.",
+          "example": "server_error"
+        },
+        {
+          "name": "subscription_id",
+          "type": "string",
+          "description": "Filter by subscription UUID. Optional."
+        },
+        {
+          "name": "created_after",
+          "type": "Timestamp",
+          "description": "Filter to deliveries created at or after this timestamp."
+        },
+        {
+          "name": "created_before",
+          "type": "Timestamp",
+          "description": "Filter to deliveries created at or before this timestamp."
+        },
+        {
+          "name": "prepare_retry",
+          "type": "bool",
+          "description": "When true, snapshot all matching delivery IDs (up to 10,000) into a batch job and return a retry_id in the response. Pass that ID to RetryDeliveries to retry the exact set that matched this query."
         }
       ],
       "response": [
@@ -70,6 +102,11 @@ const service: ApiService = {
           "name": "pagination",
           "type": "PaginationResponse",
           "description": "Pagination metadata."
+        },
+        {
+          "name": "retry_id",
+          "type": "string",
+          "description": "Batch ID for deterministic retry. Only populated when prepare_retry=true was set in the request. Pass to RetryDeliveries."
         }
       ]
     },
@@ -171,7 +208,7 @@ const service: ApiService = {
         {
           "name": "attempts[].error_category",
           "type": "string",
-          "description": "Classified error category for this attempt. Values: \"success\", \"client_error\", \"server_error\", \"timeout\", \"connection_refused\", \"network_error\", \"dns_error\", \"tls_error\", \"unknown\".",
+          "description": "Classified error category for this attempt. Values: \"success\", \"client_error\", \"server_error\", \"timeout\", \"connection_refused\", \"network_error\", \"dns_error\", \"tls_error\", \"unexpected_status\", \"unknown\".",
           "example": "success"
         },
         {
@@ -179,6 +216,99 @@ const service: ApiService = {
           "type": "Timestamp",
           "description": "When this attempt was made.",
           "example": "2025-01-15T10:30:05Z"
+        }
+      ]
+    },
+    {
+      "name": "RetryDeliveries",
+      "description": "RetryDeliveries executes a deterministic batch retry of deliveries whose IDs were previously snapshotted via ListDeliveries with prepare_retry=true. Each delivery is reset to pending and re-enqueued for HTTP delivery. The batch is processed asynchronously via a River job; poll GetRetryStatus for progress. Errors: NOT_FOUND if the retry_id does not exist or has expired. Errors: FAILED_PRECONDITION if the batch is not in 'pending' status.",
+      "request": [
+        {
+          "name": "retry_id",
+          "type": "string",
+          "required": true,
+          "description": "Batch ID returned by ListDeliveries when prepare_retry=true."
+        }
+      ],
+      "response": [
+        {
+          "name": "retry_id",
+          "type": "string",
+          "description": "Batch ID for polling status."
+        },
+        {
+          "name": "total",
+          "type": "int32",
+          "description": "Total number of deliveries that will be retried."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "description": "Current status (will be \"processing\" on success)."
+        }
+      ]
+    },
+    {
+      "name": "GetRetryStatus",
+      "description": "GetRetryStatus returns the current progress of a batch retry operation. Errors: NOT_FOUND if the retry_id does not exist or has expired.",
+      "request": [
+        {
+          "name": "retry_id",
+          "type": "string",
+          "required": true,
+          "description": "Batch ID returned by RetryDeliveries or ListDeliveries."
+        }
+      ],
+      "response": [
+        {
+          "name": "batch.status",
+          "type": "string",
+          "description": "Current status of the batch job.",
+          "example": "processing"
+        },
+        {
+          "name": "batch.total",
+          "type": "int32",
+          "description": "Total number of items in the batch."
+        },
+        {
+          "name": "batch.processed",
+          "type": "int32",
+          "description": "Number of items successfully processed so far."
+        },
+        {
+          "name": "batch.failed",
+          "type": "int32",
+          "description": "Number of items that failed processing."
+        },
+        {
+          "name": "batch.created_at",
+          "type": "Timestamp",
+          "description": "When the batch job was created."
+        },
+        {
+          "name": "batch.expires_at",
+          "type": "Timestamp",
+          "description": "When the batch job expires (created_at + ttl_seconds)."
+        }
+      ]
+    },
+    {
+      "name": "CancelRetry",
+      "description": "CancelRetry aborts a batch retry that is pending or in progress. Items already processed are not rolled back. Errors: NOT_FOUND if the retry_id does not exist. Errors: FAILED_PRECONDITION if the batch is already completed or cancelled.",
+      "request": [
+        {
+          "name": "retry_id",
+          "type": "string",
+          "required": true,
+          "description": "Batch ID to cancel."
+        }
+      ],
+      "response": [
+        {
+          "name": "status",
+          "type": "string",
+          "description": "Current status after cancellation (will be \"cancelled\")."
         }
       ]
     }

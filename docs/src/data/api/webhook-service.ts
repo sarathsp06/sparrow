@@ -82,6 +82,11 @@ const service: ApiService = {
           "type": "Timestamp",
           "description": "Timestamp when the webhook was created.",
           "example": "2025-01-15T10:30:00Z"
+        },
+        {
+          "name": "signing_public_key",
+          "type": "string",
+          "description": "Hex-encoded Ed25519 public key for asymmetric webhook signature verification. Share this key with webhook consumers so they can verify the X-Sparrow-Signature-Ed25519 header on deliveries."
         }
       ]
     },
@@ -211,6 +216,18 @@ const service: ApiService = {
           "name": "updates.secret_headers",
           "type": "map<string, string>",
           "description": "Replace all secret headers. Omit to leave unchanged. Pass an empty map to clear all secret headers."
+        },
+        {
+          "name": "update_mask",
+          "type": "google.protobuf.FieldMask",
+          "description": "Specifies which fields in `updates` should be applied. Only fields listed in the mask are written; unlisted fields are ignored. This prevents accidental overwrites of sensitive fields (e.g. secrets). Supported paths (top-level fields of WebhookUpdateFields): \"url\", \"active\", \"description\", \"events\", \"headers\", \"secret_headers\", \"http_config\" To update the webhook secret within http_config, include \"http_config.webhook_secret\" in the mask. Without it, the existing encrypted secret is preserved even when http_config is updated. When omitted or empty, falls back to legacy behavior: all non-zero fields in `updates` are applied (not recommended for new clients).",
+          "example": {
+            "paths": [
+              "url",
+              "active",
+              "http_config"
+            ]
+          }
         }
       ]
     },
