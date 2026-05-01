@@ -3,51 +3,13 @@ title: Docker Compose Deployment
 description: Deploy Sparrow with Docker Compose
 ---
 
-The simplest way to run Sparrow. No need to clone the repo -- save the compose file below, run `docker compose up -d`, and you're done.
+The simplest way to run Sparrow. No need to clone the repo -- download the compose file and start it.
 
 ## Quick Start
 
-Create a `docker-compose.yml`:
-
-```yaml title="docker-compose.yml"
-services:
-  postgres:
-    image: postgres:15-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: sparrow
-      POSTGRES_USER: sparrow
-      POSTGRES_PASSWORD: sparrow
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sparrow"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  sparrow:
-    image: ghcr.io/sarathsp06/sparrow:latest
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-      - "50051:50051"
-    environment:
-      DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
-      SPARROW_SERVE_UI: "true"
-      # Required: 64-char hex key for envelope encryption (generate with: openssl rand -hex 32)
-      SPARROW_ENCRYPTION_KEY: "${SPARROW_ENCRYPTION_KEY:?Set SPARROW_ENCRYPTION_KEY (generate with: openssl rand -hex 32)}"
-      # Optional: require an API key for all requests
-      # SPARROW_API_KEY: "change-me-to-a-secure-random-string"
-    depends_on:
-      postgres: { condition: service_healthy }
-
-volumes:
-  postgres_data:
-```
-
 ```bash
-docker compose up -d
+curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
+SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32) docker compose up -d
 ```
 
 The server is available at:
@@ -78,12 +40,12 @@ docker pull ghcr.io/sarathsp06/sparrow:0.2.0
 
 ## Development (Build from Source)
 
-The repo root contains a `docker-compose.yml` that builds from source. This is useful for development:
+The repo contains a `docker-compose.dev.yml` that builds from source. This is useful for development:
 
 ```bash
 git clone https://github.com/sarathsp06/sparrow.git
 cd sparrow
-docker compose up -d
+docker compose -f docker-compose.dev.yml up -d
 ```
 
 Or build without Docker:

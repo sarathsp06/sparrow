@@ -276,20 +276,20 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
           <div class="sp-terminal sp-terminal-sm">
             <div class="sp-terminal-bar">
               <div class="sp-terminal-dots"><span></span><span></span><span></span></div>
-              <span class="sp-terminal-title">docker-compose.yml</span>
+              <span class="sp-terminal-title">terminal</span>
               <div class="sp-terminal-spacer"></div>
             </div>
             <div class="sp-terminal-body">
-              <code><span class="sp-t-key">services</span>:</code>
-              <code>  <span class="sp-t-key">sparrow</span>:</code>
-              <code>    <span class="sp-t-key">image</span>: <span class="sp-t-str">ghcr.io/sarathsp06/sparrow:latest</span></code>
-              <code>    <span class="sp-t-key">ports</span>:</code>
-              <code>      - <span class="sp-t-str">"8080:8080"</span></code>
-              <code>      - <span class="sp-t-str">"50051:50051"</span></code>
-              <code>    <span class="sp-t-key">environment</span>:</code>
-              <code>      <span class="sp-t-key">DATABASE_URL</span>: <span class="sp-t-str">postgres://sparrow:...</span></code>
-              <code>      <span class="sp-t-key">SPARROW_SERVE_UI</span>: <span class="sp-t-bool">true</span></code>
-              <code>      <span class="sp-t-key">SPARROW_ENCRYPTION_KEY</span>: <span class="sp-t-str">${`{ENCRYPTION_KEY}`}</span></code>
+              <code><span class="sp-t-muted">$</span> curl -O https://raw.githubusercontent.com/</code>
+              <code>    sarathsp06/sparrow/main/deploy/docker-compose.yml</code>
+              <code></code>
+              <code><span class="sp-t-muted">$</span> SPARROW_ENCRYPTION_KEY=<span class="sp-t-str">$(openssl rand -hex 32)</span> \</code>
+              <code>    docker compose up <span class="sp-t-flag">-d</span></code>
+              <code></code>
+              <code><span class="sp-t-muted">Creating sparrow-postgres-1 ... done</span></code>
+              <code><span class="sp-t-muted">Creating sparrow-sparrow-1  ... done</span></code>
+              <code></code>
+              <code><span class="sp-t-muted">$</span> open <span class="sp-t-str">http://localhost:8080</span></code>
             </div>
           </div>
         </div>

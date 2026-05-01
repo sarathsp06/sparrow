@@ -17,6 +17,10 @@ export default defineConfig({
       sidebar: proto2astroConfig.sidebar,
       components: proto2astroConfig.components,
       customCss: ['./src/styles/custom.css'],
+      expressiveCode: {
+        themes: ['starlight-dark'],
+        useStarlightDarkModeSwitch: false,
+      },
     }),
   ],
 });

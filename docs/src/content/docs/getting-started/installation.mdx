@@ -15,34 +15,11 @@ Deploy Sparrow to Railway with a managed PostgreSQL database -- no Docker or Kub
 
 ## Docker Compose (Recommended)
 
-The simplest way to run Sparrow. No need to clone the repo -- save this `docker-compose.yml` anywhere and start it:
-
-```yaml title="docker-compose.yml"
-services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: sparrow
-      POSTGRES_USER: sparrow
-      POSTGRES_PASSWORD: sparrow
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sparrow"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  sparrow:
-    image: ghcr.io/sarathsp06/sparrow:latest
-    environment:
-      DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
-      SPARROW_SERVE_UI: "true"
-    ports: ["8080:8080", "50051:50051"]
-    depends_on:
-      postgres: { condition: service_healthy }
-```
+The simplest way to run Sparrow. No need to clone the repo:
 
 ```bash
-docker compose up -d
+curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
+SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32) docker compose up -d
 ```
 
 The server is available at:
