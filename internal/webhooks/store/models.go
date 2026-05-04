@@ -29,6 +29,14 @@ const CatchAllEventName = "*"
 // Also used for manual retries, which should never expire regardless of original TTL.
 var NoExpiryTime = time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC)
 
+// SignatureType controls which signing scheme is used for webhook deliveries.
+type SignatureType string
+
+const (
+	SignatureTypeHMAC    SignatureType = "hmac"    // HMAC-SHA256 only (v1, prefix)
+	SignatureTypeEd25519 SignatureType = "ed25519" // Ed25519 only (v1a, prefix)
+)
+
 // WebhookRegistration represents a registered webhook
 type WebhookRegistration struct {
 	ID        uuid.UUID `json:"id" db:"id"`
@@ -56,6 +64,7 @@ type WebhookRegistration struct {
 	SecretHeaders         []byte        `json:"secret_headers" db:"secret_headers"`           // AES-256-GCM encrypted JSON of map[string]string
 	RateLimitRPS          *float64      `json:"rate_limit_rps,omitempty" db:"rate_limit_rps"` // Optional requests-per-second limit (leaky bucket)
 	Ed25519PrivateKey     []byte        `json:"-" db:"ed25519_private_key"`                   // Envelope-encrypted Ed25519 private key for asymmetric signing
+	SignatureType         SignatureType `json:"signature_type" db:"signature_type"`           // Signing scheme: "hmac" (default) or "ed25519"
 	CreatedAt             time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt             time.Time     `json:"updated_at" db:"updated_at"`
 }

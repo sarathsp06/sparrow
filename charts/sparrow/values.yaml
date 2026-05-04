@@ -35,19 +35,29 @@ secrets:
   # Generate with: openssl rand -hex 32
   # Required -- the server will not start without it.
   encryptionKey: ""
+  # Optional API key for authenticating all API requests.
+  # When set, all HTTP/gRPC requests must include X-API-Key header.
+  apiKey: ""
   # Name of a pre-existing Kubernetes Secret containing 'DATABASE_URL' and
-  # 'SPARROW_ENCRYPTION_KEY' keys. When set, the chart does NOT create its own Secret.
+  # 'SPARROW_ENCRYPTION_KEY' keys (and optionally 'SPARROW_API_KEY').
+  # When set, the chart does NOT create its own Secret.
   existingSecret: ""
 
 # -- Built-in PostgreSQL (optional, OFF by default)
 # Enable for dev/staging. For production, keep disabled and provide secrets.databaseURL.
+# WARNING: The default password below is publicly known. ALWAYS override
+# postgresql.auth.password in any non-ephemeral environment.
 postgresql:
   enabled: false
   image: postgres:15-alpine
   auth:
     database: sparrow
     username: sparrow
+    # SECURITY: Override this in production! Default is insecure.
     password: sparrow
+    # sslmode for the auto-constructed DATABASE_URL.
+    # Use "require" or "verify-full" when PG has TLS configured.
+    sslmode: disable
   storage:
     size: 10Gi
     storageClass: ""
@@ -101,3 +111,19 @@ serviceAccount:
   create: false
   name: ""
   annotations: {}
+
+# -- Extra pod annotations (e.g. for Vault Agent, Istio, Linkerd sidecar injection)
+podAnnotations: {}
+#  vault.hashicorp.com/agent-inject: "true"
+
+# -- NetworkPolicy (optional, OFF by default)
+# Restricts ingress to Sparrow and PostgreSQL pods for network-level isolation.
+networkPolicy:
+  enabled: false
+  # Additional ingress sources for Sparrow pods (e.g. ingress controller).
+  # Example:
+  #   ingressFrom:
+  #     - namespaceSelector:
+  #         matchLabels:
+  #           kubernetes.io/metadata.name: ingress-nginx
+  ingressFrom: []

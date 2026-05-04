@@ -50,7 +50,7 @@ type WebhookServiceInterface interface {
 	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error)
 	UnregisterWebhook(ctx context.Context, webhookID string, namespace string) error
 	ListWebhooks(ctx context.Context, namespace string, webhookID string, event string, activeOnly bool, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
-	UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, updateMask []string) error
+	UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) error
 	PauseWebhook(ctx context.Context, webhookID string, namespace string, reason string) error
 	ResumeWebhook(ctx context.Context, webhookID string, namespace string) error
 	GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStatsData, error)
@@ -508,6 +508,13 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		UpdatedAt:             time.Now(),
 	}
 
+	// Set signature type, defaulting to HMAC
+	sigType := store.SignatureType(webhookReg.SignatureType)
+	if sigType != store.SignatureTypeEd25519 {
+		sigType = store.SignatureTypeHMAC
+	}
+	storeWebhook.SignatureType = sigType
+
 	// Convert headers to string map for store model
 	headersMap := make(map[string]string)
 	for k, v := range webhookReg.Headers {
@@ -526,9 +533,9 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		storeWebhook.WebhookSecret = encSecret
 	}
 
-	// Generate Ed25519 keypair for asymmetric signing.
+	// Generate Ed25519 keypair only when signature_type is "ed25519".
 	// The private key is envelope-encrypted and stored; the public key is derived at runtime.
-	if s.crypto != nil && s.crypto.Enabled() {
+	if sigType == store.SignatureTypeEd25519 && s.crypto != nil && s.crypto.Enabled() {
 		_, privKey, err := ed25519.GenerateKey(nil) // crypto/rand by default
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate Ed25519 keypair: %w", err)
@@ -607,6 +614,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 
 	// Attach encrypted Ed25519 key so the handler can derive the public key for the response
 	webhookReg.Ed25519EncryptedPrivateKey = storeWebhook.Ed25519PrivateKey
+	webhookReg.SignatureType = string(storeWebhook.SignatureType)
 
 	return webhookReg, nil
 }
@@ -1798,7 +1806,7 @@ func (s *WebhookService) GetNamespaceStats(ctx context.Context, namespace string
 //
 //	"url", "active", "description", "events", "headers",
 //	"secret_headers", "http_config", "http_config.webhook_secret"
-func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, updateMask []string) error {
+func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) error {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateWebhookConfig")
 	defer span.End()
 
@@ -1872,10 +1880,6 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	if shouldUpdate("description") && description != "" {
 		webhook.Description = description
 	}
-	// Legacy timeout (deprecated, but still supported)
-	if !useMask && timeout > 0 {
-		webhook.Timeout = timeout
-	}
 	// Apply HTTP config updates if provided
 	if shouldUpdate("http_config") && httpConfig != nil {
 		if httpConfig.MaxRetries > 0 {
@@ -1938,6 +1942,33 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 			return fmt.Errorf("failed to encrypt secret headers: %w", err)
 		}
 		webhook.SecretHeaders = encrypted
+	}
+	// Update signature_type if in mask (or legacy non-empty)
+	if shouldUpdate("signature_type") && signatureType != "" {
+		newSigType := store.SignatureType(signatureType)
+		if newSigType != store.SignatureTypeHMAC && newSigType != store.SignatureTypeEd25519 {
+			return svcerrors.InvalidInputf("invalid signature_type: %q (must be \"hmac\" or \"ed25519\")", signatureType)
+		}
+		oldSigType := webhook.SignatureType
+		webhook.SignatureType = newSigType
+		// Generate Ed25519 keypair when switching to ed25519
+		if newSigType == store.SignatureTypeEd25519 && oldSigType != store.SignatureTypeEd25519 {
+			if s.crypto != nil && s.crypto.Enabled() {
+				_, privKey, err := ed25519.GenerateKey(nil)
+				if err != nil {
+					return fmt.Errorf("failed to generate Ed25519 keypair: %w", err)
+				}
+				encPrivKey, err := s.crypto.EncryptString(string(privKey))
+				if err != nil {
+					return fmt.Errorf("failed to encrypt Ed25519 private key: %w", err)
+				}
+				webhook.Ed25519PrivateKey = encPrivKey
+			}
+		}
+		// Clear Ed25519 key when switching away from ed25519
+		if newSigType == store.SignatureTypeHMAC && oldSigType == store.SignatureTypeEd25519 {
+			webhook.Ed25519PrivateKey = nil
+		}
 	}
 
 	// Persist subscription replacement + webhook update atomically.

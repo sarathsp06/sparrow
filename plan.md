@@ -37,7 +37,7 @@ These principles apply globally to Sparrow, not just this feature set:
 | Dual protocol (gRPC + Connect-RPC) | Complete | :50051 gRPC, :8080 HTTP/Connect |
 | SvelteKit admin UI | Complete | 13 pages: webhooks, events, deliveries, health, event instances |
 | Go template transforms | Complete | Per-subscription payload transformation with caching |
-| HMAC-SHA256 signing | Complete | `X-Sparrow-Signature-256` + `X-Sparrow-Timestamp` |
+| Standard Webhooks signing | Complete | `webhook-id`, `webhook-timestamp`, `webhook-signature` with `v1,`/`v1a,` base64 format |
 | Ed25519 signing | Complete | Dual signing (HMAC + Ed25519) on every delivery, per-webhook keypair, public key via API |
 | SSRF protection | Complete | Blocks private/loopback/metadata IPs, validates redirects |
 | Envelope encryption | Complete | AES-256-GCM for webhook secrets + secret headers |
@@ -247,10 +247,10 @@ None -- enforcement is server-side only.
 - **Dual signing**: Every delivery is signed with both HMAC-SHA256 and Ed25519. No `signature_type` configuration needed.
 - **Ed25519 keypair generated once** at webhook registration, private key envelope-encrypted (AES-256-GCM) and stored in `ed25519_private_key` column.
 - **Public key derived at runtime** from the private key (`ed25519.PrivateKey.Public()`). Not stored separately.
-- **Signing**: `Ed25519Sign(privateKey, timestamp + "." + payload)`, same message format as HMAC.
-- **Headers**: `X-Sparrow-Signature-Ed25519` (hex-encoded) alongside existing `X-Sparrow-Signature-256` and `X-Sparrow-Timestamp`.
-- **Public key exposed** via `signing_public_key` field on `RegisterWebhookResponse` and `RegisteredWebhook` proto messages (hex-encoded).
-- **Consumers choose** which signature to verify -- HMAC (requires shared secret) or Ed25519 (requires only the public key).
+- **Signing**: Standard Webhooks format. Message: `{msg_id}.{timestamp}.{payload}`, HMAC = `v1,<base64>`, Ed25519 = `v1a,<base64>`.
+- **Headers**: `webhook-id`, `webhook-timestamp`, `webhook-signature` (space-delimited signatures).
+- **Public key exposed** via `signing_public_key` field on `RegisterWebhookResponse` and `RegisteredWebhook` proto messages (base64-encoded).
+- **Consumers choose** which signature to verify -- HMAC (requires shared secret, `v1,` prefix) or Ed25519 (requires only the public key, `v1a,` prefix).
 
 ### Migration
 

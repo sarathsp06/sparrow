@@ -114,6 +114,7 @@ func CreateWebhookRegistrationRequest(req *pb.RegisterWebhookRequest) webhooks.W
 		Description:   req.Description,
 		HTTPConfig:    ConvertProtoHTTPConfig(req.HttpConfig),
 		SecretHeaders: req.SecretHeaders,
+		SignatureType: req.SignatureType,
 	}
 }
 
@@ -137,7 +138,6 @@ func ConvertWebhookRegistrationToProto(webhook *webhooks.WebhookRegistration) *p
 		Events:      []string(webhook.Events),
 		Url:         webhook.URL,
 		Headers:     headers,
-		Timeout:     int32(webhook.Timeout), // Legacy field
 		Active:      webhook.Active,
 		Description: webhook.Description,
 		CreatedAt:   timestamppb.New(webhook.CreatedAt),

@@ -6,7 +6,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/hex"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -252,17 +252,20 @@ func TestE2E_HappyPath(t *testing.T) {
 	userAgent := delivery.Headers.Get("User-Agent")
 	assert.True(t, strings.HasPrefix(userAgent, "Sparrow-Webhook/"), "User-Agent should start with 'Sparrow-Webhook/'")
 
-	// HMAC signature (webhook has a secret)
-	signature := delivery.Headers.Get("X-Sparrow-Signature-256")
-	assert.NotEmpty(t, signature, "X-Sparrow-Signature-256 should be set (webhook has secret)")
-	assert.True(t, strings.HasPrefix(signature, "sha256="), "signature should start with 'sha256='")
+	// HMAC signature (webhook has a secret) — Standard Webhooks format
+	webhookSig := delivery.Headers.Get("webhook-signature")
+	assert.NotEmpty(t, webhookSig, "webhook-signature should be set (webhook has secret)")
+	assert.True(t, strings.HasPrefix(webhookSig, "v1,"), "signature should start with 'v1,'")
 
-	timestamp := delivery.Headers.Get("X-Sparrow-Timestamp")
-	assert.NotEmpty(t, timestamp, "X-Sparrow-Timestamp should be set")
+	webhookTimestamp := delivery.Headers.Get("webhook-timestamp")
+	assert.NotEmpty(t, webhookTimestamp, "webhook-timestamp should be set")
+
+	webhookMsgID := delivery.Headers.Get("webhook-id")
+	assert.NotEmpty(t, webhookMsgID, "webhook-id should be set")
 
 	// ── Step 10: Validate HMAC signature ─────────────────────────────────
-	t.Log("Step 10: Validating HMAC signature")
-	validateHMAC(t, delivery.Body, webhookSecret, timestamp, signature)
+	t.Log("Step 10: Validating HMAC signature (Standard Webhooks)")
+	validateHMAC(t, delivery.Body, webhookSecret, webhookMsgID, webhookTimestamp, webhookSig)
 
 	// ── Step 11: Poll for delivery status via API ────────────────────────
 	t.Log("Step 11: Polling for delivery status via API")
@@ -271,20 +274,28 @@ func TestE2E_HappyPath(t *testing.T) {
 	t.Log("E2E happy path test passed!")
 }
 
-// validateHMAC verifies the HMAC-SHA256 signature matches the expected value.
-func validateHMAC(t *testing.T, body []byte, secret, timestamp, signatureHeader string) {
+// validateHMAC verifies the HMAC-SHA256 signature per Standard Webhooks spec.
+// Signature format: "v1,<base64>" (may have additional space-delimited signatures).
+// Message to sign: "{msgID}.{timestamp}.{body}"
+func validateHMAC(t *testing.T, body []byte, secret, msgID, timestamp, signatureHeader string) {
 	t.Helper()
 
-	// Signature format: "sha256=<hex>"
-	hexSig := strings.TrimPrefix(signatureHeader, "sha256=")
-	require.NotEqual(t, signatureHeader, hexSig, "signature should have 'sha256=' prefix")
+	// Extract the v1 signature from the header (may contain multiple space-delimited sigs)
+	var b64Sig string
+	for _, s := range strings.Split(signatureHeader, " ") {
+		if strings.HasPrefix(s, "v1,") {
+			b64Sig = strings.TrimPrefix(s, "v1,")
+			break
+		}
+	}
+	require.NotEmpty(t, b64Sig, "should find a v1 signature in webhook-signature header")
 
-	message := timestamp + "." + string(body)
+	message := msgID + "." + timestamp + "." + string(body)
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(message))
-	expected := hex.EncodeToString(mac.Sum(nil))
+	expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 
-	assert.Equal(t, expected, hexSig, "HMAC signature mismatch")
+	assert.Equal(t, expected, b64Sig, "HMAC signature mismatch")
 }
 
 // pollDeliverySuccess polls the ListDeliveries API until the given delivery

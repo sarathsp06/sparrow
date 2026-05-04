@@ -160,10 +160,9 @@ export declare type WebhookHTTPConfig = Message<"webhook.WebhookHTTPConfig"> & {
   expectedStatusCodes: number[];
 
   /**
-   * Shared secret used for HMAC-SHA256 request signing. When set, Sparrow
-   * includes an X-Webhook-Signature header on every delivery containing
-   * the hex-encoded HMAC of the request body. The receiving endpoint can
-   * verify authenticity by recomputing the HMAC.
+   * Shared secret used for HMAC-SHA256 request signing per the Standard Webhooks spec.
+   * When set, Sparrow signs every delivery using the webhook-id, webhook-timestamp,
+   * and webhook-signature headers. The signature format is "v1,<base64>" for HMAC-SHA256.
    * Leave empty to disable signing.
    * @example "whsec_your_secret_key"
    *
@@ -252,13 +251,6 @@ export declare type RegisterWebhookRequest = Message<"webhook.RegisterWebhookReq
   headers: { [key: string]: string };
 
   /**
-   * Deprecated: use http_config.request_timeout_seconds instead.
-   *
-   * @generated from field: int32 timeout = 5;
-   */
-  timeout: number;
-
-  /**
    * Whether the webhook starts in active state. Default: true.
    * Inactive webhooks are skipped during event fan-out.
    * @example true
@@ -292,6 +284,16 @@ export declare type RegisterWebhookRequest = Message<"webhook.RegisterWebhookReq
    * @generated from field: map<string, string> secret_headers = 9;
    */
   secretHeaders: { [key: string]: string };
+
+  /**
+   * Signing scheme for webhook deliveries: "hmac" (default) or "ed25519".
+   * "hmac" uses HMAC-SHA256 (v1, prefix). "ed25519" uses Ed25519 asymmetric signing (v1a, prefix).
+   * When "ed25519" is chosen, the signing_public_key is returned in the response for consumer verification.
+   * @example "hmac"
+   *
+   * @generated from field: string signature_type = 10;
+   */
+  signatureType: string;
 };
 
 /**
@@ -316,22 +318,6 @@ export declare type RegisterWebhookResponse = Message<"webhook.RegisterWebhookRe
   webhookId: string;
 
   /**
-   * Deprecated: use gRPC status codes to determine success/failure.
-   *
-   * @generated from field: bool success = 2 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status details for error messages.
-   *
-   * @generated from field: string message = 3 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
-
-  /**
    * Timestamp when the webhook was created.
    * @example "2025-01-15T10:30:00Z"
    *
@@ -341,12 +327,19 @@ export declare type RegisterWebhookResponse = Message<"webhook.RegisterWebhookRe
 
   /**
    * Hex-encoded Ed25519 public key for asymmetric webhook signature verification.
-   * Share this key with webhook consumers so they can verify the
-   * X-Sparrow-Signature-Ed25519 header on deliveries.
+   * When the webhook uses Ed25519 signing, consumers use this key to verify the
+   * "v1a," signature in the Standard Webhooks webhook-signature header.
    *
    * @generated from field: string signing_public_key = 5;
    */
   signingPublicKey: string;
+
+  /**
+   * The signing scheme configured for this webhook: "hmac" or "ed25519".
+   *
+   * @generated from field: string signature_type = 6;
+   */
+  signatureType: string;
 };
 
 /**
@@ -392,21 +385,6 @@ export declare const UnregisterWebhookRequestSchema: GenMessage<UnregisterWebhoo
  * @generated from message webhook.UnregisterWebhookResponse
  */
 export declare type UnregisterWebhookResponse = Message<"webhook.UnregisterWebhookResponse"> & {
-  /**
-   * Deprecated: use gRPC status codes to determine success/failure.
-   *
-   * @generated from field: bool success = 1 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status details for error messages.
-   *
-   * @generated from field: string message = 2 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -512,13 +490,6 @@ export declare type RegisteredWebhook = Message<"webhook.RegisteredWebhook"> & {
   headers: { [key: string]: string };
 
   /**
-   * Deprecated: see http_config.request_timeout_seconds.
-   *
-   * @generated from field: int32 timeout = 6;
-   */
-  timeout: number;
-
-  /**
    * Whether the webhook is currently active. Inactive webhooks do not receive
    * new deliveries but retain their configuration and history.
    *
@@ -572,12 +543,19 @@ export declare type RegisteredWebhook = Message<"webhook.RegisteredWebhook"> & {
 
   /**
    * Hex-encoded Ed25519 public key for asymmetric webhook signature verification.
-   * Consumers use this key to verify the X-Sparrow-Signature-Ed25519 header
-   * without needing access to the signing secret.
+   * When the webhook uses Ed25519 signing, consumers verify the "v1a," signature
+   * in the Standard Webhooks webhook-signature header using this key.
    *
    * @generated from field: string signing_public_key = 14;
    */
   signingPublicKey: string;
+
+  /**
+   * The signing scheme configured for this webhook: "hmac" or "ed25519".
+   *
+   * @generated from field: string signature_type = 15;
+   */
+  signatureType: string;
 };
 
 /**
@@ -605,30 +583,6 @@ export declare type ListWebhooksResponse = Message<"webhook.ListWebhooksResponse
    * @generated from field: webhook.PaginationResponse pagination = 2;
    */
   pagination?: PaginationResponse;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 3 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 4 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
-
-  /**
-   * Deprecated: use pagination.total_count instead.
-   *
-   * @generated from field: int32 total_count = 5 [deprecated = true];
-   * @deprecated
-   */
-  totalCount: number;
 };
 
 /**
@@ -673,13 +627,6 @@ export declare type WebhookUpdateFields = Message<"webhook.WebhookUpdateFields">
   headers: { [key: string]: string };
 
   /**
-   * Deprecated: use http_config.request_timeout_seconds.
-   *
-   * @generated from field: int32 timeout = 4;
-   */
-  timeout: number;
-
-  /**
    * Set active/inactive status. Note: prefer PauseWebhook/ResumeWebhook RPCs
    * for explicit lifecycle control with reason tracking.
    *
@@ -711,6 +658,15 @@ export declare type WebhookUpdateFields = Message<"webhook.WebhookUpdateFields">
    * @generated from field: map<string, string> secret_headers = 8;
    */
   secretHeaders: { [key: string]: string };
+
+  /**
+   * Update the signing scheme: "hmac" or "ed25519". Omit to leave unchanged.
+   * Changing from "hmac" to "ed25519" generates a new Ed25519 keypair.
+   * Changing from "ed25519" to "hmac" discards the Ed25519 key.
+   *
+   * @generated from field: string signature_type = 9;
+   */
+  signatureType: string;
 };
 
 /**
@@ -755,14 +711,13 @@ export declare type UpdateWebhookConfigRequest = Message<"webhook.UpdateWebhookC
    *
    * Supported paths (top-level fields of WebhookUpdateFields):
    *   "url", "active", "description", "events", "headers",
-   *   "secret_headers", "http_config"
+   *   "secret_headers", "http_config", "signature_type"
    *
    * To update the webhook secret within http_config, include
    * "http_config.webhook_secret" in the mask. Without it, the existing
    * encrypted secret is preserved even when http_config is updated.
    *
-   * When omitted or empty, falls back to legacy behavior: all non-zero
-   * fields in `updates` are applied (not recommended for new clients).
+   * When omitted or empty, all non-zero fields in `updates` are applied.
    * @example {"paths": ["url", "active", "http_config"]}
    *
    * @generated from field: google.protobuf.FieldMask update_mask = 4;
@@ -783,21 +738,6 @@ export declare const UpdateWebhookConfigRequestSchema: GenMessage<UpdateWebhookC
  * @generated from message webhook.UpdateWebhookConfigResponse
  */
 export declare type UpdateWebhookConfigResponse = Message<"webhook.UpdateWebhookConfigResponse"> & {
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 1 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 2 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -850,21 +790,6 @@ export declare const PauseWebhookRequestSchema: GenMessage<PauseWebhookRequest>;
  * @generated from message webhook.PauseWebhookResponse
  */
 export declare type PauseWebhookResponse = Message<"webhook.PauseWebhookResponse"> & {
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 1 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 2 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -916,21 +841,6 @@ export declare const ResumeWebhookRequestSchema: GenMessage<ResumeWebhookRequest
  * @generated from message webhook.ResumeWebhookResponse
  */
 export declare type ResumeWebhookResponse = Message<"webhook.ResumeWebhookResponse"> & {
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 1 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 2 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -1059,14 +969,6 @@ export declare const ListEventsRequestSchema: GenMessage<ListEventsRequest>;
  */
 export declare type RegisteredEvent = Message<"webhook.RegisteredEvent"> & {
   /**
-   * Deprecated: returns the event name. Use the name field (field 2) instead.
-   *
-   * @generated from field: string event_id = 1 [deprecated = true];
-   * @deprecated
-   */
-  eventId: string;
-
-  /**
    * Unique event name (primary identifier). This is the value used in
    * PushEvent, subscription matching, and all event-related queries.
    *
@@ -1150,30 +1052,6 @@ export declare type ListEventsResponse = Message<"webhook.ListEventsResponse"> &
    * @generated from field: webhook.PaginationResponse pagination = 2;
    */
   pagination?: PaginationResponse;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 3 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 4 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
-
-  /**
-   * Deprecated: use pagination.total_count.
-   *
-   * @generated from field: int32 total_count = 5 [deprecated = true];
-   * @deprecated
-   */
-  totalCount: number;
 };
 
 /**
@@ -1240,21 +1118,6 @@ export declare const UpdateEventRequestSchema: GenMessage<UpdateEventRequest>;
  * @generated from message webhook.UpdateEventResponse
  */
 export declare type UpdateEventResponse = Message<"webhook.UpdateEventResponse"> & {
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 1 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 2 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -1333,21 +1196,6 @@ export declare const DeleteEventRequestSchema: GenMessage<DeleteEventRequest>;
  * @generated from message webhook.DeleteEventResponse
  */
 export declare type DeleteEventResponse = Message<"webhook.DeleteEventResponse"> & {
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 1 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 2 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -2025,22 +1873,6 @@ export declare type CreateSubscriptionResponse = Message<"webhook.CreateSubscrip
    * @generated from field: google.protobuf.Timestamp created_at = 4;
    */
   createdAt?: Timestamp;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 2 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 3 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -2090,22 +1922,6 @@ export declare type GetSubscriptionResponse = Message<"webhook.GetSubscriptionRe
    * @generated from field: webhook.EventSubscription subscription = 1;
    */
   subscription?: EventSubscription;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 2 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 3 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -2176,30 +1992,6 @@ export declare type ListSubscriptionsResponse = Message<"webhook.ListSubscriptio
    * @generated from field: webhook.PaginationResponse pagination = 5;
    */
   pagination?: PaginationResponse;
-
-  /**
-   * Deprecated: use pagination.total_count.
-   *
-   * @generated from field: int32 total_count = 2 [deprecated = true];
-   * @deprecated
-   */
-  totalCount: number;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 3 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 4 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -2287,21 +2079,6 @@ export declare const UpdateSubscriptionRequestSchema: GenMessage<UpdateSubscript
  * @generated from message webhook.UpdateSubscriptionResponse
  */
 export declare type UpdateSubscriptionResponse = Message<"webhook.UpdateSubscriptionResponse"> & {
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 1 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 2 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -2346,21 +2123,6 @@ export declare const DeleteSubscriptionRequestSchema: GenMessage<DeleteSubscript
  * @generated from message webhook.DeleteSubscriptionResponse
  */
 export declare type DeleteSubscriptionResponse = Message<"webhook.DeleteSubscriptionResponse"> & {
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 1 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 2 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -2417,30 +2179,6 @@ export declare type ListSubscriptionsByEventResponse = Message<"webhook.ListSubs
    * @generated from field: webhook.PaginationResponse pagination = 5;
    */
   pagination?: PaginationResponse;
-
-  /**
-   * Deprecated: use pagination.total_count.
-   *
-   * @generated from field: int32 total_count = 2 [deprecated = true];
-   * @deprecated
-   */
-  totalCount: number;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 3 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 4 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -2685,22 +2423,6 @@ export declare type GetDeliveryStatusResponse = Message<"webhook.GetDeliveryStat
    * @generated from field: webhook.WebhookDelivery delivery = 1;
    */
   delivery?: WebhookDelivery;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 2 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 3 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -2902,22 +2624,6 @@ export declare type RetryDeliveryResponse = Message<"webhook.RetryDeliveryRespon
    * @generated from field: repeated string delivery_ids = 2;
    */
   deliveryIds: string[];
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 3 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 4 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -3265,22 +2971,6 @@ export declare type GetWebhookHealthResponse = Message<"webhook.GetWebhookHealth
    * @generated from field: webhook.WebhookHealthMetrics metrics = 5;
    */
   metrics?: WebhookHealthMetrics;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 1 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 2 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -3337,30 +3027,6 @@ export declare type ListWebhooksByHealthResponse = Message<"webhook.ListWebhooks
    * @generated from field: webhook.PaginationResponse pagination = 5;
    */
   pagination?: PaginationResponse;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 1 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 2 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
-
-  /**
-   * Deprecated: use pagination.total_count.
-   *
-   * @generated from field: int32 total_count = 4 [deprecated = true];
-   * @deprecated
-   */
-  totalCount: number;
 };
 
 /**
@@ -3450,22 +3116,6 @@ export declare type GetHealthSummaryResponse = Message<"webhook.GetHealthSummary
    * @generated from field: webhook.HealthSummary summary = 3;
    */
   summary?: HealthSummary;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 1 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 2 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -3585,22 +3235,6 @@ export declare type GetNamespaceStatsResponse = Message<"webhook.GetNamespaceSta
    * @generated from field: webhook.NamespaceStats stats = 2;
    */
   stats?: NamespaceStats;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 3 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 4 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**
@@ -3673,22 +3307,6 @@ export declare type GetTemplateFunctionsResponse = Message<"webhook.GetTemplateF
    * @generated from field: int32 total_count = 2;
    */
   totalCount: number;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: bool success = 3 [deprecated = true];
-   * @deprecated
-   */
-  success: boolean;
-
-  /**
-   * Deprecated: use gRPC status codes.
-   *
-   * @generated from field: string message = 4 [deprecated = true];
-   * @deprecated
-   */
-  message: string;
 };
 
 /**

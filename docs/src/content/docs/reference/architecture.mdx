@@ -143,30 +143,33 @@ Every webhook delivery includes these headers:
 - `X-Sparrow-Event-ID` -- Same as `event_id` in the body.
 - `X-Sparrow-Delivery-ID` -- Same as `delivery_id` in the body.
 - `X-Sparrow-Webhook-ID` -- Same as `webhook_id` in the body.
-- `X-Sparrow-Signature-256` -- HMAC-SHA256 signature (only when `webhook_secret` is set).
-- `X-Sparrow-Timestamp` -- Unix epoch seconds used in signature (only when `webhook_secret` is set).
+- `webhook-id` -- Standard Webhooks message ID (`msg_<delivery_id>`). Only present when `webhook_secret` is set.
+- `webhook-timestamp` -- Unix epoch seconds. Only present when `webhook_secret` is set.
+- `webhook-signature` -- Space-delimited signatures (see below). Only present when `webhook_secret` is set.
 
 Custom headers configured on the webhook or subscription are merged in, with subscription-level headers overriding webhook-level defaults.
 
 ### Verifying Webhook Signatures
 
-When a `webhook_secret` is configured, Sparrow signs every delivery so the consumer can verify authenticity.
+When a `webhook_secret` is configured, Sparrow signs every delivery using the [Standard Webhooks](https://github.com/standard-webhooks/standard-webhooks) specification.
 
-**Signature scheme:**
+**Signature format:**
 
-1. Sparrow sets two headers: `X-Sparrow-Timestamp` (Unix epoch seconds) and `X-Sparrow-Signature-256` (prefixed with `sha256=`).
-2. The signed message is: `<timestamp>.<raw_request_body>`.
-3. The HMAC is computed with SHA-256 using the `webhook_secret` as the key.
-4. The result is hex-encoded and prefixed with `sha256=`.
+Sparrow sets three headers: `webhook-id`, `webhook-timestamp`, and `webhook-signature`.
 
-**Verification steps:**
+- The signed message is: `{webhook-id}.{timestamp}.{raw_body}`
+- **HMAC-SHA256** signatures are prefixed with `v1,` and base64-encoded.
+- **Ed25519** signatures are prefixed with `v1a,` and base64-encoded.
+- Multiple signatures are space-delimited in the `webhook-signature` header.
+
+**Verification steps (HMAC):**
 
 1. Read the raw request body bytes (before any JSON parsing).
-2. Extract the `X-Sparrow-Timestamp` and `X-Sparrow-Signature-256` headers.
+2. Extract the `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers.
 3. **Reject stale timestamps.** If the difference exceeds your tolerance (e.g. 5 minutes), reject the request.
-4. Reconstruct the signed message: `timestamp + "." + raw_body`.
-5. Compute `HMAC-SHA256(message, webhook_secret)` and hex-encode the result.
-6. **Use constant-time comparison** to compare your computed signature against the value after the `sha256=` prefix.
+4. Reconstruct the signed message: `webhook_id + "." + timestamp + "." + raw_body`.
+5. Compute `HMAC-SHA256(message, webhook_secret)` and base64-encode the result.
+6. Find the `v1,` prefixed signature in the `webhook-signature` header and **use constant-time comparison**.
 
 **Example: Go**
 
@@ -175,12 +178,13 @@ import (
     "crypto/hmac"
     "crypto/sha256"
     "crypto/subtle"
-    "encoding/hex"
+    "encoding/base64"
     "fmt"
     "io"
     "math"
     "net/http"
     "strconv"
+    "strings"
     "time"
 )
 
@@ -190,9 +194,10 @@ func VerifyWebhook(r *http.Request, secret string) error {
         return fmt.Errorf("failed to read body: %w", err)
     }
 
-    timestamp := r.Header.Get("X-Sparrow-Timestamp")
-    signature := r.Header.Get("X-Sparrow-Signature-256")
-    if timestamp == "" || signature == "" {
+    msgID := r.Header.Get("webhook-id")
+    timestamp := r.Header.Get("webhook-timestamp")
+    signatures := r.Header.Get("webhook-signature")
+    if msgID == "" || timestamp == "" || signatures == "" {
         return fmt.Errorf("missing signature headers")
     }
 
@@ -204,15 +209,20 @@ func VerifyWebhook(r *http.Request, secret string) error {
         return fmt.Errorf("timestamp too old, possible replay attack")
     }
 
-    message := timestamp + "." + string(body)
+    message := msgID + "." + timestamp + "." + string(body)
     mac := hmac.New(sha256.New, []byte(secret))
     mac.Write([]byte(message))
-    expected := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+    expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 
-    if subtle.ConstantTimeCompare([]byte(expected), []byte(signature)) != 1 {
-        return fmt.Errorf("signature mismatch")
+    for _, sig := range strings.Split(signatures, " ") {
+        if strings.HasPrefix(sig, "v1,") {
+            actual := strings.TrimPrefix(sig, "v1,")
+            if subtle.ConstantTimeCompare([]byte(expected), []byte(actual)) == 1 {
+                return nil
+            }
+        }
     }
-    return nil
+    return fmt.Errorf("signature mismatch")
 }
 ```
 
@@ -221,37 +231,56 @@ func VerifyWebhook(r *http.Request, secret string) error {
 ```javascript
 const crypto = require("crypto");
 
-function verifyWebhook(rawBody, timestamp, signature, secret) {
+function verifyWebhook(rawBody, headers, secret) {
+  const msgId = headers["webhook-id"];
+  const timestamp = headers["webhook-timestamp"];
+  const signatures = headers["webhook-signature"];
+
   const age = Math.abs(Date.now() / 1000 - parseInt(timestamp, 10));
   if (age > 300) throw new Error("Timestamp too old");
 
-  const message = `${timestamp}.${rawBody}`;
-  const expected =
-    "sha256=" +
-    crypto.createHmac("sha256", secret).update(message).digest("hex");
+  const message = `${msgId}.${timestamp}.${rawBody}`;
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(message)
+    .digest("base64");
 
-  if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
-    throw new Error("Signature mismatch");
-  }
+  const verified = signatures.split(" ").some((sig) => {
+    if (!sig.startsWith("v1,")) return false;
+    const actual = sig.slice(3);
+    return crypto.timingSafeEqual(
+      Buffer.from(expected),
+      Buffer.from(actual)
+    );
+  });
+
+  if (!verified) throw new Error("Signature mismatch");
 }
 ```
 
 **Example: Python**
 
 ```python
-import hashlib, hmac, time
+import base64, hashlib, hmac, time
 
-def verify_webhook(raw_body: bytes, timestamp: str, signature: str, secret: str):
+def verify_webhook(raw_body: bytes, headers: dict, secret: str):
+    msg_id = headers["webhook-id"]
+    timestamp = headers["webhook-timestamp"]
+    signatures = headers["webhook-signature"]
+
     if abs(time.time() - int(timestamp)) > 300:
         raise ValueError("Timestamp too old")
 
-    message = f"{timestamp}.{raw_body.decode()}"
-    expected = "sha256=" + hmac.new(
-        secret.encode(), message.encode(), hashlib.sha256
-    ).hexdigest()
+    message = f"{msg_id}.{timestamp}.{raw_body.decode()}".encode()
+    expected = base64.b64encode(
+        hmac.new(secret.encode(), message, hashlib.sha256).digest()
+    ).decode()
 
-    if not hmac.compare_digest(expected, signature):
-        raise ValueError("Signature mismatch")
+    for sig in signatures.split(" "):
+        if sig.startswith("v1,"):
+            if hmac.compare_digest(expected, sig[3:]):
+                return
+    raise ValueError("Signature mismatch")
 ```
 
 ---

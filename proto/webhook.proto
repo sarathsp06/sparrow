@@ -385,10 +385,9 @@ message WebhookHTTPConfig {
   // @example [200, 201, 202, 204]
   repeated int32 expected_status_codes = 7;
 
-  // Shared secret used for HMAC-SHA256 request signing. When set, Sparrow
-  // includes an X-Webhook-Signature header on every delivery containing
-  // the hex-encoded HMAC of the request body. The receiving endpoint can
-  // verify authenticity by recomputing the HMAC.
+  // Shared secret used for HMAC-SHA256 request signing per the Standard Webhooks spec.
+  // When set, Sparrow signs every delivery using the webhook-id, webhook-timestamp,
+  // and webhook-signature headers. The signature format is "v1,<base64>" for HMAC-SHA256.
   // Leave empty to disable signing.
   // @example "whsec_your_secret_key"
   string webhook_secret = 8;
@@ -440,7 +439,8 @@ message RegisterWebhookRequest {
   map<string, string> headers = 4;
 
   // Deprecated: use http_config.request_timeout_seconds instead.
-  int32 timeout = 5;
+  // Reserved for wire compatibility -- do not reuse field number 5.
+  reserved 5;
 
   // Whether the webhook starts in active state. Default: true.
   // Inactive webhooks are skipped during event fan-out.
@@ -460,6 +460,12 @@ message RegisterWebhookRequest {
   // Values are masked as "******" in all API responses -- only keys are visible.
   // Included in delivery requests alongside regular headers.
   map<string, string> secret_headers = 9;
+
+  // Signing scheme for webhook deliveries: "hmac" (default) or "ed25519".
+  // "hmac" uses HMAC-SHA256 (v1, prefix). "ed25519" uses Ed25519 asymmetric signing (v1a, prefix).
+  // When "ed25519" is chosen, the signing_public_key is returned in the response for consumer verification.
+  // @example "hmac"
+  string signature_type = 10;
 }
 
 // RegisterWebhookResponse is returned after successfully registering a webhook.
@@ -469,20 +475,19 @@ message RegisterWebhookResponse {
   // @example "550e8400-e29b-41d4-a716-446655440000"
   string webhook_id = 1;
 
-  // Deprecated: use gRPC status codes to determine success/failure.
-  bool success = 2 [deprecated = true];
-
-  // Deprecated: use gRPC status details for error messages.
-  string message = 3 [deprecated = true];
+  reserved 2, 3;
 
   // Timestamp when the webhook was created.
   // @example "2025-01-15T10:30:00Z"
   google.protobuf.Timestamp created_at = 4;
 
   // Hex-encoded Ed25519 public key for asymmetric webhook signature verification.
-  // Share this key with webhook consumers so they can verify the
-  // X-Sparrow-Signature-Ed25519 header on deliveries.
+  // When the webhook uses Ed25519 signing, consumers use this key to verify the
+  // "v1a," signature in the Standard Webhooks webhook-signature header.
   string signing_public_key = 5;
+
+  // The signing scheme configured for this webhook: "hmac" or "ed25519".
+  string signature_type = 6;
 }
 
 // UnregisterWebhookRequest identifies a webhook to permanently delete.
@@ -500,11 +505,7 @@ message UnregisterWebhookRequest {
 // UnregisterWebhookResponse confirms webhook deletion.
 // On success, the gRPC status is OK. On failure, NOT_FOUND is returned.
 message UnregisterWebhookResponse {
-  // Deprecated: use gRPC status codes to determine success/failure.
-  bool success = 1 [deprecated = true];
-
-  // Deprecated: use gRPC status details for error messages.
-  string message = 2 [deprecated = true];
+  reserved 1, 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -553,8 +554,7 @@ message RegisteredWebhook {
   // Does not include secret_headers (those are listed separately with masked values).
   map<string, string> headers = 5;
 
-  // Deprecated: see http_config.request_timeout_seconds.
-  int32 timeout = 6;
+  reserved 6; // was: timeout (use http_config.request_timeout_seconds)
 
   // Whether the webhook is currently active. Inactive webhooks do not receive
   // new deliveries but retain their configuration and history.
@@ -581,9 +581,12 @@ message RegisteredWebhook {
   map<string, string> secret_headers = 13;
 
   // Hex-encoded Ed25519 public key for asymmetric webhook signature verification.
-  // Consumers use this key to verify the X-Sparrow-Signature-Ed25519 header
-  // without needing access to the signing secret.
+  // When the webhook uses Ed25519 signing, consumers verify the "v1a," signature
+  // in the Standard Webhooks webhook-signature header using this key.
   string signing_public_key = 14;
+
+  // The signing scheme configured for this webhook: "hmac" or "ed25519".
+  string signature_type = 15;
 }
 
 // ListWebhooksResponse contains the paginated list of webhooks matching the query.
@@ -594,14 +597,7 @@ message ListWebhooksResponse {
   // Pagination metadata (total_count, limit, offset).
   PaginationResponse pagination = 2;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 3 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 4 [deprecated = true];
-
-  // Deprecated: use pagination.total_count instead.
-  int32 total_count = 5 [deprecated = true];
+  reserved 3, 4, 5;
 }
 
 // ---------------------------------------------------------------------------
@@ -627,8 +623,7 @@ message WebhookUpdateFields {
   // Pass an empty map to clear all headers.
   map<string, string> headers = 3;
 
-  // Deprecated: use http_config.request_timeout_seconds.
-  int32 timeout = 4;
+  reserved 4; // was: timeout (use http_config.request_timeout_seconds)
 
   // Set active/inactive status. Note: prefer PauseWebhook/ResumeWebhook RPCs
   // for explicit lifecycle control with reason tracking.
@@ -646,6 +641,11 @@ message WebhookUpdateFields {
   // Replace all secret headers. Omit to leave unchanged.
   // Pass an empty map to clear all secret headers.
   map<string, string> secret_headers = 8;
+
+  // Update the signing scheme: "hmac" or "ed25519". Omit to leave unchanged.
+  // Changing from "hmac" to "ed25519" generates a new Ed25519 keypair.
+  // Changing from "ed25519" to "hmac" discards the Ed25519 key.
+  string signature_type = 9;
 }
 
 // UpdateWebhookConfigRequest applies partial updates to an existing webhook.
@@ -667,14 +667,13 @@ message UpdateWebhookConfigRequest {
   //
   // Supported paths (top-level fields of WebhookUpdateFields):
   //   "url", "active", "description", "events", "headers",
-  //   "secret_headers", "http_config"
+  //   "secret_headers", "http_config", "signature_type"
   //
   // To update the webhook secret within http_config, include
   // "http_config.webhook_secret" in the mask. Without it, the existing
   // encrypted secret is preserved even when http_config is updated.
   //
-  // When omitted or empty, falls back to legacy behavior: all non-zero
-  // fields in `updates` are applied (not recommended for new clients).
+  // When omitted or empty, all non-zero fields in `updates` are applied.
   // @example {"paths": ["url", "active", "http_config"]}
   google.protobuf.FieldMask update_mask = 4;
 }
@@ -682,11 +681,7 @@ message UpdateWebhookConfigRequest {
 // UpdateWebhookConfigResponse confirms the webhook was updated.
 // On success, gRPC status is OK. On failure, NOT_FOUND or INVALID_ARGUMENT.
 message UpdateWebhookConfigResponse {
-  // Deprecated: use gRPC status codes.
-  bool success = 1 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 2 [deprecated = true];
+  reserved 1, 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -711,11 +706,7 @@ message PauseWebhookRequest {
 
 // PauseWebhookResponse confirms the webhook was paused.
 message PauseWebhookResponse {
-  // Deprecated: use gRPC status codes.
-  bool success = 1 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 2 [deprecated = true];
+  reserved 1, 2;
 }
 
 // ResumeWebhookRequest re-activates a paused webhook.
@@ -735,11 +726,7 @@ message ResumeWebhookRequest {
 
 // ResumeWebhookResponse confirms the webhook was resumed.
 message ResumeWebhookResponse {
-  // Deprecated: use gRPC status codes.
-  bool success = 1 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 2 [deprecated = true];
+  reserved 1, 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -795,8 +782,7 @@ message ListEventsRequest {
 // RegisteredEvent is the full representation of an event type definition.
 // This describes an event type (schema), not an event instance (see EventReport for that).
 message RegisteredEvent {
-  // Deprecated: returns the event name. Use the name field (field 2) instead.
-  string event_id = 1 [deprecated = true];
+  reserved 1; // was: event_id (use name field instead)
 
   // Unique event name (primary identifier). This is the value used in
   // PushEvent, subscription matching, and all event-related queries.
@@ -833,14 +819,7 @@ message ListEventsResponse {
   // Pagination metadata.
   PaginationResponse pagination = 2;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 3 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 4 [deprecated = true];
-
-  // Deprecated: use pagination.total_count.
-  int32 total_count = 5 [deprecated = true];
+  reserved 3, 4, 5;
 }
 
 // UpdateEventRequest modifies an existing event type definition.
@@ -867,11 +846,7 @@ message UpdateEventRequest {
 
 // UpdateEventResponse confirms the event type was updated.
 message UpdateEventResponse {
-  // Deprecated: use gRPC status codes.
-  bool success = 1 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 2 [deprecated = true];
+  reserved 1, 2;
 }
 
 // GetEventRequest retrieves a single event type definition by name.
@@ -898,11 +873,7 @@ message DeleteEventRequest {
 
 // DeleteEventResponse confirms the event type was deleted.
 message DeleteEventResponse {
-  // Deprecated: use gRPC status codes.
-  bool success = 1 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 2 [deprecated = true];
+  reserved 1, 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -1221,11 +1192,7 @@ message CreateSubscriptionResponse {
   // @example "2025-01-15T10:30:00Z"
   google.protobuf.Timestamp created_at = 4;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 2 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 3 [deprecated = true];
+  reserved 2, 3;
 }
 
 // GetSubscriptionRequest retrieves a single subscription by ID.
@@ -1244,11 +1211,7 @@ message GetSubscriptionResponse {
   // Full subscription details.
   EventSubscription subscription = 1;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 2 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 3 [deprecated = true];
+  reserved 2, 3;
 }
 
 // ListSubscriptionsRequest specifies filters for listing subscriptions.
@@ -1276,14 +1239,7 @@ message ListSubscriptionsResponse {
   // Pagination metadata.
   PaginationResponse pagination = 5;
 
-  // Deprecated: use pagination.total_count.
-  int32 total_count = 2 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  bool success = 3 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 4 [deprecated = true];
+  reserved 2, 3, 4;
 }
 
 // UpdateSubscriptionRequest modifies an existing subscription.
@@ -1319,11 +1275,7 @@ message UpdateSubscriptionRequest {
 
 // UpdateSubscriptionResponse confirms the subscription was updated.
 message UpdateSubscriptionResponse {
-  // Deprecated: use gRPC status codes.
-  bool success = 1 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 2 [deprecated = true];
+  reserved 1, 2;
 }
 
 // DeleteSubscriptionRequest permanently removes a subscription.
@@ -1340,11 +1292,7 @@ message DeleteSubscriptionRequest {
 
 // DeleteSubscriptionResponse confirms the subscription was deleted.
 message DeleteSubscriptionResponse {
-  // Deprecated: use gRPC status codes.
-  bool success = 1 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 2 [deprecated = true];
+  reserved 1, 2;
 }
 
 // ListSubscriptionsByEventRequest lists subscriptions for a specific event in a namespace.
@@ -1366,14 +1314,7 @@ message ListSubscriptionsByEventResponse {
   // Pagination metadata.
   PaginationResponse pagination = 5;
 
-  // Deprecated: use pagination.total_count.
-  int32 total_count = 2 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  bool success = 3 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 4 [deprecated = true];
+  reserved 2, 3, 4;
 }
 
 // TestSubscriptionTemplateRequest validates a Go template against an event's sample payload.
@@ -1485,11 +1426,7 @@ message GetDeliveryStatusResponse {
   // Full delivery details including request/response bodies and error info.
   WebhookDelivery delivery = 1;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 2 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 3 [deprecated = true];
+  reserved 2, 3;
 }
 
 // ListDeliveriesRequest specifies filters for listing deliveries.
@@ -1576,11 +1513,7 @@ message RetryDeliveryResponse {
   // @example ["d-550e8400-e29b-41d4-a716-446655440000"]
   repeated string delivery_ids = 2;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 3 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 4 [deprecated = true];
+  reserved 3, 4;
 }
 
 // DeliveryAttempt represents a single HTTP request attempt within a delivery.
@@ -1745,11 +1678,7 @@ message GetWebhookHealthResponse {
   // Detailed health metrics. Null if the webhook has no delivery history.
   WebhookHealthMetrics metrics = 5;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 1 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 2 [deprecated = true];
+  reserved 1, 2;
 }
 
 // ListWebhooksByHealthRequest filters webhooks by their computed health status.
@@ -1771,14 +1700,7 @@ message ListWebhooksByHealthResponse {
   // Pagination metadata.
   PaginationResponse pagination = 5;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 1 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 2 [deprecated = true];
-
-  // Deprecated: use pagination.total_count.
-  int32 total_count = 4 [deprecated = true];
+  reserved 1, 2, 4;
 }
 
 // GetHealthSummaryRequest retrieves aggregate health counts across all namespaces.
@@ -1814,11 +1736,7 @@ message GetHealthSummaryResponse {
   // Aggregate health counts across all namespaces.
   HealthSummary summary = 3;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 1 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 2 [deprecated = true];
+  reserved 1, 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -1873,11 +1791,7 @@ message GetNamespaceStatsResponse {
   // Aggregate statistics for the namespace.
   NamespaceStats stats = 2;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 3 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 4 [deprecated = true];
+  reserved 3, 4;
 }
 
 // ---------------------------------------------------------------------------
@@ -1908,11 +1822,7 @@ message GetTemplateFunctionsResponse {
   // @example 42
   int32 total_count = 2;
 
-  // Deprecated: use gRPC status codes.
-  bool success = 3 [deprecated = true];
-
-  // Deprecated: use gRPC status codes.
-  string message = 4 [deprecated = true];
+  reserved 3, 4;
 }
 
 // ---------------------------------------------------------------------------

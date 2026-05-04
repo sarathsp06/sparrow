@@ -3,49 +3,22 @@ package grpc
 import (
 	"context"
 
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
 // RegisterWebhook registers a URL for specific events in a namespace
 func (s *WebhookServer) RegisterWebhook(ctx context.Context, req *pb.RegisterWebhookRequest) (*pb.RegisterWebhookResponse, error) {
-	// Use new service interface if it has CreateWebhook method (enhanced), fallback to legacy method
-	if enhancedService, ok := s.service.(interface {
-		CreateWebhook(ctx context.Context, req webhooks.WebhookRegistrationRequest) (*webhooks.WebhookRegistration, error)
-	}); ok {
-		// Use enhanced service with HTTP config support
-		webhookReq := CreateWebhookRegistrationRequest(req)
-		webhook, err := enhancedService.CreateWebhook(ctx, webhookReq)
-		if err != nil {
-			return nil, toGRPCError(ctx, err, "failed to register webhook")
-		}
-		return &pb.RegisterWebhookResponse{
-			WebhookId:        webhook.ID,
-			CreatedAt:        convertTimeToProto(webhook.CreatedAt),
-			SigningPublicKey: deriveEd25519PublicKeyHex(webhook.Ed25519EncryptedPrivateKey, s.service),
-		}, nil
-	}
-
-	// Fallback to legacy method for backward compatibility
-	var timeout int
-	if req.HttpConfig != nil && req.HttpConfig.RequestTimeoutSeconds > 0 {
-		timeout = int(req.HttpConfig.RequestTimeoutSeconds)
-	} else if req.Timeout > 0 { //nolint:staticcheck // backward compat with deprecated field
-		timeout = int(req.Timeout) //nolint:staticcheck // backward compat with deprecated field
-	}
-	if timeout == 0 {
-		timeout = 30 // Default timeout
-	}
-
-	webhookID, createdAt, err := s.service.RegisterWebhook(ctx, req.Namespace, req.Events, req.Url, req.Headers, timeout, req.Active, req.Description, req.SecretHeaders)
+	webhookReq := CreateWebhookRegistrationRequest(req)
+	webhook, err := s.service.CreateWebhook(ctx, webhookReq)
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to register webhook")
 	}
 	return &pb.RegisterWebhookResponse{
-		WebhookId: webhookID,
-		CreatedAt: timestamppb.New(createdAt),
+		WebhookId:        webhook.ID,
+		CreatedAt:        convertTimeToProto(webhook.CreatedAt),
+		SigningPublicKey: deriveEd25519PublicKeyHex(webhook.Ed25519EncryptedPrivateKey, s.service),
+		SignatureType:    webhook.SignatureType,
 	}, nil
 }
 
@@ -93,15 +66,16 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 	var timeout int
 	var active bool
 	var description string
+	var signatureType string
 	var httpConfig *webhooks.HTTPConfigUpdate
 	if req.Updates != nil {
 		events = req.Updates.Events
 		url = req.Updates.Url
 		headers = req.Updates.Headers
 		secretHeaders = req.Updates.SecretHeaders
-		timeout = int(req.Updates.Timeout) //nolint:staticcheck // backward compat with deprecated field
 		active = req.Updates.Active
 		description = req.Updates.Description
+		signatureType = req.Updates.SignatureType
 		if req.Updates.HttpConfig != nil {
 			httpConfig = &webhooks.HTTPConfigUpdate{
 				MaxRetries:            int(req.Updates.HttpConfig.MaxRetries),
@@ -118,12 +92,12 @@ func (s *WebhookServer) UpdateWebhookConfig(ctx context.Context, req *pb.UpdateW
 			}
 		}
 	}
-	// Extract field mask paths (nil mask = legacy behavior)
+	// Extract field mask paths
 	var updateMask []string
 	if req.UpdateMask != nil {
 		updateMask = req.UpdateMask.GetPaths()
 	}
-	err := s.service.UpdateWebhookConfig(ctx, req.WebhookId, req.Namespace, events, url, headers, timeout, active, description, httpConfig, secretHeaders, updateMask)
+	err := s.service.UpdateWebhookConfig(ctx, req.WebhookId, req.Namespace, events, url, headers, timeout, active, description, httpConfig, secretHeaders, signatureType, updateMask)
 	if err != nil {
 		return nil, toGRPCError(ctx, err, "failed to update webhook config")
 	}

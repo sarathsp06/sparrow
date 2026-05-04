@@ -86,7 +86,7 @@ const service: ApiService = {
         {
           "name": "signing_public_key",
           "type": "string",
-          "description": "Hex-encoded Ed25519 public key for asymmetric webhook signature verification. Share this key with webhook consumers so they can verify the X-Sparrow-Signature-Ed25519 header on deliveries."
+          "description": "Base64-encoded Ed25519 public key for asymmetric webhook signature verification (Standard Webhooks v1a format). Share this key with webhook consumers so they can verify the v1a, prefixed signature in the webhook-signature header."
         }
       ]
     },

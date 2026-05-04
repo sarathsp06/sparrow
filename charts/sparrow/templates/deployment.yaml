@@ -21,7 +21,11 @@ spec:
         {{- if not .Values.secrets.existingSecret }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
         {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
+      automountServiceAccountToken: false
       serviceAccountName: {{ include "sparrow.serviceAccountName" . }}
       securityContext:
         runAsNonRoot: true
@@ -81,6 +85,14 @@ spec:
                 secretKeyRef:
                   name: {{ include "sparrow.secretName" . }}
                   key: SPARROW_ENCRYPTION_KEY
+            {{- if or .Values.secrets.apiKey (and .Values.secrets.existingSecret true) }}
+            - name: SPARROW_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sparrow.secretName" . }}
+                  key: SPARROW_API_KEY
+                  optional: true
+            {{- end }}
             {{- range .Values.sparrow.extraEnv }}
             - name: {{ .name }}
               {{- if .value }}

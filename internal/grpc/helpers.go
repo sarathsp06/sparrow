@@ -114,7 +114,6 @@ func convertEventToProto(event *store.EventRegistration) (*pb.RegisteredEvent, e
 		return nil, nil
 	}
 	pbEvent := &pb.RegisteredEvent{
-		EventId:     event.Name, // Deprecated field — now carries the event name for backward compat
 		Name:        event.Name,
 		Description: event.Description,
 		Active:      event.Active,
@@ -271,7 +270,6 @@ func convertWebhookRegToProto(reg *store.WebhookRegistration, events []string, s
 		Events:           events,
 		Url:              reg.URL,
 		Headers:          reg.Headers,
-		Timeout:          int32(reg.Timeout),
 		Active:           reg.Active,
 		Description:      reg.Description,
 		Health:           convertWebhookHealth(reg.Health),
@@ -279,6 +277,7 @@ func convertWebhookRegToProto(reg *store.WebhookRegistration, events []string, s
 		UpdatedAt:        convertTimeToProto(reg.UpdatedAt),
 		SecretHeaders:    maskSecretHeaders(reg.SecretHeaders, svc),
 		SigningPublicKey: deriveEd25519PublicKeyHex(reg.Ed25519PrivateKey, svc),
+		SignatureType:    string(reg.SignatureType),
 		HttpConfig: &pb.WebhookHTTPConfig{
 			MaxRetries:            int32(reg.MaxRetries),
 			RetryBackoffSeconds:   int32(reg.RetryBackoffSeconds),

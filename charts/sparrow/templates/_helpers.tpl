@@ -82,5 +82,5 @@ Auto-constructed DATABASE_URL when using built-in PostgreSQL.
 sslmode=disable is safe for in-cluster traffic.
 */}}
 {{- define "sparrow.postgresql.url" -}}
-{{- printf "postgres://%s:%s@%s:5432/%s?sslmode=disable" .Values.postgresql.auth.username .Values.postgresql.auth.password (include "sparrow.postgresql.host" .) .Values.postgresql.auth.database }}
+{{- printf "postgres://%s:%s@%s:5432/%s?sslmode=%s" .Values.postgresql.auth.username .Values.postgresql.auth.password (include "sparrow.postgresql.host" .) .Values.postgresql.auth.database (default "disable" .Values.postgresql.auth.sslmode) }}
 {{- end }}

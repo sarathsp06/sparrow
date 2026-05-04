@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -73,13 +74,23 @@ func TestBuildRequest(t *testing.T) {
 		t.Errorf("Expected X-Custom-Header custom-value, got %s", req.Header.Get("X-Custom-Header"))
 	}
 
-	// Check signature headers
-	if req.Header.Get("X-Sparrow-Signature-256") == "" {
-		t.Error("Expected X-Sparrow-Signature-256 header to be set")
+	// Check Standard Webhooks signature headers
+	if req.Header.Get("webhook-id") == "" {
+		t.Error("Expected webhook-id header to be set")
 	}
 
-	if req.Header.Get("X-Sparrow-Timestamp") == "" {
-		t.Error("Expected X-Sparrow-Timestamp header to be set")
+	if req.Header.Get("webhook-timestamp") == "" {
+		t.Error("Expected webhook-timestamp header to be set")
+	}
+
+	sig := req.Header.Get("webhook-signature")
+	if sig == "" {
+		t.Error("Expected webhook-signature header to be set")
+	}
+
+	// HMAC signature should be present with v1 prefix
+	if !strings.HasPrefix(sig, "v1,") {
+		t.Errorf("Expected webhook-signature to start with v1, got %s", sig)
 	}
 }
 
@@ -101,13 +112,13 @@ func TestBuildRequestWithoutSecret(t *testing.T) {
 		t.Fatalf("Unexpected error building request: %v", err)
 	}
 
-	// Should not have signature headers
-	if req.Header.Get("X-Sparrow-Signature-256") != "" {
-		t.Error("Expected no X-Sparrow-Signature-256 header without secret")
+	// Should not have Standard Webhooks signature headers
+	if req.Header.Get("webhook-signature") != "" {
+		t.Error("Expected no webhook-signature header without secret")
 	}
 
-	if req.Header.Get("X-Sparrow-Timestamp") != "" {
-		t.Error("Expected no X-Sparrow-Timestamp header without secret")
+	if req.Header.Get("webhook-timestamp") != "" {
+		t.Error("Expected no webhook-timestamp header without secret")
 	}
 }
 
@@ -132,10 +143,11 @@ func TestBuildRequestInvalidURL(t *testing.T) {
 func TestGenerateHMACSignature(t *testing.T) {
 	payload := []byte(`{"test": "data"}`)
 	secret := "my-secret"
+	msgID := "msg_delivery-123"
 	timestamp := "1234567890"
 
-	sig1 := generateHMACSignature(payload, secret, timestamp)
-	sig2 := generateHMACSignature(payload, secret, timestamp)
+	sig1 := generateHMACSignature(payload, secret, msgID, timestamp)
+	sig2 := generateHMACSignature(payload, secret, msgID, timestamp)
 
 	if sig1 != sig2 {
 		t.Error("Expected consistent signature for same inputs")
@@ -146,15 +158,21 @@ func TestGenerateHMACSignature(t *testing.T) {
 	}
 
 	// Different timestamp should produce different signature
-	sig3 := generateHMACSignature(payload, secret, "9999999999")
+	sig3 := generateHMACSignature(payload, secret, msgID, "9999999999")
 	if sig1 == sig3 {
 		t.Error("Expected different signature for different timestamp")
 	}
 
 	// Different payload should produce different signature
-	sig4 := generateHMACSignature([]byte(`{"different": "payload"}`), secret, timestamp)
+	sig4 := generateHMACSignature([]byte(`{"different": "payload"}`), secret, msgID, timestamp)
 	if sig1 == sig4 {
 		t.Error("Expected different signature for different payload")
+	}
+
+	// Different msgID should produce different signature
+	sig5 := generateHMACSignature(payload, secret, "msg_other-id", timestamp)
+	if sig1 == sig5 {
+		t.Error("Expected different signature for different msgID")
 	}
 }
 

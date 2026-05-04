@@ -343,10 +343,9 @@ type WebhookHTTPConfig struct {
 	// "unexpected_status" (2xx/3xx not in list) based on the HTTP status range.
 	// @example [200, 201, 202, 204]
 	ExpectedStatusCodes []int32 `protobuf:"varint,7,rep,packed,name=expected_status_codes,json=expectedStatusCodes,proto3" json:"expected_status_codes,omitempty"`
-	// Shared secret used for HMAC-SHA256 request signing. When set, Sparrow
-	// includes an X-Webhook-Signature header on every delivery containing
-	// the hex-encoded HMAC of the request body. The receiving endpoint can
-	// verify authenticity by recomputing the HMAC.
+	// Shared secret used for HMAC-SHA256 request signing per the Standard Webhooks spec.
+	// When set, Sparrow signs every delivery using the webhook-id, webhook-timestamp,
+	// and webhook-signature headers. The signature format is "v1,<base64>" for HMAC-SHA256.
 	// Leave empty to disable signing.
 	// @example "whsec_your_secret_key"
 	WebhookSecret string `protobuf:"bytes,8,opt,name=webhook_secret,json=webhookSecret,proto3" json:"webhook_secret,omitempty"`
@@ -496,8 +495,6 @@ type RegisterWebhookRequest struct {
 	// use secret_headers instead.
 	// @example {"X-Source": "sparrow"}
 	Headers map[string]string `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Deprecated: use http_config.request_timeout_seconds instead.
-	Timeout int32 `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	// Whether the webhook starts in active state. Default: true.
 	// Inactive webhooks are skipped during event fan-out.
 	// @example true
@@ -513,6 +510,11 @@ type RegisterWebhookRequest struct {
 	// Values are masked as "******" in all API responses -- only keys are visible.
 	// Included in delivery requests alongside regular headers.
 	SecretHeaders map[string]string `protobuf:"bytes,9,rep,name=secret_headers,json=secretHeaders,proto3" json:"secret_headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Signing scheme for webhook deliveries: "hmac" (default) or "ed25519".
+	// "hmac" uses HMAC-SHA256 (v1, prefix). "ed25519" uses Ed25519 asymmetric signing (v1a, prefix).
+	// When "ed25519" is chosen, the signing_public_key is returned in the response for consumer verification.
+	// @example "hmac"
+	SignatureType string `protobuf:"bytes,10,opt,name=signature_type,json=signatureType,proto3" json:"signature_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -575,13 +577,6 @@ func (x *RegisterWebhookRequest) GetHeaders() map[string]string {
 	return nil
 }
 
-func (x *RegisterWebhookRequest) GetTimeout() int32 {
-	if x != nil {
-		return x.Timeout
-	}
-	return 0
-}
-
 func (x *RegisterWebhookRequest) GetActive() bool {
 	if x != nil {
 		return x.Active
@@ -610,6 +605,13 @@ func (x *RegisterWebhookRequest) GetSecretHeaders() map[string]string {
 	return nil
 }
 
+func (x *RegisterWebhookRequest) GetSignatureType() string {
+	if x != nil {
+		return x.SignatureType
+	}
+	return ""
+}
+
 // RegisterWebhookResponse is returned after successfully registering a webhook.
 type RegisterWebhookResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -617,23 +619,17 @@ type RegisterWebhookResponse struct {
 	// subsequent operations (update, pause, resume, unregister).
 	// @example "550e8400-e29b-41d4-a716-446655440000"
 	WebhookId string `protobuf:"bytes,1,opt,name=webhook_id,json=webhookId,proto3" json:"webhook_id,omitempty"`
-	// Deprecated: use gRPC status codes to determine success/failure.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status details for error messages.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	// Timestamp when the webhook was created.
 	// @example "2025-01-15T10:30:00Z"
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// Hex-encoded Ed25519 public key for asymmetric webhook signature verification.
-	// Share this key with webhook consumers so they can verify the
-	// X-Sparrow-Signature-Ed25519 header on deliveries.
+	// When the webhook uses Ed25519 signing, consumers use this key to verify the
+	// "v1a," signature in the Standard Webhooks webhook-signature header.
 	SigningPublicKey string `protobuf:"bytes,5,opt,name=signing_public_key,json=signingPublicKey,proto3" json:"signing_public_key,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// The signing scheme configured for this webhook: "hmac" or "ed25519".
+	SignatureType string `protobuf:"bytes,6,opt,name=signature_type,json=signatureType,proto3" json:"signature_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RegisterWebhookResponse) Reset() {
@@ -673,22 +669,6 @@ func (x *RegisterWebhookResponse) GetWebhookId() string {
 	return ""
 }
 
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RegisterWebhookResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RegisterWebhookResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
 func (x *RegisterWebhookResponse) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
@@ -699,6 +679,13 @@ func (x *RegisterWebhookResponse) GetCreatedAt() *timestamppb.Timestamp {
 func (x *RegisterWebhookResponse) GetSigningPublicKey() string {
 	if x != nil {
 		return x.SigningPublicKey
+	}
+	return ""
+}
+
+func (x *RegisterWebhookResponse) GetSignatureType() string {
+	if x != nil {
+		return x.SignatureType
 	}
 	return ""
 }
@@ -764,15 +751,7 @@ func (x *UnregisterWebhookRequest) GetNamespace() string {
 // UnregisterWebhookResponse confirms webhook deletion.
 // On success, the gRPC status is OK. On failure, NOT_FOUND is returned.
 type UnregisterWebhookResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: use gRPC status codes to determine success/failure.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status details for error messages.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -805,22 +784,6 @@ func (x *UnregisterWebhookResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use UnregisterWebhookResponse.ProtoReflect.Descriptor instead.
 func (*UnregisterWebhookResponse) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{6}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UnregisterWebhookResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UnregisterWebhookResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // ListWebhooksRequest specifies filters and pagination for listing webhooks.
@@ -925,8 +888,6 @@ type RegisteredWebhook struct {
 	// Custom HTTP headers included in delivery requests.
 	// Does not include secret_headers (those are listed separately with masked values).
 	Headers map[string]string `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Deprecated: see http_config.request_timeout_seconds.
-	Timeout int32 `protobuf:"varint,6,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	// Whether the webhook is currently active. Inactive webhooks do not receive
 	// new deliveries but retain their configuration and history.
 	Active bool `protobuf:"varint,7,opt,name=active,proto3" json:"active,omitempty"`
@@ -945,11 +906,13 @@ type RegisteredWebhook struct {
 	// actual values are never exposed through the API.
 	SecretHeaders map[string]string `protobuf:"bytes,13,rep,name=secret_headers,json=secretHeaders,proto3" json:"secret_headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// Hex-encoded Ed25519 public key for asymmetric webhook signature verification.
-	// Consumers use this key to verify the X-Sparrow-Signature-Ed25519 header
-	// without needing access to the signing secret.
+	// When the webhook uses Ed25519 signing, consumers verify the "v1a," signature
+	// in the Standard Webhooks webhook-signature header using this key.
 	SigningPublicKey string `protobuf:"bytes,14,opt,name=signing_public_key,json=signingPublicKey,proto3" json:"signing_public_key,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// The signing scheme configured for this webhook: "hmac" or "ed25519".
+	SignatureType string `protobuf:"bytes,15,opt,name=signature_type,json=signatureType,proto3" json:"signature_type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RegisteredWebhook) Reset() {
@@ -1017,13 +980,6 @@ func (x *RegisteredWebhook) GetHeaders() map[string]string {
 	return nil
 }
 
-func (x *RegisteredWebhook) GetTimeout() int32 {
-	if x != nil {
-		return x.Timeout
-	}
-	return 0
-}
-
 func (x *RegisteredWebhook) GetActive() bool {
 	if x != nil {
 		return x.Active
@@ -1080,25 +1036,20 @@ func (x *RegisteredWebhook) GetSigningPublicKey() string {
 	return ""
 }
 
+func (x *RegisteredWebhook) GetSignatureType() string {
+	if x != nil {
+		return x.SignatureType
+	}
+	return ""
+}
+
 // ListWebhooksResponse contains the paginated list of webhooks matching the query.
 type ListWebhooksResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Webhooks matching the filter criteria.
 	Webhooks []*RegisteredWebhook `protobuf:"bytes,1,rep,name=webhooks,proto3" json:"webhooks,omitempty"`
 	// Pagination metadata (total_count, limit, offset).
-	Pagination *PaginationResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	// Deprecated: use pagination.total_count instead.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	TotalCount    int32 `protobuf:"varint,5,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	Pagination    *PaginationResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1147,30 +1098,6 @@ func (x *ListWebhooksResponse) GetPagination() *PaginationResponse {
 	return nil
 }
 
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListWebhooksResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListWebhooksResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListWebhooksResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
 // WebhookUpdateFields specifies which webhook fields to update.
 // This is a partial-update message: only non-zero/non-empty fields are applied.
 // Omitted fields are left unchanged on the webhook.
@@ -1188,8 +1115,6 @@ type WebhookUpdateFields struct {
 	// Replace all custom headers. Omit to leave unchanged.
 	// Pass an empty map to clear all headers.
 	Headers map[string]string `protobuf:"bytes,3,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Deprecated: use http_config.request_timeout_seconds.
-	Timeout int32 `protobuf:"varint,4,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	// Set active/inactive status. Note: prefer PauseWebhook/ResumeWebhook RPCs
 	// for explicit lifecycle control with reason tracking.
 	Active bool `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
@@ -1203,6 +1128,10 @@ type WebhookUpdateFields struct {
 	// Replace all secret headers. Omit to leave unchanged.
 	// Pass an empty map to clear all secret headers.
 	SecretHeaders map[string]string `protobuf:"bytes,8,rep,name=secret_headers,json=secretHeaders,proto3" json:"secret_headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Update the signing scheme: "hmac" or "ed25519". Omit to leave unchanged.
+	// Changing from "hmac" to "ed25519" generates a new Ed25519 keypair.
+	// Changing from "ed25519" to "hmac" discards the Ed25519 key.
+	SignatureType string `protobuf:"bytes,9,opt,name=signature_type,json=signatureType,proto3" json:"signature_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1258,13 +1187,6 @@ func (x *WebhookUpdateFields) GetHeaders() map[string]string {
 	return nil
 }
 
-func (x *WebhookUpdateFields) GetTimeout() int32 {
-	if x != nil {
-		return x.Timeout
-	}
-	return 0
-}
-
 func (x *WebhookUpdateFields) GetActive() bool {
 	if x != nil {
 		return x.Active
@@ -1293,6 +1215,13 @@ func (x *WebhookUpdateFields) GetSecretHeaders() map[string]string {
 	return nil
 }
 
+func (x *WebhookUpdateFields) GetSignatureType() string {
+	if x != nil {
+		return x.SignatureType
+	}
+	return ""
+}
+
 // UpdateWebhookConfigRequest applies partial updates to an existing webhook.
 type UpdateWebhookConfigRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1311,14 +1240,13 @@ type UpdateWebhookConfigRequest struct {
 	// Supported paths (top-level fields of WebhookUpdateFields):
 	//
 	//	"url", "active", "description", "events", "headers",
-	//	"secret_headers", "http_config"
+	//	"secret_headers", "http_config", "signature_type"
 	//
 	// To update the webhook secret within http_config, include
 	// "http_config.webhook_secret" in the mask. Without it, the existing
 	// encrypted secret is preserved even when http_config is updated.
 	//
-	// When omitted or empty, falls back to legacy behavior: all non-zero
-	// fields in `updates` are applied (not recommended for new clients).
+	// When omitted or empty, all non-zero fields in `updates` are applied.
 	// @example {"paths": ["url", "active", "http_config"]}
 	UpdateMask    *fieldmaskpb.FieldMask `protobuf:"bytes,4,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1386,15 +1314,7 @@ func (x *UpdateWebhookConfigRequest) GetUpdateMask() *fieldmaskpb.FieldMask {
 // UpdateWebhookConfigResponse confirms the webhook was updated.
 // On success, gRPC status is OK. On failure, NOT_FOUND or INVALID_ARGUMENT.
 type UpdateWebhookConfigResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1427,22 +1347,6 @@ func (x *UpdateWebhookConfigResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use UpdateWebhookConfigResponse.ProtoReflect.Descriptor instead.
 func (*UpdateWebhookConfigResponse) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{12}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UpdateWebhookConfigResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UpdateWebhookConfigResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // PauseWebhookRequest sets a webhook to inactive, preventing new deliveries.
@@ -1515,15 +1419,7 @@ func (x *PauseWebhookRequest) GetReason() string {
 
 // PauseWebhookResponse confirms the webhook was paused.
 type PauseWebhookResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1556,22 +1452,6 @@ func (x *PauseWebhookResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use PauseWebhookResponse.ProtoReflect.Descriptor instead.
 func (*PauseWebhookResponse) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{14}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *PauseWebhookResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *PauseWebhookResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // ResumeWebhookRequest re-activates a paused webhook.
@@ -1643,15 +1523,7 @@ func (x *ResumeWebhookRequest) GetReason() string {
 
 // ResumeWebhookResponse confirms the webhook was resumed.
 type ResumeWebhookResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1684,22 +1556,6 @@ func (x *ResumeWebhookResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ResumeWebhookResponse.ProtoReflect.Descriptor instead.
 func (*ResumeWebhookResponse) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{16}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ResumeWebhookResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ResumeWebhookResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // RegisterEventRequest creates a new event type definition.
@@ -1908,10 +1764,6 @@ func (x *ListEventsRequest) GetPagination() *PaginationRequest {
 // This describes an event type (schema), not an event instance (see EventReport for that).
 type RegisteredEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: returns the event name. Use the name field (field 2) instead.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	EventId string `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
 	// Unique event name (primary identifier). This is the value used in
 	// PushEvent, subscription matching, and all event-related queries.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
@@ -1962,14 +1814,6 @@ func (x *RegisteredEvent) ProtoReflect() protoreflect.Message {
 // Deprecated: Use RegisteredEvent.ProtoReflect.Descriptor instead.
 func (*RegisteredEvent) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{20}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RegisteredEvent) GetEventId() string {
-	if x != nil {
-		return x.EventId
-	}
-	return ""
 }
 
 func (x *RegisteredEvent) GetName() string {
@@ -2034,19 +1878,7 @@ type ListEventsResponse struct {
 	// Event type definitions matching the filter criteria.
 	Events []*RegisteredEvent `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
 	// Pagination metadata.
-	Pagination *PaginationResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	// Deprecated: use pagination.total_count.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	TotalCount    int32 `protobuf:"varint,5,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	Pagination    *PaginationResponse `protobuf:"bytes,2,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2093,30 +1925,6 @@ func (x *ListEventsResponse) GetPagination() *PaginationResponse {
 		return x.Pagination
 	}
 	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventsResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventsResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListEventsResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
 }
 
 // UpdateEventRequest modifies an existing event type definition.
@@ -2207,15 +2015,7 @@ func (x *UpdateEventRequest) GetActive() bool {
 
 // UpdateEventResponse confirms the event type was updated.
 type UpdateEventResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2248,22 +2048,6 @@ func (x *UpdateEventResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use UpdateEventResponse.ProtoReflect.Descriptor instead.
 func (*UpdateEventResponse) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{23}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UpdateEventResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UpdateEventResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // GetEventRequest retrieves a single event type definition by name.
@@ -2410,15 +2194,7 @@ func (x *DeleteEventRequest) GetName() string {
 
 // DeleteEventResponse confirms the event type was deleted.
 type DeleteEventResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2451,22 +2227,6 @@ func (x *DeleteEventResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use DeleteEventResponse.ProtoReflect.Descriptor instead.
 func (*DeleteEventResponse) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{27}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *DeleteEventResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *DeleteEventResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // PushEventRequest submits an event instance for asynchronous delivery.
@@ -3511,15 +3271,7 @@ type CreateSubscriptionResponse struct {
 	SubscriptionId string `protobuf:"bytes,1,opt,name=subscription_id,json=subscriptionId,proto3" json:"subscription_id,omitempty"`
 	// When the subscription was created.
 	// @example "2025-01-15T10:30:00Z"
-	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3566,22 +3318,6 @@ func (x *CreateSubscriptionResponse) GetCreatedAt() *timestamppb.Timestamp {
 		return x.CreatedAt
 	}
 	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *CreateSubscriptionResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *CreateSubscriptionResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // GetSubscriptionRequest retrieves a single subscription by ID.
@@ -3645,15 +3381,7 @@ func (x *GetSubscriptionRequest) GetNamespace() string {
 type GetSubscriptionResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Full subscription details.
-	Subscription *EventSubscription `protobuf:"bytes,1,opt,name=subscription,proto3" json:"subscription,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	Subscription  *EventSubscription `protobuf:"bytes,1,opt,name=subscription,proto3" json:"subscription,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3693,22 +3421,6 @@ func (x *GetSubscriptionResponse) GetSubscription() *EventSubscription {
 		return x.Subscription
 	}
 	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetSubscriptionResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetSubscriptionResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // ListSubscriptionsRequest specifies filters for listing subscriptions.
@@ -3792,19 +3504,7 @@ type ListSubscriptionsResponse struct {
 	// Subscriptions matching the filter criteria.
 	Subscriptions []*EventSubscription `protobuf:"bytes,1,rep,name=subscriptions,proto3" json:"subscriptions,omitempty"`
 	// Pagination metadata.
-	Pagination *PaginationResponse `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: use pagination.total_count.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	Pagination    *PaginationResponse `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3851,30 +3551,6 @@ func (x *ListSubscriptionsResponse) GetPagination() *PaginationResponse {
 		return x.Pagination
 	}
 	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListSubscriptionsResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListSubscriptionsResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListSubscriptionsResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // UpdateSubscriptionRequest modifies an existing subscription.
@@ -3992,15 +3668,7 @@ func (x *UpdateSubscriptionRequest) GetLabelFilters() map[string]string {
 
 // UpdateSubscriptionResponse confirms the subscription was updated.
 type UpdateSubscriptionResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4033,22 +3701,6 @@ func (x *UpdateSubscriptionResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use UpdateSubscriptionResponse.ProtoReflect.Descriptor instead.
 func (*UpdateSubscriptionResponse) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{45}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UpdateSubscriptionResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *UpdateSubscriptionResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // DeleteSubscriptionRequest permanently removes a subscription.
@@ -4111,15 +3763,7 @@ func (x *DeleteSubscriptionRequest) GetNamespace() string {
 
 // DeleteSubscriptionResponse confirms the subscription was deleted.
 type DeleteSubscriptionResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4152,22 +3796,6 @@ func (x *DeleteSubscriptionResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use DeleteSubscriptionResponse.ProtoReflect.Descriptor instead.
 func (*DeleteSubscriptionResponse) Descriptor() ([]byte, []int) {
 	return file_proto_webhook_proto_rawDescGZIP(), []int{47}
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *DeleteSubscriptionResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *DeleteSubscriptionResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // ListSubscriptionsByEventRequest lists subscriptions for a specific event in a namespace.
@@ -4233,19 +3861,7 @@ type ListSubscriptionsByEventResponse struct {
 	// Matching subscriptions.
 	Subscriptions []*EventSubscription `protobuf:"bytes,1,rep,name=subscriptions,proto3" json:"subscriptions,omitempty"`
 	// Pagination metadata.
-	Pagination *PaginationResponse `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: use pagination.total_count.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	Pagination    *PaginationResponse `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4292,30 +3908,6 @@ func (x *ListSubscriptionsByEventResponse) GetPagination() *PaginationResponse {
 		return x.Pagination
 	}
 	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListSubscriptionsByEventResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListSubscriptionsByEventResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListSubscriptionsByEventResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // TestSubscriptionTemplateRequest validates a Go template against an event's sample payload.
@@ -4684,15 +4276,7 @@ func (x *GetDeliveryStatusRequest) GetNamespace() string {
 type GetDeliveryStatusResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Full delivery details including request/response bodies and error info.
-	Delivery *WebhookDelivery `protobuf:"bytes,1,opt,name=delivery,proto3" json:"delivery,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	Delivery      *WebhookDelivery `protobuf:"bytes,1,opt,name=delivery,proto3" json:"delivery,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4732,22 +4316,6 @@ func (x *GetDeliveryStatusResponse) GetDelivery() *WebhookDelivery {
 		return x.Delivery
 	}
 	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetDeliveryStatusResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetDeliveryStatusResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // ListDeliveriesRequest specifies filters for listing deliveries.
@@ -5036,15 +4604,7 @@ type RetryDeliveryResponse struct {
 	RetriedCount int32 `protobuf:"varint,1,opt,name=retried_count,json=retriedCount,proto3" json:"retried_count,omitempty"`
 	// UUIDs of the deliveries that were re-enqueued.
 	// @example ["d-550e8400-e29b-41d4-a716-446655440000"]
-	DeliveryIds []string `protobuf:"bytes,2,rep,name=delivery_ids,json=deliveryIds,proto3" json:"delivery_ids,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	DeliveryIds   []string `protobuf:"bytes,2,rep,name=delivery_ids,json=deliveryIds,proto3" json:"delivery_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5091,22 +4651,6 @@ func (x *RetryDeliveryResponse) GetDeliveryIds() []string {
 		return x.DeliveryIds
 	}
 	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RetryDeliveryResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *RetryDeliveryResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // DeliveryAttempt represents a single HTTP request attempt within a delivery.
@@ -5608,15 +5152,7 @@ type GetWebhookHealthResponse struct {
 	// @example "HEALTHY"
 	Health WebhookHealth `protobuf:"varint,4,opt,name=health,proto3,enum=webhook.WebhookHealth" json:"health,omitempty"`
 	// Detailed health metrics. Null if the webhook has no delivery history.
-	Metrics *WebhookHealthMetrics `protobuf:"bytes,5,opt,name=metrics,proto3" json:"metrics,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Metrics       *WebhookHealthMetrics `protobuf:"bytes,5,opt,name=metrics,proto3" json:"metrics,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5670,22 +5206,6 @@ func (x *GetWebhookHealthResponse) GetMetrics() *WebhookHealthMetrics {
 		return x.Metrics
 	}
 	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetWebhookHealthResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetWebhookHealthResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // ListWebhooksByHealthRequest filters webhooks by their computed health status.
@@ -5751,19 +5271,7 @@ type ListWebhooksByHealthResponse struct {
 	// Webhooks with the requested health status.
 	Webhooks []*RegisteredWebhook `protobuf:"bytes,3,rep,name=webhooks,proto3" json:"webhooks,omitempty"`
 	// Pagination metadata.
-	Pagination *PaginationResponse `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	// Deprecated: use pagination.total_count.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	TotalCount    int32 `protobuf:"varint,4,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	Pagination    *PaginationResponse `protobuf:"bytes,5,opt,name=pagination,proto3" json:"pagination,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5810,30 +5318,6 @@ func (x *ListWebhooksByHealthResponse) GetPagination() *PaginationResponse {
 		return x.Pagination
 	}
 	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListWebhooksByHealthResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListWebhooksByHealthResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *ListWebhooksByHealthResponse) GetTotalCount() int32 {
-	if x != nil {
-		return x.TotalCount
-	}
-	return 0
 }
 
 // GetHealthSummaryRequest retrieves aggregate health counts across all namespaces.
@@ -5966,15 +5450,7 @@ func (x *HealthSummary) GetTotalCount() int32 {
 type GetHealthSummaryResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Aggregate health counts across all namespaces.
-	Summary *HealthSummary `protobuf:"bytes,3,opt,name=summary,proto3" json:"summary,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Summary       *HealthSummary `protobuf:"bytes,3,opt,name=summary,proto3" json:"summary,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6014,22 +5490,6 @@ func (x *GetHealthSummaryResponse) GetSummary() *HealthSummary {
 		return x.Summary
 	}
 	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetHealthSummaryResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetHealthSummaryResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // GetNamespaceStatsRequest retrieves aggregate delivery statistics for a namespace.
@@ -6194,15 +5654,7 @@ type GetNamespaceStatsResponse struct {
 	// The namespace these stats apply to.
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Aggregate statistics for the namespace.
-	Stats *NamespaceStats `protobuf:"bytes,2,opt,name=stats,proto3" json:"stats,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	Stats         *NamespaceStats `protobuf:"bytes,2,opt,name=stats,proto3" json:"stats,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6249,22 +5701,6 @@ func (x *GetNamespaceStatsResponse) GetStats() *NamespaceStats {
 		return x.Stats
 	}
 	return nil
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetNamespaceStatsResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetNamespaceStatsResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // TemplateFunction describes a single Go template function available for
@@ -6369,15 +5805,7 @@ type GetTemplateFunctionsResponse struct {
 	Functions []*TemplateFunction `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
 	// Total number of available functions.
 	// @example 42
-	TotalCount int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Success bool `protobuf:"varint,3,opt,name=success,proto3" json:"success,omitempty"`
-	// Deprecated: use gRPC status codes.
-	//
-	// Deprecated: Marked as deprecated in proto/webhook.proto.
-	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	TotalCount    int32 `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6424,22 +5852,6 @@ func (x *GetTemplateFunctionsResponse) GetTotalCount() int32 {
 		return x.TotalCount
 	}
 	return 0
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetTemplateFunctionsResponse) GetSuccess() bool {
-	if x != nil {
-		return x.Success
-	}
-	return false
-}
-
-// Deprecated: Marked as deprecated in proto/webhook.proto.
-func (x *GetTemplateFunctionsResponse) GetMessage() string {
-	if x != nil {
-		return x.Message
-	}
-	return ""
 }
 
 // BatchJobStatus represents the lifecycle of a batch job.
@@ -7160,39 +6572,37 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\fcontent_type\x18\n" +
 	" \x01(\tR\vcontentType\x12)\n" +
 	"\x0erate_limit_rps\x18\v \x01(\x02H\x00R\frateLimitRps\x88\x01\x01B\x11\n" +
-	"\x0f_rate_limit_rps\"\x92\x04\n" +
+	"\x0f_rate_limit_rps\"\xa5\x04\n" +
 	"\x16RegisterWebhookRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x16\n" +
 	"\x06events\x18\x02 \x03(\tR\x06events\x12\x10\n" +
 	"\x03url\x18\x03 \x01(\tR\x03url\x12F\n" +
-	"\aheaders\x18\x04 \x03(\v2,.webhook.RegisterWebhookRequest.HeadersEntryR\aheaders\x12\x18\n" +
-	"\atimeout\x18\x05 \x01(\x05R\atimeout\x12\x16\n" +
+	"\aheaders\x18\x04 \x03(\v2,.webhook.RegisterWebhookRequest.HeadersEntryR\aheaders\x12\x16\n" +
 	"\x06active\x18\x06 \x01(\bR\x06active\x12 \n" +
 	"\vdescription\x18\a \x01(\tR\vdescription\x12;\n" +
 	"\vhttp_config\x18\b \x01(\v2\x1a.webhook.WebhookHTTPConfigR\n" +
 	"httpConfig\x12Y\n" +
-	"\x0esecret_headers\x18\t \x03(\v22.webhook.RegisterWebhookRequest.SecretHeadersEntryR\rsecretHeaders\x1a:\n" +
+	"\x0esecret_headers\x18\t \x03(\v22.webhook.RegisterWebhookRequest.SecretHeadersEntryR\rsecretHeaders\x12%\n" +
+	"\x0esignature_type\x18\n" +
+	" \x01(\tR\rsignatureType\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a@\n" +
 	"\x12SecretHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xdd\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x05\x10\x06\"\xd4\x01\n" +
 	"\x17RegisterWebhookResponse\x12\x1d\n" +
 	"\n" +
-	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
-	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\x129\n" +
+	"webhook_id\x18\x01 \x01(\tR\twebhookId\x129\n" +
 	"\n" +
 	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12,\n" +
-	"\x12signing_public_key\x18\x05 \x01(\tR\x10signingPublicKey\"W\n" +
+	"\x12signing_public_key\x18\x05 \x01(\tR\x10signingPublicKey\x12%\n" +
+	"\x0esignature_type\x18\x06 \x01(\tR\rsignatureTypeJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"W\n" +
 	"\x18UnregisterWebhookRequest\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"W\n" +
-	"\x19UnregisterWebhookResponse\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\xc5\x01\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"'\n" +
+	"\x19UnregisterWebhookResponseJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"\xc5\x01\n" +
 	"\x13ListWebhooksRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x14\n" +
 	"\x05event\x18\x02 \x01(\tR\x05event\x12\x1f\n" +
@@ -7202,15 +6612,14 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"pagination\x18\x04 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
 	"pagination\x12\x1d\n" +
 	"\n" +
-	"webhook_id\x18\x05 \x01(\tR\twebhookId\"\xf6\x05\n" +
+	"webhook_id\x18\x05 \x01(\tR\twebhookId\"\x89\x06\n" +
 	"\x11RegisteredWebhook\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x16\n" +
 	"\x06events\x18\x03 \x03(\tR\x06events\x12\x10\n" +
 	"\x03url\x18\x04 \x01(\tR\x03url\x12A\n" +
-	"\aheaders\x18\x05 \x03(\v2'.webhook.RegisteredWebhook.HeadersEntryR\aheaders\x12\x18\n" +
-	"\atimeout\x18\x06 \x01(\x05R\atimeout\x12\x16\n" +
+	"\aheaders\x18\x05 \x03(\v2'.webhook.RegisteredWebhook.HeadersEntryR\aheaders\x12\x16\n" +
 	"\x06active\x18\a \x01(\bR\x06active\x12 \n" +
 	"\vdescription\x18\b \x01(\tR\vdescription\x12.\n" +
 	"\x06health\x18\t \x01(\x0e2\x16.webhook.WebhookHealthR\x06health\x129\n" +
@@ -7222,64 +6631,55 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\vhttp_config\x18\f \x01(\v2\x1a.webhook.WebhookHTTPConfigR\n" +
 	"httpConfig\x12T\n" +
 	"\x0esecret_headers\x18\r \x03(\v2-.webhook.RegisteredWebhook.SecretHeadersEntryR\rsecretHeaders\x12,\n" +
-	"\x12signing_public_key\x18\x0e \x01(\tR\x10signingPublicKey\x1a:\n" +
+	"\x12signing_public_key\x18\x0e \x01(\tR\x10signingPublicKey\x12%\n" +
+	"\x0esignature_type\x18\x0f \x01(\tR\rsignatureType\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a@\n" +
 	"\x12SecretHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xec\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x06\x10\a\"\x9d\x01\n" +
 	"\x14ListWebhooksResponse\x126\n" +
 	"\bwebhooks\x18\x01 \x03(\v2\x1a.webhook.RegisteredWebhookR\bwebhooks\x12;\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\x12\x1c\n" +
-	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\x12#\n" +
-	"\vtotal_count\x18\x05 \x01(\x05B\x02\x18\x01R\n" +
-	"totalCount\"\xeb\x03\n" +
+	"paginationJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06\"\xfe\x03\n" +
 	"\x13WebhookUpdateFields\x12\x16\n" +
 	"\x06events\x18\x01 \x03(\tR\x06events\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x12C\n" +
-	"\aheaders\x18\x03 \x03(\v2).webhook.WebhookUpdateFields.HeadersEntryR\aheaders\x12\x18\n" +
-	"\atimeout\x18\x04 \x01(\x05R\atimeout\x12\x16\n" +
+	"\aheaders\x18\x03 \x03(\v2).webhook.WebhookUpdateFields.HeadersEntryR\aheaders\x12\x16\n" +
 	"\x06active\x18\x05 \x01(\bR\x06active\x12 \n" +
 	"\vdescription\x18\x06 \x01(\tR\vdescription\x12;\n" +
 	"\vhttp_config\x18\a \x01(\v2\x1a.webhook.WebhookHTTPConfigR\n" +
 	"httpConfig\x12V\n" +
-	"\x0esecret_headers\x18\b \x03(\v2/.webhook.WebhookUpdateFields.SecretHeadersEntryR\rsecretHeaders\x1a:\n" +
+	"\x0esecret_headers\x18\b \x03(\v2/.webhook.WebhookUpdateFields.SecretHeadersEntryR\rsecretHeaders\x12%\n" +
+	"\x0esignature_type\x18\t \x01(\tR\rsignatureType\x1a:\n" +
 	"\fHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a@\n" +
 	"\x12SecretHeadersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xce\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x04\x10\x05\"\xce\x01\n" +
 	"\x1aUpdateWebhookConfigRequest\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x126\n" +
 	"\aupdates\x18\x03 \x01(\v2\x1c.webhook.WebhookUpdateFieldsR\aupdates\x12;\n" +
 	"\vupdate_mask\x18\x04 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
-	"updateMask\"Y\n" +
-	"\x1bUpdateWebhookConfigResponse\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"j\n" +
+	"updateMask\")\n" +
+	"\x1bUpdateWebhookConfigResponseJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"j\n" +
 	"\x13PauseWebhookRequest\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x16\n" +
-	"\x06reason\x18\x03 \x01(\tR\x06reason\"R\n" +
-	"\x14PauseWebhookResponse\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"k\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"\"\n" +
+	"\x14PauseWebhookResponseJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"k\n" +
 	"\x14ResumeWebhookRequest\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x16\n" +
-	"\x06reason\x18\x03 \x01(\tR\x06reason\"S\n" +
-	"\x15ResumeWebhookResponse\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\x9b\x02\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"#\n" +
+	"\x15ResumeWebhookResponseJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"\x9b\x02\n" +
 	"\x14RegisterEventRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12/\n" +
@@ -7298,9 +6698,8 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"activeOnly\x12:\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\"\xe6\x03\n" +
-	"\x0fRegisteredEvent\x12\x1d\n" +
-	"\bevent_id\x18\x01 \x01(\tB\x02\x18\x01R\aeventId\x12\x12\n" +
+	"pagination\"\xcd\x03\n" +
+	"\x0fRegisteredEvent\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12/\n" +
 	"\x06schema\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06schema\x12>\n" +
@@ -7313,16 +6712,12 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe4\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x01\x10\x02\"\x95\x01\n" +
 	"\x12ListEventsResponse\x120\n" +
 	"\x06events\x18\x01 \x03(\v2\x18.webhook.RegisteredEventR\x06events\x12;\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\x12\x1c\n" +
-	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\x12#\n" +
-	"\vtotal_count\x18\x05 \x01(\x05B\x02\x18\x01R\n" +
-	"totalCount\"\x97\x02\n" +
+	"paginationJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06\"\x97\x02\n" +
 	"\x12UpdateEventRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12/\n" +
@@ -7331,19 +6726,15 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x06active\x18\x05 \x01(\bR\x06active\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"Q\n" +
-	"\x13UpdateEventResponse\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"%\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"!\n" +
+	"\x13UpdateEventResponseJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"%\n" +
 	"\x0fGetEventRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"B\n" +
 	"\x10GetEventResponse\x12.\n" +
 	"\x05event\x18\x01 \x01(\v2\x18.webhook.RegisteredEventR\x05event\"(\n" +
 	"\x12DeleteEventRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"Q\n" +
-	"\x13DeleteEventResponse\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\xb2\x03\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"!\n" +
+	"\x13DeleteEventResponseJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"\xb2\x03\n" +
 	"\x10PushEventRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x14\n" +
 	"\x05event\x18\x02 \x01(\tR\x05event\x121\n" +
@@ -7464,20 +6855,16 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a?\n" +
 	"\x11LabelFiltersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xbc\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8c\x01\n" +
 	"\x1aCreateSubscriptionResponse\x12'\n" +
 	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x129\n" +
 	"\n" +
-	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x1c\n" +
-	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\"_\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"_\n" +
 	"\x16GetSubscriptionRequest\x12'\n" +
 	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\x95\x01\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"e\n" +
 	"\x17GetSubscriptionResponse\x12>\n" +
-	"\fsubscription\x18\x01 \x01(\v2\x1a.webhook.EventSubscriptionR\fsubscription\x12\x1c\n" +
-	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\"\xb2\x01\n" +
+	"\fsubscription\x18\x01 \x01(\v2\x1a.webhook.EventSubscriptionR\fsubscriptionJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"\xb2\x01\n" +
 	"\x18ListSubscriptionsRequest\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x01 \x01(\tR\twebhookId\x12\x1d\n" +
@@ -7486,16 +6873,12 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12:\n" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\"\xfb\x01\n" +
+	"pagination\"\xac\x01\n" +
 	"\x19ListSubscriptionsResponse\x12@\n" +
 	"\rsubscriptions\x18\x01 \x03(\v2\x1a.webhook.EventSubscriptionR\rsubscriptions\x12;\n" +
 	"\n" +
 	"pagination\x18\x05 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\x12#\n" +
-	"\vtotal_count\x18\x02 \x01(\x05B\x02\x18\x01R\n" +
-	"totalCount\x12\x1c\n" +
-	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\x93\x04\n" +
+	"paginationJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"\x93\x04\n" +
 	"\x19UpdateSubscriptionRequest\x12'\n" +
 	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12\x1c\n" +
 	"\tnamespace\x18\a \x01(\tR\tnamespace\x12I\n" +
@@ -7510,29 +6893,21 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a?\n" +
 	"\x11LabelFiltersEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"X\n" +
-	"\x1aUpdateSubscriptionResponse\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"b\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"(\n" +
+	"\x1aUpdateSubscriptionResponseJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"b\n" +
 	"\x19DeleteSubscriptionRequest\x12'\n" +
 	"\x0fsubscription_id\x18\x01 \x01(\tR\x0esubscriptionId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"X\n" +
-	"\x1aDeleteSubscriptionResponse\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"^\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"(\n" +
+	"\x1aDeleteSubscriptionResponseJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"^\n" +
 	"\x1fListSubscriptionsByEventRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1d\n" +
 	"\n" +
-	"event_name\x18\x02 \x01(\tR\teventName\"\x82\x02\n" +
+	"event_name\x18\x02 \x01(\tR\teventName\"\xb3\x01\n" +
 	" ListSubscriptionsByEventResponse\x12@\n" +
 	"\rsubscriptions\x18\x01 \x03(\v2\x1a.webhook.EventSubscriptionR\rsubscriptions\x12;\n" +
 	"\n" +
 	"pagination\x18\x05 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\x12#\n" +
-	"\vtotal_count\x18\x02 \x01(\x05B\x02\x18\x01R\n" +
-	"totalCount\x12\x1c\n" +
-	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\x8d\x01\n" +
+	"paginationJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"\x8d\x01\n" +
 	"\x1fTestSubscriptionTemplateRequest\x12\x1d\n" +
 	"\n" +
 	"event_name\x18\x01 \x01(\tR\teventName\x12-\n" +
@@ -7564,11 +6939,9 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x18GetDeliveryStatusRequest\x12\x1f\n" +
 	"\vdelivery_id\x18\x01 \x01(\tR\n" +
 	"deliveryId\x12\x1c\n" +
-	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\x8d\x01\n" +
+	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"]\n" +
 	"\x19GetDeliveryStatusResponse\x124\n" +
-	"\bdelivery\x18\x01 \x01(\v2\x18.webhook.WebhookDeliveryR\bdelivery\x12\x1c\n" +
-	"\asuccess\x18\x02 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x03 \x01(\tB\x02\x18\x01R\amessage\"\xfd\x03\n" +
+	"\bdelivery\x18\x01 \x01(\v2\x18.webhook.WebhookDeliveryR\bdeliveryJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"\xfd\x03\n" +
 	"\x15ListDeliveriesRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1d\n" +
 	"\n" +
@@ -7601,12 +6974,10 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"deliveryId\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x03 \x01(\tR\twebhookId\x12\x14\n" +
-	"\x05force\x18\x04 \x01(\bR\x05force\"\x9b\x01\n" +
+	"\x05force\x18\x04 \x01(\bR\x05force\"k\n" +
 	"\x15RetryDeliveryResponse\x12#\n" +
 	"\rretried_count\x18\x01 \x01(\x05R\fretriedCount\x12!\n" +
-	"\fdelivery_ids\x18\x02 \x03(\tR\vdeliveryIds\x12\x1c\n" +
-	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\xda\x02\n" +
+	"\fdelivery_ids\x18\x02 \x03(\tR\vdeliveryIdsJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"\xda\x02\n" +
 	"\x0fDeliveryAttempt\x12\x1d\n" +
 	"\n" +
 	"attempt_id\x18\x01 \x01(\tR\tattemptId\x12\x1f\n" +
@@ -7649,28 +7020,22 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\rserver_errors\x18\r \x01(\x05R\fserverErrors\x12%\n" +
 	"\x0etimeout_errors\x18\x0e \x01(\x05R\rtimeoutErrors\x12%\n" +
 	"\x0enetwork_errors\x18\x0f \x01(\x05R\rnetworkErrors\x128\n" +
-	"\x18unexpected_status_errors\x18\x10 \x01(\x05R\x16unexpectedStatusErrors\"\xde\x01\n" +
+	"\x18unexpected_status_errors\x18\x10 \x01(\x05R\x16unexpectedStatusErrors\"\xae\x01\n" +
 	"\x18GetWebhookHealthResponse\x12\x1d\n" +
 	"\n" +
 	"webhook_id\x18\x03 \x01(\tR\twebhookId\x12.\n" +
 	"\x06health\x18\x04 \x01(\x0e2\x16.webhook.WebhookHealthR\x06health\x127\n" +
-	"\ametrics\x18\x05 \x01(\v2\x1d.webhook.WebhookHealthMetricsR\ametrics\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"\x89\x01\n" +
+	"\ametrics\x18\x05 \x01(\v2\x1d.webhook.WebhookHealthMetricsR\ametricsJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"\x89\x01\n" +
 	"\x1bListWebhooksByHealthRequest\x12.\n" +
 	"\x06health\x18\x01 \x01(\x0e2\x16.webhook.WebhookHealthR\x06health\x12:\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x1a.webhook.PaginationRequestR\n" +
-	"pagination\"\xf4\x01\n" +
+	"pagination\"\xa5\x01\n" +
 	"\x1cListWebhooksByHealthResponse\x126\n" +
 	"\bwebhooks\x18\x03 \x03(\v2\x1a.webhook.RegisteredWebhookR\bwebhooks\x12;\n" +
 	"\n" +
 	"pagination\x18\x05 \x01(\v2\x1b.webhook.PaginationResponseR\n" +
-	"pagination\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\x12#\n" +
-	"\vtotal_count\x18\x04 \x01(\x05B\x02\x18\x01R\n" +
-	"totalCount\"\x19\n" +
+	"paginationJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03J\x04\b\x04\x10\x05\"\x19\n" +
 	"\x17GetHealthSummaryRequest\"\xca\x01\n" +
 	"\rHealthSummary\x12#\n" +
 	"\rhealthy_count\x18\x01 \x01(\x05R\fhealthyCount\x12%\n" +
@@ -7678,11 +7043,9 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x0funhealthy_count\x18\x03 \x01(\x05R\x0eunhealthyCount\x12#\n" +
 	"\runknown_count\x18\x04 \x01(\x05R\funknownCount\x12\x1f\n" +
 	"\vtotal_count\x18\x05 \x01(\x05R\n" +
-	"totalCount\"\x88\x01\n" +
+	"totalCount\"X\n" +
 	"\x18GetHealthSummaryResponse\x120\n" +
-	"\asummary\x18\x03 \x01(\v2\x16.webhook.HealthSummaryR\asummary\x12\x1c\n" +
-	"\asuccess\x18\x01 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x02 \x01(\tB\x02\x18\x01R\amessage\"8\n" +
+	"\asummary\x18\x03 \x01(\v2\x16.webhook.HealthSummaryR\asummaryJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03\"8\n" +
 	"\x18GetNamespaceStatsRequest\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\"\xbf\x02\n" +
 	"\x0eNamespaceStats\x12%\n" +
@@ -7692,22 +7055,18 @@ const file_proto_webhook_proto_rawDesc = "" +
 	"\x15successful_deliveries\x18\x04 \x01(\x05R\x14successfulDeliveries\x12+\n" +
 	"\x11failed_deliveries\x18\x05 \x01(\x05R\x10failedDeliveries\x12-\n" +
 	"\x12pending_deliveries\x18\x06 \x01(\x05R\x11pendingDeliveries\x12!\n" +
-	"\fsuccess_rate\x18\a \x01(\x01R\vsuccessRate\"\xa4\x01\n" +
+	"\fsuccess_rate\x18\a \x01(\x01R\vsuccessRate\"t\n" +
 	"\x19GetNamespaceStatsResponse\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12-\n" +
-	"\x05stats\x18\x02 \x01(\v2\x17.webhook.NamespaceStatsR\x05stats\x12\x1c\n" +
-	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"H\n" +
+	"\x05stats\x18\x02 \x01(\v2\x17.webhook.NamespaceStatsR\x05statsJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"H\n" +
 	"\x10TemplateFunction\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\"\x1d\n" +
-	"\x1bGetTemplateFunctionsRequest\"\xb4\x01\n" +
+	"\x1bGetTemplateFunctionsRequest\"\x84\x01\n" +
 	"\x1cGetTemplateFunctionsResponse\x127\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x19.webhook.TemplateFunctionR\tfunctions\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\x12\x1c\n" +
-	"\asuccess\x18\x03 \x01(\bB\x02\x18\x01R\asuccess\x12\x1c\n" +
-	"\amessage\x18\x04 \x01(\tB\x02\x18\x01R\amessage\"\xea\x01\n" +
+	"totalCountJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05\"\xea\x01\n" +
 	"\x0eBatchJobStatus\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12\x14\n" +
 	"\x05total\x18\x02 \x01(\x05R\x05total\x12\x1c\n" +

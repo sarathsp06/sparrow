@@ -18,7 +18,6 @@ type WebhookRegistration struct {
 	Events      StringArray `db:"events" json:"events"`
 	URL         string      `db:"url" json:"url"`
 	Headers     JSONBMap    `db:"headers" json:"headers"`
-	Timeout     int         `db:"timeout" json:"timeout"` // Legacy timeout field (for backward compatibility)
 	Active      bool        `db:"active" json:"active"`
 	Description string      `db:"description" json:"description"`
 	Health      string      `db:"health" json:"health"`
@@ -29,6 +28,9 @@ type WebhookRegistration struct {
 	// Ed25519EncryptedPrivateKey holds the envelope-encrypted Ed25519 private key.
 	// Only populated on creation; used to derive the public key for API responses.
 	Ed25519EncryptedPrivateKey []byte `json:"-"`
+
+	// SignatureType controls which signing scheme is used: "hmac" (default) or "ed25519".
+	SignatureType string `json:"signature_type"`
 
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
@@ -299,19 +301,21 @@ type WebhookRegistrationRequest struct {
 	Description   string             `json:"description,omitempty"`
 	HTTPConfig    *WebhookHTTPConfig `json:"http_config,omitempty"`
 	RateLimitRPS  *float64           `json:"rate_limit_rps,omitempty"`
+	SignatureType string             `json:"signature_type,omitempty"` // "hmac" (default) or "ed25519"
 }
 
 // ToWebhookRegistration converts the request to a WebhookRegistration
 func (req WebhookRegistrationRequest) ToWebhookRegistration() (*WebhookRegistration, error) {
 	webhook := &WebhookRegistration{
-		ID:          req.ID,
-		Namespace:   req.Namespace,
-		Events:      StringArray(req.Events),
-		URL:         req.URL,
-		Headers:     JSONBMap(req.Headers),
-		Description: req.Description,
-		Active:      true,
-		Health:      "unknown",
+		ID:            req.ID,
+		Namespace:     req.Namespace,
+		Events:        StringArray(req.Events),
+		URL:           req.URL,
+		Headers:       JSONBMap(req.Headers),
+		Description:   req.Description,
+		Active:        true,
+		Health:        "unknown",
+		SignatureType: req.SignatureType,
 	}
 
 	if req.Active != nil {
@@ -332,9 +336,6 @@ func (req WebhookRegistrationRequest) ToWebhookRegistration() (*WebhookRegistrat
 	} else {
 		webhook.HTTPConfig = DefaultWebhookHTTPConfig()
 	}
-
-	// Set legacy timeout field for backward compatibility
-	webhook.Timeout = webhook.HTTPConfig.RequestTimeoutSeconds
 
 	return webhook, nil
 }

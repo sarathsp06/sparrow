@@ -949,7 +949,7 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateSubscription(ctx context.Cont
 }
 
 // UpdateWebhookConfig implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, updateMask []string) (err error) {
+func (_d WebhookServiceInterfaceWithTracing) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.UpdateWebhookConfig")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -965,6 +965,7 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateWebhookConfig(ctx context.Con
 				"description":   description,
 				"httpConfig":    httpConfig,
 				"secretHeaders": secretHeaders,
+				"signatureType": signatureType,
 				"updateMask":    updateMask}, map[string]interface{}{
 				"err": err})
 		} else if err != nil {
@@ -978,5 +979,5 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateWebhookConfig(ctx context.Con
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.UpdateWebhookConfig(ctx, webhookID, namespace, events, url, headers, timeout, active, description, httpConfig, secretHeaders, updateMask)
+	return _d.WebhookServiceInterface.UpdateWebhookConfig(ctx, webhookID, namespace, events, url, headers, timeout, active, description, httpConfig, secretHeaders, signatureType, updateMask)
 }

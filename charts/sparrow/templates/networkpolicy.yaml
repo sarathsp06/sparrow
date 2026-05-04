@@ -1,0 +1,53 @@
+{{- if .Values.networkPolicy.enabled -}}
+# NetworkPolicy: restrict traffic to minimize blast radius.
+# - Sparrow pods accept ingress only on HTTP/gRPC ports
+# - PostgreSQL pods accept ingress only from Sparrow pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "sparrow.fullname" . }}
+  labels:
+    {{- include "sparrow.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "sparrow.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: 8080
+          protocol: TCP
+        - port: 50051
+          protocol: TCP
+      {{- if .Values.networkPolicy.ingressFrom }}
+      from:
+        {{- toYaml .Values.networkPolicy.ingressFrom | nindent 8 }}
+      {{- end }}
+---
+{{- if .Values.postgresql.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "sparrow.fullname" . }}-postgresql
+  labels:
+    {{- include "sparrow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "sparrow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgresql
+  policyTypes:
+    - Ingress
+  ingress:
+    # Only Sparrow app pods can reach PostgreSQL
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "sparrow.selectorLabels" . | nindent 14 }}
+      ports:
+        - port: 5432
+          protocol: TCP
+{{- end }}
+{{- end }}

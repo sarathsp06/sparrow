@@ -104,7 +104,6 @@ func MainGRPC() {
 			"Authorization": "Bearer secret-token",
 			"X-App-Name":    "MyApp",
 		},
-		Timeout:     30,
 		Active:      true,
 		Description: "Webhook for user-related events",
 	}
@@ -212,7 +211,6 @@ func MainGRPC() {
 			"Content-Type":   "application/json",
 			"X-Service-Name": "OrderProcessor",
 		},
-		Timeout:     15,
 		Active:      true,
 		Description: "Webhook for order events with custom config",
 		HttpConfig: &pb.WebhookHTTPConfig{
@@ -235,7 +233,7 @@ func MainGRPC() {
 	} else {
 		log.Printf("Order webhook registered successfully:")
 		log.Printf("  Webhook ID: %s", registerResp2.WebhookId)
-		log.Printf("  Features: HMAC signing, custom retry logic, response capture")
+		log.Printf("  Features: Standard Webhooks signing, custom retry logic, response capture")
 	}
 
 	// Example 3: List registered webhooks (shows events from subscriptions)
@@ -486,7 +484,7 @@ func MainGRPC() {
 	log.Println("  - Label-based filtering: subscriptions match events by labels (key=value pairs)")
 	log.Println("  - Subscriptions with no label_filters receive ALL events for their event type")
 	log.Println("  - Template-based payload transformation per subscription")
-	log.Println("  - HMAC-SHA256 signing for webhook security")
+	log.Println("  - Standard Webhooks signing (HMAC-SHA256 + Ed25519) for webhook security")
 	log.Println("  - Health tracking and delivery retries with error classification")
 	log.Println("  - Test your webhooks at https://testhooks.sarathsadasivan.com/")
 }

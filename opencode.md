@@ -87,6 +87,21 @@ Sparrow supports **optional API key authentication** via the `SPARROW_API_KEY` e
 ├── db/
 │   └── migrations/      # 22 migration pairs (.up.sql / .down.sql)
 ├── web/                 # SvelteKit frontend source
+├── charts/
+│   └── sparrow/         # Helm chart for Kubernetes deployment
+│       ├── templates/
+│       │   ├── deployment.yaml
+│       │   ├── service.yaml
+│       │   ├── configmap.yaml
+│       │   ├── secret.yaml
+│       │   ├── ingress.yaml
+│       │   ├── networkpolicy.yaml
+│       │   ├── hpa.yaml
+│       │   ├── pdb.yaml
+│       │   ├── serviceaccount.yaml
+│       │   ├── _helpers.tpl
+│       │   └── postgresql/   # Optional built-in PG (dev/staging)
+│       └── values.yaml
 ├── buf.gen.yaml         # Buf code generation config (Go, JS/TS clients, protoc-gen-es for web UI)
 ├── buf.yaml             # Buf module config
 ├── webhook.proto        # Single proto file defining all 5 services
@@ -645,6 +660,21 @@ Startup order: postgres (healthy) -> sparrow (starts)
 2. **`builder`** (`golang:1.26-alpine`): Compiles `server` + `migrate` binaries with embedded UI
 3. **Final** (`distroless/static-debian12:nonroot`): Minimal runtime, ports 50051 + 8080
 
+### Helm Chart Security Hardening
+
+The Helm chart (`charts/sparrow/`) applies defense-in-depth for Kubernetes deployments:
+
+| Control | Detail |
+|---------|--------|
+| **Pod SecurityContext** | `runAsNonRoot: true`, `runAsUser: 65532`, `seccompProfile: RuntimeDefault` |
+| **Container SecurityContext** | `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities.drop: ALL` |
+| **automountServiceAccountToken** | `false` on both Sparrow and PostgreSQL pods (no K8s API access) |
+| **NetworkPolicy** | Optional (`networkPolicy.enabled`). Restricts Sparrow ingress to HTTP/gRPC ports. Restricts PG ingress to Sparrow pods only. Configurable `ingressFrom` for ingress controller access. |
+| **Secrets management** | `DATABASE_URL`, `SPARROW_ENCRYPTION_KEY`, and `SPARROW_API_KEY` stored in K8s Secret. Supports `existingSecret` for external secret management (Vault, Sealed Secrets). |
+| **podAnnotations** | Configurable for Vault Agent injection, Istio mTLS, Linkerd sidecar, etc. |
+| **PostgreSQL sslmode** | Configurable via `postgresql.auth.sslmode` (default `disable` for in-cluster; set `require`/`verify-full` for production). |
+| **Config checksums** | Pod annotations with SHA256 checksums of ConfigMap/Secret trigger rolling restarts on change. |
+
 ---
 
 ## Web UI (SvelteKit)
@@ -837,3 +867,4 @@ func (s *WebhookServer) DoSomething(ctx context.Context, req *pb.DoSomethingRequ
 | Idempotency | Apr 2026 | Idempotency keys on PushEvent via optional `id` field, partial unique index, `duplicate` flag in response, re-push bypasses dedup |
 | Rate Limiting | Apr 2026 | Per-webhook leaky bucket rate limiting (`rate_limit_rps`), HTTP 429 Retry-After parsing, `rate_limited` error category |
 | Ed25519 Signing | Apr 2026 | Dual HMAC-SHA256 + Ed25519 signing on every delivery, per-webhook keypair, public key exposed via API |
+| Helm Privacy Hardening | May 2026 | NetworkPolicy, automountServiceAccountToken: false, SPARROW_API_KEY as first-class secret, PG container capabilities drop, podAnnotations, sslmode config |
