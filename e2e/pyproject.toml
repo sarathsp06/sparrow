@@ -1,0 +1,15 @@
+[project]
+name = "sparrow-e2e"
+version = "0.1.0"
+description = "End-to-end tests for Sparrow webhook platform"
+requires-python = ">=3.11"
+dependencies = [
+    "robotframework>=7.0",
+    "robotframework-requests>=0.9",
+    "flask>=3.0",
+    "pynacl>=1.5",
+    "testcontainers[postgres]>=4.0",
+]
+
+[tool.uv]
+dev-dependencies = []

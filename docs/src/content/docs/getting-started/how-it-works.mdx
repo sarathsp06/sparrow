@@ -112,6 +112,10 @@ A **delivery** is a single attempt (or series of retry attempts) to send an even
 ## Key Design Decisions
 
 - **Async by default** — `PushEvent` returns immediately. Processing and delivery happen in background workers via a persistent job queue (River).
-- **At-least-once delivery** — retryable failures (server errors, timeouts, connection issues) are automatically retried. Non-retryable failures (DNS errors, TLS errors, 4xx responses) are recorded and not retried.
-- **Per-webhook health tracking** — Sparrow monitors consecutive failures, success rates, and response times for each webhook independently.
+- **At-least-once delivery** — retryable failures (server errors, timeouts, connection issues, rate limiting) are automatically retried. Non-retryable failures (DNS errors, TLS errors, 4xx responses) are recorded and not retried.
+- **Per-webhook health tracking** — Sparrow monitors consecutive failures, success rates, and response times for each webhook independently, with a state machine (healthy → degraded → unhealthy).
+- **Dual cryptographic signing** — every delivery is signed with both HMAC-SHA256 and Ed25519 using the [Standard Webhooks](https://www.standardwebhooks.com/) format. Consumers choose which signature to verify.
+- **10-category error classification** — failures are classified into specific categories (DNS, TLS, timeout, connection refused, rate limited, client error, server error, etc.) with retryability flags, so you know *why* a delivery failed.
+- **PostgreSQL only** — no Redis, no message broker. The River job queue runs inside PostgreSQL, keeping the operational footprint to a single database.
 - **Namespaces** — webhooks and events are organized into namespaces for logical separation (e.g., `billing`, `notifications`). A `default` namespace is always available.
+- **Soft schema validation** — event schemas produce warnings, not errors. Events are always accepted and stored, with a `schema_valid` flag for filtering.

@@ -19,6 +19,9 @@
       "label": "Getting Started",
       "items": [
         {
+          "slug": "getting-started/why-sparrow"
+        },
+        {
           "slug": "getting-started/installation"
         },
         {

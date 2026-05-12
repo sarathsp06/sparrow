@@ -16,16 +16,32 @@ Self-hosted webhook delivery platform with async fan-out, retries, health tracki
 
 ## Features
 
+### Delivery & Reliability
 - **Event-driven fan-out** -- push one event, deliver to all matching subscriptions
-- **Reliable delivery** -- at-least-once semantics with configurable retries and exponential backoff
-- **Idempotent event ingestion** -- optional idempotency keys on PushEvent to prevent duplicate processing
-- **Payload transformation** -- Go templates per subscription to reshape payloads before delivery
-- **Health tracking** -- per-webhook success rates, error classification, and automatic degradation detection
-- **HMAC signing** -- every delivery is signed so receivers can verify authenticity
-- **Encryption at rest** -- webhook secrets and sensitive headers are envelope-encrypted (AES-256-GCM) with per-record data encryption keys
+- **At-least-once delivery** -- configurable retries with exponential backoff
+- **Idempotent event ingestion** -- optional idempotency keys to prevent duplicate processing
+- **Per-webhook rate limiting** -- leaky bucket algorithm with HTTP 429 Retry-After parsing
+- **10-category error classification** -- DNS, TLS, timeout, connection refused, rate limited, and more -- each with retryability flags
+- **Bulk operations** -- deterministic snapshot-based batch re-push and retry (up to 10K items)
+
+### Security
+- **Dual webhook signing** -- every delivery is signed with both HMAC-SHA256 and Ed25519 ([Standard Webhooks](https://www.standardwebhooks.com/) format)
+- **Envelope encryption at rest** -- AES-256-GCM with per-record data encryption keys for webhook secrets and sensitive headers
+- **SSRF protection** -- blocks private/loopback/metadata IPs, validates redirect targets
+- **Optional API key auth** -- constant-time comparison, HTTP + gRPC support
+
+### Developer Experience
+- **Payload transformation** -- Go templates per subscription (50+ functions) to reshape payloads for different consumers
+- **Soft schema validation** -- warnings not errors; events are always accepted and stored
 - **Dual-protocol API** -- gRPC on `:50051` and Connect-RPC (HTTP/JSON) on `:8080`
-- **Web dashboard** -- embedded UI for managing webhooks, events, deliveries, and health
-- **Observability** -- OpenTelemetry traces, metrics, and structured logs via OTLP
+- **Web dashboard** -- embedded SvelteKit UI for managing webhooks, events, deliveries, and health
+- **Health tracking** -- per-webhook state machine (healthy/degraded/unhealthy) with rolling summaries
+
+### Operations
+- **PostgreSQL only** -- no Redis, no message broker, no external dependencies beyond one database
+- **OpenTelemetry** -- traces, metrics, and structured logs with job-level trace propagation
+- **Helm chart** -- security-hardened Kubernetes deployment (NetworkPolicy, read-only rootfs, non-root, seccomp)
+- **One-click deploy** -- Railway, Docker Compose, or any container platform
 
 ## Quick Start
 
@@ -85,7 +101,7 @@ PushEvent API
         -> track health per webhook
 ```
 
-Events are persisted before delivery. The [River](https://riverqueue.com) job queue provides at-least-once delivery with configurable retries (default: 3 attempts, 60s backoff). Failures are classified into retryable (5xx, timeout, connection refused, network error) and non-retryable (4xx, DNS, TLS) categories. Webhook secrets and sensitive headers are envelope-encrypted at rest using AES-256-GCM with per-record data encryption keys.
+Events are persisted before delivery. The [River](https://riverqueue.com) job queue provides at-least-once delivery with configurable retries (default: 3 attempts, 60s backoff). Failures are classified into 10 categories -- retryable (5xx, timeout, connection refused, network error, rate limited) and non-retryable (4xx, DNS, TLS) -- so you know *why* a delivery failed, not just *that* it failed. Every delivery is dual-signed with HMAC-SHA256 and Ed25519 using the [Standard Webhooks](https://www.standardwebhooks.com/) format. Webhook secrets and sensitive headers are envelope-encrypted at rest using AES-256-GCM with per-record data encryption keys.
 
 See the [architecture reference](docs/src/content/docs/reference/architecture.md) for the full pipeline design, error classification, and health state machine.
 

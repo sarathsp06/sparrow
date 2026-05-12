@@ -21,7 +21,14 @@ All configuration is done via environment variables. No config files needed.
 | `ENVIRONMENT` | No | -- | `development` or `production` (affects logging/OTel) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
 | `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of allowed CORS origins (e.g. `https://ui.example.com,https://admin.example.com`). Required when the UI is hosted separately from the API. In production (`ENVIRONMENT=production`), cross-origin requests are blocked by default; in development, all origins are allowed. |
-| `PUBLIC_API_URL` | No | `/` | API base URL for the frontend (dev only) |
+
+### Frontend Development Variables
+
+These variables are used only when running the SvelteKit web UI in development mode (`npm run dev`). They are **not** part of the Go server configuration.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PUBLIC_API_URL` | `/` | API base URL for the frontend dev server to proxy requests |
 
 ## Encryption
 

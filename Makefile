@@ -57,6 +57,12 @@ test: ## Run tests
 test-integration: ## Run integration tests (requires Docker for testcontainers)
 	go test -v -tags integration -timeout 120s ./internal/integration/...
 
+test-e2e: ## Run end-to-end tests (Robot Framework, requires Docker)
+	cd e2e && uv run robot --console verbose --outputdir results tests/
+
+test-e2e-report: test-e2e ## Run e2e tests and open HTML report
+	open e2e/results/report.html
+
 run:  ## Run the gRPC server
 	SPARROW_SERVE_UI=true DATABASE_URL=$(DATABASE_URL)  go run ./cmd/server
 
@@ -99,4 +105,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui release-dry-run run test test-integration clean generate generate-docs docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web book help
+.PHONY: build build-ui build-with-ui release-dry-run run test test-integration test-e2e test-e2e-report clean generate generate-docs docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web book help

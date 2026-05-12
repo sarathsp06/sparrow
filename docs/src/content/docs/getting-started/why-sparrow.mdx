@@ -1,0 +1,97 @@
+---
+title: Why Sparrow
+description: What makes Sparrow different from other webhook platforms, and how it compares to alternatives like Svix.
+sidebar:
+  order: 0
+---
+
+import { Card, CardGrid, Aside, Steps } from '@astrojs/starlight/components';
+
+Sparrow is a self-hosted webhook delivery platform built for teams that want full control over their webhook infrastructure. No per-message pricing, no vendor lock-in, no external dependencies beyond PostgreSQL.
+
+## What Sparrow Gives You
+
+<CardGrid>
+  <Card title="Production-Grade Delivery" icon="rocket">
+    At-least-once delivery with exponential backoff, 10-category error classification, per-webhook health tracking (healthy/degraded/unhealthy state machine), and automatic retry logic that distinguishes retryable failures from permanent ones.
+  </Card>
+  <Card title="Cryptographic Signing" icon="approve-check">
+    Every delivery is dual-signed with both HMAC-SHA256 and Ed25519 using the [Standard Webhooks](https://www.standardwebhooks.com/) format. Consumers choose which signature to verify. Per-webhook keypairs are generated automatically.
+  </Card>
+  <Card title="Encryption at Rest" icon="seti:lock">
+    Webhook secrets, signing keys, and sensitive headers are envelope-encrypted with AES-256-GCM and per-record data encryption keys. Not just "encrypted in the database" -- actual envelope encryption with key hierarchy.
+  </Card>
+  <Card title="Zero External Dependencies" icon="setting">
+    PostgreSQL is the only infrastructure requirement. No Redis, no message broker, no object storage. The [River](https://riverqueue.com) job queue runs inside PostgreSQL. One database to back up, monitor, and scale.
+  </Card>
+</CardGrid>
+
+## Feature Comparison
+
+The table below compares Sparrow with Svix (the most prominent open-source alternative). Both are capable platforms; the right choice depends on your deployment model and requirements.
+
+| Capability | Sparrow | Svix OSS |
+|-----------|---------|----------|
+| **Self-hosted, single binary** | Yes (distroless container, ~15MB) | Yes (but requires Redis + PostgreSQL) |
+| **Infrastructure dependencies** | PostgreSQL only | PostgreSQL + Redis |
+| **Webhook signing** | Dual HMAC-SHA256 + Ed25519 (Standard Webhooks) | HMAC-SHA256 (Standard Webhooks) |
+| **Encryption at rest** | AES-256-GCM envelope encryption with per-record DEKs | Application-level (varies) |
+| **Payload transformation** | Go templates per subscription (50+ functions) | Not in OSS |
+| **Event schema validation** | Soft validation (warnings, never rejects) | JSON Schema (hard reject) |
+| **Idempotent ingestion** | Built-in idempotency keys with dedup | Not in OSS |
+| **Per-webhook rate limiting** | Leaky bucket with DB-backed state | Not in OSS (cloud feature) |
+| **Health tracking** | Per-webhook state machine with rolling summaries | Endpoint status tracking |
+| **Error classification** | 10 categories (DNS, TLS, timeout, rate-limited, etc.) | Basic success/failure |
+| **Bulk operations** | Deterministic snapshot-based batch re-push/retry (up to 10K) | Not in OSS |
+| **Dual protocol API** | gRPC + Connect-RPC (HTTP/JSON) on separate ports | REST API |
+| **Web dashboard** | Embedded SvelteKit UI (13 pages) | Included |
+| **Observability** | OpenTelemetry (traces, metrics, logs) with job-level trace propagation | Logging |
+| **SSRF protection** | Built-in (blocks private/loopback/metadata IPs, validates redirects) | Built-in |
+| **Namespace isolation** | Built-in logical separation | Application-level |
+| **Client SDKs** | Go, TypeScript, Python (generated from proto) | Go, Python, Ruby, Java, JS, Kotlin, C#, PHP, Rust |
+| **Consumer app portal** | No (admin-only UI) | Yes (embeddable) |
+| **Multi-tenant SaaS mode** | No (single-tenant, self-hosted focus) | Yes |
+| **Pricing** | Free (MIT license) | Free OSS / paid cloud |
+
+### Where Sparrow is stronger
+
+- **Operational simplicity** -- one database, one binary, no Redis. Fewer moving parts means fewer failure modes in production.
+- **Cryptographic depth** -- dual signing (HMAC + Ed25519) and real envelope encryption are production security features that most webhook platforms skip.
+- **Payload transformation** -- Go template transforms per subscription let you reshape payloads for different consumers (Slack, PagerDuty, custom formats) without proxy layers.
+- **Error intelligence** -- 10 error categories with retryability classification. You know *why* a delivery failed (DNS resolution? TLS handshake? Rate limited? Connection refused?), not just *that* it failed.
+- **Bulk operations** -- snapshot-based batch re-push and retry with deterministic execution. What you filter is exactly what gets retried -- no race conditions from new data arriving between search and action.
+- **Observability** -- full OpenTelemetry integration with trace propagation through the job queue. Trace a single event from ingestion through fan-out to every delivery attempt.
+- **Idempotency** -- built-in deduplication on event ingestion prevents double-processing without application-level workarounds.
+- **Rate limiting** -- per-webhook delivery rate limiting with leaky bucket and HTTP 429 Retry-After parsing, all backed by PostgreSQL (no Redis).
+
+### Where Svix is stronger
+
+- **Client SDK breadth** -- 9+ language SDKs vs Sparrow's 3. If you need first-party Java, Ruby, C#, PHP, Kotlin, or Rust clients today, Svix has them.
+- **Consumer app portal** -- embeddable UI for your end users to manage their own webhook endpoints. Sparrow's UI is admin-only.
+- **Multi-tenant SaaS mode** -- Svix is designed for SaaS platforms where each customer manages their own webhooks. Sparrow is designed for teams running their own infrastructure.
+- **Managed cloud offering** -- Svix Cloud handles infrastructure for you. Sparrow is self-hosted only.
+
+## When to Choose Sparrow
+
+- You're building internal tooling and want webhook delivery behind your VPN
+- You want a single PostgreSQL dependency, not PostgreSQL + Redis
+- You need payload transformation without an external proxy
+- You want dual cryptographic signing (HMAC + Ed25519) out of the box
+- You care about detailed error classification and delivery observability
+- You don't want per-message pricing
+- You want to own your webhook infrastructure end-to-end
+
+## When to Consider Alternatives
+
+- You're building a SaaS product and need an embeddable consumer portal for your customers
+- You need first-party SDKs in 8+ languages today
+- You prefer a fully managed cloud service over self-hosting
+
+## Deployment Flexibility
+
+Sparrow runs anywhere you can run a container and connect to PostgreSQL:
+
+- **One-click deploy** on [Railway](https://railway.com/deploy/KzfSI3)
+- **Docker Compose** for local development and small deployments
+- **Kubernetes** with the included Helm chart (security-hardened: NetworkPolicy, read-only rootfs, non-root, seccomp, capabilities dropped)
+- **Any container platform** -- the distroless image is ~15MB with zero OS-level attack surface

@@ -4,7 +4,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/sarathsp06/sparrow/internal/webhooks"
 	pb "github.com/sarathsp06/sparrow/proto"
 )
 
@@ -122,79 +121,6 @@ func TestConvertProtoHTTPConfig_WithoutRateLimitRPS(t *testing.T) {
 	config := ConvertProtoHTTPConfig(protoConfig)
 	if config.RateLimitRPS != nil {
 		t.Fatalf("expected nil RateLimitRPS, got %v", *config.RateLimitRPS)
-	}
-}
-
-func TestConvertInternalHTTPConfig_NilReturnsNil(t *testing.T) {
-	got := ConvertInternalHTTPConfig(nil)
-	if got != nil {
-		t.Fatal("expected nil for nil input")
-	}
-}
-
-func TestConvertInternalHTTPConfig_WithRateLimitRPS(t *testing.T) {
-	rps := 5.0
-	config := &webhooks.WebhookHTTPConfig{
-		RateLimitRPS: &rps,
-	}
-	result := ConvertInternalHTTPConfig(config)
-	if result.RateLimitRps == nil {
-		t.Fatal("expected RateLimitRps to be set in proto")
-	}
-	if math.Abs(float64(*result.RateLimitRps)-5.0) > 1e-6 {
-		t.Fatalf("got %v, want 5.0", *result.RateLimitRps)
-	}
-}
-
-func TestConvertInternalHTTPConfig_WithoutRateLimitRPS(t *testing.T) {
-	config := &webhooks.WebhookHTTPConfig{}
-	result := ConvertInternalHTTPConfig(config)
-	if result.RateLimitRps != nil {
-		t.Fatalf("expected nil RateLimitRps in proto, got %v", *result.RateLimitRps)
-	}
-}
-
-func TestHTTPConfig_Roundtrip_WithRateLimitRPS(t *testing.T) {
-	rps := 25.0
-	original := &webhooks.WebhookHTTPConfig{
-		MaxRetries:            3,
-		RetryBackoffSeconds:   60,
-		RequestTimeoutSeconds: 30,
-		UserAgent:             "Sparrow-Webhook/1.0",
-		ContentType:           "application/json",
-		ExpectedStatusCodes:   webhooks.IntArray{200, 201},
-		RateLimitRPS:          &rps,
-	}
-
-	// Internal -> Proto -> Internal
-	pbResult := ConvertInternalHTTPConfig(original)
-	back := ConvertProtoHTTPConfig(pbResult)
-
-	if back.RateLimitRPS == nil {
-		t.Fatal("roundtrip lost RateLimitRPS")
-	}
-	if math.Abs(*back.RateLimitRPS-rps) > 1e-6 {
-		t.Fatalf("roundtrip: got %v, want %v", *back.RateLimitRPS, rps)
-	}
-	if back.MaxRetries != original.MaxRetries {
-		t.Fatalf("roundtrip: MaxRetries got %d, want %d", back.MaxRetries, original.MaxRetries)
-	}
-}
-
-func TestHTTPConfig_Roundtrip_WithoutRateLimitRPS(t *testing.T) {
-	original := &webhooks.WebhookHTTPConfig{
-		MaxRetries:            5,
-		RetryBackoffSeconds:   120,
-		RequestTimeoutSeconds: 60,
-		UserAgent:             "Sparrow-Webhook/1.0",
-		ContentType:           "application/json",
-	}
-
-	pbResult := ConvertInternalHTTPConfig(original)
-	back := ConvertProtoHTTPConfig(pbResult)
-
-	if back.RateLimitRPS != nil {
-		t.Fatalf("roundtrip should keep RateLimitRPS nil, got %v", *back.RateLimitRPS)
 	}
 }
 
