@@ -1,6 +1,6 @@
 ---
 title: Why Sparrow
-description: What makes Sparrow different from other webhook platforms, and how it compares to alternatives like Svix.
+description: What makes Sparrow different from other webhook platforms, and how it compares to Svix, Convoy, Hookdeck, AWS SNS, and building your own.
 sidebar:
   order: 0
 ---
@@ -28,64 +28,83 @@ Sparrow is a self-hosted webhook delivery platform built for teams that want ful
 
 ## Feature Comparison
 
-The table below compares Sparrow with Svix (the most prominent open-source alternative). Both are capable platforms; the right choice depends on your deployment model and requirements.
+### Sparrow vs the Landscape
+
+The table below compares Sparrow with the main alternatives for webhook delivery: [Svix](https://www.svix.com/) (open-source + cloud), [Convoy](https://getconvoy.io/) (open-source), [Hookdeck](https://hookdeck.com/) (SaaS), [AWS SNS](https://aws.amazon.com/sns/) (managed), and building it yourself (DIY).
+
+| Capability | Sparrow | Svix | Convoy | Hookdeck | AWS SNS | DIY |
+|-----------|---------|------|--------|----------|---------|-----|
+| **Fully open source (MIT)** | Yes | Partial (OSS core, paid features) | Yes (MPL-2.0) | No | No | Yes |
+| **Self-hosted** | Yes | Yes | Yes | No (SaaS) | No (Managed) | Yes |
+| **No per-message pricing** | Yes | No | Yes | No | No | Yes |
+| **Infrastructure dependencies** | PostgreSQL only | PostgreSQL + Redis | PostgreSQL + Redis (or Mongo + Redis) | SaaS | Managed | Varies |
+| **Webhook signing** | Dual HMAC-SHA256 + Ed25519 | HMAC-SHA256 | HMAC-SHA256 | HMAC-SHA256 | No | Manual |
+| **Encryption at rest** | AES-256-GCM envelope with per-record DEKs | Enterprise only | No | Managed | Managed | Manual |
+| **Payload transformation** | Go templates (50+ functions) | Paid feature | Yes (JS transform) | Yes (JS transform) | No | Manual |
+| **Per-webhook rate limiting** | Leaky bucket (DB-backed) | Cloud feature | Yes | Yes | Regional quotas | Manual |
+| **Health tracking** | State machine (healthy/degraded/unhealthy) | Endpoint status | Circuit breaker | Dashboard metrics | CloudWatch | Manual |
+| **Error classification** | 10 categories with retryability flags | Basic success/failure | Success/failure | Categorized | CloudWatch | Manual |
+| **Bulk retry/re-push** | Deterministic snapshot-based (up to 10K) | Not in OSS | Manual retry | UI retry | No | Manual |
+| **Idempotent ingestion** | Built-in dedup with idempotency keys | Not in OSS | Event IDs | Dedup available | Message dedup (5min) | Manual |
+| **gRPC / Connect-RPC** | Yes (dual protocol) | No (REST) | No (REST) | No (REST) | No | Manual |
+| **Web dashboard** | Embedded SvelteKit (13 pages) | Included | Included | Included | Console | No |
+| **Observability** | OpenTelemetry (traces + metrics + logs, job-level propagation) | Logging | Prometheus metrics | Dashboard | CloudWatch | Manual |
+| **SSRF protection** | Built-in (private IPs, redirects) | Built-in | Built-in | Managed | N/A | Manual |
+| **Client SDKs** | 3 (Go, Python, TypeScript) | 10+ | 4+ | 4+ | All AWS SDKs | 0 |
+| **Consumer app portal** | No | Yes (embeddable) | No | No | No | No |
+| **Multi-tenant SaaS mode** | No (single-tenant focus) | Yes | Yes | Yes | Yes | Manual |
+
+### Detailed Comparison: Sparrow vs Svix
+
+Since Svix is the closest competitor architecturally, here's a deeper look:
 
 | Capability | Sparrow | Svix OSS |
 |-----------|---------|----------|
-| **Self-hosted, single binary** | Yes (distroless container, ~15MB) | Yes (but requires Redis + PostgreSQL) |
-| **Infrastructure dependencies** | PostgreSQL only | PostgreSQL + Redis |
-| **Webhook signing** | Dual HMAC-SHA256 + Ed25519 (Standard Webhooks) | HMAC-SHA256 (Standard Webhooks) |
-| **Encryption at rest** | AES-256-GCM envelope encryption with per-record DEKs | Application-level (varies) |
-| **Payload transformation** | Go templates per subscription (50+ functions) | Not in OSS |
 | **Event schema validation** | Soft validation (warnings, never rejects) | JSON Schema (hard reject) |
-| **Idempotent ingestion** | Built-in idempotency keys with dedup | Not in OSS |
-| **Per-webhook rate limiting** | Leaky bucket with DB-backed state | Not in OSS (cloud feature) |
-| **Health tracking** | Per-webhook state machine with rolling summaries | Endpoint status tracking |
-| **Error classification** | 10 categories (DNS, TLS, timeout, rate-limited, etc.) | Basic success/failure |
-| **Bulk operations** | Deterministic snapshot-based batch re-push/retry (up to 10K) | Not in OSS |
-| **Dual protocol API** | gRPC + Connect-RPC (HTTP/JSON) on separate ports | REST API |
-| **Web dashboard** | Embedded SvelteKit UI (13 pages) | Included |
-| **Observability** | OpenTelemetry (traces, metrics, logs) with job-level trace propagation | Logging |
-| **SSRF protection** | Built-in (blocks private/loopback/metadata IPs, validates redirects) | Built-in |
 | **Namespace isolation** | Built-in logical separation | Application-level |
-| **Client SDKs** | Go, TypeScript, Python (generated from proto) | Go, Python, Ruby, Java, JS, Kotlin, C#, PHP, Rust |
-| **Consumer app portal** | No (admin-only UI) | Yes (embeddable) |
-| **Multi-tenant SaaS mode** | No (single-tenant, self-hosted focus) | Yes |
-| **Pricing** | Free (MIT license) | Free OSS / paid cloud |
+| **Dual protocol API** | gRPC on :50051 + Connect-RPC (HTTP/JSON) on :8080 | REST API only |
+| **Helm chart** | Security-hardened (NetworkPolicy, seccomp, read-only rootfs) | Available |
+| **Container image** | Distroless (~15MB), non-root | Standard |
 
 ### Where Sparrow is stronger
 
 - **Operational simplicity** -- one database, one binary, no Redis. Fewer moving parts means fewer failure modes in production.
-- **Cryptographic depth** -- dual signing (HMAC + Ed25519) and real envelope encryption are production security features that most webhook platforms skip.
-- **Payload transformation** -- Go template transforms per subscription let you reshape payloads for different consumers (Slack, PagerDuty, custom formats) without proxy layers.
+- **Cryptographic depth** -- dual signing (HMAC + Ed25519) and real envelope encryption are production security features that most webhook platforms skip or gate behind paid tiers.
+- **Payload transformation** -- Go template transforms per subscription let you reshape payloads for different consumers (Slack, PagerDuty, custom formats) without proxy layers. Available to all users, not a paid feature.
 - **Error intelligence** -- 10 error categories with retryability classification. You know *why* a delivery failed (DNS resolution? TLS handshake? Rate limited? Connection refused?), not just *that* it failed.
 - **Bulk operations** -- snapshot-based batch re-push and retry with deterministic execution. What you filter is exactly what gets retried -- no race conditions from new data arriving between search and action.
 - **Observability** -- full OpenTelemetry integration with trace propagation through the job queue. Trace a single event from ingestion through fan-out to every delivery attempt.
 - **Idempotency** -- built-in deduplication on event ingestion prevents double-processing without application-level workarounds.
 - **Rate limiting** -- per-webhook delivery rate limiting with leaky bucket and HTTP 429 Retry-After parsing, all backed by PostgreSQL (no Redis).
+- **No Redis** -- unlike Svix and Convoy, Sparrow uses PostgreSQL for everything including job queuing (via River). One fewer system to operate, monitor, and secure.
 
-### Where Svix is stronger
+### Where alternatives are stronger
 
-- **Client SDK breadth** -- 9+ language SDKs vs Sparrow's 3. If you need first-party Java, Ruby, C#, PHP, Kotlin, or Rust clients today, Svix has them.
-- **Consumer app portal** -- embeddable UI for your end users to manage their own webhook endpoints. Sparrow's UI is admin-only.
-- **Multi-tenant SaaS mode** -- Svix is designed for SaaS platforms where each customer manages their own webhooks. Sparrow is designed for teams running their own infrastructure.
-- **Managed cloud offering** -- Svix Cloud handles infrastructure for you. Sparrow is self-hosted only.
+- **Client SDK breadth** -- Svix has 10+ language SDKs vs Sparrow's 3. If you need first-party Java, Ruby, C#, PHP, Kotlin, or Rust clients today, Svix has them.
+- **Consumer app portal** -- Svix has an embeddable portal for end-users to manage their own webhook endpoints. No other tool offers this. Sparrow's UI is admin-only.
+- **Multi-tenant SaaS mode** -- Svix, Convoy, and Hookdeck are designed for SaaS platforms where each customer manages their own webhooks. Sparrow is designed for teams running their own infrastructure.
+- **Managed cloud offering** -- Svix Cloud and Hookdeck handle infrastructure for you. Sparrow is self-hosted only.
+- **JavaScript transforms** -- Convoy and Hookdeck use JavaScript for payload transformation, which may be more familiar to web developers than Go templates.
+- **Ecosystem maturity** -- Svix and Hookdeck have larger communities, more integrations, and are battle-tested at higher message volumes.
 
 ## When to Choose Sparrow
 
 - You're building internal tooling and want webhook delivery behind your VPN
 - You want a single PostgreSQL dependency, not PostgreSQL + Redis
-- You need payload transformation without an external proxy
+- You need payload transformation without paying for a premium tier
 - You want dual cryptographic signing (HMAC + Ed25519) out of the box
 - You care about detailed error classification and delivery observability
 - You don't want per-message pricing
 - You want to own your webhook infrastructure end-to-end
+- You already run PostgreSQL and don't want to add Redis to your stack
 
 ## When to Consider Alternatives
 
-- You're building a SaaS product and need an embeddable consumer portal for your customers
-- You need first-party SDKs in 8+ languages today
-- You prefer a fully managed cloud service over self-hosting
+- You're building a SaaS product and need an embeddable consumer portal for your customers (Svix)
+- You need first-party SDKs in 8+ languages today (Svix)
+- You prefer a fully managed cloud service over self-hosting (Svix Cloud, Hookdeck)
+- You need JavaScript-based payload transforms (Convoy, Hookdeck)
+- You're already on AWS and want minimal integration effort (SNS)
 
 ## Deployment Flexibility
 
