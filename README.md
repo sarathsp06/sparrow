@@ -105,6 +105,99 @@ Events are persisted before delivery. The [River](https://riverqueue.com) job qu
 
 See the [architecture reference](docs/src/content/docs/reference/architecture.md) for the full pipeline design, error classification, and health state machine.
 
+## Verifying Webhook Signatures
+
+Every delivery includes three [Standard Webhooks](https://www.standardwebhooks.com/) headers:
+
+| Header | Example |
+|--------|---------|
+| `webhook-id` | `msg_abc123-def456` |
+| `webhook-timestamp` | `1716048000` (Unix seconds) |
+| `webhook-signature` | `v1,K7gNU3sdo+OL...` or `v1a,RjB2mN...` |
+
+The signed message is always: `{webhook-id}.{webhook-timestamp}.{raw request body}` -- the exact bytes of the JSON body, not re-serialized.
+
+The `webhook-signature` prefix tells you which algorithm was used:
+- `v1,` -- HMAC-SHA256 (symmetric, requires the shared webhook secret)
+- `v1a,` -- Ed25519 (asymmetric, requires only the public key from the API)
+
+### Verifying HMAC-SHA256 (`v1,`)
+
+```python
+import hmac, hashlib, base64
+
+def verify_hmac(body: bytes, secret: str, headers: dict) -> bool:
+    msg_id = headers["webhook-id"]
+    timestamp = headers["webhook-timestamp"]
+    signature = headers["webhook-signature"]  # "v1,<base64>"
+
+    # Extract the base64 portion after "v1,"
+    expected_b64 = signature.removeprefix("v1,")
+
+    # Reconstruct the signed message
+    message = f"{msg_id}.{timestamp}.{body.decode()}"
+
+    # Compute HMAC-SHA256
+    computed = hmac.new(secret.encode(), message.encode(), hashlib.sha256).digest()
+    computed_b64 = base64.b64encode(computed).decode()
+
+    return hmac.compare_digest(computed_b64, expected_b64)
+```
+
+```go
+func VerifyHMAC(body []byte, secret, msgID, timestamp, signatureHeader string) bool {
+    // Extract "v1,<base64>" -> "<base64>"
+    b64Sig, _ := strings.CutPrefix(signatureHeader, "v1,")
+
+    message := msgID + "." + timestamp + "." + string(body)
+    mac := hmac.New(sha256.New, []byte(secret))
+    mac.Write([]byte(message))
+    expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+
+    return hmac.Equal([]byte(expected), []byte(b64Sig))
+}
+```
+
+### Verifying Ed25519 (`v1a,`)
+
+The public key is returned in the `signing_public_key` field when you register or retrieve a webhook.
+
+```python
+import base64
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+def verify_ed25519(body: bytes, public_key_b64: str, headers: dict) -> bool:
+    msg_id = headers["webhook-id"]
+    timestamp = headers["webhook-timestamp"]
+    signature = headers["webhook-signature"]  # "v1a,<base64>"
+
+    sig_bytes = base64.b64decode(signature.removeprefix("v1a,"))
+    pub_key = Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key_b64))
+
+    message = f"{msg_id}.{timestamp}.{body.decode()}".encode()
+
+    try:
+        pub_key.verify(sig_bytes, message)
+        return True
+    except Exception:
+        return False
+```
+
+```go
+func VerifyEd25519(body []byte, publicKeyB64, msgID, timestamp, signatureHeader string) bool {
+    b64Sig, _ := strings.CutPrefix(signatureHeader, "v1a,")
+    sig, _ := base64.StdEncoding.DecodeString(b64Sig)
+    pubKey, _ := base64.StdEncoding.DecodeString(publicKeyB64)
+
+    message := []byte(msgID + "." + timestamp + "." + string(body))
+    return ed25519.Verify(ed25519.PublicKey(pubKey), message, sig)
+}
+```
+
+### Replay Protection
+
+Always validate the `webhook-timestamp` header to prevent replay attacks. Reject deliveries where the timestamp is more than 5 minutes from your server's current time.
+
 ## Configuration
 
 All configuration is via environment variables:
