@@ -1,11 +1,11 @@
 [project]
 name = "sparrow-e2e"
 version = "0.1.0"
-description = "End-to-end tests for Sparrow webhook platform"
+description = "End-to-end tests for Sparrow webhook platform (Gauge + Python)"
 requires-python = ">=3.11"
 dependencies = [
-    "robotframework>=7.0",
-    "robotframework-requests>=0.9",
+    "getgauge>=0.4",
+    "requests>=2.31",
     "flask>=3.0",
     "pynacl>=1.5",
     "testcontainers[postgres]>=4.0",

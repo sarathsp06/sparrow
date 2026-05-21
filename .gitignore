@@ -93,7 +93,13 @@ docs/index.html
 .serena/
 .opencode/
 SESSION_NOTES.md
-
+# E2E generated artifacts
+e2e/reports/
+e2e/.gauge/
+e2e/logs/
+e2e/.venv/
+e2e/**/__pycache__/
+*.py[cod]
 # Security reports (generated, not committed)
 security_best_practices_report.md
 sparrow-threat-model.md
