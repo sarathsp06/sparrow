@@ -9,6 +9,8 @@ import { Card, CardGrid, Aside, Steps } from '@astrojs/starlight/components';
 
 Sparrow is a self-hosted webhook delivery platform built for teams that want full control over their webhook infrastructure. No per-message pricing, no vendor lock-in, no external dependencies beyond PostgreSQL.
 
+Sparrow is MIT-licensed, and all core features are available in the open-source codebase (including envelope encryption, webhook signing, retries, and health tracking).
+
 ## What Sparrow Gives You
 
 <CardGrid>
@@ -89,13 +91,13 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 
 ## When to Choose Sparrow
 
-- You're building internal tooling and want webhook delivery behind your VPN
+- You need outbound webhook delivery for internal platforms or products you operate
+- You want to self-host and keep control of data, keys, and delivery behavior
 - You want a single PostgreSQL dependency, not PostgreSQL + Redis
-- You need payload transformation without paying for a premium tier
+- You need payload transformation and security features (encryption/signing) in the MIT-licensed OSS edition
 - You want dual cryptographic signing (HMAC + Ed25519) out of the box
 - You care about detailed error classification and delivery observability
-- You don't want per-message pricing
-- You want to own your webhook infrastructure end-to-end
+- You want to avoid vendor per-message billing (you still pay your own infra costs)
 - You already run PostgreSQL and don't want to add Redis to your stack
 
 ## When to Consider Alternatives
@@ -103,6 +105,7 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 - You're building a SaaS product and need an embeddable consumer portal for your customers (Svix)
 - You need first-party SDKs in 8+ languages today (Svix)
 - You prefer a fully managed cloud service over self-hosting (Svix Cloud, Hookdeck)
+- You need API-level/global request rate limiting today (Sparrow currently provides per-webhook delivery rate limiting)
 - You need JavaScript-based payload transforms (Convoy, Hookdeck)
 - You're already on AWS and want minimal integration effort (SNS)
 
