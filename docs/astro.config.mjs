@@ -18,8 +18,8 @@ export default defineConfig({
       components: proto2astroConfig.components,
       customCss: ['./src/styles/custom.css'],
       expressiveCode: {
-        themes: ['starlight-dark'],
-        useStarlightDarkModeSwitch: false,
+        themes: ['github-light', 'github-dark'],
+        useStarlightDarkModeSwitch: true,
       },
     }),
   ],
