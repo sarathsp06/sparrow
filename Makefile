@@ -31,15 +31,23 @@ docker-purge: ## Stop and remove Docker containers, networks, volumes, and image
 ## -- Helm / Kubernetes --
 
 CHART_DIR := charts/sparrow
+HELM_FAKE_ENCRYPTION_KEY := 0000000000000000000000000000000000000000000000000000000000000000
+HELM_FAKE_DATABASE_URL := postgresql://user:pass@db:5432/sparrow?sslmode=disable
 
 helm-lint: ## Lint the Helm chart
-	helm lint $(CHART_DIR)
+	helm lint $(CHART_DIR) \
+		--set secrets.encryptionKey="$(HELM_FAKE_ENCRYPTION_KEY)" \
+		--set secrets.databaseURL="$(HELM_FAKE_DATABASE_URL)"
 
 helm-template: ## Render chart templates locally (dry-run)
-	helm template sparrow $(CHART_DIR) --set secrets.databaseURL="postgresql://user:pass@db:5432/sparrow?sslmode=disable"
+	helm template sparrow $(CHART_DIR) \
+		--set secrets.encryptionKey="$(HELM_FAKE_ENCRYPTION_KEY)" \
+		--set secrets.databaseURL="$(HELM_FAKE_DATABASE_URL)"
 
 helm-template-pg: ## Render chart templates with bundled PostgreSQL enabled
-	helm template sparrow $(CHART_DIR) --set postgresql.enabled=true
+	helm template sparrow $(CHART_DIR) \
+		--set postgresql.enabled=true \
+		--set secrets.encryptionKey="$(HELM_FAKE_ENCRYPTION_KEY)"
 
 helm-package: ## Package the Helm chart into a .tgz archive
 	mkdir -p build
@@ -117,6 +125,6 @@ fmt: ## Format the code
 	goimports -local github.com/sarathsp06/sparrow/  -w .
 
 help: ## Show this help message
-	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 .PHONY: build build-ui build-with-ui release-dry-run run test test-integration test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate generate-docs docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web book help
