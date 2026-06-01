@@ -157,6 +157,8 @@ nav.sidebar a[aria-current='page'] {
 .sl-markdown-content th,
 .sl-markdown-content td {
   border: 1px solid var(--paper-border);
+  padding: 0.85rem 1rem;
+  vertical-align: top;
 }
 
 .sl-markdown-content th {
@@ -164,6 +166,10 @@ nav.sidebar a[aria-current='page'] {
   font: 600 0.69rem/1.2 'Inter', sans-serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+.sl-markdown-content table code {
+  white-space: nowrap;
 }
 
 pre {

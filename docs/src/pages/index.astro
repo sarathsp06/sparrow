@@ -10,13 +10,13 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 ---
 
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sparrow — Webhook Infrastructure for Developers</title>
   <meta name="description" content="Open-source webhook delivery with guaranteed delivery, intelligent retries, dual signatures, and OpenTelemetry observability. One binary, one database." />
-  <meta name="color-scheme" content="dark" />
+  <meta name="color-scheme" content="light" />
   <link rel="icon" href={favicon} type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -341,6 +341,30 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 
 /* --- Reset / Base --- */
 .sp {
+  --sp-font-body: 'Crimson Pro', Georgia, serif;
+  --sp-font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --sp-surface: #f7f3ec;
+  --sp-surface-container-lowest: #fdfaf4;
+  --sp-surface-container-low: #f6efe4;
+  --sp-surface-container: #efe7d9;
+  --sp-surface-container-high: #e6dccb;
+  --sp-surface-container-highest: #dbcebb;
+
+  --sp-on-surface: #26211d;
+  --sp-on-surface-variant: #6a6157;
+  --sp-outline: #8a7c6d;
+  --sp-outline-variant: #d4c7b5;
+
+  --sp-primary: #7d4f2f;
+  --sp-primary-container: #8b5f41;
+  --sp-brand-primary-hover: #73492d;
+  --sp-secondary: #2f5d88;
+  --sp-tertiary: #a16a2e;
+
+  --sp-radius: 0.24rem;
+  --sp-radius-lg: 0.32rem;
+
   margin: 0; padding: 0;
   font-family: var(--sp-font-body);
   font-size: 14px;
@@ -367,7 +391,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 /* --- Nav --- */
 .sp-nav {
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-  background: rgba(18, 19, 25, 0.8);
+  background: rgba(247, 243, 236, 0.9);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--sp-outline-variant);
@@ -408,7 +432,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   padding: 0.375rem 0.875rem;
   font-family: var(--sp-font-body); font-size: 13px; font-weight: 600;
   border-radius: var(--sp-radius);
-  background: var(--sp-primary-container); color: #fff;
+  background: var(--sp-primary-container); color: #fffaf3;
   transition: background 0.12s, box-shadow 0.12s;
   border: none; letter-spacing: -0.01em;
 }
@@ -439,8 +463,8 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 .sp-hero-mesh {
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse 60% 50% at 25% 0%, rgba(129,140,248,0.08), transparent 60%),
-    radial-gradient(ellipse 40% 60% at 75% 100%, rgba(93,230,255,0.04), transparent 50%);
+    radial-gradient(ellipse 60% 50% at 25% 0%, rgba(125,79,47,0.1), transparent 60%),
+    radial-gradient(ellipse 40% 60% at 75% 100%, rgba(47,93,136,0.08), transparent 50%);
 }
 .sp-hero-grid {
   position: relative; z-index: 1;
