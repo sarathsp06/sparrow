@@ -235,16 +235,16 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
           <p>Go template transforms per subscription with safe fallback to envelope payload on failure.</p>
         </div>
         <div class="sp-cap">
-          <h3>Idempotency keys</h3>
-          <p>Deduplicate events at push time with optional idempotency keys and partial unique indexes.</p>
+          <h3>Envelope encryption</h3>
+          <p>Webhook secrets and sensitive headers are protected with AES-256-GCM envelope encryption and per-record keys.</p>
         </div>
         <div class="sp-cap">
           <h3>Per-webhook rate limits</h3>
           <p>Leaky bucket rate limiting per webhook. 429 Retry-After parsing with cap at 15 minutes.</p>
         </div>
         <div class="sp-cap">
-          <h3>Namespace isolation</h3>
-          <p>Organize webhooks into namespaces with independent subscriptions, deliveries, and health.</p>
+          <h3>Dual signing</h3>
+          <p>Every delivery includes HMAC-SHA256 and Ed25519 signatures so consumers can verify with shared secrets or public keys.</p>
         </div>
         <div class="sp-cap">
           <h3>Batch operations</h3>
