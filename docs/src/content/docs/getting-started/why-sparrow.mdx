@@ -101,26 +101,6 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 - **Hookdeck OSS scope** -- Hookdeck Outpost is open source and can be self-hosted, while Hookdeck's core platform remains SaaS.
 - **Comparison drift** -- vendor plans and packaging change frequently; verify critical buying decisions against current vendor docs.
 
-## When to Choose Sparrow
-
-- You need outbound webhook delivery for internal platforms or products you operate
-- You want to self-host and keep control of data, keys, and delivery behavior
-- You want a single PostgreSQL dependency, not PostgreSQL + Redis
-- You need payload transformation and security features (encryption/signing) in the MIT-licensed OSS edition
-- You want dual cryptographic signing (HMAC + Ed25519) out of the box
-- You care about detailed error classification and delivery observability
-- You want to avoid vendor per-message billing (you still pay your own infra costs)
-- You already run PostgreSQL and don't want to add Redis to your stack
-
-## When to Consider Alternatives
-
-- You're building a SaaS product and need an embeddable consumer portal for your customers (Svix)
-- You need first-party SDKs in many languages today (evaluate Svix and other alternatives)
-- You prefer a fully managed cloud service over self-hosting (Svix Cloud, Hookdeck)
-- You need API-level/global request rate limiting today (Sparrow currently provides per-webhook delivery rate limiting)
-- You need JavaScript-based payload transforms (Convoy, Hookdeck)
-- You're already on AWS and want minimal integration effort (SNS)
-
 ## Deployment Flexibility
 
 Sparrow runs anywhere you can run a container and connect to PostgreSQL:
