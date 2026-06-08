@@ -3,7 +3,7 @@ title: Error Classification
 description: How Sparrow classifies delivery errors and determines retry behavior
 ---
 
-Sparrow classifies every delivery error into one of 9 categories. The classification determines whether the delivery is retried or permanently failed.
+Sparrow classifies every delivery error into one of 10 categories. The classification determines whether the delivery is retried or permanently failed.
 
 ## Error Categories
 
@@ -17,6 +17,8 @@ Sparrow classifies every delivery error into one of 9 categories. The classifica
 | `network_error` | **Yes** | Other network errors (ECONNRESET, EPIPE, EHOSTUNREACH) |
 | `dns_error` | No | DNS resolution failed (no such host) |
 | `tls_error` | No | TLS/SSL handshake failure (certificate errors) |
+| `rate_limited` | **Yes** | HTTP 429 response. Retried after `Retry-After` delay (doesn't count as attempt) |
+| `unexpected_status` | No | HTTP 2xx/3xx response that did not match `expected_status_codes` |
 | `unknown` | No | Unclassified error |
 
 ## Retry Behavior

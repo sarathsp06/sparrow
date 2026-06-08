@@ -117,6 +117,11 @@ func (j *jobInserter) Insert(ctx context.Context, args river.JobArgs) (*rivertyp
 }
 
 func (j *jobInserter) InsertOpts(ctx context.Context, args river.JobArgs) *river.InsertOpts {
+	var opts river.InsertOpts
+	if optArgs, ok := args.(river.JobArgsWithInsertOpts); ok {
+		opts = optArgs.InsertOpts()
+	}
+
 	// get trace id and set that as metadata
 	carrier := propagation.MapCarrier{}
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
@@ -124,9 +129,8 @@ func (j *jobInserter) InsertOpts(ctx context.Context, args river.JobArgs) *river
 	if err != nil {
 		j.logger.ErrorContext(ctx, "Failed to marshal trace metadata", "error", err)
 	}
-	return &river.InsertOpts{
-		Metadata: carrierJSON,
-	}
+	opts.Metadata = carrierJSON
+	return &opts
 }
 
 // BatchInsert inserts multiple jobs into the queue.

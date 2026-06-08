@@ -3,9 +3,12 @@ package webhooks
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"regexp"
 	"slices"
@@ -411,6 +414,23 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 		return "", time.Time{}, fmt.Errorf("failed to register webhook: %w", err)
 	}
 
+	// Always generate a Standard Webhook secret if not provided
+	if registration.WebhookSecret == nil {
+		secret, err := generateWebhookSecret()
+		if err != nil {
+			return "", time.Time{}, fmt.Errorf("failed to generate webhook secret: %w", err)
+		}
+		encSecret, err := s.EncryptWebhookSecret(secret)
+		if err != nil {
+			return "", time.Time{}, fmt.Errorf("failed to encrypt webhook secret: %w", err)
+		}
+		registration.WebhookSecret = encSecret
+		// Update the record with the secret
+		if err := s.webhookRepo.UpdateWebhookConfig(ctx, tenantID, registration.ID, namespace, registration.Events, registration.URL, registration.Headers, registration.Timeout, registration.Active, registration.Description, registration.SecretHeaders, string(registration.SignatureType), nil); err != nil {
+			s.logger.WarnContext(ctx, "Failed to update webhook with generated secret", "webhook_id", registration.ID, "error", err)
+		}
+	}
+
 	if s.metrics != nil {
 		s.metrics.WebhookRegistrations.Add(ctx, 1)
 		s.metrics.ActiveWebhooks.Add(ctx, 1)
@@ -524,13 +544,25 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	}
 	storeWebhook.Headers = headersMap
 
-	// Encrypt webhook secret if provided
+	// Encrypt webhook secret if provided, or generate one if missing
 	if webhookReg.HTTPConfig.WebhookSecret != "" {
 		encSecret, err := s.EncryptWebhookSecret(webhookReg.HTTPConfig.WebhookSecret)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encrypt webhook secret: %w", err)
 		}
 		storeWebhook.WebhookSecret = encSecret
+	} else {
+		// Auto-generate a secret if missing to ensure all webhooks are signed
+		secret, err := generateWebhookSecret()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate webhook secret: %w", err)
+		}
+		encSecret, err := s.EncryptWebhookSecret(secret)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt generated webhook secret: %w", err)
+		}
+		storeWebhook.WebhookSecret = encSecret
+		webhookReg.HTTPConfig.WebhookSecret = secret // Return the plain secret in the response
 	}
 
 	// Generate Ed25519 keypair only when signature_type is "ed25519".
@@ -1282,14 +1314,20 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 
 		// Queue the webhook for delivery.
 		// Manual retries never expire -- use far-future sentinel so TTL doesn't apply.
-		_, err = s.jobInserter.Insert(ctx, &queue.WebhookArgs{
-			DeliveryID: delivery.ID.String(),
-			WebhookID:  delivery.WebhookID.String(),
-			EventID:    delivery.EventID.String(),
-			ExpiresAt:  store.NoExpiryTime,
-			Namespace:  webhook.Namespace,
-			TenantID:   tenantID.String(),
-		})
+		args := &queue.WebhookArgs{
+			DeliveryID:  delivery.ID.String(),
+			WebhookID:   delivery.WebhookID.String(),
+			EventID:     delivery.EventID.String(),
+			ExpiresAt:   store.NoExpiryTime,
+			Namespace:   webhook.Namespace,
+			TenantID:    tenantID.String(),
+			MaxAttempts: delivery.MaxAttempts,
+		}
+		if delivery.SubscriptionID != nil {
+			args.SubscriptionID = delivery.SubscriptionID.String()
+		}
+
+		_, err = s.jobInserter.Insert(ctx, args)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "Failed to queue webhook for resubmission",
 				"delivery_id", delivery.ID,
@@ -2466,4 +2504,15 @@ func (s *WebhookService) CancelRetry(ctx context.Context, retryID string) error 
 	ctx, span := s.tracer.Start(ctx, "WebhookService.CancelRetry")
 	defer span.End()
 	return s.cancelBatch(ctx, retryID, store.BatchTypeDeliveryRetry)
+}
+
+// generateWebhookSecret generates a new cryptographically random secret
+// in Standard Webhooks format: "whsec_" prefix + base64 encoded entropy.
+func generateWebhookSecret() (string, error) {
+	// 24 bytes of entropy = 32 chars in base64
+	key := make([]byte, 24)
+	if _, err := io.ReadFull(rand.Reader, key); err != nil {
+		return "", fmt.Errorf("failed to generate random bytes: %w", err)
+	}
+	return "whsec_" + base64.StdEncoding.EncodeToString(key), nil
 }

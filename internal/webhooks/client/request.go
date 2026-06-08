@@ -12,6 +12,7 @@ import (
 	"maps"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -102,25 +103,30 @@ func BuildRequest(ctx context.Context, dr *DeliveryRequest) (*http.Request, erro
 	// Only the scheme selected by SignatureType is used:
 	//   "hmac" (default) -> v1, prefix (HMAC-SHA256)
 	//   "ed25519"        -> v1a, prefix (Ed25519)
-	if dr.Secret != "" {
+	if dr.Secret != "" || len(dr.Ed25519PrivateKey) > 0 {
 		msgID := "msg_" + dr.DeliveryID
 		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 
 		req.Header.Set("webhook-id", msgID)
 		req.Header.Set("webhook-timestamp", timestamp)
 
-		var sig string
-		switch dr.SignatureType {
-		case "ed25519":
-			if len(dr.Ed25519PrivateKey) == ed25519.PrivateKeySize {
-				sig = "v1a," + generateEd25519Signature(dr.Payload, dr.Ed25519PrivateKey, msgID, timestamp)
+		var signatures []string
+
+		// Always include HMAC signature if secret is present
+		if dr.Secret != "" {
+			sig, err := generateHMACSignature(dr.Payload, dr.Secret, msgID, timestamp)
+			if err == nil {
+				signatures = append(signatures, "v1,"+sig)
 			}
-		default: // "hmac" or empty (backward compat)
-			sig = "v1," + generateHMACSignature(dr.Payload, dr.Secret, msgID, timestamp)
 		}
 
-		if sig != "" {
-			req.Header.Set("webhook-signature", sig)
+		// Include Ed25519 signature if private key is present
+		if len(dr.Ed25519PrivateKey) == ed25519.PrivateKeySize {
+			signatures = append(signatures, "v1a,"+generateEd25519Signature(dr.Payload, dr.Ed25519PrivateKey, msgID, timestamp))
+		}
+
+		if len(signatures) > 0 {
+			req.Header.Set("webhook-signature", strings.Join(signatures, " "))
 		}
 	}
 
@@ -129,18 +135,40 @@ func BuildRequest(ctx context.Context, dr *DeliveryRequest) (*http.Request, erro
 
 // generateHMACSignature generates an HMAC-SHA256 signature per Standard Webhooks spec.
 // Signs "{msgID}.{timestamp}.{payload}" and returns base64-encoded signature.
-func generateHMACSignature(payload []byte, secret, msgID, timestamp string) string {
-	message := msgID + "." + timestamp + "." + string(payload)
-	h := hmac.New(sha256.New, []byte(secret))
-	h.Write([]byte(message))
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
+// It handles Standard Webhook secrets (starts with whsec_ prefix and base64 encoded).
+func generateHMACSignature(payload []byte, secret, msgID, timestamp string) (string, error) {
+	rawSecret := []byte(secret)
+
+	// Standard Webhooks: "The secret is a base64 encoded string.
+	// A secret is a string that starts with whsec_ followed by a base64 encoded string."
+	if strings.HasPrefix(secret, "whsec_") {
+		var err error
+		rawSecret, err = base64.StdEncoding.DecodeString(strings.TrimPrefix(secret, "whsec_"))
+		if err != nil {
+			return "", fmt.Errorf("failed to decode Standard Webhook secret: %w", err)
+		}
+	}
+
+	h := hmac.New(sha256.New, rawSecret)
+	h.Write([]byte(msgID))
+	h.Write([]byte("."))
+	h.Write([]byte(timestamp))
+	h.Write([]byte("."))
+	h.Write(payload)
+	return base64.StdEncoding.EncodeToString(h.Sum(nil)), nil
 }
 
 // generateEd25519Signature signs the payload with an Ed25519 private key per Standard Webhooks spec.
 // Signs "{msgID}.{timestamp}.{payload}" and returns base64-encoded signature.
 func generateEd25519Signature(payload []byte, privateKey []byte, msgID, timestamp string) string {
-	message := []byte(msgID + "." + timestamp + "." + string(payload))
-	sig := ed25519.Sign(ed25519.PrivateKey(privateKey), message)
+	var buf bytes.Buffer
+	buf.WriteString(msgID)
+	buf.WriteString(".")
+	buf.WriteString(timestamp)
+	buf.WriteString(".")
+	buf.Write(payload)
+
+	sig := ed25519.Sign(ed25519.PrivateKey(privateKey), buf.Bytes())
 	return base64.StdEncoding.EncodeToString(sig)
 }
 

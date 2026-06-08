@@ -29,9 +29,9 @@ Sparrow accepts webhook registrations and event definitions, fans out events to 
       }'
     ```
 
-4. **Sparrow fans out** — the event worker finds all active subscriptions matching the event name and namespace, applies any payload transforms, and creates a delivery job for each.
+4. **Sparrow fans out** — the event worker finds all active subscriptions matching the event name, namespace, and **label filters**, applies any payload transforms, and creates a delivery job for each.
 
-5. **Webhook delivery** — the webhook worker sends an HTTP POST to each URL with the payload, HMAC signature (if configured), and Sparrow headers. Failed deliveries are retried with exponential backoff.
+5. **Webhook delivery** — the webhook worker sends an HTTP POST to each URL with the payload, **Standard Webhooks signatures** (HMAC and/or Ed25519), and Sparrow headers. Failed deliveries are retried with exponential backoff.
 
 6. **Track results** — query delivery status, health metrics, and error categories through the API or the web UI.
 

@@ -54,18 +54,19 @@ EventService.PushEvent()
     v
 EventProcessingWorker.Work()
     │  1. Load event from DB
-    │  2. Query matching subscriptions (tenant_id + namespace + event_name)
+    │  2. Query matching subscriptions (tenant_id + namespace + event_name + labels)
     │  3. For each subscription: apply Go template transform (if enabled)
     │  4. Batch-insert all webhook_delivery records (single multi-row INSERT)
     │  5. Batch-enqueue all WebhookArgs jobs (River InsertMany)
     v
 WebhookWorker.Work()
     │  1. Load delivery from DB
-    │  2. HTTP POST to webhook URL (with headers, HMAC, timeout)
-    │  3. Record delivery_attempt
-    │  4. Update delivery status (success/failed/retrying)
-    │  5. Update webhook_health_events + webhook_health_state
-    │  6. If failed + retries remaining: re-enqueue with backoff
+    │  2. Check for rate limit availability (Leaky Bucket via PostgreSQL)
+    │  3. HTTP POST to webhook URL (with headers, Standard Webhooks signing, timeout)
+    │  4. Record delivery_attempt
+    │  5. Update delivery status (success/failed/retrying)
+    │  6. Update webhook_health_events + webhook_health_state
+    │  7. If failed + retries remaining: re-enqueue with backoff
     v
 Target URL receives webhook payload
 ```
@@ -95,8 +96,9 @@ Event-sourced health calculation with a 24-hour lookback window:
 A centralized, OTel-instrumented HTTP client (`internal/webhooks/client/`):
 
 - **Connection pooling**: 100 max idle connections, 10 per host, 90s idle timeout
-- **HMAC signing**: `X-Sparrow-Signature-256` header using `HMAC-SHA256(timestamp + "." + body, secret)` (Stripe/GitHub pattern)
-- **Template engine**: Go `text/template` with LRU cache (100 entries, SHA-256 keyed), ~20 built-in helper functions (json, base64, urlencode, string manipulation, etc.)
+- **Signing**: Support for both HMAC-SHA256 and Ed25519 using [Standard Webhooks](https://www.standardwebhooks.com/) format.
+- **Leaky Bucket**: Per-webhook rate limiting implemented via atomic PostgreSQL `UPDATE` statements. Workers "snooze" jobs when rate limits are hit.
+- **Template engine**: Go `text/template` with LRU cache (100 entries, SHA-256 keyed), ~50 built-in helper functions (json, base64, urlencode, string manipulation, etc.)
 - **Object pooling**: `sync.Pool` for `bytes.Buffer`, `[]byte` slices, and header maps to reduce GC pressure
 - **Header merging**: Subscription-level headers override webhook-level defaults
 - **In-process metrics**: Lock-free atomic counters for request totals, error categories, cache hit rates, and response time statistics
