@@ -5,14 +5,89 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.1] - 2026-04-10
+## [1.4.0] - 2026-06-22
+
+### Added
+
+- OKF knowledge bundle at `okf/` covering architecture, packages, services, database schema, frontend, and DevOps — auto-regeneratable from source
+- Dual-signature webhook signing key auto-generation on registration (Ed25519 keypair created automatically)
+- Contributor guide (`CONTRIBUTING.md`)
 
 ### Changed
 
-- Landing page rewritten with honest positioning: "Webhook delivery you own." hero, 4 focused feature cards, comparison table that includes rows where Sparrow loses, and "When to use / When not to" section
-- SDK guides moved from standalone "SDK Guides" sidebar section into "Getting Started" for a natural onboarding flow
-- Client Libraries reference page thinned to a pointer page (full content now lives in SDK guides)
-- Removed enterprise-grade language, stats bar, and "Recommended" badge from landing page comparison
+- Docs hardened: fragile counts (RPCs, migrations, tables, error categories) removed — authoritative data lives in OKF
+- Landing page capabilities updated to reflect encryption and signing
+- Documentation adopted paper-style theme with hardened comparison claims
+- Landing page comparison table improved spacing and removed "choose/alternatives" sections
+
+## [1.3.5] - 2026-06-10
+
+### Added
+
+- End-to-end retry integration test with Gauge test suite
+- Comparison table expanded to include Convoy, Hookdeck, AWS SNS, and Zeplo
+
+### Changed
+
+- OSS positioning and fit guidance clarified
+- Helm validation targets made self-contained
+- README updated with accurate info and e2e test integration
+
+## [1.3.4] - 2026-05-28
+
+### Changed
+
+- Landing page replaced with redirect to `/webhooks` for unified UX
+- Docs landing page replaced with Starlight splash page
+- Network policy and signing configurations updated
+
+### Fixed
+
+- Dark mode code block readability and inline code contrast in docs
+
+## [1.3.3] - 2026-05-15
+
+### Added
+
+- Ed25519 asymmetric webhook signing (dual HMAC + Ed25519) — every delivery signed with both `v1,` and `v1a,` signatures
+- Migration 000022: `ed25519_private_key` column on `webhook_registrations`
+- Docker image build and push to GHCR in release workflow
+
+## [1.3.2] - 2026-05-01
+
+### Added
+
+- Interactive Table of Contents with internal PDF links in Svelte 5 tutorial
+- opencode.json for automated agent-based code review on every task
+
+### Changed
+
+- Tutorial PDF generation migrated from ReportLab to Typst
+- Tutorial content hardened with improved accuracy and Svelte 5 best practices
+- opencode.md synced with codebase state
+
+### Fixed
+
+- Orphaned heading prevention and table splitting across pages in Typst PDF
+- Double code block borders in tutorial output
+
+## [1.3.1] - 2026-04-20
+
+### Added
+
+- Svelte 5 tutorial PDF with FiraCode/Poppins fonts and generative cover design
+
+## [1.3.0] - 2026-04-15
+
+### Added
+
+- Per-webhook rate limiting with leaky bucket algorithm and HTTP 429 Retry-After parsing
+- Migration 000021: `rate_limit_rps` column on `webhook_registrations`, `webhook_rate_limit_state` table
+- `rate_limited` error category (retryable)
+
+### Fixed
+
+- Client packaging files (Go/Python/TypeScript) preserved across `make generate`
 
 ## [1.2.0] - 2026-04-10
 
