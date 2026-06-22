@@ -3,7 +3,7 @@ title: Error Classification
 description: How Sparrow classifies delivery errors and determines retry behavior
 ---
 
-Sparrow classifies every delivery error into one of 10 categories. The classification determines whether the delivery is retried or permanently failed.
+Sparrow classifies every delivery error into categories. The classification determines whether the delivery is retried or permanently failed.
 
 ## Error Categories
 

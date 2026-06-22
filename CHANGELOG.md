@@ -82,7 +82,7 @@ async fan-out, HMAC signing, health tracking, and a built-in management UI.
   (Webhook, Event, Subscription, Delivery, Health) and 1 Go-only service (Namespace)
 - Async event fan-out via River job queue with configurable worker pools
 - HTTP webhook delivery with HMAC-SHA256 signing, redirect following, and response capture
-- Error classification into 9 categories with automatic retryability detection
+- Error classification with automatic retryability detection
 - Go template payload transformation on subscriptions with graceful fallback
 - Soft JSON Schema validation -- events are always accepted, invalid payloads tagged with warnings
 - Envelope encryption for webhook secrets and sensitive headers

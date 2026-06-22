@@ -21,7 +21,7 @@ Self-hosted webhook delivery platform with async fan-out, retries, health tracki
 - **At-least-once delivery** -- configurable retries with exponential backoff
 - **Idempotent event ingestion** -- optional idempotency keys to prevent duplicate processing
 - **Per-webhook rate limiting** -- leaky bucket algorithm with HTTP 429 Retry-After parsing
-- **10-category error classification** -- DNS, TLS, timeout, connection refused, rate limited, and more -- each with retryability flags
+- **Error classification** -- DNS, TLS, timeout, connection refused, rate limited, and more -- each with retryability flags
 - **Bulk operations** -- deterministic snapshot-based batch re-push and retry (up to 10K items)
 
 ### Security
@@ -31,7 +31,7 @@ Self-hosted webhook delivery platform with async fan-out, retries, health tracki
 - **Optional API key auth** -- constant-time comparison, HTTP + gRPC support
 
 ### Developer Experience
-- **Payload transformation** -- Go templates per subscription (50+ functions) to reshape payloads for different consumers
+- **Payload transformation** -- Go templates per subscription with built-in helpers to reshape payloads for different consumers
 - **Soft schema validation** -- warnings not errors; events are always accepted and stored
 - **Dual-protocol API** -- gRPC on `:50051` and Connect-RPC (HTTP/JSON) on `:8080`
 - **Web dashboard** -- embedded SvelteKit UI for managing webhooks, events, deliveries, and health
@@ -101,7 +101,7 @@ PushEvent API
         -> track health per webhook
 ```
 
-Events are persisted before delivery. The [River](https://riverqueue.com) job queue provides at-least-once delivery with configurable retries (default: 3 attempts, 60s backoff). Failures are classified into 10 categories -- retryable (5xx, timeout, connection refused, network error, rate limited) and non-retryable (4xx, DNS, TLS) -- so you know *why* a delivery failed, not just *that* it failed. Every delivery is dual-signed with HMAC-SHA256 and Ed25519 using the [Standard Webhooks](https://www.standardwebhooks.com/) format. Webhook secrets and sensitive headers are envelope-encrypted at rest using AES-256-GCM with per-record data encryption keys.
+Events are persisted before delivery. The [River](https://riverqueue.com) job queue provides at-least-once delivery with configurable retries (default: 3 attempts, 60s backoff). Failures are classified into categories -- retryable (5xx, timeout, connection refused, network error, rate limited) and non-retryable (4xx, DNS, TLS) -- so you know *why* a delivery failed, not just *that* it failed. Every delivery is dual-signed with HMAC-SHA256 and Ed25519 using the [Standard Webhooks](https://www.standardwebhooks.com/) format. Webhook secrets and sensitive headers are envelope-encrypted at rest using AES-256-GCM with per-record data encryption keys.
 
 See the [architecture reference](docs/src/content/docs/reference/architecture.md) for the full pipeline design, error classification, and health state machine.
 

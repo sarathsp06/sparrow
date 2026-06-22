@@ -55,7 +55,7 @@ The table below compares Sparrow with the main alternatives for webhook delivery
 | **Bulk retry/re-push** | Deterministic snapshot-based (up to 10K) | Not in OSS | Manual retry | UI retry | No | Manual |
 | **Idempotent ingestion** | Built-in dedup with idempotency keys | Application-level (no OSS ingest dedup) | Event IDs | Dedup available | Message dedup (5min) | Manual |
 | **gRPC / Connect-RPC** | Yes (dual protocol) | No (REST) | No (REST) | No (REST) | No | Manual |
-| **Web dashboard** | Embedded SvelteKit (13 pages) | Included | Included | Included | Console | No |
+| **Web dashboard** | Embedded SvelteKit | Included | Included | Included | Console | No |
 | **Tracing & metrics** | OpenTelemetry (traces + metrics + logs, job-level propagation) | Logging | Prometheus metrics | Dashboard | CloudWatch | Manual |
 | **SSRF protection** | Built-in (private IPs, redirects) | Built-in controls (plus proxy best practices) | Built-in controls / IP filtering | Managed | N/A | Manual |
 | **Client SDKs** | 3 (Go, Python, TypeScript) | Broad coverage | Multiple | Multiple | All AWS SDKs | 0 |

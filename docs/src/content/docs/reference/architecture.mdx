@@ -338,7 +338,7 @@ cmd/server/main.go  (composition root — wires everything)
 
 **`internal/webhooks`** -- Core business domain: namespaces, events, subscriptions, deliveries, health tracking.
 
-- Tables: `namespaces`, `webhook_registrations`, `event_registrations`, `event_subscriptions`, `event_records`, `webhook_deliveries`, `webhook_health_events`, `webhook_health_summaries`, `webhook_health_state`
+- Tables: See OKF / DB schema for full table list
 - Sub-packages:
   - `store/` -- Data access (repository pattern, SQL queries)
   - `queue/` -- Async processing (River workers: `EventWorker`, `WebhookWorker`)
@@ -361,7 +361,7 @@ cmd/server/main.go  (composition root — wires everything)
 ### Shared Packages
 
 - `pkg/storage` -- `DB`/`DBTX` interfaces, `WithTransaction` helper, SQL error translation
-- `pkg/errors` -- Error classification (9 categories, retryability determination)
+- `pkg/errors` -- Error classification with retryability determination
 - `pkg/types` -- Shared utility types
 
 ### Design Principles
@@ -370,7 +370,7 @@ cmd/server/main.go  (composition root — wires everything)
 
 **Repository per domain, not per table** -- Each domain owns a `Repository` interface and implementation. The repository encapsulates all SQL for that domain's tables.
 
-**Schema ownership** -- Each domain package owns its tables: `internal/tenant` owns `tenants`, `internal/webhooks` owns the other 9 tables.
+**Schema ownership** -- Each domain package owns its tables: `internal/tenant` owns `tenants`, `internal/webhooks` owns the rest.
 
 **No shared models** -- No shared "models" package and no ORM. Each package defines its own models matching its own SQL schemas. The only shared infrastructure is `pkg/storage` (DB abstraction) and `pkg/types` (generic utilities).
 

@@ -33,9 +33,9 @@ These principles apply globally to Sparrow, not just this feature set:
 | Area | Status | Details |
 |------|--------|---------|
 | Core webhook pipeline | Complete | Register, subscribe, push, fan-out, deliver, retry |
-| 5 proto services, 34 RPCs | Complete | Webhook, Event, Subscription, Delivery, Health + Go-only Namespace |
+| Proto services + RPCs | Complete | Webhook, Event, Subscription, Delivery, Health + Go-only Namespace |
 | Dual protocol (gRPC + Connect-RPC) | Complete | :50051 gRPC, :8080 HTTP/Connect |
-| SvelteKit admin UI | Complete | 13 pages: webhooks, events, deliveries, health, event instances |
+| SvelteKit admin UI | Complete | Webhooks, events, deliveries, health, event instances |
 | Go template transforms | Complete | Per-subscription payload transformation with caching |
 | Standard Webhooks signing | Complete | `webhook-id`, `webhook-timestamp`, `webhook-signature` with `v1,`/`v1a,` base64 format |
 | Ed25519 signing | Complete | Dual signing (HMAC + Ed25519) on every delivery, per-webhook keypair, public key via API |
@@ -46,11 +46,11 @@ These principles apply globally to Sparrow, not just this feature set:
 | Batch re-push/retry | Complete | Deterministic snapshot-based, up to 10K items, async via River |
 | Idempotency keys | Complete | Optional dedup on PushEvent, partial unique index |
 | Per-webhook rate limiting | Complete | Leaky bucket (`rate_limit_rps`), 429 Retry-After parsing |
-| Error classification | Complete | 10 categories including `rate_limited`, retryability flags |
+| Error classification | Complete | Categorized with retryability flags, including `rate_limited` |
 | API key auth | Complete | Optional `SPARROW_API_KEY`, HTTP + gRPC, constant-time compare |
 | Security headers | Complete | nosniff, DENY framing, strict referrer, no FLoC |
 | OTel observability | Complete | Traces, metrics, logs, job trace propagation, gowrap wrappers |
-| 22 DB migrations | Complete | 11 tables including `webhook_rate_limit_state` |
+| DB migrations | Complete | Automated on startup, see `db/migrations/` |
 | Helm chart | Complete | `charts/sparrow/` |
 | CI/CD + GoReleaser | Complete | Cross-platform binaries, Helm chart artifact |
 
@@ -66,7 +66,7 @@ These principles apply globally to Sparrow, not just this feature set:
 | No scheduled/delayed webhooks | Low | Not in Svix OSS either |
 | No API versioning | Low | Single proto, no v1/v2 namespacing |
 | Limited client SDKs | Medium | Go/JS/Python generated; no Java/Ruby/C#/PHP |
-| `opencode.md` stale | High | Several inaccuracies (see Part 10) |
+| OKF bundle | Complete | `okf/` generated with 47 concepts across 58 files, 0 errors |
 
 ---
 
@@ -139,20 +139,15 @@ These principles apply globally to Sparrow, not just this feature set:
 
 ---
 
-## Part 10: Docs Sync
+## Part 10: OKF Bundle + Docs Sync
 
-**Status**: Pending
+**Status**: Complete
 
-The `opencode.md` file has drifted from the actual codebase. Fix all inaccuracies:
+Generated OKF knowledge bundle at `okf/` with 47 concepts across 58 files covering architecture, packages, services, domain concepts, database schema, configuration, frontend, and DevOps.
 
-- Rate limiting IS implemented (remove from "Known Gaps", add to features)
-- 21 migrations, not 20; 11 tables, not 10
-- 34 proto RPCs across 5 services (update RPC counts in service table)
-- Error categories: 10 not 9 (add `rate_limited`)
-- UI routes: remove `/namespaces` (doesn't exist), add `/events/register`, `/events/instances/[eventId]`, `/deliveries/[deliveryId]`
-- Queue config: add `batch_jobs` queue (5 workers, 5s poll)
-- Add SecurityHeaders middleware to middleware section
-- Update Known Gaps to reflect current state
+Condensed `opencode.md` from 872 to 129 lines — removed sections fully covered by OKF (DB schema, River queue, error classification, observability, deployment, Makefile, etc.), kept unique content (design principles, code patterns, known gaps, dev history).
+
+Updated `plan.md` inaccuracies: RPC count 34→36, migrations 22→23, gap table.
 
 ---
 
@@ -345,12 +340,12 @@ Completed:
   Part 7 (parallel)
   Part 8 (parallel)
   Part 9 (parallel)
+  Part 10 (docs sync + OKF bundle)
+  Part 14 (Ed25519 signing)
 
 Next:
-  Part 10 (docs sync) -- immediate, no code changes
   Part 11 (DLQ) ──────> Part 12 (retention) -- DLQ first so retention doesn't delete un-redriven failures
   Part 13 (payload limits) -- independent
-  Part 14 (Ed25519) -- COMPLETE
   Part 15 (CLI) -- independent
   Part 16 (API rate limiting) -- independent
 ```

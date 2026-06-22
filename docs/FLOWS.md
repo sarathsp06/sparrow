@@ -261,7 +261,7 @@ WebhookWorker.Work(job)
   │  ┌─────────────── RESPONSE HANDLING ───────────────┐
   │  │                                                  │
   ├─ :220-244 — TRANSPORT ERROR (no HTTP response):
-  │    ClassifyError() → one of 10 categories
+   │    ClassifyError() → error category
   │    Update delivery → StatusFailed
   │    Record health event + update health state
   │    Non-retryable (dns_error, tls_error) → return nil (done)
