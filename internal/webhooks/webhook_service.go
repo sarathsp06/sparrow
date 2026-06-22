@@ -426,7 +426,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 		}
 		registration.WebhookSecret = encSecret
 		// Update the record with the secret
-		if err := s.webhookRepo.UpdateWebhookConfig(ctx, tenantID, registration.ID, namespace, registration.Events, registration.URL, registration.Headers, registration.Timeout, registration.Active, registration.Description, registration.SecretHeaders, string(registration.SignatureType), nil); err != nil {
+		if err := s.webhookRepo.UpdateWebhook(ctx, tenantID, registration); err != nil {
 			s.logger.WarnContext(ctx, "Failed to update webhook with generated secret", "webhook_id", registration.ID, "error", err)
 		}
 	}
