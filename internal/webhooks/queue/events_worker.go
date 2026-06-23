@@ -20,17 +20,19 @@ import (
 // EventProcessingWorker processes events and triggers webhook deliveries
 type EventProcessingWorker struct {
 	river.WorkerDefaults[EventArgs]
-	logger      *slog.Logger
-	webhookRepo store.RepositoryInterface
-	jobInserter JobInserter
+	logger          *slog.Logger
+	subscriptionRepo store.SubscriptionRepository
+	eventRepo       store.EventRepository
+	jobInserter     JobInserter
 }
 
 // NewEventProcessingWorker creates a new event processing worker with a river client
-func NewEventProcessingWorker(webhookRepo store.RepositoryInterface, jobInserter JobInserter) *EventProcessingWorker {
+func NewEventProcessingWorker(subscriptionRepo store.SubscriptionRepository, eventRepo store.EventRepository, jobInserter JobInserter) *EventProcessingWorker {
 	return &EventProcessingWorker{
-		webhookRepo: webhookRepo,
-		logger:      logger.NewLogger("event-processing-worker"),
-		jobInserter: jobInserter,
+		subscriptionRepo: subscriptionRepo,
+		eventRepo:        eventRepo,
+		logger:           logger.NewLogger("event-processing-worker"),
+		jobInserter:      jobInserter,
 	}
 }
 
@@ -52,7 +54,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 
 	// Store the event record - this should have already been stored by the service layer
 	// but let's verify and update if needed
-	existingEvent, err := w.webhookRepo.GetEventByID(ctx, tenantID, uuid.MustParse(args.EventID))
+	existingEvent, err := w.eventRepo.GetEventByID(ctx, tenantID, uuid.MustParse(args.EventID))
 	if err != nil {
 		w.logger.ErrorContext(ctx, "Event record not found in database", "error", err, "event_id", args.EventID)
 		return fmt.Errorf("event record not found: %w", err)
@@ -64,7 +66,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	}
 
 	// Find all subscriptions for this namespace/event with webhook details (including label matching)
-	subscriptions, err := w.webhookRepo.GetSubscriptionsWithWebhooksByEvent(ctx, tenantID, args.Namespace, args.Event, args.Labels)
+	subscriptions, err := w.subscriptionRepo.GetSubscriptionsWithWebhooksByEvent(ctx, tenantID, args.Namespace, args.Event, args.Labels)
 	if err != nil {
 		w.logger.ErrorContext(ctx, "Failed to get event subscriptions", "error", err)
 		return err
@@ -132,7 +134,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	}
 
 	// Batch-insert all delivery records (single multi-row INSERT).
-	if err := w.webhookRepo.BatchCreateDeliveries(ctx, tenantID, deliveries); err != nil {
+	if err := w.eventRepo.BatchCreateDeliveries(ctx, tenantID, deliveries); err != nil {
 		w.logger.ErrorContext(ctx, "Failed to batch-create delivery records", "error", err, "count", len(deliveries))
 		return fmt.Errorf("batch create deliveries: %w", err)
 	}
@@ -146,7 +148,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		// Compensation: remove orphaned delivery records since the jobs
 		// that would process them could not be created.
 		for _, d := range deliveries {
-			if delErr := w.webhookRepo.DeleteDeliveryByID(ctx, d.ID); delErr != nil {
+			if delErr := w.eventRepo.DeleteDeliveryByID(ctx, d.ID); delErr != nil {
 				w.logger.ErrorContext(ctx, "Failed to delete orphaned delivery record",
 					"error", delErr,
 					"delivery_id", d.ID,

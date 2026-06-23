@@ -24,13 +24,17 @@ const progressUpdateInterval = 25
 type BatchJobWorker struct {
 	river.WorkerDefaults[BatchJobArgs]
 	logger      *slog.Logger
-	webhookRepo store.RepositoryInterface
+	batchRepo   store.BatchRepository
+	eventRepo   store.EventRepository
+	webhookRepo store.WebhookRepository
 	jobInserter JobInserter
 }
 
 // NewBatchJobWorker creates a new batch job worker.
-func NewBatchJobWorker(webhookRepo store.RepositoryInterface, jobInserter JobInserter) *BatchJobWorker {
+func NewBatchJobWorker(batchRepo store.BatchRepository, eventRepo store.EventRepository, webhookRepo store.WebhookRepository, jobInserter JobInserter) *BatchJobWorker {
 	return &BatchJobWorker{
+		batchRepo:   batchRepo,
+		eventRepo:   eventRepo,
 		webhookRepo: webhookRepo,
 		logger:      logger.NewLogger("batch-job-worker"),
 		jobInserter: jobInserter,
@@ -52,7 +56,7 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 	tenantID := uuid.MustParse(args.TenantID)
 	batchID := uuid.MustParse(args.BatchID)
 
-	batch, err := w.webhookRepo.GetBatchJob(ctx, tenantID, batchID)
+	batch, err := w.batchRepo.GetBatchJob(ctx, tenantID, batchID)
 	if err != nil {
 		return fmt.Errorf("failed to get batch job: %w", err)
 	}
@@ -68,7 +72,7 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 
 	data, err := batch.GetData()
 	if err != nil {
-		_ = w.webhookRepo.UpdateBatchJobStatus(ctx, batchID, store.BatchStatusFailed)
+		_ = w.batchRepo.UpdateBatchJobStatus(ctx, batchID, store.BatchStatusFailed)
 		return fmt.Errorf("failed to parse batch data: %w", err)
 	}
 
@@ -85,19 +89,19 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 	case store.BatchTypeDeliveryRetry:
 		processed, failed = w.processDeliveryRetry(ctx, tenantID, batchID, batch.Namespace, data.ItemIDs)
 	default:
-		_ = w.webhookRepo.UpdateBatchJobStatus(ctx, batchID, store.BatchStatusFailed)
+		_ = w.batchRepo.UpdateBatchJobStatus(ctx, batchID, store.BatchStatusFailed)
 		return fmt.Errorf("unknown batch job type: %s", batch.JobType)
 	}
 
 	// Final progress flush
-	if err := w.webhookRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed); err != nil {
+	if err := w.batchRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed); err != nil {
 		w.logger.ErrorContext(ctx, "Failed to update final batch progress", "error", err)
 	}
 
 	// Re-read the batch from DB to get cumulative totals for the terminal
 	// status decision. The local processed/failed counters only reflect
 	// the last chunk (they're reset after each periodic flush).
-	batch, err = w.webhookRepo.GetBatchJob(ctx, tenantID, batchID)
+	batch, err = w.batchRepo.GetBatchJob(ctx, tenantID, batchID)
 	if err != nil {
 		w.logger.ErrorContext(ctx, "Failed to re-read batch for terminal status", "error", err)
 		// Fall back to using the last-chunk values if re-read fails
@@ -111,7 +115,7 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 	if failed > 0 && processed == 0 {
 		finalStatus = store.BatchStatusFailed
 	}
-	if err := w.webhookRepo.UpdateBatchJobStatus(ctx, batchID, finalStatus); err != nil {
+	if err := w.batchRepo.UpdateBatchJobStatus(ctx, batchID, finalStatus); err != nil {
 		w.logger.ErrorContext(ctx, "Failed to set batch terminal status", "error", err)
 	}
 
@@ -129,13 +133,13 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 	for i, idStr := range itemIDs {
 		// Check cancellation periodically
 		if i > 0 && i%progressUpdateInterval == 0 {
-			batch, err := w.webhookRepo.GetBatchJob(ctx, tenantID, batchID)
+			batch, err := w.batchRepo.GetBatchJob(ctx, tenantID, batchID)
 			if err == nil && batch != nil && batch.Status == store.BatchStatusCancelled {
 				w.logger.InfoContext(ctx, "Batch cancelled mid-processing", "batch_id", batchID, "processed_so_far", processed)
 				return processed, failed
 			}
 			// Flush progress
-			_ = w.webhookRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed)
+			_ = w.batchRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed)
 			processed = 0
 			failed = 0
 		}
@@ -148,7 +152,7 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 		}
 
 		// Load original event
-		original, err := w.webhookRepo.GetEventByID(ctx, tenantID, eventID)
+		original, err := w.eventRepo.GetEventByID(ctx, tenantID, eventID)
 		if err != nil || original == nil {
 			w.logger.ErrorContext(ctx, "Failed to load event for repush", "event_id", idStr, "error", err)
 			failed++
@@ -171,7 +175,7 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 			CreatedAt:   time.Now(),
 		}
 
-		if err := w.webhookRepo.StoreEvent(ctx, tenantID, newEvent); err != nil {
+		if err := w.eventRepo.StoreEvent(ctx, tenantID, newEvent); err != nil {
 			w.logger.ErrorContext(ctx, "Failed to store re-pushed event", "original_id", idStr, "error", err)
 			failed++
 			continue
@@ -191,7 +195,7 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 		if err != nil {
 			w.logger.ErrorContext(ctx, "Failed to enqueue re-pushed event", "event_id", newID, "error", err)
 			// Compensate: delete orphaned event record
-			_ = w.webhookRepo.DeleteEventByID(ctx, tenantID, newID)
+			_ = w.eventRepo.DeleteEventByID(ctx, tenantID, newID)
 			failed++
 			continue
 		}
@@ -206,13 +210,13 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 	for i, idStr := range itemIDs {
 		// Check cancellation periodically
 		if i > 0 && i%progressUpdateInterval == 0 {
-			batch, err := w.webhookRepo.GetBatchJob(ctx, tenantID, batchID)
+			batch, err := w.batchRepo.GetBatchJob(ctx, tenantID, batchID)
 			if err == nil && batch != nil && batch.Status == store.BatchStatusCancelled {
 				w.logger.InfoContext(ctx, "Batch cancelled mid-processing", "batch_id", batchID, "processed_so_far", processed)
 				return processed, failed
 			}
 			// Flush progress
-			_ = w.webhookRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed)
+			_ = w.batchRepo.UpdateBatchJobProgress(ctx, batchID, processed, failed)
 			processed = 0
 			failed = 0
 		}
@@ -225,7 +229,7 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 		}
 
 		// Load delivery
-		delivery, err := w.webhookRepo.GetDeliveryByID(ctx, tenantID, deliveryID, namespace)
+		delivery, err := w.eventRepo.GetDeliveryByID(ctx, tenantID, deliveryID, namespace)
 		if err != nil || delivery == nil {
 			w.logger.ErrorContext(ctx, "Failed to load delivery for retry", "delivery_id", idStr, "error", err)
 			failed++
@@ -233,7 +237,7 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 		}
 
 		// Reset delivery status
-		if err := w.webhookRepo.ResetDeliveryForRetry(ctx, deliveryID); err != nil {
+		if err := w.eventRepo.ResetDeliveryForRetry(ctx, deliveryID); err != nil {
 			w.logger.ErrorContext(ctx, "Failed to reset delivery for retry", "delivery_id", idStr, "error", err)
 			failed++
 			continue
