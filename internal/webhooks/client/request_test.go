@@ -146,8 +146,14 @@ func TestGenerateHMACSignature(t *testing.T) {
 	msgID := "msg_delivery-123"
 	timestamp := "1234567890"
 
-	sig1 := generateHMACSignature(payload, secret, msgID, timestamp)
-	sig2 := generateHMACSignature(payload, secret, msgID, timestamp)
+	sig1, err := generateHMACSignature(payload, secret, msgID, timestamp)
+	if err != nil {
+		t.Fatalf("generateHMACSignature failed: %v", err)
+	}
+	sig2, err := generateHMACSignature(payload, secret, msgID, timestamp)
+	if err != nil {
+		t.Fatalf("generateHMACSignature failed: %v", err)
+	}
 
 	if sig1 != sig2 {
 		t.Error("Expected consistent signature for same inputs")
@@ -158,19 +164,28 @@ func TestGenerateHMACSignature(t *testing.T) {
 	}
 
 	// Different timestamp should produce different signature
-	sig3 := generateHMACSignature(payload, secret, msgID, "9999999999")
+	sig3, err := generateHMACSignature(payload, secret, msgID, "9999999999")
+	if err != nil {
+		t.Fatalf("generateHMACSignature failed: %v", err)
+	}
 	if sig1 == sig3 {
 		t.Error("Expected different signature for different timestamp")
 	}
 
 	// Different payload should produce different signature
-	sig4 := generateHMACSignature([]byte(`{"different": "payload"}`), secret, msgID, timestamp)
+	sig4, err := generateHMACSignature([]byte(`{"different": "payload"}`), secret, msgID, timestamp)
+	if err != nil {
+		t.Fatalf("generateHMACSignature failed: %v", err)
+	}
 	if sig1 == sig4 {
 		t.Error("Expected different signature for different payload")
 	}
 
 	// Different msgID should produce different signature
-	sig5 := generateHMACSignature(payload, secret, "msg_other-id", timestamp)
+	sig5, err := generateHMACSignature(payload, secret, "msg_other-id", timestamp)
+	if err != nil {
+		t.Fatalf("generateHMACSignature failed: %v", err)
+	}
 	if sig1 == sig5 {
 		t.Error("Expected different signature for different msgID")
 	}

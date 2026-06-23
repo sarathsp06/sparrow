@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -116,38 +115,22 @@ func (r *Repository) ListWebhooks(ctx context.Context, tenantID uuid.UUID, names
 // ListWebhooksPaginated retrieves webhooks with pagination.
 // When namespace is empty, returns webhooks across all namespaces within the tenant.
 func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool, limit, offset int) ([]*WebhookRegistration, int, error) {
-	// Build WHERE clause and args dynamically
-	var conditions []string
-	var args []any
-	argIdx := 1
-
-	// Always filter by tenant
-	conditions = append(conditions, fmt.Sprintf("wr.tenant_id = $%d", argIdx))
-	args = append(args, tenantID)
-	argIdx++
-
+	var ns any
 	if namespace != "" {
-		conditions = append(conditions, fmt.Sprintf("wr.namespace = $%d", argIdx))
-		args = append(args, namespace)
-		argIdx++
+		ns = namespace
 	}
 
-	conditions = append(conditions, fmt.Sprintf("($%d IS FALSE OR wr.active = true)", argIdx))
-	args = append(args, activeOnly)
-	argIdx++
+	args := []any{tenantID, ns, activeOnly, event}
 
-	conditions = append(conditions, fmt.Sprintf("($%d = '' OR es.event_name = $%d)", argIdx, argIdx))
-	args = append(args, event)
-	argIdx++
-
-	whereClause := strings.Join(conditions, " AND ")
-
-	countQuery := fmt.Sprintf(`
+	countQuery := `
 		SELECT COUNT(DISTINCT wr.id)
 		FROM webhook_registrations wr
 		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
-		WHERE %s
-	`, whereClause)
+		WHERE wr.tenant_id = $1
+		  AND ($2::text IS NULL OR wr.namespace = $2)
+		  AND ($3 IS FALSE OR wr.active = true)
+		  AND ($4 = '' OR es.event_name = $4)
+	`
 
 	var totalCount int
 	err := r.conn.GetContext(ctx, &totalCount, countQuery, args...)
@@ -155,20 +138,22 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 		return nil, 0, storage.Error(err)
 	}
 
-	query := fmt.Sprintf(`
+	query := `
 		SELECT DISTINCT wr.id, wr.tenant_id, wr.namespace, wr.url, wr.headers, wr.timeout, wr.active, wr.description, wr.health,
 		       wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
 		       wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
 		       wr.user_agent, wr.content_type, wr.secret_headers, wr.rate_limit_rps, wr.ed25519_private_key, wr.signature_type, wr.created_at, wr.updated_at
 		FROM webhook_registrations wr
 		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
-		WHERE %s
+		WHERE wr.tenant_id = $1
+		  AND ($2::text IS NULL OR wr.namespace = $2)
+		  AND ($3 IS FALSE OR wr.active = true)
+		  AND ($4 = '' OR es.event_name = $4)
 		ORDER BY wr.created_at DESC
-		LIMIT $%d OFFSET $%d
-	`, whereClause, argIdx, argIdx+1)
+		LIMIT $5 OFFSET $6
+	`
 
 	queryArgs := append(args, limit, offset)
-
 	var webhooks []*WebhookRegistration
 	err = r.conn.SelectContext(ctx, &webhooks, query, queryArgs...)
 	if err != nil {
@@ -180,34 +165,21 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 
 // GetNamespaceStats retrieves statistics for a namespace, or across all namespaces within the tenant if namespace is empty
 func (r *Repository) GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, namespace string) (*NamespaceStats, error) {
-	var conditions []string
-	var deliveryConditions []string
-	var args []any
-	argIdx := 1
-
-	// Always filter by tenant
-	conditions = append(conditions, fmt.Sprintf("tenant_id = $%d", argIdx))
-	deliveryConditions = append(deliveryConditions, fmt.Sprintf("wr.tenant_id = $%d", argIdx))
-	args = append(args, tenantID)
-	argIdx++
-
+	var ns any
 	if namespace != "" {
-		conditions = append(conditions, fmt.Sprintf("namespace = $%d", argIdx))
-		deliveryConditions = append(deliveryConditions, fmt.Sprintf("wr.namespace = $%d", argIdx))
-		args = append(args, namespace)
-		argIdx++ //nolint:ineffassign // kept for clarity and future extensibility
+		ns = namespace
 	}
 
-	webhookFilter := "WHERE " + strings.Join(conditions, " AND ")
-	deliveryFilter := "WHERE " + strings.Join(deliveryConditions, " AND ")
+	args := []any{tenantID, ns}
 
-	query := fmt.Sprintf(`
+	query := `
 		WITH webhook_counts AS (
 			SELECT
 				COUNT(*) as total_webhooks,
 				COUNT(*) FILTER (WHERE active = true) as active_webhooks
 			FROM webhook_registrations
-			%s
+			WHERE tenant_id = $1
+			  AND ($2::text IS NULL OR namespace = $2)
 		),
 		delivery_stats AS (
 			SELECT
@@ -217,7 +189,8 @@ func (r *Repository) GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, 
 				COUNT(wd.id) FILTER (WHERE wd.status IN ('pending', 'sending', 'retrying')) as pending_deliveries
 			FROM webhook_deliveries wd
 			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-			%s
+			WHERE wr.tenant_id = $1
+			  AND ($2::text IS NULL OR wr.namespace = $2)
 		)
 		SELECT
 			wc.total_webhooks,
@@ -232,7 +205,7 @@ func (r *Repository) GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, 
 				ELSE 0
 			END as success_rate
 		FROM webhook_counts wc, delivery_stats ds
-	`, webhookFilter, deliveryFilter)
+	`
 
 	var stats NamespaceStats
 	err := r.conn.GetContext(ctx, &stats, query, args...)

@@ -173,6 +173,14 @@ def assert_body_field(name, field, value):
     assert str(actual) == value, f"Expected body[{field}]={value}, got {actual}"
 
 
+@step("Latest delivery to <name> has enveloped payload field <field> equal to <value>")
+def assert_enveloped_payload_field(name, field, value):
+    d = _targets().get_latest_delivery(name)
+    payload = d["body"].get("payload", {})
+    actual = payload.get(field)
+    assert str(actual) == value, f"Expected body.payload[{field}]={value}, got {actual}"
+
+
 @step("Latest delivery to <name> has signature headers")
 def assert_signature_headers(name):
     d = _targets().get_latest_delivery(name)

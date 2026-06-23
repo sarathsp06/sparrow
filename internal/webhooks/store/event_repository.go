@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -103,181 +102,69 @@ func (r *Repository) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid
 }
 
 // ListEventReports gets event records in descending order by creation time.
-// When namespace is empty, returns reports across all namespaces within the tenant.
+// Uses ($N::type IS NULL OR col = $N) guards so unset filters become no-op.
 func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
-	var conditions []string
-	var args []any
-	argIdx := 1
-
-	// Always filter by tenant
-	conditions = append(conditions, fmt.Sprintf("tenant_id = $%d", argIdx))
-	args = append(args, tenantID)
-	argIdx++
-
+	var ns any
 	if namespace != "" {
-		conditions = append(conditions, fmt.Sprintf("namespace = $%d", argIdx))
-		args = append(args, namespace)
-		argIdx++
+		ns = namespace
 	}
 
-	eventArgIdx := argIdx
-	args = append(args, eventName)
-	argIdx++
+	args := []any{tenantID, ns, eventName}
 
-	whereClause := strings.Join(conditions, " AND ")
-
-	// Build base query
-	baseQuery := fmt.Sprintf(`
+	baseQuery := `
 		SELECT
 			id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
 		FROM event_records
-		WHERE %s
-		  AND ($%d IS NULL OR event = $%d)
+		WHERE tenant_id = $1
+		  AND ($2::text IS NULL OR namespace = $2)
+		  AND ($3::text IS NULL OR event = $3)
 		ORDER BY created_at DESC
-		LIMIT $%d OFFSET $%d
-	`, whereClause, eventArgIdx, eventArgIdx, argIdx, argIdx+1)
+		LIMIT $4 OFFSET $5
+	`
 
-	countQuery := fmt.Sprintf(`
+	countQuery := `
 		SELECT COUNT(*)
 		FROM event_records
-		WHERE %s
-		  AND ($%d IS NULL OR event = $%d)
-	`, whereClause, eventArgIdx, eventArgIdx)
+		WHERE tenant_id = $1
+		  AND ($2::text IS NULL OR namespace = $2)
+		  AND ($3::text IS NULL OR event = $3)
+	`
 
 	queryArgs := append(args, limit, offset)
 
-	// Execute main query
 	var eventRows []EventRecord
 	err := r.conn.SelectContext(ctx, &eventRows, baseQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
-	// Get total count
 	var totalCount int
 	err = r.conn.GetContext(ctx, &totalCount, countQuery, args...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
-	// Convert to EventReportWithStats format
 	var events []*EventReportWithStats
 	for _, row := range eventRows {
-		event := &EventReportWithStats{
+		events = append(events, &EventReportWithStats{
 			EventRecord: row,
-			// Delivery stats can be loaded separately if needed
-			WebhookCount:         0,
-			SuccessfulDeliveries: 0,
-			FailedDeliveries:     0,
-			PendingDeliveries:    0,
-		}
-
-		events = append(events, event)
+		})
 	}
 
 	return events, totalCount, nil
 }
 
 // ListEventReportsWithStats retrieves event records enriched with delivery statistics.
-// When namespace is empty, returns reports across all namespaces within the tenant.
+// Uses ($N::type IS NULL OR col = $N) guards so unset filters become no-op.
 func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uuid.UUID, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
-	var conditions []string
-	var args []any
-	argIdx := 1
-
-	// Always filter by tenant
-	conditions = append(conditions, fmt.Sprintf("er.tenant_id = $%d", argIdx))
-	args = append(args, tenantID)
-	argIdx++
-
+	var ns any
 	if namespace != "" {
-		conditions = append(conditions, fmt.Sprintf("er.namespace = $%d", argIdx))
-		args = append(args, namespace)
-		argIdx++
+		ns = namespace
 	}
 
-	eventArgIdx := argIdx
-	args = append(args, eventName)
-	argIdx++
+	args := []any{tenantID, ns, eventName}
 
-	whereClause := strings.Join(conditions, " AND ")
-
-	// Build base query with delivery stats from health events
-	baseQuery := fmt.Sprintf(`
-		SELECT
-			er.id, er.tenant_id, er.namespace, er.event, er.payload, er.ttl, er.metadata, er.labels, er.schema_valid, er.created_at, er.expires_at,
-			COALESCE(ds.webhook_count, 0) as webhook_count,
-			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
-			COALESCE(ds.failed_deliveries, 0) as failed_deliveries,
-			COALESCE(ds.pending_deliveries, 0) as pending_deliveries
-		FROM event_records er
-		LEFT JOIN (
-			SELECT
-				wd.event_id,
-				COUNT(DISTINCT wd.webhook_id) as webhook_count,
-				SUM(CASE WHEN wh.success = true THEN 1 ELSE 0 END) as successful_deliveries,
-				SUM(CASE WHEN wh.success = false THEN 1 ELSE 0 END) as failed_deliveries,
-				COUNT(CASE WHEN wd.status IN ('pending', 'sending', 'retrying') THEN 1 END) as pending_deliveries
-			FROM webhook_deliveries wd
-			LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id
-			GROUP BY wd.event_id
-		) ds ON er.id = ds.event_id
-		WHERE %s
-		  AND ($%d::text IS NULL OR er.event = $%d::text)
-		ORDER BY er.created_at DESC
-		LIMIT $%d OFFSET $%d
-	`, whereClause, eventArgIdx, eventArgIdx, argIdx, argIdx+1)
-
-	// Build count query — use column names without alias
-	var countConditions []string
-	countConditions = append(countConditions, "tenant_id = $1")
-	countArgIdx := 2
-	if namespace != "" {
-		countConditions = append(countConditions, fmt.Sprintf("namespace = $%d", countArgIdx))
-		countArgIdx++ //nolint:ineffassign // kept for clarity and future extensibility
-	}
-	countWhereClause := strings.Join(countConditions, " AND ")
-
-	countQuery := fmt.Sprintf(`
-		SELECT COUNT(*)
-		FROM event_records
-		WHERE %s
-		  AND ($%d::text IS NULL OR event = $%d::text)
-	`, countWhereClause, eventArgIdx, eventArgIdx)
-
-	queryArgs := append(args, limit, offset)
-
-	// Execute main query
-	var events []*EventReportWithStats
-	err := r.conn.SelectContext(ctx, &events, baseQuery, queryArgs...)
-	if err != nil {
-		return nil, 0, storage.Error(err)
-	}
-
-	// Get total count
-	var totalCount int
-	err = r.conn.GetContext(ctx, &totalCount, countQuery, args...)
-	if err != nil {
-		return nil, 0, storage.Error(err)
-	}
-
-	return events, totalCount, nil
-}
-
-// ListEventReportsFiltered retrieves event records with delivery statistics using
-// dynamic filter criteria. This replaces the older ListEventReportsWithStats for
-// callers that need schema_valid, labels, or time-range filtering.
-func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, int, error) {
-	// Build conditions with "er." prefix for the main query (which has a LEFT JOIN)
-	conditions, args, argIdx, err := buildEventReportFilterConditions(tenantID, filter, "er.")
-	if err != nil {
-		return nil, 0, err
-	}
-
-	whereClause := strings.Join(conditions, " AND ")
-
-	// Build main query with delivery stats
-	baseQuery := fmt.Sprintf(`
+	baseQuery := `
 		SELECT
 			er.id, er.tenant_id, er.namespace, er.event, er.payload, er.ttl,
 			er.metadata, er.labels, er.schema_valid, er.created_at, er.expires_at,
@@ -297,31 +184,31 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 			LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id
 			GROUP BY wd.event_id
 		) ds ON er.id = ds.event_id
-		WHERE %s
+		WHERE er.tenant_id = $1
+		  AND ($2::text IS NULL OR er.namespace = $2)
+		  AND ($3::text IS NULL OR er.event = $3::text)
 		ORDER BY er.created_at DESC
-		LIMIT $%d OFFSET $%d
-	`, whereClause, argIdx, argIdx+1)
+		LIMIT $4 OFFSET $5
+	`
 
-	// Build count query using the same filter but without table alias prefix
-	countConditions, countArgs, _, err := buildEventReportFilterConditions(tenantID, filter, "")
-	if err != nil {
-		return nil, 0, err
-	}
+	countQuery := `
+		SELECT COUNT(*)
+		FROM event_records
+		WHERE tenant_id = $1
+		  AND ($2::text IS NULL OR namespace = $2)
+		  AND ($3::text IS NULL OR event = $3::text)
+	`
 
-	countWhereClause := strings.Join(countConditions, " AND ")
-	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM event_records WHERE %s`, countWhereClause)
+	queryArgs := append(args, limit, offset)
 
-	// Execute main query
-	queryArgs := append(args, filter.Limit, filter.Offset)
 	var events []*EventReportWithStats
-	err = r.conn.SelectContext(ctx, &events, baseQuery, queryArgs...)
+	err := r.conn.SelectContext(ctx, &events, baseQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
-	// Get total count
 	var totalCount int
-	err = r.conn.GetContext(ctx, &totalCount, countQuery, countArgs...)
+	err = r.conn.GetContext(ctx, &totalCount, countQuery, args...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -329,60 +216,83 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 	return events, totalCount, nil
 }
 
-// buildEventReportFilterConditions builds the shared WHERE-clause conditions from an
-// EventReportFilter. prefix is prepended to column names (e.g. "er." for aliased queries,
-// "" for bare-table queries). Returns the conditions slice, args, and next placeholder index.
-// Used by ListEventReportsFiltered and SnapshotEventIDs.
-func buildEventReportFilterConditions(tenantID uuid.UUID, filter EventReportFilter, prefix string) ([]string, []any, int, error) {
-	var conditions []string
-	var args []any
-	argIdx := 1
-
-	conditions = append(conditions, fmt.Sprintf("%stenant_id = $%d", prefix, argIdx))
-	args = append(args, tenantID)
-	argIdx++
-
+// ListEventReportsFiltered retrieves event records with delivery statistics using
+// fixed IS NULL guard conditions. Labels filter uses @> operator; time range,
+// schema_valid, and event_name are optional via ($N::type IS NULL OR col = $N).
+func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, int, error) {
+	var ns any
 	if filter.Namespace != "" {
-		conditions = append(conditions, fmt.Sprintf("%snamespace = $%d", prefix, argIdx))
-		args = append(args, filter.Namespace)
-		argIdx++
+		ns = filter.Namespace
 	}
 
-	if filter.EventName != nil {
-		conditions = append(conditions, fmt.Sprintf("%sevent = $%d", prefix, argIdx))
-		args = append(args, *filter.EventName)
-		argIdx++
-	}
-
-	if filter.SchemaValid != nil {
-		conditions = append(conditions, fmt.Sprintf("%sschema_valid = $%d", prefix, argIdx))
-		args = append(args, *filter.SchemaValid)
-		argIdx++
-	}
-
+	var labelsJSON any
 	if len(filter.Labels) > 0 {
-		labelsJSON, err := json.Marshal(filter.Labels)
+		b, err := json.Marshal(filter.Labels)
 		if err != nil {
-			return nil, nil, 0, fmt.Errorf("failed to marshal label filter: %w", err)
+			return nil, 0, fmt.Errorf("failed to marshal label filter: %w", err)
 		}
-		conditions = append(conditions, fmt.Sprintf("%slabels @> $%d::jsonb", prefix, argIdx))
-		args = append(args, string(labelsJSON))
-		argIdx++
+		labelsJSON = string(b)
 	}
 
-	if filter.CreatedAfter != nil {
-		conditions = append(conditions, fmt.Sprintf("%screated_at >= $%d", prefix, argIdx))
-		args = append(args, *filter.CreatedAfter)
-		argIdx++
+	args := []any{tenantID, ns, filter.EventName, filter.SchemaValid, labelsJSON, filter.CreatedAfter, filter.CreatedBefore}
+
+	baseQuery := `
+		SELECT
+			er.id, er.tenant_id, er.namespace, er.event, er.payload, er.ttl,
+			er.metadata, er.labels, er.schema_valid, er.created_at, er.expires_at,
+			COALESCE(ds.webhook_count, 0) as webhook_count,
+			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
+			COALESCE(ds.failed_deliveries, 0) as failed_deliveries,
+			COALESCE(ds.pending_deliveries, 0) as pending_deliveries
+		FROM event_records er
+		LEFT JOIN (
+			SELECT
+				wd.event_id,
+				COUNT(DISTINCT wd.webhook_id) as webhook_count,
+				SUM(CASE WHEN wh.success = true THEN 1 ELSE 0 END) as successful_deliveries,
+				SUM(CASE WHEN wh.success = false THEN 1 ELSE 0 END) as failed_deliveries,
+				COUNT(CASE WHEN wd.status IN ('pending', 'sending', 'retrying') THEN 1 END) as pending_deliveries
+			FROM webhook_deliveries wd
+			LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id
+			GROUP BY wd.event_id
+		) ds ON er.id = ds.event_id
+		WHERE er.tenant_id = $1
+		  AND ($2::text IS NULL OR er.namespace = $2)
+		  AND ($3::text IS NULL OR er.event = $3)
+		  AND ($4::boolean IS NULL OR er.schema_valid = $4)
+		  AND ($5::jsonb IS NULL OR er.labels @> $5::jsonb)
+		  AND ($6::timestamptz IS NULL OR er.created_at >= $6)
+		  AND ($7::timestamptz IS NULL OR er.created_at <= $7)
+		ORDER BY er.created_at DESC
+		LIMIT $8 OFFSET $9
+	`
+
+	countQuery := `
+		SELECT COUNT(*)
+		FROM event_records
+		WHERE tenant_id = $1
+		  AND ($2::text IS NULL OR namespace = $2)
+		  AND ($3::text IS NULL OR event = $3)
+		  AND ($4::boolean IS NULL OR schema_valid = $4)
+		  AND ($5::jsonb IS NULL OR labels @> $5::jsonb)
+		  AND ($6::timestamptz IS NULL OR created_at >= $6)
+		  AND ($7::timestamptz IS NULL OR created_at <= $7)
+	`
+
+	queryArgs := append(args, filter.Limit, filter.Offset)
+	var events []*EventReportWithStats
+	err := r.conn.SelectContext(ctx, &events, baseQuery, queryArgs...)
+	if err != nil {
+		return nil, 0, storage.Error(err)
 	}
 
-	if filter.CreatedBefore != nil {
-		conditions = append(conditions, fmt.Sprintf("%screated_at <= $%d", prefix, argIdx))
-		args = append(args, *filter.CreatedBefore)
-		argIdx++
+	var totalCount int
+	err = r.conn.GetContext(ctx, &totalCount, countQuery, args...)
+	if err != nil {
+		return nil, 0, storage.Error(err)
 	}
 
-	return conditions, args, argIdx, nil
+	return events, totalCount, nil
 }
 
 // DeleteEventByID deletes an event record by its ID within a tenant.

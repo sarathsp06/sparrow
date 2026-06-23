@@ -306,21 +306,31 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 	return deliveries, totalCount, nil
 }
 
-// ListDeliveriesFiltered retrieves delivery records using dynamic filter criteria.
-// This is the unified replacement for GetDeliveriesByWebhookID, GetDeliveriesByEventPaginated,
-// and ListDeliveriesPaginated — all filter combinations are handled by a single query builder.
+// ListDeliveriesFiltered retrieves delivery records using a fixed SQL query with
+// optional parameter guards. Uses ($N::type IS NULL OR col = $N) so that unset filter
+// fields become no-op conditions — no dynamic SQL building required.
 func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, int, error) {
-	conditions, args, argIdx := buildDeliveryFilterConditions(tenantID, filter)
+	var ns any
+	if filter.Namespace != "" {
+		ns = filter.Namespace
+	}
 
-	whereClause := strings.Join(conditions, " AND ")
+	args := []any{tenantID, ns, filter.WebhookID, filter.EventID, filter.Status, filter.ErrorCategory, filter.SubscriptionID, filter.CreatedAfter, filter.CreatedBefore}
 
-	// Count query
-	countQuery := fmt.Sprintf(`
+	countQuery := `
 		SELECT COUNT(*)
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE %s
-	`, whereClause)
+		WHERE wr.tenant_id = $1
+		  AND ($2::text IS NULL OR wr.namespace = $2)
+		  AND ($3::uuid IS NULL OR wd.webhook_id = $3)
+		  AND ($4::uuid IS NULL OR wd.event_id = $4)
+		  AND ($5::text IS NULL OR wd.status::text = $5)
+		  AND ($6::text IS NULL OR wd.error_category = $6)
+		  AND ($7::uuid IS NULL OR wd.subscription_id = $7)
+		  AND ($8::timestamptz IS NULL OR wd.created_at >= $8)
+		  AND ($9::timestamptz IS NULL OR wd.created_at <= $9)
+	`
 
 	var totalCount int
 	err := r.conn.GetContext(ctx, &totalCount, countQuery, args...)
@@ -328,15 +338,22 @@ func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.U
 		return nil, 0, storage.Error(err)
 	}
 
-	// Main query
 	query := fmt.Sprintf(`
 		SELECT %s
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE %s
+		WHERE wr.tenant_id = $1
+		  AND ($2::text IS NULL OR wr.namespace = $2)
+		  AND ($3::uuid IS NULL OR wd.webhook_id = $3)
+		  AND ($4::uuid IS NULL OR wd.event_id = $4)
+		  AND ($5::text IS NULL OR wd.status::text = $5)
+		  AND ($6::text IS NULL OR wd.error_category = $6)
+		  AND ($7::uuid IS NULL OR wd.subscription_id = $7)
+		  AND ($8::timestamptz IS NULL OR wd.created_at >= $8)
+		  AND ($9::timestamptz IS NULL OR wd.created_at <= $9)
 		ORDER BY wd.created_at DESC
-		LIMIT $%d OFFSET $%d
-	`, deliveryColumns, whereClause, argIdx, argIdx+1)
+		LIMIT $10 OFFSET $11
+	`, deliveryColumns)
 
 	queryArgs := append(args, filter.Limit, filter.Offset)
 	var deliveries []*WebhookDelivery
@@ -348,69 +365,7 @@ func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.U
 	return deliveries, totalCount, nil
 }
 
-// buildDeliveryFilterConditions builds the shared WHERE-clause conditions from a
-// DeliveryFilter. Returns the conditions slice, args slice, and the next placeholder index.
-// Used by both ListDeliveriesFiltered and SnapshotDeliveryIDs to avoid duplicating the
-// filter→SQL mapping.
-func buildDeliveryFilterConditions(tenantID uuid.UUID, filter DeliveryFilter) ([]string, []any, int) {
-	var conditions []string
-	var args []any
-	argIdx := 1
 
-	conditions = append(conditions, fmt.Sprintf("wr.tenant_id = $%d", argIdx))
-	args = append(args, tenantID)
-	argIdx++
-
-	if filter.Namespace != "" {
-		conditions = append(conditions, fmt.Sprintf("wr.namespace = $%d", argIdx))
-		args = append(args, filter.Namespace)
-		argIdx++
-	}
-
-	if filter.WebhookID != nil {
-		conditions = append(conditions, fmt.Sprintf("wd.webhook_id = $%d", argIdx))
-		args = append(args, *filter.WebhookID)
-		argIdx++
-	}
-
-	if filter.EventID != nil {
-		conditions = append(conditions, fmt.Sprintf("wd.event_id = $%d", argIdx))
-		args = append(args, *filter.EventID)
-		argIdx++
-	}
-
-	if filter.Status != nil {
-		conditions = append(conditions, fmt.Sprintf("wd.status = $%d", argIdx))
-		args = append(args, *filter.Status)
-		argIdx++
-	}
-
-	if filter.ErrorCategory != nil {
-		conditions = append(conditions, fmt.Sprintf("wd.error_category = $%d", argIdx))
-		args = append(args, *filter.ErrorCategory)
-		argIdx++
-	}
-
-	if filter.SubscriptionID != nil {
-		conditions = append(conditions, fmt.Sprintf("wd.subscription_id = $%d", argIdx))
-		args = append(args, *filter.SubscriptionID)
-		argIdx++
-	}
-
-	if filter.CreatedAfter != nil {
-		conditions = append(conditions, fmt.Sprintf("wd.created_at >= $%d", argIdx))
-		args = append(args, *filter.CreatedAfter)
-		argIdx++
-	}
-
-	if filter.CreatedBefore != nil {
-		conditions = append(conditions, fmt.Sprintf("wd.created_at <= $%d", argIdx))
-		args = append(args, *filter.CreatedBefore)
-		argIdx++
-	}
-
-	return conditions, args, argIdx
-}
 
 // GetRetriableDeliveries finds webhook deliveries eligible for retry attempts within a tenant.
 func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, force bool) ([]*WebhookDelivery, error) {
