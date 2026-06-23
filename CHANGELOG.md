@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-06-23
+
+### Changed
+
+- Split monolithic `RepositoryInterface` (63 methods) into 7 per-domain narrow interfaces: `WebhookRepository`, `SubscriptionRepository`, `EventTypeRepository`, `EventRepository`, `HealthRepository`, `BatchRepository`, `RateLimitRepository`
+- Workers now depend only on the interfaces they actually use (2-5 params instead of 63 methods each)
+- Composite `RepositoryInterface` embeds all narrow interfaces + `Transactor` base interface
+
 ## [1.4.0] - 2026-06-22
 
 ### Added
