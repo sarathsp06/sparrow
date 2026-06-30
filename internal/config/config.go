@@ -9,7 +9,6 @@ package config
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 
 	"github.com/kelseyhightower/envconfig"
@@ -110,10 +109,6 @@ func validatePort(port, envVar string) error {
 	}
 	if n < 1 || n > 65535 {
 		return fmt.Errorf("%s: port %d out of range (1-65535)", envVar, n)
-	}
-	// Check for conflicts with well-known restricted ports (optional, warn-only)
-	if _, err := net.ResolveTCPAddr("tcp", ":"+port); err != nil {
-		return fmt.Errorf("%s: cannot bind to port %s: %w", envVar, port, err)
 	}
 	return nil
 }

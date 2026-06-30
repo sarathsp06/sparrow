@@ -13,7 +13,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 
-	"github.com/sarathsp06/sparrow/internal/logger"
 )
 
 const (
@@ -107,7 +106,7 @@ type jobInserter struct {
 func NewJobInserter(client *river.Client[pgx.Tx]) *jobInserter {
 	return &jobInserter{
 		client: client,
-		logger: logger.NewLogger("job-inserter"),
+		logger: slog.Default().With("component", "job-inserter"),
 	}
 }
 

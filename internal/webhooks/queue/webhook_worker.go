@@ -19,7 +19,6 @@ import (
 
 	sparrowerrors "github.com/sarathsp06/sparrow/pkg/errors"
 
-	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
@@ -46,8 +45,7 @@ func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo store.Event
 	metrics, err := observability.NewSparrowMetrics()
 	if err != nil {
 		// Log error but continue without metrics
-		log := logger.NewLogger("webhook-worker")
-		log.Error("Failed to initialize metrics", "error", err)
+		slog.Default().With("component", "webhook-worker").Error("Failed to initialize metrics", "error", err)
 	}
 
 	// Initialize the centralized webhook client
@@ -60,7 +58,7 @@ func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo store.Event
 		healthRepo:      healthRepo,
 		rateLimitRepo:   rateLimitRepo,
 		cryptoSvc:       cryptoSvc,
-		logger:          logger.NewLogger("webhook-worker"),
+		logger:          slog.Default().With("component", "webhook-worker"),
 		tracer:          observability.GetTracer("sparrow.workers.webhook"),
 		metrics:         metrics,
 		client:          webhookClient,

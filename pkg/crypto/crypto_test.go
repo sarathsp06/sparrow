@@ -35,7 +35,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	plaintext := []byte("hello, secret headers!")
-	ciphertext, err := svc.Encrypt(plaintext)
+	ciphertext, err := svc.EnvelopeEncrypt(plaintext)
 	require.NoError(t, err)
 
 	// Ciphertext should be different from plaintext
@@ -52,9 +52,9 @@ func TestEncryptDecrypt_DifferentNonces(t *testing.T) {
 	require.NoError(t, err)
 
 	plaintext := []byte("same input")
-	ct1, err := svc.Encrypt(plaintext)
+	ct1, err := svc.EnvelopeEncrypt(plaintext)
 	require.NoError(t, err)
-	ct2, err := svc.Encrypt(plaintext)
+	ct2, err := svc.EnvelopeEncrypt(plaintext)
 	require.NoError(t, err)
 
 	// Two encryptions of the same plaintext should produce different ciphertext
@@ -72,7 +72,7 @@ func TestDecrypt_TamperedData(t *testing.T) {
 	svc, err := NewService(testKey())
 	require.NoError(t, err)
 
-	ciphertext, err := svc.Encrypt([]byte("sensitive"))
+	ciphertext, err := svc.EnvelopeEncrypt([]byte("sensitive"))
 	require.NoError(t, err)
 
 	// Tamper with last byte
@@ -95,7 +95,7 @@ func TestNoEncryptionKey(t *testing.T) {
 	svc, err := NewService(nil)
 	require.NoError(t, err)
 
-	_, err = svc.Encrypt([]byte("data"))
+	_, err = svc.EnvelopeEncrypt([]byte("data"))
 	assert.ErrorIs(t, err, ErrNoEncryptionKey)
 
 	_, err = svc.Decrypt([]byte("data"))
@@ -158,7 +158,7 @@ func TestDecrypt_WrongKey(t *testing.T) {
 	svc2, err := NewService([]byte("different-key-0123456789abcdefgh"))
 	require.NoError(t, err)
 
-	ciphertext, err := svc1.Encrypt([]byte("secret"))
+	ciphertext, err := svc1.EnvelopeEncrypt([]byte("secret"))
 	require.NoError(t, err)
 
 	// Decrypting with a different key should fail

@@ -23,7 +23,10 @@
 package crypto
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -40,7 +43,6 @@ var ErrNoEncryptionKey = errors.New("crypto: encryption key not configured (set 
 // without a key is valid — calls return ErrNoEncryptionKey.
 type Service struct {
 	aead interface {
-		// Seal and Open are the cipher.AEAD methods we use.
 		Seal(dst, nonce, plaintext, additionalData []byte) []byte
 		Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, error)
 		NonceSize() int
@@ -82,8 +84,6 @@ func ParseKey(raw string) ([]byte, error) {
 
 // GenerateKey generates a cryptographically random 32-byte key and returns
 // it as a 64-character hex string suitable for SPARROW_ENCRYPTION_KEY.
-// This is primarily used in tests; production deployments should generate
-// keys externally via: openssl rand -hex 32
 func GenerateKey() (string, []byte, error) {
 	key := make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, key); err != nil {
@@ -92,34 +92,143 @@ func GenerateKey() (string, []byte, error) {
 	return hex.EncodeToString(key), key, nil
 }
 
+// Envelope encryption constants.
+const (
+	envelopeVersion    byte = 0x01
+	dekSize                 = 32
+	envelopeHeaderSize      = 3
+	wrappedDEKSize          = 12 + dekSize + 16
+	envelopeMinSize         = envelopeHeaderSize + wrappedDEKSize + 12 + 16
+)
+
+// EnvelopeEncrypt encrypts plaintext using envelope encryption:
+//  1. Generates a random 256-bit DEK
+//  2. Encrypts the plaintext with the DEK using AES-256-GCM
+//  3. Encrypts (wraps) the DEK with the KEK
+func (s *Service) EnvelopeEncrypt(plaintext []byte) ([]byte, error) {
+	if !s.Enabled() {
+		return nil, ErrNoEncryptionKey
+	}
+
+	dek := make([]byte, dekSize)
+	if _, err := io.ReadFull(rand.Reader, dek); err != nil {
+		return nil, fmt.Errorf("crypto: generate DEK: %w", err)
+	}
+
+	dataAEAD, err := newAEAD(dek)
+	if err != nil {
+		return nil, fmt.Errorf("crypto: create data cipher: %w", err)
+	}
+
+	dataNonce := make([]byte, dataAEAD.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, dataNonce); err != nil {
+		return nil, fmt.Errorf("crypto: generate data nonce: %w", err)
+	}
+	encryptedData := dataAEAD.Seal(nil, dataNonce, plaintext, nil)
+
+	dekNonce := make([]byte, s.aead.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, dekNonce); err != nil {
+		return nil, fmt.Errorf("crypto: generate DEK nonce: %w", err)
+	}
+	wrappedDEK := s.aead.Seal(dekNonce, dekNonce, dek, nil)
+
+	edekLen := len(wrappedDEK)
+	out := make([]byte, 0, envelopeHeaderSize+edekLen+len(dataNonce)+len(encryptedData))
+	out = append(out, envelopeVersion)
+	out = binary.LittleEndian.AppendUint16(out, uint16(edekLen))
+	out = append(out, wrappedDEK...)
+	out = append(out, dataNonce...)
+	out = append(out, encryptedData...)
+
+	clear(dek)
+	return out, nil
+}
+
+// EnvelopeDecrypt decrypts data produced by EnvelopeEncrypt.
+func (s *Service) EnvelopeDecrypt(ciphertext []byte) ([]byte, error) {
+	if !s.Enabled() {
+		return nil, ErrNoEncryptionKey
+	}
+	if len(ciphertext) < envelopeMinSize {
+		return nil, errors.New("crypto: envelope ciphertext too short")
+	}
+	if ciphertext[0] != envelopeVersion {
+		return nil, fmt.Errorf("crypto: unknown envelope version: 0x%02x", ciphertext[0])
+	}
+
+	edekLen := int(binary.LittleEndian.Uint16(ciphertext[1:3]))
+	if edekLen <= 0 || envelopeHeaderSize+edekLen > len(ciphertext) {
+		return nil, errors.New("crypto: invalid envelope: bad edek_len")
+	}
+
+	wrappedDEK := ciphertext[envelopeHeaderSize : envelopeHeaderSize+edekLen]
+	rest := ciphertext[envelopeHeaderSize+edekLen:]
+
+	kekNonceSize := s.aead.NonceSize()
+	if len(wrappedDEK) < kekNonceSize {
+		return nil, errors.New("crypto: wrapped DEK too short")
+	}
+	dekNonce, dekCipher := wrappedDEK[:kekNonceSize], wrappedDEK[kekNonceSize:]
+	dek, err := s.aead.Open(nil, dekNonce, dekCipher, nil)
+	if err != nil {
+		return nil, fmt.Errorf("crypto: unwrap DEK: %w", err)
+	}
+	defer clear(dek)
+
+	dataAEAD, err := newAEAD(dek)
+	if err != nil {
+		return nil, fmt.Errorf("crypto: create data cipher from DEK: %w", err)
+	}
+
+	dataNonceSize := dataAEAD.NonceSize()
+	if len(rest) < dataNonceSize+dataAEAD.Overhead() {
+		return nil, errors.New("crypto: envelope data too short")
+	}
+	dataNonce, dataEncrypted := rest[:dataNonceSize], rest[dataNonceSize:]
+
+	plaintext, err := dataAEAD.Open(nil, dataNonce, dataEncrypted, nil)
+	if err != nil {
+		return nil, fmt.Errorf("crypto: decrypt data: %w", err)
+	}
+	return plaintext, nil
+}
+
+// IsEnvelopeEncrypted reports whether ciphertext appears to be envelope-encrypted.
+func IsEnvelopeEncrypted(ciphertext []byte) bool {
+	if len(ciphertext) < envelopeMinSize {
+		return false
+	}
+	if ciphertext[0] != envelopeVersion {
+		return false
+	}
+	edekLen := int(binary.LittleEndian.Uint16(ciphertext[1:3]))
+	return edekLen == wrappedDEKSize && len(ciphertext) >= envelopeHeaderSize+edekLen+12+16
+}
+
+// newAEAD creates an AES-256-GCM AEAD from a 32-byte key.
+func newAEAD(key []byte) (cipher.AEAD, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	return cipher.NewGCM(block)
+}
+
 // Enabled reports whether the service has an encryption key configured.
 func (s *Service) Enabled() bool {
 	return s != nil && s.aead != nil
 }
 
-// Encrypt encrypts plaintext using envelope encryption (per-record DEK).
-// New data is always written in envelope format.
-func (s *Service) Encrypt(plaintext []byte) ([]byte, error) {
-	return s.EnvelopeEncrypt(plaintext)
-}
-
 // Decrypt decrypts ciphertext, auto-detecting the format:
 //   - Envelope format (version 0x01 prefix): uses envelope decryption
 //   - Legacy format (no prefix): falls back to direct AES-256-GCM
-//
-// This ensures backward compatibility during migration from direct to
-// envelope encryption.
 func (s *Service) Decrypt(ciphertext []byte) ([]byte, error) {
 	if !s.Enabled() {
 		return nil, ErrNoEncryptionKey
 	}
-
-	// Try envelope format first
 	if IsEnvelopeEncrypted(ciphertext) {
 		return s.EnvelopeDecrypt(ciphertext)
 	}
-
-	// Fall back to legacy direct decryption
 	return s.directDecrypt(ciphertext)
 }
 
@@ -130,7 +239,6 @@ func (s *Service) directDecrypt(ciphertext []byte) ([]byte, error) {
 	if len(ciphertext) < nonceSize {
 		return nil, errors.New("crypto: ciphertext too short")
 	}
-
 	nonce, data := ciphertext[:nonceSize], ciphertext[nonceSize:]
 	plaintext, err := s.aead.Open(nil, nonce, data, nil)
 	if err != nil {
@@ -145,7 +253,7 @@ func (s *Service) EncryptJSON(v any) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("crypto: marshal: %w", err)
 	}
-	return s.Encrypt(plain)
+	return s.EnvelopeEncrypt(plain)
 }
 
 // DecryptJSON decrypts ciphertext (auto-detecting format) and unmarshals into v.
@@ -161,16 +269,14 @@ func (s *Service) DecryptJSON(ciphertext []byte, v any) error {
 }
 
 // EncryptString encrypts a plaintext string and returns the ciphertext bytes.
-// Returns nil if the input is empty.
 func (s *Service) EncryptString(plaintext string) ([]byte, error) {
 	if plaintext == "" {
 		return nil, nil
 	}
-	return s.Encrypt([]byte(plaintext))
+	return s.EnvelopeEncrypt([]byte(plaintext))
 }
 
 // DecryptString decrypts ciphertext back to a plaintext string.
-// Returns "" if the input is nil/empty.
 func (s *Service) DecryptString(ciphertext []byte) (string, error) {
 	if len(ciphertext) == 0 {
 		return "", nil

@@ -13,7 +13,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 
-	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
@@ -31,7 +30,7 @@ func NewEventProcessingWorker(subscriptionRepo store.SubscriptionRepository, eve
 	return &EventProcessingWorker{
 		subscriptionRepo: subscriptionRepo,
 		eventRepo:        eventRepo,
-		logger:           logger.NewLogger("event-processing-worker"),
+		logger:           slog.Default().With("component", "event-processing-worker"),
 		jobInserter:      jobInserter,
 	}
 }

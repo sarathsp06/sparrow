@@ -30,13 +30,13 @@ func ValidateWebhookURL(rawURL string, allowPrivateNetworks bool) error {
 	// Only allow http and https schemes
 	scheme := strings.ToLower(parsed.Scheme)
 	if scheme != "http" && scheme != "https" {
-		return svcerrors.InvalidInputf("invalid URL scheme %q: only http and https are allowed", parsed.Scheme)
+		return svcerrors.Errorf(codes.InvalidArgument, "invalid URL scheme %q: only http and https are allowed", parsed.Scheme)
 	}
 
 	// Ensure host is not empty
 	host := parsed.Hostname()
 	if host == "" {
-		return svcerrors.InvalidInput("URL must have a non-empty host")
+		return svcerrors.Error(codes.InvalidArgument, "URL must have a non-empty host")
 	}
 
 	// Skip network-level SSRF checks when private networks are allowed
@@ -58,7 +58,7 @@ func ValidateWebhookURL(rawURL string, allowPrivateNetworks bool) error {
 			lower == "metadata.google.internal" ||
 			strings.HasSuffix(lower, ".internal") ||
 			strings.HasSuffix(lower, ".local") {
-			return svcerrors.InvalidInputf("URL host %q is not allowed: internal/reserved hostname", host)
+			return svcerrors.Errorf(codes.InvalidArgument, "URL host %q is not allowed: internal/reserved hostname", host)
 		}
 
 		// Resolve the hostname and validate all resulting IPs.

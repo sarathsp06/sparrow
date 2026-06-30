@@ -12,7 +12,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 
-	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
@@ -36,7 +35,7 @@ func NewBatchJobWorker(batchRepo store.BatchRepository, eventRepo store.EventRep
 		batchRepo:   batchRepo,
 		eventRepo:   eventRepo,
 		webhookRepo: webhookRepo,
-		logger:      logger.NewLogger("batch-job-worker"),
+		logger:      slog.Default().With("component", "batch-job-worker"),
 		jobInserter: jobInserter,
 	}
 }

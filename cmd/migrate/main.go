@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"flag"
+	"log/slog"
 	"os"
 
-	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/migration"
 )
 
@@ -20,8 +20,7 @@ func main() {
 
 	ctx := context.Background()
 
-	// Initialize logger
-	log := logger.NewLogger("migration")
+	log := slog.Default().With("component", "migration")
 
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {

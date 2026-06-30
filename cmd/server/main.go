@@ -19,6 +19,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/remychantenay/slog-otel"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -97,6 +98,11 @@ func main() {
 		}
 	}
 
+	// Initialize structured logging with OTel bridge.
+	slog.SetDefault(slog.New(slogotel.OtelHandler{
+		Next: slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo, AddSource: true}),
+	}))
+
 	// Run database migrations before anything else touches the DB.
 	// This covers both River queue schema and application schema migrations.
 	// golang-migrate uses PostgreSQL advisory locks, so concurrent server
@@ -144,16 +150,8 @@ func main() {
 	}
 	defer sqlxDB.Close() //nolint:errcheck
 
-	logger := slog.Default()
-
-	// Create tenant repository and service
-	tenantRepo := tenant.NewRepository(sqlxDB)
-	tenantSvc := tenant.NewService(tenantRepo)
-
-	// Bootstrap default tenant and root API key
-	bootstrapCfg := tenant.DefaultBootstrapConfig()
-	bootstrapCfg.Logger = logger
-	if err := tenant.Bootstrap(ctx, tenantSvc, bootstrapCfg); err != nil {
+	// Bootstrap default tenant (must exist from migrations)
+	if err := tenant.Bootstrap(ctx, sqlxDB.DB); err != nil {
 		log.Fatalf("Failed to bootstrap: %v", err)
 	}
 
@@ -306,7 +304,7 @@ func main() {
 	if cfg.ServeUI {
 		if ui.Available() {
 			uiConfig := &ui.Config{APIKey: apiKeyAuth.APIKey}
-			uiHandler := ui.Handler(logger, uiConfig)
+			uiHandler := ui.Handler(slog.Default(), uiConfig)
 			r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 				// Serve SPA only for GET/HEAD requests. Non-GET to unknown
 				// paths returns a JSON 404 so API clients never get HTML.

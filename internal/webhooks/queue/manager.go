@@ -11,7 +11,6 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 
-	"github.com/sarathsp06/sparrow/internal/logger"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
@@ -47,7 +46,7 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 	manager := &Manager{
 		client: riverClient,
 		dbPool: dbPool,
-		logger: logger.NewLogger("queue-manager"),
+		logger: slog.Default().With("component", "queue-manager"),
 	}
 
 	// Add workers with explicit generic types.
@@ -61,7 +60,7 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 
 // Start starts the queue processing
 func (m *Manager) Start(ctx context.Context) error {
-	log := logger.NewLogger("queue-manager")
+	log := slog.Default().With("component", "queue-manager")
 
 	if err := m.client.Start(ctx); err != nil {
 		log.ErrorContext(ctx, "Failed to start River client", "error", err)

@@ -6,8 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-
-	"github.com/sarathsp06/sparrow/pkg/types"
 )
 
 // WebhookHealth represents the health status of a webhook
@@ -44,7 +42,7 @@ type WebhookRegistration struct {
 	Namespace string    `json:"namespace" db:"namespace"`
 	// Events removed in favor of EventSubscription
 	URL         string                    `json:"url" db:"url"`
-	Headers     types.Map[string, string] `json:"headers" db:"headers"`
+	Headers     map[string]string `json:"headers" db:"headers"`
 	Timeout     int                       `json:"timeout" db:"timeout"`
 	Active      bool                      `json:"active" db:"active"`
 	Description string                    `json:"description" db:"description"`
@@ -75,10 +73,10 @@ type EventRecord struct {
 	TenantID       uuid.UUID                 `json:"tenant_id" db:"tenant_id"`
 	Namespace      string                    `json:"namespace" db:"namespace"`
 	Event          string                    `json:"event" db:"event"`
-	Payload        types.Map[string, any]    `json:"payload" db:"payload"`
+	Payload        map[string]any    `json:"payload" db:"payload"`
 	TTL            int64                     `json:"ttl" db:"ttl"`
-	Metadata       types.Map[string, string] `json:"metadata" db:"metadata"`
-	Labels         types.Map[string, string] `json:"labels" db:"labels"`
+	Metadata       map[string]string `json:"metadata" db:"metadata"`
+	Labels         map[string]string `json:"labels" db:"labels"`
 	SchemaValid    bool                      `json:"schema_valid" db:"schema_valid"`
 	IdempotencyKey *string                   `json:"idempotency_key,omitempty" db:"idempotency_key"`
 	CreatedAt      time.Time                 `json:"created_at" db:"created_at"`
@@ -208,9 +206,9 @@ type EventRegistration struct {
 	TenantID      uuid.UUID                 `json:"tenant_id" db:"tenant_id"`
 	Name          string                    `json:"name" db:"name"`
 	Description   string                    `json:"description" db:"description"`
-	Schema        types.Map[string, any]    `json:"schema" db:"schema"`                 // JSON schema for validation
-	SamplePayload types.Map[string, any]    `json:"sample_payload" db:"sample_payload"` // Auto-generated sample payload
-	Metadata      types.Map[string, string] `json:"metadata" db:"metadata"`
+	Schema        map[string]any    `json:"schema" db:"schema"`                 // JSON schema for validation
+	SamplePayload map[string]any    `json:"sample_payload" db:"sample_payload"` // Auto-generated sample payload
+	Metadata      map[string]string `json:"metadata" db:"metadata"`
 	Active        bool                      `json:"active" db:"active"`
 	CreatedAt     time.Time                 `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time                 `json:"updated_at" db:"updated_at"`
@@ -220,7 +218,7 @@ type EventRegistration struct {
 type WebhookUpdateFields struct {
 	Events        []string                  `json:"events"`
 	URL           string                    `json:"url"`
-	Headers       types.Map[string, string] `json:"headers"`
+	Headers       map[string]string `json:"headers"`
 	Timeout       int                       `json:"timeout"`
 	Active        bool                      `json:"active"`
 	Description   string                    `json:"description"`
@@ -234,12 +232,12 @@ type EventSubscription struct {
 	WebhookID         uuid.UUID                 `json:"webhook_id" db:"webhook_id"`
 	EventName         string                    `json:"event_name" db:"event_name"`
 	Namespace         string                    `json:"namespace" db:"namespace"`
-	Headers           types.Map[string, string] `json:"headers" db:"headers"`
+	Headers           map[string]string `json:"headers" db:"headers"`
 	Method            string                    `json:"method" db:"method"`
 	TransformEnabled  bool                      `json:"transform_enabled" db:"transform_enabled"`
 	TransformTemplate string                    `json:"transform_template" db:"transform_template"`
 	Timeout           int                       `json:"timeout" db:"timeout"`
-	LabelFilters      types.Map[string, string] `json:"label_filters" db:"label_filters"`
+	LabelFilters      map[string]string `json:"label_filters" db:"label_filters"`
 	CreatedAt         time.Time                 `json:"created_at" db:"created_at"`
 	UpdatedAt         time.Time                 `json:"updated_at" db:"updated_at"`
 }

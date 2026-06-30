@@ -16,7 +16,7 @@ func TestServiceError_Error(t *testing.T) {
 	}{
 		{
 			name: "without cause",
-			err:  InvalidInput("namespace is required"),
+			err:  Error(codes.InvalidArgument, "namespace is required"),
 			want: "namespace is required",
 		},
 		{
@@ -41,7 +41,7 @@ func TestServiceError_ClientMessage(t *testing.T) {
 		t.Errorf("ClientMessage() = %q, want %q", got, "failed to create webhook")
 	}
 
-	err2 := InvalidInput("loopback addresses are not allowed")
+	err2 := Error(codes.InvalidArgument, "loopback addresses are not allowed")
 	if got := err2.ClientMessage(); got != "loopback addresses are not allowed" {
 		t.Errorf("ClientMessage() = %q, want %q", got, "loopback addresses are not allowed")
 	}
@@ -56,7 +56,7 @@ func TestServiceError_Unwrap(t *testing.T) {
 	}
 
 	// Without cause, Unwrap returns nil
-	err2 := InvalidInput("no cause")
+	err2 := Error(codes.InvalidArgument, "no cause")
 	if err2.Unwrap() != nil {
 		t.Error("Unwrap should return nil when there is no cause")
 	}
@@ -64,7 +64,7 @@ func TestServiceError_Unwrap(t *testing.T) {
 
 func TestServiceError_ErrorsAs(t *testing.T) {
 	// Wrapping a ServiceError in fmt.Errorf should still be extractable via errors.As
-	inner := InvalidInput("bad input")
+	inner := Error(codes.InvalidArgument, "bad input")
 	wrapped := fmt.Errorf("service call failed: %w", inner)
 
 	var svcErr *ServiceError
@@ -86,12 +86,12 @@ func TestConstructors(t *testing.T) {
 		wantCode codes.Code
 		wantMsg  string
 	}{
-		{"InvalidInput", InvalidInput("bad"), codes.InvalidArgument, "bad"},
-		{"InvalidInputf", InvalidInputf("field %q is invalid", "name"), codes.InvalidArgument, `field "name" is invalid`},
-		{"FailedPrecondition", FailedPrecondition("event is inactive"), codes.FailedPrecondition, "event is inactive"},
-		{"FailedPreconditionf", FailedPreconditionf("batch %s expired", "abc"), codes.FailedPrecondition, "batch abc expired"},
-		{"NotFoundError", NotFoundError("webhook not found"), codes.NotFound, "webhook not found"},
-		{"NotFoundErrorf", NotFoundErrorf("event %q not found", "click"), codes.NotFound, `event "click" not found`},
+		{"Error InvalidArgument", Error(codes.InvalidArgument, "bad"), codes.InvalidArgument, "bad"},
+		{"Errorf InvalidArgument", Errorf(codes.InvalidArgument, "field %q is invalid", "name"), codes.InvalidArgument, `field "name" is invalid`},
+		{"Error FailedPrecondition", Error(codes.FailedPrecondition, "event is inactive"), codes.FailedPrecondition, "event is inactive"},
+		{"Errorf FailedPrecondition", Errorf(codes.FailedPrecondition, "batch %s expired", "abc"), codes.FailedPrecondition, "batch abc expired"},
+		{"Error NotFound", Error(codes.NotFound, "webhook not found"), codes.NotFound, "webhook not found"},
+		{"Errorf NotFound", Errorf(codes.NotFound, "event %q not found", "click"), codes.NotFound, `event "click" not found`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
