@@ -646,10 +646,12 @@ func pollDeliveryStatus(t *testing.T, clients *testClients, namespace, eventID s
 			t.Fatalf("timed out waiting for delivery predicate (event %s)", eventID)
 			return nil
 		case <-ticker.C:
-			resp, err := clients.delivery.ListDeliveries(ctx, connect.NewRequest(&pb.ListDeliveriesRequest{
+			reqCtx, reqCancel := context.WithTimeout(ctx, 10*time.Second)
+			resp, err := clients.delivery.ListDeliveries(reqCtx, connect.NewRequest(&pb.ListDeliveriesRequest{
 				Namespace: namespace,
 				EventId:   eventID,
 			}))
+			reqCancel()
 			if err != nil {
 				continue
 			}
@@ -678,32 +680,38 @@ func pollBatchComplete(t *testing.T, clients *testClients, batchID, batchType st
 		case <-ctx.Done():
 			t.Fatalf("timed out waiting for batch %s to complete", batchID)
 		case <-ticker.C:
+			reqCtx, reqCancel := context.WithTimeout(ctx, 10*time.Second)
 			switch batchType {
 			case "retry":
-				resp, err := clients.delivery.GetRetryStatus(ctx, connect.NewRequest(&pb.GetRetryStatusRequest{
+				resp, err := clients.delivery.GetRetryStatus(reqCtx, connect.NewRequest(&pb.GetRetryStatusRequest{
 					RetryId: batchID,
 				}))
 				if err != nil {
+					reqCancel()
 					continue
 				}
 				batch := resp.Msg.GetBatch()
 				t.Logf("  batch retry status: %s (processed=%d/%d)", batch.GetStatus(), batch.GetProcessed(), batch.GetTotal())
 				if batch.GetStatus() == "completed" || batch.GetStatus() == "cancelled" {
+					reqCancel()
 					return
 				}
 			case "repush":
-				resp, err := clients.event.GetRepushStatus(ctx, connect.NewRequest(&pb.GetRepushStatusRequest{
+				resp, err := clients.event.GetRepushStatus(reqCtx, connect.NewRequest(&pb.GetRepushStatusRequest{
 					RepushId: batchID,
 				}))
 				if err != nil {
+					reqCancel()
 					continue
 				}
 				batch := resp.Msg.GetBatch()
 				t.Logf("  batch repush status: %s (processed=%d/%d)", batch.GetStatus(), batch.GetProcessed(), batch.GetTotal())
 				if batch.GetStatus() == "completed" || batch.GetStatus() == "cancelled" {
+					reqCancel()
 					return
 				}
 			}
+			reqCancel()
 		}
 	}
 }

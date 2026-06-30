@@ -314,10 +314,12 @@ func pollDeliverySuccess(t *testing.T, clients *testClients, namespace, eventID,
 		case <-ctx.Done():
 			t.Fatalf("timed out waiting for delivery %s to reach success status", deliveryID)
 		case <-ticker.C:
-			resp, err := clients.delivery.ListDeliveries(ctx, connect.NewRequest(&pb.ListDeliveriesRequest{
+			reqCtx, reqCancel := context.WithTimeout(ctx, 10*time.Second)
+			resp, err := clients.delivery.ListDeliveries(reqCtx, connect.NewRequest(&pb.ListDeliveriesRequest{
 				Namespace: namespace,
 				EventId:   eventID,
 			}))
+			reqCancel()
 			if err != nil {
 				t.Logf("  poll: ListDeliveries error (retrying): %v", err)
 				continue

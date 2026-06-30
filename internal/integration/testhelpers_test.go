@@ -48,7 +48,6 @@ type testEnv struct {
 
 	// Services
 	webhookSvc webhooks.WebhookServiceInterface
-	tenantSvc  *tenant.Service
 	queueMgr   *queue.Manager
 
 	// HTTP server
@@ -117,17 +116,11 @@ func setupEnv(t *testing.T) *testEnv {
 
 	// 5. Create repositories
 	webhookRepo := store.NewRepository(sqlxDB)
-	tenantRepo := tenant.NewRepository(sqlxDB)
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	// 6. Create services
-	tenantSvc := tenant.NewService(tenantRepo)
-
-	// 7. Bootstrap default tenant
-	bootstrapCfg := tenant.DefaultBootstrapConfig()
-	bootstrapCfg.Logger = logger
-	err = tenant.Bootstrap(ctx, tenantSvc, bootstrapCfg)
+	// 6. Bootstrap default tenant
+	err = tenant.Bootstrap(ctx, sqlxDB.DB)
 	require.NoError(t, err, "failed to bootstrap default tenant")
 
 	// 8. Create crypto service with a test encryption key
@@ -192,7 +185,6 @@ func setupEnv(t *testing.T) *testEnv {
 		pgxPool:     pgxPool,
 		sqlxDB:      sqlxDB,
 		webhookSvc:  webhookSvc,
-		tenantSvc:   tenantSvc,
 		queueMgr:    queueMgr,
 		httpServer:  httpServer,
 		baseURL:     baseURL,
