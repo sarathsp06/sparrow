@@ -12,6 +12,50 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
+type eventSubscriptionRow struct {
+	ID                uuid.UUID `db:"id"`
+	TenantID          uuid.UUID `db:"tenant_id"`
+	WebhookID         uuid.UUID `db:"webhook_id"`
+	EventName         string    `db:"event_name"`
+	Namespace         string    `db:"namespace"`
+	Headers           []byte    `db:"headers"`
+	Method            string    `db:"method"`
+	TransformEnabled  bool      `db:"transform_enabled"`
+	TransformTemplate string    `db:"transform_template"`
+	Timeout           int       `db:"timeout"`
+	LabelFilters      []byte    `db:"label_filters"`
+	CreatedAt         time.Time `db:"created_at"`
+	UpdatedAt         time.Time `db:"updated_at"`
+}
+
+func buildEventSubscription(row eventSubscriptionRow) (*EventSubscription, error) {
+	headers, err := decodeJSONStringMap(row.Headers)
+	if err != nil {
+		return nil, err
+	}
+
+	labelFilters, err := decodeJSONStringMap(row.LabelFilters)
+	if err != nil {
+		return nil, err
+	}
+
+	return &EventSubscription{
+		ID:                row.ID,
+		TenantID:          row.TenantID,
+		WebhookID:         row.WebhookID,
+		EventName:         row.EventName,
+		Namespace:         row.Namespace,
+		Headers:           headers,
+		Method:            row.Method,
+		TransformEnabled:  row.TransformEnabled,
+		TransformTemplate: row.TransformTemplate,
+		Timeout:           row.Timeout,
+		LabelFilters:      labelFilters,
+		CreatedAt:         row.CreatedAt,
+		UpdatedAt:         row.UpdatedAt,
+	}, nil
+}
+
 // CreateSubscription creates a new event subscription within a tenant
 func (r *Repository) CreateSubscription(ctx context.Context, tenantID uuid.UUID, sub *EventSubscription) error {
 	return insertSubscription(ctx, r.conn, tenantID, sub)
@@ -25,12 +69,16 @@ func (r *Repository) GetSubscription(ctx context.Context, tenantID uuid.UUID, id
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND id = $2
 	`
-	var sub EventSubscription
-	err := r.conn.GetContext(ctx, &sub, query, tenantID, id)
+	var row eventSubscriptionRow
+	err := r.conn.GetContext(ctx, &row, query, tenantID, id)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
-	return &sub, nil
+	sub, err := buildEventSubscription(row)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
+	return sub, nil
 }
 
 // UpdateSubscription updates a subscription within a tenant
@@ -84,10 +132,18 @@ func (r *Repository) ListSubscriptions(ctx context.Context, tenantID uuid.UUID, 
 		WHERE tenant_id = $1 AND webhook_id = $2
 		ORDER BY created_at DESC
 	`
-	var subs []*EventSubscription
-	err := r.conn.SelectContext(ctx, &subs, query, tenantID, webhookID)
+	var rows []eventSubscriptionRow
+	err := r.conn.SelectContext(ctx, &rows, query, tenantID, webhookID)
 	if err != nil {
 		return nil, storage.Error(err)
+	}
+	subs := make([]*EventSubscription, 0, len(rows))
+	for _, row := range rows {
+		sub, buildErr := buildEventSubscription(row)
+		if buildErr != nil {
+			return nil, storage.Error(buildErr)
+		}
+		subs = append(subs, sub)
 	}
 	return subs, nil
 }
@@ -108,10 +164,18 @@ func (r *Repository) ListSubscriptionsByNamespace(ctx context.Context, tenantID 
 		ORDER BY created_at DESC
 		LIMIT $3 OFFSET $4
 	`
-	var subs []*EventSubscription
-	err := r.conn.SelectContext(ctx, &subs, query, tenantID, namespace, limit, offset)
+	var rows []eventSubscriptionRow
+	err := r.conn.SelectContext(ctx, &rows, query, tenantID, namespace, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
+	}
+	subs := make([]*EventSubscription, 0, len(rows))
+	for _, row := range rows {
+		sub, buildErr := buildEventSubscription(row)
+		if buildErr != nil {
+			return nil, 0, storage.Error(buildErr)
+		}
+		subs = append(subs, sub)
 	}
 	return subs, totalCount, nil
 }
@@ -135,10 +199,18 @@ func (r *Repository) ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID
 		ids[i] = id.String()
 	}
 
-	var subs []*EventSubscription
-	err := r.conn.SelectContext(ctx, &subs, query, tenantID, ids)
+	var rows []eventSubscriptionRow
+	err := r.conn.SelectContext(ctx, &rows, query, tenantID, ids)
 	if err != nil {
 		return nil, storage.Error(err)
+	}
+	subs := make([]*EventSubscription, 0, len(rows))
+	for _, row := range rows {
+		sub, buildErr := buildEventSubscription(row)
+		if buildErr != nil {
+			return nil, storage.Error(buildErr)
+		}
+		subs = append(subs, sub)
 	}
 	return subs, nil
 }
@@ -162,11 +234,18 @@ func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.
 		return nil, fmt.Errorf("failed to marshal labels: %w", err)
 	}
 
-	var subscriptions []*EventSubscription
-
-	err = r.conn.SelectContext(ctx, &subscriptions, query, tenantID, namespace, event, labelsJSON)
+	var rows []eventSubscriptionRow
+	err = r.conn.SelectContext(ctx, &rows, query, tenantID, namespace, event, labelsJSON)
 	if err != nil {
 		return nil, storage.Error(err)
+	}
+	subscriptions := make([]*EventSubscription, 0, len(rows))
+	for _, row := range rows {
+		sub, buildErr := buildEventSubscription(row)
+		if buildErr != nil {
+			return nil, storage.Error(buildErr)
+		}
+		subscriptions = append(subscriptions, sub)
 	}
 	return subscriptions, nil
 }
