@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"time"
@@ -23,7 +24,7 @@ type eventRegistrationRow struct {
 }
 
 func decodeJSONMap(raw []byte) (map[string]any, error) {
-	if len(raw) == 0 || string(raw) == "null" {
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
 		return nil, nil
 	}
 
@@ -35,7 +36,7 @@ func decodeJSONMap(raw []byte) (map[string]any, error) {
 }
 
 func decodeJSONStringMap(raw []byte) (map[string]string, error) {
-	if len(raw) == 0 || string(raw) == "null" {
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
 		return nil, nil
 	}
 
