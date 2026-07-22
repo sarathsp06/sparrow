@@ -117,8 +117,6 @@ func setupEnv(t *testing.T) *testEnv {
 	// 5. Create repositories
 	webhookRepo := store.NewRepository(sqlxDB)
 
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
-
 	// 6. Bootstrap default tenant
 	err = tenant.Bootstrap(ctx, sqlxDB.DB)
 	require.NoError(t, err, "failed to bootstrap default tenant")
