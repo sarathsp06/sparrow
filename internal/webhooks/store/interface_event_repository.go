@@ -23,8 +23,14 @@ type eventRegistrationRow struct {
 	UpdatedAt     time.Time `db:"updated_at"`
 }
 
-func decodeJSONMap(raw []byte) (map[string]any, error) {
-	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+var jsonNull = []byte("null")
+
+func isNullOrEmpty(raw []byte) bool {
+	return len(raw) == 0 || bytes.Equal(raw, jsonNull)
+}
+
+func decodeJSONAnyMap(raw []byte) (map[string]any, error) {
+	if isNullOrEmpty(raw) {
 		return nil, nil
 	}
 
@@ -36,7 +42,7 @@ func decodeJSONMap(raw []byte) (map[string]any, error) {
 }
 
 func decodeJSONStringMap(raw []byte) (map[string]string, error) {
-	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+	if isNullOrEmpty(raw) {
 		return nil, nil
 	}
 
@@ -48,12 +54,12 @@ func decodeJSONStringMap(raw []byte) (map[string]string, error) {
 }
 
 func buildEventRegistration(row eventRegistrationRow) (*EventRegistration, error) {
-	schema, err := decodeJSONMap(row.Schema)
+	schema, err := decodeJSONAnyMap(row.Schema)
 	if err != nil {
 		return nil, err
 	}
 
-	samplePayload, err := decodeJSONMap(row.SamplePayload)
+	samplePayload, err := decodeJSONAnyMap(row.SamplePayload)
 	if err != nil {
 		return nil, err
 	}

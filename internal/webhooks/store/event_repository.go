@@ -35,7 +35,7 @@ type eventReportWithStatsRow struct {
 }
 
 func buildEventRecord(row eventRecordRow) (*EventRecord, error) {
-	payload, err := decodeJSONMap(row.Payload)
+	payload, err := decodeJSONAnyMap(row.Payload)
 	if err != nil {
 		return nil, err
 	}
