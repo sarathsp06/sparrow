@@ -11,6 +11,61 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
+type eventRecordRow struct {
+	ID             uuid.UUID `db:"id"`
+	TenantID       uuid.UUID `db:"tenant_id"`
+	Namespace      string    `db:"namespace"`
+	Event          string    `db:"event"`
+	Payload        []byte    `db:"payload"`
+	TTL            int64     `db:"ttl"`
+	Metadata       []byte    `db:"metadata"`
+	Labels         []byte    `db:"labels"`
+	SchemaValid    bool      `db:"schema_valid"`
+	IdempotencyKey *string   `db:"idempotency_key"`
+	CreatedAt      time.Time `db:"created_at"`
+	ExpiresAt      time.Time `db:"expires_at"`
+}
+
+type eventReportWithStatsRow struct {
+	eventRecordRow
+	WebhookCount         int32 `db:"webhook_count"`
+	SuccessfulDeliveries int32 `db:"successful_deliveries"`
+	FailedDeliveries     int32 `db:"failed_deliveries"`
+	PendingDeliveries    int32 `db:"pending_deliveries"`
+}
+
+func buildEventRecord(row eventRecordRow) (*EventRecord, error) {
+	payload, err := decodeJSONMap(row.Payload)
+	if err != nil {
+		return nil, err
+	}
+
+	metadata, err := decodeJSONStringMap(row.Metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	labels, err := decodeJSONStringMap(row.Labels)
+	if err != nil {
+		return nil, err
+	}
+
+	return &EventRecord{
+		ID:             row.ID,
+		TenantID:       row.TenantID,
+		Namespace:      row.Namespace,
+		Event:          row.Event,
+		Payload:        payload,
+		TTL:            row.TTL,
+		Metadata:       metadata,
+		Labels:         labels,
+		SchemaValid:    row.SchemaValid,
+		IdempotencyKey: row.IdempotencyKey,
+		CreatedAt:      row.CreatedAt,
+		ExpiresAt:      row.ExpiresAt,
+	}, nil
+}
+
 // StoreEvent persists an event record with automatic ID generation and timestamp management.
 func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *EventRecord) error {
 	if event.ID == uuid.Nil {
@@ -44,12 +99,17 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 		return fmt.Errorf("failed to marshal labels: %w", err)
 	}
 
+	payloadJSON, err := json.Marshal(event.Payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
 	_, err = r.conn.ExecContext(ctx, query,
 		event.ID,
 		event.TenantID,
 		event.Namespace,
 		event.Event,
-		event.Payload,
+		string(payloadJSON),
 		event.TTL,
 		metadataJSON,
 		labelsJSON,
@@ -69,16 +129,20 @@ func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, event
 		WHERE id = $1 AND tenant_id = $2
 	`
 
-	var eventRow EventRecord
+	var row eventRecordRow
 
-	err := r.conn.GetContext(ctx, &eventRow, query, eventID, tenantID)
+	err := r.conn.GetContext(ctx, &row, query, eventID, tenantID)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
 		}
 		return nil, storage.Error(err)
 	}
-	return &eventRow, nil
+	event, err := buildEventRecord(row)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
+	return event, nil
 }
 
 // GetEventByIdempotencyKey looks up an event record by its client-provided idempotency key.
@@ -90,15 +154,19 @@ func (r *Repository) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid
 		WHERE tenant_id = $1 AND namespace = $2 AND idempotency_key = $3
 	`
 
-	var eventRow EventRecord
-	err := r.conn.GetContext(ctx, &eventRow, query, tenantID, namespace, idempotencyKey)
+	var row eventRecordRow
+	err := r.conn.GetContext(ctx, &row, query, tenantID, namespace, idempotencyKey)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
 		}
 		return nil, storage.Error(err)
 	}
-	return &eventRow, nil
+	event, err := buildEventRecord(row)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
+	return event, nil
 }
 
 // ListEventReports gets event records in descending order by creation time.
@@ -132,8 +200,8 @@ func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, n
 
 	queryArgs := append(args, limit, offset)
 
-	var eventRows []EventRecord
-	err := r.conn.SelectContext(ctx, &eventRows, baseQuery, queryArgs...)
+	var rows []eventRecordRow
+	err := r.conn.SelectContext(ctx, &rows, baseQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -145,9 +213,13 @@ func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, n
 	}
 
 	var events []*EventReportWithStats
-	for _, row := range eventRows {
+	for _, row := range rows {
+		eventRecord, buildErr := buildEventRecord(row)
+		if buildErr != nil {
+			return nil, 0, storage.Error(buildErr)
+		}
 		events = append(events, &EventReportWithStats{
-			EventRecord: row,
+			EventRecord: *eventRecord,
 		})
 	}
 
@@ -201,8 +273,8 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 
 	queryArgs := append(args, limit, offset)
 
-	var events []*EventReportWithStats
-	err := r.conn.SelectContext(ctx, &events, baseQuery, queryArgs...)
+	var rows []eventReportWithStatsRow
+	err := r.conn.SelectContext(ctx, &rows, baseQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -211,6 +283,21 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 	err = r.conn.GetContext(ctx, &totalCount, countQuery, args...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
+	}
+
+	events := make([]*EventReportWithStats, 0, len(rows))
+	for _, row := range rows {
+		eventRecord, buildErr := buildEventRecord(row.eventRecordRow)
+		if buildErr != nil {
+			return nil, 0, storage.Error(buildErr)
+		}
+		events = append(events, &EventReportWithStats{
+			EventRecord:          *eventRecord,
+			WebhookCount:         row.WebhookCount,
+			SuccessfulDeliveries: row.SuccessfulDeliveries,
+			FailedDeliveries:     row.FailedDeliveries,
+			PendingDeliveries:    row.PendingDeliveries,
+		})
 	}
 
 	return events, totalCount, nil
@@ -280,8 +367,8 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 	`
 
 	queryArgs := append(args, filter.Limit, filter.Offset)
-	var events []*EventReportWithStats
-	err := r.conn.SelectContext(ctx, &events, baseQuery, queryArgs...)
+	var rows []eventReportWithStatsRow
+	err := r.conn.SelectContext(ctx, &rows, baseQuery, queryArgs...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -290,6 +377,21 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 	err = r.conn.GetContext(ctx, &totalCount, countQuery, args...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
+	}
+
+	events := make([]*EventReportWithStats, 0, len(rows))
+	for _, row := range rows {
+		eventRecord, buildErr := buildEventRecord(row.eventRecordRow)
+		if buildErr != nil {
+			return nil, 0, storage.Error(buildErr)
+		}
+		events = append(events, &EventReportWithStats{
+			EventRecord:          *eventRecord,
+			WebhookCount:         row.WebhookCount,
+			SuccessfulDeliveries: row.SuccessfulDeliveries,
+			FailedDeliveries:     row.FailedDeliveries,
+			PendingDeliveries:    row.PendingDeliveries,
+		})
 	}
 
 	return events, totalCount, nil

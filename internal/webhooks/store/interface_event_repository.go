@@ -2,12 +2,78 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
+
+type eventRegistrationRow struct {
+	TenantID      uuid.UUID `db:"tenant_id"`
+	Name          string    `db:"name"`
+	Description   string    `db:"description"`
+	Schema        []byte    `db:"schema"`
+	SamplePayload []byte    `db:"sample_payload"`
+	Metadata      []byte    `db:"metadata"`
+	Active        bool      `db:"active"`
+	CreatedAt     time.Time `db:"created_at"`
+	UpdatedAt     time.Time `db:"updated_at"`
+}
+
+func decodeJSONMap(raw []byte) (map[string]any, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, nil
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return nil, err
+	}
+	return decoded, nil
+}
+
+func decodeJSONStringMap(raw []byte) (map[string]string, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, nil
+	}
+
+	var decoded map[string]string
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return nil, err
+	}
+	return decoded, nil
+}
+
+func buildEventRegistration(row eventRegistrationRow) (*EventRegistration, error) {
+	schema, err := decodeJSONMap(row.Schema)
+	if err != nil {
+		return nil, err
+	}
+
+	samplePayload, err := decodeJSONMap(row.SamplePayload)
+	if err != nil {
+		return nil, err
+	}
+
+	metadata, err := decodeJSONStringMap(row.Metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	return &EventRegistration{
+		TenantID:      row.TenantID,
+		Name:          row.Name,
+		Description:   row.Description,
+		Schema:        schema,
+		SamplePayload: samplePayload,
+		Metadata:      metadata,
+		Active:        row.Active,
+		CreatedAt:     row.CreatedAt,
+		UpdatedAt:     row.UpdatedAt,
+	}, nil
+}
 
 // RegisterEvent registers a new event type within a tenant
 func (r *Repository) RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error {
@@ -44,15 +110,19 @@ func (r *Repository) GetEventByName(ctx context.Context, tenantID uuid.UUID, eve
 		FROM event_registrations 
 		WHERE tenant_id = $1 AND name = $2
 	`
-	var event EventRegistration
-	err := r.conn.GetContext(ctx, &event, query, tenantID, eventName)
+	var row eventRegistrationRow
+	err := r.conn.GetContext(ctx, &row, query, tenantID, eventName)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
 		}
 		return nil, storage.Error(err)
 	}
-	return &event, nil
+	event, err := buildEventRegistration(row)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
+	return event, nil
 }
 
 // ListEvents returns all registered events for a tenant
@@ -77,10 +147,18 @@ func (r *Repository) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID
 		ORDER BY name ASC
 		LIMIT $3 OFFSET $4
 	`
-	var events []*EventRegistration
-	err = r.conn.SelectContext(ctx, &events, query, tenantID, activeOnly, limit, offset)
+	var rows []eventRegistrationRow
+	err = r.conn.SelectContext(ctx, &rows, query, tenantID, activeOnly, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
+	}
+	events := make([]*EventRegistration, 0, len(rows))
+	for _, row := range rows {
+		event, buildErr := buildEventRegistration(row)
+		if buildErr != nil {
+			return nil, 0, storage.Error(buildErr)
+		}
+		events = append(events, event)
 	}
 	return events, totalCount, nil
 }

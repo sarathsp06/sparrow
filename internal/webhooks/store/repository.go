@@ -100,12 +100,17 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, tenantID uuid.
 		return fmt.Errorf("failed to marshal labels: %w", err)
 	}
 
+	payloadJSON, err := json.Marshal(event.Payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
 	_, err = tx.Exec(ctx, query,
 		event.ID,
 		event.TenantID,
 		event.Namespace,
 		event.Event,
-		event.Payload,
+		string(payloadJSON),
 		event.TTL,
 		metadataJSON,
 		labelsJSON,

@@ -13,6 +13,69 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
+type webhookRegistrationRow struct {
+	ID                    uuid.UUID     `db:"id"`
+	TenantID              uuid.UUID     `db:"tenant_id"`
+	Namespace             string        `db:"namespace"`
+	URL                   string        `db:"url"`
+	Headers               []byte        `db:"headers"`
+	Timeout               int           `db:"timeout"`
+	Active                bool          `db:"active"`
+	Description           string        `db:"description"`
+	Health                WebhookHealth `db:"health"`
+	MaxRetries            int           `db:"max_retries"`
+	RetryBackoffSeconds   int           `db:"retry_backoff_seconds"`
+	CaptureResponseBody   bool          `db:"capture_response_body"`
+	FollowRedirects       bool          `db:"follow_redirects"`
+	VerifySSL             bool          `db:"verify_ssl"`
+	RequestTimeoutSeconds int           `db:"request_timeout_seconds"`
+	ExpectedStatusCodes   pq.Int64Array `db:"expected_status_codes"`
+	WebhookSecret         []byte        `db:"webhook_secret"`
+	UserAgent             string        `db:"user_agent"`
+	ContentType           string        `db:"content_type"`
+	SecretHeaders         []byte        `db:"secret_headers"`
+	RateLimitRPS          *float64      `db:"rate_limit_rps"`
+	Ed25519PrivateKey     []byte        `db:"ed25519_private_key"`
+	SignatureType         SignatureType `db:"signature_type"`
+	CreatedAt             time.Time     `db:"created_at"`
+	UpdatedAt             time.Time     `db:"updated_at"`
+}
+
+func buildWebhookRegistration(row webhookRegistrationRow) (*WebhookRegistration, error) {
+	headers, err := decodeJSONStringMap(row.Headers)
+	if err != nil {
+		return nil, err
+	}
+
+	return &WebhookRegistration{
+		ID:                    row.ID,
+		TenantID:              row.TenantID,
+		Namespace:             row.Namespace,
+		URL:                   row.URL,
+		Headers:               headers,
+		Timeout:               row.Timeout,
+		Active:                row.Active,
+		Description:           row.Description,
+		Health:                row.Health,
+		MaxRetries:            row.MaxRetries,
+		RetryBackoffSeconds:   row.RetryBackoffSeconds,
+		CaptureResponseBody:   row.CaptureResponseBody,
+		FollowRedirects:       row.FollowRedirects,
+		VerifySSL:             row.VerifySSL,
+		RequestTimeoutSeconds: row.RequestTimeoutSeconds,
+		ExpectedStatusCodes:   row.ExpectedStatusCodes,
+		WebhookSecret:         row.WebhookSecret,
+		UserAgent:             row.UserAgent,
+		ContentType:           row.ContentType,
+		SecretHeaders:         row.SecretHeaders,
+		RateLimitRPS:          row.RateLimitRPS,
+		Ed25519PrivateKey:     row.Ed25519PrivateKey,
+		SignatureType:         row.SignatureType,
+		CreatedAt:             row.CreatedAt,
+		UpdatedAt:             row.UpdatedAt,
+	}, nil
+}
+
 // RegisterWebhook creates a new webhook registration.
 // Returns storage.ErrAlreadyExists if a webhook with the same tenant, namespace,
 // and URL already exists.
@@ -154,10 +217,19 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 	`
 
 	queryArgs := append(args, limit, offset)
-	var webhooks []*WebhookRegistration
-	err = r.conn.SelectContext(ctx, &webhooks, query, queryArgs...)
+	var rows []webhookRegistrationRow
+	err = r.conn.SelectContext(ctx, &rows, query, queryArgs...)
 	if err != nil {
 		return nil, 0, storage.Error(err)
+	}
+
+	webhooks := make([]*WebhookRegistration, 0, len(rows))
+	for _, row := range rows {
+		webhook, buildErr := buildWebhookRegistration(row)
+		if buildErr != nil {
+			return nil, 0, storage.Error(buildErr)
+		}
+		webhooks = append(webhooks, webhook)
 	}
 
 	return webhooks, totalCount, nil
@@ -302,13 +374,17 @@ func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, web
 		args = []any{webhookID, tenantID}
 	}
 
-	var result WebhookRegistration
-	err := r.conn.GetContext(ctx, &result, query, args...)
+	var row webhookRegistrationRow
+	err := r.conn.GetContext(ctx, &row, query, args...)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
 
-	return &result, nil
+	result, err := buildWebhookRegistration(row)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
+	return result, nil
 }
 
 // UpdateWebhook updates a webhook registration within a tenant.
@@ -376,10 +452,19 @@ func (r *Repository) GetWebhooksByHealthPaginated(ctx context.Context, tenantID 
 		LIMIT $3 OFFSET $4
 	`
 
-	var webhooks []*WebhookRegistration
-	err = r.conn.SelectContext(ctx, &webhooks, query, tenantID, string(health), limit, offset)
+	var rows []webhookRegistrationRow
+	err = r.conn.SelectContext(ctx, &rows, query, tenantID, string(health), limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
+	}
+
+	webhooks := make([]*WebhookRegistration, 0, len(rows))
+	for _, row := range rows {
+		webhook, buildErr := buildWebhookRegistration(row)
+		if buildErr != nil {
+			return nil, 0, storage.Error(buildErr)
+		}
+		webhooks = append(webhooks, webhook)
 	}
 
 	return webhooks, totalCount, nil
