@@ -10,4 +10,5 @@
 cache/
 graph.html
 
-# tracked: graph.json, GRAPH_REPORT.md, manifest.json, .graphify_labels.json
+# tracked: graph.json, GRAPH_REPORT.md, manifest.json
+# (.graphify_labels.json is ignored above; its names are preserved in GRAPH_REPORT.md)
