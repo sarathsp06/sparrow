@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_db_migrations_000006_add_tenant_created_by_down_sql", "label": "000006_add_tenant_created_by.down.sql", "file_type": "code", "source_file": "db/migrations/000006_add_tenant_created_by.down.sql", "source_location": null}], "edges": []}

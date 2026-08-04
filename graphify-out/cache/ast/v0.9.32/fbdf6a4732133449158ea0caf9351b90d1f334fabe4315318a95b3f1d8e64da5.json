@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_db_migrations_000005_add_tenant_external_id_up_sql", "label": "000005_add_tenant_external_id.up.sql", "file_type": "code", "source_file": "db/migrations/000005_add_tenant_external_id.up.sql", "source_location": null}], "edges": []}

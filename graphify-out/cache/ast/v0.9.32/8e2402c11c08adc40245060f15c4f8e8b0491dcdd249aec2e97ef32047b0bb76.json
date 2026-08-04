@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_db_migrations_000011_remove_namespace_memberships_up_sql", "label": "000011_remove_namespace_memberships.up.sql", "file_type": "code", "source_file": "db/migrations/000011_remove_namespace_memberships.up.sql", "source_location": null}], "edges": []}

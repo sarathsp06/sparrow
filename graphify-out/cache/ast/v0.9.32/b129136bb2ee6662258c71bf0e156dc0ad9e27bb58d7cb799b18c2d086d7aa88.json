@@ -1,1 +1,0 @@
-{"nodes": [{"id": "$graphify-root$_db_migrations_000010_scaling_and_audit_log_down_sql", "label": "000010_scaling_and_audit_log.down.sql", "file_type": "code", "source_file": "db/migrations/000010_scaling_and_audit_log.down.sql", "source_location": null}], "edges": []}

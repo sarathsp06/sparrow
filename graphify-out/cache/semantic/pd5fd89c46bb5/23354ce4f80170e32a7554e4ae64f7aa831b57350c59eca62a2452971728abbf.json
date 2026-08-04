@@ -1,1 +1,0 @@
-{"nodes": [{"id": "charts_sparrow_templates_postgresql_service_service", "label": "Sparrow PostgreSQL Service Template", "file_type": "code", "source_file": "charts/sparrow/templates/postgresql/service.yaml", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

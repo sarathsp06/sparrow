@@ -5,3 +5,9 @@
 .needs_update
 .graphify_*.json
 .graphify_*.txt
+
+# regenerable build artifacts — rebuild with `graphify update .` / `graphify export html`
+cache/
+graph.html
+
+# tracked: graph.json, GRAPH_REPORT.md, manifest.json, .graphify_labels.json
