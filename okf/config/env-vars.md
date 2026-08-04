@@ -3,7 +3,7 @@ type: Configuration
 title: Environment Variables
 description: All server configuration loaded from environment variables via kelseyhightower/envconfig
 tags: [config, env-vars]
-timestamp: 2026-06-22T00:00:00Z
+timestamp: 2026-07-06T16:46:48Z
 ---
 
 # Environment Variables
@@ -29,7 +29,7 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `SPARROW_API_KEY` | API key for auth (optional) | — (open access) |
+| `SPARROW_API_KEY` | Optional API key for auth; accepted via HTTP `X-API-Key` header and gRPC `x-api-key` metadata | — (open access) |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | Allow localhost/private IPs as webhook URLs | `false` |
 
 ## Observability

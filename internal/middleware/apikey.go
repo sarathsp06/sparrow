@@ -40,9 +40,9 @@ func (a *APIKeyAuth) Enabled() bool {
 // HTTPMiddleware returns an http.Handler that enforces API key authentication.
 // When the API key is not configured (empty), requests pass through unchanged.
 //
-// The key can be provided via:
-//   - Header: X-API-Key: <key>
-//   - Query parameter: ?api_key=<key> (useful for browser/curl convenience)
+// The key must be provided via the X-API-Key header. Query parameters are not
+// accepted because URLs are commonly logged by proxies, stored in browser
+// history, and leaked via Referer headers.
 //
 // Excluded paths (health, ready, static UI files) are never checked.
 func (a *APIKeyAuth) HTTPMiddleware(next http.Handler) http.Handler {
@@ -59,13 +59,7 @@ func (a *APIKeyAuth) HTTPMiddleware(next http.Handler) http.Handler {
 			}
 		}
 
-		// Extract key from header or query parameter.
-		key := r.Header.Get(APIKeyHeader)
-		if key == "" {
-			key = r.URL.Query().Get("api_key")
-		}
-
-		if !a.validKey(key) {
+		if !a.validKey(a.keyFromHTTPRequest(r)) {
 			http.Error(w, `{"error":"unauthorized","message":"missing or invalid API key"}`, http.StatusUnauthorized)
 			return
 		}
@@ -88,12 +82,11 @@ func (a *APIKeyAuth) UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 			return handler(ctx, req)
 		}
 
-		md, ok := metadata.FromIncomingContext(ctx)
+		keys, ok := apiKeysFromIncomingContext(ctx)
 		if !ok {
 			return nil, status.Errorf(codes.Unauthenticated, "missing metadata")
 		}
 
-		keys := md.Get(apiKeyMetadataKey)
 		if len(keys) == 0 {
 			return nil, status.Errorf(codes.Unauthenticated, "missing API key: set %s metadata", apiKeyMetadataKey)
 		}
@@ -119,12 +112,11 @@ func (a *APIKeyAuth) StreamServerInterceptor() grpc.StreamServerInterceptor {
 			return handler(srv, ss)
 		}
 
-		md, ok := metadata.FromIncomingContext(ss.Context())
+		keys, ok := apiKeysFromIncomingContext(ss.Context())
 		if !ok {
 			return status.Errorf(codes.Unauthenticated, "missing metadata")
 		}
 
-		keys := md.Get(apiKeyMetadataKey)
 		if len(keys) == 0 {
 			return status.Errorf(codes.Unauthenticated, "missing API key: set %s metadata", apiKeyMetadataKey)
 		}
@@ -135,6 +127,18 @@ func (a *APIKeyAuth) StreamServerInterceptor() grpc.StreamServerInterceptor {
 
 		return handler(srv, ss)
 	}
+}
+
+func (a *APIKeyAuth) keyFromHTTPRequest(r *http.Request) string {
+	return r.Header.Get(APIKeyHeader)
+}
+
+func apiKeysFromIncomingContext(ctx context.Context) ([]string, bool) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, false
+	}
+	return md.Get(apiKeyMetadataKey), true
 }
 
 // validKey performs a constant-time comparison to prevent timing attacks.

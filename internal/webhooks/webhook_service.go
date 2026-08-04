@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,7 +48,19 @@ type WebhookService struct {
 
 //go:generate gowrap gen -i WebhookServiceInterface -t ../../templates/opentelemetry.tmpl -o WebhookServiceInterface_otel.go
 type WebhookServiceInterface interface {
-	// Webhook Management
+	WebhookRegistrationService
+	EventService
+	SubscriptionService
+	DeliveryService
+	HealthService
+	BatchService
+	TemplateMetadataService
+	WebhookRepositoryAccessor
+	WebhookSecretPresenter
+}
+
+// WebhookRegistrationService contains webhook registration and configuration operations.
+type WebhookRegistrationService interface {
 	RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error)
 	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error)
 	UnregisterWebhook(ctx context.Context, webhookID string, namespace string) error
@@ -56,8 +69,10 @@ type WebhookServiceInterface interface {
 	PauseWebhook(ctx context.Context, webhookID string, namespace string, reason string) error
 	ResumeWebhook(ctx context.Context, webhookID string, namespace string) error
 	GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStatsData, error)
+}
 
-	// Event Management
+// EventService contains event type and event record operations.
+type EventService interface {
 	RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, time.Time, error)
 	ListEvents(ctx context.Context, activeOnly bool, limit, offset int32) ([]*store.EventRegistration, int32, error)
 	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error
@@ -67,44 +82,58 @@ type WebhookServiceInterface interface {
 	RePushEvent(ctx context.Context, eventID string) (string, []string, error)
 	GetEventRecord(ctx context.Context, eventID string) (*store.EventRecord, int32, int32, int32, int32, error)
 	ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error)
+}
 
-	// Subscription Management
+// SubscriptionService contains subscription and template-test operations.
+type SubscriptionService interface {
 	CreateSubscription(ctx context.Context, webhookID, eventName, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error)
 	GetSubscription(ctx context.Context, subscriptionID string, namespace string) (*store.EventSubscription, error)
 	ListSubscriptions(ctx context.Context, namespace string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
 	UpdateSubscription(ctx context.Context, subscriptionID string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error
 	DeleteSubscription(ctx context.Context, subscriptionID string, namespace string) error
 	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, namespace string) (string, error)
+}
 
-	// Delivery Management
+// DeliveryService contains delivery lookup and retry operations.
+type DeliveryService interface {
 	GetDeliveryStatus(ctx context.Context, deliveryID string, namespace string) (*store.WebhookDelivery, error)
 	GetDeliveryAttempts(ctx context.Context, deliveryID string) ([]*store.WebhookHealthEvent, error)
 	ListDeliveries(ctx context.Context, filter store.DeliveryFilter) ([]*store.WebhookDelivery, int32, string, error)
 	RetryDelivery(ctx context.Context, namespace string, deliveryID string, webhookID string, force bool) ([]string, int32, error)
+}
 
-	// Health Management
+// HealthService contains webhook health read operations.
+type HealthService interface {
 	GetWebhookHealth(ctx context.Context, webhookID string, namespace string) (*WebhookHealthData, error)
 	ListWebhooksByHealth(ctx context.Context, health store.WebhookHealth, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
 	GetHealthSummary(ctx context.Context) (*HealthSummaryData, error)
+}
 
-	// Batch Operations
+// BatchService contains snapshot-based bulk operation controls.
+type BatchService interface {
 	RePushEvents(ctx context.Context, repushID string) error
 	GetRepushStatus(ctx context.Context, repushID string) (*store.BatchJob, error)
 	CancelRepush(ctx context.Context, repushID string) error
 	RetryDeliveries(ctx context.Context, retryID string) error
 	GetRetryStatus(ctx context.Context, retryID string) (*store.BatchJob, error)
 	CancelRetry(ctx context.Context, retryID string) error
+}
 
-	// Metadata
+// TemplateMetadataService exposes supported template functions.
+type TemplateMetadataService interface {
 	GetTemplateFunctions() []TemplateFunctionInfo
+}
 
-	// Repository access
+// WebhookRepositoryAccessor exposes repository access for existing transport helpers.
+type WebhookRepositoryAccessor interface {
 	GetWebhookRepo() store.RepositoryInterface
+}
 
-	// Crypto
+// WebhookSecretPresenter exposes safe presentation helpers for encrypted webhook secrets.
+type WebhookSecretPresenter interface {
 	DecryptSecretHeaders(encrypted []byte) (map[string]string, error)
 	DecryptWebhookSecret(encrypted []byte) (string, error)
-	GetCrypto() *crypto.Service
+	WebhookSigningPublicKeyHex(encryptedPrivKey []byte) string
 }
 
 type TemplateFunctionInfo struct {
@@ -201,9 +230,24 @@ func (s *WebhookService) DecryptWebhookSecret(encrypted []byte) (string, error) 
 	return s.crypto.DecryptString(encrypted)
 }
 
-// GetCrypto returns the crypto service for use by workers and handlers
-func (s *WebhookService) GetCrypto() *crypto.Service {
-	return s.crypto
+// WebhookSigningPublicKeyHex decrypts the envelope-encrypted Ed25519 private key
+// and returns the hex-encoded public key. It returns an empty string on any
+// error or if the key is absent, so transport modules never handle private-key
+// material directly.
+func (s *WebhookService) WebhookSigningPublicKeyHex(encryptedPrivKey []byte) string {
+	if len(encryptedPrivKey) == 0 || s.crypto == nil {
+		return ""
+	}
+	decrypted, err := s.crypto.DecryptString(encryptedPrivKey)
+	if err != nil {
+		return ""
+	}
+	privKey := ed25519.PrivateKey([]byte(decrypted))
+	if len(privKey) != ed25519.PrivateKeySize {
+		return ""
+	}
+	pubKey := privKey.Public().(ed25519.PublicKey)
+	return hex.EncodeToString(pubKey)
 }
 
 // GetWebhookRepo returns the repository interface for direct access

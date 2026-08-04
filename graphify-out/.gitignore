@@ -1,0 +1,7 @@
+# machine-specific runtime state (absolute paths) — not portable
+.graphify_python
+.graphify_root
+.graphify_semantic_marker
+.needs_update
+.graphify_*.json
+.graphify_*.txt

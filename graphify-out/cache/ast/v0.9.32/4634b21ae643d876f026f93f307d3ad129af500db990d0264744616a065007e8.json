@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_db_migrations_000008_add_namespaces_and_memberships_down_sql", "label": "000008_add_namespaces_and_memberships.down.sql", "file_type": "code", "source_file": "db/migrations/000008_add_namespaces_and_memberships.down.sql", "source_location": null}], "edges": []}

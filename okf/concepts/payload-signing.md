@@ -3,7 +3,7 @@ type: Concept
 title: Payload Signing
 description: Dual HMAC-SHA256 + Ed25519 signing on every delivery following Standard Webhooks format
 tags: [signing, hmac, ed25519, security]
-timestamp: 2026-06-22T00:00:00Z
+timestamp: 2026-07-06T16:46:48Z
 ---
 
 # Payload Signing
@@ -31,8 +31,11 @@ Message to sign: `{msg_id}.{timestamp}.{payload}`
 - Private key stored envelope-encrypted in `ed25519_private_key` column
 - Public key derived at runtime — not stored separately
 - Exposed as `signing_public_key` in `RegisterWebhookResponse` and `RegisteredWebhook`
+- Public-key presentation is handled behind the [webhooks service](/packages/internal-webhooks-service.md) seam via `WebhookSigningPublicKeyHex`, so transport modules do not decrypt private-key material directly
 
 ## Citations
 
 - `db/migrations/000022.up.sql` — Ed25519 key column
 - `internal/webhooks/client/` — signing implementation
+- `internal/webhooks/webhook_service.go` — signing public-key presentation
+- `internal/grpc/helpers.go` — transport response conversion delegates signing-key presentation

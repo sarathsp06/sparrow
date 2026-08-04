@@ -4,6 +4,8 @@
 
 > **OKF knowledge bundle available at `okf/`.** Before exploring code, read `okf/index.md` to get a structured overview of the repo — then navigate into specific areas (`okf/packages/`, `okf/services/`, `okf/concepts/`, `okf/database/schema.md`, etc.) as needed. This is the primary knowledge source; this file is the condensed quick reference.
 
+> **Knowledge graph available at `graphify-out/`.** For codebase questions, run `graphify query "<question>"` when `graphify-out/graph.json` exists — it returns a scoped subgraph, usually smaller than grepping. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for a focused node. After changing code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
 **Module**: `github.com/sarathsp06/sparrow` • **Go**: 1.26 • **Repository**: `/Users/sarathsadasivanpillai/projects/sparrow`
 
 ---
@@ -21,14 +23,12 @@ Optional shared-secret auth via `SPARROW_API_KEY` env var. When set, all API req
 | Method | How to pass |
 |--------|-------------|
 | HTTP header | `X-API-Key: <key>` |
-| Query param | `?api_key=<key>` (curl convenience) |
 | gRPC metadata | `x-api-key: <key>` |
 
 Excluded paths: `/health`, `/ready`, UI catch-all. Uses constant-time comparison (`crypto/subtle`). The embedded UI gets the key injected at runtime via `window.__SPARROW_CONFIG__`.
 
 ```bash
 curl -H "X-API-Key: my-secret" http://localhost:8080/webhook.WebhookService/ListWebhooks
-curl "http://localhost:8080/webhook.WebhookService/ListWebhooks?api_key=my-secret"
 grpcurl -plaintext -H "x-api-key: my-secret" localhost:50051 webhook.WebhookService/ListWebhooks
 ```
 

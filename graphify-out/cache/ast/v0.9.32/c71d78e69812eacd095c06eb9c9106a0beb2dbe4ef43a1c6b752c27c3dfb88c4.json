@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_db_migrations_000001_consolidated_schema_down_sql", "label": "000001_consolidated_schema.down.sql", "file_type": "code", "source_file": "db/migrations/000001_consolidated_schema.down.sql", "source_location": null}], "edges": []}

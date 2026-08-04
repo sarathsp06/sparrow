@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_db_migrations_000017_add_batch_jobs_down_sql", "label": "000017_add_batch_jobs.down.sql", "file_type": "code", "source_file": "db/migrations/000017_add_batch_jobs.down.sql", "source_location": null}], "edges": []}

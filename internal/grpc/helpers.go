@@ -2,8 +2,6 @@ package grpc
 
 import (
 	"context"
-	"crypto/ed25519"
-	"encoding/hex"
 	"errors"
 	"log/slog"
 	"strings"
@@ -309,24 +307,9 @@ func batchJobToProto(batch *store.BatchJob) *pb.BatchJobStatus {
 	}
 }
 
-// deriveEd25519PublicKeyHex decrypts the envelope-encrypted Ed25519 private key
-// and returns the hex-encoded public key. Returns "" on any error or if the key is absent.
+// deriveEd25519PublicKeyHex returns the safe public-key presentation for an
+// envelope-encrypted Ed25519 private key. Crypto handling stays behind the
+// webhooks module seam; this transport helper only formats protobuf responses.
 func deriveEd25519PublicKeyHex(encryptedPrivKey []byte, svc webhooks.WebhookServiceInterface) string {
-	if len(encryptedPrivKey) == 0 {
-		return ""
-	}
-	cryptoSvc := svc.GetCrypto()
-	if cryptoSvc == nil {
-		return ""
-	}
-	decrypted, err := cryptoSvc.DecryptString(encryptedPrivKey)
-	if err != nil {
-		return ""
-	}
-	privKey := ed25519.PrivateKey([]byte(decrypted))
-	if len(privKey) != ed25519.PrivateKeySize {
-		return ""
-	}
-	pubKey := privKey.Public().(ed25519.PublicKey)
-	return hex.EncodeToString(pubKey)
+	return svc.WebhookSigningPublicKeyHex(encryptedPrivKey)
 }

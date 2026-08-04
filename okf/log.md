@@ -1,5 +1,29 @@
 # OKF Changelog
 
+## 2026-08-04
+
+### Knowledge graph + agent prompts
+
+- Built graphify knowledge graph at `graphify-out/` (3312 nodes, 6424 edges, 246 communities) over the **code** (Go/TS/proto AST + semantic pass on `docs/`, charts, diagrams). `graphify-out/GRAPH_REPORT.md` has god nodes, hyperedges, and community map.
+- **`okf/` is excluded from the graph** (`.graphifyignore` holds `okf/`). OKF is the curated knowledge bundle; graphify is the derived code graph — no point duplicating okf prose into it. The two are complementary: read OKF for intent, query graphify for structure.
+- **`opencode.md`**: added a graphify pointer next to the OKF pointer so agents query the graph before grepping. `AGENTS.md` already documents both OKF and graphify.
+
+## 2026-07-06
+
+### Architecture Deepening Updates
+
+Updated OKF after service and adapter refactors:
+
+- **`internal/connect/webhook_server.go`**: documented the centralized `forwardUnary` helper that removes repeated Connect-RPC forwarding logic while preserving generated typed handler methods.
+- **`internal/webhooks/webhook_service.go`**: documented the split of `WebhookServiceInterface` into embedded domain interfaces (`WebhookRegistrationService`, `EventService`, `SubscriptionService`, `DeliveryService`, `HealthService`, `BatchService`, and presentation/accessor seams).
+- **`internal/grpc/helpers.go`**: documented that Ed25519 public-key presentation now delegates to `WebhookSigningPublicKeyHex`, keeping private-key decrypt handling behind the webhooks service seam.
+- **`internal/middleware/apikey.go`**: documented that HTTP API key auth is header-only (`X-API-Key`); query-parameter API keys are no longer accepted.
+- **`opencode.md`**: auth examples now match the header-only HTTP API key policy.
+
+### Test Results
+
+- `go test ./...` ✅
+
 ## 2026-06-23
 
 ### Store Layer Refactoring (Dynamic SQL → Fixed SQL with IS NULL guards)
