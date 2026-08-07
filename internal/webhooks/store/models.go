@@ -1,7 +1,9 @@
 package store
 
 import (
+	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,12 +43,12 @@ type WebhookRegistration struct {
 	TenantID  uuid.UUID `json:"tenant_id" db:"tenant_id"`
 	Namespace string    `json:"namespace" db:"namespace"`
 	// Events removed in favor of EventSubscription
-	URL         string                    `json:"url" db:"url"`
-	Headers     map[string]string `json:"headers" db:"headers"`
-	Timeout     int                       `json:"timeout" db:"timeout"`
-	Active      bool                      `json:"active" db:"active"`
-	Description string                    `json:"description" db:"description"`
-	Health      WebhookHealth             `json:"health" db:"health"`
+	URL         string        `json:"url" db:"url"`
+	Headers     JSONStringMap `json:"headers" db:"headers"`
+	Timeout     int           `json:"timeout" db:"timeout"`
+	Active      bool          `json:"active" db:"active"`
+	Description string        `json:"description" db:"description"`
+	Health      WebhookHealth `json:"health" db:"health"`
 	// HTTP Configuration
 	MaxRetries          int `json:"max_retries" db:"max_retries"`
 	RetryBackoffSeconds int `json:"retry_backoff_seconds" db:"retry_backoff_seconds"`
@@ -69,18 +71,18 @@ type WebhookRegistration struct {
 
 // EventRecord represents an event that was pushed
 type EventRecord struct {
-	ID             uuid.UUID                 `json:"id" db:"id"`
-	TenantID       uuid.UUID                 `json:"tenant_id" db:"tenant_id"`
-	Namespace      string                    `json:"namespace" db:"namespace"`
-	Event          string                    `json:"event" db:"event"`
-	Payload        map[string]any    `json:"payload" db:"payload"`
-	TTL            int64                     `json:"ttl" db:"ttl"`
-	Metadata       map[string]string `json:"metadata" db:"metadata"`
-	Labels         map[string]string `json:"labels" db:"labels"`
-	SchemaValid    bool                      `json:"schema_valid" db:"schema_valid"`
-	IdempotencyKey *string                   `json:"idempotency_key,omitempty" db:"idempotency_key"`
-	CreatedAt      time.Time                 `json:"created_at" db:"created_at"`
-	ExpiresAt      time.Time                 `json:"expires_at" db:"expires_at"`
+	ID             uuid.UUID     `json:"id" db:"id"`
+	TenantID       uuid.UUID     `json:"tenant_id" db:"tenant_id"`
+	Namespace      string        `json:"namespace" db:"namespace"`
+	Event          string        `json:"event" db:"event"`
+	Payload        JSONMap       `json:"payload" db:"payload"`
+	TTL            int64         `json:"ttl" db:"ttl"`
+	Metadata       JSONStringMap `json:"metadata" db:"metadata"`
+	Labels         JSONStringMap `json:"labels" db:"labels"`
+	SchemaValid    bool          `json:"schema_valid" db:"schema_valid"`
+	IdempotencyKey *string       `json:"idempotency_key,omitempty" db:"idempotency_key"`
+	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
+	ExpiresAt      time.Time     `json:"expires_at" db:"expires_at"`
 }
 
 // WebhookDelivery represents a webhook delivery attempt
@@ -203,43 +205,43 @@ type WebhookHealthMetrics struct {
 // EventRegistration represents a registered event type.
 // The natural key is (TenantID, Name) — there is no surrogate UUID.
 type EventRegistration struct {
-	TenantID      uuid.UUID                 `json:"tenant_id" db:"tenant_id"`
-	Name          string                    `json:"name" db:"name"`
-	Description   string                    `json:"description" db:"description"`
-	Schema        map[string]any    `json:"schema" db:"schema"`                 // JSON schema for validation
-	SamplePayload map[string]any    `json:"sample_payload" db:"sample_payload"` // Auto-generated sample payload
-	Metadata      map[string]string `json:"metadata" db:"metadata"`
-	Active        bool                      `json:"active" db:"active"`
-	CreatedAt     time.Time                 `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time                 `json:"updated_at" db:"updated_at"`
+	TenantID      uuid.UUID     `json:"tenant_id" db:"tenant_id"`
+	Name          string        `json:"name" db:"name"`
+	Description   string        `json:"description" db:"description"`
+	Schema        JSONMap       `json:"schema" db:"schema"`                 // JSON schema for validation
+	SamplePayload JSONMap       `json:"sample_payload" db:"sample_payload"` // Auto-generated sample payload
+	Metadata      JSONStringMap `json:"metadata" db:"metadata"`
+	Active        bool          `json:"active" db:"active"`
+	CreatedAt     time.Time     `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time     `json:"updated_at" db:"updated_at"`
 }
 
 // WebhookUpdateFields represents fields that can be updated for a webhook
 type WebhookUpdateFields struct {
-	Events        []string                  `json:"events"`
-	URL           string                    `json:"url"`
+	Events        []string          `json:"events"`
+	URL           string            `json:"url"`
 	Headers       map[string]string `json:"headers"`
-	Timeout       int                       `json:"timeout"`
-	Active        bool                      `json:"active"`
-	Description   string                    `json:"description"`
-	SecretHeaders []byte                    `json:"secret_headers"` // Pre-encrypted ciphertext
+	Timeout       int               `json:"timeout"`
+	Active        bool              `json:"active"`
+	Description   string            `json:"description"`
+	SecretHeaders []byte            `json:"secret_headers"` // Pre-encrypted ciphertext
 }
 
 // EventSubscription represents a subscription to an event for a webhook
 type EventSubscription struct {
-	ID                uuid.UUID                 `json:"id" db:"id"`
-	TenantID          uuid.UUID                 `json:"tenant_id" db:"tenant_id"`
-	WebhookID         uuid.UUID                 `json:"webhook_id" db:"webhook_id"`
-	EventName         string                    `json:"event_name" db:"event_name"`
-	Namespace         string                    `json:"namespace" db:"namespace"`
-	Headers           map[string]string `json:"headers" db:"headers"`
-	Method            string                    `json:"method" db:"method"`
-	TransformEnabled  bool                      `json:"transform_enabled" db:"transform_enabled"`
-	TransformTemplate string                    `json:"transform_template" db:"transform_template"`
-	Timeout           int                       `json:"timeout" db:"timeout"`
-	LabelFilters      map[string]string `json:"label_filters" db:"label_filters"`
-	CreatedAt         time.Time                 `json:"created_at" db:"created_at"`
-	UpdatedAt         time.Time                 `json:"updated_at" db:"updated_at"`
+	ID                uuid.UUID     `json:"id" db:"id"`
+	TenantID          uuid.UUID     `json:"tenant_id" db:"tenant_id"`
+	WebhookID         uuid.UUID     `json:"webhook_id" db:"webhook_id"`
+	EventName         string        `json:"event_name" db:"event_name"`
+	Namespace         string        `json:"namespace" db:"namespace"`
+	Headers           JSONStringMap `json:"headers" db:"headers"`
+	Method            string        `json:"method" db:"method"`
+	TransformEnabled  bool          `json:"transform_enabled" db:"transform_enabled"`
+	TransformTemplate string        `json:"transform_template" db:"transform_template"`
+	Timeout           int           `json:"timeout" db:"timeout"`
+	LabelFilters      JSONStringMap `json:"label_filters" db:"label_filters"`
+	CreatedAt         time.Time     `json:"created_at" db:"created_at"`
+	UpdatedAt         time.Time     `json:"updated_at" db:"updated_at"`
 }
 
 // NamespaceStats represents statistics for a namespace
@@ -316,3 +318,89 @@ const MaxBatchSize = 10000
 
 // DefaultBatchTTLSeconds is the default TTL for batch jobs (15 minutes).
 const DefaultBatchTTLSeconds = 900
+
+// JSONMap is a map[string]any persisted as JSON. It works for both JSONB
+// columns and JSON-encoded TEXT columns (e.g. event_registrations.schema).
+// Implementing sql.Scanner/driver.Valuer makes NULL columns scan to a nil map
+// (a plain map[string]any errors on NULL) and encodes the map back to JSON on
+// write. Scan tolerates raw bytes, a JSON string, or an already-decoded map
+// (the pgx stdlib driver decodes jsonb into a Go map).
+type JSONMap map[string]any
+
+// Scan implements sql.Scanner.
+func (m *JSONMap) Scan(src any) error {
+	switch v := src.(type) {
+	case nil:
+		*m = nil
+	case []byte:
+		if len(v) == 0 {
+			*m = nil
+			return nil
+		}
+		return json.Unmarshal(v, m)
+	case string:
+		if v == "" {
+			*m = nil
+			return nil
+		}
+		return json.Unmarshal([]byte(v), m)
+	case map[string]any:
+		*m = v
+	default:
+		return fmt.Errorf("store: cannot scan %T into JSONMap", src)
+	}
+	return nil
+}
+
+// Value implements driver.Valuer.
+func (m JSONMap) Value() (driver.Value, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return json.Marshal(m)
+}
+
+// JSONStringMap is a map[string]string persisted as JSON, with the same
+// NULL-safe scanning semantics as JSONMap.
+type JSONStringMap map[string]string
+
+// Scan implements sql.Scanner.
+func (m *JSONStringMap) Scan(src any) error {
+	switch v := src.(type) {
+	case nil:
+		*m = nil
+	case []byte:
+		if len(v) == 0 {
+			*m = nil
+			return nil
+		}
+		return json.Unmarshal(v, m)
+	case string:
+		if v == "" {
+			*m = nil
+			return nil
+		}
+		return json.Unmarshal([]byte(v), m)
+	case map[string]any:
+		out := make(map[string]string, len(v))
+		for k, val := range v {
+			s, ok := val.(string)
+			if !ok {
+				return fmt.Errorf("store: cannot scan JSON value %T for key %q into JSONStringMap", val, k)
+			}
+			out[k] = s
+		}
+		*m = out
+	default:
+		return fmt.Errorf("store: cannot scan %T into JSONStringMap", src)
+	}
+	return nil
+}
+
+// Value implements driver.Valuer.
+func (m JSONStringMap) Value() (driver.Value, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return json.Marshal(m)
+}
