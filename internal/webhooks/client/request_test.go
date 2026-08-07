@@ -240,7 +240,10 @@ func TestPrepareDeliveryRequest(t *testing.T) {
 	payload := []byte(`{"user_id": "123"}`)
 	deliveryID := "delivery-456"
 
-	dr := PrepareDeliveryRequest(webhook, sub, event, deliveryID, payload, cryptoSvc)
+	dr, err := PrepareDeliveryRequest(webhook, sub, event, deliveryID, payload, cryptoSvc)
+	if err != nil {
+		t.Fatalf("PrepareDeliveryRequest returned error: %v", err)
+	}
 
 	if dr.WebhookID != webhookID {
 		t.Errorf("Expected WebhookID %s, got %s", webhookID, dr.WebhookID)
@@ -311,7 +314,10 @@ func TestPrepareDeliveryRequestWithoutSubscription(t *testing.T) {
 	payload := []byte(`{"user_id": "123"}`)
 	deliveryID := "delivery-456"
 
-	dr := PrepareDeliveryRequest(webhook, nil, event, deliveryID, payload, nil)
+	dr, err := PrepareDeliveryRequest(webhook, nil, event, deliveryID, payload, nil)
+	if err != nil {
+		t.Fatalf("PrepareDeliveryRequest returned error: %v", err)
+	}
 
 	if dr.Method != http.MethodPost {
 		t.Errorf("Expected default Method POST, got %s", dr.Method)
@@ -340,9 +346,57 @@ func TestPrepareDeliveryRequestDefaultTimeout(t *testing.T) {
 		Namespace: "default",
 	}
 
-	dr := PrepareDeliveryRequest(webhook, nil, event, "delivery-123", []byte(`{}`), nil)
+	dr, err := PrepareDeliveryRequest(webhook, nil, event, "delivery-123", []byte(`{}`), nil)
+	if err != nil {
+		t.Fatalf("PrepareDeliveryRequest returned error: %v", err)
+	}
 
 	if dr.Timeout != 30*time.Second {
 		t.Errorf("Expected default Timeout 30s, got %v", dr.Timeout)
+	}
+}
+
+// TestPrepareDeliveryRequestFailsClosedOnDecryptError asserts that when a
+// webhook has a configured signing secret that cannot be decrypted (e.g. the
+// encryption key was rotated), PrepareDeliveryRequest returns an error instead
+// of silently delivering an unsigned request.
+func TestPrepareDeliveryRequestFailsClosedOnDecryptError(t *testing.T) {
+	// Encrypt the secret under key A.
+	_, keyA, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatalf("generate key A: %v", err)
+	}
+	svcA, err := crypto.NewService(keyA)
+	if err != nil {
+		t.Fatalf("new service A: %v", err)
+	}
+	encrypted, err := svcA.EncryptString("secret123")
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+
+	// Attempt to prepare the request with a DIFFERENT key B — decrypt must fail.
+	_, keyB, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatalf("generate key B: %v", err)
+	}
+	svcB, err := crypto.NewService(keyB)
+	if err != nil {
+		t.Fatalf("new service B: %v", err)
+	}
+
+	webhook := &store.WebhookRegistration{
+		ID:            uuid.New(),
+		URL:           "https://example.com/webhook",
+		WebhookSecret: encrypted,
+	}
+	event := &store.EventRecord{ID: uuid.New(), Event: "user.created", Namespace: "default"}
+
+	dr, err := PrepareDeliveryRequest(webhook, nil, event, "delivery-1", []byte(`{}`), svcB)
+	if err == nil {
+		t.Fatal("expected error on undecryptable configured secret, got nil (unsigned delivery)")
+	}
+	if dr != nil {
+		t.Errorf("expected nil DeliveryRequest on error, got %+v", dr)
 	}
 }

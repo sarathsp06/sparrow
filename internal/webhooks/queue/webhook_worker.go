@@ -28,16 +28,16 @@ import (
 // WebhookWorker handles webhook delivery jobs
 type WebhookWorker struct {
 	river.WorkerDefaults[WebhookArgs]
-	webhookRepo     store.WebhookRepository
-	eventRepo       store.EventRepository
+	webhookRepo      store.WebhookRepository
+	eventRepo        store.EventRepository
 	subscriptionRepo store.SubscriptionRepository
-	healthRepo      store.HealthRepository
-	rateLimitRepo   store.RateLimitRepository
-	cryptoSvc       *crypto.Service
-	tracer          trace.Tracer
-	logger          *slog.Logger
-	metrics         *observability.SparrowMetrics
-	client          *client.WebhookClient
+	healthRepo       store.HealthRepository
+	rateLimitRepo    store.RateLimitRepository
+	cryptoSvc        *crypto.Service
+	tracer           trace.Tracer
+	logger           *slog.Logger
+	metrics          *observability.SparrowMetrics
+	client           *client.WebhookClient
 }
 
 // NewWebhookWorker creates a new webhook worker
@@ -52,16 +52,16 @@ func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo store.Event
 	webhookClient := client.NewWebhookClient(clientConfig)
 
 	return &WebhookWorker{
-		webhookRepo:     webhookRepo,
-		eventRepo:       eventRepo,
+		webhookRepo:      webhookRepo,
+		eventRepo:        eventRepo,
 		subscriptionRepo: subscriptionRepo,
-		healthRepo:      healthRepo,
-		rateLimitRepo:   rateLimitRepo,
-		cryptoSvc:       cryptoSvc,
-		logger:          slog.Default().With("component", "webhook-worker"),
-		tracer:          observability.GetTracer("sparrow.workers.webhook"),
-		metrics:         metrics,
-		client:          webhookClient,
+		healthRepo:       healthRepo,
+		rateLimitRepo:    rateLimitRepo,
+		cryptoSvc:        cryptoSvc,
+		logger:           slog.Default().With("component", "webhook-worker"),
+		tracer:           observability.GetTracer("sparrow.workers.webhook"),
+		metrics:          metrics,
+		client:           webhookClient,
 	}
 }
 
@@ -212,8 +212,14 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		}
 	}
 
-	// Prepare delivery request using centralized client logic
-	deliveryReq := client.PrepareDeliveryRequest(webhook, subscription, eventRecord, args.DeliveryID, payloadBytes, w.cryptoSvc)
+	// Prepare delivery request using centralized client logic. A decrypt
+	// failure of a configured secret is fail-closed: return the error so River
+	// retries rather than delivering an unsigned/secret-less request.
+	deliveryReq, err := client.PrepareDeliveryRequest(webhook, subscription, eventRecord, args.DeliveryID, payloadBytes, w.cryptoSvc)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to prepare delivery request", "error", err, "webhook_id", args.WebhookID, "delivery_id", args.DeliveryID)
+		return fmt.Errorf("prepare delivery request: %w", err)
+	}
 
 	// Store the request body in the delivery record
 	if err := w.eventRepo.UpdateDeliveryRequestBody(ctx, uuid.MustParse(args.DeliveryID), string(payloadBytes)); err != nil {

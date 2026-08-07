@@ -175,6 +175,13 @@ func generateEd25519Signature(payload []byte, privateKey []byte, msgID, timestam
 // PrepareDeliveryRequest creates a DeliveryRequest from subscription and event data.
 // If cryptoSvc is provided and the webhook has encrypted secret headers, they are
 // decrypted and merged after regular + subscription headers (secret headers win).
+//
+// Fail-closed on secrets: if the webhook has a configured secret (secret headers,
+// HMAC signing key, or Ed25519 key) and decryption FAILS (e.g. the encryption key
+// was rotated or removed), this returns an error rather than silently delivering
+// an unsigned / secret-less request. The caller must NOT deliver on error; letting
+// the job fail and retry surfaces the misconfiguration instead of downgrading
+// payload authenticity.
 func PrepareDeliveryRequest(
 	webhook *store.WebhookRegistration,
 	sub *store.EventSubscription,
@@ -182,7 +189,7 @@ func PrepareDeliveryRequest(
 	deliveryID string,
 	payload []byte,
 	cryptoSvc *crypto.Service,
-) *DeliveryRequest {
+) (*DeliveryRequest, error) {
 
 	// Merge headers: subscription headers override webhook headers
 	// Use header map from pool
@@ -192,17 +199,16 @@ func PrepareDeliveryRequest(
 		maps.Copy(headers, sub.Headers)
 	}
 
-	// Decrypt and merge secret headers (override regular + subscription headers)
+	// Decrypt and merge secret headers (override regular + subscription headers).
 	if cryptoSvc != nil && len(webhook.SecretHeaders) > 0 {
 		var secretHeaders map[string]string
-		if err := cryptoSvc.DecryptJSON(webhook.SecretHeaders, &secretHeaders); err == nil {
-			for k, v := range secretHeaders {
-				headers[k] = v
-			}
+		if err := cryptoSvc.DecryptJSON(webhook.SecretHeaders, &secretHeaders); err != nil {
+			PutHeaderMap(headers)
+			return nil, fmt.Errorf("decrypt secret headers for webhook %s: %w", webhook.ID, err)
 		}
-		// On decryption failure, silently skip — the webhook still delivers
-		// with regular headers. The error is non-fatal because the encryption
-		// key may have been rotated or removed.
+		for k, v := range secretHeaders {
+			headers[k] = v
+		}
 	}
 
 	// Determine method
@@ -220,22 +226,27 @@ func PrepareDeliveryRequest(
 		timeout = 30 * time.Second // Default
 	}
 
-	// Decrypt webhook secret for HMAC signing.
-	// If decryption fails (e.g. key rotated), the webhook still delivers
-	// without a signature — same resilience as secret header decryption.
+	// Decrypt webhook secret for HMAC signing. A configured-but-undecryptable
+	// secret is a hard error (fail-closed) so we never deliver unsigned.
 	var webhookSecret string
 	if cryptoSvc != nil && len(webhook.WebhookSecret) > 0 {
-		if decrypted, err := cryptoSvc.DecryptString(webhook.WebhookSecret); err == nil {
-			webhookSecret = decrypted
+		decrypted, err := cryptoSvc.DecryptString(webhook.WebhookSecret)
+		if err != nil {
+			PutHeaderMap(headers)
+			return nil, fmt.Errorf("decrypt HMAC signing secret for webhook %s: %w", webhook.ID, err)
 		}
+		webhookSecret = decrypted
 	}
 
-	// Decrypt Ed25519 private key for asymmetric signing.
+	// Decrypt Ed25519 private key for asymmetric signing (fail-closed, as above).
 	var ed25519PrivateKey []byte
 	if cryptoSvc != nil && len(webhook.Ed25519PrivateKey) > 0 {
-		if decrypted, err := cryptoSvc.DecryptString(webhook.Ed25519PrivateKey); err == nil {
-			ed25519PrivateKey = []byte(decrypted)
+		decrypted, err := cryptoSvc.DecryptString(webhook.Ed25519PrivateKey)
+		if err != nil {
+			PutHeaderMap(headers)
+			return nil, fmt.Errorf("decrypt Ed25519 signing key for webhook %s: %w", webhook.ID, err)
 		}
+		ed25519PrivateKey = []byte(decrypted)
 	}
 
 	return &DeliveryRequest{
@@ -254,5 +265,5 @@ func PrepareDeliveryRequest(
 		EventID:           event.ID,
 		EventName:         event.Event,
 		Namespace:         event.Namespace,
-	}
+	}, nil
 }
