@@ -71,7 +71,7 @@ func (s *WebhookServer) ListEvents(ctx context.Context, req *pb.ListEventsReques
 	for i, event := range events {
 		pbEv, err := convertEventToProto(event)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to convert event: %v", err)
+			return nil, toGRPCError(ctx, err, "failed to convert event")
 		}
 		pbEvents[i] = pbEv
 	}
@@ -122,7 +122,7 @@ func (s *WebhookServer) GetEvent(ctx context.Context, req *pb.GetEventRequest) (
 
 	pbEvent, err := convertEventToProto(event)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to convert event: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to convert event")
 	}
 
 	return &pb.GetEventResponse{
@@ -147,7 +147,7 @@ func (s *WebhookServer) GetEventRecord(ctx context.Context, req *pb.GetEventReco
 	// Convert payload to protobuf Struct
 	payloadStruct, err := convertMapToStruct(record.Payload)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to convert payload: %v", err)
+		return nil, toGRPCError(ctx, err, "failed to convert payload")
 	}
 
 	// Convert metadata
@@ -242,7 +242,7 @@ func (s *WebhookServer) ListEventReports(ctx context.Context, req *pb.ListEventR
 		// Convert payload to protobuf Struct
 		payloadStruct, err := convertMapToStruct(event.Payload)
 		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to convert payload: %v", err)
+			return nil, toGRPCError(ctx, err, "failed to convert payload")
 		}
 
 		// Convert metadata to map[string]string
