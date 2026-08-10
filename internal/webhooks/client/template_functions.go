@@ -241,18 +241,3 @@ func GetFunctionMap() template.FuncMap {
 	}
 	return funcMap
 }
-
-// GetFunctionDocumentation returns markdown documentation for all template functions
-func GetFunctionDocumentation() string {
-	var docs strings.Builder
-
-	docs.WriteString("# Template Functions Reference\n\n")
-	docs.WriteString("This document describes all available template functions for webhook payload transformation.\n\n")
-
-	for _, tf := range GetTemplateFunctions() {
-		docs.WriteString(tf.Description)
-		docs.WriteString("\n\n---\n\n")
-	}
-
-	return docs.String()
-}
