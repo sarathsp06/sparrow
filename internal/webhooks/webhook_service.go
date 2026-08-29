@@ -42,7 +42,10 @@ type WebhookServiceInterface interface {
 	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error
 	DeleteEvent(ctx context.Context, name string) error
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
-	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (string, bool, []string, error)
+	// PushEvent returns (eventID, isDuplicate, schemaValid, warnings, err).
+	// isDuplicate is true when idempotencyKey matched an existing event; the
+	// other fields then describe that existing event, not a new one.
+	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (eventID string, isDuplicate bool, schemaValid bool, warnings []string, err error)
 	RePushEvent(ctx context.Context, eventID string) (string, []string, error)
 	GetEventRecord(ctx context.Context, eventID string) (*store.EventRecord, int32, int32, int32, int32, error)
 	ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error)

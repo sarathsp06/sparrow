@@ -34,7 +34,7 @@ class _Target:
         self._lock = threading.Lock()
         self._event = threading.Event()
         self._request_count = 0
-        self._app = Flask(name)
+        self._app = Flask(__name__)
         self._server: Optional[object] = None
         self._thread: Optional[threading.Thread] = None
 

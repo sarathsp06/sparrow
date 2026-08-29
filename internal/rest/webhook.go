@@ -12,7 +12,7 @@ import (
 // --- Register ---
 
 type registerWebhookBody struct {
-	Events        []string           `json:"events" required:"true" minItems:"1" doc:"Event type names this webhook should receive. Use \"*\" as the sole entry to subscribe to every event in the namespace."`
+	Events        []string           `json:"events,omitempty" doc:"Event type names this webhook should receive; auto-creates one subscription per entry. Use \"*\" as the sole entry to subscribe to every event in the namespace. Omit or leave empty to register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-subscription transform_template)."`
 	URL           string             `json:"url" required:"true" format:"uri" doc:"HTTPS/HTTP endpoint to POST deliveries to. Private, loopback, and cloud metadata addresses are rejected (SSRF protection)."`
 	Headers       map[string]any     `json:"headers,omitempty" doc:"Static HTTP headers sent with every delivery to this webhook."`
 	SecretHeaders map[string]string  `json:"secret_headers,omitempty" doc:"HTTP headers whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token)."`
@@ -150,6 +150,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Summary:       "Register a webhook",
 		Description:   "Registers a new HTTP endpoint to receive deliveries and auto-creates a subscription for each listed event type. Returns the plaintext webhook secret once — it is masked on every subsequent read.",
 		Errors:        []int{400, 409},
+		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, in *registerWebhookInput) (*webhookOutput, error) {
 		headers := make(map[string]any, len(in.Body.Headers))
@@ -185,6 +186,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Path:        "/v1/namespaces/{namespace}/webhooks",
 		Summary:     "List webhooks",
 		Description: "Lists webhooks in a namespace, optionally filtered by id, subscribed event, active flag, or computed health status.",
+		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *listWebhooksInput) (*listWebhooksOutput, error) {
 		limit, offset := in.Limit, in.Offset
 		activeOnly := in.Active
@@ -218,6 +220,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Summary:     "Get a webhook by id",
 		Description: "Fetches a single webhook's configuration, masked secrets, and current health.",
 		Errors:      []int{404},
+		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *webhookIDInput) (*webhookOutput, error) {
 		regs, _, err := d.Svc.ListWebhooks(ctx, in.Namespace, in.WebhookID, "", false, 1, 0)
 		if err != nil {
@@ -237,6 +240,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Summary:     "Partially update a webhook",
 		Description: "Merge-patches a webhook: only fields present in the request body are changed. Omit a field to leave it untouched.",
 		Errors:      []int{400, 404},
+		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *patchWebhookInput) (*webhookOutput, error) {
 		b := in.Body
 		var mask []string
@@ -319,6 +323,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Summary:       "Delete a webhook",
 		Description:   "Permanently unregisters a webhook and cascade-deletes its subscriptions and delivery history. This cannot be undone.",
 		Errors:        []int{404},
+		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *webhookIDInput) (*emptyOutput, error) {
 		if err := d.Svc.UnregisterWebhook(ctx, in.WebhookID, in.Namespace); err != nil {
@@ -334,6 +339,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Summary:       "Pause a webhook",
 		Description:   "Stops new deliveries to this webhook without deleting it. Events matching its subscriptions are still recorded but not delivered until resumed.",
 		Errors:        []int{404},
+		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *webhookIDInput) (*emptyOutput, error) {
 		if err := d.Svc.PauseWebhook(ctx, in.WebhookID, in.Namespace, ""); err != nil {
@@ -349,6 +355,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Summary:       "Resume a paused webhook",
 		Description:   "Re-enables deliveries to a previously paused webhook.",
 		Errors:        []int{404},
+		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *webhookIDInput) (*emptyOutput, error) {
 		if err := d.Svc.ResumeWebhook(ctx, in.WebhookID, in.Namespace); err != nil {
@@ -363,6 +370,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Path:        "/v1/namespaces/{namespace}/stats",
 		Summary:     "Get aggregate delivery statistics for a namespace",
 		Description: "Returns webhook and delivery counts (total, active, successful, failed, pending, success rate) scoped to one namespace.",
+		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *namespaceOnlyInput) (*namespaceStatsOutput, error) {
 		stats, err := d.Svc.GetNamespaceStats(ctx, in.Namespace)
 		if err != nil {
@@ -385,9 +393,11 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Path:        "/v1/template-functions",
 		Summary:     "List available payload-transformation template functions",
 		Description: "Lists the Go template helper functions available to subscription transform templates (e.g. string/JSON helpers), each with its documentation.",
+		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *struct{}) (*templateFunctionsOutput, error) {
 		fns := d.Svc.GetTemplateFunctions()
 		out := &templateFunctionsOutput{}
+		out.Body.Items = make([]templateFunctionItem, 0, len(fns))
 		for _, f := range fns {
 			out.Body.Items = append(out.Body.Items, templateFunctionItem{Name: f.Name, Description: f.Description})
 		}
@@ -400,6 +410,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Path:        "/v1/stats",
 		Summary:     "Get aggregate delivery statistics across all namespaces",
 		Description: "Returns the same counters as the per-namespace stats endpoint, aggregated across every namespace.",
+		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *struct{}) (*namespaceStatsOutput, error) {
 		stats, err := d.Svc.GetNamespaceStats(ctx, "")
 		if err != nil {

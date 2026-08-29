@@ -174,6 +174,7 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 			return nil, mapError(ctx, err, "failed to list deliveries")
 		}
 		out := &listDeliveriesOutput{}
+		out.Body.Items = make([]deliveryItem, 0, len(deliveries))
 		for _, dl := range deliveries {
 			out.Body.Items = append(out.Body.Items, toDeliveryItem(dl))
 		}
@@ -234,6 +235,7 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 			return nil, mapError(ctx, err, "failed to get delivery attempts")
 		}
 		out := &attemptsOutput{}
+		out.Body.Items = make([]attemptItem, 0, len(attempts))
 		for _, a := range attempts {
 			out.Body.Items = append(out.Body.Items, attemptItem{
 				Success:       a.Success,
@@ -329,6 +331,7 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 			return nil, mapError(ctx, err, "failed to get delivery attempts")
 		}
 		out := &attemptsOutput{}
+		out.Body.Items = make([]attemptItem, 0, len(attempts))
 		for _, a := range attempts {
 			out.Body.Items = append(out.Body.Items, attemptItem{
 				Success:       a.Success,

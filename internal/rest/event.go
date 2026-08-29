@@ -100,7 +100,8 @@ type pushEventInput struct {
 
 type pushEventOutput struct {
 	Body struct {
-		EventID     string   `json:"event_id" doc:"Id (UUID) of the created event occurrence."`
+		EventID     string   `json:"event_id" doc:"Id (UUID) of the created event occurrence. When duplicate is true, this is the id of the PREVIOUSLY created event, not a new one."`
+		Duplicate   bool     `json:"duplicate" doc:"True when idempotency_key matched an existing event occurrence; no new event or deliveries were created."`
 		SchemaValid bool     `json:"schema_valid" doc:"Whether the payload validated against the event type's JSON Schema. False does not mean the push was rejected — see warnings."`
 		Warnings    []string `json:"warnings,omitempty" doc:"Non-fatal schema validation warnings. The event is stored and delivered regardless."`
 	}
@@ -234,6 +235,7 @@ func registerEventRoutes(api huma.API, d *Deps) {
 			return nil, mapError(ctx, err, "failed to list event types")
 		}
 		out := &listEventTypesOutput{}
+		out.Body.Items = make([]eventTypeItem, 0, len(regs))
 		for _, e := range regs {
 			out.Body.Items = append(out.Body.Items, toEventTypeItem(e))
 		}
@@ -322,12 +324,13 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		Tags:          []string{"Events"},
 		DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, in *pushEventInput) (*pushEventOutput, error) {
-		eventID, schemaValid, warnings, err := d.Svc.PushEvent(ctx, in.Namespace, in.Event, in.Body.Payload, in.Body.TTLSeconds, in.Body.Metadata, in.Body.Labels, in.Body.IdempotencyKey)
+		eventID, isDuplicate, schemaValid, warnings, err := d.Svc.PushEvent(ctx, in.Namespace, in.Event, in.Body.Payload, in.Body.TTLSeconds, in.Body.Metadata, in.Body.Labels, in.Body.IdempotencyKey)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to push event")
 		}
 		out := &pushEventOutput{}
 		out.Body.EventID = eventID
+		out.Body.Duplicate = isDuplicate
 		out.Body.SchemaValid = schemaValid
 		out.Body.Warnings = warnings
 		return out, nil
@@ -356,6 +359,7 @@ func registerEventRoutes(api huma.API, d *Deps) {
 			return nil, mapError(ctx, err, "failed to list event occurrences")
 		}
 		out := &listEventOccurrencesOutput{}
+		out.Body.Items = make([]eventOccurrenceItem, 0, len(reports))
 		for _, r := range reports {
 			var o eventOccurrenceOutput
 			o.Body.EventID = r.ID.String()

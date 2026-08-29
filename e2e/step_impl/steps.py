@@ -226,7 +226,7 @@ def assert_delivery_status(index, status):
 @step("Delivery <index> should have error category <category>")
 def assert_delivery_error_category(index, category):
     d = data_store.scenario["terminal_deliveries"][int(index)]
-    assert d.get("error_category") == category, f"Expected error_category {category}, got {d.get("error_category")}"
+    assert d.get("error_category") == category, f"Expected error_category {category}, got {d.get('error_category')}"
 
 
 @step("Delivery <index> should have attempt count <count>")
@@ -335,8 +335,7 @@ def switch_behavior(name, behavior):
 @step("Replay the last pushed event")
 def replay_event():
     event_id = data_store.scenario["last_event_id"]
-    ns = data_store.scenario["namespace"]
-    _api().replay_event(ns, event_id)
+    _api().replay_event(event_id)
 
 
 # ---------------------------------------------------------------------------

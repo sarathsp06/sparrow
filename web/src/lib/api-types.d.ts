@@ -1218,7 +1218,9 @@ export interface components {
              * @example https://example.com/schemas/PushEventOutputBody.json
              */
             readonly $schema?: string;
-            /** @description Id (UUID) of the created event occurrence. */
+            /** @description True when idempotency_key matched an existing event occurrence; no new event or deliveries were created. */
+            duplicate: boolean;
+            /** @description Id (UUID) of the created event occurrence. When duplicate is true, this is the id of the PREVIOUSLY created event, not a new one. */
             event_id: string;
             /** @description Whether the payload validated against the event type's JSON Schema. False does not mean the push was rejected — see warnings. */
             schema_valid: boolean;
@@ -1236,8 +1238,8 @@ export interface components {
             active?: boolean;
             /** @description Free-text note for humans, e.g. which system or team owns this endpoint. */
             description?: string;
-            /** @description Event type names this webhook should receive. Use "*" as the sole entry to subscribe to every event in the namespace. */
-            events: string[] | null;
+            /** @description Event type names this webhook should receive; auto-creates one subscription per entry. Use "*" as the sole entry to subscribe to every event in the namespace. Omit or leave empty to register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-subscription transform_template). */
+            events?: string[] | null;
             /** @description Static HTTP headers sent with every delivery to this webhook. */
             headers?: {
                 [key: string]: unknown;

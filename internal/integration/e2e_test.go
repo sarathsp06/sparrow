@@ -72,7 +72,6 @@ func TestE2E_HappyPath(t *testing.T) {
 	const (
 		namespaceName = "integration-test"
 		eventName     = "order.created"
-		webhookSecret = "test-secret-key-for-hmac"
 	)
 
 	// ── Step 1: Register event type ──────────────────────────────────────
@@ -97,7 +96,10 @@ func TestE2E_HappyPath(t *testing.T) {
 	// ── Step 3: Register webhook ─────────────────────────────────────────
 	t.Log("Step 3: Registering webhook")
 	var webhookOut struct {
-		WebhookID string `json:"webhook_id"`
+		WebhookID  string `json:"webhook_id"`
+		HTTPConfig struct {
+			WebhookSecret string `json:"webhook_secret"`
+		} `json:"http_config"`
 	}
 	resp, err = c.post(ctx, "/v1/namespaces/"+namespaceName+"/webhooks", map[string]any{
 		"events":      []string{eventName},
@@ -107,7 +109,6 @@ func TestE2E_HappyPath(t *testing.T) {
 		"http_config": map[string]any{
 			"max_retries":             3,
 			"request_timeout_seconds": 10,
-			"webhook_secret":          webhookSecret,
 			"capture_response_body":   true,
 		},
 	}, &webhookOut)
@@ -115,22 +116,24 @@ func TestE2E_HappyPath(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 	webhookID := webhookOut.WebhookID
 	require.NotEmpty(t, webhookID)
+	webhookSecret := webhookOut.HTTPConfig.WebhookSecret
+	require.NotEmpty(t, webhookSecret, "registration response should return the generated webhook secret")
 	t.Logf("  webhook registered: %s", webhookID)
 
-	// ── Step 4: Create subscription ──────────────────────────────────────
-	t.Log("Step 4: Creating subscription")
-	var subOut struct {
-		SubscriptionID string `json:"subscription_id"`
+	// ── Step 4: Verify webhook registration auto-created the subscription ─
+	t.Log("Step 4: Verifying auto-created subscription")
+	var subListOut struct {
+		Items []struct {
+			SubscriptionID string `json:"subscription_id"`
+		} `json:"items"`
 	}
-	resp, err = c.post(ctx, "/v1/namespaces/"+namespaceName+"/subscriptions", map[string]any{
-		"webhook_id": webhookID,
-		"event_name": eventName,
-	}, &subOut)
-	require.NoError(t, err, "CreateSubscription failed")
-	require.Equal(t, http.StatusCreated, resp.StatusCode)
-	subscriptionID := subOut.SubscriptionID
+	resp, err = c.get(ctx, "/v1/namespaces/"+namespaceName+"/subscriptions?webhook_id="+webhookID+"&event_name="+eventName, &subListOut)
+	require.NoError(t, err, "ListSubscriptions failed")
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Len(t, subListOut.Items, 1, "registering a webhook should auto-create exactly one subscription per listed event")
+	subscriptionID := subListOut.Items[0].SubscriptionID
 	require.NotEmpty(t, subscriptionID)
-	t.Logf("  subscription created: %s", subscriptionID)
+	t.Logf("  subscription auto-created: %s", subscriptionID)
 
 	// ── Step 5: Push event ───────────────────────────────────────────────
 	t.Log("Step 5: Pushing event")
@@ -248,8 +251,14 @@ func validateHMAC(t *testing.T, body []byte, secret, msgID, timestamp, signature
 	}
 	require.NotEmpty(t, b64Sig, "should find a v1 signature in webhook-signature header")
 
+	rawSecret := []byte(secret)
+	if strings.HasPrefix(secret, "whsec_") {
+		decoded, decErr := base64.StdEncoding.DecodeString(strings.TrimPrefix(secret, "whsec_"))
+		require.NoError(t, decErr, "failed to decode whsec_ secret")
+		rawSecret = decoded
+	}
 	message := msgID + "." + timestamp + "." + string(body)
-	mac := hmac.New(sha256.New, []byte(secret))
+	mac := hmac.New(sha256.New, rawSecret)
 	mac.Write([]byte(message))
 	expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 

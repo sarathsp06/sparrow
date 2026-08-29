@@ -71,12 +71,10 @@ class SparrowAPI:
         return _to_dict(resp.parsed)
 
     def register_webhook(self, namespace: str, url: str, *events: str,
-                          max_retries: int = 3, request_timeout: int = 10,
-                          webhook_secret: str = "e2e-test-secret") -> dict:
+                          max_retries: int = 3, request_timeout: int = 10) -> dict:
         http_config = WebhookHTTPConfig(
             max_retries=max_retries,
             request_timeout_seconds=request_timeout,
-            webhook_secret=webhook_secret,
             capture_response_body=True,
         )
         body = RegisterWebhookBody(events=list(events), url=url, active=True, http_config=http_config)
@@ -118,8 +116,8 @@ class SparrowAPI:
         resp = retry_delivery_op.sync_detailed(namespace=namespace, delivery_id=delivery_id, client=self.client)
         return _to_dict(resp.parsed)
 
-    def replay_event(self, namespace: str, event_id: str) -> dict:
-        resp = repush_event.sync_detailed(namespace=namespace, event_id=event_id, client=self.client)
+    def replay_event(self, event_id: str) -> dict:
+        resp = repush_event.sync_detailed(event_id=event_id, client=self.client)
         return _to_dict(resp.parsed)
 
     def pause_webhook(self, webhook_id: str, namespace: str) -> dict:

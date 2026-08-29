@@ -782,8 +782,11 @@ components:
           format: uri
           readOnly: true
           type: string
+        duplicate:
+          description: True when idempotency_key matched an existing event occurrence; no new event or deliveries were created.
+          type: boolean
         event_id:
-          description: Id (UUID) of the created event occurrence.
+          description: Id (UUID) of the created event occurrence. When duplicate is true, this is the id of the PREVIOUSLY created event, not a new one.
           type: string
         schema_valid:
           description: Whether the payload validated against the event type's JSON Schema. False does not mean the push was rejected — see warnings.
@@ -797,6 +800,7 @@ components:
             - "null"
       required:
         - event_id
+        - duplicate
         - schema_valid
       type: object
     RegisterWebhookBody:
@@ -816,10 +820,9 @@ components:
           description: Free-text note for humans, e.g. which system or team owns this endpoint.
           type: string
         events:
-          description: Event type names this webhook should receive. Use "*" as the sole entry to subscribe to every event in the namespace.
+          description: Event type names this webhook should receive; auto-creates one subscription per entry. Use "*" as the sole entry to subscribe to every event in the namespace. Omit or leave empty to register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-subscription transform_template).
           items:
             type: string
-          minItems: 1
           type:
             - array
             - "null"
@@ -851,7 +854,6 @@ components:
           format: uri
           type: string
       required:
-        - events
         - url
       type: object
     RepushBatchInputBody:
@@ -2476,6 +2478,8 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Get aggregate delivery statistics for a namespace
+      tags:
+        - Webhooks
   /v1/namespaces/{namespace}/subscriptions:
     get:
       description: Lists subscriptions in a namespace, optionally filtered by webhook or event type name.
@@ -2799,6 +2803,8 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: List webhooks
+      tags:
+        - Webhooks
     post:
       description: Registers a new HTTP endpoint to receive deliveries and auto-creates a subscription for each listed event type. Returns the plaintext webhook secret once — it is masked on every subsequent read.
       operationId: registerWebhook
@@ -2846,6 +2852,8 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Internal Server Error
       summary: Register a webhook
+      tags:
+        - Webhooks
   /v1/namespaces/{namespace}/webhooks/{webhook_id}:
     delete:
       description: Permanently unregisters a webhook and cascade-deletes its subscriptions and delivery history. This cannot be undone.
@@ -2887,6 +2895,8 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Internal Server Error
       summary: Delete a webhook
+      tags:
+        - Webhooks
     get:
       description: Fetches a single webhook's configuration, masked secrets, and current health.
       operationId: getWebhook
@@ -2931,6 +2941,8 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Internal Server Error
       summary: Get a webhook by id
+      tags:
+        - Webhooks
     patch:
       description: "Merge-patches a webhook: only fields present in the request body are changed. Omit a field to leave it untouched."
       operationId: updateWebhook
@@ -2983,6 +2995,8 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Internal Server Error
       summary: Partially update a webhook
+      tags:
+        - Webhooks
   /v1/namespaces/{namespace}/webhooks/{webhook_id}/health:
     get:
       description: Returns one webhook's computed health status (healthy/degraded/unhealthy) plus rolling delivery counts and per-category error counts (client, server, timeout, network, unexpected-status).
@@ -3071,6 +3085,8 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Internal Server Error
       summary: Pause a webhook
+      tags:
+        - Webhooks
   /v1/namespaces/{namespace}/webhooks/{webhook_id}:resume:
     post:
       description: Re-enables deliveries to a previously paused webhook.
@@ -3112,6 +3128,8 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Internal Server Error
       summary: Resume a paused webhook
+      tags:
+        - Webhooks
   /v1/stats:
     get:
       description: Returns the same counters as the per-namespace stats endpoint, aggregated across every namespace.
@@ -3130,6 +3148,8 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: Get aggregate delivery statistics across all namespaces
+      tags:
+        - Webhooks
   /v1/subscriptions:testTemplate:
     post:
       description: Dry-runs a transform template against the named event type's stored sample payload, without creating a subscription or any delivery. Use this to iterate on transform_template before saving it.
@@ -3192,6 +3212,8 @@ paths:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
       summary: List available payload-transformation template functions
+      tags:
+        - Webhooks
   /v1/webhooks:
     get:
       description: Cross-namespace webhook listing. Pass health to filter by computed status, or webhook_id for an id-only lookup when the namespace isn't known.

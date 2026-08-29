@@ -171,6 +171,7 @@ func registerSubscriptionRoutes(api huma.API, d *Deps) {
 			return nil, mapError(ctx, err, "failed to list subscriptions")
 		}
 		out := &listSubscriptionsOutput{}
+		out.Body.Items = make([]subscriptionItem, 0, len(subs))
 		for _, s := range subs {
 			out.Body.Items = append(out.Body.Items, toSubscriptionItem(s))
 		}
