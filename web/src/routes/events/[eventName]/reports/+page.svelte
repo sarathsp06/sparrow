@@ -1,16 +1,18 @@
 <script lang="ts">
     import { page } from '$app/state';
     import { EventReportsTable, Pagination } from '$lib';
-    import { eventClient as client } from '$lib/services';
+    import { api, unwrap } from '$lib/services';
     import { onMount, onDestroy } from 'svelte';
-    import type { EventReport, RegisteredEvent } from '../../../../../../proto/webhook_pb.js';
-    import { timestampFromDate } from '@bufbuild/protobuf/wkt';
+    import type { components } from '$lib/api-types';
     import { formatAPIError } from '$lib/utils';
     import BatchProgress from '$lib/components/BatchProgress.svelte';
     import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
-    let eventReports: EventReport[] = $state([]);
-    let currentEvent: RegisteredEvent | undefined = $state();
+    type EventOccurrenceItem = components["schemas"]["EventOccurrenceItem"];
+    type EventTypeItem = components["schemas"]["EventTypeItem"];
+
+    let eventReports: EventOccurrenceItem[] = $state([]);
+    let currentEvent: EventTypeItem | undefined = $state();
     let loading = $state(true);
     let error = $state('');
     let currentPage = $state(1);
@@ -41,63 +43,44 @@
 
     async function fetchEventDetails() {
         try {
-            const res = await client.getEvent({ name: eventName });
-            currentEvent = res.event;
-            if (!currentEvent) {
-                error = 'Event not found';
-            }
+            currentEvent = unwrap(await api.GET('/v1/event-types/{name}', { params: { path: { name: eventName } } }));
         } catch (e: any) {
             console.error('Failed to fetch event details:', e);
             error = formatAPIError(e, 'Failed to load event details');
         }
     }
 
-    function buildRequest(pageNum: number, prepareRepush: boolean = false) {
-        const offset = (pageNum - 1) * pageSize;
-        const req: Record<string, any> = {
-            namespace: namespaceFilter.trim(),
-            eventName: currentEvent!.name,
-            pagination: { limit: pageSize, offset },
-            prepareRepush,
-        };
-
-        if (schemaValidFilter === 'valid') req.schemaValid = true;
-        else if (schemaValidFilter === 'invalid') req.schemaValid = false;
-
-        // Parse labels: "key1=val1, key2=val2"
-        if (labelsFilter.trim()) {
-            const labels: Record<string, string> = {};
-            for (const pair of labelsFilter.split(',')) {
-                const [k, v] = pair.split('=').map(s => s.trim());
-                if (k && v) labels[k] = v;
-            }
-            if (Object.keys(labels).length > 0) req.labels = labels;
-        }
-
-        if (createdAfterFilter) {
-            req.createdAfter = timestampFromDate(new Date(createdAfterFilter));
-        }
-        if (createdBeforeFilter) {
-            req.createdBefore = timestampFromDate(new Date(createdBeforeFilter));
-        }
-
-        return req;
-    }
-
-    async function fetchEventReports(pageNum: number = 1) {
-        loading = true;
-        error = '';
+    async function fetchEventReports(pageNum: number = 1, prepareRepush: boolean = false) {
+        loading = !prepareRepush;
+        if (!prepareRepush) error = '';
 
         if (!currentEvent) {
             await fetchEventDetails();
             if (!currentEvent) { loading = false; return; }
         }
 
+        const offset = (pageNum - 1) * pageSize;
+        const ns = namespaceFilter.trim() || 'default';
+
         try {
-            const req = buildRequest(pageNum);
-            const res = await client.listEventReports(req);
-            eventReports = res.events || [];
-            totalCount = res.pagination?.totalCount || 0;
+            const res = unwrap(await api.GET('/v1/namespaces/{namespace}/events', {
+                params: {
+                    path: { namespace: ns },
+                    query: { event: eventName, prepare_repush: prepareRepush, limit: pageSize, offset },
+                },
+            }));
+            if (prepareRepush) {
+                if (res.repush_id) {
+                    repushId = res.repush_id;
+                    repushTotal = res.pagination?.total_count || 0;
+                    confirmRepush = true;
+                } else {
+                    error = 'No matching events to re-push.';
+                }
+                return;
+            }
+            eventReports = res.items || [];
+            totalCount = res.pagination?.total_count || 0;
             currentPage = pageNum;
         } catch (e: any) {
             console.error('Failed to fetch event reports:', e);
@@ -135,24 +118,11 @@
         createdBeforeFilter !== ''
     );
 
-    // -- Batch Re-push --
-
     async function prepareRepush() {
         if (!currentEvent) return;
         preparingRepush = true;
-        error = '';
         try {
-            const req = buildRequest(1, true);
-            const res = await client.listEventReports(req);
-            if (res.repushId) {
-                repushId = res.repushId;
-                repushTotal = res.pagination?.totalCount || 0;
-                confirmRepush = true;
-            } else {
-                error = 'No matching events to re-push.';
-            }
-        } catch (e: any) {
-            error = formatAPIError(e, 'Failed to prepare re-push');
+            await fetchEventReports(1, true);
         } finally {
             preparingRepush = false;
         }
@@ -161,9 +131,13 @@
     async function executeRepush() {
         confirmRepush = false;
         if (!repushId) return;
+        const ns = namespaceFilter.trim() || 'default';
         try {
-            const res = await client.rePushEvents({ repushId });
-            batchStatus = { status: res.status, total: res.total, processed: 0, failed: 0 };
+            const res = unwrap(await api.POST('/v1/namespaces/{namespace}/events:rePush', {
+                params: { path: { namespace: ns } },
+                body: { repush_id: repushId },
+            }));
+            batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
             startPolling();
         } catch (e: any) {
             error = formatAPIError(e, 'Failed to start re-push');
@@ -172,20 +146,16 @@
 
     function startPolling() {
         if (pollingTimer) clearInterval(pollingTimer);
+        const ns = namespaceFilter.trim() || 'default';
         pollingTimer = setInterval(async () => {
             if (!repushId) { stopPolling(); return; }
             try {
-                const res = await client.getRepushStatus({ repushId });
-                if (res.batch) {
-                    batchStatus = {
-                        status: res.batch.status,
-                        total: res.batch.total,
-                        processed: res.batch.processed,
-                        failed: res.batch.failed,
-                    };
-                    if (res.batch.status === 'completed' || res.batch.status === 'failed' || res.batch.status === 'cancelled') {
-                        stopPolling();
-                    }
+                const res = unwrap(await api.GET('/v1/namespaces/{namespace}/repush-jobs/{job_id}', {
+                    params: { path: { namespace: ns, job_id: repushId } },
+                }));
+                batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
+                if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
+                    stopPolling();
                 }
             } catch {
                 stopPolling();
@@ -199,15 +169,17 @@
 
     async function cancelRepush() {
         if (!repushId) return;
+        const ns = namespaceFilter.trim() || 'default';
         try {
-            await client.cancelRepush({ repushId });
+            await api.POST('/v1/namespaces/{namespace}/repush-jobs/{job_id}:cancel', {
+                params: { path: { namespace: ns, job_id: repushId } },
+            });
         } catch (e: any) {
             error = formatAPIError(e, 'Failed to cancel re-push');
         }
     }
 
     function onBatchDone() {
-        // Refresh list after batch completes
         fetchEventReports(currentPage);
     }
 
@@ -222,7 +194,6 @@
 
 <div class="min-h-screen bg-gray-50">
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <!-- Header -->
         <div class="mb-6">
             <nav class="flex items-center text-sm text-gray-500 mb-4">
                 <a href="/events" class="hover:text-gray-900 transition">Events</a>
@@ -238,7 +209,7 @@
                         {#if namespaceFilter.trim()}
                             in namespace <span class="font-semibold text-gray-700">{namespaceFilter.trim()}</span>
                         {:else}
-                            across all namespaces
+                            in namespace <span class="font-semibold text-gray-700">default</span>
                         {/if}
                     </p>
                 </div>
@@ -261,89 +232,26 @@
             </div>
         </div>
 
-        <!-- Filters -->
         <div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-            <div class="flex flex-wrap items-end gap-3">
-                <div class="w-full sm:w-40">
-                    <label for="ns-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Namespace</label>
-                    <input
-                        id="ns-filter"
-                        type="text"
-                        placeholder="All namespaces"
-                        bind:value={namespaceFilter}
-                        onkeydown={(e) => e.key === 'Enter' && applyFilters()}
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                    />
-                </div>
-                <div class="w-full sm:w-32">
-                    <label for="schema-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Schema Match</label>
-                    <select
-                        id="schema-filter"
-                        bind:value={schemaValidFilter}
-                        onchange={applyFilters}
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                    >
-                        <option value="all">All</option>
-                        <option value="valid">Valid</option>
-                        <option value="invalid">Invalid</option>
-                    </select>
-                </div>
-                <div class="w-full sm:w-48">
-                    <label for="labels-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Labels</label>
-                    <input
-                        id="labels-filter"
-                        type="text"
-                        placeholder="key=val, key2=val2"
-                        bind:value={labelsFilter}
-                        onkeydown={(e) => e.key === 'Enter' && applyFilters()}
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900 font-mono"
-                    />
-                </div>
-                <div class="w-full sm:w-44">
-                    <label for="after-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Created After</label>
-                    <input
-                        id="after-filter"
-                        type="datetime-local"
-                        bind:value={createdAfterFilter}
-                        onchange={applyFilters}
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                    />
-                </div>
-                <div class="w-full sm:w-44">
-                    <label for="before-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Created Before</label>
-                    <input
-                        id="before-filter"
-                        type="datetime-local"
-                        bind:value={createdBeforeFilter}
-                        onchange={applyFilters}
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                    />
-                </div>
-                <div class="flex items-center gap-2">
-                    <button
-                        onclick={applyFilters}
-                        class="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition"
-                    >
-                        Apply
-                    </button>
-                    {#if hasActiveFilters}
-                        <button
-                            onclick={clearFilters}
-                            class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-                        >
-                            Clear
-                        </button>
-                    {/if}
-                </div>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input type="text" placeholder="Namespace (default: default)" bind:value={namespaceFilter} class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+                <input type="text" placeholder="Labels (key1=val1, key2=val2)" bind:value={labelsFilter} class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+                <select bind:value={schemaValidFilter} class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm">
+                    <option value="all">All schema validity</option>
+                    <option value="valid">Valid only</option>
+                    <option value="invalid">Invalid only</option>
+                </select>
+                <button onclick={applyFilters} class="px-4 py-1.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800">Apply</button>
+                {#if hasActiveFilters}
+                    <button onclick={clearFilters} class="px-4 py-1.5 text-gray-500 hover:text-gray-700 text-sm">Clear</button>
+                {/if}
             </div>
         </div>
 
-        <!-- Batch progress -->
         {#if batchStatus}
             <div class="mb-4">
                 <BatchProgress
                     batch={batchStatus}
-                    label="Re-push Events"
                     oncancel={cancelRepush}
                     ondone={onBatchDone}
                 />
@@ -351,55 +259,23 @@
         {/if}
 
         {#if loading}
-            <!-- Loading skeleton -->
             <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
-                        <thead>
-                            <tr class="border-b border-gray-200 bg-gray-50/50">
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Event ID</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Schema</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Namespace</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Created At</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Deliveries</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">TTL</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Payload</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            {#each Array(5) as _}
-                                <tr class="animate-pulse">
-                                    <td class="px-4 py-3"><div class="h-4 bg-gray-200 rounded w-32"></div></td>
-                                    <td class="px-4 py-3 hidden sm:table-cell"><div class="h-4 bg-gray-100 rounded w-12"></div></td>
-                                    <td class="px-4 py-3 hidden sm:table-cell"><div class="h-4 bg-gray-100 rounded w-20"></div></td>
-                                    <td class="px-4 py-3 hidden sm:table-cell"><div class="h-4 bg-gray-100 rounded w-36"></div></td>
-                                    <td class="px-4 py-3 hidden md:table-cell"><div class="h-4 bg-gray-100 rounded w-20"></div></td>
-                                    <td class="px-4 py-3 hidden lg:table-cell"><div class="h-4 bg-gray-100 rounded w-12"></div></td>
-                                    <td class="px-4 py-3"><div class="h-4 bg-gray-200 rounded w-16"></div></td>
-                                </tr>
-                            {/each}
-                        </tbody>
-                    </table>
+                <div class="animate-pulse divide-y divide-gray-100">
+                    {#each Array(5) as _}
+                        <div class="p-4 h-14 bg-gray-50"></div>
+                    {/each}
                 </div>
             </div>
         {:else if error}
             <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <div class="flex items-start gap-3">
-                    <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                    </svg>
-                    <div>
-                        <p class="text-sm font-medium text-red-800">{error}</p>
-                        <button onclick={() => { error = ''; fetchEventReports(currentPage); }} class="text-sm text-red-600 hover:text-red-800 underline mt-1">Retry</button>
-                    </div>
-                </div>
+                <p class="text-sm text-red-700">{error}</p>
             </div>
         {:else}
             <EventReportsTable
                 {eventReports}
                 {loading}
                 {error}
-                currentEventName={currentEvent?.name || 'this event'}
+                currentEventName={currentEvent?.name}
             />
 
             <Pagination
@@ -408,13 +284,11 @@
                 {totalCount}
                 {pageSize}
                 onPageChange={handlePageChange}
-                itemLabel="reports"
             />
         {/if}
     </main>
 </div>
 
-<!-- Confirm Re-push Dialog -->
 <ConfirmDialog
     open={confirmRepush}
     title="Re-push Events"

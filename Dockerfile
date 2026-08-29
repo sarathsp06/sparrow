@@ -7,16 +7,13 @@ ARG SEMVER=dev
 WORKDIR /build/web
 
 # Copy package files first for better layer caching
-COPY web/package.json web/package-lock.json* web/yarn.lock* ./
+COPY web/package.json web/package-lock.json* ./
 
 # Install dependencies
 RUN npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
 
 # Copy frontend source
 COPY web/ .
-
-# Copy generated proto JS/TS files (frontend imports them via relative paths)
-COPY proto/webhook_pb.js proto/webhook_pb.d.ts /build/proto/
 
 # Build static frontend
 # adapter-static outputs to ../internal/ui/dist (i.e. /build/internal/ui/dist)
@@ -58,6 +55,6 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 COPY --from=builder --chown=65532:65532 /build/server /app/server
 
-EXPOSE 50051 8080
+EXPOSE 8080
 
 ENTRYPOINT ["/app/server"]

@@ -99,8 +99,8 @@ func (hc *Checker) Health(ctx context.Context) (HealthResponse, int) {
 			"name":        "sparrow",
 			"description": "Webhook delivery system",
 			"endpoints": map[string]any{
-				"grpc":   "localhost:50051",
 				"http":   "localhost:8080",
+				"docs":   "localhost:8080/docs",
 				"health": "localhost:8080/health",
 				"ready":  "localhost:8080/ready",
 			},

@@ -22,17 +22,16 @@
 | Lint | `make lint` | golangci-lint, 15m timeout |
 | Format | `make fmt` | `goimports -local github.com/sarathsp06/sparrow/ -w .` |
 | Run migrations | `make migrate` | Also runs automatically on server startup |
-| Generate protos + clients | `make generate` | `buf generate` then `go generate ./...` |
-| gRPC codegen | `go generate ./...` | Uses gowrap for OTel tracing wrappers |
+| Generate spec + clients | `make generate` | Exports OpenAPI from Go, regenerates the Python client, then `go generate ./...` |
+| OTel wrapper codegen | `go generate ./...` | Uses gowrap for OTel tracing wrappers |
 
 ## Architecture
 
-- **Entrypoint**: `cmd/server/main.go` — wires chi router, gRPC, River queue, OTel, bootstraps default tenant.
-- **Dual protocol**: gRPC on `:50051`, Connect-RPC (HTTP/JSON) on `:8080`, same handlers.
+- **Entrypoint**: `cmd/server/main.go` — wires chi router, Huma REST API, River queue, OTel, bootstraps default tenant.
+- **REST/OpenAPI**: single HTTP transport on `:8080`. [Huma](https://github.com/danielgtaylor/huma) generates the OpenAPI 3.1 spec from Go handler structs; served interactively at `/docs` (Scalar), spec at `/openapi.yaml`/`/openapi.json`.
 - **Queue**: River (Postgres-backed, 45 concurrent workers: 20 events + 20 webhooks + 5 default).
 - **DB**: pgxpool (50 conns, 10 min) for River + sqlx (25 conns) for app queries.
 - **Config**: env vars via `kelseyhightower/envconfig` — see `internal/config/config.go`.
-- **Proto**: `proto/webhook.proto` → 5 services (Webhook, Event, Subscription, Delivery, Health).
 
 ## Key packages
 
@@ -40,8 +39,7 @@
 |------|---------|
 | `cmd/server/` | Server entrypoint + DI wiring |
 | `cmd/migrate/` | Standalone migration runner |
-| `internal/grpc/` | gRPC handler layer (thin, calls webhook service) |
-| `internal/connect/` | Connect-RPC handler wrapper |
+| `internal/rest/` | Huma REST handler layer (thin, calls webhook service) — one file per resource (`webhook.go`, `event.go`, `subscription.go`, `delivery.go`, `health.go`) |
 | `internal/webhooks/` | Business logic + store + queue workers |
 | `internal/webhooks/store/` | DB repository (sqlx, WithConn transaction pattern) |
 | `internal/webhooks/queue/` | River job types + workers |
@@ -55,17 +53,17 @@
 - **Error order**: All `if err != nil { return ... }` before happy path.
 - **WithConn**: `repo.WithConn(tx)` inside `storage.WithTransaction()` for repo-level txns.
 - **No direct SQL in handlers** — all DB access through RepositoryInterface methods.
-- **gRPC errors**: use `toGRPCError(ctx, err, msg)` from `internal/grpc/helpers.go`.
+- **REST errors**: use `mapError(ctx, err, msg)` from `internal/rest/errors.go`.
 - **Tenant scoping**: always filter by `tenant.DefaultTenantID` in queries.
-- **Naming**: files `snake_case.go`, packages lowercase single word, proto services `SomethingService`.
+- **Naming**: files `snake_case.go`, packages lowercase single word, REST OperationIDs `camelCase` verb-first (e.g. `registerWebhook`, `listDeliveries`).
 - **OTel wrappers**: generated via `//go:generate gowrap gen -i InterfaceName ...` — do not hand-edit `*_otel.go` files.
-- **Proto path for Go imports**: `github.com/sarathsp06/sparrow/proto` (not `protoconnect/`).
+- **OpenAPI spec**: exported from Go via `cmd/openapi-export`, committed at `api/openapi.{yaml,json}` — regenerate with `make generate` after any handler change; `internal/rest/openapi_drift_test.go` fails CI if it's stale.
 
 ## Frontend (Svelte 5)
 
 - Static SPA via `@sveltejs/adapter-static` — no SSR.
 - Output dir: `../internal/ui/dist` (embedded in Go binary).
-- Connect-RPC client for API calls (`@connectrpc/connect-web`).
+- REST client for API calls (`openapi-fetch`, typed from `web/src/lib/api-types.d.ts`, generated from the OpenAPI spec).
 - Dev server: `npm run dev` from `web/`.
 
 ## DB / Migrations

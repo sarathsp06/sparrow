@@ -11,5 +11,5 @@ keywords:
   - webhooks
   - event-driven
   - delivery
-  - grpc
-  - connect-rpc
+  - rest
+  - openapi

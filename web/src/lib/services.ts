@@ -1,14 +1,6 @@
-import { PUBLIC_API_URL } from "$env/static/public";
-import { createClient } from "@connectrpc/connect";
-import { createConnectTransport } from "@connectrpc/connect-web";
-import type { Interceptor } from "@connectrpc/connect";
-import {
-  WebhookService,
-  EventService,
-  SubscriptionService,
-  DeliveryService,
-  HealthService,
-} from "../../../proto/webhook_pb.js";
+import { env } from "$env/dynamic/public";
+import createClient from "openapi-fetch";
+import type { paths } from "./api-types";
 
 // Runtime config injected by the Go server into window.__SPARROW_CONFIG__.
 // The API key is always provided at runtime (never baked into the build).
@@ -27,27 +19,38 @@ const runtimeConfig: SparrowConfig =
 
 const apiKey: string = runtimeConfig.apiKey || "";
 
-// Interceptor that attaches the API key header to every request when configured.
-const apiKeyInterceptor: Interceptor = (next) => async (req) => {
-  req.header.set("X-API-Key", apiKey);
-  return next(req);
-};
-
-const interceptors: Interceptor[] = [];
-if (apiKey) {
-  interceptors.push(apiKeyInterceptor);
-}
-
-const transport = createConnectTransport({
-  baseUrl: PUBLIC_API_URL || "/",
-  interceptors,
+// Single typed REST client for the whole app. Sparrow's interface is
+// REST/OpenAPI only (Connect-RPC and gRPC have been removed).
+export const api = createClient<paths>({
+  baseUrl: env.PUBLIC_API_URL || "/",
+  headers: apiKey ? { "X-API-Key": apiKey } : undefined,
 });
 
-export const webhookClient = createClient(WebhookService, transport);
-export const eventClient = createClient(EventService, transport);
-export const subscriptionClient = createClient(SubscriptionService, transport);
-export const deliveryClient = createClient(DeliveryService, transport);
-export const healthClient = createClient(HealthService, transport);
-
-// Backward compatibility
-export const client = webhookClient;
+/**
+ * Throws a readable Error when an openapi-fetch call returns `error`.
+ *
+ * Huma's error body (RFC 9457 Problem Details) puts a generic summary in
+ * `detail` (e.g. "validation failed") and the actionable per-field messages
+ * in `errors[]` (e.g. {location: "body.events", message: "expected array
+ * length >= 1"}). Append them so the user sees what actually went wrong.
+ */
+export function unwrap<T>(result: { data?: T; error?: unknown; response: Response }): T {
+  if (result.error !== undefined) {
+    const err = result.error as
+      | { detail?: string; title?: string; errors?: { location?: string; message?: string }[] }
+      | undefined;
+    let message = err?.detail || err?.title || `Request failed (${result.response.status})`;
+    if (err?.errors?.length) {
+      const details = err.errors
+        .map((e) => (e.location ? `${e.location}: ${e.message}` : e.message))
+        .filter(Boolean)
+        .join("; ");
+      if (details) message = `${message} (${details})`;
+    }
+    throw new Error(message);
+  }
+  if (result.data === undefined) {
+    throw new Error(`Request failed (${result.response.status})`);
+  }
+  return result.data;
+}

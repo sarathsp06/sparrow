@@ -18,8 +18,6 @@ spec:
     - ports:
         - port: 8080
           protocol: TCP
-        - port: 50051
-          protocol: TCP
       {{- if .Values.networkPolicy.ingressFrom }}
       from:
         {{- toYaml .Values.networkPolicy.ingressFrom | nindent 8 }}

@@ -1,33 +1,32 @@
 ---
-type: gRPC Service
-title: EventService
-description: Event registration, pushing, listing, re-push, and batch operations — 12 RPCs
-tags: [grpc, events]
-timestamp: 2026-06-22T00:00:00Z
+type: REST Resource
+title: Events
+description: Event type definitions, pushing, listing, re-push, and batch operations — 12 endpoints
+tags: [rest, events]
+timestamp: 2026-08-29T00:00:00Z
 ---
 
-# EventService
+# Events
 
-Defined in [`webhook.proto`](/references/proto.md). The largest service with 12 RPCs.
+Registered under the `Event Types` and `Events` tags in the Huma-generated OpenAPI spec. Implemented in `internal/rest/event.go`.
 
-## RPCs
+## Endpoints
 
-| RPC | Description |
-|-----|-------------|
-| `RegisterEvent` | Register an event type with optional JSON schema |
-| `ListEvents` | List registered event types |
-| `UpdateEvent` | Update event type definition |
-| `DeleteEvent` | Delete an event type |
-| `GetEvent` | Get a single event type |
-| `PushEvent` | Push a new event — triggers fan-out to subscriptions |
-| `ListEventReports` | Filterable event delivery reports (supports `prepare_repush`) |
-| `GetEventRecord` | Get a single event instance |
-| `RePushEvent` | Re-push a single event through current subscriptions |
-| `RePushEvents` | Batch re-push via snapshot — uses batch_jobs |
-| `GetRepushStatus` | Poll batch re-push progress |
-| `CancelRepush` | Cancel a batch re-push operation |
+| Method | Path | OperationID | Description |
+|--------|------|-------------|-------------|
+| POST | `/v1/event-types` | `registerEventType` | Register an event type with optional JSON schema |
+| GET | `/v1/event-types` | `listEventTypes` | List registered event types |
+| GET | `/v1/event-types/{name}` | `getEventType` | Get a single event type |
+| PATCH | `/v1/event-types/{name}` | `updateEventType` | Update event type definition |
+| DELETE | `/v1/event-types/{name}` | `deleteEventType` | Delete an event type |
+| POST | `/v1/namespaces/{namespace}/events` | `pushEvent` | Push a new event — triggers fan-out to subscriptions |
+| GET | `/v1/namespaces/{namespace}/events` | `listEventOccurrences` | Filterable event occurrence listing (supports `prepare_repush`) |
+| GET | `/v1/events/{event_id}` | `getEventOccurrence` | Get a single event occurrence |
+| POST | `/v1/events/{event_id}:repush` | `repushEvent` | Re-push a single event through current subscriptions |
+| POST | `/v1/namespaces/{namespace}/events:rePush` | `startEventRepushJob` | Batch re-push via snapshot — uses batch_jobs |
+| GET | `/v1/namespaces/{namespace}/repush-jobs/{job_id}` | `getEventRepushJob` | Poll batch re-push progress |
+| POST | `/v1/namespaces/{namespace}/repush-jobs/{job_id}:cancel` | `cancelEventRepushJob` | Cancel a batch re-push operation |
 
 ## Citations
 
-- `proto/webhook.proto` — service definition
-- `internal/grpc/event_handlers.go` — implementation
+- `internal/rest/event.go` — endpoint registration + handlers

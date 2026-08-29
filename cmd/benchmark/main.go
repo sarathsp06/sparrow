@@ -30,7 +30,6 @@ type Config struct {
 	TargetRPS         int
 	PayloadSizeKB     int
 	Concurrency       int
-	EnableTemplates   bool
 	TargetURL         string
 	SamplingRate      float64 // Percentage of requests to track (0.0-1.0)
 	EnableResourceMon bool
@@ -748,7 +747,6 @@ func main() {
 	rps := flag.Int("rps", 100, "Target requests per second")
 	payloadKB := flag.Int("payload", 10, "Payload size in KB")
 	concurrency := flag.Int("concurrency", 10, "Number of concurrent workers")
-	templates := flag.Bool("templates", false, "Enable template transformations")
 	targetURL := flag.String("url", "", "Target URL (leave empty for test server)")
 	samplingRate := flag.Float64("sampling", 0.1, "Latency sampling rate (0.01-1.0)")
 	enableResourceMon := flag.Bool("monitor", true, "Enable resource monitoring")
@@ -765,7 +763,6 @@ func main() {
 		TargetRPS:         *rps,
 		PayloadSizeKB:     *payloadKB,
 		Concurrency:       *concurrency,
-		EnableTemplates:   *templates,
 		TargetURL:         *targetURL,
 		SamplingRate:      *samplingRate,
 		EnableResourceMon: *enableResourceMon,
@@ -777,7 +774,6 @@ func main() {
 	fmt.Printf("  Target RPS:      %d\n", config.TargetRPS)
 	fmt.Printf("  Payload Size:    %d KB\n", config.PayloadSizeKB)
 	fmt.Printf("  Concurrency:     %d\n", config.Concurrency)
-	fmt.Printf("  Templates:       %v\n", config.EnableTemplates)
 	fmt.Printf("  Target URL:      %s\n", config.TargetURL)
 	fmt.Printf("  Sampling Rate:   %.1f%%\n", config.SamplingRate*100)
 	fmt.Printf("  Resource Mon:    %v\n\n", config.EnableResourceMon)

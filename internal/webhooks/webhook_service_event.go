@@ -15,8 +15,6 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"google.golang.org/grpc/codes"
-
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
@@ -47,13 +45,13 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 
 	// Validate required fields
 	if namespace == "" {
-		err := svcerrors.Error(codes.InvalidArgument, "namespace is required")
+		err := svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "namespace is required")
 		return "", false, nil, err
 	}
 	if event == "" {
-		err := svcerrors.Error(codes.InvalidArgument, "event is required")
+		err := svcerrors.Error(svcerrors.InvalidArgument, "event is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event is required")
 		return "", false, nil, err
@@ -114,7 +112,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		s.logger.InfoContext(ctx, "Auto-registered new event type", "event", event)
 	}
 	if !eventReg.Active {
-		err := svcerrors.Errorf(codes.FailedPrecondition, "event '%s' is inactive", event)
+		err := svcerrors.Errorf(svcerrors.FailedPrecondition, "event '%s' is inactive", event)
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event inactive")
 		s.logger.ErrorContext(ctx, "Event is inactive", "event", event)
@@ -270,7 +268,7 @@ func (s *WebhookService) RePushEvent(ctx context.Context, eventID string) (strin
 		return "", nil, fmt.Errorf("failed to load original event: %w", err)
 	}
 	if original == nil {
-		err := svcerrors.Errorf(codes.NotFound, "event not found: %s", eventID)
+		err := svcerrors.Errorf(svcerrors.NotFound, "event not found: %s", eventID)
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event not found")
 		return "", nil, err
@@ -380,7 +378,7 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 
 	s.logger.InfoContext(ctx, "Processing event registration request", "name", name, "description", description)
 	if name == "" {
-		return "", time.Time{}, svcerrors.Error(codes.InvalidArgument, "event name is required")
+		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -393,7 +391,7 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 		return "", time.Time{}, fmt.Errorf("failed to check existing event: %w", err)
 	}
 	if existingEvent != nil {
-		return "", time.Time{}, svcerrors.Error(codes.InvalidArgument, "event already exists")
+		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "event already exists")
 	}
 
 	// Generate sample payload from schema
@@ -467,7 +465,7 @@ func (s *WebhookService) UpdateEvent(ctx context.Context, name string, descripti
 
 	// Validate required fields
 	if name == "" {
-		return svcerrors.Error(codes.InvalidArgument, "event name is required")
+		return svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -482,7 +480,7 @@ func (s *WebhookService) UpdateEvent(ctx context.Context, name string, descripti
 	}
 
 	if existingEvent == nil {
-		return svcerrors.Error(codes.NotFound, "event not found")
+		return svcerrors.Error(svcerrors.NotFound, "event not found")
 	}
 
 	// Update event fields
@@ -521,7 +519,7 @@ func (s *WebhookService) DeleteEvent(ctx context.Context, name string) error {
 
 	// Validate required fields
 	if name == "" {
-		return svcerrors.Error(codes.InvalidArgument, "event name is required")
+		return svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -536,7 +534,7 @@ func (s *WebhookService) DeleteEvent(ctx context.Context, name string) error {
 	}
 
 	if existingEvent == nil {
-		return svcerrors.Error(codes.NotFound, "event not found")
+		return svcerrors.Error(svcerrors.NotFound, "event not found")
 	}
 
 	// Delete the event
@@ -559,7 +557,7 @@ func (s *WebhookService) GetEvent(ctx context.Context, name string) (*store.Even
 
 	s.logger.InfoContext(ctx, "Processing get event request", "name", name)
 	if name == "" {
-		return nil, svcerrors.Error(codes.InvalidArgument, "event name is required")
+		return nil, svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
 	}
 
 	tenantID := tenant.DefaultTenantID

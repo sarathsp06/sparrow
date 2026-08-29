@@ -38,4 +38,4 @@ Message to sign: `{msg_id}.{timestamp}.{payload}`
 - `db/migrations/000022.up.sql` — Ed25519 key column
 - `internal/webhooks/client/` — signing implementation
 - `internal/webhooks/webhook_service.go` — signing public-key presentation
-- `internal/grpc/helpers.go` — transport response conversion delegates signing-key presentation
+- `internal/rest/conversions.go` — transport response conversion delegates signing-key presentation

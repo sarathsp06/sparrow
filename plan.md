@@ -33,8 +33,7 @@ These principles apply globally to Sparrow, not just this feature set:
 | Area | Status | Details |
 |------|--------|---------|
 | Core webhook pipeline | Complete | Register, subscribe, push, fan-out, deliver, retry |
-| Proto services + RPCs | Complete | Webhook, Event, Subscription, Delivery, Health + Go-only Namespace |
-| Dual protocol (gRPC + Connect-RPC) | Complete | :50051 gRPC, :8080 HTTP/Connect |
+| REST/OpenAPI API | Complete | Webhook, Event, Subscription, Delivery, Health resources, versioned under `/v1`; spec generated from Go (Huma), interactive docs at `/docs` (Scalar) |
 | SvelteKit admin UI | Complete | Webhooks, events, deliveries, health, event instances |
 | Go template transforms | Complete | Per-subscription payload transformation with caching |
 | Standard Webhooks signing | Complete | `webhook-id`, `webhook-timestamp`, `webhook-signature` with `v1,`/`v1a,` base64 format |
@@ -47,7 +46,7 @@ These principles apply globally to Sparrow, not just this feature set:
 | Idempotency keys | Complete | Optional dedup on PushEvent, partial unique index |
 | Per-webhook rate limiting | Complete | Leaky bucket (`rate_limit_rps`), 429 Retry-After parsing |
 | Error classification | Complete | Categorized with retryability flags, including `rate_limited` |
-| API key auth | Complete | Optional `SPARROW_API_KEY`, HTTP + gRPC, constant-time compare |
+| API key auth | Complete | Optional `SPARROW_API_KEY`, constant-time compare |
 | Security headers | Complete | nosniff, DENY framing, strict referrer, no FLoC |
 | OTel observability | Complete | Traces, metrics, logs, job trace propagation, gowrap wrappers |
 | DB migrations | Complete | Automated on startup, see `db/migrations/` |
@@ -60,12 +59,12 @@ These principles apply globally to Sparrow, not just this feature set:
 |-----|----------|-------|
 | No dead letter queue | High | Failed deliveries stuck in deliveries table forever |
 | No API-level rate limiting | Medium | Per-webhook rate limiting exists, but API endpoints are unthrottled |
-| No CLI tool | Medium | Users rely on grpcurl / curl |
+| No CLI tool | Medium | Users rely on curl or the interactive `/docs` (Scalar) UI |
 | No payload size limits | Medium | Unbounded event payloads |
 | No data retention / cleanup | High | No TTL-based purge of old events/deliveries |
 | No scheduled/delayed webhooks | Low | Not in Svix OSS either |
-| No API versioning | Low | Single proto, no v1/v2 namespacing |
-| Limited client SDKs | Medium | Go/JS/Python generated; no Java/Ruby/C#/PHP |
+| No API versioning beyond URL path | Low | REST paths are `/v1/...`; no header/content-negotiation versioning scheme |
+| Limited client SDKs | Medium | Python generated from OpenAPI; no Go/JS/Java/Ruby/C#/PHP |
 | OKF bundle | Complete | `okf/` generated with 47 concepts across 58 files, 0 errors |
 
 ---
@@ -175,11 +174,11 @@ Failed deliveries already have all the data (payload, headers, target URL, error
 
 - Add index: `idx_webhook_deliveries_dlq ON webhook_deliveries (webhook_id, status) WHERE status = 'failed'`
 
-### Proto Changes
+### API Changes
 
-- `DeliveryService.ListDLQ(namespace, webhook_id, page_size, page_token)` -> paginated failed deliveries
-- `DeliveryService.RedriveDLQ(namespace, webhook_id)` -> redrive all failed for a webhook
-- `DeliveryService.RedriveDelivery(delivery_id)` -> redrive single delivery
+- `GET /v1/namespaces/{namespace}/deliveries:dlq` -> paginated failed deliveries
+- `POST /v1/namespaces/{namespace}/webhooks/{webhook_id}/dlq:redrive` -> redrive all failed for a webhook
+- `POST /v1/deliveries/{delivery_id}:redrive` -> redrive single delivery
 
 ---
 
@@ -227,7 +226,7 @@ New env vars:
 - Returns `codes.InvalidArgument` with clear message
 - Also enforced on template output (transformed payload)
 
-### Proto Changes
+### API Changes
 
 None -- enforcement is server-side only.
 
@@ -244,7 +243,7 @@ None -- enforcement is server-side only.
 - **Public key derived at runtime** from the private key (`ed25519.PrivateKey.Public()`). Not stored separately.
 - **Signing**: Standard Webhooks format. Message: `{msg_id}.{timestamp}.{payload}`, HMAC = `v1,<base64>`, Ed25519 = `v1a,<base64>`.
 - **Headers**: `webhook-id`, `webhook-timestamp`, `webhook-signature` (space-delimited signatures).
-- **Public key exposed** via `signing_public_key` field on `RegisterWebhookResponse` and `RegisteredWebhook` proto messages (base64-encoded).
+- **Public key exposed** via the `signing_public_key` field on the webhook resource (base64-encoded).
 - **Consumers choose** which signature to verify -- HMAC (requires shared secret, `v1,` prefix) or Ed25519 (requires only the public key, `v1a,` prefix).
 
 ### Migration
@@ -265,11 +264,11 @@ None -- enforcement is server-side only.
 
 **Status**: Pending
 
-**Priority**: Medium -- currently users need grpcurl or curl for all operations. A dedicated CLI improves DX significantly.
+**Priority**: Medium -- currently users need curl for all operations. A dedicated CLI improves DX significantly.
 
 ### Design
 
-Standalone Go binary (`cmd/cli/`) using cobra. Connects to Sparrow server via Connect-RPC (HTTP).
+Standalone Go binary (`cmd/cli/`) using cobra. Connects to Sparrow server via the REST API (HTTP).
 
 ### Commands
 
@@ -306,9 +305,22 @@ sparrow-cli config  # show server connection info
 - Token bucket per API key (or per-IP if no API key)
 - Configurable via `SPARROW_API_RATE_LIMIT` (requests/second, default: 100)
 - Returns HTTP 429 with `Retry-After` header
-- Implemented as chi middleware (HTTP) + gRPC interceptor
+- Implemented as chi middleware
 - State stored in-memory (process-local) -- acceptable for single-instance deployments
 - For multi-instance: optional PostgreSQL-backed limiter using `pg_advisory_lock`
+
+## Part 17: REST/OpenAPI Migration (removed gRPC + Connect-RPC)
+
+**Status**: Complete
+
+Replaced the dual gRPC (`:50051`) + Connect-RPC (HTTP/JSON on `:8080`) transport with a single REST/OpenAPI interface, generated from Go via [Huma](https://github.com/danielgtaylor/huma). Deleted `proto/`, `internal/grpc/`, `internal/connect/`, `buf.yaml`/`buf.gen.yaml`, and the standalone Astro docs site (`docs/`).
+
+- **Handlers**: `internal/rest/` — one file per resource (`webhook.go`, `event.go`, `subscription.go`, `delivery.go`, `health.go`), all versioned under `/v1`.
+- **Spec**: exported from Go via `cmd/openapi-export`, committed at `api/openapi.{yaml,json}`; `internal/rest/openapi_drift_test.go` fails CI if it drifts from the handlers.
+- **Docs**: interactive reference at `/docs` (Scalar), replacing the old Astro/Starlight site and its GitHub Pages deployment.
+- **Web UI**: rewritten to call the REST API via `openapi-fetch`, typed from a generated `api-types.d.ts` (replacing the Connect-RPC generated client).
+- **Client SDKs**: only the Python client is still generated (`client/python/`, via `openapi-python-client`); the old Go/JS Connect-RPC clients were deleted with no REST replacement generated yet (tracked in Known Gaps).
+- **e2e/integration tests**: `e2e/libs/sparrow_api.py` rewritten to REST paths; some retry/batch/fan-out integration coverage that existed against Connect-RPC was not yet ported (see `internal/integration/e2e_retry_test.go`).
 
 ---
 
@@ -326,7 +338,7 @@ These are features identified from the Svix comparison that are **not currently 
 | Connector endpoints (Slack, etc.) | Better handled by users via template transforms + Slack webhook URLs. |
 | Email notifications on failure | Requires email infrastructure (SMTP config, templates). Could add later with a webhook-to-email bridge pattern. |
 | Operational webhooks (meta-webhooks) | Low priority for single-tenant. Could use existing subscription mechanism to subscribe to internal events. |
-| More client SDKs (Java, Ruby, C#, PHP) | Generated clients work but are thin. Could auto-generate from proto using buf + connect-es ecosystem. Prioritize when there's user demand. |
+| More client SDKs (Java, Ruby, C#, PHP) | Could auto-generate from the committed OpenAPI spec (`api/openapi.yaml`) with the respective language's OpenAPI generator, same as the Python client. Prioritize when there's user demand. |
 
 ---
 
@@ -342,6 +354,7 @@ Completed:
   Part 9 (parallel)
   Part 10 (docs sync + OKF bundle)
   Part 14 (Ed25519 signing)
+  Part 17 (REST/OpenAPI migration)
 
 Next:
   Part 11 (DLQ) ──────> Part 12 (retention) -- DLQ first so retention doesn't delete un-redriven failures
@@ -374,7 +387,7 @@ Next:
 | Ed25519 key storage | Reuse envelope encryption | Consistent with existing secret storage pattern |
 | Ed25519 signing model | Always dual-sign (HMAC + Ed25519) | No config needed, negligible cost, consumer chooses which to verify |
 | Ed25519 public key storage | Derived at runtime from private key | One fewer column, public key always derivable |
-| CLI transport | Connect-RPC over HTTP | Same protocol as web UI, reuses API key auth |
+| CLI transport | REST over HTTP | Same protocol as web UI, reuses API key auth |
 | API rate limiting state | In-memory (single instance) | Simplest. Upgrade to PG-backed if multi-instance needed |
 | Redis dependency | No | Postgres-only is a competitive advantage over Svix OSS |
 | Multi-tenant activation | Deferred | Different product; infrastructure retained but not activated |

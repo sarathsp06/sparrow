@@ -1,48 +1,43 @@
 ---
 type: Concept
 title: System Architecture
-description: High-level architecture of Sparrow — dual-protocol server, event-driven pipeline, PostgreSQL-backed job queue
+description: High-level architecture of Sparrow — REST/OpenAPI server, event-driven pipeline, PostgreSQL-backed job queue
 tags: [architecture, core]
-timestamp: 2026-06-22T00:00:00Z
+timestamp: 2026-08-29T00:00:00Z
 ---
 
 # System Architecture
 
 Sparrow is an event-driven webhook delivery platform with three main layers: API surface, service layer, and async job queue.
 
-## Dual-Protocol API
+## REST/OpenAPI API
 
-Two ports serve the same 5 protobuf-defined services plus 1 Go-only service:
+A single port serves the whole API surface, versioned under `/v1`:
 
 | Port | Protocol | Use case |
 |------|----------|----------|
-| `:8080` | HTTP/1.1 + Connect-RPC | Web UI, curl, client SDKs |
-| `:50051` | gRPC | gRPC-native clients, grpcurl |
+| `:8080` | HTTP/1.1 + REST/JSON | Web UI, curl, client SDKs, interactive docs at `/docs` |
 
-The HTTP server uses [chi](https://github.com/go-chi/chi) for routing with middleware groups. Connect-RPC handlers delegate directly to the same gRPC server implementations.
+The HTTP server uses [chi](https://github.com/go-chi/chi) for routing with middleware groups. [Huma](https://github.com/danielgtaylor/huma) registers every `/v1` operation on top of chi and generates the OpenAPI 3.1 document from the same Go handler structs, served at `/openapi.yaml`/`/openapi.json` and rendered interactively at `/docs` (Scalar).
 
 ## Layers
 
 ```
-Client (gRPC / HTTP-Connect / Browser)
+Client (curl / Browser / client SDKs)
     │
     ▼
 API Layer
-├── internal/connect  — Connect-RPC adapter (HTTP :8080)
-├── internal/grpc     — gRPC handlers (:50051)
-├── internal/middleware — Auth + security headers
+├── internal/rest       — Huma REST handlers, one file per resource (HTTP :8080)
+├── internal/middleware  — Auth + security headers
     │
     ▼
 Service Layer
 ├── internal/webhooks — Core business logic (WebhookServiceInterface)
-├── internal/namespace — Namespace CRUD
 ├── internal/tenant   — Tenant bootstrap + default tenant
     │
     ▼
 Repository Layer
 ├── internal/webhooks/store — ~80 methods, sqlx-based
-├── internal/namespace/store
-├── internal/tenant/store
     │
     ▼
 Job Queue Layer (River)
@@ -62,10 +57,11 @@ HTTP Client Layer
 - [sqlx](https://github.com/jmoiron/sqlx) — database queries
 - [pgxpool](https://github.com/jackc/pgx) — River's PG pool
 - [chi](https://github.com/go-chi/chi) — HTTP router
+- [Huma](https://github.com/danielgtaylor/huma) — REST/OpenAPI framework
 - [OpenTelemetry](/packages/internal-observability.md) — traces, metrics, logs via OTLP
 - More in [references/dependencies.md](/references/dependencies.md)
 
 ## Citations
 
 - Architecture diagram in `opencode.md`
-- Route configuration in `internal/middleware/api_key.go` and `cmd/server/main.go`
+- Route configuration in `internal/middleware/apikey.go` and `cmd/server/main.go`

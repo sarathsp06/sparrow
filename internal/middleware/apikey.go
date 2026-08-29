@@ -1,24 +1,15 @@
-// Package middleware provides HTTP and gRPC middleware for the Sparrow server.
+// Package middleware provides HTTP middleware for the Sparrow server.
 package middleware
 
 import (
-	"context"
 	"crypto/subtle"
 	"net/http"
 	"strings"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 )
 
 const (
 	// APIKeyHeader is the HTTP header used to pass the API key.
 	APIKeyHeader = "X-API-Key"
-
-	// apiKeyMetadataKey is the gRPC metadata key (lowercase per gRPC convention).
-	apiKeyMetadataKey = "x-api-key"
 )
 
 // APIKeyAuth holds the configuration for API key authentication.
@@ -68,77 +59,8 @@ func (a *APIKeyAuth) HTTPMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// UnaryServerInterceptor returns a gRPC unary interceptor that enforces API
-// key authentication via the "x-api-key" metadata header.
-// When the API key is not configured (empty), requests pass through unchanged.
-func (a *APIKeyAuth) UnaryServerInterceptor() grpc.UnaryServerInterceptor {
-	return func(
-		ctx context.Context,
-		req any,
-		info *grpc.UnaryServerInfo,
-		handler grpc.UnaryHandler,
-	) (any, error) {
-		if !a.Enabled() {
-			return handler(ctx, req)
-		}
-
-		keys, ok := apiKeysFromIncomingContext(ctx)
-		if !ok {
-			return nil, status.Errorf(codes.Unauthenticated, "missing metadata")
-		}
-
-		if len(keys) == 0 {
-			return nil, status.Errorf(codes.Unauthenticated, "missing API key: set %s metadata", apiKeyMetadataKey)
-		}
-
-		if !a.validKey(keys[0]) {
-			return nil, status.Errorf(codes.Unauthenticated, "invalid API key")
-		}
-
-		return handler(ctx, req)
-	}
-}
-
-// StreamServerInterceptor returns a gRPC stream interceptor that enforces API
-// key authentication via the "x-api-key" metadata header.
-func (a *APIKeyAuth) StreamServerInterceptor() grpc.StreamServerInterceptor {
-	return func(
-		srv any,
-		ss grpc.ServerStream,
-		info *grpc.StreamServerInfo,
-		handler grpc.StreamHandler,
-	) error {
-		if !a.Enabled() {
-			return handler(srv, ss)
-		}
-
-		keys, ok := apiKeysFromIncomingContext(ss.Context())
-		if !ok {
-			return status.Errorf(codes.Unauthenticated, "missing metadata")
-		}
-
-		if len(keys) == 0 {
-			return status.Errorf(codes.Unauthenticated, "missing API key: set %s metadata", apiKeyMetadataKey)
-		}
-
-		if !a.validKey(keys[0]) {
-			return status.Errorf(codes.Unauthenticated, "invalid API key")
-		}
-
-		return handler(srv, ss)
-	}
-}
-
 func (a *APIKeyAuth) keyFromHTTPRequest(r *http.Request) string {
 	return r.Header.Get(APIKeyHeader)
-}
-
-func apiKeysFromIncomingContext(ctx context.Context) ([]string, bool) {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, false
-	}
-	return md.Get(apiKeyMetadataKey), true
 }
 
 // validKey performs a constant-time comparison to prevent timing attacks.

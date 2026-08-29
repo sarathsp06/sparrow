@@ -68,9 +68,6 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
-            - name: grpc
-              containerPort: 50051
-              protocol: TCP
           envFrom:
             - configMapRef:
                 name: {{ include "sparrow.fullname" . }}

@@ -2,7 +2,7 @@
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/ghcr.io-sarathsp06%2Fsparrow-blue?logo=docker)](https://github.com/sarathsp06/sparrow/pkgs/container/sparrow)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://sarathsp06.github.io/sparrow)
+[![API Spec](https://img.shields.io/badge/API-OpenAPI%203.1-blue)](api/openapi.yaml)
 
 <p align="center">
   <img src="./web/src/lib/assets/favicon.svg" alt="Sparrow" width="120" height="120" />
@@ -28,12 +28,12 @@ Self-hosted webhook delivery platform with async fan-out, retries, health tracki
 - **Dual webhook signing** -- every delivery is signed with both HMAC-SHA256 and Ed25519 ([Standard Webhooks](https://www.standardwebhooks.com/) format)
 - **Envelope encryption at rest** -- AES-256-GCM with per-record data encryption keys for webhook secrets and sensitive headers
 - **SSRF protection** -- blocks private/loopback/metadata IPs, validates redirect targets
-- **Optional API key auth** -- constant-time comparison, HTTP + gRPC support
+- **Optional API key auth** -- constant-time comparison, HTTP support
 
 ### Developer Experience
 - **Payload transformation** -- Go templates per subscription with built-in helpers to reshape payloads for different consumers
 - **Soft schema validation** -- warnings not errors; events are always accepted and stored
-- **Dual-protocol API** -- gRPC on `:50051` and Connect-RPC (HTTP/JSON) on `:8080`
+- **REST/OpenAPI API** -- versioned REST on `:8080`, interactive docs (Scalar) at `/docs`, spec at `/openapi.yaml`
 - **Web dashboard** -- embedded SvelteKit UI for managing webhooks, events, deliveries, and health
 - **Health tracking** -- per-webhook state machine (healthy/degraded/unhealthy) with rolling summaries
 
@@ -58,27 +58,25 @@ Open **http://localhost:8080** for the web UI.
 
 ```bash
 # Register an event type
-curl -X POST http://localhost:8080/webhook.EventService/RegisterEvent \
+curl -X POST http://localhost:8080/v1/event-types \
   -H "Content-Type: application/json" \
   -d '{"name": "order.created", "description": "New order", "active": true}'
 
 # Register a webhook (subscription is created automatically)
-curl -X POST http://localhost:8080/webhook.WebhookService/RegisterWebhook \
+curl -X POST http://localhost:8080/v1/namespaces/default/webhooks \
   -H "Content-Type: application/json" \
-  -d '{"namespace": "default", "url": "https://httpbin.org/post", "events": ["order.created"], "active": true}'
+  -d '{"url": "https://httpbin.org/post", "events": ["order.created"], "active": true}'
 
 # Push an event -- Sparrow fans out and delivers
-curl -X POST http://localhost:8080/webhook.EventService/PushEvent \
+curl -X POST "http://localhost:8080/v1/namespaces/default/events?event=order.created" \
   -H "Content-Type: application/json" \
-  -d '{"namespace": "default", "event": "order.created", "payload": {"order_id": "ord_123", "amount": 99.99}}'
+  -d '{"payload": {"order_id": "ord_123", "amount": 99.99}}'
 ```
 
 Check delivery status in the web UI at **Deliveries**, or query the API:
 
 ```bash
-curl -X POST http://localhost:8080/webhook.DeliveryService/ListDeliveries \
-  -H "Content-Type: application/json" \
-  -d '{"namespace": "default", "limit": 5}'
+curl "http://localhost:8080/v1/namespaces/default/deliveries?limit=5"
 ```
 
 ## Use Cases
@@ -103,7 +101,7 @@ PushEvent API
 
 Events are persisted before delivery. The [River](https://riverqueue.com) job queue provides at-least-once delivery with configurable retries (default: 3 attempts, 60s backoff). Failures are classified into categories -- retryable (5xx, timeout, connection refused, network error, rate limited) and non-retryable (4xx, DNS, TLS) -- so you know *why* a delivery failed, not just *that* it failed. Every delivery is dual-signed with HMAC-SHA256 and Ed25519 using the [Standard Webhooks](https://www.standardwebhooks.com/) format. Webhook secrets and sensitive headers are envelope-encrypted at rest using AES-256-GCM with per-record data encryption keys.
 
-See the [architecture reference](docs/src/content/docs/reference/architecture.md) for the full pipeline design, error classification, and health state machine.
+See [`okf/architecture/overview.md`](okf/architecture/overview.md) for the full pipeline design, error classification, and health state machine.
 
 ## Verifying Webhook Signatures
 
@@ -210,7 +208,7 @@ All configuration is via environment variables:
 | `SPARROW_ENCRYPTION_KEY` | Yes | -- | 64-char hex key for envelope encryption of secrets. Generate with `openssl rand -hex 32` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP endpoint for traces/metrics/logs |
 
-See the [configuration reference](docs/src/content/docs/getting-started/configuration.md) for the full list.
+See [`okf/config/env-vars.md`](okf/config/env-vars.md) for the full list.
 
 ## Deployment
 
@@ -218,7 +216,7 @@ See the [configuration reference](docs/src/content/docs/getting-started/configur
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
-Deploy Sparrow + PostgreSQL on Railway with zero infrastructure. See the [Railway deployment guide](https://sarathsp06.github.io/sparrow/deployment/railway/) for setup steps.
+Deploy Sparrow + PostgreSQL on Railway with zero infrastructure -- click the button, set `SPARROW_ENCRYPTION_KEY` (generate with `openssl rand -hex 32`), and deploy.
 
 ### Docker
 
@@ -228,7 +226,7 @@ Pre-built multi-arch images (linux/amd64, linux/arm64) are published on every re
 docker pull ghcr.io/sarathsp06/sparrow:latest
 ```
 
-See [Docker Compose deployment guide](https://sarathsp06.github.io/sparrow/deployment/docker-compose/) for details.
+See [`deploy/docker-compose.yml`](deploy/docker-compose.yml) for the full example (Postgres + Sparrow, health-checked startup).
 
 ### Kubernetes
 
@@ -239,19 +237,13 @@ helm install sparrow charts/sparrow/ \
   --set secrets.databaseURL="postgres://user:pass@your-db:5432/sparrow?sslmode=require"
 ```
 
-See [Kubernetes deployment guide](https://sarathsp06.github.io/sparrow/deployment/kubernetes/) for all chart values and examples.
+See [`charts/sparrow/values.yaml`](charts/sparrow/values.yaml) for all chart values and defaults.
 
 ## Documentation
 
-**[sarathsp06.github.io/sparrow](https://sarathsp06.github.io/sparrow)**
-
-- [Getting Started](https://sarathsp06.github.io/sparrow/getting-started/installation/) -- installation and quickstart
-- [API Reference](https://sarathsp06.github.io/sparrow/reference/api/) -- all RPCs and message types
-- [Architecture](https://sarathsp06.github.io/sparrow/reference/architecture/) -- system design overview
-
-API reference docs are generated from [`webhook.proto`](webhook.proto) using [proto2astro](https://github.com/sarathsp06/proto2astro).
-
-In-repo docs: [Configuration](docs/src/content/docs/getting-started/configuration.md) | [Architecture](docs/src/content/docs/reference/architecture.md) | [Kubernetes](docs/src/content/docs/deployment/kubernetes.md) | [webhook.proto](webhook.proto)
+API reference is served live by the running server: interactive docs at `/docs` (powered by
+[Scalar](https://github.com/scalar/scalar)), the OpenAPI document at `/openapi.yaml` and
+`/openapi.json`. The contract is generated from Go via [Huma](https://github.com/danielgtaylor/huma).
 
 ## Contributing
 
@@ -281,7 +273,7 @@ Notes:
 - Use Conventional Commit prefixes (`feat:`, `fix:`, `docs:`, etc.) for clean autogenerated release notes.
 - If a tag already exists remotely, create the next version tag and push that tag instead.
 
-See the [architecture reference](docs/src/content/docs/reference/architecture.md) for the package structure and dependency graph.
+See [`okf/architecture/overview.md`](okf/architecture/overview.md) for the package structure and dependency graph.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor workflow.
 
 ## License

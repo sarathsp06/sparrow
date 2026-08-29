@@ -1,16 +1,16 @@
 ---
 type: Go Package
 title: pkg/errors
-description: Error classification with 10 categories for webhook delivery outcomes and gRPC-compatible service errors
+description: Error classification with 10 categories for webhook delivery outcomes, plus client-safe service errors
 tags: [errors, classification, leaf]
-timestamp: 2026-06-22T00:00:00Z
+timestamp: 2026-08-29T00:00:00Z
 ---
 
 # pkg/errors
 
-Classifies webhook delivery errors into 10 categories and provides client-safe `ServiceError` with gRPC status codes.
+Classifies webhook delivery errors into 10 categories (`category.go`, `ErrorCategory`) and provides a client-safe `ServiceError` (`service.go`) tagged with a local `Status` enum (`status.go`) for REST status-code mapping — replaces the gRPC status codes used before the REST/OpenAPI migration.
 
-## Error Categories
+## Error Categories (delivery outcomes)
 
 | Category | Retryable |
 |----------|-----------|
@@ -31,8 +31,8 @@ Classifies webhook delivery errors into 10 categories and provides client-safe `
 - `ClassifyHTTPStatus(statusCode) ErrorCategory`
 - `ClassifyError(err error) ErrorCategory`
 - `IsRetryableCategory(cat) bool`
-- `InvalidInput(msg) *ServiceError`, `NotFoundError(msg) *ServiceError`, etc.
+- `Error(status Status, msg string) *ServiceError`, `Errorf`, `Wrap`, `Wrapf` — construct client-safe `ServiceError`, translated to HTTP status by `internal/rest/errors.go`
 
 ## Citations
 
-- `pkg/errors/` — 4 files
+- `pkg/errors/` — 5 files (`category.go`, `category_test.go`, `service.go`, `service_test.go`, `status.go`)

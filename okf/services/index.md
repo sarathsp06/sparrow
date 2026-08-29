@@ -1,10 +1,9 @@
 # Services
 
-5 protobuf-defined gRPC/Connect-RPC services + 1 Go-only namespace service.
+REST resources exposed over a single Huma-generated OpenAPI surface, versioned under `/v1`.
 
-* [WebhookService](webhook-service.md) — 8 RPCs: register, list, update, pause/resume webhooks
-* [EventService](event-service.md) — 12 RPCs: register, push, list, re-push events
-* [SubscriptionService](subscription-service.md) — 6 RPCs: CRUD + template testing
-* [DeliveryService](delivery-service.md) — 7 RPCs: status, list, retry deliveries
-* [HealthService](health-service.md) — 3 RPCs: webhook health queries
-* [NamespaceService](namespace-service.md) — 5 RPCs: CRUD (Go-only, not in proto)
+* [Webhooks](webhook-service.md) — 10 endpoints: register, list, update, pause/resume webhooks
+* [Events](event-service.md) — 12 endpoints: event types, push, list, re-push events
+* [Subscriptions](subscription-service.md) — 6 endpoints: CRUD + template testing
+* [Deliveries](delivery-service.md) — 11 endpoints: status, list, retry deliveries
+* [Health](health-service.md) — 3 endpoints: webhook health queries

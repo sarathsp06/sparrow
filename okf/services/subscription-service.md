@@ -1,27 +1,26 @@
 ---
-type: gRPC Service
-title: SubscriptionService
-description: Subscription CRUD with Go template transforms — 6 RPCs
-tags: [grpc, subscriptions]
-timestamp: 2026-06-22T00:00:00Z
+type: REST Resource
+title: Subscriptions
+description: Subscription CRUD with Go template transforms — 6 endpoints
+tags: [rest, subscriptions]
+timestamp: 2026-08-29T00:00:00Z
 ---
 
-# SubscriptionService
+# Subscriptions
 
-Defined in [`webhook.proto`](/references/proto.md).
+Registered under the `Subscriptions` tag in the Huma-generated OpenAPI spec. Implemented in `internal/rest/subscription.go`.
 
-## RPCs
+## Endpoints
 
-| RPC | Description |
-|-----|-------------|
-| `CreateSubscription` | Subscribe a webhook to an event |
-| `GetSubscription` | Get subscription details |
-| `ListSubscriptions` | List subscriptions for a webhook or event |
-| `UpdateSubscription` | Update subscription config, transform template |
-| `DeleteSubscription` | Delete subscription |
-| `TestSubscriptionTemplate` | Preview Go template transform output |
+| Method | Path | OperationID | Description |
+|--------|------|-------------|-------------|
+| POST | `/v1/namespaces/{namespace}/subscriptions` | `createSubscription` | Subscribe a webhook to an event |
+| GET | `/v1/namespaces/{namespace}/subscriptions/{subscription_id}` | `getSubscription` | Get subscription details |
+| GET | `/v1/namespaces/{namespace}/subscriptions` | `listSubscriptions` | List subscriptions for a webhook or event |
+| PATCH | `/v1/namespaces/{namespace}/subscriptions/{subscription_id}` | `updateSubscription` | Update subscription config, transform template |
+| DELETE | `/v1/namespaces/{namespace}/subscriptions/{subscription_id}` | `deleteSubscription` | Delete subscription |
+| POST | `/v1/subscriptions:testTemplate` | `testSubscriptionTemplate` | Preview Go template transform output |
 
 ## Citations
 
-- `proto/webhook.proto` — service definition
-- `internal/grpc/subscription_handlers.go` — implementation
+- `internal/rest/subscription.go` — endpoint registration + handlers

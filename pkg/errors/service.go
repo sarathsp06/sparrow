@@ -2,15 +2,14 @@ package errors
 
 import (
 	"fmt"
-
-	"google.golang.org/grpc/codes"
 )
 
-// ServiceError is a client-safe error that carries a gRPC status code.
+// ServiceError is a client-safe error that carries a Status for REST
+// status-code mapping.
 type ServiceError struct {
-	GRPCCode codes.Code
-	Msg      string
-	Cause    error
+	Status Status
+	Msg    string
+	Cause  error
 }
 
 func (e *ServiceError) Error() string {
@@ -28,18 +27,18 @@ func (e *ServiceError) ClientMessage() string {
 	return e.Msg
 }
 
-func Error(code codes.Code, msg string) *ServiceError {
-	return &ServiceError{GRPCCode: code, Msg: msg}
+func Error(status Status, msg string) *ServiceError {
+	return &ServiceError{Status: status, Msg: msg}
 }
 
-func Errorf(code codes.Code, format string, args ...any) *ServiceError {
-	return &ServiceError{GRPCCode: code, Msg: fmt.Sprintf(format, args...)}
+func Errorf(status Status, format string, args ...any) *ServiceError {
+	return &ServiceError{Status: status, Msg: fmt.Sprintf(format, args...)}
 }
 
-func Wrap(cause error, code codes.Code, msg string) *ServiceError {
-	return &ServiceError{GRPCCode: code, Msg: msg, Cause: cause}
+func Wrap(cause error, status Status, msg string) *ServiceError {
+	return &ServiceError{Status: status, Msg: msg, Cause: cause}
 }
 
-func Wrapf(cause error, code codes.Code, format string, args ...any) *ServiceError {
-	return &ServiceError{GRPCCode: code, Msg: fmt.Sprintf(format, args...), Cause: cause}
+func Wrapf(cause error, status Status, format string, args ...any) *ServiceError {
+	return &ServiceError{Status: status, Msg: fmt.Sprintf(format, args...), Cause: cause}
 }

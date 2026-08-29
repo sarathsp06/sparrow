@@ -26,11 +26,7 @@ type Config struct {
 	// Env: DATABASE_URL
 	DatabaseURL string `envconfig:"DATABASE_URL" default:"postgres://localhost/riverqueue?sslmode=disable"`
 
-	// GRPCPort is the port the gRPC server listens on.
-	// Env: SPARROW_GRPC_PORT
-	GRPCPort string `envconfig:"SPARROW_GRPC_PORT" default:"50051"`
-
-	// HTTPPort is the port the HTTP/Connect-RPC server listens on.
+	// HTTPPort is the port the HTTP/REST server listens on.
 	// Env: SPARROW_HTTP_PORT
 	HTTPPort string `envconfig:"SPARROW_HTTP_PORT" default:"8080"`
 
@@ -86,9 +82,6 @@ func (c *Config) IsProduction() bool {
 // Validate checks configuration values for sanity.
 // Call after Load() and before using the config.
 func (c *Config) Validate() error {
-	if err := validatePort(c.GRPCPort, "SPARROW_GRPC_PORT"); err != nil {
-		return err
-	}
 	if err := validatePort(c.HTTPPort, "SPARROW_HTTP_PORT"); err != nil {
 		return err
 	}

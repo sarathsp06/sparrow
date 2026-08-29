@@ -1,24 +1,23 @@
 ---
-type: gRPC Service
-title: HealthService
-description: Webhook health queries — status, filtering, summary — 3 RPCs
-tags: [grpc, health]
-timestamp: 2026-06-22T00:00:00Z
+type: REST Resource
+title: Health
+description: Webhook health queries — status, filtering, summary — 3 endpoints
+tags: [rest, health]
+timestamp: 2026-08-29T00:00:00Z
 ---
 
-# HealthService
+# Health
 
-Defined in [`webhook.proto`](/references/proto.md).
+Registered under the `Health` tag in the Huma-generated OpenAPI spec. Implemented in `internal/rest/health.go`.
 
-## RPCs
+## Endpoints
 
-| RPC | Description |
-|-----|-------------|
-| `GetWebhookHealth` | Health state for a single webhook |
-| `ListWebhooksByHealth` | List webhooks filtered by health status |
-| `GetHealthSummary` | Aggregate health summary across webhooks |
+| Method | Path | OperationID | Description |
+|--------|------|-------------|-------------|
+| GET | `/v1/namespaces/{namespace}/webhooks/{webhook_id}/health` | `getWebhookHealth` | Health state for a single webhook |
+| GET | `/v1/health-summary` | `getHealthSummary` | Aggregate health summary across webhooks |
+| GET | `/v1/webhooks` | `listWebhooksByHealth` | List webhooks across all namespaces, filtered by health status |
 
 ## Citations
 
-- `proto/webhook.proto` — service definition
-- `internal/grpc/health_handlers.go` — implementation
+- `internal/rest/health.go` — endpoint registration + handlers

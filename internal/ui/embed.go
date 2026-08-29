@@ -2,12 +2,12 @@
 //
 // The static build output from web/build/ is embedded at compile time.
 // When SPARROW_SERVE_UI=true, the Go binary serves the frontend on the
-// same port as the Connect-RPC API. Chi router ensures API routes always
+// same port as the REST API. Chi router ensures API routes always
 // take precedence; the UI handler is registered as the NotFound fallback.
 //
 // Build the frontend first:
 //
-//	cd web && npm run build:static
+//	cd web && npm run build
 //	cd .. && go build ./cmd/server
 package ui
 

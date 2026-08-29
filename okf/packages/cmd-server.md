@@ -1,9 +1,9 @@
 ---
 type: Go Package
 title: cmd/server
-description: Main entry point — wires all dependencies, starts gRPC + HTTP servers
+description: Main entry point — wires all dependencies, starts the REST/OpenAPI HTTP server
 tags: [entrypoint, di]
-timestamp: 2026-06-22T00:00:00Z
+timestamp: 2026-08-29T00:00:00Z
 ---
 
 # cmd/server
@@ -16,29 +16,20 @@ The binary entry point for the Sparrow server. Performs manual dependency inject
 2. Set up logging and observability
 3. Connect to PostgreSQL (sqlx pool + pgxpool for River)
 4. Bootstrap default tenant
-5. Create repositories
-
-   ```
-   webhookRepo := store.NewRepository(db)
-   nsRepo      := namespace.NewRepository(db)
-   ```
-
+5. Create the webhook repository: `webhookRepo := store.NewRepository(db)`
 6. Wrap with OTel tracing (gowrap-generated wrappers)
-7. Create services
-8. Create gRPC servers + Connect-RPC adapter
-9. Register HTTP routes with chi (API routes + health + embedded UI SPA)
+7. Create the webhook service
+8. Register HTTP routes with chi (`rest.Mount` registers every `/v1` Huma operation + `/openapi.*` + `/docs`)
+9. Register health + readiness handlers and the embedded UI SPA fallback
 10. Start River queue manager
-11. Start gRPC + HTTP servers with graceful shutdown
+11. Start the HTTP server with graceful shutdown
 
 ## HTTP Route Table
 
 | Pattern | Handler | Auth |
 |---------|---------|------|
-| `/webhook.WebhookService/*` | Connect-RPC | Yes |
-| `/webhook.EventService/*` | Connect-RPC | Yes |
-| `/webhook.SubscriptionService/*` | Connect-RPC | Yes |
-| `/webhook.DeliveryService/*` | Connect-RPC | Yes |
-| `/webhook.HealthService/*` | Connect-RPC | Yes |
+| `/v1/*` | Huma REST API (`internal/rest`) | Yes |
+| `/docs`, `/openapi.*` | Huma-served Scalar UI + spec | No |
 | `GET /health` | Health handler | No |
 | `GET /ready` | Readiness handler | No |
 | `* (NotFound)` | UI SPA | No |

@@ -1,10 +1,8 @@
 <script lang="ts">
-    import { deliveryClient } from '$lib/services';
+    import { api, unwrap } from '$lib/services';
     import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError } from '$lib/utils';
     import { onMount, onDestroy } from 'svelte';
-    import type { WebhookDelivery } from '../../../../proto/webhook_pb.js';
-    import { WebhookDeliveryStatus } from '../../../../proto/webhook_pb.js';
-    import { timestampFromDate } from '@bufbuild/protobuf/wkt';
+    import type { components } from '$lib/api-types';
     import StatusBadge from '$lib/components/StatusBadge.svelte';
     import CopyableId from '$lib/components/CopyableId.svelte';
     import Pagination from '$lib/components/Pagination.svelte';
@@ -12,7 +10,9 @@
     import BatchProgress from '$lib/components/BatchProgress.svelte';
     import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 
-    let deliveries: WebhookDelivery[] = $state([]);
+    type DeliveryItem = components["schemas"]["DeliveryItem"];
+
+    let deliveries: DeliveryItem[] = $state([]);
     let loading = $state(true);
     let error = $state('');
     let currentPage = $state(1);
@@ -21,14 +21,11 @@
     let totalPages = $derived(Math.max(1, Math.ceil(totalCount / pageSize)));
 
     // Filters
-    let namespaceFilter = $state('');
+    let namespaceFilter = $state('default');
     let webhookIdFilter = $state('');
     let eventIdFilter = $state('');
     let statusFilter = $state('');
     let errorCategoryFilter = $state('');
-    let subscriptionIdFilter = $state('');
-    let createdAfterFilter = $state('');
-    let createdBeforeFilter = $state('');
 
     // Batch retry state
     let retryId = $state('');
@@ -38,46 +35,45 @@
     let retryTotal = $state(0);
     let pollingTimer: ReturnType<typeof setInterval> | undefined;
 
-    // Retry single delivery
     let retryingDeliveries: Set<string> = $state(new Set());
 
     onDestroy(() => {
         if (pollingTimer) clearInterval(pollingTimer);
     });
 
-    function buildRequest(pageNum: number, prepareRetry: boolean = false) {
+    async function fetchDeliveries(pageNum: number = 1, prepareRetry: boolean = false) {
+        loading = !prepareRetry;
+        if (!prepareRetry) error = '';
+
+        const ns = namespaceFilter.trim() || 'default';
         const offset = (pageNum - 1) * pageSize;
-        const req: Record<string, any> = {
-            namespace: namespaceFilter.trim(),
-            pagination: { limit: pageSize, offset },
-            prepareRetry,
-        };
-
-        if (webhookIdFilter.trim()) req.webhookId = webhookIdFilter.trim();
-        if (eventIdFilter.trim()) req.eventId = eventIdFilter.trim();
-        if (statusFilter) req.status = statusFilter;
-        if (errorCategoryFilter) req.errorCategory = errorCategoryFilter;
-        if (subscriptionIdFilter.trim()) req.subscriptionId = subscriptionIdFilter.trim();
-
-        if (createdAfterFilter) {
-            req.createdAfter = timestampFromDate(new Date(createdAfterFilter));
-        }
-        if (createdBeforeFilter) {
-            req.createdBefore = timestampFromDate(new Date(createdBeforeFilter));
-        }
-
-        return req;
-    }
-
-    async function fetchDeliveries(pageNum: number = 1) {
-        loading = true;
-        error = '';
 
         try {
-            const req = buildRequest(pageNum);
-            const res = await deliveryClient.listDeliveries(req);
-            deliveries = res.deliveries || [];
-            totalCount = res.pagination?.totalCount || 0;
+            const res = unwrap(await api.GET('/v1/namespaces/{namespace}/deliveries', {
+                params: {
+                    path: { namespace: ns },
+                    query: {
+                        webhook_id: webhookIdFilter.trim() || undefined,
+                        event_id: eventIdFilter.trim() || undefined,
+                        status: statusFilter || undefined,
+                        prepare_retry: prepareRetry,
+                        limit: pageSize,
+                        offset,
+                    },
+                },
+            }));
+            if (prepareRetry) {
+                if (res.retry_id) {
+                    retryId = res.retry_id;
+                    retryTotal = res.pagination?.total_count || 0;
+                    confirmRetry = true;
+                } else {
+                    error = 'No matching deliveries to retry.';
+                }
+                return;
+            }
+            deliveries = res.items || [];
+            totalCount = res.pagination?.total_count || 0;
             currentPage = pageNum;
         } catch (e: any) {
             console.error('Failed to fetch deliveries:', e);
@@ -99,34 +95,29 @@
     }
 
     function clearFilters() {
-        namespaceFilter = '';
+        namespaceFilter = 'default';
         webhookIdFilter = '';
         eventIdFilter = '';
         statusFilter = '';
         errorCategoryFilter = '';
-        subscriptionIdFilter = '';
-        createdAfterFilter = '';
-        createdBeforeFilter = '';
         applyFilters();
     }
 
     let hasActiveFilters = $derived(
-        namespaceFilter.trim() !== '' ||
         webhookIdFilter.trim() !== '' ||
         eventIdFilter.trim() !== '' ||
         statusFilter !== '' ||
-        errorCategoryFilter !== '' ||
-        subscriptionIdFilter.trim() !== '' ||
-        createdAfterFilter !== '' ||
-        createdBeforeFilter !== ''
+        errorCategoryFilter !== ''
     );
 
-    // Single delivery retry
     async function retrySingleDelivery(deliveryId: string) {
         retryingDeliveries.add(deliveryId);
         retryingDeliveries = new Set(retryingDeliveries);
         try {
-            await deliveryClient.retryDelivery({ deliveryId, namespace: namespaceFilter.trim() });
+            const ns = namespaceFilter.trim() || 'default';
+            unwrap(await api.POST('/v1/namespaces/{namespace}/deliveries/{delivery_id}:retry', {
+                params: { path: { namespace: ns, delivery_id: deliveryId } },
+            }));
             await fetchDeliveries(currentPage);
         } catch (e: any) {
             error = formatAPIError(e, 'Failed to retry delivery');
@@ -136,23 +127,11 @@
         }
     }
 
-    // -- Batch Retry --
-
     async function prepareRetryBatch() {
         preparingRetry = true;
         error = '';
         try {
-            const req = buildRequest(1, true);
-            const res = await deliveryClient.listDeliveries(req);
-            if (res.retryId) {
-                retryId = res.retryId;
-                retryTotal = res.pagination?.totalCount || 0;
-                confirmRetry = true;
-            } else {
-                error = 'No matching deliveries to retry.';
-            }
-        } catch (e: any) {
-            error = formatAPIError(e, 'Failed to prepare retry');
+            await fetchDeliveries(1, true);
         } finally {
             preparingRetry = false;
         }
@@ -161,9 +140,13 @@
     async function executeRetry() {
         confirmRetry = false;
         if (!retryId) return;
+        const ns = namespaceFilter.trim() || 'default';
         try {
-            const res = await deliveryClient.retryDeliveries({ retryId });
-            batchStatus = { status: res.status, total: res.total, processed: 0, failed: 0 };
+            const res = unwrap(await api.POST('/v1/namespaces/{namespace}/deliveries:retryBatch', {
+                params: { path: { namespace: ns } },
+                body: { repush_id: retryId },
+            }));
+            batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
             startPolling();
         } catch (e: any) {
             error = formatAPIError(e, 'Failed to start retry');
@@ -172,20 +155,16 @@
 
     function startPolling() {
         if (pollingTimer) clearInterval(pollingTimer);
+        const ns = namespaceFilter.trim() || 'default';
         pollingTimer = setInterval(async () => {
             if (!retryId) { stopPolling(); return; }
             try {
-                const res = await deliveryClient.getRetryStatus({ retryId });
-                if (res.batch) {
-                    batchStatus = {
-                        status: res.batch.status,
-                        total: res.batch.total,
-                        processed: res.batch.processed,
-                        failed: res.batch.failed,
-                    };
-                    if (res.batch.status === 'completed' || res.batch.status === 'failed' || res.batch.status === 'cancelled') {
-                        stopPolling();
-                    }
+                const res = unwrap(await api.GET('/v1/namespaces/{namespace}/retry-jobs/{job_id}', {
+                    params: { path: { namespace: ns, job_id: retryId } },
+                }));
+                batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
+                if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
+                    stopPolling();
                 }
             } catch {
                 stopPolling();
@@ -199,8 +178,11 @@
 
     async function cancelRetryBatch() {
         if (!retryId) return;
+        const ns = namespaceFilter.trim() || 'default';
         try {
-            await deliveryClient.cancelRetry({ retryId });
+            await api.POST('/v1/namespaces/{namespace}/retry-jobs/{job_id}:cancel', {
+                params: { path: { namespace: ns, job_id: retryId } },
+            });
         } catch (e: any) {
             error = formatAPIError(e, 'Failed to cancel retry');
         }
@@ -210,11 +192,10 @@
         fetchDeliveries(currentPage);
     }
 
-    function formatTimestamp(timestamp: any): string {
+    function formatTimestamp(timestamp: string | null | undefined): string {
         if (!timestamp) return 'N/A';
-        const seconds = timestamp.seconds ? Number(timestamp.seconds) : Number(timestamp);
-        if (isNaN(seconds)) return 'N/A';
-        return new Date(seconds * 1000).toLocaleString();
+        const d = new Date(timestamp);
+        return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
     }
 
     onMount(() => {
@@ -228,12 +209,11 @@
 
 <div class="min-h-screen bg-gray-50">
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <!-- Header -->
         <div class="mb-6">
             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <div>
                     <h1 class="text-2xl font-bold text-gray-900">Deliveries</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">All webhook deliveries across your system</p>
+                    <p class="text-sm text-gray-500 mt-0.5">All webhook deliveries in namespace <span class="font-medium text-gray-700">{namespaceFilter.trim() || 'default'}</span></p>
                 </div>
                 {#if !loading}
                     <div class="flex items-center gap-3">
@@ -254,118 +234,31 @@
             </div>
         </div>
 
-        <!-- Filters -->
         <div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-            <div class="flex flex-wrap items-end gap-3">
-                <div class="w-full sm:w-36">
-                    <label for="ns-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Namespace</label>
-                    <input
-                        id="ns-filter"
-                        type="text"
-                        placeholder="All"
-                        bind:value={namespaceFilter}
-                        onkeydown={(e) => e.key === 'Enter' && applyFilters()}
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                    />
-                </div>
-                <div class="w-full sm:w-32">
-                    <label for="status-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Status</label>
-                    <select
-                        id="status-filter"
-                        bind:value={statusFilter}
-                        onchange={applyFilters}
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                    >
-                        <option value="">All</option>
-                        <option value="pending">Pending</option>
-                        <option value="sending">Sending</option>
-                        <option value="success">Success</option>
-                        <option value="failed">Failed</option>
-                        <option value="retrying">Retrying</option>
-                        <option value="expired">Expired</option>
-                    </select>
-                </div>
-                <div class="w-full sm:w-36">
-                    <label for="error-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Error Category</label>
-                    <select
-                        id="error-filter"
-                        bind:value={errorCategoryFilter}
-                        onchange={applyFilters}
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                    >
-                        <option value="">All</option>
-                        {#each ERROR_CATEGORIES as cat}
-                            <option value={cat.value}>{cat.label}</option>
-                        {/each}
-                    </select>
-                </div>
-                <div class="w-full sm:w-44">
-                    <label for="webhook-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Webhook ID</label>
-                    <input
-                        id="webhook-filter"
-                        type="text"
-                        placeholder="Filter by webhook..."
-                        bind:value={webhookIdFilter}
-                        onkeydown={(e) => e.key === 'Enter' && applyFilters()}
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900 font-mono"
-                    />
-                </div>
-                <div class="w-full sm:w-44">
-                    <label for="event-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Event ID</label>
-                    <input
-                        id="event-filter"
-                        type="text"
-                        placeholder="Filter by event..."
-                        bind:value={eventIdFilter}
-                        onkeydown={(e) => e.key === 'Enter' && applyFilters()}
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900 font-mono"
-                    />
-                </div>
-                <div class="w-full sm:w-44">
-                    <label for="after-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Created After</label>
-                    <input
-                        id="after-filter"
-                        type="datetime-local"
-                        bind:value={createdAfterFilter}
-                        onchange={applyFilters}
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                    />
-                </div>
-                <div class="w-full sm:w-44">
-                    <label for="before-filter" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Created Before</label>
-                    <input
-                        id="before-filter"
-                        type="datetime-local"
-                        bind:value={createdBeforeFilter}
-                        onchange={applyFilters}
-                        class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                    />
-                </div>
-                <div class="flex items-center gap-2">
-                    <button
-                        onclick={applyFilters}
-                        class="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition"
-                    >
-                        Apply
-                    </button>
-                    {#if hasActiveFilters}
-                        <button
-                            onclick={clearFilters}
-                            class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-                        >
-                            Clear
-                        </button>
-                    {/if}
-                </div>
+            <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
+                <input type="text" placeholder="Namespace" bind:value={namespaceFilter} class="w-32 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+                <input type="text" placeholder="Webhook ID" bind:value={webhookIdFilter} class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+                <input type="text" placeholder="Event ID" bind:value={eventIdFilter} class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
+                <select bind:value={statusFilter} class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm">
+                    <option value="">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="sending">Sending</option>
+                    <option value="success">Success</option>
+                    <option value="failed">Failed</option>
+                    <option value="retrying">Retrying</option>
+                    <option value="expired">Expired</option>
+                </select>
+                <button onclick={applyFilters} class="px-4 py-1.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800">Apply</button>
+                {#if hasActiveFilters}
+                    <button onclick={clearFilters} class="px-4 py-1.5 text-gray-500 hover:text-gray-700 text-sm">Clear</button>
+                {/if}
             </div>
         </div>
 
-        <!-- Batch progress -->
         {#if batchStatus}
             <div class="mb-4">
                 <BatchProgress
                     batch={batchStatus}
-                    label="Retry Deliveries"
                     oncancel={cancelRetryBatch}
                     ondone={onBatchDone}
                 />
@@ -374,119 +267,68 @@
 
         {#if error}
             <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                <div class="flex items-start justify-between">
-                    <div class="flex items-start gap-3">
-                        <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                        </svg>
-                        <p class="text-sm font-medium text-red-800">{error}</p>
-                    </div>
-                    <button onclick={() => { error = ''; }} class="text-red-400 hover:text-red-600 ml-3 shrink-0" aria-label="Dismiss error">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
+                <p class="text-sm text-red-700">{error}</p>
             </div>
         {/if}
 
         {#if loading}
-            <!-- Loading skeleton -->
             <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
-                        <thead>
-                            <tr class="border-b border-gray-200 bg-gray-50/50">
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Delivery ID</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Webhook</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Event</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Attempts</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Last Attempt</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            {#each Array(5) as _}
-                                <tr class="animate-pulse">
-                                    <td class="px-4 py-3"><div class="h-4 bg-gray-200 rounded w-28"></div></td>
-                                    <td class="px-4 py-3 hidden sm:table-cell"><div class="h-4 bg-gray-100 rounded w-28"></div></td>
-                                    <td class="px-4 py-3 hidden sm:table-cell"><div class="h-4 bg-gray-100 rounded w-28"></div></td>
-                                    <td class="px-4 py-3"><div class="h-4 bg-gray-200 rounded w-16"></div></td>
-                                    <td class="px-4 py-3 hidden md:table-cell"><div class="h-4 bg-gray-100 rounded w-8"></div></td>
-                                    <td class="px-4 py-3 hidden lg:table-cell"><div class="h-4 bg-gray-100 rounded w-32"></div></td>
-                                    <td class="px-4 py-3"><div class="h-4 bg-gray-100 rounded w-12"></div></td>
-                                </tr>
-                            {/each}
-                        </tbody>
-                    </table>
+                <div class="animate-pulse divide-y divide-gray-100">
+                    {#each Array(8) as _}
+                        <div class="p-4 h-14 bg-gray-50"></div>
+                    {/each}
                 </div>
             </div>
         {:else if deliveries.length === 0}
-            <EmptyState
-                icon="send"
-                title="No deliveries found"
-                description={hasActiveFilters ? "No deliveries match your current filters. Try adjusting or clearing them." : "No deliveries have been made yet. Push an event to create deliveries."}
-            />
+            <EmptyState icon="send" title="No deliveries found" description="No deliveries match the current filters." />
         {:else}
             <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left">
                         <thead>
                             <tr class="border-b border-gray-200 bg-gray-50/50">
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Delivery ID</th>
+                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Delivery</th>
                                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Webhook</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Event</th>
                                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Response</th>
                                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Attempts</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Last Attempt</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
+                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Created</th>
+                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            {#each deliveries as delivery}
+                            {#each deliveries as d}
                                 <tr class="hover:bg-gray-50 transition">
-                                    <td class="px-4 py-3">
-                                        <CopyableId id={delivery.deliveryId} href="/deliveries/{delivery.deliveryId}" truncate={12} />
-                                    </td>
-                                    <td class="px-4 py-3 hidden sm:table-cell">
-                                        <CopyableId id={delivery.webhookId} href="/webhooks/{delivery.webhookId}" truncate={12} />
-                                    </td>
-                                    <td class="px-4 py-3 hidden sm:table-cell">
-                                        <CopyableId id={delivery.eventId} href="/events/instances/{delivery.eventId}" truncate={12} />
-                                    </td>
+                                    <td class="px-4 py-3"><CopyableId id={d.delivery_id} href="/deliveries/{d.delivery_id}" truncate={12} /></td>
+                                    <td class="px-4 py-3 hidden sm:table-cell"><CopyableId id={d.webhook_id} href="/webhooks/{d.webhook_id}" truncate={12} /></td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-1.5">
-                                            <StatusBadge status={delivery.status} />
-                                            {#if delivery.errorCategory && delivery.errorCategory !== '' && delivery.errorCategory !== 'success'}
-                                                {@const badge = getCategoryBadge(delivery.errorCategory)}
+                                            <StatusBadge status={d.status} />
+                                        {#if d.error_category && d.error_category !== 'success'}
+                                                {@const badge = getCategoryBadge(d.error_category)}
                                                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
                                             {/if}
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3 text-xs text-gray-700 hidden md:table-cell">
-                                        {delivery.attemptCount}/{delivery.maxAttempts}
+                                    <td class="px-4 py-3 hidden sm:table-cell">
+                                        <span class="font-mono text-xs {(d.response_code ?? 0) >= 200 && (d.response_code ?? 0) < 300 ? 'text-green-600' : (d.response_code ?? 0) >= 400 ? 'text-red-600' : 'text-gray-500'}">
+                                            {d.response_code || '—'}
+                                        </span>
                                     </td>
-                                    <td class="px-4 py-3 text-xs text-gray-500 hidden lg:table-cell">
-                                        {formatTimestamp(delivery.lastAttemptedAt)}
-                                    </td>
+                                    <td class="px-4 py-3 hidden md:table-cell text-xs text-gray-700">{d.attempt_count}/{d.max_attempts}</td>
+                                    <td class="px-4 py-3 hidden lg:table-cell text-xs text-gray-500">{formatTimestamp(d.created_at)}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-2">
-                                            {#if delivery.status === WebhookDeliveryStatus.DELIVERY_FAILED || delivery.status === WebhookDeliveryStatus.DELIVERY_EXPIRED}
+                                            {#if d.status === 'failed' || d.status === 'expired'}
                                                 <button
-                                                    onclick={() => retrySingleDelivery(delivery.deliveryId)}
-                                                    disabled={retryingDeliveries.has(delivery.deliveryId)}
+                                                    onclick={() => retrySingleDelivery(d.delivery_id)}
+                                                    disabled={retryingDeliveries.has(d.delivery_id)}
                                                     class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50 transition"
                                                 >
-                                                    {retryingDeliveries.has(delivery.deliveryId) ? 'Retrying...' : 'Retry'}
+                                                    {retryingDeliveries.has(d.delivery_id) ? 'Retrying...' : 'Retry'}
                                                 </button>
                                             {/if}
-                                            <a
-                                                href="/deliveries/{delivery.deliveryId}"
-                                                class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
-                                            >
-                                                Details
-                                            </a>
+                                            <a href="/deliveries/{d.delivery_id}" class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition">Details</a>
                                         </div>
                                     </td>
                                 </tr>
@@ -502,13 +344,11 @@
                 {totalCount}
                 {pageSize}
                 onPageChange={handlePageChange}
-                itemLabel="deliveries"
             />
         {/if}
     </main>
 </div>
 
-<!-- Confirm Retry Dialog -->
 <ConfirmDialog
     open={confirmRetry}
     title="Retry Deliveries"

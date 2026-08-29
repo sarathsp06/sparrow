@@ -7,8 +7,6 @@ import (
 
 	otelcodes "go.opentelemetry.io/otel/codes"
 
-	"google.golang.org/grpc/codes"
-
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
@@ -68,11 +66,11 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 
 	// Validate required fields
 	if webhookID == "" {
-		return nil, svcerrors.Error(codes.InvalidArgument, "webhook ID is required")
+		return nil, svcerrors.Error(svcerrors.InvalidArgument, "webhook ID is required")
 	}
 
 	if namespace == "" {
-		return nil, svcerrors.Error(codes.InvalidArgument, "namespace is required")
+		return nil, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -88,7 +86,7 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "Failed to get webhook")
 		s.logger.ErrorContext(ctx, "Failed to get webhook", "error", err)
-		return nil, svcerrors.Wrapf(err, codes.NotFound, "webhook not found")
+		return nil, svcerrors.Wrapf(err, svcerrors.NotFound, "webhook not found")
 	}
 
 	// Get health state (current status and consecutive failures)

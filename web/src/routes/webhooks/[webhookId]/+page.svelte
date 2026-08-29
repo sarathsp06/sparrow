@@ -2,25 +2,10 @@
   import favicon from '$lib/assets/favicon.svg';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import {
-    webhookClient,
-    deliveryClient,
-    healthClient,
-    subscriptionClient,
-  } from '$lib/services';
+  import { api, unwrap } from '$lib/services';
   import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError } from '$lib/utils';
   import { onMount, onDestroy } from 'svelte';
-
-  import type {
-    EventSubscription,
-    RegisteredWebhook,
-    WebhookDelivery,
-    WebhookHealthMetrics,
-  } from '../../../../../proto/webhook_pb.js';
-  import type { Timestamp } from '@bufbuild/protobuf/wkt';
-  import { timestampFromDate, FieldMaskSchema } from '@bufbuild/protobuf/wkt';
-  import { create } from '@bufbuild/protobuf';
-  import { WebhookDeliveryStatus, WebhookHealth } from '../../../../../proto/webhook_pb.js';
+  import type { components } from '$lib/api-types';
   import HealthBadge from '$lib/components/HealthBadge.svelte';
   import CopyableId from '$lib/components/CopyableId.svelte';
   import StatusBadge from '$lib/components/StatusBadge.svelte';
@@ -30,14 +15,19 @@
   import SubscriptionManager from '$lib/components/SubscriptionManager.svelte';
   import BatchProgress from '$lib/components/BatchProgress.svelte';
 
-  let webhook: RegisteredWebhook | undefined = $state();
-  let deliveries: WebhookDelivery[] = $state([]);
-  let healthMetrics: WebhookHealthMetrics | undefined = $state();
-  let subscriptions: EventSubscription[] = $state([]);
+  type WebhookOut = components["schemas"]["WebhookOut"];
+  type DeliveryItem = components["schemas"]["DeliveryItem"];
+  type WebhookHealthOutput = components["schemas"]["WebhookHealthOutputBody"];
+  type SubscriptionItem = components["schemas"]["SubscriptionItem"];
+
+  let webhook: WebhookOut | undefined = $state();
+  let deliveries: DeliveryItem[] = $state([]);
+  let healthMetrics: WebhookHealthOutput | undefined = $state();
+  let subscriptions: SubscriptionItem[] = $state([]);
   let loading = $state(true);
   let error = $state('');
   let expandedDeliveries: Set<string> = $state(new Set());
-  let deliveryDetails: Map<string, any> = $state(new Map());
+  let deliveryDetails: Map<string, DeliveryItem> = $state(new Map());
   let activeTab = $state<'deliveries' | 'config' | 'subscriptions'>('deliveries');
 
   // Inline URL editing
@@ -68,12 +58,9 @@
   let configHeaderValue = $state('');
   let configSecretHeaderKey = $state('');
   let configSecretHeaderValue = $state('');
-  // Track existing secret header keys that haven't been replaced (display-only, never sent back)
   let existingSecretHeaderKeys = $state<Set<string>>(new Set());
-  // Track newly added or replaced secret headers (these are the only ones sent to the backend)
   let newSecretHeaders = $state<Record<string, string>>({});
 
-  // Unregister confirmation
   let confirmUnregister = $state(false);
 
   // Pagination
@@ -111,52 +98,56 @@
     if (pollingTimer) clearInterval(pollingTimer);
   });
 
-  function formatPayload(payload: string): string {
+  function formatPayload(payload: string | undefined): string {
+    if (!payload) return 'N/A';
     try { return JSON.stringify(JSON.parse(payload), null, 2); }
     catch { return payload; }
   }
 
-  function formatTimestamp(timestamp: Timestamp | undefined | null): string {
+  function formatTimestamp(timestamp: string | null | undefined): string {
     if (!timestamp) return 'N/A';
-    return new Date(Number(timestamp.seconds) * 1000).toLocaleString();
+    const d = new Date(timestamp);
+    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
   }
 
   async function fetchData() {
     if (!webhookId) return;
     try {
-      // Fetch webhook first with empty namespace (backend looks up by ID)
-      const webhookRes = await webhookClient.listWebhooks({ namespace: '', webhookId });
-      webhook = webhookRes.webhooks?.[0];
+      // Look up by id across all namespaces (namespace not yet known).
+      const webhookRes = unwrap(await api.GET('/v1/webhooks', { params: { query: { webhook_id: webhookId } } }));
+      webhook = webhookRes.items?.[0];
 
       if (!webhook) {
         error = 'Webhook not found';
         return;
       }
 
-      // Use the webhook's own namespace for related data
       const ns = webhook.namespace;
 
-      // Build delivery request with filters
-      const deliveryReq: Record<string, any> = {
-        webhookId,
-        namespace: ns,
-        pagination: { limit, offset },
-      };
-      if (deliveryStatusFilter) deliveryReq.status = deliveryStatusFilter;
-      if (deliveryErrorCategoryFilter) deliveryReq.errorCategory = deliveryErrorCategoryFilter;
-      if (deliveryCreatedAfterFilter) deliveryReq.createdAfter = timestampFromDate(new Date(deliveryCreatedAfterFilter));
-      if (deliveryCreatedBeforeFilter) deliveryReq.createdBefore = timestampFromDate(new Date(deliveryCreatedBeforeFilter));
-
       const [deliveriesRes, healthRes, subscriptionsRes] = await Promise.all([
-        deliveryClient.listDeliveries(deliveryReq),
-        healthClient.getWebhookHealth({ webhookId, namespace: ns }),
-        subscriptionClient.listSubscriptions({ webhookId, namespace: ns }),
+        api.GET('/v1/namespaces/{namespace}/deliveries', {
+          params: {
+            path: { namespace: ns },
+            query: {
+              webhook_id: webhookId,
+              status: deliveryStatusFilter || undefined,
+              limit,
+              offset,
+            },
+          },
+        }),
+        api.GET('/v1/namespaces/{namespace}/webhooks/{webhook_id}/health', {
+          params: { path: { namespace: ns, webhook_id: webhookId } },
+        }),
+        api.GET('/v1/namespaces/{namespace}/subscriptions', {
+          params: { path: { namespace: ns }, query: { webhook_id: webhookId } },
+        }),
       ]);
 
-      deliveries = deliveriesRes.deliveries || [];
-      totalCount = deliveriesRes.pagination?.totalCount || 0;
-      healthMetrics = healthRes.metrics;
-      subscriptions = subscriptionsRes.subscriptions || [];
+      deliveries = unwrap(deliveriesRes).items || [];
+      totalCount = unwrap(deliveriesRes).pagination?.total_count || 0;
+      healthMetrics = unwrap(healthRes);
+      subscriptions = unwrap(subscriptionsRes).items || [];
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to load data');
     } finally {
@@ -170,9 +161,13 @@
     if (!webhook) return;
     try {
       if (webhook.active) {
-        await webhookClient.pauseWebhook({ webhookId, namespace: webhook.namespace });
+        unwrap(await api.POST('/v1/namespaces/{namespace}/webhooks/{webhook_id}:pause', {
+          params: { path: { namespace: webhook.namespace, webhook_id: webhookId } },
+        }));
       } else {
-        await webhookClient.resumeWebhook({ webhookId, namespace: webhook.namespace });
+        unwrap(await api.POST('/v1/namespaces/{namespace}/webhooks/{webhook_id}:resume', {
+          params: { path: { namespace: webhook.namespace, webhook_id: webhookId } },
+        }));
       }
       await fetchData();
     } catch (e: any) {
@@ -183,10 +178,9 @@
   async function executeUnregister() {
     if (!webhook) return;
     try {
-      await webhookClient.unregisterWebhook({
-        webhookId,
-        namespace: webhook.namespace,
-      });
+      unwrap(await api.DELETE('/v1/namespaces/{namespace}/webhooks/{webhook_id}', {
+        params: { path: { namespace: webhook.namespace, webhook_id: webhookId } },
+      }));
       confirmUnregister = false;
       goto('/webhooks');
     } catch (e: any) {
@@ -197,10 +191,9 @@
 
   async function resendDelivery(deliveryId: string) {
     try {
-      await deliveryClient.retryDelivery({
-        deliveryId,
-        namespace: webhook?.namespace || '',
-      });
+      unwrap(await api.POST('/v1/deliveries/{delivery_id}:retry', {
+        params: { path: { delivery_id: deliveryId } },
+      }));
       await fetchData();
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to resend delivery');
@@ -228,12 +221,10 @@
     savingUrl = true;
     error = '';
     try {
-      await webhookClient.updateWebhookConfig({
-        webhookId,
-        namespace: webhook.namespace,
-        updates: { url: trimmedUrl, active: webhook.active },
-        updateMask: create(FieldMaskSchema, { paths: ['url', 'active'] }),
-      });
+      unwrap(await api.PATCH('/v1/namespaces/{namespace}/webhooks/{webhook_id}', {
+        params: { path: { namespace: webhook.namespace, webhook_id: webhookId } },
+        body: { url: trimmedUrl, active: webhook.active },
+      }));
       editingUrl = false;
       await fetchData();
     } catch (e: any) {
@@ -249,21 +240,19 @@
       description: webhook.description || '',
       url: webhook.url || '',
       active: webhook.active,
-      maxRetries: webhook.httpConfig?.maxRetries ?? 3,
-      retryBackoffSeconds: webhook.httpConfig?.retryBackoffSeconds ?? 60,
-      requestTimeoutSeconds: webhook.httpConfig?.requestTimeoutSeconds ?? 30,
-      captureResponseBody: webhook.httpConfig?.captureResponseBody ?? false,
-      followRedirects: webhook.httpConfig?.followRedirects ?? true,
-      verifySsl: webhook.httpConfig?.verifySsl ?? true,
-      expectedStatusCodes: (webhook.httpConfig?.expectedStatusCodes || [200, 201, 202, 204]).join(', '),
+      maxRetries: webhook.http_config?.max_retries ?? 3,
+      retryBackoffSeconds: webhook.http_config?.retry_backoff_seconds ?? 60,
+      requestTimeoutSeconds: webhook.http_config?.request_timeout_seconds ?? 30,
+      captureResponseBody: webhook.http_config?.capture_response_body ?? false,
+      followRedirects: webhook.http_config?.follow_redirects ?? true,
+      verifySsl: webhook.http_config?.verify_ssl ?? true,
+      expectedStatusCodes: (webhook.http_config?.expected_status_codes || [200, 201, 202, 204]).join(', '),
       webhookSecret: '',
-      userAgent: webhook.httpConfig?.userAgent || 'Sparrow-Webhook/1.0',
-      contentType: webhook.httpConfig?.contentType || 'application/json',
+      userAgent: webhook.http_config?.user_agent || 'Sparrow-Webhook/1.0',
+      contentType: webhook.http_config?.content_type || 'application/json',
       headers: { ...(webhook.headers || {}) },
     };
-    // Track existing secret header keys (masked values — never sent back)
-    existingSecretHeaderKeys = new Set(Object.keys(webhook.secretHeaders || {}));
-    // No new secret headers initially
+    existingSecretHeaderKeys = new Set(Object.keys(webhook.secret_headers || {}));
     newSecretHeaders = {};
     configHeaderKey = '';
     configHeaderValue = '';
@@ -293,10 +282,8 @@
   function addConfigSecretHeader() {
     if (configSecretHeaderKey.trim() && configSecretHeaderValue.trim()) {
       const key = configSecretHeaderKey.trim();
-      // If replacing an existing key, remove it from the "existing" set
       existingSecretHeaderKeys.delete(key);
       existingSecretHeaderKeys = new Set(existingSecretHeaderKeys);
-      // Track as a new/replaced header with the actual plaintext value
       newSecretHeaders = { ...newSecretHeaders, [key]: configSecretHeaderValue.trim() };
       configSecretHeaderKey = '';
       configSecretHeaderValue = '';
@@ -304,7 +291,6 @@
   }
 
   function removeConfigSecretHeader(key: string) {
-    // Remove from both tracking sets
     existingSecretHeaderKeys.delete(key);
     existingSecretHeaderKeys = new Set(existingSecretHeaderKeys);
     const { [key]: _, ...rest } = newSecretHeaders;
@@ -316,7 +302,6 @@
     savingConfig = true;
     error = '';
     try {
-      // Parse expected status codes
       const statusCodes = configForm.expectedStatusCodes
         .split(',')
         .map((s: string) => parseInt(s.trim(), 10))
@@ -328,46 +313,34 @@
         return;
       }
 
-      // Validate URL
       const trimmedUrl = configForm.url.trim();
       if (!trimmedUrl) { error = 'URL is required'; savingConfig = false; return; }
       try { new URL(trimmedUrl); } catch { error = 'Enter a valid URL'; savingConfig = false; return; }
 
-      // Build the field mask: always include non-sensitive fields,
-      // only include secrets when the user explicitly provided new values.
-      const maskPaths = ['url', 'active', 'description', 'headers', 'http_config'];
       const hasNewSecretHeaders = Object.keys(newSecretHeaders).length > 0;
-      if (hasNewSecretHeaders) {
-        maskPaths.push('secret_headers');
-      }
-      if (configForm.webhookSecret) {
-        maskPaths.push('http_config.webhook_secret');
-      }
 
-      await webhookClient.updateWebhookConfig({
-        webhookId,
-        namespace: webhook.namespace,
-        updateMask: create(FieldMaskSchema, { paths: maskPaths }),
-        updates: {
+      unwrap(await api.PATCH('/v1/namespaces/{namespace}/webhooks/{webhook_id}', {
+        params: { path: { namespace: webhook.namespace, webhook_id: webhookId } },
+        body: {
           url: trimmedUrl,
           active: configForm.active,
           description: configForm.description,
           headers: configForm.headers,
-          ...(hasNewSecretHeaders ? { secretHeaders: newSecretHeaders } : {}),
-          httpConfig: {
-            maxRetries: configForm.maxRetries,
-            retryBackoffSeconds: configForm.retryBackoffSeconds,
-            requestTimeoutSeconds: configForm.requestTimeoutSeconds,
-            captureResponseBody: configForm.captureResponseBody,
-            followRedirects: configForm.followRedirects,
-            verifySsl: configForm.verifySsl,
-            expectedStatusCodes: statusCodes,
-            ...(configForm.webhookSecret ? { webhookSecret: configForm.webhookSecret } : {}),
-            userAgent: configForm.userAgent,
-            contentType: configForm.contentType,
+          ...(hasNewSecretHeaders ? { secret_headers: newSecretHeaders } : {}),
+          http_config: {
+            max_retries: configForm.maxRetries,
+            retry_backoff_seconds: configForm.retryBackoffSeconds,
+            request_timeout_seconds: configForm.requestTimeoutSeconds,
+            capture_response_body: configForm.captureResponseBody,
+            follow_redirects: configForm.followRedirects,
+            verify_ssl: configForm.verifySsl,
+            expected_status_codes: statusCodes,
+            ...(configForm.webhookSecret ? { webhook_secret: configForm.webhookSecret } : {}),
+            user_agent: configForm.userAgent,
+            content_type: configForm.contentType,
           },
         },
-      });
+      }));
       editingConfig = false;
       await fetchData();
     } catch (e: any) {
@@ -387,11 +360,10 @@
 
       if (!deliveryDetails.has(deliveryId)) {
         try {
-          const detailRes = await deliveryClient.getDeliveryStatus({
-            deliveryId,
-            namespace: webhook?.namespace || '',
-          });
-          deliveryDetails.set(deliveryId, detailRes.delivery);
+          const detail = unwrap(await api.GET('/v1/deliveries/{delivery_id}', {
+            params: { path: { delivery_id: deliveryId } },
+          }));
+          deliveryDetails.set(deliveryId, detail);
           deliveryDetails = new Map(deliveryDetails);
         } catch (e: any) {
           console.error('Failed to load delivery details:', e);
@@ -418,27 +390,25 @@
     applyDeliveryFilters();
   }
 
-  // -- Batch Retry --
-
   async function prepareRetryBatch() {
     if (!webhook) return;
     preparingRetry = true;
     try {
-      const req: Record<string, any> = {
-        webhookId,
-        namespace: webhook.namespace,
-        pagination: { limit: 1, offset: 0 },
-        prepareRetry: true,
-      };
-      if (deliveryStatusFilter) req.status = deliveryStatusFilter;
-      if (deliveryErrorCategoryFilter) req.errorCategory = deliveryErrorCategoryFilter;
-      if (deliveryCreatedAfterFilter) req.createdAfter = timestampFromDate(new Date(deliveryCreatedAfterFilter));
-      if (deliveryCreatedBeforeFilter) req.createdBefore = timestampFromDate(new Date(deliveryCreatedBeforeFilter));
-
-      const res = await deliveryClient.listDeliveries(req);
-      if (res.retryId) {
-        retryId = res.retryId;
-        retryTotal = res.pagination?.totalCount || 0;
+      const res = unwrap(await api.GET('/v1/namespaces/{namespace}/deliveries', {
+        params: {
+          path: { namespace: webhook.namespace },
+          query: {
+            webhook_id: webhookId,
+            status: deliveryStatusFilter || undefined,
+            prepare_retry: true,
+            limit: 1,
+            offset: 0,
+          },
+        },
+      }));
+      if (res.retry_id) {
+        retryId = res.retry_id;
+        retryTotal = res.pagination?.total_count || 0;
         confirmRetry = true;
       } else {
         error = 'No matching deliveries to retry.';
@@ -452,10 +422,13 @@
 
   async function executeRetry() {
     confirmRetry = false;
-    if (!retryId) return;
+    if (!retryId || !webhook) return;
     try {
-      const res = await deliveryClient.retryDeliveries({ retryId });
-      batchStatus = { status: res.status, total: res.total, processed: 0, failed: 0 };
+      const res = unwrap(await api.POST('/v1/namespaces/{namespace}/deliveries:retryBatch', {
+        params: { path: { namespace: webhook.namespace } },
+        body: { repush_id: retryId },
+      }));
+      batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
       startRetryPolling();
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to start retry');
@@ -465,19 +438,14 @@
   function startRetryPolling() {
     if (pollingTimer) clearInterval(pollingTimer);
     pollingTimer = setInterval(async () => {
-      if (!retryId) { stopRetryPolling(); return; }
+      if (!retryId || !webhook) { stopRetryPolling(); return; }
       try {
-        const res = await deliveryClient.getRetryStatus({ retryId });
-        if (res.batch) {
-          batchStatus = {
-            status: res.batch.status,
-            total: res.batch.total,
-            processed: res.batch.processed,
-            failed: res.batch.failed,
-          };
-          if (res.batch.status === 'completed' || res.batch.status === 'failed' || res.batch.status === 'cancelled') {
-            stopRetryPolling();
-          }
+        const res = unwrap(await api.GET('/v1/namespaces/{namespace}/retry-jobs/{job_id}', {
+          params: { path: { namespace: webhook.namespace, job_id: retryId } },
+        }));
+        batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
+        if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
+          stopRetryPolling();
         }
       } catch {
         stopRetryPolling();
@@ -490,9 +458,11 @@
   }
 
   async function cancelRetryBatch() {
-    if (!retryId) return;
+    if (!retryId || !webhook) return;
     try {
-      await deliveryClient.cancelRetry({ retryId });
+      await api.POST('/v1/namespaces/{namespace}/retry-jobs/{job_id}:cancel', {
+        params: { path: { namespace: webhook.namespace, job_id: retryId } },
+      });
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to cancel retry');
     }
@@ -502,16 +472,13 @@
     fetchData();
   }
 
-  // Health metrics helpers
-  let successRatePercent = $derived(healthMetrics ? (healthMetrics.successRate * 100).toFixed(1) : '0');
+  let successRatePercent = $derived(healthMetrics ? (healthMetrics.success_rate * 100).toFixed(1) : '0');
   let successRateColor = $derived.by(() => {
     if (!healthMetrics) return 'text-gray-400';
-    if (healthMetrics.successRate >= 0.95) return 'text-green-600';
-    if (healthMetrics.successRate >= 0.8) return 'text-yellow-600';
+    if (healthMetrics.success_rate >= 0.95) return 'text-green-600';
+    if (healthMetrics.success_rate >= 0.8) return 'text-yellow-600';
     return 'text-red-600';
   });
-
-
 </script>
 
 <svelte:head>
@@ -521,16 +488,12 @@
 <div class="min-h-screen bg-gray-50">
   <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     {#if loading}
-      <!-- Loading skeleton -->
       <nav class="mb-4">
         <div class="h-4 bg-gray-200 rounded w-28 animate-pulse"></div>
       </nav>
       <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6 animate-pulse">
-        <div class="flex items-center gap-3 mb-3">
-          <div class="h-6 bg-gray-200 rounded w-48"></div>
-          <div class="h-5 bg-gray-200 rounded-full w-20"></div>
-        </div>
-        <div class="h-4 bg-gray-100 rounded w-72 mb-3"></div>
+        <div class="h-6 bg-gray-200 rounded w-48 mb-3"></div>
+        <div class="h-4 bg-gray-100 rounded w-64 mb-3"></div>
         <div class="flex gap-6">
           <div class="h-4 bg-gray-100 rounded w-32"></div>
           <div class="h-4 bg-gray-100 rounded w-40"></div>
@@ -550,7 +513,6 @@
         <a href="/webhooks" class="text-sm text-red-600 hover:text-red-800 underline mt-2 inline-block">Back to webhooks</a>
       </div>
     {:else if webhook}
-      <!-- Breadcrumb -->
       <nav class="mb-4">
         <a href="/webhooks" class="text-sm text-gray-500 hover:text-gray-700 transition">&larr; All Webhooks</a>
       </nav>
@@ -566,7 +528,6 @@
         </div>
       {/if}
 
-      <!-- Webhook Header Card -->
       <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div class="flex-1 min-w-0">
@@ -582,7 +543,6 @@
               {/if}
             </div>
 
-            <!-- URL (editable) -->
             {#if editingUrl}
               <div class="flex items-center gap-2 mb-3">
                 <input
@@ -591,27 +551,15 @@
                   class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 font-mono"
                   placeholder="https://example.com/webhook"
                 />
-                <button
-                  onclick={saveWebhookUrl}
-                  disabled={savingUrl}
-                  class="px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 transition"
-                >
+                <button onclick={saveWebhookUrl} disabled={savingUrl} class="px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 transition">
                   {savingUrl ? 'Saving...' : 'Save'}
                 </button>
-                <button
-                  onclick={cancelEditUrl}
-                  disabled={savingUrl}
-                  class="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition"
-                >
+                <button onclick={cancelEditUrl} disabled={savingUrl} class="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition">
                   Cancel
                 </button>
               </div>
             {:else}
-              <button
-                onclick={startEditUrl}
-                class="group flex items-center gap-1.5 mb-3 text-left"
-                title="Click to edit URL"
-              >
+              <button onclick={startEditUrl} class="group flex items-center gap-1.5 mb-3 text-left" title="Click to edit URL">
                 <span class="text-sm font-mono text-gray-600 break-all">{webhook.url}</span>
                 <svg class="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -621,12 +569,11 @@
 
             <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-500">
               <span>Namespace: <span class="font-medium text-gray-700">{webhook.namespace}</span></span>
-              <span>Created: <span class="font-medium text-gray-700">{formatTimestamp(webhook.createdAt)}</span></span>
+              <span>Created: <span class="font-medium text-gray-700">{formatTimestamp(webhook.created_at)}</span></span>
               <span class="font-mono text-xs text-gray-400">ID: {webhookId}</span>
             </div>
           </div>
 
-          <!-- Actions -->
           <div class="flex items-center gap-2 shrink-0">
             <button
               onclick={toggleWebhookStatus}
@@ -645,23 +592,19 @@
           </div>
         </div>
 
-        <!-- Subscribed events -->
         <div class="mt-4 pt-4 border-t border-gray-100">
           <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Subscribed Events</p>
           <div class="flex flex-wrap gap-1.5">
-            {#each webhook.events as event}
-              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
-                {event}
-              </span>
+            {#each webhook.events ?? [] as ev}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">{ev}</span>
             {/each}
-            {#if webhook.events.length === 0}
+            {#if (webhook.events ?? []).length === 0}
               <span class="text-xs text-gray-400">No events subscribed</span>
             {/if}
           </div>
         </div>
       </div>
 
-      <!-- Health Metrics -->
       {#if healthMetrics}
         <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
           <div class="flex items-baseline justify-between mb-4">
@@ -675,92 +618,85 @@
             </div>
             <div>
               <p class="text-xs text-gray-500">Deliveries</p>
-              <p class="text-xl font-bold text-gray-900">{healthMetrics.totalDeliveries}</p>
+              <p class="text-xl font-bold text-gray-900">{healthMetrics.total_deliveries}</p>
             </div>
             <div>
               <p class="text-xs text-gray-500">Succeeded</p>
-              <p class="text-xl font-bold text-green-600">{healthMetrics.successfulDeliveries}</p>
+              <p class="text-xl font-bold text-green-600">{healthMetrics.successful_deliveries}</p>
             </div>
             <div>
               <p class="text-xs text-gray-500">Failed</p>
-              <p class="text-xl font-bold text-red-600">{healthMetrics.failedDeliveries}</p>
+              <p class="text-xl font-bold text-red-600">{healthMetrics.failed_deliveries}</p>
             </div>
             <div>
               <p class="text-xs text-gray-500">Avg Response</p>
-              <p class="text-xl font-bold text-gray-900">{healthMetrics.avgResponseTime}<span class="text-xs font-normal text-gray-400">ms</span></p>
+              <p class="text-xl font-bold text-gray-900">{healthMetrics.avg_response_time}<span class="text-xs font-normal text-gray-400">ms</span></p>
             </div>
             <div>
-              <p class="text-xs text-gray-500">Last Success</p>
-              <p class="text-xs font-medium text-gray-700">{healthMetrics.lastSuccessAt ? formatTimestamp(healthMetrics.lastSuccessAt) : 'N/A'}</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">Last Failure</p>
-              <p class="text-xs font-medium text-gray-700">{healthMetrics.lastFailureAt ? formatTimestamp(healthMetrics.lastFailureAt) : 'N/A'}</p>
+              <p class="text-xs text-gray-500">Consecutive Failures</p>
+              <p class="text-xl font-bold text-gray-900">{healthMetrics.consecutive_failures}</p>
             </div>
           </div>
 
-          <!-- Success rate bar -->
-          {#if healthMetrics.totalDeliveries > 0}
+          {#if healthMetrics.total_deliveries > 0}
             <div class="mt-4">
               <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                 <div
-                  class="h-full rounded-full transition-all duration-500 {healthMetrics.successRate >= 0.95 ? 'bg-green-500' : healthMetrics.successRate >= 0.8 ? 'bg-yellow-500' : 'bg-red-500'}"
-                  style="width: {healthMetrics.successRate * 100}%"
+                  class="h-full rounded-full transition-all duration-500 {healthMetrics.success_rate >= 0.95 ? 'bg-green-500' : healthMetrics.success_rate >= 0.8 ? 'bg-yellow-500' : 'bg-red-500'}"
+                  style="width: {healthMetrics.success_rate * 100}%"
                 ></div>
               </div>
             </div>
           {/if}
 
-          <!-- Error Category Breakdown -->
-          {#if healthMetrics.failedDeliveries > 0}
+          {#if healthMetrics.failed_deliveries > 0}
             <div class="mt-4 pt-4 border-t border-gray-100">
               <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Error Breakdown</h3>
               <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 <div class="bg-orange-50 rounded-lg px-3 py-2">
                   <p class="text-xs text-orange-600 font-medium">Client (4xx)</p>
-                  <p class="text-lg font-bold text-orange-700">{healthMetrics.clientErrors}</p>
+                  <p class="text-lg font-bold text-orange-700">{healthMetrics.client_errors}</p>
                   <p class="text-[10px] text-orange-500">Not retried</p>
                 </div>
                 <div class="bg-red-50 rounded-lg px-3 py-2">
                   <p class="text-xs text-red-600 font-medium">Server (5xx)</p>
-                  <p class="text-lg font-bold text-red-700">{healthMetrics.serverErrors}</p>
+                  <p class="text-lg font-bold text-red-700">{healthMetrics.server_errors}</p>
                   <p class="text-[10px] text-red-500">Retried</p>
                 </div>
                 <div class="bg-yellow-50 rounded-lg px-3 py-2">
                   <p class="text-xs text-yellow-600 font-medium">Timeout</p>
-                  <p class="text-lg font-bold text-yellow-700">{healthMetrics.timeoutErrors}</p>
+                  <p class="text-lg font-bold text-yellow-700">{healthMetrics.timeout_errors}</p>
                   <p class="text-[10px] text-yellow-500">Retried</p>
                 </div>
                 <div class="bg-purple-50 rounded-lg px-3 py-2">
                   <p class="text-xs text-purple-600 font-medium">Network</p>
-                  <p class="text-lg font-bold text-purple-700">{healthMetrics.networkErrors}</p>
+                  <p class="text-lg font-bold text-purple-700">{healthMetrics.network_errors}</p>
                   <p class="text-[10px] text-purple-500">DNS / TLS / Conn</p>
                 </div>
                 <div class="bg-amber-50 rounded-lg px-3 py-2">
                   <p class="text-xs text-amber-600 font-medium">Unexpected Status</p>
-                  <p class="text-lg font-bold text-amber-700">{healthMetrics.unexpectedStatusErrors}</p>
+                  <p class="text-lg font-bold text-amber-700">{healthMetrics.unexpected_status_errors}</p>
                   <p class="text-[10px] text-amber-500">Not retried</p>
                 </div>
               </div>
 
-              <!-- Error distribution bar -->
-              {#if (healthMetrics.clientErrors || 0) + (healthMetrics.serverErrors || 0) + (healthMetrics.timeoutErrors || 0) + (healthMetrics.networkErrors || 0) + (healthMetrics.unexpectedStatusErrors || 0) > 0}
-                {@const totalErrors = (healthMetrics.clientErrors || 0) + (healthMetrics.serverErrors || 0) + (healthMetrics.timeoutErrors || 0) + (healthMetrics.networkErrors || 0) + (healthMetrics.unexpectedStatusErrors || 0)}
+              {#if (healthMetrics.client_errors || 0) + (healthMetrics.server_errors || 0) + (healthMetrics.timeout_errors || 0) + (healthMetrics.network_errors || 0) + (healthMetrics.unexpected_status_errors || 0) > 0}
+                {@const totalErrors = (healthMetrics.client_errors || 0) + (healthMetrics.server_errors || 0) + (healthMetrics.timeout_errors || 0) + (healthMetrics.network_errors || 0) + (healthMetrics.unexpected_status_errors || 0)}
                 <div class="mt-3 w-full h-2 rounded-full overflow-hidden flex">
-                  {#if healthMetrics.clientErrors > 0}
-                    <div class="bg-orange-400 h-full" style="width: {(healthMetrics.clientErrors / totalErrors) * 100}%" title="Client errors: {healthMetrics.clientErrors}"></div>
+                  {#if healthMetrics.client_errors > 0}
+                    <div class="bg-orange-400 h-full" style="width: {(healthMetrics.client_errors / totalErrors) * 100}%" title="Client errors: {healthMetrics.client_errors}"></div>
                   {/if}
-                  {#if healthMetrics.serverErrors > 0}
-                    <div class="bg-red-400 h-full" style="width: {(healthMetrics.serverErrors / totalErrors) * 100}%" title="Server errors: {healthMetrics.serverErrors}"></div>
+                  {#if healthMetrics.server_errors > 0}
+                    <div class="bg-red-400 h-full" style="width: {(healthMetrics.server_errors / totalErrors) * 100}%" title="Server errors: {healthMetrics.server_errors}"></div>
                   {/if}
-                  {#if healthMetrics.timeoutErrors > 0}
-                    <div class="bg-yellow-400 h-full" style="width: {(healthMetrics.timeoutErrors / totalErrors) * 100}%" title="Timeouts: {healthMetrics.timeoutErrors}"></div>
+                  {#if healthMetrics.timeout_errors > 0}
+                    <div class="bg-yellow-400 h-full" style="width: {(healthMetrics.timeout_errors / totalErrors) * 100}%" title="Timeouts: {healthMetrics.timeout_errors}"></div>
                   {/if}
-                  {#if healthMetrics.networkErrors > 0}
-                    <div class="bg-purple-400 h-full" style="width: {(healthMetrics.networkErrors / totalErrors) * 100}%" title="Network errors: {healthMetrics.networkErrors}"></div>
+                  {#if healthMetrics.network_errors > 0}
+                    <div class="bg-purple-400 h-full" style="width: {(healthMetrics.network_errors / totalErrors) * 100}%" title="Network errors: {healthMetrics.network_errors}"></div>
                   {/if}
-                  {#if healthMetrics.unexpectedStatusErrors > 0}
-                    <div class="bg-amber-400 h-full" style="width: {(healthMetrics.unexpectedStatusErrors / totalErrors) * 100}%" title="Unexpected status: {healthMetrics.unexpectedStatusErrors}"></div>
+                  {#if healthMetrics.unexpected_status_errors > 0}
+                    <div class="bg-amber-400 h-full" style="width: {(healthMetrics.unexpected_status_errors / totalErrors) * 100}%" title="Unexpected status: {healthMetrics.unexpected_status_errors}"></div>
                   {/if}
                 </div>
               {/if}
@@ -769,30 +705,23 @@
         </div>
       {/if}
 
-      <!-- Tabs -->
       <div class="border-b border-gray-200 mb-6">
         <nav class="flex gap-6">
           <button
-            class="pb-3 text-sm font-medium border-b-2 transition {activeTab === 'deliveries'
-              ? 'border-gray-900 text-gray-900'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
+            class="pb-3 text-sm font-medium border-b-2 transition {activeTab === 'deliveries' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
             onclick={() => (activeTab = 'deliveries')}
           >
             Deliveries
             <span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">{totalCount}</span>
           </button>
           <button
-            class="pb-3 text-sm font-medium border-b-2 transition {activeTab === 'config'
-              ? 'border-gray-900 text-gray-900'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
+            class="pb-3 text-sm font-medium border-b-2 transition {activeTab === 'config' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
             onclick={() => (activeTab = 'config')}
           >
             Configuration
           </button>
           <button
-            class="pb-3 text-sm font-medium border-b-2 transition {activeTab === 'subscriptions'
-              ? 'border-gray-900 text-gray-900'
-              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
+            class="pb-3 text-sm font-medium border-b-2 transition {activeTab === 'subscriptions' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
             onclick={() => (activeTab = 'subscriptions')}
           >
             Subscriptions
@@ -801,19 +730,12 @@
         </nav>
       </div>
 
-      <!-- Deliveries Tab -->
       {#if activeTab === 'deliveries'}
-        <!-- Delivery filters -->
         <div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
           <div class="flex flex-wrap items-end gap-3">
             <div class="w-full sm:w-32">
               <label for="del-status" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Status</label>
-              <select
-                id="del-status"
-                bind:value={deliveryStatusFilter}
-                onchange={applyDeliveryFilters}
-                class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-              >
+              <select id="del-status" bind:value={deliveryStatusFilter} onchange={applyDeliveryFilters} class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900">
                 <option value="">All</option>
                 <option value="pending">Pending</option>
                 <option value="sending">Sending</option>
@@ -825,53 +747,19 @@
             </div>
             <div class="w-full sm:w-36">
               <label for="del-error" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Error Category</label>
-              <select
-                id="del-error"
-                bind:value={deliveryErrorCategoryFilter}
-                onchange={applyDeliveryFilters}
-                class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-              >
+              <select id="del-error" bind:value={deliveryErrorCategoryFilter} onchange={applyDeliveryFilters} class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900">
                 <option value="">All</option>
                 {#each ERROR_CATEGORIES as cat}
                     <option value={cat.value}>{cat.label}</option>
                 {/each}
               </select>
             </div>
-            <div class="w-full sm:w-44">
-              <label for="del-after" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Created After</label>
-              <input
-                id="del-after"
-                type="datetime-local"
-                bind:value={deliveryCreatedAfterFilter}
-                onchange={applyDeliveryFilters}
-                class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-              />
-            </div>
-            <div class="w-full sm:w-44">
-              <label for="del-before" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Created Before</label>
-              <input
-                id="del-before"
-                type="datetime-local"
-                bind:value={deliveryCreatedBeforeFilter}
-                onchange={applyDeliveryFilters}
-                class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-              />
-            </div>
             <div class="flex items-center gap-2">
               {#if hasDeliveryFilters}
-                <button
-                  onclick={clearDeliveryFilters}
-                  class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-                >
-                  Clear
-                </button>
+                <button onclick={clearDeliveryFilters} class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Clear</button>
               {/if}
               {#if totalCount > 0}
-                <button
-                  onclick={prepareRetryBatch}
-                  disabled={preparingRetry}
-                  class="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition"
-                >
+                <button onclick={prepareRetryBatch} disabled={preparingRetry} class="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition">
                   {preparingRetry ? 'Preparing...' : 'Retry All Matching'}
                 </button>
               {/if}
@@ -879,12 +767,10 @@
           </div>
         </div>
 
-        <!-- Batch progress -->
         {#if batchStatus}
           <div class="mb-4">
             <BatchProgress
               batch={batchStatus}
-              label="Retry Deliveries"
               oncancel={cancelRetryBatch}
               ondone={onBatchDone}
             />
@@ -893,11 +779,7 @@
 
         <div class="bg-white rounded-lg border border-gray-200">
           {#if deliveries.length === 0}
-            <EmptyState
-              icon="send"
-              title="No deliveries yet"
-              description="Deliveries will appear here when events are pushed to this webhook."
-            />
+            <EmptyState icon="send" title="No deliveries yet" description="Deliveries will appear here when events are pushed to this webhook." />
           {:else}
             <div class="overflow-x-auto">
               <table class="w-full text-sm text-left">
@@ -915,48 +797,44 @@
                   {#each deliveries as delivery}
                     <tr class="hover:bg-gray-50 transition">
                       <td class="px-4 py-3">
-                        <CopyableId id={delivery.deliveryId} href="/deliveries/{delivery.deliveryId}" truncate={12} />
-                        <!-- Show event ID inline on mobile -->
-                        <span class="block sm:hidden mt-0.5"><CopyableId id={delivery.eventId} href="/events/instances/{delivery.eventId}" truncate={12} /></span>
+                        <CopyableId id={delivery.delivery_id} href="/deliveries/{delivery.delivery_id}" truncate={12} />
+                        <span class="block sm:hidden mt-0.5"><CopyableId id={delivery.event_id} href="/events/instances/{delivery.event_id}" truncate={12} /></span>
                       </td>
-                      <td class="px-4 py-3 hidden sm:table-cell"><CopyableId id={delivery.eventId} href="/events/instances/{delivery.eventId}" truncate={16} /></td>
+                      <td class="px-4 py-3 hidden sm:table-cell"><CopyableId id={delivery.event_id} href="/events/instances/{delivery.event_id}" truncate={16} /></td>
                       <td class="px-4 py-3">
                         <div class="flex items-center gap-1.5">
                           <StatusBadge status={delivery.status} />
-                          {#if delivery.errorCategory && delivery.errorCategory !== '' && delivery.errorCategory !== 'success'}
-                            {@const badge = getCategoryBadge(delivery.errorCategory)}
+                          {#if delivery.error_category && delivery.error_category !== 'success'}
+                            {@const badge = getCategoryBadge(delivery.error_category)}
                             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
                           {/if}
                         </div>
                       </td>
-                      <td class="px-4 py-3 text-gray-700 hidden md:table-cell">{delivery.attemptCount}</td>
-                      <td class="px-4 py-3 text-xs text-gray-500 hidden lg:table-cell">{formatTimestamp(delivery.lastAttemptedAt)}</td>
+                      <td class="px-4 py-3 text-gray-700 hidden md:table-cell">{delivery.attempt_count}</td>
+                      <td class="px-4 py-3 text-xs text-gray-500 hidden lg:table-cell">{formatTimestamp(delivery.last_attempted_at)}</td>
                       <td class="px-4 py-3">
-                        <button
-                          onclick={() => toggleDeliveryExpansion(delivery.deliveryId)}
-                          class="text-xs font-medium text-gray-600 hover:text-gray-900 transition"
-                        >
-                          {expandedDeliveries.has(delivery.deliveryId) ? 'Hide' : 'Details'}
+                        <button onclick={() => toggleDeliveryExpansion(delivery.delivery_id)} class="text-xs font-medium text-gray-600 hover:text-gray-900 transition">
+                          {expandedDeliveries.has(delivery.delivery_id) ? 'Hide' : 'Details'}
                         </button>
                       </td>
                     </tr>
-                    {#if expandedDeliveries.has(delivery.deliveryId)}
+                    {#if expandedDeliveries.has(delivery.delivery_id)}
                       <tr class="bg-gray-50/50">
                         <td colspan="6" class="px-4 py-4">
-                          {#if deliveryDetails.has(delivery.deliveryId)}
-                            {@const details = deliveryDetails.get(delivery.deliveryId)}
+                          {#if deliveryDetails.has(delivery.delivery_id)}
+                            {@const details = deliveryDetails.get(delivery.delivery_id)!}
                             <div class="space-y-3">
                               <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                 <div>
                                   <p class="text-xs font-medium text-gray-500 mb-0.5">Response Code</p>
-                                  <span class="font-mono text-sm {details.responseCode >= 200 && details.responseCode < 300 ? 'text-green-600' : details.responseCode >= 400 ? 'text-red-600' : 'text-gray-700'}">
-                                    {details.responseCode || 'N/A'}
+                                  <span class="font-mono text-sm {(details.response_code ?? 0) >= 200 && (details.response_code ?? 0) < 300 ? 'text-green-600' : (details.response_code ?? 0) >= 400 ? 'text-red-600' : 'text-gray-700'}">
+                                    {details.response_code || 'N/A'}
                                   </span>
                                 </div>
                                 <div>
                                   <p class="text-xs font-medium text-gray-500 mb-0.5">Error Category</p>
-                                  {#if details.errorCategory && details.errorCategory !== '' && details.errorCategory !== 'success'}
-                                    {@const badge = getCategoryBadge(details.errorCategory)}
+                                  {#if details.error_category && details.error_category !== 'success'}
+                                    {@const badge = getCategoryBadge(details.error_category)}
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border {badge.classes}">{badge.label}</span>
                                   {:else}
                                     <span class="text-sm text-gray-400">—</span>
@@ -964,53 +842,41 @@
                                 </div>
                                 <div>
                                   <p class="text-xs font-medium text-gray-500 mb-0.5">Attempts</p>
-                                  <span class="text-sm text-gray-700">{delivery.attemptCount}</span>
+                                  <span class="text-sm text-gray-700">{delivery.attempt_count}</span>
                                 </div>
                                 <div>
                                   <p class="text-xs font-medium text-gray-500 mb-0.5">Created</p>
-                                  <span class="text-sm text-gray-700">{details.createdAt ? formatTimestamp(details.createdAt) : 'N/A'}</span>
+                                  <span class="text-sm text-gray-700">{details.created_at ? formatTimestamp(details.created_at) : 'N/A'}</span>
                                 </div>
                                 <div>
                                   <p class="text-xs font-medium text-gray-500 mb-0.5">Last Attempt</p>
-                                  <span class="text-sm text-gray-700">{formatTimestamp(delivery.lastAttemptedAt)}</span>
+                                  <span class="text-sm text-gray-700">{formatTimestamp(delivery.last_attempted_at)}</span>
                                 </div>
                               </div>
 
-                              <div>
-                                <p class="text-xs font-medium text-gray-500 mb-1">Request Body</p>
-                                <pre class="bg-white p-3 rounded-lg border border-gray-200 text-xs overflow-auto max-h-48 font-mono text-gray-800">{formatPayload(details.requestBody)}</pre>
-                              </div>
-
-                              {#if details.responseBody}
+                              {#if details.response_body}
                                 <div>
                                   <p class="text-xs font-medium text-gray-500 mb-1">Response Body</p>
-                                  <pre class="bg-white p-3 rounded-lg border border-gray-200 text-xs overflow-auto max-h-32 font-mono text-gray-800">{details.responseBody}</pre>
+                                  <pre class="bg-white p-3 rounded-lg border border-gray-200 text-xs overflow-auto max-h-32 font-mono text-gray-800">{formatPayload(details.response_body)}</pre>
                                 </div>
                               {/if}
 
-                              {#if details.errorMessage}
+                              {#if details.error_message}
                                 <div>
                                   <p class="text-xs font-medium text-gray-500 mb-1">Error</p>
                                   <div class="bg-red-50 border border-red-200 rounded-lg p-3">
-                                    <p class="text-sm text-red-700">{details.errorMessage}</p>
+                                    <p class="text-sm text-red-700">{details.error_message}</p>
                                   </div>
                                 </div>
                               {/if}
 
-                              <!-- Actions row -->
                               <div class="flex items-center gap-2 pt-1">
-                                {#if delivery.status === WebhookDeliveryStatus.DELIVERY_FAILED || details.errorMessage}
-                                  <button
-                                    onclick={() => resendDelivery(delivery.deliveryId)}
-                                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition"
-                                  >
+                                {#if delivery.status === 'failed' || details.error_message}
+                                  <button onclick={() => resendDelivery(delivery.delivery_id)} class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition">
                                     Retry Delivery
                                   </button>
                                 {/if}
-                                <a
-                                  href="/deliveries/{delivery.deliveryId}"
-                                  class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-                                >
+                                <a href="/deliveries/{delivery.delivery_id}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
                                   Full Details
                                 </a>
                               </div>
@@ -1030,55 +896,31 @@
             </div>
 
             <div class="border-t border-gray-200 px-4">
-              <Pagination
-                {currentPage}
-                {totalPages}
-                {totalCount}
-                pageSize={limit}
-                onPageChange={handlePageChange}
-                itemLabel="deliveries"
-              />
+              <Pagination {currentPage} {totalPages} {totalCount} pageSize={limit} onPageChange={handlePageChange} />
             </div>
           {/if}
         </div>
       {/if}
 
-      <!-- Configuration Tab -->
       {#if activeTab === 'config'}
         <div class="space-y-4">
           {#if editingConfig}
-            <!-- Editable Configuration Form -->
             <div class="bg-white rounded-lg border border-gray-200 p-5">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Edit Configuration</h3>
               </div>
 
               <div class="space-y-5">
-                <!-- Description -->
                 <div>
                   <label for="config-description" class="block text-xs font-medium text-gray-700 mb-1">Description</label>
-                  <input
-                    id="config-description"
-                    type="text"
-                    bind:value={configForm.description}
-                    class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
-                    placeholder="Webhook description"
-                  />
+                  <input id="config-description" type="text" bind:value={configForm.description} class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" placeholder="Webhook description" />
                 </div>
 
-                <!-- URL -->
                 <div>
                   <label for="config-url" class="block text-xs font-medium text-gray-700 mb-1">URL</label>
-                  <input
-                    id="config-url"
-                    type="url"
-                    bind:value={configForm.url}
-                    class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 font-mono"
-                    placeholder="https://example.com/webhook"
-                  />
+                  <input id="config-url" type="url" bind:value={configForm.url} class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 font-mono" placeholder="https://example.com/webhook" />
                 </div>
 
-                <!-- HTTP Config Fields -->
                 <div class="border-t border-gray-100 pt-4">
                   <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">HTTP Configuration</h4>
                   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1110,14 +952,12 @@
                   </div>
                 </div>
 
-                <!-- Webhook Secret -->
                 <div>
                   <label for="config-secret" class="block text-xs font-medium text-gray-700 mb-1">Webhook Secret</label>
                   <input id="config-secret" type="password" bind:value={configForm.webhookSecret} placeholder="Leave empty to keep existing" class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 font-mono" />
                   <p class="text-[10px] text-gray-400 mt-0.5">Used for HMAC signature verification</p>
                 </div>
 
-                <!-- Boolean toggles -->
                 <div class="border-t border-gray-100 pt-4">
                   <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Options</h4>
                   <div class="space-y-3">
@@ -1144,7 +984,6 @@
                   </div>
                 </div>
 
-                <!-- Custom Headers -->
                 <div class="border-t border-gray-100 pt-4">
                   <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Custom Headers</h4>
                   {#if Object.keys(configForm.headers).length > 0}
@@ -1153,11 +992,7 @@
                         <div class="flex items-center gap-2">
                           <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{key}</span>
                           <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{value}</span>
-                          <button
-                            onclick={() => removeConfigHeader(key)}
-                            class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition"
-                            aria-label="Remove header {key}"
-                          >
+                          <button onclick={() => removeConfigHeader(key)} class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition" aria-label="Remove header {key}">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
@@ -1169,17 +1004,12 @@
                   <div class="flex items-center gap-2">
                     <input type="text" bind:value={configHeaderKey} placeholder="Header name" class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
                     <input type="text" bind:value={configHeaderValue} placeholder="Header value" class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
-                    <button
-                      onclick={addConfigHeader}
-                      disabled={!configHeaderKey.trim() || !configHeaderValue.trim()}
-                      class="shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition"
-                    >
+                    <button onclick={addConfigHeader} disabled={!configHeaderKey.trim() || !configHeaderValue.trim()} class="shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition">
                       Add
                     </button>
                   </div>
                 </div>
 
-                <!-- Secret Headers -->
                 <div class="border-t border-gray-100 pt-4">
                   <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Secret Headers</h4>
                   <p class="text-[10px] text-gray-400 mb-3">Encrypted headers for sensitive values (API keys, tokens). Existing values are preserved unless you remove or replace them.</p>
@@ -1189,11 +1019,7 @@
                         <div class="flex items-center gap-2">
                           <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{key}</span>
                           <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate text-gray-400">••••••</span>
-                          <button
-                            onclick={() => removeConfigSecretHeader(key)}
-                            class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition"
-                            aria-label="Remove secret header {key}"
-                          >
+                          <button onclick={() => removeConfigSecretHeader(key)} class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition" aria-label="Remove secret header {key}">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
@@ -1204,11 +1030,7 @@
                         <div class="flex items-center gap-2">
                           <span class="flex-1 text-xs font-mono bg-green-50 px-2 py-1.5 rounded border border-green-200 truncate">{key}</span>
                           <span class="flex-1 text-xs font-mono bg-green-50 px-2 py-1.5 rounded border border-green-200 truncate text-green-600">new value set</span>
-                          <button
-                            onclick={() => removeConfigSecretHeader(key)}
-                            class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition"
-                            aria-label="Remove secret header {key}"
-                          >
+                          <button onclick={() => removeConfigSecretHeader(key)} class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition" aria-label="Remove secret header {key}">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
@@ -1220,99 +1042,80 @@
                   <div class="flex items-center gap-2">
                     <input type="text" bind:value={configSecretHeaderKey} placeholder="Header name (e.g. Authorization)" class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
                     <input type="password" bind:value={configSecretHeaderValue} placeholder="Header value (e.g. Bearer sk-...)" class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
-                    <button
-                      onclick={addConfigSecretHeader}
-                      disabled={!configSecretHeaderKey.trim() || !configSecretHeaderValue.trim()}
-                      class="shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition"
-                    >
+                    <button onclick={addConfigSecretHeader} disabled={!configSecretHeaderKey.trim() || !configSecretHeaderValue.trim()} class="shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition">
                       Add
                     </button>
                   </div>
                 </div>
 
-                <!-- Save / Cancel -->
                 <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-                  <button
-                    onclick={cancelEditConfig}
-                    disabled={savingConfig}
-                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                  >
+                  <button onclick={cancelEditConfig} disabled={savingConfig} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
                     Cancel
                   </button>
-                  <button
-                    onclick={saveConfig}
-                    disabled={savingConfig}
-                    class="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-400 transition shadow-sm"
-                  >
+                  <button onclick={saveConfig} disabled={savingConfig} class="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-400 transition shadow-sm">
                     {savingConfig ? 'Saving...' : 'Save Configuration'}
                   </button>
                 </div>
               </div>
             </div>
           {:else}
-            <!-- Read-Only Configuration View -->
-            <!-- HTTP Configuration -->
             <div class="bg-white rounded-lg border border-gray-200 p-5">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">HTTP Configuration</h3>
-                <button
-                  onclick={startEditConfig}
-                  class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
-                >
+                <button onclick={startEditConfig} class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition">
                   Edit
                 </button>
               </div>
-              {#if webhook.httpConfig}
+              {#if webhook.http_config}
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
                     <p class="text-xs text-gray-500 mb-0.5">Max Retries</p>
-                    <p class="text-sm font-medium text-gray-900">{webhook.httpConfig.maxRetries}</p>
+                    <p class="text-sm font-medium text-gray-900">{webhook.http_config.max_retries}</p>
                   </div>
                   <div>
                     <p class="text-xs text-gray-500 mb-0.5">Retry Backoff</p>
-                    <p class="text-sm font-medium text-gray-900">{webhook.httpConfig.retryBackoffSeconds}s</p>
+                    <p class="text-sm font-medium text-gray-900">{webhook.http_config.retry_backoff_seconds}s</p>
                   </div>
                   <div>
                     <p class="text-xs text-gray-500 mb-0.5">Request Timeout</p>
-                    <p class="text-sm font-medium text-gray-900">{webhook.httpConfig.requestTimeoutSeconds}s</p>
+                    <p class="text-sm font-medium text-gray-900">{webhook.http_config.request_timeout_seconds}s</p>
                   </div>
                   <div>
                     <p class="text-xs text-gray-500 mb-0.5">Content Type</p>
-                    <p class="text-sm font-medium text-gray-900 font-mono">{webhook.httpConfig.contentType || 'application/json'}</p>
+                    <p class="text-sm font-medium text-gray-900 font-mono">{webhook.http_config.content_type || 'application/json'}</p>
                   </div>
                   <div>
                     <p class="text-xs text-gray-500 mb-0.5">User Agent</p>
-                    <p class="text-sm font-medium text-gray-900 font-mono">{webhook.httpConfig.userAgent || 'Sparrow-Webhook/1.0'}</p>
+                    <p class="text-sm font-medium text-gray-900 font-mono">{webhook.http_config.user_agent || 'Sparrow-Webhook/1.0'}</p>
                   </div>
                   <div>
                     <p class="text-xs text-gray-500 mb-0.5">Expected Status Codes</p>
                     <div class="flex flex-wrap gap-1">
-                      {#each webhook.httpConfig.expectedStatusCodes as code}
+                      {#each webhook.http_config.expected_status_codes || [] as code}
                         <span class="px-1.5 py-0.5 text-xs font-mono bg-gray-100 text-gray-700 rounded">{code}</span>
                       {/each}
-                      {#if webhook.httpConfig.expectedStatusCodes.length === 0}
+                      {#if (webhook.http_config.expected_status_codes || []).length === 0}
                         <span class="text-sm text-gray-400">Default (2xx)</span>
                       {/if}
                     </div>
                   </div>
                 </div>
 
-                <!-- Boolean flags -->
                 <div class="mt-4 pt-4 border-t border-gray-100">
                   <div class="flex flex-wrap gap-3">
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium {webhook.httpConfig.followRedirects ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}">
-                      <span class="w-1.5 h-1.5 rounded-full {webhook.httpConfig.followRedirects ? 'bg-green-500' : 'bg-gray-400'}"></span>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium {webhook.http_config.follow_redirects ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}">
+                      <span class="w-1.5 h-1.5 rounded-full {webhook.http_config.follow_redirects ? 'bg-green-500' : 'bg-gray-400'}"></span>
                       Follow Redirects
                     </span>
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium {webhook.httpConfig.verifySsl ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}">
-                      <span class="w-1.5 h-1.5 rounded-full {webhook.httpConfig.verifySsl ? 'bg-green-500' : 'bg-red-500'}"></span>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium {webhook.http_config.verify_ssl ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}">
+                      <span class="w-1.5 h-1.5 rounded-full {webhook.http_config.verify_ssl ? 'bg-green-500' : 'bg-red-500'}"></span>
                       Verify SSL
                     </span>
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium {webhook.httpConfig.captureResponseBody ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}">
-                      <span class="w-1.5 h-1.5 rounded-full {webhook.httpConfig.captureResponseBody ? 'bg-blue-500' : 'bg-gray-400'}"></span>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium {webhook.http_config.capture_response_body ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}">
+                      <span class="w-1.5 h-1.5 rounded-full {webhook.http_config.capture_response_body ? 'bg-blue-500' : 'bg-gray-400'}"></span>
                       Capture Response
                     </span>
-                    {#if webhook.httpConfig.webhookSecret}
+                    {#if webhook.http_config.webhook_secret}
                       <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-purple-50 text-purple-700">
                         <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
                         Secret Configured
@@ -1325,12 +1128,11 @@
               {/if}
             </div>
 
-            <!-- Custom Headers -->
             <div class="bg-white rounded-lg border border-gray-200 p-5">
               <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Custom Headers</h3>
               {#if Object.keys(webhook.headers || {}).length > 0}
                 <div class="space-y-1.5">
-                  {#each Object.entries(webhook.headers) as [key, value]}
+                  {#each Object.entries(webhook.headers || {}) as [key, value]}
                     <div class="flex items-center gap-2 text-sm">
                       <span class="font-mono text-gray-900 font-medium">{key}:</span>
                       <span class="font-mono text-gray-600">{value}</span>
@@ -1342,13 +1144,12 @@
               {/if}
             </div>
 
-            <!-- Secret Headers -->
             <div class="bg-white rounded-lg border border-gray-200 p-5">
               <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-2">Secret Headers</h3>
               <p class="text-xs text-gray-400 mb-4">Encrypted headers for sensitive values. Values are never exposed.</p>
-              {#if Object.keys(webhook.secretHeaders || {}).length > 0}
+              {#if Object.keys(webhook.secret_headers || {}).length > 0}
                 <div class="space-y-1.5">
-                  {#each Object.entries(webhook.secretHeaders) as [key, value]}
+                  {#each Object.entries(webhook.secret_headers || {}) as [key, value]}
                     <div class="flex items-center gap-2 text-sm">
                       <span class="font-mono text-gray-900 font-medium">{key}:</span>
                       <span class="font-mono text-gray-400">••••••</span>
@@ -1363,7 +1164,6 @@
         </div>
       {/if}
 
-      <!-- Subscriptions Tab -->
       {#if activeTab === 'subscriptions'}
         <SubscriptionManager
           {webhookId}
@@ -1376,7 +1176,6 @@
   </main>
 </div>
 
-<!-- Confirm Unregister Dialog -->
 <ConfirmDialog
   open={confirmUnregister}
   title="Unregister Webhook"
@@ -1387,7 +1186,6 @@
   oncancel={() => { confirmUnregister = false; }}
 />
 
-<!-- Confirm Retry Dialog -->
 <ConfirmDialog
   open={confirmRetry}
   title="Retry Deliveries"

@@ -10,4 +10,4 @@ Health endpoints are always open. API endpoints work without key when not config
 * GET "/ready" should return status "200"
 
 ## API Endpoints Work Without Key When Not Configured
-* POST "/webhook.EventService/ListEvents" with empty body should return status "200"
+* GET "/v1/event-types" should return status "200"

@@ -6,8 +6,6 @@ import (
 	"net/url"
 	"strings"
 
-	"google.golang.org/grpc/codes"
-
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
@@ -19,24 +17,24 @@ import (
 //   - Does not target cloud metadata endpoints
 //   - Has a valid, non-empty host
 //
-// All errors returned are *svcerrors.ServiceError with codes.InvalidArgument,
+// All errors returned are *svcerrors.ServiceError with svcerrors.InvalidArgument,
 // so they propagate through toGRPCError to the client as actionable messages.
 func ValidateWebhookURL(rawURL string, allowPrivateNetworks bool) error {
 	parsed, err := url.ParseRequestURI(rawURL)
 	if err != nil {
-		return svcerrors.Wrapf(err, codes.InvalidArgument, "invalid URL: %v", err)
+		return svcerrors.Wrapf(err, svcerrors.InvalidArgument, "invalid URL: %v", err)
 	}
 
 	// Only allow http and https schemes
 	scheme := strings.ToLower(parsed.Scheme)
 	if scheme != "http" && scheme != "https" {
-		return svcerrors.Errorf(codes.InvalidArgument, "invalid URL scheme %q: only http and https are allowed", parsed.Scheme)
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "invalid URL scheme %q: only http and https are allowed", parsed.Scheme)
 	}
 
 	// Ensure host is not empty
 	host := parsed.Hostname()
 	if host == "" {
-		return svcerrors.Error(codes.InvalidArgument, "URL must have a non-empty host")
+		return svcerrors.Error(svcerrors.InvalidArgument, "URL must have a non-empty host")
 	}
 
 	// Skip network-level SSRF checks when private networks are allowed
@@ -49,7 +47,7 @@ func ValidateWebhookURL(rawURL string, allowPrivateNetworks bool) error {
 	ip := net.ParseIP(host)
 	if ip != nil {
 		if err := client.ValidateIP(ip); err != nil {
-			return svcerrors.Wrapf(err, codes.InvalidArgument, "%s", err.Error())
+			return svcerrors.Wrapf(err, svcerrors.InvalidArgument, "%s", err.Error())
 		}
 	} else {
 		// It's a hostname — block well-known internal hostnames
@@ -58,7 +56,7 @@ func ValidateWebhookURL(rawURL string, allowPrivateNetworks bool) error {
 			lower == "metadata.google.internal" ||
 			strings.HasSuffix(lower, ".internal") ||
 			strings.HasSuffix(lower, ".local") {
-			return svcerrors.Errorf(codes.InvalidArgument, "URL host %q is not allowed: internal/reserved hostname", host)
+			return svcerrors.Errorf(svcerrors.InvalidArgument, "URL host %q is not allowed: internal/reserved hostname", host)
 		}
 
 		// Resolve the hostname and validate all resulting IPs.
@@ -66,11 +64,11 @@ func ValidateWebhookURL(rawURL string, allowPrivateNetworks bool) error {
 		// to a private IP.
 		ips, err := net.LookupIP(host)
 		if err != nil {
-			return svcerrors.Wrap(err, codes.InvalidArgument, fmt.Sprintf("cannot resolve URL host %q", host))
+			return svcerrors.Wrap(err, svcerrors.InvalidArgument, fmt.Sprintf("cannot resolve URL host %q", host))
 		}
 		for _, resolved := range ips {
 			if err := client.ValidateIP(resolved); err != nil {
-				return svcerrors.Wrap(err, codes.InvalidArgument, fmt.Sprintf("URL host %q resolves to blocked address: %v", host, err))
+				return svcerrors.Wrap(err, svcerrors.InvalidArgument, fmt.Sprintf("URL host %q resolves to blocked address: %v", host, err))
 			}
 		}
 	}

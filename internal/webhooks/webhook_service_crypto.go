@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"io"
 
-	"google.golang.org/grpc/codes"
-
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
@@ -20,7 +18,7 @@ func (s *WebhookService) EncryptSecretHeaders(headers map[string]string) ([]byte
 		return nil, nil
 	}
 	if s.crypto == nil || !s.crypto.Enabled() {
-		return nil, svcerrors.Error(codes.FailedPrecondition, "encryption is required for secret headers but SPARROW_ENCRYPTION_KEY is not configured")
+		return nil, svcerrors.Error(svcerrors.FailedPrecondition, "encryption is required for secret headers but SPARROW_ENCRYPTION_KEY is not configured")
 	}
 	return s.crypto.EncryptJSON(headers)
 }
@@ -32,7 +30,7 @@ func (s *WebhookService) DecryptSecretHeaders(encrypted []byte) (map[string]stri
 		return nil, nil
 	}
 	if s.crypto == nil || !s.crypto.Enabled() {
-		return nil, svcerrors.Error(codes.FailedPrecondition, "encryption key not configured; cannot decrypt secret headers")
+		return nil, svcerrors.Error(svcerrors.FailedPrecondition, "encryption key not configured; cannot decrypt secret headers")
 	}
 	var headers map[string]string
 	if err := s.crypto.DecryptJSON(encrypted, &headers); err != nil {
@@ -48,7 +46,7 @@ func (s *WebhookService) EncryptWebhookSecret(secret string) ([]byte, error) {
 		return nil, nil
 	}
 	if s.crypto == nil || !s.crypto.Enabled() {
-		return nil, svcerrors.Error(codes.FailedPrecondition, "encryption is required for webhook secrets but SPARROW_ENCRYPTION_KEY is not configured")
+		return nil, svcerrors.Error(svcerrors.FailedPrecondition, "encryption is required for webhook secrets but SPARROW_ENCRYPTION_KEY is not configured")
 	}
 	return s.crypto.EncryptString(secret)
 }
@@ -60,7 +58,7 @@ func (s *WebhookService) DecryptWebhookSecret(encrypted []byte) (string, error) 
 		return "", nil
 	}
 	if s.crypto == nil || !s.crypto.Enabled() {
-		return "", svcerrors.Error(codes.FailedPrecondition, "encryption key not configured; cannot decrypt webhook secret")
+		return "", svcerrors.Error(svcerrors.FailedPrecondition, "encryption key not configured; cannot decrypt webhook secret")
 	}
 	return s.crypto.DecryptString(encrypted)
 }

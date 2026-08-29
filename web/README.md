@@ -55,7 +55,7 @@ CORS_ALLOWED_ORIGINS=https://dashboard.example.com ./server
 
 | Variable | Default | Description |
 |---|---|---|
-| `PUBLIC_API_URL` | `http://localhost:8080` | Sparrow backend API URL (Connect-RPC HTTP/JSON) |
+| `PUBLIC_API_URL` | `http://localhost:8080` | Sparrow backend REST API URL |
 
 Set this in `web/.env` for development. The default `npm run build` script sets `PUBLIC_API_URL=/` for embedded mode (same-origin). For standalone deployment, override it at build time to point at your Sparrow API server.
 
@@ -64,6 +64,5 @@ Set this in `web/.env` for development. The default `npm run build` script sets 
 - **SvelteKit 2** + **Svelte 5** (Runes)
 - **Vite 7**
 - **Tailwind CSS 4** (via Vite plugin)
-- **Flowbite Svelte** (UI components)
-- **Connect-RPC** (API client for Go backend)
+- **openapi-fetch** (typed REST client, generated from `api/openapi.yaml`)
 - **Static adapter** (embedded in Go binary via `go:embed`)

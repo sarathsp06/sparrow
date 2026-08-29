@@ -53,9 +53,6 @@ helm-package: ## Package the Helm chart into a .tgz archive
 	mkdir -p build
 	helm package $(CHART_DIR) -d build
 
-example: ## Run the gRPC client example
-	DATABASE_URL=$(DATABASE_URL) go run examples/grpc_client.go
-
 run-web: ## Run the web development server
 	cd web && npm run dev
 
@@ -65,16 +62,20 @@ test: ## Run tests
 test-integration: ## Run integration tests (requires Docker for testcontainers)
 	go test -v -tags integration -timeout 120s ./internal/integration/...
 
-test-e2e: ## Run end-to-end tests (Gauge + Python, requires Docker)
+client-python: ## Regenerate the Python client from the committed OpenAPI spec
+	rm -rf client/python
+	uvx openapi-python-client generate --path api/openapi.yaml --output-path client/python --overwrite
+
+test-e2e: client-python ## Run end-to-end tests (Gauge + Python, requires Docker)
 	cd e2e && uv run gauge run specs/
 
-test-e2e-spec: ## Run a single e2e spec (usage: make test-e2e-spec SPEC=00_hello_world)
+test-e2e-spec: client-python ## Run a single e2e spec (usage: make test-e2e-spec SPEC=00_hello_world)
 	cd e2e && uv run gauge run specs/$(SPEC).spec
 
-test-e2e-tag: ## Run e2e tests by tag (usage: make test-e2e-tag TAG=retry)
+test-e2e-tag: client-python ## Run e2e tests by tag (usage: make test-e2e-tag TAG=retry)
 	cd e2e && uv run gauge run --tags "$(TAG)" specs/
 
-test-e2e-parallel: ## Run e2e tests in parallel
+test-e2e-parallel: client-python ## Run e2e tests in parallel
 	cd e2e && uv run gauge run --parallel specs/
 
 test-e2e-report: test-e2e ## Run e2e tests and open HTML report
@@ -85,35 +86,25 @@ test-e2e-setup: ## Install Gauge and Python dependencies (one-time)
 	gauge install python || true
 	cd e2e && uv sync
 
-run:  ## Run the gRPC server
+run:  ## Run the server
 	SPARROW_SERVE_UI=true DATABASE_URL=$(DATABASE_URL)  go run ./cmd/server
 
 migrate: ## Run database migrations
 	DATABASE_URL=$(DATABASE_URL) go run ./cmd/migrate
 
 
-clean: ## Clean up all build artifacts (Go, web, docs)
+clean: ## Clean up all build artifacts (Go, web)
 	rm -rf build dist
 	go clean -modcache
 	rm -rf web/build web/node_modules/.vite
-	rm -rf docs/dist docs/node_modules/.vite docs/.astro
 	rm -rf internal/ui/dist
 	@echo "Clean complete"
 
-generate: ## Generate protobuf code and gRPC/ConnectRPC clients
-	rm -rf client/go client/js client/python
-	buf generate
-	cp client/_templates/js/connect/package.json client/js/connect/package.json
-	cp client/_templates/python/pyproject.toml client/python/pyproject.toml
-	cp client/_templates/python/README.md client/python/README.md
-	cp client/_templates/python/__init__.py client/python/__init__.py
-	cp client/_templates/python/proto/__init__.py client/python/proto/__init__.py
-	cp client/_templates/python/py.typed client/python/py.typed
+generate: ## Export the OpenAPI spec from Go and regenerate client SDKs
+	go run ./cmd/openapi-export api
+	rm -rf client/python
+	uvx openapi-python-client generate --path api/openapi.yaml --output-path client/python --overwrite
 	go generate ./...
-
-generate-docs: ## Generate API reference docs and diagrams from proto definitions
-	cd docs && npm run diagrams
-	proto2astro generate
 
 book: ## Build the Svelte 5 tutorial PDF with Typst
 	typst compile --font-path book/fonts book/tutorial.typ book/svelte5-tutorial.pdf
@@ -127,4 +118,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui build-with-ui release-dry-run run test test-integration test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate generate-docs docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package example migrate lint fmt run-web book help
+.PHONY: build build-ui client-python build-with-ui release-dry-run run test test-integration test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package migrate lint fmt run-web book help

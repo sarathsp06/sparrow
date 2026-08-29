@@ -3,7 +3,7 @@ type: Configuration
 title: Environment Variables
 description: All server configuration loaded from environment variables via kelseyhightower/envconfig
 tags: [config, env-vars]
-timestamp: 2026-07-06T16:46:48Z
+timestamp: 2026-08-29T00:00:00Z
 ---
 
 # Environment Variables
@@ -21,15 +21,14 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `SPARROW_GRPC_PORT` | gRPC listen port | `50051` |
-| `SPARROW_HTTP_PORT` | HTTP/Connect-RPC listen port | `8080` |
+| `SPARROW_HTTP_PORT` | HTTP/REST listen port | `8080` |
 | `SPARROW_SERVE_UI` | Serve embedded SvelteKit UI | `false` |
 
 ## Auth & Security
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `SPARROW_API_KEY` | Optional API key for auth; accepted via HTTP `X-API-Key` header and gRPC `x-api-key` metadata | — (open access) |
+| `SPARROW_API_KEY` | Optional API key for auth; accepted via the HTTP `X-API-Key` header | — (open access) |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | Allow localhost/private IPs as webhook URLs | `false` |
 
 ## Observability
