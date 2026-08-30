@@ -16,19 +16,14 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/structpb"
-
-	pb "github.com/sarathsp06/sparrow/proto"
-	pbconnect "github.com/sarathsp06/sparrow/proto/protoconnect"
 )
 
 // capturedWebhook holds the data received by the test webhook target server.
 type capturedWebhook struct {
-	Headers http.Header
 	Body    []byte
+	Headers http.Header
 }
 
 // startWebhookTarget starts an httptest.Server that captures exactly one webhook
@@ -36,184 +31,157 @@ type capturedWebhook struct {
 // received (or ctx expires).
 func startWebhookTarget(t *testing.T) (*httptest.Server, func(ctx context.Context) capturedWebhook) {
 	t.Helper()
-
-	var (
-		mu       sync.Mutex
-		captured *capturedWebhook
-		done     = make(chan struct{})
-	)
+	var mu sync.Mutex
+	var captured *capturedWebhook
+	received := make(chan struct{})
+	var once sync.Once
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Logf("webhook target: failed to read body: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		defer r.Body.Close()
-
+		body, _ := io.ReadAll(r.Body)
 		mu.Lock()
-		defer mu.Unlock()
-		if captured == nil {
-			captured = &capturedWebhook{
-				Headers: r.Header.Clone(),
-				Body:    body,
-			}
-			close(done)
-		}
-
+		captured = &capturedWebhook{Body: body, Headers: r.Header.Clone()}
+		mu.Unlock()
+		once.Do(func() { close(received) })
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	t.Cleanup(srv.Close)
 
 	wait := func(ctx context.Context) capturedWebhook {
-		t.Helper()
 		select {
-		case <-done:
-			mu.Lock()
-			defer mu.Unlock()
-			return *captured
+		case <-received:
 		case <-ctx.Done():
 			t.Fatal("timed out waiting for webhook delivery")
-			return capturedWebhook{} // unreachable
 		}
+		mu.Lock()
+		defer mu.Unlock()
+		return *captured
 	}
-
 	return srv, wait
 }
 
-// newClients creates Connect-RPC Go clients pointed at the test environment's
-// HTTP server, with the root API key set as the auth header.
-type testClients struct {
-	webhook      pbconnect.WebhookServiceClient
-	event        pbconnect.EventServiceClient
-	subscription pbconnect.SubscriptionServiceClient
-	delivery     pbconnect.DeliveryServiceClient
-}
-
-func newClients(env *testEnv) *testClients {
-	return &testClients{
-		webhook:      pbconnect.NewWebhookServiceClient(http.DefaultClient, env.baseURL),
-		event:        pbconnect.NewEventServiceClient(http.DefaultClient, env.baseURL),
-		subscription: pbconnect.NewSubscriptionServiceClient(http.DefaultClient, env.baseURL),
-		delivery:     pbconnect.NewDeliveryServiceClient(http.DefaultClient, env.baseURL),
-	}
-}
-
-// TestE2E_HappyPath exercises the full webhook delivery pipeline:
+// TestE2E_HappyPath exercises the full webhook delivery pipeline over REST:
 //
-//	Create namespace -> Register event -> Register webhook -> Create subscription
+//	Register event type -> Register webhook -> Create subscription
 //	-> Push event -> River processes event -> Fans out delivery -> HTTP POST
 //	-> Verify delivery status, headers, body, HMAC.
 func TestE2E_HappyPath(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
 	ctx := context.Background()
 
 	const (
 		namespaceName = "integration-test"
 		eventName     = "order.created"
-		webhookSecret = "test-secret-key-for-hmac"
 	)
 
-	// Namespace is now a free-form string — no need to create it via API.
-	// ── Step 2: Register event type ──────────────────────────────────────
-	t.Log("Step 2: Registering event type")
-	eventResp, err := clients.event.RegisterEvent(ctx, connect.NewRequest(&pb.RegisterEventRequest{
-		Name:        eventName,
-		Description: "Order created event for integration test",
-		Active:      true,
-	}))
+	// ── Step 1: Register event type ──────────────────────────────────────
+	t.Log("Step 1: Registering event type")
+	var eventTypeOut struct {
+		Name string `json:"name"`
+	}
+	resp, err := c.post(ctx, "/v1/event-types", map[string]any{
+		"name":        eventName,
+		"description": "Order created event for integration test",
+		"active":      true,
+	}, &eventTypeOut)
 	require.NoError(t, err, "RegisterEvent failed")
-	t.Logf("  event registered: %s", eventResp.Msg.GetEventId())
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	t.Logf("  event type registered: %s", eventTypeOut.Name)
 
-	// ── Step 3: Start webhook target server ──────────────────────────────
-	t.Log("Step 3: Starting webhook target server")
+	// ── Step 2: Start webhook target server ──────────────────────────────
+	t.Log("Step 2: Starting webhook target server")
 	targetSrv, waitForDelivery := startWebhookTarget(t)
 	t.Logf("  webhook target listening at: %s", targetSrv.URL)
 
-	// ── Step 4: Register webhook ─────────────────────────────────────────
-	t.Log("Step 4: Registering webhook")
-	webhookResp, err := clients.webhook.RegisterWebhook(ctx, connect.NewRequest(&pb.RegisterWebhookRequest{
-		Namespace:   namespaceName,
-		Url:         targetSrv.URL + "/webhook",
-		Active:      true,
-		Description: "Integration test webhook",
-		HttpConfig: &pb.WebhookHTTPConfig{
-			MaxRetries:            3,
-			RequestTimeoutSeconds: 10,
-			WebhookSecret:         webhookSecret,
-			CaptureResponseBody:   true,
+	// ── Step 3: Register webhook ─────────────────────────────────────────
+	t.Log("Step 3: Registering webhook")
+	var webhookOut struct {
+		WebhookID  string `json:"webhook_id"`
+		HTTPConfig struct {
+			WebhookSecret string `json:"webhook_secret"`
+		} `json:"http_config"`
+	}
+	resp, err = c.post(ctx, "/v1/namespaces/"+namespaceName+"/webhooks", map[string]any{
+		"events":      []string{eventName},
+		"url":         targetSrv.URL + "/webhook",
+		"active":      true,
+		"description": "Integration test webhook",
+		"http_config": map[string]any{
+			"max_retries":             3,
+			"request_timeout_seconds": 10,
+			"capture_response_body":   true,
 		},
-	}))
+	}, &webhookOut)
 	require.NoError(t, err, "RegisterWebhook failed")
-	webhookID := webhookResp.Msg.GetWebhookId()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	webhookID := webhookOut.WebhookID
 	require.NotEmpty(t, webhookID)
+	webhookSecret := webhookOut.HTTPConfig.WebhookSecret
+	require.NotEmpty(t, webhookSecret, "registration response should return the generated webhook secret")
 	t.Logf("  webhook registered: %s", webhookID)
 
-	// ── Step 5: Create subscription ──────────────────────────────────────
-	t.Log("Step 5: Creating subscription")
-	subResp, err := clients.subscription.CreateSubscription(ctx, connect.NewRequest(&pb.CreateSubscriptionRequest{
-		WebhookId: webhookID,
-		EventName: eventName,
-		Namespace: namespaceName,
-	}))
-	require.NoError(t, err, "CreateSubscription failed")
-	subscriptionID := subResp.Msg.GetSubscriptionId()
+	// ── Step 4: Verify webhook registration auto-created the subscription ─
+	t.Log("Step 4: Verifying auto-created subscription")
+	var subListOut struct {
+		Items []struct {
+			SubscriptionID string `json:"subscription_id"`
+		} `json:"items"`
+	}
+	resp, err = c.get(ctx, "/v1/namespaces/"+namespaceName+"/subscriptions?webhook_id="+webhookID+"&event_name="+eventName, &subListOut)
+	require.NoError(t, err, "ListSubscriptions failed")
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Len(t, subListOut.Items, 1, "registering a webhook should auto-create exactly one subscription per listed event")
+	subscriptionID := subListOut.Items[0].SubscriptionID
 	require.NotEmpty(t, subscriptionID)
-	t.Logf("  subscription created: %s", subscriptionID)
+	t.Logf("  subscription auto-created: %s", subscriptionID)
 
-	// ── Step 6: Push event ───────────────────────────────────────────────
-	t.Log("Step 6: Pushing event")
-	eventPayload, err := structpb.NewStruct(map[string]any{
-		"order_id":    "ord_12345",
-		"customer_id": "cust_67890",
-		"amount":      99.99,
-		"currency":    "USD",
-		"items": []any{
-			map[string]any{"sku": "SKU-001", "qty": float64(2)},
+	// ── Step 5: Push event ───────────────────────────────────────────────
+	t.Log("Step 5: Pushing event")
+	var pushOut struct {
+		EventID string `json:"event_id"`
+	}
+	resp, err = c.post(ctx, "/v1/namespaces/"+namespaceName+"/events?event="+eventName, map[string]any{
+		"payload": map[string]any{
+			"order_id":    "ord_12345",
+			"customer_id": "cust_67890",
+			"amount":      99.99,
+			"currency":    "USD",
+			"items": []any{
+				map[string]any{"sku": "SKU-001", "qty": 2},
+			},
 		},
-	})
-	require.NoError(t, err, "failed to create event payload struct")
-
-	pushResp, err := clients.event.PushEvent(ctx, connect.NewRequest(&pb.PushEventRequest{
-		Namespace:  namespaceName,
-		Event:      eventName,
-		Payload:    eventPayload,
-		TtlSeconds: 300,
-		Metadata: map[string]string{
+		"ttl_seconds": 300,
+		"metadata": map[string]string{
 			"source": "integration_test",
 		},
-	}))
+	}, &pushOut)
 	require.NoError(t, err, "PushEvent failed")
-	eventID := pushResp.Msg.GetEventId()
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	eventID := pushOut.EventID
 	require.NotEmpty(t, eventID)
 	t.Logf("  event pushed: %s", eventID)
 
-	// ── Step 7: Wait for webhook delivery ────────────────────────────────
-	t.Log("Step 7: Waiting for webhook delivery...")
+	// ── Step 6: Wait for webhook delivery ────────────────────────────────
+	t.Log("Step 6: Waiting for webhook delivery...")
 	deliveryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	delivery := waitForDelivery(deliveryCtx)
 	t.Log("  webhook delivery received!")
 
-	// ── Step 8: Validate webhook body ────────────────────────────────────
-	t.Log("Step 8: Validating webhook body")
+	// ── Step 7: Validate webhook body ────────────────────────────────────
+	t.Log("Step 7: Validating webhook body")
 
 	var envelope map[string]any
 	err = json.Unmarshal(delivery.Body, &envelope)
 	require.NoError(t, err, "failed to parse webhook body as JSON")
 
-	// Check envelope fields (snake_case)
 	assert.Equal(t, "1", envelope["version"], "envelope version should be '1'")
 	assert.Equal(t, eventID, envelope["event_id"], "envelope event_id should match pushed event")
 	assert.Equal(t, eventName, envelope["event_name"], "envelope event_name should match")
 	assert.NotEmpty(t, envelope["timestamp"], "envelope timestamp should be set")
 	assert.EqualValues(t, 1, envelope["attempt"], "first delivery attempt should be 1")
 
-	// Check payload is nested under "payload" key
 	payloadMap, ok := envelope["payload"].(map[string]any)
 	require.True(t, ok, "envelope should contain 'payload' as object")
 	assert.Equal(t, "ord_12345", payloadMap["order_id"])
@@ -221,7 +189,6 @@ func TestE2E_HappyPath(t *testing.T) {
 	assert.InDelta(t, 99.99, payloadMap["amount"], 0.001)
 	assert.Equal(t, "USD", payloadMap["currency"])
 
-	// Verify body does NOT contain namespace, webhook_id, or delivery_id at top level
 	_, hasNamespace := envelope["namespace"]
 	_, hasWebhookID := envelope["webhook_id"]
 	_, hasDeliveryID := envelope["delivery_id"]
@@ -229,30 +196,24 @@ func TestE2E_HappyPath(t *testing.T) {
 	assert.False(t, hasWebhookID, "body should NOT contain webhook_id (sent via headers)")
 	assert.False(t, hasDeliveryID, "body should NOT contain delivery_id (sent via headers)")
 
-	// ── Step 9: Validate webhook headers ─────────────────────────────────
-	t.Log("Step 9: Validating webhook headers")
+	// ── Step 8: Validate webhook headers ─────────────────────────────────
+	t.Log("Step 8: Validating webhook headers")
 
-	// X-Sparrow-Event-ID
 	sparrowEventID := delivery.Headers.Get("X-Sparrow-Event-ID")
 	assert.Equal(t, eventID, sparrowEventID, "X-Sparrow-Event-ID header should match event ID")
 
-	// X-Sparrow-Webhook-ID
 	sparrowWebhookID := delivery.Headers.Get("X-Sparrow-Webhook-ID")
 	assert.Equal(t, webhookID, sparrowWebhookID, "X-Sparrow-Webhook-ID header should match webhook ID")
 
-	// X-Sparrow-Delivery-ID
 	sparrowDeliveryID := delivery.Headers.Get("X-Sparrow-Delivery-ID")
 	assert.NotEmpty(t, sparrowDeliveryID, "X-Sparrow-Delivery-ID header should be set")
 
-	// Content-Type
 	contentType := delivery.Headers.Get("Content-Type")
 	assert.Equal(t, "application/json", contentType, "Content-Type should be application/json")
 
-	// User-Agent should contain Sparrow
 	userAgent := delivery.Headers.Get("User-Agent")
 	assert.True(t, strings.HasPrefix(userAgent, "Sparrow-Webhook/"), "User-Agent should start with 'Sparrow-Webhook/'")
 
-	// HMAC signature (webhook has a secret) — Standard Webhooks format
 	webhookSig := delivery.Headers.Get("webhook-signature")
 	assert.NotEmpty(t, webhookSig, "webhook-signature should be set (webhook has secret)")
 	assert.True(t, strings.HasPrefix(webhookSig, "v1,"), "signature should start with 'v1,'")
@@ -263,15 +224,16 @@ func TestE2E_HappyPath(t *testing.T) {
 	webhookMsgID := delivery.Headers.Get("webhook-id")
 	assert.NotEmpty(t, webhookMsgID, "webhook-id should be set")
 
-	// ── Step 10: Validate HMAC signature ─────────────────────────────────
-	t.Log("Step 10: Validating HMAC signature (Standard Webhooks)")
+	// ── Step 9: Validate HMAC signature ──────────────────────────────────
+	t.Log("Step 9: Validating HMAC signature (Standard Webhooks)")
 	validateHMAC(t, delivery.Body, webhookSecret, webhookMsgID, webhookTimestamp, webhookSig)
 
-	// ── Step 11: Poll for delivery status via API ────────────────────────
-	t.Log("Step 11: Polling for delivery status via API")
-	pollDeliverySuccess(t, clients, namespaceName, eventID, sparrowDeliveryID, 30*time.Second)
+	// ── Step 10: Poll for delivery status via API ────────────────────────
+	t.Log("Step 10: Polling for delivery status via API")
+	pollDeliverySuccess(t, c, namespaceName, eventID, sparrowDeliveryID, 30*time.Second)
 
 	t.Log("E2E happy path test passed!")
+	_ = subscriptionID
 }
 
 // validateHMAC verifies the HMAC-SHA256 signature per Standard Webhooks spec.
@@ -280,7 +242,6 @@ func TestE2E_HappyPath(t *testing.T) {
 func validateHMAC(t *testing.T, body []byte, secret, msgID, timestamp, signatureHeader string) {
 	t.Helper()
 
-	// Extract the v1 signature from the header (may contain multiple space-delimited sigs)
 	var b64Sig string
 	for _, s := range strings.Split(signatureHeader, " ") {
 		if strings.HasPrefix(s, "v1,") {
@@ -290,8 +251,14 @@ func validateHMAC(t *testing.T, body []byte, secret, msgID, timestamp, signature
 	}
 	require.NotEmpty(t, b64Sig, "should find a v1 signature in webhook-signature header")
 
+	rawSecret := []byte(secret)
+	if strings.HasPrefix(secret, "whsec_") {
+		decoded, decErr := base64.StdEncoding.DecodeString(strings.TrimPrefix(secret, "whsec_"))
+		require.NoError(t, decErr, "failed to decode whsec_ secret")
+		rawSecret = decoded
+	}
 	message := msgID + "." + timestamp + "." + string(body)
-	mac := hmac.New(sha256.New, []byte(secret))
+	mac := hmac.New(sha256.New, rawSecret)
 	mac.Write([]byte(message))
 	expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 
@@ -300,7 +267,7 @@ func validateHMAC(t *testing.T, body []byte, secret, msgID, timestamp, signature
 
 // pollDeliverySuccess polls the ListDeliveries API until the given delivery
 // reaches "success" status or the timeout expires.
-func pollDeliverySuccess(t *testing.T, clients *testClients, namespace, eventID, deliveryID string, timeout time.Duration) {
+func pollDeliverySuccess(t *testing.T, c *restClient, namespace, eventID, deliveryID string, timeout time.Duration) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -309,35 +276,45 @@ func pollDeliverySuccess(t *testing.T, clients *testClients, namespace, eventID,
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
+	type deliveryOut struct {
+		DeliveryID    string `json:"delivery_id"`
+		Status        string `json:"status"`
+		AttemptCount  int    `json:"attempt_count"`
+		ResponseCode  int    `json:"response_code"`
+		ErrorMessage  string `json:"error_message"`
+		ErrorCategory string `json:"error_category"`
+	}
+	type listOut struct {
+		Items []deliveryOut `json:"items"`
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			t.Fatalf("timed out waiting for delivery %s to reach success status", deliveryID)
 		case <-ticker.C:
 			reqCtx, reqCancel := context.WithTimeout(ctx, 10*time.Second)
-			resp, err := clients.delivery.ListDeliveries(reqCtx, connect.NewRequest(&pb.ListDeliveriesRequest{
-				Namespace: namespace,
-				EventId:   eventID,
-			}))
+			var out listOut
+			_, err := c.get(reqCtx, "/v1/namespaces/"+namespace+"/deliveries?event_id="+eventID, &out)
 			reqCancel()
 			if err != nil {
 				t.Logf("  poll: ListDeliveries error (retrying): %v", err)
 				continue
 			}
 
-			for _, d := range resp.Msg.GetDeliveries() {
-				if d.GetDeliveryId() == deliveryID {
+			for _, d := range out.Items {
+				if d.DeliveryID == deliveryID {
 					t.Logf("  poll: delivery %s status=%s attempts=%d responseCode=%d",
-						deliveryID, d.GetStatus(), d.GetAttemptCount(), d.GetResponseCode())
+						deliveryID, d.Status, d.AttemptCount, d.ResponseCode)
 
-					if d.GetStatus() == pb.WebhookDeliveryStatus_DELIVERY_SUCCESS {
-						assert.EqualValues(t, 200, d.GetResponseCode(), "response code should be 200")
-						assert.EqualValues(t, 1, d.GetAttemptCount(), "should succeed on first attempt")
+					if d.Status == "success" {
+						assert.Equal(t, 200, d.ResponseCode, "response code should be 200")
+						assert.Equal(t, 1, d.AttemptCount, "should succeed on first attempt")
 						return
 					}
-					if d.GetStatus() == pb.WebhookDeliveryStatus_DELIVERY_FAILED {
+					if d.Status == "failed" {
 						t.Fatalf("delivery %s failed: %s (category: %s)",
-							deliveryID, d.GetErrorMessage(), d.GetErrorCategory())
+							deliveryID, d.ErrorMessage, d.ErrorCategory)
 					}
 				}
 			}

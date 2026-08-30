@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"google.golang.org/grpc/codes"
-
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
@@ -23,7 +21,7 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 		"namespace", namespace)
 
 	if deliveryID == "" {
-		return nil, svcerrors.Error(codes.InvalidArgument, "delivery ID is required")
+		return nil, svcerrors.Error(svcerrors.InvalidArgument, "delivery ID is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -39,7 +37,7 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 		return nil, fmt.Errorf("failed to retrieve delivery status: %w", err)
 	}
 	if delivery == nil {
-		return nil, svcerrors.Error(codes.NotFound, "delivery not found")
+		return nil, svcerrors.Error(svcerrors.NotFound, "delivery not found")
 	}
 	return delivery, nil
 }
@@ -55,7 +53,7 @@ func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID str
 	s.logger.InfoContext(ctx, "Getting delivery attempts", "delivery_id", deliveryID, "tenant_id", tenantID.String())
 
 	if deliveryID == "" {
-		return nil, svcerrors.Error(codes.InvalidArgument, "delivery ID is required")
+		return nil, svcerrors.Error(svcerrors.InvalidArgument, "delivery ID is required")
 	}
 
 	id, err := parseUUID(deliveryID, "delivery ID")
@@ -158,17 +156,17 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 
 	// Validate required fields
 	if deliveryID == "" && webhookID == "" {
-		return nil, 0, svcerrors.Error(codes.InvalidArgument, "either delivery_id or webhook_id is required")
+		return nil, 0, svcerrors.Error(svcerrors.InvalidArgument, "either delivery_id or webhook_id is required")
 	}
 
 	// Namespace is required for webhook-level retry (multiple deliveries),
 	// but optional for single-delivery retry (delivery_id is globally unique within a tenant).
 	if namespace == "" && webhookID != "" {
-		return nil, 0, svcerrors.Error(codes.InvalidArgument, "namespace is required for webhook-level retry")
+		return nil, 0, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required for webhook-level retry")
 	}
 
 	if deliveryID != "" && webhookID != "" {
-		return nil, 0, svcerrors.Error(codes.InvalidArgument, "only one of delivery_id or webhook_id can be specified")
+		return nil, 0, svcerrors.Error(svcerrors.InvalidArgument, "only one of delivery_id or webhook_id can be specified")
 	}
 
 	var deliveriesToResubmit []*store.WebhookDelivery
@@ -187,12 +185,12 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		}
 
 		if delivery == nil {
-			return nil, 0, svcerrors.Error(codes.NotFound, "delivery not found")
+			return nil, 0, svcerrors.Error(svcerrors.NotFound, "delivery not found")
 		}
 
 		// Check if delivery can be resubmitted
 		if !force && delivery.Status == store.StatusSuccess {
-			return nil, 0, svcerrors.Error(codes.FailedPrecondition, "delivery already succeeded. Use force to resubmit anyway")
+			return nil, 0, svcerrors.Error(svcerrors.FailedPrecondition, "delivery already succeeded. Use force to resubmit anyway")
 		}
 
 		deliveriesToResubmit = []*store.WebhookDelivery{delivery}
@@ -279,7 +277,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 	}
 
 	if resubmittedCount == 0 {
-		return nil, 0, svcerrors.Error(codes.FailedPrecondition, "failed to resubmit any deliveries")
+		return nil, 0, svcerrors.Error(svcerrors.FailedPrecondition, "failed to resubmit any deliveries")
 	}
 
 	s.logger.InfoContext(ctx, "Webhook deliveries resubmitted successfully",

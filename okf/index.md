@@ -11,10 +11,10 @@ A self-hosted webhook delivery platform with event-driven architecture. Accepts 
 * [Architecture Overview](/architecture/overview.md) — system architecture and design
 * [Data Flow](/architecture/data-flow.md) — event push through delivery pipeline
 * [Packages](/packages/index.md) — Go package reference
-* [Services](/services/index.md) — gRPC/Connect-RPC service surface
+* [Services](/services/index.md) — REST service surface
 * [Concepts](/concepts/index.md) — domain concepts
 * [Database Schema](/database/schema.md) — tables, relationships, migrations
 * [Configuration](/config/env-vars.md) — environment variables and tuning
 * [Frontend](/frontend/index.md) — SvelteKit UI
 * [DevOps](/devops/index.md) — Docker, Helm, CI/CD
-* [References](/references/index.md) — proto definition, external dependencies
+* [References](/references/index.md) — external dependencies

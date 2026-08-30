@@ -16,9 +16,8 @@ Get the application URL:
   Then open: http://localhost:8080
 {{- end }}
 
-gRPC endpoint:
-  kubectl port-forward svc/{{ include "sparrow.fullname" . }} 50051:{{ .Values.service.grpcPort }}
-  grpcurl -plaintext localhost:50051 list
+API reference (Scalar):
+  Then open: http://localhost:8080/docs
 
 {{- if .Values.postgresql.enabled }}
 

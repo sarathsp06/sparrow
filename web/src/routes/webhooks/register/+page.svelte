@@ -1,16 +1,18 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { eventClient, webhookClient as client } from '$lib/services';
+  import { api, unwrap } from '$lib/services';
   import { formatAPIError } from '$lib/utils';
   import { onMount } from 'svelte';
-  import type { RegisteredEvent } from '../../../../../proto/webhook_pb.js';
+  import type { components } from '$lib/api-types';
+
+  type EventTypeItem = components["schemas"]["EventTypeItem"];
 
   let namespace = $state('default');
   let events: string[] = $state([]);
   let url = $state('');
   let description = $state('');
   let active = $state(true);
-  let allEvents: RegisteredEvent[] = $state([]);
+  let allEvents: EventTypeItem[] = $state([]);
   let error = $state('');
   let submitting = $state(false);
   let eventSearch = $state('');
@@ -37,6 +39,7 @@
   // Validation
   let urlError = $state('');
   let namespaceError = $state('');
+  let eventsError = $state('');
 
   let filteredEvents = $derived(
     eventSearch.trim()
@@ -46,8 +49,8 @@
 
   onMount(async () => {
     try {
-      const res = await eventClient.listEvents({ activeOnly: true });
-      allEvents = res.events || [];
+      const res = unwrap(await api.GET('/v1/event-types', { params: { query: { active_only: true } } }));
+      allEvents = res.items || [];
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to load events');
     }
@@ -87,7 +90,8 @@
 
     const urlValid = validateUrl(url);
     const nsValid = validateNamespace(namespace);
-    if (!urlValid || !nsValid) return;
+    eventsError = events.length === 0 ? 'Select at least one event' : '';
+    if (!urlValid || !nsValid || eventsError) return;
 
     submitting = true;
     try {
@@ -110,29 +114,28 @@
         .map(code => parseInt(code.trim()))
         .filter(code => !isNaN(code) && code >= 100 && code < 600);
 
-      const req = {
-        namespace,
-        events,
-        url,
-        description,
-        active,
-        headers: headersMap,
-        secretHeaders: Object.keys(secretHeadersMap).length > 0 ? secretHeadersMap : undefined,
-        httpConfig: showAdvanced ? {
-          maxRetries,
-          retryBackoffSeconds,
-          captureResponseBody,
-          followRedirects,
-          verifySsl: verifySSL,
-          requestTimeoutSeconds,
-          expectedStatusCodes: statusCodes,
-          webhookSecret: webhookSecret.trim() || undefined,
-          userAgent: userAgent.trim() || 'Sparrow-Webhook/1.0',
-          contentType: contentType.trim() || 'application/json',
-        } : undefined,
-      };
-
-      await client.registerWebhook(req);
+      unwrap(await api.POST('/v1/namespaces/{namespace}/webhooks', {
+        params: { path: { namespace } },
+        body: {
+          events,
+          url,
+          description,
+          active,
+          headers: headersMap,
+          secret_headers: Object.keys(secretHeadersMap).length > 0 ? secretHeadersMap : undefined,
+          http_config: showAdvanced ? {
+            max_retries: maxRetries,
+            retry_backoff_seconds: retryBackoffSeconds,
+            capture_response_body: captureResponseBody,
+            follow_redirects: followRedirects,
+            verify_ssl: verifySSL,
+            request_timeout_seconds: requestTimeoutSeconds,
+            expected_status_codes: statusCodes,
+            user_agent: userAgent.trim() || 'Sparrow-Webhook/1.0',
+            content_type: contentType.trim() || 'application/json',
+          } : undefined,
+        },
+      }));
       goto('/webhooks');
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to register webhook');
@@ -148,7 +151,6 @@
 
 <div class="min-h-screen bg-gray-50">
   <div class="max-w-2xl mx-auto px-4 sm:px-6 py-6">
-    <!-- Header -->
     <div class="mb-6">
       <nav class="mb-3">
         <a href="/webhooks" class="text-sm text-gray-500 hover:text-gray-700 transition">
@@ -160,327 +162,133 @@
     </div>
 
     <form onsubmit={registerWebhook} class="space-y-6">
-      <!-- Basic Configuration -->
-      <section class="bg-white rounded-lg border border-gray-200 p-5">
-        <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Basic Configuration</h2>
-
-        <div class="space-y-4">
-          <div>
-            <label for="namespace" class="block text-sm font-medium text-gray-700 mb-1">Namespace</label>
-              <input
-                type="text"
-                id="namespace"
-                bind:value={namespace}
-                oninput={() => validateNamespace(namespace)}
-                placeholder="Enter namespace..."
-                class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900 {namespaceError ? 'border-red-300' : ''}"
-              />
-            {#if namespaceError}
-              <p class="mt-1 text-xs text-red-600">{namespaceError}</p>
-            {/if}
-          </div>
-
-          <div>
-            <label for="url" class="block text-sm font-medium text-gray-700 mb-1">Endpoint URL</label>
-            <input
-              type="url"
-              id="url"
-              bind:value={url}
-              oninput={() => { if (urlError) validateUrl(url); }}
-              onblur={() => validateUrl(url)}
-              placeholder="https://api.example.com/webhook"
-              class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900 {urlError ? 'border-red-300' : ''}"
-            />
-            {#if urlError}
-              <p class="mt-1 text-xs text-red-600">{urlError}</p>
-            {/if}
-          </div>
-
-          <div>
-            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
-              Description <span class="text-gray-400 font-normal">(optional)</span>
-            </label>
-            <input
-              type="text"
-              id="description"
-              bind:value={description}
-              placeholder="e.g., Order notification handler"
-              class="block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-gray-900 focus:ring-gray-900"
-            />
-          </div>
-
-          <div class="flex items-center gap-3">
-            <button
-              type="button"
-              onclick={() => { active = !active; }}
-              aria-label={active ? 'Deactivate webhook' : 'Activate webhook'}
-              class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 {active ? 'bg-green-500' : 'bg-gray-300'}"
-            >
-              <span
-                class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {active ? 'translate-x-4' : 'translate-x-0'}"
-              ></span>
-            </button>
-            <span class="text-sm text-gray-700">{active ? 'Active' : 'Inactive'} - webhook will {active ? '' : 'not '}receive events immediately</span>
-          </div>
+      <section class="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+        <div>
+          <label for="namespace" class="block text-sm font-medium text-gray-700 mb-1">Namespace</label>
+          <input id="namespace" type="text" bind:value={namespace} class="w-full px-3 py-2 border {namespaceError ? 'border-red-300' : 'border-gray-300'} rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+          {#if namespaceError}<p class="text-xs text-red-600 mt-1">{namespaceError}</p>{/if}
+        </div>
+        <div>
+          <label for="url" class="block text-sm font-medium text-gray-700 mb-1">Target URL</label>
+          <input id="url" type="text" bind:value={url} placeholder="https://example.com/webhook" class="w-full px-3 py-2 border {urlError ? 'border-red-300' : 'border-gray-300'} rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+          {#if urlError}<p class="text-xs text-red-600 mt-1">{urlError}</p>{/if}
+        </div>
+        <div>
+          <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <input id="description" type="text" bind:value={description} class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="active" type="checkbox" bind:checked={active} class="rounded border-gray-300" />
+          <label for="active" class="text-sm text-gray-700">Active</label>
         </div>
       </section>
 
-      <!-- Event Selection -->
       <section class="bg-white rounded-lg border border-gray-200 p-5">
-        <div class="flex items-center justify-between mb-2">
-          <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-            Events
-            <span class="text-gray-400 font-normal normal-case tracking-normal">(optional)</span>
-            {#if events.length > 0}
-              <span class="ml-1 text-xs font-normal text-gray-500">({events.length} selected)</span>
-            {/if}
-          </h2>
-        </div>
-        <p class="text-xs text-gray-500 mb-4">
-          Select events to subscribe to now, or skip this and add subscriptions later from the webhook detail page.
-        </p>
-
-        {#if allEvents.length > 5}
-          <div class="mb-3">
-            <input
-              type="text"
-              placeholder="Filter events..."
-              bind:value={eventSearch}
-              class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
-            />
-          </div>
-        {/if}
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-56 overflow-y-auto border border-gray-200 rounded-lg p-2">
-          {#each filteredEvents as event}
-            <label class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 cursor-pointer transition text-sm {events.includes(event.name) ? 'bg-blue-50' : ''}">
+        <label for="event-search" class="block text-sm font-medium text-gray-700 mb-2">Subscribe to Events</label>
+        {#if eventsError}<p class="text-xs text-red-600 mb-2">{eventsError}</p>{/if}
+        <input id="event-search" type="text" placeholder="Search events..." bind:value={eventSearch} class="w-full px-3 py-2 mb-3 border border-gray-300 rounded-lg text-sm" />
+        <div class="space-y-1 max-h-56 overflow-y-auto">
+          {#each filteredEvents as ev}
+            <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer">
               <input
                 type="checkbox"
-                value={event.name}
-                bind:group={events}
-                class="rounded border-gray-300 text-gray-900 shadow-sm focus:ring-gray-900"
+                checked={events.includes(ev.name)}
+                onchange={() => {
+                  events = events.includes(ev.name) ? events.filter(e => e !== ev.name) : [...events, ev.name];
+                }}
+                class="rounded border-gray-300"
               />
-              <span class="text-gray-700 truncate">{event.name}</span>
+              <span class="text-sm text-gray-800">{ev.name}</span>
             </label>
           {/each}
-          {#if filteredEvents.length === 0}
-            <p class="col-span-2 text-sm text-gray-400 py-4 text-center">No events found</p>
-          {/if}
         </div>
       </section>
 
-      <!-- HTTP Headers -->
       <section class="bg-white rounded-lg border border-gray-200 p-5">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Custom HTTP Headers</h2>
-          <button type="button" onclick={addHeader} class="text-xs font-medium text-gray-600 hover:text-gray-900 transition">
-            + Add Header
-          </button>
-        </div>
-
-        {#if headers.length === 0}
-          <p class="text-sm text-gray-400">No custom headers configured.</p>
-        {:else}
-          <div class="space-y-2">
-            {#each headers as header, index}
-              <div class="flex items-center gap-2">
-                <input
-                  type="text"
-                  bind:value={header.key}
-                  placeholder="Header Name"
-                  class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
-                />
-                <input
-                  type="text"
-                  bind:value={header.value}
-                  placeholder="Header Value"
-                  class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
-                />
-                <button
-                  type="button"
-                  onclick={() => removeHeader(index)}
-                  class="shrink-0 p-1.5 text-gray-400 hover:text-red-600 rounded transition"
-                  title="Remove header"
-                >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            {/each}
+        <span class="block text-sm font-medium text-gray-700 mb-2">HTTP Headers</span>
+        {#each headers as h, i}
+          <div class="flex gap-2 mb-2">
+            <input type="text" placeholder="key" bind:value={h.key} class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm" />
+            <input type="text" placeholder="value" bind:value={h.value} class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm" />
+            <button type="button" onclick={() => removeHeader(i)} class="px-2 text-gray-400 hover:text-red-600">&times;</button>
           </div>
-        {/if}
+        {/each}
+        <button type="button" onclick={addHeader} class="text-xs px-3 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200">+ Add Header</button>
       </section>
 
-      <!-- Secret Headers -->
       <section class="bg-white rounded-lg border border-gray-200 p-5">
-        <div class="flex items-center justify-between mb-2">
-          <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Secret Headers</h2>
-          <button type="button" onclick={addSecretHeader} class="text-xs font-medium text-gray-600 hover:text-gray-900 transition">
-            + Add Secret Header
-          </button>
-        </div>
-        <p class="text-xs text-gray-500 mb-4">
-          Sensitive headers (API keys, Bearer tokens) that are stored encrypted. Values are never exposed in API responses.
-        </p>
-
-        {#if secretHeaders.length === 0}
-          <p class="text-sm text-gray-400">No secret headers configured.</p>
-        {:else}
-          <div class="space-y-2">
-            {#each secretHeaders as header, index}
-              <div class="flex items-center gap-2">
-                <input
-                  type="text"
-                  bind:value={header.key}
-                  placeholder="Header Name (e.g. Authorization)"
-                  class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
-                />
-                <input
-                  type="password"
-                  bind:value={header.value}
-                  placeholder="Header Value (e.g. Bearer sk-...)"
-                  class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900"
-                />
-                <button
-                  type="button"
-                  onclick={() => removeSecretHeader(index)}
-                  class="shrink-0 p-1.5 text-gray-400 hover:text-red-600 rounded transition"
-                  title="Remove secret header"
-                >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            {/each}
+        <span class="block text-sm font-medium text-gray-700 mb-2">Secret Headers (encrypted at rest)</span>
+        {#each secretHeaders as h, i}
+          <div class="flex gap-2 mb-2">
+            <input type="text" placeholder="key" bind:value={h.key} class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm" />
+            <input type="password" placeholder="value" bind:value={h.value} class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm" />
+            <button type="button" onclick={() => removeSecretHeader(i)} class="px-2 text-gray-400 hover:text-red-600">&times;</button>
           </div>
-        {/if}
+        {/each}
+        <button type="button" onclick={addSecretHeader} class="text-xs px-3 py-1.5 bg-gray-100 rounded-lg hover:bg-gray-200">+ Add Secret Header</button>
       </section>
 
-      <!-- Advanced HTTP Config -->
       <section class="bg-white rounded-lg border border-gray-200">
-        <button
-          type="button"
-          onclick={() => showAdvanced = !showAdvanced}
-          class="flex items-center justify-between w-full px-5 py-4 text-left"
-        >
-          <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Advanced HTTP Configuration</h2>
-          <svg
-            class="w-4 h-4 text-gray-400 transition-transform {showAdvanced ? 'rotate-180' : ''}"
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-          </svg>
+        <button type="button" onclick={() => (showAdvanced = !showAdvanced)} class="w-full flex items-center justify-between p-5 text-left">
+          <span class="text-sm font-medium text-gray-700">Advanced HTTP Configuration</span>
+          <span class="text-gray-400">{showAdvanced ? '−' : '+'}</span>
         </button>
-
         {#if showAdvanced}
-          <div class="border-t border-gray-200 px-5 py-4 space-y-4">
+          <div class="p-5 pt-0 space-y-4 border-t border-gray-100">
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label for="maxRetries" class="block text-sm font-medium text-gray-700 mb-1">Max Retries</label>
-                <input type="number" id="maxRetries" bind:value={maxRetries} min="0" max="10"
-                  class="block w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
-                <p class="mt-0.5 text-xs text-gray-400">0-10 attempts</p>
+                <label for="maxRetries" class="block text-xs font-medium text-gray-700 mb-1">Max Retries</label>
+                <input id="maxRetries" type="number" bind:value={maxRetries} class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
               </div>
               <div>
-                <label for="retryBackoff" class="block text-sm font-medium text-gray-700 mb-1">Retry Backoff</label>
-                <input type="number" id="retryBackoff" bind:value={retryBackoffSeconds} min="1" max="3600"
-                  class="block w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
-                <p class="mt-0.5 text-xs text-gray-400">seconds between retries</p>
+                <label for="retryBackoff" class="block text-xs font-medium text-gray-700 mb-1">Retry Backoff (s)</label>
+                <input id="retryBackoff" type="number" bind:value={retryBackoffSeconds} class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+              <div>
+                <label for="timeout" class="block text-xs font-medium text-gray-700 mb-1">Request Timeout (s)</label>
+                <input id="timeout" type="number" bind:value={requestTimeoutSeconds} class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+              <div>
+                <label for="statusCodes" class="block text-xs font-medium text-gray-700 mb-1">Expected Status Codes</label>
+                <input id="statusCodes" type="text" bind:value={expectedStatusCodes} class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
               </div>
             </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label for="timeout" class="block text-sm font-medium text-gray-700 mb-1">Request Timeout</label>
-                <input type="number" id="timeout" bind:value={requestTimeoutSeconds} min="1" max="300"
-                  class="block w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
-                <p class="mt-0.5 text-xs text-gray-400">seconds</p>
-              </div>
-              <div>
-                <label for="statusCodes" class="block text-sm font-medium text-gray-700 mb-1">Expected Status Codes</label>
-                <input type="text" id="statusCodes" bind:value={expectedStatusCodes} placeholder="200,201,202,204"
-                  class="block w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
-                <p class="mt-0.5 text-xs text-gray-400">comma-separated</p>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label for="userAgent" class="block text-sm font-medium text-gray-700 mb-1">User Agent</label>
-                <input type="text" id="userAgent" bind:value={userAgent}
-                  class="block w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
-              </div>
-              <div>
-                <label for="contentType" class="block text-sm font-medium text-gray-700 mb-1">Content Type</label>
-                <input type="text" id="contentType" bind:value={contentType}
-                  class="block w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
-              </div>
-            </div>
-
             <div>
-              <label for="webhookSecret" class="block text-sm font-medium text-gray-700 mb-1">Webhook Secret</label>
-              <input type="password" id="webhookSecret" bind:value={webhookSecret} placeholder="Optional secret for signature verification"
-                class="block w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
+              <label for="secret" class="block text-xs font-medium text-gray-700 mb-1">Webhook Secret (HMAC signing key)</label>
+              <input id="secret" type="password" bind:value={webhookSecret} placeholder="Leave blank to auto-generate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
             </div>
-
-            <div class="space-y-2 pt-2">
-              {#each [
-                { label: 'Capture Response Body', bind: () => captureResponseBody, toggle: () => captureResponseBody = !captureResponseBody, hint: 'Off: stores up to 1 KB of response per delivery. On: stores up to 1 MB.' },
-                { label: 'Follow Redirects', bind: () => followRedirects, toggle: () => followRedirects = !followRedirects, hint: 'Allow HTTP redirects' },
-                { label: 'Verify SSL Certificates', bind: () => verifySSL, toggle: () => verifySSL = !verifySSL, hint: 'Disable for development only' },
-              ] as opt}
-                <label class="flex items-center justify-between py-1 cursor-pointer">
-                  <div>
-                    <span class="text-sm text-gray-700">{opt.label}</span>
-                    <span class="block text-xs text-gray-400">{opt.hint}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onclick={opt.toggle}
-                    aria-label="Toggle {opt.label}"
-                    class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {opt.bind() ? 'bg-green-500' : 'bg-gray-300'}"
-                  >
-                    <span
-                      class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {opt.bind() ? 'translate-x-4' : 'translate-x-0'}"
-                    ></span>
-                  </button>
-                </label>
-              {/each}
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label for="userAgent" class="block text-xs font-medium text-gray-700 mb-1">User-Agent</label>
+                <input id="userAgent" type="text" bind:value={userAgent} class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+              <div>
+                <label for="contentType" class="block text-xs font-medium text-gray-700 mb-1">Content-Type</label>
+                <input id="contentType" type="text" bind:value={contentType} class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+            </div>
+            <div class="flex items-center gap-6">
+              <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" bind:checked={captureResponseBody} class="rounded border-gray-300" /> Capture response body</label>
+              <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" bind:checked={followRedirects} class="rounded border-gray-300" /> Follow redirects</label>
+              <label class="flex items-center gap-2 text-sm text-gray-700"><input type="checkbox" bind:checked={verifySSL} class="rounded border-gray-300" /> Verify SSL</label>
             </div>
           </div>
         {/if}
       </section>
 
-      <!-- Error -->
       {#if error}
         <div class="bg-red-50 border border-red-200 rounded-lg p-4">
           <p class="text-sm text-red-700">{error}</p>
         </div>
       {/if}
 
-      <!-- Info banner -->
       <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <p class="text-sm text-gray-600">
-          <span class="font-medium text-gray-700">Tip:</span> You can manage event subscriptions at any time from the webhook detail page, including adding templates for payload transformation and label filters for routing.
-        </p>
+        <p class="text-xs text-gray-500">A signing secret is generated automatically unless you provide one above. It's returned once on creation — copy it before leaving this page.</p>
       </div>
 
-      <!-- Actions -->
       <div class="flex items-center justify-end gap-3 pt-2">
-        <button
-          type="button"
-          onclick={() => goto('/webhooks')}
-          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={submitting}
-          class="px-6 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-        >
+        <a href="/webhooks" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition">Cancel</a>
+        <button type="submit" disabled={submitting} class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition">
           {submitting ? 'Registering...' : 'Register Webhook'}
         </button>
       </div>

@@ -1,22 +1,21 @@
 <script lang="ts">
-  import { healthClient, webhookClient } from "$lib/services";
+  import { api, unwrap } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
   import { onMount } from "svelte";
-  import type {
-    HealthSummary,
-    NamespaceStats,
-    RegisteredWebhook,
-    WebhookHealthMetrics,
-  } from "../../../../proto/webhook_pb.js";
-  import { WebhookHealth } from "../../../../proto/webhook_pb.js";
+  import type { components } from "$lib/api-types";
   import HealthBadge from "$lib/components/HealthBadge.svelte";
   import CopyableId from "$lib/components/CopyableId.svelte";
 
+  type HealthSummary = components["schemas"]["HealthSummaryOutputBody"];
+  type NamespaceStats = components["schemas"]["NamespaceStatsOutputBody"];
+  type WebhookOut = components["schemas"]["WebhookOut"];
+  type WebhookHealthOutput = components["schemas"]["WebhookHealthOutputBody"];
+
   let healthSummary: HealthSummary | undefined = $state();
   let namespaceStats: NamespaceStats | undefined = $state();
-  let unhealthyWebhooks: RegisteredWebhook[] = $state([]);
-  let degradedWebhooks: RegisteredWebhook[] = $state([]);
-  let webhookMetrics: Map<string, WebhookHealthMetrics> = $state(new Map());
+  let unhealthyWebhooks: WebhookOut[] = $state([]);
+  let degradedWebhooks: WebhookOut[] = $state([]);
+  let webhookMetrics: Map<string, WebhookHealthOutput> = $state(new Map());
   let loading = $state(true);
   let error = $state("");
 
@@ -24,36 +23,26 @@
     loading = true;
     error = "";
     try {
-      const [summaryRes, statsRes, unhealthyRes, degradedRes] = await Promise.all([
-        healthClient.getHealthSummary({}),
-        webhookClient.getNamespaceStats({ namespace: '' }),
-        healthClient.listWebhooksByHealth({
-          health: WebhookHealth.HEALTH_UNHEALTHY,
-          pagination: { limit: 20, offset: 0 },
-        }),
-        healthClient.listWebhooksByHealth({
-          health: WebhookHealth.HEALTH_DEGRADED,
-          pagination: { limit: 20, offset: 0 },
-        }),
+      const [summary, stats, unhealthyRes, degradedRes] = await Promise.all([
+        api.GET('/v1/health-summary'),
+        api.GET('/v1/stats'),
+        api.GET('/v1/webhooks', { params: { query: { health: 'unhealthy', limit: 20, offset: 0 } } }),
+        api.GET('/v1/webhooks', { params: { query: { health: 'degraded', limit: 20, offset: 0 } } }),
       ]);
-      healthSummary = summaryRes.summary;
-      namespaceStats = statsRes.stats;
-      unhealthyWebhooks = unhealthyRes.webhooks || [];
-      degradedWebhooks = degradedRes.webhooks || [];
+      healthSummary = unwrap(summary);
+      namespaceStats = unwrap(stats);
+      unhealthyWebhooks = unwrap(unhealthyRes).items || [];
+      degradedWebhooks = unwrap(degradedRes).items || [];
 
-      // Fetch health metrics for all unhealthy + degraded webhooks
       const allWebhooks = [...unhealthyWebhooks, ...degradedWebhooks];
-      const metricsMap = new Map<string, WebhookHealthMetrics>();
+      const metricsMap = new Map<string, WebhookHealthOutput>();
       await Promise.all(
         allWebhooks.map(async (wh) => {
           try {
-            const healthRes = await healthClient.getWebhookHealth({
-              webhookId: wh.webhookId,
-              namespace: wh.namespace,
-            });
-            if (healthRes.metrics) {
-              metricsMap.set(wh.webhookId, healthRes.metrics);
-            }
+            const healthRes = unwrap(await api.GET('/v1/namespaces/{namespace}/webhooks/{webhook_id}/health', {
+              params: { path: { namespace: wh.namespace, webhook_id: wh.webhook_id } },
+            }));
+            metricsMap.set(wh.webhook_id, healthRes);
           } catch {
             // Ignore individual fetch failures
           }
@@ -76,7 +65,6 @@
 
 <div class="min-h-screen bg-gray-50">
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <!-- Page header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
       <div>
         <h1 class="text-2xl font-bold text-gray-900">Health Dashboard</h1>
@@ -95,9 +83,7 @@
     </div>
 
     {#if loading}
-      <!-- Loading skeleton -->
       <div class="space-y-8">
-        <!-- Overall health skeleton -->
         <div>
           <div class="h-6 bg-gray-200 rounded w-36 mb-4 animate-pulse"></div>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -109,7 +95,6 @@
             {/each}
           </div>
         </div>
-        <!-- Namespace stats skeleton -->
         <div>
           <div class="h-6 bg-gray-200 rounded w-48 mb-4 animate-pulse"></div>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -136,76 +121,69 @@
       </div>
     {:else}
       <div class="space-y-8">
-        <!-- Overall Health -->
         {#if healthSummary}
           <div>
             <h2 class="text-lg font-semibold text-gray-900 mb-4">Overall Health</h2>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4 text-center">
-                <p class="text-3xl font-bold text-green-600">{healthSummary.healthyCount}</p>
+                <p class="text-3xl font-bold text-green-600">{healthSummary.healthy_count}</p>
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mt-1">Healthy</p>
               </div>
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4 text-center">
-                <p class="text-3xl font-bold text-yellow-500">{healthSummary.degradedCount}</p>
+                <p class="text-3xl font-bold text-yellow-500">{healthSummary.degraded_count}</p>
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mt-1">Degraded</p>
               </div>
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4 text-center">
-                <p class="text-3xl font-bold text-red-600">{healthSummary.unhealthyCount}</p>
+                <p class="text-3xl font-bold text-red-600">{healthSummary.unhealthy_count}</p>
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mt-1">Unhealthy</p>
               </div>
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4 text-center" title="Webhooks with no deliveries yet">
-                <p class="text-3xl font-bold text-gray-400">{healthSummary.unknownCount}</p>
+                <p class="text-3xl font-bold text-gray-400">{healthSummary.unknown_count}</p>
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mt-1">No Data</p>
               </div>
             </div>
           </div>
         {/if}
 
-        <!-- Namespace Stats -->
         {#if namespaceStats}
           <div>
-            <h2 class="text-lg font-semibold text-gray-900 mb-1">
-              Statistics
-            </h2>
-            <p class="text-sm text-gray-500 mb-4">
-              All Namespaces
-            </p>
+            <h2 class="text-lg font-semibold text-gray-900 mb-1">Statistics</h2>
+            <p class="text-sm text-gray-500 mb-4">All Namespaces</p>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4">
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Webhooks</p>
-                <p class="text-2xl font-bold text-gray-900 mt-1">{namespaceStats.totalWebhooks}</p>
+                <p class="text-2xl font-bold text-gray-900 mt-1">{namespaceStats.total_webhooks}</p>
               </div>
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4">
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Active Webhooks</p>
-                <p class="text-2xl font-bold text-green-600 mt-1">{namespaceStats.activeWebhooks}</p>
+                <p class="text-2xl font-bold text-green-600 mt-1">{namespaceStats.active_webhooks}</p>
               </div>
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4">
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Success Rate</p>
-                <p class="text-2xl font-bold mt-1 {namespaceStats.successRate >= 0.95 ? 'text-green-600' : namespaceStats.successRate >= 0.8 ? 'text-yellow-600' : 'text-red-600'}">
-                  {(namespaceStats.successRate * 100).toFixed(1)}%
+                <p class="text-2xl font-bold mt-1 {namespaceStats.success_rate >= 0.95 ? 'text-green-600' : namespaceStats.success_rate >= 0.8 ? 'text-yellow-600' : 'text-red-600'}">
+                  {(namespaceStats.success_rate * 100).toFixed(1)}%
                 </p>
               </div>
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4">
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Successful Deliveries</p>
-                <p class="text-2xl font-bold text-green-600 mt-1">{namespaceStats.successfulDeliveries}</p>
+                <p class="text-2xl font-bold text-green-600 mt-1">{namespaceStats.successful_deliveries}</p>
               </div>
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4">
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Failed Deliveries</p>
-                <p class="text-2xl font-bold text-red-600 mt-1">{namespaceStats.failedDeliveries}</p>
+                <p class="text-2xl font-bold text-red-600 mt-1">{namespaceStats.failed_deliveries}</p>
               </div>
               <div class="bg-white rounded-lg border border-gray-200 px-4 py-4">
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Deliveries</p>
-                <p class="text-2xl font-bold text-yellow-600 mt-1">{namespaceStats.pendingDeliveries}</p>
+                <p class="text-2xl font-bold text-yellow-600 mt-1">{namespaceStats.pending_deliveries}</p>
               </div>
             </div>
           </div>
         {/if}
 
-        <!-- Webhooks Requiring Attention -->
-        {#snippet webhookCard(wh: RegisteredWebhook)}
-          {@const metrics = webhookMetrics.get(wh.webhookId)}
+        {#snippet webhookCard(wh: WebhookOut)}
+          {@const metrics = webhookMetrics.get(wh.webhook_id)}
           <a
-            href="/webhooks/{wh.webhookId}"
+            href="/webhooks/{wh.webhook_id}"
             class="block bg-white rounded-lg border border-gray-200 px-4 py-4 hover:border-gray-300 hover:shadow-sm transition"
           >
             <div class="flex items-center justify-between mb-2">
@@ -214,43 +192,42 @@
                 <HealthBadge health={wh.health} size="sm" />
                 <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{wh.namespace}</span>
               </div>
-              <CopyableId id={wh.webhookId} />
+              <CopyableId id={wh.webhook_id} />
             </div>
 
             {#if metrics}
               <div class="flex items-center gap-4 text-xs text-gray-500 mb-2">
-                <span>Success rate: <span class="font-medium {metrics.successRate >= 0.8 ? 'text-yellow-600' : 'text-red-600'}">{(metrics.successRate * 100).toFixed(1)}%</span></span>
-                <span>Failed: <span class="font-medium text-red-600">{metrics.failedDeliveries}</span></span>
-                <span>Consecutive: <span class="font-medium text-red-600">{metrics.consecutiveFailures}</span></span>
+                <span>Success rate: <span class="font-medium {metrics.success_rate >= 0.8 ? 'text-yellow-600' : 'text-red-600'}">{(metrics.success_rate * 100).toFixed(1)}%</span></span>
+                <span>Failed: <span class="font-medium text-red-600">{metrics.failed_deliveries}</span></span>
+                <span>Consecutive: <span class="font-medium text-red-600">{metrics.consecutive_failures}</span></span>
               </div>
 
-              <!-- Error category breakdown bar -->
-              {@const totalErrors = (metrics.clientErrors || 0) + (metrics.serverErrors || 0) + (metrics.timeoutErrors || 0) + (metrics.networkErrors || 0) + (metrics.unexpectedStatusErrors || 0)}
+              {@const totalErrors = (metrics.client_errors || 0) + (metrics.server_errors || 0) + (metrics.timeout_errors || 0) + (metrics.network_errors || 0) + (metrics.unexpected_status_errors || 0)}
               {#if totalErrors > 0}
                 <div class="flex items-center gap-3">
                   <div class="flex-1 h-2 rounded-full overflow-hidden flex bg-gray-100">
-                    {#if metrics.clientErrors > 0}
-                      <div class="bg-orange-400 h-full" style="width: {(metrics.clientErrors / totalErrors) * 100}%"></div>
+                    {#if metrics.client_errors > 0}
+                      <div class="bg-orange-400 h-full" style="width: {(metrics.client_errors / totalErrors) * 100}%"></div>
                     {/if}
-                    {#if metrics.serverErrors > 0}
-                      <div class="bg-red-400 h-full" style="width: {(metrics.serverErrors / totalErrors) * 100}%"></div>
+                    {#if metrics.server_errors > 0}
+                      <div class="bg-red-400 h-full" style="width: {(metrics.server_errors / totalErrors) * 100}%"></div>
                     {/if}
-                    {#if metrics.timeoutErrors > 0}
-                      <div class="bg-yellow-400 h-full" style="width: {(metrics.timeoutErrors / totalErrors) * 100}%"></div>
+                    {#if metrics.timeout_errors > 0}
+                      <div class="bg-yellow-400 h-full" style="width: {(metrics.timeout_errors / totalErrors) * 100}%"></div>
                     {/if}
-                    {#if metrics.networkErrors > 0}
-                      <div class="bg-purple-400 h-full" style="width: {(metrics.networkErrors / totalErrors) * 100}%"></div>
+                    {#if metrics.network_errors > 0}
+                      <div class="bg-purple-400 h-full" style="width: {(metrics.network_errors / totalErrors) * 100}%"></div>
                     {/if}
-                    {#if metrics.unexpectedStatusErrors > 0}
-                      <div class="bg-amber-400 h-full" style="width: {(metrics.unexpectedStatusErrors / totalErrors) * 100}%"></div>
+                    {#if metrics.unexpected_status_errors > 0}
+                      <div class="bg-amber-400 h-full" style="width: {(metrics.unexpected_status_errors / totalErrors) * 100}%"></div>
                     {/if}
                   </div>
                   <div class="flex items-center gap-2 text-[10px] text-gray-500 shrink-0">
-                    {#if metrics.clientErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>{metrics.clientErrors} 4xx</span>{/if}
-                    {#if metrics.serverErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>{metrics.serverErrors} 5xx</span>{/if}
-                    {#if metrics.timeoutErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>{metrics.timeoutErrors} timeout</span>{/if}
-                    {#if metrics.networkErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>{metrics.networkErrors} network</span>{/if}
-                    {#if metrics.unexpectedStatusErrors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>{metrics.unexpectedStatusErrors} unexpected</span>{/if}
+                    {#if metrics.client_errors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-400"></span>{metrics.client_errors} 4xx</span>{/if}
+                    {#if metrics.server_errors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>{metrics.server_errors} 5xx</span>{/if}
+                    {#if metrics.timeout_errors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>{metrics.timeout_errors} timeout</span>{/if}
+                    {#if metrics.network_errors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>{metrics.network_errors} network</span>{/if}
+                    {#if metrics.unexpected_status_errors > 0}<span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>{metrics.unexpected_status_errors} unexpected</span>{/if}
                   </div>
                 </div>
               {/if}

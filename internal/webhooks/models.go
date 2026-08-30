@@ -8,8 +8,6 @@ import (
 
 	"github.com/lib/pq"
 
-	"google.golang.org/grpc/codes"
-
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
@@ -94,35 +92,35 @@ func (config WebhookHTTPConfig) IsSuccessStatusCode(statusCode int) bool {
 // ValidateConfig validates the HTTP configuration
 func (config WebhookHTTPConfig) ValidateConfig() error {
 	if config.MaxRetries < 0 || config.MaxRetries > 10 {
-		return svcerrors.Errorf(codes.InvalidArgument,"max_retries must be between 0 and 10, got %d", config.MaxRetries)
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "max_retries must be between 0 and 10, got %d", config.MaxRetries)
 	}
 
 	if config.RetryBackoffSeconds <= 0 || config.RetryBackoffSeconds > 3600 {
-		return svcerrors.Errorf(codes.InvalidArgument,"retry_backoff_seconds must be between 1 and 3600, got %d", config.RetryBackoffSeconds)
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "retry_backoff_seconds must be between 1 and 3600, got %d", config.RetryBackoffSeconds)
 	}
 
 	if config.RequestTimeoutSeconds <= 0 || config.RequestTimeoutSeconds > 300 {
-		return svcerrors.Errorf(codes.InvalidArgument,"request_timeout_seconds must be between 1 and 300, got %d", config.RequestTimeoutSeconds)
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "request_timeout_seconds must be between 1 and 300, got %d", config.RequestTimeoutSeconds)
 	}
 
 	if len(config.ExpectedStatusCodes) == 0 {
-		return svcerrors.Error(codes.InvalidArgument, "expected_status_codes cannot be empty")
+		return svcerrors.Error(svcerrors.InvalidArgument, "expected_status_codes cannot be empty")
 	}
 
 	for _, code := range config.ExpectedStatusCodes {
 		if code < 100 || code > 599 {
-			return svcerrors.Errorf(codes.InvalidArgument,"invalid HTTP status code: %d", code)
+			return svcerrors.Errorf(svcerrors.InvalidArgument, "invalid HTTP status code: %d", code)
 		}
 	}
 
 	if config.ContentType == "" {
-		return svcerrors.Error(codes.InvalidArgument, "content_type cannot be empty")
+		return svcerrors.Error(svcerrors.InvalidArgument, "content_type cannot be empty")
 	}
 
 	// RateLimitRPS: nil is fine (no limit), but if set, must be positive.
 	// Matches the DB constraint: CHECK (rate_limit_rps IS NULL OR rate_limit_rps > 0)
 	if config.RateLimitRPS != nil && *config.RateLimitRPS <= 0 {
-		return svcerrors.Errorf(codes.InvalidArgument,"rate_limit_rps must be positive, got %f", *config.RateLimitRPS)
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "rate_limit_rps must be positive, got %f", *config.RateLimitRPS)
 	}
 
 	return nil

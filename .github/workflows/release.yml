@@ -53,7 +53,6 @@ jobs:
         run: |
           touch internal/ui/dist/.gitkeep
           git checkout charts/sparrow/Chart.yaml
-          git checkout web/yarn.lock 2>/dev/null || true
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

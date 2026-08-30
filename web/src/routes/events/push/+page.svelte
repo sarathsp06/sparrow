@@ -7,10 +7,12 @@
     type Validator
   } from "svelte-jsoneditor";
 
-  import { eventClient as client } from "$lib/services";
+  import { api, unwrap } from "$lib/services";
   import { formatAPIError } from '$lib/utils';
   import { onMount } from "svelte";
-  import type { RegisteredEvent } from "../../../../../proto/webhook_pb.js";
+  import type { components } from "$lib/api-types";
+
+  type EventTypeItem = components["schemas"]["EventTypeItem"];
 
   let namespace = $state('default');
   let event = $state("");
@@ -23,35 +25,34 @@
   let error = $state("");
   let validationDetails = $state<string[]>([]);
   let successMessage = $state("");
-  let availableEvents: RegisteredEvent[] = $state([]);
+  let availableEvents: EventTypeItem[] = $state([]);
 
   // Watch for event changes and update payload with sample_payload
   $effect(() => {
     const selectedEvent = availableEvents.find((e) => e.name === event);
-    if (selectedEvent && selectedEvent.samplePayload) {
-      payload = { json: selectedEvent.samplePayload };
+    if (selectedEvent && selectedEvent.sample_payload) {
+      payload = { json: selectedEvent.sample_payload };
     }
   });
 
-  function validator(): Validator {
+  const validator: Validator = $derived.by(() => {
     const selectedEvent = availableEvents.find((e) => e.name === event);
-    if (selectedEvent && selectedEvent.schema && Object.keys(selectedEvent.schema).length > 0) {
-      return createAjvValidator({ schema: selectedEvent.schema as any });
+    if (selectedEvent && selectedEvent.event_schema && Object.keys(selectedEvent.event_schema).length > 0) {
+      return createAjvValidator({ schema: selectedEvent.event_schema as any });
     }
     return createAjvValidator({ schema: {} });
-  }
+  });
 
   function hasSchema(): boolean {
     const selectedEvent = availableEvents.find((e) => e.name === event);
-    return !!(selectedEvent && selectedEvent.schema && Object.keys(selectedEvent.schema).length > 0);
+    return !!(selectedEvent && selectedEvent.event_schema && Object.keys(selectedEvent.event_schema).length > 0);
   }
 
   async function fetchEvents() {
     loadingEvents = true;
     try {
-      const req = { activeOnly: true };
-      const res = await client.listEvents(req);
-      availableEvents = res.events || [];
+      const res = unwrap(await api.GET('/v1/event-types', { params: { query: { active_only: true } } }));
+      availableEvents = res.items || [];
       if (availableEvents.length > 0) {
         event = availableEvents[0].name;
       }
@@ -84,11 +85,9 @@
   function parseValidationError(message: string): { summary: string; details: string[] } {
     const details: string[] = [];
 
-    // Match patterns like "field_path: error description" separated by "; "
     const schemaMatch = message.match(/payload does not match event schema: payload validation failed: (.+)$/);
     if (schemaMatch) {
       const detailStr = schemaMatch[1];
-      // Split on "; " to get individual field errors
       const parts = detailStr.split("; ");
       for (const part of parts) {
         details.push(part.trim());
@@ -116,14 +115,11 @@
         payloadObj = payload.json;
       }
 
-      const req = {
-        namespace,
-        event,
-        payload: payloadObj,
-        labels,
-      };
-      const res = await client.pushEvent(req);
-      successMessage = `Event pushed successfully! Event ID: ${res.eventId}`;
+      const res = unwrap(await api.POST('/v1/namespaces/{namespace}/events', {
+        params: { path: { namespace }, query: { event } },
+        body: { payload: payloadObj, labels },
+      }));
+      successMessage = `Event pushed successfully! Event ID: ${res.event_id}`;
       labels = {};
       newLabelKey = "";
       newLabelValue = "";
@@ -143,7 +139,6 @@
 
 <div class="min-h-screen bg-gray-50">
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <!-- Breadcrumb -->
     <nav class="flex items-center text-sm text-gray-500 mb-6">
       <a href="/events" class="hover:text-gray-900 transition">Events</a>
       <span class="mx-2">/</span>
@@ -154,7 +149,6 @@
       <h1 class="text-2xl font-bold text-gray-900 mb-6">Push a Test Event</h1>
 
       {#if loadingEvents}
-        <!-- Loading skeleton for form -->
         <div class="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
           <div class="animate-pulse space-y-6">
             <div>
@@ -175,202 +169,69 @@
       {:else}
         <form onsubmit={pushEvent} class="bg-white rounded-lg border border-gray-200 p-6 space-y-5">
           <div>
-            <label for="namespace" class="block text-sm font-medium text-gray-700 mb-1">
-              Namespace
-            </label>
-              <input
-                type="text"
-                id="namespace"
-                bind:value={namespace}
-                placeholder="Enter namespace..."
-                class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                required
-              />
+            <label for="namespace" class="block text-sm font-medium text-gray-700 mb-1">Namespace</label>
+            <input id="namespace" type="text" bind:value={namespace} required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
           </div>
 
           <div>
-            <label for="event" class="block text-sm font-medium text-gray-700 mb-1">
-              Event Type
-            </label>
-            <div class="flex gap-2">
-              {#if availableEvents.length > 0}
-                <select
-                  id="event-select"
-                  bind:value={event}
-                  class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 bg-white"
-                >
-                  <option value="">Select an event...</option>
-                  {#each availableEvents as e}
-                    <option value={e.name}>{e.name}</option>
-                  {/each}
-                </select>
-                <span class="text-xs text-gray-400 self-center">or</span>
-              {/if}
-              <input
-                id="event"
-                type="text"
-                bind:value={event}
-                placeholder="Type event name"
-                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                required
-              />
-            </div>
-            <p class="text-xs text-gray-500 mt-1">New event names will be auto-registered when pushed.</p>
+            <label for="event" class="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
+            <select id="event" bind:value={event} required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+              {#each availableEvents as e}
+                <option value={e.name}>{e.name}</option>
+              {/each}
+            </select>
           </div>
 
           <div>
             <label for="payload" class="block text-sm font-medium text-gray-700 mb-1">
-              Payload (JSON)
+              Payload {hasSchema() ? '(validated against schema)' : ''}
             </label>
-            {#if !hasSchema()}
-              <p class="text-xs text-amber-600 mb-2">
-                This event has no schema defined — any JSON payload will be accepted.
-              </p>
-            {/if}
-            <div class="border border-gray-300 rounded-lg overflow-hidden">
-              <JSONEditor
-                validator={validator()}
-                bind:content={payload}
-                mode={Mode.text}
-                mainMenuBar={false}
-              />
+            <div class="h-40">
+              <JSONEditor bind:content={payload} {validator} />
             </div>
           </div>
 
-          <!-- Labels -->
           <div>
-            <span class="block text-sm font-medium text-gray-700 mb-1">
-              Labels
-            </span>
-            <div class="bg-sky-50 border border-sky-200 rounded-lg p-3 mb-3">
-              <p class="text-xs text-sky-800 font-medium mb-1">Label-based routing</p>
-              <p class="text-xs text-sky-700 leading-relaxed">
-                Labels on an event are matched against subscription label filters. A subscription receives this event only if
-                <strong>all</strong> its filter key-value pairs appear in the event's labels. Subscriptions with no filters receive every event.
-              </p>
-              <details class="group mt-1.5">
-                <summary class="text-xs text-sky-600 cursor-pointer hover:text-sky-800 font-medium select-none">
-                  Show example
-                </summary>
-                <div class="mt-2 bg-white rounded border border-sky-100 p-2.5 space-y-1">
-                  <p class="text-[11px] text-gray-600">
-                    If you push with labels <code class="bg-sky-50 px-1 rounded text-sky-700">region=us-east</code>
-                    <code class="bg-sky-50 px-1 rounded text-sky-700">env=prod</code>:
-                  </p>
-                  <p class="text-[11px] text-green-700">A subscription filtering <code class="bg-gray-100 px-1 rounded">region=us-east</code> will match</p>
-                  <p class="text-[11px] text-green-700">A subscription with no filters will also match</p>
-                  <p class="text-[11px] text-red-600">A subscription filtering <code class="bg-gray-100 px-1 rounded">env=staging</code> will NOT match</p>
-                </div>
-              </details>
+            <span class="block text-sm font-medium text-gray-700 mb-1">Labels</span>
+            <div class="flex flex-wrap gap-2 mb-2">
+              {#each Object.entries(labels) as [k, v]}
+                <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
+                  {k}={v}
+                  <button type="button" onclick={() => removeLabel(k)} class="text-gray-400 hover:text-gray-700">&times;</button>
+                </span>
+              {/each}
             </div>
-
-            {#if Object.keys(labels).length > 0}
-              <div class="space-y-1.5 mb-2">
-                {#each Object.entries(labels) as [key, value]}
-                  <div class="flex items-center gap-2">
-                    <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{key}</span>
-                    <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{value}</span>
-                    <button
-                      type="button"
-                      onclick={() => removeLabel(key)}
-                      class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition"
-                      aria-label="Remove label {key}"
-                    >
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                {/each}
-              </div>
-            {/if}
-
-            <div class="flex items-center gap-2">
-              <input
-                type="text"
-                bind:value={newLabelKey}
-                placeholder="Label key"
-                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-              />
-              <input
-                type="text"
-                bind:value={newLabelValue}
-                placeholder="Label value"
-                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-              />
-              <button
-                type="button"
-                onclick={addLabel}
-                disabled={!newLabelKey.trim() || !newLabelValue.trim()}
-                class="shrink-0 px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-              >
-                Add
-              </button>
+            <div class="flex gap-2">
+              <input type="text" placeholder="key" bind:value={newLabelKey} class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm" />
+              <input type="text" placeholder="value" bind:value={newLabelValue} class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm" />
+              <button type="button" onclick={addLabel} class="px-3 py-1.5 bg-gray-100 rounded text-sm hover:bg-gray-200">Add</button>
             </div>
           </div>
 
           <div class="flex items-center gap-3 pt-2">
-            <button
-              type="submit"
-              class="inline-flex items-center px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loading || !event.trim()}
-            >
-              {loading ? "Pushing..." : "Push Event"}
+            <button type="submit" disabled={loading} class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition">
+              {loading ? 'Pushing...' : 'Push Event'}
             </button>
-            <a
-              href="/events"
-              class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-            >
-              Cancel
-            </a>
           </div>
         </form>
       {/if}
 
-      <!-- Error banner -->
       {#if error}
         <div class="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
-          <div class="flex items-start gap-3">
-            <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-            </svg>
-            <div class="flex-1">
-              <p class="text-sm font-medium text-red-800">{error}</p>
-              {#if validationDetails.length > 0}
-                <ul class="mt-2 space-y-1">
-                  {#each validationDetails as detail}
-                    <li class="text-xs text-red-700 font-mono bg-red-100 rounded px-2 py-1">
-                      {detail}
-                    </li>
-                  {/each}
-                </ul>
-              {/if}
-            </div>
-            <button onclick={() => { error = ''; validationDetails = []; }} class="text-red-400 hover:text-red-600 transition" aria-label="Dismiss error">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+          <p class="text-sm font-medium text-red-800">{error}</p>
+          {#if validationDetails.length > 0}
+            <ul class="mt-2 text-xs text-red-700 list-disc list-inside">
+              {#each validationDetails as d}
+                <li>{d}</li>
+              {/each}
+            </ul>
+          {/if}
         </div>
       {/if}
 
-      <!-- Success banner -->
       {#if successMessage}
         <div class="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
-          <div class="flex items-start gap-3">
-            <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-            </svg>
-            <div class="flex-1">
-              <p class="text-sm font-medium text-green-800">{successMessage}</p>
-            </div>
-            <button onclick={() => successMessage = ''} class="text-green-400 hover:text-green-600 transition" aria-label="Dismiss success message">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+          <p class="text-sm text-green-800">{successMessage}</p>
         </div>
       {/if}
     </div>

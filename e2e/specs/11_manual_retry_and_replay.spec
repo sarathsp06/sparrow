@@ -14,7 +14,7 @@ Facebook fails with 404, gets fixed, manual retry succeeds.
 * Wait for all deliveries in current namespace to be terminal with count "2"
 * Switch target "facebook" to behavior "ok"
 * Retry the failed delivery
-* Retried delivery should have status "DELIVERY_SUCCESS"
+* Retried delivery should have status "success"
 * Target "facebook" should have received "2" deliveries
 
 ## Replay Event Reaches New Subscribers

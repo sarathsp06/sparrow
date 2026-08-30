@@ -3,7 +3,7 @@ type: DevOps Config
 title: Helm Chart
 description: Kubernetes deployment chart with security hardening — NetworkPolicy, PodSecurityContext, Secrets, HPA, PDB
 tags: [helm, kubernetes, deployment, security]
-timestamp: 2026-06-22T00:00:00Z
+timestamp: 2026-08-29T00:00:00Z
 ---
 
 # Helm Chart
@@ -15,7 +15,7 @@ Located at `charts/sparrow/`. Production-ready deployment for Kubernetes.
 | Template | Purpose |
 |----------|---------|
 | `deployment.yaml` | Main deployment with PodSecurityContext, container SecurityContext, config checksum annotations |
-| `service.yaml` | ClusterIP Service (8080 HTTP, 50051 gRPC) |
+| `service.yaml` | ClusterIP Service (HTTP port only) |
 | `ingress.yaml` | Optional Ingress |
 | `hpa.yaml` | Optional HorizontalPodAutoscaler |
 | `pdb.yaml` | Optional PodDisruptionBudget |

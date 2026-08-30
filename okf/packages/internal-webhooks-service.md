@@ -12,7 +12,7 @@ The central service layer defining `WebhookServiceInterface` and its implementat
 
 ## WebhookServiceInterface
 
-`WebhookServiceInterface` is a composite interface that embeds smaller domain interfaces. This preserves the existing service seam used by [internal/grpc](/packages/internal-grpc.md), while making the domain-specific seams explicit for tests and future refactors.
+`WebhookServiceInterface` is a composite interface that embeds smaller domain interfaces. This preserves the existing service seam used by `internal/rest`, while making the domain-specific seams explicit for tests and future refactors.
 
 Embedded domain interfaces:
 
@@ -38,4 +38,4 @@ Embedded domain interfaces:
 ## Citations
 
 - `internal/webhooks/webhook_service.go`
-- `internal/grpc/helpers.go` — uses `WebhookSigningPublicKeyHex` for safe signing-key presentation
+- `internal/rest/conversions.go` — uses `WebhookSigningPublicKeyHex` for safe signing-key presentation

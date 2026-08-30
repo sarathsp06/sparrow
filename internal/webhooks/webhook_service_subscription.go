@@ -7,8 +7,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"google.golang.org/grpc/codes"
-
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
@@ -21,7 +19,7 @@ func (s *WebhookService) getSubscriptionInNamespace(ctx context.Context, subscri
 	tenantID := tenant.DefaultTenantID
 
 	if namespace == "" {
-		return nil, svcerrors.Error(codes.InvalidArgument, "namespace is required")
+		return nil, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
 	}
 
 	id, err := parseUUID(subscriptionID, "subscription ID")
@@ -34,7 +32,7 @@ func (s *WebhookService) getSubscriptionInNamespace(ctx context.Context, subscri
 		return nil, err
 	}
 	if sub.Namespace != namespace {
-		return nil, svcerrors.Error(codes.NotFound, "subscription not found in namespace")
+		return nil, svcerrors.Error(svcerrors.NotFound, "subscription not found in namespace")
 	}
 	return sub, nil
 }
@@ -45,7 +43,7 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 	s.logger.InfoContext(ctx, "Creating subscription", "webhook_id", webhookID, "event_name", eventName, "namespace", namespace)
 
 	if namespace == "" {
-		return "", time.Time{}, svcerrors.Error(codes.InvalidArgument, "namespace is required")
+		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -84,7 +82,7 @@ func (s *WebhookService) GetSubscription(ctx context.Context, subscriptionID str
 
 func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error) {
 	if namespace == "" {
-		return nil, 0, svcerrors.Error(codes.InvalidArgument, "namespace is required")
+		return nil, 0, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -176,7 +174,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 	s.logger.InfoContext(ctx, "Processing test subscription template request", "event_name", eventName, "namespace", namespace)
 
 	if eventName == "" {
-		return "", svcerrors.Error(codes.InvalidArgument, "event name is required")
+		return "", svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -186,7 +184,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		return "", fmt.Errorf("failed to get event: %w", err)
 	}
 	if event == nil {
-		return "", svcerrors.Error(codes.NotFound, "event not found")
+		return "", svcerrors.Error(svcerrors.NotFound, "event not found")
 	}
 
 	engine := client.NewTemplateEngine()
@@ -202,7 +200,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 
 	result, err := engine.TransformPayload(transformTemplate, data)
 	if err != nil {
-		return "", svcerrors.Wrapf(err, codes.InvalidArgument, "template transformation failed: %v", err)
+		return "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
 	}
 
 	return string(result), nil

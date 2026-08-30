@@ -1,14 +1,14 @@
 ---
 type: Go Package
 title: internal/middleware
-description: API key authentication and security headers middleware for HTTP and gRPC
+description: API key authentication and security headers middleware for the REST API
 tags: [middleware, auth, security]
-timestamp: 2026-07-06T16:46:48Z
+timestamp: 2026-08-29T00:00:00Z
 ---
 
 # internal/middleware
 
-Provides optional API key authentication and security headers for the HTTP and gRPC servers.
+Provides optional API key authentication and security headers for the HTTP server.
 
 ## APIKeyAuth
 
@@ -19,11 +19,9 @@ type APIKeyAuth struct {
 }
 ```
 
-When `SPARROW_API_KEY` is set, every API request must include the key via:
-- HTTP: `X-API-Key` header
-- gRPC: `x-api-key` metadata key
+When `SPARROW_API_KEY` is set, every `/v1/*` request must include the key via the `X-API-Key` header.
 
-HTTP query-parameter keys are intentionally not accepted; URLs are commonly logged by proxies, stored in browser history, and leaked through referrers. Uses `crypto/subtle.ConstantTimeCompare` to prevent timing attacks. Excluded paths: `/health`, `/ready`, UI catch-all.
+HTTP query-parameter keys are intentionally not accepted; URLs are commonly logged by proxies, stored in browser history, and leaked through referrers. Uses `crypto/subtle.ConstantTimeCompare` to prevent timing attacks. Excluded paths: `/health`, `/ready`, `/docs`, `/openapi`, UI catch-all.
 
 ## SecurityHeaders
 

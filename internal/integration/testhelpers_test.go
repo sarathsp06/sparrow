@@ -12,14 +12,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 
-	connectserver "github.com/sarathsp06/sparrow/internal/connect"
-	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
 	"github.com/sarathsp06/sparrow/internal/migration"
+	"github.com/sarathsp06/sparrow/internal/rest"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	webhookclient "github.com/sarathsp06/sparrow/internal/webhooks/client"
@@ -27,7 +27,6 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
 	storePg "github.com/sarathsp06/sparrow/pkg/storage/postgres"
-	pbconnect "github.com/sarathsp06/sparrow/proto/protoconnect"
 )
 
 const (
@@ -141,30 +140,17 @@ func setupEnv(t *testing.T) *testEnv {
 	// 10. Create webhook service
 	webhookSvc := webhooks.NewWebhookService(queueMgr.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(true))
 
-	// 11. Create gRPC servers (needed for Connect-RPC adapters)
-	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookSvc, ""))
+	// 11. Mount the REST API (Huma) on a chi router.
+	tracedSvc := webhooks.NewWebhookServiceInterfaceWithTracing(webhookSvc, "")
+	r := chi.NewRouter()
+	rest.Mount(r, tracedSvc)
 
-	// 12. Create Connect-RPC adapters
-	webhookConnectServer := connectserver.NewWebhookConnectServer(
-		webhookGRPCServer, webhookGRPCServer, webhookGRPCServer,
-		webhookGRPCServer, webhookGRPCServer,
-	)
-
-	// 13. Create HTTP mux and register all Connect-RPC handlers
-	mux := http.NewServeMux()
-
-	mux.Handle(pbconnect.NewWebhookServiceHandler(webhookConnectServer))
-	mux.Handle(pbconnect.NewEventServiceHandler(webhookConnectServer))
-	mux.Handle(pbconnect.NewSubscriptionServiceHandler(webhookConnectServer))
-	mux.Handle(pbconnect.NewDeliveryServiceHandler(webhookConnectServer))
-	mux.Handle(pbconnect.NewHealthServiceHandler(webhookConnectServer))
-
-	// 14. Start HTTP server on a random free port
+	// 12. Start HTTP server on a random free port
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
 	httpServer := &http.Server{
-		Handler:      mux,
+		Handler:      r,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}

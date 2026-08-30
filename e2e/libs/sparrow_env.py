@@ -45,8 +45,7 @@ class SparrowEnvironment:
         self._sparrow.with_env("SPARROW_ENCRYPTION_KEY", ENCRYPTION_KEY)
         self._sparrow.with_env("SPARROW_ALLOW_PRIVATE_NETWORKS", "true")
         self._sparrow.with_env("SPARROW_HTTP_PORT", "8080")
-        self._sparrow.with_env("SPARROW_GRPC_PORT", "50051")
-        self._sparrow.with_exposed_ports(8080, 50051)
+        self._sparrow.with_exposed_ports(8080)
         self._sparrow.with_kwargs(extra_hosts={"host.docker.internal": "host-gateway"})
         self._sparrow.start()
 

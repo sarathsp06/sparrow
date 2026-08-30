@@ -201,24 +201,20 @@ function getCategoryDisplay(category: string): {
 // -- API error formatting --
 
 /**
- * Extracts a clean, user-friendly error message from a Connect-RPC / gRPC error.
+ * Extracts a clean, user-friendly error message from a REST API error thrown
+ * by {@link unwrap} (services.ts), which already unpacks Huma's RFC 9457
+ * problem-details body (`detail` + per-field `errors[]`) into `err.message`.
+ * This function only handles the optional context prefix:
+ *   Prepends a context prefix (e.g., "Failed to register webhook"), unless
+ *   the message already starts with something similar (avoids "Failed to
+ *   register webhook: failed to register webhook").
  *
- * Connect-RPC errors have the form: "[code] message" (e.g., "[invalid_argument] loopback
- * addresses are not allowed"). This function:
- *   1. Strips the "[code] " prefix since it's not useful to end users.
- *   2. Optionally prepends a context prefix (e.g., "Failed to register webhook").
- *      The prefix is only added if the error message doesn't already start with
- *      something similar (avoids "Failed to register webhook: failed to register webhook").
- *
- * @param err - The caught error (typically a ConnectError)
+ * @param err - The caught error (typically an Error thrown by unwrap)
  * @param contextPrefix - Optional context like "Failed to register webhook"
  * @returns A clean, actionable error message string
  */
 function formatAPIError(err: unknown, contextPrefix?: string): string {
-  let msg = (err as any)?.message ?? String(err);
-
-  // Strip gRPC code prefix: "[internal] ...", "[invalid_argument] ...", etc.
-  msg = msg.replace(/^\[[\w_]+\]\s*/, "");
+  const msg = err instanceof Error ? err.message : String(err);
 
   if (!msg) {
     return contextPrefix ?? "An unexpected error occurred";

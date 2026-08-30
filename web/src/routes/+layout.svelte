@@ -48,7 +48,7 @@
     <a href="/deliveries" class="hover:text-primary transition">Deliveries</a>
     <a href="/health" class="hover:text-primary transition">Health</a>
 
-    <a href="https://sarathsp06.github.io/sparrow/" target="_blank" class="hover:text-primary transition text-base">
+    <a href="/docs" target="_blank" class="hover:text-primary transition text-base">
       Docs
     </a>
     <a href="https://github.com/sarathsp06/sparrow" target="_blank" class="hover:text-primary transition">

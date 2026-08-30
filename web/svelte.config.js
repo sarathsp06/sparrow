@@ -13,10 +13,7 @@ const config = {
 			assets: '../internal/ui/dist',
 			fallback: 'index.html',
 			strict: false
-		}),
-		alias: {
-			'@bufbuild/protobuf': './node_modules/@bufbuild/protobuf/dist/esm'
-		}
+		})
 	}
 };
 

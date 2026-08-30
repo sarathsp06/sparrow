@@ -16,4 +16,4 @@ payload as fallback.
 * Latest delivery to "pagerduty" body contains key "event_name"
 * Latest delivery to "pagerduty" body contains key "payload"
 * Wait for all deliveries in current namespace to be terminal with count "1"
-* Delivery "0" should have status "DELIVERY_SUCCESS"
+* Delivery "0" should have status "success"

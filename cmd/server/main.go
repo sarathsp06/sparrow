@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,25 +12,19 @@ import (
 	"syscall"
 	"time"
 
-	"connectrpc.com/connect"
-	"connectrpc.com/otelconnect"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/remychantenay/slog-otel"
 	"github.com/rs/cors"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/sarathsp06/sparrow/internal/config"
-	connectserver "github.com/sarathsp06/sparrow/internal/connect"
-	grpcserver "github.com/sarathsp06/sparrow/internal/grpc"
 	"github.com/sarathsp06/sparrow/internal/health"
 	"github.com/sarathsp06/sparrow/internal/middleware"
 	"github.com/sarathsp06/sparrow/internal/migration"
 	"github.com/sarathsp06/sparrow/internal/observability"
+	"github.com/sarathsp06/sparrow/internal/rest"
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/ui"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
@@ -40,8 +33,6 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
 	"github.com/sarathsp06/sparrow/pkg/storage/postgres"
-	pb "github.com/sarathsp06/sparrow/proto"
-	pbconnect "github.com/sarathsp06/sparrow/proto/protoconnect"
 )
 
 func main() {
@@ -174,14 +165,16 @@ func main() {
 	}
 
 	// Configure optional API key authentication.
-	// When SPARROW_API_KEY is set, all API requests (HTTP + gRPC) must include
-	// the key via X-API-Key header. Health/ready endpoints and static UI assets
-	// are excluded. When unset, all requests are allowed (open access).
+	// When SPARROW_API_KEY is set, all API requests must include the key via
+	// X-API-Key header. Health/ready, the OpenAPI docs/spec, and static UI
+	// assets are excluded. When unset, all requests are allowed (open access).
 	apiKeyAuth := &middleware.APIKeyAuth{
 		APIKey: cfg.APIKey,
 		ExcludedPathPrefixes: []string{
 			"/health",
 			"/ready",
+			"/docs",
+			"/openapi",
 		},
 	}
 	if apiKeyAuth.Enabled() {
@@ -218,28 +211,10 @@ func main() {
 
 	fmt.Println("🚀 River queue started successfully")
 
-	// Initialize gRPC server with OpenTelemetry instrumentation and optional API key auth
-	grpcServer := grpc.NewServer(
-		grpc.StatsHandler(otelgrpc.NewServerHandler()),
-		grpc.ChainUnaryInterceptor(apiKeyAuth.UnaryServerInterceptor()),
-		grpc.ChainStreamInterceptor(apiKeyAuth.StreamServerInterceptor()),
-		grpc.MaxRecvMsgSize(4<<20), // 4 MB max inbound message
-		grpc.MaxSendMsgSize(4<<20), // 4 MB max outbound message
-	)
-
 	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks))
+	tracedWebhookService := webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, "")
 
-	webhookGRPCServer := grpcserver.NewWebhookServer(webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, ""))
-	pb.RegisterWebhookServiceServer(grpcServer, webhookGRPCServer)
-	pb.RegisterEventServiceServer(grpcServer, webhookGRPCServer)
-	pb.RegisterSubscriptionServiceServer(grpcServer, webhookGRPCServer)
-	pb.RegisterDeliveryServiceServer(grpcServer, webhookGRPCServer)
-	pb.RegisterHealthServiceServer(grpcServer, webhookGRPCServer)
-
-	// Initialize Connect-RPC server
-	webhookConnectServer := connectserver.NewWebhookConnectServer(webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer, webhookGRPCServer)
-
-	// Create API mux for Connect-RPC and health endpoints using chi router.
+	// Create chi router for the REST API, health endpoints, and embedded UI.
 	// Chi provides clean route grouping: API routes get auth middleware,
 	// health endpoints and UI are open.
 	r := chi.NewRouter()
@@ -248,45 +223,13 @@ func main() {
 	r.Use(middleware.SecurityHeaders)
 	corsHandler := buildCORSHandler(cfg)
 	r.Use(corsHandler.Handler)
+	r.Use(otelhttp.NewMiddleware("sparrow"))
 
-	otelInterceptor, err := otelconnect.NewInterceptor()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	connectOpts := []connect.HandlerOption{
-		connect.WithInterceptors(otelInterceptor),
-		connect.WithReadMaxBytes(4 << 20), // 4 MB
-		connect.WithSendMaxBytes(4 << 20), // 4 MB
-	}
-
-	// API routes — protected by API key auth.
-	// Each Connect-RPC handler returns (path, handler) where path is a
-	// prefix like "/webhook.WebhookService/". Chi's Handle with a
-	// wildcard pattern routes all RPCs under that prefix to the handler.
+	// REST API — protected by API key auth. Huma registers every /v1
+	// operation plus /openapi.{json,yaml} and the Scalar reference at /docs.
 	r.Group(func(r chi.Router) {
 		r.Use(apiKeyAuth.HTTPMiddleware)
-
-		for _, makeHandler := range []func() (string, http.Handler){
-			func() (string, http.Handler) {
-				return pbconnect.NewWebhookServiceHandler(webhookConnectServer, connectOpts...)
-			},
-			func() (string, http.Handler) {
-				return pbconnect.NewEventServiceHandler(webhookConnectServer, connectOpts...)
-			},
-			func() (string, http.Handler) {
-				return pbconnect.NewSubscriptionServiceHandler(webhookConnectServer, connectOpts...)
-			},
-			func() (string, http.Handler) {
-				return pbconnect.NewDeliveryServiceHandler(webhookConnectServer, connectOpts...)
-			},
-			func() (string, http.Handler) {
-				return pbconnect.NewHealthServiceHandler(webhookConnectServer, connectOpts...)
-			},
-		} {
-			path, handler := makeHandler()
-			r.Handle(path+"*", handler)
-		}
+		rest.Mount(r, tracedWebhookService)
 	})
 
 	// Initialize health checker
@@ -332,25 +275,8 @@ func main() {
 		MaxHeaderBytes:    1 << 20,          // 1 MB max header size
 	}
 
-	// Start gRPC server
-	lis, err := net.Listen("tcp", ":"+cfg.GRPCPort)
-	if err != nil {
-		log.Fatalf("Failed to listen on port %s: %v", cfg.GRPCPort, err)
-	}
-
-	fmt.Println("🌐 Starting servers...")
-	fmt.Printf("   gRPC server: localhost:%s\n", cfg.GRPCPort)
-	fmt.Printf("   Connect-RPC (HTTP): localhost:%s\n", cfg.HTTPPort)
-
-	// Register reflection service on gRPC server.
-	reflection.Register(grpcServer)
-
-	// Start gRPC server in a goroutine
-	go func() {
-		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("Failed to serve gRPC: %v", err)
-		}
-	}()
+	fmt.Println("🌐 Starting server...")
+	fmt.Printf("   REST API: localhost:%s\n", cfg.HTTPPort)
 
 	// Start HTTP server in a goroutine
 	go func() {
@@ -364,8 +290,8 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	fmt.Println("🎯 HTTP Queue Server is running...")
-	fmt.Printf("   gRPC server: localhost:%s\n", cfg.GRPCPort)
-	fmt.Printf("   Connect-RPC (HTTP): localhost:%s\n", cfg.HTTPPort)
+	fmt.Printf("   REST API: localhost:%s\n", cfg.HTTPPort)
+	fmt.Printf("   API docs: http://localhost:%s/docs\n", cfg.HTTPPort)
 	fmt.Printf("   Health check: http://localhost:%s/health\n", cfg.HTTPPort)
 	fmt.Printf("   Readiness check: http://localhost:%s/ready\n", cfg.HTTPPort)
 	if cfg.ServeUI && ui.Available() {
@@ -393,8 +319,6 @@ func main() {
 		log.Printf("HTTP server shutdown error: %v", err)
 	}
 
-	// Shutdown gRPC server
-	grpcServer.GracefulStop()
 	_ = queueManager.Stop(shutdownCtx)
 	fmt.Println("👋 Shutdown complete")
 }

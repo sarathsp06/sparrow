@@ -14,8 +14,6 @@ import (
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"google.golang.org/grpc/codes"
-
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
@@ -26,10 +24,10 @@ import (
 // It loads the webhook, checks whether a state transition is needed, and persists the change.
 func (s *WebhookService) setWebhookActive(ctx context.Context, webhookID string, namespace string, active bool) error {
 	if webhookID == "" {
-		return svcerrors.Error(codes.InvalidArgument, "webhook ID is required")
+		return svcerrors.Error(svcerrors.InvalidArgument, "webhook ID is required")
 	}
 	if namespace == "" {
-		return svcerrors.Error(codes.InvalidArgument, "namespace is required")
+		return svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -46,9 +44,9 @@ func (s *WebhookService) setWebhookActive(ctx context.Context, webhookID string,
 	}
 	if webhook.Active == active {
 		if active {
-			return svcerrors.Error(codes.FailedPrecondition, "webhook is already active")
+			return svcerrors.Error(svcerrors.FailedPrecondition, "webhook is already active")
 		}
-		return svcerrors.Error(codes.FailedPrecondition, "webhook is already paused")
+		return svcerrors.Error(svcerrors.FailedPrecondition, "webhook is already paused")
 	}
 	webhook.Active = active
 	webhook.UpdatedAt = time.Now()
@@ -88,10 +86,10 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	)
 
 	if namespace == "" {
-		return "", time.Time{}, svcerrors.Error(codes.InvalidArgument, "namespace is required")
+		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
 	}
 	if url == "" {
-		return "", time.Time{}, svcerrors.Error(codes.InvalidArgument, "URL is required")
+		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "URL is required")
 	}
 	if err := ValidateWebhookURL(url, s.allowPrivateNetworks); err != nil {
 		return "", time.Time{}, err
@@ -100,7 +98,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 		s.logger.InfoContext(ctx, "Validating event names", "events", events, "contains_empty", slices.Contains(events, ""))
 		if slices.Contains(events, "") {
 			s.logger.ErrorContext(ctx, "Event names validation failed", "events", events)
-			return "", time.Time{}, svcerrors.Error(codes.InvalidArgument, "event names cannot be empty")
+			return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "event names cannot be empty")
 		}
 	}
 	if timeout <= 0 {
@@ -194,7 +192,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	tenantID := tenant.DefaultTenantID
 
 	if req.Namespace == "" {
-		return nil, svcerrors.Error(codes.InvalidArgument, "namespace is required")
+		return nil, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
 	}
 
 	// Validate webhook URL against SSRF
@@ -205,7 +203,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	// Convert request to internal webhook registration
 	webhookReg, err := req.ToWebhookRegistration()
 	if err != nil {
-		return nil, svcerrors.Wrapf(err, codes.InvalidArgument, "invalid webhook configuration: %v", err)
+		return nil, svcerrors.Wrapf(err, svcerrors.InvalidArgument, "invalid webhook configuration: %v", err)
 	}
 
 	// Generate ID if not provided
@@ -216,7 +214,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	// Validate event names exist
 	for _, event := range req.Events {
 		if event == "" {
-			return nil, svcerrors.Error(codes.InvalidArgument, "empty event name not allowed")
+			return nil, svcerrors.Error(svcerrors.InvalidArgument, "empty event name not allowed")
 		}
 		// Check if event is registered
 		events, _, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, false, 1000, 0)
@@ -388,10 +386,10 @@ func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string
 		"namespace", namespace,
 	)
 	if webhookID == "" {
-		return svcerrors.Error(codes.InvalidArgument, "webhook_id is required")
+		return svcerrors.Error(svcerrors.InvalidArgument, "webhook_id is required")
 	}
 	if namespace == "" {
-		return svcerrors.Error(codes.InvalidArgument, "namespace is required")
+		return svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -517,10 +515,10 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		"update_mask", updateMask)
 
 	if webhookID == "" {
-		return svcerrors.Error(codes.InvalidArgument, "webhook ID is required")
+		return svcerrors.Error(svcerrors.InvalidArgument, "webhook ID is required")
 	}
 	if namespace == "" {
-		return svcerrors.Error(codes.InvalidArgument, "namespace is required")
+		return svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -565,7 +563,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	if shouldUpdate("url") && url != "" {
 		normalizedURL := strings.TrimSpace(url)
 		if normalizedURL == "" {
-			return svcerrors.Error(codes.InvalidArgument, "URL is required")
+			return svcerrors.Error(svcerrors.InvalidArgument, "URL is required")
 		}
 		if err := ValidateWebhookURL(normalizedURL, s.allowPrivateNetworks); err != nil {
 			return err
@@ -648,7 +646,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	if shouldUpdate("signature_type") && signatureType != "" {
 		newSigType := store.SignatureType(signatureType)
 		if newSigType != store.SignatureTypeHMAC && newSigType != store.SignatureTypeEd25519 {
-			return svcerrors.Errorf(codes.InvalidArgument, "invalid signature_type: %q (must be \"hmac\" or \"ed25519\")", signatureType)
+			return svcerrors.Errorf(svcerrors.InvalidArgument, "invalid signature_type: %q (must be \"hmac\" or \"ed25519\")", signatureType)
 		}
 		oldSigType := webhook.SignatureType
 		webhook.SignatureType = newSigType

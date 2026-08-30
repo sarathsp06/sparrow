@@ -13,24 +13,19 @@ import (
 	"testing"
 	"time"
 
-	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/types/known/structpb"
-
-	pb "github.com/sarathsp06/sparrow/proto"
 )
 
 // startFailThenSucceedTarget returns a test server that fails the first N
 // requests with the given status code, then succeeds all subsequent ones.
-// Returns the server and a counter of total requests received.
 func startFailThenSucceedTarget(t *testing.T, failCount int, failStatus int) (*httptest.Server, *atomic.Int32) {
 	t.Helper()
 	var counter atomic.Int32
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.ReadAll(r.Body)
-		defer r.Body.Close()
+		defer r.Body.Close() //nolint:errcheck
 
 		n := counter.Add(1)
 		if int(n) <= failCount {
@@ -52,7 +47,7 @@ func startAlwaysFailTarget(t *testing.T, status int) (*httptest.Server, *atomic.
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.ReadAll(r.Body)
-		defer r.Body.Close()
+		defer r.Body.Close() //nolint:errcheck
 		counter.Add(1)
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(`{"error":"permanent failure"}`))
@@ -62,126 +57,168 @@ func startAlwaysFailTarget(t *testing.T, status int) (*httptest.Server, *atomic.
 }
 
 // startCountingTarget captures all requests and always returns 200.
-func startCountingTarget(t *testing.T) (*httptest.Server, *atomic.Int32, func() [][]byte) {
+func startCountingTarget(t *testing.T) (*httptest.Server, *atomic.Int32) {
 	t.Helper()
-	var (
-		counter atomic.Int32
-		mu      sync.Mutex
-		bodies  [][]byte
-	)
+	var counter atomic.Int32
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		defer r.Body.Close()
+		_, _ = io.ReadAll(r.Body)
+		defer r.Body.Close() //nolint:errcheck
 		counter.Add(1)
-		mu.Lock()
-		bodies = append(bodies, body)
-		mu.Unlock()
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	t.Cleanup(srv.Close)
-
-	getBodies := func() [][]byte {
-		mu.Lock()
-		defer mu.Unlock()
-		cp := make([][]byte, len(bodies))
-		copy(cp, bodies)
-		return cp
-	}
-
-	return srv, &counter, getBodies
+	return srv, &counter
 }
 
-// setupWebhookPipeline is a helper that registers an event, webhook, and subscription.
-// Returns webhookID, subscriptionID.
-func setupWebhookPipeline(t *testing.T, clients *testClients, namespace, eventName, targetURL string, maxRetries int32) (string, string) {
+// registerEventType registers an event type via REST, ignoring 409 (already
+// registered by an earlier test in the same package run).
+func registerEventType(t *testing.T, c *restClient, ctx context.Context, name string) {
 	t.Helper()
-	ctx := context.Background()
+	resp, err := c.post(ctx, "/v1/event-types", map[string]any{
+		"name":   name,
+		"active": true,
+	}, nil)
+	require.NoError(t, err, "RegisterEventType failed")
+	require.True(t, resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusConflict, "unexpected status %d", resp.StatusCode)
+}
 
-	// Register event
-	_, err := clients.event.RegisterEvent(ctx, connect.NewRequest(&pb.RegisterEventRequest{
-		Name:   eventName,
-		Active: true,
-	}))
-	require.NoError(t, err)
-
-	// Register webhook
-	webhookResp, err := clients.webhook.RegisterWebhook(ctx, connect.NewRequest(&pb.RegisterWebhookRequest{
-		Namespace: namespace,
-		Url:       targetURL + "/webhook",
-		Active:    true,
-		HttpConfig: &pb.WebhookHTTPConfig{
-			MaxRetries:            maxRetries,
-			RequestTimeoutSeconds: 5,
-			WebhookSecret:         "test-secret",
-			CaptureResponseBody:   true,
+// registerWebhookPipeline registers a webhook (auto-creating its subscription
+// to eventName) and returns the webhook id.
+func registerWebhookPipeline(t *testing.T, c *restClient, ctx context.Context, namespace, eventName, targetURL string, maxRetries int) string {
+	t.Helper()
+	var out struct {
+		WebhookID string `json:"webhook_id"`
+	}
+	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks", map[string]any{
+		"events": []string{eventName},
+		"url":    targetURL + "/webhook",
+		"active": true,
+		"http_config": map[string]any{
+			"max_retries":             maxRetries,
+			"request_timeout_seconds": 5,
+			"capture_response_body":   true,
 		},
-	}))
-	require.NoError(t, err)
-	webhookID := webhookResp.Msg.GetWebhookId()
-
-	// Create subscription
-	subResp, err := clients.subscription.CreateSubscription(ctx, connect.NewRequest(&pb.CreateSubscriptionRequest{
-		WebhookId: webhookID,
-		EventName: eventName,
-		Namespace: namespace,
-	}))
-	require.NoError(t, err)
-
-	return webhookID, subResp.Msg.GetSubscriptionId()
+	}, &out)
+	require.NoError(t, err, "RegisterWebhook failed")
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	require.NotEmpty(t, out.WebhookID)
+	return out.WebhookID
 }
 
 // pushTestEvent pushes a simple event and returns the event ID.
-func pushTestEvent(t *testing.T, clients *testClients, namespace, eventName string) string {
+func pushTestEvent(t *testing.T, c *restClient, ctx context.Context, namespace, eventName string) string {
 	t.Helper()
-	ctx := context.Background()
+	var out struct {
+		EventID string `json:"event_id"`
+	}
+	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/events?event="+eventName, map[string]any{
+		"payload":     map[string]any{"test": true, "ts": time.Now().UnixMilli()},
+		"ttl_seconds": 300,
+	}, &out)
+	require.NoError(t, err, "PushEvent failed")
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	require.NotEmpty(t, out.EventID)
+	return out.EventID
+}
 
-	payload, err := structpb.NewStruct(map[string]any{
-		"test": true,
-		"ts":   time.Now().UnixMilli(),
-	})
-	require.NoError(t, err)
+// deliveryItem mirrors the subset of the REST delivery item this file polls on.
+type deliveryItem struct {
+	DeliveryID    string `json:"delivery_id"`
+	Status        string `json:"status"`
+	ErrorCategory string `json:"error_category"`
+	ResponseCode  int    `json:"response_code"`
+}
 
-	resp, err := clients.event.PushEvent(ctx, connect.NewRequest(&pb.PushEventRequest{
-		Namespace:  namespace,
-		Event:      eventName,
-		Payload:    payload,
-		TtlSeconds: 300,
-	}))
-	require.NoError(t, err)
-	return resp.Msg.GetEventId()
+// pollDeliveryStatus polls listDeliveries for the given event until a
+// delivery matching the predicate appears, or ctx expires.
+func pollDeliveryStatus(t *testing.T, c *restClient, ctx context.Context, namespace, eventID string, predicate func(deliveryItem) bool) deliveryItem {
+	t.Helper()
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("timed out waiting for delivery predicate (event %s)", eventID)
+			return deliveryItem{}
+		case <-ticker.C:
+			var out struct {
+				Items []deliveryItem `json:"items"`
+			}
+			reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			_, err := c.get(reqCtx, "/v1/namespaces/"+namespace+"/deliveries?event_id="+eventID, &out)
+			cancel()
+			if err != nil {
+				continue
+			}
+			for _, d := range out.Items {
+				if predicate(d) {
+					return d
+				}
+			}
+		}
+	}
+}
+
+// pollBatchJob polls a batch job (delivery retry or event repush) until it
+// reaches a terminal status or ctx expires.
+func pollBatchJob(t *testing.T, c *restClient, ctx context.Context, path string) {
+	t.Helper()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			t.Fatalf("timed out waiting for batch job %s to complete", path)
+		case <-ticker.C:
+			var out struct {
+				Status    string `json:"status"`
+				Processed int    `json:"processed"`
+				Total     int    `json:"total"`
+			}
+			reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			_, err := c.get(reqCtx, path, &out)
+			cancel()
+			if err != nil {
+				continue
+			}
+			t.Logf("  batch job status: %s (processed=%d/%d)", out.Status, out.Processed, out.Total)
+			if out.Status == "completed" || out.Status == "cancelled" {
+				return
+			}
+		}
+	}
 }
 
 // TestE2E_RetryOnServerError verifies that a delivery retries on 500 and
 // eventually succeeds when the target recovers.
 func TestE2E_RetryOnServerError(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
+	ctx := context.Background()
 
 	const (
 		namespace = "retry-test"
 		eventName = "retry.server_error"
 	)
 
-	// Target fails first 2 requests, then succeeds
 	targetSrv, requestCount := startFailThenSucceedTarget(t, 2, http.StatusInternalServerError)
+	registerEventType(t, c, ctx, eventName)
+	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 3)
 
-	webhookID, _ := setupWebhookPipeline(t, clients, namespace, eventName, targetSrv.URL, 3)
-	_ = webhookID
+	eventID := pushTestEvent(t, c, ctx, namespace, eventName)
 
-	// Push event
-	eventID := pushTestEvent(t, clients, namespace, eventName)
-
-	// Wait for successful delivery (should take ~3 attempts)
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-
-	pollDeliveryStatus(t, clients, namespace, eventID, ctx, func(d *pb.WebhookDelivery) bool {
-		return d.GetStatus() == pb.WebhookDeliveryStatus_DELIVERY_SUCCESS
+	pollDeliveryStatus(t, c, pollCtx, namespace, eventID, func(d deliveryItem) bool {
+		return d.Status == "success"
 	})
 
-	// Verify the target received 3 requests (2 failed + 1 success)
 	assert.GreaterOrEqual(t, int(requestCount.Load()), 3, "target should have received at least 3 requests")
 }
 
@@ -189,39 +226,35 @@ func TestE2E_RetryOnServerError(t *testing.T) {
 // when all retry attempts are exhausted.
 func TestE2E_ExhaustedRetries(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
+	ctx := context.Background()
 
 	const (
 		namespace = "exhaust-retry-test"
 		eventName = "retry.exhausted"
 	)
 
-	// Target always returns 500
 	targetSrv, requestCount := startAlwaysFailTarget(t, http.StatusInternalServerError)
+	registerEventType(t, c, ctx, eventName)
+	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 2)
 
-	setupWebhookPipeline(t, clients, namespace, eventName, targetSrv.URL, 2)
+	eventID := pushTestEvent(t, c, ctx, namespace, eventName)
 
-	// Push event
-	eventID := pushTestEvent(t, clients, namespace, eventName)
-
-	// Wait for delivery to reach failed status
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-
-	delivery := pollDeliveryStatus(t, clients, namespace, eventID, ctx, func(d *pb.WebhookDelivery) bool {
-		return d.GetStatus() == pb.WebhookDeliveryStatus_DELIVERY_FAILED
+	delivery := pollDeliveryStatus(t, c, pollCtx, namespace, eventID, func(d deliveryItem) bool {
+		return d.Status == "failed"
 	})
 
-	assert.Equal(t, "server_error", delivery.GetErrorCategory())
-	// At least 1 attempt was made to the target
+	assert.Equal(t, "server_error", delivery.ErrorCategory)
 	assert.GreaterOrEqual(t, int(requestCount.Load()), 1)
 }
 
-// TestE2E_FanOutMultipleSubscribers verifies that one event is delivered
-// to multiple webhooks subscribed to the same event.
+// TestE2E_FanOutMultipleSubscribers verifies that one event is delivered to
+// every webhook subscribed to it.
 func TestE2E_FanOutMultipleSubscribers(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
 	ctx := context.Background()
 
 	const (
@@ -229,59 +262,28 @@ func TestE2E_FanOutMultipleSubscribers(t *testing.T) {
 		eventName = "fanout.created"
 	)
 
-	// Register the event type
-	_, err := clients.event.RegisterEvent(ctx, connect.NewRequest(&pb.RegisterEventRequest{
-		Name:   eventName,
-		Active: true,
-	}))
-	require.NoError(t, err)
+	registerEventType(t, c, ctx, eventName)
 
-	// Start 3 targets
-	target1, count1, _ := startCountingTarget(t)
-	target2, count2, _ := startCountingTarget(t)
-	target3, count3, _ := startCountingTarget(t)
+	target1, count1 := startCountingTarget(t)
+	target2, count2 := startCountingTarget(t)
+	target3, count3 := startCountingTarget(t)
 
-	// Register 3 webhooks + subscriptions
-	for i, url := range []string{target1.URL, target2.URL, target3.URL} {
-		webhookResp, err := clients.webhook.RegisterWebhook(ctx, connect.NewRequest(&pb.RegisterWebhookRequest{
-			Namespace:   namespace,
-			Url:         url + "/webhook",
-			Active:      true,
-			Description: "fanout target " + string(rune('A'+i)),
-			HttpConfig: &pb.WebhookHTTPConfig{
-				MaxRetries:            1,
-				RequestTimeoutSeconds: 5,
-				WebhookSecret:         "secret-" + string(rune('A'+i)),
-			},
-		}))
-		require.NoError(t, err)
-
-		_, err = clients.subscription.CreateSubscription(ctx, connect.NewRequest(&pb.CreateSubscriptionRequest{
-			WebhookId: webhookResp.Msg.GetWebhookId(),
-			EventName: eventName,
-			Namespace: namespace,
-		}))
-		require.NoError(t, err)
+	for _, url := range []string{target1.URL, target2.URL, target3.URL} {
+		registerWebhookPipeline(t, c, ctx, namespace, eventName, url, 1)
 	}
 
-	// Push one event
-	eventID := pushTestEvent(t, clients, namespace, eventName)
-	_ = eventID
+	pushTestEvent(t, c, ctx, namespace, eventName)
 
-	// Wait for all 3 targets to receive a delivery
 	deadline := time.After(30 * time.Second)
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
-
 	for {
 		select {
 		case <-deadline:
-			t.Fatalf("timed out waiting for fan-out: got %d, %d, %d deliveries",
-				count1.Load(), count2.Load(), count3.Load())
+			t.Fatalf("timed out waiting for fan-out: got %d, %d, %d deliveries", count1.Load(), count2.Load(), count3.Load())
 		case <-ticker.C:
 			if count1.Load() >= 1 && count2.Load() >= 1 && count3.Load() >= 1 {
-				t.Logf("all 3 targets received delivery: %d, %d, %d",
-					count1.Load(), count2.Load(), count3.Load())
+				t.Logf("all 3 targets received delivery: %d, %d, %d", count1.Load(), count2.Load(), count3.Load())
 				return
 			}
 		}
@@ -289,10 +291,10 @@ func TestE2E_FanOutMultipleSubscribers(t *testing.T) {
 }
 
 // TestE2E_PausedWebhookNoDelivery verifies that pausing a webhook prevents
-// new event deliveries, and resuming it allows them again.
+// new deliveries, and resuming it allows them again.
 func TestE2E_PausedWebhookNoDelivery(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
 	ctx := context.Background()
 
 	const (
@@ -300,51 +302,39 @@ func TestE2E_PausedWebhookNoDelivery(t *testing.T) {
 		eventName = "pause.event"
 	)
 
-	targetSrv, requestCount, _ := startCountingTarget(t)
+	targetSrv, requestCount := startCountingTarget(t)
+	registerEventType(t, c, ctx, eventName)
+	webhookID := registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 1)
 
-	webhookID, _ := setupWebhookPipeline(t, clients, namespace, eventName, targetSrv.URL, 1)
+	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks/"+webhookID+":pause", nil, nil)
+	require.NoError(t, err, "PauseWebhook failed")
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-	// Pause the webhook
-	_, err := clients.webhook.PauseWebhook(ctx, connect.NewRequest(&pb.PauseWebhookRequest{
-		WebhookId: webhookID,
-		Namespace: namespace,
-		Reason:    "testing pause",
-	}))
-	require.NoError(t, err)
+	pushTestEvent(t, c, ctx, namespace, eventName)
 
-	// Push an event while paused
-	_ = pushTestEvent(t, clients, namespace, eventName)
-
-	// Wait a bit and verify NO delivery was made
 	time.Sleep(5 * time.Second)
 	assert.Equal(t, int32(0), requestCount.Load(), "paused webhook should not receive deliveries")
 
-	// Resume the webhook
-	_, err = clients.webhook.ResumeWebhook(ctx, connect.NewRequest(&pb.ResumeWebhookRequest{
-		WebhookId: webhookID,
-		Namespace: namespace,
-		Reason:    "testing resume",
-	}))
-	require.NoError(t, err)
+	resp, err = c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks/"+webhookID+":resume", nil, nil)
+	require.NoError(t, err, "ResumeWebhook failed")
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-	// Push another event after resume
-	eventID2 := pushTestEvent(t, clients, namespace, eventName)
+	eventID2 := pushTestEvent(t, c, ctx, namespace, eventName)
 
-	// This delivery should succeed
 	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	pollDeliveryStatus(t, clients, namespace, eventID2, pollCtx, func(d *pb.WebhookDelivery) bool {
-		return d.GetStatus() == pb.WebhookDeliveryStatus_DELIVERY_SUCCESS
+	pollDeliveryStatus(t, c, pollCtx, namespace, eventID2, func(d deliveryItem) bool {
+		return d.Status == "success"
 	})
 
 	assert.GreaterOrEqual(t, int(requestCount.Load()), 1, "resumed webhook should receive delivery")
 }
 
-// TestE2E_DeleteSubscriptionStopsDelivery verifies that deleting a subscription
-// prevents future events from creating deliveries for it.
+// TestE2E_DeleteSubscriptionStopsDelivery verifies that deleting a
+// subscription prevents future events from creating deliveries for it.
 func TestE2E_DeleteSubscriptionStopsDelivery(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
 	ctx := context.Background()
 
 	const (
@@ -352,30 +342,34 @@ func TestE2E_DeleteSubscriptionStopsDelivery(t *testing.T) {
 		eventName = "delete.sub.event"
 	)
 
-	targetSrv, requestCount, _ := startCountingTarget(t)
+	targetSrv, requestCount := startCountingTarget(t)
+	registerEventType(t, c, ctx, eventName)
+	webhookID := registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 1)
 
-	_, subscriptionID := setupWebhookPipeline(t, clients, namespace, eventName, targetSrv.URL, 1)
+	var subList struct {
+		Items []struct {
+			SubscriptionID string `json:"subscription_id"`
+		} `json:"items"`
+	}
+	_, err := c.get(ctx, "/v1/namespaces/"+namespace+"/subscriptions?webhook_id="+webhookID, &subList)
+	require.NoError(t, err, "ListSubscriptions failed")
+	require.Len(t, subList.Items, 1)
+	subscriptionID := subList.Items[0].SubscriptionID
 
-	// First event should be delivered
-	eventID1 := pushTestEvent(t, clients, namespace, eventName)
+	eventID1 := pushTestEvent(t, c, ctx, namespace, eventName)
 	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	pollDeliveryStatus(t, clients, namespace, eventID1, pollCtx, func(d *pb.WebhookDelivery) bool {
-		return d.GetStatus() == pb.WebhookDeliveryStatus_DELIVERY_SUCCESS
+	pollDeliveryStatus(t, c, pollCtx, namespace, eventID1, func(d deliveryItem) bool {
+		return d.Status == "success"
 	})
+	cancel()
 	assert.Equal(t, int32(1), requestCount.Load())
 
-	// Delete the subscription
-	_, err := clients.subscription.DeleteSubscription(ctx, connect.NewRequest(&pb.DeleteSubscriptionRequest{
-		SubscriptionId: subscriptionID,
-		Namespace:      namespace,
-	}))
-	require.NoError(t, err)
+	resp, err := c.do(ctx, http.MethodDelete, "/v1/namespaces/"+namespace+"/subscriptions/"+subscriptionID, nil, nil)
+	require.NoError(t, err, "DeleteSubscription failed")
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-	// Push another event -- should NOT create a delivery
-	_ = pushTestEvent(t, clients, namespace, eventName)
+	pushTestEvent(t, c, ctx, namespace, eventName)
 
-	// Wait and verify no new deliveries
 	time.Sleep(5 * time.Second)
 	assert.Equal(t, int32(1), requestCount.Load(), "deleted subscription should not receive new deliveries")
 }
@@ -383,7 +377,7 @@ func TestE2E_DeleteSubscriptionStopsDelivery(t *testing.T) {
 // TestE2E_SingleRePush verifies that re-pushing an event creates a new delivery.
 func TestE2E_SingleRePush(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
 	ctx := context.Background()
 
 	const (
@@ -391,28 +385,23 @@ func TestE2E_SingleRePush(t *testing.T) {
 		eventName = "repush.event"
 	)
 
-	targetSrv, requestCount, _ := startCountingTarget(t)
+	targetSrv, requestCount := startCountingTarget(t)
+	registerEventType(t, c, ctx, eventName)
+	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 1)
 
-	setupWebhookPipeline(t, clients, namespace, eventName, targetSrv.URL, 1)
+	eventID := pushTestEvent(t, c, ctx, namespace, eventName)
 
-	// Push original event
-	eventID := pushTestEvent(t, clients, namespace, eventName)
-
-	// Wait for first delivery
 	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	pollDeliveryStatus(t, clients, namespace, eventID, pollCtx, func(d *pb.WebhookDelivery) bool {
-		return d.GetStatus() == pb.WebhookDeliveryStatus_DELIVERY_SUCCESS
+	pollDeliveryStatus(t, c, pollCtx, namespace, eventID, func(d deliveryItem) bool {
+		return d.Status == "success"
 	})
+	cancel()
 	assert.Equal(t, int32(1), requestCount.Load())
 
-	// Re-push the same event
-	_, err := clients.event.RePushEvent(ctx, connect.NewRequest(&pb.RePushEventRequest{
-		EventId: eventID,
-	}))
-	require.NoError(t, err)
+	resp, err := c.post(ctx, "/v1/events/"+eventID+":repush", nil, nil)
+	require.NoError(t, err, "RepushEvent failed")
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// Wait for the second delivery
 	deadline := time.After(30 * time.Second)
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -430,10 +419,11 @@ func TestE2E_SingleRePush(t *testing.T) {
 }
 
 // TestE2E_IdempotencyKeyDedup verifies that pushing the same event twice with
-// the same idempotency key only creates one delivery.
+// the same idempotency key only creates one delivery, and the second push's
+// response reports duplicate=true.
 func TestE2E_IdempotencyKeyDedup(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
 	ctx := context.Background()
 
 	const (
@@ -442,54 +432,48 @@ func TestE2E_IdempotencyKeyDedup(t *testing.T) {
 		idempotencyKey = "unique-key-12345"
 	)
 
-	targetSrv, requestCount, _ := startCountingTarget(t)
+	targetSrv, requestCount := startCountingTarget(t)
+	registerEventType(t, c, ctx, eventName)
+	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 1)
 
-	setupWebhookPipeline(t, clients, namespace, eventName, targetSrv.URL, 1)
+	var push1, push2 struct {
+		EventID   string `json:"event_id"`
+		Duplicate bool   `json:"duplicate"`
+	}
+	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/events?event="+eventName, map[string]any{
+		"payload":         map[string]any{"order_id": "ord_1"},
+		"ttl_seconds":     300,
+		"idempotency_key": idempotencyKey,
+	}, &push1)
+	require.NoError(t, err, "PushEvent (1st) failed")
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	assert.False(t, push1.Duplicate, "first push should not be a duplicate")
 
-	payload, err := structpb.NewStruct(map[string]any{"order_id": "ord_1"})
-	require.NoError(t, err)
+	resp, err = c.post(ctx, "/v1/namespaces/"+namespace+"/events?event="+eventName, map[string]any{
+		"payload":         map[string]any{"order_id": "ord_1"},
+		"ttl_seconds":     300,
+		"idempotency_key": idempotencyKey,
+	}, &push2)
+	require.NoError(t, err, "PushEvent (2nd) failed")
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	assert.True(t, push2.Duplicate, "second push with the same idempotency_key should be marked duplicate")
+	assert.Equal(t, push1.EventID, push2.EventID, "duplicate push should return the original event_id")
 
-	idempKey := idempotencyKey
-
-	// First push
-	resp1, err := clients.event.PushEvent(ctx, connect.NewRequest(&pb.PushEventRequest{
-		Namespace:  namespace,
-		Event:      eventName,
-		Payload:    payload,
-		TtlSeconds: 300,
-		Id:         &idempKey,
-	}))
-	require.NoError(t, err)
-	assert.False(t, resp1.Msg.GetDuplicate(), "first push should not be duplicate")
-
-	// Second push with same key
-	resp2, err := clients.event.PushEvent(ctx, connect.NewRequest(&pb.PushEventRequest{
-		Namespace:  namespace,
-		Event:      eventName,
-		Payload:    payload,
-		TtlSeconds: 300,
-		Id:         &idempKey,
-	}))
-	require.NoError(t, err)
-	assert.True(t, resp2.Msg.GetDuplicate(), "second push should be marked as duplicate")
-
-	// Wait for delivery of the first event
 	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	pollDeliveryStatus(t, clients, namespace, resp1.Msg.GetEventId(), pollCtx, func(d *pb.WebhookDelivery) bool {
-		return d.GetStatus() == pb.WebhookDeliveryStatus_DELIVERY_SUCCESS
+	pollDeliveryStatus(t, c, pollCtx, namespace, push1.EventID, func(d deliveryItem) bool {
+		return d.Status == "success"
 	})
 
-	// Only one delivery should have been made
 	time.Sleep(3 * time.Second)
-	assert.Equal(t, int32(1), requestCount.Load(), "duplicate event should not create second delivery")
+	assert.Equal(t, int32(1), requestCount.Load(), "duplicate event should not create a second delivery")
 }
 
-// TestE2E_BatchRetryDeliveries verifies the batch retry flow:
-// push events that fail -> list with prepare_retry -> retry batch -> deliveries succeed.
+// TestE2E_BatchRetryDeliveries verifies the batch retry flow: push events
+// that fail -> list with prepare_retry -> start retry job -> deliveries succeed.
 func TestE2E_BatchRetryDeliveries(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
 	ctx := context.Background()
 
 	const (
@@ -497,13 +481,11 @@ func TestE2E_BatchRetryDeliveries(t *testing.T) {
 		eventName = "batch.retry.event"
 	)
 
-	// Target that fails initially
 	var shouldFail atomic.Bool
 	shouldFail.Store(true)
-
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.ReadAll(r.Body)
-		defer r.Body.Close()
+		defer r.Body.Close() //nolint:errcheck
 		if shouldFail.Load() {
 			w.WriteHeader(http.StatusBadGateway)
 			return
@@ -513,79 +495,52 @@ func TestE2E_BatchRetryDeliveries(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	// Set up with 0 retries so deliveries fail immediately
-	_, err := clients.event.RegisterEvent(ctx, connect.NewRequest(&pb.RegisterEventRequest{
-		Name:   eventName,
-		Active: true,
-	}))
-	require.NoError(t, err)
+	registerEventType(t, c, ctx, eventName)
+	registerWebhookPipeline(t, c, ctx, namespace, eventName, srv.URL, 0) // no retries -- fail immediately
 
-	webhookResp, err := clients.webhook.RegisterWebhook(ctx, connect.NewRequest(&pb.RegisterWebhookRequest{
-		Namespace: namespace,
-		Url:       srv.URL + "/webhook",
-		Active:    true,
-		HttpConfig: &pb.WebhookHTTPConfig{
-			MaxRetries:            0, // No retries -- fail immediately
-			RequestTimeoutSeconds: 5,
-			WebhookSecret:         "test-secret",
-		},
-	}))
-	require.NoError(t, err)
-
-	_, err = clients.subscription.CreateSubscription(ctx, connect.NewRequest(&pb.CreateSubscriptionRequest{
-		WebhookId: webhookResp.Msg.GetWebhookId(),
-		EventName: eventName,
-		Namespace: namespace,
-	}))
-	require.NoError(t, err)
-
-	// Push 3 events -- all will fail
 	var eventIDs []string
-	for i := 0; i < 3; i++ {
-		eid := pushTestEvent(t, clients, namespace, eventName)
-		eventIDs = append(eventIDs, eid)
+	for range 3 {
+		eventIDs = append(eventIDs, pushTestEvent(t, c, ctx, namespace, eventName))
 	}
 
-	// Wait for all deliveries to reach failed status
 	for _, eid := range eventIDs {
 		pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		pollDeliveryStatus(t, clients, namespace, eid, pollCtx, func(d *pb.WebhookDelivery) bool {
-			return d.GetStatus() == pb.WebhookDeliveryStatus_DELIVERY_FAILED
+		pollDeliveryStatus(t, c, pollCtx, namespace, eid, func(d deliveryItem) bool {
+			return d.Status == "failed"
 		})
 		cancel()
 	}
 
-	// Fix the target
 	shouldFail.Store(false)
 
-	// List deliveries with prepare_retry=true
-	failedStatus := "failed"
-	listResp, err := clients.delivery.ListDeliveries(ctx, connect.NewRequest(&pb.ListDeliveriesRequest{
-		Namespace:    namespace,
-		Status:       &failedStatus,
-		PrepareRetry: true,
-	}))
-	require.NoError(t, err)
-	retryID := listResp.Msg.GetRetryId()
-	require.NotEmpty(t, retryID, "ListDeliveries with prepare_retry should return retry_id")
-	assert.GreaterOrEqual(t, len(listResp.Msg.GetDeliveries()), 3)
+	var listOut struct {
+		Items   []deliveryItem `json:"items"`
+		RetryID string         `json:"retry_id"`
+	}
+	_, err := c.get(ctx, "/v1/namespaces/"+namespace+"/deliveries?status=failed&prepare_retry=true", &listOut)
+	require.NoError(t, err, "ListDeliveries with prepare_retry failed")
+	require.NotEmpty(t, listOut.RetryID, "prepare_retry should return a retry_id")
+	assert.GreaterOrEqual(t, len(listOut.Items), 3)
 
-	// Execute the batch retry
-	_, err = clients.delivery.RetryDeliveries(ctx, connect.NewRequest(&pb.RetryDeliveriesRequest{
-		RetryId: retryID,
-	}))
-	require.NoError(t, err)
+	var jobOut struct {
+		ID string `json:"id"`
+	}
+	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/deliveries:retryBatch", map[string]any{
+		"repush_id": listOut.RetryID,
+	}, &jobOut)
+	require.NoError(t, err, "startDeliveryRetryJob failed")
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
-	// Poll batch status until completed
-	pollBatchComplete(t, clients, retryID, "retry", 60*time.Second)
+	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	pollBatchJob(t, c, pollCtx, "/v1/namespaces/"+namespace+"/retry-jobs/"+jobOut.ID)
 
-	// Verify deliveries now succeed
 	for _, eid := range eventIDs {
-		pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		pollDeliveryStatus(t, clients, namespace, eid, pollCtx, func(d *pb.WebhookDelivery) bool {
-			return d.GetStatus() == pb.WebhookDeliveryStatus_DELIVERY_SUCCESS
+		spollCtx, scancel := context.WithTimeout(ctx, 30*time.Second)
+		pollDeliveryStatus(t, c, spollCtx, namespace, eid, func(d deliveryItem) bool {
+			return d.Status == "success"
 		})
-		cancel()
+		scancel()
 	}
 }
 
@@ -593,7 +548,7 @@ func TestE2E_BatchRetryDeliveries(t *testing.T) {
 // deliveries are retrying prevents further retry attempts.
 func TestE2E_PauseWebhookStopsRetries(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
 	ctx := context.Background()
 
 	const (
@@ -601,126 +556,32 @@ func TestE2E_PauseWebhookStopsRetries(t *testing.T) {
 		eventName = "pause.retry.event"
 	)
 
-	// Target that always fails
 	targetSrv, requestCount := startAlwaysFailTarget(t, http.StatusInternalServerError)
+	registerEventType(t, c, ctx, eventName)
+	webhookID := registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 10) // many retries so we have time to pause
 
-	// Use many retries so we have time to pause
-	webhookID, _ := setupWebhookPipeline(t, clients, namespace, eventName, targetSrv.URL, 10)
+	pushTestEvent(t, c, ctx, namespace, eventName)
 
-	// Push event -- will start retrying
-	_ = pushTestEvent(t, clients, namespace, eventName)
-
-	// Wait for at least 1 attempt
 	time.Sleep(3 * time.Second)
 	countBeforePause := requestCount.Load()
 	assert.GreaterOrEqual(t, int(countBeforePause), 1, "should have made at least 1 attempt")
 
-	// Pause the webhook
-	_, err := clients.webhook.PauseWebhook(ctx, connect.NewRequest(&pb.PauseWebhookRequest{
-		WebhookId: webhookID,
-		Namespace: namespace,
-		Reason:    "stop retries",
-	}))
-	require.NoError(t, err)
+	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks/"+webhookID+":pause", nil, nil)
+	require.NoError(t, err, "PauseWebhook failed")
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-	// Wait and verify no more requests arrive
 	time.Sleep(10 * time.Second)
 	countAfterPause := requestCount.Load()
 
-	// Allow some slack (1-2 requests might have been in-flight during pause)
 	assert.LessOrEqual(t, int(countAfterPause-countBeforePause), 2,
 		"paused webhook should stop retrying (got %d more requests after pause)", countAfterPause-countBeforePause)
 }
 
-// pollDeliveryStatus polls ListDeliveries until a delivery matching the event
-// satisfies the predicate or times out. Returns the matching delivery.
-func pollDeliveryStatus(t *testing.T, clients *testClients, namespace, eventID string, ctx context.Context, predicate func(*pb.WebhookDelivery) bool) *pb.WebhookDelivery {
-	t.Helper()
-
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			t.Fatalf("timed out waiting for delivery predicate (event %s)", eventID)
-			return nil
-		case <-ticker.C:
-			reqCtx, reqCancel := context.WithTimeout(ctx, 10*time.Second)
-			resp, err := clients.delivery.ListDeliveries(reqCtx, connect.NewRequest(&pb.ListDeliveriesRequest{
-				Namespace: namespace,
-				EventId:   eventID,
-			}))
-			reqCancel()
-			if err != nil {
-				continue
-			}
-			for _, d := range resp.Msg.GetDeliveries() {
-				if predicate(d) {
-					return d
-				}
-			}
-		}
-	}
-}
-
-// pollBatchComplete polls GetRetryStatus or GetRepushStatus until the batch
-// completes or times out.
-func pollBatchComplete(t *testing.T, clients *testClients, batchID, batchType string, timeout time.Duration) {
-	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			t.Fatalf("timed out waiting for batch %s to complete", batchID)
-		case <-ticker.C:
-			reqCtx, reqCancel := context.WithTimeout(ctx, 10*time.Second)
-			switch batchType {
-			case "retry":
-				resp, err := clients.delivery.GetRetryStatus(reqCtx, connect.NewRequest(&pb.GetRetryStatusRequest{
-					RetryId: batchID,
-				}))
-				if err != nil {
-					reqCancel()
-					continue
-				}
-				batch := resp.Msg.GetBatch()
-				t.Logf("  batch retry status: %s (processed=%d/%d)", batch.GetStatus(), batch.GetProcessed(), batch.GetTotal())
-				if batch.GetStatus() == "completed" || batch.GetStatus() == "cancelled" {
-					reqCancel()
-					return
-				}
-			case "repush":
-				resp, err := clients.event.GetRepushStatus(reqCtx, connect.NewRequest(&pb.GetRepushStatusRequest{
-					RepushId: batchID,
-				}))
-				if err != nil {
-					reqCancel()
-					continue
-				}
-				batch := resp.Msg.GetBatch()
-				t.Logf("  batch repush status: %s (processed=%d/%d)", batch.GetStatus(), batch.GetProcessed(), batch.GetTotal())
-				if batch.GetStatus() == "completed" || batch.GetStatus() == "cancelled" {
-					reqCancel()
-					return
-				}
-			}
-			reqCancel()
-		}
-	}
-}
-
-// TestE2E_BatchRePushEvents verifies the batch re-push flow:
-// push events -> list with prepare_repush -> re-push batch -> new deliveries created.
+// TestE2E_BatchRePushEvents verifies the batch re-push flow: push events ->
+// list with prepare_repush -> start repush job -> new deliveries created.
 func TestE2E_BatchRePushEvents(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
 	ctx := context.Background()
 
 	const (
@@ -728,60 +589,59 @@ func TestE2E_BatchRePushEvents(t *testing.T) {
 		eventName = "batch.repush.event"
 	)
 
-	targetSrv, requestCount, _ := startCountingTarget(t)
+	targetSrv, requestCount := startCountingTarget(t)
+	registerEventType(t, c, ctx, eventName)
+	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 1)
 
-	setupWebhookPipeline(t, clients, namespace, eventName, targetSrv.URL, 1)
-
-	// Push 3 events
-	for i := 0; i < 3; i++ {
-		pushTestEvent(t, clients, namespace, eventName)
+	for range 3 {
+		pushTestEvent(t, c, ctx, namespace, eventName)
 	}
 
-	// Wait for all 3 initial deliveries
 	deadline := time.After(30 * time.Second)
 	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
+waitInitial:
 	for {
 		select {
 		case <-deadline:
 			t.Fatalf("timed out waiting for initial deliveries, got %d", requestCount.Load())
 		case <-ticker.C:
 			if requestCount.Load() >= 3 {
-				goto initialDone
+				break waitInitial
 			}
 		}
 	}
-initialDone:
+	ticker.Stop()
 
-	// List event reports with prepare_repush
-	listResp, err := clients.event.ListEventReports(ctx, connect.NewRequest(&pb.ListEventReportsRequest{
-		Namespace:     namespace,
-		PrepareRepush: true,
-	}))
-	require.NoError(t, err)
-	repushID := listResp.Msg.GetRepushId()
-	require.NotEmpty(t, repushID, "ListEventReports with prepare_repush should return repush_id")
+	var listOut struct {
+		RepushID string `json:"repush_id"`
+	}
+	_, err := c.get(ctx, "/v1/namespaces/"+namespace+"/events?prepare_repush=true", &listOut)
+	require.NoError(t, err, "ListEventOccurrences with prepare_repush failed")
+	require.NotEmpty(t, listOut.RepushID, "prepare_repush should return a repush_id")
 
-	// Execute batch re-push
-	_, err = clients.event.RePushEvents(ctx, connect.NewRequest(&pb.RePushEventsRequest{
-		RepushId: repushID,
-	}))
-	require.NoError(t, err)
+	var jobOut struct {
+		ID string `json:"id"`
+	}
+	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/events:rePush", map[string]any{
+		"repush_id": listOut.RepushID,
+	}, &jobOut)
+	require.NoError(t, err, "startEventRepushJob failed")
+	require.Equal(t, http.StatusAccepted, resp.StatusCode)
 
-	// Poll batch status
-	pollBatchComplete(t, clients, repushID, "repush", 60*time.Second)
+	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	pollBatchJob(t, c, pollCtx, "/v1/namespaces/"+namespace+"/repush-jobs/"+jobOut.ID)
 
-	// Verify target received at least 6 total requests (3 original + 3 re-push)
 	time.Sleep(3 * time.Second)
 	assert.GreaterOrEqual(t, int(requestCount.Load()), 6,
 		"expected at least 6 deliveries (3 original + 3 re-push), got %d", requestCount.Load())
 }
 
-// TestE2E_TimeoutRetry verifies that a slow target causes timeout errors
-// that are retried, and succeeds when the target becomes fast.
+// TestE2E_TimeoutRetry verifies that a slow target causes timeout errors that
+// are retried, and succeeds once the target becomes fast.
 func TestE2E_TimeoutRetry(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
 	ctx := context.Background()
 
 	const (
@@ -789,65 +649,51 @@ func TestE2E_TimeoutRetry(t *testing.T) {
 		eventName = "timeout.event"
 	)
 
-	// Target that is slow initially, then fast
 	var counter atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.ReadAll(r.Body)
-		defer r.Body.Close()
+		defer r.Body.Close() //nolint:errcheck
 		n := counter.Add(1)
 		if n <= 2 {
-			// Sleep longer than the request timeout (5s configured below is the webhook timeout)
-			time.Sleep(10 * time.Second)
+			time.Sleep(10 * time.Second) // longer than the 2s webhook timeout below
 		}
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	t.Cleanup(srv.Close)
 
-	// Register with short timeout
-	_, err := clients.event.RegisterEvent(ctx, connect.NewRequest(&pb.RegisterEventRequest{
-		Name:   eventName,
-		Active: true,
-	}))
-	require.NoError(t, err)
-
-	webhookResp, err := clients.webhook.RegisterWebhook(ctx, connect.NewRequest(&pb.RegisterWebhookRequest{
-		Namespace: namespace,
-		Url:       srv.URL + "/webhook",
-		Active:    true,
-		HttpConfig: &pb.WebhookHTTPConfig{
-			MaxRetries:            3,
-			RequestTimeoutSeconds: 2, // Very short timeout
-			WebhookSecret:         "test",
+	registerEventType(t, c, ctx, eventName)
+	var webhookOut struct {
+		WebhookID string `json:"webhook_id"`
+	}
+	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks", map[string]any{
+		"events": []string{eventName},
+		"url":    srv.URL + "/webhook",
+		"active": true,
+		"http_config": map[string]any{
+			"max_retries":             3,
+			"request_timeout_seconds": 2, // very short timeout
 		},
-	}))
-	require.NoError(t, err)
+	}, &webhookOut)
+	require.NoError(t, err, "RegisterWebhook failed")
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-	_, err = clients.subscription.CreateSubscription(ctx, connect.NewRequest(&pb.CreateSubscriptionRequest{
-		WebhookId: webhookResp.Msg.GetWebhookId(),
-		EventName: eventName,
-		Namespace: namespace,
-	}))
-	require.NoError(t, err)
+	eventID := pushTestEvent(t, c, ctx, namespace, eventName)
 
-	// Push event
-	eventID := pushTestEvent(t, clients, namespace, eventName)
-
-	// Wait for eventual success (3rd attempt should be fast)
 	pollCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
-	delivery := pollDeliveryStatus(t, clients, namespace, eventID, pollCtx, func(d *pb.WebhookDelivery) bool {
-		return d.GetStatus() == pb.WebhookDeliveryStatus_DELIVERY_SUCCESS
+	delivery := pollDeliveryStatus(t, c, pollCtx, namespace, eventID, func(d deliveryItem) bool {
+		return d.Status == "success"
 	})
 
-	assert.EqualValues(t, 200, delivery.GetResponseCode())
+	assert.Equal(t, 200, delivery.ResponseCode)
 }
 
-// TestE2E_EnvelopePayloadFormat verifies the webhook body envelope format
-// and that metadata is correctly passed through.
+// TestE2E_EnvelopePayloadFormat verifies the webhook body envelope format and
+// that metadata is correctly passed through.
 func TestE2E_EnvelopePayloadFormat(t *testing.T) {
 	env := setupEnv(t)
-	clients := newClients(env)
+	c := newRESTClient(t, env)
 	ctx := context.Background()
 
 	const (
@@ -855,64 +701,55 @@ func TestE2E_EnvelopePayloadFormat(t *testing.T) {
 		eventName = "envelope.event"
 	)
 
-	// Capture the delivered body
 	var (
-		mu          sync.Mutex
+		mu           sync.Mutex
 		capturedBody []byte
-		done        = make(chan struct{})
+		done         = make(chan struct{})
+		once         sync.Once
 	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
-		defer r.Body.Close()
+		defer r.Body.Close() //nolint:errcheck
 		mu.Lock()
-		if capturedBody == nil {
-			capturedBody = body
-			close(done)
-		}
+		capturedBody = body
 		mu.Unlock()
+		once.Do(func() { close(done) })
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(srv.Close)
 
-	setupWebhookPipeline(t, clients, namespace, eventName, srv.URL, 1)
+	registerEventType(t, c, ctx, eventName)
+	registerWebhookPipeline(t, c, ctx, namespace, eventName, srv.URL, 1)
 
-	// Push event with specific payload
-	payload, _ := structpb.NewStruct(map[string]any{
-		"user_id": "usr_abc",
-		"action":  "signup",
-	})
-	pushResp, err := clients.event.PushEvent(ctx, connect.NewRequest(&pb.PushEventRequest{
-		Namespace:  namespace,
-		Event:      eventName,
-		Payload:    payload,
-		TtlSeconds: 300,
-		Metadata:   map[string]string{"source": "test", "env": "integration"},
-	}))
-	require.NoError(t, err)
-	eventID := pushResp.Msg.GetEventId()
+	var pushOut struct {
+		EventID string `json:"event_id"`
+	}
+	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/events?event="+eventName, map[string]any{
+		"payload":     map[string]any{"user_id": "usr_abc", "action": "signup"},
+		"ttl_seconds": 300,
+		"metadata":    map[string]string{"source": "test", "env": "integration"},
+	}, &pushOut)
+	require.NoError(t, err, "PushEvent failed")
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-	// Wait for delivery
 	select {
 	case <-done:
 	case <-time.After(30 * time.Second):
 		t.Fatal("timed out waiting for delivery")
 	}
 
-	// Parse envelope
 	var envelope map[string]any
 	mu.Lock()
 	err = json.Unmarshal(capturedBody, &envelope)
 	mu.Unlock()
 	require.NoError(t, err)
 
-	// Verify envelope fields
 	assert.Equal(t, "1", envelope["version"])
-	assert.Equal(t, eventID, envelope["event_id"])
+	assert.Equal(t, pushOut.EventID, envelope["event_id"])
 	assert.Equal(t, eventName, envelope["event_name"])
 	assert.NotEmpty(t, envelope["timestamp"])
 	assert.EqualValues(t, 1, envelope["attempt"])
 
-	// Verify nested payload
 	p, ok := envelope["payload"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "usr_abc", p["user_id"])

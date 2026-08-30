@@ -23,17 +23,15 @@ import (
 	"github.com/sarathsp06/sparrow"
 )
 
+// metricExportInterval is how often the OTLP metric reader flushes.
+const metricExportInterval = 30 * time.Second
+
 // Config holds OpenTelemetry configuration
 type Config struct {
 	ServiceName    string
 	ServiceVersion string
 	Environment    string
 	OTLPEndpoint   string
-	OTLPHeaders    map[string]string
-	EnableTracing  bool
-	EnableMetrics  bool
-	SampleRate     float64 // 0.0 to 1.0
-	MetricInterval time.Duration
 }
 
 // DefaultConfig returns a default OpenTelemetry configuration.
@@ -45,10 +43,6 @@ func DefaultConfig() *Config {
 		ServiceVersion: sparrow.Version,
 		Environment:    "development",
 		OTLPEndpoint:   "", // empty = OTel export disabled
-		EnableTracing:  true,
-		EnableMetrics:  true,
-		SampleRate:     1.0, // Sample all traces in development
-		MetricInterval: 30 * time.Second,
 	}
 }
 
@@ -84,25 +78,19 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 
 	var shutdownFuncs []func(context.Context) error
 
-	// Setup tracing
-	if config.EnableTracing {
-		tracerProvider, err := setupTracing(ctx, res, config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to setup tracing: %w", err)
-		}
-		shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
-		otel.SetTracerProvider(tracerProvider)
+	tracerProvider, err := setupTracing(ctx, res, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup tracing: %w", err)
 	}
+	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
+	otel.SetTracerProvider(tracerProvider)
 
-	// Setup metrics
-	if config.EnableMetrics {
-		meterProvider, err := setupMetrics(ctx, res, config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to setup metrics: %w", err)
-		}
-		shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
-		otel.SetMeterProvider(meterProvider)
+	meterProvider, err := setupMetrics(ctx, res, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup metrics: %w", err)
 	}
+	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
+	otel.SetMeterProvider(meterProvider)
 
 	loggerProvider, err := newLoggerProvider(ctx, config)
 	if err != nil {
@@ -135,52 +123,29 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 
 // setupTracing configures OpenTelemetry tracing
 func setupTracing(ctx context.Context, res *resource.Resource, config *Config) (*sdktrace.TracerProvider, error) {
-	// Create OTLP trace exporter
-	opts := []otlptracehttp.Option{
+	exporter, err := otlptracehttp.New(ctx,
 		otlptracehttp.WithEndpoint(config.OTLPEndpoint),
 		otlptracehttp.WithInsecure(), // Use HTTP instead of HTTPS for local development
-	}
-
-	if len(config.OTLPHeaders) > 0 {
-		opts = append(opts, otlptracehttp.WithHeaders(config.OTLPHeaders))
-	}
-
-	exporter, err := otlptracehttp.New(ctx, opts...)
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP trace exporter: %w", err)
-	}
-
-	// Configure sampler based on sample rate
-	var sampler sdktrace.Sampler
-	if config.SampleRate >= 1.0 {
-		sampler = sdktrace.AlwaysSample()
-	} else if config.SampleRate <= 0.0 {
-		sampler = sdktrace.NeverSample()
-	} else {
-		sampler = sdktrace.TraceIDRatioBased(config.SampleRate)
 	}
 
 	// Create tracer provider
 	tracerProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sampler),
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 	)
 
 	return tracerProvider, nil
 }
 
 func newLoggerProvider(ctx context.Context, config *Config) (*log.LoggerProvider, error) {
-	opts := []otlploghttp.Option{
+	exporter, err := otlploghttp.New(ctx,
 		otlploghttp.WithEndpoint(config.OTLPEndpoint),
 		otlploghttp.WithInsecure(), // Use HTTP instead of HTTPS for local development
-	}
-
-	if len(config.OTLPHeaders) > 0 {
-		opts = append(opts, otlploghttp.WithHeaders(config.OTLPHeaders))
-	}
-
-	exporter, err := otlploghttp.New(ctx, opts...)
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP log exporter: %w", err)
 	}
@@ -193,17 +158,10 @@ func newLoggerProvider(ctx context.Context, config *Config) (*log.LoggerProvider
 
 // setupMetrics configures OpenTelemetry metrics
 func setupMetrics(ctx context.Context, res *resource.Resource, config *Config) (*sdkmetric.MeterProvider, error) {
-	// Create OTLP metric exporter
-	opts := []otlpmetrichttp.Option{
+	exporter, err := otlpmetrichttp.New(ctx,
 		otlpmetrichttp.WithEndpoint(config.OTLPEndpoint),
 		otlpmetrichttp.WithInsecure(), // Use HTTP instead of HTTPS for local development
-	}
-
-	if len(config.OTLPHeaders) > 0 {
-		opts = append(opts, otlpmetrichttp.WithHeaders(config.OTLPHeaders))
-	}
-
-	exporter, err := otlpmetrichttp.New(ctx, opts...)
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP metric exporter: %w", err)
 	}
@@ -212,7 +170,7 @@ func setupMetrics(ctx context.Context, res *resource.Resource, config *Config) (
 	meterProvider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(res),
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter,
-			sdkmetric.WithInterval(config.MetricInterval))),
+			sdkmetric.WithInterval(metricExportInterval))),
 	)
 
 	return meterProvider, nil
@@ -232,9 +190,6 @@ func GetMeter(name string) metric.Meter {
 type SparrowMetrics struct {
 	WebhookRegistrations metric.Int64Counter
 	EventsPushed         metric.Int64Counter
-	WebhookDeliveries    metric.Int64Counter
-	DeliveryDuration     metric.Float64Histogram
-	QueueDepth           metric.Int64UpDownCounter
 	ActiveWebhooks       metric.Int64UpDownCounter
 }
 
@@ -258,31 +213,6 @@ func NewSparrowMetrics() (*SparrowMetrics, error) {
 		return nil, err
 	}
 
-	webhookDeliveries, err := meter.Int64Counter(
-		"sparrow_webhook_deliveries_total",
-		metric.WithDescription("Total number of webhook delivery attempts"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	deliveryDuration, err := meter.Float64Histogram(
-		"sparrow_webhook_delivery_duration_seconds",
-		metric.WithDescription("Duration of webhook deliveries in seconds"),
-		metric.WithUnit("s"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	queueDepth, err := meter.Int64UpDownCounter(
-		"sparrow_queue_depth",
-		metric.WithDescription("Current depth of job queues"),
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	activeWebhooks, err := meter.Int64UpDownCounter(
 		"sparrow_active_webhooks",
 		metric.WithDescription("Current number of active webhook registrations"),
@@ -294,9 +224,6 @@ func NewSparrowMetrics() (*SparrowMetrics, error) {
 	return &SparrowMetrics{
 		WebhookRegistrations: webhookRegistrations,
 		EventsPushed:         eventsPushed,
-		WebhookDeliveries:    webhookDeliveries,
-		DeliveryDuration:     deliveryDuration,
-		QueueDepth:           queueDepth,
 		ActiveWebhooks:       activeWebhooks,
 	}, nil
 }

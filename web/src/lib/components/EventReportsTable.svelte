@@ -1,15 +1,18 @@
 <script lang="ts">
-    import type { EventReport, WebhookDelivery, DeliveryAttempt } from '../../../../proto/webhook_pb.js';
-    import { WebhookDeliveryStatus } from '../../../../proto/webhook_pb.js';
-    import { deliveryClient } from '$lib/services';
+    import type { components } from '$lib/api-types';
+    import { api, unwrap } from '$lib/services';
     import { getCategoryBadge } from '$lib/utils';
     import StatusBadge from './StatusBadge.svelte';
     import CopyableId from './CopyableId.svelte';
     import EmptyState from './EmptyState.svelte';
     import favicon from '$lib/assets/favicon.svg';
 
+    type EventOccurrenceItem = components["schemas"]["EventOccurrenceItem"];
+    type DeliveryItem = components["schemas"]["DeliveryItem"];
+    type AttemptItem = components["schemas"]["AttemptItem"];
+
     interface Props {
-        eventReports: EventReport[];
+        eventReports: EventOccurrenceItem[];
         loading?: boolean;
         error?: string;
         currentEventName?: string;
@@ -19,20 +22,19 @@
 
     // Expanded event rows state
     let expandedRows: Set<string> = $state(new Set());
-    let deliveriesByEvent: Map<string, WebhookDelivery[]> = $state(new Map());
+    let deliveriesByEvent: Map<string, DeliveryItem[]> = $state(new Map());
     let loadingDeliveries: Set<string> = $state(new Set());
     let retryingDeliveries: Set<string> = $state(new Set());
 
     // Expanded delivery attempt rows state
     let expandedDeliveries: Set<string> = $state(new Set());
-    let attemptsByDelivery: Map<string, DeliveryAttempt[]> = $state(new Map());
+    let attemptsByDelivery: Map<string, AttemptItem[]> = $state(new Map());
     let loadingAttempts: Set<string> = $state(new Set());
 
-    function formatTimestamp(timestamp: any): string {
+    function formatTimestamp(timestamp: string | null | undefined): string {
         if (!timestamp) return 'N/A';
-        const seconds = timestamp.seconds ? Number(timestamp.seconds) : Number(timestamp);
-        if (isNaN(seconds)) return 'N/A';
-        return new Date(seconds * 1000).toLocaleString();
+        const d = new Date(timestamp);
+        return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
     }
 
     function formatPayload(payload: any): string {
@@ -43,7 +45,6 @@
             return String(payload);
         }
     }
-
 
     async function toggleRow(eventId: string, namespace: string) {
         if (expandedRows.has(eventId)) {
@@ -63,12 +64,10 @@
         loadingDeliveries.add(eventId);
         loadingDeliveries = new Set(loadingDeliveries);
         try {
-            const res = await deliveryClient.listDeliveries({
-                eventId,
-                namespace,
-                pagination: { limit: 100, offset: 0 },
-            });
-            deliveriesByEvent.set(eventId, res.deliveries || []);
+            const res = unwrap(await api.GET('/v1/namespaces/{namespace}/deliveries', {
+                params: { path: { namespace }, query: { event_id: eventId, limit: 100, offset: 0 } },
+            }));
+            deliveriesByEvent.set(eventId, res.items || []);
             deliveriesByEvent = new Map(deliveriesByEvent);
         } catch (e: any) {
             console.error('Failed to fetch deliveries for event:', e);
@@ -82,8 +81,9 @@
         retryingDeliveries.add(deliveryId);
         retryingDeliveries = new Set(retryingDeliveries);
         try {
-            await deliveryClient.retryDelivery({ deliveryId, namespace });
-            // Refresh the deliveries for this event
+            unwrap(await api.POST('/v1/namespaces/{namespace}/deliveries/{delivery_id}:retry', {
+                params: { path: { namespace, delivery_id: deliveryId } },
+            }));
             await fetchDeliveries(eventId, namespace);
         } catch (e: any) {
             console.error('Failed to retry delivery:', e);
@@ -93,7 +93,7 @@
         }
     }
 
-    async function toggleDeliveryAttempts(deliveryId: string) {
+    async function toggleDeliveryAttempts(deliveryId: string, namespace: string) {
         if (expandedDeliveries.has(deliveryId)) {
             expandedDeliveries.delete(deliveryId);
             expandedDeliveries = new Set(expandedDeliveries);
@@ -102,17 +102,19 @@
             expandedDeliveries = new Set(expandedDeliveries);
 
             if (!attemptsByDelivery.has(deliveryId)) {
-                await fetchAttempts(deliveryId);
+                await fetchAttempts(deliveryId, namespace);
             }
         }
     }
 
-    async function fetchAttempts(deliveryId: string) {
+    async function fetchAttempts(deliveryId: string, namespace: string) {
         loadingAttempts.add(deliveryId);
         loadingAttempts = new Set(loadingAttempts);
         try {
-            const res = await deliveryClient.getDeliveryAttempts({ deliveryId });
-            attemptsByDelivery.set(deliveryId, res.attempts || []);
+            const res = unwrap(await api.GET('/v1/namespaces/{namespace}/deliveries/{delivery_id}/attempts', {
+                params: { path: { namespace, delivery_id: deliveryId } },
+            }));
+            attemptsByDelivery.set(deliveryId, res.items || []);
             attemptsByDelivery = new Map(attemptsByDelivery);
         } catch (e: any) {
             console.error('Failed to fetch attempts for delivery:', e);
@@ -140,7 +142,6 @@
                         <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Namespace</th>
                         <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Created At</th>
                         <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Deliveries</th>
-                        <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">TTL</th>
                         <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Payload</th>
                         <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
                     </tr>
@@ -149,14 +150,13 @@
                     {#each eventReports as report}
                         <tr class="hover:bg-gray-50 transition">
                             <td class="px-4 py-3">
-                                <CopyableId id={report.eventId} href="/events/instances/{report.eventId}" truncate={12} />
-                                <!-- Show namespace inline on mobile -->
+                                <CopyableId id={report.event_id} href="/events/instances/{report.event_id}" truncate={12} />
                                 <span class="block sm:hidden mt-0.5">
                                     <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{report.namespace || 'N/A'}</span>
                                 </span>
                             </td>
                             <td class="px-4 py-3 hidden sm:table-cell">
-                                {#if report.schemaValid}
+                                {#if report.schema_valid}
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-50 text-green-700">Valid</span>
                                 {:else}
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-700">Invalid</span>
@@ -165,24 +165,23 @@
                             <td class="px-4 py-3 hidden sm:table-cell">
                                 <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{report.namespace || 'N/A'}</span>
                             </td>
-                            <td class="px-4 py-3 text-xs text-gray-700 hidden sm:table-cell">{formatTimestamp(report.createdAt)}</td>
+                            <td class="px-4 py-3 text-xs text-gray-700 hidden sm:table-cell">{formatTimestamp(report.created_at)}</td>
                             <td class="px-4 py-3 hidden md:table-cell">
                                 <div class="flex items-center gap-2 text-xs">
-                                    {#if report.successfulDeliveries > 0}
-                                        <span class="text-green-700 font-medium">{report.successfulDeliveries} ok</span>
+                                    {#if report.successful_deliveries > 0}
+                                        <span class="text-green-700 font-medium">{report.successful_deliveries} ok</span>
                                     {/if}
-                                    {#if report.failedDeliveries > 0}
-                                        <span class="text-red-700 font-medium">{report.failedDeliveries} failed</span>
+                                    {#if report.failed_deliveries > 0}
+                                        <span class="text-red-700 font-medium">{report.failed_deliveries} failed</span>
                                     {/if}
-                                    {#if report.pendingDeliveries > 0}
-                                        <span class="text-yellow-700 font-medium">{report.pendingDeliveries} pending</span>
+                                    {#if report.pending_deliveries > 0}
+                                        <span class="text-yellow-700 font-medium">{report.pending_deliveries} pending</span>
                                     {/if}
-                                    {#if report.webhookCount === 0 && report.successfulDeliveries === 0 && report.failedDeliveries === 0 && report.pendingDeliveries === 0}
+                                    {#if report.webhook_count === 0 && report.successful_deliveries === 0 && report.failed_deliveries === 0 && report.pending_deliveries === 0}
                                         <span class="text-gray-400">None</span>
                                     {/if}
                                 </div>
                             </td>
-                            <td class="px-4 py-3 text-xs text-gray-700 hidden lg:table-cell">{report.ttlSeconds}s</td>
                             <td class="px-4 py-3">
                                 <details class="cursor-pointer">
                                     <summary class="text-xs font-medium text-blue-600 hover:text-blue-800 list-none select-none">View</summary>
@@ -191,24 +190,23 @@
                             </td>
                             <td class="px-4 py-3">
                                 <button
-                                    onclick={() => toggleRow(report.eventId, report.namespace)}
+                                    onclick={() => toggleRow(report.event_id, report.namespace)}
                                     class="text-xs font-medium text-gray-600 hover:text-gray-900 transition"
                                 >
-                                    {expandedRows.has(report.eventId) ? 'Hide' : 'Deliveries'}
+                                    {expandedRows.has(report.event_id) ? 'Hide' : 'Deliveries'}
                                 </button>
                             </td>
                         </tr>
 
-                        <!-- Expanded deliveries row -->
-                        {#if expandedRows.has(report.eventId)}
+                        {#if expandedRows.has(report.event_id)}
                             <tr class="bg-gray-50/50">
                                 <td colspan="7" class="px-4 py-4">
-                                    {#if loadingDeliveries.has(report.eventId)}
+                                    {#if loadingDeliveries.has(report.event_id)}
                                         <div class="flex items-center justify-center py-4">
                                             <img src={favicon} alt="Loading" class="w-4 h-4 animate-spin mr-2" />
                                             <span class="text-sm text-gray-500">Loading deliveries...</span>
                                         </div>
-                                    {:else if deliveriesByEvent.has(report.eventId) && (deliveriesByEvent.get(report.eventId)?.length ?? 0) > 0}
+                                    {:else if deliveriesByEvent.has(report.event_id) && (deliveriesByEvent.get(report.event_id)?.length ?? 0) > 0}
                                         <div class="space-y-2">
                                             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Webhook Deliveries</p>
                                             <div class="overflow-x-auto">
@@ -224,48 +222,48 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody class="divide-y divide-gray-100">
-                                                        {#each deliveriesByEvent.get(report.eventId) ?? [] as delivery}
-                                                            <tr class="hover:bg-white transition {expandedDeliveries.has(delivery.deliveryId) ? 'bg-blue-50/30' : ''}">
+                                                        {#each deliveriesByEvent.get(report.event_id) ?? [] as delivery}
+                                                            <tr class="hover:bg-white transition {expandedDeliveries.has(delivery.delivery_id) ? 'bg-blue-50/30' : ''}">
                                                                 <td class="px-3 py-2">
-                                                                    <CopyableId id={delivery.webhookId} href="/webhooks/{delivery.webhookId}" truncate={12} />
+                                                                    <CopyableId id={delivery.webhook_id} href="/webhooks/{delivery.webhook_id}" truncate={12} />
                                                                 </td>
                                                                 <td class="px-3 py-2">
                                                                     <div class="flex items-center gap-1.5">
                                                                         <StatusBadge status={delivery.status} />
-                                                                        {#if delivery.errorCategory && delivery.errorCategory !== '' && delivery.errorCategory !== 'success'}
-                                                                            {@const badge = getCategoryBadge(delivery.errorCategory)}
+                                                                        {#if delivery.error_category && delivery.error_category !== 'success'}
+                                                                            {@const badge = getCategoryBadge(delivery.error_category)}
                                                                             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
                                                                         {/if}
                                                                     </div>
                                                                 </td>
                                                                 <td class="px-3 py-2 hidden sm:table-cell">
-                                                                    <span class="font-mono {delivery.responseCode >= 200 && delivery.responseCode < 300 ? 'text-green-600' : delivery.responseCode >= 400 ? 'text-red-600' : 'text-gray-500'}">
-                                                                        {delivery.responseCode || '—'}
+                                                                    <span class="font-mono {(delivery.response_code ?? 0) >= 200 && (delivery.response_code ?? 0) < 300 ? 'text-green-600' : (delivery.response_code ?? 0) >= 400 ? 'text-red-600' : 'text-gray-500'}">
+                                                                        {delivery.response_code || '—'}
                                                                     </span>
                                                                 </td>
                                                                 <td class="px-3 py-2 hidden md:table-cell">
                                                                     <button
-                                                                        onclick={() => toggleDeliveryAttempts(delivery.deliveryId)}
+                                                                        onclick={() => toggleDeliveryAttempts(delivery.delivery_id, report.namespace)}
                                                                         class="text-blue-600 hover:text-blue-800 font-medium hover:underline transition"
                                                                     >
-                                                                        {delivery.attemptCount}/{delivery.maxAttempts}
-                                                                        <span class="text-[10px] ml-0.5">{expandedDeliveries.has(delivery.deliveryId) ? '▲' : '▼'}</span>
+                                                                        {delivery.attempt_count}/{delivery.max_attempts}
+                                                                        <span class="text-[10px] ml-0.5">{expandedDeliveries.has(delivery.delivery_id) ? '▲' : '▼'}</span>
                                                                     </button>
                                                                 </td>
-                                                                <td class="px-3 py-2 text-gray-500 hidden lg:table-cell">{formatTimestamp(delivery.lastAttemptedAt)}</td>
+                                                                <td class="px-3 py-2 text-gray-500 hidden lg:table-cell">{formatTimestamp(delivery.last_attempted_at)}</td>
                                                                 <td class="px-3 py-2">
                                                                     <div class="flex items-center gap-2">
-                                                                        {#if delivery.status === WebhookDeliveryStatus.DELIVERY_FAILED || delivery.status === WebhookDeliveryStatus.DELIVERY_EXPIRED || (delivery.errorCategory && delivery.errorCategory !== '' && delivery.errorCategory !== 'success')}
+                                                                        {#if delivery.status === 'failed' || delivery.status === 'expired' || (delivery.error_category && delivery.error_category !== 'success')}
                                                                             <button
-                                                                                onclick={() => retryDelivery(delivery.deliveryId, report.namespace, report.eventId)}
-                                                                                disabled={retryingDeliveries.has(delivery.deliveryId)}
+                                                                                onclick={() => retryDelivery(delivery.delivery_id, report.namespace, report.event_id)}
+                                                                                disabled={retryingDeliveries.has(delivery.delivery_id)}
                                                                                 class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50 transition"
                                                                             >
-                                                                                {retryingDeliveries.has(delivery.deliveryId) ? 'Retrying...' : 'Retry'}
+                                                                                {retryingDeliveries.has(delivery.delivery_id) ? 'Retrying...' : 'Retry'}
                                                                             </button>
                                                                         {/if}
                                                                         <a
-                                                                            href="/deliveries/{delivery.deliveryId}"
+                                                                            href="/deliveries/{delivery.delivery_id}"
                                                                             class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
                                                                         >
                                                                             Details
@@ -274,20 +272,19 @@
                                                                 </td>
                                                             </tr>
 
-                                                            <!-- Expanded attempt history for this delivery -->
-                                                            {#if expandedDeliveries.has(delivery.deliveryId)}
+                                                            {#if expandedDeliveries.has(delivery.delivery_id)}
                                                                 <tr class="bg-blue-50/20">
                                                                     <td colspan="6" class="px-3 py-3">
-                                                                        {#if loadingAttempts.has(delivery.deliveryId)}
+                                                                        {#if loadingAttempts.has(delivery.delivery_id)}
                                                                             <div class="flex items-center justify-center py-3">
                                                                                 <img src={favicon} alt="Loading" class="w-3 h-3 animate-spin mr-2" />
                                                                                 <span class="text-xs text-gray-500">Loading attempt history...</span>
                                                                             </div>
-                                                                        {:else if attemptsByDelivery.has(delivery.deliveryId) && (attemptsByDelivery.get(delivery.deliveryId)?.length ?? 0) > 0}
+                                                                        {:else if attemptsByDelivery.has(delivery.delivery_id) && (attemptsByDelivery.get(delivery.delivery_id)?.length ?? 0) > 0}
                                                                             <div class="ml-4 border-l-2 border-blue-200 pl-3">
                                                                                 <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Attempt History</p>
                                                                                 <div class="space-y-1.5">
-                                                                                    {#each attemptsByDelivery.get(delivery.deliveryId) ?? [] as attempt, i}
+                                                                                    {#each attemptsByDelivery.get(delivery.delivery_id) ?? [] as attempt, i}
                                                                                         <div class="flex items-start gap-3 py-1.5 px-2 rounded {attempt.success ? 'bg-green-50/50' : 'bg-red-50/50'}">
                                                                                             <div class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold {attempt.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
                                                                                                 {i + 1}
@@ -297,20 +294,20 @@
                                                                                                     <span class="font-medium {attempt.success ? 'text-green-700' : 'text-red-700'}">
                                                                                                         {attempt.success ? 'Success' : 'Failed'}
                                                                                                     </span>
-                                                                                                    {#if attempt.responseCode > 0}
-                                                                                                        <span class="font-mono px-1 py-0.5 rounded text-[10px] {attempt.responseCode >= 200 && attempt.responseCode < 300 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                                                                                                            {attempt.responseCode}
+                                                                                                    {#if attempt.response_code > 0}
+                                                                                                        <span class="font-mono px-1 py-0.5 rounded text-[10px] {attempt.response_code >= 200 && attempt.response_code < 300 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                                                                                            {attempt.response_code}
                                                                                                         </span>
                                                                                                     {/if}
-                                                                                                    {#if attempt.errorCategory && attempt.errorCategory !== 'success' && attempt.errorCategory !== ''}
-                                                                                                        {@const badge = getCategoryBadge(attempt.errorCategory)}
+                                                                                                    {#if attempt.error_category && attempt.error_category !== 'success'}
+                                                                                                        {@const badge = getCategoryBadge(attempt.error_category)}
                                                                                                         <span class="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
                                                                                                     {/if}
-                                                                                                    <span class="text-gray-400 font-mono text-[10px]">{attempt.responseTime}ms</span>
+                                                                                                    <span class="text-gray-400 font-mono text-[10px]">{attempt.response_time}ms</span>
                                                                                                     <span class="text-gray-400 text-[10px]">{formatTimestamp(attempt.timestamp)}</span>
                                                                                                 </div>
-                                                                                                {#if attempt.errorMessage}
-                                                                                                    <p class="text-[10px] text-red-600 mt-0.5 truncate" title={attempt.errorMessage}>{attempt.errorMessage}</p>
+                                                                                                {#if attempt.error_message}
+                                                                                                    <p class="text-[10px] text-red-600 mt-0.5 truncate" title={attempt.error_message}>{attempt.error_message}</p>
                                                                                                 {/if}
                                                                                             </div>
                                                                                         </div>

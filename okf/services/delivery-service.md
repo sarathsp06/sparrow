@@ -1,28 +1,31 @@
 ---
-type: gRPC Service
-title: DeliveryService
-description: Delivery status, listing, retry, and batch retry — 7 RPCs
-tags: [grpc, deliveries]
-timestamp: 2026-06-22T00:00:00Z
+type: REST Resource
+title: Deliveries
+description: Delivery status, listing, retry, and batch retry — 11 endpoints
+tags: [rest, deliveries]
+timestamp: 2026-08-29T00:00:00Z
 ---
 
-# DeliveryService
+# Deliveries
 
-Defined in [`webhook.proto`](/references/proto.md).
+Registered under the `Deliveries` tag in the Huma-generated OpenAPI spec. Implemented in `internal/rest/delivery.go`.
 
-## RPCs
+## Endpoints
 
-| RPC | Description |
-|-----|-------------|
-| `GetDeliveryStatus` | Get a single delivery status |
-| `ListDeliveries` | Filterable delivery listing (supports `prepare_retry`) |
-| `RetryDelivery` | Retry a single failed delivery |
-| `GetDeliveryAttempts` | List HTTP attempt records for a delivery |
-| `RetryDeliveries` | Batch retry via snapshot — uses batch_jobs |
-| `GetRetryStatus` | Poll batch retry progress |
-| `CancelRetry` | Cancel a batch retry operation |
+| Method | Path | OperationID | Description |
+|--------|------|-------------|-------------|
+| GET | `/v1/namespaces/{namespace}/deliveries/{delivery_id}` | `getDelivery` | Get a single delivery status |
+| GET | `/v1/namespaces/{namespace}/deliveries` | `listDeliveries` | Filterable delivery listing (supports `prepare_retry`) |
+| POST | `/v1/namespaces/{namespace}/deliveries/{delivery_id}:retry` | `retryDelivery` | Retry a single failed delivery |
+| POST | `/v1/namespaces/{namespace}/deliveries:retry` | `retryDeliveriesByWebhook` | Retry every eligible delivery for one webhook |
+| GET | `/v1/namespaces/{namespace}/deliveries/{delivery_id}/attempts` | `getDeliveryAttempts` | List HTTP attempt records for a delivery |
+| POST | `/v1/namespaces/{namespace}/deliveries:retryBatch` | `startDeliveryRetryJob` | Batch retry via snapshot — uses batch_jobs |
+| GET | `/v1/namespaces/{namespace}/retry-jobs/{job_id}` | `getDeliveryRetryJob` | Poll batch retry progress |
+| POST | `/v1/namespaces/{namespace}/retry-jobs/{job_id}:cancel` | `cancelDeliveryRetryJob` | Cancel a batch retry operation |
+| GET | `/v1/deliveries/{delivery_id}` | `getDeliveryGlobal` | Get a delivery by id (any namespace) |
+| GET | `/v1/deliveries/{delivery_id}/attempts` | `getDeliveryAttemptsGlobal` | Get a delivery's attempt history (any namespace) |
+| POST | `/v1/deliveries/{delivery_id}:retry` | `retryDeliveryGlobal` | Retry a single delivery (any namespace) |
 
 ## Citations
 
-- `proto/webhook.proto` — service definition
-- `internal/grpc/delivery_handlers.go` — implementation
+- `internal/rest/delivery.go` — endpoint registration + handlers

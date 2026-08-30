@@ -3,7 +3,7 @@ type: DevOps Config
 title: CI/CD and Release
 description: GoReleaser-based release automation with conventional commits, cross-platform builds, and Helm chart artifact
 tags: [ci-cd, release, goreleaser]
-timestamp: 2026-06-22T00:00:00Z
+timestamp: 2026-08-29T00:00:00Z
 ---
 
 # CI/CD and Release
@@ -18,7 +18,7 @@ timestamp: 2026-06-22T00:00:00Z
 | `test` | `go test -v ./...` |
 | `test-integration` | Integration tests (Docker required) |
 | `lint` | golangci-lint |
-| `generate` | buf generate + go generate (protobuf, clients, gowrap) |
+| `generate` | Export the OpenAPI spec from Go (`cmd/openapi-export`), regenerate the Python client, then `go generate` (gowrap OTel wrappers) |
 | `migrate` | Run DB migrations |
 | `release-dry-run` | Test GoReleaser locally |
 | `docker-dev` | Docker compose dev environment |

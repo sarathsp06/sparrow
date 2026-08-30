@@ -9,8 +9,6 @@ import (
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/trace"
 
-	"google.golang.org/grpc/codes"
-
 	"github.com/sarathsp06/sparrow/internal/observability"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
@@ -30,19 +28,6 @@ type WebhookService struct {
 
 //go:generate gowrap gen -i WebhookServiceInterface -t ../../templates/opentelemetry.tmpl -o WebhookServiceInterface_otel.go
 type WebhookServiceInterface interface {
-	WebhookRegistrationService
-	EventService
-	SubscriptionService
-	DeliveryService
-	HealthService
-	BatchService
-	TemplateMetadataService
-	WebhookRepositoryAccessor
-	WebhookSecretPresenter
-}
-
-// WebhookRegistrationService contains webhook registration and configuration operations.
-type WebhookRegistrationService interface {
 	RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error)
 	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error)
 	UnregisterWebhook(ctx context.Context, webhookID string, namespace string) error
@@ -51,68 +36,47 @@ type WebhookRegistrationService interface {
 	PauseWebhook(ctx context.Context, webhookID string, namespace string, reason string) error
 	ResumeWebhook(ctx context.Context, webhookID string, namespace string) error
 	GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStatsData, error)
-}
 
-// EventService contains event type and event record operations.
-type EventService interface {
 	RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, time.Time, error)
 	ListEvents(ctx context.Context, activeOnly bool, limit, offset int32) ([]*store.EventRegistration, int32, error)
 	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error
 	DeleteEvent(ctx context.Context, name string) error
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
-	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (string, bool, []string, error)
+	// PushEvent returns (eventID, isDuplicate, schemaValid, warnings, err).
+	// isDuplicate is true when idempotencyKey matched an existing event; the
+	// other fields then describe that existing event, not a new one.
+	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (eventID string, isDuplicate bool, schemaValid bool, warnings []string, err error)
 	RePushEvent(ctx context.Context, eventID string) (string, []string, error)
 	GetEventRecord(ctx context.Context, eventID string) (*store.EventRecord, int32, int32, int32, int32, error)
 	ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error)
-}
 
-// SubscriptionService contains subscription and template-test operations.
-type SubscriptionService interface {
 	CreateSubscription(ctx context.Context, webhookID, eventName, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error)
 	GetSubscription(ctx context.Context, subscriptionID string, namespace string) (*store.EventSubscription, error)
 	ListSubscriptions(ctx context.Context, namespace string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
 	UpdateSubscription(ctx context.Context, subscriptionID string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error
 	DeleteSubscription(ctx context.Context, subscriptionID string, namespace string) error
 	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, namespace string) (string, error)
-}
 
-// DeliveryService contains delivery lookup and retry operations.
-type DeliveryService interface {
 	GetDeliveryStatus(ctx context.Context, deliveryID string, namespace string) (*store.WebhookDelivery, error)
 	GetDeliveryAttempts(ctx context.Context, deliveryID string) ([]*store.WebhookHealthEvent, error)
 	ListDeliveries(ctx context.Context, filter store.DeliveryFilter) ([]*store.WebhookDelivery, int32, string, error)
 	RetryDelivery(ctx context.Context, namespace string, deliveryID string, webhookID string, force bool) ([]string, int32, error)
-}
 
-// HealthService contains webhook health read operations.
-type HealthService interface {
 	GetWebhookHealth(ctx context.Context, webhookID string, namespace string) (*WebhookHealthData, error)
 	ListWebhooksByHealth(ctx context.Context, health store.WebhookHealth, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
 	GetHealthSummary(ctx context.Context) (*HealthSummaryData, error)
-}
 
-// BatchService contains snapshot-based bulk operation controls.
-type BatchService interface {
 	RePushEvents(ctx context.Context, repushID string) error
 	GetRepushStatus(ctx context.Context, repushID string) (*store.BatchJob, error)
 	CancelRepush(ctx context.Context, repushID string) error
 	RetryDeliveries(ctx context.Context, retryID string) error
 	GetRetryStatus(ctx context.Context, retryID string) (*store.BatchJob, error)
 	CancelRetry(ctx context.Context, retryID string) error
-}
 
-// TemplateMetadataService exposes supported template functions.
-type TemplateMetadataService interface {
 	GetTemplateFunctions() []TemplateFunctionInfo
-}
 
-// WebhookRepositoryAccessor exposes repository access for existing transport helpers.
-type WebhookRepositoryAccessor interface {
 	GetWebhookRepo() store.RepositoryInterface
-}
 
-// WebhookSecretPresenter exposes safe presentation helpers for encrypted webhook secrets.
-type WebhookSecretPresenter interface {
 	DecryptSecretHeaders(encrypted []byte) (map[string]string, error)
 	DecryptWebhookSecret(encrypted []byte) (string, error)
 	WebhookSigningPublicKeyHex(encryptedPrivKey []byte) string
@@ -172,7 +136,7 @@ func (s *WebhookService) GetWebhookRepo() store.RepositoryInterface {
 func parseUUID(s string, entityName string) (uuid.UUID, error) {
 	id, err := uuid.Parse(s)
 	if err != nil {
-		return uuid.Nil, svcerrors.Errorf(codes.InvalidArgument, "invalid %s: %v", entityName, err)
+		return uuid.Nil, svcerrors.Errorf(svcerrors.InvalidArgument, "invalid %s: %v", entityName, err)
 	}
 	return id, nil
 }
@@ -201,20 +165,20 @@ var labelKeyPattern = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 // validateLabels checks that a labels/label_filters map meets size and format constraints.
 func validateLabels(m map[string]string, fieldName string) error {
 	if len(m) > maxLabelsPerMap {
-		return svcerrors.Errorf(codes.InvalidArgument, "%s: too many entries (%d), maximum is %d", fieldName, len(m), maxLabelsPerMap)
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "%s: too many entries (%d), maximum is %d", fieldName, len(m), maxLabelsPerMap)
 	}
 	for k, v := range m {
 		if k == "" {
-			return svcerrors.Errorf(codes.InvalidArgument, "%s: key must not be empty", fieldName)
+			return svcerrors.Errorf(svcerrors.InvalidArgument, "%s: key must not be empty", fieldName)
 		}
 		if len(k) > maxLabelKeyLen {
-			return svcerrors.Errorf(codes.InvalidArgument, "%s: key %q exceeds maximum length of %d characters", fieldName, k, maxLabelKeyLen)
+			return svcerrors.Errorf(svcerrors.InvalidArgument, "%s: key %q exceeds maximum length of %d characters", fieldName, k, maxLabelKeyLen)
 		}
 		if !labelKeyPattern.MatchString(k) {
-			return svcerrors.Errorf(codes.InvalidArgument, "%s: key %q contains invalid characters (allowed: alphanumeric, '.', '_', '-')", fieldName, k)
+			return svcerrors.Errorf(svcerrors.InvalidArgument, "%s: key %q contains invalid characters (allowed: alphanumeric, '.', '_', '-')", fieldName, k)
 		}
 		if len(v) > maxLabelValueLen {
-			return svcerrors.Errorf(codes.InvalidArgument, "%s: value for key %q exceeds maximum length of %d characters", fieldName, k, maxLabelValueLen)
+			return svcerrors.Errorf(svcerrors.InvalidArgument, "%s: value for key %q exceeds maximum length of %d characters", fieldName, k, maxLabelValueLen)
 		}
 	}
 	return nil

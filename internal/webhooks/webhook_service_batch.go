@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"google.golang.org/grpc/codes"
-
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
@@ -29,10 +27,10 @@ func (s *WebhookService) loadAndValidateBatch(ctx context.Context, batchID strin
 		return nil, fmt.Errorf("failed to get batch job: %w", err)
 	}
 	if batch == nil {
-		return nil, svcerrors.Error(codes.NotFound, "batch job not found")
+		return nil, svcerrors.Error(svcerrors.NotFound, "batch job not found")
 	}
 	if batch.JobType != expectedType {
-		return nil, svcerrors.Errorf(codes.FailedPrecondition, "batch job is not a %s", expectedType)
+		return nil, svcerrors.Errorf(svcerrors.FailedPrecondition, "batch job is not a %s", expectedType)
 	}
 	return batch, nil
 }
@@ -45,10 +43,10 @@ func (s *WebhookService) startBatch(ctx context.Context, batchID string, jobType
 		return err
 	}
 	if batch.Status != store.BatchStatusPending {
-		return svcerrors.Errorf(codes.FailedPrecondition, "batch job is not in pending status (current: %s)", batch.Status)
+		return svcerrors.Errorf(svcerrors.FailedPrecondition, "batch job is not in pending status (current: %s)", batch.Status)
 	}
 	if time.Now().After(batch.ExpiresAt) {
-		return svcerrors.Error(codes.FailedPrecondition, "batch job has expired")
+		return svcerrors.Error(svcerrors.FailedPrecondition, "batch job has expired")
 	}
 
 	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batch.ID, store.BatchStatusProcessing); err != nil {
@@ -77,7 +75,7 @@ func (s *WebhookService) cancelBatch(ctx context.Context, batchID string, jobTyp
 		return err
 	}
 	if batch.Status == store.BatchStatusCompleted || batch.Status == store.BatchStatusCancelled {
-		return svcerrors.Errorf(codes.FailedPrecondition, "batch job is already in terminal state: %s", batch.Status)
+		return svcerrors.Errorf(svcerrors.FailedPrecondition, "batch job is already in terminal state: %s", batch.Status)
 	}
 
 	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batch.ID, store.BatchStatusCancelled); err != nil {

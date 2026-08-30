@@ -67,7 +67,7 @@ def register_webhook_subscribed(name, events):
     url = data_store.scenario[f"target_url_{name}"]
     event_list = [e.strip() for e in events.split(",")]
     resp = _api().register_webhook(ns, url, *event_list)
-    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhookId")
+    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
     data_store.scenario[f"webhook_resp_{name}"] = resp
 
 
@@ -77,7 +77,7 @@ def register_webhook_retries(name, events, retries):
     url = data_store.scenario[f"target_url_{name}"]
     event_list = [e.strip() for e in events.split(",")]
     resp = _api().register_webhook(ns, url, *event_list, max_retries=int(retries))
-    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhookId")
+    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
 
 
 @step("Register webhook <name> in current namespace subscribed to <events> with max_retries <retries> and timeout <timeout>")
@@ -86,7 +86,7 @@ def register_webhook_retries_timeout(name, events, retries, timeout):
     url = data_store.scenario[f"target_url_{name}"]
     event_list = [e.strip() for e in events.split(",")]
     resp = _api().register_webhook(ns, url, *event_list, max_retries=int(retries), request_timeout=int(timeout))
-    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhookId")
+    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
 
 
 @step("Register webhook <name> in current namespace with no subscriptions")
@@ -94,7 +94,7 @@ def register_webhook_no_sub(name):
     ns = data_store.scenario["namespace"]
     url = data_store.scenario[f"target_url_{name}"]
     resp = _api().register_webhook(ns, url)
-    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhookId")
+    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +123,7 @@ def push_event(event, payload_json):
     payload = json.loads(payload_json)
     resp = _api().push_event(event, ns, payload)
     data_store.scenario["last_push_resp"] = resp
-    data_store.scenario["last_event_id"] = resp.get("eventId")
+    data_store.scenario["last_event_id"] = resp.get("event_id")
 
 
 @step("Push event <event> with payload <payload_json> and idempotency key <key>")
@@ -132,7 +132,7 @@ def push_event_with_key(event, payload_json, key):
     payload = json.loads(payload_json)
     resp = _api().push_event(event, ns, payload, idempotency_key=key)
     data_store.scenario["last_push_resp"] = resp
-    data_store.scenario["last_event_id"] = resp.get("eventId")
+    data_store.scenario["last_event_id"] = resp.get("event_id")
 
 
 # ---------------------------------------------------------------------------
@@ -226,14 +226,14 @@ def assert_delivery_status(index, status):
 @step("Delivery <index> should have error category <category>")
 def assert_delivery_error_category(index, category):
     d = data_store.scenario["terminal_deliveries"][int(index)]
-    assert d.get("errorCategory") == category, f"Expected errorCategory {category}, got {d.get('errorCategory')}"
+    assert d.get("error_category") == category, f"Expected error_category {category}, got {d.get('error_category')}"
 
 
 @step("Delivery <index> should have attempt count <count>")
 def assert_delivery_attempt_count(index, count):
     d = data_store.scenario["terminal_deliveries"][int(index)]
-    actual = int(d.get("attemptCount", 0))
-    assert actual == int(count), f"Expected attemptCount {count}, got {actual}"
+    actual = int(d.get("attempt_count", 0))
+    assert actual == int(count), f"Expected attempt_count {count}, got {actual}"
 
 
 @step("API should show <count> deliveries in current namespace")
@@ -247,8 +247,9 @@ def assert_api_delivery_count(count):
 @step("Get delivery attempts for delivery <index> and verify count is <count>")
 def verify_attempts_count(index, count):
     d = data_store.scenario["terminal_deliveries"][int(index)]
-    resp = _api().get_delivery_attempts(d["deliveryId"])
-    attempts = resp.get("attempts", [])
+    ns = data_store.scenario["namespace"]
+    resp = _api().get_delivery_attempts(ns, d["delivery_id"])
+    attempts = resp.get("items", [])
     assert len(attempts) == int(count), f"Expected {count} attempts, got {len(attempts)}"
 
 
@@ -295,7 +296,7 @@ def assert_is_duplicate():
 def assert_same_event_id():
     resp = data_store.scenario["last_push_resp"]
     prev_id = data_store.scenario.get("first_event_id")
-    assert resp["eventId"] == prev_id, f"Event IDs differ: {resp['eventId']} != {prev_id}"
+    assert resp["event_id"] == prev_id, f"Event IDs differ: {resp['event_id']} != {prev_id}"
 
 
 @step("Save event ID as first")
@@ -310,12 +311,13 @@ def save_first_event_id():
 @step("Retry the failed delivery")
 def retry_failed_delivery():
     deliveries = data_store.scenario["terminal_deliveries"]
-    failed = [d for d in deliveries if d["status"] == "DELIVERY_FAILED"]
+    ns = data_store.scenario["namespace"]
+    failed = [d for d in deliveries if d["status"] == "failed"]
     assert failed, "No failed delivery found to retry"
-    delivery_id = failed[0]["deliveryId"]
-    _api().retry_delivery(delivery_id)
+    delivery_id = failed[0]["delivery_id"]
+    _api().retry_delivery(ns, delivery_id)
     # Wait for retry to complete
-    result = _api().wait_for_delivery_terminal(delivery_id, timeout=30.0)
+    result = _api().wait_for_delivery_terminal(ns, delivery_id, timeout=30.0)
     data_store.scenario["retried_delivery"] = result
 
 

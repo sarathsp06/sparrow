@@ -1,9 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { webhookClient as client, healthClient } from '$lib/services';
+  import { api, unwrap } from '$lib/services';
   import { onMount } from 'svelte';
-  import type { RegisteredWebhook } from '../../../../proto/webhook_pb.js';
-  import { WebhookHealth } from '../../../../proto/webhook_pb.js';
+  import type { components } from '$lib/api-types';
   import HealthBadge from '$lib/components/HealthBadge.svelte';
   import CopyableId from '$lib/components/CopyableId.svelte';
   import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
@@ -12,44 +11,42 @@
   import Pagination from '$lib/components/Pagination.svelte';
   import { formatAPIError } from '$lib/utils';
 
-  let webhooks: RegisteredWebhook[] = $state([]);
+  type WebhookOut = components["schemas"]["WebhookOut"];
+
+  let webhooks: WebhookOut[] = $state([]);
   let loading = $state(true);
   let error = $state('');
 
-  // Filtering
-  let healthFilter = $state<WebhookHealth | null>(null);
+  let healthFilter = $state<string | null>(null);
   let urlSearch = $state('');
+  let namespace = $state('default');
 
-  // Pagination
   let limit = $state(25);
   let offset = $state(0);
   let totalCount = $state(0);
 
-  // Unregister confirmation
   let confirmUnregister = $state(false);
-  let webhookToUnregister = $state<RegisteredWebhook | null>(null);
+  let webhookToUnregister = $state<WebhookOut | null>(null);
 
-  // Namespace stats
   let stats = $state<{ total: number; active: number; healthy: number; unhealthy: number }>({
     total: 0, active: 0, healthy: 0, unhealthy: 0,
   });
 
-  const healthFilters: { value: WebhookHealth | null; label: string }[] = [
+  const healthFilters: { value: string | null; label: string }[] = [
     { value: null, label: 'All' },
-    { value: WebhookHealth.HEALTH_HEALTHY, label: 'Healthy' },
-    { value: WebhookHealth.HEALTH_DEGRADED, label: 'Degraded' },
-    { value: WebhookHealth.HEALTH_UNHEALTHY, label: 'Unhealthy' },
+    { value: 'healthy', label: 'Healthy' },
+    { value: 'degraded', label: 'Degraded' },
+    { value: 'unhealthy', label: 'Unhealthy' },
   ];
 
-  // Client-side search filter (URL search is always client-side)
   let filteredWebhooks = $derived.by(() => {
     let result = webhooks;
     if (urlSearch.trim()) {
       const q = urlSearch.toLowerCase();
       result = result.filter(w =>
         w.url.toLowerCase().includes(q) ||
-        w.description.toLowerCase().includes(q) ||
-        w.webhookId.toLowerCase().includes(q) ||
+        (w.description ?? '').toLowerCase().includes(q) ||
+        w.webhook_id.toLowerCase().includes(q) ||
         w.namespace.toLowerCase().includes(q)
       );
     }
@@ -63,29 +60,26 @@
     loading = true;
     error = '';
     try {
-      // Use server-side health filtering when a health filter is active
       if (healthFilter !== null) {
-        const res = await healthClient.listWebhooksByHealth({
-          health: healthFilter,
-          pagination: { limit, offset },
-        });
-        webhooks = res.webhooks || [];
-        totalCount = res.pagination?.totalCount || 0;
+        // Global endpoint — health is computed per-webhook, independent of namespace.
+        const res = unwrap(await api.GET('/v1/webhooks', {
+          params: { query: { health: healthFilter as any, limit, offset } },
+        }));
+        webhooks = res.items || [];
+        totalCount = res.pagination?.total_count || 0;
       } else {
-        const res = await client.listWebhooks({
-          namespace: '',
-          pagination: { limit, offset },
-        });
-        webhooks = res.webhooks || [];
-        totalCount = res.pagination?.totalCount || 0;
+        const res = unwrap(await api.GET('/v1/namespaces/{namespace}/webhooks', {
+          params: { path: { namespace }, query: { limit, offset } },
+        }));
+        webhooks = res.items || [];
+        totalCount = res.pagination?.total_count || 0;
       }
 
-      // Compute quick stats from current page
       stats = {
         total: totalCount,
         active: webhooks.filter(w => w.active).length,
-        healthy: webhooks.filter(w => w.health === WebhookHealth.HEALTH_HEALTHY).length,
-        unhealthy: webhooks.filter(w => w.health === WebhookHealth.HEALTH_UNHEALTHY).length,
+        healthy: webhooks.filter(w => w.health === 'healthy').length,
+        unhealthy: webhooks.filter(w => w.health === 'unhealthy').length,
       };
     } catch (e: any) {
       console.error(e);
@@ -102,13 +96,13 @@
     fetchWebhooks();
   }
 
-  function handleHealthFilterChange(health: WebhookHealth | null) {
+  function handleHealthFilterChange(health: string | null) {
     healthFilter = health;
-    offset = 0; // Reset to first page when filter changes
+    offset = 0;
     fetchWebhooks();
   }
 
-  function promptUnregister(wh: RegisteredWebhook, e: Event) {
+  function promptUnregister(wh: WebhookOut, e: Event) {
     e.stopPropagation();
     webhookToUnregister = wh;
     confirmUnregister = true;
@@ -117,10 +111,9 @@
   async function executeUnregister() {
     if (!webhookToUnregister) return;
     try {
-      await client.unregisterWebhook({
-        webhookId: webhookToUnregister.webhookId,
-        namespace: webhookToUnregister.namespace,
-      });
+      unwrap(await api.DELETE('/v1/namespaces/{namespace}/webhooks/{webhook_id}', {
+        params: { path: { namespace: webhookToUnregister.namespace, webhook_id: webhookToUnregister.webhook_id } },
+      }));
       confirmUnregister = false;
       webhookToUnregister = null;
       await fetchWebhooks();
@@ -130,13 +123,17 @@
     }
   }
 
-  async function toggleActive(wh: RegisteredWebhook, e: Event) {
+  async function toggleActive(wh: WebhookOut, e: Event) {
     e.stopPropagation();
     try {
       if (wh.active) {
-        await client.pauseWebhook({ webhookId: wh.webhookId, namespace: wh.namespace });
+        unwrap(await api.POST('/v1/namespaces/{namespace}/webhooks/{webhook_id}:pause', {
+          params: { path: { namespace: wh.namespace, webhook_id: wh.webhook_id } },
+        }));
       } else {
-        await client.resumeWebhook({ webhookId: wh.webhookId, namespace: wh.namespace });
+        unwrap(await api.POST('/v1/namespaces/{namespace}/webhooks/{webhook_id}:resume', {
+          params: { path: { namespace: wh.namespace, webhook_id: wh.webhook_id } },
+        }));
       }
       await fetchWebhooks();
     } catch (e: any) {
@@ -151,7 +148,6 @@
 
 <div class="min-h-screen bg-gray-50">
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <!-- Page header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
       <div>
         <h1 class="text-2xl font-bold text-gray-900">Webhooks</h1>
@@ -167,97 +163,53 @@
       </a>
     </div>
 
-    <!-- Stats bar -->
     {#if !loading && !error}
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div class="bg-white rounded-lg border border-gray-200 px-4 py-3">
-          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Total</p>
+        <div class="bg-white rounded-lg border border-gray-200 px-4 py-3 text-center">
           <p class="text-2xl font-bold text-gray-900">{stats.total}</p>
+          <p class="text-xs text-gray-500 mt-0.5">Total</p>
         </div>
-        <div class="bg-white rounded-lg border border-gray-200 px-4 py-3">
-          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Active</p>
+        <div class="bg-white rounded-lg border border-gray-200 px-4 py-3 text-center">
           <p class="text-2xl font-bold text-green-600">{stats.active}</p>
+          <p class="text-xs text-gray-500 mt-0.5">Active</p>
         </div>
-        <div class="bg-white rounded-lg border border-gray-200 px-4 py-3">
-          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Healthy</p>
+        <div class="bg-white rounded-lg border border-gray-200 px-4 py-3 text-center">
           <p class="text-2xl font-bold text-green-600">{stats.healthy}</p>
+          <p class="text-xs text-gray-500 mt-0.5">Healthy</p>
         </div>
-        <div class="bg-white rounded-lg border border-gray-200 px-4 py-3">
-          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Unhealthy</p>
+        <div class="bg-white rounded-lg border border-gray-200 px-4 py-3 text-center">
           <p class="text-2xl font-bold text-red-600">{stats.unhealthy}</p>
+          <p class="text-xs text-gray-500 mt-0.5">Unhealthy</p>
         </div>
       </div>
     {/if}
 
-    <!-- Toolbar: Search + Health filter pills -->
     <div class="flex flex-col sm:flex-row gap-3 mb-4">
-      <div class="relative flex-1 max-w-md">
-        <input
-          type="text"
-          placeholder="Search by URL, description, or ID..."
-          bind:value={urlSearch}
-          class="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-        />
-        <svg class="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      </div>
-      <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-        {#each healthFilters as filter}
+      <input type="text" placeholder="Namespace" bind:value={namespace} onchange={() => { offset = 0; fetchWebhooks(); }} class="w-40 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+      <input type="text" placeholder="Search by URL, description, or ID..." bind:value={urlSearch} class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+      <div class="flex gap-1">
+        {#each healthFilters as f}
           <button
-            class="px-3 py-1.5 text-xs font-medium rounded-md transition {healthFilter === filter.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"
-            onclick={() => handleHealthFilterChange(filter.value)}
+            onclick={() => handleHealthFilterChange(f.value)}
+            class="px-3 py-1.5 text-xs font-medium rounded-lg transition {healthFilter === f.value ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}"
           >
-            {filter.label}
+            {f.label}
           </button>
         {/each}
       </div>
     </div>
 
-    <!-- Content -->
     {#if loading}
-      <!-- Loading skeleton -->
       <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm text-left">
-            <thead>
-              <tr class="border-b border-gray-200 bg-gray-50/50">
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Webhook</th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Namespace</th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Events</th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Config</th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Health</th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              {#each Array(5) as _}
-                <tr class="animate-pulse">
-                  <td class="px-4 py-3"><div class="space-y-2"><div class="h-4 bg-gray-200 rounded w-48"></div><div class="h-3 bg-gray-100 rounded w-32"></div></div></td>
-                  <td class="px-4 py-3 hidden md:table-cell"><div class="h-4 bg-gray-200 rounded w-20"></div></td>
-                  <td class="px-4 py-3 hidden sm:table-cell"><div class="flex gap-1"><div class="h-5 bg-gray-200 rounded w-16"></div><div class="h-5 bg-gray-200 rounded w-16"></div></div></td>
-                  <td class="px-4 py-3 hidden lg:table-cell"><div class="h-4 bg-gray-100 rounded w-20"></div></td>
-                  <td class="px-4 py-3"><div class="h-5 bg-gray-200 rounded-full w-20"></div></td>
-                  <td class="px-4 py-3"><div class="h-5 bg-gray-200 rounded-full w-9"></div></td>
-                  <td class="px-4 py-3 text-right"><div class="h-6 bg-gray-200 rounded w-20 ml-auto"></div></td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
+        <div class="animate-pulse divide-y divide-gray-100">
+          {#each Array(5) as _}
+            <div class="p-4 h-14 bg-gray-50"></div>
+          {/each}
         </div>
       </div>
     {:else if error}
       <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-        <div class="flex items-start gap-3">
-          <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-          </svg>
-          <div>
-            <p class="text-sm font-medium text-red-800">{error}</p>
-            <button onclick={fetchWebhooks} class="text-sm text-red-600 hover:text-red-800 underline mt-1">Retry</button>
-          </div>
-        </div>
+        <p class="text-sm text-red-700">{error}</p>
       </div>
     {:else if webhooks.length === 0}
       <div class="bg-white border border-gray-200 rounded-lg p-8">
@@ -437,154 +389,65 @@
             Start with Step 1
           </a>
           <a
-            href="https://sarathsp06.github.io/sparrow/getting-started/how-it-works/"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/docs"
             class="inline-flex items-center gap-2 border border-gray-300 bg-white text-gray-700 px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-400 transition shadow-sm"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-            Read the docs
+            Read the API docs
           </a>
         </div>
       </div>
     {:else if filteredWebhooks.length === 0}
       <div class="bg-white border border-gray-200 rounded-lg">
-        <EmptyState
-          icon="filter_alt"
-          title="No matching webhooks"
-          description="Try adjusting your search or filter criteria."
-        >
-          {#snippet action()}
-            <button
-              onclick={() => { urlSearch = ''; handleHealthFilterChange(null); }}
-              class="text-sm text-gray-600 hover:text-gray-900 underline"
-            >
-              Clear filters
-            </button>
-          {/snippet}
-        </EmptyState>
+        <EmptyState icon="search" title="No matching webhooks" description="Try a different search term." />
       </div>
     {:else}
-      <!-- Webhooks table -->
       <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
           <table class="w-full text-sm text-left">
             <thead>
               <tr class="border-b border-gray-200 bg-gray-50/50">
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Webhook</th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Namespace</th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Events</th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Config</th>
+                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Namespace</th>
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Health</th>
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
               {#each filteredWebhooks as wh}
-                <tr
-                  class="hover:bg-gray-50 cursor-pointer transition"
-                  onclick={() => goto(`/webhooks/${wh.webhookId}`)}
-                >
+                <tr class="hover:bg-gray-50 transition cursor-pointer" onclick={() => goto(`/webhooks/${wh.webhook_id}`)}>
                   <td class="px-4 py-3">
-                    <div class="flex flex-col gap-0.5">
-                      <span class="font-medium text-gray-900 truncate max-w-xs" title={wh.url}>
-                        {wh.url}
-                      </span>
-                      {#if wh.description}
-                        <span class="text-xs text-gray-500 truncate max-w-xs">{wh.description}</span>
-                      {/if}
-                      <CopyableId id={wh.webhookId} href="/webhooks/{wh.webhookId}" />
-                      <!-- Show namespace + events inline on mobile -->
-                      <span class="text-xs text-gray-400 md:hidden">ns: {wh.namespace}</span>
-                      <div class="flex flex-wrap gap-1 mt-1 sm:hidden">
-                        {#each wh.events.slice(0, 2) as event}
-                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
-                            {event}
-                          </span>
-                        {/each}
-                        {#if wh.events.length > 2}
-                          <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                            +{wh.events.length - 2}
-                          </span>
-                        {/if}
-                      </div>
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 hidden md:table-cell">
-                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                      {wh.namespace}
-                    </span>
+                    <p class="font-medium text-gray-900 truncate max-w-xs">{wh.description || wh.url}</p>
+                    <div class="mt-0.5"><CopyableId id={wh.webhook_id} truncate={12} /></div>
                   </td>
                   <td class="px-4 py-3 hidden sm:table-cell">
-                    <div class="flex flex-wrap gap-1">
-                      {#each wh.events.slice(0, 3) as event}
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
-                          {event}
-                        </span>
-                      {/each}
-                      {#if wh.events.length > 3}
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                          +{wh.events.length - 3} more
-                        </span>
-                      {/if}
-                    </div>
+                    <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{wh.namespace}</span>
                   </td>
-                  <td class="px-4 py-3 hidden lg:table-cell">
-                    {#if wh.httpConfig}
-                      <div class="flex flex-col gap-0.5 text-xs text-gray-600">
-                        <span>{wh.httpConfig.maxRetries} retries</span>
-                        <span>{wh.httpConfig.requestTimeoutSeconds}s timeout</span>
-                      </div>
-                    {:else}
-                      <span class="text-xs text-gray-400">Default</span>
-                    {/if}
-                  </td>
-                  <td class="px-4 py-3">
-                    <HealthBadge health={wh.health} />
-                  </td>
+                  <td class="px-4 py-3"><HealthBadge health={wh.health} /></td>
                   <td class="px-4 py-3">
                     <button
                       onclick={(e) => toggleActive(wh, e)}
-                      class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 {wh.active ? 'bg-green-500' : 'bg-gray-300'}"
-                      title={wh.active ? 'Click to pause' : 'Click to resume'}
+                      class="px-2 py-0.5 text-xs font-medium rounded-full transition {wh.active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}"
                     >
-                      <span
-                        class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {wh.active ? 'translate-x-4' : 'translate-x-0'}"
-                      ></span>
+                      {wh.active ? 'Active' : 'Paused'}
                     </button>
                   </td>
                   <td class="px-4 py-3 text-right">
-                    <button
-                      onclick={(e) => promptUnregister(wh, e)}
-                      class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 transition"
-                    >
-                      Unregister
-                    </button>
+                    <button onclick={(e) => promptUnregister(wh, e)} class="text-xs text-red-500 hover:text-red-700 underline">Unregister</button>
                   </td>
                 </tr>
               {/each}
             </tbody>
           </table>
         </div>
-
-        <!-- Pagination -->
-        <div class="border-t border-gray-200 px-4">
-          <Pagination
-            {currentPage}
-            {totalPages}
-            {totalCount}
-            pageSize={limit}
-            onPageChange={handlePageChange}
-            itemLabel="webhooks"
-          />
-        </div>
       </div>
+
+      <Pagination {currentPage} {totalPages} {totalCount} pageSize={limit} onPageChange={handlePageChange} />
     {/if}
   </main>
 </div>
 
-<!-- Confirm Unregister Dialog -->
 <ConfirmDialog
   open={confirmUnregister}
   title="Unregister Webhook"

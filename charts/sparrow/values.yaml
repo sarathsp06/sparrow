@@ -15,7 +15,7 @@ sparrow:
   serveUI: "true"
   # "development" = pretty logs; "production" = JSON structured logs
   environment: production
-  # Comma-separated list of allowed CORS origins for Connect-RPC.
+  # Comma-separated list of allowed CORS origins for the REST API.
   # Required when the UI is hosted separately from the API.
   # Example: "https://ui.example.com,https://admin.example.com"
   # Empty + ENVIRONMENT=production = cross-origin blocked (same-origin UI needs no CORS).
@@ -36,7 +36,7 @@ secrets:
   # Required -- the server will not start without it.
   encryptionKey: ""
   # Optional API key for authenticating all API requests.
-  # When set, all HTTP/gRPC requests must include X-API-Key header.
+  # When set, all HTTP requests must include X-API-Key header.
   apiKey: ""
   # Name of a pre-existing Kubernetes Secret containing 'DATABASE_URL' and
   # 'SPARROW_ENCRYPTION_KEY' keys (and optionally 'SPARROW_API_KEY').
@@ -73,7 +73,6 @@ postgresql:
 service:
   type: ClusterIP
   httpPort: 8080
-  grpcPort: 50051
 
 # -- Ingress (optional, OFF by default)
 ingress:

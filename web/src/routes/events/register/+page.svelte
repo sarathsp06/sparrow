@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { eventClient as client, JSONSchemaMetaSchema, jsonToJsonSchema } from '$lib';
+  import { api, unwrap } from '$lib/services';
+  import { JSONSchemaMetaSchema, jsonToJsonSchema } from '$lib';
   import { formatAPIError } from '$lib/utils';
   import {
     createAjvValidator,
@@ -9,7 +10,7 @@
     type JSONContent,
     type Validator
   } from "svelte-jsoneditor";
-  
+
   let name = $state('');
   let description = $state('');
   let schema = $state({ json: {} } as JSONContent);
@@ -20,9 +21,7 @@
   let sampleJson = $state({ json: {} } as JSONContent);
   let schemaHelperError = $state('');
 
-  function validator(): Validator {
-    return createAjvValidator({ schema: JSONSchemaMetaSchema });
-  }
+  const validator: Validator = createAjvValidator({ schema: JSONSchemaMetaSchema });
 
   function generateSchemaFromSample() {
     schemaHelperError = '';
@@ -58,15 +57,11 @@
         schemaString = JSON.stringify(schema.json);
       }
 
-      const schemaObj = JSON.parse(schemaString);
+      const event_schema = JSON.parse(schemaString);
 
-      const req = {
-        name,
-        description,
-        schema: schemaObj,
-        active,
-      };
-      await client.registerEvent(req);
+      unwrap(await api.POST('/v1/event-types', {
+        body: { name, description, event_schema, active },
+      }));
       goto('/events');
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to register event');
@@ -81,131 +76,86 @@
 </svelte:head>
 
 <div class="min-h-screen bg-gray-50">
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <!-- Breadcrumb -->
-    <nav class="flex items-center text-sm text-gray-500 mb-6">
-      <a href="/events" class="hover:text-gray-900 transition">Events</a>
-      <span class="mx-2">/</span>
-      <span class="text-gray-900 font-medium">Register</span>
-    </nav>
+  <div class="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+    <div class="mb-6">
+      <nav class="mb-3">
+        <a href="/events" class="text-sm text-gray-500 hover:text-gray-700 transition">&larr; Back to Events</a>
+      </nav>
+      <h1 class="text-2xl font-bold text-gray-900">Register Event Type</h1>
+      <p class="text-sm text-gray-500 mt-1">Define a new event type that webhooks can subscribe to.</p>
+    </div>
 
-    <div class="max-w-2xl">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">Register New Event</h1>
-
-      <form onsubmit={registerEvent} class="bg-white rounded-lg border border-gray-200 p-6 space-y-5">
+    <form onsubmit={registerEvent} class="space-y-6">
+      <section class="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
         <div>
-          <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Event Name</label>
           <input
-            type="text"
             id="name"
+            type="text"
             bind:value={name}
-            placeholder="e.g. user.created"
-            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
             required
+            placeholder="order.created"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
           />
         </div>
-
         <div>
           <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-          <textarea
+          <input
             id="description"
+            type="text"
             bind:value={description}
-            rows="3"
-            placeholder="Brief description of when this event is triggered..."
-            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-          ></textarea>
+            placeholder="Fired when a new order is created"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+          />
         </div>
+        <div class="flex items-center gap-2">
+          <input id="active" type="checkbox" bind:checked={active} class="rounded border-gray-300" />
+          <label for="active" class="text-sm text-gray-700">Active</label>
+        </div>
+      </section>
 
-        <div>
-          <div class="flex items-center justify-between mb-1">
-            <label for="schema" class="block text-sm font-medium text-gray-700">Schema (JSON Schema)</label>
-            <button
-              type="button"
-              onclick={() => { showSchemaHelper = !showSchemaHelper; schemaHelperError = ''; }}
-              class="text-xs font-medium text-blue-600 hover:text-blue-800 transition"
-            >
-              {showSchemaHelper ? 'Close helper' : 'Generate from sample JSON'}
+      <section class="bg-white rounded-lg border border-gray-200 p-5">
+        <div class="flex items-center justify-between mb-3">
+          <label class="block text-sm font-medium text-gray-700">JSON Schema (optional)</label>
+          <button type="button" onclick={() => (showSchemaHelper = !showSchemaHelper)} class="text-xs text-gray-500 hover:text-gray-700 underline">
+            {showSchemaHelper ? 'Hide' : 'Generate from sample'}
+          </button>
+        </div>
+        {#if showSchemaHelper}
+          <div class="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <p class="text-xs text-gray-500 mb-2">Paste a sample payload to generate a schema:</p>
+            <div class="h-32 mb-2">
+              <JSONEditor bind:content={sampleJson} mode={Mode.text} />
+            </div>
+            {#if schemaHelperError}
+              <p class="text-xs text-red-600 mb-2">{schemaHelperError}</p>
+            {/if}
+            <button type="button" onclick={generateSchemaFromSample} class="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800">
+              Generate Schema
             </button>
           </div>
-          <p class="text-xs text-gray-500 mb-2">
-            Define the expected payload structure for validation. Any valid JSON Schema is accepted — leave as <code class="bg-gray-100 px-1 rounded">{'{}'}</code> to allow any payload.
-          </p>
-
-          {#if showSchemaHelper}
-            <div class="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-              <div>
-                <p class="text-sm font-medium text-blue-900 mb-1">Paste a sample JSON payload</p>
-                <p class="text-xs text-blue-700 mb-2">
-                  A schema will be inferred from the structure. You can then refine it — add <code class="bg-blue-100 px-1 rounded">enum</code>, <code class="bg-blue-100 px-1 rounded">minLength</code>, <code class="bg-blue-100 px-1 rounded">pattern</code>, remove <code class="bg-blue-100 px-1 rounded">required</code> fields, etc.
-                </p>
-                <div class="border border-blue-300 rounded-lg overflow-hidden">
-                  <JSONEditor bind:content={sampleJson} mode={Mode.text} mainMenuBar={false} />
-                </div>
-              </div>
-              {#if schemaHelperError}
-                <p class="text-xs text-red-600">{schemaHelperError}</p>
-              {/if}
-              <button
-                type="button"
-                onclick={generateSchemaFromSample}
-                class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition"
-              >
-                Generate Schema
-              </button>
-            </div>
-          {/if}
-
-          <div class="border border-gray-300 rounded-lg overflow-hidden">
-            <JSONEditor validator={validator()} bind:content={schema} mode={Mode.text} mainMenuBar={false} />
-          </div>
-        </div>
-
-        <div>
-          <label class="flex items-center gap-2">
-            <input
-              type="checkbox"
-              bind:checked={active}
-              class="rounded border-gray-300 text-gray-900 shadow-sm focus:ring-gray-900 focus:ring-offset-0"
-            />
-            <span class="text-sm text-gray-700">Active</span>
-          </label>
-          <p class="text-xs text-gray-500 mt-1 ml-6">Inactive events cannot be pushed.</p>
-        </div>
-
-        {#if error}
-          <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div class="flex items-start gap-3">
-              <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-              </svg>
-              <div class="flex-1">
-                <p class="text-sm font-medium text-red-800">{error}</p>
-              </div>
-              <button onclick={() => error = ''} class="text-red-400 hover:text-red-600 transition" aria-label="Dismiss error">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
         {/if}
-
-        <div class="flex items-center gap-3 pt-2">
-          <button
-            type="submit"
-            class="inline-flex items-center px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={submitting || !name.trim()}
-          >
-            {submitting ? 'Registering...' : 'Register Event'}
-          </button>
-          <a
-            href="/events"
-            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-          >
-            Cancel
-          </a>
+        <div class="h-64">
+          <JSONEditor bind:content={schema} {validator} />
         </div>
-      </form>
-    </div>
-  </main>
+      </section>
+
+      {#if error}
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p class="text-sm text-red-700">{error}</p>
+        </div>
+      {/if}
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <a href="/events" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition">Cancel</a>
+        <button
+          type="submit"
+          disabled={submitting}
+          class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition"
+        >
+          {submitting ? 'Registering...' : 'Register Event'}
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
