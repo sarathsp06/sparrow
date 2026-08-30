@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "End-to-end tests for Sparrow webhook platform (Gauge + Python)"
 requires-python = ">=3.11"
 dependencies = [
-    "getgauge>=0.4",
+    # Must match the installed Gauge python plugin version (gauge -v). The
+    # plugin refuses to start unless the getgauge lib version is identical,
+    # and the uv venv has no pip to self-install the missing version.
+    "getgauge==0.5.1",
     "requests>=2.31",
     "flask>=3.0",
     "pynacl>=1.5",

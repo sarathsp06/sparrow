@@ -301,7 +301,7 @@ wheels = [
 
 [[package]]
 name = "getgauge"
-version = "0.5.0"
+version = "0.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "debugpy" },
@@ -309,7 +309,7 @@ dependencies = [
     { name = "protobuf" },
     { name = "redbaron" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2a/b0/fbc5746dba947273fc55d6261fb24168bada21d69345cfe960833859cc04/getgauge-0.5.0.tar.gz", hash = "sha256:4550f34f68f7e8762a6127564ccf09704392956bc9f033944b8bbf99f1594034", size = 41855 }
+sdist = { url = "https://files.pythonhosted.org/packages/82/30/791d1c3925348e95c7cfbe97d3ac44f55afa3d77c9310e2a7c15b420eadc/getgauge-0.5.1.tar.gz", hash = "sha256:8e6c61ede7986aacd05bd6a871a48e000ea6601189c3128bc2aeabcf2f00c0f7", size = 41875 }
 
 [[package]]
 name = "grpcio"
@@ -648,7 +648,7 @@ dependencies = [
 requires-dist = [
     { name = "attrs", specifier = ">=22.2.0" },
     { name = "flask", specifier = ">=3.0" },
-    { name = "getgauge", specifier = ">=0.4" },
+    { name = "getgauge", specifier = "==0.5.1" },
     { name = "grpcio", specifier = ">=1.81.0" },
     { name = "httpx", specifier = ">=0.23.1,<0.29.0" },
     { name = "pynacl", specifier = ">=1.5" },

@@ -8,6 +8,7 @@ DATABASE_URL ?= 'postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmod
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 SEMVER  ?= $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0-dev")
 LDFLAGS := -X github.com/sarathsp06/sparrow.Version=$(VERSION)
+IMAGE_E2E ?= sparrow:e2e
 
 
 build: ## Build the server binary for current OS/arch
@@ -66,16 +67,19 @@ client-python: ## Regenerate the Python client from the committed OpenAPI spec
 	rm -rf client/python
 	uvx openapi-python-client generate --path api/openapi.yaml --output-path client/python --overwrite
 
-test-e2e: client-python ## Run end-to-end tests (Gauge + Python, requires Docker)
+docker-build-e2e: ## Build the Docker image the e2e suite runs (tag: $(IMAGE_E2E))
+	docker build -t $(IMAGE_E2E) .
+
+test-e2e: client-python docker-build-e2e ## Run end-to-end tests (Gauge + Python, requires Docker)
 	cd e2e && uv run gauge run specs/
 
-test-e2e-spec: client-python ## Run a single e2e spec (usage: make test-e2e-spec SPEC=00_hello_world)
+test-e2e-spec: client-python docker-build-e2e ## Run a single e2e spec (usage: make test-e2e-spec SPEC=00_hello_world)
 	cd e2e && uv run gauge run specs/$(SPEC).spec
 
-test-e2e-tag: client-python ## Run e2e tests by tag (usage: make test-e2e-tag TAG=retry)
+test-e2e-tag: client-python docker-build-e2e ## Run e2e tests by tag (usage: make test-e2e-tag TAG=retry)
 	cd e2e && uv run gauge run --tags "$(TAG)" specs/
 
-test-e2e-parallel: client-python ## Run e2e tests in parallel
+test-e2e-parallel: client-python docker-build-e2e ## Run e2e tests in parallel
 	cd e2e && uv run gauge run --parallel specs/
 
 test-e2e-report: test-e2e ## Run e2e tests and open HTML report
@@ -98,6 +102,7 @@ clean: ## Clean up all build artifacts (Go, web)
 	go clean -modcache
 	rm -rf web/build web/node_modules/.vite
 	rm -rf internal/ui/dist
+	mkdir -p internal/ui/dist && touch internal/ui/dist/.gitkeep
 	@echo "Clean complete"
 
 generate: ## Export the OpenAPI spec from Go and regenerate client SDKs
@@ -118,4 +123,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui client-python build-with-ui release-dry-run run test test-integration test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package migrate lint fmt run-web book help
+.PHONY: build build-ui client-python docker-build-e2e build-with-ui release-dry-run run test test-integration test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package migrate lint fmt run-web book help
