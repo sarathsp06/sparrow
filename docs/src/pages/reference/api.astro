@@ -1,0 +1,19 @@
+---
+import { ScalarComponent } from '@scalar/astro';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+// The OpenAPI spec lives at <repo>/api/openapi.yaml, one level above the docs
+// project root. Read it at build time so it stays in sync with no committed copy.
+// src/pages/reference/api.astro -> ../../../../api/openapi.yaml == <repo>/api/openapi.yaml
+const specPath = fileURLToPath(new URL('../../../../api/openapi.yaml', import.meta.url));
+const spec = readFileSync(specPath, 'utf-8');
+---
+
+<ScalarComponent
+  configuration={{
+    content: spec,
+    pageTitle: 'Sparrow API Reference',
+    title: 'Sparrow API',
+  }}
+/>

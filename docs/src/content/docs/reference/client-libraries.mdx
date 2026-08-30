@@ -1,0 +1,95 @@
+---
+title: Client Libraries
+description: Generate REST clients for any language from Sparrow's OpenAPI spec.
+sidebar:
+  order: 10
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Sparrow's interface is **REST/OpenAPI only**. There is no bespoke SDK to learn — every endpoint
+is described by the committed OpenAPI 3.1 contract at `api/openapi.yaml`, so you can generate a
+typed client for any language with a standard generator, or just call the API with plain HTTP.
+
+The full, browsable API reference is generated from that same spec — see
+[API Reference](/sparrow/reference/api/).
+
+## Authentication
+
+All requests use an API key in the `X-API-Key` header (required only when the server is started
+with `SPARROW_API_KEY` set):
+
+```bash
+curl -X POST http://localhost:8080/v1/namespaces/payments/events \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_..." \
+  -d '{
+    "payload": {"id": "inv_01", "amount": 4999},
+    "idempotency_key": "idem_abc123"
+  }'
+```
+
+## Generating a client
+
+The OpenAPI spec is committed at `api/openapi.yaml` (also `api/openapi.json`) and regenerated from
+the Go REST definitions in `internal/rest` (via [Huma](https://github.com/danielgtaylor/huma)):
+
+```bash
+make generate
+```
+
+Point any OpenAPI 3.1-compatible generator at that file:
+
+<Tabs>
+  <TabItem label="Python">
+
+Generated with [`openapi-python-client`](https://github.com/openapi-generators/openapi-python-client)
+(typed, `httpx`/`attrs`-based) into `client/python`:
+
+```bash
+uvx openapi-python-client generate \
+  --path api/openapi.yaml \
+  --output-path client/python --overwrite
+```
+
+```python
+from sparrow_client import AuthenticatedClient
+from sparrow_client.api.webhooks import register_webhook
+from sparrow_client.models.register_webhook_body import RegisterWebhookBody
+
+client = AuthenticatedClient(
+    base_url="http://localhost:8080",
+    token="<api-key>",
+    prefix="",
+    auth_header_name="X-API-Key",
+)
+resp = register_webhook.sync_detailed(
+    namespace="default",
+    client=client,
+    body=RegisterWebhookBody(events=["order.created"], url="https://example.com/hook"),
+)
+```
+
+  </TabItem>
+  <TabItem label="TypeScript">
+
+```bash
+npx openapi-typescript api/openapi.yaml -o client/ts/schema.d.ts
+```
+
+Use with any typed fetch wrapper (for example [`openapi-fetch`](https://openapi-ts.dev/openapi-fetch/)).
+
+  </TabItem>
+  <TabItem label="Go">
+
+```bash
+go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest \
+  -generate types,client -package sparrow \
+  api/openapi.yaml > client/go/sparrow.gen.go
+```
+
+  </TabItem>
+</Tabs>
+
+All generated client code is derived from `api/openapi.yaml`; do not edit it by hand — regenerate
+instead.

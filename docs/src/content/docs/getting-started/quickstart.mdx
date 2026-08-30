@@ -1,0 +1,84 @@
+---
+title: Quickstart
+description: Get up and running with Sparrow in 5 minutes.
+sidebar:
+  order: 2
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+This guide walks you through registering a webhook, pushing an event, and verifying delivery -- all using `curl`.
+
+:::note
+All examples use `http://localhost:8080` (REST/HTTP API). Replace with your server URL in production.
+:::
+
+<Steps>
+
+1. **Register an event type**
+
+    ```bash
+    curl -X POST http://localhost:8080/v1/event-types \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: sk_live_..." \
+      -d '{
+        "name": "order.created",
+        "description": "Fires when a new order is placed",
+        "active": true
+      }'
+    ```
+
+2. **Register a webhook**
+
+    ```bash
+    curl -X POST http://localhost:8080/v1/namespaces/default/webhooks \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: sk_live_..." \
+      -d '{
+        "url": "https://testhooks.sarathsadasivan.com/hooks",
+        "events": ["order.created"],
+        "active": true
+      }'
+    ```
+
+    Save the `webhookId` from the response for later use.
+
+3. **Push an event**
+
+    ```bash
+    curl -X POST http://localhost:8080/v1/namespaces/default/events \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: sk_live_..." \
+      -d '{
+        "payload": {
+          "order_id": "ord_123",
+          "customer": "alice@example.com",
+          "total": 49.99
+        },
+        "idempotency_key": "idem_ord_123",
+        "ttl_seconds": 3600
+      }'
+    ```
+
+4. **Check delivery status**
+
+    ```bash
+    curl "http://localhost:8080/v1/namespaces/default/deliveries?webhook_id=YOUR_WEBHOOK_ID&limit=10" \
+      -H "X-API-Key: sk_live_..."
+    ```
+
+</Steps>
+
+## What Just Happened?
+
+1. Sparrow stored the event and enqueued it for async processing
+2. The event worker found the matching subscription (created automatically when you registered the webhook with `events`)
+3. A delivery job was created and the webhook worker sent an HTTP POST to your URL
+4. The delivery status, response code, and response body were recorded
+
+## Next Steps
+
+- [Learn how events, webhooks, and deliveries fit together](/sparrow/getting-started/how-it-works/)
+- [Configure webhook secrets](/sparrow/reference/architecture/#verifying-webhook-signatures) for HMAC signature verification
+- [Add payload transforms](/sparrow/reference/template-functions/) using Go templates
+- Generate a client from the OpenAPI spec — see [Client Libraries](/sparrow/reference/client-libraries/)

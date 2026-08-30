@@ -1,0 +1,23 @@
+{
+  "name": "sparrow-docs",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "diagrams": "for f in src/assets/diagrams/*.mmd; do npx --yes @mermaid-js/mermaid-cli -i \"$f\" -o \"${f%.mmd}-light.svg\" -c src/assets/diagrams/mermaid-config-light.json --backgroundColor transparent && npx --yes @mermaid-js/mermaid-cli -i \"$f\" -o \"${f%.mmd}-dark.svg\" -c src/assets/diagrams/mermaid-config-dark.json --backgroundColor transparent; done",
+    "diagrams:check": "node -e \"const fs=require('fs');const mmds=fs.readdirSync('src/assets/diagrams').filter(f=>f.endsWith('.mmd'));const missing=mmds.filter(f=>!fs.existsSync('src/assets/diagrams/'+f.replace('.mmd','-light.svg'))||!fs.existsSync('src/assets/diagrams/'+f.replace('.mmd','-dark.svg')));if(missing.length){console.log('Regenerating diagrams...');process.exit(1)}else{console.log('SVGs up to date, skipping diagram generation')}\"",
+    "diagrams:auto": "npm run diagrams:check || npm run diagrams",
+    "dev": "npm run diagrams:auto && astro dev",
+    "build": "npm run diagrams:auto && astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.37.7",
+    "@scalar/astro": "^0.4.17",
+    "astro": "^5.7.0",
+    "marked": "^17.0.5",
+    "sharp": "^0.33.0",
+    "zod": "^3.25.76"
+  }
+}

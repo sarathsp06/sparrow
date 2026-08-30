@@ -1,0 +1,101 @@
+---
+title: Installation
+description: How to install and run Sparrow.
+sidebar:
+  order: 1
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## One-Click Deploy
+
+Deploy Sparrow to Railway with a managed PostgreSQL database -- no Docker or Kubernetes needed:
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
+## Docker Compose (Recommended)
+
+The simplest way to run Sparrow. No need to clone the repo:
+
+```bash
+curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
+SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32) docker compose up -d
+```
+
+The server is available at:
+
+| Endpoint | URL |
+|----------|-----|
+| Web UI | http://localhost:8080 |
+| REST API | http://localhost:8080 |
+
+To stop:
+
+```bash
+docker compose down        # stop containers
+docker compose down -v     # stop and delete data
+```
+
+## Build from Source
+
+### Prerequisites
+
+- Go 1.26+
+- Node.js 22+ (for web UI)
+- PostgreSQL 15+
+
+### Build
+
+<Tabs>
+  <TabItem label="With UI">
+    ```bash
+    make build-with-ui
+    ```
+  </TabItem>
+  <TabItem label="Server Only">
+    ```bash
+    make build
+    ```
+  </TabItem>
+</Tabs>
+
+### Run
+
+```bash
+export DATABASE_URL=postgres://user:pass@localhost:5432/sparrow?sslmode=disable
+
+# Run migrations
+make migrate
+
+# Start the server with UI
+SPARROW_SERVE_UI=true ./build/server-*
+```
+
+## Pre-built Binaries
+
+Cross-compiled binaries are available for:
+
+- `linux/amd64`
+- `linux/arm64`
+- `darwin/amd64`
+- `darwin/arm64`
+- `windows/amd64`
+
+Build them all with:
+
+```bash
+make build-all
+```
+
+## Docker Image
+
+Pre-built multi-arch images (linux/amd64, linux/arm64) are published to GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/sarathsp06/sparrow:latest
+```
+
+The Dockerfile uses a 3-stage build:
+1. **Frontend** (`node:22-alpine`): Builds the SvelteKit UI
+2. **Backend** (`golang:1.26-alpine`): Compiles Go binaries with embedded UI
+3. **Runtime** (`distroless/static-debian12:nonroot`): Minimal production image

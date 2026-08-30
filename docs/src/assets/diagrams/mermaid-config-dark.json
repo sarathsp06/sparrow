@@ -1,0 +1,30 @@
+{
+  "theme": "dark",
+  "themeVariables": {
+    "fontFamily": "system-ui, -apple-system, sans-serif",
+    "fontSize": "14px",
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#e2e8f0",
+    "primaryBorderColor": "#475569",
+    "lineColor": "#94a3b8",
+    "secondaryColor": "#0f172a",
+    "tertiaryColor": "#1e293b",
+    "noteBkgColor": "#1e293b",
+    "noteTextColor": "#cbd5e1",
+    "nodeBorder": "#475569",
+    "clusterBkg": "#0f172a",
+    "clusterBorder": "#334155",
+    "edgeLabelBackground": "#0f172a"
+  },
+  "flowchart": {
+    "htmlLabels": true,
+    "curve": "basis",
+    "padding": 16,
+    "nodeSpacing": 50,
+    "rankSpacing": 60
+  },
+  "state": {
+    "textColor": "#e2e8f0",
+    "dividerColor": "#334155"
+  }
+}
