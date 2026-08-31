@@ -309,8 +309,8 @@ func (r *Repository) GetEventDeliveryStats(ctx context.Context, tenantID uuid.UU
 	query := `
 		SELECT
 			COUNT(DISTINCT wd.webhook_id) as webhook_count,
-			SUM(CASE WHEN wh.success = true THEN 1 ELSE 0 END) as successful_deliveries,
-			SUM(CASE WHEN wh.success = false THEN 1 ELSE 0 END) as failed_deliveries,
+			COALESCE(SUM(CASE WHEN wh.success = true THEN 1 ELSE 0 END), 0) as successful_deliveries,
+			COALESCE(SUM(CASE WHEN wh.success = false THEN 1 ELSE 0 END), 0) as failed_deliveries,
 			COUNT(CASE WHEN wd.status IN ('pending', 'sending', 'retrying') THEN 1 END) as pending_deliveries
 		FROM webhook_deliveries wd
 		LEFT JOIN webhook_health_events wh ON wd.id = wh.delivery_id
