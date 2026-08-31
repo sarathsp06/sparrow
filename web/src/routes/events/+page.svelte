@@ -3,6 +3,7 @@
 	import { api, unwrap } from '$lib/services';
 	import { onMount } from 'svelte';
 	import { JSONEditor, Mode, type Content } from 'svelte-jsoneditor';
+	import 'svelte-jsoneditor/themes/jse-theme-dark.css';
 	import type { components } from '$lib/api-types';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
@@ -105,100 +106,94 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class="min-h-screen bg-gray-50">
-	<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
-		<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-			<div>
-				<h1 class="text-2xl font-bold text-gray-900">Events</h1>
-				<p class="text-sm text-gray-500 mt-0.5">Manage registered event types</p>
-			</div>
-			<div class="flex items-center gap-2">
-				<a
-					href="/events/push"
-					class="inline-flex items-center gap-2 bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition shadow-sm"
-				>
-					Push Test Event
-				</a>
-			<a
-				id="header-register-btn"
-				href="/events/register"
-				class="inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition shadow-sm"
-			>
+<main class="mx-auto max-w-7xl px-4 sm:px-8 py-8 pb-24">
+	<div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+		<div>
+			<p class="eyebrow mb-1.5">Catalog / Events</p>
+			<h1 class="text-2xl">Events</h1>
+			<p class="text-sm text-muted mt-1">Manage registered event types</p>
+		</div>
+		<div class="flex items-center gap-2">
+			<a href="/events/push" class="btn btn-ghost">Push Test Event</a>
+			<a id="header-register-btn" href="/events/register" class="btn btn-beacon">
 				<span class="text-lg leading-none">+</span>
 				Register Event
 			</a>
+		</div>
+	</div>
+
+	{#if !loading && !error && events.length > 0}
+		<div class="flex flex-col sm:flex-row gap-3 mb-4">
+			<input
+				type="text"
+				placeholder="Search by name or description…"
+				bind:value={searchQuery}
+				class="input flex-1"
+			/>
+		</div>
+	{/if}
+
+	{#if loading}
+		<div class="panel overflow-hidden">
+			<div class="animate-pulse">
+				{#each Array(5) as _}
+					<div class="row-line h-14 bg-white/[0.015]"></div>
+				{/each}
 			</div>
 		</div>
-
-		{#if !loading && !error && events.length > 0}
-			<div class="flex flex-col sm:flex-row gap-3 mb-4">
-				<input
-					type="text"
-					placeholder="Search by name or description..."
-					bind:value={searchQuery}
-					class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-				/>
-			</div>
-		{/if}
-
-		{#if loading}
-			<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-				<div class="animate-pulse divide-y divide-gray-100">
-					{#each Array(5) as _}
-						<div class="p-4 flex items-center gap-4">
-							<div class="h-4 bg-gray-200 rounded w-32"></div>
-							<div class="h-4 bg-gray-100 rounded flex-1"></div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		{:else if error}
-			<div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-				<p class="text-sm text-red-700">{error}</p>
-			</div>
-		{:else if events.length === 0}
-			<div class="bg-white border border-gray-200 rounded-lg">
-				<EmptyState icon="calendar" title="No events registered" description="Register an event type to start pushing events." />
-			</div>
-		{:else if filteredEvents.length === 0}
-			<div class="bg-white border border-gray-200 rounded-lg">
-				<EmptyState icon="search" title="No matching events" description="Try a different search term." />
-			</div>
-		{:else}
-			<div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-				<div class="overflow-x-auto">
-					<table class="w-full text-sm text-left">
-						<thead>
-							<tr class="border-b border-gray-200 bg-gray-50/50">
-								<th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
-								<th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Description</th>
-								<th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-								<th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
+	{:else if error}
+		<div class="panel p-4 mb-6" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+			<p class="text-sm" style="color:var(--color-bad)">{error}</p>
+		</div>
+	{:else if events.length === 0}
+		<div class="panel">
+			<EmptyState icon="calendar" title="No events registered" description="Register an event type to start pushing events." />
+		</div>
+	{:else if filteredEvents.length === 0}
+		<div class="panel">
+			<EmptyState icon="search" title="No matching events" description="Try a different search term." />
+		</div>
+	{:else}
+		<div class="panel overflow-hidden">
+			<div class="overflow-x-auto">
+				<table class="w-full text-left">
+					<thead>
+						<tr class="border-b border-line">
+							<th class="th">Name</th>
+							<th class="th hidden sm:table-cell">Description</th>
+							<th class="th">Status</th>
+							<th class="th"></th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each filteredEvents as ev}
+							<tr class="row-line row-hover transition cursor-pointer" onclick={() => goto(`/events/${encodeURIComponent(ev.name)}/reports`)}>
+								<td class="td font-medium text-text">{ev.name}</td>
+								<td class="td text-muted hidden sm:table-cell">{ev.description || '—'}</td>
+								<td class="td">
+									<span
+										class="chip"
+										style={ev.active
+											? 'color:var(--color-ok);border-color:color-mix(in srgb,var(--color-ok) 35%,transparent);background:color-mix(in srgb,var(--color-ok) 12%,var(--color-panel-2))'
+											: 'color:var(--color-idle);border-color:color-mix(in srgb,var(--color-idle) 35%,transparent);background:color-mix(in srgb,var(--color-idle) 12%,var(--color-panel-2))'}
+									>
+										<span class="w-1.5 h-1.5 rounded-full" style="background:var(--color-{ev.active ? 'ok' : 'idle'})"></span>
+										{ev.active ? 'Active' : 'Inactive'}
+									</span>
+								</td>
+								<td class="td text-right whitespace-nowrap">
+									{#if ev.event_schema && Object.keys(ev.event_schema).length > 0}
+										<button onclick={(e) => viewSchema(ev.event_schema, e)} class="link text-xs mono mr-4">Schema</button>
+									{/if}
+									<a href="/events/{encodeURIComponent(ev.name)}/update" onclick={(e) => e.stopPropagation()} class="link text-xs mono mr-4">Edit</a>
+									<button onclick={(e) => promptDelete(ev, e)} class="btn btn-danger !px-3 !py-1.5 text-xs" aria-label="Delete event {ev.name}">Delete</button>
+								</td>
 							</tr>
-						</thead>
-						<tbody class="divide-y divide-gray-100">
-							{#each filteredEvents as ev}
-								<tr class="hover:bg-gray-50 transition cursor-pointer" onclick={() => goto(`/events/${encodeURIComponent(ev.name)}/reports`)}>
-									<td class="px-4 py-3 font-medium text-gray-900">{ev.name}</td>
-									<td class="px-4 py-3 text-gray-600 hidden sm:table-cell">{ev.description || '—'}</td>
-									<td class="px-4 py-3">
-										<span class="px-2 py-0.5 text-xs font-medium rounded-full {ev.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
-											{ev.active ? 'Active' : 'Inactive'}
-										</span>
-									</td>
-									<td class="px-4 py-3 text-right whitespace-nowrap">
-										{#if ev.event_schema && Object.keys(ev.event_schema).length > 0}
-											<button onclick={(e) => viewSchema(ev.event_schema, e)} class="text-xs text-gray-500 hover:text-gray-800 underline mr-3">Schema</button>
-										{/if}
-										<a href="/events/{encodeURIComponent(ev.name)}/update" onclick={(e) => e.stopPropagation()} class="text-xs text-gray-500 hover:text-gray-800 underline mr-3">Edit</a>
-										<button onclick={(e) => promptDelete(ev, e)} class="text-xs text-red-500 hover:text-red-700 underline">Delete</button>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
+						{/each}
+					</tbody>
+				</table>
 			</div>
+		</div>
 
 		<Pagination
 			{currentPage}
@@ -207,14 +202,13 @@
 			{pageSize}
 			onPageChange={handlePageChange}
 		/>
-		{/if}
-	</main>
-</div>
+	{/if}
+</main>
 
 {#if isModalOpen}
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center"
+		class="fixed inset-0 z-50 flex items-center justify-center p-4"
 		role="dialog"
 		aria-modal="true"
 		aria-label="Event Schema"
@@ -223,13 +217,16 @@
 	>
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="fixed inset-0 bg-black/40 backdrop-blur-sm" role="presentation" onclick={closeModal}></div>
-		<div class="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 p-6">
+		<div class="fixed inset-0 bg-ink/70 backdrop-blur-sm" role="presentation" onclick={closeModal}></div>
+		<div class="panel ticked relative w-full max-w-2xl p-6">
 			<div class="flex items-center justify-between mb-4">
-				<h3 class="text-lg font-semibold text-gray-900">Event Schema</h3>
-				<button onclick={closeModal} class="text-gray-400 hover:text-gray-600">&times;</button>
+				<div>
+					<p class="eyebrow mb-1.5">Catalog / Schema</p>
+					<h3 class="text-lg font-semibold text-text">Event Schema</h3>
+				</div>
+				<button onclick={closeModal} class="link text-2xl leading-none" aria-label="Close">&times;</button>
 			</div>
-			<div class="h-96">
+			<div class="jse-theme-dark h-96">
 				<JSONEditor bind:content mode={Mode.text} readOnly />
 			</div>
 		</div>

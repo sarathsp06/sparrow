@@ -1,7 +1,9 @@
 <script lang="ts">
     import { api, unwrap } from '$lib/services';
-    import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError } from '$lib/utils';
-    import { onMount, onDestroy } from 'svelte';
+    import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError, timeAgo } from '$lib/utils';
+    import { namespaceStore } from '$lib/namespace.svelte';
+    import { pulseStore } from '$lib/pulse.svelte';
+    import { onDestroy } from 'svelte';
     import type { components } from '$lib/api-types';
     import StatusBadge from '$lib/components/StatusBadge.svelte';
     import CopyableId from '$lib/components/CopyableId.svelte';
@@ -21,7 +23,6 @@
     let totalPages = $derived(Math.max(1, Math.ceil(totalCount / pageSize)));
 
     // Filters
-    let namespaceFilter = $state('default');
     let webhookIdFilter = $state('');
     let eventIdFilter = $state('');
     let statusFilter = $state('');
@@ -37,15 +38,33 @@
 
     let retryingDeliveries: Set<string> = $state(new Set());
 
+    let live = $state(false);
+    let liveTimer: ReturnType<typeof setInterval> | undefined;
+
     onDestroy(() => {
         if (pollingTimer) clearInterval(pollingTimer);
+        if (liveTimer) clearInterval(liveTimer);
     });
 
-    async function fetchDeliveries(pageNum: number = 1, prepareRetry: boolean = false) {
-        loading = !prepareRetry;
+    function startLive() {
+        stopLive();
+        live = true;
+        liveTimer = setInterval(() => { fetchDeliveries(1, false, true); pulseStore.ping(); }, 5000);
+    }
+    function stopLive() {
+        live = false;
+        if (liveTimer) { clearInterval(liveTimer); liveTimer = undefined; }
+    }
+    function toggleLive() {
+        if (live) stopLive();
+        else startLive();
+    }
+
+    async function fetchDeliveries(pageNum: number = 1, prepareRetry: boolean = false, silent: boolean = false) {
+        loading = !prepareRetry && !silent;
         if (!prepareRetry) error = '';
 
-        const ns = namespaceFilter.trim() || 'default';
+        const ns = namespaceStore.value;
         const offset = (pageNum - 1) * pageSize;
 
         try {
@@ -95,7 +114,6 @@
     }
 
     function clearFilters() {
-        namespaceFilter = 'default';
         webhookIdFilter = '';
         eventIdFilter = '';
         statusFilter = '';
@@ -114,7 +132,7 @@
         retryingDeliveries.add(deliveryId);
         retryingDeliveries = new Set(retryingDeliveries);
         try {
-            const ns = namespaceFilter.trim() || 'default';
+            const ns = namespaceStore.value;
             unwrap(await api.POST('/v1/namespaces/{namespace}/deliveries/{delivery_id}:retry', {
                 params: { path: { namespace: ns, delivery_id: deliveryId } },
             }));
@@ -140,7 +158,7 @@
     async function executeRetry() {
         confirmRetry = false;
         if (!retryId) return;
-        const ns = namespaceFilter.trim() || 'default';
+        const ns = namespaceStore.value;
         try {
             const res = unwrap(await api.POST('/v1/namespaces/{namespace}/deliveries:retryBatch', {
                 params: { path: { namespace: ns } },
@@ -155,7 +173,7 @@
 
     function startPolling() {
         if (pollingTimer) clearInterval(pollingTimer);
-        const ns = namespaceFilter.trim() || 'default';
+        const ns = namespaceStore.value;
         pollingTimer = setInterval(async () => {
             if (!retryId) { stopPolling(); return; }
             try {
@@ -178,7 +196,7 @@
 
     async function cancelRetryBatch() {
         if (!retryId) return;
-        const ns = namespaceFilter.trim() || 'default';
+        const ns = namespaceStore.value;
         try {
             await api.POST('/v1/namespaces/{namespace}/retry-jobs/{job_id}:cancel', {
                 params: { path: { namespace: ns, job_id: retryId } },
@@ -198,8 +216,9 @@
         return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
     }
 
-    onMount(() => {
-        fetchDeliveries();
+    $effect(() => {
+        namespaceStore.value; // refetch when the active namespace changes
+        fetchDeliveries(1);
     });
 </script>
 
@@ -207,147 +226,148 @@
     <title>Deliveries | Sparrow</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div class="mb-6">
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-900">Deliveries</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">All webhook deliveries in namespace <span class="font-medium text-gray-700">{namespaceFilter.trim() || 'default'}</span></p>
-                </div>
-                {#if !loading}
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm text-gray-500">
-                            {totalCount} deliver{totalCount !== 1 ? 'ies' : 'y'}
-                        </span>
-                        {#if totalCount > 0}
-                            <button
-                                onclick={prepareRetryBatch}
-                                disabled={preparingRetry}
-                                class="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition"
-                            >
-                                {preparingRetry ? 'Preparing...' : 'Retry All Matching'}
-                            </button>
-                        {/if}
-                    </div>
-                {/if}
-            </div>
+<main class="mx-auto max-w-[1600px] px-4 sm:px-8 py-8">
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+        <div>
+            <p class="eyebrow mb-1.5">Traffic / Deliveries</p>
+            <h1 class="text-2xl">Deliveries</h1>
+            <p class="text-sm text-muted mt-1">All webhook deliveries in namespace <span class="mono text-text">{namespaceStore.value}</span></p>
         </div>
-
-        <div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-            <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
-                <input type="text" placeholder="Namespace" bind:value={namespaceFilter} class="w-32 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
-                <input type="text" placeholder="Webhook ID" bind:value={webhookIdFilter} class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
-                <input type="text" placeholder="Event ID" bind:value={eventIdFilter} class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
-                <select bind:value={statusFilter} class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm">
-                    <option value="">All statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="sending">Sending</option>
-                    <option value="success">Success</option>
-                    <option value="failed">Failed</option>
-                    <option value="retrying">Retrying</option>
-                    <option value="expired">Expired</option>
-                </select>
-                <button onclick={applyFilters} class="px-4 py-1.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800">Apply</button>
-                {#if hasActiveFilters}
-                    <button onclick={clearFilters} class="px-4 py-1.5 text-gray-500 hover:text-gray-700 text-sm">Clear</button>
+        <div class="flex items-center gap-3">
+            <button onclick={toggleLive} aria-pressed={live} class="btn btn-ghost !px-3 !py-1.5 !text-xs" title="Auto-refresh every 5s">
+                <span class="relative flex w-2 h-2">
+                    {#if live}<span class="absolute inline-flex w-full h-full rounded-full opacity-70 animate-ping" style="background:var(--color-ok)"></span>{/if}
+                    <span class="relative inline-flex w-2 h-2 rounded-full" style="background:var(--color-{live ? 'ok' : 'idle'})"></span>
+                </span>
+                {live ? 'Live' : 'Live off'}
+            </button>
+            {#if !loading}
+                <span class="text-sm text-muted mono tnum">
+                    {totalCount} deliver{totalCount !== 1 ? 'ies' : 'y'}
+                </span>
+                {#if totalCount > 0}
+                    <button onclick={prepareRetryBatch} disabled={preparingRetry} class="btn btn-ghost !px-3 !py-1.5 !text-xs">
+                        {preparingRetry ? 'Preparing…' : 'Retry all matching'}
+                    </button>
                 {/if}
-            </div>
+            {/if}
         </div>
+    </div>
 
-        {#if batchStatus}
-            <div class="mb-4">
-                <BatchProgress
-                    batch={batchStatus}
-                    oncancel={cancelRetryBatch}
-                    ondone={onBatchDone}
-                />
-            </div>
-        {/if}
+    <div class="panel p-4 mb-4">
+        <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <input type="text" placeholder="Webhook ID" bind:value={webhookIdFilter} class="input flex-1" />
+            <input type="text" placeholder="Event ID" bind:value={eventIdFilter} class="input flex-1" />
+            <select bind:value={statusFilter} class="select sm:w-44">
+                <option value="">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="sending">Sending</option>
+                <option value="success">Success</option>
+                <option value="failed">Failed</option>
+                <option value="retrying">Retrying</option>
+                <option value="expired">Expired</option>
+            </select>
+            <button onclick={applyFilters} class="btn btn-beacon">Apply</button>
+            {#if hasActiveFilters}
+                <button onclick={clearFilters} class="btn btn-ghost">Clear</button>
+            {/if}
+        </div>
+    </div>
 
-        {#if error}
-            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                <p class="text-sm text-red-700">{error}</p>
-            </div>
-        {/if}
-
-        {#if loading}
-            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div class="animate-pulse divide-y divide-gray-100">
-                    {#each Array(8) as _}
-                        <div class="p-4 h-14 bg-gray-50"></div>
-                    {/each}
-                </div>
-            </div>
-        {:else if deliveries.length === 0}
-            <EmptyState icon="send" title="No deliveries found" description="No deliveries match the current filters." />
-        {:else}
-            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
-                        <thead>
-                            <tr class="border-b border-gray-200 bg-gray-50/50">
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Delivery</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Webhook</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Response</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Attempts</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Created</th>
-                                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            {#each deliveries as d}
-                                <tr class="hover:bg-gray-50 transition">
-                                    <td class="px-4 py-3"><CopyableId id={d.delivery_id} href="/deliveries/{d.delivery_id}" truncate={12} /></td>
-                                    <td class="px-4 py-3 hidden sm:table-cell"><CopyableId id={d.webhook_id} href="/webhooks/{d.webhook_id}" truncate={12} /></td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center gap-1.5">
-                                            <StatusBadge status={d.status} />
-                                        {#if d.error_category && d.error_category !== 'success'}
-                                                {@const badge = getCategoryBadge(d.error_category)}
-                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
-                                            {/if}
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 hidden sm:table-cell">
-                                        <span class="font-mono text-xs {(d.response_code ?? 0) >= 200 && (d.response_code ?? 0) < 300 ? 'text-green-600' : (d.response_code ?? 0) >= 400 ? 'text-red-600' : 'text-gray-500'}">
-                                            {d.response_code || '—'}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 hidden md:table-cell text-xs text-gray-700">{d.attempt_count}/{d.max_attempts}</td>
-                                    <td class="px-4 py-3 hidden lg:table-cell text-xs text-gray-500">{formatTimestamp(d.created_at)}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex items-center gap-2">
-                                            {#if d.status === 'failed' || d.status === 'expired'}
-                                                <button
-                                                    onclick={() => retrySingleDelivery(d.delivery_id)}
-                                                    disabled={retryingDeliveries.has(d.delivery_id)}
-                                                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50 transition"
-                                                >
-                                                    {retryingDeliveries.has(d.delivery_id) ? 'Retrying...' : 'Retry'}
-                                                </button>
-                                            {/if}
-                                            <a href="/deliveries/{d.delivery_id}" class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition">Details</a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            {/each}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <Pagination
-                {currentPage}
-                {totalPages}
-                {totalCount}
-                {pageSize}
-                onPageChange={handlePageChange}
+    {#if batchStatus}
+        <div class="mb-4">
+            <BatchProgress
+                batch={batchStatus}
+                oncancel={cancelRetryBatch}
+                ondone={onBatchDone}
             />
-        {/if}
-    </main>
-</div>
+        </div>
+    {/if}
+
+    {#if error}
+        <div class="panel p-4 mb-4" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+            <p class="text-sm" style="color:var(--color-bad)">{error}</p>
+        </div>
+    {/if}
+
+    {#if loading}
+        <div class="panel overflow-hidden">
+            <div class="animate-pulse">
+                {#each Array(8) as _}
+                    <div class="row-line h-14 bg-white/[0.015]"></div>
+                {/each}
+            </div>
+        </div>
+    {:else if deliveries.length === 0}
+        <div class="panel">
+            <EmptyState icon="send" title="No deliveries found" description="No deliveries match the current filters." />
+        </div>
+    {:else}
+        <div class="panel overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-line">
+                            <th class="th">Delivery</th>
+                            <th class="th hidden sm:table-cell">Webhook</th>
+                            <th class="th">Status</th>
+                            <th class="th hidden sm:table-cell">Response</th>
+                            <th class="th hidden md:table-cell">Attempts</th>
+                            <th class="th hidden lg:table-cell">Created</th>
+                            <th class="th"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {#each deliveries as d}
+                            <tr class="row-line row-hover transition">
+                                <td class="td"><CopyableId id={d.delivery_id} href="/deliveries/{d.delivery_id}" truncate={12} /></td>
+                                <td class="td hidden sm:table-cell"><CopyableId id={d.webhook_id} href="/webhooks/{d.webhook_id}" truncate={12} /></td>
+                                <td class="td">
+                                    <div class="flex items-center gap-1.5">
+                                        <StatusBadge status={d.status} />
+                                    {#if d.error_category && d.error_category !== 'success'}
+                                            {@const badge = getCategoryBadge(d.error_category)}
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
+                                        {/if}
+                                    </div>
+                                </td>
+                                <td class="td hidden sm:table-cell">
+                                    <span class="mono tnum text-xs" style="color:{(d.response_code ?? 0) >= 200 && (d.response_code ?? 0) < 300 ? 'var(--color-ok)' : (d.response_code ?? 0) >= 400 ? 'var(--color-bad)' : 'var(--color-muted)'}">
+                                        {d.response_code || '—'}
+                                    </span>
+                                </td>
+                                <td class="td hidden md:table-cell mono tnum text-xs text-muted">{d.attempt_count}/{d.max_attempts}</td>
+                                <td class="td hidden lg:table-cell"><span class="mono tnum text-muted text-xs" title={formatTimestamp(d.created_at)}>{timeAgo(d.created_at)}</span></td>
+                                <td class="td">
+                                    <div class="flex items-center gap-2">
+                                        {#if d.status === 'failed' || d.status === 'expired'}
+                                            <button
+                                                onclick={() => retrySingleDelivery(d.delivery_id)}
+                                                disabled={retryingDeliveries.has(d.delivery_id)}
+                                                class="btn btn-ghost !px-2 !py-1 !text-xs"
+                                            >
+                                                {retryingDeliveries.has(d.delivery_id) ? 'Retrying…' : 'Retry'}
+                                            </button>
+                                        {/if}
+                                        <a href="/deliveries/{d.delivery_id}" class="btn btn-ghost !px-2 !py-1 !text-xs">Details</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {/each}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <Pagination
+            {currentPage}
+            {totalPages}
+            {totalCount}
+            {pageSize}
+            onPageChange={handlePageChange}
+        />
+    {/if}
+</main>
 
 <ConfirmDialog
     open={confirmRetry}

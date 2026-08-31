@@ -36,13 +36,24 @@
     );
 
     let statusColor = $derived.by(() => {
-        if (!batch) return 'bg-gray-200';
+        if (!batch) return 'bg-panel-2';
         switch (batch.status) {
-            case 'completed': return 'bg-green-500';
-            case 'failed': return 'bg-red-500';
-            case 'cancelled': return 'bg-gray-400';
-            case 'processing': return 'bg-blue-500';
-            default: return 'bg-yellow-500';
+            case 'completed': return 'bg-ok';
+            case 'failed': return 'bg-bad';
+            case 'cancelled': return 'bg-idle';
+            case 'processing': return 'bg-beacon';
+            default: return 'bg-warn';
+        }
+    });
+
+    let statusTone = $derived.by(() => {
+        if (!batch) return 'idle';
+        switch (batch.status) {
+            case 'completed': return 'ok';
+            case 'failed': return 'bad';
+            case 'cancelled': return 'idle';
+            case 'processing': return 'beacon';
+            default: return 'warn';
         }
     });
 
@@ -79,17 +90,11 @@
 </script>
 
 {#if batch && !dismissed}
-    <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <div class="panel p-4">
         <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2">
-                <span class="text-sm font-semibold text-gray-900">{label}</span>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium {
-                    batch.status === 'completed' ? 'bg-green-50 text-green-700' :
-                    batch.status === 'failed' ? 'bg-red-50 text-red-700' :
-                    batch.status === 'cancelled' ? 'bg-gray-100 text-gray-500' :
-                    batch.status === 'processing' ? 'bg-blue-50 text-blue-700' :
-                    'bg-yellow-50 text-yellow-700'
-                }">
+                <span class="text-sm font-semibold text-text">{label}</span>
+                <span class="chip tnum" style="color:var(--color-{statusTone});border-color:color-mix(in srgb,var(--color-{statusTone}) 35%,transparent);background:color-mix(in srgb,var(--color-{statusTone}) 12%,var(--color-panel-2))">
                     {statusLabel}
                 </span>
             </div>
@@ -97,7 +102,7 @@
                 {#if !isTerminal && oncancel}
                     <button
                         onclick={oncancel}
-                        class="px-2.5 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 border border-red-200 transition"
+                        class="btn btn-ghost !px-3 !py-1.5"
                     >
                         Cancel
                     </button>
@@ -105,10 +110,11 @@
                 {#if isTerminal}
                     <button
                         onclick={dismiss}
-                        class="p-1 text-gray-400 hover:text-gray-600 transition"
+                        class="p-1 text-faint hover:text-text transition"
                         title="Dismiss"
+                        aria-label="Dismiss"
                     >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
@@ -117,7 +123,7 @@
         </div>
 
         <!-- Progress bar -->
-        <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden mb-2">
+        <div class="w-full bg-panel-2 border border-line rounded-full h-2 overflow-hidden mb-2">
             <div
                 class="h-full rounded-full transition-all duration-500 {statusColor}"
                 style="width: {progressPercent}%"
@@ -125,17 +131,17 @@
         </div>
 
         <!-- Counts -->
-        <div class="flex items-center gap-4 text-xs text-gray-500">
+        <div class="flex items-center gap-4 text-xs text-muted mono tnum">
             <span>{batch.processed + batch.failed} / {batch.total}</span>
             {#if batch.processed > 0}
-                <span class="text-green-600">{batch.processed} succeeded</span>
+                <span style="color:var(--color-ok)">{batch.processed} succeeded</span>
             {/if}
             {#if batch.failed > 0}
-                <span class="text-red-600">{batch.failed} failed</span>
+                <span style="color:var(--color-bad)">{batch.failed} failed</span>
             {/if}
             {#if !isTerminal && batch.status === 'processing'}
                 <span class="flex items-center gap-1">
-                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-beacon animate-pulse"></span>
                     In progress
                 </span>
             {/if}

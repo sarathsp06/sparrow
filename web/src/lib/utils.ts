@@ -142,25 +142,25 @@ const ERROR_CATEGORIES = [
 function getCategoryBadge(category: string): { label: string; classes: string } {
   switch (category) {
     case "client_error":
-      return { label: "4xx", classes: "bg-orange-50 text-orange-700 border-orange-200" };
+      return { label: "4xx", classes: "text-warn border-warn/40 bg-warn/10" };
     case "server_error":
-      return { label: "5xx", classes: "bg-red-50 text-red-700 border-red-200" };
+      return { label: "5xx", classes: "text-bad border-bad/40 bg-bad/10" };
     case "timeout":
-      return { label: "Timeout", classes: "bg-yellow-50 text-yellow-700 border-yellow-200" };
+      return { label: "Timeout", classes: "text-warn border-warn/40 bg-warn/10" };
     case "dns_error":
-      return { label: "DNS", classes: "bg-purple-50 text-purple-700 border-purple-200" };
+      return { label: "DNS", classes: "text-idle border-idle/40 bg-idle/10" };
     case "tls_error":
-      return { label: "TLS", classes: "bg-purple-50 text-purple-700 border-purple-200" };
+      return { label: "TLS", classes: "text-idle border-idle/40 bg-idle/10" };
     case "connection_refused":
-      return { label: "Conn Refused", classes: "bg-purple-50 text-purple-700 border-purple-200" };
+      return { label: "Conn Refused", classes: "text-idle border-idle/40 bg-idle/10" };
     case "network_error":
-      return { label: "Network", classes: "bg-purple-50 text-purple-700 border-purple-200" };
+      return { label: "Network", classes: "text-idle border-idle/40 bg-idle/10" };
     case "unexpected_status":
-      return { label: "Unexpected Status", classes: "bg-amber-50 text-amber-700 border-amber-200" };
+      return { label: "Unexpected Status", classes: "text-warn border-warn/40 bg-warn/10" };
     case "success":
-      return { label: "Success", classes: "bg-green-50 text-green-700 border-green-200" };
+      return { label: "Success", classes: "text-ok border-ok/40 bg-ok/10" };
     default:
-      return { label: category || "Unknown", classes: "bg-gray-50 text-gray-700 border-gray-200" };
+      return { label: category || "Unknown", classes: "text-muted border-line bg-panel-2" };
   }
 }
 
@@ -176,25 +176,25 @@ function getCategoryDisplay(category: string): {
 } {
   switch (category) {
     case "client_error":
-      return { label: "4xx Client Error", color: "text-orange-700", bgColor: "bg-orange-50", borderColor: "border-orange-200" };
+      return { label: "4xx Client Error", color: "text-warn", bgColor: "bg-warn/10", borderColor: "border-warn/40" };
     case "server_error":
-      return { label: "5xx Server Error", color: "text-red-700", bgColor: "bg-red-50", borderColor: "border-red-200" };
+      return { label: "5xx Server Error", color: "text-bad", bgColor: "bg-bad/10", borderColor: "border-bad/40" };
     case "timeout":
-      return { label: "Timeout", color: "text-yellow-700", bgColor: "bg-yellow-50", borderColor: "border-yellow-200" };
+      return { label: "Timeout", color: "text-warn", bgColor: "bg-warn/10", borderColor: "border-warn/40" };
     case "dns_error":
-      return { label: "DNS Error", color: "text-purple-700", bgColor: "bg-purple-50", borderColor: "border-purple-200" };
+      return { label: "DNS Error", color: "text-idle", bgColor: "bg-idle/10", borderColor: "border-idle/40" };
     case "tls_error":
-      return { label: "TLS Error", color: "text-purple-700", bgColor: "bg-purple-50", borderColor: "border-purple-200" };
+      return { label: "TLS Error", color: "text-idle", bgColor: "bg-idle/10", borderColor: "border-idle/40" };
     case "connection_refused":
-      return { label: "Connection Refused", color: "text-purple-700", bgColor: "bg-purple-50", borderColor: "border-purple-200" };
+      return { label: "Connection Refused", color: "text-idle", bgColor: "bg-idle/10", borderColor: "border-idle/40" };
     case "network_error":
-      return { label: "Network Error", color: "text-purple-700", bgColor: "bg-purple-50", borderColor: "border-purple-200" };
+      return { label: "Network Error", color: "text-idle", bgColor: "bg-idle/10", borderColor: "border-idle/40" };
     case "unexpected_status":
-      return { label: "Unexpected Status Code", color: "text-amber-700", bgColor: "bg-amber-50", borderColor: "border-amber-200" };
+      return { label: "Unexpected Status Code", color: "text-warn", bgColor: "bg-warn/10", borderColor: "border-warn/40" };
     case "success":
-      return { label: "Success", color: "text-green-700", bgColor: "bg-green-50", borderColor: "border-green-200" };
+      return { label: "Success", color: "text-ok", bgColor: "bg-ok/10", borderColor: "border-ok/40" };
     default:
-      return { label: category || "Unknown", color: "text-gray-700", bgColor: "bg-gray-50", borderColor: "border-gray-200" };
+      return { label: category || "Unknown", color: "text-muted", bgColor: "bg-panel-2", borderColor: "border-line" };
   }
 }
 
@@ -236,6 +236,28 @@ function formatAPIError(err: unknown, contextPrefix?: string): string {
   return `${contextPrefix}: ${msg}`;
 }
 
+/**
+ * Relative "time ago" label for a timestamp (e.g. "2m ago", "3h ago").
+ * Falls back to a locale date for anything older than ~30 days.
+ */
+function timeAgo(timestamp: string | null | undefined): string {
+  if (!timestamp) return "—";
+  const d = new Date(timestamp);
+  const ms = d.getTime();
+  if (isNaN(ms)) return "—";
+  const diff = Date.now() - ms;
+  const sec = Math.round(diff / 1000);
+  if (sec < 0) return "just now";
+  if (sec < 45) return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  if (day < 30) return `${day}d ago`;
+  return d.toLocaleDateString();
+}
+
 export {
   ERROR_CATEGORIES,
   JSONSchemaMetaSchema,
@@ -245,4 +267,5 @@ export {
   jsonToJsonSchema,
   stringifyContent,
   toJSONObject,
+  timeAgo,
 };

@@ -9,7 +9,7 @@
   let copied = $state(false);
 
   const display = $derived(
-    truncate > 0 && id.length > truncate ? id.substring(0, truncate) + '...' : id
+    truncate > 0 && id.length > truncate ? id.substring(0, truncate) + '…' : id
   );
 
   async function copyId(e: Event) {
@@ -30,22 +30,22 @@
     <a
       {href}
       onclick={(e) => e.stopPropagation()}
-      class="font-mono text-xs text-blue-600 hover:text-blue-800 hover:underline transition"
+      class="mono text-xs link-beacon hover:underline"
       title={id}
     >
       {display}
     </a>
   {:else}
-    <span class="font-mono text-xs text-gray-500" title={id}>{display}</span>
+    <span class="mono text-xs text-muted" title={id}>{display}</span>
   {/if}
   <button
     onclick={copyId}
-    class="inline-flex items-center justify-center w-4 h-4 rounded opacity-0 group-hover/copy:opacity-100 hover:bg-gray-200 transition text-gray-400 hover:text-gray-600 shrink-0"
+    class="inline-flex items-center justify-center w-4 h-4 rounded opacity-0 group-hover/copy:opacity-100 focus-visible:opacity-100 hover:bg-white/10 transition text-faint hover:text-text shrink-0"
     title="Copy full ID"
     aria-label="Copy ID to clipboard"
   >
     {#if copied}
-      <svg class="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="w-3 h-3 text-ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
       </svg>
     {:else}

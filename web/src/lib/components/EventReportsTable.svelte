@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { components } from '$lib/api-types';
     import { api, unwrap } from '$lib/services';
-    import { getCategoryBadge } from '$lib/utils';
+    import { getCategoryBadge, timeAgo } from '$lib/utils';
     import StatusBadge from './StatusBadge.svelte';
     import CopyableId from './CopyableId.svelte';
     import EmptyState from './EmptyState.svelte';
@@ -132,66 +132,66 @@
         description='No events of type "{currentEventName}" have been pushed yet.'
     />
 {:else}
-    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div class="panel overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left">
+            <table class="w-full text-left">
                 <thead>
-                    <tr class="border-b border-gray-200 bg-gray-50/50">
-                        <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Event ID</th>
-                        <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Schema</th>
-                        <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Namespace</th>
-                        <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Created At</th>
-                        <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Deliveries</th>
-                        <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Payload</th>
-                        <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
+                    <tr class="border-b border-line">
+                        <th class="th">Event ID</th>
+                        <th class="th hidden sm:table-cell">Schema</th>
+                        <th class="th hidden sm:table-cell">Namespace</th>
+                        <th class="th hidden sm:table-cell">Created At</th>
+                        <th class="th hidden md:table-cell">Deliveries</th>
+                        <th class="th">Payload</th>
+                        <th class="th"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
+                <tbody>
                     {#each eventReports as report}
-                        <tr class="hover:bg-gray-50 transition">
-                            <td class="px-4 py-3">
+                        <tr class="row-line row-hover transition">
+                            <td class="td">
                                 <CopyableId id={report.event_id} href="/events/instances/{report.event_id}" truncate={12} />
                                 <span class="block sm:hidden mt-0.5">
-                                    <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{report.namespace || 'N/A'}</span>
+                                    <span class="chip">{report.namespace || 'N/A'}</span>
                                 </span>
                             </td>
-                            <td class="px-4 py-3 hidden sm:table-cell">
+                            <td class="td hidden sm:table-cell">
                                 {#if report.schema_valid}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-50 text-green-700">Valid</span>
+                                    <span class="chip" style="color:var(--color-ok);border-color:color-mix(in srgb,var(--color-ok) 35%,transparent);background:color-mix(in srgb,var(--color-ok) 12%,var(--color-panel-2))">Valid</span>
                                 {:else}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-700">Invalid</span>
+                                    <span class="chip" style="color:var(--color-bad);border-color:color-mix(in srgb,var(--color-bad) 35%,transparent);background:color-mix(in srgb,var(--color-bad) 12%,var(--color-panel-2))">Invalid</span>
                                 {/if}
                             </td>
-                            <td class="px-4 py-3 hidden sm:table-cell">
-                                <span class="px-1.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{report.namespace || 'N/A'}</span>
+                            <td class="td hidden sm:table-cell">
+                                <span class="chip">{report.namespace || 'N/A'}</span>
                             </td>
-                            <td class="px-4 py-3 text-xs text-gray-700 hidden sm:table-cell">{formatTimestamp(report.created_at)}</td>
-                            <td class="px-4 py-3 hidden md:table-cell">
-                                <div class="flex items-center gap-2 text-xs">
+                            <td class="td hidden sm:table-cell"><span class="mono tnum text-muted text-xs" title={formatTimestamp(report.created_at)}>{timeAgo(report.created_at)}</span></td>
+                            <td class="td hidden md:table-cell">
+                                <div class="flex items-center gap-2 text-xs mono tnum">
                                     {#if report.successful_deliveries > 0}
-                                        <span class="text-green-700 font-medium">{report.successful_deliveries} ok</span>
+                                        <span class="font-medium" style="color:var(--color-ok)">{report.successful_deliveries} ok</span>
                                     {/if}
                                     {#if report.failed_deliveries > 0}
-                                        <span class="text-red-700 font-medium">{report.failed_deliveries} failed</span>
+                                        <span class="font-medium" style="color:var(--color-bad)">{report.failed_deliveries} failed</span>
                                     {/if}
                                     {#if report.pending_deliveries > 0}
-                                        <span class="text-yellow-700 font-medium">{report.pending_deliveries} pending</span>
+                                        <span class="font-medium" style="color:var(--color-warn)">{report.pending_deliveries} pending</span>
                                     {/if}
                                     {#if report.webhook_count === 0 && report.successful_deliveries === 0 && report.failed_deliveries === 0 && report.pending_deliveries === 0}
-                                        <span class="text-gray-400">None</span>
+                                        <span class="text-faint">None</span>
                                     {/if}
                                 </div>
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="td">
                                 <details class="cursor-pointer">
-                                    <summary class="text-xs font-medium text-blue-600 hover:text-blue-800 list-none select-none">View</summary>
-                                    <pre class="mt-1.5 bg-gray-50 p-2 rounded border border-gray-200 text-[10px] overflow-auto max-h-32 max-w-xs font-mono">{formatPayload(report.payload)}</pre>
+                                    <summary class="text-xs mono link-beacon list-none select-none">View</summary>
+                                    <pre class="panel-2 mono mt-1.5 p-2 text-[10px] text-muted overflow-auto max-h-32 max-w-xs">{formatPayload(report.payload)}</pre>
                                 </details>
                             </td>
-                            <td class="px-4 py-3">
+                            <td class="td">
                                 <button
                                     onclick={() => toggleRow(report.event_id, report.namespace)}
-                                    class="text-xs font-medium text-gray-600 hover:text-gray-900 transition"
+                                    class="link text-xs mono transition"
                                 >
                                     {expandedRows.has(report.event_id) ? 'Hide' : 'Deliveries'}
                                 </button>
@@ -199,35 +199,35 @@
                         </tr>
 
                         {#if expandedRows.has(report.event_id)}
-                            <tr class="bg-gray-50/50">
+                            <tr class="row-line" style="background:var(--color-panel-2)">
                                 <td colspan="7" class="px-4 py-4">
                                     {#if loadingDeliveries.has(report.event_id)}
                                         <div class="flex items-center justify-center py-4">
-                                            <img src={favicon} alt="Loading" class="w-4 h-4 animate-spin mr-2" />
-                                            <span class="text-sm text-gray-500">Loading deliveries...</span>
+                                            <img src={favicon} alt="" aria-hidden="true" class="w-4 h-4 animate-spin mr-2" />
+                                            <span class="text-sm text-muted">Loading deliveries…</span>
                                         </div>
                                     {:else if deliveriesByEvent.has(report.event_id) && (deliveriesByEvent.get(report.event_id)?.length ?? 0) > 0}
                                         <div class="space-y-2">
-                                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Webhook Deliveries</p>
+                                            <p class="eyebrow mb-2">Webhook Deliveries</p>
                                             <div class="overflow-x-auto">
                                                 <table class="w-full text-xs">
                                                     <thead>
-                                                        <tr class="border-b border-gray-200">
-                                                            <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Webhook</th>
-                                                            <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
-                                                            <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Response</th>
-                                                            <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Attempts</th>
-                                                            <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">Last Attempt</th>
-                                                            <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
+                                                        <tr class="border-b border-line">
+                                                            <th class="th !py-2 !px-3">Webhook</th>
+                                                            <th class="th !py-2 !px-3">Status</th>
+                                                            <th class="th !py-2 !px-3 hidden sm:table-cell">Response</th>
+                                                            <th class="th !py-2 !px-3 hidden md:table-cell">Attempts</th>
+                                                            <th class="th !py-2 !px-3 hidden lg:table-cell">Last Attempt</th>
+                                                            <th class="th !py-2 !px-3">Actions</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody class="divide-y divide-gray-100">
+                                                    <tbody>
                                                         {#each deliveriesByEvent.get(report.event_id) ?? [] as delivery}
-                                                            <tr class="hover:bg-white transition {expandedDeliveries.has(delivery.delivery_id) ? 'bg-blue-50/30' : ''}">
-                                                                <td class="px-3 py-2">
+                                                            <tr class="row-line row-hover transition {expandedDeliveries.has(delivery.delivery_id) ? 'bg-white/[0.03]' : ''}">
+                                                                <td class="td !py-2 !px-3">
                                                                     <CopyableId id={delivery.webhook_id} href="/webhooks/{delivery.webhook_id}" truncate={12} />
                                                                 </td>
-                                                                <td class="px-3 py-2">
+                                                                <td class="td !py-2 !px-3">
                                                                     <div class="flex items-center gap-1.5">
                                                                         <StatusBadge status={delivery.status} />
                                                                         {#if delivery.error_category && delivery.error_category !== 'success'}
@@ -236,35 +236,35 @@
                                                                         {/if}
                                                                     </div>
                                                                 </td>
-                                                                <td class="px-3 py-2 hidden sm:table-cell">
-                                                                    <span class="font-mono {(delivery.response_code ?? 0) >= 200 && (delivery.response_code ?? 0) < 300 ? 'text-green-600' : (delivery.response_code ?? 0) >= 400 ? 'text-red-600' : 'text-gray-500'}">
+                                                                <td class="td !py-2 !px-3 hidden sm:table-cell">
+                                                                    <span class="mono tnum" style="color:{(delivery.response_code ?? 0) >= 200 && (delivery.response_code ?? 0) < 300 ? 'var(--color-ok)' : (delivery.response_code ?? 0) >= 400 ? 'var(--color-bad)' : 'var(--color-muted)'}">
                                                                         {delivery.response_code || '—'}
                                                                     </span>
                                                                 </td>
-                                                                <td class="px-3 py-2 hidden md:table-cell">
+                                                                <td class="td !py-2 !px-3 hidden md:table-cell">
                                                                     <button
                                                                         onclick={() => toggleDeliveryAttempts(delivery.delivery_id, report.namespace)}
-                                                                        class="text-blue-600 hover:text-blue-800 font-medium hover:underline transition"
+                                                                        class="link-beacon mono tnum font-medium transition"
                                                                     >
                                                                         {delivery.attempt_count}/{delivery.max_attempts}
-                                                                        <span class="text-[10px] ml-0.5">{expandedDeliveries.has(delivery.delivery_id) ? '▲' : '▼'}</span>
+                                                                        <span class="text-[10px] ml-0.5" aria-hidden="true">{expandedDeliveries.has(delivery.delivery_id) ? '▲' : '▼'}</span>
                                                                     </button>
                                                                 </td>
-                                                                <td class="px-3 py-2 text-gray-500 hidden lg:table-cell">{formatTimestamp(delivery.last_attempted_at)}</td>
-                                                                <td class="px-3 py-2">
+                                                                <td class="td !py-2 !px-3 hidden lg:table-cell"><span class="mono tnum text-muted" title={formatTimestamp(delivery.last_attempted_at)}>{timeAgo(delivery.last_attempted_at)}</span></td>
+                                                                <td class="td !py-2 !px-3">
                                                                     <div class="flex items-center gap-2">
                                                                         {#if delivery.status === 'failed' || delivery.status === 'expired' || (delivery.error_category && delivery.error_category !== 'success')}
                                                                             <button
                                                                                 onclick={() => retryDelivery(delivery.delivery_id, report.namespace, report.event_id)}
                                                                                 disabled={retryingDeliveries.has(delivery.delivery_id)}
-                                                                                class="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50 transition"
+                                                                                class="btn btn-ghost !px-2 !py-1 text-xs"
                                                                             >
-                                                                                {retryingDeliveries.has(delivery.delivery_id) ? 'Retrying...' : 'Retry'}
+                                                                                {retryingDeliveries.has(delivery.delivery_id) ? 'Retrying…' : 'Retry'}
                                                                             </button>
                                                                         {/if}
                                                                         <a
                                                                             href="/deliveries/{delivery.delivery_id}"
-                                                                            class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
+                                                                            class="btn btn-ghost !px-2 !py-1 text-xs"
                                                                         >
                                                                             Details
                                                                         </a>
@@ -273,29 +273,29 @@
                                                             </tr>
 
                                                             {#if expandedDeliveries.has(delivery.delivery_id)}
-                                                                <tr class="bg-blue-50/20">
+                                                                <tr class="row-line" style="background:var(--color-panel-2)">
                                                                     <td colspan="6" class="px-3 py-3">
                                                                         {#if loadingAttempts.has(delivery.delivery_id)}
                                                                             <div class="flex items-center justify-center py-3">
-                                                                                <img src={favicon} alt="Loading" class="w-3 h-3 animate-spin mr-2" />
-                                                                                <span class="text-xs text-gray-500">Loading attempt history...</span>
+                                                                                <img src={favicon} alt="" aria-hidden="true" class="w-3 h-3 animate-spin mr-2" />
+                                                                                <span class="text-xs text-muted">Loading attempt history…</span>
                                                                             </div>
                                                                         {:else if attemptsByDelivery.has(delivery.delivery_id) && (attemptsByDelivery.get(delivery.delivery_id)?.length ?? 0) > 0}
-                                                                            <div class="ml-4 border-l-2 border-blue-200 pl-3">
-                                                                                <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Attempt History</p>
+                                                                            <div class="ml-4 border-l-2 border-line pl-3">
+                                                                                <p class="eyebrow mb-1.5">Attempt History</p>
                                                                                 <div class="space-y-1.5">
                                                                                     {#each attemptsByDelivery.get(delivery.delivery_id) ?? [] as attempt, i}
-                                                                                        <div class="flex items-start gap-3 py-1.5 px-2 rounded {attempt.success ? 'bg-green-50/50' : 'bg-red-50/50'}">
-                                                                                            <div class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold {attempt.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                                                                        <div class="flex items-start gap-3 py-1.5 px-2 rounded" style="background:color-mix(in srgb,var(--color-{attempt.success ? 'ok' : 'bad'}) 8%,var(--color-panel-2))">
+                                                                                            <div class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold mono tnum" style="color:var(--color-{attempt.success ? 'ok' : 'bad'});background:color-mix(in srgb,var(--color-{attempt.success ? 'ok' : 'bad'}) 15%,transparent)">
                                                                                                 {i + 1}
                                                                                             </div>
                                                                                             <div class="flex-1 min-w-0">
                                                                                                 <div class="flex flex-wrap items-center gap-2 text-[11px]">
-                                                                                                    <span class="font-medium {attempt.success ? 'text-green-700' : 'text-red-700'}">
+                                                                                                    <span class="font-medium" style="color:var(--color-{attempt.success ? 'ok' : 'bad'})">
                                                                                                         {attempt.success ? 'Success' : 'Failed'}
                                                                                                     </span>
                                                                                                     {#if attempt.response_code > 0}
-                                                                                                        <span class="font-mono px-1 py-0.5 rounded text-[10px] {attempt.response_code >= 200 && attempt.response_code < 300 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                                                                                        <span class="mono tnum px-1 py-0.5 rounded text-[10px]" style="color:var(--color-{attempt.response_code >= 200 && attempt.response_code < 300 ? 'ok' : 'bad'});background:color-mix(in srgb,var(--color-{attempt.response_code >= 200 && attempt.response_code < 300 ? 'ok' : 'bad'}) 15%,transparent)">
                                                                                                             {attempt.response_code}
                                                                                                         </span>
                                                                                                     {/if}
@@ -303,11 +303,11 @@
                                                                                                         {@const badge = getCategoryBadge(attempt.error_category)}
                                                                                                         <span class="inline-flex items-center px-1 py-0.5 rounded text-[10px] font-medium border {badge.classes}">{badge.label}</span>
                                                                                                     {/if}
-                                                                                                    <span class="text-gray-400 font-mono text-[10px]">{attempt.response_time}ms</span>
-                                                                                                    <span class="text-gray-400 text-[10px]">{formatTimestamp(attempt.timestamp)}</span>
+                                                                                                    <span class="text-faint mono tnum text-[10px]">{attempt.response_time}ms</span>
+                                                                                                    <span class="text-faint mono tnum text-[10px]">{formatTimestamp(attempt.timestamp)}</span>
                                                                                                 </div>
                                                                                                 {#if attempt.error_message}
-                                                                                                    <p class="text-[10px] text-red-600 mt-0.5 truncate" title={attempt.error_message}>{attempt.error_message}</p>
+                                                                                                    <p class="text-[10px] mt-0.5 truncate" style="color:var(--color-bad)" title={attempt.error_message}>{attempt.error_message}</p>
                                                                                                 {/if}
                                                                                             </div>
                                                                                         </div>
@@ -315,7 +315,7 @@
                                                                                 </div>
                                                                             </div>
                                                                         {:else}
-                                                                            <p class="text-[11px] text-gray-400 ml-4">No attempt history recorded yet.</p>
+                                                                            <p class="text-[11px] text-faint ml-4">No attempt history recorded yet.</p>
                                                                         {/if}
                                                                     </td>
                                                                 </tr>
@@ -326,7 +326,7 @@
                                             </div>
                                         </div>
                                     {:else}
-                                        <p class="text-sm text-gray-500 text-center py-3">No deliveries found for this event.</p>
+                                        <p class="text-sm text-muted text-center py-3">No deliveries found for this event.</p>
                                     {/if}
                                 </td>
                             </tr>

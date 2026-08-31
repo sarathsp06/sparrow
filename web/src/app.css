@@ -2,29 +2,312 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
-/* Override Tailwind's default mono stack to use Fira Code first */
+/*
+  Sparrow — "Dispatch Console"
+  A dark mission-control instrument panel for a live webhook delivery engine.
+  Display/UI: Space Grotesk. Data/IDs/numbers: Fira Code.
+*/
 @theme {
+	--font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
 	--font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+	/* surfaces */
+	--color-ink: #0b1220;
+	--color-panel: #121a2a;
+	--color-panel-2: #0f1626;
+	--color-line: #24304a;
+	--color-line-strong: #33456a;
+
+	/* text */
+	--color-text: #e6ecf5;
+	--color-muted: #8494b0;
+	--color-faint: #5a6b8c;
+
+	/* brand beacon (warm signal amber) */
+	--color-beacon: #f2a93b;
+	--color-beacon-dim: #b57c22;
+
+	/* functional status */
+	--color-ok: #3dd68c;
+	--color-warn: #f2c94c;
+	--color-bad: #ff6b6b;
+	--color-idle: #64748b;
 }
 
 @layer base {
-	.button {
-		@apply bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold shadow-md transition;
+	html {
+		color-scheme: dark;
+		scrollbar-color: var(--color-line-strong) transparent;
 	}
-	.text-primary {
-		@apply text-gray-500;
+	html,
+	body {
+		@apply bg-ink text-text;
+		font-family: var(--font-display);
+		font-size: 16px;
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
 	}
-	.border-primary {
-		@apply border-blue-500;
-	}
-	html, body {
-		@apply font-mono bg-gray-50 text-gray-900 text-base;
+	body {
+		background-image:
+			radial-gradient(60rem 40rem at 82% -10%, rgba(242, 169, 59, 0.05), transparent 60%),
+			radial-gradient(50rem 40rem at 0% 0%, rgba(61, 214, 140, 0.04), transparent 55%);
+		background-attachment: fixed;
 	}
 	h1, h2, h3, h4, h5, h6 {
-		@apply font-bold text-gray-800;
+		font-family: var(--font-display);
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		text-wrap: balance;
+		@apply text-text;
 	}
 	a {
-		@apply text-gray-700 hover:text-gray-900 transition-colors;
+		@apply text-text transition-colors;
 		text-decoration: none;
 	}
+	code, pre, kbd, samp {
+		font-family: var(--font-mono);
+	}
+	::selection {
+		background: rgba(242, 169, 59, 0.28);
+		color: #fff;
+	}
+	:focus-visible {
+		outline: 2px solid var(--color-beacon);
+		outline-offset: 2px;
+		border-radius: 4px;
+	}
+	/* thin instrument scrollbars */
+	::-webkit-scrollbar { width: 10px; height: 10px; }
+	::-webkit-scrollbar-thumb {
+		background: var(--color-line-strong);
+		border-radius: 999px;
+		border: 3px solid transparent;
+		background-clip: padding-box;
+	}
+	::-webkit-scrollbar-thumb:hover { background: var(--color-faint); }
+
+	@media (prefers-reduced-motion: reduce) {
+		*, ::before, ::after {
+			animation-duration: 0.001ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.001ms !important;
+			scroll-behavior: auto !important;
+		}
+	}
+}
+
+@layer components {
+	/* --- structure --- */
+	.panel {
+		background: var(--color-panel);
+		border: 1px solid var(--color-line);
+		border-radius: 10px;
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.03),
+			0 1px 2px rgba(0, 0, 0, 0.4);
+	}
+	.panel-2 {
+		background: var(--color-panel-2);
+		border: 1px solid var(--color-line);
+		border-radius: 8px;
+	}
+	/* corner instrument ticks — used only on a page's primary panel */
+	.ticked { position: relative; }
+	.ticked::before {
+		content: '';
+		position: absolute;
+		inset: 7px;
+		pointer-events: none;
+		--t: rgba(242, 169, 59, 0.5);
+		background-image:
+			linear-gradient(var(--t), var(--t)), linear-gradient(var(--t), var(--t)),
+			linear-gradient(var(--t), var(--t)), linear-gradient(var(--t), var(--t)),
+			linear-gradient(var(--t), var(--t)), linear-gradient(var(--t), var(--t)),
+			linear-gradient(var(--t), var(--t)), linear-gradient(var(--t), var(--t));
+		background-repeat: no-repeat;
+		background-position:
+			0 0, 0 0, 100% 0, 100% 0,
+			0 100%, 0 100%, 100% 100%, 100% 100%;
+		background-size:
+			11px 1px, 1px 11px, 11px 1px, 1px 11px,
+			11px 1px, 1px 11px, 11px 1px, 1px 11px;
+	}
+
+	/* --- labels / eyebrows --- */
+	.eyebrow {
+		font-family: var(--font-mono);
+		font-size: 11px;
+		font-weight: 500;
+		letter-spacing: 0.2em;
+		text-transform: uppercase;
+		color: var(--color-muted);
+	}
+	.mono { font-family: var(--font-mono); }
+	.tnum { font-variant-numeric: tabular-nums; }
+
+	/* --- readout strip (segmented stat gauge) --- */
+	.readout {
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: 1fr;
+	}
+	.readout > .cell {
+		padding: 0.75rem 1rem;
+		border-left: 1px solid var(--color-line);
+	}
+	.readout > .cell:first-child { border-left: 0; }
+	.readout .val {
+		font-family: var(--font-display);
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+		font-size: 1.6rem;
+		line-height: 1.1;
+		letter-spacing: -0.02em;
+	}
+	.readout .key {
+		font-family: var(--font-mono);
+		font-size: 10.5px;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--color-muted);
+		margin-top: 2px;
+	}
+
+	/* --- buttons --- */
+	.btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.9rem;
+		border-radius: 8px;
+		font-size: 0.875rem;
+		font-weight: 500;
+		border: 1px solid transparent;
+		transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+		cursor: pointer;
+	}
+	.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+	.btn-beacon {
+		background: var(--color-beacon);
+		color: #1a1204;
+		font-weight: 600;
+		box-shadow: 0 0 0 1px rgba(242, 169, 59, 0.4), 0 6px 18px -8px rgba(242, 169, 59, 0.6);
+	}
+	.btn-beacon:not(:disabled):hover { background: #ffbe52; }
+	.btn-ghost {
+		background: var(--color-panel);
+		border-color: var(--color-line);
+		color: var(--color-text);
+	}
+	.btn-ghost:not(:disabled):hover { border-color: var(--color-line-strong); background-color: #16223a; }
+	.btn-danger {
+		background: transparent;
+		border-color: rgba(255, 107, 107, 0.4);
+		color: var(--color-bad);
+	}
+	.btn-danger:not(:disabled):hover { background: rgba(255, 107, 107, 0.12); border-color: var(--color-bad); }
+
+	/* --- form controls --- */
+	.field-label {
+		display: block;
+		font-family: var(--font-mono);
+		font-size: 11px;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--color-muted);
+		margin-bottom: 0.4rem;
+	}
+	.input,
+	.select,
+	textarea.input {
+		width: 100%;
+		background: var(--color-panel-2);
+		border: 1px solid var(--color-line);
+		border-radius: 8px;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.875rem;
+		color: var(--color-text);
+		font-family: var(--font-mono);
+		transition: border-color 0.15s, box-shadow 0.15s;
+	}
+	.input::placeholder, textarea.input::placeholder { color: var(--color-faint); }
+	.input:focus,
+	.select:focus,
+	textarea.input:focus {
+		outline: none;
+		border-color: var(--color-beacon);
+		box-shadow: 0 0 0 3px rgba(242, 169, 59, 0.18);
+	}
+
+	/* --- tables --- */
+	.th {
+		padding: 0.7rem 1rem;
+		text-align: left;
+		font-family: var(--font-mono);
+		font-size: 10.5px;
+		font-weight: 500;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--color-muted);
+	}
+	.td { padding: 0.7rem 1rem; font-size: 0.875rem; color: var(--color-text); }
+	.row-line { border-top: 1px solid var(--color-line); }
+	.row-hover:hover { background: rgba(255, 255, 255, 0.02); }
+
+	/* --- chips / pills --- */
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.15rem 0.55rem;
+		border-radius: 999px;
+		font-family: var(--font-mono);
+		font-size: 11px;
+		letter-spacing: 0.02em;
+		border: 1px solid var(--color-line);
+		color: var(--color-muted);
+		background: var(--color-panel-2);
+	}
+
+	.link {
+		color: var(--color-muted);
+		transition: color 0.15s;
+	}
+	.link:hover { color: var(--color-text); }
+	.link-beacon { color: var(--color-beacon); }
+	.link-beacon:hover { color: #ffbe52; }
+}
+
+/* svelte-jsoneditor — retint the dark theme's chrome to the console palette.
+   Higher specificity (html …) so it wins regardless of vendor import order. */
+html .jse-theme-dark {
+	--jse-theme-color: #0f1626;
+	--jse-theme-color-highlight: #24304a;
+	--jse-background-color: #0f1626;
+	--jse-text-color: #e6ecf5;
+	--jse-text-color-inactive: #8494b0;
+	--jse-panel-background: #121a2a;
+	--jse-panel-background-border: #24304a;
+	--jse-panel-color: #e6ecf5;
+	--jse-panel-border: #24304a;
+	--jse-main-border: #24304a;
+	--jse-selection-background-color: rgba(242, 169, 59, 0.22);
+	--jse-context-menu-background: #121a2a;
+	--jse-context-menu-background-highlight: #24304a;
+	--jse-context-menu-color: #e6ecf5;
+	--jse-button-primary-background: #f2a93b;
+	--jse-button-primary-background-highlight: #ffbe52;
+	--jse-button-primary-color: #1a1204;
+	--jse-input-background: #0b1220;
+	--jse-input-border: #24304a;
+	--jse-delimiter-color: #8494b0;
+	--jse-key-color: #8ab4ff;
+	--jse-value-color: #e6ecf5;
+	--jse-value-color-string: #3dd68c;
+	--jse-value-color-number: #f2a93b;
+	--jse-value-color-boolean: #ff9d6b;
+	--jse-value-color-null: #ff6b6b;
+	border: 1px solid var(--color-line);
+	border-radius: 8px;
+	overflow: hidden;
 }

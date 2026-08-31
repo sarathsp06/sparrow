@@ -11,6 +11,7 @@
     Mode,
     type Validator
   } from "svelte-jsoneditor";
+  import 'svelte-jsoneditor/themes/jse-theme-dark.css';
 
   let name = $state("");
   let description = $state("");
@@ -90,85 +91,85 @@
   <title>Update {name || 'Event'} | Sparrow</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
-  <div class="max-w-2xl mx-auto px-4 sm:px-6 py-6">
-    <div class="mb-6">
-      <nav class="mb-3">
-        <a href="/events" class="text-sm text-gray-500 hover:text-gray-700 transition">&larr; Back to Events</a>
-      </nav>
-      <h1 class="text-2xl font-bold text-gray-900">Update Event Type</h1>
-    </div>
+<main class="mx-auto max-w-2xl px-4 sm:px-6 py-8">
+  <nav class="flex items-center gap-2 text-sm text-muted mb-6">
+    <a class="link" href="/events">Events</a>
+    <span class="text-faint">/</span>
+    <span class="text-text">Update</span>
+  </nav>
 
-    {#if loading}
+  <div class="mb-6">
+    <p class="eyebrow mb-1.5">Catalog / Update Event</p>
+    <h1 class="text-2xl">Update Event Type</h1>
+  </div>
+
+  {#if loading}
+    <div class="panel p-5">
       <div class="animate-pulse space-y-4">
-        <div class="h-10 bg-gray-200 rounded"></div>
-        <div class="h-32 bg-gray-100 rounded"></div>
+        <div class="h-10 bg-white/5 rounded"></div>
+        <div class="h-32 bg-white/[0.03] rounded"></div>
       </div>
-    {:else}
-      <form onsubmit={updateEvent} class="space-y-6">
-        <section class="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-          <div>
-            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Event Name</label>
-            <input id="name" type="text" value={name} disabled class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-sm text-gray-500" />
-          </div>
-          <div>
-            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <input
-              id="description"
-              type="text"
-              bind:value={description}
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-            />
-          </div>
-          <div class="flex items-center gap-2">
-            <input id="active" type="checkbox" bind:checked={active} class="rounded border-gray-300" />
-            <label for="active" class="text-sm text-gray-700">Active</label>
-          </div>
-        </section>
+    </div>
+  {:else}
+    <form onsubmit={updateEvent} class="space-y-6">
+      <section class="panel p-5 space-y-4">
+        <div>
+          <label for="name" class="field-label">Event Name</label>
+          <input id="name" type="text" value={name} disabled class="input opacity-60" />
+        </div>
+        <div>
+          <label for="description" class="field-label">Description</label>
+          <input
+            id="description"
+            type="text"
+            bind:value={description}
+            class="input"
+          />
+        </div>
+        <label for="active" class="flex items-center gap-2 rounded px-1 py-1 hover:bg-white/5 cursor-pointer w-fit">
+          <input id="active" type="checkbox" bind:checked={active} class="accent-[color:var(--color-beacon)]" />
+          <span class="text-sm text-text">Active</span>
+        </label>
+      </section>
 
-        <section class="bg-white rounded-lg border border-gray-200 p-5">
-          <div class="flex items-center justify-between mb-3">
-            <label class="block text-sm font-medium text-gray-700">JSON Schema</label>
-            <button type="button" onclick={() => (showSchemaHelper = !showSchemaHelper)} class="text-xs text-gray-500 hover:text-gray-700 underline">
-              {showSchemaHelper ? 'Hide' : 'Generate from sample'}
-            </button>
-          </div>
-          {#if showSchemaHelper}
-            <div class="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <p class="text-xs text-gray-500 mb-2">Paste a sample payload to generate a schema:</p>
-              <div class="h-32 mb-2">
-                <JSONEditor bind:content={sampleJson} mode={Mode.text} />
-              </div>
-              {#if schemaHelperError}
-                <p class="text-xs text-red-600 mb-2">{schemaHelperError}</p>
-              {/if}
-              <button type="button" onclick={generateSchemaFromSample} class="text-xs px-3 py-1.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800">
-                Generate Schema
-              </button>
-            </div>
-          {/if}
-          <div class="h-64">
-            <JSONEditor bind:content={schema} {validator} />
-          </div>
-        </section>
-
-        {#if error}
-          <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p class="text-sm text-red-700">{error}</p>
-          </div>
-        {/if}
-
-        <div class="flex items-center justify-end gap-3 pt-2">
-          <a href="/events" class="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition">Cancel</a>
-          <button
-            type="submit"
-            disabled={submitting}
-            class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition"
-          >
-            {submitting ? 'Saving...' : 'Save Changes'}
+      <section class="panel p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="field-label mb-0">JSON Schema</span>
+          <button type="button" onclick={() => (showSchemaHelper = !showSchemaHelper)} class="text-xs link-beacon">
+            {showSchemaHelper ? 'Hide' : 'Generate from sample'}
           </button>
         </div>
-      </form>
-    {/if}
-  </div>
-</div>
+        {#if showSchemaHelper}
+          <div class="panel-2 p-4 mb-4">
+            <p class="text-muted text-xs mb-2">Paste a sample payload to generate a schema:</p>
+            <div class="jse-theme-dark h-32 mb-2">
+              <JSONEditor bind:content={sampleJson} mode={Mode.text} />
+            </div>
+            {#if schemaHelperError}
+              <p class="text-xs mb-2" style="color:var(--color-bad)">{schemaHelperError}</p>
+            {/if}
+            <button type="button" onclick={generateSchemaFromSample} class="btn btn-beacon !px-3 !py-1.5">
+              Generate Schema
+            </button>
+          </div>
+        {/if}
+        <div class="jse-theme-dark h-64">
+          <JSONEditor bind:content={schema} {validator} />
+        </div>
+      </section>
+
+      {#if error}
+        <div class="panel p-4" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+          <p class="text-sm" style="color:var(--color-bad)">{error}</p>
+        </div>
+      {/if}
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <a href="/events" class="btn btn-ghost">Cancel</a>
+        <button type="submit" disabled={submitting} class="btn btn-beacon">
+          {submitting ? 'Saving…' : 'Save Changes'}
+        </button>
+      </div>
+    </form>
+  {/if}
+</main>

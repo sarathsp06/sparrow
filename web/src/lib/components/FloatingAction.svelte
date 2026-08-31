@@ -25,7 +25,7 @@
 {#if visible}
 	<a
 		{href}
-		class="fixed bottom-6 right-6 z-50 inline-flex items-center gap-2 bg-gray-900 text-white pl-4 pr-5 py-3 rounded-full text-sm font-medium shadow-lg hover:bg-gray-800 transition-all duration-150 ease-out animate-fab-in"
+		class="fixed bottom-6 right-6 z-50 inline-flex items-center gap-2 btn btn-beacon shadow-lg animate-fab-in"
 	>
 		<span class="text-lg leading-none">+</span>
 		{label}

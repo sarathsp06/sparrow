@@ -49,79 +49,78 @@
 </script>
 
 <svelte:head>
-  <title>Delivery {deliveryId.substring(0, 8)}... | Sparrow</title>
+  <title>Delivery {deliveryId.substring(0, 8)}… | Sparrow</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
-  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <nav class="flex items-center text-sm text-gray-500 mb-6">
-      <a href="/deliveries" class="hover:text-gray-900 transition">Deliveries</a>
-      <span class="mx-2">/</span>
-      <span class="text-gray-900 font-medium">{deliveryId.substring(0, 8)}...</span>
+<main class="mx-auto max-w-4xl px-4 sm:px-6 py-8">
+    <nav class="flex items-center gap-2 text-sm text-muted mb-6">
+        <a class="link" href="/deliveries">Deliveries</a>
+        <span class="text-faint">/</span>
+        <span class="text-text mono">{deliveryId.substring(0, 8)}…</span>
     </nav>
 
     {#if loading}
-      <div class="animate-pulse space-y-4">
-        <div class="h-8 bg-gray-200 rounded w-64"></div>
-        <div class="h-40 bg-gray-100 rounded"></div>
-      </div>
+        <div class="animate-pulse space-y-4">
+            <div class="h-8 bg-white/5 rounded w-64"></div>
+            <div class="panel h-40 bg-white/[0.03]"></div>
+        </div>
     {:else if error}
-      <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p class="text-sm text-red-700">{error}</p>
-      </div>
+        <div class="panel p-4" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+            <p class="text-sm" style="color:var(--color-bad)">{error}</p>
+        </div>
     {:else if delivery}
-      <div class="mb-6 flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900">Delivery Details</h1>
-          <div class="mt-1"><CopyableId id={delivery.delivery_id} truncate={0} /></div>
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+            <div>
+                <p class="eyebrow mb-1.5">Traffic / Delivery</p>
+                <h1 class="text-2xl">Delivery details</h1>
+                <div class="mt-1.5"><CopyableId id={delivery.delivery_id} truncate={0} /></div>
+            </div>
+            <StatusBadge status={delivery.status} />
         </div>
-        <StatusBadge status={delivery.status} />
-      </div>
 
-      <div class="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100 mb-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-          <div class="px-6 py-4">
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Webhook</p>
-            <CopyableId id={delivery.webhook_id} href="/webhooks/{delivery.webhook_id}" truncate={0} />
-          </div>
-          <div class="px-6 py-4">
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Event</p>
-            <CopyableId id={delivery.event_id} truncate={0} />
-          </div>
+        <div class="panel mb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2">
+                <div class="px-6 py-4 row-line sm:border-t-0 sm:border-r border-line">
+                    <p class="eyebrow mb-1.5">Webhook</p>
+                    <CopyableId id={delivery.webhook_id} href="/webhooks/{delivery.webhook_id}" truncate={0} />
+                </div>
+                <div class="px-6 py-4 row-line sm:border-t-0 border-line">
+                    <p class="eyebrow mb-1.5">Event</p>
+                    <CopyableId id={delivery.event_id} truncate={0} />
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 border-t border-line">
+                <div class="px-6 py-4 row-line sm:border-t-0 sm:border-r border-line">
+                    <p class="eyebrow mb-1.5">Response code</p>
+                    <span class="text-xl font-semibold mono tnum" style="color:{(delivery.response_code ?? 0) >= 200 && (delivery.response_code ?? 0) < 300 ? 'var(--color-ok)' : (delivery.response_code ?? 0) >= 400 ? 'var(--color-bad)' : 'var(--color-muted)'}">
+                        {formatResponseCode(delivery.response_code ?? 0)}
+                    </span>
+                </div>
+                <div class="px-6 py-4 row-line sm:border-t-0 border-line">
+                    <p class="eyebrow mb-1.5">Attempts</p>
+                    <span class="text-xl font-semibold tnum text-text">{delivery.attempt_count} / {delivery.max_attempts}</span>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 border-t border-line">
+                <div class="px-6 py-4 row-line sm:border-t-0 sm:border-r border-line">
+                    <p class="eyebrow mb-1.5">Created at</p>
+                    <span class="mono tnum text-sm text-muted">{formatTimestamp(delivery.created_at)}</span>
+                </div>
+                <div class="px-6 py-4 row-line sm:border-t-0 border-line">
+                    <p class="eyebrow mb-1.5">Last attempted</p>
+                    <span class="mono tnum text-sm text-muted">{formatTimestamp(delivery.last_attempted_at)}</span>
+                </div>
+            </div>
+            {#if delivery.error_category && delivery.error_category !== 'success'}
+                <div class="px-6 py-4 border-t border-line">
+                    <p class="eyebrow mb-1.5">Error</p>
+                    <p class="text-sm" style="color:var(--color-bad)">{getCategoryDisplay(delivery.error_category)}: {delivery.error_message || 'No details'}</p>
+                </div>
+            {/if}
+            <div class="px-6 py-4 border-t border-line">
+                <p class="eyebrow mb-2">Response body</p>
+                <pre class="panel-2 mono text-xs p-4 overflow-auto max-h-64 text-text">{formatResponseBody(delivery.response_body)}</pre>
+            </div>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-          <div class="px-6 py-4">
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Response Code</p>
-            <span class="text-sm font-mono {(delivery.response_code ?? 0) >= 200 && (delivery.response_code ?? 0) < 300 ? 'text-green-600' : (delivery.response_code ?? 0) >= 400 ? 'text-red-600' : 'text-gray-500'}">
-              {formatResponseCode(delivery.response_code ?? 0)}
-            </span>
-          </div>
-          <div class="px-6 py-4">
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Attempts</p>
-            <span class="text-sm text-gray-900">{delivery.attempt_count} / {delivery.max_attempts}</span>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-          <div class="px-6 py-4">
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Created At</p>
-            <span class="text-sm text-gray-900">{formatTimestamp(delivery.created_at)}</span>
-          </div>
-          <div class="px-6 py-4">
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Last Attempted</p>
-            <span class="text-sm text-gray-900">{formatTimestamp(delivery.last_attempted_at)}</span>
-          </div>
-        </div>
-        {#if delivery.error_category && delivery.error_category !== 'success'}
-          <div class="px-6 py-4">
-            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Error</p>
-            <p class="text-sm text-red-700">{getCategoryDisplay(delivery.error_category)}: {delivery.error_message || 'No details'}</p>
-          </div>
-        {/if}
-        <div class="px-6 py-4">
-          <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Response Body</p>
-          <pre class="text-xs bg-gray-50 border border-gray-200 rounded-lg p-4 overflow-auto max-h-64 text-gray-800 font-mono">{formatResponseBody(delivery.response_body)}</pre>
-        </div>
-      </div>
     {/if}
-  </main>
-</div>
+</main>

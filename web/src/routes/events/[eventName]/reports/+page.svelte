@@ -2,7 +2,8 @@
     import { page } from '$app/state';
     import { EventReportsTable, Pagination } from '$lib';
     import { api, unwrap } from '$lib/services';
-    import { onMount, onDestroy } from 'svelte';
+    import { onDestroy } from 'svelte';
+    import { namespaceStore } from '$lib/namespace.svelte';
     import type { components } from '$lib/api-types';
     import { formatAPIError } from '$lib/utils';
     import BatchProgress from '$lib/components/BatchProgress.svelte';
@@ -21,7 +22,6 @@
     let totalPages = $derived(Math.max(1, Math.ceil(totalCount / pageSize)));
 
     // Filters
-    let namespaceFilter = $state('');
     let schemaValidFilter = $state<'all' | 'valid' | 'invalid'>('all');
     let labelsFilter = $state('');
     let createdAfterFilter = $state('');
@@ -60,7 +60,7 @@
         }
 
         const offset = (pageNum - 1) * pageSize;
-        const ns = namespaceFilter.trim() || 'default';
+        const ns = namespaceStore.value;
 
         try {
             const res = unwrap(await api.GET('/v1/namespaces/{namespace}/events', {
@@ -102,7 +102,6 @@
     }
 
     function clearFilters() {
-        namespaceFilter = '';
         schemaValidFilter = 'all';
         labelsFilter = '';
         createdAfterFilter = '';
@@ -111,7 +110,6 @@
     }
 
     let hasActiveFilters = $derived(
-        namespaceFilter.trim() !== '' ||
         schemaValidFilter !== 'all' ||
         labelsFilter.trim() !== '' ||
         createdAfterFilter !== '' ||
@@ -131,7 +129,7 @@
     async function executeRepush() {
         confirmRepush = false;
         if (!repushId) return;
-        const ns = namespaceFilter.trim() || 'default';
+        const ns = namespaceStore.value;
         try {
             const res = unwrap(await api.POST('/v1/namespaces/{namespace}/events:rePush', {
                 params: { path: { namespace: ns } },
@@ -146,7 +144,7 @@
 
     function startPolling() {
         if (pollingTimer) clearInterval(pollingTimer);
-        const ns = namespaceFilter.trim() || 'default';
+        const ns = namespaceStore.value;
         pollingTimer = setInterval(async () => {
             if (!repushId) { stopPolling(); return; }
             try {
@@ -169,7 +167,7 @@
 
     async function cancelRepush() {
         if (!repushId) return;
-        const ns = namespaceFilter.trim() || 'default';
+        const ns = namespaceStore.value;
         try {
             await api.POST('/v1/namespaces/{namespace}/repush-jobs/{job_id}:cancel', {
                 params: { path: { namespace: ns, job_id: repushId } },
@@ -183,8 +181,9 @@
         fetchEventReports(currentPage);
     }
 
-    onMount(() => {
-        fetchEventReports();
+    $effect(() => {
+        namespaceStore.value; // refetch when the active namespace changes
+        fetchEventReports(1);
     });
 </script>
 
@@ -192,102 +191,95 @@
     <title>{currentEvent?.name || 'Event'} Reports | Sparrow</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div class="mb-6">
-            <nav class="flex items-center text-sm text-gray-500 mb-4">
-                <a href="/events" class="hover:text-gray-900 transition">Events</a>
-                <span class="mx-2">/</span>
-                <span class="text-gray-900 font-medium">{currentEvent?.name || 'Loading...'}</span>
-            </nav>
+<main class="mx-auto max-w-7xl px-4 sm:px-8 py-8">
+    <div class="mb-6">
+        <nav class="flex items-center gap-2 text-sm text-muted mb-4">
+            <a href="/events" class="link">Events</a>
+            <span class="text-faint">/</span>
+            <span class="text-text">{currentEvent?.name || 'Loading…'}</span>
+        </nav>
 
-            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-900">Event Reports</h1>
-                    <p class="text-sm text-gray-500 mt-0.5">
-                        Instances of "{currentEvent?.name || 'Loading...'}"
-                        {#if namespaceFilter.trim()}
-                            in namespace <span class="font-semibold text-gray-700">{namespaceFilter.trim()}</span>
-                        {:else}
-                            in namespace <span class="font-semibold text-gray-700">default</span>
-                        {/if}
-                    </p>
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-2">
+            <div>
+                <p class="eyebrow mb-1.5">Catalog / Reports</p>
+                <h1 class="text-2xl">Event Reports</h1>
+                <p class="text-sm text-muted mt-1">
+                    Instances of "{currentEvent?.name || 'Loading…'}" in namespace <span class="chip">{namespaceStore.value}</span>
+                </p>
+            </div>
+            {#if !loading}
+                <div class="flex items-center gap-3">
+                    <span class="text-sm text-muted mono tnum">
+                        {totalCount} report{totalCount !== 1 ? 's' : ''}
+                    </span>
+                    {#if totalCount > 0}
+                        <button
+                            onclick={prepareRepush}
+                            disabled={preparingRepush}
+                            class="btn btn-ghost !px-3 !py-1.5 text-xs"
+                        >
+                            {preparingRepush ? 'Preparing…' : 'Re-push All Matching'}
+                        </button>
+                    {/if}
                 </div>
-                {#if !loading}
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm text-gray-500">
-                            {totalCount} report{totalCount !== 1 ? 's' : ''}
-                        </span>
-                        {#if totalCount > 0}
-                            <button
-                                onclick={prepareRepush}
-                                disabled={preparingRepush}
-                                class="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition"
-                            >
-                                {preparingRepush ? 'Preparing...' : 'Re-push All Matching'}
-                            </button>
-                        {/if}
-                    </div>
-                {/if}
+            {/if}
+        </div>
+    </div>
+
+    <div class="panel p-4 mb-4">
+        <div class="flex flex-col sm:flex-row gap-3">
+            <input type="text" placeholder="Labels (key1=val1, key2=val2)" bind:value={labelsFilter} class="input flex-1" />
+            <select bind:value={schemaValidFilter} class="select sm:w-48">
+                <option value="all">All schema validity</option>
+                <option value="valid">Valid only</option>
+                <option value="invalid">Invalid only</option>
+            </select>
+            <button onclick={applyFilters} class="btn btn-beacon !px-4 !py-1.5 text-sm">Apply</button>
+            {#if hasActiveFilters}
+                <button onclick={clearFilters} class="btn btn-ghost !px-4 !py-1.5 text-sm">Clear</button>
+            {/if}
+        </div>
+    </div>
+
+    {#if batchStatus}
+        <div class="mb-4">
+            <BatchProgress
+                batch={batchStatus}
+                oncancel={cancelRepush}
+                ondone={onBatchDone}
+            />
+        </div>
+    {/if}
+
+    {#if loading}
+        <div class="panel overflow-hidden">
+            <div class="animate-pulse">
+                {#each Array(5) as _}
+                    <div class="row-line h-14 bg-white/[0.015]"></div>
+                {/each}
             </div>
         </div>
-
-        <div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-            <div class="flex flex-col sm:flex-row gap-3">
-                <input type="text" placeholder="Namespace (default: default)" bind:value={namespaceFilter} class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
-                <input type="text" placeholder="Labels (key1=val1, key2=val2)" bind:value={labelsFilter} class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm" />
-                <select bind:value={schemaValidFilter} class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm">
-                    <option value="all">All schema validity</option>
-                    <option value="valid">Valid only</option>
-                    <option value="invalid">Invalid only</option>
-                </select>
-                <button onclick={applyFilters} class="px-4 py-1.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800">Apply</button>
-                {#if hasActiveFilters}
-                    <button onclick={clearFilters} class="px-4 py-1.5 text-gray-500 hover:text-gray-700 text-sm">Clear</button>
-                {/if}
-            </div>
+    {:else if error}
+        <div class="panel p-4 mb-6" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+            <p class="text-sm" style="color:var(--color-bad)">{error}</p>
         </div>
+    {:else}
+        <EventReportsTable
+            {eventReports}
+            {loading}
+            {error}
+            currentEventName={currentEvent?.name}
+        />
 
-        {#if batchStatus}
-            <div class="mb-4">
-                <BatchProgress
-                    batch={batchStatus}
-                    oncancel={cancelRepush}
-                    ondone={onBatchDone}
-                />
-            </div>
-        {/if}
-
-        {#if loading}
-            <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                <div class="animate-pulse divide-y divide-gray-100">
-                    {#each Array(5) as _}
-                        <div class="p-4 h-14 bg-gray-50"></div>
-                    {/each}
-                </div>
-            </div>
-        {:else if error}
-            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <p class="text-sm text-red-700">{error}</p>
-            </div>
-        {:else}
-            <EventReportsTable
-                {eventReports}
-                {loading}
-                {error}
-                currentEventName={currentEvent?.name}
-            />
-
-            <Pagination
-                {currentPage}
-                {totalPages}
-                {totalCount}
-                {pageSize}
-                onPageChange={handlePageChange}
-            />
-        {/if}
-    </main>
-</div>
+        <Pagination
+            {currentPage}
+            {totalPages}
+            {totalCount}
+            {pageSize}
+            onPageChange={handlePageChange}
+        />
+    {/if}
+</main>
 
 <ConfirmDialog
     open={confirmRepush}

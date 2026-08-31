@@ -1,72 +1,60 @@
 <script lang="ts">
-    interface Props {
-        currentPage: number;
-        totalPages: number;
-        totalCount: number;
-        pageSize: number;
-        onPageChange: (pageNum: number) => void;
-        itemLabel?: string;
-    }
+  interface Props {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+    pageSize: number;
+    onPageChange: (pageNum: number) => void;
+    itemLabel?: string;
+  }
 
-    let { currentPage, totalPages, totalCount, pageSize, onPageChange, itemLabel = 'items' }: Props = $props();
+  let { currentPage, totalPages, totalCount, pageSize, onPageChange, itemLabel = "items" }: Props = $props();
 
-    function nextPage() {
-        if (currentPage < totalPages) {
-            onPageChange(currentPage + 1);
-        }
-    }
+  const from = $derived((currentPage - 1) * pageSize + 1);
+  const to = $derived(Math.min(currentPage * pageSize, totalCount));
 
-    
+  function go(n: number) {
+    if (n >= 1 && n <= totalPages && n !== currentPage) onPageChange(n);
+  }
 
-    function previousPage() {
-        if (currentPage > 1) {
-            onPageChange(currentPage - 1);
-        }
-    }
+  const pages = $derived(
+    Array.from({ length: totalPages }, (_, i) => i + 1).filter(
+      (n) => n === 1 || n === totalPages || (n >= currentPage - 2 && n <= currentPage + 2),
+    ),
+  );
 </script>
 
 {#if totalPages > 1}
-    <div class="mt-6 flex justify-between items-center">
-        <div class="text-sm text-gray-500">
-            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} {itemLabel}
-        </div>
-        
-        <div class="flex items-center gap-2">
-            <button
-                onclick={previousPage}
-                disabled={currentPage === 1}
-                class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                Previous
-            </button>
-            
-            <!-- Page Numbers -->
-            <div class="flex items-center gap-1">
-                {#each Array.from({ length: totalPages }, (_, i) => i + 1) as pageNum}
-                    {#if pageNum === 1 || pageNum === totalPages || (pageNum >= currentPage - 2 && pageNum <= currentPage + 2)}
-                        <button
-                            onclick={() => onPageChange(pageNum)}
-                            class={`px-3 py-2 text-sm font-medium rounded-lg ${
-                                pageNum === currentPage
-                                    ? 'bg-blue-600 text-white'
-                                    : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-100'
-                            }`}
-                        >
-                            {pageNum}
-                        </button>
-                    {:else if pageNum === currentPage - 3 || pageNum === currentPage + 3}
-                        <span class="px-2 text-gray-400">...</span>
-                    {/if}
-                {/each}
-            </div>
-            
-            <button
-                onclick={nextPage}
-                disabled={currentPage === totalPages}
-                class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                Next
-            </button>
-        </div>
+  <div class="mt-6 flex flex-col sm:flex-row justify-between items-center gap-3">
+    <div class="eyebrow tnum" style="letter-spacing:0.1em">
+      {from}–{to} <span class="text-faint">/</span> {totalCount} {itemLabel}
     </div>
+
+    <div class="flex items-center gap-1.5">
+      <button class="btn btn-ghost !px-3 !py-1.5" onclick={() => go(currentPage - 1)} disabled={currentPage === 1}>
+        Prev
+      </button>
+
+      <div class="flex items-center gap-1">
+        {#each pages as n, i}
+          {#if i > 0 && n - pages[i - 1] > 1}
+            <span class="px-1 text-faint mono">·</span>
+          {/if}
+          <button
+            onclick={() => go(n)}
+            aria-current={n === currentPage ? "page" : undefined}
+            class="min-w-8 px-2.5 py-1.5 rounded-md text-sm mono tnum transition-colors {n === currentPage
+              ? 'bg-beacon text-[#1a1204] font-semibold'
+              : 'text-muted hover:text-text hover:bg-white/5 border border-line'}"
+          >
+            {n}
+          </button>
+        {/each}
+      </div>
+
+      <button class="btn btn-ghost !px-3 !py-1.5" onclick={() => go(currentPage + 1)} disabled={currentPage === totalPages}>
+        Next
+      </button>
+    </div>
+  </div>
 {/if}

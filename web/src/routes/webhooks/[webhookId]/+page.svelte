@@ -474,10 +474,10 @@
 
   let successRatePercent = $derived(healthMetrics ? (healthMetrics.success_rate * 100).toFixed(1) : '0');
   let successRateColor = $derived.by(() => {
-    if (!healthMetrics) return 'text-gray-400';
-    if (healthMetrics.success_rate >= 0.95) return 'text-green-600';
-    if (healthMetrics.success_rate >= 0.8) return 'text-yellow-600';
-    return 'text-red-600';
+    if (!healthMetrics) return 'text-faint';
+    if (healthMetrics.success_rate >= 0.95) return 'text-ok';
+    if (healthMetrics.success_rate >= 0.8) return 'text-warn';
+    return 'text-bad';
   });
 </script>
 
@@ -485,61 +485,69 @@
   <title>{webhook?.description || 'Webhook'} - {webhookId} | Sparrow</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
-  <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<main class="mx-auto max-w-6xl px-4 sm:px-8 py-8">
     {#if loading}
-      <nav class="mb-4">
-        <div class="h-4 bg-gray-200 rounded w-28 animate-pulse"></div>
+      <nav class="mb-6">
+        <div class="h-4 bg-white/5 rounded w-28 animate-pulse"></div>
       </nav>
-      <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6 animate-pulse">
-        <div class="h-6 bg-gray-200 rounded w-48 mb-3"></div>
-        <div class="h-4 bg-gray-100 rounded w-64 mb-3"></div>
+      <div class="panel p-5 mb-6 animate-pulse">
+        <div class="h-6 bg-white/5 rounded w-48 mb-3"></div>
+        <div class="h-4 bg-white/[0.03] rounded w-64 mb-3"></div>
         <div class="flex gap-6">
-          <div class="h-4 bg-gray-100 rounded w-32"></div>
-          <div class="h-4 bg-gray-100 rounded w-40"></div>
+          <div class="h-4 bg-white/[0.03] rounded w-32"></div>
+          <div class="h-4 bg-white/[0.03] rounded w-40"></div>
         </div>
       </div>
-      <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6 animate-pulse">
-        <div class="h-4 bg-gray-200 rounded w-32 mb-4"></div>
+      <div class="panel p-5 mb-6 animate-pulse">
+        <div class="h-4 bg-white/5 rounded w-32 mb-4"></div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {#each Array(4) as _}
-            <div><div class="h-3 bg-gray-100 rounded w-16 mb-1"></div><div class="h-6 bg-gray-200 rounded w-12"></div></div>
+            <div><div class="h-3 bg-white/[0.03] rounded w-16 mb-1"></div><div class="h-6 bg-white/5 rounded w-12"></div></div>
           {/each}
         </div>
       </div>
     {:else if error && !webhook}
-      <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p class="text-sm text-red-700">{error}</p>
-        <a href="/webhooks" class="text-sm text-red-600 hover:text-red-800 underline mt-2 inline-block">Back to webhooks</a>
+      <div class="panel p-4" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+        <p class="text-sm" style="color:var(--color-bad)">{error}</p>
+        <a href="/webhooks" class="link-beacon text-sm underline mt-2 inline-block">Back to webhooks</a>
       </div>
     {:else if webhook}
-      <nav class="mb-4">
-        <a href="/webhooks" class="text-sm text-gray-500 hover:text-gray-700 transition">&larr; All Webhooks</a>
+      <nav class="flex items-center gap-2 text-sm text-muted mb-6">
+        <a class="link" href="/webhooks">Webhooks</a>
+        <span class="text-faint">/</span>
+        <span class="text-text truncate max-w-xs">{webhook.description || 'Webhook'}</span>
       </nav>
 
       {#if error}
-        <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-start justify-between">
-          <p class="text-sm text-red-700">{error}</p>
-          <button onclick={() => { error = ''; }} class="text-red-400 hover:text-red-600 ml-3 shrink-0" aria-label="Dismiss error">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="panel p-3 mb-4 flex items-start justify-between" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+          <p class="text-sm" style="color:var(--color-bad)">{error}</p>
+          <button onclick={() => { error = ''; }} class="ml-3 shrink-0 text-faint hover:text-bad transition-colors" aria-label="Dismiss error">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
       {/if}
 
-      <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+      <div class="panel ticked p-5 mb-6">
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-3 mb-2">
-              <h1 class="text-xl font-bold text-gray-900 truncate">
+            <p class="eyebrow mb-1.5">Fleet / Webhook</p>
+            <div class="flex items-center gap-3 mb-2 flex-wrap">
+              <h1 class="text-2xl truncate">
                 {webhook.description || 'Webhook'}
               </h1>
               <HealthBadge health={webhook.health} size="md" />
               {#if webhook.active}
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">Active</span>
+                <span class="chip" style="color:var(--color-ok);border-color:color-mix(in srgb,var(--color-ok) 35%,transparent);background:color-mix(in srgb,var(--color-ok) 12%,var(--color-panel-2))">
+                  <span class="w-1.5 h-1.5 rounded-full" style="background:var(--color-ok)"></span>
+                  Active
+                </span>
               {:else}
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Paused</span>
+                <span class="chip">
+                  <span class="w-1.5 h-1.5 rounded-full" style="background:var(--color-idle)"></span>
+                  Paused
+                </span>
               {/if}
             </div>
 
@@ -548,101 +556,99 @@
                 <input
                   type="url"
                   bind:value={editedUrl}
-                  class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 font-mono"
+                  class="input flex-1"
                   placeholder="https://example.com/webhook"
                 />
-                <button onclick={saveWebhookUrl} disabled={savingUrl} class="px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 transition">
-                  {savingUrl ? 'Saving...' : 'Save'}
+                <button onclick={saveWebhookUrl} disabled={savingUrl} class="btn btn-beacon !px-3 !py-1.5">
+                  {savingUrl ? 'Saving…' : 'Save'}
                 </button>
-                <button onclick={cancelEditUrl} disabled={savingUrl} class="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition">
+                <button onclick={cancelEditUrl} disabled={savingUrl} class="btn btn-ghost !px-3 !py-1.5">
                   Cancel
                 </button>
               </div>
             {:else}
-              <button onclick={startEditUrl} class="group flex items-center gap-1.5 mb-3 text-left" title="Click to edit URL">
-                <span class="text-sm font-mono text-gray-600 break-all">{webhook.url}</span>
-                <svg class="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button onclick={startEditUrl} class="group flex items-center gap-1.5 mb-3 text-left" title="Click to edit URL" aria-label="Edit webhook URL">
+                <span class="text-sm mono text-muted break-all">{webhook.url}</span>
+                <svg class="w-3.5 h-3.5 text-faint opacity-0 group-hover:opacity-100 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
               </button>
             {/if}
 
-            <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-500">
-              <span>Namespace: <span class="font-medium text-gray-700">{webhook.namespace}</span></span>
-              <span>Created: <span class="font-medium text-gray-700">{formatTimestamp(webhook.created_at)}</span></span>
-              <span class="font-mono text-xs text-gray-400">ID: {webhookId}</span>
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted">
+              <span>Namespace: <span class="chip">{webhook.namespace}</span></span>
+              <span>Created: <span class="mono tnum text-text">{formatTimestamp(webhook.created_at)}</span></span>
+              <span class="mono text-xs text-faint">ID: {webhookId}</span>
             </div>
           </div>
 
           <div class="flex items-center gap-2 shrink-0">
             <button
               onclick={toggleWebhookStatus}
-              class="px-3 py-1.5 text-sm font-medium rounded-lg transition {webhook.active
-                ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 border border-yellow-200'
-                : 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'}"
+              class="btn btn-ghost !px-3 !py-1.5"
             >
               {webhook.active ? 'Pause' : 'Resume'}
             </button>
             <button
               onclick={() => { confirmUnregister = true; }}
-              class="px-3 py-1.5 text-sm font-medium rounded-lg transition bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+              class="btn btn-danger !px-3 !py-1.5"
             >
               Unregister
             </button>
           </div>
         </div>
 
-        <div class="mt-4 pt-4 border-t border-gray-100">
-          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Subscribed Events</p>
+        <div class="mt-4 pt-4 border-t border-line">
+          <p class="eyebrow mb-2">Subscribed Events</p>
           <div class="flex flex-wrap gap-1.5">
             {#each webhook.events ?? [] as ev}
-              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">{ev}</span>
+              <span class="chip">{ev}</span>
             {/each}
             {#if (webhook.events ?? []).length === 0}
-              <span class="text-xs text-gray-400">No events subscribed</span>
+              <span class="text-xs text-faint">No events subscribed</span>
             {/if}
           </div>
         </div>
       </div>
 
       {#if healthMetrics}
-        <div class="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+        <div class="panel p-5 mb-6">
           <div class="flex items-baseline justify-between mb-4">
-            <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Health Metrics</h2>
-            <span class="text-[10px] text-gray-400 font-mono">Last 24 hours</span>
+            <h2 class="eyebrow">Health Metrics</h2>
+            <span class="text-[10px] text-faint mono">Last 24 hours</span>
           </div>
-          <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
-            <div>
-              <p class="text-xs text-gray-500">Success Rate</p>
-              <p class="text-xl font-bold {successRateColor}">{successRatePercent}%</p>
+          <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <div class="panel-2 p-3">
+              <p class="text-xs text-muted mb-0.5">Success Rate</p>
+              <p class="text-xl font-semibold tnum {successRateColor}">{successRatePercent}%</p>
             </div>
-            <div>
-              <p class="text-xs text-gray-500">Deliveries</p>
-              <p class="text-xl font-bold text-gray-900">{healthMetrics.total_deliveries}</p>
+            <div class="panel-2 p-3">
+              <p class="text-xs text-muted mb-0.5">Deliveries</p>
+              <p class="text-xl font-semibold tnum text-text">{healthMetrics.total_deliveries}</p>
             </div>
-            <div>
-              <p class="text-xs text-gray-500">Succeeded</p>
-              <p class="text-xl font-bold text-green-600">{healthMetrics.successful_deliveries}</p>
+            <div class="panel-2 p-3">
+              <p class="text-xs text-muted mb-0.5">Succeeded</p>
+              <p class="text-xl font-semibold tnum" style="color:var(--color-ok)">{healthMetrics.successful_deliveries}</p>
             </div>
-            <div>
-              <p class="text-xs text-gray-500">Failed</p>
-              <p class="text-xl font-bold text-red-600">{healthMetrics.failed_deliveries}</p>
+            <div class="panel-2 p-3">
+              <p class="text-xs text-muted mb-0.5">Failed</p>
+              <p class="text-xl font-semibold tnum" style="color:var(--color-bad)">{healthMetrics.failed_deliveries}</p>
             </div>
-            <div>
-              <p class="text-xs text-gray-500">Avg Response</p>
-              <p class="text-xl font-bold text-gray-900">{healthMetrics.avg_response_time}<span class="text-xs font-normal text-gray-400">ms</span></p>
+            <div class="panel-2 p-3">
+              <p class="text-xs text-muted mb-0.5">Avg Response</p>
+              <p class="text-xl font-semibold tnum text-text">{healthMetrics.avg_response_time}<span class="text-xs font-normal text-faint">ms</span></p>
             </div>
-            <div>
-              <p class="text-xs text-gray-500">Consecutive Failures</p>
-              <p class="text-xl font-bold text-gray-900">{healthMetrics.consecutive_failures}</p>
+            <div class="panel-2 p-3">
+              <p class="text-xs text-muted mb-0.5">Consecutive Failures</p>
+              <p class="text-xl font-semibold tnum text-text">{healthMetrics.consecutive_failures}</p>
             </div>
           </div>
 
           {#if healthMetrics.total_deliveries > 0}
             <div class="mt-4">
-              <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+              <div class="w-full bg-panel-2 border border-line rounded-full h-2 overflow-hidden">
                 <div
-                  class="h-full rounded-full transition-all duration-500 {healthMetrics.success_rate >= 0.95 ? 'bg-green-500' : healthMetrics.success_rate >= 0.8 ? 'bg-yellow-500' : 'bg-red-500'}"
+                  class="h-full rounded-full transition-all duration-500 {healthMetrics.success_rate >= 0.95 ? 'bg-ok' : healthMetrics.success_rate >= 0.8 ? 'bg-warn' : 'bg-bad'}"
                   style="width: {healthMetrics.success_rate * 100}%"
                 ></div>
               </div>
@@ -650,53 +656,53 @@
           {/if}
 
           {#if healthMetrics.failed_deliveries > 0}
-            <div class="mt-4 pt-4 border-t border-gray-100">
-              <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Error Breakdown</h3>
+            <div class="mt-4 pt-4 border-t border-line">
+              <h3 class="eyebrow mb-3">Error Breakdown</h3>
               <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div class="bg-orange-50 rounded-lg px-3 py-2">
-                  <p class="text-xs text-orange-600 font-medium">Client (4xx)</p>
-                  <p class="text-lg font-bold text-orange-700">{healthMetrics.client_errors}</p>
-                  <p class="text-[10px] text-orange-500">Not retried</p>
+                <div class="panel-2 px-3 py-2" style="border-color:color-mix(in srgb,var(--color-warn) 30%,transparent)">
+                  <p class="text-xs font-medium" style="color:var(--color-warn)">Client (4xx)</p>
+                  <p class="text-lg font-semibold tnum text-text">{healthMetrics.client_errors}</p>
+                  <p class="text-[10px] text-faint">Not retried</p>
                 </div>
-                <div class="bg-red-50 rounded-lg px-3 py-2">
-                  <p class="text-xs text-red-600 font-medium">Server (5xx)</p>
-                  <p class="text-lg font-bold text-red-700">{healthMetrics.server_errors}</p>
-                  <p class="text-[10px] text-red-500">Retried</p>
+                <div class="panel-2 px-3 py-2" style="border-color:color-mix(in srgb,var(--color-bad) 30%,transparent)">
+                  <p class="text-xs font-medium" style="color:var(--color-bad)">Server (5xx)</p>
+                  <p class="text-lg font-semibold tnum text-text">{healthMetrics.server_errors}</p>
+                  <p class="text-[10px] text-faint">Retried</p>
                 </div>
-                <div class="bg-yellow-50 rounded-lg px-3 py-2">
-                  <p class="text-xs text-yellow-600 font-medium">Timeout</p>
-                  <p class="text-lg font-bold text-yellow-700">{healthMetrics.timeout_errors}</p>
-                  <p class="text-[10px] text-yellow-500">Retried</p>
+                <div class="panel-2 px-3 py-2" style="border-color:color-mix(in srgb,var(--color-warn) 30%,transparent)">
+                  <p class="text-xs font-medium" style="color:var(--color-warn)">Timeout</p>
+                  <p class="text-lg font-semibold tnum text-text">{healthMetrics.timeout_errors}</p>
+                  <p class="text-[10px] text-faint">Retried</p>
                 </div>
-                <div class="bg-purple-50 rounded-lg px-3 py-2">
-                  <p class="text-xs text-purple-600 font-medium">Network</p>
-                  <p class="text-lg font-bold text-purple-700">{healthMetrics.network_errors}</p>
-                  <p class="text-[10px] text-purple-500">DNS / TLS / Conn</p>
+                <div class="panel-2 px-3 py-2" style="border-color:color-mix(in srgb,var(--color-idle) 30%,transparent)">
+                  <p class="text-xs font-medium" style="color:var(--color-idle)">Network</p>
+                  <p class="text-lg font-semibold tnum text-text">{healthMetrics.network_errors}</p>
+                  <p class="text-[10px] text-faint">DNS / TLS / Conn</p>
                 </div>
-                <div class="bg-amber-50 rounded-lg px-3 py-2">
-                  <p class="text-xs text-amber-600 font-medium">Unexpected Status</p>
-                  <p class="text-lg font-bold text-amber-700">{healthMetrics.unexpected_status_errors}</p>
-                  <p class="text-[10px] text-amber-500">Not retried</p>
+                <div class="panel-2 px-3 py-2" style="border-color:color-mix(in srgb,var(--color-warn) 30%,transparent)">
+                  <p class="text-xs font-medium" style="color:var(--color-warn)">Unexpected Status</p>
+                  <p class="text-lg font-semibold tnum text-text">{healthMetrics.unexpected_status_errors}</p>
+                  <p class="text-[10px] text-faint">Not retried</p>
                 </div>
               </div>
 
               {#if (healthMetrics.client_errors || 0) + (healthMetrics.server_errors || 0) + (healthMetrics.timeout_errors || 0) + (healthMetrics.network_errors || 0) + (healthMetrics.unexpected_status_errors || 0) > 0}
                 {@const totalErrors = (healthMetrics.client_errors || 0) + (healthMetrics.server_errors || 0) + (healthMetrics.timeout_errors || 0) + (healthMetrics.network_errors || 0) + (healthMetrics.unexpected_status_errors || 0)}
-                <div class="mt-3 w-full h-2 rounded-full overflow-hidden flex">
+                <div class="mt-3 w-full h-2 rounded-full overflow-hidden flex bg-panel-2 border border-line">
                   {#if healthMetrics.client_errors > 0}
-                    <div class="bg-orange-400 h-full" style="width: {(healthMetrics.client_errors / totalErrors) * 100}%" title="Client errors: {healthMetrics.client_errors}"></div>
+                    <div class="h-full" style="width: {(healthMetrics.client_errors / totalErrors) * 100}%;background:var(--color-warn)" title="Client errors: {healthMetrics.client_errors}"></div>
                   {/if}
                   {#if healthMetrics.server_errors > 0}
-                    <div class="bg-red-400 h-full" style="width: {(healthMetrics.server_errors / totalErrors) * 100}%" title="Server errors: {healthMetrics.server_errors}"></div>
+                    <div class="h-full" style="width: {(healthMetrics.server_errors / totalErrors) * 100}%;background:var(--color-bad)" title="Server errors: {healthMetrics.server_errors}"></div>
                   {/if}
                   {#if healthMetrics.timeout_errors > 0}
-                    <div class="bg-yellow-400 h-full" style="width: {(healthMetrics.timeout_errors / totalErrors) * 100}%" title="Timeouts: {healthMetrics.timeout_errors}"></div>
+                    <div class="h-full" style="width: {(healthMetrics.timeout_errors / totalErrors) * 100}%;background:color-mix(in srgb,var(--color-warn) 70%,var(--color-bad))" title="Timeouts: {healthMetrics.timeout_errors}"></div>
                   {/if}
                   {#if healthMetrics.network_errors > 0}
-                    <div class="bg-purple-400 h-full" style="width: {(healthMetrics.network_errors / totalErrors) * 100}%" title="Network errors: {healthMetrics.network_errors}"></div>
+                    <div class="h-full" style="width: {(healthMetrics.network_errors / totalErrors) * 100}%;background:var(--color-idle)" title="Network errors: {healthMetrics.network_errors}"></div>
                   {/if}
                   {#if healthMetrics.unexpected_status_errors > 0}
-                    <div class="bg-amber-400 h-full" style="width: {(healthMetrics.unexpected_status_errors / totalErrors) * 100}%" title="Unexpected status: {healthMetrics.unexpected_status_errors}"></div>
+                    <div class="h-full" style="width: {(healthMetrics.unexpected_status_errors / totalErrors) * 100}%;background:color-mix(in srgb,var(--color-warn) 55%,var(--color-idle))" title="Unexpected status: {healthMetrics.unexpected_status_errors}"></div>
                   {/if}
                 </div>
               {/if}
@@ -705,37 +711,37 @@
         </div>
       {/if}
 
-      <div class="border-b border-gray-200 mb-6">
+      <div class="border-b border-line mb-6">
         <nav class="flex gap-6">
           <button
-            class="pb-3 text-sm font-medium border-b-2 transition {activeTab === 'deliveries' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
+            class="pb-3 text-sm font-medium border-b-2 -mb-px transition {activeTab === 'deliveries' ? 'border-beacon text-text' : 'border-transparent text-muted hover:text-text hover:border-line-strong'}"
             onclick={() => (activeTab = 'deliveries')}
           >
             Deliveries
-            <span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">{totalCount}</span>
+            <span class="ml-1 chip tnum">{totalCount}</span>
           </button>
           <button
-            class="pb-3 text-sm font-medium border-b-2 transition {activeTab === 'config' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
+            class="pb-3 text-sm font-medium border-b-2 -mb-px transition {activeTab === 'config' ? 'border-beacon text-text' : 'border-transparent text-muted hover:text-text hover:border-line-strong'}"
             onclick={() => (activeTab = 'config')}
           >
             Configuration
           </button>
           <button
-            class="pb-3 text-sm font-medium border-b-2 transition {activeTab === 'subscriptions' ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
+            class="pb-3 text-sm font-medium border-b-2 -mb-px transition {activeTab === 'subscriptions' ? 'border-beacon text-text' : 'border-transparent text-muted hover:text-text hover:border-line-strong'}"
             onclick={() => (activeTab = 'subscriptions')}
           >
             Subscriptions
-            <span class="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">{subscriptions.length}</span>
+            <span class="ml-1 chip tnum">{subscriptions.length}</span>
           </button>
         </nav>
       </div>
 
       {#if activeTab === 'deliveries'}
-        <div class="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+        <div class="panel p-4 mb-4">
           <div class="flex flex-wrap items-end gap-3">
             <div class="w-full sm:w-32">
-              <label for="del-status" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Status</label>
-              <select id="del-status" bind:value={deliveryStatusFilter} onchange={applyDeliveryFilters} class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900">
+              <label for="del-status" class="field-label">Status</label>
+              <select id="del-status" bind:value={deliveryStatusFilter} onchange={applyDeliveryFilters} class="select">
                 <option value="">All</option>
                 <option value="pending">Pending</option>
                 <option value="sending">Sending</option>
@@ -746,8 +752,8 @@
               </select>
             </div>
             <div class="w-full sm:w-36">
-              <label for="del-error" class="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1">Error Category</label>
-              <select id="del-error" bind:value={deliveryErrorCategoryFilter} onchange={applyDeliveryFilters} class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-gray-900 focus:border-gray-900">
+              <label for="del-error" class="field-label">Error Category</label>
+              <select id="del-error" bind:value={deliveryErrorCategoryFilter} onchange={applyDeliveryFilters} class="select">
                 <option value="">All</option>
                 {#each ERROR_CATEGORIES as cat}
                     <option value={cat.value}>{cat.label}</option>
@@ -756,11 +762,11 @@
             </div>
             <div class="flex items-center gap-2">
               {#if hasDeliveryFilters}
-                <button onclick={clearDeliveryFilters} class="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Clear</button>
+                <button onclick={clearDeliveryFilters} class="btn btn-ghost !px-3 !py-1.5">Clear</button>
               {/if}
               {#if totalCount > 0}
-                <button onclick={prepareRetryBatch} disabled={preparingRetry} class="px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition">
-                  {preparingRetry ? 'Preparing...' : 'Retry All Matching'}
+                <button onclick={prepareRetryBatch} disabled={preparingRetry} class="btn btn-beacon !px-3 !py-1.5">
+                  {preparingRetry ? 'Preparing…' : 'Retry All Matching'}
                 </button>
               {/if}
             </div>
@@ -777,31 +783,31 @@
           </div>
         {/if}
 
-        <div class="bg-white rounded-lg border border-gray-200">
+        <div class="panel overflow-hidden">
           {#if deliveries.length === 0}
             <EmptyState icon="send" title="No deliveries yet" description="Deliveries will appear here when events are pushed to this webhook." />
           {:else}
             <div class="overflow-x-auto">
-              <table class="w-full text-sm text-left">
+              <table class="w-full text-left">
                 <thead>
-                  <tr class="border-b border-gray-200 bg-gray-50/50">
-                    <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Delivery ID</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Event ID</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Attempts</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Last Attempt</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
+                  <tr class="border-b border-line">
+                    <th class="th">Delivery ID</th>
+                    <th class="th hidden sm:table-cell">Event ID</th>
+                    <th class="th">Status</th>
+                    <th class="th hidden md:table-cell">Attempts</th>
+                    <th class="th hidden lg:table-cell">Last Attempt</th>
+                    <th class="th"></th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
+                <tbody>
                   {#each deliveries as delivery}
-                    <tr class="hover:bg-gray-50 transition">
-                      <td class="px-4 py-3">
+                    <tr class="row-line row-hover transition">
+                      <td class="td">
                         <CopyableId id={delivery.delivery_id} href="/deliveries/{delivery.delivery_id}" truncate={12} />
                         <span class="block sm:hidden mt-0.5"><CopyableId id={delivery.event_id} href="/events/instances/{delivery.event_id}" truncate={12} /></span>
                       </td>
-                      <td class="px-4 py-3 hidden sm:table-cell"><CopyableId id={delivery.event_id} href="/events/instances/{delivery.event_id}" truncate={16} /></td>
-                      <td class="px-4 py-3">
+                      <td class="td hidden sm:table-cell"><CopyableId id={delivery.event_id} href="/events/instances/{delivery.event_id}" truncate={16} /></td>
+                      <td class="td">
                         <div class="flex items-center gap-1.5">
                           <StatusBadge status={delivery.status} />
                           {#if delivery.error_category && delivery.error_category !== 'success'}
@@ -810,81 +816,81 @@
                           {/if}
                         </div>
                       </td>
-                      <td class="px-4 py-3 text-gray-700 hidden md:table-cell">{delivery.attempt_count}</td>
-                      <td class="px-4 py-3 text-xs text-gray-500 hidden lg:table-cell">{formatTimestamp(delivery.last_attempted_at)}</td>
-                      <td class="px-4 py-3">
-                        <button onclick={() => toggleDeliveryExpansion(delivery.delivery_id)} class="text-xs font-medium text-gray-600 hover:text-gray-900 transition">
+                      <td class="td tnum text-muted hidden md:table-cell">{delivery.attempt_count}</td>
+                      <td class="td hidden lg:table-cell"><span class="mono tnum text-muted text-xs">{formatTimestamp(delivery.last_attempted_at)}</span></td>
+                      <td class="td">
+                        <button onclick={() => toggleDeliveryExpansion(delivery.delivery_id)} class="text-xs mono text-muted hover:text-text transition">
                           {expandedDeliveries.has(delivery.delivery_id) ? 'Hide' : 'Details'}
                         </button>
                       </td>
                     </tr>
                     {#if expandedDeliveries.has(delivery.delivery_id)}
-                      <tr class="bg-gray-50/50">
-                        <td colspan="6" class="px-4 py-4">
+                      <tr class="row-line">
+                        <td colspan="6" class="px-4 py-4 bg-panel-2">
                           {#if deliveryDetails.has(delivery.delivery_id)}
                             {@const details = deliveryDetails.get(delivery.delivery_id)!}
                             <div class="space-y-3">
                               <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                 <div>
-                                  <p class="text-xs font-medium text-gray-500 mb-0.5">Response Code</p>
-                                  <span class="font-mono text-sm {(details.response_code ?? 0) >= 200 && (details.response_code ?? 0) < 300 ? 'text-green-600' : (details.response_code ?? 0) >= 400 ? 'text-red-600' : 'text-gray-700'}">
+                                  <p class="eyebrow mb-0.5">Response Code</p>
+                                  <span class="mono text-sm tnum" style="color:{(details.response_code ?? 0) >= 200 && (details.response_code ?? 0) < 300 ? 'var(--color-ok)' : (details.response_code ?? 0) >= 400 ? 'var(--color-bad)' : 'var(--color-text)'}">
                                     {details.response_code || 'N/A'}
                                   </span>
                                 </div>
                                 <div>
-                                  <p class="text-xs font-medium text-gray-500 mb-0.5">Error Category</p>
+                                  <p class="eyebrow mb-0.5">Error Category</p>
                                   {#if details.error_category && details.error_category !== 'success'}
                                     {@const badge = getCategoryBadge(details.error_category)}
                                     <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border {badge.classes}">{badge.label}</span>
                                   {:else}
-                                    <span class="text-sm text-gray-400">—</span>
+                                    <span class="text-sm text-faint">—</span>
                                   {/if}
                                 </div>
                                 <div>
-                                  <p class="text-xs font-medium text-gray-500 mb-0.5">Attempts</p>
-                                  <span class="text-sm text-gray-700">{delivery.attempt_count}</span>
+                                  <p class="eyebrow mb-0.5">Attempts</p>
+                                  <span class="text-sm text-text tnum">{delivery.attempt_count}</span>
                                 </div>
                                 <div>
-                                  <p class="text-xs font-medium text-gray-500 mb-0.5">Created</p>
-                                  <span class="text-sm text-gray-700">{details.created_at ? formatTimestamp(details.created_at) : 'N/A'}</span>
+                                  <p class="eyebrow mb-0.5">Created</p>
+                                  <span class="text-sm text-text mono tnum">{details.created_at ? formatTimestamp(details.created_at) : 'N/A'}</span>
                                 </div>
                                 <div>
-                                  <p class="text-xs font-medium text-gray-500 mb-0.5">Last Attempt</p>
-                                  <span class="text-sm text-gray-700">{formatTimestamp(delivery.last_attempted_at)}</span>
+                                  <p class="eyebrow mb-0.5">Last Attempt</p>
+                                  <span class="text-sm text-text mono tnum">{formatTimestamp(delivery.last_attempted_at)}</span>
                                 </div>
                               </div>
 
                               {#if details.response_body}
                                 <div>
-                                  <p class="text-xs font-medium text-gray-500 mb-1">Response Body</p>
-                                  <pre class="bg-white p-3 rounded-lg border border-gray-200 text-xs overflow-auto max-h-32 font-mono text-gray-800">{formatPayload(details.response_body)}</pre>
+                                  <p class="eyebrow mb-1">Response Body</p>
+                                  <pre class="panel p-3 text-xs overflow-auto max-h-32 mono text-text">{formatPayload(details.response_body)}</pre>
                                 </div>
                               {/if}
 
                               {#if details.error_message}
                                 <div>
-                                  <p class="text-xs font-medium text-gray-500 mb-1">Error</p>
-                                  <div class="bg-red-50 border border-red-200 rounded-lg p-3">
-                                    <p class="text-sm text-red-700">{details.error_message}</p>
+                                  <p class="eyebrow mb-1">Error</p>
+                                  <div class="panel p-3" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+                                    <p class="text-sm" style="color:var(--color-bad)">{details.error_message}</p>
                                   </div>
                                 </div>
                               {/if}
 
                               <div class="flex items-center gap-2 pt-1">
                                 {#if delivery.status === 'failed' || details.error_message}
-                                  <button onclick={() => resendDelivery(delivery.delivery_id)} class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition">
+                                  <button onclick={() => resendDelivery(delivery.delivery_id)} class="btn btn-beacon !px-3 !py-1.5">
                                     Retry Delivery
                                   </button>
                                 {/if}
-                                <a href="/deliveries/{delivery.delivery_id}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">
+                                <a href="/deliveries/{delivery.delivery_id}" class="btn btn-ghost !px-3 !py-1.5">
                                   Full Details
                                 </a>
                               </div>
                             </div>
                           {:else}
                             <div class="flex items-center justify-center py-4">
-                              <img src={favicon} alt="Loading" class="w-4 h-4 animate-spin mr-2" />
-                              <span class="text-sm text-gray-500">Loading details...</span>
+                              <img src={favicon} alt="" aria-hidden="true" class="w-4 h-4 animate-spin mr-2" />
+                              <span class="text-sm text-muted">Loading details…</span>
                             </div>
                           {/if}
                         </td>
@@ -895,7 +901,7 @@
               </table>
             </div>
 
-            <div class="border-t border-gray-200 px-4">
+            <div class="border-t border-line px-4">
               <Pagination {currentPage} {totalPages} {totalCount} pageSize={limit} onPageChange={handlePageChange} />
             </div>
           {/if}
@@ -905,61 +911,61 @@
       {#if activeTab === 'config'}
         <div class="space-y-4">
           {#if editingConfig}
-            <div class="bg-white rounded-lg border border-gray-200 p-5">
+            <div class="panel p-5">
               <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Edit Configuration</h3>
+                <h3 class="eyebrow">Edit Configuration</h3>
               </div>
 
               <div class="space-y-5">
                 <div>
-                  <label for="config-description" class="block text-xs font-medium text-gray-700 mb-1">Description</label>
-                  <input id="config-description" type="text" bind:value={configForm.description} class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" placeholder="Webhook description" />
+                  <label for="config-description" class="field-label">Description</label>
+                  <input id="config-description" type="text" bind:value={configForm.description} class="input" placeholder="Webhook description" />
                 </div>
 
                 <div>
-                  <label for="config-url" class="block text-xs font-medium text-gray-700 mb-1">URL</label>
-                  <input id="config-url" type="url" bind:value={configForm.url} class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 font-mono" placeholder="https://example.com/webhook" />
+                  <label for="config-url" class="field-label">URL</label>
+                  <input id="config-url" type="url" bind:value={configForm.url} class="input" placeholder="https://example.com/webhook" />
                 </div>
 
-                <div class="border-t border-gray-100 pt-4">
-                  <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">HTTP Configuration</h4>
+                <div class="border-t border-line pt-4">
+                  <h4 class="eyebrow mb-3">HTTP Configuration</h4>
                   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
-                      <label for="config-max-retries" class="block text-xs font-medium text-gray-700 mb-1">Max Retries (0-10)</label>
-                      <input id="config-max-retries" type="number" bind:value={configForm.maxRetries} min="0" max="10" class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
+                      <label for="config-max-retries" class="field-label">Max Retries (0-10)</label>
+                      <input id="config-max-retries" type="number" bind:value={configForm.maxRetries} min="0" max="10" class="input" />
                     </div>
                     <div>
-                      <label for="config-retry-backoff" class="block text-xs font-medium text-gray-700 mb-1">Retry Backoff (seconds)</label>
-                      <input id="config-retry-backoff" type="number" bind:value={configForm.retryBackoffSeconds} min="1" max="3600" class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
+                      <label for="config-retry-backoff" class="field-label">Retry Backoff (seconds)</label>
+                      <input id="config-retry-backoff" type="number" bind:value={configForm.retryBackoffSeconds} min="1" max="3600" class="input" />
                     </div>
                     <div>
-                      <label for="config-timeout" class="block text-xs font-medium text-gray-700 mb-1">Request Timeout (seconds)</label>
-                      <input id="config-timeout" type="number" bind:value={configForm.requestTimeoutSeconds} min="1" max="300" class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
+                      <label for="config-timeout" class="field-label">Request Timeout (seconds)</label>
+                      <input id="config-timeout" type="number" bind:value={configForm.requestTimeoutSeconds} min="1" max="300" class="input" />
                     </div>
                     <div>
-                      <label for="config-content-type" class="block text-xs font-medium text-gray-700 mb-1">Content Type</label>
-                      <input id="config-content-type" type="text" bind:value={configForm.contentType} class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 font-mono" />
+                      <label for="config-content-type" class="field-label">Content Type</label>
+                      <input id="config-content-type" type="text" bind:value={configForm.contentType} class="input" />
                     </div>
                     <div>
-                      <label for="config-user-agent" class="block text-xs font-medium text-gray-700 mb-1">User Agent</label>
-                      <input id="config-user-agent" type="text" bind:value={configForm.userAgent} class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 font-mono" />
+                      <label for="config-user-agent" class="field-label">User Agent</label>
+                      <input id="config-user-agent" type="text" bind:value={configForm.userAgent} class="input" />
                     </div>
                     <div>
-                      <label for="config-status-codes" class="block text-xs font-medium text-gray-700 mb-1">Expected Status Codes</label>
-                      <input id="config-status-codes" type="text" bind:value={configForm.expectedStatusCodes} placeholder="200, 201, 202, 204" class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 font-mono" />
-                      <p class="text-[10px] text-gray-400 mt-0.5">Comma-separated HTTP status codes</p>
+                      <label for="config-status-codes" class="field-label">Expected Status Codes</label>
+                      <input id="config-status-codes" type="text" bind:value={configForm.expectedStatusCodes} placeholder="200, 201, 202, 204" class="input" />
+                      <p class="text-[10px] text-faint mt-0.5">Comma-separated HTTP status codes</p>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <label for="config-secret" class="block text-xs font-medium text-gray-700 mb-1">Webhook Secret</label>
-                  <input id="config-secret" type="password" bind:value={configForm.webhookSecret} placeholder="Leave empty to keep existing" class="w-full text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900 font-mono" />
-                  <p class="text-[10px] text-gray-400 mt-0.5">Used for HMAC signature verification</p>
+                  <label for="config-secret" class="field-label">Webhook Secret</label>
+                  <input id="config-secret" type="password" bind:value={configForm.webhookSecret} placeholder="Leave empty to keep existing…" class="input" />
+                  <p class="text-[10px] text-faint mt-0.5">Used for HMAC signature verification</p>
                 </div>
 
-                <div class="border-t border-gray-100 pt-4">
-                  <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Options</h4>
+                <div class="border-t border-line pt-4">
+                  <h4 class="eyebrow mb-3">Options</h4>
                   <div class="space-y-3">
                     {#each [
                       { key: 'followRedirects', label: 'Follow Redirects', desc: 'Follow HTTP 3xx redirects' },
@@ -971,29 +977,29 @@
                           type="button"
                           onclick={() => { (configForm as any)[toggle.key] = !(configForm as any)[toggle.key]; }}
                           aria-label="Toggle {toggle.label}"
-                          class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {(configForm as any)[toggle.key] ? 'bg-green-500' : 'bg-gray-300'}"
+                          class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out {(configForm as any)[toggle.key] ? 'bg-ok' : 'bg-line-strong'}"
                         >
                           <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {(configForm as any)[toggle.key] ? 'translate-x-4' : 'translate-x-0'}"></span>
                         </button>
                         <div>
-                          <span class="text-sm font-medium text-gray-700">{toggle.label}</span>
-                          <p class="text-xs text-gray-500">{toggle.desc}</p>
+                          <span class="text-sm font-medium text-text">{toggle.label}</span>
+                          <p class="text-xs text-muted">{toggle.desc}</p>
                         </div>
                       </div>
                     {/each}
                   </div>
                 </div>
 
-                <div class="border-t border-gray-100 pt-4">
-                  <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Custom Headers</h4>
+                <div class="border-t border-line pt-4">
+                  <h4 class="eyebrow mb-3">Custom Headers</h4>
                   {#if Object.keys(configForm.headers).length > 0}
                     <div class="space-y-1.5 mb-3">
                       {#each Object.entries(configForm.headers) as [key, value]}
                         <div class="flex items-center gap-2">
-                          <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{key}</span>
-                          <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{value}</span>
-                          <button onclick={() => removeConfigHeader(key)} class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition" aria-label="Remove header {key}">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <span class="flex-1 text-xs mono panel-2 px-2 py-1.5 rounded truncate text-text">{key}</span>
+                          <span class="flex-1 text-xs mono panel-2 px-2 py-1.5 rounded truncate text-text">{value}</span>
+                          <button onclick={() => removeConfigHeader(key)} class="shrink-0 p-1 text-faint hover:text-bad rounded transition" aria-label="Remove header {key}">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
@@ -1002,25 +1008,25 @@
                     </div>
                   {/if}
                   <div class="flex items-center gap-2">
-                    <input type="text" bind:value={configHeaderKey} placeholder="Header name" class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
-                    <input type="text" bind:value={configHeaderValue} placeholder="Header value" class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
-                    <button onclick={addConfigHeader} disabled={!configHeaderKey.trim() || !configHeaderValue.trim()} class="shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition">
+                    <input type="text" bind:value={configHeaderKey} placeholder="Header name" class="input flex-1" />
+                    <input type="text" bind:value={configHeaderValue} placeholder="Header value" class="input flex-1" />
+                    <button onclick={addConfigHeader} disabled={!configHeaderKey.trim() || !configHeaderValue.trim()} class="btn btn-ghost !px-3 !py-1.5 shrink-0">
                       Add
                     </button>
                   </div>
                 </div>
 
-                <div class="border-t border-gray-100 pt-4">
-                  <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Secret Headers</h4>
-                  <p class="text-[10px] text-gray-400 mb-3">Encrypted headers for sensitive values (API keys, tokens). Existing values are preserved unless you remove or replace them.</p>
+                <div class="border-t border-line pt-4">
+                  <h4 class="eyebrow mb-1">Secret Headers</h4>
+                  <p class="text-[10px] text-faint mb-3">Encrypted headers for sensitive values (API keys, tokens). Existing values are preserved unless you remove or replace them.</p>
                   {#if existingSecretHeaderKeys.size > 0 || Object.keys(newSecretHeaders).length > 0}
                     <div class="space-y-1.5 mb-3">
                       {#each [...existingSecretHeaderKeys] as key}
                         <div class="flex items-center gap-2">
-                          <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate">{key}</span>
-                          <span class="flex-1 text-xs font-mono bg-gray-50 px-2 py-1.5 rounded border border-gray-200 truncate text-gray-400">••••••</span>
-                          <button onclick={() => removeConfigSecretHeader(key)} class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition" aria-label="Remove secret header {key}">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <span class="flex-1 text-xs mono panel-2 px-2 py-1.5 rounded truncate text-text">{key}</span>
+                          <span class="flex-1 text-xs mono panel-2 px-2 py-1.5 rounded truncate text-faint">••••••</span>
+                          <button onclick={() => removeConfigSecretHeader(key)} class="shrink-0 p-1 text-faint hover:text-bad rounded transition" aria-label="Remove secret header {key}">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
@@ -1028,10 +1034,10 @@
                       {/each}
                       {#each Object.entries(newSecretHeaders) as [key, value]}
                         <div class="flex items-center gap-2">
-                          <span class="flex-1 text-xs font-mono bg-green-50 px-2 py-1.5 rounded border border-green-200 truncate">{key}</span>
-                          <span class="flex-1 text-xs font-mono bg-green-50 px-2 py-1.5 rounded border border-green-200 truncate text-green-600">new value set</span>
-                          <button onclick={() => removeConfigSecretHeader(key)} class="shrink-0 p-1 text-gray-400 hover:text-red-600 rounded transition" aria-label="Remove secret header {key}">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <span class="flex-1 text-xs mono px-2 py-1.5 rounded truncate" style="color:var(--color-ok);border:1px solid color-mix(in srgb,var(--color-ok) 35%,transparent);background:color-mix(in srgb,var(--color-ok) 10%,var(--color-panel-2))">{key}</span>
+                          <span class="flex-1 text-xs mono px-2 py-1.5 rounded truncate" style="color:var(--color-ok);border:1px solid color-mix(in srgb,var(--color-ok) 35%,transparent);background:color-mix(in srgb,var(--color-ok) 10%,var(--color-panel-2))">new value set</span>
+                          <button onclick={() => removeConfigSecretHeader(key)} class="shrink-0 p-1 text-faint hover:text-bad rounded transition" aria-label="Remove secret header {key}">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
@@ -1040,124 +1046,124 @@
                     </div>
                   {/if}
                   <div class="flex items-center gap-2">
-                    <input type="text" bind:value={configSecretHeaderKey} placeholder="Header name (e.g. Authorization)" class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
-                    <input type="password" bind:value={configSecretHeaderValue} placeholder="Header value (e.g. Bearer sk-...)" class="flex-1 text-sm rounded-lg border-gray-300 shadow-sm focus:border-gray-900 focus:ring-gray-900" />
-                    <button onclick={addConfigSecretHeader} disabled={!configSecretHeaderKey.trim() || !configSecretHeaderValue.trim()} class="shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-300 transition">
+                    <input type="text" bind:value={configSecretHeaderKey} placeholder="Header name (e.g. Authorization)" class="input flex-1" />
+                    <input type="password" bind:value={configSecretHeaderValue} placeholder="Header value (e.g. Bearer sk-…)" class="input flex-1" />
+                    <button onclick={addConfigSecretHeader} disabled={!configSecretHeaderKey.trim() || !configSecretHeaderValue.trim()} class="btn btn-ghost !px-3 !py-1.5 shrink-0">
                       Add
                     </button>
                   </div>
                 </div>
 
-                <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
-                  <button onclick={cancelEditConfig} disabled={savingConfig} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-line">
+                  <button onclick={cancelEditConfig} disabled={savingConfig} class="btn btn-ghost">
                     Cancel
                   </button>
-                  <button onclick={saveConfig} disabled={savingConfig} class="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:bg-gray-400 transition shadow-sm">
-                    {savingConfig ? 'Saving...' : 'Save Configuration'}
+                  <button onclick={saveConfig} disabled={savingConfig} class="btn btn-beacon">
+                    {savingConfig ? 'Saving…' : 'Save Configuration'}
                   </button>
                 </div>
               </div>
             </div>
           {:else}
-            <div class="bg-white rounded-lg border border-gray-200 p-5">
+            <div class="panel p-5">
               <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">HTTP Configuration</h3>
-                <button onclick={startEditConfig} class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition">
+                <h3 class="eyebrow">HTTP Configuration</h3>
+                <button onclick={startEditConfig} class="btn btn-ghost !px-3 !py-1.5">
                   Edit
                 </button>
               </div>
               {#if webhook.http_config}
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
-                    <p class="text-xs text-gray-500 mb-0.5">Max Retries</p>
-                    <p class="text-sm font-medium text-gray-900">{webhook.http_config.max_retries}</p>
+                    <p class="text-xs text-muted mb-0.5">Max Retries</p>
+                    <p class="text-sm font-medium text-text tnum">{webhook.http_config.max_retries}</p>
                   </div>
                   <div>
-                    <p class="text-xs text-gray-500 mb-0.5">Retry Backoff</p>
-                    <p class="text-sm font-medium text-gray-900">{webhook.http_config.retry_backoff_seconds}s</p>
+                    <p class="text-xs text-muted mb-0.5">Retry Backoff</p>
+                    <p class="text-sm font-medium text-text tnum">{webhook.http_config.retry_backoff_seconds}s</p>
                   </div>
                   <div>
-                    <p class="text-xs text-gray-500 mb-0.5">Request Timeout</p>
-                    <p class="text-sm font-medium text-gray-900">{webhook.http_config.request_timeout_seconds}s</p>
+                    <p class="text-xs text-muted mb-0.5">Request Timeout</p>
+                    <p class="text-sm font-medium text-text tnum">{webhook.http_config.request_timeout_seconds}s</p>
                   </div>
                   <div>
-                    <p class="text-xs text-gray-500 mb-0.5">Content Type</p>
-                    <p class="text-sm font-medium text-gray-900 font-mono">{webhook.http_config.content_type || 'application/json'}</p>
+                    <p class="text-xs text-muted mb-0.5">Content Type</p>
+                    <p class="text-sm font-medium text-text mono">{webhook.http_config.content_type || 'application/json'}</p>
                   </div>
                   <div>
-                    <p class="text-xs text-gray-500 mb-0.5">User Agent</p>
-                    <p class="text-sm font-medium text-gray-900 font-mono">{webhook.http_config.user_agent || 'Sparrow-Webhook/1.0'}</p>
+                    <p class="text-xs text-muted mb-0.5">User Agent</p>
+                    <p class="text-sm font-medium text-text mono">{webhook.http_config.user_agent || 'Sparrow-Webhook/1.0'}</p>
                   </div>
                   <div>
-                    <p class="text-xs text-gray-500 mb-0.5">Expected Status Codes</p>
+                    <p class="text-xs text-muted mb-0.5">Expected Status Codes</p>
                     <div class="flex flex-wrap gap-1">
                       {#each webhook.http_config.expected_status_codes || [] as code}
-                        <span class="px-1.5 py-0.5 text-xs font-mono bg-gray-100 text-gray-700 rounded">{code}</span>
+                        <span class="chip tnum">{code}</span>
                       {/each}
                       {#if (webhook.http_config.expected_status_codes || []).length === 0}
-                        <span class="text-sm text-gray-400">Default (2xx)</span>
+                        <span class="text-sm text-faint">Default (2xx)</span>
                       {/if}
                     </div>
                   </div>
                 </div>
 
-                <div class="mt-4 pt-4 border-t border-gray-100">
+                <div class="mt-4 pt-4 border-t border-line">
                   <div class="flex flex-wrap gap-3">
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium {webhook.http_config.follow_redirects ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}">
-                      <span class="w-1.5 h-1.5 rounded-full {webhook.http_config.follow_redirects ? 'bg-green-500' : 'bg-gray-400'}"></span>
+                    <span class="chip" style={webhook.http_config.follow_redirects ? 'color:var(--color-ok);border-color:color-mix(in srgb,var(--color-ok) 35%,transparent);background:color-mix(in srgb,var(--color-ok) 12%,var(--color-panel-2))' : ''}>
+                      <span class="w-1.5 h-1.5 rounded-full" style="background:var(--color-{webhook.http_config.follow_redirects ? 'ok' : 'idle'})"></span>
                       Follow Redirects
                     </span>
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium {webhook.http_config.verify_ssl ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}">
-                      <span class="w-1.5 h-1.5 rounded-full {webhook.http_config.verify_ssl ? 'bg-green-500' : 'bg-red-500'}"></span>
+                    <span class="chip" style={webhook.http_config.verify_ssl ? 'color:var(--color-ok);border-color:color-mix(in srgb,var(--color-ok) 35%,transparent);background:color-mix(in srgb,var(--color-ok) 12%,var(--color-panel-2))' : 'color:var(--color-bad);border-color:color-mix(in srgb,var(--color-bad) 35%,transparent);background:color-mix(in srgb,var(--color-bad) 12%,var(--color-panel-2))'}>
+                      <span class="w-1.5 h-1.5 rounded-full" style="background:var(--color-{webhook.http_config.verify_ssl ? 'ok' : 'bad'})"></span>
                       Verify SSL
                     </span>
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium {webhook.http_config.capture_response_body ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}">
-                      <span class="w-1.5 h-1.5 rounded-full {webhook.http_config.capture_response_body ? 'bg-blue-500' : 'bg-gray-400'}"></span>
+                    <span class="chip" style={webhook.http_config.capture_response_body ? 'color:var(--color-beacon);border-color:color-mix(in srgb,var(--color-beacon) 35%,transparent);background:color-mix(in srgb,var(--color-beacon) 12%,var(--color-panel-2))' : ''}>
+                      <span class="w-1.5 h-1.5 rounded-full" style="background:var(--color-{webhook.http_config.capture_response_body ? 'beacon' : 'idle'})"></span>
                       Capture Response
                     </span>
                     {#if webhook.http_config.webhook_secret}
-                      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-purple-50 text-purple-700">
-                        <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                      <span class="chip" style="color:var(--color-beacon);border-color:color-mix(in srgb,var(--color-beacon) 35%,transparent);background:color-mix(in srgb,var(--color-beacon) 12%,var(--color-panel-2))">
+                        <span class="w-1.5 h-1.5 rounded-full" style="background:var(--color-beacon)"></span>
                         Secret Configured
                       </span>
                     {/if}
                   </div>
                 </div>
               {:else}
-                <p class="text-sm text-gray-500">Using default HTTP configuration.</p>
+                <p class="text-sm text-muted">Using default HTTP configuration.</p>
               {/if}
             </div>
 
-            <div class="bg-white rounded-lg border border-gray-200 p-5">
-              <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Custom Headers</h3>
+            <div class="panel p-5">
+              <h3 class="eyebrow mb-4">Custom Headers</h3>
               {#if Object.keys(webhook.headers || {}).length > 0}
                 <div class="space-y-1.5">
                   {#each Object.entries(webhook.headers || {}) as [key, value]}
                     <div class="flex items-center gap-2 text-sm">
-                      <span class="font-mono text-gray-900 font-medium">{key}:</span>
-                      <span class="font-mono text-gray-600">{value}</span>
+                      <span class="mono text-text font-medium">{key}:</span>
+                      <span class="mono text-muted">{value}</span>
                     </div>
                   {/each}
                 </div>
               {:else}
-                <p class="text-sm text-gray-500">No custom headers configured.</p>
+                <p class="text-sm text-muted">No custom headers configured.</p>
               {/if}
             </div>
 
-            <div class="bg-white rounded-lg border border-gray-200 p-5">
-              <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-2">Secret Headers</h3>
-              <p class="text-xs text-gray-400 mb-4">Encrypted headers for sensitive values. Values are never exposed.</p>
+            <div class="panel p-5">
+              <h3 class="eyebrow mb-2">Secret Headers</h3>
+              <p class="text-xs text-faint mb-4">Encrypted headers for sensitive values. Values are never exposed.</p>
               {#if Object.keys(webhook.secret_headers || {}).length > 0}
                 <div class="space-y-1.5">
                   {#each Object.entries(webhook.secret_headers || {}) as [key, value]}
                     <div class="flex items-center gap-2 text-sm">
-                      <span class="font-mono text-gray-900 font-medium">{key}:</span>
-                      <span class="font-mono text-gray-400">••••••</span>
+                      <span class="mono text-text font-medium">{key}:</span>
+                      <span class="mono text-faint">••••••</span>
                     </div>
                   {/each}
                 </div>
               {:else}
-                <p class="text-sm text-gray-500">No secret headers configured.</p>
+                <p class="text-sm text-muted">No secret headers configured.</p>
               {/if}
             </div>
           {/if}
@@ -1173,8 +1179,7 @@
         />
       {/if}
     {/if}
-  </main>
-</div>
+</main>
 
 <ConfirmDialog
   open={confirmUnregister}

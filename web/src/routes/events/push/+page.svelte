@@ -6,15 +6,17 @@
     Mode,
     type Validator
   } from "svelte-jsoneditor";
+  import 'svelte-jsoneditor/themes/jse-theme-dark.css';
 
   import { api, unwrap } from "$lib/services";
   import { formatAPIError } from '$lib/utils';
+  import { namespaceStore } from '$lib/namespace.svelte';
   import { onMount } from "svelte";
   import type { components } from "$lib/api-types";
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 
-  let namespace = $state('default');
+  let namespace = $state(namespaceStore.value);
   let event = $state("");
   let payload = $state({ json: {} } as Content);
   let labels = $state<Record<string, string>>({});
@@ -137,103 +139,102 @@
   <title>Push Event | Sparrow</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-    <nav class="flex items-center text-sm text-gray-500 mb-6">
-      <a href="/events" class="hover:text-gray-900 transition">Events</a>
-      <span class="mx-2">/</span>
-      <span class="text-gray-900 font-medium">Push Event</span>
-    </nav>
+<main class="mx-auto max-w-2xl px-4 sm:px-6 py-8">
+  <nav class="flex items-center gap-2 text-sm text-muted mb-6">
+    <a class="link" href="/events">Events</a>
+    <span class="text-faint">/</span>
+    <span class="text-text">Push Event</span>
+  </nav>
 
-    <div class="max-w-2xl">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">Push a Test Event</h1>
+  <div class="mb-6">
+    <p class="eyebrow mb-1.5">Catalog / Push Event</p>
+    <h1 class="text-2xl">Push a Test Event</h1>
+  </div>
 
-      {#if loadingEvents}
-        <div class="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
-          <div class="animate-pulse space-y-6">
-            <div>
-              <div class="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-              <div class="h-10 bg-gray-100 rounded w-full"></div>
-            </div>
-            <div>
-              <div class="h-4 bg-gray-200 rounded w-16 mb-2"></div>
-              <div class="h-10 bg-gray-100 rounded w-full"></div>
-            </div>
-            <div>
-              <div class="h-4 bg-gray-200 rounded w-28 mb-2"></div>
-              <div class="h-40 bg-gray-100 rounded w-full"></div>
-            </div>
-            <div class="h-10 bg-gray-200 rounded w-32"></div>
-          </div>
+  {#if loadingEvents}
+    <div class="panel p-6 space-y-6">
+      <div class="animate-pulse space-y-6">
+        <div>
+          <div class="h-4 bg-white/5 rounded w-24 mb-2"></div>
+          <div class="h-10 bg-white/[0.03] rounded w-full"></div>
         </div>
-      {:else}
-        <form onsubmit={pushEvent} class="bg-white rounded-lg border border-gray-200 p-6 space-y-5">
-          <div>
-            <label for="namespace" class="block text-sm font-medium text-gray-700 mb-1">Namespace</label>
-            <input id="namespace" type="text" bind:value={namespace} required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
-          </div>
-
-          <div>
-            <label for="event" class="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
-            <select id="event" bind:value={event} required class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
-              {#each availableEvents as e}
-                <option value={e.name}>{e.name}</option>
-              {/each}
-            </select>
-          </div>
-
-          <div>
-            <label for="payload" class="block text-sm font-medium text-gray-700 mb-1">
-              Payload {hasSchema() ? '(validated against schema)' : ''}
-            </label>
-            <div class="h-40">
-              <JSONEditor bind:content={payload} {validator} />
-            </div>
-          </div>
-
-          <div>
-            <span class="block text-sm font-medium text-gray-700 mb-1">Labels</span>
-            <div class="flex flex-wrap gap-2 mb-2">
-              {#each Object.entries(labels) as [k, v]}
-                <span class="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs">
-                  {k}={v}
-                  <button type="button" onclick={() => removeLabel(k)} class="text-gray-400 hover:text-gray-700">&times;</button>
-                </span>
-              {/each}
-            </div>
-            <div class="flex gap-2">
-              <input type="text" placeholder="key" bind:value={newLabelKey} class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm" />
-              <input type="text" placeholder="value" bind:value={newLabelValue} class="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm" />
-              <button type="button" onclick={addLabel} class="px-3 py-1.5 bg-gray-100 rounded text-sm hover:bg-gray-200">Add</button>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-3 pt-2">
-            <button type="submit" disabled={loading} class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition">
-              {loading ? 'Pushing...' : 'Push Event'}
-            </button>
-          </div>
-        </form>
-      {/if}
-
-      {#if error}
-        <div class="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
-          <p class="text-sm font-medium text-red-800">{error}</p>
-          {#if validationDetails.length > 0}
-            <ul class="mt-2 text-xs text-red-700 list-disc list-inside">
-              {#each validationDetails as d}
-                <li>{d}</li>
-              {/each}
-            </ul>
-          {/if}
+        <div>
+          <div class="h-4 bg-white/5 rounded w-16 mb-2"></div>
+          <div class="h-10 bg-white/[0.03] rounded w-full"></div>
         </div>
-      {/if}
-
-      {#if successMessage}
-        <div class="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
-          <p class="text-sm text-green-800">{successMessage}</p>
+        <div>
+          <div class="h-4 bg-white/5 rounded w-28 mb-2"></div>
+          <div class="h-40 bg-white/[0.03] rounded w-full"></div>
         </div>
+        <div class="h-10 bg-white/5 rounded w-32"></div>
+      </div>
+    </div>
+  {:else}
+    <form onsubmit={pushEvent} class="panel p-6 space-y-5">
+      <div>
+        <label for="namespace" class="field-label">Namespace</label>
+        <input id="namespace" type="text" bind:value={namespace} required class="input" />
+      </div>
+
+      <div>
+        <label for="event" class="field-label">Event Type</label>
+        <select id="event" bind:value={event} required class="select">
+          {#each availableEvents as e}
+            <option value={e.name}>{e.name}</option>
+          {/each}
+        </select>
+      </div>
+
+      <div>
+        <label for="payload" class="field-label">
+          Payload {hasSchema() ? '(validated against schema)' : ''}
+        </label>
+        <div class="jse-theme-dark h-40">
+          <JSONEditor bind:content={payload} {validator} />
+        </div>
+      </div>
+
+      <div>
+        <span class="field-label">Labels</span>
+        <div class="flex flex-wrap gap-2 mb-2">
+          {#each Object.entries(labels) as [k, v]}
+            <span class="chip">
+              {k}={v}
+              <button type="button" onclick={() => removeLabel(k)} aria-label="Remove label {k}" class="text-faint hover:text-text transition-colors">&times;</button>
+            </span>
+          {/each}
+        </div>
+        <div class="flex gap-2">
+          <input type="text" placeholder="key" bind:value={newLabelKey} class="input flex-1" />
+          <input type="text" placeholder="value" bind:value={newLabelValue} class="input flex-1" />
+          <button type="button" onclick={addLabel} class="btn btn-ghost !px-3 !py-1.5">Add</button>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit" disabled={loading} class="btn btn-beacon">
+          {loading ? 'Pushing…' : 'Push Event'}
+        </button>
+      </div>
+    </form>
+  {/if}
+
+  {#if error}
+    <div class="mt-4 panel p-4" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+      <p class="text-sm font-medium" style="color:var(--color-bad)">{error}</p>
+      {#if validationDetails.length > 0}
+        <ul class="mt-2 text-xs list-disc list-inside" style="color:var(--color-bad)">
+          {#each validationDetails as d}
+            <li>{d}</li>
+          {/each}
+        </ul>
       {/if}
     </div>
-  </main>
-</div>
+  {/if}
+
+  {#if successMessage}
+    <div class="mt-4 panel p-4" style="border-color:color-mix(in srgb,var(--color-ok) 40%,transparent);background:color-mix(in srgb,var(--color-ok) 8%,var(--color-panel))">
+      <p class="text-sm" style="color:var(--color-ok)">{successMessage}</p>
+    </div>
+  {/if}
+</main>
