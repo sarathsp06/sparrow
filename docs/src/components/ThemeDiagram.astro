@@ -1,21 +1,20 @@
 ---
 /**
- * ThemeDiagram — renders light and dark SVG variants, swapping on Starlight's theme toggle.
+ * ThemeDiagram — renders a diagram SVG. The docs are dark-only (Dispatch
+ * Console theme), so there is a single console-themed variant.
  *
  * Usage:
  *   import ThemeDiagram from '../../components/ThemeDiagram.astro';
- *   <ThemeDiagram light={lightSvg} dark={darkSvg} alt="Description" />
+ *   <ThemeDiagram src={diagramSvg} alt="Description" />
  */
 interface Props {
-  light: ImageMetadata;
-  dark: ImageMetadata;
+  src: ImageMetadata;
   alt: string;
 }
 
-const { light, dark, alt } = Astro.props;
+const { src, alt } = Astro.props;
 ---
 
 <div class="theme-diagram">
-  <img src={light.src} alt={alt} class="theme-diagram-light" width={light.width} height={light.height} loading="lazy" decoding="async" />
-  <img src={dark.src} alt={alt} class="theme-diagram-dark" width={dark.width} height={dark.height} loading="lazy" decoding="async" />
+  <img src={src.src} alt={alt} width={src.width} height={src.height} loading="lazy" decoding="async" />
 </div>

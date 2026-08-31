@@ -1,97 +1,69 @@
-/* Sparrow docs — Paper Notes theme */
+/* Sparrow docs — "Dispatch Console" theme (mirrors the web console) */
 
-@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&family=Fira+Code:wght@400;500;600&family=Inter:wght@500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+@import './sparrow-tokens.css';
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500;600;700&display=swap');
 
-:root {
-  --paper-bg: #f7f3ec;
-  --paper-surface: #fdfaf4;
-  --paper-surface-muted: #f1eadf;
-  --paper-border: #d9cebd;
-  --paper-ink: #23201c;
-  --paper-muted: #6f665b;
-  --paper-accent: #7d4f2f;
-  --paper-link: #2f5d88;
-}
-
+/* Dark-only: force the console palette regardless of Starlight's toggle. */
 :root,
-:root[data-theme='light'] {
-  --sl-color-accent-low: 33, 46%, 90%;
-  --sl-color-accent: 24, 45%, 38%;
-  --sl-color-accent-high: 24, 58%, 26%;
+:root[data-theme='light'],
+:root[data-theme='dark'] {
+  color-scheme: dark;
 
-  --sl-color-white: 26, 28%, 98%;
-  --sl-color-gray-1: 34, 16%, 16%;
-  --sl-color-gray-2: 34, 12%, 31%;
-  --sl-color-gray-3: 34, 11%, 43%;
-  --sl-color-gray-4: 33, 18%, 72%;
-  --sl-color-gray-5: 34, 24%, 87%;
-  --sl-color-gray-6: 34, 35%, 94%;
-  --sl-color-gray-7: 34, 39%, 97%;
-  --sl-color-black: 34, 22%, 12%;
+  --sl-color-accent-low: 36, 60%, 18%;
+  --sl-color-accent: 36, 88%, 59%;
+  --sl-color-accent-high: 38, 100%, 72%;
 
-  --sl-color-bg: 37, 39%, 95%;
-  --sl-color-bg-nav: 38, 42%, 96%;
-  --sl-color-bg-sidebar: 34, 39%, 97%;
-  --sl-color-bg-inline-code: 35, 31%, 90%;
+  --sl-color-white: 216, 50%, 97%;
+  --sl-color-gray-1: 216, 43%, 93%;
+  --sl-color-gray-2: 218, 30%, 78%;
+  --sl-color-gray-3: 218, 22%, 60%;
+  --sl-color-gray-4: 220, 22%, 45%;
+  --sl-color-gray-5: 220, 35%, 31%;
+  --sl-color-gray-6: 220, 40%, 16%;
+  --sl-color-gray-7: 220, 43%, 11%;
+  --sl-color-black: 220, 49%, 8%;
 
-  --sl-color-hairline-light: 33, 22%, 86%;
-  --sl-color-hairline: 33, 22%, 82%;
-  --sl-color-hairline-shade: 33, 22%, 76%;
+  --sl-color-bg: 220, 49%, 8%;
+  --sl-color-bg-nav: 220, 40%, 12%;
+  --sl-color-bg-sidebar: 220, 43%, 10%;
+  --sl-color-bg-inline-code: 220, 35%, 18%;
 
-  --sl-font: 'Crimson Pro', Georgia, serif;
-  --sl-font-system: 'Inter', system-ui, sans-serif;
+  --sl-color-hairline-light: 220, 35%, 18%;
+  --sl-color-hairline: 220, 35%, 22%;
+  --sl-color-hairline-shade: 220, 35%, 27%;
+
+  --sl-font: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --sl-font-system: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --sl-font-mono: 'Fira Code', ui-monospace, monospace;
-  --sl-text-h1: 700 2.15rem/1.2 'Playfair Display', Georgia, serif;
-  --sl-text-h2: 700 1.7rem/1.25 'Playfair Display', Georgia, serif;
-  --sl-text-h3: 600 1.35rem/1.3 'Playfair Display', Georgia, serif;
-  --sl-text-body: 400 1.05rem/1.8 'Crimson Pro', Georgia, serif;
-  --sl-text-body-sm: 400 0.96rem/1.65 'Crimson Pro', Georgia, serif;
+  --sl-text-h1: 700 2.15rem/1.2 'Space Grotesk', sans-serif;
+  --sl-text-h2: 600 1.7rem/1.25 'Space Grotesk', sans-serif;
+  --sl-text-h3: 600 1.35rem/1.3 'Space Grotesk', sans-serif;
+  --sl-text-body: 400 1rem/1.7 'Space Grotesk', sans-serif;
+  --sl-text-body-sm: 400 0.9rem/1.6 'Space Grotesk', sans-serif;
   --sl-text-code: 400 0.84rem/1.6 'Fira Code', ui-monospace, monospace;
-  --sl-border-radius: 0.22rem;
+  --sl-border-radius: 0.5rem;
   --sl-content-width: 50rem;
   --sl-sidebar-width: 17.5rem;
 }
 
-:root[data-theme='dark'] {
-  --paper-bg: #171311;
-  --paper-surface: #221d1a;
-  --paper-surface-muted: #2b2520;
-  --paper-border: #56493d;
-  --paper-ink: #f3e8da;
-  --paper-muted: #cbb9a4;
-  --paper-accent: #d0a57d;
-  --paper-link: #a7cbef;
-
-  --sl-color-accent-low: 25, 26%, 24%;
-  --sl-color-accent: 27, 50%, 64%;
-  --sl-color-accent-high: 27, 61%, 78%;
-
-  --sl-color-white: 33, 37%, 93%;
-  --sl-color-gray-1: 33, 33%, 90%;
-  --sl-color-gray-2: 31, 23%, 73%;
-  --sl-color-gray-3: 30, 16%, 62%;
-  --sl-color-gray-4: 25, 11%, 43%;
-  --sl-color-gray-5: 23, 13%, 29%;
-  --sl-color-gray-6: 24, 15%, 20%;
-  --sl-color-gray-7: 23, 17%, 14%;
-  --sl-color-black: 28, 24%, 7%;
-
-  --sl-color-bg: 25, 22%, 9%;
-  --sl-color-bg-nav: 24, 19%, 12%;
-  --sl-color-bg-sidebar: 23, 18%, 13%;
-  --sl-color-bg-inline-code: 23, 14%, 19%;
-
-  --sl-color-hairline-light: 24, 13%, 25%;
-  --sl-color-hairline: 25, 14%, 29%;
-  --sl-color-hairline-shade: 25, 13%, 36%;
+/* Dark-only — hide Starlight's theme toggle, there is nothing to switch. */
+starlight-theme-select {
+  display: none;
 }
 
 html {
-  background: radial-gradient(circle at 20% 0%, rgba(125, 79, 47, 0.07), transparent 50%), var(--paper-bg);
+  background:
+    radial-gradient(60rem 40rem at 82% -10%, rgba(242, 169, 59, 0.05), transparent 60%),
+    radial-gradient(50rem 40rem at 0% 0%, rgba(61, 214, 140, 0.04), transparent 55%),
+    var(--sp-surface);
+  background-attachment: fixed;
+  scrollbar-color: var(--sp-border-hover) transparent;
 }
 
 body {
-  color: var(--paper-ink);
+  color: var(--sp-on-surface);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .page,
@@ -102,22 +74,22 @@ body {
 
 header.header,
 nav.sidebar-pane {
-  backdrop-filter: blur(6px);
-  background: color-mix(in srgb, var(--paper-surface) 88%, transparent);
+  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--sp-surface-container) 82%, transparent);
 }
 
 nav.sidebar-pane {
-  border-right: 1px solid var(--paper-border);
+  border-right: 1px solid var(--sp-border);
 }
 
 nav.sidebar a[aria-current='page'] {
-  background: color-mix(in srgb, var(--paper-accent) 16%, var(--paper-surface));
-  border-left: 2px solid var(--paper-accent);
-  color: var(--paper-ink);
+  background: color-mix(in srgb, var(--sp-primary) 14%, transparent);
+  border-left: 2px solid var(--sp-primary);
+  color: var(--sp-on-surface);
 }
 
 .sl-markdown-content {
-  color: var(--paper-ink);
+  color: var(--sp-on-surface);
 }
 
 .sl-markdown-content h1,
@@ -127,45 +99,46 @@ nav.sidebar a[aria-current='page'] {
 }
 
 .sl-markdown-content h2 {
-  border-bottom: 1px solid var(--paper-border);
+  border-bottom: 1px solid var(--sp-border);
   padding-bottom: 0.4rem;
 }
 
 .sl-markdown-content a {
-  color: var(--paper-link);
+  color: var(--sp-primary);
   text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--paper-link) 45%, transparent);
+  text-decoration-color: color-mix(in srgb, var(--sp-primary) 45%, transparent);
   text-underline-offset: 0.16em;
 }
 
 .sl-markdown-content a:hover {
-  text-decoration-color: var(--paper-link);
+  text-decoration-color: var(--sp-primary);
 }
 
 .sl-markdown-content blockquote {
-  border-inline-start: 3px solid var(--paper-accent);
-  background: color-mix(in srgb, var(--paper-surface-muted) 74%, transparent);
-  color: var(--paper-muted);
+  border-inline-start: 3px solid var(--sp-primary);
+  background: color-mix(in srgb, var(--sp-surface-container) 74%, transparent);
+  color: var(--sp-on-surface-variant);
 }
 
 .sl-markdown-content table {
   font-size: 0.93rem;
-  border: 1px solid var(--paper-border);
-  background: var(--paper-surface);
+  border: 1px solid var(--sp-border);
+  background: var(--sp-surface-container);
 }
 
 .sl-markdown-content th,
 .sl-markdown-content td {
-  border: 1px solid var(--paper-border);
+  border: 1px solid var(--sp-border);
   padding: 0.85rem 1rem;
   vertical-align: top;
 }
 
 .sl-markdown-content th {
-  background: var(--paper-surface-muted);
-  font: 600 0.69rem/1.2 'Inter', sans-serif;
-  letter-spacing: 0.05em;
+  background: var(--sp-surface-container-high);
+  font: 600 0.69rem/1.2 'Fira Code', ui-monospace, monospace;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--sp-on-surface-variant);
 }
 
 .sl-markdown-content table code {
@@ -173,15 +146,15 @@ nav.sidebar a[aria-current='page'] {
 }
 
 pre {
-  border: 1px solid var(--paper-border);
-  border-radius: 0.22rem;
+  border: 1px solid var(--sp-border);
+  border-radius: 0.5rem;
 }
 
 :not(pre) > code {
-  background: color-mix(in srgb, var(--paper-surface-muted) 90%, transparent);
-  border: 1px solid var(--paper-border);
-  border-radius: 0.2rem;
-  color: color-mix(in srgb, var(--paper-accent) 75%, var(--paper-ink));
+  background: color-mix(in srgb, var(--sp-surface-container-lowest) 90%, transparent);
+  border: 1px solid var(--sp-border);
+  border-radius: 0.35rem;
+  color: var(--sp-code-text);
   padding: 0.08rem 0.35rem;
 }
 
@@ -190,16 +163,12 @@ pre {
 }
 
 .theme-diagram img {
-  border: 1px solid var(--paper-border);
-  border-radius: 0.25rem;
+  border: 1px solid var(--sp-border);
+  border-radius: 0.5rem;
 }
 
-:root[data-theme='light'] .theme-diagram-dark,
-:root:not([data-theme='dark']) .theme-diagram-dark {
-  display: none;
-}
-
-:root[data-theme='dark'] .theme-diagram-light {
+/* Dark-only: never show the light diagram variant. */
+.theme-diagram-light {
   display: none;
 }
 
@@ -219,14 +188,14 @@ pre {
   align-items: center;
   border-radius: 999px;
   padding: 0.14rem 0.6rem;
-  font: 700 0.68rem/1 'Inter', sans-serif;
+  font: 700 0.68rem/1 'Fira Code', ui-monospace, monospace;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .api-endpoint .method-post {
-  background: color-mix(in srgb, #1f9d55 16%, transparent);
-  color: #1f9d55;
+  background: color-mix(in srgb, var(--sp-success) 18%, transparent);
+  color: var(--sp-success-text);
 }
 
 .api-endpoint .endpoint-path,
@@ -237,7 +206,7 @@ pre {
 }
 
 .api-field {
-  border-bottom: 1px solid var(--paper-border);
+  border-bottom: 1px solid var(--sp-border);
   padding: 0.55rem 0;
 }
 
@@ -246,19 +215,26 @@ pre {
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--paper-bg);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--paper-border) 75%, #8a7a67);
+  background: var(--sp-border-hover);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sp-outline);
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--paper-accent) 32%, transparent);
-  color: inherit;
+  background: rgba(242, 169, 59, 0.28);
+  color: #fff;
 }
