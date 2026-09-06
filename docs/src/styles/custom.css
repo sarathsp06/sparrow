@@ -35,14 +35,14 @@
   --sl-font: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --sl-font-system: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --sl-font-mono: 'Fira Code', ui-monospace, monospace;
-  --sl-text-h1: 700 2.15rem/1.2 'Space Grotesk', sans-serif;
-  --sl-text-h2: 600 1.7rem/1.25 'Space Grotesk', sans-serif;
-  --sl-text-h3: 600 1.35rem/1.3 'Space Grotesk', sans-serif;
+  --sl-text-h1: 700 2.75rem/1.1 'Space Grotesk', sans-serif;
+  --sl-text-h2: 600 1.85rem/1.25 'Space Grotesk', sans-serif;
+  --sl-text-h3: 600 1.4rem/1.3 'Space Grotesk', sans-serif;
   --sl-text-body: 400 1rem/1.7 'Space Grotesk', sans-serif;
   --sl-text-body-sm: 400 0.9rem/1.6 'Space Grotesk', sans-serif;
   --sl-text-code: 400 0.84rem/1.6 'Fira Code', ui-monospace, monospace;
   --sl-border-radius: 0.5rem;
-  --sl-content-width: 50rem;
+  --sl-content-width: 54rem;
   --sl-sidebar-width: 17.5rem;
 }
 
@@ -95,12 +95,17 @@ nav.sidebar a[aria-current='page'] {
 .sl-markdown-content h1,
 .sl-markdown-content h2,
 .sl-markdown-content h3 {
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+}
+
+.sl-markdown-content h1 {
+  margin-bottom: 0.6rem;
 }
 
 .sl-markdown-content h2 {
   border-bottom: 1px solid var(--sp-border);
   padding-bottom: 0.4rem;
+  margin-top: 3rem;
 }
 
 .sl-markdown-content a {

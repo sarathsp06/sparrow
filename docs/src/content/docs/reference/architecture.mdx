@@ -14,6 +14,15 @@ import healthStateMachine from '../../../assets/diagrams/health-state-machine-da
   alt="System overview diagram showing the Sparrow architecture: your application pushes events via HTTP REST to the API, which stores events in PostgreSQL and enqueues them. EventWorker fans out to matching subscriptions, WebhookWorker delivers via HTTP POST with HMAC signing, and the embedded SvelteKit UI reads and writes through the same REST API."
 />
 
+### Layered View
+
+<iframe
+  src={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}diagrams/sparrow-layered-architecture.html`}
+  title="Sparrow layered architecture: client and embedded UI through middleware, REST handlers, the webhook service, the store/PostgreSQL repository layer, River queue workers (EventWorker, WebhookWorker, BatchJobWorker), and the signing HTTP client to external endpoints."
+  loading="lazy"
+  style="width: 100%; height: 640px; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;"
+/>
+
 ### Tech Stack
 
 - **Backend** -- Go 1.26
