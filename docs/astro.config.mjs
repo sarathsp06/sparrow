@@ -44,6 +44,7 @@ export default defineConfig({
             { slug: 'reference/template-functions' },
             { slug: 'reference/error-classification' },
             { slug: 'reference/architecture' },
+            { slug: 'reference/layered-architecture' },
           ],
         },
         {
