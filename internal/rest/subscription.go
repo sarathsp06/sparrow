@@ -7,6 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
@@ -119,7 +120,7 @@ type testTemplateOutput struct {
 	}
 }
 
-func registerSubscriptionRoutes(api huma.API, d *Deps) {
+func registerSubscriptionRoutes(api huma.API, svc webhooks.WebhookServiceInterface) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "createSubscription",
 		Method:        http.MethodPost,
@@ -130,11 +131,11 @@ func registerSubscriptionRoutes(api huma.API, d *Deps) {
 		Tags:          []string{"Subscriptions"},
 		DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, in *createSubscriptionInput) (*subscriptionOutput, error) {
-		id, _, err := d.Svc.CreateSubscription(ctx, in.Body.WebhookID, in.Body.EventName, in.Namespace, in.Body.Headers, in.Body.Method, in.Body.Timeout, in.Body.TransformEnabled, in.Body.TransformTemplate, in.Body.LabelFilters)
+		id, _, err := svc.CreateSubscription(ctx, in.Body.WebhookID, in.Body.EventName, in.Namespace, in.Body.Headers, in.Body.Method, in.Body.Timeout, in.Body.TransformEnabled, in.Body.TransformTemplate, in.Body.LabelFilters)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to create subscription")
 		}
-		sub, err := d.Svc.GetSubscription(ctx, id, in.Namespace)
+		sub, err := svc.GetSubscription(ctx, id, in.Namespace)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to reload subscription")
 		}
@@ -150,7 +151,7 @@ func registerSubscriptionRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Subscriptions"},
 	}, func(ctx context.Context, in *subscriptionIDInput) (*subscriptionOutput, error) {
-		sub, err := d.Svc.GetSubscription(ctx, in.SubscriptionID, in.Namespace)
+		sub, err := svc.GetSubscription(ctx, in.SubscriptionID, in.Namespace)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get subscription")
 		}
@@ -166,7 +167,7 @@ func registerSubscriptionRoutes(api huma.API, d *Deps) {
 		Tags:        []string{"Subscriptions"},
 	}, func(ctx context.Context, in *listSubscriptionsInput) (*listSubscriptionsOutput, error) {
 		limit, offset := in.Limit, in.Offset
-		subs, total, err := d.Svc.ListSubscriptions(ctx, in.Namespace, in.WebhookID, in.EventName, limit, offset)
+		subs, total, err := svc.ListSubscriptions(ctx, in.Namespace, in.WebhookID, in.EventName, limit, offset)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to list subscriptions")
 		}
@@ -188,7 +189,7 @@ func registerSubscriptionRoutes(api huma.API, d *Deps) {
 		Errors:      []int{400, 404},
 		Tags:        []string{"Subscriptions"},
 	}, func(ctx context.Context, in *patchSubscriptionInput) (*subscriptionOutput, error) {
-		existing, err := d.Svc.GetSubscription(ctx, in.SubscriptionID, in.Namespace)
+		existing, err := svc.GetSubscription(ctx, in.SubscriptionID, in.Namespace)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get subscription")
 		}
@@ -216,10 +217,10 @@ func registerSubscriptionRoutes(api huma.API, d *Deps) {
 		if in.Body.LabelFilters != nil {
 			labelFilters = *in.Body.LabelFilters
 		}
-		if err := d.Svc.UpdateSubscription(ctx, in.SubscriptionID, in.Namespace, headers, method, timeout, transformEnabled, transformTemplate, labelFilters); err != nil {
+		if err := svc.UpdateSubscription(ctx, in.SubscriptionID, in.Namespace, headers, method, timeout, transformEnabled, transformTemplate, labelFilters); err != nil {
 			return nil, mapError(ctx, err, "failed to update subscription")
 		}
-		updated, err := d.Svc.GetSubscription(ctx, in.SubscriptionID, in.Namespace)
+		updated, err := svc.GetSubscription(ctx, in.SubscriptionID, in.Namespace)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to reload subscription")
 		}
@@ -236,7 +237,7 @@ func registerSubscriptionRoutes(api huma.API, d *Deps) {
 		Tags:          []string{"Subscriptions"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *subscriptionIDInput) (*emptyOutput, error) {
-		if err := d.Svc.DeleteSubscription(ctx, in.SubscriptionID, in.Namespace); err != nil {
+		if err := svc.DeleteSubscription(ctx, in.SubscriptionID, in.Namespace); err != nil {
 			return nil, mapError(ctx, err, "failed to delete subscription")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil
@@ -251,7 +252,7 @@ func registerSubscriptionRoutes(api huma.API, d *Deps) {
 		Errors:      []int{400, 404},
 		Tags:        []string{"Subscriptions"},
 	}, func(ctx context.Context, in *testTemplateInput) (*testTemplateOutput, error) {
-		rendered, err := d.Svc.TestSubscriptionTemplate(ctx, in.Body.EventName, in.Body.Template, "")
+		rendered, err := svc.TestSubscriptionTemplate(ctx, in.Body.EventName, in.Body.Template, "")
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to test template")
 		}

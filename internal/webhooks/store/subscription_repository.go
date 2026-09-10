@@ -12,6 +12,20 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
+// SubscriptionRepository defines operations for event subscriptions.
+type SubscriptionRepository interface {
+	CreateSubscription(ctx context.Context, tenantID uuid.UUID, sub *EventSubscription) error
+	GetSubscription(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*EventSubscription, error)
+	UpdateSubscription(ctx context.Context, tenantID uuid.UUID, sub *EventSubscription) error
+	DeleteSubscription(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error
+	ListSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) ([]*EventSubscription, error)
+	ListSubscriptionsByNamespace(ctx context.Context, tenantID uuid.UUID, namespace string, limit, offset int) ([]*EventSubscription, int, error)
+	GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string, labels map[string]string) ([]*EventSubscription, error)
+	ListSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string) ([]*EventSubscription, error)
+	GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string, labels map[string]string) ([]*SubscriptionWithWebhook, error)
+	ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID uuid.UUID, webhookIDs []uuid.UUID) ([]*EventSubscription, error)
+}
+
 // CreateSubscription creates a new event subscription within a tenant
 func (r *Repository) CreateSubscription(ctx context.Context, tenantID uuid.UUID, sub *EventSubscription) error {
 	return insertSubscription(ctx, r.conn, tenantID, sub)
@@ -114,6 +128,24 @@ func (r *Repository) ListSubscriptionsByNamespace(ctx context.Context, tenantID 
 		return nil, 0, storage.Error(err)
 	}
 	return subs, totalCount, nil
+}
+
+// ListSubscriptionsByEvent lists all subscriptions for a specific event in a namespace
+// within a tenant, with no active-webhook or label-filter predicates. Used by the admin
+// listing API; delivery fan-out uses GetSubscriptionsByEvent instead.
+func (r *Repository) ListSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string) ([]*EventSubscription, error) {
+	query := `
+		SELECT id, tenant_id, webhook_id, event_name, namespace, headers, method,
+		       transform_enabled, transform_template, timeout, label_filters, created_at, updated_at
+		FROM event_subscriptions
+		WHERE tenant_id = $1 AND namespace = $2 AND event_name = $3
+		ORDER BY created_at DESC
+	`
+	var subs []*EventSubscription
+	if err := r.conn.SelectContext(ctx, &subs, query, tenantID, namespace, event); err != nil {
+		return nil, storage.Error(err)
+	}
+	return subs, nil
 }
 
 // ListSubscriptionsByWebhookIDs batch-fetches subscriptions for multiple webhooks in a single query.

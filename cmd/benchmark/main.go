@@ -441,11 +441,10 @@ func NewLoadTester(config *Config) *LoadTester {
 
 	// Create webhook client with optimized config
 	webhookClient := client.NewWebhookClient(&client.Config{
-		Timeout:           30 * time.Second,
-		MaxIdleConns:      config.Concurrency * 2,
-		MaxConnsPerHost:   config.Concurrency * 2,
-		IdleConnTimeout:   90 * time.Second,
-		DisableKeepAlives: false,
+		Timeout:         30 * time.Second,
+		MaxIdleConns:    config.Concurrency * 2,
+		MaxConnsPerHost: config.Concurrency * 2,
+		IdleConnTimeout: 90 * time.Second,
 	})
 
 	lt := &LoadTester{

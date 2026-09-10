@@ -11,6 +11,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
 // getSubscriptionInNamespace loads a subscription by ID and verifies it belongs to the
@@ -104,30 +105,21 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 		if err != nil {
 			return nil, 0, err
 		}
+		// Verify the webhook belongs to the requested namespace before listing.
+		if _, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace); err != nil {
+			if storage.IsNotFound(err) {
+				return nil, 0, svcerrors.Error(svcerrors.NotFound, "webhook not found in namespace")
+			}
+			return nil, 0, fmt.Errorf("failed to get webhook: %w", err)
+		}
 		subs, err = s.webhookRepo.ListSubscriptions(ctx, tenantID, id)
 		totalCount = len(subs)
-		// Apply pagination manually for now if repo doesn't support it for ListSubscriptions
-		if int(offset) < len(subs) {
-			end := int(offset + limit)
-			if end > len(subs) {
-				end = len(subs)
-			}
-			subs = subs[int(offset):end]
-		} else {
-			subs = []*store.EventSubscription{}
-		}
+		// ponytail: repo lists all rows, paginate in memory; push LIMIT/OFFSET into SQL if per-webhook subscription counts grow large
+		subs = paginateSubscriptions(subs, offset, limit)
 	} else if eventName != "" {
-		subs, err = s.webhookRepo.GetSubscriptionsByEvent(ctx, tenantID, namespace, eventName, nil)
+		subs, err = s.webhookRepo.ListSubscriptionsByEvent(ctx, tenantID, namespace, eventName)
 		totalCount = len(subs)
-		if int(offset) < len(subs) {
-			end := int(offset + limit)
-			if end > len(subs) {
-				end = len(subs)
-			}
-			subs = subs[int(offset):end]
-		} else {
-			subs = []*store.EventSubscription{}
-		}
+		subs = paginateSubscriptions(subs, offset, limit)
 	} else {
 		// List all subscriptions in namespace
 		subs, totalCount, err = s.webhookRepo.ListSubscriptionsByNamespace(ctx, tenantID, namespace, int(limit), int(offset))
@@ -137,6 +129,19 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 	}
 
 	return subs, int32(totalCount), err
+}
+
+// paginateSubscriptions applies offset/limit to an in-memory slice, clamping to bounds.
+func paginateSubscriptions(subs []*store.EventSubscription, offset, limit int32) []*store.EventSubscription {
+	start := int(offset)
+	if start >= len(subs) {
+		return []*store.EventSubscription{}
+	}
+	end := start + int(limit)
+	if end > len(subs) {
+		end = len(subs)
+	}
+	return subs[start:end]
 }
 
 func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error {

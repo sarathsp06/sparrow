@@ -9,6 +9,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
 // --- Batch Operations ---
@@ -49,7 +50,11 @@ func (s *WebhookService) startBatch(ctx context.Context, batchID string, jobType
 		return svcerrors.Error(svcerrors.FailedPrecondition, "batch job has expired")
 	}
 
-	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batch.ID, store.BatchStatusProcessing); err != nil {
+	// CAS pending→processing: only one caller wins; a concurrent start loses the race.
+	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batch.ID, store.BatchStatusPending, store.BatchStatusProcessing); err != nil {
+		if storage.IsNotFound(err) {
+			return svcerrors.Error(svcerrors.FailedPrecondition, "batch job is no longer in pending status")
+		}
 		return fmt.Errorf("failed to update batch status: %w", err)
 	}
 
@@ -59,7 +64,7 @@ func (s *WebhookService) startBatch(ctx context.Context, batchID string, jobType
 	})
 	if err != nil {
 		// Roll back status on enqueue failure
-		_ = s.webhookRepo.UpdateBatchJobStatus(ctx, batch.ID, store.BatchStatusPending)
+		_ = s.webhookRepo.UpdateBatchJobStatus(ctx, batch.ID, store.BatchStatusProcessing, store.BatchStatusPending)
 		return fmt.Errorf("failed to enqueue batch job: %w", err)
 	}
 
@@ -78,7 +83,11 @@ func (s *WebhookService) cancelBatch(ctx context.Context, batchID string, jobTyp
 		return svcerrors.Errorf(svcerrors.FailedPrecondition, "batch job is already in terminal state: %s", batch.Status)
 	}
 
-	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batch.ID, store.BatchStatusCancelled); err != nil {
+	// CAS from the observed status: if it changed concurrently (e.g. completed), fail rather than clobber.
+	if err := s.webhookRepo.UpdateBatchJobStatus(ctx, batch.ID, batch.Status, store.BatchStatusCancelled); err != nil {
+		if storage.IsNotFound(err) {
+			return svcerrors.Error(svcerrors.FailedPrecondition, "batch job status changed concurrently; retry cancel")
+		}
 		return fmt.Errorf("failed to cancel batch job: %w", err)
 	}
 

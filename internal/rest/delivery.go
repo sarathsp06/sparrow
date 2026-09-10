@@ -8,6 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
+	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
@@ -124,7 +125,7 @@ type attemptsOutput struct {
 	}
 }
 
-func registerDeliveryRoutes(api huma.API, d *Deps) {
+func registerDeliveryRoutes(api huma.API, svc webhooks.WebhookServiceInterface) {
 	huma.Register(api, huma.Operation{
 		OperationID: "getDelivery",
 		Method:      http.MethodGet,
@@ -134,7 +135,7 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *deliveryIDInput) (*deliveryOutput, error) {
-		dl, err := d.Svc.GetDeliveryStatus(ctx, in.DeliveryID, in.Namespace)
+		dl, err := svc.GetDeliveryStatus(ctx, in.DeliveryID, in.Namespace)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get delivery")
 		}
@@ -157,19 +158,23 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 			PrepareRetry: in.PrepareRetry,
 		}
 		if in.WebhookID != "" {
-			if id, err := uuid.Parse(in.WebhookID); err == nil {
-				filter.WebhookID = &id
+			id, err := uuid.Parse(in.WebhookID)
+			if err != nil {
+				return nil, huma.Error400BadRequest("webhook_id must be a valid UUID")
 			}
+			filter.WebhookID = &id
 		}
 		if in.EventID != "" {
-			if id, err := uuid.Parse(in.EventID); err == nil {
-				filter.EventID = &id
+			id, err := uuid.Parse(in.EventID)
+			if err != nil {
+				return nil, huma.Error400BadRequest("event_id must be a valid UUID")
 			}
+			filter.EventID = &id
 		}
 		if in.Status != "" {
 			filter.Status = &in.Status
 		}
-		deliveries, total, retryID, err := d.Svc.ListDeliveries(ctx, filter)
+		deliveries, total, retryID, err := svc.ListDeliveries(ctx, filter)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to list deliveries")
 		}
@@ -192,7 +197,7 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *retryDeliveryInput) (*retryOutput, error) {
-		ids, count, err := d.Svc.RetryDelivery(ctx, in.Namespace, in.DeliveryID, "", false)
+		ids, count, err := svc.RetryDelivery(ctx, in.Namespace, in.DeliveryID, "", false)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to retry delivery")
 		}
@@ -211,7 +216,7 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 		Errors:      []int{400, 404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *retryDeliveriesByWebhookInput) (*retryOutput, error) {
-		ids, count, err := d.Svc.RetryDelivery(ctx, in.Namespace, "", in.Body.WebhookID, in.Body.Force)
+		ids, count, err := svc.RetryDelivery(ctx, in.Namespace, "", in.Body.WebhookID, in.Body.Force)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to retry deliveries")
 		}
@@ -230,7 +235,7 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *deliveryIDInput) (*attemptsOutput, error) {
-		attempts, err := d.Svc.GetDeliveryAttempts(ctx, in.DeliveryID)
+		attempts, err := svc.GetDeliveryAttempts(ctx, in.DeliveryID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get delivery attempts")
 		}
@@ -259,10 +264,10 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 		Tags:          []string{"Deliveries"},
 		DefaultStatus: http.StatusAccepted,
 	}, func(ctx context.Context, in *repushBatchInput) (*batchJobOutput, error) {
-		if err := d.Svc.RetryDeliveries(ctx, in.Body.RepushID); err != nil {
+		if err := svc.RetryDeliveries(ctx, in.Body.RepushID); err != nil {
 			return nil, mapError(ctx, err, "failed to start retry job")
 		}
-		job, err := d.Svc.GetRetryStatus(ctx, in.Body.RepushID)
+		job, err := svc.GetRetryStatus(ctx, in.Body.RepushID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to load retry job status")
 		}
@@ -278,7 +283,7 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *jobIDInput) (*batchJobOutput, error) {
-		job, err := d.Svc.GetRetryStatus(ctx, in.JobID)
+		job, err := svc.GetRetryStatus(ctx, in.JobID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get retry job status")
 		}
@@ -295,7 +300,7 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 		Tags:          []string{"Deliveries"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *jobIDInput) (*emptyOutput, error) {
-		if err := d.Svc.CancelRetry(ctx, in.JobID); err != nil {
+		if err := svc.CancelRetry(ctx, in.JobID); err != nil {
 			return nil, mapError(ctx, err, "failed to cancel retry job")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil
@@ -310,7 +315,7 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *deliveryIDOnlyInput) (*deliveryOutput, error) {
-		dl, err := d.Svc.GetDeliveryStatus(ctx, in.DeliveryID, "")
+		dl, err := svc.GetDeliveryStatus(ctx, in.DeliveryID, "")
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get delivery")
 		}
@@ -326,7 +331,7 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *deliveryIDOnlyInput) (*attemptsOutput, error) {
-		attempts, err := d.Svc.GetDeliveryAttempts(ctx, in.DeliveryID)
+		attempts, err := svc.GetDeliveryAttempts(ctx, in.DeliveryID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get delivery attempts")
 		}
@@ -354,7 +359,7 @@ func registerDeliveryRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *deliveryIDOnlyInput) (*retryOutput, error) {
-		ids, count, err := d.Svc.RetryDelivery(ctx, "", in.DeliveryID, "", false)
+		ids, count, err := svc.RetryDelivery(ctx, "", in.DeliveryID, "", false)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to retry delivery")
 		}

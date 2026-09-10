@@ -32,10 +32,7 @@ type DeliveryRequest struct {
 	Payload           []byte
 	Secret            string
 	Ed25519PrivateKey []byte // Raw Ed25519 private key (64 bytes) for asymmetric signing
-	SignatureType     string // "hmac" or "ed25519" — controls which signing scheme is used
 	Timeout           time.Duration
-	RetryCount        int
-	MaxRetries        int
 	EventID           uuid.UUID
 	EventName         string
 	Namespace         string
@@ -100,9 +97,9 @@ func BuildRequest(ctx context.Context, dr *DeliveryRequest) (*http.Request, erro
 	// Standard Webhooks signing (https://www.standardwebhooks.com)
 	// Uses webhook-id, webhook-timestamp, webhook-signature headers.
 	// Message to sign: "{webhook-id}.{timestamp}.{payload}"
-	// Only the scheme selected by SignatureType is used:
-	//   "hmac" (default) -> v1, prefix (HMAC-SHA256)
-	//   "ed25519"        -> v1a, prefix (Ed25519)
+	// Deliveries are always dual-signed: HMAC-SHA256 ("v1," prefix) when a
+	// secret is configured, plus Ed25519 ("v1a," prefix) when a private key
+	// is present.
 	if dr.Secret != "" || len(dr.Ed25519PrivateKey) > 0 {
 		msgID := "msg_" + dr.DeliveryID
 		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
@@ -112,12 +109,14 @@ func BuildRequest(ctx context.Context, dr *DeliveryRequest) (*http.Request, erro
 
 		var signatures []string
 
-		// Always include HMAC signature if secret is present
+		// Include HMAC signature if secret is present. Fail closed: a
+		// signing error must not produce an unsigned delivery.
 		if dr.Secret != "" {
 			sig, err := generateHMACSignature(dr.Payload, dr.Secret, msgID, timestamp)
-			if err == nil {
-				signatures = append(signatures, "v1,"+sig)
+			if err != nil {
+				return nil, fmt.Errorf("sign payload: %w", err)
 			}
+			signatures = append(signatures, "v1,"+sig)
 		}
 
 		// Include Ed25519 signature if private key is present
@@ -258,10 +257,7 @@ func PrepareDeliveryRequest(
 		Payload:           payload,
 		Secret:            webhookSecret,
 		Ed25519PrivateKey: ed25519PrivateKey,
-		SignatureType:     string(webhook.SignatureType),
 		Timeout:           timeout,
-		RetryCount:        0, // Initial attempt
-		MaxRetries:        webhook.MaxRetries,
 		EventID:           event.ID,
 		EventName:         event.Event,
 		Namespace:         event.Namespace,

@@ -12,7 +12,6 @@ import (
 	"github.com/riverqueue/river/rivertype"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
-
 )
 
 const (

@@ -846,59 +846,6 @@ func (_d RepositoryInterfaceWithTracing) GetWebhookHealthTimeSeries(ctx context.
 	return _d.RepositoryInterface.GetWebhookHealthTimeSeries(ctx, webhookID, hours, bucketSize)
 }
 
-// GetWebhooksByHealth implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetWebhooksByHealth(ctx context.Context, tenantID uuid.UUID, health WebhookHealth) (wpa1 []*WebhookRegistration, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetWebhooksByHealth")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":      ctx,
-				"tenantID": tenantID,
-				"health":   health}, map[string]interface{}{
-				"wpa1": wpa1,
-				"err":  err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.RepositoryInterface.GetWebhooksByHealth(ctx, tenantID, health)
-}
-
-// GetWebhooksByHealthPaginated implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) GetWebhooksByHealthPaginated(ctx context.Context, tenantID uuid.UUID, health WebhookHealth, limit int, offset int) (wpa1 []*WebhookRegistration, i1 int, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.GetWebhooksByHealthPaginated")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":      ctx,
-				"tenantID": tenantID,
-				"health":   health,
-				"limit":    limit,
-				"offset":   offset}, map[string]interface{}{
-				"wpa1": wpa1,
-				"i1":   i1,
-				"err":  err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.RepositoryInterface.GetWebhooksByHealthPaginated(ctx, tenantID, health, limit, offset)
-}
-
 // ListDeliveriesFiltered implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) (wpa1 []*WebhookDelivery, i1 int, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListDeliveriesFiltered")
@@ -1115,6 +1062,32 @@ func (_d RepositoryInterfaceWithTracing) ListSubscriptions(ctx context.Context, 
 	return _d.RepositoryInterface.ListSubscriptions(ctx, tenantID, webhookID)
 }
 
+// ListSubscriptionsByEvent implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) ListSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace string, event string) (epa1 []*EventSubscription, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListSubscriptionsByEvent")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"tenantID":  tenantID,
+				"namespace": namespace,
+				"event":     event}, map[string]interface{}{
+				"epa1": epa1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.ListSubscriptionsByEvent(ctx, tenantID, namespace, event)
+}
+
 // ListSubscriptionsByNamespace implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) ListSubscriptionsByNamespace(ctx context.Context, tenantID uuid.UUID, namespace string, limit int, offset int) (epa1 []*EventSubscription, i1 int, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListSubscriptionsByNamespace")
@@ -1196,7 +1169,7 @@ func (_d RepositoryInterfaceWithTracing) ListWebhooks(ctx context.Context, tenan
 }
 
 // ListWebhooksPaginated implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool, limit int, offset int) (wpa1 []*WebhookRegistration, i1 int, err error) {
+func (_d RepositoryInterfaceWithTracing) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool, health WebhookHealth, limit int, offset int) (wpa1 []*WebhookRegistration, i1 int, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListWebhooksPaginated")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -1206,6 +1179,7 @@ func (_d RepositoryInterfaceWithTracing) ListWebhooksPaginated(ctx context.Conte
 				"namespace":  namespace,
 				"event":      event,
 				"activeOnly": activeOnly,
+				"health":     health,
 				"limit":      limit,
 				"offset":     offset}, map[string]interface{}{
 				"wpa1": wpa1,
@@ -1222,7 +1196,7 @@ func (_d RepositoryInterfaceWithTracing) ListWebhooksPaginated(ctx context.Conte
 
 		_span.End()
 	}()
-	return _d.RepositoryInterface.ListWebhooksPaginated(ctx, tenantID, namespace, event, activeOnly, limit, offset)
+	return _d.RepositoryInterface.ListWebhooksPaginated(ctx, tenantID, namespace, event, activeOnly, health, limit, offset)
 }
 
 // RecordWebhookHealthEvent implements RepositoryInterface
@@ -1500,14 +1474,15 @@ func (_d RepositoryInterfaceWithTracing) UpdateBatchJobProgress(ctx context.Cont
 }
 
 // UpdateBatchJobStatus implements RepositoryInterface
-func (_d RepositoryInterfaceWithTracing) UpdateBatchJobStatus(ctx context.Context, batchID uuid.UUID, status BatchJobStatus) (err error) {
+func (_d RepositoryInterfaceWithTracing) UpdateBatchJobStatus(ctx context.Context, batchID uuid.UUID, from BatchJobStatus, to BatchJobStatus) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.UpdateBatchJobStatus")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
 				"ctx":     ctx,
 				"batchID": batchID,
-				"status":  status}, map[string]interface{}{
+				"from":    from,
+				"to":      to}, map[string]interface{}{
 				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)
@@ -1520,7 +1495,7 @@ func (_d RepositoryInterfaceWithTracing) UpdateBatchJobStatus(ctx context.Contex
 
 		_span.End()
 	}()
-	return _d.RepositoryInterface.UpdateBatchJobStatus(ctx, batchID, status)
+	return _d.RepositoryInterface.UpdateBatchJobStatus(ctx, batchID, from, to)
 }
 
 // UpdateDeliveryRequestBody implements RepositoryInterface

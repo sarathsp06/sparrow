@@ -9,9 +9,16 @@ type PaginationOutput struct {
 	HasMore    bool  `json:"has_more"`
 }
 
-// newPagination builds the pagination envelope. limit/offset are normalized
-// by the service layer (default limit 50); totalCount comes from the query.
+// newPagination builds the pagination envelope, normalizing limit/offset the
+// same way the service layer does (default limit 50, offset floor 0) so the
+// echoed values match what was actually applied to the query.
 func newPagination(limit, offset, totalCount int32) PaginationOutput {
+	if limit <= 0 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
 	return PaginationOutput{
 		Limit:      limit,
 		Offset:     offset,

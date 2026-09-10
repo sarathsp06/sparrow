@@ -155,13 +155,13 @@ func toWebhookOutFromDomain(reg *webhooks.WebhookRegistration, svc webhooks.Webh
 		codes[i] = int32(c)
 	}
 	return WebhookOut{
-		WebhookID:     reg.ID,
-		Namespace:     reg.Namespace,
-		Events:        []string(reg.Events),
-		URL:           reg.URL,
-		Active:        reg.Active,
-		Description:   reg.Description,
-		Health:        reg.Health,
+		WebhookID:        reg.ID,
+		Namespace:        reg.Namespace,
+		Events:           []string(reg.Events),
+		URL:              reg.URL,
+		Active:           reg.Active,
+		Description:      reg.Description,
+		Health:           reg.Health,
 		SignatureType:    reg.SignatureType,
 		SigningPublicKey: svc.WebhookSigningPublicKeyHex(reg.Ed25519EncryptedPrivateKey),
 		HTTPConfig: WebhookHTTPConfigOut{

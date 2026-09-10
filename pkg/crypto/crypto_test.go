@@ -188,6 +188,32 @@ func TestDecrypt_BackwardCompatibility(t *testing.T) {
 	assert.Equal(t, plaintext, decrypted)
 }
 
+func TestDecrypt_LegacyBlobMisclassifiedAsEnvelope(t *testing.T) {
+	// Regression: a legacy direct-AES-GCM blob whose nonce happens to start
+	// with the envelope magic (version 0x01, edek_len 60 LE) is misclassified
+	// by IsEnvelopeEncrypted. Decrypt must fall back to direct decryption
+	// after envelope decryption fails authentication.
+	svc, err := NewService(testKey())
+	require.NoError(t, err)
+
+	// Plaintext long enough that the legacy blob reaches envelopeMinSize (91).
+	plaintext := make([]byte, 64)
+	for i := range plaintext {
+		plaintext[i] = byte(i)
+	}
+
+	nonce := make([]byte, svc.aead.NonceSize())
+	nonce[0] = envelopeVersion // 0x01
+	nonce[1] = wrappedDEKSize  // 0x3C — edek_len low byte
+	nonce[2] = 0x00            // edek_len high byte
+	legacyCiphertext := svc.aead.Seal(nonce, nonce, plaintext, nil)
+
+	require.True(t, IsEnvelopeEncrypted(legacyCiphertext), "test must exercise the misclassification path")
+	decrypted, err := svc.Decrypt(legacyCiphertext)
+	require.NoError(t, err)
+	assert.Equal(t, plaintext, decrypted)
+}
+
 func TestEncryptString_DecryptString(t *testing.T) {
 	svc, err := NewService(testKey())
 	require.NoError(t, err)

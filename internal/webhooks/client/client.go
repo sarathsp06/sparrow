@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"crypto/tls"
 	"io"
 	"net"
 	"net/http"
@@ -15,7 +14,6 @@ import (
 type WebhookClient struct {
 	httpClient *http.Client
 	tmpl       *TemplateEngine
-	metrics    *Metrics
 	config     *Config
 }
 
@@ -48,8 +46,6 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		MaxIdleConns:        config.MaxIdleConns,
 		MaxConnsPerHost:     config.MaxConnsPerHost,
 		IdleConnTimeout:     config.IdleConnTimeout,
-		DisableKeepAlives:   config.DisableKeepAlives,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: config.InsecureSkipVerify},
 		TLSHandshakeTimeout: 10 * time.Second,
 		DialContext:         dialer.DialContext,
 	}
@@ -60,16 +56,13 @@ func NewWebhookClient(config *Config) *WebhookClient {
 			Timeout:       config.Timeout,
 			CheckRedirect: checkRedirect,
 		},
-		tmpl:    NewTemplateEngine(),
-		metrics: NewMetrics(),
-		config:  config,
+		tmpl:   NewTemplateEngine(),
+		config: config,
 	}
 }
 
 // Send executes the webhook delivery
 func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.Response, time.Duration, error) {
-	c.metrics.RecordRequest()
-
 	httpReq, err := BuildRequest(ctx, req)
 
 	// Return the pooled header map now that BuildRequest has copied the
@@ -84,8 +77,6 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 		return nil, 0, err
 	}
 
-	// TODO: Support per-request TLS settings if needed (e.g. overriding config)
-
 	// Apply per-webhook request timeout if set, overriding the global client timeout.
 	if req.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -99,11 +90,9 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 	duration := time.Since(start)
 
 	if err != nil {
-		c.metrics.RecordFailure(duration)
 		return nil, duration, err
 	}
 
-	c.metrics.RecordSuccess(duration)
 	return resp, duration, nil
 }
 
@@ -118,7 +107,8 @@ func (c *WebhookClient) TransformPayload(tmplStr string, data WebhookTemplateCon
 	return c.tmpl.TransformPayload(tmplStr, data)
 }
 
-// ReadBody reads the response body safely using a pooled buffer.
+// ReadBody reads up to limit bytes of the response body using a pooled buffer,
+// then drains a bounded remainder so the keep-alive connection can be reused.
 // The caller is responsible for closing resp.Body.
 func ReadBody(resp *http.Response, limit int64) ([]byte, error) {
 	if resp == nil || resp.Body == nil {
@@ -135,6 +125,10 @@ func ReadBody(resp *http.Response, limit int64) ([]byte, error) {
 	} else {
 		_, err = buf.ReadFrom(resp.Body)
 	}
+
+	// Drain a bounded remainder so the transport can reuse the connection.
+	// Unbounded drain would let a hostile server stream forever.
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 
 	if err != nil {
 		return nil, err

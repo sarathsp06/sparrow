@@ -415,7 +415,8 @@ func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string
 
 // ListWebhooks lists all registered webhooks with optional namespace and other filters.
 // When namespace is empty, returns webhooks across all namespaces.
-func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, webhookID string, event string, activeOnly bool, limit, offset int32) ([]*store.WebhookRegistration, int32, error) {
+// When health is non-empty, only webhooks with that health status are returned.
+func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, webhookID string, event string, activeOnly bool, health string, limit, offset int32) ([]*store.WebhookRegistration, int32, error) {
 	s.logger.InfoContext(ctx, "Processing list webhooks request",
 		"namespace", namespace,
 		"webhook_id", webhookID,
@@ -440,24 +441,23 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 			return nil, 0, err
 		}
 
-		// When looking up by ID, namespace can be empty — try without namespace filter
-		if namespace != "" {
-			reg, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
-			if err != nil {
-				if storage.IsNotFound(err) {
-					return []*store.WebhookRegistration{}, 0, nil
-				}
-				return nil, 0, fmt.Errorf("failed to retrieve webhook: %w", err)
-			}
-			if activeOnly && !reg.Active {
+		reg, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
+		if err != nil {
+			if storage.IsNotFound(err) {
 				return []*store.WebhookRegistration{}, 0, nil
 			}
-			return []*store.WebhookRegistration{reg}, 1, nil
+			return nil, 0, fmt.Errorf("failed to retrieve webhook: %w", err)
 		}
-		// Without namespace, fall through to paginated list which will find it
+		if activeOnly && !reg.Active {
+			return []*store.WebhookRegistration{}, 0, nil
+		}
+		if health != "" && string(reg.Health) != health {
+			return []*store.WebhookRegistration{}, 0, nil
+		}
+		return []*store.WebhookRegistration{reg}, 1, nil
 	}
 
-	registrations, totalCount, err := s.webhookRepo.ListWebhooksPaginated(ctx, tenantID, namespace, event, activeOnly, int(limit), int(offset))
+	registrations, totalCount, err := s.webhookRepo.ListWebhooksPaginated(ctx, tenantID, namespace, event, activeOnly, store.WebhookHealth(health), int(limit), int(offset))
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to list webhooks",
 			"namespace", namespace,
@@ -498,9 +498,10 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, na
 //
 // Supported mask paths:
 //
-//	"url", "active", "description", "events", "headers",
-//	"secret_headers", "http_config", "http_config.webhook_secret"
-func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) error {
+//	"url", "active", "description", "events", "headers", "secret_headers",
+//	"signature_type", "http_config", "http_config.webhook_secret",
+//	"http_config.rate_limit_rps"
+func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) error {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateWebhookConfig")
 	defer span.End()
 

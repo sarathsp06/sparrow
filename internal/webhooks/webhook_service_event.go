@@ -19,6 +19,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
 // PushEvent pushes an event.
@@ -171,6 +172,20 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 	}
 
 	if err := s.webhookRepo.StoreEvent(ctx, tenantID, eventRecord); err != nil {
+		// Idempotency race: a concurrent push with the same key won the insert
+		// between our lookup above and this insert. Return the winner as a duplicate.
+		if errors.Is(err, storage.ErrAlreadyExists) && idempotencyKey != nil && *idempotencyKey != "" {
+			existing, lookupErr := s.webhookRepo.GetEventByIdempotencyKey(ctx, tenantID, namespace, *idempotencyKey)
+			if lookupErr == nil && existing != nil {
+				span.SetAttributes(attribute.Bool("duplicate", true))
+				span.SetStatus(otelcodes.Ok, "duplicate event (idempotent)")
+				s.logger.InfoContext(ctx, "Duplicate event detected on insert (idempotency race)",
+					"idempotency_key", *idempotencyKey,
+					"existing_event_id", existing.ID.String(),
+				)
+				return existing.ID.String(), true, existing.SchemaValid, nil, nil
+			}
+		}
 		s.logger.ErrorContext(ctx, "Failed to store event record", "error", err, "event_id", eventID)
 		return "", false, false, nil, fmt.Errorf("failed to store event record: %w", err)
 	}
@@ -325,7 +340,7 @@ func (s *WebhookService) GetEventRecord(ctx context.Context, eventID string) (*s
 		return nil, 0, 0, 0, 0, fmt.Errorf("failed to load event record: %w", err)
 	}
 	if record == nil {
-		return nil, 0, 0, 0, 0, nil
+		return nil, 0, 0, 0, 0, svcerrors.Error(svcerrors.NotFound, "event record not found")
 	}
 
 	// Get delivery statistics
@@ -568,6 +583,9 @@ func (s *WebhookService) GetEvent(ctx context.Context, name string) (*store.Even
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to get event", "error", err)
 		return nil, fmt.Errorf("failed to retrieve event: %w", err)
+	}
+	if event == nil {
+		return nil, svcerrors.Error(svcerrors.NotFound, "event type not found")
 	}
 
 	return event, nil

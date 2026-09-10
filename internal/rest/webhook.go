@@ -142,7 +142,7 @@ type templateFunctionsOutput struct {
 	}
 }
 
-func registerWebhookRoutes(api huma.API, d *Deps) {
+func registerWebhookRoutes(api huma.API, svc webhooks.WebhookServiceInterface) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "registerWebhook",
 		Method:        http.MethodPost,
@@ -173,11 +173,11 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 			RateLimitRPS:  in.Body.RateLimitRPS,
 			SignatureType: in.Body.SignatureType,
 		}
-		reg, err := d.Svc.CreateWebhook(ctx, req)
+		reg, err := svc.CreateWebhook(ctx, req)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to register webhook")
 		}
-		return &webhookOutput{Body: toWebhookOutFromDomain(reg, d.Svc)}, nil
+		return &webhookOutput{Body: toWebhookOutFromDomain(reg, svc)}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -190,24 +190,15 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 	}, func(ctx context.Context, in *listWebhooksInput) (*listWebhooksOutput, error) {
 		limit, offset := in.Limit, in.Offset
 		activeOnly := in.Active
-		regs, total, err := d.Svc.ListWebhooks(ctx, in.Namespace, in.WebhookID, in.Event, activeOnly, limit, offset)
+		regs, total, err := svc.ListWebhooks(ctx, in.Namespace, in.WebhookID, in.Event, activeOnly, in.Health, limit, offset)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to list webhooks")
 		}
-		if in.Health != "" {
-			filtered := regs[:0]
-			for _, r := range regs {
-				if string(r.Health) == in.Health {
-					filtered = append(filtered, r)
-				}
-			}
-			regs = filtered
-		}
-		eventsMap := getWebhookEventsMap(ctx, d.Svc, regs)
+		eventsMap := getWebhookEventsMap(ctx, svc, regs)
 		out := &listWebhooksOutput{}
 		out.Body.Items = make([]WebhookOut, len(regs))
 		for i, r := range regs {
-			out.Body.Items[i] = toWebhookOut(r, eventsMap[r.ID.String()], d.Svc)
+			out.Body.Items[i] = toWebhookOut(r, eventsMap[r.ID.String()], svc)
 		}
 		out.Body.Pagination = newPagination(limit, offset, total)
 		return out, nil
@@ -222,15 +213,15 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *webhookIDInput) (*webhookOutput, error) {
-		regs, _, err := d.Svc.ListWebhooks(ctx, in.Namespace, in.WebhookID, "", false, 1, 0)
+		regs, _, err := svc.ListWebhooks(ctx, in.Namespace, in.WebhookID, "", false, "", 1, 0)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get webhook")
 		}
 		if len(regs) == 0 {
 			return nil, huma.Error404NotFound("webhook not found")
 		}
-		eventsMap := getWebhookEventsMap(ctx, d.Svc, regs)
-		return &webhookOutput{Body: toWebhookOut(regs[0], eventsMap[regs[0].ID.String()], d.Svc)}, nil
+		eventsMap := getWebhookEventsMap(ctx, svc, regs)
+		return &webhookOutput{Body: toWebhookOut(regs[0], eventsMap[regs[0].ID.String()], svc)}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -278,11 +269,8 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 			secretHeaders = *b.SecretHeaders
 		}
 		if b.SignatureType != nil {
+			mask = append(mask, "signature_type")
 			signatureType = *b.SignatureType
-		}
-		timeout := 0
-		if b.Timeout != nil {
-			timeout = *b.Timeout
 		}
 		if b.HTTPConfig != nil {
 			mask = append(mask, "http_config")
@@ -299,21 +287,34 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 				ContentType:           c.ContentType,
 				RateLimitRPS:          c.RateLimitRPS,
 			}
-			if c.RequestTimeoutSeconds != 0 {
-				timeout = c.RequestTimeoutSeconds
+			if c.RateLimitRPS != nil {
+				mask = append(mask, "http_config.rate_limit_rps")
+			}
+		}
+		// Top-level timeout is shorthand for http_config.request_timeout_seconds.
+		if b.Timeout != nil {
+			if httpCfg == nil {
+				mask = append(mask, "http_config")
+				httpCfg = &webhooks.HTTPConfigUpdate{}
+			}
+			if httpCfg.RequestTimeoutSeconds == 0 {
+				httpCfg.RequestTimeoutSeconds = *b.Timeout
 			}
 		}
 
-		err := d.Svc.UpdateWebhookConfig(ctx, in.WebhookID, in.Namespace, events, url, headers, timeout, active, description, httpCfg, secretHeaders, signatureType, mask)
+		err := svc.UpdateWebhookConfig(ctx, in.WebhookID, in.Namespace, events, url, headers, active, description, httpCfg, secretHeaders, signatureType, mask)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to update webhook")
 		}
-		regs, _, err := d.Svc.ListWebhooks(ctx, in.Namespace, in.WebhookID, "", false, 1, 0)
-		if err != nil || len(regs) == 0 {
+		regs, _, err := svc.ListWebhooks(ctx, in.Namespace, in.WebhookID, "", false, "", 1, 0)
+		if err != nil {
 			return nil, mapError(ctx, err, "failed to reload webhook")
 		}
-		eventsMap := getWebhookEventsMap(ctx, d.Svc, regs)
-		return &webhookOutput{Body: toWebhookOut(regs[0], eventsMap[regs[0].ID.String()], d.Svc)}, nil
+		if len(regs) == 0 {
+			return nil, huma.Error404NotFound("webhook not found")
+		}
+		eventsMap := getWebhookEventsMap(ctx, svc, regs)
+		return &webhookOutput{Body: toWebhookOut(regs[0], eventsMap[regs[0].ID.String()], svc)}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -326,7 +327,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *webhookIDInput) (*emptyOutput, error) {
-		if err := d.Svc.UnregisterWebhook(ctx, in.WebhookID, in.Namespace); err != nil {
+		if err := svc.UnregisterWebhook(ctx, in.WebhookID, in.Namespace); err != nil {
 			return nil, mapError(ctx, err, "failed to unregister webhook")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil
@@ -342,7 +343,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *webhookIDInput) (*emptyOutput, error) {
-		if err := d.Svc.PauseWebhook(ctx, in.WebhookID, in.Namespace, ""); err != nil {
+		if err := svc.PauseWebhook(ctx, in.WebhookID, in.Namespace, ""); err != nil {
 			return nil, mapError(ctx, err, "failed to pause webhook")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil
@@ -358,7 +359,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *webhookIDInput) (*emptyOutput, error) {
-		if err := d.Svc.ResumeWebhook(ctx, in.WebhookID, in.Namespace); err != nil {
+		if err := svc.ResumeWebhook(ctx, in.WebhookID, in.Namespace); err != nil {
 			return nil, mapError(ctx, err, "failed to resume webhook")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil
@@ -372,7 +373,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Description: "Returns webhook and delivery counts (total, active, successful, failed, pending, success rate) scoped to one namespace.",
 		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *namespaceOnlyInput) (*namespaceStatsOutput, error) {
-		stats, err := d.Svc.GetNamespaceStats(ctx, in.Namespace)
+		stats, err := svc.GetNamespaceStats(ctx, in.Namespace)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get namespace stats")
 		}
@@ -395,7 +396,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Description: "Lists the Go template helper functions available to subscription transform templates (e.g. string/JSON helpers), each with its documentation.",
 		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *struct{}) (*templateFunctionsOutput, error) {
-		fns := d.Svc.GetTemplateFunctions()
+		fns := svc.GetTemplateFunctions()
 		out := &templateFunctionsOutput{}
 		out.Body.Items = make([]templateFunctionItem, 0, len(fns))
 		for _, f := range fns {
@@ -412,7 +413,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		Description: "Returns the same counters as the per-namespace stats endpoint, aggregated across every namespace.",
 		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *struct{}) (*namespaceStatsOutput, error) {
-		stats, err := d.Svc.GetNamespaceStats(ctx, "")
+		stats, err := svc.GetNamespaceStats(ctx, "")
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get stats")
 		}

@@ -10,39 +10,34 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
-// SQLXDB is a wrapper around sqlx.DB
-type SQLXDB struct {
-	*sqlx.DB
-}
-
 // Open opens a new database connection with the given dsn
 // It applies options after opening the connection
-func Open(dsn string, maxRetries int, options ...OpenConnectionOption) (*SQLXDB, error) {
+func Open(dsn string, maxRetries int, options ...OpenConnectionOption) (*sqlx.DB, error) {
 	db, err := otelsqlx.Open(`pgx`, dsn, otelsql.WithAttributes(semconv.DBSystemPostgreSQL))
 	if err != nil {
 		return nil, err
 	}
 	// retry the connection if it fails
-	for i := 1; i < maxRetries; i++ {
-		if err := db.Ping(); err != nil {
-			time.Sleep(1 * time.Second)
-			continue
+	for range maxRetries {
+		if err = db.Ping(); err == nil {
+			break
 		}
-		break
+		time.Sleep(time.Second)
 	}
-	err = db.Ping()
 	if err != nil {
+		db.Close() //nolint:errcheck
 		return nil, err
 	}
 
 	for _, option := range options {
 		if err := option(db); err != nil {
+			db.Close() //nolint:errcheck
 			return nil, err
 		}
 	}
 
 	otelsql.ReportDBStatsMetrics(db.DB)
-	return &SQLXDB{db}, nil
+	return db, nil
 }
 
 type OpenConnectionOption func(*sqlx.DB) error

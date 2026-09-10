@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -43,7 +44,7 @@ type testEnv struct {
 
 	// Pools
 	pgxPool *pgxpool.Pool
-	sqlxDB  *storePg.SQLXDB
+	sqlxDB  *sqlx.DB
 
 	// Services
 	webhookSvc webhooks.WebhookServiceInterface
@@ -117,7 +118,7 @@ func setupEnv(t *testing.T) *testEnv {
 	webhookRepo := store.NewRepository(sqlxDB)
 
 	// 6. Bootstrap default tenant
-	err = tenant.Bootstrap(ctx, sqlxDB.DB)
+	err = tenant.Bootstrap(ctx, sqlxDB)
 	require.NoError(t, err, "failed to bootstrap default tenant")
 
 	// 8. Create crypto service with a test encryption key

@@ -41,8 +41,8 @@ type mockRepo struct {
 	mock.Mock
 }
 
-func (m *mockRepo) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace, event string, activeOnly bool, limit, offset int) ([]*store.WebhookRegistration, int, error) {
-	args := m.Called(ctx, tenantID, namespace, event, activeOnly, limit, offset)
+func (m *mockRepo) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace, event string, activeOnly bool, health store.WebhookHealth, limit, offset int) ([]*store.WebhookRegistration, int, error) {
+	args := m.Called(ctx, tenantID, namespace, event, activeOnly, health, limit, offset)
 	return args.Get(0).([]*store.WebhookRegistration), args.Int(1), args.Error(2)
 }
 
@@ -161,10 +161,10 @@ func TestWebhookService_ListWebhooks_Pagination(t *testing.T) {
 		{ID: uuid.New(), Namespace: namespace, URL: "http://example.com"},
 	}
 
-	repo.On("ListWebhooksPaginated", mock.Anything, mock.Anything, namespace, "", false, int(limit), int(offset)).
+	repo.On("ListWebhooksPaginated", mock.Anything, mock.Anything, namespace, "", false, store.WebhookHealth(""), int(limit), int(offset)).
 		Return(expectedWebhooks, 1, nil)
 
-	webhooks, totalCount, err := service.ListWebhooks(ctx, namespace, "", "", false, limit, offset)
+	webhooks, totalCount, err := service.ListWebhooks(ctx, namespace, "", "", false, "", limit, offset)
 
 	assert.NoError(t, err)
 	assert.Equal(t, int32(1), totalCount)

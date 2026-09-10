@@ -13,6 +13,23 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
+// WebhookRepository defines operations for webhook_registrations.
+type WebhookRepository interface {
+	RegisterWebhook(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration) error
+	UnregisterWebhook(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) error
+	ListWebhooks(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool) ([]*WebhookRegistration, error)
+	ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool, health WebhookHealth, limit, offset int) ([]*WebhookRegistration, int, error)
+	GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string) (*WebhookRegistration, error)
+	UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webhook *WebhookRegistration) error
+}
+
+// RateLimitRepository defines operations for per-webhook rate limiting.
+type RateLimitRepository interface {
+	AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (time.Time, float64, error)
+	UpsertRateLimitState(ctx context.Context, webhookID uuid.UUID) error
+	DeleteRateLimitState(ctx context.Context, webhookID uuid.UUID) error
+}
+
 // RegisterWebhook creates a new webhook registration.
 // Returns storage.ErrAlreadyExists if a webhook with the same tenant, namespace,
 // and URL already exists.
@@ -108,19 +125,20 @@ func insertWebhookRegistration(ctx context.Context, conn storage.DBTX, tenantID 
 
 // ListWebhooks retrieves webhooks for a namespace with optional active status filtering and event filtering.
 func (r *Repository) ListWebhooks(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool) ([]*WebhookRegistration, error) {
-	webhooks, _, err := r.ListWebhooksPaginated(ctx, tenantID, namespace, event, activeOnly, 1000, 0)
+	webhooks, _, err := r.ListWebhooksPaginated(ctx, tenantID, namespace, event, activeOnly, "", 1000, 0)
 	return webhooks, err
 }
 
 // ListWebhooksPaginated retrieves webhooks with pagination.
 // When namespace is empty, returns webhooks across all namespaces within the tenant.
-func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool, limit, offset int) ([]*WebhookRegistration, int, error) {
+// When health is non-empty, only webhooks with that health status are returned.
+func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool, health WebhookHealth, limit, offset int) ([]*WebhookRegistration, int, error) {
 	var ns any
 	if namespace != "" {
 		ns = namespace
 	}
 
-	args := []any{tenantID, ns, activeOnly, event}
+	args := []any{tenantID, ns, activeOnly, event, string(health)}
 
 	countQuery := `
 		SELECT COUNT(DISTINCT wr.id)
@@ -130,6 +148,7 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 		  AND ($2::text IS NULL OR wr.namespace = $2)
 		  AND ($3 IS FALSE OR wr.active = true)
 		  AND ($4 = '' OR es.event_name = $4)
+		  AND ($5 = '' OR wr.health = $5)
 	`
 
 	var totalCount int
@@ -149,8 +168,9 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 		  AND ($2::text IS NULL OR wr.namespace = $2)
 		  AND ($3 IS FALSE OR wr.active = true)
 		  AND ($4 = '' OR es.event_name = $4)
+		  AND ($5 = '' OR wr.health = $5)
 		ORDER BY wr.created_at DESC
-		LIMIT $5 OFFSET $6
+		LIMIT $6 OFFSET $7
 	`
 
 	queryArgs := append(args, limit, offset)
@@ -349,42 +369,6 @@ func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webh
 	return storage.Error(err)
 }
 
-// GetWebhooksByHealth retrieves webhooks filtered by health status within a tenant
-func (r *Repository) GetWebhooksByHealth(ctx context.Context, tenantID uuid.UUID, health WebhookHealth) ([]*WebhookRegistration, error) {
-	webhooks, _, err := r.GetWebhooksByHealthPaginated(ctx, tenantID, health, 1000, 0)
-	return webhooks, err
-}
-
-// GetWebhooksByHealthPaginated retrieves webhooks filtered by health status with pagination within a tenant
-func (r *Repository) GetWebhooksByHealthPaginated(ctx context.Context, tenantID uuid.UUID, health WebhookHealth, limit, offset int) ([]*WebhookRegistration, int, error) {
-	countQuery := `SELECT COUNT(*) FROM webhook_registrations WHERE tenant_id = $1 AND health = $2`
-	var totalCount int
-	err := r.conn.GetContext(ctx, &totalCount, countQuery, tenantID, string(health))
-	if err != nil {
-		return nil, 0, storage.Error(err)
-	}
-
-	query := `
-		SELECT id, tenant_id, namespace, url, headers, timeout,
-		       active, description, health,
-		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
-		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
-		       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, created_at, updated_at
-		FROM webhook_registrations
-		WHERE tenant_id = $1 AND health = $2
-		ORDER BY created_at DESC
-		LIMIT $3 OFFSET $4
-	`
-
-	var webhooks []*WebhookRegistration
-	err = r.conn.SelectContext(ctx, &webhooks, query, tenantID, string(health), limit, offset)
-	if err != nil {
-		return nil, 0, storage.Error(err)
-	}
-
-	return webhooks, totalCount, nil
-}
-
 // insertSubscription is the single canonical INSERT for event_subscriptions.
 // It handles ID generation, timestamps, JSON marshalling of headers and label_filters,
 // and is used by CreateSubscription, RegisterWebhookWithSubscriptions, and
@@ -435,27 +419,36 @@ func insertSubscription(ctx context.Context, conn storage.DBTX, tenantID uuid.UU
 	return storage.Error(err)
 }
 
-// AcquireDeliverySlot atomically advances the leaky bucket for a webhook and
-// returns the slot time assigned to this delivery plus the configured rate.
+// AcquireDeliverySlot implements a leaky bucket for a webhook. When the
+// bucket is free (next_delivery_at <= NOW()), it atomically claims the slot
+// and advances the bucket; the returned time minus one interval is in the
+// past, meaning "send now". When the bucket is busy, NOTHING is consumed:
+// the current tail plus one interval is returned so the caller can wait
+// until the tail and try again — a retry after the wait does not burn slots.
 // If the webhook has no rate limit state row, returns (zero time, 0, nil)
 // meaning "no rate limit configured — send immediately".
+// ponytail: under READ COMMITTED a concurrent waiter can read a stale tail in
+// the SELECT branch and send one extra delivery; bounded by worker concurrency.
+// Upgrade path: SELECT ... FOR UPDATE in a transaction if strict RPS matters.
 func (r *Repository) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUID) (time.Time, float64, error) {
-	// Atomic UPDATE that advances next_delivery_at by 1/rate_limit_rps.
-	// If the bucket has drained (next_delivery_at <= NOW()), the next slot
-	// starts from NOW() + interval. Otherwise it extends from the current
-	// next_delivery_at. The RETURNING clause gives us the NEW next_delivery_at
-	// (the slot AFTER ours) and the rate. Our slot = returned - interval.
 	query := `
-		UPDATE webhook_rate_limit_state rls
-		SET next_delivery_at =
-			CASE
-				WHEN rls.next_delivery_at <= NOW()
-				THEN NOW() + (interval '1 second' / wr.rate_limit_rps)
-				ELSE rls.next_delivery_at + (interval '1 second' / wr.rate_limit_rps)
-			END
-		FROM webhook_registrations wr
-		WHERE rls.webhook_id = wr.id AND rls.webhook_id = $1
-		RETURNING rls.next_delivery_at, wr.rate_limit_rps
+		WITH granted AS (
+			UPDATE webhook_rate_limit_state rls
+			SET next_delivery_at = NOW() + (interval '1 second' / wr.rate_limit_rps)
+			FROM webhook_registrations wr
+			WHERE rls.webhook_id = wr.id AND rls.webhook_id = $1
+			  AND wr.rate_limit_rps > 0
+			  AND rls.next_delivery_at <= NOW()
+			RETURNING rls.next_delivery_at, wr.rate_limit_rps
+		)
+		SELECT next_delivery_at, rate_limit_rps FROM granted
+		UNION ALL
+		SELECT rls.next_delivery_at + (interval '1 second' / wr.rate_limit_rps), wr.rate_limit_rps
+		FROM webhook_rate_limit_state rls
+		JOIN webhook_registrations wr ON rls.webhook_id = wr.id
+		WHERE rls.webhook_id = $1
+		  AND wr.rate_limit_rps > 0
+		  AND NOT EXISTS (SELECT 1 FROM granted)
 	`
 
 	var result struct {
@@ -464,23 +457,26 @@ func (r *Repository) AcquireDeliverySlot(ctx context.Context, webhookID uuid.UUI
 	}
 	err := r.conn.GetContext(ctx, &result, query, webhookID)
 	if err != nil {
-		// sql.ErrNoRows means no rate limit state row — no limit configured
+		err = storage.Error(err)
+		// No rate limit state row — no limit configured.
 		if storage.IsNotFound(err) {
 			return time.Time{}, 0, nil
 		}
-		return time.Time{}, 0, storage.Error(err)
+		return time.Time{}, 0, err
 	}
 
 	return result.NextDeliveryAt, result.RateLimitRPS, nil
 }
 
-// UpsertRateLimitState creates or resets the rate limit state row for a webhook.
-// Called when a webhook is created or updated with a rate limit.
+// UpsertRateLimitState creates the rate limit state row for a webhook if
+// absent. An existing row keeps its future backlog (GREATEST) so config
+// updates cannot rewind the bucket and let a burst exceed the configured RPS.
 func (r *Repository) UpsertRateLimitState(ctx context.Context, webhookID uuid.UUID) error {
 	query := `
 		INSERT INTO webhook_rate_limit_state (webhook_id, next_delivery_at)
 		VALUES ($1, NOW())
-		ON CONFLICT (webhook_id) DO UPDATE SET next_delivery_at = NOW()
+		ON CONFLICT (webhook_id) DO UPDATE
+		SET next_delivery_at = GREATEST(webhook_rate_limit_state.next_delivery_at, NOW())
 	`
 	_, err := r.conn.ExecContext(ctx, query, webhookID)
 	return storage.Error(err)

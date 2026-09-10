@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -36,18 +37,11 @@ type WebhookWorker struct {
 	cryptoSvc        *crypto.Service
 	tracer           trace.Tracer
 	logger           *slog.Logger
-	metrics          *observability.SparrowMetrics
 	client           *client.WebhookClient
 }
 
 // NewWebhookWorker creates a new webhook worker
 func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo store.EventRepository, subscriptionRepo store.SubscriptionRepository, healthRepo store.HealthRepository, rateLimitRepo store.RateLimitRepository, cryptoSvc *crypto.Service, clientConfig *client.Config) *WebhookWorker {
-	metrics, err := observability.NewSparrowMetrics()
-	if err != nil {
-		// Log error but continue without metrics
-		slog.Default().With("component", "webhook-worker").Error("Failed to initialize metrics", "error", err)
-	}
-
 	// Initialize the centralized webhook client
 	webhookClient := client.NewWebhookClient(clientConfig)
 
@@ -60,7 +54,6 @@ func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo store.Event
 		cryptoSvc:        cryptoSvc,
 		logger:           slog.Default().With("component", "webhook-worker"),
 		tracer:           observability.GetTracer("sparrow.workers.webhook"),
-		metrics:          metrics,
 		client:           webhookClient,
 	}
 }
@@ -76,35 +69,63 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 
-	// Parse tenant ID from job args
-	tenantID := uuid.MustParse(args.TenantID)
+	// Parse job-arg IDs up front. Malformed args are permanent — cancel
+	// instead of burning retries.
+	tenantID, err := uuid.Parse(args.TenantID)
+	if err != nil {
+		return river.JobCancel(fmt.Errorf("invalid tenant ID %q in job args: %w", args.TenantID, err))
+	}
+	webhookID, err := uuid.Parse(args.WebhookID)
+	if err != nil {
+		return river.JobCancel(fmt.Errorf("invalid webhook ID %q in job args: %w", args.WebhookID, err))
+	}
+	deliveryID, err := uuid.Parse(args.DeliveryID)
+	if err != nil {
+		return river.JobCancel(fmt.Errorf("invalid delivery ID %q in job args: %w", args.DeliveryID, err))
+	}
+	eventID, err := uuid.Parse(args.EventID)
+	if err != nil {
+		return river.JobCancel(fmt.Errorf("invalid event ID %q in job args: %w", args.EventID, err))
+	}
 
 	// Get webhook configuration from database
-	webhook, err := w.webhookRepo.GetWebhookByID(ctx, tenantID, uuid.MustParse(args.WebhookID), args.Namespace)
+	webhook, err := w.webhookRepo.GetWebhookByID(ctx, tenantID, webhookID, args.Namespace)
 	if err != nil {
 		w.logger.ErrorContext(ctx, "Failed to get webhook configuration", "error", err, "webhook_id", args.WebhookID)
-		_ = w.eventRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err), "unknown")
+		_ = w.eventRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err), "unknown")
 		return fmt.Errorf("failed to get webhook configuration: %w", err)
 	}
 
-	// Get event record from database
-	eventRecord, err := w.eventRepo.GetEventByID(ctx, tenantID, uuid.MustParse(args.EventID))
+	// Get event record from database. The repo returns (nil, nil) for
+	// missing rows.
+	eventRecord, err := w.eventRepo.GetEventByID(ctx, tenantID, eventID)
 	if err != nil {
 		w.logger.ErrorContext(ctx, "Failed to get event record", "error", err, "event_id", args.EventID)
-		_ = w.eventRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Failed to get event record: %v", err), "unknown")
+		_ = w.eventRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Failed to get event record: %v", err), "unknown")
 		return fmt.Errorf("failed to get event record: %w", err)
+	}
+	if eventRecord == nil {
+		// Missing row is a permanent condition — retrying won't create it.
+		w.logger.ErrorContext(ctx, "Event record not found", "event_id", args.EventID, "delivery_id", args.DeliveryID)
+		_ = w.eventRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", "Event record not found", "unknown")
+		return river.JobCancel(fmt.Errorf("event record %s not found", args.EventID))
 	}
 
 	// Get subscription if available
 	var subscription *store.EventSubscription
 	if args.SubscriptionID != "" {
-		subscription, err = w.subscriptionRepo.GetSubscription(ctx, tenantID, uuid.MustParse(args.SubscriptionID))
-		if err != nil {
-			// If subscription is missing, we might still want to proceed if it's a legacy delivery,
-			// but for now let's assume strict consistency or log warning.
-			// Given the refactor, we expect subscription to exist if ID is passed.
-			w.logger.WarnContext(ctx, "Failed to get subscription", "error", err, "subscription_id", args.SubscriptionID)
-			// Continue without subscription (will use default webhook config)
+		subscriptionID, parseErr := uuid.Parse(args.SubscriptionID)
+		if parseErr != nil {
+			w.logger.WarnContext(ctx, "Invalid subscription ID in job args", "error", parseErr, "subscription_id", args.SubscriptionID)
+		} else {
+			subscription, err = w.subscriptionRepo.GetSubscription(ctx, tenantID, subscriptionID)
+			if err != nil {
+				// If subscription is missing, we might still want to proceed if it's a legacy delivery,
+				// but for now let's assume strict consistency or log warning.
+				// Given the refactor, we expect subscription to exist if ID is passed.
+				w.logger.WarnContext(ctx, "Failed to get subscription", "error", err, "subscription_id", args.SubscriptionID)
+				// Continue without subscription (will use default webhook config)
+			}
 		}
 	}
 
@@ -127,7 +148,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		span.SetStatus(otelcodes.Error, "webhook delivery expired")
 		log.WarnContext(ctx, "Webhook delivery expired", "expires_at", args.ExpiresAt)
 
-		err := w.eventRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusExpired, 0, "", "Delivery expired", "unknown")
+		err := w.eventRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusExpired, 0, "", "Delivery expired", "unknown")
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to update delivery status to expired", "error", err)
 		}
@@ -140,7 +161,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	// AcquireDeliverySlot atomically advances the bucket and returns the slot
 	// assigned to this delivery. If the slot is in the future, snooze the job.
 	if webhook.RateLimitRPS != nil && *webhook.RateLimitRPS > 0 {
-		nextDeliveryAt, rateLimitRPS, err := w.rateLimitRepo.AcquireDeliverySlot(ctx, uuid.MustParse(args.WebhookID))
+		nextDeliveryAt, rateLimitRPS, err := w.rateLimitRepo.AcquireDeliverySlot(ctx, webhookID)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to acquire delivery slot", "error", err, "webhook_id", args.WebhookID)
 			// Non-fatal: proceed without rate limiting rather than failing delivery
@@ -222,7 +243,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 
 	// Store the request body in the delivery record
-	if err := w.eventRepo.UpdateDeliveryRequestBody(ctx, uuid.MustParse(args.DeliveryID), string(payloadBytes)); err != nil {
+	if err := w.eventRepo.UpdateDeliveryRequestBody(ctx, deliveryID, string(payloadBytes)); err != nil {
 		log.WarnContext(ctx, "Failed to store request body", "error", err, "delivery_id", args.DeliveryID)
 	}
 
@@ -230,6 +251,15 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	resp, duration, err := w.client.Send(ctx, deliveryReq)
 
 	if err != nil {
+		// Job-context cancellation (worker shutdown, job timeout) is not a
+		// delivery failure — return the raw error so River retries without
+		// marking the delivery permanently failed.
+		if errors.Is(err, context.Canceled) ||
+			(errors.Is(err, context.DeadlineExceeded) && ctx.Err() != nil) {
+			log.WarnContext(ctx, "Webhook send interrupted by context cancellation, leaving for retry", "error", err)
+			return err
+		}
+
 		// Classify the network/transport error
 		errorCategory := sparrowerrors.ClassifyError(err)
 
@@ -239,14 +269,16 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			"error_category", string(errorCategory),
 		)
 
-		_ = w.eventRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID), store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err), string(errorCategory))
+		_ = w.eventRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err), string(errorCategory))
 
 		// Record health event and update health state
-		w.recordHealthOutcome(ctx, log, args.WebhookID, args.DeliveryID, false, int(duration.Milliseconds()), 0, err.Error(), string(errorCategory))
+		w.recordHealthOutcome(ctx, log, webhookID, deliveryID, false, int(duration.Milliseconds()), 0, err.Error(), string(errorCategory))
 
 		// For non-retryable error categories (DNS, TLS), cancel River retries
 		// by returning nil instead of an error. The delivery is already marked failed.
-		if !sparrowerrors.IsRetryableCategory(errorCategory) {
+		// Unclassified transport errors (CategoryUnknown) are retried: an
+		// unrecognized network failure is more likely transient than permanent.
+		if errorCategory != sparrowerrors.CategoryUnknown && !sparrowerrors.IsRetryableCategory(errorCategory) {
 			log.WarnContext(ctx, "Non-retryable error category, cancelling retries",
 				"error_category", string(errorCategory),
 			)
@@ -257,7 +289,8 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Read response body. The body is always consumed to allow HTTP connection reuse.
+	// Read response body up to a storage limit. ReadBody drains a bounded
+	// remainder afterwards so the keep-alive connection can be reused.
 	// CaptureResponseBody controls the storage size limit:
 	//   false (default) -> store up to 1 KB (useful for error diagnostics)
 	//   true            -> store up to 1 MB (full response capture)
@@ -267,7 +300,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	if webhook.CaptureResponseBody {
 		body, bodyErr = client.ReadBody(resp, maxResponseBodyBytes)
 	} else {
-		body, bodyErr = client.ReadBody(resp, 1000) // 1 KB — enough for error messages
+		body, bodyErr = client.ReadBody(resp, 1024) // 1 KB — enough for error messages
 	}
 
 	if bodyErr != nil {
@@ -285,16 +318,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	if isSuccess {
 		span.SetStatus(otelcodes.Ok, "webhook delivered successfully")
 
-		// Metrics are already recorded by the client!
-		// But we might want to record worker-specific metrics if any.
-
-		err := w.eventRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID),
+		err := w.eventRepo.UpdateDeliveryStatus(ctx, deliveryID,
 			store.StatusSuccess, resp.StatusCode, string(body), "", string(sparrowerrors.CategorySuccess))
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to update delivery status to success", "error", err)
 		}
 
-		w.recordHealthOutcome(ctx, log, args.WebhookID, args.DeliveryID, true, int(duration.Milliseconds()), resp.StatusCode, "", string(sparrowerrors.CategorySuccess))
+		w.recordHealthOutcome(ctx, log, webhookID, deliveryID, true, int(duration.Milliseconds()), resp.StatusCode, "", string(sparrowerrors.CategorySuccess))
 
 		return nil
 	}
@@ -316,7 +346,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		)
 
 		// Record the 429 as a health event (the endpoint is overloaded)
-		w.recordHealthOutcome(ctx, log, args.WebhookID, args.DeliveryID, false,
+		w.recordHealthOutcome(ctx, log, webhookID, deliveryID, false,
 			int(duration.Milliseconds()), resp.StatusCode,
 			"HTTP 429: Too Many Requests", string(sparrowerrors.CategoryRateLimited))
 
@@ -342,13 +372,13 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	span.SetStatus(otelcodes.Error, "webhook delivery failed")
 	span.SetAttributes(attribute.String("error_category", string(errorCategory)))
 
-	err = w.eventRepo.UpdateDeliveryStatus(ctx, uuid.MustParse(args.DeliveryID),
+	err = w.eventRepo.UpdateDeliveryStatus(ctx, deliveryID,
 		store.StatusFailed, resp.StatusCode, string(body), errorMessage, string(errorCategory))
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update delivery status to failed", "error", err)
 	}
 
-	w.recordHealthOutcome(ctx, log, args.WebhookID, args.DeliveryID, false, int(duration.Milliseconds()), resp.StatusCode, errorMessage, string(errorCategory))
+	w.recordHealthOutcome(ctx, log, webhookID, deliveryID, false, int(duration.Milliseconds()), resp.StatusCode, errorMessage, string(errorCategory))
 
 	log.WarnContext(ctx, "Webhook delivery failed",
 		"status_code", resp.StatusCode,
@@ -371,14 +401,11 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 
 // recordHealthOutcome records a webhook health event and updates the health state.
 // This is the shared implementation for all delivery outcome paths (success, client error, server error).
-func (w *WebhookWorker) recordHealthOutcome(ctx context.Context, log *slog.Logger, webhookID, deliveryID string, success bool, durationMs int, statusCode int, errorMessage string, errorCategory string) {
-	webhookUUID := uuid.MustParse(webhookID)
-	deliveryUUID := uuid.MustParse(deliveryID)
-
-	if err := w.healthRepo.RecordWebhookHealthEvent(ctx, webhookUUID, deliveryUUID, success, durationMs, statusCode, errorMessage, errorCategory); err != nil {
+func (w *WebhookWorker) recordHealthOutcome(ctx context.Context, log *slog.Logger, webhookID, deliveryID uuid.UUID, success bool, durationMs int, statusCode int, errorMessage string, errorCategory string) {
+	if err := w.healthRepo.RecordWebhookHealthEvent(ctx, webhookID, deliveryID, success, durationMs, statusCode, errorMessage, errorCategory); err != nil {
 		log.ErrorContext(ctx, "Failed to record health event", "error", err)
 	}
-	if err := w.healthRepo.UpdateWebhookHealthState(ctx, webhookUUID, success, time.Now()); err != nil {
+	if err := w.healthRepo.UpdateWebhookHealthState(ctx, webhookID, success, time.Now()); err != nil {
 		log.ErrorContext(ctx, "Failed to update webhook health state", "error", err)
 	}
 }

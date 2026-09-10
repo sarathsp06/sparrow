@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
 // progressUpdateInterval controls how often the worker flushes progress counters to the DB.
@@ -40,6 +41,19 @@ func NewBatchJobWorker(batchRepo store.BatchRepository, eventRepo store.EventRep
 	}
 }
 
+// setTerminalStatus CAS-transitions the batch from processing to a terminal
+// status. A lost race (someone else already transitioned it, e.g. a
+// cancellation) is logged and swallowed — the other writer's status wins.
+func (w *BatchJobWorker) setTerminalStatus(ctx context.Context, batchID uuid.UUID, to store.BatchJobStatus) error {
+	err := w.batchRepo.UpdateBatchJobStatus(ctx, batchID, store.BatchStatusProcessing, to)
+	if storage.IsNotFound(err) {
+		w.logger.InfoContext(ctx, "Batch terminal status transition lost race, keeping existing status",
+			"batch_id", batchID, "to", to)
+		return nil
+	}
+	return err
+}
+
 // Work processes a batch job by dispatching each item based on job_type.
 func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs]) error {
 	args := job.Args
@@ -52,8 +66,16 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 	}
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 
-	tenantID := uuid.MustParse(args.TenantID)
-	batchID := uuid.MustParse(args.BatchID)
+	// Parse job-arg IDs up front. Malformed args are permanent — cancel
+	// instead of burning retries.
+	tenantID, err := uuid.Parse(args.TenantID)
+	if err != nil {
+		return river.JobCancel(fmt.Errorf("invalid tenant ID %q in job args: %w", args.TenantID, err))
+	}
+	batchID, err := uuid.Parse(args.BatchID)
+	if err != nil {
+		return river.JobCancel(fmt.Errorf("invalid batch ID %q in job args: %w", args.BatchID, err))
+	}
 
 	batch, err := w.batchRepo.GetBatchJob(ctx, tenantID, batchID)
 	if err != nil {
@@ -71,7 +93,9 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 
 	data, err := batch.GetData()
 	if err != nil {
-		_ = w.batchRepo.UpdateBatchJobStatus(ctx, batchID, store.BatchStatusFailed)
+		if statusErr := w.setTerminalStatus(ctx, batchID, store.BatchStatusFailed); statusErr != nil {
+			w.logger.ErrorContext(ctx, "Failed to mark batch failed", "error", statusErr, "batch_id", args.BatchID)
+		}
 		return fmt.Errorf("failed to parse batch data: %w", err)
 	}
 
@@ -88,7 +112,9 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 	case store.BatchTypeDeliveryRetry:
 		processed, failed = w.processDeliveryRetry(ctx, tenantID, batchID, batch.Namespace, data.ItemIDs)
 	default:
-		_ = w.batchRepo.UpdateBatchJobStatus(ctx, batchID, store.BatchStatusFailed)
+		if statusErr := w.setTerminalStatus(ctx, batchID, store.BatchStatusFailed); statusErr != nil {
+			w.logger.ErrorContext(ctx, "Failed to mark batch failed", "error", statusErr, "batch_id", args.BatchID)
+		}
 		return fmt.Errorf("unknown batch job type: %s", batch.JobType)
 	}
 
@@ -105,6 +131,12 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 		w.logger.ErrorContext(ctx, "Failed to re-read batch for terminal status", "error", err)
 		// Fall back to using the last-chunk values if re-read fails
 	} else if batch != nil {
+		// The batch was cancelled while we were processing — don't overwrite
+		// the cancelled status with a terminal one.
+		if batch.Status == store.BatchStatusCancelled {
+			w.logger.InfoContext(ctx, "Batch cancelled during processing, keeping cancelled status", "batch_id", args.BatchID)
+			return nil
+		}
 		processed = batch.Processed
 		failed = batch.Failed
 	}
@@ -114,7 +146,7 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 	if failed > 0 && processed == 0 {
 		finalStatus = store.BatchStatusFailed
 	}
-	if err := w.batchRepo.UpdateBatchJobStatus(ctx, batchID, finalStatus); err != nil {
+	if err := w.setTerminalStatus(ctx, batchID, finalStatus); err != nil {
 		w.logger.ErrorContext(ctx, "Failed to set batch terminal status", "error", err)
 	}
 
@@ -180,7 +212,10 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 			continue
 		}
 
-		// Enqueue event processing job
+		// Enqueue event processing job.
+		// ponytail: event row (sqlx) and River job (pgx) are inserted in
+		// separate transactions with delete-based compensation. Upgrade path:
+		// run both on a single pgx connection and use river.InsertTx.
 		_, err = w.jobInserter.Insert(ctx, EventArgs{
 			TenantID:   tenantID.String(),
 			EventID:    newID.String(),
@@ -194,7 +229,13 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 		if err != nil {
 			w.logger.ErrorContext(ctx, "Failed to enqueue re-pushed event", "event_id", newID, "error", err)
 			// Compensate: delete orphaned event record
-			_ = w.eventRepo.DeleteEventByID(ctx, tenantID, newID)
+			if delErr := w.eventRepo.DeleteEventByID(ctx, tenantID, newID); delErr != nil {
+				w.logger.ErrorContext(ctx, "COMPENSATION FAILED: orphaned event record remains after job-insert failure",
+					"error", delErr,
+					"event_id", newID,
+					"original_id", idStr,
+				)
+			}
 			failed++
 			continue
 		}
@@ -235,17 +276,19 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 			continue
 		}
 
-		// Reset delivery status
-		if err := w.eventRepo.ResetDeliveryForRetry(ctx, deliveryID); err != nil {
-			w.logger.ErrorContext(ctx, "Failed to reset delivery for retry", "delivery_id", idStr, "error", err)
+		// Get webhook (namespace + retry config) BEFORE mutating the delivery,
+		// so a failed fetch doesn't strand the delivery in a reset state with
+		// no job enqueued.
+		webhook, err := w.webhookRepo.GetWebhookByID(ctx, tenantID, delivery.WebhookID, namespace)
+		if err != nil {
+			w.logger.ErrorContext(ctx, "Failed to get webhook for delivery retry", "delivery_id", idStr, "webhook_id", delivery.WebhookID, "error", err)
 			failed++
 			continue
 		}
 
-		// Get webhook for namespace info
-		webhook, err := w.webhookRepo.GetWebhookByID(ctx, tenantID, delivery.WebhookID, namespace)
-		if err != nil {
-			w.logger.ErrorContext(ctx, "Failed to get webhook for delivery retry", "delivery_id", idStr, "webhook_id", delivery.WebhookID, "error", err)
+		// Reset delivery status
+		if err := w.eventRepo.ResetDeliveryForRetry(ctx, deliveryID); err != nil {
+			w.logger.ErrorContext(ctx, "Failed to reset delivery for retry", "delivery_id", idStr, "error", err)
 			failed++
 			continue
 		}
@@ -254,6 +297,12 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 		var subID string
 		if delivery.SubscriptionID != nil {
 			subID = delivery.SubscriptionID.String()
+		}
+
+		// Calculate max attempts from webhook configuration (default 3)
+		maxAttempts := 3
+		if webhook.MaxRetries > 0 {
+			maxAttempts = webhook.MaxRetries + 1 // MaxRetries is retry count, so add 1 for initial attempt
 		}
 
 		// Enqueue webhook delivery job. Manual batch retries never expire --
@@ -266,6 +315,7 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 			EventID:        delivery.EventID.String(),
 			ExpiresAt:      store.NoExpiryTime,
 			Namespace:      webhook.Namespace,
+			MaxAttempts:    maxAttempts,
 		})
 		if err != nil {
 			w.logger.ErrorContext(ctx, "Failed to enqueue delivery retry", "delivery_id", idStr, "error", err)

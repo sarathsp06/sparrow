@@ -14,8 +14,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
-	"github.com/remychantenay/slog-otel"
+	slogotel "github.com/remychantenay/slog-otel"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
@@ -142,7 +143,7 @@ func main() {
 	defer sqlxDB.Close() //nolint:errcheck
 
 	// Bootstrap default tenant (must exist from migrations)
-	if err := tenant.Bootstrap(ctx, sqlxDB.DB); err != nil {
+	if err := tenant.Bootstrap(ctx, sqlxDB); err != nil {
 		log.Fatalf("Failed to bootstrap: %v", err)
 	}
 
@@ -233,7 +234,7 @@ func main() {
 	})
 
 	// Initialize health checker
-	healthChecker := health.NewChecker(dbPool, queueManager, startTime)
+	healthChecker := health.NewChecker(dbPool, startTime)
 
 	// Health and readiness endpoints bypass API key auth.
 	r.Get("/health", healthChecker.HealthHandler())
@@ -404,7 +405,7 @@ func resolveEncryptionKey(cfg *config.Config) ([]byte, error) {
 // migrateWebhookSecrets re-encrypts any webhook_secret values that were
 // converted from TEXT to BYTEA by migration 000015 but are not yet
 // envelope-encrypted. These are raw UTF-8 bytes of the original plaintext.
-func migrateWebhookSecrets(ctx context.Context, db *postgres.SQLXDB, cryptoSvc *crypto.Service) error {
+func migrateWebhookSecrets(ctx context.Context, db *sqlx.DB, cryptoSvc *crypto.Service) error {
 	type row struct {
 		ID            string `db:"id"`
 		WebhookSecret []byte `db:"webhook_secret"`

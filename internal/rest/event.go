@@ -8,6 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
+	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
@@ -195,7 +196,7 @@ func toBatchJobOutput(b *store.BatchJob) *batchJobOutput {
 	return out
 }
 
-func registerEventRoutes(api huma.API, d *Deps) {
+func registerEventRoutes(api huma.API, svc webhooks.WebhookServiceInterface) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "registerEventType",
 		Method:        http.MethodPost,
@@ -210,10 +211,10 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		if in.Body.Active != nil {
 			active = *in.Body.Active
 		}
-		if _, _, err := d.Svc.RegisterEvent(ctx, in.Body.Name, in.Body.Description, in.Body.JSONSchema, in.Body.Metadata, active); err != nil {
+		if _, _, err := svc.RegisterEvent(ctx, in.Body.Name, in.Body.Description, in.Body.JSONSchema, in.Body.Metadata, active); err != nil {
 			return nil, mapError(ctx, err, "failed to register event type")
 		}
-		e, err := d.Svc.GetEvent(ctx, in.Body.Name)
+		e, err := svc.GetEvent(ctx, in.Body.Name)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to reload event type")
 		}
@@ -230,7 +231,7 @@ func registerEventRoutes(api huma.API, d *Deps) {
 	}, func(ctx context.Context, in *listEventTypesInput) (*listEventTypesOutput, error) {
 		limit, offset := in.Limit, in.Offset
 		activeOnly := in.ActiveOnly
-		regs, total, err := d.Svc.ListEvents(ctx, activeOnly, limit, offset)
+		regs, total, err := svc.ListEvents(ctx, activeOnly, limit, offset)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to list event types")
 		}
@@ -252,7 +253,7 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Event Types"},
 	}, func(ctx context.Context, in *eventTypeNameInput) (*eventTypeOutput, error) {
-		e, err := d.Svc.GetEvent(ctx, in.Name)
+		e, err := svc.GetEvent(ctx, in.Name)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get event type")
 		}
@@ -268,7 +269,7 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		Errors:      []int{400, 404},
 		Tags:        []string{"Event Types"},
 	}, func(ctx context.Context, in *patchEventTypeInput) (*eventTypeOutput, error) {
-		existing, err := d.Svc.GetEvent(ctx, in.Name)
+		existing, err := svc.GetEvent(ctx, in.Name)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get event type")
 		}
@@ -288,10 +289,10 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		if in.Body.Active != nil {
 			active = *in.Body.Active
 		}
-		if err := d.Svc.UpdateEvent(ctx, in.Name, desc, schema, meta, active); err != nil {
+		if err := svc.UpdateEvent(ctx, in.Name, desc, schema, meta, active); err != nil {
 			return nil, mapError(ctx, err, "failed to update event type")
 		}
-		updated, err := d.Svc.GetEvent(ctx, in.Name)
+		updated, err := svc.GetEvent(ctx, in.Name)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to reload event type")
 		}
@@ -308,7 +309,7 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		Tags:          []string{"Event Types"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *eventTypeNameInput) (*emptyOutput, error) {
-		if err := d.Svc.DeleteEvent(ctx, in.Name); err != nil {
+		if err := svc.DeleteEvent(ctx, in.Name); err != nil {
 			return nil, mapError(ctx, err, "failed to delete event type")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil
@@ -324,7 +325,7 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		Tags:          []string{"Events"},
 		DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, in *pushEventInput) (*pushEventOutput, error) {
-		eventID, isDuplicate, schemaValid, warnings, err := d.Svc.PushEvent(ctx, in.Namespace, in.Event, in.Body.Payload, in.Body.TTLSeconds, in.Body.Metadata, in.Body.Labels, in.Body.IdempotencyKey)
+		eventID, isDuplicate, schemaValid, warnings, err := svc.PushEvent(ctx, in.Namespace, in.Event, in.Body.Payload, in.Body.TTLSeconds, in.Body.Metadata, in.Body.Labels, in.Body.IdempotencyKey)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to push event")
 		}
@@ -354,7 +355,7 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		if in.Event != "" {
 			filter.EventName = &in.Event
 		}
-		reports, total, repushID, err := d.Svc.ListEventReports(ctx, filter)
+		reports, total, repushID, err := svc.ListEventReports(ctx, filter)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to list event occurrences")
 		}
@@ -393,7 +394,7 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		if _, err := uuid.Parse(in.EventID); err != nil {
 			return nil, huma.Error400BadRequest("event_id must be a valid UUID")
 		}
-		rec, webhookCount, successCount, failedCount, pendingCount, err := d.Svc.GetEventRecord(ctx, in.EventID)
+		rec, webhookCount, successCount, failedCount, pendingCount, err := svc.GetEventRecord(ctx, in.EventID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get event occurrence")
 		}
@@ -422,7 +423,7 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Events"},
 	}, func(ctx context.Context, in *eventIDOnlyInput) (*repushEventOutput, error) {
-		eventID, warnings, err := d.Svc.RePushEvent(ctx, in.EventID)
+		eventID, warnings, err := svc.RePushEvent(ctx, in.EventID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to re-push event")
 		}
@@ -442,10 +443,10 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		Tags:          []string{"Events"},
 		DefaultStatus: http.StatusAccepted,
 	}, func(ctx context.Context, in *repushBatchInput) (*batchJobOutput, error) {
-		if err := d.Svc.RePushEvents(ctx, in.Body.RepushID); err != nil {
+		if err := svc.RePushEvents(ctx, in.Body.RepushID); err != nil {
 			return nil, mapError(ctx, err, "failed to start re-push job")
 		}
-		job, err := d.Svc.GetRepushStatus(ctx, in.Body.RepushID)
+		job, err := svc.GetRepushStatus(ctx, in.Body.RepushID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to load re-push job status")
 		}
@@ -461,7 +462,7 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Events"},
 	}, func(ctx context.Context, in *jobIDInput) (*batchJobOutput, error) {
-		job, err := d.Svc.GetRepushStatus(ctx, in.JobID)
+		job, err := svc.GetRepushStatus(ctx, in.JobID)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get re-push job status")
 		}
@@ -478,7 +479,7 @@ func registerEventRoutes(api huma.API, d *Deps) {
 		Tags:          []string{"Events"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *jobIDInput) (*emptyOutput, error) {
-		if err := d.Svc.CancelRepush(ctx, in.JobID); err != nil {
+		if err := svc.CancelRepush(ctx, in.JobID); err != nil {
 			return nil, mapError(ctx, err, "failed to cancel re-push job")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil

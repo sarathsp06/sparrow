@@ -11,13 +11,6 @@ import (
 // APIVersion is the served OpenAPI document's `info.version`.
 const APIVersion = "1.0.0"
 
-// Deps bundles the business-layer dependencies REST handlers call into.
-// It is transport-agnostic: the same webhooks.WebhookServiceInterface used
-// by the (removed) gRPC/Connect transports.
-type Deps struct {
-	Svc webhooks.WebhookServiceInterface
-}
-
 // Mount registers Huma on the given chi router: every /v1 REST operation,
 // the OpenAPI document at /openapi.{json,yaml} (+ 3.0 variants), and the
 // Scalar interactive reference at /docs. Returns the huma.API so callers can
@@ -93,13 +86,12 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface) huma.API {
 	}
 
 	api := humachi.New(r, config)
-	d := &Deps{Svc: svc}
 
-	registerWebhookRoutes(api, d)
-	registerEventRoutes(api, d)
-	registerSubscriptionRoutes(api, d)
-	registerDeliveryRoutes(api, d)
-	registerHealthRoutes(api, d)
+	registerWebhookRoutes(api, svc)
+	registerEventRoutes(api, svc)
+	registerSubscriptionRoutes(api, svc)
+	registerDeliveryRoutes(api, svc)
+	registerHealthRoutes(api, svc)
 
 	return api
 }

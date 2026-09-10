@@ -24,13 +24,16 @@ import (
 //	    return repo.WithConn(tx).RegisterWebhook(ctx, ...)
 //	})
 //
-// Methods are distributed across separate files based on their primary table:
-// - webhook_repository.go: webhook_registrations table operations
+// Each domain's narrow interface (WebhookRepository, EventRepository, ...) is
+// defined alongside its implementation. Methods are distributed across
+// separate files based on their primary table:
+// - webhook_repository.go: webhook_registrations + rate limit state
 // - event_repository.go: event_records table operations
+// - event_type_repository.go: event_registrations table operations
 // - delivery_repository.go: webhook_deliveries table operations
 // - health_repository.go: webhook_health_* table operations
 // - subscription_repository.go: event_subscriptions table operations
-// - event_registration_repository.go: event_registrations table operations
+// - batch_repository.go: batch_jobs table operations
 type Repository struct {
 	db   storage.DB   // full connection — used for Beginx/Ping/Close
 	conn storage.DBTX // query/exec target — either db or a transaction

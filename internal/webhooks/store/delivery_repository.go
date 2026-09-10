@@ -365,8 +365,6 @@ func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.U
 	return deliveries, totalCount, nil
 }
 
-
-
 // GetRetriableDeliveries finds webhook deliveries eligible for retry attempts within a tenant.
 func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, force bool) ([]*WebhookDelivery, error) {
 	query := `

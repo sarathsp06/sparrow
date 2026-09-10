@@ -65,21 +65,36 @@ func RunRiverMigrations(ctx context.Context, databaseURL string, log *slog.Logge
 	return nil
 }
 
+// migrationLockKey is an arbitrary fixed key for the Postgres session
+// advisory lock that serializes the dirty-check/Force/Up sequence across
+// concurrent instances. golang-migrate's own advisory lock only covers
+// individual migrate calls, not our Version/Force/Up sequence.
+const migrationLockKey int64 = 0x5041_5252_4f57_0001 // "SPARROW" + 1, arbitrary
+
 // RunAppMigrations runs application schema migrations
 func RunAppMigrations(ctx context.Context, databaseURL, direction string, steps int, targetVersion uint, log *slog.Logger) error {
 	log.InfoContext(ctx, "Running application migrations...")
 
-	// Create database connection for golang-migrate using stdlib
-	dbConn, err := sql.Open("pgx", databaseURL)
+	// Open a dedicated connection used only to hold a session advisory lock
+	// that serializes the whole Version/Force/Up sequence. Without it, a
+	// concurrent instance can Force the version back while another is
+	// mid-migration and then re-apply DDL.
+	lockDB, err := sql.Open("pgx", databaseURL)
 	if err != nil {
 		return fmt.Errorf("failed to open database connection: %w", err)
 	}
-	defer dbConn.Close() //nolint:errcheck
+	defer lockDB.Close() //nolint:errcheck
 
-	// Test the connection
-	if err := dbConn.Ping(); err != nil {
-		return fmt.Errorf("failed to ping database: %w", err)
+	lockConn, err := lockDB.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to acquire database connection: %w", err)
 	}
+	defer lockConn.Close() //nolint:errcheck
+
+	if _, err := lockConn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", migrationLockKey); err != nil {
+		return fmt.Errorf("failed to acquire migration advisory lock: %w", err)
+	}
+	defer lockConn.ExecContext(ctx, "SELECT pg_advisory_unlock($1)", migrationLockKey) //nolint:errcheck
 
 	driver, err := iofs.New(db.GetMigrationsFS(), "migrations")
 	if err != nil {

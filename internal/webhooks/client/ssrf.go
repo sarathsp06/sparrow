@@ -12,9 +12,30 @@ import (
 // maxRedirects is the maximum number of HTTP redirects allowed per request.
 const maxRedirects = 10
 
+// blockedPrefixes are reserved/special-use ranges not caught by the net.IP
+// classification helpers in ValidateIP.
+var blockedPrefixes = func() []*net.IPNet {
+	cidrs := []string{
+		"100.64.0.0/10", // RFC 6598 carrier-grade NAT
+		"192.0.0.0/24",  // RFC 6890 IETF protocol assignments
+		"198.18.0.0/15", // RFC 2544 benchmarking
+		"240.0.0.0/4",   // RFC 1112 reserved
+	}
+	nets := make([]*net.IPNet, 0, len(cidrs))
+	for _, c := range cidrs {
+		_, n, err := net.ParseCIDR(c)
+		if err != nil {
+			panic(err)
+		}
+		nets = append(nets, n)
+	}
+	return nets
+}()
+
 // ValidateIP checks whether an IP address is safe for outbound webhook delivery.
-// It blocks loopback, private, link-local, multicast, unspecified addresses,
-// cloud metadata endpoints, and IPv6-mapped IPv4 private addresses.
+// It blocks loopback, private, link-local (which covers the 169.254.169.254
+// cloud metadata endpoint), multicast, unspecified addresses, reserved
+// special-use ranges, and IPv6-mapped IPv4 private addresses.
 func ValidateIP(ip net.IP) error {
 	if ip.IsLoopback() {
 		return fmt.Errorf("loopback addresses are not allowed")
@@ -32,9 +53,12 @@ func ValidateIP(ip net.IP) error {
 		return fmt.Errorf("multicast addresses are not allowed")
 	}
 
-	// Block AWS/GCP/Azure metadata endpoint: 169.254.169.254
-	if ip.Equal(net.ParseIP("169.254.169.254")) {
-		return fmt.Errorf("cloud metadata endpoint address is not allowed")
+	// Block reserved/special-use ranges (CGNAT, benchmarking, class E, ...).
+	// net.IPNet.Contains handles IPv6-mapped IPv4 addresses.
+	for _, n := range blockedPrefixes {
+		if n.Contains(ip) {
+			return fmt.Errorf("address in reserved range %s is not allowed", n)
+		}
 	}
 
 	// Block IPv6-mapped IPv4 private addresses

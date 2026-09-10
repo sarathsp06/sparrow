@@ -269,10 +269,6 @@ func TestPrepareDeliveryRequest(t *testing.T) {
 		t.Errorf("Expected Timeout 20s (from subscription), got %v", dr.Timeout)
 	}
 
-	if dr.MaxRetries != webhook.MaxRetries {
-		t.Errorf("Expected MaxRetries %d, got %d", webhook.MaxRetries, dr.MaxRetries)
-	}
-
 	if dr.EventID != eventID {
 		t.Errorf("Expected EventID %s, got %s", eventID, dr.EventID)
 	}

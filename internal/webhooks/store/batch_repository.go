@@ -11,6 +11,17 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
+// BatchRepository defines operations for batch jobs.
+type BatchRepository interface {
+	CreateBatchJob(ctx context.Context, tenantID uuid.UUID, namespace string, jobType BatchJobType, data *BatchJobData) (*BatchJob, error)
+	GetBatchJob(ctx context.Context, tenantID uuid.UUID, batchID uuid.UUID) (*BatchJob, error)
+	UpdateBatchJobStatus(ctx context.Context, batchID uuid.UUID, from, to BatchJobStatus) error
+	UpdateBatchJobProgress(ctx context.Context, batchID uuid.UUID, processedDelta, failedDelta int) error
+	CleanupExpiredBatchJobs(ctx context.Context) (int, error)
+	SnapshotEventIDs(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]string, error)
+	SnapshotDeliveryIDs(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]string, error)
+}
+
 // CreateBatchJob inserts a new batch job with snapshotted item IDs.
 func (r *Repository) CreateBatchJob(ctx context.Context, tenantID uuid.UUID, namespace string, jobType BatchJobType, data *BatchJobData) (*BatchJob, error) {
 	if len(data.ItemIDs) > MaxBatchSize {
@@ -77,17 +88,28 @@ func (r *Repository) GetBatchJob(ctx context.Context, tenantID uuid.UUID, batchI
 	return &job, nil
 }
 
-// UpdateBatchJobStatus atomically updates the status of a batch job.
-// Returns the updated job or an error if the status transition is invalid.
-func (r *Repository) UpdateBatchJobStatus(ctx context.Context, batchID uuid.UUID, status BatchJobStatus) error {
+// UpdateBatchJobStatus atomically transitions a batch job from one status to
+// another (compare-and-set). Returns storage.ErrNotFound when no row matched,
+// i.e. the job does not exist or is no longer in the expected `from` status.
+func (r *Repository) UpdateBatchJobStatus(ctx context.Context, batchID uuid.UUID, from, to BatchJobStatus) error {
 	query := `
 		UPDATE batch_jobs
-		SET status = $2, updated_at = NOW()
-		WHERE id = $1
+		SET status = $3, updated_at = NOW()
+		WHERE id = $1 AND status = $2
 	`
 
-	_, err := r.conn.ExecContext(ctx, query, batchID, status)
-	return storage.Error(err)
+	res, err := r.conn.ExecContext(ctx, query, batchID, from, to)
+	if err != nil {
+		return storage.Error(err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return storage.Error(err)
+	}
+	if rows == 0 {
+		return storage.ErrNotFound
+	}
+	return nil
 }
 
 // UpdateBatchJobProgress atomically increments the processed/failed counters.
@@ -210,5 +232,3 @@ func (r *Repository) SnapshotDeliveryIDs(ctx context.Context, tenantID uuid.UUID
 
 	return ids, nil
 }
-
-

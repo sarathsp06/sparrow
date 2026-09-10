@@ -77,27 +77,37 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 	}
 
 	var shutdownFuncs []func(context.Context) error
+	// On partial failure, shut down already-built providers before returning
+	// so we don't leak exporter connections.
+	cleanup := func() {
+		for _, fn := range shutdownFuncs {
+			_ = fn(ctx)
+		}
+	}
 
 	tracerProvider, err := setupTracing(ctx, res, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup tracing: %w", err)
 	}
 	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
-	otel.SetTracerProvider(tracerProvider)
 
 	meterProvider, err := setupMetrics(ctx, res, config)
 	if err != nil {
+		cleanup()
 		return nil, fmt.Errorf("failed to setup metrics: %w", err)
 	}
 	shutdownFuncs = append(shutdownFuncs, meterProvider.Shutdown)
-	otel.SetMeterProvider(meterProvider)
 
 	loggerProvider, err := newLoggerProvider(ctx, config)
 	if err != nil {
+		cleanup()
 		return nil, fmt.Errorf("failed to setup logger: %w", err)
 	}
-
 	shutdownFuncs = append(shutdownFuncs, loggerProvider.Shutdown)
+
+	// Install globals only after every provider was built successfully.
+	otel.SetTracerProvider(tracerProvider)
+	otel.SetMeterProvider(meterProvider)
 	global.SetLoggerProvider(loggerProvider)
 
 	// Set global propagator for distributed tracing

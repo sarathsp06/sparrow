@@ -254,11 +254,9 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
               <span class="sp-terminal-title">terminal</span>
             </div>
             <div class="sp-terminal-body">
-              <code><span class="sp-t-muted">$</span> curl -O https://raw.githubusercontent.com/</code>
-              <code>    sarathsp06/sparrow/main/deploy/docker-compose.yml</code>
+              <code><span class="sp-t-muted">$</span> curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml</code>
               <code></code>
-              <code><span class="sp-t-muted">$</span> SPARROW_ENCRYPTION_KEY=<span class="sp-t-str">$(openssl rand -hex 32)</span> \</code>
-              <code>    docker compose up <span class="sp-t-flag">-d</span></code>
+              <code><span class="sp-t-muted">$</span> SPARROW_ENCRYPTION_KEY=<span class="sp-t-str">$(openssl rand -hex 32)</span> docker compose up <span class="sp-t-flag">-d</span></code>
               <code></code>
               <code><span class="sp-t-muted">Creating sparrow-postgres-1 ... done</span></code>
               <code><span class="sp-t-muted">Creating sparrow-sparrow-1  ... done</span></code>
@@ -522,7 +520,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   overflow-x: auto;
 }
 .sp-terminal-body code {
-  display: block; white-space: pre;
+  display: block; white-space: pre-wrap; word-break: break-all;
   color: var(--t-text);
 }
 .sp-t-muted { color: var(--t-muted); }

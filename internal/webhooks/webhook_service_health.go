@@ -10,6 +10,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
+	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
 // WebhookHealthData represents webhook health information
@@ -84,15 +85,28 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
 	if err != nil {
 		span.RecordError(err)
+		if storage.IsNotFound(err) {
+			span.SetStatus(otelcodes.Error, "webhook not found")
+			return nil, svcerrors.Error(svcerrors.NotFound, "webhook not found")
+		}
 		span.SetStatus(otelcodes.Error, "Failed to get webhook")
 		s.logger.ErrorContext(ctx, "Failed to get webhook", "error", err)
-		return nil, svcerrors.Wrapf(err, svcerrors.NotFound, "webhook not found")
+		return nil, fmt.Errorf("failed to get webhook: %w", err)
+	}
+	if webhook == nil {
+		return nil, svcerrors.Error(svcerrors.NotFound, "webhook not found")
 	}
 
 	// Get health state (current status and consecutive failures)
 	healthState, err := s.webhookRepo.GetWebhookHealthState(ctx, id)
 	if err != nil {
-		// If no health state exists yet, return basic health info
+		if !storage.IsNotFound(err) {
+			span.RecordError(err)
+			span.SetStatus(otelcodes.Error, "Failed to get webhook health state")
+			s.logger.ErrorContext(ctx, "Failed to get webhook health state", "error", err)
+			return nil, fmt.Errorf("failed to get webhook health state: %w", err)
+		}
+		// No health state exists yet (no deliveries recorded) — return basic health info
 		s.logger.InfoContext(ctx, "No health state found for webhook", "webhook_id", webhookID)
 		return &WebhookHealthData{
 			WebhookID: webhookID,
@@ -138,41 +152,6 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 		"success_rate", healthData.SuccessRate)
 
 	return healthData, nil
-}
-
-// ListWebhooksByHealth retrieves webhooks filtered by health status
-func (s *WebhookService) ListWebhooksByHealth(ctx context.Context, health store.WebhookHealth, limit, offset int32) ([]*store.WebhookRegistration, int32, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.ListWebhooksByHealth")
-	defer span.End()
-
-	s.logger.InfoContext(ctx, "Processing list webhooks by health request", "health", health, "limit", limit, "offset", offset)
-
-	tenantID := tenant.DefaultTenantID
-
-	// This is a cross-namespace query — only tenant-level roles can do this
-
-	if limit <= 0 {
-		limit = 50
-	}
-	if offset < 0 {
-		offset = 0
-	}
-
-	// Get webhooks by health status
-	webhooksList, totalCount, err := s.webhookRepo.GetWebhooksByHealthPaginated(ctx, tenantID, health, int(limit), int(offset))
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(otelcodes.Error, "Failed to get webhooks by health")
-		s.logger.ErrorContext(ctx, "Failed to get webhooks by health", "error", err)
-		return nil, 0, fmt.Errorf("failed to retrieve webhooks: %w", err)
-	}
-
-	s.logger.InfoContext(ctx, "Webhooks retrieved successfully",
-		"health", health,
-		"count", len(webhooksList),
-		"total", totalCount)
-
-	return webhooksList, int32(totalCount), nil
 }
 
 // GetHealthSummary retrieves a summary of webhook health across all namespaces

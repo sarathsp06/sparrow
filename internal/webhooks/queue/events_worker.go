@@ -19,10 +19,10 @@ import (
 // EventProcessingWorker processes events and triggers webhook deliveries
 type EventProcessingWorker struct {
 	river.WorkerDefaults[EventArgs]
-	logger          *slog.Logger
+	logger           *slog.Logger
 	subscriptionRepo store.SubscriptionRepository
-	eventRepo       store.EventRepository
-	jobInserter     JobInserter
+	eventRepo        store.EventRepository
+	jobInserter      JobInserter
 }
 
 // NewEventProcessingWorker creates a new event processing worker with a river client
@@ -48,20 +48,28 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	}
 	ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
 
-	// Parse tenant ID from job args
-	tenantID := uuid.MustParse(args.TenantID)
-
-	// Store the event record - this should have already been stored by the service layer
-	// but let's verify and update if needed
-	existingEvent, err := w.eventRepo.GetEventByID(ctx, tenantID, uuid.MustParse(args.EventID))
+	// Parse job-arg IDs up front. Malformed args are permanent — cancel
+	// instead of burning retries.
+	tenantID, err := uuid.Parse(args.TenantID)
 	if err != nil {
-		w.logger.ErrorContext(ctx, "Event record not found in database", "error", err, "event_id", args.EventID)
-		return fmt.Errorf("event record not found: %w", err)
+		return river.JobCancel(fmt.Errorf("invalid tenant ID %q in job args: %w", args.TenantID, err))
+	}
+	eventID, err := uuid.Parse(args.EventID)
+	if err != nil {
+		return river.JobCancel(fmt.Errorf("invalid event ID %q in job args: %w", args.EventID, err))
 	}
 
-	// Update metadata if provided in the job args (for consistency)
-	if len(args.Metadata) > 0 {
-		existingEvent.Metadata = args.Metadata
+	// Verify the event record exists — it should have been stored by the
+	// service layer. The repo returns (nil, nil) for missing rows.
+	existingEvent, err := w.eventRepo.GetEventByID(ctx, tenantID, eventID)
+	if err != nil {
+		w.logger.ErrorContext(ctx, "Failed to load event record", "error", err, "event_id", args.EventID)
+		return fmt.Errorf("failed to load event record: %w", err)
+	}
+	if existingEvent == nil {
+		// Missing row is a permanent condition — retrying won't create it.
+		w.logger.ErrorContext(ctx, "Event record not found in database", "event_id", args.EventID)
+		return river.JobCancel(fmt.Errorf("event record %s not found", args.EventID))
 	}
 
 	// Find all subscriptions for this namespace/event with webhook details (including label matching)
@@ -112,7 +120,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		delivery := &store.WebhookDelivery{
 			ID:             deliveryID,
 			WebhookID:      webhook.ID,
-			EventID:        uuid.MustParse(args.EventID),
+			EventID:        eventID,
 			SubscriptionID: &sub.ID,
 			Status:         store.StatusPending,
 			MaxAttempts:    maxAttempts,
@@ -139,6 +147,9 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	}
 
 	// Batch-insert all River jobs (single InsertMany call).
+	// ponytail: delivery rows (sqlx) and River jobs (pgx) are inserted in
+	// separate transactions with delete-based compensation. Upgrade path:
+	// run both on a single pgx connection and use river.InsertManyTx.
 	if _, err := w.jobInserter.BatchInsert(ctx, jobArgs); err != nil {
 		w.logger.ErrorContext(ctx, "Failed to batch-insert webhook delivery jobs",
 			"error", err,
@@ -146,13 +157,24 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		)
 		// Compensation: remove orphaned delivery records since the jobs
 		// that would process them could not be created.
+		var undeleted []uuid.UUID
 		for _, d := range deliveries {
 			if delErr := w.eventRepo.DeleteDeliveryByID(ctx, d.ID); delErr != nil {
 				w.logger.ErrorContext(ctx, "Failed to delete orphaned delivery record",
 					"error", delErr,
 					"delivery_id", d.ID,
 				)
+				undeleted = append(undeleted, d.ID)
 			}
+		}
+		if len(undeleted) > 0 {
+			// Compensation itself failed. Return the original error so River
+			// retries the whole job — duplicate deliveries are preferable to
+			// silently-stuck pending rows.
+			w.logger.ErrorContext(ctx, "COMPENSATION FAILED: orphaned delivery records remain after job-insert failure",
+				"event_id", args.EventID,
+				"delivery_ids", undeleted,
+			)
 		}
 		return fmt.Errorf("batch insert jobs: %w", err)
 	}

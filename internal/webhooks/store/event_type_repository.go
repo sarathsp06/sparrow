@@ -9,6 +9,16 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
+// EventTypeRepository defines operations for event type registrations and schemas.
+type EventTypeRepository interface {
+	RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error
+	GetEventByName(ctx context.Context, tenantID uuid.UUID, eventName string) (*EventRegistration, error)
+	ListEvents(ctx context.Context, tenantID uuid.UUID, activeOnly bool) ([]*EventRegistration, error)
+	ListEventsPaginated(ctx context.Context, tenantID uuid.UUID, activeOnly bool, limit, offset int) ([]*EventRegistration, int, error)
+	UpdateEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error
+	DeleteEvent(ctx context.Context, tenantID uuid.UUID, eventName string) error
+}
+
 // RegisterEvent registers a new event type within a tenant
 func (r *Repository) RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error {
 	event.TenantID = tenantID
@@ -85,15 +95,16 @@ func (r *Repository) ListEventsPaginated(ctx context.Context, tenantID uuid.UUID
 	return events, totalCount, nil
 }
 
-// UpdateEvent updates an event registration within a tenant
+// UpdateEvent updates an event registration within a tenant.
+// Returns storage.ErrNotFound when no registration matches the tenant and name.
 func (r *Repository) UpdateEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) error {
 	query := `
 		UPDATE event_registrations 
-		SET description = $3, schema = $4, sample_payload = $5, metadata = $6, active = $7
+		SET description = $3, schema = $4, sample_payload = $5, metadata = $6, active = $7, updated_at = NOW()
 		WHERE tenant_id = $1 AND name = $2
 	`
 
-	_, err := r.conn.ExecContext(ctx, query,
+	res, err := r.conn.ExecContext(ctx, query,
 		tenantID,
 		event.Name,
 		event.Description,
@@ -102,7 +113,17 @@ func (r *Repository) UpdateEvent(ctx context.Context, tenantID uuid.UUID, event 
 		event.Metadata,
 		event.Active,
 	)
-	return storage.Error(err)
+	if err != nil {
+		return storage.Error(err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return storage.Error(err)
+	}
+	if rows == 0 {
+		return storage.ErrNotFound
+	}
+	return nil
 }
 
 // DeleteEvent deletes an event registration within a tenant

@@ -4,28 +4,26 @@ package health
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sarathsp06/sparrow"
-	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 )
 
 // Checker provides health check functionality
 type Checker struct {
-	dbPool       *pgxpool.Pool
-	queueManager *queue.Manager
-	startTime    time.Time
+	dbPool    *pgxpool.Pool
+	startTime time.Time
 }
 
 // NewChecker creates a new health checker
-func NewChecker(dbPool *pgxpool.Pool, queueManager *queue.Manager, startTime time.Time) *Checker {
+func NewChecker(dbPool *pgxpool.Pool, startTime time.Time) *Checker {
 	return &Checker{
-		dbPool:       dbPool,
-		queueManager: queueManager,
-		startTime:    startTime,
+		dbPool:    dbPool,
+		startTime: startTime,
 	}
 }
 
@@ -46,41 +44,25 @@ type ReadyResponse struct {
 	Version   string `json:"version"`
 }
 
-// Health performs a comprehensive health check
+// Health performs a health check of the service's dependencies.
 func (hc *Checker) Health(ctx context.Context) (HealthResponse, int) {
-	// Check database connectivity
-	dbHealthy := true
 	dbStatus := "healthy"
-	var dbError string
+	overallStatus := "healthy"
+	httpStatus := http.StatusOK
 
 	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	if err := hc.dbPool.Ping(pingCtx); err != nil {
-		dbHealthy = false
+		// Log server-side only; /health is unauthenticated, so never echo
+		// raw error strings to the caller.
+		slog.ErrorContext(ctx, "health check: database ping failed", "error", err)
 		dbStatus = "unhealthy"
-		dbError = err.Error()
-	}
-
-	// Check queue manager status
-	queueHealthy := hc.queueManager != nil
-	queueStatus := "healthy"
-	if !queueHealthy {
-		queueStatus = "unhealthy"
-	}
-
-	// Overall service health
-	overallHealthy := dbHealthy && queueHealthy
-	overallStatus := "healthy"
-	httpStatus := http.StatusOK
-
-	if !overallHealthy {
 		overallStatus = "unhealthy"
 		httpStatus = http.StatusServiceUnavailable
 	}
 
-	// Build health response
-	healthResponse := HealthResponse{
+	return HealthResponse{
 		Status:    overallStatus,
 		Version:   sparrow.Version,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
@@ -90,29 +72,12 @@ func (hc *Checker) Health(ctx context.Context) (HealthResponse, int) {
 				"status": dbStatus,
 				"type":   "postgres",
 			},
-			"queue": map[string]any{
-				"status": queueStatus,
-				"type":   "river",
-			},
 		},
 		Service: map[string]any{
 			"name":        "sparrow",
 			"description": "Webhook delivery system",
-			"endpoints": map[string]any{
-				"http":   "localhost:8080",
-				"docs":   "localhost:8080/docs",
-				"health": "localhost:8080/health",
-				"ready":  "localhost:8080/ready",
-			},
 		},
-	}
-
-	// Add database error if present
-	if dbError != "" {
-		healthResponse.Checks["database"].(map[string]any)["error"] = dbError
-	}
-
-	return healthResponse, httpStatus
+	}, httpStatus
 }
 
 // Ready performs a readiness check, verifying that the database is reachable.

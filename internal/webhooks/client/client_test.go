@@ -31,10 +31,6 @@ func TestNewWebhookClient(t *testing.T) {
 		t.Error("Expected template engine to be initialized")
 	}
 
-	if client.metrics == nil {
-		t.Error("Expected metrics to be initialized")
-	}
-
 	if client.config != config {
 		t.Error("Expected config to be set")
 	}
@@ -112,15 +108,6 @@ func TestSend(t *testing.T) {
 	if duration <= 0 {
 		t.Error("Expected positive duration")
 	}
-
-	// Check metrics
-	if client.metrics.TotalRequests != 1 {
-		t.Errorf("Expected TotalRequests 1, got %d", client.metrics.TotalRequests)
-	}
-
-	if client.metrics.SuccessRequests != 1 {
-		t.Errorf("Expected SuccessRequests 1, got %d", client.metrics.SuccessRequests)
-	}
 }
 
 func TestSendFailure(t *testing.T) {
@@ -149,15 +136,6 @@ func TestSendFailure(t *testing.T) {
 
 	if duration <= 0 {
 		t.Error("Expected positive duration even on failure")
-	}
-
-	// Check metrics
-	if client.metrics.TotalRequests != 1 {
-		t.Errorf("Expected TotalRequests 1, got %d", client.metrics.TotalRequests)
-	}
-
-	if client.metrics.FailedRequests != 1 {
-		t.Errorf("Expected FailedRequests 1, got %d", client.metrics.FailedRequests)
 	}
 }
 

@@ -10,10 +10,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 
 	_codes "go.opentelemetry.io/otel/codes"
 )
@@ -544,7 +545,7 @@ func (_d WebhookServiceInterfaceWithTracing) ListSubscriptions(ctx context.Conte
 }
 
 // ListWebhooks implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) ListWebhooks(ctx context.Context, namespace string, webhookID string, event string, activeOnly bool, limit int32, offset int32) (wpa1 []*store.WebhookRegistration, i1 int32, err error) {
+func (_d WebhookServiceInterfaceWithTracing) ListWebhooks(ctx context.Context, namespace string, webhookID string, event string, activeOnly bool, health string, limit int32, offset int32) (wpa1 []*store.WebhookRegistration, i1 int32, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListWebhooks")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -554,6 +555,7 @@ func (_d WebhookServiceInterfaceWithTracing) ListWebhooks(ctx context.Context, n
 				"webhookID":  webhookID,
 				"event":      event,
 				"activeOnly": activeOnly,
+				"health":     health,
 				"limit":      limit,
 				"offset":     offset}, map[string]interface{}{
 				"wpa1": wpa1,
@@ -570,34 +572,7 @@ func (_d WebhookServiceInterfaceWithTracing) ListWebhooks(ctx context.Context, n
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.ListWebhooks(ctx, namespace, webhookID, event, activeOnly, limit, offset)
-}
-
-// ListWebhooksByHealth implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) ListWebhooksByHealth(ctx context.Context, health store.WebhookHealth, limit int32, offset int32) (wpa1 []*store.WebhookRegistration, i1 int32, err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListWebhooksByHealth")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":    ctx,
-				"health": health,
-				"limit":  limit,
-				"offset": offset}, map[string]interface{}{
-				"wpa1": wpa1,
-				"i1":   i1,
-				"err":  err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.WebhookServiceInterface.ListWebhooksByHealth(ctx, health, limit, offset)
+	return _d.WebhookServiceInterface.ListWebhooks(ctx, namespace, webhookID, event, activeOnly, health, limit, offset)
 }
 
 // PauseWebhook implements WebhookServiceInterface
@@ -950,7 +925,7 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateSubscription(ctx context.Cont
 }
 
 // UpdateWebhookConfig implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) (err error) {
+func (_d WebhookServiceInterfaceWithTracing) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.UpdateWebhookConfig")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -961,7 +936,6 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateWebhookConfig(ctx context.Con
 				"events":        events,
 				"url":           url,
 				"headers":       headers,
-				"timeout":       timeout,
 				"active":        active,
 				"description":   description,
 				"httpConfig":    httpConfig,
@@ -980,5 +954,5 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateWebhookConfig(ctx context.Con
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.UpdateWebhookConfig(ctx, webhookID, namespace, events, url, headers, timeout, active, description, httpConfig, secretHeaders, signatureType, updateMask)
+	return _d.WebhookServiceInterface.UpdateWebhookConfig(ctx, webhookID, namespace, events, url, headers, active, description, httpConfig, secretHeaders, signatureType, updateMask)
 }

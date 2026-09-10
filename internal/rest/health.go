@@ -6,7 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/internal/webhooks"
 )
 
 type webhookHealthOutput struct {
@@ -47,7 +47,7 @@ type listWebhooksGlobalInput struct {
 	Offset    int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
 }
 
-func registerHealthRoutes(api huma.API, d *Deps) {
+func registerHealthRoutes(api huma.API, svc webhooks.WebhookServiceInterface) {
 	huma.Register(api, huma.Operation{
 		OperationID: "getWebhookHealth",
 		Method:      http.MethodGet,
@@ -57,7 +57,7 @@ func registerHealthRoutes(api huma.API, d *Deps) {
 		Errors:      []int{404},
 		Tags:        []string{"Health"},
 	}, func(ctx context.Context, in *webhookIDInput) (*webhookHealthOutput, error) {
-		h, err := d.Svc.GetWebhookHealth(ctx, in.WebhookID, in.Namespace)
+		h, err := svc.GetWebhookHealth(ctx, in.WebhookID, in.Namespace)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get webhook health")
 		}
@@ -86,7 +86,7 @@ func registerHealthRoutes(api huma.API, d *Deps) {
 		Description: "Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, across every namespace — for a top-level dashboard tile.",
 		Tags:        []string{"Health"},
 	}, func(ctx context.Context, in *struct{}) (*healthSummaryOutput, error) {
-		s, err := d.Svc.GetHealthSummary(ctx)
+		s, err := svc.GetHealthSummary(ctx)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get health summary")
 		}
@@ -106,22 +106,15 @@ func registerHealthRoutes(api huma.API, d *Deps) {
 		Description: "Cross-namespace webhook listing. Pass health to filter by computed status, or webhook_id for an id-only lookup when the namespace isn't known.",
 		Tags:        []string{"Health"},
 	}, func(ctx context.Context, in *listWebhooksGlobalInput) (*listWebhooksOutput, error) {
-		var regs []*store.WebhookRegistration
-		var total int32
-		var err error
-		if in.Health != "" {
-			regs, total, err = d.Svc.ListWebhooksByHealth(ctx, store.WebhookHealth(in.Health), in.Limit, in.Offset)
-		} else {
-			regs, total, err = d.Svc.ListWebhooks(ctx, "", in.WebhookID, "", false, in.Limit, in.Offset)
-		}
+		regs, total, err := svc.ListWebhooks(ctx, "", in.WebhookID, "", false, in.Health, in.Limit, in.Offset)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to list webhooks")
 		}
-		eventsMap := getWebhookEventsMap(ctx, d.Svc, regs)
+		eventsMap := getWebhookEventsMap(ctx, svc, regs)
 		out := &listWebhooksOutput{}
 		out.Body.Items = make([]WebhookOut, len(regs))
 		for i, r := range regs {
-			out.Body.Items[i] = toWebhookOut(r, eventsMap[r.ID.String()], d.Svc)
+			out.Body.Items[i] = toWebhookOut(r, eventsMap[r.ID.String()], svc)
 		}
 		out.Body.Pagination = newPagination(in.Limit, in.Offset, total)
 		return out, nil

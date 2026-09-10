@@ -222,12 +222,24 @@ func (s *Service) Enabled() bool {
 // Decrypt decrypts ciphertext, auto-detecting the format:
 //   - Envelope format (version 0x01 prefix): uses envelope decryption
 //   - Legacy format (no prefix): falls back to direct AES-256-GCM
+//
+// IsEnvelopeEncrypted can false-positive on legacy direct-AES-GCM blobs
+// (~2^-24 for blobs >= envelopeMinSize whose first bytes happen to match
+// the envelope header), so on envelope-decrypt failure we also try the
+// legacy format. AEAD authentication makes a wrong-format attempt safe.
 func (s *Service) Decrypt(ciphertext []byte) ([]byte, error) {
 	if !s.Enabled() {
 		return nil, ErrNoEncryptionKey
 	}
 	if IsEnvelopeEncrypted(ciphertext) {
-		return s.EnvelopeDecrypt(ciphertext)
+		plaintext, err := s.EnvelopeDecrypt(ciphertext)
+		if err == nil {
+			return plaintext, nil
+		}
+		if plaintext, directErr := s.directDecrypt(ciphertext); directErr == nil {
+			return plaintext, nil
+		}
+		return nil, fmt.Errorf("crypto: envelope decrypt failed (legacy fallback also failed): %w", err)
 	}
 	return s.directDecrypt(ciphertext)
 }
