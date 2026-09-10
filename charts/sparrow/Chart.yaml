@@ -2,9 +2,12 @@ apiVersion: v2
 name: sparrow
 description: Self-hosted webhook delivery platform with async HTTP delivery, retries, and health tracking
 type: application
-version: 0.1.0
-appVersion: "1.2.1"
+version: 0.2.0
+appVersion: "2.0.0"
 home: https://github.com/sarathsp06/sparrow
+sources:
+  - https://github.com/sarathsp06/sparrow
+icon: https://raw.githubusercontent.com/sarathsp06/sparrow/main/web/src/lib/assets/favicon.svg
 maintainers:
   - name: sarathsp06
 keywords:

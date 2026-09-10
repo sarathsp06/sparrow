@@ -49,6 +49,15 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Server pod selector labels — selectorLabels + component, so Services and
+policies never match the built-in PostgreSQL pods (which share selectorLabels).
+*/}}
+{{- define "sparrow.serverSelectorLabels" -}}
+{{ include "sparrow.selectorLabels" . }}
+app.kubernetes.io/component: server
+{{- end }}
+
+{{/*
 ServiceAccount name.
 */}}
 {{- define "sparrow.serviceAccountName" -}}

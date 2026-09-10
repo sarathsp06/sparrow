@@ -10,11 +10,11 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "sparrow.selectorLabels" . | nindent 6 }}
+      {{- include "sparrow.serverSelectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "sparrow.selectorLabels" . | nindent 8 }}
+        {{- include "sparrow.serverSelectorLabels" . | nindent 8 }}
       annotations:
         # Rolling restart on config/secret change
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}

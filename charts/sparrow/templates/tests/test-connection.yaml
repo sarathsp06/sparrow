@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "sparrow.fullname" . }}-test-connection
+  labels:
+    {{- include "sparrow.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: health-check
+      image: curlimages/curl:8.10.1
+      command: ["curl"]
+      args:
+        - "--fail"
+        - "--silent"
+        - "--show-error"
+        - "--max-time"
+        - "10"
+        - "http://{{ include "sparrow.fullname" . }}:{{ .Values.service.httpPort }}/health"
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          cpu: 50m
+          memory: 32Mi
+  restartPolicy: Never

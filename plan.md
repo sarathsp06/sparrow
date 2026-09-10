@@ -37,7 +37,8 @@ These principles apply globally to Sparrow, not just this feature set:
 | SvelteKit admin UI | Complete | Webhooks, events, deliveries, health, event instances |
 | Go template transforms | Complete | Per-subscription payload transformation with caching |
 | Standard Webhooks signing | Complete | `webhook-id`, `webhook-timestamp`, `webhook-signature` with `v1,`/`v1a,` base64 format |
-| Ed25519 signing | Complete | Dual signing (HMAC + Ed25519) on every delivery, per-webhook keypair, public key via API |
+| Ed25519 signing | Complete | Opt-in via `signature_type: ed25519` (adds `v1a,` alongside HMAC `v1,`), per-webhook keypair, hex public key via API |
+| Signature verification helpers | Complete | Go `pkg/signature`, Python + TS/JS verifiers in `client/verify/`, documented in README "Verifying Webhook Signatures" |
 | SSRF protection | Complete | Blocks private/loopback/metadata IPs, validates redirects |
 | Envelope encryption | Complete | AES-256-GCM for webhook secrets + secret headers |
 | Health tracking | Complete | State machine (healthy/degraded/unhealthy), rolling summaries |
@@ -238,12 +239,12 @@ None -- enforcement is server-side only.
 
 ### Design (as implemented)
 
-- **Dual signing**: Every delivery is signed with both HMAC-SHA256 and Ed25519. No `signature_type` configuration needed.
+- **Opt-in per webhook**: `signature_type` selects the scheme -- `hmac` (default) signs HMAC-SHA256 only; `ed25519` adds an Ed25519 `v1a,` signature alongside the HMAC `v1,` one. (Originally shipped as unconditional dual signing; a `signature_type` column was added later.)
 - **Ed25519 keypair generated once** at webhook registration, private key envelope-encrypted (AES-256-GCM) and stored in `ed25519_private_key` column.
 - **Public key derived at runtime** from the private key (`ed25519.PrivateKey.Public()`). Not stored separately.
 - **Signing**: Standard Webhooks format. Message: `{msg_id}.{timestamp}.{payload}`, HMAC = `v1,<base64>`, Ed25519 = `v1a,<base64>`.
 - **Headers**: `webhook-id`, `webhook-timestamp`, `webhook-signature` (space-delimited signatures).
-- **Public key exposed** via the `signing_public_key` field on the webhook resource (base64-encoded).
+- **Public key exposed** via the `signing_public_key` field on the webhook resource (hex-encoded).
 - **Consumers choose** which signature to verify -- HMAC (requires shared secret, `v1,` prefix) or Ed25519 (requires only the public key, `v1a,` prefix).
 
 ### Migration
@@ -254,7 +255,7 @@ None -- enforcement is server-side only.
 
 | Original plan | Actual implementation | Rationale |
 |---|---|---|
-| `signature_type` column | No column; always dual-sign | Simpler, no config needed, negligible cost |
+| `signature_type` column | Initially no column (always dual-sign); `signature_type` added later to make Ed25519 opt-in | Simpler default, Ed25519 only where consumers verify it |
 | `signing_public_key` column | Derived at runtime | Public key is always derivable from private key |
 | Store private key in `webhook_secret` | Separate `ed25519_private_key` column | Different values; HMAC secret and Ed25519 key coexist |
 

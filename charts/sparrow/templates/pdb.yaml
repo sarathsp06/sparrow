@@ -9,5 +9,5 @@ spec:
   maxUnavailable: 1
   selector:
     matchLabels:
-      {{- include "sparrow.selectorLabels" . | nindent 6 }}
+      {{- include "sparrow.serverSelectorLabels" . | nindent 6 }}
 {{- end }}
