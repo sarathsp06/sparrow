@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/ghcr.io-sarathsp06%2Fsparrow-blue?logo=docker)](https://github.com/sarathsp06/sparrow/pkgs/container/sparrow)
 [![API Spec](https://img.shields.io/badge/API-OpenAPI%203.1-blue)](api/openapi.yaml)
+[![Docs](https://img.shields.io/badge/Docs-sarathsp06.github.io%2Fsparrow-f2a93b?logo=astro&logoColor=white)](https://sarathsp06.github.io/sparrow/)
 
 <p align="center">
   <img src="./web/src/lib/assets/favicon.svg" alt="Sparrow" width="120" height="120" />
