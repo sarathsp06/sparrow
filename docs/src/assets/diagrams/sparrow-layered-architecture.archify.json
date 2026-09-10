@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Sparrow Layered Architecture",
+    "output": "sparrow-layered-architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "subscribe",
+        "label": "1 · Subscribe",
+        "focus": [
+          "client",
+          "api",
+          "svc",
+          "pg"
+        ],
+        "note": "Register a webhook with its event types; Sparrow creates subscriptions and returns the signing secret once."
+      },
+      {
+        "id": "push",
+        "label": "2 · Push",
+        "focus": [
+          "client",
+          "api",
+          "svc",
+          "pg",
+          "workers"
+        ],
+        "note": "Push an event with an idempotency key; it persists in PostgreSQL, then fan-out enqueues one delivery per matching subscription."
+      },
+      {
+        "id": "deliver",
+        "label": "3 · Deliver",
+        "focus": [
+          "pg",
+          "workers",
+          "signer",
+          "endpoint"
+        ],
+        "note": "Workers drain the queue; deliveries are signed (HMAC + Ed25519), POSTed, and retried with backoff on classified failures."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "client",
+      "type": "external",
+      "label": "Your App",
+      "sublabel": "curl / SDK",
+      "pos": [
+        40,
+        90
+      ],
+      "size": [
+        140,
+        60
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "REST API",
+      "sublabel": "Huma :8080 + auth",
+      "pos": [
+        280,
+        90
+      ],
+      "size": [
+        150,
+        60
+      ]
+    },
+    {
+      "id": "svc",
+      "type": "backend",
+      "label": "Webhook Service",
+      "sublabel": "internal/webhooks",
+      "pos": [
+        530,
+        90
+      ],
+      "size": [
+        160,
+        60
+      ]
+    },
+    {
+      "id": "pg",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "events + River queue",
+      "pos": [
+        790,
+        90
+      ],
+      "size": [
+        160,
+        60
+      ]
+    },
+    {
+      "id": "workers",
+      "type": "backend",
+      "label": "River Workers",
+      "sublabel": "fan-out + delivery",
+      "pos": [
+        790,
+        300
+      ],
+      "size": [
+        160,
+        60
+      ]
+    },
+    {
+      "id": "signer",
+      "type": "security",
+      "label": "Signing Client",
+      "sublabel": "HMAC + Ed25519",
+      "pos": [
+        530,
+        300
+      ],
+      "size": [
+        160,
+        60
+      ]
+    },
+    {
+      "id": "endpoint",
+      "type": "external",
+      "label": "Your Endpoints",
+      "sublabel": "HTTPS POST",
+      "pos": [
+        40,
+        300
+      ],
+      "size": [
+        140,
+        60
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Sparrow deployment",
+      "wraps": [
+        "api",
+        "svc",
+        "pg",
+        "workers",
+        "signer"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "subscribe-push",
+      "from": "client",
+      "to": "api",
+      "label": "1 subscribe · 2 push",
+      "variant": "emphasis",
+      "labelDy": 54
+    },
+    {
+      "id": "invoke",
+      "from": "api",
+      "to": "svc",
+      "label": "invoke"
+    },
+    {
+      "id": "persist",
+      "from": "svc",
+      "to": "pg",
+      "label": "persist event"
+    },
+    {
+      "id": "dequeue",
+      "from": "pg",
+      "to": "workers",
+      "label": "queue jobs",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 54
+    },
+    {
+      "id": "sign",
+      "from": "workers",
+      "to": "signer",
+      "label": "sign payload"
+    },
+    {
+      "id": "deliver",
+      "from": "signer",
+      "to": "endpoint",
+      "label": "3 deliver",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Subscribe",
+      "items": [
+        "POST /v1/namespaces/{ns}/webhooks with event types",
+        "Subscriptions auto-created; whsec_ secret returned once",
+        "Secrets envelope-encrypted at rest (AES-256-GCM)"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Push",
+      "items": [
+        "POST /v1/namespaces/{ns}/events, async 201",
+        "Idempotency keys dedup repeats",
+        "Fan-out enqueues one delivery per matching subscription"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Deliver",
+      "items": [
+        "Signed HMAC-SHA256 (v1,) + Ed25519 (v1a,)",
+        "Failures classified into 10 categories",
+        "Retryable errors back off exponentially; health tracked per webhook"
+      ]
+    }
+  ]
+}
