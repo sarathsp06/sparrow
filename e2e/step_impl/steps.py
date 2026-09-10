@@ -10,7 +10,11 @@ import json
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "libs"))
 
 from getgauge.python import step, data_store
-from libs.signature_verifier import delivery_has_signature_headers
+from libs.signature_verifier import (
+    delivery_has_signature_headers,
+    verify_hmac_signature,
+    verify_ed25519_signature,
+)
 
 
 def _api():
@@ -95,6 +99,16 @@ def register_webhook_no_sub(name):
     url = data_store.scenario[f"target_url_{name}"]
     resp = _api().register_webhook(ns, url)
     data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
+
+
+@step("Register webhook <name> in current namespace subscribed to <events> with signature type <signature_type>")
+def register_webhook_signature_type(name, events, signature_type):
+    ns = data_store.scenario["namespace"]
+    url = data_store.scenario[f"target_url_{name}"]
+    event_list = [e.strip() for e in events.split(",")]
+    resp = _api().register_webhook(ns, url, *event_list, signature_type=signature_type)
+    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
+    data_store.scenario[f"webhook_resp_{name}"] = resp
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +199,22 @@ def assert_enveloped_payload_field(name, field, value):
 def assert_signature_headers(name):
     d = _targets().get_latest_delivery(name)
     delivery_has_signature_headers(d)
+
+
+@step("Latest delivery to <name> has a valid HMAC signature")
+def assert_valid_hmac_signature(name):
+    d = _targets().get_latest_delivery(name)
+    resp = data_store.scenario[f"webhook_resp_{name}"]
+    secret = resp["http_config"]["webhook_secret"]
+    verify_hmac_signature(d, secret)
+
+
+@step("Latest delivery to <name> has a valid Ed25519 signature")
+def assert_valid_ed25519_signature(name):
+    d = _targets().get_latest_delivery(name)
+    resp = data_store.scenario[f"webhook_resp_{name}"]
+    public_key_hex = resp["signing_public_key"]
+    verify_ed25519_signature(d, public_key_hex)
 
 
 @step("Latest delivery to <name> body contains key <key>")

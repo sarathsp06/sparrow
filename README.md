@@ -10,38 +10,54 @@
 
 # Sparrow
 
-Self-hosted webhook delivery platform with async fan-out, retries, health tracking, and observability. Built for teams that need reliable outbound webhooks without depending on a third-party service.
+**Self-hosted webhook delivery platform** with async fan-out, retries, health tracking, and observability. Run it when you need dependable outbound webhooks without routing your payloads through a third-party service.
+
+Everything runs against a single PostgreSQL database. Webhook secrets are encrypted at rest, every delivery is signed, and no data leaves the deployment unless you configure an exporter. That makes it a fit for regulated and air-gapped networks as much as for a small internal service.
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
+## Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Use Cases](#use-cases)
+- [Architecture](#architecture)
+- [Security](#security)
+- [Verifying Webhook Signatures](#verifying-webhook-signatures)
+- [Configuration](#configuration)
+- [Deployment](#deployment)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
 
 ## Features
 
 ### Delivery & Reliability
-- **Event-driven fan-out** -- push one event, deliver to all matching subscriptions
-- **At-least-once delivery** -- configurable retries with exponential backoff
-- **Idempotent event ingestion** -- optional idempotency keys to prevent duplicate processing
-- **Per-webhook rate limiting** -- leaky bucket algorithm with HTTP 429 Retry-After parsing
-- **Error classification** -- DNS, TLS, timeout, connection refused, rate limited, and more -- each with retryability flags
-- **Bulk operations** -- deterministic snapshot-based batch re-push and retry (up to 10K items)
+- **Event-driven fan-out:** push one event, deliver it to every matching subscription
+- **At-least-once delivery:** configurable retries with exponential backoff
+- **Idempotent ingestion:** optional idempotency keys stop duplicate processing
+- **Per-webhook rate limiting:** leaky bucket, with HTTP 429 `Retry-After` parsing
+- **Error classification:** DNS, TLS, timeout, connection refused, rate limited, and more, each flagged retryable or not
+- **Bulk operations:** deterministic snapshot-based batch re-push and retry, up to 10K items
 
 ### Security
-- **Dual webhook signing** -- every delivery is signed with both HMAC-SHA256 and Ed25519 ([Standard Webhooks](https://www.standardwebhooks.com/) format)
-- **Envelope encryption at rest** -- AES-256-GCM with per-record data encryption keys for webhook secrets and sensitive headers
-- **SSRF protection** -- blocks private/loopback/metadata IPs, validates redirect targets
-- **Optional API key auth** -- constant-time comparison, HTTP support
+- **Webhook signing:** HMAC-SHA256 on every delivery, plus Ed25519 for webhooks set to `signature_type: ed25519`, both in [Standard Webhooks](https://www.standardwebhooks.com/) format, with verifiers for Go, Python, and TypeScript
+- **Envelope encryption at rest:** AES-256-GCM with per-record data encryption keys for secrets and sensitive headers
+- **SSRF protection:** private, loopback, and metadata IPs are blocked by default, and redirect targets are re-validated
+- **Optional API key auth:** constant-time comparison on the `X-API-Key` header
+- **No surprise egress:** no telemetry or callbacks leave the deployment unless you turn them on
 
 ### Developer Experience
-- **Payload transformation** -- Go templates per subscription with built-in helpers to reshape payloads for different consumers
-- **Soft schema validation** -- warnings not errors; events are always accepted and stored
-- **REST/OpenAPI API** -- versioned REST on `:8080`, interactive docs (Scalar) at `/docs`, spec at `/openapi.yaml`
-- **Web dashboard** -- embedded SvelteKit UI for managing webhooks, events, deliveries, and health
-- **Health tracking** -- per-webhook state machine (healthy/degraded/unhealthy) with rolling summaries
+- **Payload transformation:** per-subscription Go templates with built-in helpers to reshape payloads for each consumer
+- **Soft schema validation:** warnings, not errors; events are always accepted and stored
+- **REST/OpenAPI API:** versioned REST on `:8080`, interactive docs (Scalar) at `/docs`, spec at `/openapi.yaml`
+- **Web dashboard:** embedded SvelteKit UI for webhooks, events, deliveries, and health
+- **Health tracking:** per-webhook state machine (healthy/degraded/unhealthy) with rolling summaries
 
 ### Operations
-- **PostgreSQL only** -- no Redis, no message broker, no external dependencies beyond one database
-- **OpenTelemetry** -- traces, metrics, and structured logs with job-level trace propagation
-- **Helm chart** -- security-hardened Kubernetes deployment (NetworkPolicy, read-only rootfs, non-root, seccomp)
-- **One-click deploy** -- Railway, Docker Compose, or any container platform
+- **PostgreSQL only:** no Redis, no message broker, nothing to run beyond one database
+- **OpenTelemetry:** traces, metrics, and structured logs with job-level trace propagation
+- **Hardened Helm chart:** NetworkPolicy, read-only rootfs, non-root, seccomp
+- **One-click deploy:** Railway, Docker Compose, or any container platform
 
 ## Quick Start
 
@@ -53,6 +69,9 @@ SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32) docker compose up -d
 ```
 
 Open **http://localhost:8080** for the web UI.
+
+> [!IMPORTANT]
+> `SPARROW_ENCRYPTION_KEY` is the master key for everything encrypted at rest. Generate it once with `openssl rand -hex 32`, keep it in your secret manager, and back it up. Lose it and encrypted webhook secrets and headers are gone; leak it and you must rotate the key and re-encrypt.
 
 ### Send your first event
 
@@ -67,13 +86,13 @@ curl -X POST http://localhost:8080/v1/namespaces/default/webhooks \
   -H "Content-Type: application/json" \
   -d '{"url": "https://httpbin.org/post", "events": ["order.created"], "active": true}'
 
-# Push an event -- Sparrow fans out and delivers
+# Push an event; Sparrow fans out and delivers
 curl -X POST "http://localhost:8080/v1/namespaces/default/events?event=order.created" \
   -H "Content-Type: application/json" \
   -d '{"payload": {"order_id": "ord_123", "amount": 99.99}}'
 ```
 
-Check delivery status in the web UI at **Deliveries**, or query the API:
+Check delivery status in the web UI under **Deliveries**, or query the API:
 
 ```bash
 curl "http://localhost:8080/v1/namespaces/default/deliveries?limit=5"
@@ -81,10 +100,10 @@ curl "http://localhost:8080/v1/namespaces/default/deliveries?limit=5"
 
 ## Use Cases
 
-- **SaaS webhook notifications** -- notify customer endpoints when resources change
-- **Internal event bus** -- fan out domain events to downstream services over HTTP
-- **Reliability layer** -- add retries, health tracking, and observability to existing webhook flows
-- **Development and testing** -- inspect deliveries, replay failed events, test payload transforms
+- **SaaS webhook notifications:** tell customer endpoints when a resource changes
+- **Internal event bus:** fan domain events out to downstream services over HTTP
+- **Reliability layer:** add retries, health tracking, and observability to an existing webhook flow
+- **Development and testing:** inspect deliveries, replay failed events, test payload transforms
 
 ## Architecture
 
@@ -99,9 +118,43 @@ PushEvent API
         -> track health per webhook
 ```
 
-Events are persisted before delivery. The [River](https://riverqueue.com) job queue provides at-least-once delivery with configurable retries (default: 3 attempts, 60s backoff). Failures are classified into categories -- retryable (5xx, timeout, connection refused, network error, rate limited) and non-retryable (4xx, DNS, TLS) -- so you know *why* a delivery failed, not just *that* it failed. Every delivery is dual-signed with HMAC-SHA256 and Ed25519 using the [Standard Webhooks](https://www.standardwebhooks.com/) format. Webhook secrets and sensitive headers are envelope-encrypted at rest using AES-256-GCM with per-record data encryption keys.
+Events are persisted before delivery. The [River](https://riverqueue.com) job queue handles at-least-once delivery with configurable retries (default: 3 attempts, 60s backoff). Failures are sorted into retryable categories (5xx, timeout, connection refused, network error, rate limited) and non-retryable ones (4xx, DNS, TLS), so you learn *why* a delivery failed, not just *that* it did. Every delivery is signed with HMAC-SHA256; webhooks set to `signature_type: ed25519` also get an Ed25519 signature, both in [Standard Webhooks](https://www.standardwebhooks.com/) format. Webhook secrets and sensitive headers are envelope-encrypted at rest with AES-256-GCM and per-record data encryption keys.
 
 See [`okf/architecture/overview.md`](okf/architecture/overview.md) for the full pipeline design, error classification, and health state machine.
+
+## Security
+
+Sparrow assumes it runs inside a network you control. The controls below cover data at rest and in transit, outbound network access, and the container runtime.
+
+### Data protection
+- **Encryption at rest:** webhook secrets and sensitive headers are sealed with AES-256-GCM envelope encryption. Each record gets its own data encryption key, wrapped by the master key (`SPARROW_ENCRYPTION_KEY`). See [`okf/concepts/envelope-encryption.md`](okf/concepts/envelope-encryption.md).
+- **Signed deliveries:** every outbound request carries HMAC-SHA256 (and optionally Ed25519) signatures in Standard Webhooks format, so receivers can authenticate the payload and reject replays.
+- **Encryption in transit:** use `sslmode=require` (or stricter) in `DATABASE_URL` and terminate TLS at your ingress. Sparrow never requires plaintext transport.
+
+### Network hardening
+- **SSRF protection:** outbound webhook URLs that resolve to private, loopback, link-local, or cloud-metadata addresses are rejected by default, and redirect targets are re-checked. Set `SPARROW_ALLOW_PRIVATE_NETWORKS=true` only on trusted internal networks.
+- **NetworkPolicy:** the Helm chart restricts ingress to Sparrow and isolates PostgreSQL so only Sparrow pods reach it.
+- **CORS allowlist:** browser origins are denied unless you list them in `CORS_ALLOWED_ORIGINS`.
+
+### Runtime hardening (Helm)
+| Control | Setting |
+|---------|---------|
+| Run as non-root | `runAsNonRoot: true`, `runAsUser: 65532` |
+| Immutable filesystem | `readOnlyRootFilesystem: true` |
+| Drop all Linux capabilities | `capabilities.drop: [ALL]` |
+| No privilege escalation | `allowPrivilegeEscalation: false` |
+| Seccomp | `seccompProfile: RuntimeDefault` |
+| Service account token | `automountServiceAccountToken: false` |
+
+### Access control
+- **Optional API key auth:** set `SPARROW_API_KEY` to require the `X-API-Key` header on every request. Comparison is constant-time. It is a shared secret, not a full identity system, so pair it with network controls.
+- **Small dependency surface:** one PostgreSQL database, no broker or cache. Less to audit, less to attack.
+
+> [!NOTE]
+> Sparrow emits no telemetry by default. Observability data is exported only when you set `OTEL_EXPORTER_OTLP_ENDPOINT`, so it runs in air-gapped and egress-restricted environments.
+
+> [!WARNING]
+> With `SPARROW_API_KEY` unset, the API and dashboard are open to anyone who can reach the port. On shared or internet-facing deployments, set an API key **and** restrict network access.
 
 ## Verifying Webhook Signatures
 
@@ -111,102 +164,80 @@ Every delivery includes three [Standard Webhooks](https://www.standardwebhooks.c
 |--------|---------|
 | `webhook-id` | `msg_abc123-def456` |
 | `webhook-timestamp` | `1716048000` (Unix seconds) |
-| `webhook-signature` | `v1,K7gNU3sdo+OL...` or `v1a,RjB2mN...` |
+| `webhook-signature` | `v1,K7gNU3sdo+OL...` or `v1,K7gN... v1a,RjB2mN...` |
 
-The signed message is always: `{webhook-id}.{webhook-timestamp}.{raw request body}` -- the exact bytes of the JSON body, not re-serialized.
+The signed message is always `{webhook-id}.{webhook-timestamp}.{raw request body}`, using the exact body bytes as received, not re-serialized JSON.
 
-The `webhook-signature` prefix tells you which algorithm was used:
-- `v1,` -- HMAC-SHA256 (symmetric, requires the shared webhook secret)
-- `v1a,` -- Ed25519 (asymmetric, requires only the public key from the API)
+`webhook-signature` holds one or more space-delimited signatures:
 
-### Verifying HMAC-SHA256 (`v1,`)
+- `v1,` is HMAC-SHA256, keyed with the webhook secret. It is present on every delivery (a secret is auto-generated at registration if you don't supply one). Secrets use the Standard Webhooks format `whsec_<base64>`; decode the base64 part to get the raw HMAC key.
+- `v1a,` is Ed25519, present when the webhook's `signature_type` is `ed25519`. Verify it with the hex-encoded public key from the webhook's `signing_public_key` field. No shared secret needed.
 
-```python
-import hmac, hashlib, base64
+Reject any delivery whose `webhook-timestamp` is more than 5 minutes off your clock (replay protection). The helpers below handle the details: secret decoding, multi-signature parsing, constant-time comparison, and the timestamp window.
 
-def verify_hmac(body: bytes, secret: str, headers: dict) -> bool:
-    msg_id = headers["webhook-id"]
-    timestamp = headers["webhook-timestamp"]
-    signature = headers["webhook-signature"]  # "v1,<base64>"
+| Language | Helper |
+|----------|--------|
+| Go | `go get github.com/sarathsp06/sparrow`, then import [`pkg/signature`](pkg/signature/signature.go) |
+| Python | copy [`client/verify/python/sparrow_verify.py`](client/verify/python/sparrow_verify.py) (HMAC is stdlib-only; Ed25519 needs `cryptography`) |
+| TypeScript / JavaScript | copy [`client/verify/js/sparrow-verify.ts`](client/verify/js/sparrow-verify.ts) (Node >= 16 or Bun, `node:crypto` only) |
 
-    # Extract the base64 portion after "v1,"
-    expected_b64 = signature.removeprefix("v1,")
-
-    # Reconstruct the signed message
-    message = f"{msg_id}.{timestamp}.{body.decode()}"
-
-    # Compute HMAC-SHA256
-    computed = hmac.new(secret.encode(), message.encode(), hashlib.sha256).digest()
-    computed_b64 = base64.b64encode(computed).decode()
-
-    return hmac.compare_digest(computed_b64, expected_b64)
-```
+### Go
 
 ```go
-func VerifyHMAC(body []byte, secret, msgID, timestamp, signatureHeader string) bool {
-    // Extract "v1,<base64>" -> "<base64>"
-    b64Sig, _ := strings.CutPrefix(signatureHeader, "v1,")
+import "github.com/sarathsp06/sparrow/pkg/signature"
 
-    message := msgID + "." + timestamp + "." + string(body)
-    mac := hmac.New(sha256.New, []byte(secret))
-    mac.Write([]byte(message))
-    expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+func handler(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
 
-    return hmac.Equal([]byte(expected), []byte(b64Sig))
+	if err := signature.VerifyHMAC(body, r.Header, secret); err != nil {
+		http.Error(w, "invalid signature", http.StatusUnauthorized)
+		return
+	}
+	// or, with only the webhook's signing_public_key (hex):
+	// err := signature.VerifyEd25519(body, r.Header, publicKeyHex)
 }
 ```
 
-### Verifying Ed25519 (`v1a,`)
-
-The public key is returned in the `signing_public_key` field when you register or retrieve a webhook.
+### Python
 
 ```python
-import base64
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from sparrow_verify import verify_hmac, verify_ed25519, SignatureVerificationError
 
-def verify_ed25519(body: bytes, public_key_b64: str, headers: dict) -> bool:
-    msg_id = headers["webhook-id"]
-    timestamp = headers["webhook-timestamp"]
-    signature = headers["webhook-signature"]  # "v1a,<base64>"
-
-    sig_bytes = base64.b64decode(signature.removeprefix("v1a,"))
-    pub_key = Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key_b64))
-
-    message = f"{msg_id}.{timestamp}.{body.decode()}".encode()
-
-    try:
-        pub_key.verify(sig_bytes, message)
-        return True
-    except Exception:
-        return False
+try:
+    verify_hmac(raw_body, request.headers, secret)  # v1, shared secret
+    # verify_ed25519(raw_body, request.headers, public_key_hex)  # v1a, public key only
+except SignatureVerificationError:
+    return Response(status=401)
 ```
 
-```go
-func VerifyEd25519(body []byte, publicKeyB64, msgID, timestamp, signatureHeader string) bool {
-    b64Sig, _ := strings.CutPrefix(signatureHeader, "v1a,")
-    sig, _ := base64.StdEncoding.DecodeString(b64Sig)
-    pubKey, _ := base64.StdEncoding.DecodeString(publicKeyB64)
+### TypeScript / JavaScript
 
-    message := []byte(msgID + "." + timestamp + "." + string(body))
-    return ed25519.Verify(ed25519.PublicKey(pubKey), message, sig)
+```ts
+import { verifyHmac, verifyEd25519, SignatureVerificationError } from "./sparrow-verify";
+
+try {
+  verifyHmac(rawBody, req.headers, secret);  // v1, shared secret
+  // verifyEd25519(rawBody, req.headers, publicKeyHex);  // v1a, public key only
+} catch (err) {
+  res.status(401).end();
 }
 ```
 
-### Replay Protection
-
-Always validate the `webhook-timestamp` header to prevent replay attacks. Reject deliveries where the timestamp is more than 5 minutes from your server's current time.
+Rolling your own? The rules that matter: sign-check the raw body bytes; base64-decode the part of the secret after `whsec_` for the HMAC key; hex-decode `signing_public_key` for Ed25519; split `webhook-signature` on spaces and check every entry with a matching prefix; compare digests in constant time; enforce the timestamp window.
 
 ## Configuration
 
-All configuration is via environment variables:
+All configuration is through environment variables.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DATABASE_URL` | Yes | -- | PostgreSQL connection string |
+| `DATABASE_URL` | Yes | — | PostgreSQL connection string. Use `sslmode=require` (or stricter) in production |
+| `SPARROW_ENCRYPTION_KEY` | Yes | — | 64-char hex (32-byte) master key for envelope encryption. Generate with `openssl rand -hex 32` |
+| `SPARROW_API_KEY` | No | — | Require this key in the `X-API-Key` header (constant-time comparison) |
 | `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard |
-| `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header |
-| `SPARROW_ENCRYPTION_KEY` | Yes | -- | 64-char hex key for envelope encryption of secrets. Generate with `openssl rand -hex 32` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP endpoint for traces/metrics/logs |
+| `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow private/loopback IPs as webhook targets (disables the SSRF guard) |
+| `CORS_ALLOWED_ORIGINS` | No | — | Comma-separated allowlist of browser origins |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | — | OTLP endpoint for traces/metrics/logs (nothing is exported when unset) |
 
 See [`okf/config/env-vars.md`](okf/config/env-vars.md) for the full list.
 
@@ -216,7 +247,7 @@ See [`okf/config/env-vars.md`](okf/config/env-vars.md) for the full list.
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
-Deploy Sparrow + PostgreSQL on Railway with zero infrastructure -- click the button, set `SPARROW_ENCRYPTION_KEY` (generate with `openssl rand -hex 32`), and deploy.
+Deploy Sparrow and PostgreSQL on Railway with no infrastructure to manage: click the button, set `SPARROW_ENCRYPTION_KEY` (generate with `openssl rand -hex 32`), and deploy.
 
 ### Docker
 
@@ -226,28 +257,31 @@ Pre-built multi-arch images (linux/amd64, linux/arm64) are published on every re
 docker pull ghcr.io/sarathsp06/sparrow:latest
 ```
 
-See [`deploy/docker-compose.yml`](deploy/docker-compose.yml) for the full example (Postgres + Sparrow, health-checked startup).
+See [`deploy/docker-compose.yml`](deploy/docker-compose.yml) for the full example (Postgres plus Sparrow, health-checked startup).
 
 ### Kubernetes
 
-A Helm chart is included at [`charts/sparrow/`](charts/sparrow/):
+The Helm chart at [`charts/sparrow/`](charts/sparrow/) ships hardened defaults: non-root, read-only root filesystem, dropped capabilities, seccomp, NetworkPolicy isolation, and no auto-mounted service-account token (details under [Security](#runtime-hardening-helm)).
 
 ```bash
 helm install sparrow charts/sparrow/ \
-  --set secrets.databaseURL="postgres://user:pass@your-db:5432/sparrow?sslmode=require"
+  --set secrets.databaseURL="postgres://user:pass@your-db:5432/sparrow?sslmode=require" \
+  --set secrets.existingSecret="sparrow-secrets"   # pull encryption key + API key from your secret manager
 ```
 
-See [`charts/sparrow/values.yaml`](charts/sparrow/values.yaml) for all chart values and defaults.
+See [`charts/sparrow/values.yaml`](charts/sparrow/values.yaml) for every value and default, and [`okf/devops/helm-chart.md`](okf/devops/helm-chart.md) for the hardening reference.
 
 ## Documentation
 
-API reference is served live by the running server: interactive docs at `/docs` (powered by
-[Scalar](https://github.com/scalar/scalar)), the OpenAPI document at `/openapi.yaml` and
+The running server serves its own API reference: interactive docs at `/docs` (powered by
+[Scalar](https://github.com/scalar/scalar)) and the OpenAPI document at `/openapi.yaml` and
 `/openapi.json`. The contract is generated from Go via [Huma](https://github.com/danielgtaylor/huma).
+
+The [`okf/`](okf/) knowledge bundle covers the architecture, concepts, data model, and operational details in depth.
 
 ## Contributing
 
-Contributions are welcome. Please open an issue to discuss larger changes before submitting a PR.
+Contributions are welcome. Open an issue to discuss larger changes before sending a PR.
 
 ```bash
 git clone https://github.com/sarathsp06/sparrow.git
@@ -271,10 +305,9 @@ git push origin main --tags
 
 Notes:
 - Use Conventional Commit prefixes (`feat:`, `fix:`, `docs:`, etc.) for clean autogenerated release notes.
-- If a tag already exists remotely, create the next version tag and push that tag instead.
+- If a tag already exists remotely, create the next version tag and push that one instead.
 
-See [`okf/architecture/overview.md`](okf/architecture/overview.md) for the package structure and dependency graph.
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor workflow.
+See [`okf/architecture/overview.md`](okf/architecture/overview.md) for the package structure and dependency graph, and [CONTRIBUTING.md](CONTRIBUTING.md) for the full contributor workflow.
 
 ## License
 

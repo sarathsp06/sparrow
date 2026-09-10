@@ -83,6 +83,25 @@ func (s *WebhookService) WebhookSigningPublicKeyHex(encryptedPrivKey []byte) str
 	return hex.EncodeToString(pubKey)
 }
 
+// generateEncryptedEd25519Key generates a new Ed25519 keypair and returns the
+// envelope-encrypted private key for storage. The public key is derived from
+// the private key at runtime (see WebhookSigningPublicKeyHex).
+// Returns nil if encryption is not configured.
+func (s *WebhookService) generateEncryptedEd25519Key() ([]byte, error) {
+	if s.crypto == nil || !s.crypto.Enabled() {
+		return nil, nil
+	}
+	_, privKey, err := ed25519.GenerateKey(nil) // crypto/rand by default
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate Ed25519 keypair: %w", err)
+	}
+	encPrivKey, err := s.crypto.EncryptString(string(privKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to encrypt Ed25519 private key: %w", err)
+	}
+	return encPrivKey, nil
+}
+
 // generateWebhookSecret generates a new cryptographically random secret
 // in Standard Webhooks format: "whsec_" prefix + base64 encoded entropy.
 func generateWebhookSecret() (string, error) {

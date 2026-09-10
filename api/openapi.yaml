@@ -1299,13 +1299,13 @@ components:
           description: Encrypted secret header names, with values always masked.
           type: object
         signature_type:
-          description: Which signature algorithm (hmac or ed25519) is treated as authoritative. Every delivery is always dual-signed with both.
+          description: Signing scheme. "hmac" (default) signs every delivery with HMAC-SHA256 (v1,); "ed25519" adds an Ed25519 signature (v1a,) alongside the HMAC one.
           enum:
             - hmac
             - ed25519
           type: string
         signing_public_key:
-          description: Ed25519 public key for verifying the v1a, delivery signature. Safe to expose; there is no private-key equivalent to mask.
+          description: Hex-encoded Ed25519 public key for verifying the v1a, delivery signature. Safe to expose; there is no private-key equivalent to mask.
           type: string
         updated_at:
           description: Last-modified timestamp, RFC3339.

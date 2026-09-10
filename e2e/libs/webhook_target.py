@@ -19,6 +19,7 @@ from werkzeug.serving import make_server
 @dataclass
 class CapturedDelivery:
     body: dict | str
+    raw_body: str
     headers: dict
     timestamp: float
     method: str
@@ -47,13 +48,15 @@ class _Target:
             self._request_count += 1
             count = self._request_count
 
+        raw_body = flask_request.get_data(as_text=True)
         try:
-            body = flask_request.get_json(force=True)
+            body = json.loads(raw_body)
         except Exception:
-            body = flask_request.get_data(as_text=True)
+            body = raw_body
 
         delivery = CapturedDelivery(
             body=body,
+            raw_body=raw_body,
             headers=dict(flask_request.headers),
             timestamp=time.time(),
             method=flask_request.method,
@@ -149,7 +152,7 @@ class WebhookTargetManager:
             if not target.deliveries:
                 raise ValueError(f"No deliveries for target '{name}'")
             d = target.deliveries[-1]
-            return {"body": d.body, "headers": d.headers, "timestamp": d.timestamp}
+            return {"body": d.body, "raw_body": d.raw_body, "headers": d.headers, "timestamp": d.timestamp}
 
     def switch_behavior(self, name: str, new_behavior: str):
         self._targets[name].switch_behavior(new_behavior)

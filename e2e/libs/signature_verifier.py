@@ -12,6 +12,19 @@ from nacl.signing import VerifyKey
 from nacl.exceptions import BadSignatureError
 
 
+def _signed_body(delivery: dict) -> str:
+    """Return the exact body bytes (as text) that Sparrow signed.
+
+    Standard Webhooks signs the raw request body, not re-serialized JSON, so we
+    must use the bytes captured off the wire when available.
+    """
+    raw = delivery.get("raw_body")
+    if raw is not None:
+        return raw
+    body = delivery["body"]
+    return body if isinstance(body, str) else json.dumps(body, separators=(",", ":"))
+
+
 def verify_hmac_signature(delivery: dict, secret: str):
     """Verify HMAC-SHA256 signature (v1, prefix)."""
     headers = delivery["headers"]
@@ -31,7 +44,7 @@ def verify_hmac_signature(delivery: dict, secret: str):
     if not v1_sig:
         raise AssertionError(f"No v1, signature found in: {signature_header}")
 
-    body_str = delivery["body"] if isinstance(delivery["body"], str) else json.dumps(delivery["body"], separators=(",", ":"))
+    body_str = _signed_body(delivery)
     message = f"{msg_id}.{timestamp}.{body_str}"
 
     secret_clean = secret.replace("whsec_", "")
@@ -44,7 +57,7 @@ def verify_hmac_signature(delivery: dict, secret: str):
         raise AssertionError(f"HMAC signature mismatch. Expected={expected_b64}, Got={v1_sig}")
 
 
-def verify_ed25519_signature(delivery: dict, public_key_b64: str):
+def verify_ed25519_signature(delivery: dict, public_key_hex: str):
     """Verify Ed25519 signature (v1a, prefix)."""
     headers = delivery["headers"]
     msg_id = headers.get("Webhook-Id", headers.get("webhook-id", ""))
@@ -63,10 +76,10 @@ def verify_ed25519_signature(delivery: dict, public_key_b64: str):
     if not v1a_sig:
         raise AssertionError(f"No v1a, signature found in: {signature_header}")
 
-    body_str = delivery["body"] if isinstance(delivery["body"], str) else json.dumps(delivery["body"], separators=(",", ":"))
+    body_str = _signed_body(delivery)
     message = f"{msg_id}.{timestamp}.{body_str}".encode()
 
-    public_key_bytes = base64.b64decode(public_key_b64)
+    public_key_bytes = bytes.fromhex(public_key_hex)
     verify_key = VerifyKey(public_key_bytes)
     signature_bytes = base64.b64decode(v1a_sig)
 

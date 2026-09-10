@@ -177,7 +177,7 @@ func registerWebhookRoutes(api huma.API, d *Deps) {
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to register webhook")
 		}
-		return &webhookOutput{Body: toWebhookOutFromDomain(reg)}, nil
+		return &webhookOutput{Body: toWebhookOutFromDomain(reg, d.Svc)}, nil
 	})
 
 	huma.Register(api, huma.Operation{

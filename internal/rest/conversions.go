@@ -105,8 +105,8 @@ type WebhookOut struct {
 	Description      string               `json:"description,omitempty" doc:"Human-readable note about this webhook."`
 	Health           string               `json:"health" enum:"healthy,degraded,unhealthy,unknown" doc:"Computed rolling health status."`
 	SecretHeaders    map[string]string    `json:"secret_headers,omitempty" doc:"Encrypted secret header names, with values always masked."`
-	SigningPublicKey string               `json:"signing_public_key,omitempty" doc:"Ed25519 public key for verifying the v1a, delivery signature. Safe to expose; there is no private-key equivalent to mask."`
-	SignatureType    string               `json:"signature_type" enum:"hmac,ed25519" doc:"Which signature algorithm (hmac or ed25519) is treated as authoritative. Every delivery is always dual-signed with both."`
+	SigningPublicKey string               `json:"signing_public_key,omitempty" doc:"Hex-encoded Ed25519 public key for verifying the v1a, delivery signature. Safe to expose; there is no private-key equivalent to mask."`
+	SignatureType    string               `json:"signature_type" enum:"hmac,ed25519" doc:"Signing scheme. \"hmac\" (default) signs every delivery with HMAC-SHA256 (v1,); \"ed25519\" adds an Ed25519 signature (v1a,) alongside the HMAC one."`
 	HTTPConfig       WebhookHTTPConfigOut `json:"http_config" doc:"Per-webhook HTTP delivery configuration."`
 	CreatedAt        string               `json:"created_at" doc:"Creation timestamp, RFC3339."`
 	UpdatedAt        string               `json:"updated_at" doc:"Last-modified timestamp, RFC3339."`
@@ -149,7 +149,7 @@ func toWebhookOut(reg *store.WebhookRegistration, events []string, svc webhooks.
 
 // toWebhookOutFromDomain converts the webhooks-package WebhookRegistration
 // (returned fresh at creation time, secret shown once) into the REST shape.
-func toWebhookOutFromDomain(reg *webhooks.WebhookRegistration) WebhookOut {
+func toWebhookOutFromDomain(reg *webhooks.WebhookRegistration, svc webhooks.WebhookServiceInterface) WebhookOut {
 	codes := make([]int32, len(reg.HTTPConfig.ExpectedStatusCodes))
 	for i, c := range reg.HTTPConfig.ExpectedStatusCodes {
 		codes[i] = int32(c)
@@ -162,7 +162,8 @@ func toWebhookOutFromDomain(reg *webhooks.WebhookRegistration) WebhookOut {
 		Active:        reg.Active,
 		Description:   reg.Description,
 		Health:        reg.Health,
-		SignatureType: reg.SignatureType,
+		SignatureType:    reg.SignatureType,
+		SigningPublicKey: svc.WebhookSigningPublicKeyHex(reg.Ed25519EncryptedPrivateKey),
 		HTTPConfig: WebhookHTTPConfigOut{
 			MaxRetries:            reg.HTTPConfig.MaxRetries,
 			RetryBackoffSeconds:   reg.HTTPConfig.RetryBackoffSeconds,

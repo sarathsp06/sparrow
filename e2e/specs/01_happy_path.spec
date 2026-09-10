@@ -21,4 +21,15 @@ Push one event and all three receive it with valid signatures.
 * Target "shippo" should have received "1" deliveries
 * Target "slack" should have received "1" deliveries
 * Latest delivery to "stripe" has signature headers
+* Latest delivery to "stripe" has a valid HMAC signature
 * API should show "3" deliveries in current namespace
+
+## Ed25519-Configured Webhook Receives A Valid Ed25519 Signature
+* Create namespace "happy-path-ed25519"
+* Start target "coinbase"
+* Register event type "order.created"
+* Register webhook "coinbase" in current namespace subscribed to "order.created" with signature type "ed25519"
+* Push event "order.created" with payload "{\"order_id\": \"ord-9920\", \"amount\": 7.5}"
+* Wait for "coinbase" to receive "1" deliveries
+* Latest delivery to "coinbase" has a valid HMAC signature
+* Latest delivery to "coinbase" has a valid Ed25519 signature

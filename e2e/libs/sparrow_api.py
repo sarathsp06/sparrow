@@ -31,6 +31,9 @@ from sparrow_client.api.deliveries import (  # noqa: E402
 )
 from sparrow_client.models.event_type_body import EventTypeBody  # noqa: E402
 from sparrow_client.models.register_webhook_body import RegisterWebhookBody  # noqa: E402
+from sparrow_client.models.register_webhook_body_signature_type import (  # noqa: E402
+    RegisterWebhookBodySignatureType,
+)
 from sparrow_client.models.webhook_http_config import WebhookHTTPConfig  # noqa: E402
 from sparrow_client.models.create_subscription_body import CreateSubscriptionBody  # noqa: E402
 from sparrow_client.models.push_event_body import PushEventBody  # noqa: E402
@@ -71,13 +74,16 @@ class SparrowAPI:
         return _to_dict(resp.parsed)
 
     def register_webhook(self, namespace: str, url: str, *events: str,
-                          max_retries: int = 3, request_timeout: int = 10) -> dict:
+                          max_retries: int = 3, request_timeout: int = 10,
+                          signature_type: str | None = None) -> dict:
         http_config = WebhookHTTPConfig(
             max_retries=max_retries,
             request_timeout_seconds=request_timeout,
             capture_response_body=True,
         )
         body = RegisterWebhookBody(events=list(events), url=url, active=True, http_config=http_config)
+        if signature_type:
+            body.signature_type = RegisterWebhookBodySignatureType(signature_type)
         resp = register_webhook.sync_detailed(namespace=namespace, client=self.client, body=body)
         return _to_dict(resp.parsed)
 

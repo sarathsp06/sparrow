@@ -6,6 +6,7 @@ This directory contains **generated** client SDKs derived from the committed Ope
 
 > **Note:** All files under `python/` (and any future `go/`, `js/` targets) are auto-generated.
 > Do not edit them manually. Regenerate with: `make generate`.
+> The exception is `verify/`, which is hand-written and NOT regenerated.
 
 ## Python
 
@@ -38,3 +39,14 @@ resp = register_webhook.sync_detailed(
 Not yet generated in this change — see the OpenSpec change
 `rewamp-interface-to-rest-openapi` for the tracked follow-up. `api/openapi.yaml` is the source;
 any OpenAPI 3.1-compatible generator (`openapi-generator`, `oapi-codegen`, `openapi-typescript`) works.
+
+## Signature verification helpers (`verify/`, hand-written)
+
+Standalone, dependency-light verifiers for Sparrow's Standard Webhooks delivery signatures
+(`v1,` HMAC-SHA256 and `v1a,` Ed25519), meant to be copied or vendored into consumer projects:
+
+- `verify/python/sparrow_verify.py` -- HMAC is stdlib-only; Ed25519 needs `cryptography`.
+- `verify/js/sparrow-verify.ts` -- Node >= 16 or Bun, `node:crypto` only.
+- Go consumers import `github.com/sarathsp06/sparrow/pkg/signature` instead.
+
+Usage examples live in the top-level README under "Verifying Webhook Signatures".

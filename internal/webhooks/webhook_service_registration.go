@@ -2,7 +2,6 @@ package webhooks
 
 import (
 	"context"
-	"crypto/ed25519"
 	"fmt"
 	"slices"
 	"strings"
@@ -295,14 +294,10 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 
 	// Generate Ed25519 keypair only when signature_type is "ed25519".
 	// The private key is envelope-encrypted and stored; the public key is derived at runtime.
-	if sigType == store.SignatureTypeEd25519 && s.crypto != nil && s.crypto.Enabled() {
-		_, privKey, err := ed25519.GenerateKey(nil) // crypto/rand by default
+	if sigType == store.SignatureTypeEd25519 {
+		encPrivKey, err := s.generateEncryptedEd25519Key()
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate Ed25519 keypair: %w", err)
-		}
-		encPrivKey, err := s.crypto.EncryptString(string(privKey))
-		if err != nil {
-			return nil, fmt.Errorf("failed to encrypt Ed25519 private key: %w", err)
+			return nil, err
 		}
 		storeWebhook.Ed25519PrivateKey = encPrivKey
 	}
@@ -652,17 +647,11 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		webhook.SignatureType = newSigType
 		// Generate Ed25519 keypair when switching to ed25519
 		if newSigType == store.SignatureTypeEd25519 && oldSigType != store.SignatureTypeEd25519 {
-			if s.crypto != nil && s.crypto.Enabled() {
-				_, privKey, err := ed25519.GenerateKey(nil)
-				if err != nil {
-					return fmt.Errorf("failed to generate Ed25519 keypair: %w", err)
-				}
-				encPrivKey, err := s.crypto.EncryptString(string(privKey))
-				if err != nil {
-					return fmt.Errorf("failed to encrypt Ed25519 private key: %w", err)
-				}
-				webhook.Ed25519PrivateKey = encPrivKey
+			encPrivKey, err := s.generateEncryptedEd25519Key()
+			if err != nil {
+				return err
 			}
+			webhook.Ed25519PrivateKey = encPrivKey
 		}
 		// Clear Ed25519 key when switching away from ed25519
 		if newSigType == store.SignatureTypeHMAC && oldSigType == store.SignatureTypeEd25519 {
