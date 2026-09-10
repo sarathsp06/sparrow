@@ -71,6 +71,8 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         <span class="sp-hero-meta-item">Go + PostgreSQL</span>
         <span class="sp-hero-meta-sep"></span>
         <span class="sp-hero-meta-item">OpenAPI 3.1</span>
+        <span class="sp-hero-meta-sep"></span>
+        <span class="sp-hero-meta-item"><a href={`${base}llms.txt`}>llms.txt</a></span>
       </div>
     </div>
   </section>
@@ -428,6 +430,16 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 .sp-hero-meta-item {
   font-size: 13px; font-weight: 500; color: var(--sp-text-muted);
   letter-spacing: 0.01em;
+}
+.sp-hero-meta-item a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--sp-border-hover);
+  text-underline-offset: 3px;
+}
+.sp-hero-meta-item a:hover {
+  color: var(--sp-text);
+  text-decoration-color: currentColor;
 }
 .sp-hero-meta-sep {
   width: 3px; height: 3px; border-radius: 50%;
