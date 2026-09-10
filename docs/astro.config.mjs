@@ -59,6 +59,17 @@ export default defineConfig({
       components: {
         Footer: './src/components/Footer.astro',
       },
+      head: [
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'alternate',
+            type: 'text/markdown',
+            href: '/sparrow/llms.txt',
+            title: 'llms.txt',
+          },
+        },
+      ],
       customCss: ['./src/styles/custom.css'],
       expressiveCode: {
         themes: ['github-light', 'github-dark'],

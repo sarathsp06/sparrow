@@ -1,0 +1,1959 @@
+# Sparrow
+
+> Self-hosted webhook delivery platform written in Go: push events over a REST API, Sparrow fans out to matching subscriptions (with optional Go-template payload transforms and label filters) and delivers signed HTTP webhooks with exponential-backoff retries, per-webhook health tracking, 10-category error classification, and OpenTelemetry observability. Single binary + PostgreSQL — no Redis, no message broker (the River job queue runs inside PostgreSQL).
+
+Key facts for integrators:
+
+- Base URL: `http://<host>:8080`, all endpoints under `/v1`. OpenAPI 3.1 spec served live at `/openapi.yaml` and `/openapi.json`; interactive docs at `/docs`.
+- Auth is optional: if `SPARROW_API_KEY` is set, send it in the `X-API-Key` header on every request. When unset, all endpoints are open (intended for internal/VPN deployments).
+- Namespaced resources live under `/v1/namespaces/{namespace}/...`; the `default` namespace always exists. Event types are global (`/v1/event-types`) and act as a schema registry — only registered, active event types can be pushed.
+- Push is async: `POST /v1/namespaces/{ns}/events?event=<type>` with `{"payload":{...},"idempotency_key":"..."}` returns immediately; fan-out and delivery happen in background River workers. Delivery is at-least-once.
+- Deliveries are signed per Standard Webhooks: headers `webhook-id`, `webhook-timestamp`, `webhook-signature` (`v1,` = HMAC-SHA256 with the `whsec_` secret; `v1a,` = Ed25519 with the webhook's `signing_public_key`). Signed message is `{id}.{timestamp}.{raw body}`; reject timestamps older than 5 minutes.
+- Retry behavior: retryable failures (5xx, timeout, connection refused, network errors, 429 with `Retry-After`) back off as `retry_backoff_seconds * 2^(attempt-1) + jitter` until success, `max_retries` exhausted (`FAILED`), or the event's `ttl_seconds` expires (`EXPIRED`). Non-retryable failures (4xx, DNS, TLS, unexpected status) fail immediately.
+- Webhook secrets and secret headers are envelope-encrypted at rest (AES-256-GCM); `SPARROW_ENCRYPTION_KEY` (64-char hex, `openssl rand -hex 32`) is required at startup. Event payloads are stored in plaintext JSONB.
+
+Core endpoints (all JSON):
+
+- `POST /v1/event-types` — register an event type (`{"name","description","active"}`)
+- `POST /v1/namespaces/{ns}/webhooks` — register a webhook (`{"url","events":[...],"active"}`); subscriptions are created automatically and a `whsec_` secret is returned once
+- `POST /v1/namespaces/{ns}/events?event=<type>` — push an event; supports idempotency keys
+- `GET /v1/namespaces/{ns}/deliveries` — list deliveries; `GET .../deliveries/{id}/attempts` for per-attempt status, response, and error category
+- `POST /v1/namespaces/{ns}/deliveries/{id}:retry` — retry one delivery; `:retryBatch` and `events:rePush` for bulk (up to 10K)
+- `POST /v1/namespaces/{ns}/webhooks/{id}:pause` / `:resume` — pause/resume delivery
+- `GET /v1/namespaces/{ns}/webhooks/{id}/health`, `GET /v1/health-summary`, `GET /v1/stats` — health state machine (healthy → degraded → unhealthy), 24h error breakdown, metrics
+- `POST /v1/subscriptions:testTemplate` — dry-run a payload transform template
+
+## Getting started
+
+<doc title="Why Sparrow" path="getting-started/why-sparrow.mdx">
+Sparrow is a self-hosted webhook delivery platform built for teams that want full control over their webhook infrastructure. No per-message pricing, no vendor lock-in, no external dependencies beyond PostgreSQL.
+
+Sparrow is MIT-licensed, and all core features are available in the open-source codebase (including envelope encryption, webhook signing, retries, and health tracking).
+
+## What Sparrow Gives You
+
+<CardGrid>
+  <Card title="Production-Grade Delivery" icon="rocket">
+    At-least-once delivery with exponential backoff, 10-category error classification, per-webhook health tracking (healthy/degraded/unhealthy state machine), and automatic retry logic that distinguishes retryable failures from permanent ones.
+  </Card>
+  <Card title="Cryptographic Signing" icon="approve-check">
+    Every delivery is dual-signed with both HMAC-SHA256 and Ed25519 using the [Standard Webhooks](https://www.standardwebhooks.com/) format. Consumers choose which signature to verify. Per-webhook keypairs are generated automatically.
+  </Card>
+  <Card title="Encryption at Rest" icon="seti:lock">
+    Webhook secrets, signing keys, and sensitive headers are envelope-encrypted with AES-256-GCM and per-record data encryption keys. Not just "encrypted in the database" -- actual envelope encryption with key hierarchy.
+  </Card>
+  <Card title="Zero External Dependencies" icon="setting">
+    PostgreSQL is the only infrastructure requirement. No Redis, no message broker, no object storage. The [River](https://riverqueue.com) job queue runs inside PostgreSQL. One database to back up, monitor, and scale.
+  </Card>
+</CardGrid>
+
+## Feature Comparison
+
+### Sparrow vs the Landscape
+
+The table below compares Sparrow with the main alternatives for webhook delivery: [Svix](https://www.svix.com/) (open-source + cloud), [Convoy](https://getconvoy.io/) (open-source), [Hookdeck](https://hookdeck.com/) (SaaS platform with open-source Outpost agent), [AWS SNS](https://aws.amazon.com/sns/) (managed), and building it yourself (DIY).
+
+<Aside type="note" title="Comparison scope">
+  Third-party capabilities and packaging can change over time. Treat this table as directional and verify critical details against each vendor's latest docs.
+</Aside>
+
+| Capability | Sparrow | Svix | Convoy | Hookdeck | AWS SNS | DIY |
+|-----------|---------|------|--------|----------|---------|-----|
+| **Fully open source (MIT)** | Yes | Partial (OSS core, paid features) | Yes (MPL-2.0) | Partial (Outpost OSS, core platform closed) | No | Yes |
+| **Self-hosted** | Yes | Yes | Yes | Partial (Outpost self-hosted, platform SaaS) | No (Managed) | Yes |
+| **No vendor per-message pricing (self-hosted)** | Yes (self-hosted; infra only) | No | Yes (OSS self-hosted) | No | No | Yes (your infra only) |
+| **Infra complexity (core deps)** | PostgreSQL only | PostgreSQL + Redis | PostgreSQL + Redis (or Mongo + Redis) | SaaS | Managed | Varies |
+| **Job queue backend** | PostgreSQL (River) | Redis-backed queue/workers | Background workers + Redis | Managed | Managed | Varies |
+| **Webhook signing** | Dual HMAC-SHA256 + Ed25519 | HMAC-SHA256 | HMAC-SHA256 | HMAC-SHA256 | X.509 signature (not HMAC) | Manual |
+| **Security model for secrets** | Envelope encryption with per-record DEKs | Encrypted at rest (service-managed keys) | Deployment-dependent (no built-in envelope hierarchy) | Vendor-managed encryption | Vendor-managed encryption | Manual |
+| **Payload transformation** | Go templates per subscription (50+ functions) | Varies by edition/plan | Yes (JS transform) | Yes (JS transform) | No | Manual |
+| **Per-webhook rate limiting** | Leaky bucket (DB-backed) | Available (details vary) | Yes | Yes | Regional quotas | Manual |
+| **Delivery semantics** | At-least-once + explicit idempotency model | At-least-once + retries | At-least-once + retries | At-least-once + replay | At-least-once | Varies |
+| **Delivery health model** | State machine (healthy/degraded/unhealthy) | Endpoint status | Circuit breaker | Dashboard metrics | CloudWatch | Manual |
+| **Error classification** | 10 protocol-aware categories with retryability flags | Basic status and error reporting | Success/failure | Categorized | CloudWatch | Manual |
+| **Bulk retry/re-push** | Deterministic snapshot-based (up to 10K) | Not in OSS | Manual retry | UI retry | No | Manual |
+| **Idempotent ingestion** | Built-in dedup with idempotency keys | Application-level (no OSS ingest dedup) | Event IDs | Dedup available | Message dedup (5min) | Manual |
+| **REST / OpenAPI API** | Yes (OpenAPI 3.1 spec) | Yes (REST) | Yes (REST) | Yes (REST) | No | Manual |
+| **Web dashboard** | Embedded SvelteKit | Included | Included | Included | Console | No |
+| **Tracing & metrics** | OpenTelemetry (traces + metrics + logs, job-level propagation) | Logging | Prometheus metrics | Dashboard | CloudWatch | Manual |
+| **SSRF protection** | Built-in (private IPs, redirects) | Built-in controls (plus proxy best practices) | Built-in controls / IP filtering | Managed | N/A | Manual |
+| **Client SDKs** | 3 (Go, Python, TypeScript) | Broad coverage | Multiple | Multiple | All AWS SDKs | 0 |
+| **Consumer app portal** | No | Yes (embeddable) | No | No | No | No |
+| **Multi-region / HA story** | PostgreSQL-native HA + stateless workers | Vendor/infra-managed | Vendor/infra-managed | Vendor-managed | Global managed service | Manual |
+| **Multi-tenant SaaS mode** | No (single-tenant focus) | Yes | Yes | Yes | Yes | Manual |
+
+### Detailed Comparison: Sparrow vs Svix
+
+Since Svix is the closest competitor architecturally, here's a deeper look:
+
+| Capability | Sparrow | Svix OSS |
+|-----------|---------|----------|
+| **Event schema validation** | Soft validation (warnings, never rejects) | JSON Schema (hard reject) |
+| **Namespace isolation** | Built-in logical separation | Application-level |
+| **API protocol** | REST/HTTP on :8080 (OpenAPI 3.1 spec) | REST API only |
+| **Helm chart** | Security-hardened (NetworkPolicy, seccomp, read-only rootfs) | Available |
+| **Container image** | Distroless (~15MB), non-root | Standard |
+
+### Where Sparrow is stronger
+
+- **Operational simplicity** -- one database, one binary, no Redis. Fewer moving parts means fewer failure modes in production.
+- **Cryptographic depth** -- dual signing (HMAC + Ed25519) and real envelope encryption are production security features that most webhook platforms skip or gate behind paid tiers.
+- **Payload transformation** -- Go template transforms per subscription let you reshape payloads for different consumers (Slack, PagerDuty, custom formats) without proxy layers. Available to all users, not a paid feature.
+- **Error intelligence** -- 10 error categories with retryability classification. You know *why* a delivery failed (DNS resolution? TLS handshake? Rate limited? Connection refused?), not just *that* it failed.
+- **Bulk operations** -- snapshot-based batch re-push and retry with deterministic execution. What you filter is exactly what gets retried -- no race conditions from new data arriving between search and action.
+- **Observability** -- full OpenTelemetry integration with trace propagation through the job queue. Trace a single event from ingestion through fan-out to every delivery attempt.
+- **Idempotency** -- built-in deduplication on event ingestion prevents double-processing without application-level workarounds.
+- **Rate limiting** -- per-webhook delivery rate limiting with leaky bucket and HTTP 429 Retry-After parsing, all backed by PostgreSQL (no Redis).
+- **No Redis** -- Sparrow uses PostgreSQL for everything including job queuing (via River). This keeps operational complexity lower for teams that want fewer infrastructure dependencies.
+
+### Where alternatives are stronger
+
+- **Client SDK breadth** -- Sparrow ships 3 generated SDKs today. Some alternatives provide broader first-party SDK coverage.
+- **Consumer app portal** -- Sparrow's UI is admin-only. If you need an embeddable end-user portal, evaluate alternatives that provide one.
+- **Multi-tenant SaaS mode** -- Svix, Convoy, and Hookdeck are designed for SaaS platforms where each customer manages their own webhooks. Sparrow is designed for teams running their own infrastructure.
+- **Managed cloud offering** -- Svix Cloud and Hookdeck handle infrastructure for you. Sparrow is self-hosted only.
+- **JavaScript transforms** -- Convoy and Hookdeck use JavaScript for payload transformation, which may be more familiar to web developers than Go templates.
+- **Ecosystem maturity** -- alternatives may offer larger ecosystems and more prebuilt integrations depending on your requirements.
+
+### Important nuance
+
+- **Hookdeck OSS scope** -- Hookdeck Outpost is open source and can be self-hosted, while Hookdeck's core platform remains SaaS.
+- **Comparison drift** -- vendor plans and packaging change frequently; verify critical buying decisions against current vendor docs.
+
+## Deployment Flexibility
+
+Sparrow runs anywhere you can run a container and connect to PostgreSQL:
+
+- **One-click deploy** on [Railway](https://railway.com/deploy/KzfSI3)
+- **Docker Compose** for local development and small deployments
+- **Kubernetes** with the included Helm chart (security-hardened: NetworkPolicy, read-only rootfs, non-root, seccomp, capabilities dropped)
+- **Any container platform** -- the distroless image is ~15MB with zero OS-level attack surface
+</doc>
+
+<doc title="Installation" path="getting-started/installation.mdx">
+## One-Click Deploy
+
+Deploy Sparrow to Railway with a managed PostgreSQL database -- no Docker or Kubernetes needed:
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
+## Docker Compose (Recommended)
+
+The simplest way to run Sparrow. No need to clone the repo:
+
+```bash
+curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
+SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32) docker compose up -d
+```
+
+The server is available at:
+
+| Endpoint | URL |
+|----------|-----|
+| Web UI | http://localhost:8080 |
+| REST API | http://localhost:8080 |
+
+To stop:
+
+```bash
+docker compose down        # stop containers
+docker compose down -v     # stop and delete data
+```
+
+## Build from Source
+
+### Prerequisites
+
+- Go 1.26+
+- Node.js 22+ (for web UI)
+- PostgreSQL 15+
+
+### Build
+
+<Tabs>
+  <TabItem label="With UI">
+    ```bash
+    make build-with-ui
+    ```
+  </TabItem>
+  <TabItem label="Server Only">
+    ```bash
+    make build
+    ```
+  </TabItem>
+</Tabs>
+
+### Run
+
+```bash
+export DATABASE_URL=postgres://user:pass@localhost:5432/sparrow?sslmode=disable
+
+# Run migrations
+make migrate
+
+# Start the server with UI
+SPARROW_SERVE_UI=true ./build/server-*
+```
+
+## Pre-built Binaries
+
+Cross-compiled binaries are available for:
+
+- `linux/amd64`
+- `linux/arm64`
+- `darwin/amd64`
+- `darwin/arm64`
+- `windows/amd64`
+
+Build them all with:
+
+```bash
+make build-all
+```
+
+## Docker Image
+
+Pre-built multi-arch images (linux/amd64, linux/arm64) are published to GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/sarathsp06/sparrow:latest
+```
+
+The Dockerfile uses a 3-stage build:
+1. **Frontend** (`node:22-alpine`): Builds the SvelteKit UI
+2. **Backend** (`golang:1.26-alpine`): Compiles Go binaries with embedded UI
+3. **Runtime** (`distroless/static-debian12:nonroot`): Minimal production image
+</doc>
+
+<doc title="Quickstart" path="getting-started/quickstart.mdx">
+This guide walks you through registering a webhook, pushing an event, and verifying delivery -- all using `curl`.
+
+:::note
+All examples use `http://localhost:8080` (REST/HTTP API). Replace with your server URL in production.
+:::
+
+<Steps>
+
+1. **Register an event type**
+
+    ```bash
+    curl -X POST http://localhost:8080/v1/event-types \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: sk_live_..." \
+      -d '{
+        "name": "order.created",
+        "description": "Fires when a new order is placed",
+        "active": true
+      }'
+    ```
+
+2. **Register a webhook**
+
+    ```bash
+    curl -X POST http://localhost:8080/v1/namespaces/default/webhooks \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: sk_live_..." \
+      -d '{
+        "url": "https://testhooks.sarathsadasivan.com/hooks",
+        "events": ["order.created"],
+        "active": true
+      }'
+    ```
+
+    Save the `webhookId` from the response for later use.
+
+3. **Push an event**
+
+    ```bash
+    curl -X POST http://localhost:8080/v1/namespaces/default/events \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: sk_live_..." \
+      -d '{
+        "payload": {
+          "order_id": "ord_123",
+          "customer": "alice@example.com",
+          "total": 49.99
+        },
+        "idempotency_key": "idem_ord_123",
+        "ttl_seconds": 3600
+      }'
+    ```
+
+4. **Check delivery status**
+
+    ```bash
+    curl "http://localhost:8080/v1/namespaces/default/deliveries?webhook_id=YOUR_WEBHOOK_ID&limit=10" \
+      -H "X-API-Key: sk_live_..."
+    ```
+
+</Steps>
+
+## What Just Happened?
+
+1. Sparrow stored the event and enqueued it for async processing
+2. The event worker found the matching subscription (created automatically when you registered the webhook with `events`)
+3. A delivery job was created and the webhook worker sent an HTTP POST to your URL
+4. The delivery status, response code, and response body were recorded
+
+## Next Steps
+
+- [Learn how events, webhooks, and deliveries fit together](/sparrow/getting-started/how-it-works/)
+- [Configure webhook secrets](/sparrow/reference/architecture/#verifying-webhook-signatures) for HMAC signature verification
+- [Add payload transforms](/sparrow/reference/template-functions/) using Go templates
+- Generate a client from the OpenAPI spec — see [Client Libraries](/sparrow/reference/client-libraries/)
+</doc>
+
+<doc title="Configuration" path="getting-started/configuration.md">
+All configuration is done via environment variables. No config files needed.
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | -- | PostgreSQL connection string |
+| `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard on the HTTP port |
+| `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests |
+| `SPARROW_ENCRYPTION_KEY` | Yes | -- | 64-char hex key (32 bytes) for envelope encryption of webhook secrets and headers. Generate with `openssl rand -hex 32` |
+| `SPARROW_HTTP_PORT` | No | `8080` | HTTP listen port for the REST/OpenAPI API (also serves the web UI) |
+| `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private IP addresses as webhook URLs. Enable for local development and testing |
+| `ENVIRONMENT` | No | -- | `development` or `production` (affects logging/OTel) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
+| `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of allowed CORS origins (e.g. `https://ui.example.com,https://admin.example.com`). Required when the UI is hosted separately from the API. In production (`ENVIRONMENT=production`), cross-origin requests are blocked by default; in development, all origins are allowed. |
+
+### Frontend Development Variables
+
+These variables are used only when running the SvelteKit web UI in development mode (`npm run dev`). They are **not** part of the Go server configuration.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PUBLIC_API_URL` | `/` | API base URL for the frontend dev server to proxy requests |
+
+## Encryption
+
+Sparrow encrypts webhook secrets and sensitive headers at rest using **envelope encryption** (AES-256-GCM). Each record gets its own random data encryption key (DEK), which is wrapped by the master key encryption key (KEK).
+
+### Key Management
+
+The encryption key is provided via the `SPARROW_ENCRYPTION_KEY` environment variable (64-char hex string = 32 bytes). The server will not start without it.
+
+The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager, Kubernetes Secret, or `.env` file to provide the key:
+
+```bash
+# Generate a key
+openssl rand -hex 32
+
+# Set it
+export SPARROW_ENCRYPTION_KEY=your-64-char-hex-key
+```
+
+### What Gets Encrypted
+
+| Field | Stored As | Encrypted |
+|-------|-----------|-----------|
+| `webhook_secret` | BYTEA | Yes (envelope) |
+| `secret_headers` | BYTEA | Yes (envelope) |
+| Event payloads | JSONB | No (plaintext) |
+| Delivery responses | TEXT | No (plaintext) |
+
+### Backward Compatibility
+
+Existing data encrypted with the previous direct AES-256-GCM format is automatically detected and decrypted. New writes always use envelope encryption.
+
+## Database Pools
+
+Sparrow uses two connection pools:
+
+| Pool | Library | Config | Purpose |
+|------|---------|--------|---------|
+| sqlx | `jmoiron/sqlx` | MaxOpen=25 | All application queries |
+| pgxpool | `jackc/pgx/v5` | MaxConns=50, MinConns=10, 30min lifetime | River job queue only |
+
+## Observability
+
+Sparrow exports traces, metrics, and logs via OpenTelemetry (OTLP). Set `OTEL_EXPORTER_OTLP_ENDPOINT` to point to your collector:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4318
+```
+
+### Exported Metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `webhook_registrations` | Counter | Total webhook registrations |
+| `events_pushed` | Counter | Total events pushed |
+| `webhook_deliveries` | Counter | Deliveries by status |
+| `delivery_duration` | Histogram | Delivery response time |
+| `queue_depth` | Gauge | Pending jobs per queue |
+| `active_webhooks` | Gauge | Currently active webhooks |
+
+## Default Tenant
+
+A default tenant (`00000000-0000-0000-0000-000000000001`) is auto-created on startup. All operations use this tenant. The tenant infrastructure is retained for future multi-tenant support.
+
+Authentication is optional -- set `SPARROW_API_KEY` to require a shared secret on all API requests. When unset, all endpoints are open (designed for internal deployments behind a VPN).
+</doc>
+
+<doc title="How It Works" path="getting-started/how-it-works.mdx">
+Sparrow accepts webhook registrations and event definitions, fans out events to matching subscribers, and delivers them reliably with retries and health tracking.
+
+## The Full Flow
+
+<Steps>
+
+1. **Register an event type** — tell Sparrow what events exist in your system.
+
+2. **Register a webhook** — provide a URL and the events it should receive. Sparrow creates subscriptions automatically.
+
+3. **Push an event** — when something happens, send the event payload to Sparrow:
+
+    ```bash
+    curl -X POST http://localhost:8080/v1/namespaces/default/events \
+      -H "Content-Type: application/json" \
+      -H "X-API-Key: sk_live_..." \
+      -d '{
+        "payload": {"order_id": "ord_123", "total": 49.99},
+        "idempotency_key": "idem_ord_123"
+      }'
+    ```
+
+4. **Sparrow fans out** — the event worker finds all active subscriptions matching the event name, namespace, and **label filters**, applies any payload transforms, and creates a delivery job for each.
+
+5. **Webhook delivery** — the webhook worker sends an HTTP POST to each URL with the payload, **Standard Webhooks signatures** (HMAC and/or Ed25519), and Sparrow headers. Failed deliveries are retried with exponential backoff.
+
+6. **Track results** — query delivery status, health metrics, and error categories through the API or the web UI.
+
+</Steps>
+
+```
+Push Event ──→ Event Worker ──→ Find Subscriptions ──→ Create Deliveries
+                                                            │
+                                                            v
+                                                     Webhook Worker
+                                                       │        │
+                                                    Success    Failure
+                                                       │        │
+                                                    Record    Retry with
+                                                    result    backoff
+```
+
+## Core Concepts
+
+### Events
+
+An **event** represents something that happened in your system — `order.created`, `user.signed_up`, `payment.failed`, etc. Before you can push events, you register their types with Sparrow:
+
+```bash
+curl -X POST http://localhost:8080/v1/event-types \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_..." \
+  -d '{"name": "order.created", "description": "Fires when a new order is placed", "active": true}'
+```
+
+Event registrations act as a schema registry. Only registered, active event types can be pushed.
+
+### Webhooks
+
+A **webhook** is a registered HTTP endpoint that receives event notifications. When you register a webhook, you provide a URL and optionally a secret for HMAC signature verification:
+
+```bash
+curl -X POST http://localhost:8080/v1/namespaces/default/webhooks \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_..." \
+  -d '{
+    "url": "https://your-app.com/webhooks",
+    "events": ["order.created"],
+    "active": true
+  }'
+```
+
+When you include `events` during registration, Sparrow automatically creates subscriptions linking that webhook to those event types.
+
+### Subscriptions
+
+A **subscription** connects a webhook to an event type. It controls which events a webhook receives and can optionally transform the payload using Go templates.
+
+Subscriptions are created automatically when you register a webhook with `events`, but you can also manage them explicitly:
+
+```bash
+curl -X POST http://localhost:8080/v1/namespaces/default/subscriptions \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_..." \
+  -d '{
+    "webhook_id": "YOUR_WEBHOOK_ID",
+    "event_name": "order.created"
+  }'
+```
+
+You can enable payload transforms on a subscription to reshape the event payload before delivery — useful for adapting events to third-party formats like Slack or PagerDuty.
+
+### Deliveries
+
+A **delivery** is a single attempt (or series of retry attempts) to send an event payload to a webhook URL. Sparrow tracks every delivery with:
+
+- HTTP status code and response body
+- Response time
+- Error classification (timeout, DNS, TLS, connection refused, etc.)
+- Retry count and next attempt time
+
+## Key Design Decisions
+
+- **Async by default** — the push-event endpoint (`POST /v1/namespaces/{namespace}/events`) returns immediately. Processing and delivery happen in background workers via a persistent job queue (River).
+- **At-least-once delivery** — retryable failures (server errors, timeouts, connection issues, rate limiting) are automatically retried. Non-retryable failures (DNS errors, TLS errors, 4xx responses) are recorded and not retried.
+- **Per-webhook health tracking** — Sparrow monitors consecutive failures, success rates, and response times for each webhook independently, with a state machine (healthy → degraded → unhealthy).
+- **Dual cryptographic signing** — every delivery is signed with both HMAC-SHA256 and Ed25519 using the [Standard Webhooks](https://www.standardwebhooks.com/) format. Consumers choose which signature to verify.
+- **10-category error classification** — failures are classified into specific categories (DNS, TLS, timeout, connection refused, rate limited, client error, server error, etc.) with retryability flags, so you know *why* a delivery failed.
+- **PostgreSQL only** — no Redis, no message broker. The River job queue runs inside PostgreSQL, keeping the operational footprint to a single database.
+- **Namespaces** — webhooks and events are organized into namespaces for logical separation (e.g., `billing`, `notifications`). A `default` namespace is always available.
+- **Soft schema validation** — event schemas produce warnings, not errors. Events are always accepted and stored, with a `schema_valid` flag for filtering.
+</doc>
+
+## Deployment
+
+<doc title="Docker Compose Deployment" path="deployment/docker-compose.md">
+The simplest way to run Sparrow. No need to clone the repo -- download the compose file and start it.
+
+## Quick Start
+
+```bash
+curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
+SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32) docker compose up -d
+```
+
+The server is available at:
+- **Web UI:** http://localhost:8080
+- **REST API:** http://localhost:8080/v1
+
+To stop:
+
+```bash
+docker compose down        # stop containers
+docker compose down -v     # stop and delete data
+```
+
+## Docker Image
+
+Pre-built multi-arch images (linux/amd64, linux/arm64) are published to GitHub Container Registry on every release:
+
+```bash
+docker pull ghcr.io/sarathsp06/sparrow:latest
+```
+
+You can also pin to a specific version:
+
+```bash
+docker pull ghcr.io/sarathsp06/sparrow:0.2.0
+```
+
+## Development (Build from Source)
+
+The repo contains a `docker-compose.dev.yml` that builds from source. This is useful for development:
+
+```bash
+git clone https://github.com/sarathsp06/sparrow.git
+cd sparrow
+docker compose -f docker-compose.dev.yml up -d
+```
+
+Or build without Docker:
+
+```bash
+make build-with-ui
+export DATABASE_URL=postgres://user:pass@localhost:5432/sparrow?sslmode=disable
+make migrate
+SPARROW_SERVE_UI=true ./build/server-*
+```
+
+## Observability
+
+Sparrow exports traces, metrics, and logs via OpenTelemetry (OTLP). Set `OTEL_EXPORTER_OTLP_ENDPOINT` to point to your collector:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4318
+```
+</doc>
+
+<doc title="Kubernetes Deployment" path="deployment/kubernetes.md">
+Sparrow ships a Helm chart at [`charts/sparrow/`](https://github.com/sarathsp06/sparrow/tree/main/charts/sparrow) for Kubernetes deployments.
+
+**Prerequisites:** Helm 3, kubectl, and a running Kubernetes cluster.
+
+## What You Get
+
+With default values, `helm install` creates:
+
+- A **Deployment** running 1 Sparrow pod (stateless, safe to scale)
+- A **ClusterIP Service** exposing HTTP (`:8080`)
+- A **ConfigMap** with application settings
+- A **Secret** with `DATABASE_URL` and `SPARROW_ENCRYPTION_KEY`
+- Liveness (`/health`) and readiness (`/ready`) probes
+- Hardened security context (nonroot, read-only fs, all capabilities dropped)
+
+Optional resources created when enabled: Ingress, HPA, PodDisruptionBudget, ServiceAccount, and a bundled PostgreSQL StatefulSet.
+
+## Install with External Database
+
+The expected production setup. You provide your own PostgreSQL:
+
+```bash
+helm install sparrow charts/sparrow/ \
+  --set secrets.databaseURL="postgres://user:pass@your-db:5432/sparrow?sslmode=require"
+```
+
+Sparrow runs migrations on startup automatically -- no separate migration step needed.
+
+## Install with Bundled PostgreSQL
+
+For evaluation and development. Deploys a single-replica PostgreSQL StatefulSet with a 10Gi PVC:
+
+```bash
+helm install sparrow charts/sparrow/ \
+  --set postgresql.enabled=true
+```
+
+When `postgresql.enabled=true` and `secrets.databaseURL` is empty, the connection string is auto-constructed from `postgresql.auth.*` values.
+
+:::note
+The bundled PostgreSQL is not recommended for production. Use a managed database (RDS, Cloud SQL, etc.) or your own HA deployment.
+:::
+
+## Local End-to-End with k3d
+
+A complete walkthrough: create a local cluster, install Sparrow with bundled PostgreSQL, and verify the full event-to-delivery flow.
+
+### 1. Create cluster
+
+```bash
+# Install k3d if needed: https://k3d.io
+k3d cluster create sparrow-dev -p "8080:80@loadbalancer"
+```
+
+This maps `localhost:8080` to the k3d Traefik ingress on port 80.
+
+### 2. Build and load the image
+
+```bash
+make docker-build
+k3d image import ghcr.io/sarathsp06/sparrow:latest -c sparrow-dev
+```
+
+### 3. Install the chart
+
+```bash
+helm install sparrow charts/sparrow/ \
+  --set postgresql.enabled=true \
+  --set image.repository=ghcr.io/sarathsp06/sparrow \
+  --set image.tag=latest \
+  --set image.pullPolicy=Never \
+  --set ingress.enabled=true \
+  --set ingress.hosts[0].host="" \
+  --set ingress.hosts[0].paths[0].path=/ \
+  --set ingress.hosts[0].paths[0].pathType=Prefix
+```
+
+Setting `ingress.hosts[0].host=""` creates an Ingress that matches all hostnames, so `localhost:8080` routes through Traefik to the Sparrow service.
+
+### 4. Wait for pods
+
+```bash
+kubectl get pods -w
+```
+
+Wait until the sparrow pod is `Running` and `1/1` ready. The PostgreSQL StatefulSet starts first, then Sparrow's init container waits for it before the main container starts.
+
+### 5. Verify
+
+```bash
+# Health check
+curl -s http://localhost:8080/health | jq .
+
+# Register an event type
+curl -s -X POST http://localhost:8080/v1/event-types \
+  -H "Content-Type: application/json" \
+  -d '{"name":"order.created","description":"New order","active":true}'
+
+# Register a webhook
+curl -s -X POST http://localhost:8080/v1/namespaces/default/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://testhooks.sarathsadasivan.com/hooks","events":["order.created"],"active":true}'
+
+# Push an event
+curl -s -X POST http://localhost:8080/v1/namespaces/default/events \
+  -H "Content-Type: application/json" \
+  -d '{"payload":{"order_id":"ord_k8s_001","amount":42.00}}'
+
+# Check deliveries
+curl -s http://localhost:8080/v1/namespaces/default/deliveries | jq '.deliveries[0].status'
+```
+
+### 6. Open the web UI
+
+The embedded dashboard is served at `http://localhost:8080/` by default (`sparrow.serveUI: "true"`).
+
+### 7. Cleanup
+
+```bash
+helm uninstall sparrow
+k3d cluster delete sparrow-dev
+```
+
+## Configuration
+
+All chart values are documented with comments in [`values.yaml`](https://github.com/sarathsp06/sparrow/blob/main/charts/sparrow/values.yaml). Key areas:
+
+**`image.*`** -- Container image, tag, pull policy.
+
+**`secrets.databaseURL`** -- PostgreSQL connection string. Required when `postgresql.enabled=false`. When using an existing Kubernetes Secret, set `secrets.existingSecret` instead -- it must contain `DATABASE_URL` and `SPARROW_ENCRYPTION_KEY` keys.
+
+**`secrets.encryptionKey`** -- 64-char hex key for envelope encryption of webhook secrets and headers. Generate with `openssl rand -hex 32`. Required -- the server will not start without it.
+
+**`sparrow.extraEnv`** -- Inject arbitrary environment variables. Use this for OpenTelemetry, feature flags, or any env var Sparrow supports:
+
+```yaml
+sparrow:
+  extraEnv:
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://otel-collector.observability:4318"
+```
+
+**`postgresql.*`** -- Bundled PostgreSQL. Off by default. Enable with `postgresql.enabled: true`.
+
+**`ingress.*`** -- Ingress resource. Off by default. Set `ingress.enabled: true` and configure `hosts` and optionally `tls`.
+
+**`autoscaling.*`** -- HPA. Off by default. Set `autoscaling.enabled: true`. A PodDisruptionBudget is auto-created when multiple replicas are running.
+
+**`resources.*`** -- CPU/memory requests and limits for the Sparrow container. Defaults: 100m/128Mi requests, 500m/512Mi limits.
+
+## Using a Values File
+
+For anything beyond a quick test, use a values file:
+
+```yaml title="values-prod.yaml"
+image:
+  tag: "1.0.0"
+
+secrets:
+  existingSecret: sparrow-prod-creds
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: sparrow.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: sparrow-tls
+      hosts:
+        - sparrow.example.com
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+sparrow:
+  extraEnv:
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://otel-collector.observability:4318"
+```
+
+```bash
+helm install sparrow charts/sparrow/ -f values-prod.yaml
+```
+
+## Security
+
+The chart applies a hardened security context by default:
+
+- Sparrow runs as nonroot (UID 65532, matching the distroless image), read-only root filesystem, all capabilities dropped, `RuntimeDefault` seccomp profile.
+- Bundled PostgreSQL runs as UID 999 (the `postgres` user in the alpine image) with `RuntimeDefault` seccomp.
+- Init containers are resource-limited and run with the same restrictions.
+
+## Health and Disruption Budget
+
+Probes are configured automatically. Liveness hits `/health` (checks DB + queue, returns 503 on failure). Readiness hits `/ready` (always 200).
+
+A `PodDisruptionBudget` (`maxUnavailable: 1`) is created automatically when `replicaCount > 1` or `autoscaling.enabled=true`.
+
+## Observability
+
+OTel export is **off by default**. Set `OTEL_EXPORTER_OTLP_ENDPOINT` via `sparrow.extraEnv` to enable traces, metrics, and logs export. The chart does not deploy an OTel Collector -- point the endpoint at your existing collector.
+
+## Makefile Targets
+
+```bash
+make docker-build      # Build Docker image locally
+make docker-push       # Push to ghcr.io
+make helm-lint         # Lint the chart
+make helm-template     # Dry-run render (external DB)
+make helm-template-pg  # Dry-run render (bundled PG)
+make helm-package      # Package into build/sparrow-*.tgz
+```
+
+## Releases
+
+On every git tag (`v*`), the release workflow builds cross-platform binaries, packages the Helm chart, pushes a multi-arch Docker image to `ghcr.io/sarathsp06/sparrow`, and creates a GitHub Release with all artifacts.
+</doc>
+
+<doc title="Railway Deployment" path="deployment/railway.md">
+Deploy Sparrow to [Railway](https://railway.com) with a managed PostgreSQL database. Railway handles the build, deploy, and TLS -- no Docker or Kubernetes needed.
+
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic)
+
+## Setup
+
+### 1. Create a new project
+
+Go to [railway.com/new](https://railway.com/new) and create a new project.
+
+### 2. Add PostgreSQL
+
+Click **+ New** and add a **PostgreSQL** database. Railway provisions it instantly and exposes the connection string as `DATABASE_URL`.
+
+### 3. Deploy Sparrow
+
+Click **+ New** > **GitHub Repo** and select your fork of `sarathsp06/sparrow` (or use the Docker image `ghcr.io/sarathsp06/sparrow:latest`).
+
+### 4. Set environment variables
+
+Add these variables to the Sparrow service:
+
+| Variable | Value |
+|----------|-------|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (Railway reference variable) |
+| `SPARROW_SERVE_UI` | `true` |
+| `SPARROW_API_KEY` | *(optional)* use `${{secret(32)}}` to auto-generate |
+
+Railway automatically injects `DATABASE_URL` when you link the PostgreSQL service using a reference variable.
+
+### 5. Expose the service
+
+Go to **Settings** > **Networking** and enable **Public Networking**. Railway assigns an HTTPS domain like `sparrow-production-xxxx.up.railway.app`.
+
+## How It Works
+
+The repository includes a `railway.toml` that configures the build and deploy:
+
+```toml title="railway.toml"
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "/app/server"
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+```
+
+- **Builder** -- Uses the multi-stage Dockerfile (Node frontend build, Go binary build, distroless final image)
+- **Health check** -- Railway monitors `/health` and restarts the service if it becomes unhealthy
+- **Restart policy** -- Automatically restarts on crash, up to 5 retries
+
+Sparrow runs migrations on startup automatically -- no separate migration step or pre-deploy command needed.
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | -- | PostgreSQL connection string (auto-set via Railway reference variable) |
+| `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard |
+| `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests |
+| `SPARROW_ENCRYPTION_KEY` | Yes | -- | 64-char hex key for envelope encryption of secrets. Generate with `openssl rand -hex 32` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP endpoint for traces, metrics, and logs |
+
+## Using the Docker Image Directly
+
+Instead of building from source, you can deploy the pre-built image:
+
+1. Add a new service, choose **Docker Image**
+2. Enter `ghcr.io/sarathsp06/sparrow:latest`
+3. Set the environment variables above
+
+This skips the build step entirely and deploys in seconds.
+
+## Ports
+
+Sparrow exposes a single port:
+
+| Port | Protocol | Purpose |
+|------|----------|---------|
+| `8080` | HTTP | Web UI + REST API |
+
+Railway's public networking exposes this HTTP port by default.
+
+## Observability
+
+Railway provides built-in logging. For traces and metrics, set `OTEL_EXPORTER_OTLP_ENDPOINT` to your collector:
+
+```
+OTEL_EXPORTER_OTLP_ENDPOINT=https://your-otel-collector:4318
+```
+</doc>
+
+## Reference
+
+<doc title="Architecture" path="reference/architecture.mdx">
+## Overview
+
+<ThemeDiagram
+  light={systemOverviewLight}
+  dark={systemOverviewDark}
+  alt="System overview diagram showing the Sparrow architecture: your application pushes events via HTTP REST to the API, which stores events in PostgreSQL and enqueues them. EventWorker fans out to matching subscriptions, WebhookWorker delivers via HTTP POST with HMAC signing, and the embedded SvelteKit UI reads and writes through the same REST API."
+/>
+
+See the [Layered Architecture](/sparrow/reference/layered-architecture/)
+page for an interactive diagram of the request path through middleware,
+services, storage, and queue workers.
+
+### Tech Stack
+
+- **Backend** -- Go 1.26
+- **Database** -- PostgreSQL 15
+- **Job Queue** -- River (Postgres-based)
+- **API** -- REST/HTTP on `:8080` (Huma-based)
+- **API Spec** -- OpenAPI 3.1, committed at `api/openapi.yaml`
+- **Web UI** -- SvelteKit 2 + Svelte 5 (Runes) + TypeScript + Tailwind CSS 4 (embedded static build)
+- **Observability** -- OpenTelemetry (traces, metrics, logs via OTLP)
+- **DB Access** -- pgx/v5 + sqlx (OTel-instrumented)
+- **Container** -- Multi-stage Dockerfile (distroless nonroot)
+
+### REST API
+
+Sparrow exposes a single HTTP REST server on `:8080`, built with [Huma](https://huma.rocks/). All endpoints live under the `/v1` base path and are described by an OpenAPI 3.1 spec committed at `api/openapi.yaml` (also `api/openapi.json`), generated from the Go REST definitions in `internal/rest`.
+
+The API covers events, webhooks, subscriptions, deliveries, event types, and health. Namespace-scoped resources use `/v1/namespaces/{namespace}/...` paths (for example, `GET /v1/namespaces/{namespace}/stats` for namespace stats).
+
+See the [API Reference](/sparrow/reference/api/) for the full endpoint list.
+
+---
+
+## Event Processing Pipeline
+
+```
+POST /v1/namespaces/{namespace}/events
+    │
+    v
+Events REST handler (internal/rest)
+    │  1. If idempotency key provided, check for existing event (dedup)
+    │  2. Validate payload against registered event schema
+    │  3. Insert event_record (with optional idempotency_key)
+    │  4. Enqueue EventArgs job (River, "events" queue)
+    v
+EventProcessingWorker.Work()
+    │  1. Load event from DB
+    │  2. Query matching subscriptions (tenant_id + namespace + event_name + labels)
+    │  3. For each subscription: apply Go template transform (if enabled)
+    │  4. Batch-insert all webhook_delivery records (single multi-row INSERT)
+    │  5. Batch-enqueue all WebhookArgs jobs (River InsertMany)
+    v
+WebhookWorker.Work()
+    │  1. Load delivery from DB
+    │  2. Check for rate limit availability (Leaky Bucket via PostgreSQL)
+    │  3. HTTP POST to webhook URL (with headers, Standard Webhooks signing, timeout)
+    │  4. Record delivery_attempt
+    │  5. Update delivery status (success/failed/retrying)
+    │  6. Update webhook_health_events + webhook_health_state
+    │  7. If failed + retries remaining: re-enqueue with backoff
+    v
+Target URL receives webhook payload
+```
+
+---
+
+## Health State Machine
+
+Event-sourced health calculation with a 24-hour lookback window:
+
+<ThemeDiagram
+  light={healthStateMachineLight}
+  dark={healthStateMachineDark}
+  alt="Health state machine diagram showing transitions between unknown, healthy, degraded, and unhealthy states based on success rates and consecutive failures, with a 24-hour inactivity timeout back to unknown."
+/>
+
+**How it works:**
+1. Each delivery outcome is recorded as a health event
+2. Health state is atomically upserted (tracks consecutive failures, last success/failure timestamps)
+3. Webhook health status is recalculated and persisted
+4. Hourly aggregation computes per-webhook summaries (p95 response time, error category breakdown)
+
+---
+
+## HTTP Client Design
+
+A centralized, OTel-instrumented HTTP client (`internal/webhooks/client/`):
+
+- **Connection pooling**: 100 max idle connections, 10 per host, 90s idle timeout
+- **Signing**: Support for both HMAC-SHA256 and Ed25519 using [Standard Webhooks](https://www.standardwebhooks.com/) format.
+- **Leaky Bucket**: Per-webhook rate limiting implemented via atomic PostgreSQL `UPDATE` statements. Workers "snooze" jobs when rate limits are hit.
+- **Template engine**: Go `text/template` with LRU cache (100 entries, SHA-256 keyed), ~50 built-in helper functions (json, base64, urlencode, string manipulation, etc.)
+- **Object pooling**: `sync.Pool` for `bytes.Buffer`, `[]byte` slices, and header maps to reduce GC pressure
+- **Header merging**: Subscription-level headers override webhook-level defaults
+- **In-process metrics**: Lock-free atomic counters for request totals, error categories, cache hit rates, and response time statistics
+
+### Default Webhook Body
+
+Every webhook delivery sends a JSON envelope with snake_case field names:
+
+```json
+{
+  "version": "1",
+  "event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "event_name": "user.created",
+  "namespace": "billing",
+  "webhook_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "delivery_id": "d-123",
+  "timestamp": "2026-03-17T10:30:00Z",
+  "attempt": 1,
+  "payload": {
+    "user_id": "u-123",
+    "email": "alice@example.com"
+  }
+}
+```
+
+- `version` -- Envelope schema version (currently `"1"`).
+- `event_id` -- UUID of the event that triggered this delivery.
+- `event_name` -- The event type (e.g. `user.created`, `order.paid`).
+- `namespace` -- Namespace the event belongs to.
+- `webhook_id` -- UUID of the webhook registration receiving this delivery.
+- `delivery_id` -- UUID of this specific delivery attempt.
+- `timestamp` -- ISO 8601 / RFC 3339 timestamp of when the delivery was sent.
+- `attempt` -- Delivery attempt number (1 = first attempt, 2+ = retries).
+- `payload` -- The original event payload as submitted by the producer.
+
+When a subscription has `transform_enabled = true` and a `transform_template`, the template output replaces the entire body.
+
+### HTTP Headers
+
+Every webhook delivery includes these headers:
+
+- `Content-Type: application/json`
+- `User-Agent: Sparrow-Webhook/0.1.2`
+- `X-Sparrow-Event-ID` -- Same as `event_id` in the body.
+- `X-Sparrow-Delivery-ID` -- Same as `delivery_id` in the body.
+- `X-Sparrow-Webhook-ID` -- Same as `webhook_id` in the body.
+- `webhook-id` -- Standard Webhooks message ID (`msg_<delivery_id>`). Only present when `webhook_secret` is set.
+- `webhook-timestamp` -- Unix epoch seconds. Only present when `webhook_secret` is set.
+- `webhook-signature` -- Space-delimited signatures (see below). Only present when `webhook_secret` is set.
+
+Custom headers configured on the webhook or subscription are merged in, with subscription-level headers overriding webhook-level defaults.
+
+### Verifying Webhook Signatures
+
+When a `webhook_secret` is configured, Sparrow signs every delivery using the [Standard Webhooks](https://github.com/standard-webhooks/standard-webhooks) specification.
+
+**Signature format:**
+
+Sparrow sets three headers: `webhook-id`, `webhook-timestamp`, and `webhook-signature`.
+
+- The signed message is: `{webhook-id}.{timestamp}.{raw_body}`
+- **HMAC-SHA256** signatures are prefixed with `v1,` and base64-encoded.
+- **Ed25519** signatures are prefixed with `v1a,` and base64-encoded.
+- Multiple signatures are space-delimited in the `webhook-signature` header.
+
+**Verification steps (HMAC):**
+
+1. Read the raw request body bytes (before any JSON parsing).
+2. Extract the `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers.
+3. **Reject stale timestamps.** If the difference exceeds your tolerance (e.g. 5 minutes), reject the request.
+4. Reconstruct the signed message: `webhook_id + "." + timestamp + "." + raw_body`.
+5. Compute `HMAC-SHA256(message, webhook_secret)` and base64-encode the result.
+6. Find the `v1,` prefixed signature in the `webhook-signature` header and **use constant-time comparison**.
+
+**Example: Go**
+
+```go
+import (
+    "crypto/hmac"
+    "crypto/sha256"
+    "crypto/subtle"
+    "encoding/base64"
+    "fmt"
+    "io"
+    "math"
+    "net/http"
+    "strconv"
+    "strings"
+    "time"
+)
+
+func VerifyWebhook(r *http.Request, secret string) error {
+    body, err := io.ReadAll(r.Body)
+    if err != nil {
+        return fmt.Errorf("failed to read body: %w", err)
+    }
+
+    msgID := r.Header.Get("webhook-id")
+    timestamp := r.Header.Get("webhook-timestamp")
+    signatures := r.Header.Get("webhook-signature")
+    if msgID == "" || timestamp == "" || signatures == "" {
+        return fmt.Errorf("missing signature headers")
+    }
+
+    ts, err := strconv.ParseInt(timestamp, 10, 64)
+    if err != nil {
+        return fmt.Errorf("invalid timestamp: %w", err)
+    }
+    if math.Abs(float64(time.Now().Unix()-ts)) > 300 {
+        return fmt.Errorf("timestamp too old, possible replay attack")
+    }
+
+    message := msgID + "." + timestamp + "." + string(body)
+    mac := hmac.New(sha256.New, []byte(secret))
+    mac.Write([]byte(message))
+    expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+
+    for _, sig := range strings.Split(signatures, " ") {
+        if strings.HasPrefix(sig, "v1,") {
+            actual := strings.TrimPrefix(sig, "v1,")
+            if subtle.ConstantTimeCompare([]byte(expected), []byte(actual)) == 1 {
+                return nil
+            }
+        }
+    }
+    return fmt.Errorf("signature mismatch")
+}
+```
+
+**Example: Node.js**
+
+```javascript
+const crypto = require("crypto");
+
+function verifyWebhook(rawBody, headers, secret) {
+  const msgId = headers["webhook-id"];
+  const timestamp = headers["webhook-timestamp"];
+  const signatures = headers["webhook-signature"];
+
+  const age = Math.abs(Date.now() / 1000 - parseInt(timestamp, 10));
+  if (age > 300) throw new Error("Timestamp too old");
+
+  const message = `${msgId}.${timestamp}.${rawBody}`;
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(message)
+    .digest("base64");
+
+  const verified = signatures.split(" ").some((sig) => {
+    if (!sig.startsWith("v1,")) return false;
+    const actual = sig.slice(3);
+    return crypto.timingSafeEqual(
+      Buffer.from(expected),
+      Buffer.from(actual)
+    );
+  });
+
+  if (!verified) throw new Error("Signature mismatch");
+}
+```
+
+**Example: Python**
+
+```python
+import base64, hashlib, hmac, time
+
+def verify_webhook(raw_body: bytes, headers: dict, secret: str):
+    msg_id = headers["webhook-id"]
+    timestamp = headers["webhook-timestamp"]
+    signatures = headers["webhook-signature"]
+
+    if abs(time.time() - int(timestamp)) > 300:
+        raise ValueError("Timestamp too old")
+
+    message = f"{msg_id}.{timestamp}.{raw_body.decode()}".encode()
+    expected = base64.b64encode(
+        hmac.new(secret.encode(), message, hashlib.sha256).digest()
+    ).decode()
+
+    for sig in signatures.split(" "):
+        if sig.startswith("v1,"):
+            if hmac.compare_digest(expected, sig[3:]):
+                return
+    raise ValueError("Signature mismatch")
+```
+
+---
+
+## Encryption at Rest
+
+Webhook secrets (`webhook_secret`) and sensitive headers (`secret_headers`) are encrypted at rest using **envelope encryption** with AES-256-GCM.
+
+### How It Works
+
+Each encrypted value uses a unique random data encryption key (DEK). The DEK is wrapped (encrypted) by the master key encryption key (KEK) and stored alongside the ciphertext:
+
+```
+[version:1] [edek_len:2 LE] [wrapped_dek:60] [nonce:12] [ciphertext+tag]
+```
+
+- **Version byte** (`0x01`) identifies the envelope format
+- **Wrapped DEK** (60 bytes) = 12-byte nonce + 32-byte DEK + 16-byte GCM tag
+- **Data ciphertext** uses its own 12-byte nonce + GCM authenticated encryption
+
+### Key Resolution
+
+The KEK is provided via the `SPARROW_ENCRYPTION_KEY` environment variable (64-char hex = 32 bytes). The server will not start without it. Generate one with `openssl rand -hex 32`.
+
+The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager, Kubernetes Secret, or `.env` file to provide the key.
+
+### Backward Compatibility
+
+The `Decrypt()` function auto-detects the format: if the version byte indicates envelope encryption, it uses envelope decryption; otherwise, it falls back to legacy direct AES-256-GCM decryption. This ensures existing encrypted data remains readable without migration.
+
+---
+
+## Package Structure
+
+```
+cmd/server/main.go  (composition root — wires everything)
+    │
+    ├── internal/tenant    ──→ pkg/storage
+    ├── internal/webhooks  ──→ pkg/storage, pkg/errors
+    │       ├── store/     ──→ pkg/storage, pkg/types
+    │       ├── queue/     ──→ store, client, pkg/errors, internal/observability
+    │       └── client/    ──→ store (models only), pkg/errors
+    └── internal/rest      ──→ both domain packages (transport layer)
+```
+
+`tenant` and `webhooks` never import each other. Zero cycles.
+
+### Domain Packages
+
+**`internal/tenant`** -- Tenant lifecycle. A default tenant is bootstrapped on first boot.
+
+- Tables: `tenants`
+
+**`internal/webhooks`** -- Core business domain: namespaces, events, subscriptions, deliveries, health tracking.
+
+- Tables: See OKF / DB schema for full table list
+- Sub-packages:
+  - `store/` -- Data access (repository pattern, SQL queries)
+  - `queue/` -- Async processing (River workers: `EventWorker`, `WebhookWorker`)
+  - `client/` -- HTTP delivery (request building, HMAC signing, templating)
+
+### Infrastructure Packages
+
+**`internal/rest`** -- HTTP REST handlers (transport layer) built with Huma, serving the OpenAPI-described API on `:8080`. Delegates to the domain services and is the only package that imports both domain packages.
+
+**`internal/observability`** -- OpenTelemetry setup (traces, metrics, logs via OTLP).
+
+**`internal/ui`** -- Embedded SvelteKit frontend (`go:embed`).
+
+**`internal/config`** -- Environment variable loading.
+
+**`internal/health`** -- Health check endpoint.
+
+### Shared Packages
+
+- `pkg/storage` -- `DB`/`DBTX` interfaces, `WithTransaction` helper, SQL error translation
+- `pkg/errors` -- Error classification with retryability determination
+- `pkg/types` -- Shared utility types
+
+### Design Principles
+
+**Composition root in `main.go`** -- `cmd/server/main.go` is the only file that imports both domain packages. It constructs repositories, services, and wires them together. No framework -- just constructor functions and explicit wiring.
+
+**Repository per domain, not per table** -- Each domain owns a `Repository` interface and implementation. The repository encapsulates all SQL for that domain's tables.
+
+**Schema ownership** -- Each domain package owns its tables: `internal/tenant` owns `tenants`, `internal/webhooks` owns the rest.
+
+**No shared models** -- No shared "models" package and no ORM. Each package defines its own models matching its own SQL schemas. The only shared infrastructure is `pkg/storage` (DB abstraction) and `pkg/types` (generic utilities).
+
+---
+
+## Web UI
+
+The web dashboard is a SvelteKit application that compiles to static files and is embedded into the Go binary via `go:embed`.
+
+**Build pipeline:**
+1. `cd web && npm run build` -- compiles SvelteKit to static files in `internal/ui/dist/`
+2. `go build ./cmd/server` -- embeds `internal/ui/dist/` via `go:embed`
+3. At runtime, `internal/ui/embed.go` serves the SPA with proper fallback routing
+
+The Docker image builds the frontend automatically -- no manual build step needed.
+</doc>
+
+<doc title="Layered Architecture" path="reference/layered-architecture.mdx">
+An interactive view of how a request moves through Sparrow: the client and
+embedded UI call the REST API through middleware, the webhook service holds
+the business logic, the store/PostgreSQL repository layer persists state,
+River queue workers (`EventWorker`, `WebhookWorker`, `BatchJobWorker`) process
+async work, and a signing HTTP client delivers to external endpoints.
+
+See [Architecture Overview](/sparrow/reference/architecture/) for the
+narrative event-pipeline walkthrough this diagram complements.
+
+<iframe
+  src={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}diagrams/sparrow-layered-architecture.html`}
+  title="Sparrow layered architecture: client and embedded UI through middleware, REST handlers, the webhook service, the store/PostgreSQL repository layer, River queue workers (EventWorker, WebhookWorker, BatchJobWorker), and the signing HTTP client to external endpoints."
+  loading="lazy"
+  style="width: 100%; height: 640px; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;"
+/>
+</doc>
+
+<doc title="Client Libraries" path="reference/client-libraries.mdx">
+Sparrow's interface is **REST/OpenAPI only**. There is no bespoke SDK to learn — every endpoint
+is described by the committed OpenAPI 3.1 contract at `api/openapi.yaml`, so you can generate a
+typed client for any language with a standard generator, or just call the API with plain HTTP.
+
+The full, browsable API reference is generated from that same spec — see
+[API Reference](/sparrow/reference/api/).
+
+## Authentication
+
+All requests use an API key in the `X-API-Key` header (required only when the server is started
+with `SPARROW_API_KEY` set):
+
+```bash
+curl -X POST http://localhost:8080/v1/namespaces/payments/events \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_live_..." \
+  -d '{
+    "payload": {"id": "inv_01", "amount": 4999},
+    "idempotency_key": "idem_abc123"
+  }'
+```
+
+## Generating a client
+
+The OpenAPI spec is committed at `api/openapi.yaml` (also `api/openapi.json`) and regenerated from
+the Go REST definitions in `internal/rest` (via [Huma](https://github.com/danielgtaylor/huma)):
+
+```bash
+make generate
+```
+
+Point any OpenAPI 3.1-compatible generator at that file:
+
+<Tabs>
+  <TabItem label="Python">
+
+Generated with [`openapi-python-client`](https://github.com/openapi-generators/openapi-python-client)
+(typed, `httpx`/`attrs`-based) into `client/python`:
+
+```bash
+uvx openapi-python-client generate \
+  --path api/openapi.yaml \
+  --output-path client/python --overwrite
+```
+
+```python
+from sparrow_client import AuthenticatedClient
+from sparrow_client.api.webhooks import register_webhook
+from sparrow_client.models.register_webhook_body import RegisterWebhookBody
+
+client = AuthenticatedClient(
+    base_url="http://localhost:8080",
+    token="<api-key>",
+    prefix="",
+    auth_header_name="X-API-Key",
+)
+resp = register_webhook.sync_detailed(
+    namespace="default",
+    client=client,
+    body=RegisterWebhookBody(events=["order.created"], url="https://example.com/hook"),
+)
+```
+
+  </TabItem>
+  <TabItem label="TypeScript">
+
+```bash
+npx openapi-typescript api/openapi.yaml -o client/ts/schema.d.ts
+```
+
+Use with any typed fetch wrapper (for example [`openapi-fetch`](https://openapi-ts.dev/openapi-fetch/)).
+
+  </TabItem>
+  <TabItem label="Go">
+
+```bash
+go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest \
+  -generate types,client -package sparrow \
+  api/openapi.yaml > client/go/sparrow.gen.go
+```
+
+  </TabItem>
+</Tabs>
+
+All generated client code is derived from `api/openapi.yaml`; do not edit it by hand — regenerate
+instead.
+</doc>
+
+<doc title="Template Functions" path="reference/template-functions.md">
+Sparrow provides 22 built-in template functions for transforming webhook payloads. These are available in subscription `transform_template` fields.
+
+Templates use Go's `text/template` syntax. The event payload is available as the template data context (e.g., `{{ .payload.field_name }}`).
+
+## Quick Reference
+
+| Function | Description |
+|----------|-------------|
+| `json` | Convert value to JSON string |
+| `urlencode` | URL-encode a string |
+| `base64` | Base64-encode a string |
+| `base64decode` | Base64-decode a string |
+| `now` | Current time |
+| `formatTime` | Format a time value |
+| `parseTime` | Parse a time string |
+| `upper` | Uppercase string |
+| `lower` | Lowercase string |
+| `title` | Title case (all uppercase) |
+| `trim` | Trim characters from both ends |
+| `trimSpace` | Trim whitespace |
+| `split` | Split string into slice |
+| `join` | Join slice with separator |
+| `default` | Default value for nil/empty |
+| `slice` | Substring by index |
+| `len` | Length of string/slice/map |
+| `truncate` | Truncate string (hard cut) |
+| `ellipsis` | Truncate with "..." suffix |
+| `repeat` | Repeat string N times |
+| `contains` | Check if string contains substring |
+| `hasPrefix` | Check string prefix |
+| `hasSuffix` | Check string suffix |
+| `replace` | Replace all occurrences |
+
+---
+
+## json
+
+Converts any value to a JSON string.
+
+```go
+{{ .data | json }}
+{{ json .payload }}
+```
+
+**Example:**
+```
+Input:  map[string]any{"name": "John", "age": 30}
+Output: {"name":"John","age":30}
+```
+
+---
+
+## urlencode
+
+URL-encodes a string by escaping special characters.
+
+```go
+{{ .email | urlencode }}
+{{ urlencode "hello world" }}
+```
+
+**Example:**
+```
+Input:  "hello world@example.com"
+Output: "hello+world%40example.com"
+```
+
+---
+
+## base64
+
+Base64-encodes a string.
+
+```go
+{{ .secret | base64 }}
+{{ base64 "hello world" }}
+```
+
+**Example:**
+```
+Input:  "hello world"
+Output: "aGVsbG8gd29ybGQ="
+```
+
+---
+
+## base64decode
+
+Base64-decodes a string back to its original form.
+
+```go
+{{ .encodedSecret | base64decode }}
+{{ base64decode "aGVsbG8gd29ybGQ=" }}
+```
+
+**Example:**
+```
+Input:  "aGVsbG8gd29ybGQ="
+Output: "hello world"
+```
+
+---
+
+## now
+
+Returns the current time as a `time.Time` object.
+
+```go
+{{ now }}
+{{ now | formatTime "2006-01-02 15:04:05" }}
+```
+
+**Example:**
+```
+Output: 2023-11-21 14:30:45 +0000 UTC
+```
+
+---
+
+## formatTime
+
+Formats a time value using Go's time layout format.
+
+```go
+{{ formatTime "2006-01-02" .createdAt }}
+{{ .timestamp | formatTime "15:04:05" }}
+```
+
+**Common layouts:**
+- RFC3339: `2006-01-02T15:04:05Z07:00`
+- Date only: `2006-01-02`
+- Time only: `15:04:05`
+- Human readable: `January 2, 2006 at 3:04 PM`
+
+---
+
+## parseTime
+
+Parses a time string using Go's time layout format.
+
+```go
+{{ parseTime "2006-01-02" "2023-11-21" }}
+{{ parseTime "15:04:05" .timeString }}
+```
+
+**Example:**
+```
+Input:  "2006-01-02", "2023-11-21"
+Output: 2023-11-21 00:00:00 +0000 UTC
+```
+
+---
+
+## upper
+
+Converts string to uppercase.
+
+```go
+{{ .name | upper }}
+{{ upper "hello world" }}
+```
+
+**Example:** `"hello world"` -> `"HELLO WORLD"`
+
+---
+
+## lower
+
+Converts string to lowercase.
+
+```go
+{{ .name | lower }}
+{{ lower "HELLO WORLD" }}
+```
+
+**Example:** `"HELLO WORLD"` -> `"hello world"`
+
+---
+
+## title
+
+Converts all letters to uppercase (note: not proper title case).
+
+```go
+{{ .name | title }}
+{{ title "hello world" }}
+```
+
+**Example:** `"hello world"` -> `"HELLO WORLD"`
+
+---
+
+## trim
+
+Trims specified characters from both ends of a string.
+
+```go
+{{ trim " " .text }}
+{{ trim "." "...hello..." }}
+```
+
+**Example:**
+```
+Input:  " ", "  hello world  "
+Output: "hello world"
+```
+
+---
+
+## trimSpace
+
+Trims whitespace (spaces, tabs, newlines) from both ends.
+
+```go
+{{ .userInput | trimSpace }}
+{{ trimSpace "  hello world  " }}
+```
+
+**Example:** `"  hello world  \n"` -> `"hello world"`
+
+---
+
+## split
+
+Splits a string by separator into a slice.
+
+```go
+{{ split "," "apple,banana,cherry" }}
+{{ .tags | split "|" }}
+```
+
+Use with `range` to iterate:
+
+```go
+{{range split "," .tags}}
+- {{.}}
+{{end}}
+```
+
+---
+
+## join
+
+Joins a string slice with a separator.
+
+```go
+{{ join ", " .tags }}
+{{ .items | join " | " }}
+```
+
+**Example:** `["apple", "banana", "cherry"]` -> `"apple, banana, cherry"`
+
+---
+
+## default
+
+Returns a default value if the input is nil or empty string.
+
+```go
+{{ .optionalField | default "N/A" }}
+{{ default "Unknown" .name }}
+```
+
+**Example:**
+```
+Input:  "N/A", ""      -> "N/A"
+Input:  "N/A", "John"  -> "John"
+```
+
+---
+
+## slice
+
+Returns a substring from start to end index (end exclusive). Use `-1` for end of string.
+
+```go
+{{ slice 0 5 "hello world" }}
+{{ .text | slice 2 8 }}
+```
+
+**Example:**
+```
+Input:  0, 5, "hello world"  -> "hello"
+Input:  6, -1, "hello world" -> "world"
+```
+
+---
+
+## len
+
+Returns the length of a string, slice, or map.
+
+```go
+{{ len .name }}
+{{ .items | len }}
+```
+
+---
+
+## truncate
+
+Truncates a string to a maximum length (hard cut, no ellipsis).
+
+```go
+{{ truncate 10 .longText }}
+{{ .description | truncate 50 }}
+```
+
+**Example:** `truncate 10 "this is a very long string"` -> `"this is a "`
+
+---
+
+## ellipsis
+
+Truncates a string to a maximum length and adds `...` if truncated.
+
+```go
+{{ ellipsis 20 .longText }}
+{{ .description | ellipsis 100 }}
+```
+
+**Example:**
+```
+ellipsis 20 "this is a very long string that needs truncation"
+-> "this is a very lo..."
+
+ellipsis 10 "short"
+-> "short"
+```
+
+If maxLen <= 3, no ellipsis is added.
+
+---
+
+## repeat
+
+Repeats a string a specified number of times.
+
+```go
+{{ repeat 3 "*" }}
+{{ .pattern | repeat 5 }}
+```
+
+**Example:** `repeat 3 "*"` -> `"***"`
+
+---
+
+## contains
+
+Checks if a string contains a substring (case-sensitive).
+
+```go
+{{ if contains "error" .message }}
+  Error found!
+{{ end }}
+```
+
+---
+
+## hasPrefix
+
+Checks if a string starts with a prefix (case-sensitive).
+
+```go
+{{ if hasPrefix "http" .url }}
+  Valid URL
+{{ end }}
+```
+
+---
+
+## hasSuffix
+
+Checks if a string ends with a suffix (case-sensitive).
+
+```go
+{{ if hasSuffix ".jpg" .filename }}
+  Image file
+{{ end }}
+```
+
+---
+
+## replace
+
+Replaces all occurrences of a substring with another.
+
+```go
+{{ replace " " "_" .name }}
+{{ .text | replace "foo" "bar" }}
+```
+
+**Example:** `replace " " "_" "hello world test"` -> `"hello_world_test"`
+</doc>
+
+<doc title="Error Classification" path="reference/error-classification.md">
+Sparrow classifies every delivery error into categories. The classification determines whether the delivery is retried or permanently failed.
+
+## Error Categories
+
+| Category | Retryable | Description |
+|----------|-----------|-------------|
+| `success` | n/a | Delivery succeeded |
+| `client_error` | No | HTTP 4xx response (bad request, unauthorized, not found, etc.) |
+| `server_error` | **Yes** | HTTP 5xx response (internal server error, bad gateway, etc.) |
+| `timeout` | **Yes** | Request timed out before receiving a response |
+| `connection_refused` | **Yes** | Target endpoint refused the TCP connection |
+| `network_error` | **Yes** | Other network errors (ECONNRESET, EPIPE, EHOSTUNREACH) |
+| `dns_error` | No | DNS resolution failed (no such host) |
+| `tls_error` | No | TLS/SSL handshake failure (certificate errors) |
+| `rate_limited` | **Yes** | HTTP 429 response. Retried after `Retry-After` delay (doesn't count as attempt) |
+| `unexpected_status` | No | HTTP 2xx/3xx response that did not match `expected_status_codes` |
+| `unknown` | No | Unclassified error |
+
+## Retry Behavior
+
+When a delivery attempt fails with a **retryable** error category, Sparrow re-enqueues the delivery with exponential backoff:
+
+```
+backoff = retry_backoff_seconds * 2^(attempt - 1) + random_jitter
+```
+
+Retries continue until:
+- The delivery succeeds
+- `max_retries` attempts are exhausted (terminal `FAILED` status)
+- The event's `ttl_seconds` expires (terminal `EXPIRED` status)
+
+**Non-retryable** errors immediately mark the delivery as `FAILED` regardless of remaining retry budget.
+
+## Classification Logic
+
+The error classifier inspects the Go error chain to determine the category:
+
+1. **HTTP response code** — If a response was received:
+   - 2xx matching `expected_status_codes` -> `success`
+   - 4xx -> `client_error`
+   - 5xx -> `server_error`
+
+2. **Error type inspection** — If no response:
+   - `*net.DNSError` -> `dns_error`
+   - TLS-related errors -> `tls_error`
+   - `net.Error` with `Timeout()` -> `timeout`
+   - `syscall.ECONNREFUSED` -> `connection_refused`
+   - `syscall.ECONNRESET`, `EPIPE`, `EHOSTUNREACH` -> `network_error`
+   - String pattern fallback for edge cases
+
+## Monitoring Errors
+
+Use the [health endpoints](/sparrow/reference/api/) to monitor error patterns:
+
+- `GET /v1/namespaces/{namespace}/webhooks/{webhook_id}/health` returns error category breakdown (client_errors, server_errors, timeout_errors, network_errors) for the last 24 hours
+- `GET /v1/webhooks` (filtered by health) finds all webhooks with `UNHEALTHY` or `DEGRADED` status
+- `GET /v1/namespaces/{namespace}/deliveries/{delivery_id}/attempts` shows per-attempt error details for debugging
+</doc>
+
+## Guides
+
+<doc title="API Documentation Guide" path="guides/comment-guide.md">
+# API Documentation Guide
+
+The [API reference](/sparrow/reference/api/) is generated automatically from
+Sparrow's OpenAPI spec (`api/openapi.yaml`), which is produced from the Go REST
+definitions in `internal/rest`. The richer the spec, the richer the generated
+reference. This page describes the OpenAPI schema fields Sparrow uses to produce
+descriptions, required-field markers, defaults, constraints, error codes, and
+examples.
+
+## Descriptions
+
+Every schema and property carries a `description`, which becomes the prose shown
+in the reference:
+
+```yaml
+RegisterWebhookRequest:
+  type: object
+  description: |
+    Creates a new webhook subscription. The webhook starts receiving
+    events immediately after registration.
+```
+
+## Required Fields
+
+List required properties in the schema's `required` array. They are flagged as
+required in the reference:
+
+```yaml
+RegisterWebhookRequest:
+  type: object
+  required: [url]
+  properties:
+    url:
+      type: string
+      description: The URL to deliver webhook events to.
+```
+
+## Deprecated Fields
+
+Mark a property `deprecated: true` to flag it (and exclude it from the primary
+reference):
+
+```yaml
+old_field:
+  type: string
+  deprecated: true
+  description: Use new_field instead.
+```
+
+## Default Values
+
+Document defaults with the `default` keyword:
+
+```yaml
+max_retries:
+  type: integer
+  default: 5
+  description: Maximum number of retry attempts.
+```
+
+## Range Constraints
+
+Use `minimum`/`maximum` to document valid ranges:
+
+```yaml
+page_size:
+  type: integer
+  minimum: 1
+  maximum: 100
+  default: 50
+  description: Number of items per page.
+```
+
+## Error Responses
+
+Document error responses per operation under `responses`, keyed by HTTP status
+code:
+
+```yaml
+responses:
+  '409':
+    description: A webhook with the same URL already exists.
+  '400':
+    description: The URL is malformed.
+```
+
+## Examples
+
+Provide example values with `example` (or `examples`). These are used to
+auto-generate the sample requests and responses shown in the reference:
+
+```yaml
+url:
+  type: string
+  example: "https://example.com/webhook"
+max_retries:
+  type: integer
+  example: 5
+active:
+  type: boolean
+  example: true
+```
+
+Example values are parsed as JSON where applicable; otherwise they are treated
+as strings.
+</doc>

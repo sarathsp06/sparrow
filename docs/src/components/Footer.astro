@@ -12,7 +12,9 @@ const buildDate = new Date().toLocaleDateString('en-US', {
 
 <Default><slot /></Default>
 <div class="build-date-footer">
-  {version ? `v${version} · ` : ''}Built on {buildDate}
+  {version ? `v${version} · ` : ''}Built on {buildDate} ·
+  <a href="/sparrow/llms.txt">llms.txt</a> ·
+  <a href="/sparrow/llms-full.txt">llms-full.txt</a>
 </div>
 
 <style>
@@ -25,5 +27,8 @@ const buildDate = new Date().toLocaleDateString('en-US', {
     border-top: 1px solid var(--sp-outline-variant);
     margin-top: 1rem;
     letter-spacing: 0.02em;
+  }
+  .build-date-footer a {
+    color: var(--sp-on-surface-variant);
   }
 </style>

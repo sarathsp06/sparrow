@@ -3,6 +3,8 @@ title: Layered Architecture
 description: Interactive diagram of Sparrow's request path -- client through middleware, services, storage, and queue workers to external endpoints.
 ---
 
+import LayeredArchEmbed from '../../../components/LayeredArchEmbed.astro';
+
 An interactive view of how a request moves through Sparrow: the client and
 embedded UI call the REST API through middleware, the webhook service holds
 the business logic, the store/PostgreSQL repository layer persists state,
@@ -10,11 +12,8 @@ River queue workers (`EventWorker`, `WebhookWorker`, `BatchJobWorker`) process
 async work, and a signing HTTP client delivers to external endpoints.
 
 See [Architecture Overview](/sparrow/reference/architecture/) for the
-narrative event-pipeline walkthrough this diagram complements.
+narrative event-pipeline walkthrough this diagram complements. You can also
+[open the diagram full screen](/sparrow/diagrams/sparrow-layered-architecture.html)
+for pan/zoom, search, focus, and export.
 
-<iframe
-  src={`${import.meta.env.BASE_URL.replace(/\/?$/, '/')}diagrams/sparrow-layered-architecture.html`}
-  title="Sparrow layered architecture: client and embedded UI through middleware, REST handlers, the webhook service, the store/PostgreSQL repository layer, River queue workers (EventWorker, WebhookWorker, BatchJobWorker), and the signing HTTP client to external endpoints."
-  loading="lazy"
-  style="width: 100%; height: 640px; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;"
-/>
+<LayeredArchEmbed />

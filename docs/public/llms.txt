@@ -1,0 +1,58 @@
+# Sparrow
+
+> Self-hosted webhook delivery platform written in Go: push events over a REST API, Sparrow fans out to matching subscriptions (with optional Go-template payload transforms and label filters) and delivers signed HTTP webhooks with exponential-backoff retries, per-webhook health tracking, 10-category error classification, and OpenTelemetry observability. Single binary + PostgreSQL — no Redis, no message broker (the River job queue runs inside PostgreSQL).
+
+Key facts for integrators:
+
+- Base URL: `http://<host>:8080`, all endpoints under `/v1`. OpenAPI 3.1 spec served live at `/openapi.yaml` and `/openapi.json`; interactive docs at `/docs`.
+- Auth is optional: if `SPARROW_API_KEY` is set, send it in the `X-API-Key` header on every request. When unset, all endpoints are open (intended for internal/VPN deployments).
+- Namespaced resources live under `/v1/namespaces/{namespace}/...`; the `default` namespace always exists. Event types are global (`/v1/event-types`) and act as a schema registry — only registered, active event types can be pushed.
+- Push is async: `POST /v1/namespaces/{ns}/events?event=<type>` with `{"payload":{...},"idempotency_key":"..."}` returns immediately; fan-out and delivery happen in background River workers. Delivery is at-least-once.
+- Deliveries are signed per Standard Webhooks: headers `webhook-id`, `webhook-timestamp`, `webhook-signature` (`v1,` = HMAC-SHA256 with the `whsec_` secret; `v1a,` = Ed25519 with the webhook's `signing_public_key`). Signed message is `{id}.{timestamp}.{raw body}`; reject timestamps older than 5 minutes.
+- Retry behavior: retryable failures (5xx, timeout, connection refused, network errors, 429 with `Retry-After`) back off as `retry_backoff_seconds * 2^(attempt-1) + jitter` until success, `max_retries` exhausted (`FAILED`), or the event's `ttl_seconds` expires (`EXPIRED`). Non-retryable failures (4xx, DNS, TLS, unexpected status) fail immediately.
+- Webhook secrets and secret headers are envelope-encrypted at rest (AES-256-GCM); `SPARROW_ENCRYPTION_KEY` (64-char hex, `openssl rand -hex 32`) is required at startup. Event payloads are stored in plaintext JSONB.
+
+Core endpoints (all JSON):
+
+- `POST /v1/event-types` — register an event type (`{"name","description","active"}`)
+- `POST /v1/namespaces/{ns}/webhooks` — register a webhook (`{"url","events":[...],"active"}`); subscriptions are created automatically and a `whsec_` secret is returned once
+- `POST /v1/namespaces/{ns}/events?event=<type>` — push an event; supports idempotency keys
+- `GET /v1/namespaces/{ns}/deliveries` — list deliveries; `GET .../deliveries/{id}/attempts` for per-attempt status, response, and error category
+- `POST /v1/namespaces/{ns}/deliveries/{id}:retry` — retry one delivery; `:retryBatch` and `events:rePush` for bulk (up to 10K)
+- `POST /v1/namespaces/{ns}/webhooks/{id}:pause` / `:resume` — pause/resume delivery
+- `GET /v1/namespaces/{ns}/webhooks/{id}/health`, `GET /v1/health-summary`, `GET /v1/stats` — health state machine (healthy → degraded → unhealthy), 24h error breakdown, metrics
+- `POST /v1/subscriptions:testTemplate` — dry-run a payload transform template
+
+Full inlined documentation for large-context use: [llms-full.txt](https://sarathsp06.github.io/sparrow/llms-full.txt)
+
+## Getting started
+
+- [Quickstart](https://sarathsp06.github.io/sparrow/getting-started/quickstart/): register an event type and a webhook, push your first event, and verify delivery in 5 minutes
+- [Installation](https://sarathsp06.github.io/sparrow/getting-started/installation/): Docker image (`ghcr.io/sarathsp06/sparrow:latest`, linux/amd64+arm64), prebuilt binaries, and build-from-source; migrations run automatically on startup
+- [Configuration](https://sarathsp06.github.io/sparrow/getting-started/configuration/): every environment variable — required: `DATABASE_URL`, `SPARROW_ENCRYPTION_KEY`; plus API key auth, embedded UI, CORS, private-network allowlisting, OTel endpoint, exported metrics
+- [How it works](https://sarathsp06.github.io/sparrow/getting-started/how-it-works/): events, webhooks, subscriptions, deliveries; the push → fan-out → deliver pipeline and the key design decisions behind it
+- [Why Sparrow](https://sarathsp06.github.io/sparrow/getting-started/why-sparrow/): comparison with Svix, Convoy, Hookdeck, AWS SNS, and building your own
+
+## Deployment
+
+- [Docker Compose](https://sarathsp06.github.io/sparrow/deployment/docker-compose/): `curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml && SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32) docker compose up -d`
+- [Kubernetes (Helm)](https://sarathsp06.github.io/sparrow/deployment/kubernetes/): hardened chart at `charts/sparrow/` with values for secrets, resources, and probes
+- [Railway](https://sarathsp06.github.io/sparrow/deployment/railway/): one-click deploy with managed PostgreSQL and TLS
+
+## API integration
+
+- [OpenAPI spec (YAML)](https://raw.githubusercontent.com/sarathsp06/sparrow/main/api/openapi.yaml): full machine-readable contract; the source of truth for request/response schemas
+- [API reference](https://sarathsp06.github.io/sparrow/reference/api/): interactive rendering of the spec with auth requirements and examples
+- [Client libraries & signature verification](https://sarathsp06.github.io/sparrow/reference/client-libraries/): generate REST clients for any language from the spec; Go (`pkg/signature`), Python, and TypeScript delivery verifiers
+- [Template functions](https://sarathsp06.github.io/sparrow/reference/template-functions/): all 22 Go-template helpers for per-subscription payload transformation (e.g. adapting events to Slack/PagerDuty formats)
+- [Error classification](https://sarathsp06.github.io/sparrow/reference/error-classification/): the 10 error categories with retryability flags, backoff formula, and the health endpoints to monitor them
+
+## Architecture
+
+- [Architecture](https://sarathsp06.github.io/sparrow/reference/architecture/): event pipeline design, River queue workers, health state machine, and storage layout
+- [Layered architecture](https://sarathsp06.github.io/sparrow/reference/layered-architecture/): request path from client/UI through middleware, REST handlers, webhook service, PostgreSQL repository, queue workers, and the signing HTTP client
+
+## Optional
+
+- [API documentation guide](https://sarathsp06.github.io/sparrow/guides/comment-guide/): how the API reference is generated from the OpenAPI spec (contributor-facing)
+- [README](https://raw.githubusercontent.com/sarathsp06/sparrow/main/README.md): project overview, security model, and signature verification code examples
