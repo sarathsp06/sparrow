@@ -4,13 +4,16 @@ description: System design, event pipeline, and internal architecture.
 ---
 
 import ThemeDiagram from '../../../components/ThemeDiagram.astro';
-import systemOverview from '../../../assets/diagrams/system-overview-dark.svg';
-import healthStateMachine from '../../../assets/diagrams/health-state-machine-dark.svg';
+import systemOverviewDark from '../../../assets/diagrams/system-overview-dark.svg';
+import systemOverviewLight from '../../../assets/diagrams/system-overview-light.svg';
+import healthStateMachineDark from '../../../assets/diagrams/health-state-machine-dark.svg';
+import healthStateMachineLight from '../../../assets/diagrams/health-state-machine-light.svg';
 
 ## Overview
 
 <ThemeDiagram
-  src={systemOverview}
+  light={systemOverviewLight}
+  dark={systemOverviewDark}
   alt="System overview diagram showing the Sparrow architecture: your application pushes events via HTTP REST to the API, which stores events in PostgreSQL and enqueues them. EventWorker fans out to matching subscriptions, WebhookWorker delivers via HTTP POST with HMAC signing, and the embedded SvelteKit UI reads and writes through the same REST API."
 />
 
@@ -78,7 +81,8 @@ Target URL receives webhook payload
 Event-sourced health calculation with a 24-hour lookback window:
 
 <ThemeDiagram
-  src={healthStateMachine}
+  light={healthStateMachineLight}
+  dark={healthStateMachineDark}
   alt="Health state machine diagram showing transitions between unknown, healthy, degraded, and unhealthy states based on success rates and consecutive failures, with a 24-hour inactivity timeout back to unknown."
 />
 

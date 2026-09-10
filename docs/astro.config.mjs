@@ -61,8 +61,8 @@ export default defineConfig({
       },
       customCss: ['./src/styles/custom.css'],
       expressiveCode: {
-        themes: ['github-dark'],
-        useStarlightDarkModeSwitch: false,
+        themes: ['github-light', 'github-dark'],
+        useStarlightDarkModeSwitch: true,
       },
     }),
   ],

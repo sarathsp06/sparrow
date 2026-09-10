@@ -1,20 +1,22 @@
 ---
 /**
- * ThemeDiagram — renders a diagram SVG. The docs are dark-only (Dispatch
- * Console theme), so there is a single console-themed variant.
+ * ThemeDiagram — renders a diagram with light and dark variants.
+ * custom.css shows exactly one variant based on [data-theme].
  *
  * Usage:
  *   import ThemeDiagram from '../../components/ThemeDiagram.astro';
- *   <ThemeDiagram src={diagramSvg} alt="Description" />
+ *   <ThemeDiagram light={lightSvg} dark={darkSvg} alt="Description" />
  */
 interface Props {
-  src: ImageMetadata;
+  light: ImageMetadata;
+  dark: ImageMetadata;
   alt: string;
 }
 
-const { src, alt } = Astro.props;
+const { light, dark, alt } = Astro.props;
 ---
 
 <div class="theme-diagram">
-  <img src={src.src} alt={alt} width={src.width} height={src.height} loading="lazy" decoding="async" />
+  <img class="theme-diagram-light" src={light.src} alt={alt} width={light.width} height={light.height} loading="lazy" decoding="async" />
+  <img class="theme-diagram-dark" src={dark.src} alt={alt} width={dark.width} height={dark.height} loading="lazy" decoding="async" />
 </div>

@@ -1,73 +1,77 @@
 /* ================================================================
-   Sparrow Design Tokens — "Dispatch Console"
-   Dark mission-control theme, mirrored from the web console
-   (web/src/app.css). Single source of truth consumed by:
+   Sparrow Design Tokens — "Field Guide"
+   Light-first paper theme with a single amber accent (DuckDB-style
+   mechanics: warm near-white canvas, 1px borders, no glows).
+   The previous "Dispatch Console" navy palette lives on as the
+   dark variant under [data-theme='dark'] (Starlight toggle).
+   Consumed by:
      - Starlight docs theme (custom.css maps these to --sl-* vars)
      - Landing page (index.astro references these directly)
-   Keep values in sync with web/src/app.css @theme.
    ================================================================ */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* ─── Surfaces (console navy) ─────────────────────────────── */
-  --sp-surface:                 #0b1220;  /* ink */
-  --sp-surface-dim:             #0b1220;
-  --sp-surface-bright:          #16223a;
-  --sp-surface-container-lowest:#0f1626;  /* panel-2 */
-  --sp-surface-container-low:   #0f1626;
-  --sp-surface-container:       #121a2a;  /* panel */
-  --sp-surface-container-high:  #16223a;
-  --sp-surface-container-highest:#24304a; /* line */
-  --sp-surface-variant:         #24304a;
+  /* ─── Surfaces (warm paper) ───────────────────────────────── */
+  --sp-surface:                 #faf9f7;  /* canvas */
+  --sp-surface-dim:             #f3f1ec;
+  --sp-surface-bright:          #ffffff;
+  --sp-surface-container-lowest:#ffffff;  /* cards */
+  --sp-surface-container-low:   #f7f5f1;  /* muted band */
+  --sp-surface-container:       #ffffff;
+  --sp-surface-container-high:  #f3f1ec;
+  --sp-surface-container-highest:#e9e6df;
+  --sp-surface-variant:         #e9e6df;
   --sp-surface-tint:            #f2a93b;
 
   /* ─── On-surface text ─────────────────────────────────────── */
-  --sp-on-surface:              #e6ecf5;  /* text */
-  --sp-on-surface-variant:      #8494b0;  /* muted */
-  --sp-inverse-surface:         #e6ecf5;
-  --sp-inverse-on-surface:      #0b1220;
+  --sp-on-surface:              #1a1a1a;
+  --sp-on-surface-variant:      #55524c;
+  --sp-inverse-surface:         #1a1a1a;
+  --sp-inverse-on-surface:      #faf9f7;
 
   /* ─── Outline ─────────────────────────────────────────────── */
-  --sp-outline:                 #5a6b8c;  /* faint */
-  --sp-outline-variant:         #24304a;  /* line */
+  --sp-outline:                 #8a867e;
+  --sp-outline-variant:         #e4e2dd;
 
   /* ─── Primary (beacon amber) ──────────────────────────────── */
-  --sp-primary:                 #f2a93b;
-  --sp-on-primary:              #1a1204;
+  /* text-safe amber for links/labels on paper */
+  --sp-primary:                 #b06a10;
+  --sp-on-primary:              #ffffff;
+  /* fill amber for buttons/pills, dark text on top */
   --sp-primary-container:       #f2a93b;
   --sp-on-primary-container:    #1a1204;
-  --sp-inverse-primary:         #b57c22;
+  --sp-inverse-primary:         #f2a93b;
   --sp-primary-fixed:           #ffbe52;
   --sp-primary-fixed-dim:       #f2a93b;
   --sp-on-primary-fixed:        #1a1204;
   --sp-on-primary-fixed-variant:#b57c22;
 
-  /* ─── Secondary (signal green) ────────────────────────────── */
-  --sp-secondary:               #3dd68c;
-  --sp-on-secondary:            #05231a;
-  --sp-secondary-container:     #2fb576;
-  --sp-on-secondary-container:  #05231a;
+  /* ─── Secondary (status green, demoted to status-only) ────── */
+  --sp-secondary:               #178a56;
+  --sp-on-secondary:            #ffffff;
+  --sp-secondary-container:     #d9f2e4;
+  --sp-on-secondary-container:  #0a3c2b;
   --sp-secondary-fixed:         #7ce9b6;
-  --sp-secondary-fixed-dim:     #3dd68c;
+  --sp-secondary-fixed-dim:     #178a56;
   --sp-on-secondary-fixed:      #05231a;
   --sp-on-secondary-fixed-variant:#0a3c2b;
 
-  /* ─── Tertiary (caution yellow) ───────────────────────────── */
-  --sp-tertiary:                #f2c94c;
-  --sp-on-tertiary:             #241c00;
-  --sp-tertiary-container:      #c9a52f;
-  --sp-on-tertiary-container:   #241c00;
+  /* ─── Tertiary (caution, status-only) ─────────────────────── */
+  --sp-tertiary:                #b45309;
+  --sp-on-tertiary:             #ffffff;
+  --sp-tertiary-container:      #fdeed3;
+  --sp-on-tertiary-container:   #5d4a00;
   --sp-tertiary-fixed:          #ffe38a;
-  --sp-tertiary-fixed-dim:      #f2c94c;
+  --sp-tertiary-fixed-dim:      #b45309;
   --sp-on-tertiary-fixed:       #241c00;
   --sp-on-tertiary-fixed-variant:#5d4a00;
 
   /* ─── Error ───────────────────────────────────────────────── */
-  --sp-error:                   #ff6b6b;
-  --sp-on-error:                #2a0606;
-  --sp-error-container:         #7a1f1f;
-  --sp-on-error-container:      #ffd9d9;
+  --sp-error:                   #c0392b;
+  --sp-on-error:                #ffffff;
+  --sp-error-container:         #fbe3e0;
+  --sp-on-error-container:      #6e1f16;
 
   /* ─── Derived convenience tokens ──────────────────────────── */
   --sp-bg:                      var(--sp-surface);
@@ -78,14 +82,14 @@
   --sp-text-secondary:          var(--sp-on-surface-variant);
   --sp-text-muted:              var(--sp-outline);
   --sp-border:                  var(--sp-outline-variant);
-  --sp-border-subtle:           rgba(36, 48, 74, 0.6);
-  --sp-border-hover:            #33456a;  /* line-strong */
+  --sp-border-subtle:           rgba(228, 226, 221, 0.6);
+  --sp-border-hover:            #cfccc4;
 
   /* ─── Brand shortcuts ─────────────────────────────────────── */
-  --sp-brand-primary:           var(--sp-primary);          /* #f2a93b */
-  --sp-brand-primary-text:      var(--sp-primary);          /* #f2a93b */
-  --sp-brand-primary-hover:     #ffbe52;
-  --sp-brand-secondary:         var(--sp-secondary);        /* #3dd68c */
+  --sp-brand-primary:           var(--sp-primary-container);  /* #f2a93b fill */
+  --sp-brand-primary-text:      var(--sp-primary);            /* #b06a10 text */
+  --sp-brand-primary-hover:     #e89923;
+  --sp-brand-secondary:         var(--sp-secondary);
 
   /* Brand at various opacities (beacon amber) */
   --sp-brand-primary-5:         rgba(242, 169, 59, 0.05);
@@ -94,27 +98,23 @@
   --sp-brand-primary-30:        rgba(242, 169, 59, 0.30);
 
   /* ─── Status ──────────────────────────────────────────────── */
-  --sp-success:                 #3dd68c;
-  --sp-success-bg:              rgba(61, 214, 140, 0.12);
-  --sp-success-text:            #3dd68c;
+  --sp-success:                 #178a56;
+  --sp-success-bg:              rgba(23, 138, 86, 0.10);
+  --sp-success-text:            #0f6b42;
 
   /* ─── Badge / Tag ─────────────────────────────────────────── */
-  --sp-badge-bg:                rgba(242, 169, 59, 0.10);
-  --sp-badge-border:            rgba(242, 169, 59, 0.25);
+  --sp-badge-bg:                rgba(242, 169, 59, 0.12);
+  --sp-badge-border:            rgba(178, 116, 24, 0.30);
   --sp-badge-text:              var(--sp-primary);
   --sp-tag-bg:                  var(--sp-surface-container-high);
 
   /* ─── Code ────────────────────────────────────────────────── */
-  --sp-code-bg:                 var(--sp-surface-container-lowest);
-  --sp-code-text:               var(--sp-secondary);
-
-  /* ─── Decorative glows (console amber + green) ────────────── */
-  --sp-glow-primary:            rgba(242, 169, 59, 0.15);
-  --sp-glow-primary-strong:     rgba(242, 169, 59, 0.25);
-  --sp-glow-secondary:          rgba(61, 214, 140, 0.10);
+  --sp-code-bg:                 #f3f1ec;
+  --sp-code-text:               #9a4a0e;
 
   /* ─── Fonts ───────────────────────────────────────────────── */
-  --sp-font-body:               'Space Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --sp-font-display:            'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --sp-font-body:               'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --sp-font-mono:               'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* ─── Spacing ─────────────────────────────────────────────── */
@@ -124,10 +124,74 @@
   --sp-space-lg:                1.5rem;
   --sp-space-xl:                2rem;
 
-  /* ─── Radii (console) ─────────────────────────────────────── */
+  /* ─── Radii ───────────────────────────────────────────────── */
   --sp-radius-sm:               0.25rem;
   --sp-radius:                  0.5rem;
   --sp-radius-md:               0.5rem;
   --sp-radius-lg:               0.625rem;
   --sp-radius-xl:               0.75rem;
+}
+
+/* ================================================================
+   Dark variant — the original "Dispatch Console" navy palette.
+   Activated by Starlight's theme toggle ([data-theme='dark']).
+   ================================================================ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --sp-surface:                 #0b1220;
+  --sp-surface-dim:             #0b1220;
+  --sp-surface-bright:          #16223a;
+  --sp-surface-container-lowest:#0f1626;
+  --sp-surface-container-low:   #0f1626;
+  --sp-surface-container:       #121a2a;
+  --sp-surface-container-high:  #16223a;
+  --sp-surface-container-highest:#24304a;
+  --sp-surface-variant:         #24304a;
+
+  --sp-on-surface:              #e6ecf5;
+  --sp-on-surface-variant:      #8494b0;
+  --sp-inverse-surface:         #e6ecf5;
+  --sp-inverse-on-surface:      #0b1220;
+
+  --sp-outline:                 #5a6b8c;
+  --sp-outline-variant:         #24304a;
+
+  --sp-primary:                 #f2a93b;
+  --sp-on-primary:              #1a1204;
+  --sp-primary-container:       #f2a93b;
+  --sp-on-primary-container:    #1a1204;
+  --sp-inverse-primary:         #b57c22;
+
+  --sp-secondary:               #3dd68c;
+  --sp-on-secondary:            #05231a;
+  --sp-secondary-container:     #2fb576;
+  --sp-on-secondary-container:  #05231a;
+
+  --sp-tertiary:                #f2c94c;
+  --sp-on-tertiary:             #241c00;
+  --sp-tertiary-container:      #c9a52f;
+  --sp-on-tertiary-container:   #241c00;
+
+  --sp-error:                   #ff6b6b;
+  --sp-on-error:                #2a0606;
+  --sp-error-container:         #7a1f1f;
+  --sp-on-error-container:      #ffd9d9;
+
+  --sp-border-subtle:           rgba(36, 48, 74, 0.6);
+  --sp-border-hover:            #33456a;
+
+  --sp-brand-primary:           #f2a93b;
+  --sp-brand-primary-text:      #f2a93b;
+  --sp-brand-primary-hover:     #ffbe52;
+
+  --sp-success:                 #3dd68c;
+  --sp-success-bg:              rgba(61, 214, 140, 0.12);
+  --sp-success-text:            #3dd68c;
+
+  --sp-badge-bg:                rgba(242, 169, 59, 0.10);
+  --sp-badge-border:            rgba(242, 169, 59, 0.25);
+
+  --sp-code-bg:                 var(--sp-surface-container-lowest);
+  --sp-code-text:               #3dd68c;
 }

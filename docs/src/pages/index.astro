@@ -1,10 +1,12 @@
 ---
-// Landing page — Stripe-inspired layout with Technical Precision tokens.
+// Landing page — "Field Guide": DuckDB-style structure on paper canvas.
+// Centered hero → card grid → code demo → pipeline → get started.
 import '../styles/sparrow-tokens.css';
 import faviconSrc from '../assets/favicon.svg';
 const favicon = faviconSrc.src;
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const docsHome = `${base}getting-started/installation/`;
+const quickstart = `${base}getting-started/quickstart/`;
 const apiRef = `${base}reference/api/`;
 const githubURL = 'https://github.com/sarathsp06/sparrow';
 ---
@@ -14,13 +16,13 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sparrow — Webhook Infrastructure for Developers</title>
-  <meta name="description" content="Open-source webhook delivery with guaranteed delivery, intelligent retries, dual signatures, and OpenTelemetry observability. One binary, one database." />
-  <meta name="color-scheme" content="dark" />
+  <title>Sparrow — Self-hosted webhook delivery</title>
+  <meta name="description" content="Sparrow is an open-source webhook delivery server: at-least-once delivery, classified retries, dual signatures, and OpenTelemetry tracing. One Go binary, one PostgreSQL database." />
+  <meta name="color-scheme" content="light" />
   <link rel="icon" href={favicon} type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 
 <body class="sp">
@@ -36,11 +38,11 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         <div class="sp-nav-links">
           <a href={docsHome}>Docs</a>
           <a href={apiRef}>API</a>
-          <a href={`${base}getting-started/quickstart/`}>Quickstart</a>
           <a href={`${base}reference/architecture/`}>Architecture</a>
+          <a href={`${base}deployment/docker-compose/`}>Deploy</a>
         </div>
         <div class="sp-nav-end">
-          <a href={githubURL} target="_blank" rel="noopener" class="sp-nav-gh">
+          <a href={githubURL} target="_blank" rel="noopener" class="sp-nav-gh" aria-label="GitHub">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
           </a>
           <a href={docsHome} class="sp-btn">Get started<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
@@ -49,35 +51,109 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
     </div>
   </nav>
 
-  <!-- HERO -->
+  <!-- HERO — centered, DuckDB-style -->
   <section class="sp-hero">
-    <div class="sp-hero-mesh"></div>
     <div class="sp-w">
-      <div class="sp-hero-grid">
-        <div class="sp-hero-text">
-          <h1>Webhook infrastructure<br/>for developers</h1>
-          <p class="sp-hero-sub">
-            Sparrow is open-source webhook delivery with guaranteed at-least-once delivery,
-            intelligent retries, and full observability. One binary. One database. Production-ready in minutes.
-          </p>
-          <div class="sp-hero-actions">
-            <a href={docsHome} class="sp-btn sp-btn-lg">Get started<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
-            <a href={apiRef} class="sp-btn-ghost sp-btn-lg">API reference</a>
+      <h1>Webhook delivery<br/>you run yourself</h1>
+      <p class="sp-hero-sub">
+        Sparrow is an open-source webhook delivery server: at-least-once delivery,
+        retries with error classification, dual signatures, and OpenTelemetry tracing.
+        One Go binary. One PostgreSQL database.
+      </p>
+      <div class="sp-hero-actions">
+        <a href={docsHome} class="sp-btn sp-btn-lg">Get started<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+        <a href={apiRef} class="sp-btn-ghost sp-btn-lg">API reference</a>
+      </div>
+      <div class="sp-hero-meta">
+        <span class="sp-hero-meta-item">MIT licensed</span>
+        <span class="sp-hero-meta-sep"></span>
+        <span class="sp-hero-meta-item">Go + PostgreSQL</span>
+        <span class="sp-hero-meta-sep"></span>
+        <span class="sp-hero-meta-item">42 API endpoints</span>
+        <span class="sp-hero-meta-sep"></span>
+        <span class="sp-hero-meta-item">OpenAPI 3.1</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY — card grid -->
+  <section class="sp-cards-section">
+    <div class="sp-w">
+      <div class="sp-cards">
+
+        <a class="sp-card" href={`${base}getting-started/how-it-works/`}>
+          <div class="sp-card-head">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="M4 12a8 8 0 1 1 16 0 8 8 0 0 1-16 0Z"/><path d="m9 12 2 2 4-4"/></svg>
+            <h3>Guaranteed delivery</h3>
           </div>
-          <div class="sp-hero-meta">
-            <span class="sp-hero-meta-item"><span class="sp-dot sp-dot-live"></span>Open source</span>
-            <span class="sp-hero-meta-sep"></span>
-            <span class="sp-hero-meta-item">Go + PostgreSQL</span>
-            <span class="sp-hero-meta-sep"></span>
-            <span class="sp-hero-meta-item">42 API endpoints</span>
+          <p>Events persist in PostgreSQL before fan-out begins. At-least-once delivery with exponential backoff, manual retry, and full event replay.</p>
+          <span class="sp-card-link">How it works<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        </a>
+
+        <a class="sp-card" href={`${base}reference/error-classification/`}>
+          <div class="sp-card-head">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="M3 6h18M3 12h18M3 18h18"/><path d="m7 3 -2 3 2 3M17 15l2 3-2 3"/></svg>
+            <h3>Failures, classified</h3>
           </div>
+          <p>Ten error categories separate what retries (5xx, timeouts, 429s, refused connections) from dead ends (4xx, DNS, TLS). You always know why a delivery failed.</p>
+          <span class="sp-card-link">Error reference<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        </a>
+
+        <a class="sp-card" href={apiRef}>
+          <div class="sp-card-head">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="M12 3 4 7v5c0 4.5 3.2 7.9 8 9 4.8-1.1 8-4.5 8-9V7l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>
+            <h3>Secure by default</h3>
+          </div>
+          <p>HMAC-SHA256 and Ed25519 signatures on every delivery. Secrets envelope-encrypted at rest with AES-256-GCM. SSRF protection blocks private and metadata IPs.</p>
+          <span class="sp-card-link">Webhook API<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        </a>
+
+        <a class="sp-card" href={`${base}reference/architecture/`}>
+          <div class="sp-card-head">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>
+            <h3>Observable</h3>
+          </div>
+          <p>OpenTelemetry traces propagate through every queue job. Structured logs and metrics export via OTLP. An embedded dashboard shows deliveries and per-webhook health.</p>
+          <span class="sp-card-link">Architecture<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        </a>
+
+        <a class="sp-card" href={docsHome}>
+          <div class="sp-card-head">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+            <h3>One binary, one database</h3>
+          </div>
+          <p>No Redis, no Kafka, no sidecar queue. A single Go binary plus PostgreSQL; migrations run automatically on startup. The UI ships embedded in the binary.</p>
+          <span class="sp-card-link">Install<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        </a>
+
+        <a class="sp-card" href={githubURL} target="_blank" rel="noopener">
+          <div class="sp-card-head">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+            <h3>Open source</h3>
+          </div>
+          <p>MIT-licensed and built in the open. The REST API is described by a committed OpenAPI 3.1 spec, so you can generate a client in any language.</p>
+          <span class="sp-card-link">GitHub<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        </a>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- DEMO — push an event -->
+  <section class="sp-section">
+    <div class="sp-w">
+      <div class="sp-feature-row">
+        <div class="sp-feature-text">
+          <span class="sp-label">PUSH AN EVENT</span>
+          <h2>One POST. Sparrow does the rest.</h2>
+          <p>Push an event with an idempotency key and Sparrow validates it, persists it, and fans out to every matching subscription. Duplicate pushes are detected and returned as such.</p>
+          <p>Each delivery arrives signed with both <code>HMAC-SHA256</code> and <code>Ed25519</code>, so consumers verify with a shared secret or a public key — whichever fits their trust model.</p>
+          <a href={quickstart} class="sp-link">Quickstart<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
         </div>
-        <div class="sp-hero-visual">
+        <div class="sp-feature-visual">
           <div class="sp-terminal">
             <div class="sp-terminal-bar">
-              <div class="sp-terminal-dots"><span></span><span></span><span></span></div>
               <span class="sp-terminal-title">terminal</span>
-              <div class="sp-terminal-spacer"></div>
             </div>
             <div class="sp-terminal-body">
               <code><span class="sp-t-muted">$</span> curl -X POST http://localhost:8080/v1/namespaces/payments/events \</code>
@@ -100,17 +176,15 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
     </div>
   </section>
 
-  <!-- FEATURES — two-column alternating -->
-  <section class="sp-section">
+  <!-- PIPELINE -->
+  <section class="sp-section sp-section-muted">
     <div class="sp-w">
-
-      <!-- Feature 1: Delivery Pipeline -->
-      <div class="sp-feature-row">
+      <div class="sp-feature-row sp-feature-row-reverse">
         <div class="sp-feature-text">
           <span class="sp-label">DELIVERY PIPELINE</span>
-          <h2>Every event delivered. Every failure classified.</h2>
-          <p>Events are persisted in PostgreSQL before delivery begins. River workers fan out to matching subscriptions, apply Go template transforms, and deliver via HTTP with exponential backoff.</p>
-          <p>Errors are classified into 10 categories — retryable (5xx, timeout, 429, connection refused) and non-retryable (4xx, DNS, TLS) — so you always know why a delivery failed.</p>
+          <h2>Five stages, all in PostgreSQL</h2>
+          <p>River workers drive the pipeline over the same database that stores your events. Fan-out matches subscriptions and applies per-subscription Go template transforms; delivery POSTs with signatures and per-webhook rate limits.</p>
+          <p>When a delivery fails, the error is classified before anything else happens. Retryable failures back off exponentially; permanent ones stop immediately and mark webhook health.</p>
           <a href={`${base}getting-started/how-it-works/`} class="sp-link">How it works<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
         </div>
         <div class="sp-feature-visual">
@@ -124,7 +198,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
             </div>
             <div class="sp-pipeline-line"></div>
             <div class="sp-pipeline-step">
-              <div class="sp-pipeline-num sp-c-cyan">02</div>
+              <div class="sp-pipeline-num">02</div>
               <div class="sp-pipeline-content">
                 <span class="sp-pipeline-name">Fan-out</span>
                 <span class="sp-pipeline-desc">Match subscriptions, transform</span>
@@ -132,7 +206,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
             </div>
             <div class="sp-pipeline-line"></div>
             <div class="sp-pipeline-step">
-              <div class="sp-pipeline-num sp-c-cyan">03</div>
+              <div class="sp-pipeline-num">03</div>
               <div class="sp-pipeline-content">
                 <span class="sp-pipeline-name">Queue</span>
                 <span class="sp-pipeline-desc">River workers, rate limiting</span>
@@ -148,109 +222,13 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
             </div>
             <div class="sp-pipeline-line"></div>
             <div class="sp-pipeline-step">
-              <div class="sp-pipeline-num sp-c-amber">05</div>
+              <div class="sp-pipeline-num">05</div>
               <div class="sp-pipeline-content">
                 <span class="sp-pipeline-name">Retry</span>
                 <span class="sp-pipeline-desc">Classify, backoff, health track</span>
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- Feature 2: Security -->
-      <div class="sp-feature-row sp-feature-row-reverse">
-        <div class="sp-feature-text">
-          <span class="sp-label">SECURITY</span>
-          <h2>Dual cryptographic signatures on every delivery</h2>
-          <p>Every webhook delivery is signed with both <code>HMAC-SHA256</code> and <code>Ed25519</code>. Consumers choose which to verify — shared secret or public key. No configuration needed; both signatures ship on every request.</p>
-          <p>Secrets and sensitive headers are envelope-encrypted at rest using AES-256-GCM with per-record keys. SSRF protection blocks private, loopback, and cloud metadata IPs.</p>
-          <a href={`${base}reference/api/`} class="sp-link">Webhook API<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
-        </div>
-        <div class="sp-feature-visual">
-          <div class="sp-terminal sp-terminal-sm">
-            <div class="sp-terminal-bar">
-              <div class="sp-terminal-dots"><span></span><span></span><span></span></div>
-              <span class="sp-terminal-title">delivery headers</span>
-              <div class="sp-terminal-spacer"></div>
-            </div>
-             <div class="sp-terminal-body">
-               <code><span class="sp-t-key">webhook-id</span>: <span class="sp-t-str">msg_d4e5f6a1b2c3...</span></code>
-               <code><span class="sp-t-key">webhook-timestamp</span>: <span class="sp-t-str">1714567890</span></code>
-               <code><span class="sp-t-key">webhook-signature</span>:</code>
-               <code>  <span class="sp-t-str">v1,K7gNU3sdo+OL0... v1a,9f8e7d...</span></code>
-               <code><span class="sp-t-key">Content-Type</span>: <span class="sp-t-str">application/json</span></code>
-             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Feature 3: Observability -->
-      <div class="sp-feature-row">
-        <div class="sp-feature-text">
-          <span class="sp-label">OBSERVABILITY</span>
-          <h2>Traces, metrics, and logs — built in, not bolted on</h2>
-          <p>OpenTelemetry traces propagate through every River job. Structured logs and metrics export via OTLP to your collector of choice. Per-webhook health tracking classifies delivery outcomes into healthy, degraded, or unhealthy states.</p>
-          <p>The embedded SvelteKit dashboard gives you a real-time view of deliveries, health, and event history — no external tooling needed for day-one visibility.</p>
-          <a href={`${base}reference/architecture/`} class="sp-link">Architecture<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
-        </div>
-        <div class="sp-feature-visual">
-          <div class="sp-metrics">
-            <div class="sp-metric">
-              <span class="sp-metric-label">DELIVERIES / 24H</span>
-              <span class="sp-metric-value">12,847</span>
-              <span class="sp-metric-bar"><span style="width:92%"></span></span>
-            </div>
-            <div class="sp-metric">
-              <span class="sp-metric-label">SUCCESS RATE</span>
-              <span class="sp-metric-value sp-c-cyan">99.7%</span>
-              <span class="sp-metric-bar sp-metric-bar-cyan"><span style="width:99.7%"></span></span>
-            </div>
-            <div class="sp-metric">
-              <span class="sp-metric-label">P95 LATENCY</span>
-              <span class="sp-metric-value">142ms</span>
-              <span class="sp-metric-bar"><span style="width:28%"></span></span>
-            </div>
-            <div class="sp-metric">
-              <span class="sp-metric-label">ACTIVE WEBHOOKS</span>
-              <span class="sp-metric-value">38</span>
-              <span class="sp-metric-bar"><span style="width:45%"></span></span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- CAPABILITIES — horizontal strip -->
-  <section class="sp-section sp-section-muted">
-    <div class="sp-w">
-      <span class="sp-label">ALSO INCLUDED</span>
-      <div class="sp-caps-grid">
-        <div class="sp-cap">
-          <h3>Payload transforms</h3>
-          <p>Go template transforms per subscription with safe fallback to envelope payload on failure.</p>
-        </div>
-        <div class="sp-cap">
-          <h3>Envelope encryption</h3>
-          <p>Webhook secrets and sensitive headers are protected with AES-256-GCM envelope encryption and per-record keys.</p>
-        </div>
-        <div class="sp-cap">
-          <h3>Per-webhook rate limits</h3>
-          <p>Leaky bucket rate limiting per webhook. 429 Retry-After parsing with cap at 15 minutes.</p>
-        </div>
-        <div class="sp-cap">
-          <h3>Dual signing</h3>
-          <p>Every delivery includes HMAC-SHA256 and Ed25519 signatures so consumers can verify with shared secrets or public keys.</p>
-        </div>
-        <div class="sp-cap">
-          <h3>Batch operations</h3>
-          <p>Snapshot-based bulk re-push and retry. What you search is what you act on — deterministic.</p>
-        </div>
-        <div class="sp-cap">
-          <h3>REST + OpenAPI</h3>
-          <p>Clean HTTP/JSON API on :8080, fully described by an OpenAPI 3.1 spec. Generate clients in any language.</p>
         </div>
       </div>
     </div>
@@ -263,7 +241,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         <div class="sp-feature-text">
           <span class="sp-label">GET STARTED</span>
           <h2>Docker Compose to production</h2>
-          <p>Sparrow ships as a single Go binary. Add PostgreSQL and you have a production webhook system. No Redis, no Kafka, no additional infrastructure.</p>
+          <p>Two commands stand up Sparrow with PostgreSQL. For Kubernetes there is a Helm chart with hardened defaults: non-root, read-only root filesystem, NetworkPolicy isolation.</p>
           <div class="sp-hero-actions" style="margin-top:1.5rem">
             <a href={docsHome} class="sp-btn sp-btn-lg">Installation guide<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
             <a href="https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic" target="_blank" rel="noopener" class="sp-btn-ghost sp-btn-lg">Deploy on Railway</a>
@@ -272,9 +250,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         <div class="sp-feature-visual">
           <div class="sp-terminal sp-terminal-sm">
             <div class="sp-terminal-bar">
-              <div class="sp-terminal-dots"><span></span><span></span><span></span></div>
               <span class="sp-terminal-title">terminal</span>
-              <div class="sp-terminal-spacer"></div>
             </div>
             <div class="sp-terminal-body">
               <code><span class="sp-t-muted">$</span> curl -O https://raw.githubusercontent.com/</code>
@@ -309,7 +285,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
           <span class="sp-footer-heading">Product</span>
           <a href={docsHome}>Documentation</a>
           <a href={apiRef}>API Reference</a>
-          <a href={`${base}getting-started/quickstart/`}>Quickstart</a>
+          <a href={quickstart}>Quickstart</a>
         </div>
         <div class="sp-footer-col">
           <span class="sp-footer-heading">Deploy</span>
@@ -334,15 +310,14 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 
 <style>
 /* ================================================================
-   Sparrow Landing — Stripe-inspired, Technical Precision tokens
+   Sparrow Landing — "Field Guide": light paper, single amber accent
    ================================================================ */
 
 /* --- Reset / Base --- */
 .sp {
-  /* Palette + fonts inherited from sparrow-tokens.css (:root) — the console theme. */
   margin: 0; padding: 0;
   font-family: var(--sp-font-body);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
   color: var(--sp-on-surface);
   background: var(--sp-surface);
@@ -355,37 +330,35 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   font-family: var(--sp-font-mono);
   font-size: 13px;
 }
+.sp h1, .sp h2, .sp h3 { font-family: var(--sp-font-display); }
 
 /* --- Layout --- */
 .sp-w { max-width: 1120px; margin: 0 auto; padding: 0 1.5rem; }
 
-/* --- Colors --- */
-.sp-c-cyan { color: var(--sp-secondary) !important; }
-.sp-c-amber { color: var(--sp-tertiary) !important; }
-
 /* --- Nav --- */
 .sp-nav {
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-  background: rgba(18, 26, 42, 0.8);
+  background: rgba(250, 249, 247, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--sp-outline-variant);
 }
 .sp-nav-inner {
-  display: flex; align-items: center; height: 3.25rem;
+  display: flex; align-items: center; height: 3.5rem;
 }
 .sp-logo {
   display: flex; align-items: center; gap: 0.5rem;
 }
 .sp-logo span {
-  font-weight: 600; font-size: 0.9375rem; letter-spacing: -0.02em;
+  font-family: var(--sp-font-display);
+  font-weight: 700; font-size: 1rem; letter-spacing: -0.02em;
 }
 .sp-logo-sm span { font-size: 0.8125rem; }
 .sp-nav-links {
   display: flex; align-items: center; gap: 1.5rem; margin-left: 2.5rem;
 }
 .sp-nav-links a {
-  font-size: 13px; font-weight: 500; color: var(--sp-outline);
+  font-size: 14px; font-weight: 500; color: var(--sp-on-surface-variant);
   transition: color 0.12s;
 }
 .sp-nav-links a:hover { color: var(--sp-on-surface); }
@@ -393,7 +366,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   margin-left: auto; display: flex; align-items: center; gap: 0.75rem;
 }
 .sp-nav-gh {
-  color: var(--sp-outline); transition: color 0.12s;
+  color: var(--sp-on-surface-variant); transition: color 0.12s;
 }
 .sp-nav-gh:hover { color: var(--sp-on-surface); }
 
@@ -404,117 +377,132 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 /* --- Buttons --- */
 .sp a.sp-btn {
   display: inline-flex; align-items: center; gap: 0.375rem;
-  padding: 0.375rem 0.875rem;
+  padding: 0.4rem 0.95rem;
   font-family: var(--sp-font-body); font-size: 13px; font-weight: 600;
-  border-radius: var(--sp-radius);
+  border-radius: 999px;
   background: var(--sp-primary-container); color: #1a1204;
-  transition: background 0.12s, box-shadow 0.12s;
+  transition: background 0.12s;
   border: none; letter-spacing: -0.01em;
 }
 .sp a.sp-btn:hover {
   background: var(--sp-brand-primary-hover); color: #1a1204;
-  box-shadow: 0 0 24px rgba(242, 169, 59, 0.25);
 }
-.sp-btn-lg { padding: 0.5rem 1.125rem; font-size: 14px; }
+.sp-btn-lg { padding: 0.55rem 1.25rem !important; font-size: 14px !important; }
 
 .sp-btn-ghost {
   display: inline-flex; align-items: center; gap: 0.375rem;
-  padding: 0.375rem 0.875rem;
+  padding: 0.4rem 0.95rem;
   font-family: var(--sp-font-body); font-size: 13px; font-weight: 500;
-  border-radius: var(--sp-radius);
-  border: 1px solid var(--sp-outline-variant);
-  color: var(--sp-on-surface-variant); background: transparent;
-  transition: border-color 0.12s, color 0.12s;
+  border-radius: 999px;
+  border: 1px solid var(--sp-border-hover);
+  color: var(--sp-on-surface); background: transparent;
+  transition: border-color 0.12s, background 0.12s;
 }
-.sp-btn-ghost:hover { border-color: var(--sp-outline); color: var(--sp-on-surface); }
-.sp-btn-ghost.sp-btn-lg { padding: 0.5rem 1.125rem; font-size: 14px; }
+.sp-btn-ghost:hover { border-color: var(--sp-outline); background: var(--sp-surface-container-high); }
+.sp-btn-ghost.sp-btn-lg { padding: 0.55rem 1.25rem; font-size: 14px; }
 
-/* --- Hero --- */
+/* --- Hero (centered) --- */
 .sp-hero {
-  position: relative;
-  padding: 7.5rem 0 5rem;
-  overflow: hidden;
+  padding: 9rem 0 4.5rem;
+  text-align: center;
 }
-.sp-hero-mesh {
-  position: absolute; inset: 0;
-  background:
-    radial-gradient(ellipse 60% 50% at 25% 0%, rgba(242, 169, 59, 0.08), transparent 60%),
-    radial-gradient(ellipse 40% 60% at 75% 100%, rgba(61, 214, 140, 0.06), transparent 50%);
-}
-.sp-hero-grid {
-  position: relative; z-index: 1;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 4rem;
-  align-items: center;
-}
-@media (max-width: 960px) {
-  .sp-hero-grid { grid-template-columns: 1fr; gap: 2.5rem; }
-}
-
-.sp-hero-text h1 {
-  font-size: clamp(2rem, 4vw, 2.75rem);
-  font-weight: 600; line-height: 1.15;
-  letter-spacing: -0.025em;
-  margin: 0 0 1.25rem;
+.sp-hero h1 {
+  font-size: clamp(2.6rem, 6vw, 4rem);
+  font-weight: 700; line-height: 1.06;
+  letter-spacing: -0.03em;
+  margin: 0 0 1.5rem;
 }
 .sp-hero-sub {
-  font-size: 15px; line-height: 1.65;
+  font-size: 17px; line-height: 1.65;
   color: var(--sp-on-surface-variant);
-  max-width: 32rem; margin: 0 0 2rem;
+  max-width: 40rem; margin: 0 auto 2.25rem;
 }
 .sp-hero-actions {
-  display: flex; flex-wrap: wrap; gap: 0.625rem;
+  display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center;
 }
 .sp-hero-meta {
-  display: flex; align-items: center; gap: 0.75rem;
-  margin-top: 2.5rem; padding-top: 1.5rem;
-  border-top: 1px solid var(--sp-outline-variant);
+  display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+  margin-top: 2.75rem;
+  flex-wrap: wrap;
 }
 .sp-hero-meta-item {
-  display: flex; align-items: center; gap: 0.375rem;
-  font-size: 12px; font-weight: 500; color: var(--sp-outline);
+  font-size: 13px; font-weight: 500; color: var(--sp-text-muted);
   letter-spacing: 0.01em;
 }
 .sp-hero-meta-sep {
   width: 3px; height: 3px; border-radius: 50%;
-  background: var(--sp-outline-variant);
-}
-.sp-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-}
-.sp-dot-live {
-  background: var(--sp-secondary);
-  box-shadow: 0 0 6px var(--sp-secondary);
-  animation: pulse 2.5s ease-in-out infinite;
+  background: var(--sp-border-hover);
 }
 
-/* --- Terminal --- */
-.sp-terminal {
-  border: 1px solid var(--sp-outline-variant);
-  border-radius: var(--sp-radius-lg);
+/* --- Card grid --- */
+.sp-cards-section { padding: 1rem 0 4rem; }
+.sp-cards {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+@media (max-width: 900px) { .sp-cards { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .sp-cards { grid-template-columns: 1fr; } }
+
+.sp-card {
+  display: flex; flex-direction: column;
+  padding: 1.4rem 1.5rem 1.3rem;
   background: var(--sp-surface-container-lowest);
+  border: 1px solid var(--sp-outline-variant);
+  border-radius: var(--sp-radius-xl);
+  transition: border-color 0.12s;
+}
+.sp-card:hover { border-color: var(--sp-border-hover); }
+.sp-card-head {
+  display: flex; align-items: center; gap: 0.6rem;
+  margin-bottom: 0.65rem;
+  color: var(--sp-on-surface);
+}
+.sp-card-head svg { color: var(--sp-brand-primary-text); flex-shrink: 0; }
+.sp-card h3 {
+  font-size: 15.5px; font-weight: 700;
+  margin: 0; letter-spacing: -0.01em;
+}
+.sp-card p {
+  font-size: 13.5px; line-height: 1.6;
+  color: var(--sp-on-surface-variant);
+  margin: 0 0 1rem; flex: 1;
+}
+.sp-card-link {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  font-size: 13px; font-weight: 600;
+  color: var(--sp-brand-primary-text);
+}
+.sp-card:hover .sp-card-link { gap: 0.5rem; }
+.sp-card-link { transition: gap 0.15s; }
+
+/* --- Terminal (always dark: code card on paper) --- */
+.sp-terminal {
+  --t-bg: #0f1626;
+  --t-bar: #121a2a;
+  --t-line: #24304a;
+  --t-text: #8494b0;
+  --t-muted: #5a6b8c;
+  --t-amber: #f2a93b;
+  --t-green: #3dd68c;
+  --t-yellow: #f2c94c;
+  border: 1px solid var(--t-line);
+  border-radius: var(--sp-radius-lg);
+  background: var(--t-bg);
   overflow: hidden;
 }
 .sp-terminal-sm { font-size: 12px; }
 .sp-terminal-bar {
-  display: flex; align-items: center; gap: 0.75rem;
-  padding: 0.625rem 1rem;
-  border-bottom: 1px solid var(--sp-outline-variant);
-  background: var(--sp-surface-container);
-}
-.sp-terminal-dots {
-  display: flex; gap: 5px;
-}
-.sp-terminal-dots span {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--sp-surface-container-highest);
+  display: flex; align-items: center;
+  padding: 0.55rem 1rem;
+  border-bottom: 1px solid var(--t-line);
+  background: var(--t-bar);
 }
 .sp-terminal-title {
   font-family: var(--sp-font-mono);
   font-size: 11px; font-weight: 500;
-  color: var(--sp-outline);
+  color: var(--t-muted);
   letter-spacing: 0.02em;
 }
-.sp-terminal-spacer { flex: 1; }
 .sp-terminal-body {
   padding: 1rem 1.25rem;
   font-family: var(--sp-font-mono);
@@ -523,34 +511,36 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 }
 .sp-terminal-body code {
   display: block; white-space: pre;
-  color: var(--sp-on-surface-variant);
+  color: var(--t-text);
 }
-.sp-t-muted { color: var(--sp-outline); }
-.sp-t-flag { color: var(--sp-primary); }
-.sp-t-str { color: var(--sp-secondary); }
-.sp-t-key { color: var(--sp-primary); }
-.sp-t-bool { color: var(--sp-tertiary); }
+.sp-t-muted { color: var(--t-muted); }
+.sp-t-flag { color: var(--t-amber); }
+.sp-t-str { color: var(--t-green); }
+.sp-t-key { color: var(--t-amber); }
+.sp-t-bool { color: var(--t-yellow); }
 
 /* --- Sections --- */
-.sp-section { padding: 5rem 0; }
-.sp-section-muted { background: var(--sp-surface-container-lowest); }
+.sp-section { padding: 4.5rem 0; }
+.sp-section-muted {
+  background: var(--sp-surface-container-low);
+  border-top: 1px solid var(--sp-outline-variant);
+  border-bottom: 1px solid var(--sp-outline-variant);
+}
 
 .sp-label {
   display: inline-block;
   font-family: var(--sp-font-mono);
   font-size: 11px; font-weight: 600;
   letter-spacing: 0.05em;
-  color: var(--sp-primary-container);
+  color: var(--sp-brand-primary-text);
   margin-bottom: 1rem;
 }
 
-/* --- Feature rows (Stripe alternating layout) --- */
+/* --- Feature rows --- */
 .sp-feature-row {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 4rem; align-items: center;
-  margin-bottom: 6rem;
 }
-.sp-feature-row:last-child { margin-bottom: 0; }
 .sp-feature-row-reverse { direction: rtl; }
 .sp-feature-row-reverse > * { direction: ltr; }
 
@@ -559,30 +549,31 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 }
 
 .sp-feature-text h2 {
-  font-size: clamp(1.25rem, 2.5vw, 1.625rem);
-  font-weight: 600; line-height: 1.25;
+  font-size: clamp(1.4rem, 2.8vw, 1.85rem);
+  font-weight: 700; line-height: 1.2;
   letter-spacing: -0.02em;
   margin: 0 0 1rem;
 }
 .sp-feature-text p {
-  font-size: 14px; line-height: 1.65;
+  font-size: 14.5px; line-height: 1.65;
   color: var(--sp-on-surface-variant);
   margin: 0 0 0.75rem;
 }
 .sp-feature-text p:last-of-type { margin-bottom: 1.25rem; }
 .sp-feature-text code {
-  background: var(--sp-surface-container-high);
+  background: var(--sp-code-bg);
   padding: 0.1rem 0.35rem; border-radius: var(--sp-radius);
-  font-size: 12px; color: var(--sp-secondary);
+  font-size: 12px; color: var(--sp-code-text);
+  border: 1px solid var(--sp-outline-variant);
 }
 
 .sp-link {
   display: inline-flex; align-items: center; gap: 0.375rem;
   font-size: 14px; font-weight: 600;
-  color: var(--sp-primary-container);
+  color: var(--sp-brand-primary-text);
   transition: gap 0.15s;
 }
-.sp-link:hover { gap: 0.625rem; color: var(--sp-primary); }
+.sp-link:hover { gap: 0.625rem; }
 
 /* --- Pipeline visual --- */
 .sp-pipeline {
@@ -594,14 +585,14 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   padding: 0.875rem 1.125rem;
   border: 1px solid var(--sp-outline-variant);
   border-radius: var(--sp-radius);
-  background: var(--sp-surface-container);
+  background: var(--sp-surface-container-lowest);
   transition: border-color 0.12s;
 }
-.sp-pipeline-step:hover { border-color: var(--sp-outline); }
+.sp-pipeline-step:hover { border-color: var(--sp-border-hover); }
 .sp-pipeline-num {
   font-family: var(--sp-font-mono);
   font-size: 12px; font-weight: 700;
-  color: var(--sp-primary-container);
+  color: var(--sp-brand-primary-text);
   min-width: 1.5rem; padding-top: 1px;
 }
 .sp-pipeline-content { display: flex; flex-direction: column; gap: 0.125rem; }
@@ -616,68 +607,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 .sp-pipeline-line {
   width: 1px; height: 16px;
   margin-left: 1.875rem;
-  background: var(--sp-outline-variant);
-}
-
-/* --- Metrics visual --- */
-.sp-metrics {
-  display: flex; flex-direction: column; gap: 1.25rem;
-  padding: 1.5rem;
-  border: 1px solid var(--sp-outline-variant);
-  border-radius: var(--sp-radius-lg);
-  background: var(--sp-surface-container);
-}
-.sp-metric { display: flex; flex-direction: column; gap: 0.375rem; }
-.sp-metric-label {
-  font-family: var(--sp-font-mono);
-  font-size: 10px; font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--sp-outline);
-}
-.sp-metric-value {
-  font-family: var(--sp-font-mono);
-  font-size: 20px; font-weight: 700;
-  color: var(--sp-on-surface);
-  letter-spacing: -0.02em;
-}
-.sp-metric-bar {
-  height: 3px; border-radius: 2px;
-  background: var(--sp-surface-container-highest);
-  overflow: hidden;
-}
-.sp-metric-bar span {
-  display: block; height: 100%; border-radius: 2px;
-  background: var(--sp-primary-container);
-}
-.sp-metric-bar-cyan span { background: var(--sp-secondary); }
-
-/* --- Capabilities grid --- */
-.sp-caps-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  background: var(--sp-outline-variant);
-  border: 1px solid var(--sp-outline-variant);
-  border-radius: var(--sp-radius);
-  overflow: hidden;
-  margin-top: 1.5rem;
-}
-@media (max-width: 768px) { .sp-caps-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 480px) { .sp-caps-grid { grid-template-columns: 1fr; } }
-
-.sp-cap {
-  padding: 1.25rem 1.5rem;
-  background: var(--sp-surface-container);
-}
-.sp-cap h3 {
-  font-size: 14px; font-weight: 600;
-  color: var(--sp-on-surface);
-  margin: 0 0 0.375rem;
-  letter-spacing: -0.01em;
-}
-.sp-cap p {
-  font-size: 13px; line-height: 1.55;
-  color: var(--sp-on-surface-variant);
-  margin: 0;
+  background: var(--sp-border-hover);
 }
 
 /* --- Footer --- */
@@ -696,14 +626,14 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   display: flex; flex-direction: column; gap: 0.5rem;
 }
 .sp-footer-desc {
-  font-size: 13px; color: var(--sp-outline);
+  font-size: 13px; color: var(--sp-text-muted);
   margin: 0.5rem 0 0; max-width: 20rem;
   line-height: 1.5;
 }
 .sp-footer-heading {
   font-size: 11px; font-weight: 600;
   text-transform: uppercase; letter-spacing: 0.05em;
-  color: var(--sp-outline);
+  color: var(--sp-text-muted);
   margin-bottom: 0.25rem;
 }
 .sp-footer-col a {
@@ -714,12 +644,6 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 .sp-footer-bottom {
   margin-top: 3rem; padding-top: 1.5rem;
   border-top: 1px solid var(--sp-outline-variant);
-  font-size: 12px; color: var(--sp-outline);
-}
-
-/* --- Animations --- */
-@keyframes pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--sp-secondary); }
-  50% { opacity: 0.4; box-shadow: 0 0 3px var(--sp-secondary); }
+  font-size: 12px; color: var(--sp-text-muted);
 }
 </style>
