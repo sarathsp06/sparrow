@@ -63,6 +63,22 @@ export default defineConfig({
       expressiveCode: {
         themes: ['github-light', 'github-dark'],
         useStarlightDarkModeSwitch: true,
+        styleOverrides: {
+          borderColor: 'var(--sp-outline-variant, #e4e2dd)',
+          borderRadius: '0.5rem',
+          codeBackground: 'var(--sp-code-bg, #f3f1ec)',
+          frames: {
+            terminalTitlebarBackground: 'var(--sp-surface-container-high, #f3f1ec)',
+            terminalTitlebarBorderBottomColor: 'var(--sp-outline-variant, #e4e2dd)',
+            terminalTitlebarDotsForeground: 'var(--sp-border-hover, #cfccc4)',
+            terminalBackground: 'var(--sp-code-bg, #f3f1ec)',
+            editorTabBarBackground: 'var(--sp-surface-container-high, #f3f1ec)',
+            editorActiveTabBackground: 'var(--sp-code-bg, #f3f1ec)',
+            editorActiveTabIndicatorTopColor: 'var(--sp-brand-primary-text, #b06a10)',
+            editorTabBarBorderBottomColor: 'var(--sp-outline-variant, #e4e2dd)',
+            frameBoxShadowCssValue: 'none',
+          },
+        },
       },
     }),
   ],
