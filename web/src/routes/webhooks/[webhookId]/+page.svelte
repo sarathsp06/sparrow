@@ -488,21 +488,21 @@
 <main class="mx-auto max-w-6xl px-4 sm:px-8 py-8">
     {#if loading}
       <nav class="mb-6">
-        <div class="h-4 bg-white/5 rounded w-28 animate-pulse"></div>
+        <div class="h-4 bg-black/5 rounded w-28 animate-pulse"></div>
       </nav>
       <div class="panel p-5 mb-6 animate-pulse">
-        <div class="h-6 bg-white/5 rounded w-48 mb-3"></div>
-        <div class="h-4 bg-white/[0.03] rounded w-64 mb-3"></div>
+        <div class="h-6 bg-black/5 rounded w-48 mb-3"></div>
+        <div class="h-4 bg-black/[0.03] rounded w-64 mb-3"></div>
         <div class="flex gap-6">
-          <div class="h-4 bg-white/[0.03] rounded w-32"></div>
-          <div class="h-4 bg-white/[0.03] rounded w-40"></div>
+          <div class="h-4 bg-black/[0.03] rounded w-32"></div>
+          <div class="h-4 bg-black/[0.03] rounded w-40"></div>
         </div>
       </div>
       <div class="panel p-5 mb-6 animate-pulse">
-        <div class="h-4 bg-white/5 rounded w-32 mb-4"></div>
+        <div class="h-4 bg-black/5 rounded w-32 mb-4"></div>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {#each Array(4) as _}
-            <div><div class="h-3 bg-white/[0.03] rounded w-16 mb-1"></div><div class="h-6 bg-white/5 rounded w-12"></div></div>
+            <div><div class="h-3 bg-black/[0.03] rounded w-16 mb-1"></div><div class="h-6 bg-black/5 rounded w-12"></div></div>
           {/each}
         </div>
       </div>
@@ -529,7 +529,7 @@
         </div>
       {/if}
 
-      <div class="panel ticked p-5 mb-6">
+      <div class="panel p-5 mb-6">
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div class="flex-1 min-w-0">
             <p class="eyebrow mb-1.5">Fleet / Webhook</p>

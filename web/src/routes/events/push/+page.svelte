@@ -6,7 +6,6 @@
     Mode,
     type Validator
   } from "svelte-jsoneditor";
-  import 'svelte-jsoneditor/themes/jse-theme-dark.css';
 
   import { api, unwrap } from "$lib/services";
   import { formatAPIError } from '$lib/utils';
@@ -155,18 +154,18 @@
     <div class="panel p-6 space-y-6">
       <div class="animate-pulse space-y-6">
         <div>
-          <div class="h-4 bg-white/5 rounded w-24 mb-2"></div>
-          <div class="h-10 bg-white/[0.03] rounded w-full"></div>
+          <div class="h-4 bg-black/5 rounded w-24 mb-2"></div>
+          <div class="h-10 bg-black/[0.03] rounded w-full"></div>
         </div>
         <div>
-          <div class="h-4 bg-white/5 rounded w-16 mb-2"></div>
-          <div class="h-10 bg-white/[0.03] rounded w-full"></div>
+          <div class="h-4 bg-black/5 rounded w-16 mb-2"></div>
+          <div class="h-10 bg-black/[0.03] rounded w-full"></div>
         </div>
         <div>
-          <div class="h-4 bg-white/5 rounded w-28 mb-2"></div>
-          <div class="h-40 bg-white/[0.03] rounded w-full"></div>
+          <div class="h-4 bg-black/5 rounded w-28 mb-2"></div>
+          <div class="h-40 bg-black/[0.03] rounded w-full"></div>
         </div>
-        <div class="h-10 bg-white/5 rounded w-32"></div>
+        <div class="h-10 bg-black/5 rounded w-32"></div>
       </div>
     </div>
   {:else}
@@ -189,7 +188,7 @@
         <label for="payload" class="field-label">
           Payload {hasSchema() ? '(validated against schema)' : ''}
         </label>
-        <div class="jse-theme-dark h-40">
+        <div class="h-40">
           <JSONEditor bind:content={payload} {validator} />
         </div>
       </div>

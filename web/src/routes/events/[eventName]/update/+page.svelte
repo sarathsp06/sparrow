@@ -11,7 +11,6 @@
     Mode,
     type Validator
   } from "svelte-jsoneditor";
-  import 'svelte-jsoneditor/themes/jse-theme-dark.css';
 
   let name = $state("");
   let description = $state("");
@@ -106,8 +105,8 @@
   {#if loading}
     <div class="panel p-5">
       <div class="animate-pulse space-y-4">
-        <div class="h-10 bg-white/5 rounded"></div>
-        <div class="h-32 bg-white/[0.03] rounded"></div>
+        <div class="h-10 bg-black/5 rounded"></div>
+        <div class="h-32 bg-black/[0.03] rounded"></div>
       </div>
     </div>
   {:else}
@@ -126,7 +125,7 @@
             class="input"
           />
         </div>
-        <label for="active" class="flex items-center gap-2 rounded px-1 py-1 hover:bg-white/5 cursor-pointer w-fit">
+          <label for="active" class="flex items-center gap-2 rounded px-1 py-1 hover:bg-black/5 cursor-pointer w-fit">
           <input id="active" type="checkbox" bind:checked={active} class="accent-[color:var(--color-beacon)]" />
           <span class="text-sm text-text">Active</span>
         </label>
@@ -142,7 +141,7 @@
         {#if showSchemaHelper}
           <div class="panel-2 p-4 mb-4">
             <p class="text-muted text-xs mb-2">Paste a sample payload to generate a schema:</p>
-            <div class="jse-theme-dark h-32 mb-2">
+            <div class="h-32 mb-2">
               <JSONEditor bind:content={sampleJson} mode={Mode.text} />
             </div>
             {#if schemaHelperError}
@@ -153,7 +152,7 @@
             </button>
           </div>
         {/if}
-        <div class="jse-theme-dark h-64">
+        <div class="h-64">
           <JSONEditor bind:content={schema} {validator} />
         </div>
       </section>

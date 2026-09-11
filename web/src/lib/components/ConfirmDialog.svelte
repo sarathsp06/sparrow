@@ -41,8 +41,8 @@
   >
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="fixed inset-0 bg-ink/70 backdrop-blur-sm" role="presentation" onclick={oncancel}></div>
-    <div class="panel ticked relative max-w-md w-full p-6">
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" role="presentation" onclick={oncancel}></div>
+    <div class="panel relative max-w-md w-full p-6">
       <span class="eyebrow" style="color:var(--color-{tone[variant]})">
         {variant === "danger" ? "Destructive action" : variant === "warning" ? "Caution" : "Confirm"}
       </span>

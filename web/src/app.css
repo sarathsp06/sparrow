@@ -3,8 +3,7 @@
 @plugin '@tailwindcss/typography';
 
 /*
-  Sparrow — "Dispatch Console"
-  A dark mission-control instrument panel for a live webhook delivery engine.
+  Sparrow — calm light theme, matching the marketing docs site.
   Display/UI: Space Grotesk. Data/IDs/numbers: Fira Code.
 */
 @theme {
@@ -12,31 +11,31 @@
 	--font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
 	/* surfaces */
-	--color-ink: #0b1220;
-	--color-panel: #121a2a;
-	--color-panel-2: #0f1626;
-	--color-line: #24304a;
-	--color-line-strong: #33456a;
+	--color-ink: #faf9f6;
+	--color-panel: #ffffff;
+	--color-panel-2: #f4f2ed;
+	--color-line: #e6e2d9;
+	--color-line-strong: #d3ccbd;
 
 	/* text */
-	--color-text: #e6ecf5;
-	--color-muted: #8494b0;
-	--color-faint: #5a6b8c;
+	--color-text: #1c1a16;
+	--color-muted: #6b6558;
+	--color-faint: #9b9587;
 
-	/* brand beacon (warm signal amber) */
-	--color-beacon: #f2a93b;
-	--color-beacon-dim: #b57c22;
+	/* brand beacon (warm amber accent, used sparingly) */
+	--color-beacon: #ea9d2b;
+	--color-beacon-dim: #c9832a;
 
-	/* functional status */
-	--color-ok: #3dd68c;
-	--color-warn: #f2c94c;
-	--color-bad: #ff6b6b;
-	--color-idle: #64748b;
+	/* functional status (tuned for contrast on a light surface) */
+	--color-ok: #16875a;
+	--color-warn: #b3790a;
+	--color-bad: #d5362f;
+	--color-idle: #8b8578;
 }
 
 @layer base {
 	html {
-		color-scheme: dark;
+		color-scheme: light;
 		scrollbar-color: var(--color-line-strong) transparent;
 	}
 	html,
@@ -46,12 +45,6 @@
 		font-size: 16px;
 		-webkit-font-smoothing: antialiased;
 		text-rendering: optimizeLegibility;
-	}
-	body {
-		background-image:
-			radial-gradient(60rem 40rem at 82% -10%, rgba(242, 169, 59, 0.05), transparent 60%),
-			radial-gradient(50rem 40rem at 0% 0%, rgba(61, 214, 140, 0.04), transparent 55%);
-		background-attachment: fixed;
 	}
 	h1, h2, h3, h4, h5, h6 {
 		font-family: var(--font-display);
@@ -68,15 +61,15 @@
 		font-family: var(--font-mono);
 	}
 	::selection {
-		background: rgba(242, 169, 59, 0.28);
-		color: #fff;
+		background: rgba(234, 157, 43, 0.3);
+		color: var(--color-text);
 	}
 	:focus-visible {
 		outline: 2px solid var(--color-beacon);
 		outline-offset: 2px;
 		border-radius: 4px;
 	}
-	/* thin instrument scrollbars */
+	/* thin scrollbars */
 	::-webkit-scrollbar { width: 10px; height: 10px; }
 	::-webkit-scrollbar-thumb {
 		background: var(--color-line-strong);
@@ -102,35 +95,12 @@
 		background: var(--color-panel);
 		border: 1px solid var(--color-line);
 		border-radius: 10px;
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.03),
-			0 1px 2px rgba(0, 0, 0, 0.4);
+		box-shadow: 0 1px 2px rgba(28, 26, 22, 0.05);
 	}
 	.panel-2 {
 		background: var(--color-panel-2);
 		border: 1px solid var(--color-line);
 		border-radius: 8px;
-	}
-	/* corner instrument ticks — used only on a page's primary panel */
-	.ticked { position: relative; }
-	.ticked::before {
-		content: '';
-		position: absolute;
-		inset: 7px;
-		pointer-events: none;
-		--t: rgba(242, 169, 59, 0.5);
-		background-image:
-			linear-gradient(var(--t), var(--t)), linear-gradient(var(--t), var(--t)),
-			linear-gradient(var(--t), var(--t)), linear-gradient(var(--t), var(--t)),
-			linear-gradient(var(--t), var(--t)), linear-gradient(var(--t), var(--t)),
-			linear-gradient(var(--t), var(--t)), linear-gradient(var(--t), var(--t));
-		background-repeat: no-repeat;
-		background-position:
-			0 0, 0 0, 100% 0, 100% 0,
-			0 100%, 0 100%, 100% 100%, 100% 100%;
-		background-size:
-			11px 1px, 1px 11px, 11px 1px, 1px 11px,
-			11px 1px, 1px 11px, 11px 1px, 1px 11px;
 	}
 
 	/* --- labels / eyebrows --- */
@@ -189,17 +159,16 @@
 	.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 	.btn-beacon {
 		background: var(--color-beacon);
-		color: #1a1204;
+		color: #2a1a02;
 		font-weight: 600;
-		box-shadow: 0 0 0 1px rgba(242, 169, 59, 0.4), 0 6px 18px -8px rgba(242, 169, 59, 0.6);
 	}
-	.btn-beacon:not(:disabled):hover { background: #ffbe52; }
+	.btn-beacon:not(:disabled):hover { background: #f5b04e; }
 	.btn-ghost {
 		background: var(--color-panel);
 		border-color: var(--color-line);
 		color: var(--color-text);
 	}
-	.btn-ghost:not(:disabled):hover { border-color: var(--color-line-strong); background-color: #16223a; }
+	.btn-ghost:not(:disabled):hover { border-color: var(--color-line-strong); background-color: var(--color-panel-2); }
 	.btn-danger {
 		background: transparent;
 		border-color: rgba(255, 107, 107, 0.4);
@@ -252,7 +221,7 @@
 	}
 	.td { padding: 0.7rem 1rem; font-size: 0.875rem; color: var(--color-text); }
 	.row-line { border-top: 1px solid var(--color-line); }
-	.row-hover:hover { background: rgba(255, 255, 255, 0.02); }
+	.row-hover:hover { background: rgba(28, 26, 22, 0.025); }
 
 	/* --- chips / pills --- */
 	.chip {
@@ -278,36 +247,3 @@
 	.link-beacon:hover { color: #ffbe52; }
 }
 
-/* svelte-jsoneditor — retint the dark theme's chrome to the console palette.
-   Higher specificity (html …) so it wins regardless of vendor import order. */
-html .jse-theme-dark {
-	--jse-theme-color: #0f1626;
-	--jse-theme-color-highlight: #24304a;
-	--jse-background-color: #0f1626;
-	--jse-text-color: #e6ecf5;
-	--jse-text-color-inactive: #8494b0;
-	--jse-panel-background: #121a2a;
-	--jse-panel-background-border: #24304a;
-	--jse-panel-color: #e6ecf5;
-	--jse-panel-border: #24304a;
-	--jse-main-border: #24304a;
-	--jse-selection-background-color: rgba(242, 169, 59, 0.22);
-	--jse-context-menu-background: #121a2a;
-	--jse-context-menu-background-highlight: #24304a;
-	--jse-context-menu-color: #e6ecf5;
-	--jse-button-primary-background: #f2a93b;
-	--jse-button-primary-background-highlight: #ffbe52;
-	--jse-button-primary-color: #1a1204;
-	--jse-input-background: #0b1220;
-	--jse-input-border: #24304a;
-	--jse-delimiter-color: #8494b0;
-	--jse-key-color: #8ab4ff;
-	--jse-value-color: #e6ecf5;
-	--jse-value-color-string: #3dd68c;
-	--jse-value-color-number: #f2a93b;
-	--jse-value-color-boolean: #ff9d6b;
-	--jse-value-color-null: #ff6b6b;
-	border: 1px solid var(--color-line);
-	border-radius: 8px;
-	overflow: hidden;
-}

@@ -178,7 +178,7 @@
           <label for="description" class="field-label">Description</label>
           <input id="description" type="text" bind:value={description} class="input" />
         </div>
-        <label for="active" class="flex items-center gap-2 hover:bg-white/5 rounded px-2 py-1.5 -mx-2 cursor-pointer">
+        <label for="active" class="flex items-center gap-2 hover:bg-black/5 rounded px-2 py-1.5 -mx-2 cursor-pointer">
           <input id="active" type="checkbox" bind:checked={active} class="accent-[color:var(--color-beacon)]" />
           <span class="text-sm text-text">Active</span>
         </label>
@@ -190,7 +190,7 @@
         <input id="event-search" type="text" placeholder="Search events…" bind:value={eventSearch} class="input mb-3" />
         <div class="space-y-1 max-h-56 overflow-y-auto">
           {#each filteredEvents as ev}
-            <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-white/5 rounded cursor-pointer">
+            <label class="flex items-center gap-2 px-2 py-1.5 hover:bg-black/5 rounded cursor-pointer">
               <input
                 type="checkbox"
                 checked={events.includes(ev.name)}
@@ -269,9 +269,9 @@
               </div>
             </div>
             <div class="flex flex-wrap items-center gap-4">
-              <label class="flex items-center gap-2 text-sm text-text hover:bg-white/5 rounded px-2 py-1.5 cursor-pointer"><input type="checkbox" bind:checked={captureResponseBody} class="accent-[color:var(--color-beacon)]" /> Capture response body</label>
-              <label class="flex items-center gap-2 text-sm text-text hover:bg-white/5 rounded px-2 py-1.5 cursor-pointer"><input type="checkbox" bind:checked={followRedirects} class="accent-[color:var(--color-beacon)]" /> Follow redirects</label>
-              <label class="flex items-center gap-2 text-sm text-text hover:bg-white/5 rounded px-2 py-1.5 cursor-pointer"><input type="checkbox" bind:checked={verifySSL} class="accent-[color:var(--color-beacon)]" /> Verify SSL</label>
+              <label class="flex items-center gap-2 text-sm text-text hover:bg-black/5 rounded px-2 py-1.5 cursor-pointer"><input type="checkbox" bind:checked={captureResponseBody} class="accent-[color:var(--color-beacon)]" /> Capture response body</label>
+              <label class="flex items-center gap-2 text-sm text-text hover:bg-black/5 rounded px-2 py-1.5 cursor-pointer"><input type="checkbox" bind:checked={followRedirects} class="accent-[color:var(--color-beacon)]" /> Follow redirects</label>
+              <label class="flex items-center gap-2 text-sm text-text hover:bg-black/5 rounded px-2 py-1.5 cursor-pointer"><input type="checkbox" bind:checked={verifySSL} class="accent-[color:var(--color-beacon)]" /> Verify SSL</label>
             </div>
           </div>
         {/if}

@@ -223,7 +223,7 @@
                                                     </thead>
                                                     <tbody>
                                                         {#each deliveriesByEvent.get(report.event_id) ?? [] as delivery}
-                                                            <tr class="row-line row-hover transition {expandedDeliveries.has(delivery.delivery_id) ? 'bg-white/[0.03]' : ''}">
+                                                            <tr class="row-line row-hover transition {expandedDeliveries.has(delivery.delivery_id) ? 'bg-black/[0.03]' : ''}">
                                                                 <td class="td !py-2 !px-3">
                                                                     <CopyableId id={delivery.webhook_id} href="/webhooks/{delivery.webhook_id}" truncate={12} />
                                                                 </td>

@@ -61,12 +61,12 @@
 {#snippet rail()}
   <div class="flex flex-col h-full">
     <a href="/webhooks" onclick={() => (sidebarOpen = false)} class="flex items-center gap-3 px-4 h-16 border-b border-line shrink-0 group">
-      <span class="grid place-items-center w-9 h-9 rounded-lg border border-line bg-panel-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] group-hover:border-beacon/60 transition-colors">
+      <span class="grid place-items-center w-9 h-9 rounded-lg border border-line bg-panel-2 group-hover:border-beacon/60 transition-colors">
         <img src={favicon} alt="" class="w-5 h-5" />
       </span>
       <span class="flex flex-col leading-none">
         <span class="font-display font-bold tracking-[0.18em] text-text text-sm">SPARROW</span>
-        <span class="eyebrow mt-1" style="font-size:9.5px">dispatch console</span>
+        <span class="eyebrow mt-1" style="font-size:9.5px">webhook delivery</span>
       </span>
     </a>
 
@@ -76,9 +76,9 @@
           href={item.href}
           onclick={() => (sidebarOpen = false)}
           aria-current={isActive(item.href) ? "page" : undefined}
-          class="relative flex items-center gap-3 px-3 py-2 rounded-lg transition-colors {isActive(item.href) ? 'bg-white/5 text-text' : 'text-muted hover:text-text hover:bg-white/[0.03]'}"
+          class="relative flex items-center gap-3 px-3 py-2 rounded-lg transition-colors {isActive(item.href) ? 'bg-black/5 text-text' : 'text-muted hover:text-text hover:bg-black/[0.03]'}"
         >
-          {#if isActive(item.href)}<span class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-beacon shadow-[0_0_8px_rgba(242,169,59,0.7)]"></span>{/if}
+          {#if isActive(item.href)}<span class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-beacon"></span>{/if}
           <svg class="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d={item.d} /></svg>
           <span class="text-sm">{item.label}</span>
         </a>
@@ -124,8 +124,8 @@
       </a>
 
       <div class="flex items-center gap-1 text-muted">
-        <a href="/docs" target="_blank" rel="noreferrer" class="flex-1 text-center px-2 py-1.5 rounded-md text-xs hover:text-text hover:bg-white/5 transition-colors">Docs</a>
-        <a href="https://github.com/sarathsp06/sparrow" target="_blank" rel="noreferrer" aria-label="Sparrow on GitHub" class="grid place-items-center w-8 h-8 rounded-md hover:text-text hover:bg-white/5 transition-colors">
+        <a href="/docs" target="_blank" rel="noreferrer" class="flex-1 text-center px-2 py-1.5 rounded-md text-xs hover:text-text hover:bg-black/5 transition-colors">Docs</a>
+        <a href="https://github.com/sarathsp06/sparrow" target="_blank" rel="noreferrer" aria-label="Sparrow on GitHub" class="grid place-items-center w-8 h-8 rounded-md hover:text-text hover:bg-black/5 transition-colors">
           <svg viewBox="0 0 16 16" class="w-4 h-4" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         </a>
       </div>
@@ -148,7 +148,7 @@
   {#if sidebarOpen}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="fixed inset-0 z-50 bg-ink/70 backdrop-blur-sm lg:hidden" role="presentation" onclick={() => (sidebarOpen = false)}></div>
+    <div class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm lg:hidden" role="presentation" onclick={() => (sidebarOpen = false)}></div>
     <aside class="fixed left-0 top-0 bottom-0 z-50 w-64 border-r border-line bg-panel lg:hidden overflow-y-auto">
       {@render rail()}
     </aside>

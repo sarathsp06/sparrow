@@ -40,7 +40,7 @@
   {/if}
   <button
     onclick={copyId}
-    class="inline-flex items-center justify-center w-4 h-4 rounded opacity-0 group-hover/copy:opacity-100 focus-visible:opacity-100 hover:bg-white/10 transition text-faint hover:text-text shrink-0"
+    class="inline-flex items-center justify-center w-4 h-4 rounded opacity-0 group-hover/copy:opacity-100 focus-visible:opacity-100 hover:bg-black/10 transition text-faint hover:text-text shrink-0"
     title="Copy full ID"
     aria-label="Copy ID to clipboard"
   >

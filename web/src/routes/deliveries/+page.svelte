@@ -294,7 +294,7 @@
         <div class="panel overflow-hidden">
             <div class="animate-pulse">
                 {#each Array(8) as _}
-                    <div class="row-line h-14 bg-white/[0.015]"></div>
+                    <div class="row-line h-14 bg-black/[0.015]"></div>
                 {/each}
             </div>
         </div>

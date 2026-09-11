@@ -370,13 +370,13 @@
       {#each Array(3) as _}
         <div class="panel p-4 animate-pulse">
           <div class="flex items-center gap-2 mb-2">
-            <div class="h-4 bg-white/5 rounded w-32"></div>
-            <div class="h-4 bg-white/[0.03] rounded w-16"></div>
-            <div class="h-4 bg-white/[0.03] rounded w-12"></div>
+          <div class="h-4 bg-black/5 rounded w-32"></div>
+            <div class="h-4 bg-black/[0.03] rounded w-16"></div>
+            <div class="h-4 bg-black/[0.03] rounded w-12"></div>
           </div>
           <div class="flex gap-4">
-            <div class="h-3 bg-white/[0.03] rounded w-24"></div>
-            <div class="h-3 bg-white/[0.03] rounded w-32"></div>
+            <div class="h-3 bg-black/[0.03] rounded w-24"></div>
+            <div class="h-3 bg-black/[0.03] rounded w-32"></div>
           </div>
         </div>
       {/each}
@@ -485,7 +485,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto">
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="fixed inset-0 bg-ink/70 backdrop-blur-sm" role="presentation" onclick={() => { modalOpen = false; resetForm(); }}></div>
+    <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" role="presentation" onclick={() => { modalOpen = false; resetForm(); }}></div>
     <div class="panel relative w-full max-w-2xl mx-4 my-12">
       <div class="flex items-center justify-between px-6 py-4 border-b border-line">
         <h3 class="text-lg font-semibold text-text">

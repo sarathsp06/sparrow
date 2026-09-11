@@ -178,14 +178,14 @@
 
   {#if loading}
     <div class="animate-pulse mb-6">
-      <div class="h-7 bg-white/5 rounded w-48 mb-2"></div>
-      <div class="h-4 bg-white/[0.03] rounded w-64"></div>
+        <div class="h-4 bg-black/5 rounded w-48 mb-2"></div>
+        <div class="h-4 bg-black/[0.03] rounded w-64"></div>
     </div>
     <div class="panel p-6">
       <div class="animate-pulse space-y-3">
-        <div class="h-4 bg-white/[0.03] rounded w-full"></div>
-        <div class="h-4 bg-white/[0.03] rounded w-3/4"></div>
-        <div class="h-4 bg-white/[0.03] rounded w-1/2"></div>
+        <div class="h-4 bg-black/[0.03] rounded w-full"></div>
+        <div class="h-4 bg-black/[0.03] rounded w-3/4"></div>
+        <div class="h-4 bg-black/[0.03] rounded w-1/2"></div>
       </div>
     </div>
   {:else if error}
@@ -339,7 +339,7 @@
               </thead>
               <tbody>
                 {#each deliveries as delivery}
-                  <tr class="row-line row-hover transition {expandedDeliveries.has(delivery.delivery_id) ? 'bg-white/[0.03]' : ''}">
+                  <tr class="row-line row-hover transition {expandedDeliveries.has(delivery.delivery_id) ? 'bg-black/[0.03]' : ''}">
                     <td class="td">
                       <CopyableId id={delivery.delivery_id} href="/deliveries/{delivery.delivery_id}" truncate={12} />
                       <span class="block sm:hidden mt-0.5"><CopyableId id={delivery.webhook_id} href="/webhooks/{delivery.webhook_id}" truncate={12} /></span>
@@ -389,7 +389,7 @@
                   </tr>
 
                   {#if expandedDeliveries.has(delivery.delivery_id)}
-                    <tr class="row-line bg-white/[0.015]">
+                    <tr class="row-line bg-black/[0.015]">
                       <td colspan="7" class="px-4 py-3">
                         {#if loadingAttempts.has(delivery.delivery_id)}
                           <div class="flex items-center justify-center py-3">

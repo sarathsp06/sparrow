@@ -3,7 +3,6 @@
 	import { api, unwrap } from '$lib/services';
 	import { onMount } from 'svelte';
 	import { JSONEditor, Mode, type Content } from 'svelte-jsoneditor';
-	import 'svelte-jsoneditor/themes/jse-theme-dark.css';
 	import type { components } from '$lib/api-types';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
@@ -137,7 +136,7 @@
 		<div class="panel overflow-hidden">
 			<div class="animate-pulse">
 				{#each Array(5) as _}
-					<div class="row-line h-14 bg-white/[0.015]"></div>
+					<div class="row-line h-14 bg-black/[0.015]"></div>
 				{/each}
 			</div>
 		</div>
@@ -217,8 +216,8 @@
 	>
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="fixed inset-0 bg-ink/70 backdrop-blur-sm" role="presentation" onclick={closeModal}></div>
-		<div class="panel ticked relative w-full max-w-2xl p-6">
+		<div class="fixed inset-0 bg-black/40 backdrop-blur-sm" role="presentation" onclick={closeModal}></div>
+		<div class="panel relative w-full max-w-2xl p-6">
 			<div class="flex items-center justify-between mb-4">
 				<div>
 					<p class="eyebrow mb-1.5">Catalog / Schema</p>
@@ -226,7 +225,7 @@
 				</div>
 				<button onclick={closeModal} class="link text-2xl leading-none" aria-label="Close">&times;</button>
 			</div>
-			<div class="jse-theme-dark h-96">
+			<div class="h-96">
 				<JSONEditor bind:content mode={Mode.text} readOnly />
 			</div>
 		</div>

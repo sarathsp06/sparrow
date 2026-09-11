@@ -61,8 +61,8 @@
 
     {#if loading}
         <div class="animate-pulse space-y-4">
-            <div class="h-8 bg-white/5 rounded w-64"></div>
-            <div class="panel h-40 bg-white/[0.03]"></div>
+            <div class="h-8 bg-black/5 rounded w-64"></div>
+            <div class="panel h-40 bg-black/[0.03]"></div>
         </div>
     {:else if error}
         <div class="panel p-4" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">

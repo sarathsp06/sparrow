@@ -82,12 +82,12 @@
     <div class="space-y-6">
       <div class="panel readout animate-pulse">
         {#each Array(4) as _}
-          <div class="cell"><div class="h-7 w-10 bg-white/5 rounded mb-2"></div><div class="h-3 w-16 bg-white/[0.03] rounded"></div></div>
+          <div class="cell"><div class="h-7 w-10 bg-black/5 rounded mb-2"></div><div class="h-3 w-16 bg-black/[0.03] rounded"></div></div>
         {/each}
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {#each Array(6) as _}
-          <div class="panel px-4 py-4 animate-pulse"><div class="h-3 w-20 bg-white/[0.03] rounded mb-2"></div><div class="h-6 w-14 bg-white/5 rounded"></div></div>
+          <div class="panel px-4 py-4 animate-pulse"><div class="h-3 w-20 bg-black/[0.03] rounded mb-2"></div><div class="h-6 w-14 bg-black/5 rounded"></div></div>
         {/each}
       </div>
     </div>

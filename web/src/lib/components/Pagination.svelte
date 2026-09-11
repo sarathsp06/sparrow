@@ -44,8 +44,8 @@
             onclick={() => go(n)}
             aria-current={n === currentPage ? "page" : undefined}
             class="min-w-8 px-2.5 py-1.5 rounded-md text-sm mono tnum transition-colors {n === currentPage
-              ? 'bg-beacon text-[#1a1204] font-semibold'
-              : 'text-muted hover:text-text hover:bg-white/5 border border-line'}"
+              ? 'bg-beacon text-[#2a1a02] font-semibold'
+              : 'text-muted hover:text-text hover:bg-black/5 border border-line'}"
           >
             {n}
           </button>

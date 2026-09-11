@@ -174,11 +174,11 @@
         <div class="val" style="color:var(--color-ok)">{stats.active}</div>
         <div class="key">Active</div>
       </div>
-      <button type="button" onclick={() => handleHealthFilterChange('healthy')} aria-pressed={healthFilter === 'healthy'} class="cell text-left transition-colors hover:bg-white/[0.03] {healthFilter === 'healthy' ? 'bg-white/5' : ''}">
+      <button type="button" onclick={() => handleHealthFilterChange('healthy')} aria-pressed={healthFilter === 'healthy'} class="cell text-left transition-colors hover:bg-black/[0.03] {healthFilter === 'healthy' ? 'bg-black/5' : ''}">
         <div class="val" style="color:var(--color-ok)">{stats.healthy}</div>
         <div class="key">Healthy ▸</div>
       </button>
-      <button type="button" onclick={() => handleHealthFilterChange('unhealthy')} aria-pressed={healthFilter === 'unhealthy'} class="cell text-left transition-colors hover:bg-white/[0.03] {healthFilter === 'unhealthy' ? 'bg-white/5' : ''}">
+      <button type="button" onclick={() => handleHealthFilterChange('unhealthy')} aria-pressed={healthFilter === 'unhealthy'} class="cell text-left transition-colors hover:bg-black/[0.03] {healthFilter === 'unhealthy' ? 'bg-black/5' : ''}">
         <div class="val" style="color:var(--color-bad)">{stats.unhealthy}</div>
         <div class="key">Unhealthy ▸</div>
       </button>
@@ -192,7 +192,7 @@
         <button
           onclick={() => handleHealthFilterChange(f.value)}
           aria-pressed={healthFilter === f.value}
-          class="px-3 py-1.5 text-xs rounded-md mono transition-colors {healthFilter === f.value ? 'bg-beacon text-[#1a1204] font-semibold' : 'text-muted border border-line hover:text-text hover:bg-white/5'}"
+          class="px-3 py-1.5 text-xs rounded-md mono transition-colors {healthFilter === f.value ? 'bg-beacon text-[#2a1a02] font-semibold' : 'text-muted border border-line hover:text-text hover:bg-black/5'}"
         >
           {f.label}
         </button>
@@ -204,7 +204,7 @@
     <div class="panel overflow-hidden">
       <div class="animate-pulse">
         {#each Array(5) as _}
-          <div class="row-line h-14 bg-white/[0.015]"></div>
+          <div class="row-line h-14 bg-black/[0.015]"></div>
         {/each}
       </div>
     </div>
@@ -213,9 +213,9 @@
       <p class="text-sm" style="color:var(--color-bad)">{error}</p>
     </div>
   {:else if webhooks.length === 0 && healthFilter === null && !urlSearch.trim()}
-    <div class="panel ticked p-8">
+    <div class="panel p-8">
       <div class="text-center mb-8">
-        <p class="eyebrow mb-2">Signal path</p>
+        <p class="eyebrow mb-2">How it works</p>
         <h3 class="text-xl mb-2">How Sparrow works</h3>
         <p class="text-sm text-muted max-w-lg mx-auto">Register events and webhooks, push events, and Sparrow fans out deliveries with retries and health tracking.</p>
       </div>
@@ -299,9 +299,9 @@
 
       <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
         <a href="/events" class="btn btn-beacon">Start with Step 1</a>
-        <a href="/docs" class="btn btn-ghost">
+        <a href="https://sarathsp06.github.io/sparrow/getting-started/how-it-works/" target="_blank" rel="noreferrer" class="btn btn-ghost">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-          Read the API docs
+          How it works
         </a>
       </div>
     </div>
