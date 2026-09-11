@@ -67,7 +67,8 @@ The fastest path is Docker Compose. No repo clone needed:
 
 ```bash
 curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
-SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32) docker compose up -d
+echo "SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32)" > .env
+docker compose up -d
 ```
 
 Open <http://localhost:8080> for the UI. The REST API is on the same address, and interactive API docs are at <http://localhost:8080/docs>.
@@ -223,6 +224,8 @@ Everything is configured through environment variables.
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | — | OTLP endpoint for traces / metrics / logs |
 
 Full reference: [`okf/config/env-vars.md`](okf/config/env-vars.md).
+
+Under Docker Compose, set these in a `.env` file next to `docker-compose.yml` (Compose loads it automatically for every command, including `down`/`ps`) rather than exporting them inline — an inline `VAR=value docker compose up` only lasts for that one command.
 
 ## Docs
 
