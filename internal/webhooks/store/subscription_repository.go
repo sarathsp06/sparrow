@@ -50,6 +50,10 @@ func (r *Repository) GetSubscription(ctx context.Context, tenantID uuid.UUID, id
 // UpdateSubscription updates a subscription within a tenant
 func (r *Repository) UpdateSubscription(ctx context.Context, tenantID uuid.UUID, sub *EventSubscription) error {
 	sub.UpdatedAt = time.Now()
+	if sub.LabelFilters == nil {
+		// nil marshals to jsonb null, which never matches the lookup predicate.
+		sub.LabelFilters = JSONStringMap{}
+	}
 
 	headersJSON, err := json.Marshal(sub.Headers)
 	if err != nil {

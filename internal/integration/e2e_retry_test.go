@@ -757,3 +757,64 @@ func TestE2E_EnvelopePayloadFormat(t *testing.T) {
 	assert.Equal(t, "usr_abc", p["user_id"])
 	assert.Equal(t, "signup", p["action"])
 }
+
+// TestE2E_NullLabelFiltersStillDelivers is a regression test: a subscription
+// created with an explicit JSON null label_filters (as the web UI sends) must
+// still match events. A nil map used to be stored as jsonb null, which never
+// satisfied the lookup predicate, silently dropping every delivery.
+func TestE2E_NullLabelFiltersStillDelivers(t *testing.T) {
+	env := setupEnv(t)
+	c := newRESTClient(t, env)
+	ctx := context.Background()
+
+	const (
+		namespace = "null-labels-test"
+		eventName = "labels.null"
+	)
+
+	targetSrv, requestCount := startCountingTarget(t)
+	registerEventType(t, c, ctx, eventName)
+	webhookID := registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 1)
+
+	// Recreate the subscription with an explicit null label_filters, mirroring
+	// the UI payload.
+	var subList struct {
+		Items []struct {
+			SubscriptionID string `json:"subscription_id"`
+		} `json:"items"`
+	}
+	_, err := c.get(ctx, "/v1/namespaces/"+namespace+"/subscriptions?webhook_id="+webhookID, &subList)
+	require.NoError(t, err)
+	for _, s := range subList.Items {
+		resp, err := c.do(ctx, http.MethodDelete, "/v1/namespaces/"+namespace+"/subscriptions/"+s.SubscriptionID, nil, nil)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusNoContent, resp.StatusCode)
+	}
+	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/subscriptions", map[string]any{
+		"webhook_id":    webhookID,
+		"event_name":    eventName,
+		"label_filters": nil,
+	}, nil)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	// Push with a labels object (as the UI does): a null-label_filters
+	// subscription must still match a labeled event.
+	resp, err = c.post(ctx, "/v1/namespaces/"+namespace+"/events?event="+eventName, map[string]any{
+		"payload": map[string]any{"test": true},
+		"labels":  map[string]string{"env": "prod"},
+	}, nil)
+	require.NoError(t, err, "PushEvent failed")
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	deadline := time.After(30 * time.Second)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	for requestCount.Load() == 0 {
+		select {
+		case <-deadline:
+			t.Fatal("timed out waiting for delivery of event with null label_filters")
+		case <-ticker.C:
+		}
+	}
+}

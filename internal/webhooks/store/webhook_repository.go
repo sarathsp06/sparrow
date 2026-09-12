@@ -383,6 +383,11 @@ func insertSubscription(ctx context.Context, conn storage.DBTX, tenantID uuid.UU
 		sub.CreatedAt = now
 	}
 	sub.UpdatedAt = now
+	if sub.LabelFilters == nil {
+		// A nil map marshals to jsonb null, which never matches the
+		// subscription lookup predicate (label_filters = '{}' OR <@ labels).
+		sub.LabelFilters = JSONStringMap{}
+	}
 
 	headersJSON, err := json.Marshal(sub.Headers)
 	if err != nil {
