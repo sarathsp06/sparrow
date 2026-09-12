@@ -6,8 +6,10 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -197,5 +199,70 @@ email:
 		require.Contains(t, mail.Data, "Subject: [sparrow] "+eventName)
 	case <-time.After(60 * time.Second):
 		t.Fatal("timed out waiting for the email sink to deliver")
+	}
+}
+
+// TestE2E_OTLPSink proves the chain: Sparrow -> signed delivery ->
+// sparrow-sinks -> OTLP/HTTP logs export, using the real binary and an
+// in-test OTLP receiver.
+func TestE2E_OTLPSink(t *testing.T) {
+	env := setupEnv(t)
+	c := newRESTClient(t, env)
+	ctx := context.Background()
+
+	const (
+		namespace = "sinks-otlp-test"
+		eventName = "sinks.otlp.event"
+	)
+
+	bodies := make(chan []byte, 1)
+	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/logs" {
+			http.NotFound(w, r)
+			return
+		}
+		b, _ := io.ReadAll(r.Body)
+		bodies <- b
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer receiver.Close()
+
+	sinksPort := freePort(t)
+	registerEventType(t, c, ctx, eventName)
+
+	var webhookOut struct {
+		HTTPConfig struct {
+			WebhookSecret string `json:"webhook_secret"`
+		} `json:"http_config"`
+	}
+	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks", map[string]any{
+		"events": []string{eventName},
+		"url":    fmt.Sprintf("http://127.0.0.1:%d/sinks/otlp", sinksPort),
+		"active": true,
+		"http_config": map[string]any{
+			"max_retries":             3,
+			"retry_backoff_seconds":   1,
+			"request_timeout_seconds": 5,
+		},
+	}, &webhookOut)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	configYAML := fmt.Sprintf(`listen: 127.0.0.1:%d
+webhook_secret: %q
+otlp:
+  endpoint: %s
+`, sinksPort, webhookOut.HTTPConfig.WebhookSecret, receiver.URL)
+	startSinksBinary(t, ctx, configYAML)
+
+	eventID := pushTestEvent(t, c, ctx, namespace, eventName)
+
+	select {
+	case body := <-bodies:
+		require.Contains(t, string(body), `"service.name"`)
+		require.Contains(t, string(body), eventID, "OTLP log record must carry the event id")
+		require.Contains(t, string(body), eventName)
+	case <-time.After(60 * time.Second):
+		t.Fatal("timed out waiting for the OTLP sink to export")
 	}
 }

@@ -12,7 +12,7 @@ and Sparrow still works; add your own and it is a first-class citizen.
 ```
                         ┌──────────────────────────┐
   world ──▶ sources ──▶ │       Sparrow core       │ ──▶ recipes ──▶ Slack, PagerDuty, …
-  (cron, Stripe,        │  match · retry · sign    │ ──▶ sinks   ──▶ email, S3/MinIO
+  (cron, Stripe,        │  match · retry · sign    │ ──▶ sinks   ──▶ email, S3, OTLP
    GitHub)              │       · audit            │ ──▶ your own HTTP endpoint
                         └──────────────────────────┘
                               ▲            │
@@ -27,7 +27,7 @@ and Sparrow still works; add your own and it is a first-class citizen.
 | [CLI](/sparrow/satellites/cli/) | Push events, tail deliveries, receive webhooks locally, apply recipes, debug templates — the terminal loop | both |
 | [Recipes](/sparrow/satellites/recipes/) | Adapters as config: one YAML file turns deliveries into Slack, Discord, ntfy, PagerDuty, or ClickHouse payloads — rendered server-side, nothing extra runs | out |
 | [Sources](/sparrow/satellites/sources/) | Cron schedules plus Stripe/GitHub webhook receivers that verify the provider's signature and re-publish as typed Sparrow events | in |
-| [Sinks](/sparrow/satellites/sinks/) | A signed-delivery receiver that forwards out of HTTP land: SMTP email and S3/MinIO archives | out |
+| [Sinks](/sparrow/satellites/sinks/) | A signed-delivery receiver that forwards out of HTTP land: SMTP email, S3/MinIO archives, and OTLP log export | out |
 
 Each page explains the satellite's technical path — exactly which API calls it
 makes, how signatures are verified, and what happens per delivery.

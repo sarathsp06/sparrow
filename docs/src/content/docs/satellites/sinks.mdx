@@ -1,12 +1,13 @@
 ---
 title: Sinks
-description: Forward Sparrow deliveries to non-HTTP destinations — SMTP email and S3 archives — with the sparrow-sinks binary.
+description: Forward Sparrow deliveries to non-HTTP destinations — SMTP email, S3 archives, and OTLP log export — with the sparrow-sinks binary.
 ---
 
-`sparrow-sinks` is a small companion binary that receives Sparrow webhook deliveries and forwards them **out** of HTTP land. It ships two sinks:
+`sparrow-sinks` is a small companion binary that receives Sparrow webhook deliveries and forwards them **out** of HTTP land. It ships three sinks:
 
 - **Email** — send each event as a plain-text email via SMTP.
 - **S3** — archive each delivery as one JSON object in S3 (or MinIO/R2).
+- **OTLP** — export each delivery as an OpenTelemetry log record, making events visible in any OTel-compatible backend.
 
 ## Sink or recipe?
 
@@ -38,6 +39,7 @@ Sparrow blocks private-network delivery URLs by default (SSRF guard). If `sparro
 |------|------|
 | Email | `POST /sinks/email` |
 | S3 | `POST /sinks/s3` |
+| OTLP | `POST /sinks/otlp` |
 | Health | `GET /healthz` |
 
 Every inbound request is verified against the [Standard Webhooks](https://www.standardwebhooks.com) signature headers (`webhook-id`, `webhook-timestamp`, `webhook-signature`) using the webhook secret from your config. Bad signature → `401`.
@@ -99,6 +101,11 @@ s3:
   region: us-east-1
   bucket: sparrow-events
   prefix: events/
+
+otlp:
+  endpoint: http://collector:4318   # bare host:port → /v1/logs appended
+  headers: {}                       # extra headers, e.g. Authorization: Bearer …
+  service_name: sparrow             # resource service.name
 ```
 
 Templates render with Go `text/template` over the parsed envelope: `.event_name`, `.event_id`, `.timestamp`, `.attempt`, `.payload` (decoded JSON, so `.payload.user_id` works), and `.payload_pretty` (indented JSON string).
@@ -150,6 +157,16 @@ sparrow-sinks --config sinks.yaml
 
 Register the webhook against `http://sinks-host:8788/sinks/s3` exactly as in the email walkthrough. If both sinks should receive the same events, register **two webhooks** (one per path) — each gets its own secret; put the overrides in each sink's `webhook_secret`.
 
+## Walkthrough: OTLP export
+
+Each delivery becomes one OTLP/HTTP JSON log record: the event payload as the
+body, `sparrow.event_id` / `sparrow.event_name` / `sparrow.attempt` as
+attributes, and the envelope timestamp as the record time. Point `endpoint` at
+an OpenTelemetry Collector (`http://collector:4318`) or a vendor's native OTLP
+endpoint, adding auth via `headers`. Register the webhook against
+`http://sinks-host:8788/sinks/otlp` exactly as in the email walkthrough — a
+non-2xx from the OTLP endpoint returns `502`, so Sparrow retries with backoff.
+
 ## Retry semantics
 
 | Sink response | Meaning | Sparrow's reaction |
@@ -157,6 +174,6 @@ Register the webhook against `http://sinks-host:8788/sinks/s3` exactly as in the
 | `200` | forwarded downstream | delivery succeeded |
 | `401` | signature verification failed | retries (fix the secret) |
 | `422` | body is not an untransformed envelope | retries (disable the transform) |
-| `502` | downstream (SMTP/S3) failure | retries with backoff |
+| `502` | downstream (SMTP/S3/OTLP) failure | retries with backoff |
 
 Because failure is signalled purely through status codes, a crashed or restarted `sparrow-sinks` loses nothing: Sparrow redelivers anything unacknowledged.

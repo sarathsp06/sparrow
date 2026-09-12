@@ -36,21 +36,17 @@ func run(ctx context.Context, configPath string, logger *slog.Logger) error {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	if cfg.Email != nil {
-		sink, err := newEmailSink(*cfg.Email)
+	for _, d := range sinkDefs {
+		if !d.configured(cfg) {
+			continue
+		}
+		deliver, attrs, err := d.build(ctx, cfg)
 		if err != nil {
 			return err
 		}
-		mux.Handle("POST /sinks/email", sinkHandler("email", cfg.secretFor(cfg.Email.WebhookSecret), logger, sink.deliver))
-		logger.Info("email sink enabled", "path", "/sinks/email", "smtp", cfg.Email.SMTP.Host)
-	}
-	if cfg.S3 != nil {
-		sink, err := newS3Sink(ctx, *cfg.S3)
-		if err != nil {
-			return err
-		}
-		mux.Handle("POST /sinks/s3", sinkHandler("s3", cfg.secretFor(cfg.S3.WebhookSecret), logger, sink.deliver))
-		logger.Info("s3 sink enabled", "path", "/sinks/s3", "bucket", cfg.S3.Bucket)
+		path := "/sinks/" + d.name
+		mux.Handle("POST "+path, sinkHandler(d.name, cfg.secretFor(d.secret(cfg)), logger, deliver))
+		logger.Info(d.name+" sink enabled", append([]any{"path", path}, attrs...)...)
 	}
 
 	srv := &http.Server{Addr: cfg.Listen, Handler: mux, ReadHeaderTimeout: 10 * time.Second}

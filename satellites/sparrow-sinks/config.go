@@ -41,6 +41,7 @@ type config struct {
 	WebhookSecret string       `yaml:"webhook_secret"`
 	Email         *emailConfig `yaml:"email"`
 	S3            *s3Config    `yaml:"s3"`
+	OTLP          *otlpConfig  `yaml:"otlp"`
 }
 
 func loadConfig(path string) (*config, error) {
@@ -55,26 +56,21 @@ func loadConfig(path string) (*config, error) {
 	if c.Listen == "" {
 		c.Listen = ":8788"
 	}
-	if c.Email == nil && c.S3 == nil {
-		return nil, fmt.Errorf("%s: no sinks configured (need email: and/or s3:)", path)
-	}
-	if c.Email != nil {
-		switch {
-		case c.Email.SMTP.Host == "" || c.Email.SMTP.Port == 0:
-			return nil, fmt.Errorf("email: smtp host and port are required")
-		case c.Email.From == "" || len(c.Email.To) == 0:
-			return nil, fmt.Errorf("email: from and to are required")
-		case c.secretFor(c.Email.WebhookSecret) == "":
-			return nil, fmt.Errorf("email: webhook_secret is required (top-level or per-sink)")
+	configured := 0
+	for _, d := range sinkDefs {
+		if !d.configured(&c) {
+			continue
+		}
+		configured++
+		if err := d.validate(&c); err != nil {
+			return nil, err
+		}
+		if c.secretFor(d.secret(&c)) == "" {
+			return nil, fmt.Errorf("%s: webhook_secret is required (top-level or per-sink)", d.name)
 		}
 	}
-	if c.S3 != nil {
-		switch {
-		case c.S3.Bucket == "":
-			return nil, fmt.Errorf("s3: bucket is required")
-		case c.secretFor(c.S3.WebhookSecret) == "":
-			return nil, fmt.Errorf("s3: webhook_secret is required (top-level or per-sink)")
-		}
+	if configured == 0 {
+		return nil, fmt.Errorf("%s: no sinks configured (need email:, s3:, and/or otlp:)", path)
 	}
 	return &c, nil
 }

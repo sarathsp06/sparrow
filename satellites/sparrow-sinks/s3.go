@@ -11,6 +11,25 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+var s3Def = sinkDef{
+	name:       "s3",
+	configured: func(c *config) bool { return c.S3 != nil },
+	validate: func(c *config) error {
+		if c.S3.Bucket == "" {
+			return fmt.Errorf("s3: bucket is required")
+		}
+		return nil
+	},
+	secret: func(c *config) string { return c.S3.WebhookSecret },
+	build: func(ctx context.Context, c *config) (deliverFunc, []any, error) {
+		sink, err := newS3Sink(ctx, *c.S3)
+		if err != nil {
+			return nil, nil, err
+		}
+		return sink.deliver, []any{"bucket", c.S3.Bucket}, nil
+	},
+}
+
 type s3Sink struct {
 	client *s3.Client
 	bucket string

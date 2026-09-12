@@ -275,7 +275,7 @@ sparrow-sources --config sources.yaml
 
 ### Sinks
 
-[`satellites/sparrow-sinks`](satellites/sparrow-sinks/) forwards signed Sparrow deliveries **out** of HTTP land: an SMTP email sink and an S3 (or MinIO/R2) archiver that writes one JSON object per delivery, partitioned by event name and date. It verifies Standard Webhooks signatures, holds no state, and leans on Sparrow's retries for anything downstream that fails.
+[`satellites/sparrow-sinks`](satellites/sparrow-sinks/) forwards signed Sparrow deliveries **out** of HTTP land: an SMTP email sink, an S3 (or MinIO/R2) archiver that writes one JSON object per delivery, and an OTLP exporter that turns events into OpenTelemetry log records. It verifies Standard Webhooks signatures, holds no state, and leans on Sparrow's retries for anything downstream that fails.
 
 ```bash
 go install github.com/sarathsp06/sparrow/satellites/sparrow-sinks@latest

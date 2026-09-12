@@ -22,6 +22,26 @@ type envelope struct {
 	Payload   json.RawMessage `json:"payload"`
 }
 
+// deliverFunc is a sink's delivery function: non-nil error -> 502 -> Sparrow retries.
+type deliverFunc func(ctx context.Context, env envelope, raw []byte) error
+
+// sinkDef describes one sink: how to detect it in config, validate its
+// section, and build its deliver func. Adding a sink = one file with a
+// sinkDef plus one entry in sinkDefs; config validation, signature secrets,
+// mounting, and logging all follow from it.
+type sinkDef struct {
+	name       string
+	configured func(*config) bool
+	validate   func(*config) error
+	// secret returns the per-sink webhook_secret override ("" -> top-level).
+	secret func(*config) string
+	// build returns the deliver func and extra key/value pairs for the
+	// "sink enabled" log line.
+	build func(ctx context.Context, c *config) (deliverFunc, []any, error)
+}
+
+var sinkDefs = []sinkDef{emailDef, s3Def, otlpDef}
+
 // sinkHandler wraps a sink's deliver func with Standard Webhooks signature
 // verification and envelope parsing. Non-2xx responses make Sparrow retry the
 // delivery, so sinks stay stateless.

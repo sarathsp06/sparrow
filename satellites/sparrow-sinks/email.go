@@ -25,6 +25,28 @@ Payload:
 `
 )
 
+var emailDef = sinkDef{
+	name:       "email",
+	configured: func(c *config) bool { return c.Email != nil },
+	validate: func(c *config) error {
+		switch {
+		case c.Email.SMTP.Host == "" || c.Email.SMTP.Port == 0:
+			return fmt.Errorf("email: smtp host and port are required")
+		case c.Email.From == "" || len(c.Email.To) == 0:
+			return fmt.Errorf("email: from and to are required")
+		}
+		return nil
+	},
+	secret: func(c *config) string { return c.Email.WebhookSecret },
+	build: func(_ context.Context, c *config) (deliverFunc, []any, error) {
+		sink, err := newEmailSink(*c.Email)
+		if err != nil {
+			return nil, nil, err
+		}
+		return sink.deliver, []any{"smtp", c.Email.SMTP.Host, "to", c.Email.To}, nil
+	},
+}
+
 type emailSink struct {
 	cfg     emailConfig
 	subject *template.Template
