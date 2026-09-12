@@ -18,15 +18,15 @@ build: ## Build the server binary for current OS/arch
 
 build-cli: ## Build the sparrow CLI binary for current OS/arch
 	mkdir -p build
-	go build -ldflags "-X main.version=$(VERSION)" -o build/sparrow-$(GOOS)-$(GOARCH) ./cmd/sparrow
+	go build -ldflags "-X main.version=$(VERSION)" -o build/sparrow-$(GOOS)-$(GOARCH) ./satellites/sparrow
 
 build-sources: ## Build the sparrow-sources binary for current OS/arch
 	mkdir -p build
-	go build -o build/sparrow-sources-$(GOOS)-$(GOARCH) ./cmd/sparrow-sources
+	go build -o build/sparrow-sources-$(GOOS)-$(GOARCH) ./satellites/sparrow-sources
 
 build-sinks: ## Build the sparrow-sinks binary for current OS/arch
 	mkdir -p build
-	go build -o build/sparrow-sinks-$(GOOS)-$(GOARCH) ./cmd/sparrow-sinks
+	go build -o build/sparrow-sinks-$(GOOS)-$(GOARCH) ./satellites/sparrow-sinks
 
 build-all: build build-cli build-sources build-sinks ## Build server, CLI, sources, and sinks binaries
 

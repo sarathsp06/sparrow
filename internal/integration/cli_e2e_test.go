@@ -21,13 +21,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// buildCLI compiles cmd/sparrow into a temp dir and returns the binary path.
+// buildCLI compiles satellites/sparrow into a temp dir and returns the binary path.
 func buildCLI(t *testing.T) string {
 	t.Helper()
 	bin := filepath.Join(t.TempDir(), "sparrow")
-	cmd := exec.Command("go", "build", "-o", bin, "github.com/sarathsp06/sparrow/cmd/sparrow")
+	cmd := exec.Command("go", "build", "-o", bin, "github.com/sarathsp06/sparrow/satellites/sparrow")
 	out, err := cmd.CombinedOutput()
-	require.NoError(t, err, "go build cmd/sparrow: %s", out)
+	require.NoError(t, err, "go build satellites/sparrow: %s", out)
 	return bin
 }
 
@@ -91,7 +91,7 @@ func TestCLI_E2E(t *testing.T) {
 	}))
 	defer receiver.Close()
 
-	recipePath, err := filepath.Abs(filepath.Join("..", "..", "cmd", "sparrow", "testdata", "echo.yaml"))
+	recipePath, err := filepath.Abs(filepath.Join("..", "..", "satellites", "sparrow", "testdata", "echo.yaml"))
 	require.NoError(t, err)
 	out = runCLI(t, env, bin, namespace, "use", "echo",
 		"--file", recipePath,

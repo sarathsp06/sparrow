@@ -106,7 +106,7 @@ columns:
 
 ## Writing your own
 
-A recipe is one file, `recipes/<name>.yaml`, schema version 1:
+A recipe is one file, `satellites/recipes/<name>.yaml`, schema version 1:
 
 ```yaml
 version: 1
@@ -129,7 +129,7 @@ replaced by the CLI at apply time via plain string substitution. The
 substituted template is registered on the subscription and rendered per
 delivery with `.event_id`, `.event_name`, `.timestamp` (RFC3339), `.attempt`,
 and `.payload`. Helpers like `json`, `printf`, `upper`, and `ellipsis` are
-available — see [template functions](/reference/template-functions/).
+available — see [template functions](/sparrow/reference/template-functions/).
 
 Two rules keep templates robust:
 

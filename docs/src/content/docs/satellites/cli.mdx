@@ -10,7 +10,7 @@ transform templates without a single curl invocation.
 ## Install
 
 ```bash
-go install github.com/sarathsp06/sparrow/cmd/sparrow@latest
+go install github.com/sarathsp06/sparrow/satellites/sparrow@latest
 ```
 
 ## 90-second quickstart
@@ -119,7 +119,7 @@ sparrow listen --event order.created --public-url https://my-tunnel.example  # e
 
 Applies a recipe: registers a webhook with the recipe's URL and headers, then
 enables its transform template (plus any `--label` filters) on the created
-subscription(s). Recipes are looked up as `--file`, then `./recipes/<name>.yaml`,
+subscription(s). Recipes are looked up as `--file`, then `./satellites/recipes/<name>.yaml`,
 then `$SPARROW_RECIPES_DIR/<name>.yaml`.
 
 ```bash
@@ -151,7 +151,7 @@ A typical recipe-authoring loop:
 
 ```bash
 # 1. iterate locally until the output is destination-shaped
-sparrow template test recipes/slack.tmpl --payload @sample.json
+sparrow template test satellites/recipes/slack.tmpl --payload @sample.json
 
 # 2. apply the recipe
 sparrow use slack --event order.created --param webhook_url=$SLACK_URL

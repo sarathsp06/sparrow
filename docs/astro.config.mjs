@@ -33,12 +33,13 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Ecosystem',
+          label: 'Satellites',
           items: [
-            { slug: 'ecosystem/cli' },
-            { slug: 'ecosystem/recipes' },
-            { slug: 'ecosystem/sources' },
-            { slug: 'ecosystem/sinks' },
+            { slug: 'satellites' },
+            { slug: 'satellites/cli' },
+            { slug: 'satellites/recipes' },
+            { slug: 'satellites/sources' },
+            { slug: 'satellites/sinks' },
           ],
         },
         {

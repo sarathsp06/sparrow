@@ -18,7 +18,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/sarathsp06/sparrow/cmd/sparrow-sources/sources"
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources"
 )
 
 // startIngest mounts the sparrow-sources ingest handler on an httptest

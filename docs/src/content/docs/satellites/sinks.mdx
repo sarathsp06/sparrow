@@ -10,7 +10,7 @@ description: Forward Sparrow deliveries to non-HTTP destinations — SMTP email 
 
 ## Sink or recipe?
 
-A [recipe](/ecosystem/recipes/) is the right tool when the destination speaks HTTP and its auth fits in static headers — Slack, Discord, PagerDuty. Sparrow delivers directly; nothing extra runs.
+A [recipe](/sparrow/satellites/recipes/) is the right tool when the destination speaks HTTP and its auth fits in static headers — Slack, Discord, PagerDuty. Sparrow delivers directly; nothing extra runs.
 
 Reach for a sink when either of those breaks down:
 
@@ -22,7 +22,7 @@ A sink is just another webhook endpoint from Sparrow's point of view, so retries
 ## Install and run
 
 ```sh
-go install github.com/sarathsp06/sparrow/cmd/sparrow-sinks@latest
+go install github.com/sarathsp06/sparrow/satellites/sparrow-sinks@latest
 sparrow-sinks --config sinks.yaml
 ```
 

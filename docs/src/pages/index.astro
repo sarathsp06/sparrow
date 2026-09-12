@@ -8,10 +8,11 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const docsHome = `${base}getting-started/installation/`;
 const quickstart = `${base}getting-started/quickstart/`;
 const apiRef = `${base}reference/api/`;
-const cliDocs = `${base}ecosystem/cli/`;
-const recipesDocs = `${base}ecosystem/recipes/`;
-const sourcesDocs = `${base}ecosystem/sources/`;
-const sinksDocs = `${base}ecosystem/sinks/`;
+const cliDocs = `${base}satellites/cli/`;
+const satellitesDocs = `${base}satellites/`;
+const recipesDocs = `${base}satellites/recipes/`;
+const sourcesDocs = `${base}satellites/sources/`;
+const sinksDocs = `${base}satellites/sinks/`;
 const githubURL = 'https://github.com/sarathsp06/sparrow';
 ---
 
@@ -99,7 +100,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
               <span class="sp-terminal-title">terminal</span>
             </div>
             <div class="sp-terminal-body">
-              <code><span class="sp-t-muted">$</span> go install github.com/sarathsp06/sparrow/cmd/sparrow@latest</code>
+              <code><span class="sp-t-muted">$</span> go install github.com/sarathsp06/sparrow/satellites/sparrow@latest</code>
               <code><span class="sp-t-muted">$</span> sparrow init <span class="sp-t-flag">--url</span> <span class="sp-t-str">http://localhost:8080</span></code>
               <code><span class="sp-t-muted">$</span> sparrow listen <span class="sp-t-flag">--event</span> order.created <span class="sp-t-muted">&</span></code>
               <code><span class="sp-t-muted">$</span> sparrow push order.created <span class="sp-t-flag">-d</span> <span class="sp-t-str">'{`{`}"order_id":"ord_1"{`}`}'</span></code>
@@ -273,11 +274,12 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
     </div>
   </section>
 
-  <!-- ECOSYSTEM -->
+  <!-- SATELLITES -->
   <section class="sp-section">
     <div class="sp-w">
-      <span class="sp-label">ECOSYSTEM</span>
-      <h2 class="sp-section-title">Everything speaks the public API</h2>
+      <span class="sp-label">SATELLITES</span>
+      <h2 class="sp-section-title">Satellites orbit the core — they never touch it</h2>
+      <p class="sp-section-sub">Companion tools built entirely on the public REST API and signed-webhook contract. The core stays one small server; every satellite — including yours — inherits retries, signing, and the delivery audit trail. <a href={satellitesDocs}>How satellites work →</a></p>
       <div class="sp-cards sp-cards-4">
 
         <a class="sp-card" href={cliDocs}>
@@ -547,6 +549,13 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   font-weight: 700; line-height: 1.2;
   letter-spacing: -0.02em;
   margin: 0;
+}
+
+.sp-section-sub {
+  margin: 0.75rem 0 0;
+  max-width: 46rem;
+  color: var(--sp-on-surface-variant);
+  line-height: 1.6;
 }
 
 .sp-card {

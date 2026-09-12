@@ -14,7 +14,7 @@ Once an external event is inside Sparrow, everything Sparrow offers applies: fan
 ## Install and run
 
 ```sh
-go install github.com/sarathsp06/sparrow/cmd/sparrow-sources@latest
+go install github.com/sarathsp06/sparrow/satellites/sparrow-sources@latest
 sparrow-sources --config sources.yaml
 ```
 
@@ -24,7 +24,7 @@ Or in Docker, mounting your config:
 docker run -v $(pwd)/sources.yaml:/sources.yaml \
   -e SPARROW_URL=http://sparrow:8080 \
   -p 8787:8787 \
-  golang:1.26 sh -c 'go install github.com/sarathsp06/sparrow/cmd/sparrow-sources@latest && sparrow-sources --config /sources.yaml'
+  golang:1.26 sh -c 'go install github.com/sarathsp06/sparrow/satellites/sparrow-sources@latest && sparrow-sources --config /sources.yaml'
 ```
 
 :::note

@@ -13,7 +13,7 @@
 [![Docs](https://img.shields.io/badge/docs-Starlight-F97316?style=flat-square)](https://sarathsp06.github.io/sparrow/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
-[Quick Start](#quick-start) · [CLI](#quick-start-with-the-cli) · [Why Sparrow](#why-sparrow) · [Security](#security) · [Architecture](#architecture) · [Ecosystem](#ecosystem) · [Docs](#docs) · [Contributing](#contributing)
+[Quick Start](#quick-start) · [CLI](#quick-start-with-the-cli) · [Why Sparrow](#why-sparrow) · [Security](#security) · [Architecture](#architecture) · [Satellites](#satellites) · [Docs](#docs) · [Contributing](#contributing)
 
 </div>
 
@@ -84,7 +84,7 @@ If you set `SPARROW_API_KEY`, add `X-API-Key: <your-key>` to every API request.
 Prefer a terminal over curl? The `sparrow` CLI covers the same loop in 90 seconds:
 
 ```bash
-go install github.com/sarathsp06/sparrow/cmd/sparrow@latest
+go install github.com/sarathsp06/sparrow/satellites/sparrow@latest
 
 sparrow init --url http://localhost:8080        # point the CLI at your server
 sparrow listen --event order.created            # receive deliveries locally (Ctrl-C cleans up)
@@ -97,7 +97,7 @@ And route an event to Slack in one command:
 sparrow use slack --param webhook_url=https://hooks.slack.com/services/T00/B00/xxx --event order.created
 ```
 
-Full reference: [Sparrow CLI docs](https://sarathsp06.github.io/sparrow/ecosystem/cli/). The curl equivalent is below.
+Full reference: [Sparrow CLI docs](https://sarathsp06.github.io/sparrow/satellites/cli/). The curl equivalent is below.
 
 ### Push your first event
 
@@ -248,9 +248,9 @@ Full reference: [`okf/config/env-vars.md`](okf/config/env-vars.md).
 
 Under Docker Compose, set these in a `.env` file next to `docker-compose.yml` (Compose loads it automatically for every command, including `down`/`ps`) rather than exporting them inline — an inline `VAR=value docker compose up` only lasts for that one command.
 
-## Ecosystem
+## Satellites
 
-Companion tools built entirely on the public REST API — the core server is untouched; everything here is optional.
+Satellites are companion tools that orbit the core — they use Sparrow, never reach inside it. Everything below is built entirely on the public REST API, lives in [`satellites/`](satellites/), and is optional: delete them all and the server still works. Full guide: [Satellites docs](https://sarathsp06.github.io/sparrow/satellites/).
 
 ### Recipes
 
@@ -258,31 +258,31 @@ Adapters as config: a recipe is a YAML file pairing a destination URL with a tra
 
 | Recipe | Destination | Params |
 |---|---|---|
-| [`slack`](recipes/slack.yaml) | Slack incoming webhook (Block Kit message) | `webhook_url` |
-| [`discord`](recipes/discord.yaml) | Discord channel webhook (embed) | `webhook_url` |
-| [`ntfy`](recipes/ntfy.yaml) | ntfy topic (push notification) | `topic_url` |
-| [`pagerduty`](recipes/pagerduty.yaml) | PagerDuty Events API v2 (deduped alerts) | `routing_key` |
-| [`clickhouse`](recipes/clickhouse.yaml) | ClickHouse HTTP insert (one row per delivery) | `base_url`, `table`, `user`, `password` |
+| [`slack`](satellites/recipes/slack.yaml) | Slack incoming webhook (Block Kit message) | `webhook_url` |
+| [`discord`](satellites/recipes/discord.yaml) | Discord channel webhook (embed) | `webhook_url` |
+| [`ntfy`](satellites/recipes/ntfy.yaml) | ntfy topic (push notification) | `topic_url` |
+| [`pagerduty`](satellites/recipes/pagerduty.yaml) | PagerDuty Events API v2 (deduped alerts) | `routing_key` |
+| [`clickhouse`](satellites/recipes/clickhouse.yaml) | ClickHouse HTTP insert (one row per delivery) | `base_url`, `table`, `user`, `password` |
 
 ### Sources
 
-[`cmd/sparrow-sources`](cmd/sparrow-sources/) pushes events **into** Sparrow from the outside world: a cron emitter for scheduled events, plus Stripe and GitHub webhook receivers that verify provider signatures and re-publish them as Sparrow events (`stripe.payment_intent.succeeded`, `github.pull_request.opened`). Once inside, everything applies — fan-out, retries, label filtering, transforms.
+[`satellites/sparrow-sources`](satellites/sparrow-sources/) pushes events **into** Sparrow from the outside world: a cron emitter for scheduled events, plus Stripe and GitHub webhook receivers that verify provider signatures and re-publish them as Sparrow events (`stripe.payment_intent.succeeded`, `github.pull_request.opened`). Once inside, everything applies — fan-out, retries, label filtering, transforms.
 
 ```bash
-go install github.com/sarathsp06/sparrow/cmd/sparrow-sources@latest
+go install github.com/sarathsp06/sparrow/satellites/sparrow-sources@latest
 sparrow-sources --config sources.yaml
 ```
 
 ### Sinks
 
-[`cmd/sparrow-sinks`](cmd/sparrow-sinks/) forwards signed Sparrow deliveries **out** of HTTP land: an SMTP email sink and an S3 (or MinIO/R2) archiver that writes one JSON object per delivery, partitioned by event name and date. It verifies Standard Webhooks signatures, holds no state, and leans on Sparrow's retries for anything downstream that fails.
+[`satellites/sparrow-sinks`](satellites/sparrow-sinks/) forwards signed Sparrow deliveries **out** of HTTP land: an SMTP email sink and an S3 (or MinIO/R2) archiver that writes one JSON object per delivery, partitioned by event name and date. It verifies Standard Webhooks signatures, holds no state, and leans on Sparrow's retries for anything downstream that fails.
 
 ```bash
-go install github.com/sarathsp06/sparrow/cmd/sparrow-sinks@latest
+go install github.com/sarathsp06/sparrow/satellites/sparrow-sinks@latest
 sparrow-sinks --config sinks.yaml
 ```
 
-Docs: [CLI](https://sarathsp06.github.io/sparrow/ecosystem/cli/) · [Recipes](https://sarathsp06.github.io/sparrow/ecosystem/recipes/) · [Sources](https://sarathsp06.github.io/sparrow/ecosystem/sources/) · [Sinks](https://sarathsp06.github.io/sparrow/ecosystem/sinks/)
+Docs: [CLI](https://sarathsp06.github.io/sparrow/satellites/cli/) · [Recipes](https://sarathsp06.github.io/sparrow/satellites/recipes/) · [Sources](https://sarathsp06.github.io/sparrow/satellites/sources/) · [Sinks](https://sarathsp06.github.io/sparrow/satellites/sinks/)
 
 ## Docs
 

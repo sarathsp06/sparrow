@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/sarathsp06/sparrow/recipes"
+	"github.com/sarathsp06/sparrow/satellites/recipes"
 )
 
 // startBodyCaptureTarget returns a test server that records request bodies
@@ -47,7 +47,7 @@ func TestE2E_SlackRecipeTransform(t *testing.T) {
 		eventName = "recipe.slack"
 	)
 
-	raw, err := os.ReadFile("../../recipes/slack.yaml")
+	raw, err := os.ReadFile("../../satellites/recipes/slack.yaml")
 	require.NoError(t, err, "read slack recipe")
 	var recipe recipes.Recipe
 	require.NoError(t, yaml.Unmarshal(raw, &recipe), "parse slack recipe")

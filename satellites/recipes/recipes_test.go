@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
-	"github.com/sarathsp06/sparrow/recipes"
+	"github.com/sarathsp06/sparrow/satellites/recipes"
 )
 
 // paramToken matches the exact substitution token the CLI replaces at apply

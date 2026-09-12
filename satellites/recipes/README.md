@@ -68,12 +68,12 @@ baked into a recipe.
 
 ## Contributing a recipe
 
-1. Create `recipes/<name>.yaml` per the schema above; `name` must equal the
+1. Create `satellites/recipes/<name>.yaml` per the schema above; `name` must equal the
    filename.
 2. Templates that produce JSON must quote every interpolated value through
    the `json` helper (e.g. `{{.event_name | json}}`) so quotes and newlines
    in payloads can't break the output.
-3. Run `go test ./recipes/` — it validates every recipe: schema fields,
+3. Run `go test ./satellites/recipes/` — it validates every recipe: schema fields,
    param-token references, and that the rendered template output is valid
    JSON (ntfy, being plain text, is exempt).
 4. Iterate on templates against a live server with

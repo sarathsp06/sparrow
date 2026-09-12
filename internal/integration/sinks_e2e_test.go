@@ -103,13 +103,13 @@ func freePort(t *testing.T) int {
 	return port
 }
 
-// startSinksBinary builds and runs cmd/sparrow-sinks with the given config,
+// startSinksBinary builds and runs satellites/sparrow-sinks with the given config,
 // waiting until /healthz answers.
 func startSinksBinary(t *testing.T, ctx context.Context, configYAML string) (baseURL string) {
 	t.Helper()
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "sparrow-sinks")
-	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "github.com/sarathsp06/sparrow/cmd/sparrow-sinks")
+	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "github.com/sarathsp06/sparrow/satellites/sparrow-sinks")
 	build.Stderr = os.Stderr
 	require.NoError(t, build.Run(), "build sparrow-sinks")
 

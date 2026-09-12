@@ -1,0 +1,73 @@
+---
+title: Satellites
+description: Companion tools that orbit the Sparrow core — CLI, recipes, sources, and sinks built entirely on the public REST API.
+sidebar:
+  label: Overview
+  order: 0
+---
+
+Satellites are companion tools that **orbit the core** — they use Sparrow, they
+never reach inside it. Every satellite talks to the same public REST API and
+signed-webhook contract you do, so the delivery pipeline (matching, retries,
+signing, audit trail) stays one small, boring server. Delete every satellite
+and Sparrow still works; add your own and it is a first-class citizen.
+
+They live in [`satellites/`](https://github.com/sarathsp06/sparrow/tree/main/satellites)
+in the repo — deliberately outside the server's `cmd/` and `internal/` — and
+ship as separate binaries in every release.
+
+```
+                        ┌──────────────────────────┐
+  world ──▶ sources ──▶ │       Sparrow core       │ ──▶ recipes ──▶ Slack, PagerDuty, …
+  (cron, Stripe,        │  match · retry · sign    │ ──▶ sinks   ──▶ email, S3/MinIO
+   GitHub)              │       · audit            │ ──▶ your own HTTP endpoint
+                        └──────────────────────────┘
+                              ▲            │
+                              └─── CLI ────┘
+                          push · tail · listen
+```
+
+## The four satellites
+
+| Satellite | Direction | What it does |
+|---|---|---|
+| [CLI](/sparrow/satellites/cli/) | both | `sparrow init/push/tail/listen/use/template` — the 90-second loop from install to a delivered, verified webhook |
+| [Recipes](/sparrow/satellites/recipes/) | out | Adapters as pure config: Slack, Discord, ntfy, PagerDuty, ClickHouse. Sparrow renders the transform server-side — nothing extra runs |
+| [Sources](/sparrow/satellites/sources/) | in | `sparrow-sources`: cron emitter plus Stripe/GitHub webhook normalizers — verify the provider's signature, re-publish as typed Sparrow events |
+| [Sinks](/sparrow/satellites/sinks/) | out | `sparrow-sinks`: signed-delivery receiver forwarding to SMTP email and S3/MinIO archives |
+
+## The contract
+
+Every satellite — including ones you write — follows three rules:
+
+1. **Public API only.** Registration, pushes, and delivery reads go through the
+   same versioned REST API in [the OpenAPI spec](/sparrow/reference/api). No
+   database access, no imports from server internals.
+2. **Verify signatures.** Anything receiving deliveries checks the
+   `webhook-signature` header (Standard Webhooks HMAC-SHA256) before trusting a
+   payload. The [CLI's `listen`](/sparrow/satellites/cli/#listen) shows the
+   verification in action.
+3. **Fail loudly, stay stateless.** Sinks return non-2xx when the downstream
+   fails and let Sparrow's retry/backoff machinery do the work. Sources only
+   ack the provider after Sparrow accepted the event (at-least-once,
+   deduplicated by idempotency key).
+
+Follow the same rules and your integration inherits retries, exponential
+backoff, delivery audit, and endpoint health tracking without writing any of it.
+
+## 90-second start
+
+```bash
+go install github.com/sarathsp06/sparrow/satellites/sparrow@latest
+
+sparrow init --url http://localhost:8080   # write ~/.sparrow/config.yaml
+sparrow listen --forward localhost:3000 &  # temp webhook → your terminal
+sparrow push user.signup -d '{"email":"a@b.c"}' -l env=dev
+sparrow tail deliveries --once             # watch it land: success / 200
+```
+
+Then wire a real destination with a recipe:
+
+```bash
+sparrow use slack --param webhook_url=https://hooks.slack.com/... --event user.signup
+```

@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sarathsp06/sparrow/cmd/sparrow-sources/sources"
+	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources"
 )
 
 const usage = `sparrow-sources: push external events into Sparrow.
