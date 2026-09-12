@@ -32,13 +32,13 @@ Config file (YAML):
       event: report.tick
       payload: {kind: hourly}
       labels: {source: cron}
-  ingest:
+  webhook:
     listen: :8787
     providers:
-      stripe:                     # POST /ingest/stripe
+      stripe:                     # POST /webhooks/stripe
         signing_secret: whsec_...
         event_prefix: stripe      # -> stripe.payment_intent.succeeded
-      github:                     # POST /ingest/github
+      github:                     # POST /webhooks/github
         secret: ...
         event_prefix: github      # -> github.pull_request.opened
 `
@@ -71,24 +71,24 @@ func main() {
 	}
 
 	var srv *http.Server
-	if cfg.Ingest.Providers.Stripe != nil || cfg.Ingest.Providers.GitHub != nil {
+	if cfg.Webhook.Providers.Stripe != nil || cfg.Webhook.Providers.GitHub != nil {
 		srv = &http.Server{
-			Addr:         cfg.Ingest.Listen,
-			Handler:      sources.NewIngestHandler(cfg.Ingest, client, log),
+			Addr:         cfg.Webhook.Listen,
+			Handler:      sources.NewWebhookHandler(cfg.Webhook, client, log),
 			ReadTimeout:  30 * time.Second,
 			WriteTimeout: 30 * time.Second,
 		}
 		go func() {
-			log.Info("ingest listening", "addr", cfg.Ingest.Listen)
+			log.Info("webhook listening", "addr", cfg.Webhook.Listen)
 			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				log.Error("ingest server failed", "error", err)
+				log.Error("webhook server failed", "error", err)
 				stop()
 			}
 		}()
 	}
 
 	if len(cfg.Cron) == 0 && srv == nil {
-		log.Error("nothing to do: configure cron jobs and/or ingest providers")
+		log.Error("nothing to do: configure cron jobs and/or webhook providers")
 		os.Exit(1)
 	}
 

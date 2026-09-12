@@ -14,19 +14,19 @@ import (
 	"time"
 )
 
-const maxIngestBody = 1 << 20 // 1 MiB
+const maxWebhookBody = 1 << 20 // 1 MiB
 
 // stripeTolerance is the max age of a Stripe-Signature timestamp.
 const stripeTolerance = 5 * time.Minute
 
-// NewIngestHandler returns the ingest HTTP handler: POST /ingest/stripe and
-// POST /ingest/github for configured providers. Unknown paths 404, bad
+// NewWebhookHandler returns the webhook HTTP handler: POST /webhooks/stripe and
+// POST /webhooks/github for configured providers. Unknown paths 404, bad
 // signatures 401, push failures 502 (so the provider retries).
-func NewIngestHandler(cfg IngestConfig, p Pusher, log *slog.Logger) http.Handler {
+func NewWebhookHandler(cfg WebhookConfig, p Pusher, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 	if s := cfg.Providers.Stripe; s != nil {
-		mux.HandleFunc("POST /ingest/stripe", func(w http.ResponseWriter, r *http.Request) {
-			handleIngest(w, r, p, log, "stripe", func(body []byte) (string, map[string]string, error) {
+		mux.HandleFunc("POST /webhooks/stripe", func(w http.ResponseWriter, r *http.Request) {
+			handleWebhook(w, r, p, log, "stripe", func(body []byte) (string, map[string]string, error) {
 				if err := verifyStripeSignature(r.Header.Get("Stripe-Signature"), body, s.SigningSecret, time.Now()); err != nil {
 					return "", nil, errBadSignature
 				}
@@ -35,8 +35,8 @@ func NewIngestHandler(cfg IngestConfig, p Pusher, log *slog.Logger) http.Handler
 		})
 	}
 	if g := cfg.Providers.GitHub; g != nil {
-		mux.HandleFunc("POST /ingest/github", func(w http.ResponseWriter, r *http.Request) {
-			handleIngest(w, r, p, log, "github", func(body []byte) (string, map[string]string, error) {
+		mux.HandleFunc("POST /webhooks/github", func(w http.ResponseWriter, r *http.Request) {
+			handleWebhook(w, r, p, log, "github", func(body []byte) (string, map[string]string, error) {
 				if !verifyGitHubSignature(r.Header.Get("X-Hub-Signature-256"), body, g.Secret) {
 					return "", nil, errBadSignature
 				}
@@ -49,10 +49,10 @@ func NewIngestHandler(cfg IngestConfig, p Pusher, log *slog.Logger) http.Handler
 
 var errBadSignature = fmt.Errorf("bad signature")
 
-// handleIngest reads the body, verifies+maps it via fn, pushes the event,
+// handleWebhook reads the body, verifies+maps it via fn, pushes the event,
 // and only then responds 2xx (at-least-once: the provider retries non-2xx).
-func handleIngest(w http.ResponseWriter, r *http.Request, p Pusher, log *slog.Logger, provider string, fn func(body []byte) (string, map[string]string, error)) {
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxIngestBody))
+func handleWebhook(w http.ResponseWriter, r *http.Request, p Pusher, log *slog.Logger, provider string, fn func(body []byte) (string, map[string]string, error)) {
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxWebhookBody))
 	if err != nil {
 		http.Error(w, "read error", http.StatusBadRequest)
 		return
@@ -67,11 +67,11 @@ func handleIngest(w http.ResponseWriter, r *http.Request, p Pusher, log *slog.Lo
 		return
 	}
 	if err := p.PushEvent(r.Context(), event, json.RawMessage(body), labels); err != nil {
-		log.Error("ingest push failed", "provider", provider, "event", event, "error", err)
+		log.Error("webhook push failed", "provider", provider, "event", event, "error", err)
 		http.Error(w, "push failed", http.StatusBadGateway)
 		return
 	}
-	log.Info("ingest event pushed", "provider", provider, "event", event)
+	log.Info("webhook event pushed", "provider", provider, "event", event)
 	w.WriteHeader(http.StatusOK)
 }
 

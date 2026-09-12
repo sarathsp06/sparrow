@@ -158,13 +158,13 @@ func (f *fakePusher) PushEvent(_ context.Context, event string, _ json.RawMessag
 	return nil
 }
 
-func TestIngestHandler(t *testing.T) {
-	cfg := IngestConfig{Providers: ProvidersConfig{
+func TestWebhookHandler(t *testing.T) {
+	cfg := WebhookConfig{Providers: ProvidersConfig{
 		Stripe: &StripeConfig{SigningSecret: "whsec_test", EventPrefix: "stripe"},
 		GitHub: &GitHubConfig{Secret: "gh_test", EventPrefix: "github"},
 	}}
 	push := &fakePusher{}
-	h := NewIngestHandler(cfg, push, discardLogger())
+	h := NewWebhookHandler(cfg, push, discardLogger())
 
 	do := func(path, body string, hdr map[string]string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
@@ -177,20 +177,20 @@ func TestIngestHandler(t *testing.T) {
 	}
 
 	stripeBody := `{"type":"payment_intent.succeeded","livemode":false}`
-	w := do("/ingest/stripe", stripeBody,
+	w := do("/webhooks/stripe", stripeBody,
 		map[string]string{"Stripe-Signature": stripeSig("whsec_test", time.Now().Unix(), []byte(stripeBody))})
 	if w.Code != http.StatusOK {
 		t.Fatalf("valid stripe: status %d", w.Code)
 	}
 
 	// bad signature -> 401, empty body
-	w = do("/ingest/stripe", stripeBody, map[string]string{"Stripe-Signature": "t=1,v1=00"})
+	w = do("/webhooks/stripe", stripeBody, map[string]string{"Stripe-Signature": "t=1,v1=00"})
 	if w.Code != http.StatusUnauthorized || w.Body.Len() != 0 {
 		t.Errorf("bad stripe sig: status %d body %q", w.Code, w.Body.String())
 	}
 
 	ghBody := `{"action":"opened","repository":{"full_name":"acme/site"}}`
-	w = do("/ingest/github", ghBody, map[string]string{
+	w = do("/webhooks/github", ghBody, map[string]string{
 		"X-Hub-Signature-256": githubSig("gh_test", []byte(ghBody)),
 		"X-GitHub-Event":      "pull_request",
 	})
@@ -199,7 +199,7 @@ func TestIngestHandler(t *testing.T) {
 	}
 
 	// unknown provider path -> 404
-	if w = do("/ingest/nope", "{}", nil); w.Code != http.StatusNotFound {
+	if w = do("/webhooks/nope", "{}", nil); w.Code != http.StatusNotFound {
 		t.Errorf("unknown provider: status %d", w.Code)
 	}
 
@@ -209,7 +209,7 @@ func TestIngestHandler(t *testing.T) {
 
 	// push failure -> 502
 	push.fail = true
-	w = do("/ingest/github", ghBody, map[string]string{
+	w = do("/webhooks/github", ghBody, map[string]string{
 		"X-Hub-Signature-256": githubSig("gh_test", []byte(ghBody)),
 		"X-GitHub-Event":      "pull_request",
 	})

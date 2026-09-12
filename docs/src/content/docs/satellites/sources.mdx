@@ -25,8 +25,8 @@ cron loop (per schedule entry):
            → POST /v1/event-types {name, active: true}
            → retry the push once
 
-ingest server (:8787):
-  POST /ingest/stripe                    POST /ingest/github
+webhook server (:8787):
+  POST /webhooks/stripe                    POST /webhooks/github
     1. read raw body (before parsing)      1. read raw body
     2. verify Stripe-Signature:            2. verify X-Hub-Signature-256:
        HMAC-SHA256(secret,                    HMAC-SHA256(secret, body),
@@ -81,8 +81,8 @@ cron:
     payload: {kind: hourly}    # arbitrary JSON payload
     labels: {source: cron}     # labels for subscription filtering
 
-ingest:
-  listen: :8787                # HTTP listen address for webhook ingest
+webhook:
+  listen: :8787                # HTTP listen address for the webhook server
   providers:
     stripe:
       signing_secret: whsec_...   # from the Stripe dashboard
@@ -117,17 +117,17 @@ The full provider payload becomes the Sparrow event payload. Labels are attached
 
 ### Stripe
 
-1. In the Stripe dashboard, go to **Developers → Webhooks → Add endpoint** and set the URL to `https://<your-sources-host>/ingest/stripe`.
+1. In the Stripe dashboard, go to **Developers → Webhooks → Add endpoint** and set the URL to `https://<your-sources-host>/webhooks/stripe`.
 2. Select the event types you want (or all).
-3. After creating the endpoint, reveal its **Signing secret** (`whsec_...`) and put it in `ingest.providers.stripe.signing_secret`.
+3. After creating the endpoint, reveal its **Signing secret** (`whsec_...`) and put it in `webhook.providers.stripe.signing_secret`.
 
 Signatures are verified from the `Stripe-Signature` header (HMAC-SHA256 over `{timestamp}.{body}`) with a 5-minute timestamp tolerance.
 
 ### GitHub
 
 1. In your repo or org, go to **Settings → Webhooks → Add webhook**.
-2. Payload URL: `https://<your-sources-host>/ingest/github`. Content type: `application/json`.
-3. Set a **Secret** and put the same value in `ingest.providers.github.secret`.
+2. Payload URL: `https://<your-sources-host>/webhooks/github`. Content type: `application/json`.
+3. Set a **Secret** and put the same value in `webhook.providers.github.secret`.
 
 Signatures are verified from the `X-Hub-Signature-256` header (HMAC-SHA256 over the raw body, constant-time compare).
 

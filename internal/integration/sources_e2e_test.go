@@ -21,13 +21,13 @@ import (
 	"github.com/sarathsp06/sparrow/satellites/sparrow-sources/sources"
 )
 
-// startIngest mounts the sparrow-sources ingest handler on an httptest
+// startWebhook mounts the sparrow-sources webhook handler on an httptest
 // server pointed at the harness Sparrow.
-func startIngest(t *testing.T, env *testEnv, namespace string, providers sources.ProvidersConfig) *httptest.Server {
+func startWebhook(t *testing.T, env *testEnv, namespace string, providers sources.ProvidersConfig) *httptest.Server {
 	t.Helper()
 	pusher := sources.NewClient(sources.SparrowConfig{URL: env.baseURL, Namespace: namespace})
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	srv := httptest.NewServer(sources.NewIngestHandler(sources.IngestConfig{Providers: providers}, pusher, log))
+	srv := httptest.NewServer(sources.NewWebhookHandler(sources.WebhookConfig{Providers: providers}, pusher, log))
 	t.Cleanup(srv.Close)
 	return srv
 }
@@ -57,10 +57,10 @@ func findEventOccurrence(t *testing.T, c *restClient, ctx context.Context, names
 	}
 }
 
-// TestE2E_SourcesStripeIngest verifies the full path: signed Stripe webhook
-// -> sparrow-sources ingest -> Sparrow event (auto-created event type) ->
+// TestE2E_SourcesStripeWebhook verifies the full path: signed Stripe webhook
+// -> sparrow-sources webhook -> Sparrow event (auto-created event type) ->
 // delivery to a subscribed webhook.
-func TestE2E_SourcesStripeIngest(t *testing.T) {
+func TestE2E_SourcesStripeWebhook(t *testing.T) {
 	env := setupEnv(t)
 	c := newRESTClient(t, env)
 	ctx := context.Background()
@@ -75,7 +75,7 @@ func TestE2E_SourcesStripeIngest(t *testing.T) {
 	registerEventType(t, c, ctx, eventName)
 	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 3)
 
-	ingest := startIngest(t, env, namespace, sources.ProvidersConfig{
+	webhook := startWebhook(t, env, namespace, sources.ProvidersConfig{
 		Stripe: &sources.StripeConfig{SigningSecret: secret, EventPrefix: "stripe"},
 	})
 
@@ -92,13 +92,13 @@ func TestE2E_SourcesStripeIngest(t *testing.T) {
 	fmt.Fprintf(mac, "%d.%s", ts, body)
 	sig := fmt.Sprintf("t=%d,v1=%s", ts, hex.EncodeToString(mac.Sum(nil)))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ingest.URL+"/ingest/stripe", strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhook.URL+"/webhooks/stripe", strings.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Stripe-Signature", sig)
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	resp.Body.Close() //nolint:errcheck
-	require.Equal(t, http.StatusOK, resp.StatusCode, "ingest should 2xx after successful push")
+	require.Equal(t, http.StatusOK, resp.StatusCode, "webhook should 2xx after successful push")
 
 	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
@@ -109,9 +109,9 @@ func TestE2E_SourcesStripeIngest(t *testing.T) {
 	require.GreaterOrEqual(t, int(requestCount.Load()), 1, "subscribed webhook should have been delivered to")
 }
 
-// TestE2E_SourcesGitHubIngest verifies the same path for a signed GitHub
+// TestE2E_SourcesGitHubWebhook verifies the same path for a signed GitHub
 // push webhook.
-func TestE2E_SourcesGitHubIngest(t *testing.T) {
+func TestE2E_SourcesGitHubWebhook(t *testing.T) {
 	env := setupEnv(t)
 	c := newRESTClient(t, env)
 	ctx := context.Background()
@@ -126,7 +126,7 @@ func TestE2E_SourcesGitHubIngest(t *testing.T) {
 	registerEventType(t, c, ctx, eventName)
 	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 3)
 
-	ingest := startIngest(t, env, namespace, sources.ProvidersConfig{
+	webhook := startWebhook(t, env, namespace, sources.ProvidersConfig{
 		GitHub: &sources.GitHubConfig{Secret: secret, EventPrefix: "github"},
 	})
 
@@ -141,14 +141,14 @@ func TestE2E_SourcesGitHubIngest(t *testing.T) {
 	mac.Write([]byte(body))
 	sig := "sha256=" + hex.EncodeToString(mac.Sum(nil))
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ingest.URL+"/ingest/github", strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhook.URL+"/webhooks/github", strings.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("X-Hub-Signature-256", sig)
 	req.Header.Set("X-GitHub-Event", "push")
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	resp.Body.Close() //nolint:errcheck
-	require.Equal(t, http.StatusOK, resp.StatusCode, "ingest should 2xx after successful push")
+	require.Equal(t, http.StatusOK, resp.StatusCode, "webhook should 2xx after successful push")
 
 	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()

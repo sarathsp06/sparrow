@@ -14,7 +14,7 @@ import (
 type Config struct {
 	Sparrow SparrowConfig `yaml:"sparrow"`
 	Cron    []CronJob     `yaml:"cron"`
-	Ingest  IngestConfig  `yaml:"ingest"`
+	Webhook WebhookConfig `yaml:"webhook"`
 }
 
 // SparrowConfig is the Sparrow server connection. Env vars SPARROW_URL,
@@ -36,13 +36,14 @@ type CronJob struct {
 	payloadJSON json.RawMessage
 }
 
-// IngestConfig configures the webhook-ingest HTTP listener.
-type IngestConfig struct {
+// WebhookConfig configures the webhook-ingest HTTP listener that receives
+// provider webhooks (Stripe, GitHub) and republishes them as Sparrow events.
+type WebhookConfig struct {
 	Listen    string          `yaml:"listen"`
 	Providers ProvidersConfig `yaml:"providers"`
 }
 
-// ProvidersConfig holds per-provider ingest settings; nil = disabled.
+// ProvidersConfig holds per-provider webhook settings; nil = disabled.
 type ProvidersConfig struct {
 	Stripe *StripeConfig `yaml:"stripe"`
 	GitHub *GitHubConfig `yaml:"github"`
@@ -109,24 +110,24 @@ func LoadConfig(path string) (*Config, error) {
 		}
 	}
 
-	if s := cfg.Ingest.Providers.Stripe; s != nil {
+	if s := cfg.Webhook.Providers.Stripe; s != nil {
 		if s.SigningSecret == "" {
-			return nil, fmt.Errorf("ingest.providers.stripe.signing_secret is required")
+			return nil, fmt.Errorf("webhook.providers.stripe.signing_secret is required")
 		}
 		if s.EventPrefix == "" {
 			s.EventPrefix = "stripe"
 		}
 	}
-	if g := cfg.Ingest.Providers.GitHub; g != nil {
+	if g := cfg.Webhook.Providers.GitHub; g != nil {
 		if g.Secret == "" {
-			return nil, fmt.Errorf("ingest.providers.github.secret is required")
+			return nil, fmt.Errorf("webhook.providers.github.secret is required")
 		}
 		if g.EventPrefix == "" {
 			g.EventPrefix = "github"
 		}
 	}
-	if (cfg.Ingest.Providers.Stripe != nil || cfg.Ingest.Providers.GitHub != nil) && cfg.Ingest.Listen == "" {
-		cfg.Ingest.Listen = ":8787"
+	if (cfg.Webhook.Providers.Stripe != nil || cfg.Webhook.Providers.GitHub != nil) && cfg.Webhook.Listen == "" {
+		cfg.Webhook.Listen = ":8787"
 	}
 
 	return &cfg, nil
