@@ -142,7 +142,15 @@ type templateFunctionsOutput struct {
 	}
 }
 
-func registerWebhookRoutes(api huma.API, svc webhooks.WebhookServiceInterface) {
+// webhookRouteService is the service slice webhook routes consume: webhook
+// lifecycle, subscription lookup for event lists, and secret masking.
+type webhookRouteService interface {
+	webhooks.WebhookManager
+	webhooks.SubscriptionManager
+	webhooks.SecretRevealer
+}
+
+func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "registerWebhook",
 		Method:        http.MethodPost,

@@ -26,8 +26,8 @@ type WebhookService struct {
 	allowPrivateNetworks bool
 }
 
-//go:generate gowrap gen -i WebhookServiceInterface -t ../../templates/opentelemetry.tmpl -o WebhookServiceInterface_otel.go
-type WebhookServiceInterface interface {
+// WebhookManager manages webhook registrations and their lifecycle.
+type WebhookManager interface {
 	RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error)
 	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error)
 	UnregisterWebhook(ctx context.Context, webhookID string, namespace string) error
@@ -36,7 +36,10 @@ type WebhookServiceInterface interface {
 	PauseWebhook(ctx context.Context, webhookID string, namespace string, reason string) error
 	ResumeWebhook(ctx context.Context, webhookID string, namespace string) error
 	GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStatsData, error)
+}
 
+// EventManager manages event type registrations and event publishing.
+type EventManager interface {
 	RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, time.Time, error)
 	ListEvents(ctx context.Context, activeOnly bool, limit, offset int32) ([]*store.EventRegistration, int32, error)
 	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error
@@ -49,36 +52,65 @@ type WebhookServiceInterface interface {
 	RePushEvent(ctx context.Context, eventID string) (string, []string, error)
 	GetEventRecord(ctx context.Context, eventID string) (*store.EventRecord, int32, int32, int32, int32, error)
 	ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error)
+}
 
+// SubscriptionManager manages event subscriptions and payload-transform templates.
+type SubscriptionManager interface {
 	CreateSubscription(ctx context.Context, webhookID, eventName, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error)
 	GetSubscription(ctx context.Context, subscriptionID string, namespace string) (*store.EventSubscription, error)
 	ListSubscriptions(ctx context.Context, namespace string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
 	UpdateSubscription(ctx context.Context, subscriptionID string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error
 	DeleteSubscription(ctx context.Context, subscriptionID string, namespace string) error
 	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, namespace string) (string, error)
+	ListSubscriptionsByWebhookIDs(ctx context.Context, webhookIDs []uuid.UUID) ([]*store.EventSubscription, error)
+	GetTemplateFunctions() []TemplateFunctionInfo
+}
 
+// DeliveryManager exposes delivery status, attempt history, and retries.
+type DeliveryManager interface {
 	GetDeliveryStatus(ctx context.Context, deliveryID string, namespace string) (*store.WebhookDelivery, error)
 	GetDeliveryAttempts(ctx context.Context, deliveryID string) ([]*store.WebhookHealthEvent, error)
 	ListDeliveries(ctx context.Context, filter store.DeliveryFilter) ([]*store.WebhookDelivery, int32, string, error)
 	RetryDelivery(ctx context.Context, namespace string, deliveryID string, webhookID string, force bool) ([]string, int32, error)
+}
 
+// HealthManager exposes per-webhook and aggregate health.
+type HealthManager interface {
 	GetWebhookHealth(ctx context.Context, webhookID string, namespace string) (*WebhookHealthData, error)
 	GetHealthSummary(ctx context.Context) (*HealthSummaryData, error)
+}
 
+// BatchManager runs prepared bulk re-push and bulk retry jobs.
+type BatchManager interface {
 	RePushEvents(ctx context.Context, repushID string) error
 	GetRepushStatus(ctx context.Context, repushID string) (*store.BatchJob, error)
 	CancelRepush(ctx context.Context, repushID string) error
 	RetryDeliveries(ctx context.Context, retryID string) error
 	GetRetryStatus(ctx context.Context, retryID string) (*store.BatchJob, error)
 	CancelRetry(ctx context.Context, retryID string) error
+}
 
-	GetTemplateFunctions() []TemplateFunctionInfo
-
-	GetWebhookRepo() store.RepositoryInterface
-
+// SecretRevealer decrypts stored webhook secrets for masking and exposes the
+// Ed25519 signing public key. Used by response conversion, never for delivery.
+type SecretRevealer interface {
 	DecryptSecretHeaders(encrypted []byte) (map[string]string, error)
 	DecryptWebhookSecret(encrypted []byte) (string, error)
 	WebhookSigningPublicKeyHex(encryptedPrivKey []byte) string
+}
+
+//go:generate gowrap gen -i WebhookServiceInterface -t ../../templates/opentelemetry.tmpl -o WebhookServiceInterface_otel.go
+
+// WebhookServiceInterface is the composite of every domain interface, satisfied
+// by *WebhookService. Consumers should depend on the narrow per-domain
+// interfaces; the composite exists for wiring and the OTel decorator.
+type WebhookServiceInterface interface {
+	WebhookManager
+	EventManager
+	SubscriptionManager
+	DeliveryManager
+	HealthManager
+	BatchManager
+	SecretRevealer
 }
 
 type TemplateFunctionInfo struct {
@@ -121,11 +153,6 @@ func NewWebhookService(queueManager queue.JobInserter, webhookRepo store.Reposit
 		opt(svc)
 	}
 	return svc
-}
-
-// GetWebhookRepo returns the repository interface for direct access
-func (s *WebhookService) GetWebhookRepo() store.RepositoryInterface {
-	return s.webhookRepo
 }
 
 // --- Common Helpers ---

@@ -125,7 +125,14 @@ type attemptsOutput struct {
 	}
 }
 
-func registerDeliveryRoutes(api huma.API, svc webhooks.WebhookServiceInterface) {
+// deliveryRouteService is the service slice delivery routes consume: delivery
+// status/retry plus bulk retry jobs.
+type deliveryRouteService interface {
+	webhooks.DeliveryManager
+	webhooks.BatchManager
+}
+
+func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "getDelivery",
 		Method:      http.MethodGet,

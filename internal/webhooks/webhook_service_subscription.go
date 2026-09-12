@@ -38,6 +38,12 @@ func (s *WebhookService) getSubscriptionInNamespace(ctx context.Context, subscri
 	return sub, nil
 }
 
+// ListSubscriptionsByWebhookIDs batch-fetches subscriptions for multiple
+// webhooks in a single query, scoped to the default tenant.
+func (s *WebhookService) ListSubscriptionsByWebhookIDs(ctx context.Context, webhookIDs []uuid.UUID) ([]*store.EventSubscription, error) {
+	return s.webhookRepo.ListSubscriptionsByWebhookIDs(ctx, tenant.DefaultTenantID, webhookIDs)
+}
+
 // Subscription Management Implementation
 
 func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, eventName, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error) {

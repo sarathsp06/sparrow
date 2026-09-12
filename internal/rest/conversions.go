@@ -8,10 +8,16 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
+
+// conversionService is the slice of the service that webhook response
+// conversion consumes: secret masking plus batch subscription lookup.
+type conversionService interface {
+	webhooks.SecretRevealer
+	ListSubscriptionsByWebhookIDs(ctx context.Context, webhookIDs []uuid.UUID) ([]*store.EventSubscription, error)
+}
 
 // maskSecret shows the first 4 characters of a plaintext secret, masking the rest.
 func maskSecret(secret string) string {
@@ -26,7 +32,7 @@ func maskSecret(secret string) string {
 
 // maskEncryptedSecret decrypts an encrypted webhook secret and masks it for
 // safe display in API responses.
-func maskEncryptedSecret(encrypted []byte, svc webhooks.WebhookServiceInterface) string {
+func maskEncryptedSecret(encrypted []byte, svc webhooks.SecretRevealer) string {
 	if len(encrypted) == 0 {
 		return ""
 	}
@@ -38,7 +44,7 @@ func maskEncryptedSecret(encrypted []byte, svc webhooks.WebhookServiceInterface)
 }
 
 // maskSecretHeaders decrypts encrypted secret headers and masks every value.
-func maskSecretHeaders(encrypted []byte, svc webhooks.WebhookServiceInterface) map[string]string {
+func maskSecretHeaders(encrypted []byte, svc webhooks.SecretRevealer) map[string]string {
 	if len(encrypted) == 0 {
 		return nil
 	}
@@ -55,7 +61,7 @@ func maskSecretHeaders(encrypted []byte, svc webhooks.WebhookServiceInterface) m
 
 // getWebhookEventsMap batch-fetches subscribed event names for multiple
 // webhooks in a single query, keyed by webhook id string.
-func getWebhookEventsMap(ctx context.Context, svc webhooks.WebhookServiceInterface, regs []*store.WebhookRegistration) map[string][]string {
+func getWebhookEventsMap(ctx context.Context, svc conversionService, regs []*store.WebhookRegistration) map[string][]string {
 	if len(regs) == 0 {
 		return map[string][]string{}
 	}
@@ -63,7 +69,7 @@ func getWebhookEventsMap(ctx context.Context, svc webhooks.WebhookServiceInterfa
 	for i, r := range regs {
 		ids[i] = r.ID
 	}
-	subs, err := svc.GetWebhookRepo().ListSubscriptionsByWebhookIDs(ctx, tenant.DefaultTenantID, ids)
+	subs, err := svc.ListSubscriptionsByWebhookIDs(ctx, ids)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to batch-fetch subscriptions", "error", err)
 		return map[string][]string{}
@@ -112,7 +118,7 @@ type WebhookOut struct {
 	UpdatedAt        string               `json:"updated_at" doc:"Last-modified timestamp, RFC3339."`
 }
 
-func toWebhookOut(reg *store.WebhookRegistration, events []string, svc webhooks.WebhookServiceInterface) WebhookOut {
+func toWebhookOut(reg *store.WebhookRegistration, events []string, svc webhooks.SecretRevealer) WebhookOut {
 	codes := make([]int32, len(reg.ExpectedStatusCodes))
 	for i, c := range reg.ExpectedStatusCodes {
 		codes[i] = int32(c)
@@ -149,7 +155,7 @@ func toWebhookOut(reg *store.WebhookRegistration, events []string, svc webhooks.
 
 // toWebhookOutFromDomain converts the webhooks-package WebhookRegistration
 // (returned fresh at creation time, secret shown once) into the REST shape.
-func toWebhookOutFromDomain(reg *webhooks.WebhookRegistration, svc webhooks.WebhookServiceInterface) WebhookOut {
+func toWebhookOutFromDomain(reg *webhooks.WebhookRegistration, svc webhooks.SecretRevealer) WebhookOut {
 	codes := make([]int32, len(reg.HTTPConfig.ExpectedStatusCodes))
 	for i, c := range reg.HTTPConfig.ExpectedStatusCodes {
 		codes[i] = int32(c)

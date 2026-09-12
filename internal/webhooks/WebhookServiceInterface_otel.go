@@ -10,10 +10,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 
 	_codes "go.opentelemetry.io/otel/codes"
 )
@@ -541,6 +543,30 @@ func (_d WebhookServiceInterfaceWithTracing) ListSubscriptions(ctx context.Conte
 		_span.End()
 	}()
 	return _d.WebhookServiceInterface.ListSubscriptions(ctx, namespace, webhookID, eventName, limit, offset)
+}
+
+// ListSubscriptionsByWebhookIDs implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) ListSubscriptionsByWebhookIDs(ctx context.Context, webhookIDs []uuid.UUID) (epa1 []*store.EventSubscription, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListSubscriptionsByWebhookIDs")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":        ctx,
+				"webhookIDs": webhookIDs}, map[string]interface{}{
+				"epa1": epa1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.ListSubscriptionsByWebhookIDs(ctx, webhookIDs)
 }
 
 // ListWebhooks implements WebhookServiceInterface

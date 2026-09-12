@@ -5,13 +5,11 @@ package rest
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
-	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
 // categoryToHTTP maps svcerrors.Status to HTTP status codes.
@@ -36,39 +34,20 @@ var categoryToHTTP = map[svcerrors.Status]int{
 }
 
 // mapError translates a business/storage error into a Huma HTTP error.
-//
-// Resolution order:
-//  1. svcerrors.ServiceError — service-layer errors explicitly marked
-//     client-safe with a Status, translated via categoryToHTTP.
-//  2. Storage sentinel errors (not-found, conflict, fk-violation, not-null).
-//  3. Default — 500, with the real error logged but not exposed.
+// Classification (ServiceError passthrough, storage sentinels, Internal
+// default) lives in pkg/errors; this only maps Status to an HTTP code.
 func mapError(ctx context.Context, err error, fallbackMsg string) error {
 	if err == nil {
 		return nil
 	}
 
-	var svcErr *svcerrors.ServiceError
-	if errors.As(err, &svcErr) {
-		status, ok := categoryToHTTP[svcErr.Status]
-		if !ok {
-			status = 500
-		}
-		return huma.NewError(status, svcErr.ClientMessage())
+	svcErr := svcerrors.Classify(err, fallbackMsg)
+	if svcErr.Status == svcerrors.Internal || svcErr.Status == svcerrors.Unknown {
+		slog.ErrorContext(ctx, "internal error", "fallback_msg", fallbackMsg, "error", err)
 	}
-
-	if errors.Is(err, storage.ErrNotFound) {
-		return huma.NewError(404, fallbackMsg+": not found")
+	status, ok := categoryToHTTP[svcErr.Status]
+	if !ok {
+		status = 500
 	}
-	if errors.Is(err, storage.ErrForeignKeyViolation) {
-		return huma.NewError(409, fallbackMsg+": a referenced resource does not exist")
-	}
-	if errors.Is(err, storage.ErrAlreadyExists) {
-		return huma.NewError(409, fallbackMsg+": resource already exists")
-	}
-	if errors.Is(err, storage.ErrNotNullViolation) {
-		return huma.NewError(400, fallbackMsg+": a required field is missing")
-	}
-
-	slog.ErrorContext(ctx, "internal error", "fallback_msg", fallbackMsg, "error", err)
-	return huma.NewError(500, fallbackMsg)
+	return huma.NewError(status, svcErr.ClientMessage())
 }

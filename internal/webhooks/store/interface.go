@@ -18,6 +18,7 @@ type RepositoryInterface interface {
 	SubscriptionRepository
 	EventTypeRepository
 	EventRepository
+	DeliveryRepository
 	HealthRepository
 	BatchRepository
 	RateLimitRepository

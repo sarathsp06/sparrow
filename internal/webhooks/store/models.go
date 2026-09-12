@@ -69,6 +69,16 @@ type WebhookRegistration struct {
 	UpdatedAt             time.Time     `json:"updated_at" db:"updated_at"`
 }
 
+// MaxDeliveryAttempts returns the total delivery attempts for this webhook:
+// the configured retry count plus the initial attempt, defaulting to 3 when
+// MaxRetries is unset.
+func (w *WebhookRegistration) MaxDeliveryAttempts() int {
+	if w.MaxRetries > 0 {
+		return w.MaxRetries + 1
+	}
+	return 3
+}
+
 // EventRecord represents an event that was pushed
 type EventRecord struct {
 	ID             uuid.UUID     `json:"id" db:"id"`

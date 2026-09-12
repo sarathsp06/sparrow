@@ -15,7 +15,6 @@ type HealthRepository interface {
 	UpdateWebhookHealthState(ctx context.Context, webhookID uuid.UUID, success bool, eventTimestamp time.Time) error
 	CalculateWebhookHealth(ctx context.Context, webhookID uuid.UUID, lookbackHours int) (string, error)
 	RecordWebhookHealthEvent(ctx context.Context, webhookID, deliveryID uuid.UUID, success bool, responseTime, responseCode int, errorMessage string, errorCategory string) error
-	GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error)
 	GetWebhookHealthState(ctx context.Context, webhookID uuid.UUID) (*WebhookHealthMetrics, error)
 	GetWebhookHealthSummary(ctx context.Context, webhookID uuid.UUID, hours int) (*WebhookHealthSummary, error)
 	GetWebhookHealthTimeSeries(ctx context.Context, webhookID uuid.UUID, hours int, bucketSize string) ([]*WebhookHealthEvent, error)
@@ -148,28 +147,6 @@ func (r *Repository) RecordWebhookHealthEvent(ctx context.Context, webhookID, de
 	}
 
 	return nil
-}
-
-// GetDeliveryAttempts retrieves all health events for a specific delivery, ordered by timestamp.
-// Each health event represents an individual delivery attempt with response details.
-// Filters by tenant_id via a JOIN on webhook_registrations to enforce tenant isolation.
-func (r *Repository) GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error) {
-	query := `
-		SELECT whe.id, whe.webhook_id, whe.delivery_id, whe.success, whe.response_time, whe.response_code, whe.error_message, whe.error_category, whe.timestamp
-		FROM webhook_health_events whe
-		JOIN webhook_registrations wr ON wr.id = whe.webhook_id
-		WHERE whe.delivery_id = $1
-		  AND wr.tenant_id = $2
-		ORDER BY whe.timestamp ASC
-	`
-
-	var events []*WebhookHealthEvent
-	err := r.conn.SelectContext(ctx, &events, query, deliveryID, tenantID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get delivery attempts: %w", err)
-	}
-
-	return events, nil
 }
 
 // GetWebhookHealthState retrieves the current health tracking state for a webhook.

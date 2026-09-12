@@ -120,7 +120,7 @@ type testTemplateOutput struct {
 	}
 }
 
-func registerSubscriptionRoutes(api huma.API, svc webhooks.WebhookServiceInterface) {
+func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "createSubscription",
 		Method:        http.MethodPost,

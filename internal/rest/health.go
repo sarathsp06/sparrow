@@ -47,7 +47,16 @@ type listWebhooksGlobalInput struct {
 	Offset    int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
 }
 
-func registerHealthRoutes(api huma.API, svc webhooks.WebhookServiceInterface) {
+// healthRouteService is the service slice health routes consume: health
+// queries plus the cross-namespace webhook listing and its conversions.
+type healthRouteService interface {
+	webhooks.HealthManager
+	webhooks.WebhookManager
+	webhooks.SubscriptionManager
+	webhooks.SecretRevealer
+}
+
+func registerHealthRoutes(api huma.API, svc healthRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "getWebhookHealth",
 		Method:      http.MethodGet,

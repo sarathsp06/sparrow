@@ -196,7 +196,14 @@ func toBatchJobOutput(b *store.BatchJob) *batchJobOutput {
 	return out
 }
 
-func registerEventRoutes(api huma.API, svc webhooks.WebhookServiceInterface) {
+// eventRouteService is the service slice event routes consume: event types,
+// event publishing, and bulk re-push jobs.
+type eventRouteService interface {
+	webhooks.EventManager
+	webhooks.BatchManager
+}
+
+func registerEventRoutes(api huma.API, svc eventRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "registerEventType",
 		Method:        http.MethodPost,

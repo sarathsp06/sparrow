@@ -11,6 +11,24 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
 
+// DeliveryRepository defines operations for the webhook delivery lifecycle:
+// creation, status transitions, retries, filtering, and attempt history.
+type DeliveryRepository interface {
+	CreateDelivery(ctx context.Context, tenantID uuid.UUID, delivery *WebhookDelivery) error
+	BatchCreateDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery) error
+	UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error
+	UpdateDeliveryRequestBody(ctx context.Context, deliveryID uuid.UUID, requestBody string) error
+	GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, namespace string) (*WebhookDelivery, error)
+	GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error)
+	GetDeliveriesByEventPaginated(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error)
+	ListDeliveriesPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error)
+	ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, int, error)
+	GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, force bool) ([]*WebhookDelivery, error)
+	ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UUID) error
+	DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUID) error
+	GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error)
+}
+
 // deliveryColumns is the canonical SELECT column list for webhook_deliveries (aliased as wd).
 // Used by all delivery query functions to avoid repeating the same 16-column list.
 const deliveryColumns = `wd.id, wd.webhook_id, wd.event_id, wd.subscription_id, wd.status, wd.attempt_count, wd.max_attempts,
@@ -405,4 +423,26 @@ func (r *Repository) ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.
 
 	_, err := r.conn.ExecContext(ctx, query, deliveryID)
 	return storage.Error(err)
+}
+
+// GetDeliveryAttempts retrieves all health events for a specific delivery, ordered by timestamp.
+// Each health event represents an individual delivery attempt with response details.
+// Filters by tenant_id via a JOIN on webhook_registrations to enforce tenant isolation.
+func (r *Repository) GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error) {
+	query := `
+		SELECT whe.id, whe.webhook_id, whe.delivery_id, whe.success, whe.response_time, whe.response_code, whe.error_message, whe.error_category, whe.timestamp
+		FROM webhook_health_events whe
+		JOIN webhook_registrations wr ON wr.id = whe.webhook_id
+		WHERE whe.delivery_id = $1
+		  AND wr.tenant_id = $2
+		ORDER BY whe.timestamp ASC
+	`
+
+	var events []*WebhookHealthEvent
+	err := r.conn.SelectContext(ctx, &events, query, deliveryID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get delivery attempts: %w", err)
+	}
+
+	return events, nil
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river/rivertype"
@@ -375,34 +374,6 @@ func (m *mockRepoWithEventQuery) GetSubscriptionsWithWebhooksByEvent(ctx context
 		return nil, args.Error(1)
 	}
 	return res.([]*store.SubscriptionWithWebhook), args.Error(1)
-}
-
-func TestGetSubscriptionsByEvent_ExactMatch(t *testing.T) {
-	repo := new(mockRepoWithEventQuery)
-	service := NewWebhookService(nil, repo, nil)
-
-	ctx := testContext()
-	webhookID := uuid.New()
-	subID := uuid.New()
-
-	expected := []*store.EventSubscription{
-		{
-			ID:        subID,
-			WebhookID: webhookID,
-			EventName: "signup",
-			Namespace: "default",
-			CreatedAt: time.Now(),
-		},
-	}
-
-	repo.On("GetSubscriptionsByEvent", mock.Anything, mock.Anything, "default", "signup", map[string]string(nil)).
-		Return(expected, nil)
-
-	result, err := service.GetWebhookRepo().(*mockRepoWithEventQuery).GetSubscriptionsByEvent(ctx, uuid.New(), "default", "signup", nil)
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, "signup", result[0].EventName)
-	repo.AssertExpectations(t)
 }
 
 func TestGetSubscriptionsByEvent_CatchAllReturned(t *testing.T) {
