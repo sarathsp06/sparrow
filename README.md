@@ -97,7 +97,7 @@ And route an event to Slack in one command:
 sparrow use slack --param webhook_url=https://hooks.slack.com/services/T00/B00/xxx --event order.created
 ```
 
-Full reference: [Sparrow CLI docs](https://sarathsp06.github.io/sparrow/satellites/#cli). The curl equivalent is below.
+Full reference: [Sparrow CLI docs](https://sarathsp06.github.io/sparrow/satellites/cli/). The curl equivalent is below.
 
 ### Push your first event
 
@@ -282,7 +282,7 @@ go install github.com/sarathsp06/sparrow/satellites/sparrow-sinks@latest
 sparrow-sinks --config sinks.yaml
 ```
 
-Docs: [CLI](https://sarathsp06.github.io/sparrow/satellites/#cli) · [Recipes](https://sarathsp06.github.io/sparrow/satellites/#recipes) · [Sources](https://sarathsp06.github.io/sparrow/satellites/#sources) · [Sinks](https://sarathsp06.github.io/sparrow/satellites/#sinks)
+Docs: [CLI](https://sarathsp06.github.io/sparrow/satellites/cli/) · [Recipes](https://sarathsp06.github.io/sparrow/satellites/recipes/) · [Sources](https://sarathsp06.github.io/sparrow/satellites/sources/) · [Sinks](https://sarathsp06.github.io/sparrow/satellites/sinks/)
 
 ## Docs
 
