@@ -25,11 +25,101 @@ builds:
       - goos: windows
         goarch: arm64
 
+  - id: sparrow-cli
+    main: ./cmd/sparrow
+    binary: sparrow
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -w -s -X main.version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+  - id: sparrow-sources
+    main: ./cmd/sparrow-sources
+    binary: sparrow-sources
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -w -s
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+  - id: sparrow-sinks
+    main: ./cmd/sparrow-sinks
+    binary: sparrow-sinks
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -w -s
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
 archives:
   - id: server
     ids:
       - server
     name_template: "sparrow-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - LICENSE
+      - README.md
+
+  - id: sparrow-cli
+    ids:
+      - sparrow-cli
+    name_template: "sparrow-cli-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - LICENSE
+      - README.md
+
+  - id: sparrow-sources
+    ids:
+      - sparrow-sources
+    name_template: "sparrow-sources-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - LICENSE
+      - README.md
+
+  - id: sparrow-sinks
+    ids:
+      - sparrow-sinks
+    name_template: "sparrow-sinks-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     format_overrides:
       - goos: windows
         formats:

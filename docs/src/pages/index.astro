@@ -8,6 +8,10 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const docsHome = `${base}getting-started/installation/`;
 const quickstart = `${base}getting-started/quickstart/`;
 const apiRef = `${base}reference/api/`;
+const cliDocs = `${base}ecosystem/cli/`;
+const recipesDocs = `${base}ecosystem/recipes/`;
+const sourcesDocs = `${base}ecosystem/sources/`;
+const sinksDocs = `${base}ecosystem/sinks/`;
 const githubURL = 'https://github.com/sarathsp06/sparrow';
 ---
 
@@ -38,6 +42,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         </a>
         <div class="sp-nav-links">
           <a href={docsHome}>Docs</a>
+          <a href={cliDocs}>CLI</a>
           <a href={apiRef}>API</a>
           <a href={`${base}reference/architecture/`}>Architecture</a>
           <a href={`${base}deployment/docker-compose/`}>Deploy</a>
@@ -73,6 +78,39 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         <span class="sp-hero-meta-item">OpenAPI 3.1</span>
         <span class="sp-hero-meta-sep"></span>
         <span class="sp-hero-meta-item"><a href={`${base}llms.txt`}>llms.txt</a></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLI QUICKSTART -->
+  <section class="sp-section" style="padding-top:1rem">
+    <div class="sp-w">
+      <div class="sp-feature-row">
+        <div class="sp-feature-text">
+          <span class="sp-label">SPARROW CLI</span>
+          <h2>90 seconds from install to delivery</h2>
+          <p>The <code>sparrow</code> CLI is the fastest loop: <code>init</code> points it at your server, <code>listen</code> receives deliveries on your laptop (signature-verified, pretty-printed), and <code>push</code> sends an event — the event type is auto-created.</p>
+          <p>Then wire an event to Slack in one command: <code>sparrow use slack</code> applies a recipe — webhook, headers, and transform template registered in one shot, delivered with Sparrow's own retries.</p>
+          <a href={cliDocs} class="sp-link">CLI reference<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+        </div>
+        <div class="sp-feature-visual">
+          <div class="sp-terminal">
+            <div class="sp-terminal-bar">
+              <span class="sp-terminal-title">terminal</span>
+            </div>
+            <div class="sp-terminal-body">
+              <code><span class="sp-t-muted">$</span> go install github.com/sarathsp06/sparrow/cmd/sparrow@latest</code>
+              <code><span class="sp-t-muted">$</span> sparrow init <span class="sp-t-flag">--url</span> <span class="sp-t-str">http://localhost:8080</span></code>
+              <code><span class="sp-t-muted">$</span> sparrow listen <span class="sp-t-flag">--event</span> order.created <span class="sp-t-muted">&</span></code>
+              <code><span class="sp-t-muted">$</span> sparrow push order.created <span class="sp-t-flag">-d</span> <span class="sp-t-str">'{`{`}"order_id":"ord_1"{`}`}'</span></code>
+              <code><span class="sp-t-muted">→ order.created  200 OK  signature verified</span></code>
+              <code></code>
+              <code><span class="sp-t-muted"># event → Slack in one command</span></code>
+              <code><span class="sp-t-muted">$</span> sparrow use slack <span class="sp-t-flag">--param</span> webhook_url=<span class="sp-t-str">$SLACK_URL</span> \</code>
+              <code>    <span class="sp-t-flag">--event</span> order.created</code>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -235,6 +273,53 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
     </div>
   </section>
 
+  <!-- ECOSYSTEM -->
+  <section class="sp-section">
+    <div class="sp-w">
+      <span class="sp-label">ECOSYSTEM</span>
+      <h2 class="sp-section-title">Everything speaks the public API</h2>
+      <div class="sp-cards sp-cards-4">
+
+        <a class="sp-card" href={cliDocs}>
+          <div class="sp-card-head">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="m4 17 6-5-6-5M12 19h8"/></svg>
+            <h3>CLI</h3>
+          </div>
+          <p>Push events, tail deliveries, receive webhooks locally, and debug transform templates from your terminal.</p>
+          <span class="sp-card-link">sparrow CLI<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        </a>
+
+        <a class="sp-card" href={recipesDocs}>
+          <div class="sp-card-head">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <h3>Recipes</h3>
+          </div>
+          <p>Slack, Discord, PagerDuty, ntfy, ClickHouse — adapters as config, applied with <code>sparrow use</code>. No glue service.</p>
+          <span class="sp-card-link">Recipes<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        </a>
+
+        <a class="sp-card" href={sourcesDocs}>
+          <div class="sp-card-head">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            <h3>Sources</h3>
+          </div>
+          <p>Cron schedules plus Stripe and GitHub webhooks, verified and re-published as Sparrow events by <code>sparrow-sources</code>.</p>
+          <span class="sp-card-link">Sources<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        </a>
+
+        <a class="sp-card" href={sinksDocs}>
+          <div class="sp-card-head">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+            <h3>Sinks</h3>
+          </div>
+          <p>Signed deliveries forwarded out of HTTP land — SMTP email and S3/MinIO archives via <code>sparrow-sinks</code>.</p>
+          <span class="sp-card-link">Sinks<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        </a>
+
+      </div>
+    </div>
+  </section>
+
   <!-- GET STARTED -->
   <section class="sp-section">
     <div class="sp-w">
@@ -285,6 +370,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
           <a href={docsHome}>Documentation</a>
           <a href={apiRef}>API Reference</a>
           <a href={quickstart}>Quickstart</a>
+          <a href={cliDocs}>CLI</a>
         </div>
         <div class="sp-footer-col">
           <span class="sp-footer-heading">Deploy</span>
@@ -452,6 +538,16 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
 }
 @media (max-width: 900px) { .sp-cards { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px) { .sp-cards { grid-template-columns: 1fr; } }
+.sp-cards-4 { grid-template-columns: repeat(4, 1fr); margin-top: 1.5rem; }
+@media (max-width: 1000px) { .sp-cards-4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .sp-cards-4 { grid-template-columns: 1fr; } }
+
+.sp-section-title {
+  font-size: clamp(1.4rem, 2.8vw, 1.85rem);
+  font-weight: 700; line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
 
 .sp-card {
   display: flex; flex-direction: column;

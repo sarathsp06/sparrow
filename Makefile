@@ -15,6 +15,21 @@ build: ## Build the server binary for current OS/arch
 	mkdir -p build
 	go build -ldflags "$(LDFLAGS)" -o $(OUTPUT) ./cmd/server
 
+
+build-cli: ## Build the sparrow CLI binary for current OS/arch
+	mkdir -p build
+	go build -ldflags "-X main.version=$(VERSION)" -o build/sparrow-$(GOOS)-$(GOARCH) ./cmd/sparrow
+
+build-sources: ## Build the sparrow-sources binary for current OS/arch
+	mkdir -p build
+	go build -o build/sparrow-sources-$(GOOS)-$(GOARCH) ./cmd/sparrow-sources
+
+build-sinks: ## Build the sparrow-sinks binary for current OS/arch
+	mkdir -p build
+	go build -o build/sparrow-sinks-$(GOOS)-$(GOARCH) ./cmd/sparrow-sinks
+
+build-all: build build-cli build-sources build-sinks ## Build server, CLI, sources, and sinks binaries
+
 build-ui: ## Build the frontend for embedding in the Go binary
 	cd web && VITE_APP_VERSION=$(SEMVER) npm ci && VITE_APP_VERSION=$(SEMVER) npm run build
 
@@ -123,4 +138,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-ui client-python docker-build-e2e build-with-ui release-dry-run run test test-integration test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package migrate lint fmt run-web book help
+.PHONY: build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run test test-integration test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package migrate lint fmt run-web book help

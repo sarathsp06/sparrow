@@ -33,6 +33,15 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Ecosystem',
+          items: [
+            { slug: 'ecosystem/cli' },
+            { slug: 'ecosystem/recipes' },
+            { slug: 'ecosystem/sources' },
+            { slug: 'ecosystem/sinks' },
+          ],
+        },
+        {
           label: 'API Reference',
           link: '/reference/api',
           badge: { text: 'OpenAPI', variant: 'note' },

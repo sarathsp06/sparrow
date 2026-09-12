@@ -1,0 +1,33 @@
+version: 1
+name: slack
+description: Post events to a Slack channel as Block Kit messages via an incoming webhook
+params:
+  - name: webhook_url
+    prompt: "Slack incoming webhook URL (https://hooks.slack.com/services/...)"
+    required: true
+webhook:
+  url: '{{param "webhook_url"}}'
+  headers:
+    Content-Type: application/json
+subscription:
+  transform_template: |
+    {
+      "blocks": [
+        {
+          "type": "header",
+          "text": {"type": "plain_text", "text": {{.event_name | json}}, "emoji": true}
+        },
+        {
+          "type": "section",
+          "fields": [
+            {"type": "mrkdwn", "text": {{printf "*Event ID:*\n%s" .event_id | json}}},
+            {"type": "mrkdwn", "text": {{printf "*Timestamp:*\n%s" .timestamp | json}}},
+            {"type": "mrkdwn", "text": {{printf "*Attempt:*\n%d" .attempt | json}}}
+          ]
+        },
+        {
+          "type": "section",
+          "text": {"type": "mrkdwn", "text": {{printf "```%s```" (json .payload | ellipsis 2900) | json}}}
+        }
+      ]
+    }

@@ -1,0 +1,14 @@
+version: 1
+name: echo
+description: Echo transformed events to any HTTP receiver
+params:
+  - name: webhook_url
+    prompt: "Receiver URL"
+    required: true
+webhook:
+  url: '{{param "webhook_url"}}'
+  headers:
+    Content-Type: application/json
+subscription:
+  transform_template: |
+    {"kind":"echo","event":"{{.event_name}}","data":{{json .payload}}}

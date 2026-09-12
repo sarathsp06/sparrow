@@ -1,0 +1,22 @@
+version: 1
+name: discord
+description: Post events to a Discord channel as embeds via a channel webhook
+params:
+  - name: webhook_url
+    prompt: "Discord webhook URL (https://discord.com/api/webhooks/...)"
+    required: true
+webhook:
+  url: '{{param "webhook_url"}}'
+  headers:
+    Content-Type: application/json
+subscription:
+  transform_template: |
+    {
+      "embeds": [
+        {
+          "title": {{.event_name | json}},
+          "description": {{printf "```json\n%s\n```" (json .payload | ellipsis 4000) | json}},
+          "timestamp": {{.timestamp | json}}
+        }
+      ]
+    }

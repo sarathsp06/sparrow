@@ -1,0 +1,25 @@
+version: 1
+name: pagerduty
+description: Trigger PagerDuty alerts from events via the Events API v2
+params:
+  - name: routing_key
+    prompt: "PagerDuty Events API v2 integration/routing key (32 characters)"
+    required: true
+webhook:
+  url: https://events.pagerduty.com/v2/enqueue
+  headers:
+    Content-Type: application/json
+subscription:
+  transform_template: |
+    {
+      "routing_key": "{{param "routing_key"}}",
+      "event_action": "trigger",
+      "dedup_key": {{.event_id | json}},
+      "payload": {
+        "summary": {{printf "Sparrow event: %s" .event_name | json}},
+        "source": "sparrow",
+        "severity": "error",
+        "timestamp": {{.timestamp | json}},
+        "custom_details": {{.payload | json}}
+      }
+    }
