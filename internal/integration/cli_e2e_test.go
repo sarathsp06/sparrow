@@ -83,10 +83,14 @@ func TestCLI_E2E(t *testing.T) {
 	var once sync.Once
 	receiver := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
-		mu.Lock()
-		received = body
-		mu.Unlock()
-		once.Do(func() { close(gotDelivery) })
+		// The ord_1 event pushed before `use` may fan out late on a slow
+		// runner and land here too — only the ord_2 delivery counts.
+		if bytes.Contains(body, []byte("ord_2")) {
+			mu.Lock()
+			received = body
+			mu.Unlock()
+			once.Do(func() { close(gotDelivery) })
+		}
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer receiver.Close()
