@@ -571,11 +571,17 @@ func TestE2E_PauseWebhookStopsRetries(t *testing.T) {
 	require.NoError(t, err, "PauseWebhook failed")
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-	time.Sleep(10 * time.Second)
-	countAfterPause := requestCount.Load()
+	// Attempts scheduled before the pause may still land shortly after it
+	// (1s base backoff => in-flight and imminent retries). Let those settle,
+	// then require a quiet window long enough that a broken pause would
+	// produce another retry (next backoffs are 4s/8s/16s).
+	time.Sleep(5 * time.Second)
+	countSettled := requestCount.Load()
+	time.Sleep(12 * time.Second)
+	countAfterQuiet := requestCount.Load()
 
-	assert.LessOrEqual(t, int(countAfterPause-countBeforePause), 2,
-		"paused webhook should stop retrying (got %d more requests after pause)", countAfterPause-countBeforePause)
+	assert.Equal(t, int(countSettled), int(countAfterQuiet),
+		"paused webhook should stop retrying (got %d more requests after settle window)", countAfterQuiet-countSettled)
 }
 
 // TestE2E_BatchRePushEvents verifies the batch re-push flow: push events ->

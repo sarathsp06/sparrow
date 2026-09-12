@@ -63,6 +63,10 @@ func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo store.Event
 // maxRetryDelay caps the exponential backoff regardless of configuration.
 const maxRetryDelay = 24 * time.Hour
 
+// pausedRecheckInterval is how long a delivery job snoozes before re-checking
+// a paused webhook's state.
+const pausedRecheckInterval = 30 * time.Second
+
 // NextRetry honors the webhook's configured retry_backoff_seconds: the delay
 // after attempt N is base * 2^(N-1), capped at maxRetryDelay. A zero base
 // (jobs enqueued before the field existed) returns the zero time, which tells
@@ -181,6 +185,15 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			log.ErrorContext(ctx, "Failed to update delivery status to expired", "error", err)
 		}
 		return nil
+	}
+
+	// Paused webhooks keep in-flight deliveries queued instead of delivering
+	// or failing them: snooze and re-check so a resume picks them back up.
+	// The expiry check above still bounds how long a paused delivery lingers.
+	if !webhook.Active {
+		log.InfoContext(ctx, "Webhook paused, snoozing delivery", "snooze", pausedRecheckInterval)
+		span.SetAttributes(attribute.String("pause_action", "snoozed"))
+		return river.JobSnooze(pausedRecheckInterval)
 	}
 
 	log.InfoContext(ctx, "Processing webhook delivery", "event_id", args.EventID, "url", webhook.URL)
