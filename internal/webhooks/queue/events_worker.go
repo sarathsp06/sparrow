@@ -22,14 +22,16 @@ type EventProcessingWorker struct {
 	logger           *slog.Logger
 	subscriptionRepo store.SubscriptionRepository
 	eventRepo        store.EventRepository
+	deliveryRepo     store.DeliveryRepository
 	jobInserter      JobInserter
 }
 
 // NewEventProcessingWorker creates a new event processing worker with a river client
-func NewEventProcessingWorker(subscriptionRepo store.SubscriptionRepository, eventRepo store.EventRepository, jobInserter JobInserter) *EventProcessingWorker {
+func NewEventProcessingWorker(subscriptionRepo store.SubscriptionRepository, eventRepo store.EventRepository, deliveryRepo store.DeliveryRepository, jobInserter JobInserter) *EventProcessingWorker {
 	return &EventProcessingWorker{
 		subscriptionRepo: subscriptionRepo,
 		eventRepo:        eventRepo,
+		deliveryRepo:     deliveryRepo,
 		logger:           slog.Default().With("component", "event-processing-worker"),
 		jobInserter:      jobInserter,
 	}
@@ -111,11 +113,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 
 		deliveryID := uuid.New()
 
-		// Calculate max attempts from webhook configuration (default 3)
-		maxAttempts := 3
-		if webhook.MaxRetries > 0 {
-			maxAttempts = webhook.MaxRetries + 1 // MaxRetries is retry count, so add 1 for initial attempt
-		}
+		maxAttempts := webhook.MaxDeliveryAttempts()
 
 		delivery := &store.WebhookDelivery{
 			ID:             deliveryID,
@@ -129,19 +127,20 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		deliveries = append(deliveries, delivery)
 
 		jobArgs = append(jobArgs, &WebhookArgs{
-			TenantID:       args.TenantID,
-			DeliveryID:     deliveryID.String(),
-			WebhookID:      webhook.ID.String(),
-			SubscriptionID: sub.ID.String(),
-			EventID:        args.EventID,
-			ExpiresAt:      expiresAt,
-			Namespace:      args.Namespace,
-			MaxAttempts:    maxAttempts,
+			TenantID:            args.TenantID,
+			DeliveryID:          deliveryID.String(),
+			WebhookID:           webhook.ID.String(),
+			SubscriptionID:      sub.ID.String(),
+			EventID:             args.EventID,
+			ExpiresAt:           expiresAt,
+			Namespace:           args.Namespace,
+			MaxAttempts:         maxAttempts,
+			RetryBackoffSeconds: webhook.RetryBackoffSeconds,
 		})
 	}
 
 	// Batch-insert all delivery records (single multi-row INSERT).
-	if err := w.eventRepo.BatchCreateDeliveries(ctx, tenantID, deliveries); err != nil {
+	if err := w.deliveryRepo.BatchCreateDeliveries(ctx, tenantID, deliveries); err != nil {
 		w.logger.ErrorContext(ctx, "Failed to batch-create delivery records", "error", err, "count", len(deliveries))
 		return fmt.Errorf("batch create deliveries: %w", err)
 	}
@@ -159,7 +158,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		// that would process them could not be created.
 		var undeleted []uuid.UUID
 		for _, d := range deliveries {
-			if delErr := w.eventRepo.DeleteDeliveryByID(ctx, d.ID); delErr != nil {
+			if delErr := w.deliveryRepo.DeleteDeliveryByID(ctx, d.ID); delErr != nil {
 				w.logger.ErrorContext(ctx, "Failed to delete orphaned delivery record",
 					"error", delErr,
 					"delivery_id", d.ID,

@@ -251,13 +251,14 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		// Queue the webhook for delivery.
 		// Manual retries never expire -- use far-future sentinel so TTL doesn't apply.
 		args := &queue.WebhookArgs{
-			DeliveryID:  delivery.ID.String(),
-			WebhookID:   delivery.WebhookID.String(),
-			EventID:     delivery.EventID.String(),
-			ExpiresAt:   store.NoExpiryTime,
-			Namespace:   webhook.Namespace,
-			TenantID:    tenantID.String(),
-			MaxAttempts: delivery.MaxAttempts,
+			DeliveryID:          delivery.ID.String(),
+			WebhookID:           delivery.WebhookID.String(),
+			EventID:             delivery.EventID.String(),
+			ExpiresAt:           store.NoExpiryTime,
+			Namespace:           webhook.Namespace,
+			TenantID:            tenantID.String(),
+			MaxAttempts:         delivery.MaxAttempts,
+			RetryBackoffSeconds: webhook.RetryBackoffSeconds,
 		}
 		if delivery.SubscriptionID != nil {
 			args.SubscriptionID = delivery.SubscriptionID.String()

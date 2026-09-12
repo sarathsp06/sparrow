@@ -59,6 +59,9 @@ type WebhookArgs struct {
 	ExpiresAt      time.Time `json:"expires_at"`
 	Namespace      string    `json:"namespace"`
 	MaxAttempts    int       `json:"max_attempts"`
+	// RetryBackoffSeconds is the webhook's configured base retry delay;
+	// 0 falls back to River's default retry policy. See WebhookWorker.NextRetry.
+	RetryBackoffSeconds int `json:"retry_backoff_seconds,omitempty"`
 }
 
 var _ river.JobArgsWithInsertOpts = (*WebhookArgs)(nil)

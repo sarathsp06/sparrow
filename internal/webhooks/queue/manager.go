@@ -51,9 +51,9 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 
 	// Add workers with explicit generic types.
 	// RepositoryInterface satisfies all narrow interfaces via embedding.
-	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, cryptoSvc, clientConfig))
-	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, webhookRepo, manager.GetJobInserter()))
-	river.AddWorker(riverWorkers, NewBatchJobWorker(webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
+	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, cryptoSvc, clientConfig))
+	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
+	river.AddWorker(riverWorkers, NewBatchJobWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
 
 	return manager, nil
 }

@@ -23,21 +23,23 @@ const progressUpdateInterval = 25
 // It reads item IDs from the batch_jobs row and dispatches each one.
 type BatchJobWorker struct {
 	river.WorkerDefaults[BatchJobArgs]
-	logger      *slog.Logger
-	batchRepo   store.BatchRepository
-	eventRepo   store.EventRepository
-	webhookRepo store.WebhookRepository
-	jobInserter JobInserter
+	logger       *slog.Logger
+	batchRepo    store.BatchRepository
+	eventRepo    store.EventRepository
+	deliveryRepo store.DeliveryRepository
+	webhookRepo  store.WebhookRepository
+	jobInserter  JobInserter
 }
 
 // NewBatchJobWorker creates a new batch job worker.
-func NewBatchJobWorker(batchRepo store.BatchRepository, eventRepo store.EventRepository, webhookRepo store.WebhookRepository, jobInserter JobInserter) *BatchJobWorker {
+func NewBatchJobWorker(batchRepo store.BatchRepository, eventRepo store.EventRepository, deliveryRepo store.DeliveryRepository, webhookRepo store.WebhookRepository, jobInserter JobInserter) *BatchJobWorker {
 	return &BatchJobWorker{
-		batchRepo:   batchRepo,
-		eventRepo:   eventRepo,
-		webhookRepo: webhookRepo,
-		logger:      slog.Default().With("component", "batch-job-worker"),
-		jobInserter: jobInserter,
+		batchRepo:    batchRepo,
+		eventRepo:    eventRepo,
+		deliveryRepo: deliveryRepo,
+		webhookRepo:  webhookRepo,
+		logger:       slog.Default().With("component", "batch-job-worker"),
+		jobInserter:  jobInserter,
 	}
 }
 
@@ -269,7 +271,7 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 		}
 
 		// Load delivery
-		delivery, err := w.eventRepo.GetDeliveryByID(ctx, tenantID, deliveryID, namespace)
+		delivery, err := w.deliveryRepo.GetDeliveryByID(ctx, tenantID, deliveryID, namespace)
 		if err != nil || delivery == nil {
 			w.logger.ErrorContext(ctx, "Failed to load delivery for retry", "delivery_id", idStr, "error", err)
 			failed++
@@ -287,7 +289,7 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 		}
 
 		// Reset delivery status
-		if err := w.eventRepo.ResetDeliveryForRetry(ctx, deliveryID); err != nil {
+		if err := w.deliveryRepo.ResetDeliveryForRetry(ctx, deliveryID); err != nil {
 			w.logger.ErrorContext(ctx, "Failed to reset delivery for retry", "delivery_id", idStr, "error", err)
 			failed++
 			continue
@@ -299,23 +301,20 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 			subID = delivery.SubscriptionID.String()
 		}
 
-		// Calculate max attempts from webhook configuration (default 3)
-		maxAttempts := 3
-		if webhook.MaxRetries > 0 {
-			maxAttempts = webhook.MaxRetries + 1 // MaxRetries is retry count, so add 1 for initial attempt
-		}
+		maxAttempts := webhook.MaxDeliveryAttempts()
 
 		// Enqueue webhook delivery job. Manual batch retries never expire --
 		// use far-future sentinel so TTL doesn't apply to explicit retries.
 		_, err = w.jobInserter.Insert(ctx, &WebhookArgs{
-			TenantID:       tenantID.String(),
-			DeliveryID:     deliveryID.String(),
-			WebhookID:      delivery.WebhookID.String(),
-			SubscriptionID: subID,
-			EventID:        delivery.EventID.String(),
-			ExpiresAt:      store.NoExpiryTime,
-			Namespace:      webhook.Namespace,
-			MaxAttempts:    maxAttempts,
+			TenantID:            tenantID.String(),
+			DeliveryID:          deliveryID.String(),
+			WebhookID:           delivery.WebhookID.String(),
+			SubscriptionID:      subID,
+			EventID:             delivery.EventID.String(),
+			ExpiresAt:           store.NoExpiryTime,
+			Namespace:           webhook.Namespace,
+			MaxAttempts:         maxAttempts,
+			RetryBackoffSeconds: webhook.RetryBackoffSeconds,
 		})
 		if err != nil {
 			w.logger.ErrorContext(ctx, "Failed to enqueue delivery retry", "delivery_id", idStr, "error", err)

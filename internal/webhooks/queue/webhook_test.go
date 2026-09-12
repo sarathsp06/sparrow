@@ -3,42 +3,40 @@ package queue
 import (
 	"testing"
 	"time"
+
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 )
 
-func TestWebhookWorkerDefaults(t *testing.T) {
-	worker := WebhookWorker{}
+func TestWebhookWorkerNextRetry(t *testing.T) {
+	worker := &WebhookWorker{}
 
-	args := WebhookArgs{
-		DeliveryID: "test-delivery-id",
-		WebhookID:  "test-webhook-id",
-		EventID:    "test-event-id",
-		ExpiresAt:  time.Now().Add(time.Hour),
-		Namespace:  "test-namespace",
+	job := func(backoffSeconds, attempt int) *river.Job[WebhookArgs] {
+		return &river.Job[WebhookArgs]{
+			JobRow: &rivertype.JobRow{Attempt: attempt},
+			Args:   WebhookArgs{RetryBackoffSeconds: backoffSeconds},
+		}
 	}
 
-	// Test that webhook worker has correct type
-	if worker.webhookRepo == nil && len(args.DeliveryID) > 0 {
-		// Basic validation that the webhook worker and args are properly structured
-		t.Log("WebhookWorker structure is valid")
+	// Zero base (pre-existing jobs) defers to River's default policy.
+	if got := worker.NextRetry(job(0, 1)); !got.IsZero() {
+		t.Errorf("expected zero time for unset backoff, got %v", got)
 	}
 
-	// Test DeliveryID field exists
-	if args.DeliveryID != "test-delivery-id" {
-		t.Errorf("Expected DeliveryID to be 'test-delivery-id', got '%s'", args.DeliveryID)
+	// Exponential doubling: base * 2^(attempt-1).
+	cases := []struct {
+		base, attempt int
+		want          time.Duration
+	}{
+		{60, 1, 60 * time.Second},
+		{60, 2, 120 * time.Second},
+		{60, 4, 480 * time.Second},
+		{3600, 10, maxRetryDelay}, // capped
 	}
-
-	// Test WebhookID field exists
-	if args.WebhookID != "test-webhook-id" {
-		t.Errorf("Expected WebhookID to be 'test-webhook-id', got '%s'", args.WebhookID)
-	}
-
-	// Test EventID field exists
-	if args.EventID != "test-event-id" {
-		t.Errorf("Expected EventID to be 'test-event-id', got '%s'", args.EventID)
-	}
-
-	// Test Namespace field exists
-	if args.Namespace != "test-namespace" {
-		t.Errorf("Expected Namespace to be 'test-namespace', got '%s'", args.Namespace)
+	for _, c := range cases {
+		got := time.Until(worker.NextRetry(job(c.base, c.attempt)))
+		if diff := got - c.want; diff < -time.Second || diff > time.Second {
+			t.Errorf("base=%d attempt=%d: expected delay ~%v, got %v", c.base, c.attempt, c.want, got)
+		}
 	}
 }
