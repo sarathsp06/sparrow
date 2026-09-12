@@ -39,7 +39,7 @@ func main() {
 
 func run(ctx context.Context, args []string, out io.Writer) error {
 	if len(args) == 0 {
-		fmt.Fprint(out, usage)
+		_, _ = fmt.Fprint(out, usage)
 		return nil
 	}
 	cmd, rest := args[0], args[1:]
@@ -60,10 +60,10 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		}
 		return runTemplateTest(rest[1:], out)
 	case "version":
-		fmt.Fprintln(out, "sparrow", version)
+		_, _ = fmt.Fprintln(out, "sparrow", version)
 		return nil
 	case "help", "-h", "--help":
-		fmt.Fprint(out, usage)
+		_, _ = fmt.Fprint(out, usage)
 		return nil
 	default:
 		return fmt.Errorf("unknown command %q\n\n%s", cmd, usage)

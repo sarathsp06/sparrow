@@ -32,7 +32,7 @@ func runInit(ctx context.Context, args []string, out io.Writer) error {
 		if !interactive {
 			return def
 		}
-		fmt.Fprintf(out, "%s [%s]: ", label, def)
+		_, _ = fmt.Fprintf(out, "%s [%s]: ", label, def)
 		sc := bufio.NewScanner(os.Stdin)
 		if sc.Scan() {
 			if v := strings.TrimSpace(sc.Text()); v != "" {
@@ -49,16 +49,16 @@ func runInit(ctx context.Context, args []string, out io.Writer) error {
 	}
 
 	if err := probeServer(ctx, cfg); err != nil {
-		fmt.Fprintf(out, "warning: server not reachable at %s (%v) — config written anyway\n", cfg.ServerURL, err)
+		_, _ = fmt.Fprintf(out, "warning: server not reachable at %s (%v) — config written anyway\n", cfg.ServerURL, err)
 	} else {
-		fmt.Fprintf(out, "server reachable at %s\n", cfg.ServerURL)
+		_, _ = fmt.Fprintf(out, "server reachable at %s\n", cfg.ServerURL)
 	}
 
 	path, err := saveConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
-	fmt.Fprintf(out, "wrote %s (namespace %q)\n", path, cfg.Namespace)
+	_, _ = fmt.Fprintf(out, "wrote %s (namespace %q)\n", path, cfg.Namespace)
 	return nil
 }
 

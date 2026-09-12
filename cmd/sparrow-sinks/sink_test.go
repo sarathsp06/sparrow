@@ -29,7 +29,7 @@ func signHeaders(t *testing.T, body []byte, secret string) http.Header {
 	msgID := "msg_test"
 	timestamp := fmt.Sprintf("%d", time.Now().Unix())
 	mac := hmac.New(sha256.New, key)
-	fmt.Fprintf(mac, "%s.%s.", msgID, timestamp)
+	_, _ = fmt.Fprintf(mac, "%s.%s.", msgID, timestamp)
 	mac.Write(body)
 	h := http.Header{}
 	h.Set("webhook-id", msgID)

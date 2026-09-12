@@ -35,6 +35,6 @@ func runTemplateTest(args []string, out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("template error: %w", err)
 	}
-	fmt.Fprintln(out, string(rendered))
+	_, _ = fmt.Fprintln(out, string(rendered))
 	return nil
 }

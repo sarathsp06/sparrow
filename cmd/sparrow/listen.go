@@ -31,7 +31,7 @@ usage: sparrow listen --event <name> [--event <name>...] [--port N]
 // runListen receives deliveries on a local HTTP server via a temp webhook.
 func runListen(ctx context.Context, args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("listen", flag.ContinueOnError)
-	fs.Usage = func() { fmt.Fprint(out, listenHelp); fs.PrintDefaults() }
+	fs.Usage = func() { _, _ = fmt.Fprint(out, listenHelp); fs.PrintDefaults() }
 	urlFlag, apiKeyFlag, nsFlag := configFlags(fs)
 	port := fs.Int("port", 0, "local port to listen on (default random)")
 	var events listFlag
@@ -83,8 +83,8 @@ func runListen(ctx context.Context, args []string, out io.Writer) error {
 	})}
 	go srv.Serve(ln) //nolint:errcheck
 
-	fmt.Fprintf(out, "listening on :%d, registered webhook %s -> %s (events: %v)\n", localPort, hook.WebhookID, registerURL, []string(events))
-	fmt.Fprintln(out, "press Ctrl-C to stop and delete the webhook")
+	_, _ = fmt.Fprintf(out, "listening on :%d, registered webhook %s -> %s (events: %v)\n", localPort, hook.WebhookID, registerURL, []string(events))
+	_, _ = fmt.Fprintln(out, "press Ctrl-C to stop and delete the webhook")
 
 	<-ctx.Done()
 
@@ -94,18 +94,18 @@ func runListen(ctx context.Context, args []string, out io.Writer) error {
 	if err := client.deleteWebhook(cleanupCtx, cfg.Namespace, hook.WebhookID); err != nil {
 		return fmt.Errorf("delete temporary webhook %s: %w", hook.WebhookID, err)
 	}
-	fmt.Fprintf(out, "\ndeleted temporary webhook %s\n", hook.WebhookID)
+	_, _ = fmt.Fprintf(out, "\ndeleted temporary webhook %s\n", hook.WebhookID)
 	return nil
 }
 
 // printReceived pretty-prints one delivery: signature check, headers, body.
 func printReceived(out io.Writer, r *http.Request, body []byte, secret string) {
-	fmt.Fprintf(out, "\n── delivery %s ── %s %s\n", time.Now().Format("15:04:05"), r.Method, r.URL.Path)
+	_, _ = fmt.Fprintf(out, "\n── delivery %s ── %s %s\n", time.Now().Format("15:04:05"), r.Method, r.URL.Path)
 	if secret != "" {
 		if err := signature.VerifyHMAC(body, r.Header, secret); err != nil {
-			fmt.Fprintf(out, "signature: INVALID (%v)\n", err)
+			_, _ = fmt.Fprintf(out, "signature: INVALID (%v)\n", err)
 		} else {
-			fmt.Fprintln(out, "signature: verified (v1, HMAC-SHA256)")
+			_, _ = fmt.Fprintln(out, "signature: verified (v1, HMAC-SHA256)")
 		}
 	}
 	keys := make([]string, 0, len(r.Header))
@@ -114,14 +114,14 @@ func printReceived(out io.Writer, r *http.Request, body []byte, secret string) {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		fmt.Fprintf(out, "%s: %s\n", k, r.Header.Get(k))
+		_, _ = fmt.Fprintf(out, "%s: %s\n", k, r.Header.Get(k))
 	}
 	var pretty bytes.Buffer
 	if json.Indent(&pretty, body, "", "  ") == nil {
-		fmt.Fprintf(out, "%s\n", pretty.Bytes())
+		_, _ = fmt.Fprintf(out, "%s\n", pretty.Bytes())
 	} else {
 		out.Write(body) //nolint:errcheck
-		fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out)
 	}
 }
 
@@ -135,12 +135,12 @@ func mirrorForward(out io.Writer, w http.ResponseWriter, r *http.Request, body [
 	req.Header = r.Header.Clone()
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		fmt.Fprintf(out, "forward: %v\n", err)
+		_, _ = fmt.Fprintf(out, "forward: %v\n", err)
 		w.WriteHeader(http.StatusBadGateway)
 		return
 	}
 	defer resp.Body.Close() //nolint:errcheck
-	fmt.Fprintf(out, "forward: %s -> %d\n", forwardURL, resp.StatusCode)
+	_, _ = fmt.Fprintf(out, "forward: %s -> %d\n", forwardURL, resp.StatusCode)
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body) //nolint:errcheck
 }

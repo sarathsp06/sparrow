@@ -132,7 +132,7 @@ func runUse(ctx context.Context, args []string, out io.Writer) error {
 			promptText = p.Name
 		}
 		if isTerminal(os.Stdin) {
-			fmt.Fprintf(out, "%s: ", promptText)
+			_, _ = fmt.Fprintf(out, "%s: ", promptText)
 			if stdin.Scan() {
 				if v := strings.TrimSpace(stdin.Text()); v != "" {
 					params[p.Name] = v
@@ -178,7 +178,7 @@ func runUse(ctx context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("register webhook: %w", err)
 	}
-	fmt.Fprintf(out, "webhook %s -> %s\n", hook.WebhookID, hookURL)
+	_, _ = fmt.Fprintf(out, "webhook %s -> %s\n", hook.WebhookID, hookURL)
 
 	subs, err := client.listSubscriptions(ctx, cfg.Namespace, hook.WebhookID)
 	if err != nil {
@@ -193,8 +193,8 @@ func runUse(ctx context.Context, args []string, out io.Writer) error {
 		if err := client.patchSubscription(ctx, cfg.Namespace, sub.SubscriptionID, patch); err != nil {
 			return fmt.Errorf("update subscription %s: %w", sub.SubscriptionID, err)
 		}
-		fmt.Fprintf(out, "subscription %s (%s): transform %v, label filters %v\n", sub.SubscriptionID, sub.EventName, tmpl != "", map[string]string(labels))
+		_, _ = fmt.Fprintf(out, "subscription %s (%s): transform %v, label filters %v\n", sub.SubscriptionID, sub.EventName, tmpl != "", map[string]string(labels))
 	}
-	fmt.Fprintf(out, "recipe %q applied in namespace %q\n", r.Name, cfg.Namespace)
+	_, _ = fmt.Fprintf(out, "recipe %q applied in namespace %q\n", r.Name, cfg.Namespace)
 	return nil
 }

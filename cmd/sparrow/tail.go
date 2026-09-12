@@ -30,7 +30,7 @@ func runTail(ctx context.Context, args []string, out io.Writer) error {
 	}
 	client := newAPIClient(cfg)
 
-	fmt.Fprintf(out, "%-20s  %-36s  %-9s  %4s  %-8s  %s\n", "TIME", "EVENT", "STATUS", "CODE", "ATTEMPTS", "URL")
+	_, _ = fmt.Fprintf(out, "%-20s  %-36s  %-9s  %4s  %-8s  %s\n", "TIME", "EVENT", "STATUS", "CODE", "ATTEMPTS", "URL")
 	seen := map[string]bool{}
 	webhookURLs := map[string]string{} // webhook_id -> url cache
 	for {
@@ -82,6 +82,6 @@ func printDelivery(ctx context.Context, out io.Writer, client *apiClient, namesp
 	if d.ResponseCode != 0 {
 		code = fmt.Sprint(d.ResponseCode)
 	}
-	fmt.Fprintf(out, "%-20s  %-36s  %-9s  %4s  %-8s  %s\n",
+	_, _ = fmt.Fprintf(out, "%-20s  %-36s  %-9s  %4s  %-8s  %s\n",
 		ts, d.EventID, d.Status, code, fmt.Sprintf("%d/%d", d.AttemptCount, d.MaxAttempts), dest)
 }

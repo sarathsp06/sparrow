@@ -44,16 +44,16 @@ func runPush(ctx context.Context, args []string, out io.Writer) error {
 		if cerr := client.createEventType(ctx, event, "created by sparrow push"); cerr != nil {
 			return fmt.Errorf("push failed (%v) and auto-creating event type failed: %w", err, cerr)
 		}
-		fmt.Fprintf(out, "event type %q auto-created\n", event)
+		_, _ = fmt.Fprintf(out, "event type %q auto-created\n", event)
 		res, err = client.pushEvent(ctx, cfg.Namespace, event, body)
 	}
 	if err != nil {
 		return err
 	}
 	if res.Duplicate {
-		fmt.Fprintf(out, "%s (duplicate: idempotency key matched an existing event)\n", res.EventID)
+		_, _ = fmt.Fprintf(out, "%s (duplicate: idempotency key matched an existing event)\n", res.EventID)
 	} else {
-		fmt.Fprintln(out, res.EventID)
+		_, _ = fmt.Fprintln(out, res.EventID)
 	}
 	return nil
 }

@@ -18,7 +18,7 @@ import (
 
 func stripeSig(secret string, ts int64, body []byte) string {
 	mac := hmac.New(sha256.New, []byte(secret))
-	fmt.Fprintf(mac, "%d.%s", ts, body)
+	_, _ = fmt.Fprintf(mac, "%d.%s", ts, body)
 	return fmt.Sprintf("t=%d,v1=%s", ts, hex.EncodeToString(mac.Sum(nil)))
 }
 
