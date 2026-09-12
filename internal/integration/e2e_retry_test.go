@@ -97,6 +97,7 @@ func registerWebhookPipeline(t *testing.T, c *restClient, ctx context.Context, n
 		"active": true,
 		"http_config": map[string]any{
 			"max_retries":             maxRetries,
+			"retry_backoff_seconds":   1,
 			"request_timeout_seconds": 5,
 			"capture_response_body":   true,
 		},
@@ -672,6 +673,7 @@ func TestE2E_TimeoutRetry(t *testing.T) {
 		"active": true,
 		"http_config": map[string]any{
 			"max_retries":             3,
+			"retry_backoff_seconds":   1,
 			"request_timeout_seconds": 2, // very short timeout
 		},
 	}, &webhookOut)

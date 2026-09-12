@@ -36,6 +36,9 @@ services:
       SPARROW_SERVE_UI: "true"
       # Required: 64-char hex key for envelope encryption (generate with: openssl rand -hex 32)
       SPARROW_ENCRYPTION_KEY: "${SPARROW_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}"
+      # Dev default: allow localhost/private-network webhook targets (SSRF
+      # protection stays on in production images; this compose is local-only).
+      SPARROW_ALLOW_PRIVATE_NETWORKS: "${SPARROW_ALLOW_PRIVATE_NETWORKS:-true}"
       # Optional: require an API key for all requests
       # SPARROW_API_KEY: "change-me-to-a-secure-random-string"
       # Optional: custom port (default HTTP=8080)
