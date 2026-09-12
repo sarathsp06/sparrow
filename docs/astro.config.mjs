@@ -34,13 +34,7 @@ export default defineConfig({
         },
         {
           label: 'Satellites',
-          items: [
-            { slug: 'satellites' },
-            { slug: 'satellites/cli' },
-            { slug: 'satellites/recipes' },
-            { slug: 'satellites/sources' },
-            { slug: 'satellites/sinks' },
-          ],
+          link: '/satellites/',
         },
         {
           label: 'API Reference',

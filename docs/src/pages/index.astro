@@ -8,11 +8,11 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const docsHome = `${base}getting-started/installation/`;
 const quickstart = `${base}getting-started/quickstart/`;
 const apiRef = `${base}reference/api/`;
-const cliDocs = `${base}satellites/cli/`;
 const satellitesDocs = `${base}satellites/`;
-const recipesDocs = `${base}satellites/recipes/`;
-const sourcesDocs = `${base}satellites/sources/`;
-const sinksDocs = `${base}satellites/sinks/`;
+const cliDocs = `${base}satellites/#cli`;
+const recipesDocs = `${base}satellites/#recipes`;
+const sourcesDocs = `${base}satellites/#sources`;
+const sinksDocs = `${base}satellites/#sinks`;
 const githubURL = 'https://github.com/sarathsp06/sparrow';
 ---
 
@@ -43,7 +43,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         </a>
         <div class="sp-nav-links">
           <a href={docsHome}>Docs</a>
-          <a href={cliDocs}>CLI</a>
+          <a href={satellitesDocs}>Satellites</a>
           <a href={apiRef}>API</a>
           <a href={`${base}reference/architecture/`}>Architecture</a>
           <a href={`${base}deployment/docker-compose/`}>Deploy</a>
@@ -79,39 +79,6 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         <span class="sp-hero-meta-item">OpenAPI 3.1</span>
         <span class="sp-hero-meta-sep"></span>
         <span class="sp-hero-meta-item"><a href={`${base}llms.txt`}>llms.txt</a></span>
-      </div>
-    </div>
-  </section>
-
-  <!-- CLI QUICKSTART -->
-  <section class="sp-section" style="padding-top:1rem">
-    <div class="sp-w">
-      <div class="sp-feature-row">
-        <div class="sp-feature-text">
-          <span class="sp-label">SPARROW CLI</span>
-          <h2>90 seconds from install to delivery</h2>
-          <p>The <code>sparrow</code> CLI is the fastest loop: <code>init</code> points it at your server, <code>listen</code> receives deliveries on your laptop (signature-verified, pretty-printed), and <code>push</code> sends an event — the event type is auto-created.</p>
-          <p>Then wire an event to Slack in one command: <code>sparrow use slack</code> applies a recipe — webhook, headers, and transform template registered in one shot, delivered with Sparrow's own retries.</p>
-          <a href={cliDocs} class="sp-link">CLI reference<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
-        </div>
-        <div class="sp-feature-visual">
-          <div class="sp-terminal">
-            <div class="sp-terminal-bar">
-              <span class="sp-terminal-title">terminal</span>
-            </div>
-            <div class="sp-terminal-body">
-              <code><span class="sp-t-muted">$</span> go install github.com/sarathsp06/sparrow/satellites/sparrow@latest</code>
-              <code><span class="sp-t-muted">$</span> sparrow init <span class="sp-t-flag">--url</span> <span class="sp-t-str">http://localhost:8080</span></code>
-              <code><span class="sp-t-muted">$</span> sparrow listen <span class="sp-t-flag">--event</span> order.created <span class="sp-t-muted">&</span></code>
-              <code><span class="sp-t-muted">$</span> sparrow push order.created <span class="sp-t-flag">-d</span> <span class="sp-t-str">'{`{`}"order_id":"ord_1"{`}`}'</span></code>
-              <code><span class="sp-t-muted">→ order.created  200 OK  signature verified</span></code>
-              <code></code>
-              <code><span class="sp-t-muted"># event → Slack in one command</span></code>
-              <code><span class="sp-t-muted">$</span> sparrow use slack <span class="sp-t-flag">--param</span> webhook_url=<span class="sp-t-str">$SLACK_URL</span> \</code>
-              <code>    <span class="sp-t-flag">--event</span> order.created</code>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </section>
@@ -372,7 +339,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
           <a href={docsHome}>Documentation</a>
           <a href={apiRef}>API Reference</a>
           <a href={quickstart}>Quickstart</a>
-          <a href={cliDocs}>CLI</a>
+          <a href={satellitesDocs}>Satellites</a>
         </div>
         <div class="sp-footer-col">
           <span class="sp-footer-heading">Deploy</span>

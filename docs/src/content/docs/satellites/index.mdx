@@ -1,9 +1,6 @@
 ---
 title: Satellites
-description: Companion tools that orbit the Sparrow core — CLI, recipes, sources, and sinks built entirely on the public REST API.
-sidebar:
-  label: Overview
-  order: 0
+description: The tools that orbit the Sparrow core — CLI, recipes, sources, and sinks — each with a worked example.
 ---
 
 Satellites are companion tools that **orbit the core** — they use Sparrow, they
@@ -11,10 +8,6 @@ never reach inside it. Every satellite talks to the same public REST API and
 signed-webhook contract you do, so the delivery pipeline (matching, retries,
 signing, audit trail) stays one small, boring server. Delete every satellite
 and Sparrow still works; add your own and it is a first-class citizen.
-
-They live in [`satellites/`](https://github.com/sarathsp06/sparrow/tree/main/satellites)
-in the repo — deliberately outside the server's `cmd/` and `internal/` — and
-ship as separate binaries in every release.
 
 ```
                         ┌──────────────────────────┐
@@ -27,47 +20,174 @@ ship as separate binaries in every release.
                           push · tail · listen
 ```
 
-## The four satellites
+Anything you build against the same three rules inherits the whole pipeline:
 
-| Satellite | Direction | What it does |
-|---|---|---|
-| [CLI](/sparrow/satellites/cli/) | both | `sparrow init/push/tail/listen/use/template` — the 90-second loop from install to a delivered, verified webhook |
-| [Recipes](/sparrow/satellites/recipes/) | out | Adapters as pure config: Slack, Discord, ntfy, PagerDuty, ClickHouse. Sparrow renders the transform server-side — nothing extra runs |
-| [Sources](/sparrow/satellites/sources/) | in | `sparrow-sources`: cron emitter plus Stripe/GitHub webhook normalizers — verify the provider's signature, re-publish as typed Sparrow events |
-| [Sinks](/sparrow/satellites/sinks/) | out | `sparrow-sinks`: signed-delivery receiver forwarding to SMTP email and S3/MinIO archives |
+1. **Public API only** — no database access, no server internals.
+2. **Verify signatures** — check the Standard Webhooks headers before trusting a delivery.
+3. **Fail loudly, stay stateless** — return non-2xx and let Sparrow's retries do the work.
 
-## The contract
+:::note
+Sparrow blocks private-network delivery URLs by default (SSRF guard). For any
+local receiver in the examples below — `listen`, a dev sink, a laptop
+endpoint — start the **server** with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`.
+:::
 
-Every satellite — including ones you write — follows three rules:
+## CLI
 
-1. **Public API only.** Registration, pushes, and delivery reads go through the
-   same versioned REST API in [the OpenAPI spec](/sparrow/reference/api). No
-   database access, no imports from server internals.
-2. **Verify signatures.** Anything receiving deliveries checks the
-   `webhook-signature` header (Standard Webhooks HMAC-SHA256) before trusting a
-   payload. The [CLI's `listen`](/sparrow/satellites/cli/#listen) shows the
-   verification in action.
-3. **Fail loudly, stay stateless.** Sinks return non-2xx when the downstream
-   fails and let Sparrow's retry/backoff machinery do the work. Sources only
-   ack the provider after Sparrow accepted the event (at-least-once,
-   deduplicated by idempotency key).
-
-Follow the same rules and your integration inherits retries, exponential
-backoff, delivery audit, and endpoint health tracking without writing any of it.
-
-## 90-second start
+`sparrow` is the terminal loop: push test events, watch deliveries, receive
+webhooks on your laptop, apply recipes, debug templates. Ninety seconds from
+install to a verified delivery:
 
 ```bash
 go install github.com/sarathsp06/sparrow/satellites/sparrow@latest
 
-sparrow init --url http://localhost:8080   # write ~/.sparrow/config.yaml
-sparrow listen --forward localhost:3000 &  # temp webhook → your terminal
-sparrow push user.signup -d '{"email":"a@b.c"}' -l env=dev
-sparrow tail deliveries --once             # watch it land: success / 200
+sparrow init --url http://localhost:8080     # probes /health, writes ~/.sparrow/config.yaml
+
+# terminal 1 — registers a temporary webhook, deletes it on Ctrl-C
+sparrow listen --event order.created
+
+# terminal 2 — event type is auto-created on first push
+sparrow push order.created -d '{"order_id":"ord_1","amount":42}' -l env=dev
+
+# → the listen terminal prints the delivery: headers, body,
+#   "signature: verified (v1, HMAC-SHA256)"
+
+sparrow tail deliveries --once               # the audit trail view of the same delivery
 ```
 
-Then wire a real destination with a recipe:
+Useful variants: `push -d @payload.json`, `push --idempotency-key ord_1`
+(dedup), `tail deliveries --status failed`, `listen --forward
+http://localhost:3000/hooks` (proxy deliveries into your app, mirroring its
+status). `SPARROW_URL` / `SPARROW_API_KEY` / `SPARROW_NAMESPACE` override the
+config file.
+
+## Recipes
+
+A recipe is an **adapter as config**: one YAML file pairing a destination URL
+(plus headers) with a transform template that Sparrow renders server-side per
+delivery. Nothing extra runs — Sparrow delivers straight to the destination
+with its own retries and audit trail.
+
+Event to Slack, one command:
 
 ```bash
-sparrow use slack --param webhook_url=https://hooks.slack.com/... --event user.signup
+sparrow use slack \
+  --param webhook_url=https://hooks.slack.com/services/T000/B000/XXX \
+  --event order.created --label env=prod
 ```
+
+Every `order.created` labelled `env=prod` now lands in Slack as a Block Kit
+message — event name as header, payload as a fenced code block. Included
+recipes: `slack`, `discord`, `ntfy`, `pagerduty` (event id as `dedup_key`, so
+retries never open duplicate incidents), `clickhouse` (one row per delivery).
+
+Writing your own is one file:
+
+```yaml
+version: 1
+name: myservice
+description: Deliveries as MyService notifications
+params:
+  - name: api_url
+    prompt: "MyService ingest URL"
+    required: true
+webhook:
+  url: '{{param "api_url"}}'
+  headers: {Content-Type: application/json}
+subscription:
+  transform_template: |
+    {"title": {{.event_name | json}}, "body": {{.payload | json}}}
+```
+
+Iterate on the template locally with `sparrow template test my.tmpl --payload
+@sample.json` — it renders with the exact engine the server uses. Pipe every
+interpolated value through `json` so payload quotes can't corrupt the output;
+helpers are listed in [template functions](/sparrow/reference/template-functions/).
+Full recipe reference: [`satellites/recipes/`](https://github.com/sarathsp06/sparrow/tree/main/satellites/recipes).
+
+## Sources
+
+`sparrow-sources` pushes events **into** Sparrow from the outside world: a
+cron emitter plus Stripe and GitHub webhook receivers that verify the
+provider's signature and re-publish as typed Sparrow events. One config file:
+
+```yaml
+sparrow:
+  url: http://localhost:8080
+  namespace: default
+
+cron:
+  - schedule: "*/5 * * * *"
+    event: report.tick
+    payload: {kind: five-minutely}
+    labels: {source: cron}
+
+ingest:
+  listen: :8787
+  providers:
+    stripe:
+      signing_secret: whsec_...    # Stripe dashboard → your endpoint → signing secret
+    github:
+      secret: your-webhook-secret  # the secret you set on the GitHub webhook
+```
+
+```bash
+go install github.com/sarathsp06/sparrow/satellites/sparrow-sources@latest
+sparrow-sources --config sources.yaml
+```
+
+Point Stripe at `https://<host>:8787/ingest/stripe` and GitHub at
+`/ingest/github`. A `payment_intent.succeeded` becomes the Sparrow event
+`stripe.payment_intent.succeeded` (full provider payload as the event body,
+`source=stripe` label); a PR webhook becomes `github.pull_request.opened`.
+Event types are auto-created, and providers get a `2xx` only **after** Sparrow
+accepted the event — at-least-once, so Stripe/GitHub retry anything that
+didn't make it.
+
+Once inside, everything applies: fan one Stripe webhook out to N filtered
+consumers, each with independent retry state — or straight to Slack with the
+recipe above.
+
+## Sinks
+
+`sparrow-sinks` forwards signed deliveries **out** of HTTP land: an SMTP email
+sink and an S3 (or MinIO/R2) archiver. Rule of thumb: destination speaks HTTP
+with static-header auth → use a recipe; non-HTTP protocol or per-request
+signing (SigV4) → use a sink.
+
+Email every `order.paid`:
+
+```yaml
+listen: :8788
+webhook_secret: whsec_...   # from step 2 below — used to verify signatures
+email:
+  smtp: {host: smtp.example.com, port: 587, username: sparrow, password: s3cret, starttls: true}
+  from: sparrow@example.com
+  to: [ops@example.com]
+  subject_template: "[sparrow] {{.event_name}}"
+```
+
+```bash
+# 1. run the sink
+go install github.com/sarathsp06/sparrow/satellites/sparrow-sinks@latest
+sparrow-sinks --config sinks.yaml
+
+# 2. register a webhook pointing at it — save the secret, it is shown once
+curl -X POST http://localhost:8080/v1/namespaces/default/webhooks \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "http://sinks-host:8788/sinks/email", "events": ["order.paid"]}'
+
+# 3. push an event → an email lands at ops@example.com
+sparrow push order.paid -d '{"order_id":"ord_9","total":12.5}'
+```
+
+The S3 sink works the same way at `/sinks/s3`: each delivery becomes one JSON
+object, key `{prefix}{event_name}/{YYYY}/{MM}/{DD}/{event_id}.json` —
+partitioned for Athena/DuckDB-style querying. Set `s3.endpoint` for MinIO/R2;
+credentials come from the standard AWS chain.
+
+Sinks are stateless and verify every request's Standard Webhooks signature:
+bad signature → `401`, downstream failure (SMTP down, S3 unreachable) →
+`502`, and Sparrow redelivers with backoff. A crashed sink loses nothing —
+deliveries stay queued in Sparrow. Subscriptions pointing at a sink must keep
+transforms **disabled** (the default): sinks parse the standard envelope.
