@@ -5,7 +5,7 @@ sidebar:
   order: 10
 ---
 
-import { Tabs, TabItem } from '@astrojs/starlight/components';
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
 
 Sparrow's interface is **REST/OpenAPI only**. There is no bespoke SDK to learn — every endpoint
 is described by the committed OpenAPI 3.1 contract at `api/openapi.yaml`, so you can generate a
@@ -39,6 +39,14 @@ make generate
 ```
 
 Point any OpenAPI 3.1-compatible generator at that file:
+
+<Aside type="tip" title="Any language works">
+Sparrow ships **no hand-written SDK** — the API is pure OpenAPI 3.1, so a client is
+*generated*, never maintained by us. The tabs below (Python, TypeScript, Go) are just
+examples; point any [OpenAPI generator](https://openapi-generator.tech/docs/generators/)
+at `api/openapi.yaml` to get a typed client for Java, C#, Rust, Ruby, PHP, Kotlin, Swift,
+and dozens more — or skip generation entirely and call the endpoints with plain HTTP.
+</Aside>
 
 <Tabs>
   <TabItem label="Python">
