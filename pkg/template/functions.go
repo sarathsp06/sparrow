@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/template"
 	"time"
+	"unicode"
 )
 
 // TemplateFunc represents a template utility function with enhanced documentation
@@ -92,9 +93,20 @@ func GetTemplateFunctions() []TemplateFunc {
 		{
 			Name: "title",
 			Func: func(s string) string {
-				return strings.ToTitle(s)
+				inWord := false
+				return strings.Map(func(r rune) rune {
+					if unicode.IsLetter(r) || unicode.IsNumber(r) {
+						if !inWord {
+							inWord = true
+							return unicode.ToUpper(r)
+						}
+						return r
+					}
+					inWord = false
+					return r
+				}, s)
 			},
-			Description: "# title\n\nConverts string to title case (all letters uppercase).\n\n## Usage\n```\n{{ .name | title }}\n{{ title \"hello world\" }}\n```\n\n## Example\n```\nInput: \"hello world\"\nOutput: \"HELLO WORLD\"\n```\n\nNote: This converts ALL letters to uppercase. For proper title case (first letter of each word), use a custom function.",
+			Description: "# title\n\nCapitalizes the first letter of each word; other characters are left unchanged.\n\n## Usage\n```\n{{ .name | title }}\n{{ title \"hello world\" }}\n```\n\n## Example\n```\nInput: \"hello world\"\nOutput: \"Hello World\"\n```",
 		},
 		{
 			Name: "trim",

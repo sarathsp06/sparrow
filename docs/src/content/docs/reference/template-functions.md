@@ -20,7 +20,7 @@ Templates use Go's `text/template` syntax. The event payload is available as the
 | `parseTime` | Parse a time string |
 | `upper` | Uppercase string |
 | `lower` | Lowercase string |
-| `title` | Title case (all uppercase) |
+| `title` | Title case (capitalize first letter of each word) |
 | `trim` | Trim characters from both ends |
 | `trimSpace` | Trim whitespace |
 | `split` | Split string into slice |
@@ -197,14 +197,14 @@ Converts string to lowercase.
 
 ## title
 
-Converts all letters to uppercase (note: not proper title case).
+Capitalizes the first letter of each word; other characters are left unchanged.
 
 ```go
 {{ .name | title }}
 {{ title "hello world" }}
 ```
 
-**Example:** `"hello world"` -> `"HELLO WORLD"`
+**Example:** `"hello world"` -> `"Hello World"`
 
 ---
 
