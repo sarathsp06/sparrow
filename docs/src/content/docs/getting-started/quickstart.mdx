@@ -13,6 +13,13 @@ This guide walks you through registering a webhook, pushing an event, and verify
 All examples use `http://localhost:8080` (REST/HTTP API). Replace with your server URL in production.
 :::
 
+:::note
+The `X-API-Key` header is only needed when the server was started with
+`SPARROW_API_KEY` set — omit it otherwise. All URLs use the `default`
+namespace (bootstrapped on startup); swap the `default` path segment for
+another namespace to isolate a different tenant's webhooks and events.
+:::
+
 <Steps>
 
 1. **Register an event type**

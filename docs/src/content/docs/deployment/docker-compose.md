@@ -12,6 +12,13 @@ curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-
 SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32) docker compose up -d
 ```
 
+On Windows PowerShell, set the key first, then start:
+
+```powershell
+$env:SPARROW_ENCRYPTION_KEY = -join (1..32 | % { '{0:x2}' -f (Get-Random -Max 256) })
+docker compose up -d
+```
+
 The server is available at:
 - **Web UI:** http://localhost:8080
 - **REST API:** http://localhost:8080/v1

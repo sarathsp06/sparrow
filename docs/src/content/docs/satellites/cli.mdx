@@ -48,6 +48,12 @@ sparrow push order.created -d '{"order_id":"ord_1","amount":42}'
 The delivery shows up in the `listen` terminal, signature-verified,
 headers and body pretty-printed.
 
+:::note
+`listen` registers a webhook that points back at your local machine, so the
+Sparrow **server** must allow private-network targets: start it with
+`SPARROW_ALLOW_PRIVATE_NETWORKS=true` (SSRF protection stays on in production).
+:::
+
 ## How it's connected
 
 The CLI is a pure REST client — the same public API you can call with curl,

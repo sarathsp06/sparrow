@@ -72,6 +72,12 @@ echo "SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32)" > .env
 docker compose up -d
 ```
 
+> On Windows PowerShell, replace the `openssl`/`echo` line with:
+>
+> ```powershell
+> "SPARROW_ENCRYPTION_KEY=$(-join (1..32 | % { '{0:x2}' -f (Get-Random -Max 256) }))" | Out-File -Encoding ascii .env
+> ```
+
 Open <http://localhost:8080> for the UI. The REST API is on the same address, and interactive API docs are at <http://localhost:8080/docs>.
 
 > [!IMPORTANT]

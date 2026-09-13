@@ -17,7 +17,7 @@ All configuration is done via environment variables. No config files needed.
 | `SPARROW_ENCRYPTION_KEY` | Yes | -- | 64-char hex key (32 bytes) for envelope encryption of webhook secrets and headers. Generate with `openssl rand -hex 32` |
 | `SPARROW_HTTP_PORT` | No | `8080` | HTTP listen port for the REST/OpenAPI API (also serves the web UI) |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private IP addresses as webhook URLs. Enable for local development and testing |
-| `ENVIRONMENT` | No | -- | `development` or `production` (affects logging/OTel) |
+| `ENVIRONMENT` | No | -- | Deployment tag; any value is accepted. Set to `production` to block cross-origin requests by default (see `CORS_ALLOWED_ORIGINS`) and tag logs/OTel; any other value behaves as development. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
 | `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of allowed CORS origins (e.g. `https://ui.example.com,https://admin.example.com`). Required when the UI is hosted separately from the API. In production (`ENVIRONMENT=production`), cross-origin requests are blocked by default; in development, all origins are allowed. |
 
