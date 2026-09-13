@@ -102,16 +102,24 @@ type webhookRequest struct {
 }
 
 type webhookOut struct {
-	WebhookID  string `json:"webhook_id"`
-	URL        string `json:"url"`
-	HTTPConfig struct {
-		WebhookSecret string `json:"webhook_secret"`
+	WebhookID   string   `json:"webhook_id"`
+	Namespace   string   `json:"namespace,omitempty"`
+	URL         string   `json:"url"`
+	Events      []string `json:"events,omitempty"`
+	Active      bool     `json:"active"`
+	Health      string   `json:"health,omitempty"`
+	Description string   `json:"description,omitempty"`
+	HTTPConfig  struct {
+		WebhookSecret string `json:"webhook_secret,omitempty"`
 	} `json:"http_config"`
 }
 
 type subscriptionItem struct {
-	SubscriptionID string `json:"subscription_id"`
-	EventName      string `json:"event_name"`
+	SubscriptionID    string            `json:"subscription_id"`
+	EventName         string            `json:"event_name"`
+	TransformEnabled  bool              `json:"transform_enabled"`
+	TransformTemplate string            `json:"transform_template,omitempty"`
+	LabelFilters      map[string]string `json:"label_filters,omitempty"`
 }
 
 type subscriptionPatch struct {
@@ -131,6 +139,14 @@ type deliveryItem struct {
 	CreatedAt    string `json:"created_at"`
 }
 
+type eventTypeItem struct {
+	Name          string         `json:"name"`
+	Description   string         `json:"description"`
+	JSONSchema    map[string]any `json:"event_schema"`
+	SamplePayload map[string]any `json:"sample_payload"`
+	Active        bool           `json:"active"`
+}
+
 // ── Typed helpers ───────────────────────────────────────────────────────────
 
 func (c *apiClient) createEventType(ctx context.Context, name, description string) error {
@@ -139,6 +155,24 @@ func (c *apiClient) createEventType(ctx context.Context, name, description strin
 		"description": description,
 		"active":      true,
 	}, nil)
+}
+
+func (c *apiClient) listEventTypes(ctx context.Context, activeOnly bool) ([]eventTypeItem, error) {
+	var out struct {
+		Items []eventTypeItem `json:"items"`
+	}
+	q := url.Values{"limit": {"200"}}
+	if activeOnly {
+		q.Set("active_only", "true")
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/event-types?"+q.Encode(), nil, &out)
+	return out.Items, err
+}
+
+func (c *apiClient) getEventType(ctx context.Context, name string) (eventTypeItem, error) {
+	var out eventTypeItem
+	err := c.do(ctx, http.MethodGet, "/v1/event-types/"+url.PathEscape(name), nil, &out)
+	return out, err
 }
 
 func (c *apiClient) pushEvent(ctx context.Context, namespace, event string, body pushBody) (pushResult, error) {
@@ -185,10 +219,49 @@ func (c *apiClient) listDeliveries(ctx context.Context, namespace, status string
 	return out.Items, err
 }
 
-func (c *apiClient) listWebhooks(ctx context.Context, namespace string) ([]webhookOut, error) {
+func (c *apiClient) listWebhooks(ctx context.Context, namespace string, activeOnly bool) ([]webhookOut, error) {
 	var out struct {
 		Items []webhookOut `json:"items"`
 	}
-	err := c.do(ctx, http.MethodGet, "/v1/namespaces/"+url.PathEscape(namespace)+"/webhooks", nil, &out)
+	q := url.Values{"limit": {"200"}}
+	if activeOnly {
+		q.Set("active", "true")
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/namespaces/"+url.PathEscape(namespace)+"/webhooks?"+q.Encode(), nil, &out)
 	return out.Items, err
+}
+
+func (c *apiClient) getWebhook(ctx context.Context, namespace, webhookID string) (webhookOut, error) {
+	var out webhookOut
+	err := c.do(ctx, http.MethodGet, "/v1/namespaces/"+url.PathEscape(namespace)+"/webhooks/"+url.PathEscape(webhookID), nil, &out)
+	return out, err
+}
+
+type templateFunctionItem struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+func (c *apiClient) listTemplateFunctions(ctx context.Context) ([]templateFunctionItem, error) {
+	var out struct {
+		Items []templateFunctionItem `json:"items"`
+	}
+	err := c.do(ctx, http.MethodGet, "/v1/template-functions", nil, &out)
+	return out.Items, err
+}
+
+type namespaceStats struct {
+	TotalWebhooks        int     `json:"total_webhooks"`
+	ActiveWebhooks       int     `json:"active_webhooks"`
+	TotalDeliveries      int     `json:"total_deliveries"`
+	SuccessfulDeliveries int     `json:"successful_deliveries"`
+	FailedDeliveries     int     `json:"failed_deliveries"`
+	PendingDeliveries    int     `json:"pending_deliveries"`
+	SuccessRate          float64 `json:"success_rate"`
+}
+
+func (c *apiClient) getNamespaceStats(ctx context.Context, namespace string) (namespaceStats, error) {
+	var out namespaceStats
+	err := c.do(ctx, http.MethodGet, "/v1/namespaces/"+url.PathEscape(namespace)+"/stats", nil, &out)
+	return out, err
 }

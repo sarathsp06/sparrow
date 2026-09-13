@@ -26,8 +26,16 @@ RUN apk add --no-cache git ca-certificates tzdata
 
 WORKDIR /build
 
-# Copy go mod files first for better layer caching
+# Server is the root module; it resolves pkg/signature + pkg/template via
+# `replace` directives in go.mod. GOWORK=off keeps the build off the workspace
+# (go.work also wires the CLI module, which the server image does not need).
+ENV GOWORK=off
+
+# Copy module manifests first for better layer caching. The root replace targets
+# must be present so `go mod download` can read their go.mod files.
 COPY go.mod go.sum ./
+COPY pkg/signature/go.mod ./pkg/signature/
+COPY pkg/template/go.mod ./pkg/template/
 RUN go mod download
 
 # Copy source code

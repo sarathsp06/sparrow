@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,14 +33,6 @@ func configPath() (string, error) {
 	return filepath.Join(home, ".sparrow", "config.yaml"), nil
 }
 
-// configFlags registers the shared connection flags on fs and returns the
-// destination pointers. Empty string means "not set via flag".
-func configFlags(fs *flag.FlagSet) (url, apiKey, namespace *string) {
-	url = fs.String("url", "", "Sparrow server URL (overrides config file)")
-	apiKey = fs.String("api-key", "", "API key sent as X-API-Key (overrides config file)")
-	namespace = fs.String("namespace", "", "tenant namespace (overrides config file)")
-	return url, apiKey, namespace
-}
 
 // resolveConfig merges file < flags < env, then applies defaults.
 func resolveConfig(flagURL, flagAPIKey, flagNamespace string) (config, error) {

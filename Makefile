@@ -72,8 +72,17 @@ helm-package: ## Package the Helm chart into a .tgz archive
 run-web: ## Run the web development server
 	cd web && npm run dev
 
-test: ## Run tests
-	go test -v ./...
+# The CLI (satellites/sparrow) and pkg/{signature,template} are separate Go
+# modules joined by the committed go.work (see docs/adr/0002-cli-module-split.md).
+# Root ./... only covers the root module, so the workspace modules are listed
+# explicitly; go.work makes the cross-module import paths resolve.
+MODULE_TEST_PATHS := ./... \
+	github.com/sarathsp06/sparrow/satellites/sparrow/... \
+	github.com/sarathsp06/sparrow/pkg/signature/... \
+	github.com/sarathsp06/sparrow/pkg/template/...
+
+test: ## Run tests (all modules)
+	go test -v $(MODULE_TEST_PATHS)
 
 test-integration: ## Run integration tests (requires Docker for testcontainers)
 	go test -v -tags integration -timeout 120s ./internal/integration/...

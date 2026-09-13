@@ -18,8 +18,9 @@ cmd/*/migrate
 # Output of the go coverage tool
 *.out
 
-# Go workspace file
-go.work
+# Go workspace: go.work + go.work.sum are committed (multi-module monorepo,
+# see docs/adr/0002-cli-module-split.md). Ignore only per-user overrides.
+go.work.local
 
 # IDE files
 .vscode/
@@ -86,3 +87,6 @@ security_fixes_report.md
 
 # Brainpod session console
 .brainpod/
+
+# stray root build artifact (go build ./satellites/sparrow)
+/sparrow

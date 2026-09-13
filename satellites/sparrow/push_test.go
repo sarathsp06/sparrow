@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -37,10 +36,11 @@ func TestPushRequestShape(t *testing.T) {
 	pushEnv(t, srv)
 
 	var out bytes.Buffer
-	err := runPush(context.Background(), []string{
-		"-d", `{"amount":42}`, "-l", "env=prod", "--idempotency-key", "idem-1", "order.created",
-	}, &out)
-	if err != nil {
+	root := newRootCmd(&out)
+	root.SetArgs([]string{
+		"push", "-d", `{"amount":42}`, "-l", "env=prod", "--idempotency-key", "idem-1", "order.created",
+	})
+	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -100,7 +100,9 @@ func TestPushAutoCreatesEventType(t *testing.T) {
 	pushEnv(t, srv)
 
 	var out bytes.Buffer
-	if err := runPush(context.Background(), []string{"order.created"}, &out); err != nil {
+	root := newRootCmd(&out)
+	root.SetArgs([]string{"push", "order.created"})
+	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	if !eventTypeCreated || pushes != 2 {

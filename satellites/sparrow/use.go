@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
@@ -94,25 +94,36 @@ func loadRecipe(path string) (recipe, error) {
 
 // runUse applies a recipe: registers a webhook and enables the recipe's
 // transform template on the auto-created subscriptions.
-func runUse(ctx context.Context, args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("use", flag.ContinueOnError)
-	urlFlag, apiKeyFlag, nsFlag := configFlags(fs)
-	file := fs.String("file", "", "explicit recipe file path (overrides recipe search)")
+func newUseCmd() *cobra.Command {
+	var file string
 	params := kvFlag{}
-	fs.Var(params, "param", "recipe parameter name=value (repeatable; prompted if omitted)")
 	var events listFlag
-	fs.Var(&events, "event", "event type to subscribe to (repeatable, required)")
 	labels := kvFlag{}
-	fs.Var(labels, "label", "label filter key=value applied to the subscription (repeatable)")
-	recipe, err := parseWithArg(fs, args, "sparrow use <recipe> --event <name> [--param k=v] [--label k=v] [--file path]")
-	if err != nil {
-		return err
+	cmd := &cobra.Command{
+		Use:   "use <recipe>",
+		Short: "Apply a recipe: register a webhook and enable its transform",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(events) == 0 {
+				return fmt.Errorf("at least one --event is required")
+			}
+			client, cfg, err := clientFromCmd(cmd)
+			if err != nil {
+				return err
+			}
+			return runUse(cmd.Context(), cmd.OutOrStdout(), client, cfg.Namespace, args[0], file, events, params, labels)
+		},
 	}
-	if len(events) == 0 {
-		return fmt.Errorf("at least one --event is required")
-	}
+	f := cmd.Flags()
+	f.StringVar(&file, "file", "", "explicit recipe file path (overrides recipe search)")
+	f.Var(params, "param", "recipe parameter name=value (repeatable; prompted if omitted)")
+	f.VarP(&events, "event", "e", "event type to subscribe to (repeatable, required)")
+	f.Var(labels, "label", "label filter key=value applied to the subscription (repeatable)")
+	return cmd
+}
 
-	path, err := findRecipe(recipe, *file)
+func runUse(ctx context.Context, out io.Writer, client *apiClient, namespace, recipeArg, file string, events listFlag, params, labels kvFlag) error {
+	path, err := findRecipe(recipeArg, file)
 	if err != nil {
 		return err
 	}
@@ -162,13 +173,7 @@ func runUse(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 
-	cfg, err := resolveConfig(*urlFlag, *apiKeyFlag, *nsFlag)
-	if err != nil {
-		return err
-	}
-	client := newAPIClient(cfg)
-
-	hook, err := client.registerWebhook(ctx, cfg.Namespace, webhookRequest{
+	hook, err := client.registerWebhook(ctx, namespace, webhookRequest{
 		URL:         hookURL,
 		Events:      events,
 		Active:      true,
@@ -180,7 +185,7 @@ func runUse(ctx context.Context, args []string, out io.Writer) error {
 	}
 	_, _ = fmt.Fprintf(out, "webhook %s -> %s\n", hook.WebhookID, hookURL)
 
-	subs, err := client.listSubscriptions(ctx, cfg.Namespace, hook.WebhookID)
+	subs, err := client.listSubscriptions(ctx, namespace, hook.WebhookID)
 	if err != nil {
 		return fmt.Errorf("list subscriptions: %w", err)
 	}
@@ -190,11 +195,11 @@ func runUse(ctx context.Context, args []string, out io.Writer) error {
 			patch.TransformEnabled = true
 			patch.TransformTemplate = tmpl
 		}
-		if err := client.patchSubscription(ctx, cfg.Namespace, sub.SubscriptionID, patch); err != nil {
+		if err := client.patchSubscription(ctx, namespace, sub.SubscriptionID, patch); err != nil {
 			return fmt.Errorf("update subscription %s: %w", sub.SubscriptionID, err)
 		}
 		_, _ = fmt.Fprintf(out, "subscription %s (%s): transform %v, label filters %v\n", sub.SubscriptionID, sub.EventName, tmpl != "", map[string]string(labels))
 	}
-	_, _ = fmt.Fprintf(out, "recipe %q applied in namespace %q\n", r.Name, cfg.Namespace)
+	_, _ = fmt.Fprintf(out, "recipe %q applied in namespace %q\n", r.Name, namespace)
 	return nil
 }

@@ -38,7 +38,9 @@ jobs:
         # govulncheck may panic with Go 1.26 due to upstream x/tools bug
         # (https://github.com/golang/go/issues/XXXXX). Allow failure until fixed.
         continue-on-error: true
-        run: govulncheck ./...
+        run: |
+          govulncheck ./...
+          (cd satellites/sparrow && govulncheck ./...)
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -85,7 +87,11 @@ jobs:
       - name: Run tests
         env:
           DATABASE_URL: postgres://testuser:testpass@localhost:5432/testdb?sslmode=disable
-        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+        run: |
+          go test -v -race -coverprofile=coverage.txt -covermode=atomic ./... \
+            github.com/sarathsp06/sparrow/satellites/sparrow/... \
+            github.com/sarathsp06/sparrow/pkg/signature/... \
+            github.com/sarathsp06/sparrow/pkg/template/...
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -120,6 +126,9 @@ jobs:
 
       - name: Build benchmark
         run: go build -v -o bin/benchmark ./cmd/benchmark
+
+      - name: Build CLI
+        run: go build -v -o bin/sparrow ./satellites/sparrow
 
   integration-test:
     name: Integration Test

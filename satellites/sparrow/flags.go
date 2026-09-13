@@ -2,8 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -29,6 +27,8 @@ func (f kvFlag) Set(s string) error {
 	return nil
 }
 
+func (f kvFlag) Type() string { return "key=value" }
+
 // listFlag is a repeatable string flag.
 type listFlag []string
 
@@ -42,27 +42,7 @@ func (f *listFlag) Set(s string) error {
 	return nil
 }
 
-// parseWithArg parses a subcommand's flags while accepting exactly one
-// positional argument in either position: "push name -d x" or "push -d x name".
-// Stdlib flag stops at the first positional, so a leading one is hoisted out
-// before Parse.
-func parseWithArg(fs *flag.FlagSet, args []string, usage string) (string, error) {
-	arg, rest := "", args
-	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-		arg, rest = args[0], args[1:]
-	}
-	if err := fs.Parse(rest); err != nil {
-		return "", err
-	}
-	switch {
-	case arg == "" && fs.NArg() == 1:
-		arg = fs.Arg(0)
-	case arg != "" && fs.NArg() == 0:
-	default:
-		return "", errors.New("usage: " + usage)
-	}
-	return arg, nil
-}
+func (f *listFlag) Type() string { return "string" }
 
 // parseJSONArg parses inline JSON or, when prefixed with '@', the named file,
 // into a JSON object.

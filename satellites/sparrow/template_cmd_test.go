@@ -21,12 +21,14 @@ func TestTemplateTestRendersFixtureRecipe(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	err = runTemplateTest([]string{
+	root := newRootCmd(&out)
+	root.SetArgs([]string{
+		"template", "test",
 		"--event-name", "order.created",
 		"--payload", `{"order_id":"ord_1","amount":42}`,
 		tmplPath,
-	}, &out)
-	if err != nil {
+	})
+	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -42,7 +44,9 @@ func TestTemplateTestReportsParseError(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	if err := runTemplateTest([]string{tmplPath}, &out); err == nil {
+	root := newRootCmd(&out)
+	root.SetArgs([]string{"template", "test", tmplPath})
+	if err := root.Execute(); err == nil {
 		t.Fatal("expected parse error")
 	}
 }

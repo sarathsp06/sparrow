@@ -3,26 +3,37 @@ package main
 import (
 	"bufio"
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/spf13/cobra"
 )
+
+func newInitCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "init",
+		Short: "Configure server URL, API key, and namespace",
+		Long: `Write ~/.sparrow/config.yaml with the server URL, API key, and default
+namespace. Values come from --url/--api-key/--namespace, or from interactive
+prompts when stdin is a terminal. Re-running overwrites the file.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			urlFlag, _ := cmd.Flags().GetString("url")
+			apiKeyFlag, _ := cmd.Flags().GetString("api-key")
+			nsFlag, _ := cmd.Flags().GetString("namespace")
+			return runInit(cmd.Context(), cmd.OutOrStdout(), urlFlag, apiKeyFlag, nsFlag)
+		},
+	}
+}
 
 // runInit writes ~/.sparrow/config.yaml. Values come from flags, or from
 // interactive prompts when attached to a terminal. Idempotent: re-running
 // overwrites the file.
-func runInit(ctx context.Context, args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("init", flag.ContinueOnError)
-	urlFlag := fs.String("url", "", "Sparrow server URL (default "+defaultServerURL+")")
-	apiKeyFlag := fs.String("api-key", "", "API key sent as X-API-Key (optional)")
-	nsFlag := fs.String("namespace", "", "default tenant namespace (default "+defaultNamespace+")")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
+func runInit(ctx context.Context, out io.Writer, urlFlag, apiKeyFlag, nsFlag string) error {
 
 	interactive := isTerminal(os.Stdin)
 	prompt := func(label, def, flagVal string) string {
@@ -43,9 +54,9 @@ func runInit(ctx context.Context, args []string, out io.Writer) error {
 	}
 
 	cfg := config{
-		ServerURL: strings.TrimRight(prompt("Server URL", defaultServerURL, *urlFlag), "/"),
-		APIKey:    prompt("API key (empty for none)", "", *apiKeyFlag),
-		Namespace: prompt("Namespace", defaultNamespace, *nsFlag),
+		ServerURL: strings.TrimRight(prompt("Server URL", defaultServerURL, urlFlag), "/"),
+		APIKey:    prompt("API key (empty for none)", "", apiKeyFlag),
+		Namespace: prompt("Namespace", defaultNamespace, nsFlag),
 	}
 
 	if err := probeServer(ctx, cfg); err != nil {

@@ -79,11 +79,13 @@
 - Integration tests (`-tags integration`) use testcontainers — need Docker.
 - E2E tests (Gauge + Python) in `e2e/` — `uv run gauge run specs/`.
 - `make fmt` uses `goimports` with local module grouping — install `go install golang.org/x/tools/cmd/goimports@latest`.
+- The repo is a Go **workspace** (`go.work`): the CLI and `pkg/{signature,template}` are separate modules. Root `./...` only tests the root module — `make test` lists the nested modules explicitly (`MODULE_TEST_PATHS`).
 
 ## Release
 
-- Tags trigger GoReleaser CI: `git tag vX.Y.Z && git push origin main --tags`.
-- GoReleaser config at `.goreleaser.yml`.
+- Server + `recipes`/`sinks`/`sources` release under `vX.Y.Z`: `git tag vX.Y.Z && git push origin main --tags`.
+- The CLI (`satellites/sparrow`) and `pkg/signature`, `pkg/template` are **separate modules** (see `docs/adr/0002-cli-module-split.md`). They use path-prefixed tags (`pkg/signature/vX.Y.Z`, `satellites/sparrow/vX.Y.Z`) and their working-tree `replace` lines must be stripped before tagging — full recipe in the ADR.
+- GoReleaser config at `.goreleaser.yml`; it builds every binary from the checkout via `replace`, so binary releases don't need the tag dance.
 - Conventional Commits (`feat:`, `fix:`, etc.) for clean changelog grouping.
 
 ## graphify

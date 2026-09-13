@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"sort"
 	"time"
+
+	"github.com/spf13/cobra"
 
 	"github.com/sarathsp06/sparrow/pkg/signature"
 )
@@ -28,39 +29,48 @@ usage: sparrow listen --event <name> [--event <name>...] [--port N]
                       [--public-url URL] [--forward URL]
 `
 
-// runListen receives deliveries on a local HTTP server via a temp webhook.
-func runListen(ctx context.Context, args []string, out io.Writer) error {
-	fs := flag.NewFlagSet("listen", flag.ContinueOnError)
-	fs.Usage = func() { _, _ = fmt.Fprint(out, listenHelp); fs.PrintDefaults() }
-	urlFlag, apiKeyFlag, nsFlag := configFlags(fs)
-	port := fs.Int("port", 0, "local port to listen on (default random)")
+func newListenCmd() *cobra.Command {
+	var port int
 	var events listFlag
-	fs.Var(&events, "event", "event type to subscribe to (repeatable, required)")
-	publicURL := fs.String("public-url", "", "URL the Sparrow server should deliver to (default http://host.docker.internal:<port>)")
-	forward := fs.String("forward", "", "proxy each delivery to this URL and mirror its status")
-	if err := fs.Parse(args); err != nil {
-		return err
+	var publicURL string
+	var forward string
+	cmd := &cobra.Command{
+		Use:   "listen",
+		Short: "Receive deliveries on a local HTTP server via a temp webhook",
+		Long:  listenHelp,
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if len(events) == 0 {
+				return fmt.Errorf("at least one --event is required")
+			}
+			client, cfg, err := clientFromCmd(cmd)
+			if err != nil {
+				return err
+			}
+			return runListen(cmd.Context(), cmd.OutOrStdout(), client, cfg.Namespace, port, events, publicURL, forward)
+		},
 	}
-	if len(events) == 0 {
-		return fmt.Errorf("at least one --event is required\n\n%s", listenHelp)
-	}
-	cfg, err := resolveConfig(*urlFlag, *apiKeyFlag, *nsFlag)
-	if err != nil {
-		return err
-	}
-	client := newAPIClient(cfg)
+	f := cmd.Flags()
+	f.IntVar(&port, "port", 0, "local port to listen on (default random)")
+	f.VarP(&events, "event", "e", "event type to subscribe to (repeatable, required)")
+	f.StringVar(&publicURL, "public-url", "", "URL the Sparrow server should deliver to (default http://host.docker.internal:<port>)")
+	f.StringVar(&forward, "forward", "", "proxy each delivery to this URL and mirror its status")
+	return cmd
+}
 
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+// runListen receives deliveries on a local HTTP server via a temp webhook.
+func runListen(ctx context.Context, out io.Writer, client *apiClient, namespace string, port int, events listFlag, publicURL, forward string) error {
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return err
 	}
 	localPort := ln.Addr().(*net.TCPAddr).Port
-	registerURL := *publicURL
+	registerURL := publicURL
 	if registerURL == "" {
 		registerURL = fmt.Sprintf("http://host.docker.internal:%d", localPort)
 	}
 
-	hook, err := client.registerWebhook(ctx, cfg.Namespace, webhookRequest{
+	hook, err := client.registerWebhook(ctx, namespace, webhookRequest{
 		URL:         registerURL,
 		Events:      events,
 		Active:      true,
@@ -75,8 +85,8 @@ func runListen(ctx context.Context, args []string, out io.Writer) error {
 	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		printReceived(out, r, body, secret)
-		if *forward != "" {
-			mirrorForward(out, w, r, body, *forward)
+		if forward != "" {
+			mirrorForward(out, w, r, body, forward)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -91,7 +101,7 @@ func runListen(ctx context.Context, args []string, out io.Writer) error {
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	srv.Shutdown(cleanupCtx) //nolint:errcheck
-	if err := client.deleteWebhook(cleanupCtx, cfg.Namespace, hook.WebhookID); err != nil {
+	if err := client.deleteWebhook(cleanupCtx, namespace, hook.WebhookID); err != nil {
 		return fmt.Errorf("delete temporary webhook %s: %w", hook.WebhookID, err)
 	}
 	_, _ = fmt.Fprintf(out, "\ndeleted temporary webhook %s\n", hook.WebhookID)
