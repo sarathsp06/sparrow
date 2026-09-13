@@ -34,13 +34,15 @@ Config file (YAML):
       labels: {source: cron}
   webhook:
     listen: :8787
-    providers:
-      stripe:                     # POST /webhooks/stripe
+    providers:                    # more providers added over time; each takes
+      stripe:                     # a path, a secret, and a Sparrow event prefix
+        path: /webhooks/stripe    # you choose this; register it with Stripe
         signing_secret: whsec_...
-        event_prefix: stripe      # -> stripe.payment_intent.succeeded
-      github:                     # POST /webhooks/github
+        sparrow_event_prefix: stripe   # -> stripe.payment_intent.succeeded
+      github:
+        path: /webhooks/github    # you choose this; set it as the Payload URL
         secret: ...
-        event_prefix: github      # -> github.pull_request.opened
+        sparrow_event_prefix: github   # -> github.pull_request.opened
 `
 
 func main() {

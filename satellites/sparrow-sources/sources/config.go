@@ -43,22 +43,43 @@ type WebhookConfig struct {
 	Providers ProvidersConfig `yaml:"providers"`
 }
 
-// ProvidersConfig holds per-provider webhook settings; nil = disabled.
+// ProvidersConfig holds per-provider webhook settings; a nil provider is
+// disabled. Stripe and GitHub are the providers supported today — more will be
+// added over time, and each new one follows this same shape (a listen path, a
+// signature secret, and the Sparrow event prefix it publishes under).
 type ProvidersConfig struct {
 	Stripe *StripeConfig `yaml:"stripe"`
 	GitHub *GitHubConfig `yaml:"github"`
 }
 
-// StripeConfig verifies Stripe-Signature and maps Stripe events.
+// StripeConfig verifies the Stripe-Signature header and republishes each
+// incoming Stripe event as a Sparrow event named
+// "<sparrow_event_prefix>.<stripe event type>".
 type StripeConfig struct {
+	// Path is the HTTP path this receiver listens on; you choose it and register
+	// the matching URL in the Stripe dashboard. Default: /webhooks/stripe.
+	Path string `yaml:"path"`
+	// SigningSecret is the Stripe "whsec_..." secret used to verify the incoming
+	// webhook's signature.
 	SigningSecret string `yaml:"signing_secret"`
-	EventPrefix   string `yaml:"event_prefix"`
+	// SparrowEventPrefix names the OUTBOUND event pushed to Sparrow (not the
+	// incoming Stripe event): it is prefixed to the Stripe event type.
+	SparrowEventPrefix string `yaml:"sparrow_event_prefix"`
 }
 
-// GitHubConfig verifies X-Hub-Signature-256 and maps GitHub events.
+// GitHubConfig verifies the X-Hub-Signature-256 header and republishes each
+// incoming GitHub event as a Sparrow event named
+// "<sparrow_event_prefix>.<github event>[.<action>]".
 type GitHubConfig struct {
-	Secret      string `yaml:"secret"`
-	EventPrefix string `yaml:"event_prefix"`
+	// Path is the HTTP path this receiver listens on; you choose it and set the
+	// matching Payload URL on the GitHub webhook. Default: /webhooks/github.
+	Path string `yaml:"path"`
+	// Secret is the shared secret configured on the GitHub webhook, used to
+	// verify the incoming signature.
+	Secret string `yaml:"secret"`
+	// SparrowEventPrefix names the OUTBOUND event pushed to Sparrow (not the
+	// incoming GitHub event): it is prefixed to the GitHub event name.
+	SparrowEventPrefix string `yaml:"sparrow_event_prefix"`
 }
 
 // LoadConfig reads and validates the YAML config file, applying env
@@ -114,16 +135,22 @@ func LoadConfig(path string) (*Config, error) {
 		if s.SigningSecret == "" {
 			return nil, fmt.Errorf("webhook.providers.stripe.signing_secret is required")
 		}
-		if s.EventPrefix == "" {
-			s.EventPrefix = "stripe"
+		if s.SparrowEventPrefix == "" {
+			s.SparrowEventPrefix = "stripe"
+		}
+		if s.Path == "" {
+			s.Path = "/webhooks/stripe"
 		}
 	}
 	if g := cfg.Webhook.Providers.GitHub; g != nil {
 		if g.Secret == "" {
 			return nil, fmt.Errorf("webhook.providers.github.secret is required")
 		}
-		if g.EventPrefix == "" {
-			g.EventPrefix = "github"
+		if g.SparrowEventPrefix == "" {
+			g.SparrowEventPrefix = "github"
+		}
+		if g.Path == "" {
+			g.Path = "/webhooks/github"
 		}
 	}
 	if (cfg.Webhook.Providers.Stripe != nil || cfg.Webhook.Providers.GitHub != nil) && cfg.Webhook.Listen == "" {

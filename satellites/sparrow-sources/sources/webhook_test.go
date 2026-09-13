@@ -160,8 +160,8 @@ func (f *fakePusher) PushEvent(_ context.Context, event string, _ json.RawMessag
 
 func TestWebhookHandler(t *testing.T) {
 	cfg := WebhookConfig{Providers: ProvidersConfig{
-		Stripe: &StripeConfig{SigningSecret: "whsec_test", EventPrefix: "stripe"},
-		GitHub: &GitHubConfig{Secret: "gh_test", EventPrefix: "github"},
+		Stripe: &StripeConfig{Path: "/webhooks/stripe", SigningSecret: "whsec_test", SparrowEventPrefix: "stripe"},
+		GitHub: &GitHubConfig{Path: "/webhooks/github", Secret: "gh_test", SparrowEventPrefix: "github"},
 	}}
 	push := &fakePusher{}
 	h := NewWebhookHandler(cfg, push, discardLogger())

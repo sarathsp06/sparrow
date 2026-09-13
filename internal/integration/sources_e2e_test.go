@@ -76,7 +76,7 @@ func TestE2E_SourcesStripeWebhook(t *testing.T) {
 	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 3)
 
 	webhook := startWebhook(t, env, namespace, sources.ProvidersConfig{
-		Stripe: &sources.StripeConfig{SigningSecret: secret, EventPrefix: "stripe"},
+		Stripe: &sources.StripeConfig{Path: "/webhooks/stripe", SigningSecret: secret, SparrowEventPrefix: "stripe"},
 	})
 
 	body := `{
@@ -127,7 +127,7 @@ func TestE2E_SourcesGitHubWebhook(t *testing.T) {
 	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 3)
 
 	webhook := startWebhook(t, env, namespace, sources.ProvidersConfig{
-		GitHub: &sources.GitHubConfig{Secret: secret, EventPrefix: "github"},
+		GitHub: &sources.GitHubConfig{Path: "/webhooks/github", Secret: secret, SparrowEventPrefix: "github"},
 	})
 
 	body := `{

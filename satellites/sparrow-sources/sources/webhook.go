@@ -19,28 +19,29 @@ const maxWebhookBody = 1 << 20 // 1 MiB
 // stripeTolerance is the max age of a Stripe-Signature timestamp.
 const stripeTolerance = 5 * time.Minute
 
-// NewWebhookHandler returns the webhook HTTP handler: POST /webhooks/stripe and
-// POST /webhooks/github for configured providers. Unknown paths 404, bad
-// signatures 401, push failures 502 (so the provider retries).
+// NewWebhookHandler returns the webhook HTTP handler. Each configured provider
+// is mounted at its own configurable path (defaults: /webhooks/stripe,
+// /webhooks/github). Unknown paths 404, bad signatures 401, push failures 502
+// (so the provider retries).
 func NewWebhookHandler(cfg WebhookConfig, p Pusher, log *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
 	if s := cfg.Providers.Stripe; s != nil {
-		mux.HandleFunc("POST /webhooks/stripe", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("POST "+s.Path, func(w http.ResponseWriter, r *http.Request) {
 			handleWebhook(w, r, p, log, "stripe", func(body []byte) (string, map[string]string, error) {
 				if err := verifyStripeSignature(r.Header.Get("Stripe-Signature"), body, s.SigningSecret, time.Now()); err != nil {
 					return "", nil, errBadSignature
 				}
-				return mapStripeEvent(s.EventPrefix, body)
+				return mapStripeEvent(s.SparrowEventPrefix, body)
 			})
 		})
 	}
 	if g := cfg.Providers.GitHub; g != nil {
-		mux.HandleFunc("POST /webhooks/github", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("POST "+g.Path, func(w http.ResponseWriter, r *http.Request) {
 			handleWebhook(w, r, p, log, "github", func(body []byte) (string, map[string]string, error) {
 				if !verifyGitHubSignature(r.Header.Get("X-Hub-Signature-256"), body, g.Secret) {
 					return "", nil, errBadSignature
 				}
-				return mapGitHubEvent(g.EventPrefix, r.Header.Get("X-GitHub-Event"), body)
+				return mapGitHubEvent(g.SparrowEventPrefix, r.Header.Get("X-GitHub-Event"), body)
 			})
 		})
 	}

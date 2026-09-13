@@ -3,11 +3,13 @@ title: Sources
 description: Turn cron schedules, Stripe webhooks, and GitHub webhooks into Sparrow events with the sparrow-sources binary.
 ---
 
-`sparrow-sources` is a small companion binary that pushes events **into** Sparrow from the outside world. It ships three sources:
+`sparrow-sources` is a small companion binary that pushes events **into** Sparrow from the outside world. It ships these sources:
 
 - **Cron** — emit a fixed event on a schedule (`report.tick` every 5 minutes).
 - **Stripe** — receive Stripe webhooks, verify their signature, and re-publish them as Sparrow events.
 - **GitHub** — same for GitHub webhooks.
+
+Stripe and GitHub are the webhook providers supported today; **more will be added over time**. Each provider follows the same shape — an HTTP path you choose, a signing secret, and the Sparrow event prefix it publishes under — so this is just the starting set, not a fixed list.
 
 Once an external event is inside Sparrow, everything Sparrow offers applies: fan-out to multiple consumers, retries with backoff, label filtering, payload transforms, delivery observability.
 
@@ -26,7 +28,8 @@ cron loop (per schedule entry):
            → retry the push once
 
 webhook server (:8787):
-  POST /webhooks/stripe                    POST /webhooks/github
+  POST <stripe path>                       POST <github path>
+  (default /webhooks/stripe)               (default /webhooks/github)
     1. read raw body (before parsing)      1. read raw body
     2. verify Stripe-Signature:            2. verify X-Hub-Signature-256:
        HMAC-SHA256(secret,                    HMAC-SHA256(secret, body),
@@ -83,14 +86,20 @@ cron:
 
 webhook:
   listen: :8787                # HTTP listen address for the webhook server
-  providers:
+  providers:                   # Stripe and GitHub today; more added over time
     stripe:
-      signing_secret: whsec_...   # from the Stripe dashboard
-      event_prefix: stripe        # default: stripe
+      path: /webhooks/stripe        # you choose this path (default shown);
+                                    # register the matching URL with Stripe
+      signing_secret: whsec_...     # from the Stripe dashboard
+      sparrow_event_prefix: stripe  # prefix of the OUTBOUND Sparrow event name
     github:
-      secret: your-webhook-secret # the secret you set on the GitHub webhook
-      event_prefix: github        # default: github
+      path: /webhooks/github        # you choose this path (default shown);
+                                    # set it as the GitHub webhook Payload URL
+      secret: your-webhook-secret   # the secret you set on the GitHub webhook
+      sparrow_event_prefix: github  # prefix of the OUTBOUND Sparrow event name
 ```
+
+The `path` is yours to set — point the provider's dashboard at whatever URL you register. `sparrow_event_prefix` names the event Sparrow receives (the **outbound** event), not the incoming provider event; it is prefixed to the provider's own event name.
 
 Environment variables override the `sparrow:` section: `SPARROW_URL`, `SPARROW_API_KEY`, `SPARROW_NAMESPACE`.
 
@@ -100,7 +109,7 @@ Event types are **auto-created**: the first push of an unknown event name regist
 
 ## Event naming
 
-Ingested events are named `<event_prefix>.<provider event>`:
+Each incoming provider event is republished to Sparrow under a name built from that provider's `sparrow_event_prefix` and the provider's own event — `<sparrow_event_prefix>.<provider event>`:
 
 | Provider | Incoming | Sparrow event |
 |----------|----------|---------------|
