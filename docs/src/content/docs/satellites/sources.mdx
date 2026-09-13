@@ -1,6 +1,6 @@
 ---
 title: Sources
-description: Turn cron schedules, Stripe webhooks, and GitHub webhooks into Sparrow events with the sparrow-sources binary.
+description: Turn cron schedules, Stripe webhooks, GitHub webhooks, and Kafka messages into Sparrow events with the sparrow-sources binary.
 ---
 
 `sparrow-sources` is a small companion binary that pushes events **into** Sparrow from the outside world. It ships these sources:
@@ -8,6 +8,7 @@ description: Turn cron schedules, Stripe webhooks, and GitHub webhooks into Spar
 - **Cron** — emit a fixed event on a schedule (`report.tick` every 5 minutes).
 - **Stripe** — receive Stripe webhooks, verify their signature, and re-publish them as Sparrow events.
 - **GitHub** — same for GitHub webhooks.
+- **Kafka** — consume messages from Kafka topics and re-publish them as Sparrow events.
 
 Stripe and GitHub are the webhook providers supported today; **more will be added over time**. Each provider follows the same shape — an HTTP path you choose, a signing secret, and the Sparrow event prefix it publishes under — so this is just the starting set, not a fixed list.
 
@@ -97,6 +98,13 @@ webhook:
                                     # set it as the GitHub webhook Payload URL
       secret: your-webhook-secret   # the secret you set on the GitHub webhook
       sparrow_event_prefix: github  # prefix of the OUTBOUND Sparrow event name
+
+kafka:
+  - brokers: [localhost:9092]   # seed brokers (default: ["localhost:9092"])
+    topic: events               # Kafka topic to consume (default: "events")
+    group_id: sparrow-sources   # consumer group ID (default: "sparrow-sources")
+    sparrow_event_prefix: kafka # prefix of the OUTBOUND Sparrow event name (default: "kafka")
+    labels: {env: production}   # optional custom labels attached to pushed events
 ```
 
 The `path` is yours to set — point the provider's dashboard at whatever URL you register. `sparrow_event_prefix` names the event Sparrow receives (the **outbound** event), not the incoming provider event; it is prefixed to the provider's own event name.
@@ -111,11 +119,12 @@ Event types are **auto-created**: the first push of an unknown event name regist
 
 Each incoming provider event is republished to Sparrow under a name built from that provider's `sparrow_event_prefix` and the provider's own event — `<sparrow_event_prefix>.<provider event>`:
 
-| Provider | Incoming | Sparrow event |
-|----------|----------|---------------|
+| Provider / Source | Incoming | Sparrow event |
+|-------------------|----------|---------------|
 | Stripe | `type: payment_intent.succeeded` | `stripe.payment_intent.succeeded` |
 | GitHub | `X-GitHub-Event: pull_request`, `action: opened` | `github.pull_request.opened` |
 | GitHub | `X-GitHub-Event: push` (no action) | `github.push` |
+| Kafka | topic `orders` | `kafka.orders` |
 
 The full provider payload becomes the Sparrow event payload. Labels are attached for subscription filtering:
 
@@ -139,6 +148,21 @@ Signatures are verified from the `Stripe-Signature` header (HMAC-SHA256 over `{t
 3. Set a **Secret** and put the same value in `webhook.providers.github.secret`.
 
 Signatures are verified from the `X-Hub-Signature-256` header (HMAC-SHA256 over the raw body, constant-time compare).
+
+### Kafka
+
+Add a Kafka consumer source under `kafka:` in `sources.yaml`:
+
+```yaml
+kafka:
+  - brokers:
+      - localhost:9092
+    topic: events
+    group_id: sparrow-sources
+    sparrow_event_prefix: kafka
+```
+
+The consumer fetches messages from Kafka, parses JSON payloads (or wraps raw message strings in `{"value": ...}`), attaches labels (`source=kafka`, `topic`, `key`), and pushes them into Sparrow. Offsets are committed after successful push into Sparrow.
 
 ## Delivery semantics
 

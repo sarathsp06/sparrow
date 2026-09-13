@@ -57,7 +57,7 @@ and the Standard Webhooks signature — they never import `internal/`, only
 `pkg/` (`pkg/signature`, `pkg/template`).
 
 - **`satellites/sparrow`** — the `sparrow` CLI: `init`/`push`/`listen`/`tail`/`use`/`template test`.
-- **`satellites/sparrow-sources`** — world → Sparrow events: cron emitter + Stripe/GitHub webhook normalizers.
+- **`satellites/sparrow-sources`** — world → Sparrow events: cron emitter + Stripe/GitHub webhook normalizers + Kafka consumers.
 - **`satellites/sparrow-sinks`** — signed delivery receiver → SMTP email, S3/MinIO archive, OTLP log export.
 - **`satellites/recipes`** — apply-time YAML transforms (Slack, Discord, ntfy, PagerDuty, ClickHouse) rendered via `pkg/template`.
 

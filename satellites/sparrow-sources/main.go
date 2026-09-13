@@ -1,5 +1,5 @@
 // Command sparrow-sources turns external things into Sparrow events:
-// cron schedules, Stripe webhooks, and GitHub webhooks.
+// cron schedules, Stripe webhooks, GitHub webhooks, and Kafka messages.
 package main
 
 import (
@@ -43,6 +43,11 @@ Config file (YAML):
         path: /webhooks/github    # you choose this; set it as the Payload URL
         secret: ...
         sparrow_event_prefix: github   # -> github.pull_request.opened
+  kafka:
+    - brokers: [localhost:9092]   # seed brokers (default: localhost:9092)
+      topic: events               # topic to consume (default: events)
+      group_id: sparrow-sources   # consumer group id (default: sparrow-sources)
+      sparrow_event_prefix: kafka # -> kafka.events
 `
 
 func main() {
@@ -72,6 +77,11 @@ func main() {
 		go sources.RunCron(ctx, cfg.Cron, client, log)
 	}
 
+	if len(cfg.Kafka) > 0 {
+		log.Info("starting kafka consumer", "jobs", len(cfg.Kafka))
+		sources.RunKafka(ctx, cfg.Kafka, client, log)
+	}
+
 	var srv *http.Server
 	if cfg.Webhook.Providers.Stripe != nil || cfg.Webhook.Providers.GitHub != nil {
 		srv = &http.Server{
@@ -89,8 +99,8 @@ func main() {
 		}()
 	}
 
-	if len(cfg.Cron) == 0 && srv == nil {
-		log.Error("nothing to do: configure cron jobs and/or webhook providers")
+	if len(cfg.Cron) == 0 && srv == nil && len(cfg.Kafka) == 0 {
+		log.Error("nothing to do: configure cron jobs, webhook providers, and/or kafka consumers")
 		os.Exit(1)
 	}
 

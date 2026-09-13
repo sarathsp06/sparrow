@@ -15,6 +15,7 @@ type Config struct {
 	Sparrow SparrowConfig `yaml:"sparrow"`
 	Cron    []CronJob     `yaml:"cron"`
 	Webhook WebhookConfig `yaml:"webhook"`
+	Kafka   []KafkaConfig `yaml:"kafka"`
 }
 
 // SparrowConfig is the Sparrow server connection. Env vars SPARROW_URL,
@@ -80,6 +81,24 @@ type GitHubConfig struct {
 	// SparrowEventPrefix names the OUTBOUND event pushed to Sparrow (not the
 	// incoming GitHub event): it is prefixed to the GitHub event name.
 	SparrowEventPrefix string `yaml:"sparrow_event_prefix"`
+}
+
+// KafkaConfig consumes messages from a Kafka topic and republishes them as
+// Sparrow events.
+type KafkaConfig struct {
+	// Brokers is a list of seed brokers. Default: ["localhost:9092"].
+	Brokers []string `yaml:"brokers"`
+	// Topic is the Kafka topic to consume messages from. Default: "events".
+	Topic string `yaml:"topic"`
+	// GroupID is the consumer group ID. Default: "sparrow-sources".
+	GroupID string `yaml:"group_id"`
+	// SparrowEventPrefix names the OUTBOUND event pushed to Sparrow:
+	// "<sparrow_event_prefix>.<topic>". Default: "kafka".
+	SparrowEventPrefix string `yaml:"sparrow_event_prefix"`
+	// Event overrides the outbound Sparrow event name directly, bypassing prefix+topic.
+	Event string `yaml:"event"`
+	// Labels are additional key-value pairs attached to pushed Sparrow events.
+	Labels map[string]string `yaml:"labels"`
 }
 
 // LoadConfig reads and validates the YAML config file, applying env
@@ -155,6 +174,22 @@ func LoadConfig(path string) (*Config, error) {
 	}
 	if (cfg.Webhook.Providers.Stripe != nil || cfg.Webhook.Providers.GitHub != nil) && cfg.Webhook.Listen == "" {
 		cfg.Webhook.Listen = ":8787"
+	}
+
+	for i := range cfg.Kafka {
+		k := &cfg.Kafka[i]
+		if len(k.Brokers) == 0 {
+			k.Brokers = []string{"localhost:9092"}
+		}
+		if k.Topic == "" {
+			k.Topic = "events"
+		}
+		if k.GroupID == "" {
+			k.GroupID = "sparrow-sources"
+		}
+		if k.Event == "" && k.SparrowEventPrefix == "" {
+			k.SparrowEventPrefix = "kafka"
+		}
 	}
 
 	return &cfg, nil

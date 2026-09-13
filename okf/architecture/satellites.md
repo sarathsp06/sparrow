@@ -25,7 +25,7 @@ core internals; a satellite is just another API client + webhook receiver.
 | Satellite | Direction | Role |
 |---|---|---|
 | `satellites/sparrow` | tooling | The `sparrow` CLI: `init`, `push`, `listen`, `tail`, `use`, `template test`. A pure REST client + a local receiver for `listen`. |
-| `satellites/sparrow-sources` | world → Sparrow | Cron emitter + Stripe/GitHub webhook normalizers that verify the provider signature and republish as typed Sparrow events. |
+| `satellites/sparrow-sources` | world → Sparrow | Cron emitter + Stripe/GitHub webhook normalizers + Kafka consumers that republish external triggers as typed Sparrow events. |
 | `satellites/sparrow-sinks` | Sparrow → world | Signed-delivery receiver forwarding out of HTTP land: SMTP email, S3/MinIO archive, OTLP log export. Stateless; leans on core retries. |
 | `satellites/recipes` | config | Apply-time YAML transforms (Slack, Discord, ntfy, PagerDuty, ClickHouse) rendered via `pkg/template` — no service runs, the transform happens inside core delivery. |
 

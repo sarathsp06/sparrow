@@ -283,7 +283,7 @@ Adapters as config: a recipe is a YAML file pairing a destination URL with a tra
 
 ### Sources
 
-[`satellites/sparrow-sources`](satellites/sparrow-sources/) pushes events **into** Sparrow from the outside world: a cron emitter for scheduled events, plus Stripe and GitHub webhook receivers that verify provider signatures and re-publish them as Sparrow events (`stripe.payment_intent.succeeded`, `github.pull_request.opened`). Once inside, everything applies — fan-out, retries, label filtering, transforms.
+[`satellites/sparrow-sources`](satellites/sparrow-sources/) pushes events **into** Sparrow from the outside world: a cron emitter for scheduled events, Stripe and GitHub webhook receivers, and Kafka topic consumers that re-publish external triggers as Sparrow events (`stripe.payment_intent.succeeded`, `github.pull_request.opened`, `kafka.events`). Once inside, everything applies — fan-out, retries, label filtering, transforms.
 
 ```bash
 go install github.com/sarathsp06/sparrow/satellites/sparrow-sources@latest
