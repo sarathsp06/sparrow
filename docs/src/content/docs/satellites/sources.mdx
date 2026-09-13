@@ -149,3 +149,56 @@ Ingest is **at-least-once**: `sparrow-sources` responds `200` only *after* the e
 - Sparrow push failure → `502`, so Stripe/GitHub retry the webhook.
 
 A provider retry after a successful-but-slow push can therefore produce a duplicate Sparrow event — consumers should treat events idempotently (Stripe's `id` / GitHub's delivery GUID are in the payload and headers respectively).
+
+## Real-World Use Cases
+
+`sparrow-sources` bridges third-party webhook providers and scheduled cron tasks into Sparrow's unified event-driven pipeline.
+
+### Scenario 1: Unifying Stripe & GitHub Ingestion Across Internal Microservices
+**Goal:** Ingest webhooks from Stripe and GitHub securely at the edge of your network, verify their signatures immediately, and fan them out to multiple internal subscribers (Billing, Fulfillment, Audit, Discord notifications) without giving every service access to provider secrets.
+
+```yaml title="sources.yaml"
+sparrow:
+  url: http://sparrow.internal:8080
+  api_key: sk_live_internal_secret
+
+webhook:
+  listen: :8787
+  providers:
+    stripe:
+      path: /webhooks/stripe
+      signing_secret: whsec_live_stripe_key_123
+      sparrow_event_prefix: stripe
+    github:
+      path: /webhooks/github
+      secret: gh_webhook_secret_456
+      sparrow_event_prefix: github
+```
+
+**How it works in practice:**
+1. Stripe sends a `payment_intent.succeeded` webhook to `https://sources.acme.com/webhooks/stripe`.
+2. `sparrow-sources` verifies the `Stripe-Signature` header (HMAC-SHA256 with 5-minute timestamp tolerance).
+3. `sparrow-sources` automatically publishes `stripe.payment_intent.succeeded` to Sparrow with label `livemode=true`.
+4. Sparrow fans out the event asynchronously:
+   - **Billing Service** receives the raw payload.
+   - **Slack Recipe** posts a notification to `#revenue`.
+   - **S3 Sink** archives the raw transaction for bookkeeping.
+
+### Scenario 2: Automated Scheduled Ticks for System Maintenance
+**Goal:** Periodically trigger automated background maintenance jobs (e.g., subscription renewal checks, invoice generation, or database vacuuming) without building custom cron daemons in every microservice.
+
+```yaml title="sources.yaml"
+cron:
+  # Fulfill billing renewals every midnight
+  - schedule: "0 0 * * *"
+    event: billing.daily_renewal
+    payload: { job: "process_renewals" }
+    labels: { tier: "production" }
+
+  # Trigger database health metrics collection every 5 minutes
+  - schedule: "*/5 * * * *"
+    event: telemetry.health_tick
+    payload: { check: "db_connections" }
+```
+
+**Why this helps:** The cron engine inside `sparrow-sources` publishes standard Sparrow events on schedule. Subscribers benefit from Sparrow's queueing, retry mechanisms, and delivery state tracking — ensuring that if a subscriber is temporarily down during a cron tick, Sparrow retries delivery until it succeeds.

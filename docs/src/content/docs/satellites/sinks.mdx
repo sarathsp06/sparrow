@@ -177,3 +177,55 @@ non-2xx from the OTLP endpoint returns `502`, so Sparrow retries with backoff.
 | `502` | downstream (SMTP/S3/OTLP) failure | retries with backoff |
 
 Because failure is signalled purely through status codes, a crashed or restarted `sparrow-sinks` loses nothing: Sparrow redelivers anything unacknowledged.
+
+## Real-World Use Cases
+
+`sparrow-sinks` extends Sparrow's delivery capabilities into non-HTTP protocols, file archives, and telemetry infrastructure.
+
+### Scenario 1: Long-Term Regulatory & Financial Audit Archiving (S3 / MinIO / R2)
+**Goal:** Store an exact, immutable JSON record of every payment, refund, and customer terms-acceptance event in an S3 bucket for compliance audits (SOC2, HIPAA, PCI-DSS).
+
+```yaml title="sinks.yaml"
+s3:
+  endpoint: "" # AWS S3
+  region: us-east-1
+  bucket: acme-compliance-audit-logs
+  prefix: webhook-events/
+```
+
+**How it works in practice:**
+1. A webhook delivery for `payment.succeeded` is sent to `http://sinks-host:8788/sinks/s3`.
+2. `sparrow-sinks` validates the Standard Webhooks signature.
+3. It writes an object to `s3://acme-compliance-audit-logs/webhook-events/payment.succeeded/2026/03/17/evt_0195c2a1.json`.
+4. The key path naturally partitions data for querying with Amazon Athena, AWS Glue, or DuckDB.
+
+### Scenario 2: Operational Stakeholder Notifications via SMTP Email
+**Goal:** Instantly send formatted email alerts to operations teams when high-value business events occur (e.g. enterprise customer churn or payment failure), without writing email-sending code in your backend services.
+
+```yaml title="sinks.yaml"
+email:
+  smtp:
+    host: smtp.mailgun.org
+    port: 587
+    username: postmaster@mg.acme.com
+    password: env_secret_password
+    starttls: true
+  from: alerts@acme.com
+  to: [vip-support@acme.com, ops-lead@acme.com]
+  subject_template: "[URGENT] Payment Failure for Account {{.payload.account_id}}"
+```
+
+**Why this helps:** Sparrow handles retries if Mailgun or SMTP experiences temporary network issues, while `sparrow-sinks` renders standard Go text templates over the event envelope.
+
+### Scenario 3: Centralized OpenTelemetry Log & Event Pipeline (OTLP)
+**Goal:** Route all outbound webhook event occurrences directly into your centralized observability stack (Grafana Loki, Datadog, New Relic, or Elastic Search) as structured OpenTelemetry log records.
+
+```yaml title="sinks.yaml"
+otlp:
+  endpoint: http://otel-collector.monitoring.svc.cluster.local:4318
+  headers:
+    Authorization: "Bearer otel_token_xyz"
+  service_name: sparrow-outbound-webhooks
+```
+
+**Why this helps:** Every webhook delivery becomes an OTLP log record containing `sparrow.event_id`, `sparrow.event_name`, and `sparrow.attempt` attributes. Ops teams can query logs, create alert thresholds on delivery failures, and correlate webhooks with APM traces.
