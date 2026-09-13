@@ -176,3 +176,55 @@ Sparrow rejects private-network delivery URLs by default (SSRF guard). To
 deliver to a local receiver during development, start the server with
 `SPARROW_ALLOW_PRIVATE_NETWORKS=true`.
 :::
+
+## Real-World Use Cases
+
+Recipes turn Sparrow into a zero-code integration hub. Instead of building, deploying, and maintaining microservice proxies to adapt webhooks for third-party platforms, you declare the target and transform in a single recipe.
+
+### Scenario 1: Real-Time Incident Alerting with PagerDuty
+**Goal:** Page the on-call engineer immediately whenever a critical system error (`system.database_down` or `payment.gateway_error`) occurs in production.
+
+```bash
+sparrow use pagerduty \
+  --param routing_key=pd-key-prod-12345 \
+  --event system.database_down \
+  --event payment.gateway_error \
+  --label env=production
+```
+
+**Why this works in real scenarios:**
+- **Zero Alert Noise on Retries:** PagerDuty's recipe uses `.event_id` as the `dedup_key`. If the initial HTTP call experiences network jitter, Sparrow's exponential retries hit PagerDuty's API without opening duplicate incident tickets.
+- **Selective Targeting:** Using `--label env=production` guarantees test or staging failures never wake up on-call engineers.
+
+### Scenario 2: Operations & Release ChatOps with Slack & Discord
+**Goal:** Give engineering and product teams real-time visibility into customer onboarding and feature deployments directly in team chat channels.
+
+```bash
+# Post rich Block Kit cards to Slack #signups
+sparrow use slack \
+  --param webhook_url=https://hooks.slack.com/services/T00/B00/X123 \
+  --event user.signup \
+  --event organization.upgraded
+
+# Post embeds to Discord #release-log
+sparrow use discord \
+  --param webhook_url=https://discord.com/api/webhooks/123/abc \
+  --event deployment.completed
+```
+
+**Why this helps:** Slack and Discord require strict JSON structures (Block Kit arrays or embed cards). Sparrow renders these templates server-side with zero per-delivery JS VM allocation, delivering formatted cards in milliseconds.
+
+### Scenario 3: High-Throughput Event Archiving with ClickHouse
+**Goal:** Maintain a real-time append-only event ledger in ClickHouse for analytics, funnels, and fraud detection.
+
+```bash
+sparrow use clickhouse \
+  --param base_url=http://clickhouse.internal:8123 \
+  --param table=raw_webhook_events \
+  --param user=ingest_user \
+  --param password=secure_pass \
+  --event order.created \
+  --event payment.refunded
+```
+
+**Why this helps:** ClickHouse ingests rows via `JSONEachRow` HTTP POST requests. Sparrow's ClickHouse recipe formats each event into a valid single-line JSON string containing `event_id`, `event_name`, `timestamp`, and stringified `payload`. Sparrow retries failed database writes with exponential backoff if ClickHouse undergoes maintenance.

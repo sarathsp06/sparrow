@@ -118,3 +118,25 @@ A **delivery** is a single attempt (or series of retry attempts) to send an even
 - **PostgreSQL only** — no Redis, no message broker. The River job queue runs inside PostgreSQL, keeping the operational footprint to a single database.
 - **Namespaces** — webhooks and events are organized into namespaces for logical separation (e.g., `billing`, `notifications`). A `default` namespace is always available.
 - **Soft schema validation** — event schemas produce warnings, not errors. Events are always accepted and stored, with a `schema_valid` flag for filtering.
+
+## Common Real-World Use Cases
+
+Sparrow simplifies architecture across multiple common software patterns:
+
+### 1. Reliable Outbound Webhooks for B2B SaaS Platforms
+If you build a SaaS platform (like Stripe, GitHub, or Shopify) that sends customer-configured webhooks, Sparrow acts as your dedicated outbound gateway:
+- Customers register their endpoints and HMAC secrets.
+- Your backend pushes events to Sparrow with `idempotency_key` guarantees.
+- Sparrow signs each HTTP request with Standard Webhooks signatures, retries failures with exponential backoff, tracks endpoint health (healthy/degraded/unhealthy), and provides full delivery visibility.
+
+### 2. Internal Microservice Event Bus & Fan-Out
+Instead of building heavy Kafka or RabbitMQ integrations just to notify internal microservices:
+- Services emit domain events (e.g., `user.signup`) to Sparrow via simple REST calls.
+- Internal subscribers (Billing, Email Marketing, Analytics, Security Audit) register webhooks.
+- Subscriptions use label filters (`env=prod`) and payload transforms to ensure services only receive relevant, cleanly shaped data.
+
+### 3. Automated Third-Party Integration Gateway
+With Sparrow's [recipes](/sparrow/satellites/recipes/) and [satellites](/sparrow/satellites/), you can integrate core business events with Slack, PagerDuty, Discord, ClickHouse, or S3 with zero custom code:
+- Firing an event automatically creates PagerDuty incidents on critical errors.
+- Posts rich Block Kit cards into Slack channels on sales conversions.
+- Streams full transaction streams into S3/MinIO for audit compliance.

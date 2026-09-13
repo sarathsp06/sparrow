@@ -31,6 +31,24 @@ and Sparrow still works; add your own and it is a first-class citizen.
 Each page explains the satellite's technical path — exactly which API calls it
 makes, how signatures are verified, and what happens per delivery.
 
+## Real-World Architecture & Use Cases
+
+Satellites allow you to orchestrate end-to-end event flows across cloud providers, SaaS vendors, databases, and notification channels without writing glue microservices.
+
+### Scenario 1: E-Commerce Payment & Order Fulfillment Pipeline
+When a customer purchases an item on your web store:
+1. **Source (`sparrow-sources`)**: Listens to incoming Stripe webhooks (`payment_intent.succeeded`), validates Stripe's signature, and re-publishes a clean `stripe.payment_intent.succeeded` event to Sparrow.
+2. **Core (Sparrow)**: Deduplicates the event using the idempotency key, matches subscriptions, and signs outbound requests with HMAC-SHA256 / Ed25519.
+3. **Recipe (`slack`)**: Instantly renders a Block Kit card to `#sales-notifications` showing order totals and customer metadata.
+4. **Sink (`sparrow-sinks` / S3)**: Streams raw delivery payloads to an Amazon S3 bucket (`s3://acme-audit-logs/events/2026/03/17/`) for long-term financial audit compliance.
+
+### Scenario 2: Developer Operations & Infrastructure Alerting
+When an automated deployment job or infrastructure monitor detects a failure:
+1. **Source (`sparrow-sources` / Cron)**: Fires a `health.check` tick every 60 seconds to evaluate upstream service status.
+2. **CLI (`sparrow push`)**: CI/CD pipelines in GitHub Actions push deployment failure events (`deploy.failed`) directly to Sparrow.
+3. **Recipe (`pagerduty`)**: Formats and triggers a high-severity incident in PagerDuty using the stable `event_id` as the deduplication key to prevent alert noise during retries.
+4. **Sink (`sparrow-sinks` / OTLP)**: Forwards delivery execution traces and logs to an OpenTelemetry Collector for Grafana / Datadog dashboards.
+
 ## The contract
 
 Anything you build against the same three rules inherits the whole pipeline:

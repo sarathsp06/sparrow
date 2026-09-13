@@ -224,3 +224,59 @@ sparrow tail deliveries
 
 Prints the CLI version (set at build time via
 `-ldflags "-X main.version=..."`).
+
+## Real-World Use Cases
+
+The `sparrow` CLI isn't just an administrative tool — it accelerates developer productivity across local development, testing, CI/CD automation, and template engineering.
+
+### Scenario 1: Zero-Config Local Webhook Receiver & Debugging
+**Goal:** Develop a feature on your local machine (`http://localhost:3000/api/webhooks`) that reacts to `user.signup` events without deploying to a public server or using third-party tunnels.
+
+```bash
+# Register a temporary local receiver and forward events to your app
+sparrow listen --event user.signup --forward http://localhost:3000/api/webhooks
+```
+
+**How it works:** `sparrow listen` binds a local port, registers a temporary webhook on the Sparrow server pointing to your machine, verifies incoming Standard Webhooks signatures on the fly, proxies the body to your app, and cleans up the temporary webhook when you hit `Ctrl-C`.
+
+### Scenario 2: CI/CD Pipeline Automation & Deployment Notifications
+**Goal:** Trigger downstream workflows or notify monitoring systems whenever a continuous integration build or production release succeeds.
+
+In your GitHub Actions workflow (`.github/workflows/deploy.yml`):
+
+```yaml
+- name: Notify Sparrow of Successful Deployment
+  env:
+    SPARROW_URL: ${{ secrets.SPARROW_URL }}
+    SPARROW_API_KEY: ${{ secrets.SPARROW_API_KEY }}
+  run: |
+    sparrow push deploy.success \
+      -d '{"app": "checkout-service", "commit": "'"$GITHUB_SHA"'", "environment": "production"}' \
+      -l env=prod \
+      --idempotency-key "deploy-prod-${{ github.run_id }}"
+```
+
+**Why this helps:** Sparrow deduplicates identical idempotency keys, registers the `deploy.success` event type automatically if it doesn't exist, and fans out notifications to Slack, PagerDuty, or audit logs based on your subscription label filters.
+
+### Scenario 3: Offline Transform Template Prototyping
+**Goal:** Draft a complex Go template transform for a partner's custom webhook schema before applying it to production subscriptions.
+
+```bash
+# 1. Write your Go template (e.g., custom_partner.tmpl)
+cat << 'EOF' > custom_partner.tmpl
+{{ dict "partner_id" "acme" "transaction" (dict "id" .payload.order_id "total_dollars" (div .payload.amount_cents 100)) | json }}
+EOF
+
+# 2. Render and debug locally against sample payload data
+sparrow template test custom_partner.tmpl --payload '{"order_id": "ord_9988", "amount_cents": 4995}'
+```
+
+**Output:**
+```json
+{"partner_id":"acme","transaction":{"id":"ord_9988","total_dollars":49.95}}
+```
+
+**Next step:** Once verified, attach it directly using a single command:
+```bash
+sparrow use partner_recipe --file ./partner-recipe.yaml --event order.completed
+```
