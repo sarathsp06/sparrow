@@ -32,7 +32,7 @@ API Layer
     │
     ▼
 Service Layer
-├── internal/webhooks — Core business logic (WebhookServiceInterface)
+├── internal/webhooks — Core business logic (7 domain interfaces, composited as WebhookServiceInterface)
 ├── internal/tenant   — Tenant bootstrap + default tenant
     │
     ▼
@@ -49,6 +49,17 @@ Job Queue Layer (River)
 HTTP Client Layer
 ├── internal/webhooks/client — Delivery HTTP client, HMAC/Ed25519 signing
 ```
+
+## Satellites (companion binaries)
+
+Satellites live under `satellites/` and orbit the core over its public REST API
+and the Standard Webhooks signature — they never import `internal/`, only
+`pkg/` (`pkg/signature`, `pkg/template`).
+
+- **`satellites/sparrow`** — the `sparrow` CLI: `init`/`push`/`listen`/`tail`/`use`/`template test`.
+- **`satellites/sparrow-sources`** — world → Sparrow events: cron emitter + Stripe/GitHub webhook normalizers.
+- **`satellites/sparrow-sinks`** — signed delivery receiver → SMTP email, S3/MinIO archive, OTLP log export.
+- **`satellites/recipes`** — apply-time YAML transforms (Slack, Discord, ntfy, PagerDuty, ClickHouse) rendered via `pkg/template`.
 
 ## Dependencies
 

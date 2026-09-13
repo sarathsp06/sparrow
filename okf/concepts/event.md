@@ -19,7 +19,7 @@ Defines an event type with an optional JSON schema. Schema validation is **soft*
 
 ## Event Record
 
-An instance of a pushed event. Created by `PushEvent` RPC.
+An instance of a pushed event. Created by the `PushEvent` API.
 
 - Deduplication via optional `idempotency_key` (partial unique index)
 - `schema_valid` flag for soft validation

@@ -1,7 +1,7 @@
 ---
 type: Concept
 title: Event Pipeline Data Flow
-description: End-to-end flow from PushEvent RPC through fan-out, delivery, and retry
+description: End-to-end flow from the PushEvent API through fan-out, delivery, and retry
 tags: [data-flow, core]
 timestamp: 2026-06-22T00:00:00Z
 ---
@@ -11,7 +11,7 @@ timestamp: 2026-06-22T00:00:00Z
 ## PushEvent → Delivery
 
 ```
-PushEvent RPC
+PushEvent (REST)
     │
     ▼
 1. Idempotency check (if idempotency_key provided)
@@ -70,6 +70,6 @@ BatchJobWorker processes snapshot:
 ## Citations
 
 - Flow described in `opencode.md` Data Flow section
-- `internal/webhooks/queue/event_worker.go` — fan-out implementation
+- `internal/webhooks/queue/events_worker.go` — fan-out implementation
 - `internal/webhooks/queue/webhook_worker.go` — delivery with rate limiting
-- `internal/webhooks/queue/batch_job_worker.go` — batch processing
+- `internal/webhooks/queue/batch_worker.go` — batch processing

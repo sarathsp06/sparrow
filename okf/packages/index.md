@@ -13,4 +13,5 @@
 * [pkg/crypto](pkg-crypto.md) — envelope encryption
 * [pkg/errors](pkg-errors.md) — error classification
 * [pkg/storage](pkg-storage.md) — database abstraction
+* [pkg/template](pkg-template.md) — cached Go template engine for payload transforms
 * [pkg/types](pkg-types.md) — generic Map type

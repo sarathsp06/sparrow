@@ -38,4 +38,4 @@ Search → prepare_* flag → snapshot into batch_jobs → return repush_id/retr
 ## Citations
 
 - `db/migrations/000017.up.sql` — batch_jobs table
-- `internal/webhooks/queue/batch_job_worker.go` — processing
+- `internal/webhooks/queue/batch_worker.go` — processing

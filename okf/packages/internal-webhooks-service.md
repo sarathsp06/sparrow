@@ -8,25 +8,29 @@ timestamp: 2026-07-06T16:46:48Z
 
 # internal/webhooks (service)
 
-The central service layer defining `WebhookServiceInterface` and its implementation `WebhookService`.
+The central service layer. `WebhookService` implements seven narrow domain
+interfaces; consumers in `internal/rest` depend on the single slice they need,
+not on the whole service.
 
-## WebhookServiceInterface
+## Domain interfaces
 
-`WebhookServiceInterface` is a composite interface that embeds smaller domain interfaces. This preserves the existing service seam used by `internal/rest`, while making the domain-specific seams explicit for tests and future refactors.
+`WebhookServiceInterface` is a composite that embeds the seven interfaces below.
+It exists only for DI wiring and the generated OTel decorator (`//go:generate
+gowrap -i WebhookServiceInterface`); new consumers should depend on a single
+domain interface instead.
 
-Embedded domain interfaces:
+- **WebhookManager**: RegisterWebhook, CreateWebhook, UnregisterWebhook, ListWebhooks, UpdateWebhookConfig, PauseWebhook, ResumeWebhook, GetNamespaceStats
+- **EventManager**: RegisterEvent, ListEvents, UpdateEvent, DeleteEvent, GetEvent, PushEvent, RePushEvent, GetEventRecord, ListEventReports
+- **SubscriptionManager**: CreateSubscription, GetSubscription, ListSubscriptions, UpdateSubscription, DeleteSubscription, TestSubscriptionTemplate, ListSubscriptionsByWebhookIDs, GetTemplateFunctions
+- **DeliveryManager**: GetDeliveryStatus, GetDeliveryAttempts, ListDeliveries, RetryDelivery
+- **HealthManager**: GetWebhookHealth, GetHealthSummary
+- **BatchManager**: RePushEvents, GetRepushStatus, CancelRepush, RetryDeliveries, GetRetryStatus, CancelRetry
+- **SecretRevealer**: DecryptSecretHeaders, DecryptWebhookSecret, WebhookSigningPublicKeyHex
 
-- **WebhookRegistrationService**: RegisterWebhook, CreateWebhook, UnregisterWebhook, ListWebhooks, UpdateWebhookConfig, PauseWebhook, ResumeWebhook, GetNamespaceStats
-- **EventService**: RegisterEvent, ListEvents, UpdateEvent, DeleteEvent, GetEvent, PushEvent, RePushEvent, GetEventRecord, ListEventReports
-- **SubscriptionService**: CreateSubscription, GetSubscription, ListSubscriptions, UpdateSubscription, DeleteSubscription, TestSubscriptionTemplate
-- **DeliveryService**: GetDeliveryStatus, GetDeliveryAttempts, ListDeliveries, RetryDelivery
-- **HealthService**: GetWebhookHealth, ListWebhooksByHealth, GetHealthSummary
-- **BatchService**: RePushEvents, GetRepushStatus, CancelRepush, RetryDeliveries, GetRetryStatus, CancelRetry
-- **TemplateMetadataService**: GetTemplateFunctions
-- **WebhookRepositoryAccessor**: GetWebhookRepo
-- **WebhookSecretPresenter**: DecryptWebhookSecret, DecryptSecretHeaders, WebhookSigningPublicKeyHex
-
-`WebhookSecretPresenter` keeps encrypted webhook secret presentation and Ed25519 public-key derivation behind the service seam, so transport modules do not decrypt private-key material directly.
+`SecretRevealer` keeps encrypted webhook secret presentation and Ed25519
+public-key derivation behind the service seam, so transport modules never
+decrypt private-key material directly. Subscription payload transforms run
+through `pkg/template` (extracted from the webhook client).
 
 ## Key Types
 

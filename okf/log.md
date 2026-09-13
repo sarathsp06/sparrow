@@ -1,5 +1,14 @@
 # OKF Changelog
 
+## 2026-09-13
+
+### Satellite ring + pkg/template extraction
+
+- **Satellites ring added to OKF**: new [`architecture/satellites.md`](architecture/satellites.md) documents the four companion binaries (`satellites/sparrow` CLI, `satellites/sparrow-sources`, `satellites/sparrow-sinks`, `satellites/recipes`) and the hard boundary rule — `satellites/` imports only `pkg/`, never `internal/`. Linked from `index.md`; overview.md gained a Satellites section.
+- **`pkg/template` extracted** from `internal/webhooks/client` so the delivery worker AND out-of-tree satellites render transforms without importing `internal/`. New [`packages/pkg-template.md`](packages/pkg-template.md); client doc updated to note it delegates transforms.
+- **RPC drift removed**: `data-flow.md`, `concepts/event.md` now say "PushEvent API" (not RPC); worker citations fixed (`events_worker.go`, `batch_worker.go`).
+- **Service interfaces corrected**: `packages/internal-webhooks-service.md` now lists the real seven domain interfaces (`WebhookManager`, `EventManager`, `SubscriptionManager`, `DeliveryManager`, `HealthManager`, `BatchManager`, `SecretRevealer`); dropped the removed `GetWebhookRepo` accessor.
+
 ## 2026-08-04
 
 ### Knowledge graph + agent prompts

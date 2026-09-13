@@ -10,6 +10,7 @@ A self-hosted webhook delivery platform with event-driven architecture. Accepts 
 
 * [Architecture Overview](/architecture/overview.md) — system architecture and design
 * [Data Flow](/architecture/data-flow.md) — event push through delivery pipeline
+* [Satellites](/architecture/satellites.md) — companion binaries (CLI, sources, sinks, recipes)
 * [Packages](/packages/index.md) — Go package reference
 * [Services](/services/index.md) — REST service surface
 * [Concepts](/concepts/index.md) — domain concepts
