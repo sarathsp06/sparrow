@@ -3,7 +3,7 @@ title: Template Functions
 description: Complete reference for Go template functions available in payload transformation
 ---
 
-Sparrow provides 22 built-in template functions for transforming webhook payloads. These are available in subscription `transform_template` fields.
+Sparrow provides 37 built-in template functions for transforming webhook payloads. These are available in subscription `transform_template` fields. They cover string manipulation, encoding, time formatting, arithmetic, and structural map/list building — enough to reshape a payload entirely without an embedded scripting runtime.
 
 Templates use Go's `text/template` syntax. The event payload is available as the template data context (e.g., `{{ .payload.field_name }}`).
 
@@ -35,6 +35,19 @@ Templates use Go's `text/template` syntax. The event payload is available as the
 | `hasPrefix` | Check string prefix |
 | `hasSuffix` | Check string suffix |
 | `replace` | Replace all occurrences |
+| `dict` | Build a map from key/value pairs |
+| `list` | Build a slice from arguments |
+| `append` | Append items to a slice |
+| `merge` | Merge maps (later keys win) |
+| `add` | Add two numbers |
+| `sub` | Subtract two numbers |
+| `mul` | Multiply two numbers |
+| `div` | Divide two numbers |
+| `mod` | Integer remainder |
+| `dig` | Safe nested map lookup with default |
+| `toString` | Convert any value to string |
+| `toInt` | Convert to integer |
+| `toFloat` | Convert to float |
 
 ---
 
@@ -396,3 +409,88 @@ Replaces all occurrences of a substring with another.
 ```
 
 **Example:** `replace " " "_" "hello world test"` -> `"hello_world_test"`
+
+---
+
+## dict
+
+Builds a map from alternating key/value pairs. Keys must be strings. Pipe through `json` to emit a structured object without hand-writing braces (which avoids quoting/escaping bugs).
+
+```go
+{{ dict "user" .payload.id "amount" .payload.amount | json }}
+```
+
+**Example:** `dict "a" 1 "b" 2 | json` -> `{"a":1,"b":2}`
+
+---
+
+## list
+
+Builds a slice from its arguments. Pipe through `json` to emit an array.
+
+```go
+{{ list .payload.a .payload.b | json }}
+```
+
+**Example:** `list 1 2 3 | json` -> `[1,2,3]`
+
+---
+
+## append
+
+Appends items to a slice, returning the new slice. Combine with `=` reassignment inside `range` to accumulate an array.
+
+```go
+{{ $out := list }}
+{{ range .payload.items }}{{ $out = append $out .id }}{{ end }}
+{{ $out | json }}
+```
+
+---
+
+## merge
+
+Merges maps into a new map. Later keys overwrite earlier ones; inputs are not modified.
+
+```go
+{{ merge .payload (dict "source" "sparrow") | json }}
+```
+
+---
+
+## add / sub / mul / div / mod
+
+Arithmetic on numbers. Values are coerced from JSON numbers or numeric strings. `add`, `sub`, `mul`, and `div` return floats; `mod` returns an integer. `div` and `mod` error on a zero divisor.
+
+```go
+{{ add .payload.subtotal .payload.tax }}
+{{ mul .payload.amount 100 }}
+{{ div .payload.amount_cents 100 }}
+{{ mod .payload.sequence 10 }}
+```
+
+**Example:** `mul 5.5 100` -> `550`
+
+---
+
+## dig
+
+Safely reads a nested value from a map by a path of keys, returning the default if any key along the path is missing. Arguments are one or more keys, then a default value, then the map (last). Avoids template errors on optional fields.
+
+```go
+{{ dig "customer" "address" "city" "unknown" .payload }}
+```
+
+**Example:** on `{"customer":{"id":"c1"}}`, `dig "customer" "email" "none" .payload` -> `"none"`
+
+---
+
+## toString / toInt / toFloat
+
+Type conversion. `toString` renders any value as a string; `toInt` and `toFloat` coerce JSON numbers or numeric strings (`toInt` truncates toward zero).
+
+```go
+{{ toString .payload.count }}
+{{ dict "count" (toInt .payload.count) | json }}
+{{ toFloat .payload.price }}
+```

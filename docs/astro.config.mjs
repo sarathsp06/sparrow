@@ -33,6 +33,12 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Guides',
+          items: [
+            { slug: 'guides/payload-transformation' },
+          ],
+        },
+        {
           label: 'Satellites',
           items: [
             { slug: 'satellites' },

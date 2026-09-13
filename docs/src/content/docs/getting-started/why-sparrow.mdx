@@ -47,7 +47,7 @@ The table below compares Sparrow with the main alternatives for webhook delivery
 | **Job queue backend** | PostgreSQL (River) | Redis-backed queue/workers | Background workers + Redis | Managed | Managed | Varies |
 | **Webhook signing** | Dual HMAC-SHA256 + Ed25519 | HMAC-SHA256 | HMAC-SHA256 | HMAC-SHA256 | X.509 signature (not HMAC) | Manual |
 | **Security model for secrets** | Envelope encryption with per-record DEKs | Encrypted at rest (service-managed keys) | Deployment-dependent (no built-in envelope hierarchy) | Vendor-managed encryption | Vendor-managed encryption | Manual |
-| **Payload transformation** | Go templates per subscription (50+ functions) | Varies by edition/plan | Yes (JS transform) | Yes (JS transform) | No | Manual |
+| **Payload transformation** | Go templates per subscription (37 functions, incl. structural + arithmetic) | Varies by edition/plan | Yes (JS transform) | Yes (JS transform) | No | Manual |
 | **Per-webhook rate limiting** | Leaky bucket (DB-backed) | Available (details vary) | Yes | Yes | Regional quotas | Manual |
 | **Delivery semantics** | At-least-once + explicit idempotency model | At-least-once + retries | At-least-once + retries | At-least-once + replay | At-least-once | Varies |
 | **Delivery health model** | State machine (healthy/degraded/unhealthy) | Endpoint status | Circuit breaker | Dashboard metrics | CloudWatch | Manual |
@@ -79,7 +79,7 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 
 - **Operational simplicity** -- one database, one binary, no Redis. Fewer moving parts means fewer failure modes in production.
 - **Cryptographic depth** -- dual signing (HMAC + Ed25519) and real envelope encryption are production security features that most webhook platforms skip or gate behind paid tiers.
-- **Payload transformation** -- Go template transforms per subscription let you reshape payloads for different consumers (Slack, PagerDuty, custom formats) without proxy layers. Available to all users, not a paid feature.
+- **Payload transformation** -- Go `text/template` transforms per subscription (37 built-in functions, including structural `dict`/`list`/`merge`/`append` and arithmetic) let you reshape payloads for different consumers (Slack, PagerDuty, custom formats) without proxy layers. This is a **deliberate design choice over an embedded JavaScript runtime**: templates are parsed once and cached, so each delivery runs with near-zero overhead; there is no per-worker JS VM to pool, no extra dependency, and the server stays a single distroless ~15MB binary with a small, predictable memory footprint. Parsed templates are concurrency-safe and reused across all delivery workers, so transform throughput scales with workers instead of contending on interpreter instances. Every transform is bounded by a 1MB output cap and a 5s execution timeout. Available to all users, not a paid feature.
 - **Error intelligence** -- 10 error categories with retryability classification. You know *why* a delivery failed (DNS resolution? TLS handshake? Rate limited? Connection refused?), not just *that* it failed.
 - **Bulk operations** -- snapshot-based batch re-push and retry with deterministic execution. What you filter is exactly what gets retried -- no race conditions from new data arriving between search and action.
 - **Observability** -- full OpenTelemetry integration with trace propagation through the job queue. Trace a single event from ingestion through fan-out to every delivery attempt.
@@ -93,7 +93,7 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 - **Consumer app portal** -- Sparrow's UI is admin-only. If you need an embeddable end-user portal, evaluate alternatives that provide one.
 - **Multi-tenant SaaS mode** -- Svix, Convoy, and Hookdeck are designed for SaaS platforms where each customer manages their own webhooks. Sparrow is designed for teams running their own infrastructure.
 - **Managed cloud offering** -- Svix Cloud and Hookdeck handle infrastructure for you. Sparrow is self-hosted only.
-- **JavaScript transforms** -- Convoy and Hookdeck use JavaScript for payload transformation, which may be more familiar to web developers than Go templates.
+- **JavaScript transforms** -- Convoy and Hookdeck use JavaScript for payload transformation, which may be more familiar to web developers. Sparrow deliberately uses Go templates instead: cached, concurrency-safe execution with no embedded JS runtime means a smaller memory footprint, higher throughput, and zero extra dependencies -- the tradeoff is JavaScript's familiarity. The 37 built-in functions (structural map/list building, arithmetic, `dig`, type coercion) cover payload reshaping without a scripting engine.
 - **Ecosystem maturity** -- alternatives may offer larger ecosystems and more prebuilt integrations depending on your requirements.
 
 ### Important nuance

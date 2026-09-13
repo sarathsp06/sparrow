@@ -1,0 +1,266 @@
+---
+title: Transforming Payloads
+description: A beginner-friendly guide to reshaping webhook payloads with Sparrow's template functions, with real-world examples.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+New to Sparrow? This guide shows you how to change the shape of a webhook
+payload *before* it's delivered — no code, no proxy service, just a small
+template you write once per subscription.
+
+## What is a transform, and why would I want one?
+
+A webhook payload is just a chunk of JSON. The problem is that the system
+Sparrow delivers to rarely wants the *exact* JSON your event started with:
+
+- Slack wants a `{"text": "..."}` message, not your raw event.
+- Your billing system wants amounts in **cents**, but your event has **dollars**.
+- A legacy endpoint wants a flat object, but your event is deeply nested.
+- A partner should only see three fields, not your entire internal record.
+
+A **transform** solves this. You attach a small template to a subscription, and
+Sparrow runs your event through it to produce the body that actually gets sent.
+
+<Aside type="tip" title="One subscription, one shape">
+Every subscription can have its own transform. The *same* event can be
+delivered to Slack as a chat message and to your data warehouse as flat JSON —
+each subscription reshapes it independently.
+</Aside>
+
+## Where the transform lives
+
+When you create or update a subscription, set its `transform_template` field.
+That's it — Sparrow handles the rest at delivery time.
+
+## The mental model (read this first)
+
+A template **receives your event** and **prints text**. Whatever text it prints
+becomes the delivered body. Your event is available through these fields:
+
+| Field | What it is |
+|-------|------------|
+| `.payload` | Your event's data (the JSON you pushed) |
+| `.event_name` | The event type, e.g. `payment.succeeded` |
+| `.event_id` | Unique ID for this event |
+| `.timestamp` | When the event happened |
+| `.attempt` | Which delivery attempt this is |
+
+So `{{ .payload.customer.email }}` reads the `customer.email` field out of your
+event, and `{{ .event_name }}` prints the event type.
+
+<Aside type="caution" title="Templates print text — use `json` for JSON">
+A template outputs raw text. If you want to deliver **valid JSON**, build a map
+or list and pipe it through the `json` function (shown below). Don't hand-write
+JSON with `{}` and quotes around your values — you'll hit escaping bugs the
+moment a value contains a quote. Let `json` do it.
+</Aside>
+
+## Try it before you ship it
+
+You don't have to guess. Test any template against a sample event:
+
+<Steps>
+
+1. **List the available helpers:**
+
+   ```bash
+   curl http://localhost:8080/v1/template-functions
+   ```
+
+2. **Test a template against a sample payload** (returns the rendered output):
+
+   ```bash
+   curl -X POST http://localhost:8080/v1/subscriptions:testTemplate \
+     -H 'Content-Type: application/json' \
+     -d '{
+       "template": "{{ dict \"id\" .event_id \"type\" .event_name | json }}",
+       "payload": { "amount": 4200 }
+     }'
+   ```
+
+3. **Or from the CLI:**
+
+   ```bash
+   sparrow template test
+   ```
+
+</Steps>
+
+## Real-world examples
+
+Each example shows the **incoming event**, the **template** you'd set on the
+subscription, and the **delivered result**.
+
+### 1. Send only the fields a partner needs
+
+**Problem:** your event has 30 internal fields, but a partner should only see
+three.
+
+**Incoming `.payload`:**
+
+```json
+{ "id": "evt_123", "amount": 4200, "internal_notes": "…", "secret": "…" }
+```
+
+**Template:**
+
+```go
+{{ dict "id" .payload.id "amount" .payload.amount "event" .event_name | json }}
+```
+
+**Delivered:**
+
+```json
+{"amount":4200,"event":"payment.succeeded","id":"evt_123"}
+```
+
+`dict` builds an object from `"key" value` pairs; `json` turns it into JSON.
+
+### 2. Post a message to Slack
+
+**Problem:** Slack's Incoming Webhooks expect `{"text": "..."}`.
+
+**Incoming `.payload`:**
+
+```json
+{ "customer": { "name": "Ada" }, "amount": 4200, "currency": "usd" }
+```
+
+**Template:**
+
+```go
+{{ dict "text" (printf "%s paid %s %.2f" (dig "customer" "name" "Someone" .payload) (upper .payload.currency) (div .payload.amount 100)) | json }}
+```
+
+**Delivered:**
+
+```json
+{"text":"Ada paid USD 42.00"}
+```
+
+Here `dig` safely reads `customer.name` (falling back to `"Someone"` if it's
+missing), `div` converts cents to dollars, and `printf` formats the sentence.
+
+### 3. Convert dollars to cents for a billing system
+
+**Problem:** your event has amounts in dollars; the target wants integer cents.
+
+**Incoming `.payload`:**
+
+```json
+{ "customer": { "id": "cus_9" }, "amount": 42.5, "currency": "usd" }
+```
+
+**Template:**
+
+```go
+{{ dict "user" (dig "customer" "id" "" .payload) "amount_cents" (toInt (mul .payload.amount 100)) "currency" .payload.currency | json }}
+```
+
+**Delivered:**
+
+```json
+{"amount_cents":4250,"currency":"usd","user":"cus_9"}
+```
+
+`mul` multiplies, `toInt` drops the decimal so you get a clean integer.
+
+### 4. Flatten a nested payload for a legacy endpoint
+
+**Problem:** an old system wants a flat object, but your data is nested.
+
+**Incoming `.payload`:**
+
+```json
+{ "customer": { "id": "c1", "email": "ada@example.com" }, "order": { "total": 99.5 } }
+```
+
+**Template:**
+
+```go
+{{ dict "customer_id" (dig "customer" "id" "" .payload) "email" (dig "customer" "email" "" .payload) "total" (dig "order" "total" 0 .payload) | json }}
+```
+
+**Delivered:**
+
+```json
+{"customer_id":"c1","email":"ada@example.com","total":99.5}
+```
+
+`dig` walks a path of keys and returns your default if any part is missing — so
+one absent field never breaks the whole delivery.
+
+### 5. Summarize a list of items
+
+**Problem:** your event has an array of line items; you only want the SKUs.
+
+**Incoming `.payload`:**
+
+```json
+{ "items": [ { "sku": "A" }, { "sku": "B" }, { "sku": "C" } ] }
+```
+
+**Template:**
+
+```go
+{{ $skus := list }}{{ range .payload.items }}{{ $skus = append $skus .sku }}{{ end }}{{ dict "skus" $skus | json }}
+```
+
+**Delivered:**
+
+```json
+{"skus":["A","B","C"]}
+```
+
+`range` loops over the array; `append` collects each SKU into a growing list.
+
+### 6. Add a constant or computed field
+
+**Problem:** you want to pass the whole payload through, but tag it with extra
+metadata.
+
+**Template:**
+
+```go
+{{ merge .payload (dict "source" "sparrow" "delivered_at" (formatTime "2006-01-02T15:04:05Z07:00" now)) | json }}
+```
+
+**Delivered:** your original payload, plus `"source"` and `"delivered_at"`.
+
+`merge` combines maps; later keys win, and the originals are left untouched.
+
+### 7. Provide safe defaults for optional fields
+
+**Problem:** some events are missing optional fields, and you want sensible
+fallbacks instead of empty values.
+
+**Template:**
+
+```go
+{{ dict "name" (dig "customer" "name" "Guest" .payload) "plan" (default "free" .payload.plan) | json }}
+```
+
+`dig` covers missing nested keys; `default` covers a field that's present but
+empty.
+
+## Good to know
+
+- **Transforms run at delivery**, on the way out. They don't change what Sparrow
+  stores or how it fans out — only the body each subscription receives.
+- **Bad template? Delivery still happens.** If a template fails to render,
+  Sparrow falls back to the standard event envelope rather than dropping the
+  delivery.
+- **There are limits.** Output is capped at **1 MB** and execution at **5
+  seconds** per transform, so a runaway template can't stall a worker.
+- **Why Go templates and not JavaScript?** They're parsed once and cached, run
+  with almost no overhead, add zero dependencies, and are safe to share across
+  every delivery worker — a deliberate choice for a small memory footprint and
+  high throughput. See [Why Sparrow](/sparrow/getting-started/why-sparrow/).
+
+## Where to go next
+
+- [Template Functions reference](/sparrow/reference/template-functions/) — the
+  full list of all 37 helpers with signatures and examples.
+- [Recipes](/sparrow/satellites/recipes/) — ready-made source/sink configs that
+  use transforms.
