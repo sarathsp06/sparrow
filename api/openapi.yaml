@@ -1823,6 +1823,13 @@ paths:
           schema:
             description: Filter by delivery status (e.g. pending, success, failed, retrying).
             type: string
+        - description: Filter by failure classification (e.g. server_error, client_error, timeout).
+          explode: false
+          in: query
+          name: error_category
+          schema:
+            description: Filter by failure classification (e.g. server_error, client_error, timeout).
+            type: string
         - description: If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint.
           explode: false
           in: query

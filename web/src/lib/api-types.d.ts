@@ -1567,11 +1567,11 @@ export interface components {
                 [key: string]: string;
             };
             /**
-             * @description Which signature algorithm (hmac or ed25519) is treated as authoritative. Every delivery is always dual-signed with both.
+             * @description Signing scheme. "hmac" (default) signs every delivery with HMAC-SHA256 (v1,); "ed25519" adds an Ed25519 signature (v1a,) alongside the HMAC one.
              * @enum {string}
              */
             signature_type: "hmac" | "ed25519";
-            /** @description Ed25519 public key for verifying the v1a, delivery signature. Safe to expose; there is no private-key equivalent to mask. */
+            /** @description Hex-encoded Ed25519 public key for verifying the v1a, delivery signature. Safe to expose; there is no private-key equivalent to mask. */
             signing_public_key?: string;
             /** @description Last-modified timestamp, RFC3339. */
             updated_at: string;
@@ -2135,6 +2135,8 @@ export interface operations {
                 event_id?: string;
                 /** @description Filter by delivery status (e.g. pending, success, failed, retrying). */
                 status?: string;
+                /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
+                error_category?: string;
                 /** @description If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint. */
                 prepare_retry?: boolean;
                 /** @description Maximum items to return. */

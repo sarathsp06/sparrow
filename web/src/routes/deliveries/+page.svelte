@@ -75,6 +75,7 @@
                         webhook_id: webhookIdFilter.trim() || undefined,
                         event_id: eventIdFilter.trim() || undefined,
                         status: statusFilter || undefined,
+                        error_category: errorCategoryFilter || undefined,
                         prepare_retry: prepareRetry,
                         limit: pageSize,
                         offset,
