@@ -3,22 +3,21 @@ title: Satellites
 description: Companion tools that orbit the Sparrow core — CLI, recipes, sources, and sinks — built entirely on the public REST API.
 ---
 
+import ThemeDiagram from '../../../components/ThemeDiagram.astro';
+import satelliteTopologyLight from '../../../assets/diagrams/satellite-topology-light.svg';
+import satelliteTopologyDark from '../../../assets/diagrams/satellite-topology-dark.svg';
+
 Satellites are companion tools that **orbit the core** — they use Sparrow, they
 never reach inside it. Every satellite talks to the same public REST API and
 signed-webhook contract you do, so the delivery pipeline (matching, retries,
 signing, audit trail) stays one small, boring server. Delete every satellite
 and Sparrow still works; add your own and it is a first-class citizen.
 
-```
-                        ┌──────────────────────────┐
-  world ──▶ sources ──▶ │       Sparrow core       │ ──▶ recipes ──▶ Slack, PagerDuty, …
-  (cron, Stripe,        │  match · retry · sign    │ ──▶ sinks   ──▶ email, S3, OTLP
-   GitHub)              │       · audit            │ ──▶ your own HTTP endpoint
-                        └──────────────────────────┘
-                              ▲            │
-                              └─── CLI ────┘
-                          push · tail · listen
-```
+<ThemeDiagram
+  light={satelliteTopologyLight}
+  dark={satelliteTopologyDark}
+  alt="Satellite topology: the outside world (cron schedules, Stripe and GitHub webhooks) flows through inbound Sources, which verify signatures and publish typed events into the Sparrow core (match, retry, sign, audit). The core sends signed deliveries out to Recipes (Slack, Discord, ntfy, PagerDuty, ClickHouse), Sinks (email, S3, OTLP), and your own HTTP endpoints. The CLI talks to the core over REST and local webhooks for push, tail, and listen."
+/>
 
 ## The satellites
 

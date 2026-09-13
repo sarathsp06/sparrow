@@ -1,0 +1,18 @@
+graph LR
+    World[World<br>cron · Stripe · GitHub]
+    World -->|verify signature| Sources[Sources]
+
+    Sources -->|publish typed events<br>POST /v1/.../events| Core
+
+    subgraph Core[Sparrow core]
+        Sparrow[match · retry · sign · audit]
+    end
+
+    Sparrow -->|signed delivery| Recipes[Recipes]
+    Sparrow -->|signed delivery| Sinks[Sinks]
+    Sparrow -->|signed delivery| Yours[Your HTTP endpoint]
+
+    Recipes --> Chat[Slack · Discord · ntfy · PagerDuty · ClickHouse]
+    Sinks --> Out[Email · S3 · OTLP]
+
+    CLI[CLI<br>push · tail · listen] <-->|REST + local webhooks| Sparrow
