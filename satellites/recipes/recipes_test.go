@@ -11,7 +11,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/sarathsp06/sparrow/internal/webhooks/client"
+	"github.com/sarathsp06/sparrow/pkg/template"
 	"github.com/sarathsp06/sparrow/satellites/recipes"
 )
 
@@ -21,8 +21,8 @@ var paramToken = regexp.MustCompile(`\{\{param "([^"]+)"\}\}`)
 
 // sampleContext mirrors what Sparrow passes to transform templates per
 // delivery (see internal/webhooks/queue/webhook_worker.go).
-func sampleContext() client.WebhookTemplateContext {
-	return client.NewWebhookTemplateContext(
+func sampleContext() template.WebhookTemplateContext {
+	return template.NewWebhookTemplateContext(
 		"evt_0195c2a1",
 		"user.created",
 		time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339),
@@ -62,7 +62,7 @@ func TestRecipes(t *testing.T) {
 		t.Fatalf("expected at least 5 recipes, found %d", len(files))
 	}
 
-	engine := client.NewTemplateEngine()
+	engine := template.NewTemplateEngine()
 
 	for _, file := range files {
 		t.Run(strings.TrimSuffix(file, ".yaml"), func(t *testing.T) {

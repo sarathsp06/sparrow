@@ -24,6 +24,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
+	"github.com/sarathsp06/sparrow/pkg/template"
 )
 
 // WebhookWorker handles webhook delivery jobs
@@ -232,7 +233,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 
 	// Check for transformation
 	if subscription != nil && subscription.TransformEnabled && subscription.TransformTemplate != "" {
-		payloadBytes, err = w.client.TransformPayload(subscription.TransformTemplate, client.NewWebhookTemplateContext(
+		payloadBytes, err = w.client.TransformPayload(subscription.TransformTemplate, template.NewWebhookTemplateContext(
 			args.EventID,
 			eventRecord.Event,
 			time.Now().UTC().Format(time.RFC3339),

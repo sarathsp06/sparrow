@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
+	"github.com/sarathsp06/sparrow/pkg/template"
 )
 
 // WebhookClient handles webhook delivery
 type WebhookClient struct {
 	httpClient *http.Client
-	tmpl       *TemplateEngine
+	tmpl       *template.TemplateEngine
 	config     *Config
 }
 
@@ -56,7 +58,7 @@ func NewWebhookClient(config *Config) *WebhookClient {
 			Timeout:       config.Timeout,
 			CheckRedirect: checkRedirect,
 		},
-		tmpl:   NewTemplateEngine(),
+		tmpl:   template.NewTemplateEngine(),
 		config: config,
 	}
 }
@@ -103,7 +105,7 @@ func (c *WebhookClient) Close() error {
 }
 
 // TransformPayload transforms the webhook payload using a template
-func (c *WebhookClient) TransformPayload(tmplStr string, data WebhookTemplateContext) ([]byte, error) {
+func (c *WebhookClient) TransformPayload(tmplStr string, data template.WebhookTemplateContext) ([]byte, error) {
 	return c.tmpl.TransformPayload(tmplStr, data)
 }
 

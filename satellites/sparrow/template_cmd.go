@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	webhookclient "github.com/sarathsp06/sparrow/internal/webhooks/client"
+	"github.com/sarathsp06/sparrow/pkg/template"
 )
 
 // runTemplateTest renders a transform template locally with the same engine
@@ -29,8 +29,8 @@ func runTemplateTest(args []string, out io.Writer) error {
 		return err
 	}
 
-	engine := webhookclient.NewTemplateEngine()
-	rendered, err := engine.TransformPayload(string(tmpl), webhookclient.NewWebhookTemplateContext(
+	engine := template.NewTemplateEngine()
+	rendered, err := engine.TransformPayload(string(tmpl), template.NewWebhookTemplateContext(
 		"evt_sample", *eventName, time.Now().UTC().Format(time.RFC3339), 1, payload))
 	if err != nil {
 		return fmt.Errorf("template error: %w", err)

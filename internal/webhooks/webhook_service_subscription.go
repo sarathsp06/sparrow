@@ -8,10 +8,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/sarathsp06/sparrow/internal/tenant"
-	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 	"github.com/sarathsp06/sparrow/pkg/storage"
+	"github.com/sarathsp06/sparrow/pkg/template"
 )
 
 // getSubscriptionInNamespace loads a subscription by ID and verifies it belongs to the
@@ -198,10 +198,10 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		return "", svcerrors.Error(svcerrors.NotFound, "event not found")
 	}
 
-	engine := client.NewTemplateEngine()
+	engine := template.NewTemplateEngine()
 
 	// Create context for template
-	data := client.NewWebhookTemplateContext(
+	data := template.NewWebhookTemplateContext(
 		"dry-run-event-id",
 		eventName,
 		time.Now().UTC().Format(time.RFC3339),
@@ -218,7 +218,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 }
 
 func (s *WebhookService) GetTemplateFunctions() []TemplateFunctionInfo {
-	functions := client.GetTemplateFunctions()
+	functions := template.GetTemplateFunctions()
 	res := make([]TemplateFunctionInfo, len(functions))
 	for i, f := range functions {
 		res[i] = TemplateFunctionInfo{

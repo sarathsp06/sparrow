@@ -1,10 +1,11 @@
-package client
+package template
 
 import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -230,6 +231,192 @@ func GetTemplateFunctions() []TemplateFunc {
 			},
 			Description: "# replace\n\nReplaces ALL occurrences of old substring with new substring.\n\n## Usage\n```\n{{ replace \" \" \"_\" .name }}\n{{ .text | replace \"foo\" \"bar\" }}\n```\n\n## Example\n```\nInput: \" \", \"_\", \"hello world test\"\nOutput: \"hello_world_test\"\n\nInput: \"foo\", \"bar\", \"foo is foo\"\nOutput: \"bar is bar\"\n```",
 		},
+		{
+			Name: "dict",
+			Func: func(pairs ...any) (map[string]any, error) {
+				if len(pairs)%2 != 0 {
+					return nil, fmt.Errorf("dict requires an even number of arguments, got %d", len(pairs))
+				}
+				m := make(map[string]any, len(pairs)/2)
+				for i := 0; i < len(pairs); i += 2 {
+					key, ok := pairs[i].(string)
+					if !ok {
+						return nil, fmt.Errorf("dict keys must be strings, got %T", pairs[i])
+					}
+					m[key] = pairs[i+1]
+				}
+				return m, nil
+			},
+			Description: "# dict\n\nBuilds a map from alternating key/value pairs. Keys must be strings. Combine with `json` to emit structured objects without hand-writing braces.\n\n## Usage\n```\n{{ dict \"user\" .payload.id \"amount\" .payload.amount | json }}\n```\n\n## Example\n```\nInput:  dict \"a\" 1 \"b\" 2\nOutput: {\"a\":1,\"b\":2}  (piped through json)\n```",
+		},
+		{
+			Name: "list",
+			Func: func(items ...any) []any {
+				return items
+			},
+			Description: "# list\n\nBuilds a slice from its arguments. Combine with `json` to emit arrays.\n\n## Usage\n```\n{{ list .payload.a .payload.b | json }}\n```\n\n## Example\n```\nInput:  list 1 2 3\nOutput: [1,2,3]  (piped through json)\n```",
+		},
+		{
+			Name: "append",
+			Func: func(list []any, items ...any) []any {
+				return append(list, items...)
+			},
+			Description: "# append\n\nAppends items to a slice, returning the new slice. Use with `=` reassignment inside `range` to accumulate an array.\n\n## Usage\n```\n{{ $out := list }}\n{{ range .payload.items }}{{ $out = append $out .id }}{{ end }}\n{{ $out | json }}\n```",
+		},
+		{
+			Name: "merge",
+			Func: func(maps ...map[string]any) map[string]any {
+				out := make(map[string]any)
+				for _, m := range maps {
+					for k, v := range m {
+						out[k] = v
+					}
+				}
+				return out
+			},
+			Description: "# merge\n\nMerges maps into a new map. Later keys overwrite earlier ones. The inputs are not modified.\n\n## Usage\n```\n{{ merge .payload (dict \"source\" \"sparrow\") | json }}\n```",
+		},
+		{
+			Name: "add",
+			Func: func(a, b any) (float64, error) {
+				x, err := toNumber(a)
+				if err != nil {
+					return 0, err
+				}
+				y, err := toNumber(b)
+				if err != nil {
+					return 0, err
+				}
+				return x + y, nil
+			},
+			Description: "# add\n\nAdds two numbers. Values are coerced from JSON numbers or numeric strings.\n\n## Usage\n```\n{{ add .payload.subtotal .payload.tax }}\n```",
+		},
+		{
+			Name: "sub",
+			Func: func(a, b any) (float64, error) {
+				x, err := toNumber(a)
+				if err != nil {
+					return 0, err
+				}
+				y, err := toNumber(b)
+				if err != nil {
+					return 0, err
+				}
+				return x - y, nil
+			},
+			Description: "# sub\n\nSubtracts the second number from the first.\n\n## Usage\n```\n{{ sub .payload.total .payload.discount }}\n```",
+		},
+		{
+			Name: "mul",
+			Func: func(a, b any) (float64, error) {
+				x, err := toNumber(a)
+				if err != nil {
+					return 0, err
+				}
+				y, err := toNumber(b)
+				if err != nil {
+					return 0, err
+				}
+				return x * y, nil
+			},
+			Description: "# mul\n\nMultiplies two numbers. Common for converting major units to minor (e.g. dollars to cents).\n\n## Usage\n```\n{{ mul .payload.amount 100 }}\n```",
+		},
+		{
+			Name: "div",
+			Func: func(a, b any) (float64, error) {
+				x, err := toNumber(a)
+				if err != nil {
+					return 0, err
+				}
+				y, err := toNumber(b)
+				if err != nil {
+					return 0, err
+				}
+				if y == 0 {
+					return 0, fmt.Errorf("division by zero")
+				}
+				return x / y, nil
+			},
+			Description: "# div\n\nDivides the first number by the second. Errors on division by zero.\n\n## Usage\n```\n{{ div .payload.amount_cents 100 }}\n```",
+		},
+		{
+			Name: "mod",
+			Func: func(a, b any) (int, error) {
+				x, err := toNumber(a)
+				if err != nil {
+					return 0, err
+				}
+				y, err := toNumber(b)
+				if err != nil {
+					return 0, err
+				}
+				if int(y) == 0 {
+					return 0, fmt.Errorf("modulo by zero")
+				}
+				return int(x) % int(y), nil
+			},
+			Description: "# mod\n\nReturns the integer remainder of the first number divided by the second. Errors on modulo by zero.\n\n## Usage\n```\n{{ mod .payload.sequence 10 }}\n```",
+		},
+		{
+			Name: "dig",
+			Func: func(args ...any) (any, error) {
+				if len(args) < 3 {
+					return nil, fmt.Errorf("dig requires at least one key, a default value, and a map")
+				}
+				m, ok := args[len(args)-1].(map[string]any)
+				if !ok {
+					return nil, fmt.Errorf("dig last argument must be a map, got %T", args[len(args)-1])
+				}
+				def := args[len(args)-2]
+				keys := args[:len(args)-2]
+				cur := m
+				for i, raw := range keys {
+					key, ok := raw.(string)
+					if !ok {
+						return nil, fmt.Errorf("dig keys must be strings, got %T", raw)
+					}
+					val, exists := cur[key]
+					if !exists {
+						return def, nil
+					}
+					if i == len(keys)-1 {
+						return val, nil
+					}
+					next, ok := val.(map[string]any)
+					if !ok {
+						return def, nil
+					}
+					cur = next
+				}
+				return def, nil
+			},
+			Description: "# dig\n\nSafely reads a nested value from a map by a path of keys, returning the default if any key along the path is missing. Avoids errors on optional fields.\n\n## Usage\n```\n{{ dig \"customer\" \"address\" \"city\" \"unknown\" .payload }}\n```\n\nArguments are: one or more keys, then a default value, then the map (last).",
+		},
+		{
+			Name: "toString",
+			Func: func(v any) string {
+				return fmt.Sprintf("%v", v)
+			},
+			Description: "# toString\n\nConverts any value to its string representation.\n\n## Usage\n```\n{{ toString .payload.count }}\n```",
+		},
+		{
+			Name: "toInt",
+			Func: func(v any) (int, error) {
+				f, err := toNumber(v)
+				if err != nil {
+					return 0, err
+				}
+				return int(f), nil
+			},
+			Description: "# toInt\n\nConverts a JSON number or numeric string to an integer (truncating toward zero).\n\n## Usage\n```\n{{ dict \"count\" (toInt .payload.count) | json }}\n```",
+		},
+		{
+			Name: "toFloat",
+			Func: func(v any) (float64, error) {
+				return toNumber(v)
+			},
+			Description: "# toFloat\n\nConverts a JSON number or numeric string to a float.\n\n## Usage\n```\n{{ toFloat .payload.price }}\n```",
+		},
 	}
 }
 
@@ -240,4 +427,32 @@ func GetFunctionMap() template.FuncMap {
 		funcMap[tf.Name] = tf.Func
 	}
 	return funcMap
+}
+
+// toNumber coerces a template value to float64 for the arithmetic helpers.
+// JSON payloads unmarshal numbers as float64, so that is the common case;
+// numeric strings are also accepted for convenience.
+func toNumber(v any) (float64, error) {
+	switch n := v.(type) {
+	case float64:
+		return n, nil
+	case float32:
+		return float64(n), nil
+	case int:
+		return float64(n), nil
+	case int64:
+		return float64(n), nil
+	case int32:
+		return float64(n), nil
+	case json.Number:
+		return n.Float64()
+	case string:
+		f, err := strconv.ParseFloat(strings.TrimSpace(n), 64)
+		if err != nil {
+			return 0, fmt.Errorf("cannot convert %q to a number", n)
+		}
+		return f, nil
+	default:
+		return 0, fmt.Errorf("cannot convert %T to a number", v)
+	}
 }

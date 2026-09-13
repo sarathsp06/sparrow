@@ -1,4 +1,4 @@
-package client
+package template
 
 import (
 	"strings"
@@ -91,6 +91,100 @@ func TestExecuteWithTemplateFunctions(t *testing.T) {
 
 			if string(result) != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, string(result))
+			}
+		})
+	}
+}
+
+func TestExecuteReshapeFunctions(t *testing.T) {
+	engine := NewTemplateEngine()
+
+	tests := []struct {
+		name     string
+		template string
+		data     map[string]any
+		expected string
+	}{
+		{
+			name:     "dict to json builds object",
+			template: `{{ dict "user" .payload.id "amt" .payload.amount | json }}`,
+			data:     map[string]any{"payload": map[string]any{"id": "u1", "amount": 5.0}},
+			expected: `{"amt":5,"user":"u1"}`,
+		},
+		{
+			name:     "list to json builds array",
+			template: `{{ list "a" "b" | json }}`,
+			data:     map[string]any{},
+			expected: `["a","b"]`,
+		},
+		{
+			name:     "merge later key wins",
+			template: `{{ merge (dict "a" 1 "b" 2) (dict "a" 9) | json }}`,
+			data:     map[string]any{},
+			expected: `{"a":9,"b":2}`,
+		},
+		{
+			name:     "mul then toInt for cents",
+			template: `{{ toInt (mul .payload.amount 100) }}`,
+			data:     map[string]any{"payload": map[string]any{"amount": 5.5}},
+			expected: "550",
+		},
+		{
+			name:     "add coerces numeric string",
+			template: `{{ add .payload.a "2.5" }}`,
+			data:     map[string]any{"payload": map[string]any{"a": 5.0}},
+			expected: "7.5",
+		},
+		{
+			name:     "dig returns nested value",
+			template: `{{ dig "customer" "id" "none" .payload }}`,
+			data:     map[string]any{"payload": map[string]any{"customer": map[string]any{"id": "c1"}}},
+			expected: "c1",
+		},
+		{
+			name:     "dig returns default on missing key",
+			template: `{{ dig "customer" "email" "none" .payload }}`,
+			data:     map[string]any{"payload": map[string]any{"customer": map[string]any{"id": "c1"}}},
+			expected: "none",
+		},
+		{
+			name:     "structural reshape end to end",
+			template: `{{ dict "id" (dig "customer" "id" "" .payload) "cents" (toInt (mul .payload.amount 100)) | json }}`,
+			data:     map[string]any{"payload": map[string]any{"customer": map[string]any{"id": "c1"}, "amount": 12.0}},
+			expected: `{"cents":1200,"id":"c1"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := engine.Execute(tt.template, tt.data)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if string(result) != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, string(result))
+			}
+		})
+	}
+}
+
+func TestReshapeFunctionErrors(t *testing.T) {
+	engine := NewTemplateEngine()
+
+	tests := []struct {
+		name     string
+		template string
+	}{
+		{name: "dict odd args", template: `{{ dict "a" | json }}`},
+		{name: "div by zero", template: `{{ div 1 0 }}`},
+		{name: "mod by zero", template: `{{ mod 1 0 }}`},
+		{name: "add non-numeric", template: `{{ add "abc" 1 }}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := engine.Execute(tt.template, map[string]any{}); err == nil {
+				t.Errorf("Expected error for %q, got none", tt.template)
 			}
 		})
 	}
