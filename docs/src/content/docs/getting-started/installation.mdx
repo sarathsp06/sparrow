@@ -73,15 +73,18 @@ SPARROW_SERVE_UI=true ./build/server-*
 
 ## Pre-built Binaries
 
-Cross-compiled binaries are available for:
+Every release ships cross-compiled binaries on the
+[GitHub releases page](https://github.com/sarathsp06/sparrow/releases/latest) —
+no Go toolchain required. Download the archive for your platform, extract it,
+and run:
 
-- `linux/amd64`
-- `linux/arm64`
-- `darwin/amd64`
-- `darwin/arm64`
-- `windows/amd64`
+- **CLI** — the [`sparrow` command-line tool](/sparrow/satellites/cli/), in the `sparrow-cli-*` archive
+- **Server** — the Sparrow server, in the `sparrow-*` archive
+- **Satellites** — the [`sparrow-sources` and `sparrow-sinks`](/sparrow/satellites/) binaries
 
-Build them all with:
+Binaries are built for macOS and Linux (amd64 + arm64) and Windows (amd64).
+
+To build from source instead:
 
 ```bash
 make build-all

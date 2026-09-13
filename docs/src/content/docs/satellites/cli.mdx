@@ -9,6 +9,23 @@ transform templates without a single curl invocation.
 
 ## Install
 
+The easiest way — no Go toolchain needed — is a prebuilt binary. Download the
+`sparrow-cli` archive for your OS/arch from the
+[latest release](https://github.com/sarathsp06/sparrow/releases/latest),
+extract it, and move the `sparrow` binary onto your `PATH`:
+
+```bash
+# e.g. macOS arm64: sparrow-cli-<version>-darwin-arm64.tar.gz
+tar xzf sparrow-cli-*.tar.gz
+sudo mv sparrow /usr/local/bin/
+sparrow version
+```
+
+Prebuilt binaries are published for macOS and Linux (amd64 + arm64) and
+Windows (amd64).
+
+Have a Go toolchain? Install straight from source instead:
+
 ```bash
 go install github.com/sarathsp06/sparrow/satellites/sparrow@latest
 ```

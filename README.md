@@ -81,11 +81,22 @@ If you set `SPARROW_API_KEY`, add `X-API-Key: <your-key>` to every API request.
 
 ### Quick start with the CLI
 
-Prefer a terminal over curl? The `sparrow` CLI covers the same loop in 90 seconds:
+Prefer a terminal over curl? The `sparrow` CLI covers the same loop in 90 seconds.
+
+Install it — grab a prebuilt binary (no Go toolchain needed) or use Go:
 
 ```bash
-go install github.com/sarathsp06/sparrow/satellites/sparrow@latest
+# No Go? Download the `sparrow-cli` archive for your OS/arch from the latest
+# release, extract it, and move the `sparrow` binary onto your PATH:
+#   https://github.com/sarathsp06/sparrow/releases/latest
 
+# Have Go? Install straight from source:
+go install github.com/sarathsp06/sparrow/satellites/sparrow@latest
+```
+
+Then run the loop:
+
+```bash
 sparrow init --url http://localhost:8080        # point the CLI at your server
 sparrow listen --event order.created            # receive deliveries locally (Ctrl-C cleans up)
 sparrow push order.created -d '{"order_id":"ord_1","amount":42}'   # in another terminal
