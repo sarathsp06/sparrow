@@ -168,7 +168,9 @@ Sparrow assumes you run it inside a network you control, then adds application-l
 - **Hardened Helm defaults** — non-root, read-only root filesystem, dropped Linux capabilities, seccomp, and NetworkPolicy isolation.
 
 > [!WARNING]
-> With `SPARROW_API_KEY` unset, anyone who can reach the port can use the API and dashboard. On shared or internet-facing networks, set an API key and put Sparrow behind normal network controls.
+> With `SPARROW_API_KEY` unset, anyone who can reach the port can use the API and dashboard. The embedded dashboard (`SPARROW_SERVE_UI=true`) is served without authentication and exposes the API key to any browser that can load it — treat it as trusted-network-only. On shared or internet-facing networks, set an API key and put Sparrow behind an authenticating proxy.
+
+Full details — trust model, SSO via an identity-aware proxy (Authentik, oauth2-proxy, Keycloak), and a hardening checklist: [Securing Sparrow](https://sarathsp06.github.io/sparrow/deployment/security/).
 
 ### Verifying webhook signatures
 
