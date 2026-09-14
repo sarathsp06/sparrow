@@ -90,3 +90,4 @@ security_fixes_report.md
 
 # stray root build artifact (go build ./satellites/sparrow)
 /sparrow
+/satellites/sparrow/sparrow

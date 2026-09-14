@@ -17,7 +17,7 @@
     { href: "/webhooks", label: "Webhooks", d: "M9 7a4 4 0 1 1 4 4l-2 3.5M15 17a4 4 0 1 1-4-4M7.5 13.5 5 17a4 4 0 1 0 4 2" },
     { href: "/events", label: "Events", d: "M13 2 3 14h7v8l10-12h-7z" },
     { href: "/deliveries", label: "Deliveries", d: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" },
-    { href: "/health", label: "Health", d: "M3 12h4l2 6 4-14 3 10 2-2h3" },
+    { href: "/dashboard/health", label: "Health", d: "M3 12h4l2 6 4-14 3 10 2-2h3" },
   ];
 
   function isActive(href: string): boolean {
@@ -113,7 +113,7 @@
         </span>
       </label>
 
-      <a href="/health" onclick={() => (sidebarOpen = false)} class="flex items-center gap-2 px-1 py-1 rounded-md text-xs text-muted hover:text-text transition-colors" title="Fleet health">
+      <a href="/dashboard/health" onclick={() => (sidebarOpen = false)} class="flex items-center gap-2 px-1 py-1 rounded-md text-xs text-muted hover:text-text transition-colors" title="Fleet health">
         <span class="relative flex w-2 h-2">
           {#if fleet?.tone === "ok" || fleet?.tone === "warn"}
             <span class="absolute inline-flex w-full h-full rounded-full opacity-60 animate-ping" style="background:var(--color-{fleet?.tone})"></span>
