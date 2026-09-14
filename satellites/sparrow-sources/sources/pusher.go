@@ -30,7 +30,7 @@ func NewClient(cfg SparrowConfig) *Client {
 
 // PushEvent records one event occurrence in Sparrow.
 func (c *Client) PushEvent(ctx context.Context, event string, payload json.RawMessage, labels map[string]string) error {
-	status, err := c.post(ctx, "/v1/namespaces/"+url.PathEscape(c.cfg.Namespace)+"/events?event="+url.QueryEscape(event),
+	status, err := c.post(ctx, "/v1/consumers/"+url.PathEscape(c.cfg.Consumer)+"/events?event="+url.QueryEscape(event),
 		map[string]any{"payload": payload, "labels": labels})
 	if err != nil {
 		return err
@@ -39,7 +39,7 @@ func (c *Client) PushEvent(ctx context.Context, event string, payload json.RawMe
 		if err := c.createEventType(ctx, event); err != nil {
 			return err
 		}
-		status, err = c.post(ctx, "/v1/namespaces/"+url.PathEscape(c.cfg.Namespace)+"/events?event="+url.QueryEscape(event),
+		status, err = c.post(ctx, "/v1/consumers/"+url.PathEscape(c.cfg.Consumer)+"/events?event="+url.QueryEscape(event),
 			map[string]any{"payload": payload, "labels": labels})
 		if err != nil {
 			return err

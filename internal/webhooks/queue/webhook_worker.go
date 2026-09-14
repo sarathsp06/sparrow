@@ -122,7 +122,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	}
 
 	// Get webhook configuration from database
-	webhook, err := w.webhookRepo.GetWebhookByID(ctx, tenantID, webhookID, args.Namespace)
+	webhook, err := w.webhookRepo.GetWebhookByID(ctx, tenantID, webhookID, args.Consumer)
 	if err != nil {
 		w.logger.ErrorContext(ctx, "Failed to get webhook configuration", "error", err, "webhook_id", args.WebhookID)
 		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Failed to get webhook configuration: %v", err), "unknown")
@@ -168,7 +168,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			attribute.String("webhook_id", args.WebhookID),
 			attribute.String("event_id", args.EventID),
 			attribute.String("url", webhook.URL),
-			attribute.String("namespace", args.Namespace),
+			attribute.String("consumer", args.Consumer),
 			attribute.String("event", eventRecord.Event),
 		),
 	)

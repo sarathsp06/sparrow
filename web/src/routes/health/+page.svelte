@@ -7,12 +7,12 @@
   import CopyableId from "$lib/components/CopyableId.svelte";
 
   type HealthSummary = components["schemas"]["HealthSummaryOutputBody"];
-  type NamespaceStats = components["schemas"]["NamespaceStatsOutputBody"];
+  type ConsumerStats = components["schemas"]["ConsumerStatsOutputBody"];
   type WebhookOut = components["schemas"]["WebhookOut"];
   type WebhookHealthOutput = components["schemas"]["WebhookHealthOutputBody"];
 
   let healthSummary: HealthSummary | undefined = $state();
-  let namespaceStats: NamespaceStats | undefined = $state();
+  let consumerStats: ConsumerStats | undefined = $state();
   let unhealthyWebhooks: WebhookOut[] = $state([]);
   let degradedWebhooks: WebhookOut[] = $state([]);
   let webhookMetrics: Map<string, WebhookHealthOutput> = $state(new Map());
@@ -30,7 +30,7 @@
         api.GET('/v1/webhooks', { params: { query: { health: 'degraded', limit: 20, offset: 0 } } }),
       ]);
       healthSummary = unwrap(summary);
-      namespaceStats = unwrap(stats);
+      consumerStats = unwrap(stats);
       unhealthyWebhooks = unwrap(unhealthyRes).items || [];
       degradedWebhooks = unwrap(degradedRes).items || [];
 
@@ -39,8 +39,8 @@
       await Promise.all(
         allWebhooks.map(async (wh) => {
           try {
-            const healthRes = unwrap(await api.GET('/v1/namespaces/{namespace}/webhooks/{webhook_id}/health', {
-              params: { path: { namespace: wh.namespace, webhook_id: wh.webhook_id } },
+            const healthRes = unwrap(await api.GET('/v1/consumers/{consumer}/webhooks/{webhook_id}/health', {
+              params: { path: { consumer: wh.consumer, webhook_id: wh.webhook_id } },
             }));
             metricsMap.set(wh.webhook_id, healthRes);
           } catch {
@@ -68,7 +68,7 @@
     <div>
       <p class="eyebrow mb-1.5">System / Health</p>
       <h1 class="text-2xl">Health Dashboard</h1>
-      <p class="text-sm text-muted mt-1">Fleet health and namespace statistics</p>
+      <p class="text-sm text-muted mt-1">Fleet health and consumer statistics</p>
     </div>
     <button onclick={() => fetchData()} disabled={loading} class="btn btn-ghost" aria-label="Refresh health data">
       <svg class="w-4 h-4 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -117,35 +117,35 @@
         </div>
       {/if}
 
-      {#if namespaceStats}
+      {#if consumerStats}
         <div>
-          <h2 class="eyebrow mb-3">Statistics · All Namespaces</h2>
+          <h2 class="eyebrow mb-3">Statistics · All Consumers</h2>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div class="panel px-4 py-4">
               <p class="key">Total Webhooks</p>
-              <p class="text-2xl font-semibold tnum mt-1 text-text">{namespaceStats.total_webhooks}</p>
+              <p class="text-2xl font-semibold tnum mt-1 text-text">{consumerStats.total_webhooks}</p>
             </div>
             <div class="panel px-4 py-4">
               <p class="key">Active Webhooks</p>
-              <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-ok)">{namespaceStats.active_webhooks}</p>
+              <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-ok)">{consumerStats.active_webhooks}</p>
             </div>
             <div class="panel px-4 py-4">
               <p class="key">Success Rate</p>
-              <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-{namespaceStats.success_rate >= 0.95 ? 'ok' : namespaceStats.success_rate >= 0.8 ? 'warn' : 'bad'})">
-                {(namespaceStats.success_rate * 100).toFixed(1)}%
+              <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-{consumerStats.success_rate >= 0.95 ? 'ok' : consumerStats.success_rate >= 0.8 ? 'warn' : 'bad'})">
+                {(consumerStats.success_rate * 100).toFixed(1)}%
               </p>
             </div>
             <div class="panel px-4 py-4">
               <p class="key">Successful</p>
-              <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-ok)">{namespaceStats.successful_deliveries}</p>
+              <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-ok)">{consumerStats.successful_deliveries}</p>
             </div>
             <div class="panel px-4 py-4">
               <p class="key">Failed</p>
-              <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-bad)">{namespaceStats.failed_deliveries}</p>
+              <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-bad)">{consumerStats.failed_deliveries}</p>
             </div>
             <div class="panel px-4 py-4">
               <p class="key">Pending</p>
-              <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-warn)">{namespaceStats.pending_deliveries}</p>
+              <p class="text-2xl font-semibold tnum mt-1" style="color:var(--color-warn)">{consumerStats.pending_deliveries}</p>
             </div>
           </div>
         </div>
@@ -158,7 +158,7 @@
             <div class="flex items-center gap-2 min-w-0">
               <span class="text-sm font-medium text-text truncate">{wh.description || 'Webhook'}</span>
               <HealthBadge health={wh.health} size="sm" />
-              <span class="chip">{wh.namespace}</span>
+              <span class="chip">{wh.consumer}</span>
             </div>
             <CopyableId id={wh.webhook_id} />
           </div>

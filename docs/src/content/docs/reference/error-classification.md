@@ -57,6 +57,6 @@ The error classifier inspects the Go error chain to determine the category:
 
 Use the [health endpoints](/sparrow/reference/api/) to monitor error patterns:
 
-- `GET /v1/namespaces/{namespace}/webhooks/{webhook_id}/health` returns error category breakdown (client_errors, server_errors, timeout_errors, network_errors) for the last 24 hours
+- `GET /v1/consumers/{consumer}/webhooks/{webhook_id}/health` returns error category breakdown (client_errors, server_errors, timeout_errors, network_errors) for the last 24 hours
 - `GET /v1/webhooks` (filtered by health) finds all webhooks with `UNHEALTHY` or `DEGRADED` status
-- `GET /v1/namespaces/{namespace}/deliveries/{delivery_id}/attempts` shows per-attempt error details for debugging
+- `GET /v1/consumers/{consumer}/deliveries/{delivery_id}/attempts` shows per-attempt error details for debugging

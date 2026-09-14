@@ -29,26 +29,26 @@ type webhookHealthOutput struct {
 
 type healthSummaryOutput struct {
 	Body struct {
-		HealthyCount   int `json:"healthy_count" doc:"Webhooks currently healthy, across all namespaces."`
-		DegradedCount  int `json:"degraded_count" doc:"Webhooks currently degraded, across all namespaces."`
-		UnhealthyCount int `json:"unhealthy_count" doc:"Webhooks currently unhealthy, across all namespaces."`
-		UnknownCount   int `json:"unknown_count" doc:"Webhooks with no recent delivery attempts, across all namespaces."`
+		HealthyCount   int `json:"healthy_count" doc:"Webhooks currently healthy, across all consumers."`
+		DegradedCount  int `json:"degraded_count" doc:"Webhooks currently degraded, across all consumers."`
+		UnhealthyCount int `json:"unhealthy_count" doc:"Webhooks currently unhealthy, across all consumers."`
+		UnknownCount   int `json:"unknown_count" doc:"Webhooks with no recent delivery attempts, across all consumers."`
 	}
 }
 
-// listWebhooksGlobalInput is global (no namespace) — used both for
-// cross-namespace health-filtered dashboards and for looking up a specific
-// webhook by id when its namespace is unknown (ListWebhooks supports empty
-// namespace = search all namespaces).
+// listWebhooksGlobalInput is global (no consumer) — used both for
+// cross-consumer health-filtered dashboards and for looking up a specific
+// webhook by id when its consumer is unknown (ListWebhooks supports empty
+// consumer = search all consumers).
 type listWebhooksGlobalInput struct {
 	Health    string `query:"health,omitempty" enum:"healthy,degraded,unhealthy,unknown," doc:"Filter to webhooks with this computed health status."`
-	WebhookID string `query:"webhook_id,omitempty" doc:"Look up a single webhook by id when its namespace is unknown."`
+	WebhookID string `query:"webhook_id,omitempty" doc:"Look up a single webhook by id when its consumer is unknown."`
 	Limit     int32  `query:"limit" default:"50" doc:"Maximum items to return."`
 	Offset    int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
 }
 
 // healthRouteService is the service slice health routes consume: health
-// queries plus the cross-namespace webhook listing and its conversions.
+// queries plus the cross-consumer webhook listing and its conversions.
 type healthRouteService interface {
 	webhooks.HealthManager
 	webhooks.WebhookManager
@@ -60,13 +60,13 @@ func registerHealthRoutes(api huma.API, svc healthRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "getWebhookHealth",
 		Method:      http.MethodGet,
-		Path:        "/v1/namespaces/{namespace}/webhooks/{webhook_id}/health",
+		Path:        "/v1/consumers/{consumer}/webhooks/{webhook_id}/health",
 		Summary:     "Get health status and metrics for a webhook",
 		Description: "Returns one webhook's computed health status (healthy/degraded/unhealthy) plus rolling delivery counts and per-category error counts (client, server, timeout, network, unexpected-status).",
 		Errors:      []int{404},
 		Tags:        []string{"Health"},
 	}, func(ctx context.Context, in *webhookIDInput) (*webhookHealthOutput, error) {
-		h, err := svc.GetWebhookHealth(ctx, in.WebhookID, in.Namespace)
+		h, err := svc.GetWebhookHealth(ctx, in.WebhookID, in.Consumer)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get webhook health")
 		}
@@ -91,8 +91,8 @@ func registerHealthRoutes(api huma.API, svc healthRouteService) {
 		OperationID: "getHealthSummary",
 		Method:      http.MethodGet,
 		Path:        "/v1/health-summary",
-		Summary:     "Get aggregate webhook health counts across all namespaces",
-		Description: "Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, across every namespace — for a top-level dashboard tile.",
+		Summary:     "Get aggregate webhook health counts across all consumers",
+		Description: "Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, across every consumer — for a top-level dashboard tile.",
 		Tags:        []string{"Health"},
 	}, func(ctx context.Context, in *struct{}) (*healthSummaryOutput, error) {
 		s, err := svc.GetHealthSummary(ctx)
@@ -111,8 +111,8 @@ func registerHealthRoutes(api huma.API, svc healthRouteService) {
 		OperationID: "listWebhooksByHealth",
 		Method:      http.MethodGet,
 		Path:        "/v1/webhooks",
-		Summary:     "List webhooks across all namespaces filtered by computed health status",
-		Description: "Cross-namespace webhook listing. Pass health to filter by computed status, or webhook_id for an id-only lookup when the namespace isn't known.",
+		Summary:     "List webhooks across all consumers filtered by computed health status",
+		Description: "Cross-consumer webhook listing. Pass health to filter by computed status, or webhook_id for an id-only lookup when the consumer isn't known.",
 		Tags:        []string{"Health"},
 	}, func(ctx context.Context, in *listWebhooksGlobalInput) (*listWebhooksOutput, error) {
 		regs, total, err := svc.ListWebhooks(ctx, "", in.WebhookID, "", false, in.Health, in.Limit, in.Offset)

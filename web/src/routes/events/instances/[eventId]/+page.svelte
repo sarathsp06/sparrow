@@ -38,7 +38,7 @@
   let repushing = $state(false);
 
   const eventId = page.params.eventId ?? '';
-  let namespace = $state('');
+  let consumer = $state('');
 
   onMount(async () => {
     await Promise.all([fetchEvent(), fetchDeliveries()]);
@@ -62,10 +62,10 @@
     deliveriesLoading = true;
     deliveriesError = '';
     try {
-      const ns = event?.namespace || namespace || 'default';
+      const ns = event?.consumer || consumer || 'default';
       const offset = (currentPage - 1) * pageSize;
-      const res = unwrap(await api.GET('/v1/namespaces/{namespace}/deliveries', {
-        params: { path: { namespace: ns }, query: { event_id: eventId, limit: pageSize, offset } },
+      const res = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries', {
+        params: { path: { consumer: ns }, query: { event_id: eventId, limit: pageSize, offset } },
       }));
       deliveries = res.items || [];
       totalCount = res.pagination?.total_count ?? 0;
@@ -100,9 +100,9 @@
     retryingDeliveries.add(deliveryId);
     retryingDeliveries = new Set(retryingDeliveries);
     try {
-      const ns = event?.namespace || namespace || 'default';
-      unwrap(await api.POST('/v1/namespaces/{namespace}/deliveries/{delivery_id}:retry', {
-        params: { path: { namespace: ns, delivery_id: deliveryId } },
+      const ns = event?.consumer || consumer || 'default';
+      unwrap(await api.POST('/v1/consumers/{consumer}/deliveries/{delivery_id}:retry', {
+        params: { path: { consumer: ns, delivery_id: deliveryId } },
       }));
       await fetchDeliveries();
     } catch (e: any) {
@@ -146,9 +146,9 @@
     loadingAttempts.add(deliveryId);
     loadingAttempts = new Set(loadingAttempts);
     try {
-      const ns = event?.namespace || namespace || 'default';
-      const res = unwrap(await api.GET('/v1/namespaces/{namespace}/deliveries/{delivery_id}/attempts', {
-        params: { path: { namespace: ns, delivery_id: deliveryId } },
+      const ns = event?.consumer || consumer || 'default';
+      const res = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries/{delivery_id}/attempts', {
+        params: { path: { consumer: ns, delivery_id: deliveryId } },
       }));
       attemptsByDelivery.set(deliveryId, res.items || []);
       attemptsByDelivery = new Map(attemptsByDelivery);
@@ -223,8 +223,8 @@
           <a href={`/events/${encodeURIComponent(event.event)}/reports`} class="link-beacon text-sm mono">{event.event}</a>
         </div>
         <div class="px-6 py-4">
-          <p class="eyebrow mb-1">Namespace</p>
-          <span class="chip">{event.namespace}</span>
+          <p class="eyebrow mb-1">Consumer</p>
+          <span class="chip">{event.consumer}</span>
         </div>
       </div>
 

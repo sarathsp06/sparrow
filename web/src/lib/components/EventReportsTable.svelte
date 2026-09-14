@@ -46,7 +46,7 @@
         }
     }
 
-    async function toggleRow(eventId: string, namespace: string) {
+    async function toggleRow(eventId: string, consumer: string) {
         if (expandedRows.has(eventId)) {
             expandedRows.delete(eventId);
             expandedRows = new Set(expandedRows);
@@ -55,17 +55,17 @@
             expandedRows = new Set(expandedRows);
 
             if (!deliveriesByEvent.has(eventId)) {
-                await fetchDeliveries(eventId, namespace);
+                await fetchDeliveries(eventId, consumer);
             }
         }
     }
 
-    async function fetchDeliveries(eventId: string, namespace: string) {
+    async function fetchDeliveries(eventId: string, consumer: string) {
         loadingDeliveries.add(eventId);
         loadingDeliveries = new Set(loadingDeliveries);
         try {
-            const res = unwrap(await api.GET('/v1/namespaces/{namespace}/deliveries', {
-                params: { path: { namespace }, query: { event_id: eventId, limit: 100, offset: 0 } },
+            const res = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries', {
+                params: { path: { consumer }, query: { event_id: eventId, limit: 100, offset: 0 } },
             }));
             deliveriesByEvent.set(eventId, res.items || []);
             deliveriesByEvent = new Map(deliveriesByEvent);
@@ -77,14 +77,14 @@
         }
     }
 
-    async function retryDelivery(deliveryId: string, namespace: string, eventId: string) {
+    async function retryDelivery(deliveryId: string, consumer: string, eventId: string) {
         retryingDeliveries.add(deliveryId);
         retryingDeliveries = new Set(retryingDeliveries);
         try {
-            unwrap(await api.POST('/v1/namespaces/{namespace}/deliveries/{delivery_id}:retry', {
-                params: { path: { namespace, delivery_id: deliveryId } },
+            unwrap(await api.POST('/v1/consumers/{consumer}/deliveries/{delivery_id}:retry', {
+                params: { path: { consumer, delivery_id: deliveryId } },
             }));
-            await fetchDeliveries(eventId, namespace);
+            await fetchDeliveries(eventId, consumer);
         } catch (e: any) {
             console.error('Failed to retry delivery:', e);
         } finally {
@@ -93,7 +93,7 @@
         }
     }
 
-    async function toggleDeliveryAttempts(deliveryId: string, namespace: string) {
+    async function toggleDeliveryAttempts(deliveryId: string, consumer: string) {
         if (expandedDeliveries.has(deliveryId)) {
             expandedDeliveries.delete(deliveryId);
             expandedDeliveries = new Set(expandedDeliveries);
@@ -102,17 +102,17 @@
             expandedDeliveries = new Set(expandedDeliveries);
 
             if (!attemptsByDelivery.has(deliveryId)) {
-                await fetchAttempts(deliveryId, namespace);
+                await fetchAttempts(deliveryId, consumer);
             }
         }
     }
 
-    async function fetchAttempts(deliveryId: string, namespace: string) {
+    async function fetchAttempts(deliveryId: string, consumer: string) {
         loadingAttempts.add(deliveryId);
         loadingAttempts = new Set(loadingAttempts);
         try {
-            const res = unwrap(await api.GET('/v1/namespaces/{namespace}/deliveries/{delivery_id}/attempts', {
-                params: { path: { namespace, delivery_id: deliveryId } },
+            const res = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries/{delivery_id}/attempts', {
+                params: { path: { consumer, delivery_id: deliveryId } },
             }));
             attemptsByDelivery.set(deliveryId, res.items || []);
             attemptsByDelivery = new Map(attemptsByDelivery);
@@ -139,7 +139,7 @@
                     <tr class="border-b border-line">
                         <th class="th">Event ID</th>
                         <th class="th hidden sm:table-cell">Schema</th>
-                        <th class="th hidden sm:table-cell">Namespace</th>
+                        <th class="th hidden sm:table-cell">Consumer</th>
                         <th class="th hidden sm:table-cell">Created At</th>
                         <th class="th hidden md:table-cell">Deliveries</th>
                         <th class="th">Payload</th>
@@ -152,7 +152,7 @@
                             <td class="td">
                                 <CopyableId id={report.event_id} href="/events/instances/{report.event_id}" truncate={12} />
                                 <span class="block sm:hidden mt-0.5">
-                                    <span class="chip">{report.namespace || 'N/A'}</span>
+                                    <span class="chip">{report.consumer || 'N/A'}</span>
                                 </span>
                             </td>
                             <td class="td hidden sm:table-cell">
@@ -163,7 +163,7 @@
                                 {/if}
                             </td>
                             <td class="td hidden sm:table-cell">
-                                <span class="chip">{report.namespace || 'N/A'}</span>
+                                <span class="chip">{report.consumer || 'N/A'}</span>
                             </td>
                             <td class="td hidden sm:table-cell"><span class="mono tnum text-muted text-xs" title={formatTimestamp(report.created_at)}>{timeAgo(report.created_at)}</span></td>
                             <td class="td hidden md:table-cell">
@@ -190,7 +190,7 @@
                             </td>
                             <td class="td">
                                 <button
-                                    onclick={() => toggleRow(report.event_id, report.namespace)}
+                                    onclick={() => toggleRow(report.event_id, report.consumer)}
                                     class="link text-xs mono transition"
                                 >
                                     {expandedRows.has(report.event_id) ? 'Hide' : 'Deliveries'}
@@ -243,7 +243,7 @@
                                                                 </td>
                                                                 <td class="td !py-2 !px-3 hidden md:table-cell">
                                                                     <button
-                                                                        onclick={() => toggleDeliveryAttempts(delivery.delivery_id, report.namespace)}
+                                                                        onclick={() => toggleDeliveryAttempts(delivery.delivery_id, report.consumer)}
                                                                         class="link-beacon mono tnum font-medium transition"
                                                                     >
                                                                         {delivery.attempt_count}/{delivery.max_attempts}
@@ -255,7 +255,7 @@
                                                                     <div class="flex items-center gap-2">
                                                                         {#if delivery.status === 'failed' || delivery.status === 'expired' || (delivery.error_category && delivery.error_category !== 'success')}
                                                                             <button
-                                                                                onclick={() => retryDelivery(delivery.delivery_id, report.namespace, report.event_id)}
+                                                                                onclick={() => retryDelivery(delivery.delivery_id, report.consumer, report.event_id)}
                                                                                 disabled={retryingDeliveries.has(delivery.delivery_id)}
                                                                                 class="btn btn-ghost !px-2 !py-1 text-xs"
                                                                             >

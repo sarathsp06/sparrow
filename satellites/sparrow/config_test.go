@@ -16,32 +16,32 @@ func writeConfigFile(t *testing.T, content string) {
 }
 
 func TestResolveConfigPrecedence(t *testing.T) {
-	writeConfigFile(t, "server_url: http://file:1\napi_key: filekey\nnamespace: filens\n")
+	writeConfigFile(t, "server_url: http://file:1\napi_key: filekey\nconsumer: filens\n")
 	t.Setenv("SPARROW_URL", "")
 	t.Setenv("SPARROW_API_KEY", "")
-	t.Setenv("SPARROW_NAMESPACE", "")
+	t.Setenv("SPARROW_CONSUMER", "")
 
 	// File only.
 	cfg, err := resolveConfig("", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ServerURL != "http://file:1" || cfg.APIKey != "filekey" || cfg.Namespace != "filens" {
+	if cfg.ServerURL != "http://file:1" || cfg.APIKey != "filekey" || cfg.Consumer != "filens" {
 		t.Fatalf("file values not loaded: %+v", cfg)
 	}
 
 	// Flags override file.
 	cfg, _ = resolveConfig("http://flag:2", "flagkey", "flagns")
-	if cfg.ServerURL != "http://flag:2" || cfg.APIKey != "flagkey" || cfg.Namespace != "flagns" {
+	if cfg.ServerURL != "http://flag:2" || cfg.APIKey != "flagkey" || cfg.Consumer != "flagns" {
 		t.Fatalf("flags should override file: %+v", cfg)
 	}
 
 	// Env overrides both flags and file.
 	t.Setenv("SPARROW_URL", "http://env:3")
 	t.Setenv("SPARROW_API_KEY", "envkey")
-	t.Setenv("SPARROW_NAMESPACE", "envns")
+	t.Setenv("SPARROW_CONSUMER", "envns")
 	cfg, _ = resolveConfig("http://flag:2", "flagkey", "flagns")
-	if cfg.ServerURL != "http://env:3" || cfg.APIKey != "envkey" || cfg.Namespace != "envns" {
+	if cfg.ServerURL != "http://env:3" || cfg.APIKey != "envkey" || cfg.Consumer != "envns" {
 		t.Fatalf("env should win: %+v", cfg)
 	}
 }
@@ -50,19 +50,19 @@ func TestResolveConfigDefaults(t *testing.T) {
 	t.Setenv("SPARROW_CONFIG", filepath.Join(t.TempDir(), "missing.yaml"))
 	t.Setenv("SPARROW_URL", "")
 	t.Setenv("SPARROW_API_KEY", "")
-	t.Setenv("SPARROW_NAMESPACE", "")
+	t.Setenv("SPARROW_CONSUMER", "")
 	cfg, err := resolveConfig("", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ServerURL != defaultServerURL || cfg.Namespace != defaultNamespace || cfg.APIKey != "" {
+	if cfg.ServerURL != defaultServerURL || cfg.Consumer != defaultConsumer || cfg.APIKey != "" {
 		t.Fatalf("defaults not applied: %+v", cfg)
 	}
 }
 
 func TestSaveConfigPermissions(t *testing.T) {
 	t.Setenv("SPARROW_CONFIG", filepath.Join(t.TempDir(), "sub", "config.yaml"))
-	path, err := saveConfig(config{ServerURL: "http://x", Namespace: "n"})
+	path, err := saveConfig(config{ServerURL: "http://x", Consumer: "n"})
 	if err != nil {
 		t.Fatal(err)
 	}

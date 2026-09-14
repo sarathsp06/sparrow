@@ -112,7 +112,7 @@ func (w *BatchJobWorker) Work(ctx context.Context, job *river.Job[BatchJobArgs])
 	case store.BatchTypeEventRepush:
 		processed, failed = w.processEventRepush(ctx, tenantID, batchID, data.ItemIDs)
 	case store.BatchTypeDeliveryRetry:
-		processed, failed = w.processDeliveryRetry(ctx, tenantID, batchID, batch.Namespace, data.ItemIDs)
+		processed, failed = w.processDeliveryRetry(ctx, tenantID, batchID, batch.Consumer, data.ItemIDs)
 	default:
 		if statusErr := w.setTerminalStatus(ctx, batchID, store.BatchStatusFailed); statusErr != nil {
 			w.logger.ErrorContext(ctx, "Failed to mark batch failed", "error", statusErr, "batch_id", args.BatchID)
@@ -192,13 +192,13 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 			continue
 		}
 
-		// Create a new event record (fresh ID, same payload/namespace/event).
+		// Create a new event record (fresh ID, same payload/consumer/event).
 		// Preserve the original TTL. TTL=0 means no expiry -- StoreEvent
 		// will set ExpiresAt to the far-future sentinel automatically.
 		newID := uuid.New()
 		newEvent := &store.EventRecord{
 			ID:          newID,
-			Namespace:   original.Namespace,
+			Consumer:    original.Consumer,
 			Event:       original.Event,
 			Payload:     original.Payload,
 			TTL:         original.TTL,
@@ -221,7 +221,7 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 		_, err = w.jobInserter.Insert(ctx, EventArgs{
 			TenantID:   tenantID.String(),
 			EventID:    newID.String(),
-			Namespace:  original.Namespace,
+			Consumer:   original.Consumer,
 			Event:      original.Event,
 			TTLSeconds: original.TTL,
 			Metadata:   original.Metadata,
@@ -248,7 +248,7 @@ func (w *BatchJobWorker) processEventRepush(ctx context.Context, tenantID, batch
 }
 
 // processDeliveryRetry resets and re-enqueues each delivery for retry.
-func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, batchID uuid.UUID, namespace string, itemIDs []string) (processed, failed int) {
+func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, batchID uuid.UUID, consumer string, itemIDs []string) (processed, failed int) {
 	for i, idStr := range itemIDs {
 		// Check cancellation periodically
 		if i > 0 && i%progressUpdateInterval == 0 {
@@ -271,17 +271,17 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 		}
 
 		// Load delivery
-		delivery, err := w.deliveryRepo.GetDeliveryByID(ctx, tenantID, deliveryID, namespace)
+		delivery, err := w.deliveryRepo.GetDeliveryByID(ctx, tenantID, deliveryID, consumer)
 		if err != nil || delivery == nil {
 			w.logger.ErrorContext(ctx, "Failed to load delivery for retry", "delivery_id", idStr, "error", err)
 			failed++
 			continue
 		}
 
-		// Get webhook (namespace + retry config) BEFORE mutating the delivery,
+		// Get webhook (consumer + retry config) BEFORE mutating the delivery,
 		// so a failed fetch doesn't strand the delivery in a reset state with
 		// no job enqueued.
-		webhook, err := w.webhookRepo.GetWebhookByID(ctx, tenantID, delivery.WebhookID, namespace)
+		webhook, err := w.webhookRepo.GetWebhookByID(ctx, tenantID, delivery.WebhookID, consumer)
 		if err != nil {
 			w.logger.ErrorContext(ctx, "Failed to get webhook for delivery retry", "delivery_id", idStr, "webhook_id", delivery.WebhookID, "error", err)
 			failed++
@@ -312,7 +312,7 @@ func (w *BatchJobWorker) processDeliveryRetry(ctx context.Context, tenantID, bat
 			SubscriptionID:      subID,
 			EventID:             delivery.EventID.String(),
 			ExpiresAt:           store.NoExpiryTime,
-			Namespace:           webhook.Namespace,
+			Consumer:            webhook.Consumer,
 			MaxAttempts:         maxAttempts,
 			RetryBackoffSeconds: webhook.RetryBackoffSeconds,
 		})

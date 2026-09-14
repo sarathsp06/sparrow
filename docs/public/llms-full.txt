@@ -6,8 +6,8 @@ Key facts for integrators:
 
 - Base URL: `http://<host>:8080`, all endpoints under `/v1`. OpenAPI 3.1 spec served live at `/openapi.yaml` and `/openapi.json`; interactive docs at `/docs`.
 - Auth is optional: if `SPARROW_API_KEY` is set, send it in the `X-API-Key` header on every request. When unset, all endpoints are open (intended for internal/VPN deployments).
-- Namespaced resources live under `/v1/namespaces/{namespace}/...`; the `default` namespace always exists. Event types are global (`/v1/event-types`) and act as a schema registry — only registered, active event types can be pushed.
-- Push is async: `POST /v1/namespaces/{ns}/events?event=<type>` with `{"payload":{...},"idempotency_key":"..."}` returns immediately; fan-out and delivery happen in background River workers. Delivery is at-least-once.
+- Consumerd resources live under `/v1/consumers/{consumer}/...`; the `default` consumer always exists. Event types are global (`/v1/event-types`) and act as a schema registry — only registered, active event types can be pushed.
+- Push is async: `POST /v1/consumers/{ns}/events?event=<type>` with `{"payload":{...},"idempotency_key":"..."}` returns immediately; fan-out and delivery happen in background River workers. Delivery is at-least-once.
 - Deliveries are signed per Standard Webhooks: headers `webhook-id`, `webhook-timestamp`, `webhook-signature` (`v1,` = HMAC-SHA256 with the `whsec_` secret; `v1a,` = Ed25519 with the webhook's `signing_public_key`). Signed message is `{id}.{timestamp}.{raw body}`; reject timestamps older than 5 minutes.
 - Retry behavior: retryable failures (5xx, timeout, connection refused, network errors, 429 with `Retry-After`) back off as `retry_backoff_seconds * 2^(attempt-1) + jitter` until success, `max_retries` exhausted (`FAILED`), or the event's `ttl_seconds` expires (`EXPIRED`). Non-retryable failures (4xx, DNS, TLS, unexpected status) fail immediately.
 - Webhook secrets and secret headers are envelope-encrypted at rest (AES-256-GCM); `SPARROW_ENCRYPTION_KEY` (64-char hex, `openssl rand -hex 32`) is required at startup. Event payloads are stored in plaintext JSONB.
@@ -15,12 +15,12 @@ Key facts for integrators:
 Core endpoints (all JSON):
 
 - `POST /v1/event-types` — register an event type (`{"name","description","active"}`)
-- `POST /v1/namespaces/{ns}/webhooks` — register a webhook (`{"url","events":[...],"active"}`); subscriptions are created automatically and a `whsec_` secret is returned once
-- `POST /v1/namespaces/{ns}/events?event=<type>` — push an event; supports idempotency keys
-- `GET /v1/namespaces/{ns}/deliveries` — list deliveries; `GET .../deliveries/{id}/attempts` for per-attempt status, response, and error category
-- `POST /v1/namespaces/{ns}/deliveries/{id}:retry` — retry one delivery; `:retryBatch` and `events:rePush` for bulk (up to 10K)
-- `POST /v1/namespaces/{ns}/webhooks/{id}:pause` / `:resume` — pause/resume delivery
-- `GET /v1/namespaces/{ns}/webhooks/{id}/health`, `GET /v1/health-summary`, `GET /v1/stats` — health state machine (healthy → degraded → unhealthy), 24h error breakdown, metrics
+- `POST /v1/consumers/{ns}/webhooks` — register a webhook (`{"url","events":[...],"active"}`); subscriptions are created automatically and a `whsec_` secret is returned once
+- `POST /v1/consumers/{ns}/events?event=<type>` — push an event; supports idempotency keys
+- `GET /v1/consumers/{ns}/deliveries` — list deliveries; `GET .../deliveries/{id}/attempts` for per-attempt status, response, and error category
+- `POST /v1/consumers/{ns}/deliveries/{id}:retry` — retry one delivery; `:retryBatch` and `events:rePush` for bulk (up to 10K)
+- `POST /v1/consumers/{ns}/webhooks/{id}:pause` / `:resume` — pause/resume delivery
+- `GET /v1/consumers/{ns}/webhooks/{id}/health`, `GET /v1/health-summary`, `GET /v1/stats` — health state machine (healthy → degraded → unhealthy), 24h error breakdown, metrics
 - `POST /v1/subscriptions:testTemplate` — dry-run a payload transform template
 
 ## Getting started
@@ -89,7 +89,7 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 | Capability | Sparrow | Svix OSS |
 |-----------|---------|----------|
 | **Event schema validation** | Soft validation (warnings, never rejects) | JSON Schema (hard reject) |
-| **Namespace isolation** | Built-in logical separation | Application-level |
+| **Consumer isolation** | Built-in logical separation | Application-level |
 | **API protocol** | REST/HTTP on :8080 (OpenAPI 3.1 spec) | REST API only |
 | **Helm chart** | Security-hardened (NetworkPolicy, seccomp, read-only rootfs) | Available |
 | **Container image** | Distroless (~15MB), non-root | Standard |
@@ -250,7 +250,7 @@ All examples use `http://localhost:8080` (REST/HTTP API). Replace with your serv
 2. **Register a webhook**
 
     ```bash
-    curl -X POST http://localhost:8080/v1/namespaces/default/webhooks \
+    curl -X POST http://localhost:8080/v1/consumers/default/webhooks \
       -H "Content-Type: application/json" \
       -H "X-API-Key: sk_live_..." \
       -d '{
@@ -265,7 +265,7 @@ All examples use `http://localhost:8080` (REST/HTTP API). Replace with your serv
 3. **Push an event**
 
     ```bash
-    curl -X POST http://localhost:8080/v1/namespaces/default/events \
+    curl -X POST http://localhost:8080/v1/consumers/default/events \
       -H "Content-Type: application/json" \
       -H "X-API-Key: sk_live_..." \
       -d '{
@@ -282,7 +282,7 @@ All examples use `http://localhost:8080` (REST/HTTP API). Replace with your serv
 4. **Check delivery status**
 
     ```bash
-    curl "http://localhost:8080/v1/namespaces/default/deliveries?webhook_id=YOUR_WEBHOOK_ID&limit=10" \
+    curl "http://localhost:8080/v1/consumers/default/deliveries?webhook_id=YOUR_WEBHOOK_ID&limit=10" \
       -H "X-API-Key: sk_live_..."
     ```
 
@@ -408,7 +408,7 @@ Sparrow accepts webhook registrations and event definitions, fans out events to 
 3. **Push an event** — when something happens, send the event payload to Sparrow:
 
     ```bash
-    curl -X POST http://localhost:8080/v1/namespaces/default/events \
+    curl -X POST http://localhost:8080/v1/consumers/default/events \
       -H "Content-Type: application/json" \
       -H "X-API-Key: sk_live_..." \
       -d '{
@@ -417,7 +417,7 @@ Sparrow accepts webhook registrations and event definitions, fans out events to 
       }'
     ```
 
-4. **Sparrow fans out** — the event worker finds all active subscriptions matching the event name, namespace, and **label filters**, applies any payload transforms, and creates a delivery job for each.
+4. **Sparrow fans out** — the event worker finds all active subscriptions matching the event name, consumer, and **label filters**, applies any payload transforms, and creates a delivery job for each.
 
 5. **Webhook delivery** — the webhook worker sends an HTTP POST to each URL with the payload, **Standard Webhooks signatures** (HMAC and/or Ed25519), and Sparrow headers. Failed deliveries are retried with exponential backoff.
 
@@ -457,7 +457,7 @@ Event registrations act as a schema registry. Only registered, active event type
 A **webhook** is a registered HTTP endpoint that receives event notifications. When you register a webhook, you provide a URL and optionally a secret for HMAC signature verification:
 
 ```bash
-curl -X POST http://localhost:8080/v1/namespaces/default/webhooks \
+curl -X POST http://localhost:8080/v1/consumers/default/webhooks \
   -H "Content-Type: application/json" \
   -H "X-API-Key: sk_live_..." \
   -d '{
@@ -476,7 +476,7 @@ A **subscription** connects a webhook to an event type. It controls which events
 Subscriptions are created automatically when you register a webhook with `events`, but you can also manage them explicitly:
 
 ```bash
-curl -X POST http://localhost:8080/v1/namespaces/default/subscriptions \
+curl -X POST http://localhost:8080/v1/consumers/default/subscriptions \
   -H "Content-Type: application/json" \
   -H "X-API-Key: sk_live_..." \
   -d '{
@@ -498,13 +498,13 @@ A **delivery** is a single attempt (or series of retry attempts) to send an even
 
 ## Key Design Decisions
 
-- **Async by default** — the push-event endpoint (`POST /v1/namespaces/{namespace}/events`) returns immediately. Processing and delivery happen in background workers via a persistent job queue (River).
+- **Async by default** — the push-event endpoint (`POST /v1/consumers/{consumer}/events`) returns immediately. Processing and delivery happen in background workers via a persistent job queue (River).
 - **At-least-once delivery** — retryable failures (server errors, timeouts, connection issues, rate limiting) are automatically retried. Non-retryable failures (DNS errors, TLS errors, 4xx responses) are recorded and not retried.
 - **Per-webhook health tracking** — Sparrow monitors consecutive failures, success rates, and response times for each webhook independently, with a state machine (healthy → degraded → unhealthy).
 - **Dual cryptographic signing** — every delivery is signed with both HMAC-SHA256 and Ed25519 using the [Standard Webhooks](https://www.standardwebhooks.com/) format. Consumers choose which signature to verify.
 - **10-category error classification** — failures are classified into specific categories (DNS, TLS, timeout, connection refused, rate limited, client error, server error, etc.) with retryability flags, so you know *why* a delivery failed.
 - **PostgreSQL only** — no Redis, no message broker. The River job queue runs inside PostgreSQL, keeping the operational footprint to a single database.
-- **Namespaces** — webhooks and events are organized into namespaces for logical separation (e.g., `billing`, `notifications`). A `default` namespace is always available.
+- **Consumers** — webhooks and events are organized into consumers for logical separation (e.g., `billing`, `notifications`). A `default` consumer is always available.
 - **Soft schema validation** — event schemas produce warnings, not errors. Events are always accepted and stored, with a `schema_valid` flag for filtering.
 </doc>
 
@@ -673,17 +673,17 @@ curl -s -X POST http://localhost:8080/v1/event-types \
   -d '{"name":"order.created","description":"New order","active":true}'
 
 # Register a webhook
-curl -s -X POST http://localhost:8080/v1/namespaces/default/webhooks \
+curl -s -X POST http://localhost:8080/v1/consumers/default/webhooks \
   -H "Content-Type: application/json" \
   -d '{"url":"https://testhooks.sarathsadasivan.com/hooks","events":["order.created"],"active":true}'
 
 # Push an event
-curl -s -X POST http://localhost:8080/v1/namespaces/default/events \
+curl -s -X POST http://localhost:8080/v1/consumers/default/events \
   -H "Content-Type: application/json" \
   -d '{"payload":{"order_id":"ord_k8s_001","amount":42.00}}'
 
 # Check deliveries
-curl -s http://localhost:8080/v1/namespaces/default/deliveries | jq '.deliveries[0].status'
+curl -s http://localhost:8080/v1/consumers/default/deliveries | jq '.deliveries[0].status'
 ```
 
 ### 6. Open the web UI
@@ -933,7 +933,7 @@ services, storage, and queue workers.
 
 Sparrow exposes a single HTTP REST server on `:8080`, built with [Huma](https://huma.rocks/). All endpoints live under the `/v1` base path and are described by an OpenAPI 3.1 spec committed at `api/openapi.yaml` (also `api/openapi.json`), generated from the Go REST definitions in `internal/rest`.
 
-The API covers events, webhooks, subscriptions, deliveries, event types, and health. Namespace-scoped resources use `/v1/namespaces/{namespace}/...` paths (for example, `GET /v1/namespaces/{namespace}/stats` for namespace stats).
+The API covers events, webhooks, subscriptions, deliveries, event types, and health. Consumer-scoped resources use `/v1/consumers/{consumer}/...` paths (for example, `GET /v1/consumers/{consumer}/stats` for consumer stats).
 
 See the [API Reference](/sparrow/reference/api/) for the full endpoint list.
 
@@ -942,7 +942,7 @@ See the [API Reference](/sparrow/reference/api/) for the full endpoint list.
 ## Event Processing Pipeline
 
 ```
-POST /v1/namespaces/{namespace}/events
+POST /v1/consumers/{consumer}/events
     │
     v
 Events REST handler (internal/rest)
@@ -953,7 +953,7 @@ Events REST handler (internal/rest)
     v
 EventProcessingWorker.Work()
     │  1. Load event from DB
-    │  2. Query matching subscriptions (tenant_id + namespace + event_name + labels)
+    │  2. Query matching subscriptions (tenant_id + consumer + event_name + labels)
     │  3. For each subscription: apply Go template transform (if enabled)
     │  4. Batch-insert all webhook_delivery records (single multi-row INSERT)
     │  5. Batch-enqueue all WebhookArgs jobs (River InsertMany)
@@ -1011,7 +1011,7 @@ Every webhook delivery sends a JSON envelope with snake_case field names:
   "version": "1",
   "event_id": "550e8400-e29b-41d4-a716-446655440000",
   "event_name": "user.created",
-  "namespace": "billing",
+  "consumer": "billing",
   "webhook_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   "delivery_id": "d-123",
   "timestamp": "2026-03-17T10:30:00Z",
@@ -1026,7 +1026,7 @@ Every webhook delivery sends a JSON envelope with snake_case field names:
 - `version` -- Envelope schema version (currently `"1"`).
 - `event_id` -- UUID of the event that triggered this delivery.
 - `event_name` -- The event type (e.g. `user.created`, `order.paid`).
-- `namespace` -- Namespace the event belongs to.
+- `consumer` -- Consumer the event belongs to.
 - `webhook_id` -- UUID of the webhook registration receiving this delivery.
 - `delivery_id` -- UUID of this specific delivery attempt.
 - `timestamp` -- ISO 8601 / RFC 3339 timestamp of when the delivery was sent.
@@ -1235,7 +1235,7 @@ cmd/server/main.go  (composition root — wires everything)
 
 - Tables: `tenants`
 
-**`internal/webhooks`** -- Core business domain: namespaces, events, subscriptions, deliveries, health tracking.
+**`internal/webhooks`** -- Core business domain: consumers, events, subscriptions, deliveries, health tracking.
 
 - Tables: See OKF / DB schema for full table list
 - Sub-packages:
@@ -1317,7 +1317,7 @@ All requests use an API key in the `X-API-Key` header (required only when the se
 with `SPARROW_API_KEY` set):
 
 ```bash
-curl -X POST http://localhost:8080/v1/namespaces/payments/events \
+curl -X POST http://localhost:8080/v1/consumers/payments/events \
   -H "Content-Type: application/json" \
   -H "X-API-Key: sk_live_..." \
   -d '{
@@ -1361,7 +1361,7 @@ client = AuthenticatedClient(
     auth_header_name="X-API-Key",
 )
 resp = register_webhook.sync_detailed(
-    namespace="default",
+    consumer="default",
     client=client,
     body=RegisterWebhookBody(events=["order.created"], url="https://example.com/hook"),
 )
@@ -1843,9 +1843,9 @@ The error classifier inspects the Go error chain to determine the category:
 
 Use the [health endpoints](/sparrow/reference/api/) to monitor error patterns:
 
-- `GET /v1/namespaces/{namespace}/webhooks/{webhook_id}/health` returns error category breakdown (client_errors, server_errors, timeout_errors, network_errors) for the last 24 hours
+- `GET /v1/consumers/{consumer}/webhooks/{webhook_id}/health` returns error category breakdown (client_errors, server_errors, timeout_errors, network_errors) for the last 24 hours
 - `GET /v1/webhooks` (filtered by health) finds all webhooks with `UNHEALTHY` or `DEGRADED` status
-- `GET /v1/namespaces/{namespace}/deliveries/{delivery_id}/attempts` shows per-attempt error details for debugging
+- `GET /v1/consumers/{consumer}/deliveries/{delivery_id}/attempts` shows per-attempt error details for debugging
 </doc>
 
 ## Guides

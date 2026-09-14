@@ -14,9 +14,9 @@ Registered under the `Health` tag in the Huma-generated OpenAPI spec. Implemente
 
 | Method | Path | OperationID | Description |
 |--------|------|-------------|-------------|
-| GET | `/v1/namespaces/{namespace}/webhooks/{webhook_id}/health` | `getWebhookHealth` | Health state for a single webhook |
+| GET | `/v1/consumers/{consumer}/webhooks/{webhook_id}/health` | `getWebhookHealth` | Health state for a single webhook |
 | GET | `/v1/health-summary` | `getHealthSummary` | Aggregate health summary across webhooks |
-| GET | `/v1/webhooks` | `listWebhooksByHealth` | List webhooks across all namespaces, filtered by health status |
+| GET | `/v1/webhooks` | `listWebhooksByHealth` | List webhooks across all consumers, filtered by health status |
 
 ## Citations
 

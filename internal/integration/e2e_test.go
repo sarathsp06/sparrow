@@ -70,8 +70,8 @@ func TestE2E_HappyPath(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespaceName = "integration-test"
-		eventName     = "order.created"
+		consumerName = "integration-test"
+		eventName    = "order.created"
 	)
 
 	// ── Step 1: Register event type ──────────────────────────────────────
@@ -101,7 +101,7 @@ func TestE2E_HappyPath(t *testing.T) {
 			WebhookSecret string `json:"webhook_secret"`
 		} `json:"http_config"`
 	}
-	resp, err = c.post(ctx, "/v1/namespaces/"+namespaceName+"/webhooks", map[string]any{
+	resp, err = c.post(ctx, "/v1/consumers/"+consumerName+"/webhooks", map[string]any{
 		"events":      []string{eventName},
 		"url":         targetSrv.URL + "/webhook",
 		"active":      true,
@@ -127,7 +127,7 @@ func TestE2E_HappyPath(t *testing.T) {
 			SubscriptionID string `json:"subscription_id"`
 		} `json:"items"`
 	}
-	resp, err = c.get(ctx, "/v1/namespaces/"+namespaceName+"/subscriptions?webhook_id="+webhookID+"&event_name="+eventName, &subListOut)
+	resp, err = c.get(ctx, "/v1/consumers/"+consumerName+"/subscriptions?webhook_id="+webhookID+"&event_name="+eventName, &subListOut)
 	require.NoError(t, err, "ListSubscriptions failed")
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Len(t, subListOut.Items, 1, "registering a webhook should auto-create exactly one subscription per listed event")
@@ -140,7 +140,7 @@ func TestE2E_HappyPath(t *testing.T) {
 	var pushOut struct {
 		EventID string `json:"event_id"`
 	}
-	resp, err = c.post(ctx, "/v1/namespaces/"+namespaceName+"/events?event="+eventName, map[string]any{
+	resp, err = c.post(ctx, "/v1/consumers/"+consumerName+"/events?event="+eventName, map[string]any{
 		"payload": map[string]any{
 			"order_id":    "ord_12345",
 			"customer_id": "cust_67890",
@@ -189,10 +189,10 @@ func TestE2E_HappyPath(t *testing.T) {
 	assert.InDelta(t, 99.99, payloadMap["amount"], 0.001)
 	assert.Equal(t, "USD", payloadMap["currency"])
 
-	_, hasNamespace := envelope["namespace"]
+	_, hasConsumer := envelope["consumer"]
 	_, hasWebhookID := envelope["webhook_id"]
 	_, hasDeliveryID := envelope["delivery_id"]
-	assert.False(t, hasNamespace, "body should NOT contain namespace (sent via headers)")
+	assert.False(t, hasConsumer, "body should NOT contain consumer (sent via headers)")
 	assert.False(t, hasWebhookID, "body should NOT contain webhook_id (sent via headers)")
 	assert.False(t, hasDeliveryID, "body should NOT contain delivery_id (sent via headers)")
 
@@ -230,7 +230,7 @@ func TestE2E_HappyPath(t *testing.T) {
 
 	// ── Step 10: Poll for delivery status via API ────────────────────────
 	t.Log("Step 10: Polling for delivery status via API")
-	pollDeliverySuccess(t, c, namespaceName, eventID, sparrowDeliveryID, 30*time.Second)
+	pollDeliverySuccess(t, c, consumerName, eventID, sparrowDeliveryID, 30*time.Second)
 
 	t.Log("E2E happy path test passed!")
 	_ = subscriptionID
@@ -267,7 +267,7 @@ func validateHMAC(t *testing.T, body []byte, secret, msgID, timestamp, signature
 
 // pollDeliverySuccess polls the ListDeliveries API until the given delivery
 // reaches "success" status or the timeout expires.
-func pollDeliverySuccess(t *testing.T, c *restClient, namespace, eventID, deliveryID string, timeout time.Duration) {
+func pollDeliverySuccess(t *testing.T, c *restClient, consumer, eventID, deliveryID string, timeout time.Duration) {
 	t.Helper()
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -295,7 +295,7 @@ func pollDeliverySuccess(t *testing.T, c *restClient, namespace, eventID, delive
 		case <-ticker.C:
 			reqCtx, reqCancel := context.WithTimeout(ctx, 10*time.Second)
 			var out listOut
-			_, err := c.get(reqCtx, "/v1/namespaces/"+namespace+"/deliveries?event_id="+eventID, &out)
+			_, err := c.get(reqCtx, "/v1/consumers/"+consumer+"/deliveries?event_id="+eventID, &out)
 			reqCancel()
 			if err != nil {
 				t.Logf("  poll: ListDeliveries error (retrying): %v", err)

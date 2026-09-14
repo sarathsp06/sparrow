@@ -19,10 +19,10 @@ type SubscriptionRepository interface {
 	UpdateSubscription(ctx context.Context, tenantID uuid.UUID, sub *EventSubscription) error
 	DeleteSubscription(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) error
 	ListSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) ([]*EventSubscription, error)
-	ListSubscriptionsByNamespace(ctx context.Context, tenantID uuid.UUID, namespace string, limit, offset int) ([]*EventSubscription, int, error)
-	GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string, labels map[string]string) ([]*EventSubscription, error)
-	ListSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string) ([]*EventSubscription, error)
-	GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string, labels map[string]string) ([]*SubscriptionWithWebhook, error)
+	ListSubscriptionsByConsumer(ctx context.Context, tenantID uuid.UUID, consumer string, limit, offset int) ([]*EventSubscription, int, error)
+	GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*EventSubscription, error)
+	ListSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string) ([]*EventSubscription, error)
+	GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*SubscriptionWithWebhook, error)
 	ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID uuid.UUID, webhookIDs []uuid.UUID) ([]*EventSubscription, error)
 }
 
@@ -34,7 +34,7 @@ func (r *Repository) CreateSubscription(ctx context.Context, tenantID uuid.UUID,
 // GetSubscription gets a subscription by ID within a tenant
 func (r *Repository) GetSubscription(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*EventSubscription, error) {
 	query := `
-		SELECT id, tenant_id, webhook_id, event_name, namespace, headers, method,
+		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
 		       transform_enabled, transform_template, timeout, label_filters, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND id = $2
@@ -96,7 +96,7 @@ func (r *Repository) DeleteSubscription(ctx context.Context, tenantID uuid.UUID,
 // ListSubscriptions lists subscriptions for a webhook within a tenant
 func (r *Repository) ListSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) ([]*EventSubscription, error) {
 	query := `
-		SELECT id, tenant_id, webhook_id, event_name, namespace, headers, method,
+		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
 		       transform_enabled, transform_template, timeout, label_filters, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND webhook_id = $2
@@ -110,43 +110,43 @@ func (r *Repository) ListSubscriptions(ctx context.Context, tenantID uuid.UUID, 
 	return subs, nil
 }
 
-// ListSubscriptionsByNamespace lists all subscriptions in a namespace within a tenant with pagination.
-func (r *Repository) ListSubscriptionsByNamespace(ctx context.Context, tenantID uuid.UUID, namespace string, limit, offset int) ([]*EventSubscription, int, error) {
-	countQuery := `SELECT COUNT(*) FROM event_subscriptions WHERE tenant_id = $1 AND namespace = $2`
+// ListSubscriptionsByConsumer lists all subscriptions in a consumer within a tenant with pagination.
+func (r *Repository) ListSubscriptionsByConsumer(ctx context.Context, tenantID uuid.UUID, consumer string, limit, offset int) ([]*EventSubscription, int, error) {
+	countQuery := `SELECT COUNT(*) FROM event_subscriptions WHERE tenant_id = $1 AND consumer = $2`
 	var totalCount int
-	if err := r.conn.GetContext(ctx, &totalCount, countQuery, tenantID, namespace); err != nil {
+	if err := r.conn.GetContext(ctx, &totalCount, countQuery, tenantID, consumer); err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
 	query := `
-		SELECT id, tenant_id, webhook_id, event_name, namespace, headers, method,
+		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
 		       transform_enabled, transform_template, timeout, label_filters, created_at, updated_at
 		FROM event_subscriptions
-		WHERE tenant_id = $1 AND namespace = $2
+		WHERE tenant_id = $1 AND consumer = $2
 		ORDER BY created_at DESC
 		LIMIT $3 OFFSET $4
 	`
 	var subs []*EventSubscription
-	err := r.conn.SelectContext(ctx, &subs, query, tenantID, namespace, limit, offset)
+	err := r.conn.SelectContext(ctx, &subs, query, tenantID, consumer, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 	return subs, totalCount, nil
 }
 
-// ListSubscriptionsByEvent lists all subscriptions for a specific event in a namespace
+// ListSubscriptionsByEvent lists all subscriptions for a specific event in a consumer
 // within a tenant, with no active-webhook or label-filter predicates. Used by the admin
 // listing API; delivery fan-out uses GetSubscriptionsByEvent instead.
-func (r *Repository) ListSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string) ([]*EventSubscription, error) {
+func (r *Repository) ListSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string) ([]*EventSubscription, error) {
 	query := `
-		SELECT id, tenant_id, webhook_id, event_name, namespace, headers, method,
+		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
 		       transform_enabled, transform_template, timeout, label_filters, created_at, updated_at
 		FROM event_subscriptions
-		WHERE tenant_id = $1 AND namespace = $2 AND event_name = $3
+		WHERE tenant_id = $1 AND consumer = $2 AND event_name = $3
 		ORDER BY created_at DESC
 	`
 	var subs []*EventSubscription
-	if err := r.conn.SelectContext(ctx, &subs, query, tenantID, namespace, event); err != nil {
+	if err := r.conn.SelectContext(ctx, &subs, query, tenantID, consumer, event); err != nil {
 		return nil, storage.Error(err)
 	}
 	return subs, nil
@@ -159,7 +159,7 @@ func (r *Repository) ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID
 		return nil, nil
 	}
 	query := `
-		SELECT id, tenant_id, webhook_id, event_name, namespace, headers, method,
+		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
 		       transform_enabled, transform_template, timeout, label_filters, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND webhook_id = ANY($2)
@@ -179,15 +179,15 @@ func (r *Repository) ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID
 	return subs, nil
 }
 
-// GetSubscriptionsByEvent finds all active subscriptions for a specific event in a namespace within a tenant.
-// Also includes catch-all subscriptions (event_name = '*') for the same namespace.
-func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string, labels map[string]string) ([]*EventSubscription, error) {
+// GetSubscriptionsByEvent finds all active subscriptions for a specific event in a consumer within a tenant.
+// Also includes catch-all subscriptions (event_name = '*') for the same consumer.
+func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*EventSubscription, error) {
 	query := `
-		SELECT es.id, es.tenant_id, es.webhook_id, es.event_name, es.namespace, es.headers, es.method, 
+		SELECT es.id, es.tenant_id, es.webhook_id, es.event_name, es.consumer, es.headers, es.method, 
 		       es.transform_enabled, es.transform_template, es.timeout, es.label_filters, es.created_at, es.updated_at
 		FROM event_subscriptions es
 		JOIN webhook_registrations wr ON es.webhook_id = wr.id
-		WHERE es.tenant_id = $1 AND es.namespace = $2
+		WHERE es.tenant_id = $1 AND es.consumer = $2
 		  AND (es.event_name = $3 OR es.event_name = '*')
 		  AND wr.active = true
 		  AND (es.label_filters = '{}' OR es.label_filters <@ $4::jsonb)
@@ -200,28 +200,28 @@ func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.
 
 	var subscriptions []*EventSubscription
 
-	err = r.conn.SelectContext(ctx, &subscriptions, query, tenantID, namespace, event, labelsJSON)
+	err = r.conn.SelectContext(ctx, &subscriptions, query, tenantID, consumer, event, labelsJSON)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
 	return subscriptions, nil
 }
 
-// GetSubscriptionsWithWebhooksByEvent finds all active subscriptions for a specific event in a namespace within a tenant,
+// GetSubscriptionsWithWebhooksByEvent finds all active subscriptions for a specific event in a consumer within a tenant,
 // including the webhook configuration for each subscription.
-func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string, labels map[string]string) ([]*SubscriptionWithWebhook, error) {
+func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*SubscriptionWithWebhook, error) {
 	query := `
 		SELECT
-			es.id, es.webhook_id, es.event_name, es.namespace, es.headers as es_headers, es.method,
+			es.id, es.webhook_id, es.event_name, es.consumer, es.headers as es_headers, es.method,
 			es.transform_enabled, es.transform_template, es.timeout, es.label_filters, es.created_at, es.updated_at,
-			wr.id as wr_id, wr.namespace as wr_namespace, wr.url, wr.headers as wr_headers,
+			wr.id as wr_id, wr.consumer as wr_consumer, wr.url, wr.headers as wr_headers,
 			wr.timeout as wr_timeout, wr.active, wr.description, wr.health,
 			wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
 			wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
 			wr.user_agent, wr.content_type, wr.secret_headers, wr.created_at as wr_created_at, wr.updated_at as wr_updated_at
 		FROM event_subscriptions es
 		JOIN webhook_registrations wr ON es.webhook_id = wr.id
-		WHERE es.tenant_id = $1 AND es.namespace = $2
+		WHERE es.tenant_id = $1 AND es.consumer = $2
 		  AND (es.event_name = $3 OR es.event_name = '*')
 		  AND wr.active = true
 		  AND (es.label_filters = '{}' OR es.label_filters <@ $4::jsonb)
@@ -237,7 +237,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 		ID                uuid.UUID `db:"id"`
 		WebhookID         uuid.UUID `db:"webhook_id"`
 		EventName         string    `db:"event_name"`
-		Namespace         string    `db:"namespace"`
+		Consumer          string    `db:"consumer"`
 		HeadersJSON       []byte    `db:"es_headers"`
 		Method            string    `db:"method"`
 		TransformEnabled  bool      `db:"transform_enabled"`
@@ -249,7 +249,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 
 		// Webhook fields
 		WRID                    uuid.UUID     `db:"wr_id"`
-		WRNamespace             string        `db:"wr_namespace"`
+		WRConsumer              string        `db:"wr_consumer"`
 		URL                     string        `db:"url"`
 		WRHeadersJSON           []byte        `db:"wr_headers"`
 		WRTimeout               int           `db:"wr_timeout"`
@@ -272,7 +272,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 	}
 
 	var rows []rowStruct
-	err = r.conn.SelectContext(ctx, &rows, query, tenantID, namespace, event, labelsJSON)
+	err = r.conn.SelectContext(ctx, &rows, query, tenantID, consumer, event, labelsJSON)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -284,7 +284,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 			TenantID:          tenantID,
 			WebhookID:         row.WebhookID,
 			EventName:         row.EventName,
-			Namespace:         row.Namespace,
+			Consumer:          row.Consumer,
 			Method:            row.Method,
 			TransformEnabled:  row.TransformEnabled,
 			TransformTemplate: row.TransformTemplate,
@@ -296,7 +296,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 		wh := &WebhookRegistration{
 			ID:                    row.WRID,
 			TenantID:              tenantID,
-			Namespace:             row.WRNamespace,
+			Consumer:              row.WRConsumer,
 			URL:                   row.URL,
 			Timeout:               row.WRTimeout,
 			Active:                row.Active,

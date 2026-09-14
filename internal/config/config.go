@@ -73,7 +73,7 @@ type Config struct {
 }
 
 // Load populates a Config struct from environment variables.
-// envconfig does not use a prefix since the env vars span multiple namespaces
+// envconfig does not use a prefix since the env vars span multiple consumers
 // (SPARROW_*, DATABASE_URL, ENVIRONMENT, OTEL_*, CORS_*).
 func Load() (*Config, error) {
 	var cfg Config

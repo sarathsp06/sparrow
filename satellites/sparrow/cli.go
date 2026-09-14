@@ -19,7 +19,7 @@ they happen, receive webhooks on a local server, apply recipes, and debug
 transform templates against a running Sparrow instance.
 
 Connection settings resolve in order: environment (SPARROW_URL, SPARROW_API_KEY,
-SPARROW_NAMESPACE) > --url/--api-key/--namespace flags > ~/.sparrow/config.yaml >
+SPARROW_CONSUMER) > --url/--api-key/--consumer flags > ~/.sparrow/config.yaml >
 built-in defaults. Run 'sparrow init' to write a config file.`,
 		Version:       version,
 		SilenceUsage:  true,
@@ -32,7 +32,7 @@ built-in defaults. Run 'sparrow init' to write a config file.`,
 	pf := root.PersistentFlags()
 	pf.String("url", "", "Sparrow server URL (env SPARROW_URL, config server_url)")
 	pf.String("api-key", "", "API key for the X-API-Key header (env SPARROW_API_KEY)")
-	pf.String("namespace", "", "tenant namespace (env SPARROW_NAMESPACE, config namespace)")
+	pf.String("consumer", "", "tenant consumer (env SPARROW_CONSUMER, config consumer)")
 
 	root.AddCommand(
 		newInitCmd(),
@@ -55,7 +55,7 @@ built-in defaults. Run 'sparrow init' to write a config file.`,
 func clientFromCmd(cmd *cobra.Command) (*apiClient, config, error) {
 	url, _ := cmd.Flags().GetString("url")
 	apiKey, _ := cmd.Flags().GetString("api-key")
-	ns, _ := cmd.Flags().GetString("namespace")
+	ns, _ := cmd.Flags().GetString("consumer")
 	cfg, err := resolveConfig(url, apiKey, ns)
 	if err != nil {
 		return nil, cfg, err

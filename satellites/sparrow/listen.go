@@ -47,7 +47,7 @@ func newListenCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runListen(cmd.Context(), cmd.OutOrStdout(), client, cfg.Namespace, port, events, publicURL, forward)
+			return runListen(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, port, events, publicURL, forward)
 		},
 	}
 	f := cmd.Flags()
@@ -59,7 +59,7 @@ func newListenCmd() *cobra.Command {
 }
 
 // runListen receives deliveries on a local HTTP server via a temp webhook.
-func runListen(ctx context.Context, out io.Writer, client *apiClient, namespace string, port int, events listFlag, publicURL, forward string) error {
+func runListen(ctx context.Context, out io.Writer, client *apiClient, consumer string, port int, events listFlag, publicURL, forward string) error {
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return err
@@ -70,7 +70,7 @@ func runListen(ctx context.Context, out io.Writer, client *apiClient, namespace 
 		registerURL = fmt.Sprintf("http://host.docker.internal:%d", localPort)
 	}
 
-	hook, err := client.registerWebhook(ctx, namespace, webhookRequest{
+	hook, err := client.registerWebhook(ctx, consumer, webhookRequest{
 		URL:         registerURL,
 		Events:      events,
 		Active:      true,
@@ -101,7 +101,7 @@ func runListen(ctx context.Context, out io.Writer, client *apiClient, namespace 
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	srv.Shutdown(cleanupCtx) //nolint:errcheck
-	if err := client.deleteWebhook(cleanupCtx, namespace, hook.WebhookID); err != nil {
+	if err := client.deleteWebhook(cleanupCtx, consumer, hook.WebhookID); err != nil {
 		return fmt.Errorf("delete temporary webhook %s: %w", hook.WebhookID, err)
 	}
 	_, _ = fmt.Fprintf(out, "\ndeleted temporary webhook %s\n", hook.WebhookID)

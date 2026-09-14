@@ -14,16 +14,16 @@ Registered under the `Webhooks` tag in the Huma-generated OpenAPI spec. Implemen
 
 | Method | Path | OperationID | Description |
 |--------|------|-------------|-------------|
-| POST | `/v1/namespaces/{namespace}/webhooks` | `registerWebhook` | Create webhook + auto-create subscriptions |
-| GET | `/v1/namespaces/{namespace}/webhooks` | `listWebhooks` | Paginated listing with filters |
-| GET | `/v1/namespaces/{namespace}/webhooks/{webhook_id}` | `getWebhook` | Get a webhook by id |
-| PATCH | `/v1/namespaces/{namespace}/webhooks/{webhook_id}` | `updateWebhook` | Partial update with field mask |
-| DELETE | `/v1/namespaces/{namespace}/webhooks/{webhook_id}` | `deleteWebhook` | Delete webhook (cascades subscriptions, deliveries) |
-| POST | `/v1/namespaces/{namespace}/webhooks/{webhook_id}:pause` | `pauseWebhook` | Set webhook inactive |
-| POST | `/v1/namespaces/{namespace}/webhooks/{webhook_id}:resume` | `resumeWebhook` | Set webhook active |
-| GET | `/v1/namespaces/{namespace}/stats` | `getNamespaceStats` | Aggregate per-namespace delivery stats |
+| POST | `/v1/consumers/{consumer}/webhooks` | `registerWebhook` | Create webhook + auto-create subscriptions |
+| GET | `/v1/consumers/{consumer}/webhooks` | `listWebhooks` | Paginated listing with filters |
+| GET | `/v1/consumers/{consumer}/webhooks/{webhook_id}` | `getWebhook` | Get a webhook by id |
+| PATCH | `/v1/consumers/{consumer}/webhooks/{webhook_id}` | `updateWebhook` | Partial update with field mask |
+| DELETE | `/v1/consumers/{consumer}/webhooks/{webhook_id}` | `deleteWebhook` | Delete webhook (cascades subscriptions, deliveries) |
+| POST | `/v1/consumers/{consumer}/webhooks/{webhook_id}:pause` | `pauseWebhook` | Set webhook inactive |
+| POST | `/v1/consumers/{consumer}/webhooks/{webhook_id}:resume` | `resumeWebhook` | Set webhook active |
+| GET | `/v1/consumers/{consumer}/stats` | `getConsumerStats` | Aggregate per-consumer delivery stats |
 | GET | `/v1/template-functions` | `getTemplateFunctions` | List available Go template functions |
-| GET | `/v1/stats` | `getGlobalStats` | Aggregate delivery stats across all namespaces |
+| GET | `/v1/stats` | `getGlobalStats` | Aggregate delivery stats across all consumers |
 
 ## Citations
 

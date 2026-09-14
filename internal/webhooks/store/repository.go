@@ -89,7 +89,7 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, tenantID uuid.
 
 	query := `
 		INSERT INTO event_records (
-			id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
+			id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 
@@ -106,7 +106,7 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, tenantID uuid.
 	_, err = tx.Exec(ctx, query,
 		event.ID,
 		event.TenantID,
-		event.Namespace,
+		event.Consumer,
 		event.Event,
 		event.Payload,
 		event.TTL,
@@ -121,19 +121,19 @@ func (r *Repository) StoreEventTx(ctx context.Context, tx pgx.Tx, tenantID uuid.
 }
 
 // GetWebhooksByEventTx retrieves all active webhooks subscribed to a specific event within a transaction.
-// Only returns webhooks that are active=true and match the tenant and namespace for tenant isolation.
+// Only returns webhooks that are active=true and match the tenant and consumer for tenant isolation.
 // Includes complete webhook configuration including HTTP settings for delivery customization.
-func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, namespace, event string) ([]*WebhookRegistration, error) {
+func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, tenantID uuid.UUID, consumer, event string) ([]*WebhookRegistration, error) {
 	query := `
-		SELECT id, tenant_id, namespace, url, headers, timeout, active, description, health,
+		SELECT id, tenant_id, consumer, url, headers, timeout, active, description, health,
 		       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 		       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
 		       user_agent, content_type, secret_headers, created_at, updated_at
 		FROM webhook_registrations 
-		WHERE tenant_id = $1 AND namespace = $2 AND active = true
+		WHERE tenant_id = $1 AND consumer = $2 AND active = true
 	`
 
-	rows, err := tx.Query(ctx, query, tenantID, namespace)
+	rows, err := tx.Query(ctx, query, tenantID, consumer)
 	if err != nil {
 		return nil, storage.Error(err)
 	}
@@ -147,7 +147,7 @@ func (r *Repository) GetWebhooksByEventTx(ctx context.Context, tx pgx.Tx, tenant
 		err := rows.Scan(
 			&wh.ID,
 			&wh.TenantID,
-			&wh.Namespace,
+			&wh.Consumer,
 			&wh.URL,
 			&headersJSON,
 			&wh.Timeout,

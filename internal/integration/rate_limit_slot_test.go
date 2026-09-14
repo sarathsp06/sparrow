@@ -33,7 +33,7 @@ func TestAcquireDeliverySlot_BusyBucketDoesNotBurnSlots(t *testing.T) {
 
 	rps := 2.0 // interval = 500ms
 	reg := &store.WebhookRegistration{
-		Namespace:             "rate-limit-slot-test",
+		Consumer:              "rate-limit-slot-test",
 		URL:                   "https://example.com/hook",
 		Active:                true,
 		RateLimitRPS:          &rps,

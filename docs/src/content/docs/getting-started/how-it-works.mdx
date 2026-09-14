@@ -20,7 +20,7 @@ Sparrow accepts webhook registrations and event definitions, fans out events to 
 3. **Push an event** — when something happens, send the event payload to Sparrow:
 
     ```bash
-    curl -X POST http://localhost:8080/v1/namespaces/default/events \
+    curl -X POST http://localhost:8080/v1/consumers/default/events \
       -H "Content-Type: application/json" \
       -H "X-API-Key: sk_live_..." \
       -d '{
@@ -29,7 +29,7 @@ Sparrow accepts webhook registrations and event definitions, fans out events to 
       }'
     ```
 
-4. **Sparrow fans out** — the event worker finds all active subscriptions matching the event name, namespace, and **label filters**, applies any payload transforms, and creates a delivery job for each.
+4. **Sparrow fans out** — the event worker finds all active subscriptions matching the event name, consumer, and **label filters**, applies any payload transforms, and creates a delivery job for each.
 
 5. **Webhook delivery** — the webhook worker sends an HTTP POST to each URL with the payload, **Standard Webhooks signatures** (HMAC and/or Ed25519), and Sparrow headers. Failed deliveries are retried with exponential backoff.
 
@@ -69,7 +69,7 @@ Event registrations act as a schema registry. Only registered, active event type
 A **webhook** is a registered HTTP endpoint that receives event notifications. When you register a webhook, you provide a URL and optionally a secret for HMAC signature verification:
 
 ```bash
-curl -X POST http://localhost:8080/v1/namespaces/default/webhooks \
+curl -X POST http://localhost:8080/v1/consumers/default/webhooks \
   -H "Content-Type: application/json" \
   -H "X-API-Key: sk_live_..." \
   -d '{
@@ -88,7 +88,7 @@ A **subscription** connects a webhook to an event type. It controls which events
 Subscriptions are created automatically when you register a webhook with `events`, but you can also manage them explicitly:
 
 ```bash
-curl -X POST http://localhost:8080/v1/namespaces/default/subscriptions \
+curl -X POST http://localhost:8080/v1/consumers/default/subscriptions \
   -H "Content-Type: application/json" \
   -H "X-API-Key: sk_live_..." \
   -d '{
@@ -110,13 +110,13 @@ A **delivery** is a single attempt (or series of retry attempts) to send an even
 
 ## Key Design Decisions
 
-- **Async by default** — the push-event endpoint (`POST /v1/namespaces/{namespace}/events`) returns immediately. Processing and delivery happen in background workers via a persistent job queue (River).
+- **Async by default** — the push-event endpoint (`POST /v1/consumers/{consumer}/events`) returns immediately. Processing and delivery happen in background workers via a persistent job queue (River).
 - **At-least-once delivery** — retryable failures (server errors, timeouts, connection issues, rate limiting) are automatically retried. Non-retryable failures (DNS errors, TLS errors, 4xx responses) are recorded and not retried.
 - **Per-webhook health tracking** — Sparrow monitors consecutive failures, success rates, and response times for each webhook independently, with a state machine (healthy → degraded → unhealthy).
 - **Dual cryptographic signing** — every delivery is signed with both HMAC-SHA256 and Ed25519 using the [Standard Webhooks](https://www.standardwebhooks.com/) format. Consumers choose which signature to verify.
 - **10-category error classification** — failures are classified into specific categories (DNS, TLS, timeout, connection refused, rate limited, client error, server error, etc.) with retryability flags, so you know *why* a delivery failed.
 - **PostgreSQL only** — no Redis, no message broker. The River job queue runs inside PostgreSQL, keeping the operational footprint to a single database.
-- **Namespaces** — webhooks and events are organized into namespaces for logical separation (e.g., `billing`, `notifications`). A `default` namespace is always available.
+- **Consumers** — webhooks and events are organized into consumers for logical separation (e.g., `billing`, `notifications`). A `default` consumer is always available.
 - **Soft schema validation** — event schemas produce warnings, not errors. Events are always accepted and stored, with a `schema_valid` flag for filtering.
 
 ## Common Real-World Use Cases

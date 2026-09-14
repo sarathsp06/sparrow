@@ -43,7 +43,7 @@ func TestE2E_SlackRecipeTransform(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "recipe-slack-test"
+		consumer  = "recipe-slack-test"
 		eventName = "recipe.slack"
 	)
 
@@ -56,7 +56,7 @@ func TestE2E_SlackRecipeTransform(t *testing.T) {
 	target, bodies := startBodyCaptureTarget(t)
 
 	registerEventType(t, c, ctx, eventName)
-	webhookID := registerWebhookPipeline(t, c, ctx, namespace, eventName, target.URL, 1)
+	webhookID := registerWebhookPipeline(t, c, ctx, consumer, eventName, target.URL, 1)
 
 	// Find the auto-created subscription and set the recipe's transform on it.
 	var subs struct {
@@ -64,12 +64,12 @@ func TestE2E_SlackRecipeTransform(t *testing.T) {
 			SubscriptionID string `json:"subscription_id"`
 		} `json:"items"`
 	}
-	_, err = c.get(ctx, "/v1/namespaces/"+namespace+"/subscriptions?webhook_id="+webhookID, &subs)
+	_, err = c.get(ctx, "/v1/consumers/"+consumer+"/subscriptions?webhook_id="+webhookID, &subs)
 	require.NoError(t, err)
 	require.Len(t, subs.Items, 1)
 
 	enabled := true
-	resp, err := c.do(ctx, http.MethodPatch, "/v1/namespaces/"+namespace+"/subscriptions/"+subs.Items[0].SubscriptionID, map[string]any{
+	resp, err := c.do(ctx, http.MethodPatch, "/v1/consumers/"+consumer+"/subscriptions/"+subs.Items[0].SubscriptionID, map[string]any{
 		"transform_enabled":  enabled,
 		"transform_template": recipe.Subscription.TransformTemplate,
 	}, nil)
@@ -80,7 +80,7 @@ func TestE2E_SlackRecipeTransform(t *testing.T) {
 	var pushed struct {
 		EventID string `json:"event_id"`
 	}
-	resp, err = c.post(ctx, "/v1/namespaces/"+namespace+"/events?event="+eventName, map[string]any{
+	resp, err = c.post(ctx, "/v1/consumers/"+consumer+"/events?event="+eventName, map[string]any{
 		"payload": map[string]any{"user_id": 42, "email": "ada@example.com"},
 		"labels":  map[string]string{"env": "test"},
 	}, &pushed)

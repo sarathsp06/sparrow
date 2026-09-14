@@ -2,13 +2,13 @@
   import { goto } from '$app/navigation';
   import { api, unwrap } from '$lib/services';
   import { formatAPIError } from '$lib/utils';
-  import { namespaceStore } from '$lib/namespace.svelte';
+  import { consumerStore } from '$lib/consumer.svelte';
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-types';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 
-  let namespace = $state(namespaceStore.value);
+  let consumer = $state(consumerStore.value);
   let events: string[] = $state([]);
   let url = $state('');
   let description = $state('');
@@ -39,7 +39,7 @@
 
   // Validation
   let urlError = $state('');
-  let namespaceError = $state('');
+  let consumerError = $state('');
   let eventsError = $state('');
 
   let filteredEvents = $derived(
@@ -79,9 +79,9 @@
     catch { urlError = 'Enter a valid URL (e.g. https://api.example.com/webhook)'; return false; }
   }
 
-  function validateNamespace(val: string): boolean {
-    if (!val.trim()) { namespaceError = 'Namespace is required'; return false; }
-    namespaceError = '';
+  function validateConsumer(val: string): boolean {
+    if (!val.trim()) { consumerError = 'Consumer is required'; return false; }
+    consumerError = '';
     return true;
   }
 
@@ -90,7 +90,7 @@
     error = '';
 
     const urlValid = validateUrl(url);
-    const nsValid = validateNamespace(namespace);
+    const nsValid = validateConsumer(consumer);
     eventsError = events.length === 0 ? 'Select at least one event' : '';
     if (!urlValid || !nsValid || eventsError) return;
 
@@ -115,8 +115,8 @@
         .map(code => parseInt(code.trim()))
         .filter(code => !isNaN(code) && code >= 100 && code < 600);
 
-      unwrap(await api.POST('/v1/namespaces/{namespace}/webhooks', {
-        params: { path: { namespace } },
+      unwrap(await api.POST('/v1/consumers/{consumer}/webhooks', {
+        params: { path: { consumer } },
         body: {
           events,
           url,
@@ -165,9 +165,9 @@
     <form onsubmit={registerWebhook} class="space-y-6">
       <section class="panel p-5 space-y-4">
         <div>
-          <label for="namespace" class="field-label">Namespace</label>
-          <input id="namespace" type="text" bind:value={namespace} class="input" style={namespaceError ? 'border-color:color-mix(in srgb,var(--color-bad) 55%,transparent)' : ''} />
-          {#if namespaceError}<p class="text-xs mt-1" style="color:var(--color-bad)">{namespaceError}</p>{/if}
+          <label for="consumer" class="field-label">Consumer</label>
+          <input id="consumer" type="text" bind:value={consumer} class="input" style={consumerError ? 'border-color:color-mix(in srgb,var(--color-bad) 55%,transparent)' : ''} />
+          {#if consumerError}<p class="text-xs mt-1" style="color:var(--color-bad)">{consumerError}</p>{/if}
         </div>
         <div>
           <label for="url" class="field-label">Target URL</label>

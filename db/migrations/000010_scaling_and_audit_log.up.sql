@@ -6,9 +6,9 @@
 -- ============================================================================
 
 -- Critical for EventProcessingWorker fan-out: GetSubscriptionsWithWebhooksByEvent()
--- JOINs event_subscriptions + webhook_registrations filtered by tenant_id, namespace, event_name.
+-- JOINs event_subscriptions + webhook_registrations filtered by tenant_id, consumer, event_name.
 CREATE INDEX IF NOT EXISTS idx_event_subscriptions_tenant_ns_event
-    ON event_subscriptions(tenant_id, namespace, event_name);
+    ON event_subscriptions(tenant_id, consumer, event_name);
 
 -- Paginated delivery listing by webhook (GetDeliveriesByWebhookID)
 CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook_created
@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook_created
 
 -- Paginated event record listing (ListEventReports, ListEventReportsWithStats)
 CREATE INDEX IF NOT EXISTS idx_event_records_tenant_ns_created
-    ON event_records(tenant_id, namespace, created_at DESC);
+    ON event_records(tenant_id, consumer, created_at DESC);
 
 -- Event record filtering by event name (used when eventName filter is provided)
 CREATE INDEX IF NOT EXISTS idx_event_records_tenant_event_created
@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_event_created
 
 -- Filtered webhook listing (ListWebhooks with activeOnly=true)
 CREATE INDEX IF NOT EXISTS idx_webhook_registrations_tenant_ns_active
-    ON webhook_registrations(tenant_id, namespace, active);
+    ON webhook_registrations(tenant_id, consumer, active);
 
 -- Drop unused GIN index on webhook_deliveries.request_body — no query uses
 -- full-text search on this column, and it adds write overhead on every INSERT.

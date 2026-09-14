@@ -1,16 +1,16 @@
-// Global namespace context — the app's primary scoping axis.
+// Global consumer context — the app's primary scoping axis.
 // One switcher in the shell; every list/filter page reads this instead of
-// re-declaring a local free-text namespace input.
+// re-declaring a local free-text consumer input.
 import { browser } from "$app/environment";
 
-const KEY = "sparrow.namespace";
+const KEY = "sparrow.consumer";
 const DEFAULT = "default";
 
 let current = $state(browser ? localStorage.getItem(KEY) || DEFAULT : DEFAULT);
-// Namespaces discovered at runtime (from loaded webhooks/events) to power the switcher list.
+// Consumers discovered at runtime (from loaded webhooks/events) to power the switcher list.
 let known = $state<string[]>([DEFAULT]);
 
-export const namespaceStore = {
+export const consumerStore = {
   get value(): string {
     return current;
   },
@@ -23,7 +23,7 @@ export const namespaceStore = {
   get options(): string[] {
     return known;
   },
-  /** Merge freshly seen namespaces into the switcher list. */
+  /** Merge freshly seen consumers into the switcher list. */
   remember(...names: (string | undefined | null)[]) {
     const set = new Set(known);
     for (const n of names) if (n && n.trim()) set.add(n.trim());

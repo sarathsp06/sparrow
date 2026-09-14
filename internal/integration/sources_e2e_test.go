@@ -23,9 +23,9 @@ import (
 
 // startWebhook mounts the sparrow-sources webhook handler on an httptest
 // server pointed at the harness Sparrow.
-func startWebhook(t *testing.T, env *testEnv, namespace string, providers sources.ProvidersConfig) *httptest.Server {
+func startWebhook(t *testing.T, env *testEnv, consumer string, providers sources.ProvidersConfig) *httptest.Server {
 	t.Helper()
-	pusher := sources.NewClient(sources.SparrowConfig{URL: env.baseURL, Namespace: namespace})
+	pusher := sources.NewClient(sources.SparrowConfig{URL: env.baseURL, Consumer: consumer})
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	srv := httptest.NewServer(sources.NewWebhookHandler(sources.WebhookConfig{Providers: providers}, pusher, log))
 	t.Cleanup(srv.Close)
@@ -34,7 +34,7 @@ func startWebhook(t *testing.T, env *testEnv, namespace string, providers source
 
 // findEventOccurrence polls listEventOccurrences until an occurrence of the
 // given event name appears, returning its event id.
-func findEventOccurrence(t *testing.T, c *restClient, ctx context.Context, namespace, eventName string) string {
+func findEventOccurrence(t *testing.T, c *restClient, ctx context.Context, consumer, eventName string) string {
 	t.Helper()
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -49,7 +49,7 @@ func findEventOccurrence(t *testing.T, c *restClient, ctx context.Context, names
 					EventID string `json:"event_id"`
 				} `json:"items"`
 			}
-			_, err := c.get(ctx, "/v1/namespaces/"+namespace+"/events?event="+eventName, &out)
+			_, err := c.get(ctx, "/v1/consumers/"+consumer+"/events?event="+eventName, &out)
 			if err == nil && len(out.Items) > 0 {
 				return out.Items[0].EventID
 			}
@@ -66,16 +66,16 @@ func TestE2E_SourcesStripeWebhook(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "sources-stripe"
+		consumer  = "sources-stripe"
 		secret    = "whsec_e2e_test"
 		eventName = "stripe.payment_intent.succeeded"
 	)
 
 	targetSrv, requestCount := startCountingTarget(t)
 	registerEventType(t, c, ctx, eventName)
-	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 3)
+	registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 3)
 
-	webhook := startWebhook(t, env, namespace, sources.ProvidersConfig{
+	webhook := startWebhook(t, env, consumer, sources.ProvidersConfig{
 		Stripe: &sources.StripeConfig{Path: "/webhooks/stripe", SigningSecret: secret, SparrowEventPrefix: "stripe"},
 	})
 
@@ -102,8 +102,8 @@ func TestE2E_SourcesStripeWebhook(t *testing.T) {
 
 	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	eventID := findEventOccurrence(t, c, pollCtx, namespace, eventName)
-	pollDeliveryStatus(t, c, pollCtx, namespace, eventID, func(d deliveryItem) bool {
+	eventID := findEventOccurrence(t, c, pollCtx, consumer, eventName)
+	pollDeliveryStatus(t, c, pollCtx, consumer, eventID, func(d deliveryItem) bool {
 		return d.Status == "success"
 	})
 	require.GreaterOrEqual(t, int(requestCount.Load()), 1, "subscribed webhook should have been delivered to")
@@ -117,16 +117,16 @@ func TestE2E_SourcesGitHubWebhook(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "sources-github"
+		consumer  = "sources-github"
 		secret    = "gh_e2e_test"
 		eventName = "github.push"
 	)
 
 	targetSrv, requestCount := startCountingTarget(t)
 	registerEventType(t, c, ctx, eventName)
-	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 3)
+	registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 3)
 
-	webhook := startWebhook(t, env, namespace, sources.ProvidersConfig{
+	webhook := startWebhook(t, env, consumer, sources.ProvidersConfig{
 		GitHub: &sources.GitHubConfig{Path: "/webhooks/github", Secret: secret, SparrowEventPrefix: "github"},
 	})
 
@@ -152,8 +152,8 @@ func TestE2E_SourcesGitHubWebhook(t *testing.T) {
 
 	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	eventID := findEventOccurrence(t, c, pollCtx, namespace, eventName)
-	pollDeliveryStatus(t, c, pollCtx, namespace, eventID, func(d deliveryItem) bool {
+	eventID := findEventOccurrence(t, c, pollCtx, consumer, eventName)
+	pollDeliveryStatus(t, c, pollCtx, consumer, eventID, func(d deliveryItem) bool {
 		return d.Status == "success"
 	})
 	require.GreaterOrEqual(t, int(requestCount.Load()), 1, "subscribed webhook should have been delivered to")

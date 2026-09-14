@@ -18,11 +18,11 @@ type Config struct {
 }
 
 // SparrowConfig is the Sparrow server connection. Env vars SPARROW_URL,
-// SPARROW_API_KEY and SPARROW_NAMESPACE override the file values.
+// SPARROW_API_KEY and SPARROW_CONSUMER override the file values.
 type SparrowConfig struct {
-	URL       string `yaml:"url"`
-	APIKey    string `yaml:"api_key"`
-	Namespace string `yaml:"namespace"`
+	URL      string `yaml:"url"`
+	APIKey   string `yaml:"api_key"`
+	Consumer string `yaml:"consumer"`
 }
 
 // CronJob emits a fixed event on a 5-field cron schedule.
@@ -100,11 +100,11 @@ func LoadConfig(path string) (*Config, error) {
 	if v := os.Getenv("SPARROW_API_KEY"); v != "" {
 		cfg.Sparrow.APIKey = v
 	}
-	if v := os.Getenv("SPARROW_NAMESPACE"); v != "" {
-		cfg.Sparrow.Namespace = v
+	if v := os.Getenv("SPARROW_CONSUMER"); v != "" {
+		cfg.Sparrow.Consumer = v
 	}
-	if cfg.Sparrow.Namespace == "" {
-		cfg.Sparrow.Namespace = "default"
+	if cfg.Sparrow.Consumer == "" {
+		cfg.Sparrow.Consumer = "default"
 	}
 	if cfg.Sparrow.URL == "" {
 		return nil, fmt.Errorf("sparrow.url is required (or set SPARROW_URL)")

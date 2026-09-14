@@ -23,7 +23,7 @@ Manages the River job queue with three worker types.
 [Consumes](/architecture/data-flow.md) from the events queue. On work:
 
 1. Loads event from DB
-2. Queries matching subscriptions (tenant_id + namespace + event_name)
+2. Queries matching subscriptions (tenant_id + consumer + event_name)
 3. Applies Go template transform per subscription
 4. Batch-inserts delivery records
 5. Batch-enqueues WebhookArgs
@@ -44,8 +44,8 @@ Manages the River job queue with three worker types.
 
 ## Job Types
 
-- `EventArgs` — TenantID, EventID, Namespace, Event, TTLSeconds, Metadata, CreatedAt
-- `WebhookArgs` — TenantID, DeliveryID, WebhookID, SubscriptionID, EventID, ExpiresAt, Namespace, MaxAttempts
+- `EventArgs` — TenantID, EventID, Consumer, Event, TTLSeconds, Metadata, CreatedAt
+- `WebhookArgs` — TenantID, DeliveryID, WebhookID, SubscriptionID, EventID, ExpiresAt, Consumer, MaxAttempts
 - `BatchJobArgs` — TenantID, BatchID
 
 ## OTel Propagation

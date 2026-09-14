@@ -120,9 +120,9 @@ func TestToWebhookRegistration_RateLimitRPS(t *testing.T) {
 	t.Run("rate limit flows through HTTPConfig", func(t *testing.T) {
 		rps := 5.0
 		req := WebhookRegistrationRequest{
-			Namespace: "test",
-			Events:    []string{"event.test"},
-			URL:       "https://example.com/webhook",
+			Consumer: "test",
+			Events:   []string{"event.test"},
+			URL:      "https://example.com/webhook",
 			HTTPConfig: &WebhookHTTPConfig{
 				MaxRetries:            3,
 				RetryBackoffSeconds:   60,
@@ -151,9 +151,9 @@ func TestToWebhookRegistration_RateLimitRPS(t *testing.T) {
 
 	t.Run("no rate limit by default", func(t *testing.T) {
 		req := WebhookRegistrationRequest{
-			Namespace: "test",
-			Events:    []string{"event.test"},
-			URL:       "https://example.com/webhook",
+			Consumer: "test",
+			Events:   []string{"event.test"},
+			URL:      "https://example.com/webhook",
 		}
 
 		webhook, err := req.ToWebhookRegistration()
@@ -169,9 +169,9 @@ func TestToWebhookRegistration_RateLimitRPS(t *testing.T) {
 	t.Run("invalid rate limit rejected", func(t *testing.T) {
 		rps := -1.0
 		req := WebhookRegistrationRequest{
-			Namespace: "test",
-			Events:    []string{"event.test"},
-			URL:       "https://example.com/webhook",
+			Consumer: "test",
+			Events:   []string{"event.test"},
+			URL:      "https://example.com/webhook",
 			HTTPConfig: &WebhookHTTPConfig{
 				MaxRetries:            3,
 				RetryBackoffSeconds:   60,

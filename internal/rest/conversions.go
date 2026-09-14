@@ -105,7 +105,7 @@ type WebhookHTTPConfigOut struct {
 // retrieve the real secret once.
 type WebhookOut struct {
 	WebhookID        string               `json:"webhook_id" doc:"Webhook id (UUID)."`
-	Namespace        string               `json:"namespace" doc:"Tenant namespace this webhook belongs to."`
+	Consumer         string               `json:"consumer" doc:"Tenant consumer this webhook belongs to."`
 	Events           []string             `json:"events" doc:"Event type names this webhook is currently subscribed to, derived from its subscriptions."`
 	URL              string               `json:"url" doc:"HTTP endpoint deliveries are POSTed to."`
 	Headers          map[string]string    `json:"headers,omitempty" doc:"Static HTTP headers sent with every delivery."`
@@ -127,7 +127,7 @@ func toWebhookOut(reg *store.WebhookRegistration, events []string, svc webhooks.
 	}
 	return WebhookOut{
 		WebhookID:        reg.ID.String(),
-		Namespace:        reg.Namespace,
+		Consumer:         reg.Consumer,
 		Events:           events,
 		URL:              reg.URL,
 		Headers:          reg.Headers,
@@ -164,7 +164,7 @@ func toWebhookOutFromDomain(reg *webhooks.WebhookRegistration, svc webhooks.Secr
 	}
 	return WebhookOut{
 		WebhookID:        reg.ID,
-		Namespace:        reg.Namespace,
+		Consumer:         reg.Consumer,
 		Events:           []string(reg.Events),
 		URL:              reg.URL,
 		Active:           reg.Active,

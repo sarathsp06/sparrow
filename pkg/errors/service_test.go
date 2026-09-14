@@ -14,8 +14,8 @@ func TestServiceError_Error(t *testing.T) {
 	}{
 		{
 			name: "without cause",
-			err:  Error(InvalidArgument, "namespace is required"),
-			want: "namespace is required",
+			err:  Error(InvalidArgument, "consumer is required"),
+			want: "consumer is required",
 		},
 		{
 			name: "with cause",

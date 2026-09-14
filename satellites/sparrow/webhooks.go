@@ -26,7 +26,7 @@ argument, show that webhook plus its subscriptions.`,
 			if len(args) == 1 {
 				id = args[0]
 			}
-			return runWebhooks(cmd.Context(), cmd.OutOrStdout(), client, cfg.Namespace, id, activeOnly, outputFmt(cmd))
+			return runWebhooks(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, id, activeOnly, outputFmt(cmd))
 		},
 	}
 	cmd.Flags().BoolVar(&activeOnly, "active", false, "only show active webhooks")
@@ -35,13 +35,13 @@ argument, show that webhook plus its subscriptions.`,
 }
 
 // runWebhooks lists webhooks, or shows one webhook plus its subscriptions.
-func runWebhooks(ctx context.Context, out io.Writer, client *apiClient, namespace, id string, activeOnly bool, format string) error {
+func runWebhooks(ctx context.Context, out io.Writer, client *apiClient, consumer, id string, activeOnly bool, format string) error {
 	if id != "" {
-		hook, err := client.getWebhook(ctx, namespace, id)
+		hook, err := client.getWebhook(ctx, consumer, id)
 		if err != nil {
 			return err
 		}
-		subs, err := client.listSubscriptions(ctx, namespace, id)
+		subs, err := client.listSubscriptions(ctx, consumer, id)
 		if err != nil {
 			return err
 		}
@@ -51,7 +51,7 @@ func runWebhooks(ctx context.Context, out io.Writer, client *apiClient, namespac
 		return printWebhook(out, hook, subs)
 	}
 
-	hooks, err := client.listWebhooks(ctx, namespace, activeOnly)
+	hooks, err := client.listWebhooks(ctx, consumer, activeOnly)
 	if err != nil {
 		return err
 	}

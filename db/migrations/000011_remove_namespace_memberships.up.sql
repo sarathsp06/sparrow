@@ -1,1 +1,0 @@
--- No-op: namespace_memberships and api_keys tables were removed

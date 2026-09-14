@@ -21,7 +21,7 @@ configured. Two independent loops share one pusher:
 
 ```
 cron loop (per schedule entry):
-  tick → POST /v1/namespaces/{ns}/events?event=<name>
+  tick → POST /v1/consumers/{ns}/events?event=<name>
            {payload, labels}
          on 404 unknown event type
            → POST /v1/event-types {name, active: true}
@@ -76,7 +76,7 @@ One YAML file (default `sources.yaml`, override with `--config`):
 sparrow:
   url: http://localhost:8080   # Sparrow server base URL (required)
   api_key: ""                  # optional, sent as X-API-Key
-  namespace: default           # namespace events are pushed into
+  consumer: default           # consumer events are pushed into
 
 cron:
   - schedule: "*/5 * * * *"    # 5-field cron: min hour dom mon dow
@@ -101,7 +101,7 @@ webhook:
 
 The `path` is yours to set — point the provider's dashboard at whatever URL you register. `sparrow_event_prefix` names the event Sparrow receives (the **outbound** event), not the incoming provider event; it is prefixed to the provider's own event name.
 
-Environment variables override the `sparrow:` section: `SPARROW_URL`, `SPARROW_API_KEY`, `SPARROW_NAMESPACE`.
+Environment variables override the `sparrow:` section: `SPARROW_URL`, `SPARROW_API_KEY`, `SPARROW_CONSUMER`.
 
 Cron schedules support numbers, ranges (`1-5`), steps (`*/10`, `0-30/5`), lists (`0,15,30,45`), and `*` in each of the five fields (minute, hour, day-of-month, month, day-of-week; `0` and `7` both mean Sunday). Resolution is one minute, jitterless.
 

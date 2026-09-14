@@ -11,14 +11,14 @@ import (
 )
 
 // GetDeliveryStatus gets the status of a webhook delivery.
-// When namespace is empty, looks up by delivery ID alone.
-func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID string, namespace string) (*store.WebhookDelivery, error) {
+// When consumer is empty, looks up by delivery ID alone.
+func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID string, consumer string) (*store.WebhookDelivery, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.GetDeliveryStatus")
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Getting webhook delivery status",
 		"delivery_id", deliveryID,
-		"namespace", namespace)
+		"consumer", consumer)
 
 	if deliveryID == "" {
 		return nil, svcerrors.Error(svcerrors.InvalidArgument, "delivery ID is required")
@@ -31,7 +31,7 @@ func (s *WebhookService) GetDeliveryStatus(ctx context.Context, deliveryID strin
 		return nil, err
 	}
 
-	delivery, err := s.webhookRepo.GetDeliveryByID(ctx, tenantID, id, namespace)
+	delivery, err := s.webhookRepo.GetDeliveryByID(ctx, tenantID, id, consumer)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to get delivery by ID", "error", err)
 		return nil, fmt.Errorf("failed to retrieve delivery status: %w", err)
@@ -71,7 +71,7 @@ func (s *WebhookService) GetDeliveryAttempts(ctx context.Context, deliveryID str
 }
 
 // ListDeliveries retrieves delivery history with filters.
-// Supports filtering by namespace, webhook, event, status, error_category,
+// Supports filtering by consumer, webhook, event, status, error_category,
 // subscription, and time range via the DeliveryFilter struct.
 // When PrepareRetry is true, snapshots all matching delivery IDs into a batch job and returns the batch ID.
 func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.DeliveryFilter) ([]*store.WebhookDelivery, int32, string, error) {
@@ -79,7 +79,7 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.Delive
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Listing deliveries",
-		"namespace", filter.Namespace,
+		"consumer", filter.Consumer,
 		"webhook_id", filter.WebhookID,
 		"event_id", filter.EventID,
 		"status", filter.Status,
@@ -108,7 +108,7 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.Delive
 		}
 		if len(ids) > 0 {
 			filterMap := map[string]any{
-				"namespace": filter.Namespace,
+				"consumer": filter.Consumer,
 			}
 			if filter.WebhookID != nil {
 				filterMap["webhook_id"] = filter.WebhookID.String()
@@ -126,7 +126,7 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.Delive
 				ItemIDs: ids,
 				Filter:  filterMap,
 			}
-			batchJob, err := s.webhookRepo.CreateBatchJob(ctx, tenantID, filter.Namespace, store.BatchTypeDeliveryRetry, batchData)
+			batchJob, err := s.webhookRepo.CreateBatchJob(ctx, tenantID, filter.Consumer, store.BatchTypeDeliveryRetry, batchData)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "Failed to create batch job for retry", "error", err)
 				return nil, 0, "", fmt.Errorf("failed to create retry batch: %w", err)
@@ -142,14 +142,14 @@ func (s *WebhookService) ListDeliveries(ctx context.Context, filter store.Delive
 }
 
 // RetryDelivery manually retries failed or pending webhook deliveries
-func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, deliveryID string, webhookID string, force bool) ([]string, int32, error) {
+func (s *WebhookService) RetryDelivery(ctx context.Context, consumer string, deliveryID string, webhookID string, force bool) ([]string, int32, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.RetryDelivery")
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing retry delivery request",
 		"delivery_id", deliveryID,
 		"webhook_id", webhookID,
-		"namespace", namespace,
+		"consumer", consumer,
 		"force", force)
 
 	tenantID := tenant.DefaultTenantID
@@ -159,10 +159,10 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		return nil, 0, svcerrors.Error(svcerrors.InvalidArgument, "either delivery_id or webhook_id is required")
 	}
 
-	// Namespace is required for webhook-level retry (multiple deliveries),
+	// Consumer is required for webhook-level retry (multiple deliveries),
 	// but optional for single-delivery retry (delivery_id is globally unique within a tenant).
-	if namespace == "" && webhookID != "" {
-		return nil, 0, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required for webhook-level retry")
+	if consumer == "" && webhookID != "" {
+		return nil, 0, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required for webhook-level retry")
 	}
 
 	if deliveryID != "" && webhookID != "" {
@@ -178,7 +178,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		}
 
 		// Resubmit specific delivery
-		delivery, err := s.webhookRepo.GetDeliveryByID(ctx, tenantID, id, namespace)
+		delivery, err := s.webhookRepo.GetDeliveryByID(ctx, tenantID, id, consumer)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "Failed to get delivery", "error", err)
 			return nil, 0, fmt.Errorf("failed to retrieve delivery: %w", err)
@@ -201,14 +201,14 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		}
 
 		// Resubmit all failed/pending deliveries for webhook
-		_, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
+		_, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, consumer)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "Failed to get webhook", "error", err)
 			return nil, 0, fmt.Errorf("failed to retrieve webhook: %w", err)
 		}
 
 		// Get retriable deliveries
-		deliveriesToResubmit, err = s.webhookRepo.GetRetriableDeliveries(ctx, tenantID, id, namespace, force)
+		deliveriesToResubmit, err = s.webhookRepo.GetRetriableDeliveries(ctx, tenantID, id, consumer, force)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "Failed to get retriable deliveries", "error", err)
 			return nil, 0, fmt.Errorf("failed to retrieve deliveries: %w", err)
@@ -239,7 +239,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 		}
 
 		// Get webhook info for queuing
-		webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, delivery.WebhookID, namespace)
+		webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, delivery.WebhookID, consumer)
 		if err != nil {
 			s.logger.ErrorContext(ctx, "Failed to get webhook for delivery",
 				"webhook_id", delivery.WebhookID,
@@ -255,7 +255,7 @@ func (s *WebhookService) RetryDelivery(ctx context.Context, namespace string, de
 			WebhookID:           delivery.WebhookID.String(),
 			EventID:             delivery.EventID.String(),
 			ExpiresAt:           store.NoExpiryTime,
-			Namespace:           webhook.Namespace,
+			Consumer:            webhook.Consumer,
 			TenantID:            tenantID.String(),
 			MaxAttempts:         delivery.MaxAttempts,
 			RetryBackoffSeconds: webhook.RetryBackoffSeconds,

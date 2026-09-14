@@ -27,7 +27,7 @@ func newTailCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runTail(cmd.Context(), cmd.OutOrStdout(), client, cfg.Namespace, status, once, limit)
+			return runTail(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, status, once, limit)
 		},
 	}
 	f := cmd.Flags()
@@ -38,7 +38,7 @@ func newTailCmd() *cobra.Command {
 }
 
 // runTail polls the deliveries API and prints rows not seen before.
-func runTail(ctx context.Context, out io.Writer, client *apiClient, namespace, status string, once bool, limit int) error {
+func runTail(ctx context.Context, out io.Writer, client *apiClient, consumer, status string, once bool, limit int) error {
 	pal := newPalette(out)
 
 	header := fmt.Sprintf("%-20s  %-36s  %-9s  %4s  %-8s  %s", "TIME", "EVENT", "STATUS", "CODE", "ATTEMPTS", "URL")
@@ -46,7 +46,7 @@ func runTail(ctx context.Context, out io.Writer, client *apiClient, namespace, s
 	seen := map[string]bool{}
 	webhookURLs := map[string]string{} // webhook_id -> url cache
 	for {
-		items, err := client.listDeliveries(ctx, namespace, status, limit)
+		items, err := client.listDeliveries(ctx, consumer, status, limit)
 		if err != nil {
 			if ctx.Err() != nil {
 				return nil // Ctrl-C during request
@@ -60,7 +60,7 @@ func runTail(ctx context.Context, out io.Writer, client *apiClient, namespace, s
 				continue
 			}
 			seen[d.DeliveryID] = true
-			printDelivery(ctx, out, pal, client, namespace, webhookURLs, d)
+			printDelivery(ctx, out, pal, client, consumer, webhookURLs, d)
 		}
 		if once {
 			return nil
@@ -73,10 +73,10 @@ func runTail(ctx context.Context, out io.Writer, client *apiClient, namespace, s
 	}
 }
 
-func printDelivery(ctx context.Context, out io.Writer, pal palette, client *apiClient, namespace string, urls map[string]string, d deliveryItem) {
+func printDelivery(ctx context.Context, out io.Writer, pal palette, client *apiClient, consumer string, urls map[string]string, d deliveryItem) {
 	dest, ok := urls[d.WebhookID]
 	if !ok {
-		if hooks, err := client.listWebhooks(ctx, namespace, false); err == nil {
+		if hooks, err := client.listWebhooks(ctx, consumer, false); err == nil {
 			for _, h := range hooks {
 				urls[h.WebhookID] = h.URL
 			}

@@ -28,14 +28,14 @@ type WebhookService struct {
 
 // WebhookManager manages webhook registrations and their lifecycle.
 type WebhookManager interface {
-	RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error)
+	RegisterWebhook(ctx context.Context, consumer string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error)
 	CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error)
-	UnregisterWebhook(ctx context.Context, webhookID string, namespace string) error
-	ListWebhooks(ctx context.Context, namespace string, webhookID string, event string, activeOnly bool, health string, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
-	UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) error
-	PauseWebhook(ctx context.Context, webhookID string, namespace string, reason string) error
-	ResumeWebhook(ctx context.Context, webhookID string, namespace string) error
-	GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStatsData, error)
+	UnregisterWebhook(ctx context.Context, webhookID string, consumer string) error
+	ListWebhooks(ctx context.Context, consumer string, webhookID string, event string, activeOnly bool, health string, limit, offset int32) ([]*store.WebhookRegistration, int32, error)
+	UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) error
+	PauseWebhook(ctx context.Context, webhookID string, consumer string, reason string) error
+	ResumeWebhook(ctx context.Context, webhookID string, consumer string) error
+	GetConsumerStats(ctx context.Context, consumer string) (*ConsumerStatsData, error)
 }
 
 // EventManager manages event type registrations and event publishing.
@@ -48,7 +48,7 @@ type EventManager interface {
 	// PushEvent returns (eventID, isDuplicate, schemaValid, warnings, err).
 	// isDuplicate is true when idempotencyKey matched an existing event; the
 	// other fields then describe that existing event, not a new one.
-	PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (eventID string, isDuplicate bool, schemaValid bool, warnings []string, err error)
+	PushEvent(ctx context.Context, consumer string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (eventID string, isDuplicate bool, schemaValid bool, warnings []string, err error)
 	RePushEvent(ctx context.Context, eventID string) (string, []string, error)
 	GetEventRecord(ctx context.Context, eventID string) (*store.EventRecord, int32, int32, int32, int32, error)
 	ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error)
@@ -56,27 +56,27 @@ type EventManager interface {
 
 // SubscriptionManager manages event subscriptions and payload-transform templates.
 type SubscriptionManager interface {
-	CreateSubscription(ctx context.Context, webhookID, eventName, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error)
-	GetSubscription(ctx context.Context, subscriptionID string, namespace string) (*store.EventSubscription, error)
-	ListSubscriptions(ctx context.Context, namespace string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
-	UpdateSubscription(ctx context.Context, subscriptionID string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error
-	DeleteSubscription(ctx context.Context, subscriptionID string, namespace string) error
-	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, namespace string) (string, error)
+	CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error)
+	GetSubscription(ctx context.Context, subscriptionID string, consumer string) (*store.EventSubscription, error)
+	ListSubscriptions(ctx context.Context, consumer string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
+	UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error
+	DeleteSubscription(ctx context.Context, subscriptionID string, consumer string) error
+	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string) (string, error)
 	ListSubscriptionsByWebhookIDs(ctx context.Context, webhookIDs []uuid.UUID) ([]*store.EventSubscription, error)
 	GetTemplateFunctions() []TemplateFunctionInfo
 }
 
 // DeliveryManager exposes delivery status, attempt history, and retries.
 type DeliveryManager interface {
-	GetDeliveryStatus(ctx context.Context, deliveryID string, namespace string) (*store.WebhookDelivery, error)
+	GetDeliveryStatus(ctx context.Context, deliveryID string, consumer string) (*store.WebhookDelivery, error)
 	GetDeliveryAttempts(ctx context.Context, deliveryID string) ([]*store.WebhookHealthEvent, error)
 	ListDeliveries(ctx context.Context, filter store.DeliveryFilter) ([]*store.WebhookDelivery, int32, string, error)
-	RetryDelivery(ctx context.Context, namespace string, deliveryID string, webhookID string, force bool) ([]string, int32, error)
+	RetryDelivery(ctx context.Context, consumer string, deliveryID string, webhookID string, force bool) ([]string, int32, error)
 }
 
 // HealthManager exposes per-webhook and aggregate health.
 type HealthManager interface {
-	GetWebhookHealth(ctx context.Context, webhookID string, namespace string) (*WebhookHealthData, error)
+	GetWebhookHealth(ctx context.Context, webhookID string, consumer string) (*WebhookHealthData, error)
 	GetHealthSummary(ctx context.Context) (*HealthSummaryData, error)
 }
 

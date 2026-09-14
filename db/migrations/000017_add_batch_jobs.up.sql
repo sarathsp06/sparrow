@@ -4,7 +4,7 @@
 CREATE TABLE batch_jobs (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    namespace     VARCHAR(255) NOT NULL,
+    consumer     VARCHAR(255) NOT NULL,
     job_type      VARCHAR(50) NOT NULL,
     status        VARCHAR(20) NOT NULL DEFAULT 'pending',
     data          JSONB NOT NULL,

@@ -13,12 +13,12 @@ import (
 )
 
 type deliveryIDInput struct {
-	Namespace  string `path:"namespace" doc:"Tenant namespace the delivery belongs to."`
+	Consumer   string `path:"consumer" doc:"Tenant consumer the delivery belongs to."`
 	DeliveryID string `path:"delivery_id" doc:"Delivery id (UUID)."`
 }
 
 // deliveryIDOnlyInput is for single-delivery operations the domain layer
-// supports namespace-agnostically (delivery IDs are globally unique).
+// supports consumer-agnostically (delivery IDs are globally unique).
 type deliveryIDOnlyInput struct {
 	DeliveryID string `path:"delivery_id"`
 }
@@ -73,7 +73,7 @@ func toDeliveryOutput(dl *store.WebhookDelivery) *deliveryOutput {
 }
 
 type listDeliveriesInput struct {
-	Namespace     string `path:"namespace" doc:"Tenant namespace to list deliveries in."`
+	Consumer      string `path:"consumer" doc:"Tenant consumer to list deliveries in."`
 	WebhookID     string `query:"webhook_id,omitempty" doc:"Filter to deliveries for one webhook."`
 	EventID       string `query:"event_id,omitempty" doc:"Filter to deliveries for one pushed event occurrence."`
 	Status        string `query:"status,omitempty" doc:"Filter by delivery status (e.g. pending, success, failed, retrying)."`
@@ -92,13 +92,13 @@ type listDeliveriesOutput struct {
 }
 
 type retryDeliveryInput struct {
-	Namespace  string `path:"namespace" doc:"Tenant namespace the delivery belongs to."`
+	Consumer   string `path:"consumer" doc:"Tenant consumer the delivery belongs to."`
 	DeliveryID string `path:"delivery_id" doc:"Delivery id (UUID) to retry."`
 }
 
 type retryDeliveriesByWebhookInput struct {
-	Namespace string `path:"namespace" doc:"Tenant namespace the webhook belongs to."`
-	Body      struct {
+	Consumer string `path:"consumer" doc:"Tenant consumer the webhook belongs to."`
+	Body     struct {
 		WebhookID string `json:"webhook_id" required:"true" doc:"Retry every eligible delivery for this webhook."`
 		Force     bool   `json:"force,omitempty" doc:"If true, also retry deliveries that already exhausted their max attempts."`
 	}
@@ -137,13 +137,13 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "getDelivery",
 		Method:      http.MethodGet,
-		Path:        "/v1/namespaces/{namespace}/deliveries/{delivery_id}",
+		Path:        "/v1/consumers/{consumer}/deliveries/{delivery_id}",
 		Summary:     "Get a delivery by id",
 		Description: "Fetches one delivery's status, response code/body, and error classification.",
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *deliveryIDInput) (*deliveryOutput, error) {
-		dl, err := svc.GetDeliveryStatus(ctx, in.DeliveryID, in.Namespace)
+		dl, err := svc.GetDeliveryStatus(ctx, in.DeliveryID, in.Consumer)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get delivery")
 		}
@@ -153,14 +153,14 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "listDeliveries",
 		Method:      http.MethodGet,
-		Path:        "/v1/namespaces/{namespace}/deliveries",
+		Path:        "/v1/consumers/{consumer}/deliveries",
 		Summary:     "List deliveries",
-		Description: "Lists deliveries in a namespace, optionally filtered by webhook, event occurrence, or status. Set prepare_retry to snapshot the filtered set for the batch retry endpoint.",
+		Description: "Lists deliveries in a consumer, optionally filtered by webhook, event occurrence, or status. Set prepare_retry to snapshot the filtered set for the batch retry endpoint.",
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *listDeliveriesInput) (*listDeliveriesOutput, error) {
 		limit, offset := in.Limit, in.Offset
 		filter := store.DeliveryFilter{
-			Namespace:    in.Namespace,
+			Consumer:     in.Consumer,
 			Limit:        int(limit),
 			Offset:       int(offset),
 			PrepareRetry: in.PrepareRetry,
@@ -202,13 +202,13 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "retryDelivery",
 		Method:      http.MethodPost,
-		Path:        "/v1/namespaces/{namespace}/deliveries/{delivery_id}:retry",
+		Path:        "/v1/consumers/{consumer}/deliveries/{delivery_id}:retry",
 		Summary:     "Retry a single delivery",
 		Description: "Immediately re-attempts one delivery, regardless of its current status or remaining attempt budget.",
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *retryDeliveryInput) (*retryOutput, error) {
-		ids, count, err := svc.RetryDelivery(ctx, in.Namespace, in.DeliveryID, "", false)
+		ids, count, err := svc.RetryDelivery(ctx, in.Consumer, in.DeliveryID, "", false)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to retry delivery")
 		}
@@ -221,13 +221,13 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "retryDeliveriesByWebhook",
 		Method:      http.MethodPost,
-		Path:        "/v1/namespaces/{namespace}/deliveries:retry",
+		Path:        "/v1/consumers/{consumer}/deliveries:retry",
 		Summary:     "Retry deliveries in bulk for a webhook",
 		Description: "Retries every eligible (failed/pending) delivery for one webhook. Set force to also retry deliveries that already exhausted max_attempts.",
 		Errors:      []int{400, 404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *retryDeliveriesByWebhookInput) (*retryOutput, error) {
-		ids, count, err := svc.RetryDelivery(ctx, in.Namespace, "", in.Body.WebhookID, in.Body.Force)
+		ids, count, err := svc.RetryDelivery(ctx, in.Consumer, "", in.Body.WebhookID, in.Body.Force)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to retry deliveries")
 		}
@@ -240,7 +240,7 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "getDeliveryAttempts",
 		Method:      http.MethodGet,
-		Path:        "/v1/namespaces/{namespace}/deliveries/{delivery_id}/attempts",
+		Path:        "/v1/consumers/{consumer}/deliveries/{delivery_id}/attempts",
 		Summary:     "Get a delivery's per-attempt history",
 		Description: "Returns the full per-attempt record for one delivery: response code, timing, and error classification for every attempt made so far.",
 		Errors:      []int{404},
@@ -268,7 +268,7 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "startDeliveryRetryJob",
 		Method:        http.MethodPost,
-		Path:          "/v1/namespaces/{namespace}/deliveries:retryBatch",
+		Path:          "/v1/consumers/{consumer}/deliveries:retryBatch",
 		Summary:       "Start a batch retry job from a prepared snapshot",
 		Description:   "Starts an async job that retries every delivery captured by an earlier prepare_retry=true list call. Poll the returned job with getDeliveryRetryJob.",
 		Errors:        []int{400, 404},
@@ -288,7 +288,7 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "getDeliveryRetryJob",
 		Method:      http.MethodGet,
-		Path:        "/v1/namespaces/{namespace}/retry-jobs/{job_id}",
+		Path:        "/v1/consumers/{consumer}/retry-jobs/{job_id}",
 		Summary:     "Get batch retry job progress",
 		Description: "Returns a batch retry job's status and processed/failed/total counts.",
 		Errors:      []int{404},
@@ -304,7 +304,7 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "cancelDeliveryRetryJob",
 		Method:        http.MethodPost,
-		Path:          "/v1/namespaces/{namespace}/retry-jobs/{job_id}:cancel",
+		Path:          "/v1/consumers/{consumer}/retry-jobs/{job_id}:cancel",
 		Summary:       "Cancel a pending or in-progress batch retry job",
 		Description:   "Requests cancellation of a batch retry job. Deliveries already retried are not rolled back.",
 		Errors:        []int{404, 409},
@@ -321,8 +321,8 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		OperationID: "getDeliveryGlobal",
 		Method:      http.MethodGet,
 		Path:        "/v1/deliveries/{delivery_id}",
-		Summary:     "Get a delivery by id (any namespace)",
-		Description: "Namespace-agnostic lookup by delivery id, for callers that only have the id (e.g. a webhook-signature verification failure report) and don't know which namespace it belongs to.",
+		Summary:     "Get a delivery by id (any consumer)",
+		Description: "Consumer-agnostic lookup by delivery id, for callers that only have the id (e.g. a webhook-signature verification failure report) and don't know which consumer it belongs to.",
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *deliveryIDOnlyInput) (*deliveryOutput, error) {
@@ -337,8 +337,8 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		OperationID: "getDeliveryAttemptsGlobal",
 		Method:      http.MethodGet,
 		Path:        "/v1/deliveries/{delivery_id}/attempts",
-		Summary:     "Get a delivery's per-attempt history (any namespace)",
-		Description: "Namespace-agnostic variant of getDeliveryAttempts.",
+		Summary:     "Get a delivery's per-attempt history (any consumer)",
+		Description: "Consumer-agnostic variant of getDeliveryAttempts.",
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *deliveryIDOnlyInput) (*attemptsOutput, error) {
@@ -365,8 +365,8 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		OperationID: "retryDeliveryGlobal",
 		Method:      http.MethodPost,
 		Path:        "/v1/deliveries/{delivery_id}:retry",
-		Summary:     "Retry a single delivery (any namespace)",
-		Description: "Namespace-agnostic variant of retryDelivery.",
+		Summary:     "Retry a single delivery (any consumer)",
+		Description: "Consumer-agnostic variant of retryDelivery.",
 		Errors:      []int{404},
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *deliveryIDOnlyInput) (*retryOutput, error) {

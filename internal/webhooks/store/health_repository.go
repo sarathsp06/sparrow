@@ -20,7 +20,7 @@ type HealthRepository interface {
 	GetWebhookHealthTimeSeries(ctx context.Context, webhookID uuid.UUID, hours int, bucketSize string) ([]*WebhookHealthEvent, error)
 	AggregateHealthSummaries(ctx context.Context) (int, error)
 	GetHealthSummary(ctx context.Context, tenantID uuid.UUID) (map[WebhookHealth]int, error)
-	GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, namespace string) (*NamespaceStats, error)
+	GetConsumerStats(ctx context.Context, tenantID uuid.UUID, consumer string) (*ConsumerStats, error)
 }
 
 // UpdateWebhookHealthState records a webhook delivery outcome and updates health metrics.

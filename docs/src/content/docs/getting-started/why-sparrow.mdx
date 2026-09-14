@@ -70,7 +70,7 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 | Capability | Sparrow | Svix OSS |
 |-----------|---------|----------|
 | **Event schema validation** | Soft validation (warnings, never rejects) | JSON Schema (hard reject) |
-| **Namespace isolation** | Built-in logical separation | Application-level |
+| **Consumer isolation** | Built-in logical separation | Application-level |
 | **API protocol** | REST/HTTP on :8080 (OpenAPI 3.1 spec) | REST API only |
 | **Helm chart** | Security-hardened (NetworkPolicy, seccomp, read-only rootfs) | Available |
 | **Container image** | Distroless (~15MB), non-root | Standard |

@@ -3,7 +3,7 @@
   import { onMount, onDestroy } from "svelte";
   import favicon from "$lib/assets/favicon.svg";
   import Pulse from "$lib/components/Pulse.svelte";
-  import { namespaceStore } from "$lib/namespace.svelte";
+  import { consumerStore } from "$lib/consumer.svelte";
   import { api, unwrap } from "$lib/services";
   import { pulseStore } from "$lib/pulse.svelte";
   import "../app.css";
@@ -95,7 +95,7 @@
 
     <div class="p-3 border-t border-line space-y-3">
       <label class="block">
-        <span class="field-label !mb-1.5">Namespace</span>
+        <span class="field-label !mb-1.5">Consumer</span>
         <span class="relative flex items-center">
           <span class="absolute left-2.5 text-faint" aria-hidden="true">
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h10" stroke-linecap="round"/></svg>
@@ -103,12 +103,12 @@
           <input
             list="ns-options"
             class="input !pl-8"
-            aria-label="Active namespace"
-            value={namespaceStore.value}
-            onchange={(e) => (namespaceStore.value = e.currentTarget.value)}
+            aria-label="Active consumer"
+            value={consumerStore.value}
+            onchange={(e) => (consumerStore.value = e.currentTarget.value)}
           />
           <datalist id="ns-options">
-            {#each namespaceStore.options as n}<option value={n}></option>{/each}
+            {#each consumerStore.options as n}<option value={n}></option>{/each}
           </datalist>
         </span>
       </label>
@@ -161,7 +161,7 @@
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <span class="font-display font-bold tracking-[0.18em] text-text text-sm">SPARROW</span>
-      <span class="ml-auto chip">{namespaceStore.value}</span>
+      <span class="ml-auto chip">{consumerStore.value}</span>
     </div>
 
     {@render children?.()}

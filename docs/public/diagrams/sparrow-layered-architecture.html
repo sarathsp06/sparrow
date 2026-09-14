@@ -5366,7 +5366,7 @@
           <h3>Subscribe</h3>
         </div>
         <ul>
-          <li>&bull; POST /v1/namespaces/{ns}/webhooks with event types</li>
+          <li>&bull; POST /v1/consumers/{ns}/webhooks with event types</li>
           <li>&bull; Subscriptions auto-created; whsec_ secret returned once</li>
           <li>&bull; Secrets envelope-encrypted at rest (AES-256-GCM)</li>
         </ul>
@@ -5378,7 +5378,7 @@
           <h3>Push</h3>
         </div>
         <ul>
-          <li>&bull; POST /v1/namespaces/{ns}/events, async 201</li>
+          <li>&bull; POST /v1/consumers/{ns}/events, async 201</li>
           <li>&bull; Idempotency keys dedup repeats</li>
           <li>&bull; Fan-out enqueues one delivery per matching subscription</li>
         </ul>
@@ -7362,7 +7362,7 @@
     Archify.sourceEvidence = (function () {
       var element = document.getElementById('archify-source-evidence-data');
       var payload = null;
-      var svgNamespace = 'http://www.w3.org/2000/svg';
+      var svgConsumer = 'http://www.w3.org/2000/svg';
       if (element) {
         try {
           var parsed = JSON.parse(element.textContent || 'null');
@@ -7385,19 +7385,19 @@
 
           var count = sources.length;
           var label = viewerCount('viewer.passport.beacon', count);
-          var beacon = document.createElementNS(svgNamespace, 'g');
+          var beacon = document.createElementNS(svgConsumer, 'g');
           beacon.classList.add('source-evidence-beacon');
           beacon.setAttribute('data-source-evidence-beacon', '');
           beacon.setAttribute('aria-hidden', 'true');
           var brandOffset = node.hasAttribute('data-node-brand') ? 24 : 0;
           beacon.setAttribute('transform', 'translate(' + (box.x + box.width - 35 - brandOffset) + ' ' + (box.y + 5) + ')');
-          var title = document.createElementNS(svgNamespace, 'title');
+          var title = document.createElementNS(svgConsumer, 'title');
           title.textContent = label;
-          var plate = document.createElementNS(svgNamespace, 'rect');
+          var plate = document.createElementNS(svgConsumer, 'rect');
           plate.setAttribute('width', '30');
           plate.setAttribute('height', '12');
           plate.setAttribute('rx', '6');
-          var text = document.createElementNS(svgNamespace, 'text');
+          var text = document.createElementNS(svgConsumer, 'text');
           text.setAttribute('x', '15');
           text.setAttribute('y', '8.25');
           text.textContent = viewerText('viewer.passport.sourceMarker') + ' ' + count;
@@ -7467,7 +7467,7 @@
       var directPreviewTimer = null;
       var reachabilityMode = null;
       var activeReachability = null;
-      var svgNamespace = 'http://www.w3.org/2000/svg';
+      var svgConsumer = 'http://www.w3.org/2000/svg';
       var reducedMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
       var finePointerQuery = window.matchMedia ? window.matchMedia('(hover: hover) and (pointer: fine)') : null;
 
@@ -8005,7 +8005,7 @@
         return '';
       }
       function relationshipTokenPart(tagName, className, attrs) {
-        var part = document.createElementNS(svgNamespace, tagName);
+        var part = document.createElementNS(svgConsumer, tagName);
         part.setAttribute('class', className);
         Object.keys(attrs || {}).forEach(function (name) { part.setAttribute(name, attrs[name]); });
         return part;
@@ -8014,7 +8014,7 @@
         options = options || {};
         var pathData = relationshipTokenPath(shape);
         if (!pathData) return null;
-        var token = document.createElementNS(svgNamespace, 'g');
+        var token = document.createElementNS(svgConsumer, 'g');
         token.setAttribute('class', 'semantic-flow-token ' + (options.className || 'relationship-flow-token'));
         token.setAttribute('data-token-kind', kind);
         token.setAttribute('data-token-edge-key', key);
@@ -8036,7 +8036,7 @@
         } else {
           token.appendChild(relationshipTokenPart('path', 'relationship-flow-token-ink', { d: 'M -5 -3 L -1 0 L -5 3 M 0 -3 L 4 0 L 0 3' }));
         }
-        var motion = document.createElementNS(svgNamespace, 'animateMotion');
+        var motion = document.createElementNS(svgConsumer, 'animateMotion');
         motion.setAttribute('path', pathData);
         motion.setAttribute('dur', options.duration || '1.2s');
         motion.setAttribute('begin', '0s');
@@ -8071,14 +8071,14 @@
           return edge.getAttribute('data-edge-key') === key;
         });
         if (!matchingEdges.length) return false;
-        var overlay = document.createElementNS(svgNamespace, 'g');
+        var overlay = document.createElementNS(svgConsumer, 'g');
         overlay.setAttribute('class', 'relationship-pulse-overlay');
         overlay.setAttribute('data-relationship-pulse-overlay', '');
         overlay.setAttribute('data-relationship-pulse-key', key);
         overlay.setAttribute('aria-hidden', 'true');
         var tokenAdded = false;
         matchingEdges.forEach(function (edge) {
-          var wrapper = document.createElementNS(svgNamespace, 'g');
+          var wrapper = document.createElementNS(svgConsumer, 'g');
           if (edge.hasAttribute('transform')) wrapper.setAttribute('transform', edge.getAttribute('transform'));
           var shapes = relationshipEdgeShapes(edge);
           shapes.forEach(function (shape) {
@@ -8250,17 +8250,17 @@
         if (html.getAttribute('data-embed') === 'true') return 0;
         var records = relationshipHitRecords();
         if (!records.length) return 0;
-        relationshipHitOverlay = document.createElementNS(svgNamespace, 'g');
+        relationshipHitOverlay = document.createElementNS(svgConsumer, 'g');
         relationshipHitOverlay.setAttribute('class', 'relationship-hit-overlay');
         relationshipHitOverlay.setAttribute('data-relationship-hit-overlay', '');
         relationshipHitOverlay.setAttribute('role', 'group');
         relationshipHitOverlay.setAttribute('aria-label', viewerText('viewer.passport.relationship.explorer'));
-        var relationshipHelp = document.createElementNS(svgNamespace, 'desc');
+        var relationshipHelp = document.createElementNS(svgConsumer, 'desc');
         relationshipHelp.id = 'archify-relationship-help';
         relationshipHelp.textContent = viewerText('viewer.passport.relationship.help');
         relationshipHitOverlay.appendChild(relationshipHelp);
         records.forEach(function (record, index) {
-          var target = document.createElementNS(svgNamespace, 'g');
+          var target = document.createElementNS(svgConsumer, 'g');
           target.setAttribute('class', 'relationship-hit-target');
           target.setAttribute('data-relationship-hit-key', record.key);
           target.setAttribute('data-relationship-key', record.key);
@@ -8279,7 +8279,7 @@
             label: record.label
           });
           target.setAttribute('aria-label', description);
-          var title = document.createElementNS(svgNamespace, 'title');
+          var title = document.createElementNS(svgConsumer, 'title');
           title.textContent = record.fromLabel + ' \u2192 ' + record.toLabel + ' \u00b7 ' + record.label;
           target.appendChild(title);
           record.shapes.forEach(function (shape) {
@@ -8873,7 +8873,7 @@
       var container = document.querySelector('.diagram-container');
       var svg = container.querySelector(':scope > svg');
       var status = document.getElementById('intent-trace-status');
-      var namespace = 'http://www.w3.org/2000/svg';
+      var consumer = 'http://www.w3.org/2000/svg';
       var activeId = null;
       var hoveredNode = null;
       var focusedNode = null;
@@ -8967,7 +8967,7 @@
         var selected = byId[id];
         if (!selected) return false;
 
-        var overlay = document.createElementNS(namespace, 'g');
+        var overlay = document.createElementNS(consumer, 'g');
         overlay.setAttribute('class', 'intent-trace-overlay');
         overlay.setAttribute('data-intent-trace-overlay', '');
         overlay.setAttribute('aria-hidden', 'true');
@@ -8990,7 +8990,7 @@
           related[from] = true;
           related[to] = true;
           edge.setAttribute('data-intent-trace-match', '');
-          var wrapper = document.createElementNS(namespace, 'g');
+          var wrapper = document.createElementNS(consumer, 'g');
           if (edge.hasAttribute('transform')) wrapper.setAttribute('transform', edge.getAttribute('transform'));
           edgeShapes(edge).forEach(function (shape) {
             wrapper.appendChild(traceGeometry(shape, direction));
@@ -11864,11 +11864,11 @@
       var feedback = document.getElementById('overview-map-feedback');
       var navigation = container.querySelector('.diagram-nav');
       var passport = document.getElementById('focus-chip');
-      var namespace = 'http://www.w3.org/2000/svg';
+      var consumer = 'http://www.w3.org/2000/svg';
       var viewBox = diagram.viewBox && diagram.viewBox.baseVal;
-      var mapSvg = document.createElementNS(namespace, 'svg');
-      var nodeLayer = document.createElementNS(namespace, 'g');
-      var viewport = document.createElementNS(namespace, 'rect');
+      var mapSvg = document.createElementNS(consumer, 'svg');
+      var nodeLayer = document.createElementNS(consumer, 'g');
+      var viewport = document.createElementNS(consumer, 'rect');
       var nodes = [];
       var viewportDrag = null;
       var panelDrag = null;
@@ -11907,7 +11907,7 @@
           try { box = node.getBBox(); } catch (_) { box = null; }
           if (!box || box.width <= 0 || box.height <= 0) return;
           var id = node.getAttribute('data-node-id');
-          var rect = document.createElementNS(namespace, 'rect');
+          var rect = document.createElementNS(consumer, 'rect');
           rect.setAttribute('class', 'overview-map-node');
           rect.setAttribute('x', String(box.x));
           rect.setAttribute('y', String(box.y));
@@ -12839,7 +12839,7 @@
       var journeyPlayLabel = document.getElementById('route-journey-play-label');
       var journeyNextBtn = document.getElementById('route-journey-next');
       var journeyOverviewBtn = document.getElementById('route-journey-overview');
-      var namespace = 'http://www.w3.org/2000/svg';
+      var consumer = 'http://www.w3.org/2000/svg';
       var mode = 'idle';
       var startId = null;
       var endId = null;
@@ -13175,12 +13175,12 @@
       function renderOverlay(routeEdges) {
         removeOverlay();
         if (!routeEdges.length) return;
-        var overlay = document.createElementNS(namespace, 'g');
+        var overlay = document.createElementNS(consumer, 'g');
         overlay.setAttribute('class', 'route-probe-overlay');
         overlay.setAttribute('data-route-probe-overlay', '');
         overlay.setAttribute('aria-hidden', 'true');
         routeEdges.forEach(function (edge, step) {
-          var wrapper = document.createElementNS(namespace, 'g');
+          var wrapper = document.createElementNS(consumer, 'g');
           if (edge.hasAttribute('transform')) wrapper.setAttribute('transform', edge.getAttribute('transform'));
           edgeShapes(edge).forEach(function (shape) { wrapper.appendChild(traceGeometry(shape, step)); });
           if (wrapper.childNodes.length) overlay.appendChild(wrapper);
@@ -13276,11 +13276,11 @@
       function renderJourneyPulse(edge) {
         removeJourneyPulse();
         if (!edge || !journeyMotionAllowed()) return false;
-        var overlay = document.createElementNS(namespace, 'g');
+        var overlay = document.createElementNS(consumer, 'g');
         overlay.setAttribute('class', 'route-journey-overlay');
         overlay.setAttribute('data-route-journey-overlay', '');
         overlay.setAttribute('aria-hidden', 'true');
-        var wrapper = document.createElementNS(namespace, 'g');
+        var wrapper = document.createElementNS(consumer, 'g');
         if (edge.hasAttribute('transform')) wrapper.setAttribute('transform', edge.getAttribute('transform'));
         edgeShapes(edge).forEach(function (shape) { wrapper.appendChild(journeyGeometry(shape)); });
         if (!wrapper.childNodes.length) return false;
@@ -13873,7 +13873,7 @@
       var activeLegendPreview = null;
       var lensOpener = trigger;
       var selectedKinds = [];
-      var namespace = 'http://www.w3.org/2000/svg';
+      var consumer = 'http://www.w3.org/2000/svg';
       var finePointerQuery = window.matchMedia ? window.matchMedia('(hover: hover) and (pointer: fine)') : null;
       var MAX_LENS_FLOW_EDGES = 24;
 
@@ -13974,17 +13974,17 @@
           var fact = facts[kind];
           var count = fact ? fact.nodes.length : 0;
           entry.setAttribute('data-legend-count', String(count));
-          var hit = document.createElementNS(namespace, 'rect');
+          var hit = document.createElementNS(consumer, 'rect');
           hit.setAttribute('data-legend-bridge-runtime', '');
           hit.setAttribute('data-legend-hit', '');
           hit.setAttribute('aria-hidden', 'true');
           entry.insertBefore(hit, entry.firstChild);
-          var badge = document.createElementNS(namespace, 'g');
+          var badge = document.createElementNS(consumer, 'g');
           badge.setAttribute('data-legend-bridge-runtime', '');
           badge.setAttribute('data-legend-count-badge', '');
           badge.setAttribute('aria-hidden', 'true');
-          badge.appendChild(document.createElementNS(namespace, 'rect'));
-          var countText = document.createElementNS(namespace, 'text');
+          badge.appendChild(document.createElementNS(consumer, 'rect'));
+          var countText = document.createElementNS(consumer, 'text');
           countText.textContent = String(count);
           badge.appendChild(countText);
           entry.appendChild(badge);
@@ -14115,12 +14115,12 @@
           svg.setAttribute('data-lens-flow-density', 'quiet');
           return false;
         }
-        var overlay = document.createElementNS(namespace, 'g');
+        var overlay = document.createElementNS(consumer, 'g');
         overlay.setAttribute('class', 'semantic-lens-overlay');
         overlay.setAttribute('data-semantic-lens-overlay', '');
         overlay.setAttribute('aria-hidden', 'true');
         entries.forEach(function (entry, step) {
-          var wrapper = document.createElementNS(namespace, 'g');
+          var wrapper = document.createElementNS(consumer, 'g');
           if (entry.edge.members[0].hasAttribute('transform')) {
             wrapper.setAttribute('transform', entry.edge.members[0].getAttribute('transform'));
           }

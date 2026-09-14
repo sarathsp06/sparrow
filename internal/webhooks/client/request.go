@@ -36,12 +36,12 @@ type DeliveryRequest struct {
 	FollowRedirects   bool
 	EventID           uuid.UUID
 	EventName         string
-	Namespace         string
+	Consumer          string
 }
 
 // WebhookEnvelope is the default JSON body sent to webhook endpoints.
 // All fields use snake_case JSON tags.
-// Namespace, WebhookID, and DeliveryID are conveyed via HTTP headers
+// Consumer, WebhookID, and DeliveryID are conveyed via HTTP headers
 // and are intentionally omitted from the body.
 type WebhookEnvelope struct {
 	Version   string         `json:"version"`
@@ -56,7 +56,7 @@ type WebhookEnvelope struct {
 const EnvelopeVersion = "1"
 
 // BuildEnvelopePayload constructs the default webhook body as a JSON envelope.
-// Namespace, WebhookID, and DeliveryID are not included in the body; they are
+// Consumer, WebhookID, and DeliveryID are not included in the body; they are
 // sent as HTTP headers instead.
 func BuildEnvelopePayload(
 	eventID string,
@@ -262,6 +262,6 @@ func PrepareDeliveryRequest(
 		FollowRedirects:   webhook.FollowRedirects,
 		EventID:           event.ID,
 		EventName:         event.Event,
-		Namespace:         event.Namespace,
+		Consumer:          event.Consumer,
 	}, nil
 }

@@ -14,11 +14,11 @@ Registered under the `Subscriptions` tag in the Huma-generated OpenAPI spec. Imp
 
 | Method | Path | OperationID | Description |
 |--------|------|-------------|-------------|
-| POST | `/v1/namespaces/{namespace}/subscriptions` | `createSubscription` | Subscribe a webhook to an event |
-| GET | `/v1/namespaces/{namespace}/subscriptions/{subscription_id}` | `getSubscription` | Get subscription details |
-| GET | `/v1/namespaces/{namespace}/subscriptions` | `listSubscriptions` | List subscriptions for a webhook or event |
-| PATCH | `/v1/namespaces/{namespace}/subscriptions/{subscription_id}` | `updateSubscription` | Update subscription config, transform template |
-| DELETE | `/v1/namespaces/{namespace}/subscriptions/{subscription_id}` | `deleteSubscription` | Delete subscription |
+| POST | `/v1/consumers/{consumer}/subscriptions` | `createSubscription` | Subscribe a webhook to an event |
+| GET | `/v1/consumers/{consumer}/subscriptions/{subscription_id}` | `getSubscription` | Get subscription details |
+| GET | `/v1/consumers/{consumer}/subscriptions` | `listSubscriptions` | List subscriptions for a webhook or event |
+| PATCH | `/v1/consumers/{consumer}/subscriptions/{subscription_id}` | `updateSubscription` | Update subscription config, transform template |
+| DELETE | `/v1/consumers/{consumer}/subscriptions/{subscription_id}` | `deleteSubscription` | Delete subscription |
 | POST | `/v1/subscriptions:testTemplate` | `testSubscriptionTemplate` | Preview Go template transform output |
 
 ## Citations

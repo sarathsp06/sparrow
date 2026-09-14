@@ -30,9 +30,9 @@ rendering happens inside the Sparrow server on every delivery:
 ```
 apply time (sparrow use <name>):
   1. load the recipe YAML (built-in name or --file), prompt for params
-  2. POST /v1/namespaces/{ns}/webhooks
+  2. POST /v1/consumers/{ns}/webhooks
        url + headers from the recipe, params substituted
-  3. PATCH /v1/namespaces/{ns}/subscriptions/{id}
+  3. PATCH /v1/consumers/{ns}/subscriptions/{id}
        transform_enabled: true, transform_template: <recipe template>,
        events + label filters from --event/--label
 

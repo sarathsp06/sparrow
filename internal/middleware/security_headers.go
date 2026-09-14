@@ -24,7 +24,7 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 
 		// Limit the Referer header to same-origin only. This prevents
-		// leaking internal URLs (which may contain namespace names or
+		// leaking internal URLs (which may contain consumer names or
 		// webhook IDs) to external sites.
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 

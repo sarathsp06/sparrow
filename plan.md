@@ -177,8 +177,8 @@ Failed deliveries already have all the data (payload, headers, target URL, error
 
 ### API Changes
 
-- `GET /v1/namespaces/{namespace}/deliveries:dlq` -> paginated failed deliveries
-- `POST /v1/namespaces/{namespace}/webhooks/{webhook_id}/dlq:redrive` -> redrive all failed for a webhook
+- `GET /v1/consumers/{consumer}/deliveries:dlq` -> paginated failed deliveries
+- `POST /v1/consumers/{consumer}/webhooks/{webhook_id}/dlq:redrive` -> redrive all failed for a webhook
 - `POST /v1/deliveries/{delivery_id}:redrive` -> redrive single delivery
 
 ---
@@ -274,16 +274,16 @@ Standalone Go binary (`cmd/cli/`) using cobra. Connects to Sparrow server via th
 ### Commands
 
 ```
-sparrow-cli webhooks list [--namespace NS]
-sparrow-cli webhooks register --url URL --namespace NS [--secret SECRET]
+sparrow-cli webhooks list [--consumer NS]
+sparrow-cli webhooks register --url URL --consumer NS [--secret SECRET]
 sparrow-cli webhooks pause ID
 sparrow-cli webhooks resume ID
-sparrow-cli events list [--namespace NS]
+sparrow-cli events list [--consumer NS]
 sparrow-cli events register --name NAME [--schema FILE]
-sparrow-cli events push --name NAME --namespace NS --payload FILE|STDIN
+sparrow-cli events push --name NAME --consumer NS --payload FILE|STDIN
 sparrow-cli deliveries list [--status STATUS] [--webhook-id ID]
 sparrow-cli deliveries retry ID
-sparrow-cli health summary [--namespace NS]
+sparrow-cli health summary [--consumer NS]
 sparrow-cli config  # show server connection info
 ```
 

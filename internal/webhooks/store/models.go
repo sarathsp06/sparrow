@@ -21,7 +21,7 @@ const (
 )
 
 // CatchAllEventName is the special event_name value used in event_subscriptions
-// to indicate a catch-all subscription that receives every event in the namespace.
+// to indicate a catch-all subscription that receives every event in the consumer.
 const CatchAllEventName = "*"
 
 // NoExpiryTime is the sentinel value used for ExpiresAt when TTL=0 (no expiry).
@@ -39,9 +39,9 @@ const (
 
 // WebhookRegistration represents a registered webhook
 type WebhookRegistration struct {
-	ID        uuid.UUID `json:"id" db:"id"`
-	TenantID  uuid.UUID `json:"tenant_id" db:"tenant_id"`
-	Namespace string    `json:"namespace" db:"namespace"`
+	ID       uuid.UUID `json:"id" db:"id"`
+	TenantID uuid.UUID `json:"tenant_id" db:"tenant_id"`
+	Consumer string    `json:"consumer" db:"consumer"`
 	// Events removed in favor of EventSubscription
 	URL         string        `json:"url" db:"url"`
 	Headers     JSONStringMap `json:"headers" db:"headers"`
@@ -83,7 +83,7 @@ func (w *WebhookRegistration) MaxDeliveryAttempts() int {
 type EventRecord struct {
 	ID             uuid.UUID     `json:"id" db:"id"`
 	TenantID       uuid.UUID     `json:"tenant_id" db:"tenant_id"`
-	Namespace      string        `json:"namespace" db:"namespace"`
+	Consumer       string        `json:"consumer" db:"consumer"`
 	Event          string        `json:"event" db:"event"`
 	Payload        JSONMap       `json:"payload" db:"payload"`
 	TTL            int64         `json:"ttl" db:"ttl"`
@@ -151,7 +151,7 @@ type EventReportWithStats struct {
 
 // EventReportFilter defines filter criteria for listing event reports.
 type EventReportFilter struct {
-	Namespace     string
+	Consumer      string
 	EventName     *string
 	SchemaValid   *bool
 	Labels        map[string]string // JSONB containment filter
@@ -164,7 +164,7 @@ type EventReportFilter struct {
 
 // DeliveryFilter defines filter criteria for listing deliveries.
 type DeliveryFilter struct {
-	Namespace      string
+	Consumer       string
 	WebhookID      *uuid.UUID
 	EventID        *uuid.UUID
 	Status         *string
@@ -243,7 +243,7 @@ type EventSubscription struct {
 	TenantID          uuid.UUID     `json:"tenant_id" db:"tenant_id"`
 	WebhookID         uuid.UUID     `json:"webhook_id" db:"webhook_id"`
 	EventName         string        `json:"event_name" db:"event_name"`
-	Namespace         string        `json:"namespace" db:"namespace"`
+	Consumer          string        `json:"consumer" db:"consumer"`
 	Headers           JSONStringMap `json:"headers" db:"headers"`
 	Method            string        `json:"method" db:"method"`
 	TransformEnabled  bool          `json:"transform_enabled" db:"transform_enabled"`
@@ -254,8 +254,8 @@ type EventSubscription struct {
 	UpdatedAt         time.Time     `json:"updated_at" db:"updated_at"`
 }
 
-// NamespaceStats represents statistics for a namespace
-type NamespaceStats struct {
+// ConsumerStats represents statistics for a consumer
+type ConsumerStats struct {
 	TotalWebhooks        int     `db:"total_webhooks"`
 	ActiveWebhooks       int     `db:"active_webhooks"`
 	TotalDeliveries      int     `db:"total_deliveries"`
@@ -301,7 +301,7 @@ type BatchJobData struct {
 type BatchJob struct {
 	ID         uuid.UUID       `json:"id" db:"id"`
 	TenantID   uuid.UUID       `json:"tenant_id" db:"tenant_id"`
-	Namespace  string          `json:"namespace" db:"namespace"`
+	Consumer   string          `json:"consumer" db:"consumer"`
 	JobType    BatchJobType    `json:"job_type" db:"job_type"`
 	Status     BatchJobStatus  `json:"status" db:"status"`
 	Data       json.RawMessage `json:"data" db:"data"`

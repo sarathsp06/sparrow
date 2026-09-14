@@ -86,12 +86,12 @@ func registerEventType(t *testing.T, c *restClient, ctx context.Context, name st
 
 // registerWebhookPipeline registers a webhook (auto-creating its subscription
 // to eventName) and returns the webhook id.
-func registerWebhookPipeline(t *testing.T, c *restClient, ctx context.Context, namespace, eventName, targetURL string, maxRetries int) string {
+func registerWebhookPipeline(t *testing.T, c *restClient, ctx context.Context, consumer, eventName, targetURL string, maxRetries int) string {
 	t.Helper()
 	var out struct {
 		WebhookID string `json:"webhook_id"`
 	}
-	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks", map[string]any{
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/webhooks", map[string]any{
 		"events": []string{eventName},
 		"url":    targetURL + "/webhook",
 		"active": true,
@@ -109,12 +109,12 @@ func registerWebhookPipeline(t *testing.T, c *restClient, ctx context.Context, n
 }
 
 // pushTestEvent pushes a simple event and returns the event ID.
-func pushTestEvent(t *testing.T, c *restClient, ctx context.Context, namespace, eventName string) string {
+func pushTestEvent(t *testing.T, c *restClient, ctx context.Context, consumer, eventName string) string {
 	t.Helper()
 	var out struct {
 		EventID string `json:"event_id"`
 	}
-	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/events?event="+eventName, map[string]any{
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/events?event="+eventName, map[string]any{
 		"payload":     map[string]any{"test": true, "ts": time.Now().UnixMilli()},
 		"ttl_seconds": 300,
 	}, &out)
@@ -134,7 +134,7 @@ type deliveryItem struct {
 
 // pollDeliveryStatus polls listDeliveries for the given event until a
 // delivery matching the predicate appears, or ctx expires.
-func pollDeliveryStatus(t *testing.T, c *restClient, ctx context.Context, namespace, eventID string, predicate func(deliveryItem) bool) deliveryItem {
+func pollDeliveryStatus(t *testing.T, c *restClient, ctx context.Context, consumer, eventID string, predicate func(deliveryItem) bool) deliveryItem {
 	t.Helper()
 
 	ticker := time.NewTicker(500 * time.Millisecond)
@@ -150,7 +150,7 @@ func pollDeliveryStatus(t *testing.T, c *restClient, ctx context.Context, namesp
 				Items []deliveryItem `json:"items"`
 			}
 			reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			_, err := c.get(reqCtx, "/v1/namespaces/"+namespace+"/deliveries?event_id="+eventID, &out)
+			_, err := c.get(reqCtx, "/v1/consumers/"+consumer+"/deliveries?event_id="+eventID, &out)
 			cancel()
 			if err != nil {
 				continue
@@ -204,19 +204,19 @@ func TestE2E_RetryOnServerError(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "retry-test"
+		consumer  = "retry-test"
 		eventName = "retry.server_error"
 	)
 
 	targetSrv, requestCount := startFailThenSucceedTarget(t, 2, http.StatusInternalServerError)
 	registerEventType(t, c, ctx, eventName)
-	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 3)
+	registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 3)
 
-	eventID := pushTestEvent(t, c, ctx, namespace, eventName)
+	eventID := pushTestEvent(t, c, ctx, consumer, eventName)
 
 	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	pollDeliveryStatus(t, c, pollCtx, namespace, eventID, func(d deliveryItem) bool {
+	pollDeliveryStatus(t, c, pollCtx, consumer, eventID, func(d deliveryItem) bool {
 		return d.Status == "success"
 	})
 
@@ -231,19 +231,19 @@ func TestE2E_ExhaustedRetries(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "exhaust-retry-test"
+		consumer  = "exhaust-retry-test"
 		eventName = "retry.exhausted"
 	)
 
 	targetSrv, requestCount := startAlwaysFailTarget(t, http.StatusInternalServerError)
 	registerEventType(t, c, ctx, eventName)
-	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 2)
+	registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 2)
 
-	eventID := pushTestEvent(t, c, ctx, namespace, eventName)
+	eventID := pushTestEvent(t, c, ctx, consumer, eventName)
 
 	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	delivery := pollDeliveryStatus(t, c, pollCtx, namespace, eventID, func(d deliveryItem) bool {
+	delivery := pollDeliveryStatus(t, c, pollCtx, consumer, eventID, func(d deliveryItem) bool {
 		return d.Status == "failed"
 	})
 
@@ -259,7 +259,7 @@ func TestE2E_FanOutMultipleSubscribers(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "fanout-test"
+		consumer  = "fanout-test"
 		eventName = "fanout.created"
 	)
 
@@ -270,10 +270,10 @@ func TestE2E_FanOutMultipleSubscribers(t *testing.T) {
 	target3, count3 := startCountingTarget(t)
 
 	for _, url := range []string{target1.URL, target2.URL, target3.URL} {
-		registerWebhookPipeline(t, c, ctx, namespace, eventName, url, 1)
+		registerWebhookPipeline(t, c, ctx, consumer, eventName, url, 1)
 	}
 
-	pushTestEvent(t, c, ctx, namespace, eventName)
+	pushTestEvent(t, c, ctx, consumer, eventName)
 
 	deadline := time.After(30 * time.Second)
 	ticker := time.NewTicker(500 * time.Millisecond)
@@ -299,32 +299,32 @@ func TestE2E_PausedWebhookNoDelivery(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "pause-test"
+		consumer  = "pause-test"
 		eventName = "pause.event"
 	)
 
 	targetSrv, requestCount := startCountingTarget(t)
 	registerEventType(t, c, ctx, eventName)
-	webhookID := registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 1)
+	webhookID := registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 1)
 
-	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks/"+webhookID+":pause", nil, nil)
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/webhooks/"+webhookID+":pause", nil, nil)
 	require.NoError(t, err, "PauseWebhook failed")
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-	pushTestEvent(t, c, ctx, namespace, eventName)
+	pushTestEvent(t, c, ctx, consumer, eventName)
 
 	time.Sleep(5 * time.Second)
 	assert.Equal(t, int32(0), requestCount.Load(), "paused webhook should not receive deliveries")
 
-	resp, err = c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks/"+webhookID+":resume", nil, nil)
+	resp, err = c.post(ctx, "/v1/consumers/"+consumer+"/webhooks/"+webhookID+":resume", nil, nil)
 	require.NoError(t, err, "ResumeWebhook failed")
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-	eventID2 := pushTestEvent(t, c, ctx, namespace, eventName)
+	eventID2 := pushTestEvent(t, c, ctx, consumer, eventName)
 
 	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	pollDeliveryStatus(t, c, pollCtx, namespace, eventID2, func(d deliveryItem) bool {
+	pollDeliveryStatus(t, c, pollCtx, consumer, eventID2, func(d deliveryItem) bool {
 		return d.Status == "success"
 	})
 
@@ -339,37 +339,37 @@ func TestE2E_DeleteSubscriptionStopsDelivery(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "delete-sub-test"
+		consumer  = "delete-sub-test"
 		eventName = "delete.sub.event"
 	)
 
 	targetSrv, requestCount := startCountingTarget(t)
 	registerEventType(t, c, ctx, eventName)
-	webhookID := registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 1)
+	webhookID := registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 1)
 
 	var subList struct {
 		Items []struct {
 			SubscriptionID string `json:"subscription_id"`
 		} `json:"items"`
 	}
-	_, err := c.get(ctx, "/v1/namespaces/"+namespace+"/subscriptions?webhook_id="+webhookID, &subList)
+	_, err := c.get(ctx, "/v1/consumers/"+consumer+"/subscriptions?webhook_id="+webhookID, &subList)
 	require.NoError(t, err, "ListSubscriptions failed")
 	require.Len(t, subList.Items, 1)
 	subscriptionID := subList.Items[0].SubscriptionID
 
-	eventID1 := pushTestEvent(t, c, ctx, namespace, eventName)
+	eventID1 := pushTestEvent(t, c, ctx, consumer, eventName)
 	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	pollDeliveryStatus(t, c, pollCtx, namespace, eventID1, func(d deliveryItem) bool {
+	pollDeliveryStatus(t, c, pollCtx, consumer, eventID1, func(d deliveryItem) bool {
 		return d.Status == "success"
 	})
 	cancel()
 	assert.Equal(t, int32(1), requestCount.Load())
 
-	resp, err := c.do(ctx, http.MethodDelete, "/v1/namespaces/"+namespace+"/subscriptions/"+subscriptionID, nil, nil)
+	resp, err := c.do(ctx, http.MethodDelete, "/v1/consumers/"+consumer+"/subscriptions/"+subscriptionID, nil, nil)
 	require.NoError(t, err, "DeleteSubscription failed")
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
-	pushTestEvent(t, c, ctx, namespace, eventName)
+	pushTestEvent(t, c, ctx, consumer, eventName)
 
 	time.Sleep(5 * time.Second)
 	assert.Equal(t, int32(1), requestCount.Load(), "deleted subscription should not receive new deliveries")
@@ -382,18 +382,18 @@ func TestE2E_SingleRePush(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "repush-test"
+		consumer  = "repush-test"
 		eventName = "repush.event"
 	)
 
 	targetSrv, requestCount := startCountingTarget(t)
 	registerEventType(t, c, ctx, eventName)
-	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 1)
+	registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 1)
 
-	eventID := pushTestEvent(t, c, ctx, namespace, eventName)
+	eventID := pushTestEvent(t, c, ctx, consumer, eventName)
 
 	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	pollDeliveryStatus(t, c, pollCtx, namespace, eventID, func(d deliveryItem) bool {
+	pollDeliveryStatus(t, c, pollCtx, consumer, eventID, func(d deliveryItem) bool {
 		return d.Status == "success"
 	})
 	cancel()
@@ -428,20 +428,20 @@ func TestE2E_IdempotencyKeyDedup(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace      = "idempotency-test"
+		consumer       = "idempotency-test"
 		eventName      = "idemp.event"
 		idempotencyKey = "unique-key-12345"
 	)
 
 	targetSrv, requestCount := startCountingTarget(t)
 	registerEventType(t, c, ctx, eventName)
-	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 1)
+	registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 1)
 
 	var push1, push2 struct {
 		EventID   string `json:"event_id"`
 		Duplicate bool   `json:"duplicate"`
 	}
-	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/events?event="+eventName, map[string]any{
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/events?event="+eventName, map[string]any{
 		"payload":         map[string]any{"order_id": "ord_1"},
 		"ttl_seconds":     300,
 		"idempotency_key": idempotencyKey,
@@ -450,7 +450,7 @@ func TestE2E_IdempotencyKeyDedup(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 	assert.False(t, push1.Duplicate, "first push should not be a duplicate")
 
-	resp, err = c.post(ctx, "/v1/namespaces/"+namespace+"/events?event="+eventName, map[string]any{
+	resp, err = c.post(ctx, "/v1/consumers/"+consumer+"/events?event="+eventName, map[string]any{
 		"payload":         map[string]any{"order_id": "ord_1"},
 		"ttl_seconds":     300,
 		"idempotency_key": idempotencyKey,
@@ -462,7 +462,7 @@ func TestE2E_IdempotencyKeyDedup(t *testing.T) {
 
 	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	pollDeliveryStatus(t, c, pollCtx, namespace, push1.EventID, func(d deliveryItem) bool {
+	pollDeliveryStatus(t, c, pollCtx, consumer, push1.EventID, func(d deliveryItem) bool {
 		return d.Status == "success"
 	})
 
@@ -478,7 +478,7 @@ func TestE2E_BatchRetryDeliveries(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "batch-retry-test"
+		consumer  = "batch-retry-test"
 		eventName = "batch.retry.event"
 	)
 
@@ -497,16 +497,16 @@ func TestE2E_BatchRetryDeliveries(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	registerEventType(t, c, ctx, eventName)
-	registerWebhookPipeline(t, c, ctx, namespace, eventName, srv.URL, 0) // no retries -- fail immediately
+	registerWebhookPipeline(t, c, ctx, consumer, eventName, srv.URL, 0) // no retries -- fail immediately
 
 	var eventIDs []string
 	for range 3 {
-		eventIDs = append(eventIDs, pushTestEvent(t, c, ctx, namespace, eventName))
+		eventIDs = append(eventIDs, pushTestEvent(t, c, ctx, consumer, eventName))
 	}
 
 	for _, eid := range eventIDs {
 		pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		pollDeliveryStatus(t, c, pollCtx, namespace, eid, func(d deliveryItem) bool {
+		pollDeliveryStatus(t, c, pollCtx, consumer, eid, func(d deliveryItem) bool {
 			return d.Status == "failed"
 		})
 		cancel()
@@ -518,7 +518,7 @@ func TestE2E_BatchRetryDeliveries(t *testing.T) {
 		Items   []deliveryItem `json:"items"`
 		RetryID string         `json:"retry_id"`
 	}
-	_, err := c.get(ctx, "/v1/namespaces/"+namespace+"/deliveries?status=failed&prepare_retry=true", &listOut)
+	_, err := c.get(ctx, "/v1/consumers/"+consumer+"/deliveries?status=failed&prepare_retry=true", &listOut)
 	require.NoError(t, err, "ListDeliveries with prepare_retry failed")
 	require.NotEmpty(t, listOut.RetryID, "prepare_retry should return a retry_id")
 	assert.GreaterOrEqual(t, len(listOut.Items), 3)
@@ -526,7 +526,7 @@ func TestE2E_BatchRetryDeliveries(t *testing.T) {
 	var jobOut struct {
 		ID string `json:"id"`
 	}
-	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/deliveries:retryBatch", map[string]any{
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/deliveries:retryBatch", map[string]any{
 		"repush_id": listOut.RetryID,
 	}, &jobOut)
 	require.NoError(t, err, "startDeliveryRetryJob failed")
@@ -534,11 +534,11 @@ func TestE2E_BatchRetryDeliveries(t *testing.T) {
 
 	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	pollBatchJob(t, c, pollCtx, "/v1/namespaces/"+namespace+"/retry-jobs/"+jobOut.ID)
+	pollBatchJob(t, c, pollCtx, "/v1/consumers/"+consumer+"/retry-jobs/"+jobOut.ID)
 
 	for _, eid := range eventIDs {
 		spollCtx, scancel := context.WithTimeout(ctx, 30*time.Second)
-		pollDeliveryStatus(t, c, spollCtx, namespace, eid, func(d deliveryItem) bool {
+		pollDeliveryStatus(t, c, spollCtx, consumer, eid, func(d deliveryItem) bool {
 			return d.Status == "success"
 		})
 		scancel()
@@ -553,21 +553,21 @@ func TestE2E_PauseWebhookStopsRetries(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "pause-retry-test"
+		consumer  = "pause-retry-test"
 		eventName = "pause.retry.event"
 	)
 
 	targetSrv, requestCount := startAlwaysFailTarget(t, http.StatusInternalServerError)
 	registerEventType(t, c, ctx, eventName)
-	webhookID := registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 10) // many retries so we have time to pause
+	webhookID := registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 10) // many retries so we have time to pause
 
-	pushTestEvent(t, c, ctx, namespace, eventName)
+	pushTestEvent(t, c, ctx, consumer, eventName)
 
 	time.Sleep(3 * time.Second)
 	countBeforePause := requestCount.Load()
 	assert.GreaterOrEqual(t, int(countBeforePause), 1, "should have made at least 1 attempt")
 
-	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks/"+webhookID+":pause", nil, nil)
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/webhooks/"+webhookID+":pause", nil, nil)
 	require.NoError(t, err, "PauseWebhook failed")
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
@@ -592,16 +592,16 @@ func TestE2E_BatchRePushEvents(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "batch-repush-test"
+		consumer  = "batch-repush-test"
 		eventName = "batch.repush.event"
 	)
 
 	targetSrv, requestCount := startCountingTarget(t)
 	registerEventType(t, c, ctx, eventName)
-	registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 1)
+	registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 1)
 
 	for range 3 {
-		pushTestEvent(t, c, ctx, namespace, eventName)
+		pushTestEvent(t, c, ctx, consumer, eventName)
 	}
 
 	deadline := time.After(30 * time.Second)
@@ -622,14 +622,14 @@ waitInitial:
 	var listOut struct {
 		RepushID string `json:"repush_id"`
 	}
-	_, err := c.get(ctx, "/v1/namespaces/"+namespace+"/events?prepare_repush=true", &listOut)
+	_, err := c.get(ctx, "/v1/consumers/"+consumer+"/events?prepare_repush=true", &listOut)
 	require.NoError(t, err, "ListEventOccurrences with prepare_repush failed")
 	require.NotEmpty(t, listOut.RepushID, "prepare_repush should return a repush_id")
 
 	var jobOut struct {
 		ID string `json:"id"`
 	}
-	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/events:rePush", map[string]any{
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/events:rePush", map[string]any{
 		"repush_id": listOut.RepushID,
 	}, &jobOut)
 	require.NoError(t, err, "startEventRepushJob failed")
@@ -637,7 +637,7 @@ waitInitial:
 
 	pollCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	pollBatchJob(t, c, pollCtx, "/v1/namespaces/"+namespace+"/repush-jobs/"+jobOut.ID)
+	pollBatchJob(t, c, pollCtx, "/v1/consumers/"+consumer+"/repush-jobs/"+jobOut.ID)
 
 	time.Sleep(3 * time.Second)
 	assert.GreaterOrEqual(t, int(requestCount.Load()), 6,
@@ -652,7 +652,7 @@ func TestE2E_TimeoutRetry(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "timeout-test"
+		consumer  = "timeout-test"
 		eventName = "timeout.event"
 	)
 
@@ -673,7 +673,7 @@ func TestE2E_TimeoutRetry(t *testing.T) {
 	var webhookOut struct {
 		WebhookID string `json:"webhook_id"`
 	}
-	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks", map[string]any{
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/webhooks", map[string]any{
 		"events": []string{eventName},
 		"url":    srv.URL + "/webhook",
 		"active": true,
@@ -686,11 +686,11 @@ func TestE2E_TimeoutRetry(t *testing.T) {
 	require.NoError(t, err, "RegisterWebhook failed")
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
-	eventID := pushTestEvent(t, c, ctx, namespace, eventName)
+	eventID := pushTestEvent(t, c, ctx, consumer, eventName)
 
 	pollCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
-	delivery := pollDeliveryStatus(t, c, pollCtx, namespace, eventID, func(d deliveryItem) bool {
+	delivery := pollDeliveryStatus(t, c, pollCtx, consumer, eventID, func(d deliveryItem) bool {
 		return d.Status == "success"
 	})
 
@@ -705,7 +705,7 @@ func TestE2E_EnvelopePayloadFormat(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "envelope-test"
+		consumer  = "envelope-test"
 		eventName = "envelope.event"
 	)
 
@@ -727,12 +727,12 @@ func TestE2E_EnvelopePayloadFormat(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	registerEventType(t, c, ctx, eventName)
-	registerWebhookPipeline(t, c, ctx, namespace, eventName, srv.URL, 1)
+	registerWebhookPipeline(t, c, ctx, consumer, eventName, srv.URL, 1)
 
 	var pushOut struct {
 		EventID string `json:"event_id"`
 	}
-	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/events?event="+eventName, map[string]any{
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/events?event="+eventName, map[string]any{
 		"payload":     map[string]any{"user_id": "usr_abc", "action": "signup"},
 		"ttl_seconds": 300,
 		"metadata":    map[string]string{"source": "test", "env": "integration"},
@@ -774,13 +774,13 @@ func TestE2E_NullLabelFiltersStillDelivers(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "null-labels-test"
+		consumer  = "null-labels-test"
 		eventName = "labels.null"
 	)
 
 	targetSrv, requestCount := startCountingTarget(t)
 	registerEventType(t, c, ctx, eventName)
-	webhookID := registerWebhookPipeline(t, c, ctx, namespace, eventName, targetSrv.URL, 1)
+	webhookID := registerWebhookPipeline(t, c, ctx, consumer, eventName, targetSrv.URL, 1)
 
 	// Recreate the subscription with an explicit null label_filters, mirroring
 	// the UI payload.
@@ -789,14 +789,14 @@ func TestE2E_NullLabelFiltersStillDelivers(t *testing.T) {
 			SubscriptionID string `json:"subscription_id"`
 		} `json:"items"`
 	}
-	_, err := c.get(ctx, "/v1/namespaces/"+namespace+"/subscriptions?webhook_id="+webhookID, &subList)
+	_, err := c.get(ctx, "/v1/consumers/"+consumer+"/subscriptions?webhook_id="+webhookID, &subList)
 	require.NoError(t, err)
 	for _, s := range subList.Items {
-		resp, err := c.do(ctx, http.MethodDelete, "/v1/namespaces/"+namespace+"/subscriptions/"+s.SubscriptionID, nil, nil)
+		resp, err := c.do(ctx, http.MethodDelete, "/v1/consumers/"+consumer+"/subscriptions/"+s.SubscriptionID, nil, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	}
-	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/subscriptions", map[string]any{
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/subscriptions", map[string]any{
 		"webhook_id":    webhookID,
 		"event_name":    eventName,
 		"label_filters": nil,
@@ -806,7 +806,7 @@ func TestE2E_NullLabelFiltersStillDelivers(t *testing.T) {
 
 	// Push with a labels object (as the UI does): a null-label_filters
 	// subscription must still match a labeled event.
-	resp, err = c.post(ctx, "/v1/namespaces/"+namespace+"/events?event="+eventName, map[string]any{
+	resp, err = c.post(ctx, "/v1/consumers/"+consumer+"/events?event="+eventName, map[string]any{
 		"payload": map[string]any{"test": true},
 		"labels":  map[string]string{"env": "prod"},
 	}, nil)

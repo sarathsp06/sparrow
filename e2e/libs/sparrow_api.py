@@ -66,14 +66,14 @@ class SparrowAPI:
         )
         return _to_dict(resp.parsed)
 
-    def push_event(self, event: str, namespace: str, payload: dict, idempotency_key: str | None = None) -> dict:
+    def push_event(self, event: str, consumer: str, payload: dict, idempotency_key: str | None = None) -> dict:
         body = PushEventBody(payload=PushEventBodyPayload.from_dict(payload))
         if idempotency_key:
             body.idempotency_key = idempotency_key
-        resp = push_event.sync_detailed(namespace=namespace, client=self.client, body=body, event=event)
+        resp = push_event.sync_detailed(consumer=consumer, client=self.client, body=body, event=event)
         return _to_dict(resp.parsed)
 
-    def register_webhook(self, namespace: str, url: str, *events: str,
+    def register_webhook(self, consumer: str, url: str, *events: str,
                           max_retries: int = 3, request_timeout: int = 10,
                           signature_type: str | None = None) -> dict:
         http_config = WebhookHTTPConfig(
@@ -84,22 +84,22 @@ class SparrowAPI:
         body = RegisterWebhookBody(events=list(events), url=url, active=True, http_config=http_config)
         if signature_type:
             body.signature_type = RegisterWebhookBodySignatureType(signature_type)
-        resp = register_webhook.sync_detailed(namespace=namespace, client=self.client, body=body)
+        resp = register_webhook.sync_detailed(consumer=consumer, client=self.client, body=body)
         return _to_dict(resp.parsed)
 
-    def subscribe_to_event(self, webhook_id: str, event_name: str, namespace: str,
+    def subscribe_to_event(self, webhook_id: str, event_name: str, consumer: str,
                             template: str | None = None) -> dict:
         body = CreateSubscriptionBody(webhook_id=webhook_id, event_name=event_name)
         if template:
             body.transform_enabled = True
             body.transform_template = template
-        resp = create_subscription.sync_detailed(namespace=namespace, client=self.client, body=body)
+        resp = create_subscription.sync_detailed(consumer=consumer, client=self.client, body=body)
         return _to_dict(resp.parsed)
 
-    def list_deliveries(self, namespace: str | None = None, webhook_id: str | None = None,
+    def list_deliveries(self, consumer: str | None = None, webhook_id: str | None = None,
                          event_id: str | None = None, status: str | None = None) -> dict:
         resp = list_deliveries.sync_detailed(
-            namespace=namespace or "",
+            consumer=consumer or "",
             client=self.client,
             webhook_id=webhook_id if webhook_id else UNSET,
             event_id=event_id if event_id else UNSET,
@@ -109,38 +109,38 @@ class SparrowAPI:
         # steps.py reads out["deliveries"]; the REST API returns "items".
         out["deliveries"] = out.get("items", [])
         return out
-    def get_delivery_status(self, namespace: str, delivery_id: str) -> dict:
-        resp = get_delivery.sync_detailed(namespace=namespace, delivery_id=delivery_id, client=self.client)
+    def get_delivery_status(self, consumer: str, delivery_id: str) -> dict:
+        resp = get_delivery.sync_detailed(consumer=consumer, delivery_id=delivery_id, client=self.client)
         d = _to_dict(resp.parsed)
         return {"delivery": d}
 
-    def get_delivery_attempts(self, namespace: str, delivery_id: str) -> dict:
-        resp = get_delivery_attempts.sync_detailed(namespace=namespace, delivery_id=delivery_id, client=self.client)
+    def get_delivery_attempts(self, consumer: str, delivery_id: str) -> dict:
+        resp = get_delivery_attempts.sync_detailed(consumer=consumer, delivery_id=delivery_id, client=self.client)
         return _to_dict(resp.parsed)
 
-    def retry_delivery(self, namespace: str, delivery_id: str) -> dict:
-        resp = retry_delivery_op.sync_detailed(namespace=namespace, delivery_id=delivery_id, client=self.client)
+    def retry_delivery(self, consumer: str, delivery_id: str) -> dict:
+        resp = retry_delivery_op.sync_detailed(consumer=consumer, delivery_id=delivery_id, client=self.client)
         return _to_dict(resp.parsed)
 
     def replay_event(self, event_id: str) -> dict:
         resp = repush_event.sync_detailed(event_id=event_id, client=self.client)
         return _to_dict(resp.parsed)
 
-    def pause_webhook(self, webhook_id: str, namespace: str) -> dict:
-        resp = pause_webhook.sync_detailed(namespace=namespace, webhook_id=webhook_id, client=self.client)
+    def pause_webhook(self, webhook_id: str, consumer: str) -> dict:
+        resp = pause_webhook.sync_detailed(consumer=consumer, webhook_id=webhook_id, client=self.client)
         return {"status_code": resp.status_code}
 
-    def resume_webhook(self, webhook_id: str, namespace: str) -> dict:
-        resp = resume_webhook.sync_detailed(namespace=namespace, webhook_id=webhook_id, client=self.client)
+    def resume_webhook(self, webhook_id: str, consumer: str) -> dict:
+        resp = resume_webhook.sync_detailed(consumer=consumer, webhook_id=webhook_id, client=self.client)
         return {"status_code": resp.status_code}
 
-    def wait_for_all_deliveries_terminal(self, namespace: str, expected_count: int = 1,
+    def wait_for_all_deliveries_terminal(self, consumer: str, expected_count: int = 1,
                                           timeout: float = 60.0) -> list[dict]:
         """Poll until all deliveries reach terminal status."""
         non_retryable = {"client_error", "dns_error", "tls_error", "unexpected_status"}
         deadline = time.time() + timeout
         while True:
-            resp = self.list_deliveries(namespace=namespace)
+            resp = self.list_deliveries(consumer=consumer)
             deliveries = resp.get("deliveries", [])
             all_terminal = True
             for d in deliveries:
@@ -166,11 +166,11 @@ class SparrowAPI:
                 )
             time.sleep(2)
 
-    def wait_for_delivery_terminal(self, namespace: str, delivery_id: str, timeout: float = 60.0) -> dict:
+    def wait_for_delivery_terminal(self, consumer: str, delivery_id: str, timeout: float = 60.0) -> dict:
         """Poll a single delivery until terminal."""
         deadline = time.time() + timeout
         while True:
-            resp = self.get_delivery_status(namespace, delivery_id)
+            resp = self.get_delivery_status(consumer, delivery_id)
             delivery = resp["delivery"]
             status = delivery.get("status", "")
             if status in ("success", "failed", "expired"):

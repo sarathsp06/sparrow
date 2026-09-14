@@ -13,7 +13,7 @@ A webhook registration represents a target URL that receives event deliveries. I
 ## Key Fields (23 columns)
 
 - `url` — target URL
-- `namespace` — FK to namespaces
+- `consumer` — FK to consumers
 - `active` — whether the webhook is accepting deliveries
 - `webhook_secret` — HMAC secret (envelope-encrypted)
 - `secret_headers` — encrypted headers sent with delivery

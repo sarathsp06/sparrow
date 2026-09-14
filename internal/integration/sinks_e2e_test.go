@@ -149,7 +149,7 @@ func TestE2E_EmailSink(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "sinks-test"
+		consumer  = "sinks-test"
 		eventName = "sinks.email.event"
 	)
 
@@ -166,7 +166,7 @@ func TestE2E_EmailSink(t *testing.T) {
 			WebhookSecret string `json:"webhook_secret"`
 		} `json:"http_config"`
 	}
-	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks", map[string]any{
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/webhooks", map[string]any{
 		"events": []string{eventName},
 		"url":    fmt.Sprintf("http://127.0.0.1:%d/sinks/email", sinksPort),
 		"active": true,
@@ -189,7 +189,7 @@ email:
 `, sinksPort, webhookOut.HTTPConfig.WebhookSecret, smtpPort)
 	startSinksBinary(t, ctx, configYAML)
 
-	eventID := pushTestEvent(t, c, ctx, namespace, eventName)
+	eventID := pushTestEvent(t, c, ctx, consumer, eventName)
 
 	select {
 	case mail := <-msgs:
@@ -211,7 +211,7 @@ func TestE2E_OTLPSink(t *testing.T) {
 	ctx := context.Background()
 
 	const (
-		namespace = "sinks-otlp-test"
+		consumer  = "sinks-otlp-test"
 		eventName = "sinks.otlp.event"
 	)
 
@@ -235,7 +235,7 @@ func TestE2E_OTLPSink(t *testing.T) {
 			WebhookSecret string `json:"webhook_secret"`
 		} `json:"http_config"`
 	}
-	resp, err := c.post(ctx, "/v1/namespaces/"+namespace+"/webhooks", map[string]any{
+	resp, err := c.post(ctx, "/v1/consumers/"+consumer+"/webhooks", map[string]any{
 		"events": []string{eventName},
 		"url":    fmt.Sprintf("http://127.0.0.1:%d/sinks/otlp", sinksPort),
 		"active": true,
@@ -255,7 +255,7 @@ otlp:
 `, sinksPort, webhookOut.HTTPConfig.WebhookSecret, receiver.URL)
 	startSinksBinary(t, ctx, configYAML)
 
-	eventID := pushTestEvent(t, c, ctx, namespace, eventName)
+	eventID := pushTestEvent(t, c, ctx, consumer, eventName)
 
 	select {
 	case body := <-bodies:

@@ -28,7 +28,7 @@ COMMENT ON COLUMN event_registrations.sample_payload IS 'Auto-generated sample p
 -- Create webhook_registrations table with all columns including health and HTTP config
 CREATE TABLE webhook_registrations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    namespace VARCHAR(255) NOT NULL,
+    consumer VARCHAR(255) NOT NULL,
     url TEXT NOT NULL,
     headers JSONB DEFAULT '{}'::JSONB,      -- Custom headers as JSON
     timeout INTEGER DEFAULT 30,     -- Timeout in seconds
@@ -50,7 +50,7 @@ CREATE TABLE webhook_registrations (
     
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT unique_namespace_url UNIQUE (namespace, url),
+    CONSTRAINT unique_consumer_url UNIQUE (consumer, url),
     CONSTRAINT webhook_health_check CHECK (health IN ('healthy', 'degraded', 'unhealthy', 'unknown')),
     CONSTRAINT max_retries_check CHECK (max_retries >= 0 AND max_retries <= 10),
     CONSTRAINT retry_backoff_check CHECK (retry_backoff_seconds > 0 AND retry_backoff_seconds <= 3600),
@@ -58,7 +58,7 @@ CREATE TABLE webhook_registrations (
 );
 
 -- Create indexes for webhook_registrations
-CREATE INDEX idx_webhook_registrations_namespace ON webhook_registrations(namespace);
+CREATE INDEX idx_webhook_registrations_consumer ON webhook_registrations(consumer);
 CREATE INDEX idx_webhook_registrations_active ON webhook_registrations(active);
 CREATE INDEX idx_webhook_registrations_health ON webhook_registrations(health);
 
@@ -67,7 +67,7 @@ CREATE TABLE event_subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     webhook_id UUID NOT NULL REFERENCES webhook_registrations(id) ON DELETE CASCADE,
     event_name VARCHAR(255) NOT NULL,
-    namespace VARCHAR(255) NOT NULL,
+    consumer VARCHAR(255) NOT NULL,
     headers JSONB,
     method VARCHAR(10) DEFAULT 'POST',
     transform_enabled BOOLEAN DEFAULT FALSE,
@@ -75,15 +75,15 @@ CREATE TABLE event_subscriptions (
     timeout INT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(webhook_id, event_name, namespace)
+    UNIQUE(webhook_id, event_name, consumer)
 );
 
-CREATE INDEX idx_event_subscriptions_event ON event_subscriptions(namespace, event_name);
+CREATE INDEX idx_event_subscriptions_event ON event_subscriptions(consumer, event_name);
 
 -- Create event_records table
 CREATE TABLE event_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    namespace VARCHAR(255) NOT NULL,
+    consumer VARCHAR(255) NOT NULL,
     event VARCHAR(255) NOT NULL,
     payload TEXT NOT NULL,           -- JSON payload
     ttl BIGINT NOT NULL,            -- TTL in seconds
@@ -93,7 +93,7 @@ CREATE TABLE event_records (
 );
 
 -- Create indexes for event_records
-CREATE INDEX idx_event_records_namespace ON event_records(namespace);
+CREATE INDEX idx_event_records_consumer ON event_records(consumer);
 CREATE INDEX idx_event_records_event ON event_records(event);
 CREATE INDEX idx_event_records_created_at ON event_records(created_at);
 CREATE INDEX idx_event_records_expires_at ON event_records(expires_at);

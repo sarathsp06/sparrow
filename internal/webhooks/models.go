@@ -14,7 +14,7 @@ import (
 // WebhookRegistration represents a webhook registration with HTTP configuration
 type WebhookRegistration struct {
 	ID          string      `db:"id" json:"id"`
-	Namespace   string      `db:"namespace" json:"namespace"`
+	Consumer    string      `db:"consumer" json:"consumer"`
 	Events      StringArray `db:"events" json:"events"`
 	URL         string      `db:"url" json:"url"`
 	Headers     JSONBMap    `db:"headers" json:"headers"`
@@ -292,7 +292,7 @@ type HTTPConfigUpdate struct {
 // WebhookRegistrationRequest represents a request to create/update a webhook registration
 type WebhookRegistrationRequest struct {
 	ID            string             `json:"id,omitempty"`
-	Namespace     string             `json:"namespace" validate:"required"`
+	Consumer      string             `json:"consumer" validate:"required"`
 	Events        []string           `json:"events" validate:"required,min=1"`
 	URL           string             `json:"url" validate:"required,url"`
 	Headers       map[string]any     `json:"headers,omitempty"`
@@ -308,7 +308,7 @@ type WebhookRegistrationRequest struct {
 func (req WebhookRegistrationRequest) ToWebhookRegistration() (*WebhookRegistration, error) {
 	webhook := &WebhookRegistration{
 		ID:            req.ID,
-		Namespace:     req.Namespace,
+		Consumer:      req.Consumer,
 		Events:        StringArray(req.Events),
 		URL:           req.URL,
 		Headers:       JSONBMap(req.Headers),

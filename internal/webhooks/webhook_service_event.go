@@ -25,30 +25,30 @@ import (
 // PushEvent pushes an event.
 // When idempotencyKey is non-nil and non-empty, duplicate detection is
 // performed: if an event with the same key already exists within the
-// (tenant, namespace), the existing event_id is returned with
+// (tenant, consumer), the existing event_id is returned with
 // isDuplicate=true and no new event or deliveries are created.
 // Re-push/re-enqueue flows pass nil, so they are never deduplicated.
-func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (string, bool, bool, []string, error) {
+func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event string, payload map[string]any, ttlSeconds int64, metadata map[string]string, labels map[string]string, idempotencyKey *string) (string, bool, bool, []string, error) {
 	ctx, span := s.tracer.Start(ctx, "event.push",
 		trace.WithAttributes(
-			attribute.String("namespace", namespace),
+			attribute.String("consumer", consumer),
 			attribute.String("event", event),
 		),
 	)
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing push event request",
-		"namespace", namespace,
+		"consumer", consumer,
 		"event", event,
 	)
 
 	tenantID := tenant.DefaultTenantID
 
 	// Validate required fields
-	if namespace == "" {
-		err := svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
+	if consumer == "" {
+		err := svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 		span.RecordError(err)
-		span.SetStatus(otelcodes.Error, "namespace is required")
+		span.SetStatus(otelcodes.Error, "consumer is required")
 		return "", false, false, nil, err
 	}
 	if event == "" {
@@ -64,12 +64,12 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 	}
 
 	// Idempotency check: if the caller provided an idempotency key, look up
-	// an existing event with the same key in this (tenant, namespace). When
+	// an existing event with the same key in this (tenant, consumer). When
 	// found, return the existing event_id immediately — no new record, no
 	// new deliveries. This check is intentionally skipped for re-push flows
 	// (which pass nil) so that replays always create new events.
 	if idempotencyKey != nil && *idempotencyKey != "" {
-		existing, err := s.webhookRepo.GetEventByIdempotencyKey(ctx, tenantID, namespace, *idempotencyKey)
+		existing, err := s.webhookRepo.GetEventByIdempotencyKey(ctx, tenantID, consumer, *idempotencyKey)
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(otelcodes.Error, "idempotency lookup failed")
@@ -160,7 +160,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 	// Store the event record in database first
 	eventRecord := &store.EventRecord{
 		ID:             uuid.MustParse(eventID),
-		Namespace:      namespace,
+		Consumer:       consumer,
 		Event:          event,
 		Payload:        payload,
 		TTL:            ttl,
@@ -175,7 +175,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 		// Idempotency race: a concurrent push with the same key won the insert
 		// between our lookup above and this insert. Return the winner as a duplicate.
 		if errors.Is(err, storage.ErrAlreadyExists) && idempotencyKey != nil && *idempotencyKey != "" {
-			existing, lookupErr := s.webhookRepo.GetEventByIdempotencyKey(ctx, tenantID, namespace, *idempotencyKey)
+			existing, lookupErr := s.webhookRepo.GetEventByIdempotencyKey(ctx, tenantID, consumer, *idempotencyKey)
 			if lookupErr == nil && existing != nil {
 				span.SetAttributes(attribute.Bool("duplicate", true))
 				span.SetStatus(otelcodes.Ok, "duplicate event (idempotent)")
@@ -200,7 +200,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 	// a transaction would require migrating all app queries to pgx.
 	eventArgs := queue.EventArgs{
 		EventID:    eventID,
-		Namespace:  namespace,
+		Consumer:   consumer,
 		Event:      event,
 		TTLSeconds: ttl,
 		Metadata:   metadata,
@@ -214,7 +214,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to schedule event processing job",
 			"event_id", eventID,
-			"namespace", namespace,
+			"consumer", consumer,
 			"event", event,
 			"error", err,
 		)
@@ -239,7 +239,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 
 	s.logger.InfoContext(ctx, "Event processing scheduled successfully",
 		"event_id", eventID,
-		"namespace", namespace,
+		"consumer", consumer,
 		"event", event,
 	)
 	return eventID, false, schemaValid, warnings, nil
@@ -247,7 +247,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, namespace string, event 
 
 // RePushEvent replays a previously pushed event as if it were pushed fresh.
 // It loads the original event record and calls PushEvent with the same payload,
-// namespace, event name, metadata, and labels. The payload is validated against
+// consumer, event name, metadata, and labels. The payload is validated against
 // the CURRENT event type schema. Returns a new event_id and any warnings.
 func (s *WebhookService) RePushEvent(ctx context.Context, eventID string) (string, []string, error) {
 	ctx, span := s.tracer.Start(ctx, "event.repush",
@@ -292,7 +292,7 @@ func (s *WebhookService) RePushEvent(ctx context.Context, eventID string) (strin
 	// Re-push through the standard PushEvent pipeline with nil idempotency key.
 	// This ensures re-pushes always create new events and are never deduplicated.
 	// This gives us: current schema validation, new event_id, fan-out to matching subscriptions.
-	newEventID, _, _, warnings, err := s.PushEvent(ctx, original.Namespace, original.Event, original.Payload, original.TTL, original.Metadata, original.Labels, nil)
+	newEventID, _, _, warnings, err := s.PushEvent(ctx, original.Consumer, original.Event, original.Payload, original.TTL, original.Metadata, original.Labels, nil)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "re-push failed")
@@ -398,7 +398,7 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 
 	tenantID := tenant.DefaultTenantID
 
-	// Event types are tenant-scoped (shared across namespaces)
+	// Event types are tenant-scoped (shared across consumers)
 
 	existingEvent, err := s.webhookRepo.GetEventByName(ctx, tenantID, name)
 	if err != nil {
@@ -657,14 +657,14 @@ func ValidateJSONSchema(schema map[string]any, payload map[string]any) error {
 }
 
 // ListEventReports lists event records with delivery statistics in descending order by creation time.
-// Supports filtering by namespace, event name, schema_valid, labels, and time range.
+// Supports filtering by consumer, event name, schema_valid, labels, and time range.
 // When PrepareRepush is true, snapshots all matching event IDs into a batch job and returns the batch ID.
 func (s *WebhookService) ListEventReports(ctx context.Context, filter store.EventReportFilter) ([]*store.EventReportWithStats, int32, string, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.ListEventReports")
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing list event reports request",
-		"namespace", filter.Namespace,
+		"consumer", filter.Consumer,
 		"event_name", filter.EventName,
 		"prepare_repush", filter.PrepareRepush,
 		"limit", filter.Limit,
@@ -676,7 +676,7 @@ func (s *WebhookService) ListEventReports(ctx context.Context, filter store.Even
 
 	events, totalCount, err := s.webhookRepo.ListEventReportsFiltered(ctx, tenantID, filter)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to list event reports", "namespace", filter.Namespace, "event_name", filter.EventName, "error", err)
+		s.logger.ErrorContext(ctx, "Failed to list event reports", "consumer", filter.Consumer, "event_name", filter.EventName, "error", err)
 		span.SetStatus(otelcodes.Error, err.Error())
 		return nil, 0, "", fmt.Errorf("failed to list event reports: %w", err)
 	}
@@ -691,7 +691,7 @@ func (s *WebhookService) ListEventReports(ctx context.Context, filter store.Even
 		}
 		if len(ids) > 0 {
 			filterMap := map[string]any{
-				"namespace": filter.Namespace,
+				"consumer": filter.Consumer,
 			}
 			if filter.EventName != nil {
 				filterMap["event_name"] = *filter.EventName
@@ -706,7 +706,7 @@ func (s *WebhookService) ListEventReports(ctx context.Context, filter store.Even
 				ItemIDs: ids,
 				Filter:  filterMap,
 			}
-			batchJob, err := s.webhookRepo.CreateBatchJob(ctx, tenantID, filter.Namespace, store.BatchTypeEventRepush, batchData)
+			batchJob, err := s.webhookRepo.CreateBatchJob(ctx, tenantID, filter.Consumer, store.BatchTypeEventRepush, batchData)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "Failed to create batch job for repush", "error", err)
 				return nil, 0, "", fmt.Errorf("failed to create repush batch: %w", err)
@@ -719,13 +719,13 @@ func (s *WebhookService) ListEventReports(ctx context.Context, filter store.Even
 	}
 
 	s.logger.InfoContext(ctx, "Successfully listed event reports",
-		"namespace", filter.Namespace,
+		"consumer", filter.Consumer,
 		"event_name", filter.EventName,
 		"count", len(events),
 		"total", totalCount)
 
 	span.SetAttributes(
-		attribute.String("namespace", filter.Namespace),
+		attribute.String("consumer", filter.Consumer),
 		attribute.Int("count", len(events)),
 		attribute.Int("total", totalCount),
 	)

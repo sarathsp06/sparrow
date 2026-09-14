@@ -37,7 +37,7 @@ services, storage, and queue workers.
 
 Sparrow exposes a single HTTP REST server on `:8080`, built with [Huma](https://huma.rocks/). All endpoints live under the `/v1` base path and are described by an OpenAPI 3.1 spec committed at `api/openapi.yaml` (also `api/openapi.json`), generated from the Go REST definitions in `internal/rest`.
 
-The API covers events, webhooks, subscriptions, deliveries, event types, and health. Namespace-scoped resources use `/v1/namespaces/{namespace}/...` paths (for example, `GET /v1/namespaces/{namespace}/stats` for namespace stats).
+The API covers events, webhooks, subscriptions, deliveries, event types, and health. Consumer-scoped resources use `/v1/consumers/{consumer}/...` paths (for example, `GET /v1/consumers/{consumer}/stats` for consumer stats).
 
 See the [API Reference](/sparrow/reference/api/) for the full endpoint list.
 
@@ -46,7 +46,7 @@ See the [API Reference](/sparrow/reference/api/) for the full endpoint list.
 ## Event Processing Pipeline
 
 ```
-POST /v1/namespaces/{namespace}/events
+POST /v1/consumers/{consumer}/events
     │
     v
 Events REST handler (internal/rest)
@@ -57,7 +57,7 @@ Events REST handler (internal/rest)
     v
 EventProcessingWorker.Work()
     │  1. Load event from DB
-    │  2. Query matching subscriptions (tenant_id + namespace + event_name + labels)
+    │  2. Query matching subscriptions (tenant_id + consumer + event_name + labels)
     │  3. For each subscription: apply Go template transform (if enabled)
     │  4. Batch-insert all webhook_delivery records (single multi-row INSERT)
     │  5. Batch-enqueue all WebhookArgs jobs (River InsertMany)
@@ -115,7 +115,7 @@ Every webhook delivery sends a JSON envelope with snake_case field names:
   "version": "1",
   "event_id": "550e8400-e29b-41d4-a716-446655440000",
   "event_name": "user.created",
-  "namespace": "billing",
+  "consumer": "billing",
   "webhook_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   "delivery_id": "d-123",
   "timestamp": "2026-03-17T10:30:00Z",
@@ -130,7 +130,7 @@ Every webhook delivery sends a JSON envelope with snake_case field names:
 - `version` -- Envelope schema version (currently `"1"`).
 - `event_id` -- UUID of the event that triggered this delivery.
 - `event_name` -- The event type (e.g. `user.created`, `order.paid`).
-- `namespace` -- Namespace the event belongs to.
+- `consumer` -- Consumer the event belongs to.
 - `webhook_id` -- UUID of the webhook registration receiving this delivery.
 - `delivery_id` -- UUID of this specific delivery attempt.
 - `timestamp` -- ISO 8601 / RFC 3339 timestamp of when the delivery was sent.
@@ -339,7 +339,7 @@ cmd/server/main.go  (composition root — wires everything)
 
 - Tables: `tenants`
 
-**`internal/webhooks`** -- Core business domain: namespaces, events, subscriptions, deliveries, health tracking.
+**`internal/webhooks`** -- Core business domain: consumers, events, subscriptions, deliveries, health tracking.
 
 - Tables: See OKF / DB schema for full table list
 - Sub-packages:

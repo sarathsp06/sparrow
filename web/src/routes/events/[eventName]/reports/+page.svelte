@@ -3,7 +3,7 @@
     import { EventReportsTable, Pagination } from '$lib';
     import { api, unwrap } from '$lib/services';
     import { onDestroy } from 'svelte';
-    import { namespaceStore } from '$lib/namespace.svelte';
+    import { consumerStore } from '$lib/consumer.svelte';
     import type { components } from '$lib/api-types';
     import { formatAPIError } from '$lib/utils';
     import BatchProgress from '$lib/components/BatchProgress.svelte';
@@ -60,12 +60,12 @@
         }
 
         const offset = (pageNum - 1) * pageSize;
-        const ns = namespaceStore.value;
+        const ns = consumerStore.value;
 
         try {
-            const res = unwrap(await api.GET('/v1/namespaces/{namespace}/events', {
+            const res = unwrap(await api.GET('/v1/consumers/{consumer}/events', {
                 params: {
-                    path: { namespace: ns },
+                    path: { consumer: ns },
                     query: { event: eventName, prepare_repush: prepareRepush, limit: pageSize, offset },
                 },
             }));
@@ -129,10 +129,10 @@
     async function executeRepush() {
         confirmRepush = false;
         if (!repushId) return;
-        const ns = namespaceStore.value;
+        const ns = consumerStore.value;
         try {
-            const res = unwrap(await api.POST('/v1/namespaces/{namespace}/events:rePush', {
-                params: { path: { namespace: ns } },
+            const res = unwrap(await api.POST('/v1/consumers/{consumer}/events:rePush', {
+                params: { path: { consumer: ns } },
                 body: { repush_id: repushId },
             }));
             batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
@@ -144,12 +144,12 @@
 
     function startPolling() {
         if (pollingTimer) clearInterval(pollingTimer);
-        const ns = namespaceStore.value;
+        const ns = consumerStore.value;
         pollingTimer = setInterval(async () => {
             if (!repushId) { stopPolling(); return; }
             try {
-                const res = unwrap(await api.GET('/v1/namespaces/{namespace}/repush-jobs/{job_id}', {
-                    params: { path: { namespace: ns, job_id: repushId } },
+                const res = unwrap(await api.GET('/v1/consumers/{consumer}/repush-jobs/{job_id}', {
+                    params: { path: { consumer: ns, job_id: repushId } },
                 }));
                 batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
                 if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
@@ -167,10 +167,10 @@
 
     async function cancelRepush() {
         if (!repushId) return;
-        const ns = namespaceStore.value;
+        const ns = consumerStore.value;
         try {
-            await api.POST('/v1/namespaces/{namespace}/repush-jobs/{job_id}:cancel', {
-                params: { path: { namespace: ns, job_id: repushId } },
+            await api.POST('/v1/consumers/{consumer}/repush-jobs/{job_id}:cancel', {
+                params: { path: { consumer: ns, job_id: repushId } },
             });
         } catch (e: any) {
             error = formatAPIError(e, 'Failed to cancel re-push');
@@ -182,7 +182,7 @@
     }
 
     $effect(() => {
-        namespaceStore.value; // refetch when the active namespace changes
+        consumerStore.value; // refetch when the active consumer changes
         fetchEventReports(1);
     });
 </script>
@@ -204,7 +204,7 @@
                 <p class="eyebrow mb-1.5">Catalog / Reports</p>
                 <h1 class="text-2xl">Event Reports</h1>
                 <p class="text-sm text-muted mt-1">
-                    Instances of "{currentEvent?.name || 'Loading…'}" in namespace <span class="chip">{namespaceStore.value}</span>
+                    Instances of "{currentEvent?.name || 'Loading…'}" in consumer <span class="chip">{consumerStore.value}</span>
                 </p>
             </div>
             {#if !loading}

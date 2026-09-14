@@ -102,17 +102,17 @@ curl -s -X POST http://localhost:8080/v1/event-types \
   -d '{"name":"order.created","description":"New order","active":true}'
 
 # Register a webhook
-curl -s -X POST http://localhost:8080/v1/namespaces/default/webhooks \
+curl -s -X POST http://localhost:8080/v1/consumers/default/webhooks \
   -H "Content-Type: application/json" \
   -d '{"url":"https://testhooks.sarathsadasivan.com/hooks","events":["order.created"],"active":true}'
 
 # Push an event
-curl -s -X POST http://localhost:8080/v1/namespaces/default/events \
+curl -s -X POST http://localhost:8080/v1/consumers/default/events \
   -H "Content-Type: application/json" \
   -d '{"payload":{"order_id":"ord_k8s_001","amount":42.00}}'
 
 # Check deliveries
-curl -s http://localhost:8080/v1/namespaces/default/deliveries | jq '.deliveries[0].status'
+curl -s http://localhost:8080/v1/consumers/default/deliveries | jq '.deliveries[0].status'
 ```
 
 ### 6. Open the web UI

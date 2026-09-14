@@ -154,7 +154,7 @@ func TestPushEvent_WithValidLabels(t *testing.T) {
 	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
-	namespace := "default"
+	consumer := "default"
 	eventName := "user.signup"
 	payload := map[string]any{"user_id": "123"}
 	labels := map[string]string{"region": "us", "tier": "premium"}
@@ -169,7 +169,7 @@ func TestPushEvent_WithValidLabels(t *testing.T) {
 	})).Return(nil)
 	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
 
-	eventID, _, _, _, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, labels, nil)
+	eventID, _, _, _, err := service.PushEvent(ctx, consumer, eventName, payload, 0, nil, labels, nil)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
 	repo.AssertExpectations(t)
@@ -247,18 +247,18 @@ func TestCreateSubscription_WithLabelFilters(t *testing.T) {
 
 	ctx := testContext()
 	webhookID := uuid.New().String()
-	namespace := "default"
+	consumer := "default"
 	eventName := "order.created"
 	labelFilters := map[string]string{"region": "us", "tier": "premium"}
 
 	repo.On("CreateSubscription", mock.Anything, mock.Anything, mock.MatchedBy(func(sub *store.EventSubscription) bool {
 		return sub.EventName == eventName &&
-			sub.Namespace == namespace &&
+			sub.Consumer == consumer &&
 			sub.LabelFilters["region"] == "us" &&
 			sub.LabelFilters["tier"] == "premium"
 	})).Return(nil)
 
-	id, createdAt, err := service.CreateSubscription(ctx, webhookID, eventName, namespace, nil, "POST", 30, false, "", labelFilters)
+	id, createdAt, err := service.CreateSubscription(ctx, webhookID, eventName, consumer, nil, "POST", 30, false, "", labelFilters)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
 	assert.False(t, createdAt.IsZero())
@@ -358,8 +358,8 @@ type mockRepoWithEventQuery struct {
 	mockRepo
 }
 
-func (m *mockRepoWithEventQuery) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string, labels map[string]string) ([]*store.EventSubscription, error) {
-	args := m.Called(ctx, tenantID, namespace, event, labels)
+func (m *mockRepoWithEventQuery) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*store.EventSubscription, error) {
+	args := m.Called(ctx, tenantID, consumer, event, labels)
 	res := args.Get(0)
 	if res == nil {
 		return nil, args.Error(1)
@@ -367,8 +367,8 @@ func (m *mockRepoWithEventQuery) GetSubscriptionsByEvent(ctx context.Context, te
 	return res.([]*store.EventSubscription), args.Error(1)
 }
 
-func (m *mockRepoWithEventQuery) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, namespace, event string, labels map[string]string) ([]*store.SubscriptionWithWebhook, error) {
-	args := m.Called(ctx, tenantID, namespace, event, labels)
+func (m *mockRepoWithEventQuery) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*store.SubscriptionWithWebhook, error) {
+	args := m.Called(ctx, tenantID, consumer, event, labels)
 	res := args.Get(0)
 	if res == nil {
 		return nil, args.Error(1)
@@ -387,13 +387,13 @@ func TestGetSubscriptionsByEvent_CatchAllReturned(t *testing.T) {
 			ID:        uuid.New(),
 			WebhookID: uuid.New(),
 			EventName: "signup",
-			Namespace: "default",
+			Consumer:  "default",
 		},
 		{
 			ID:        uuid.New(),
 			WebhookID: uuid.New(),
 			EventName: store.CatchAllEventName,
-			Namespace: "default",
+			Consumer:  "default",
 		},
 	}
 
@@ -434,7 +434,7 @@ func TestGetSubscriptionsByEvent_LabelFiltering(t *testing.T) {
 		ID:           uuid.New(),
 		WebhookID:    uuid.New(),
 		EventName:    "order.created",
-		Namespace:    "default",
+		Consumer:     "default",
 		LabelFilters: map[string]string{"region": "us"},
 	}
 
@@ -478,7 +478,7 @@ func TestGetSubscriptionsByEvent_EmptyLabelFiltersMatchAll(t *testing.T) {
 		ID:           uuid.New(),
 		WebhookID:    uuid.New(),
 		EventName:    "signup",
-		Namespace:    "default",
+		Consumer:     "default",
 		LabelFilters: map[string]string{},
 	}
 
@@ -493,12 +493,12 @@ func TestGetSubscriptionsByEvent_EmptyLabelFiltersMatchAll(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-func TestGetSubscriptionsByEvent_NamespaceIsolation(t *testing.T) {
+func TestGetSubscriptionsByEvent_ConsumerIsolation(t *testing.T) {
 	repo := new(mockRepoWithEventQuery)
 
 	ctx := testContext()
 
-	// Subscriptions in namespace "billing" should not appear when querying "default".
+	// Subscriptions in consumer "billing" should not appear when querying "default".
 	repo.On("GetSubscriptionsByEvent", mock.Anything, mock.Anything, "default", "signup", map[string]string(nil)).
 		Return([]*store.EventSubscription{}, nil)
 
@@ -518,16 +518,16 @@ func TestGetSubscriptionsWithWebhooksByEvent_ActiveWebhooksOnly(t *testing.T) {
 	ctx := testContext()
 
 	activeWebhook := &store.WebhookRegistration{
-		ID:        uuid.New(),
-		Namespace: "default",
-		URL:       "https://example.com/hook",
-		Active:    true,
+		ID:       uuid.New(),
+		Consumer: "default",
+		URL:      "https://example.com/hook",
+		Active:   true,
 	}
 	sub := &store.EventSubscription{
 		ID:        uuid.New(),
 		WebhookID: activeWebhook.ID,
 		EventName: "signup",
-		Namespace: "default",
+		Consumer:  "default",
 	}
 
 	// The SQL query JOINs with wr.active = true, so only active webhooks appear.
@@ -566,17 +566,17 @@ func TestGetSubscriptionsWithWebhooksByEvent_MixedCatchAllAndSpecific(t *testing
 	ctx := testContext()
 
 	webhook1 := &store.WebhookRegistration{
-		ID: uuid.New(), Namespace: "default", URL: "https://a.com/hook", Active: true,
+		ID: uuid.New(), Consumer: "default", URL: "https://a.com/hook", Active: true,
 	}
 	webhook2 := &store.WebhookRegistration{
-		ID: uuid.New(), Namespace: "default", URL: "https://b.com/hook", Active: true,
+		ID: uuid.New(), Consumer: "default", URL: "https://b.com/hook", Active: true,
 	}
 
 	specificSub := &store.EventSubscription{
-		ID: uuid.New(), WebhookID: webhook1.ID, EventName: "signup", Namespace: "default",
+		ID: uuid.New(), WebhookID: webhook1.ID, EventName: "signup", Consumer: "default",
 	}
 	catchAllSub := &store.EventSubscription{
-		ID: uuid.New(), WebhookID: webhook2.ID, EventName: store.CatchAllEventName, Namespace: "default",
+		ID: uuid.New(), WebhookID: webhook2.ID, EventName: store.CatchAllEventName, Consumer: "default",
 	}
 
 	expected := []*store.SubscriptionWithWebhook{

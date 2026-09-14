@@ -13,7 +13,7 @@ import (
 
 // BatchRepository defines operations for batch jobs.
 type BatchRepository interface {
-	CreateBatchJob(ctx context.Context, tenantID uuid.UUID, namespace string, jobType BatchJobType, data *BatchJobData) (*BatchJob, error)
+	CreateBatchJob(ctx context.Context, tenantID uuid.UUID, consumer string, jobType BatchJobType, data *BatchJobData) (*BatchJob, error)
 	GetBatchJob(ctx context.Context, tenantID uuid.UUID, batchID uuid.UUID) (*BatchJob, error)
 	UpdateBatchJobStatus(ctx context.Context, batchID uuid.UUID, from, to BatchJobStatus) error
 	UpdateBatchJobProgress(ctx context.Context, batchID uuid.UUID, processedDelta, failedDelta int) error
@@ -23,7 +23,7 @@ type BatchRepository interface {
 }
 
 // CreateBatchJob inserts a new batch job with snapshotted item IDs.
-func (r *Repository) CreateBatchJob(ctx context.Context, tenantID uuid.UUID, namespace string, jobType BatchJobType, data *BatchJobData) (*BatchJob, error) {
+func (r *Repository) CreateBatchJob(ctx context.Context, tenantID uuid.UUID, consumer string, jobType BatchJobType, data *BatchJobData) (*BatchJob, error) {
 	if len(data.ItemIDs) > MaxBatchSize {
 		return nil, fmt.Errorf("batch size %d exceeds maximum of %d", len(data.ItemIDs), MaxBatchSize)
 	}
@@ -37,7 +37,7 @@ func (r *Repository) CreateBatchJob(ctx context.Context, tenantID uuid.UUID, nam
 	job := &BatchJob{
 		ID:         uuid.New(),
 		TenantID:   tenantID,
-		Namespace:  namespace,
+		Consumer:   consumer,
 		JobType:    jobType,
 		Status:     BatchStatusPending,
 		Data:       dataJSON,
@@ -51,12 +51,12 @@ func (r *Repository) CreateBatchJob(ctx context.Context, tenantID uuid.UUID, nam
 	}
 
 	query := `
-		INSERT INTO batch_jobs (id, tenant_id, namespace, job_type, status, data, total, processed, failed, ttl_seconds, created_at, expires_at, updated_at)
+		INSERT INTO batch_jobs (id, tenant_id, consumer, job_type, status, data, total, processed, failed, ttl_seconds, created_at, expires_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 
 	_, err = r.conn.ExecContext(ctx, query,
-		job.ID, job.TenantID, job.Namespace, job.JobType, job.Status,
+		job.ID, job.TenantID, job.Consumer, job.JobType, job.Status,
 		job.Data, job.Total, job.Processed, job.Failed, job.TTLSeconds,
 		job.CreatedAt, job.ExpiresAt, job.UpdatedAt,
 	)
@@ -71,7 +71,7 @@ func (r *Repository) CreateBatchJob(ctx context.Context, tenantID uuid.UUID, nam
 // Returns nil, nil if not found.
 func (r *Repository) GetBatchJob(ctx context.Context, tenantID uuid.UUID, batchID uuid.UUID) (*BatchJob, error) {
 	query := `
-		SELECT id, tenant_id, namespace, job_type, status, data, total, processed, failed,
+		SELECT id, tenant_id, consumer, job_type, status, data, total, processed, failed,
 		       ttl_seconds, created_at, expires_at, updated_at
 		FROM batch_jobs
 		WHERE id = $1 AND tenant_id = $2
@@ -152,8 +152,8 @@ func (r *Repository) CleanupExpiredBatchJobs(ctx context.Context) (int, error) {
 // all matching event IDs (up to MaxBatchSize). Used by prepare_repush.
 func (r *Repository) SnapshotEventIDs(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]string, error) {
 	var ns any
-	if filter.Namespace != "" {
-		ns = filter.Namespace
+	if filter.Consumer != "" {
+		ns = filter.Consumer
 	}
 
 	var labelsJSON any
@@ -170,7 +170,7 @@ func (r *Repository) SnapshotEventIDs(ctx context.Context, tenantID uuid.UUID, f
 	query := `
 		SELECT id::text FROM event_records
 		WHERE tenant_id = $1
-		  AND ($2::text IS NULL OR namespace = $2)
+		  AND ($2::text IS NULL OR consumer = $2)
 		  AND ($3::text IS NULL OR event = $3)
 		  AND ($4::boolean IS NULL OR schema_valid = $4)
 		  AND ($5::jsonb IS NULL OR labels @> $5::jsonb)
@@ -197,8 +197,8 @@ func (r *Repository) SnapshotEventIDs(ctx context.Context, tenantID uuid.UUID, f
 // all matching delivery IDs (up to MaxBatchSize). Used by prepare_retry.
 func (r *Repository) SnapshotDeliveryIDs(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]string, error) {
 	var ns any
-	if filter.Namespace != "" {
-		ns = filter.Namespace
+	if filter.Consumer != "" {
+		ns = filter.Consumer
 	}
 
 	args := []any{tenantID, ns, filter.WebhookID, filter.EventID, filter.Status, filter.ErrorCategory, filter.SubscriptionID, filter.CreatedAfter, filter.CreatedBefore, MaxBatchSize + 1}
@@ -208,7 +208,7 @@ func (r *Repository) SnapshotDeliveryIDs(ctx context.Context, tenantID uuid.UUID
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wr.tenant_id = $1
-		  AND ($2::text IS NULL OR wr.namespace = $2)
+		  AND ($2::text IS NULL OR wr.consumer = $2)
 		  AND ($3::uuid IS NULL OR wd.webhook_id = $3)
 		  AND ($4::uuid IS NULL OR wd.event_id = $4)
 		  AND ($5::text IS NULL OR wd.status::text = $5)

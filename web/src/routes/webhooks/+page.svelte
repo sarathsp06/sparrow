@@ -9,7 +9,7 @@
   import FloatingAction from '$lib/components/FloatingAction.svelte';
   import Pagination from '$lib/components/Pagination.svelte';
   import { formatAPIError } from '$lib/utils';
-  import { namespaceStore } from '$lib/namespace.svelte';
+  import { consumerStore } from '$lib/consumer.svelte';
 
   type WebhookOut = components["schemas"]["WebhookOut"];
 
@@ -47,7 +47,7 @@
         w.url.toLowerCase().includes(q) ||
         (w.description ?? '').toLowerCase().includes(q) ||
         w.webhook_id.toLowerCase().includes(q) ||
-        w.namespace.toLowerCase().includes(q)
+        w.consumer.toLowerCase().includes(q)
       );
     }
     return result;
@@ -61,20 +61,20 @@
     error = '';
     try {
       if (healthFilter !== null) {
-        // Global endpoint — health is computed per-webhook, independent of namespace.
+        // Global endpoint — health is computed per-webhook, independent of consumer.
         const res = unwrap(await api.GET('/v1/webhooks', {
           params: { query: { health: healthFilter as any, limit, offset } },
         }));
         webhooks = res.items || [];
         totalCount = res.pagination?.total_count || 0;
       } else {
-        const res = unwrap(await api.GET('/v1/namespaces/{namespace}/webhooks', {
-          params: { path: { namespace: namespaceStore.value }, query: { limit, offset } },
+        const res = unwrap(await api.GET('/v1/consumers/{consumer}/webhooks', {
+          params: { path: { consumer: consumerStore.value }, query: { limit, offset } },
         }));
         webhooks = res.items || [];
         totalCount = res.pagination?.total_count || 0;
       }
-      namespaceStore.remember(...webhooks.map((w) => w.namespace));
+      consumerStore.remember(...webhooks.map((w) => w.consumer));
 
       stats = {
         total: totalCount,
@@ -91,7 +91,7 @@
   }
 
   $effect(() => {
-    namespaceStore.value; // refetch when the active namespace changes
+    consumerStore.value; // refetch when the active consumer changes
     offset = 0;
     fetchWebhooks();
   });
@@ -116,8 +116,8 @@
   async function executeUnregister() {
     if (!webhookToUnregister) return;
     try {
-      unwrap(await api.DELETE('/v1/namespaces/{namespace}/webhooks/{webhook_id}', {
-        params: { path: { namespace: webhookToUnregister.namespace, webhook_id: webhookToUnregister.webhook_id } },
+      unwrap(await api.DELETE('/v1/consumers/{consumer}/webhooks/{webhook_id}', {
+        params: { path: { consumer: webhookToUnregister.consumer, webhook_id: webhookToUnregister.webhook_id } },
       }));
       confirmUnregister = false;
       webhookToUnregister = null;
@@ -132,12 +132,12 @@
     e.stopPropagation();
     try {
       if (wh.active) {
-        unwrap(await api.POST('/v1/namespaces/{namespace}/webhooks/{webhook_id}:pause', {
-          params: { path: { namespace: wh.namespace, webhook_id: wh.webhook_id } },
+        unwrap(await api.POST('/v1/consumers/{consumer}/webhooks/{webhook_id}:pause', {
+          params: { path: { consumer: wh.consumer, webhook_id: wh.webhook_id } },
         }));
       } else {
-        unwrap(await api.POST('/v1/namespaces/{namespace}/webhooks/{webhook_id}:resume', {
-          params: { path: { namespace: wh.namespace, webhook_id: wh.webhook_id } },
+        unwrap(await api.POST('/v1/consumers/{consumer}/webhooks/{webhook_id}:resume', {
+          params: { path: { consumer: wh.consumer, webhook_id: wh.webhook_id } },
         }));
       }
       await fetchWebhooks();
@@ -307,7 +307,7 @@
     </div>
   {:else if filteredWebhooks.length === 0}
     <div class="panel">
-      <EmptyState icon="filter_alt" title="No webhooks match" description={healthFilter ? `No ${healthFilter} webhooks in this view.` : 'Try a different search or namespace.'}>
+      <EmptyState icon="filter_alt" title="No webhooks match" description={healthFilter ? `No ${healthFilter} webhooks in this view.` : 'Try a different search or consumer.'}>
         {#snippet action()}
           {#if healthFilter !== null}
             <button class="btn btn-ghost" onclick={() => handleHealthFilterChange(null)}>Clear filter</button>
@@ -322,7 +322,7 @@
           <thead>
             <tr class="border-b border-line">
               <th class="th">Endpoint</th>
-              <th class="th hidden sm:table-cell">Namespace</th>
+              <th class="th hidden sm:table-cell">Consumer</th>
               <th class="th">Health</th>
               <th class="th">Status</th>
               <th class="th"></th>
@@ -336,7 +336,7 @@
                   <div class="mt-0.5"><CopyableId id={wh.webhook_id} truncate={12} /></div>
                 </td>
                 <td class="td hidden sm:table-cell">
-                  <span class="chip">{wh.namespace}</span>
+                  <span class="chip">{wh.consumer}</span>
                 </td>
                 <td class="td"><HealthBadge health={wh.health} /></td>
                 <td class="td">

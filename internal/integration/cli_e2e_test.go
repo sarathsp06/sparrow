@@ -32,14 +32,14 @@ func buildCLI(t *testing.T) string {
 }
 
 // runCLI executes the built binary against env's server and returns stdout.
-func runCLI(t *testing.T, env *testEnv, bin, namespace string, args ...string) string {
+func runCLI(t *testing.T, env *testEnv, bin, consumer string, args ...string) string {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Env = append(os.Environ(),
 		"SPARROW_URL="+env.baseURL,
-		"SPARROW_NAMESPACE="+namespace,
+		"SPARROW_CONSUMER="+consumer,
 		"SPARROW_CONFIG="+filepath.Join(t.TempDir(), "no-config.yaml"),
 	)
 	var stdout, stderr bytes.Buffer
@@ -57,12 +57,12 @@ func TestCLI_E2E(t *testing.T) {
 	bin := buildCLI(t)
 
 	const (
-		namespace = "cli-e2e"
+		consumer  = "cli-e2e"
 		eventName = "cli.order.created"
 	)
 
 	// ── 1. push: auto-creates the event type and prints the event id ─────
-	out := runCLI(t, env, bin, namespace, "push", eventName, "-d", `{"order_id":"ord_1","amount":42}`, "-l", "env=test")
+	out := runCLI(t, env, bin, consumer, "push", eventName, "-d", `{"order_id":"ord_1","amount":42}`, "-l", "env=test")
 	lines := strings.Fields(strings.TrimSpace(out))
 	eventID := lines[len(lines)-1] // last token: the id (first line may note auto-creation)
 	require.NotEmpty(t, eventID)
@@ -97,7 +97,7 @@ func TestCLI_E2E(t *testing.T) {
 
 	recipePath, err := filepath.Abs(filepath.Join("..", "..", "satellites", "sparrow", "testdata", "echo.yaml"))
 	require.NoError(t, err)
-	out = runCLI(t, env, bin, namespace, "use", "echo",
+	out = runCLI(t, env, bin, consumer, "use", "echo",
 		"--file", recipePath,
 		"--event", eventName,
 		"--param", "webhook_url="+receiver.URL,
@@ -106,7 +106,7 @@ func TestCLI_E2E(t *testing.T) {
 	assert.Contains(t, out, "applied")
 
 	// Push another event; the receiver must get the TRANSFORMED body.
-	out = runCLI(t, env, bin, namespace, "push", eventName, "-d", `{"order_id":"ord_2","amount":7}`)
+	out = runCLI(t, env, bin, consumer, "push", eventName, "-d", `{"order_id":"ord_2","amount":7}`)
 	secondEventID := strings.TrimSpace(out)
 
 	select {
@@ -133,7 +133,7 @@ func TestCLI_E2E(t *testing.T) {
 
 	// ── 3. tail deliveries --once prints the delivery row ────────────────
 	require.Eventually(t, func() bool {
-		out = runCLI(t, env, bin, namespace, "tail", "deliveries", "--once")
+		out = runCLI(t, env, bin, consumer, "tail", "deliveries", "--once")
 		return strings.Contains(out, secondEventID) && strings.Contains(out, "success")
 	}, 30*time.Second, time.Second, "tail --once should print the successful delivery, last output:\n%s", out)
 	assert.Contains(t, out, receiver.URL, "tail should resolve webhook_id to the destination URL")

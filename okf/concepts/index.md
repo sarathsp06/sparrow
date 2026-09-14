@@ -1,7 +1,7 @@
 # Domain Concepts
 
 * [Tenant](tenant.md) — multi-tenant model (default tenant active)
-* [Namespace](namespace.md) — scoping for webhooks and events
+* [Consumer](consumer.md) — scoping for webhooks and events
 * [Webhook Registration](webhook-registration.md) — webhook URL, config, secrets
 * [Event](event.md) — event types, records, schema validation
 * [Subscription](subscription.md) — event-to-webhook binding with transforms

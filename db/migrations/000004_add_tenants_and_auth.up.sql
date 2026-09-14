@@ -15,7 +15,7 @@ CREATE TABLE tenants (
 CREATE INDEX idx_tenants_slug ON tenants(slug);
 CREATE INDEX idx_tenants_status ON tenants(status);
 
-COMMENT ON TABLE tenants IS 'Organizations/teams using Sparrow. Each tenant has isolated namespaces, events, and webhooks.';
+COMMENT ON TABLE tenants IS 'Organizations/teams using Sparrow. Each tenant has isolated consumers, events, and webhooks.';
 COMMENT ON COLUMN tenants.slug IS 'URL-safe identifier for the tenant';
 COMMENT ON COLUMN tenants.settings IS 'Per-tenant configuration (rate limits, quotas, feature flags)';
 
@@ -57,8 +57,8 @@ ALTER TABLE webhook_registrations
     ALTER COLUMN tenant_id SET NOT NULL;
 
 -- Drop old unique constraint and create new tenant-scoped one
-ALTER TABLE webhook_registrations DROP CONSTRAINT IF EXISTS unique_namespace_url;
-CREATE UNIQUE INDEX idx_webhook_registrations_tenant_namespace_url ON webhook_registrations(tenant_id, namespace, url);
+ALTER TABLE webhook_registrations DROP CONSTRAINT IF EXISTS unique_consumer_url;
+CREATE UNIQUE INDEX idx_webhook_registrations_tenant_consumer_url ON webhook_registrations(tenant_id, consumer, url);
 
 -- event_subscriptions: add tenant_id
 ALTER TABLE event_subscriptions
@@ -70,8 +70,8 @@ ALTER TABLE event_subscriptions
     ALTER COLUMN tenant_id SET NOT NULL;
 
 -- Drop old unique constraint and create new tenant-scoped one
-ALTER TABLE event_subscriptions DROP CONSTRAINT IF EXISTS event_subscriptions_webhook_id_event_name_namespace_key;
-CREATE UNIQUE INDEX idx_event_subscriptions_tenant_unique ON event_subscriptions(tenant_id, webhook_id, event_name, namespace);
+ALTER TABLE event_subscriptions DROP CONSTRAINT IF EXISTS event_subscriptions_webhook_id_event_name_consumer_key;
+CREATE UNIQUE INDEX idx_event_subscriptions_tenant_unique ON event_subscriptions(tenant_id, webhook_id, event_name, consumer);
 
 -- event_records: add tenant_id
 ALTER TABLE event_records
@@ -87,8 +87,8 @@ ALTER TABLE event_records
 -- ============================================================================
 CREATE INDEX idx_event_registrations_tenant ON event_registrations(tenant_id);
 CREATE INDEX idx_webhook_registrations_tenant ON webhook_registrations(tenant_id);
-CREATE INDEX idx_webhook_registrations_tenant_namespace ON webhook_registrations(tenant_id, namespace);
+CREATE INDEX idx_webhook_registrations_tenant_consumer ON webhook_registrations(tenant_id, consumer);
 CREATE INDEX idx_event_subscriptions_tenant ON event_subscriptions(tenant_id);
-CREATE INDEX idx_event_subscriptions_tenant_namespace ON event_subscriptions(tenant_id, namespace);
+CREATE INDEX idx_event_subscriptions_tenant_consumer ON event_subscriptions(tenant_id, consumer);
 CREATE INDEX idx_event_records_tenant ON event_records(tenant_id);
-CREATE INDEX idx_event_records_tenant_namespace ON event_records(tenant_id, namespace);
+CREATE INDEX idx_event_records_tenant_consumer ON event_records(tenant_id, consumer);

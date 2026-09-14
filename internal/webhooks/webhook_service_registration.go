@@ -21,12 +21,12 @@ import (
 
 // setWebhookActive is the shared implementation of PauseWebhook and ResumeWebhook.
 // It loads the webhook, checks whether a state transition is needed, and persists the change.
-func (s *WebhookService) setWebhookActive(ctx context.Context, webhookID string, namespace string, active bool) error {
+func (s *WebhookService) setWebhookActive(ctx context.Context, webhookID string, consumer string, active bool) error {
 	if webhookID == "" {
 		return svcerrors.Error(svcerrors.InvalidArgument, "webhook ID is required")
 	}
-	if namespace == "" {
-		return svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
+	if consumer == "" {
+		return svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -36,7 +36,7 @@ func (s *WebhookService) setWebhookActive(ctx context.Context, webhookID string,
 		return err
 	}
 
-	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, consumer)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to get webhook", "error", err)
 		return fmt.Errorf("failed to retrieve webhook: %w", err)
@@ -66,10 +66,10 @@ func (s *WebhookService) setWebhookActive(ctx context.Context, webhookID string,
 	return nil
 }
 
-func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error) {
+func (s *WebhookService) RegisterWebhook(ctx context.Context, consumer string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error) {
 	ctx, span := s.tracer.Start(ctx, "webhook.register",
 		trace.WithAttributes(
-			attribute.String("namespace", namespace),
+			attribute.String("consumer", consumer),
 			attribute.StringSlice("events", events),
 			attribute.String("url", url),
 		),
@@ -79,13 +79,13 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	tenantID := tenant.DefaultTenantID
 
 	s.logger.InfoContext(ctx, "Processing webhook registration request",
-		"namespace", namespace,
+		"consumer", consumer,
 		"events", events,
 		"url", url,
 	)
 
-	if namespace == "" {
-		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
+	if consumer == "" {
+		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 	if url == "" {
 		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "URL is required")
@@ -104,7 +104,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 		timeout = 30
 	}
 	registration := &store.WebhookRegistration{
-		Namespace:   namespace,
+		Consumer:    consumer,
 		URL:         url,
 		Headers:     headers,
 		Timeout:     int(timeout),
@@ -126,14 +126,14 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	for _, event := range events {
 		subscriptions = append(subscriptions, &store.EventSubscription{
 			EventName: event,
-			Namespace: namespace,
+			Consumer:  consumer,
 		})
 	}
 
 	// Atomically create webhook + all subscriptions in a single transaction
 	if err := s.webhookRepo.RegisterWebhookWithSubscriptions(ctx, tenantID, registration, subscriptions); err != nil {
 		s.logger.ErrorContext(ctx, "Failed to register webhook",
-			"namespace", namespace,
+			"consumer", consumer,
 			"events", events,
 			"url", url,
 			"error", err,
@@ -164,7 +164,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 	}
 	s.logger.InfoContext(ctx, "Webhook registered successfully",
 		"webhook_id", registration.ID,
-		"namespace", namespace,
+		"consumer", consumer,
 		"events", events,
 		"url", url,
 	)
@@ -175,7 +175,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, namespace string, 
 func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error) {
 	ctx, span := s.tracer.Start(ctx, "webhook.create",
 		trace.WithAttributes(
-			attribute.String("namespace", req.Namespace),
+			attribute.String("consumer", req.Consumer),
 			attribute.StringSlice("events", req.Events),
 			attribute.String("url", req.URL),
 		),
@@ -183,15 +183,15 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing enhanced webhook creation request",
-		"namespace", req.Namespace,
+		"consumer", req.Consumer,
 		"events", req.Events,
 		"url", req.URL,
 	)
 
 	tenantID := tenant.DefaultTenantID
 
-	if req.Namespace == "" {
-		return nil, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
+	if req.Consumer == "" {
+		return nil, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
 	// Validate webhook URL against SSRF
@@ -223,7 +223,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 			if !slices.ContainsFunc(events, func(e *store.EventRegistration) bool {
 				return e.Name == event
 			}) {
-				s.logger.WarnContext(ctx, "Event not registered", "event", event, "namespace", req.Namespace)
+				s.logger.WarnContext(ctx, "Event not registered", "event", event, "consumer", req.Consumer)
 			}
 		}
 	}
@@ -236,7 +236,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	// Convert internal webhook to store model for database operation
 	storeWebhook := &store.WebhookRegistration{
 		ID:                    webhookID,
-		Namespace:             webhookReg.Namespace,
+		Consumer:              webhookReg.Consumer,
 		URL:                   webhookReg.URL,
 		Timeout:               webhookReg.HTTPConfig.RequestTimeoutSeconds,
 		Active:                webhookReg.Active,
@@ -323,14 +323,14 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	for _, event := range req.Events {
 		subscriptions = append(subscriptions, &store.EventSubscription{
 			EventName: event,
-			Namespace: req.Namespace,
+			Consumer:  req.Consumer,
 		})
 	}
 
 	// Atomically register the webhook and all subscriptions in a single transaction
 	if err := s.webhookRepo.RegisterWebhookWithSubscriptions(ctx, tenantID, storeWebhook, subscriptions); err != nil {
 		s.logger.ErrorContext(ctx, "Failed to register webhook",
-			"namespace", req.Namespace,
+			"consumer", req.Consumer,
 			"events", req.Events,
 			"url", req.URL,
 			"error", err,
@@ -359,7 +359,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 
 	s.logger.InfoContext(ctx, "Enhanced webhook registered successfully",
 		"webhook_id", webhookReg.ID,
-		"namespace", req.Namespace,
+		"consumer", req.Consumer,
 		"events", req.Events,
 		"url", req.URL,
 		"http_config_provided", req.HTTPConfig != nil,
@@ -375,16 +375,16 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 }
 
 // UnregisterWebhook removes a webhook registration
-func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string, namespace string) error {
+func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string, consumer string) error {
 	s.logger.InfoContext(ctx, "Processing webhook un registration request",
 		"webhook_id", webhookID,
-		"namespace", namespace,
+		"consumer", consumer,
 	)
 	if webhookID == "" {
 		return svcerrors.Error(svcerrors.InvalidArgument, "webhook_id is required")
 	}
-	if namespace == "" {
-		return svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
+	if consumer == "" {
+		return svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -394,8 +394,8 @@ func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string
 		return err
 	}
 
-	// Check if webhook exists in namespace
-	_, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
+	// Check if webhook exists in consumer
+	_, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, consumer)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve webhook: %w", err)
 	}
@@ -413,12 +413,12 @@ func (s *WebhookService) UnregisterWebhook(ctx context.Context, webhookID string
 	return nil
 }
 
-// ListWebhooks lists all registered webhooks with optional namespace and other filters.
-// When namespace is empty, returns webhooks across all namespaces.
+// ListWebhooks lists all registered webhooks with optional consumer and other filters.
+// When consumer is empty, returns webhooks across all consumers.
 // When health is non-empty, only webhooks with that health status are returned.
-func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, webhookID string, event string, activeOnly bool, health string, limit, offset int32) ([]*store.WebhookRegistration, int32, error) {
+func (s *WebhookService) ListWebhooks(ctx context.Context, consumer string, webhookID string, event string, activeOnly bool, health string, limit, offset int32) ([]*store.WebhookRegistration, int32, error) {
 	s.logger.InfoContext(ctx, "Processing list webhooks request",
-		"namespace", namespace,
+		"consumer", consumer,
 		"webhook_id", webhookID,
 		"event", event,
 		"active_only", activeOnly,
@@ -437,7 +437,7 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 			return nil, 0, err
 		}
 
-		reg, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
+		reg, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, consumer)
 		if err != nil {
 			if storage.IsNotFound(err) {
 				return []*store.WebhookRegistration{}, 0, nil
@@ -453,17 +453,17 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 		return []*store.WebhookRegistration{reg}, 1, nil
 	}
 
-	registrations, totalCount, err := s.webhookRepo.ListWebhooksPaginated(ctx, tenantID, namespace, event, activeOnly, store.WebhookHealth(health), int(limit), int(offset))
+	registrations, totalCount, err := s.webhookRepo.ListWebhooksPaginated(ctx, tenantID, consumer, event, activeOnly, store.WebhookHealth(health), int(limit), int(offset))
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to list webhooks",
-			"namespace", namespace,
+			"consumer", consumer,
 			"error", err,
 		)
 		return nil, 0, fmt.Errorf("failed to list webhooks: %w", err)
 	}
 
 	s.logger.InfoContext(ctx, "Listed webhooks successfully",
-		"namespace", namespace,
+		"consumer", consumer,
 		"count", len(registrations),
 		"total", totalCount,
 	)
@@ -471,21 +471,21 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 }
 
 // PauseWebhook temporarily disables webhook deliveries
-func (s *WebhookService) PauseWebhook(ctx context.Context, webhookID string, namespace string, reason string) error {
+func (s *WebhookService) PauseWebhook(ctx context.Context, webhookID string, consumer string, reason string) error {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.PauseWebhook")
 	defer span.End()
 
-	s.logger.InfoContext(ctx, "Pausing webhook", "webhook_id", webhookID, "namespace", namespace, "reason", reason)
-	return s.setWebhookActive(ctx, webhookID, namespace, false)
+	s.logger.InfoContext(ctx, "Pausing webhook", "webhook_id", webhookID, "consumer", consumer, "reason", reason)
+	return s.setWebhookActive(ctx, webhookID, consumer, false)
 }
 
 // ResumeWebhook re-enables webhook deliveries
-func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, namespace string) error {
+func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, consumer string) error {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.ResumeWebhook")
 	defer span.End()
 
-	s.logger.InfoContext(ctx, "Resuming webhook", "webhook_id", webhookID, "namespace", namespace)
-	return s.setWebhookActive(ctx, webhookID, namespace, true)
+	s.logger.InfoContext(ctx, "Resuming webhook", "webhook_id", webhookID, "consumer", consumer)
+	return s.setWebhookActive(ctx, webhookID, consumer, true)
 }
 
 // UpdateWebhookConfig updates webhook configuration.
@@ -497,20 +497,20 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, na
 //	"url", "active", "description", "events", "headers", "secret_headers",
 //	"signature_type", "http_config", "http_config.webhook_secret",
 //	"http_config.rate_limit_rps"
-func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, namespace string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) error {
+func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID string, consumer string, events []string, url string, headers map[string]string, active bool, description string, httpConfig *HTTPConfigUpdate, secretHeaders map[string]string, signatureType string, updateMask []string) error {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateWebhookConfig")
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing update webhook config request",
 		"webhook_id", webhookID,
-		"namespace", namespace,
+		"consumer", consumer,
 		"update_mask", updateMask)
 
 	if webhookID == "" {
 		return svcerrors.Error(svcerrors.InvalidArgument, "webhook ID is required")
 	}
-	if namespace == "" {
-		return svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
+	if consumer == "" {
+		return svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -520,7 +520,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		return err
 	}
 
-	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, webhookUUID, namespace)
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, webhookUUID, consumer)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to get webhook", "error", err)
 		return fmt.Errorf("failed to retrieve webhook: %w", err)
@@ -659,7 +659,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	// Persist subscription replacement + webhook update atomically.
 	err = s.webhookRepo.RunInTransaction(func(txRepo store.RepositoryInterface) error {
 		if replaceEvents {
-			if err := txRepo.ReplaceWebhookSubscriptions(ctx, tenantID, webhookUUID, namespace, newSubs); err != nil {
+			if err := txRepo.ReplaceWebhookSubscriptions(ctx, tenantID, webhookUUID, consumer, newSubs); err != nil {
 				return fmt.Errorf("failed to update webhook subscriptions: %w", err)
 			}
 		}

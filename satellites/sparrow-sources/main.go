@@ -24,9 +24,9 @@ Usage:
 
 Config file (YAML):
   sparrow:                        # SPARROW_URL / SPARROW_API_KEY /
-    url: http://localhost:8080    # SPARROW_NAMESPACE env vars override
+    url: http://localhost:8080    # SPARROW_CONSUMER env vars override
     api_key: ""
-    namespace: default
+    consumer: default
   cron:                           # 5-field cron (min hour dom mon dow;
     - schedule: "*/5 * * * *"     # numbers, ranges, steps, *)
       event: report.tick

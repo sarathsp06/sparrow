@@ -1,0 +1,1 @@
+-- No-op: consumer_memberships and api_keys tables were removed

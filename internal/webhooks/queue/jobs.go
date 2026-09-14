@@ -27,7 +27,7 @@ const (
 type EventArgs struct {
 	TenantID   string            `json:"tenant_id"`
 	EventID    string            `json:"event_id"`
-	Namespace  string            `json:"namespace"`
+	Consumer   string            `json:"consumer"`
 	Event      string            `json:"event"`
 	TTLSeconds int64             `json:"ttl_seconds"`
 	Metadata   map[string]string `json:"metadata"`
@@ -57,7 +57,7 @@ type WebhookArgs struct {
 	SubscriptionID string    `json:"subscription_id"`
 	EventID        string    `json:"event_id"`
 	ExpiresAt      time.Time `json:"expires_at"`
-	Namespace      string    `json:"namespace"`
+	Consumer       string    `json:"consumer"`
 	MaxAttempts    int       `json:"max_attempts"`
 	// RetryBackoffSeconds is the webhook's configured base retry delay;
 	// 0 falls back to River's default retry policy. See WebhookWorker.NextRetry.

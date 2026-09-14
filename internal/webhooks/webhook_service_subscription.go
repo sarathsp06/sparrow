@@ -14,13 +14,13 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/template"
 )
 
-// getSubscriptionInNamespace loads a subscription by ID and verifies it belongs to the
-// given namespace. Returns svcerrors.NotFoundError if the subscription is not in the namespace.
-func (s *WebhookService) getSubscriptionInNamespace(ctx context.Context, subscriptionID string, namespace string) (*store.EventSubscription, error) {
+// getSubscriptionInConsumer loads a subscription by ID and verifies it belongs to the
+// given consumer. Returns svcerrors.NotFoundError if the subscription is not in the consumer.
+func (s *WebhookService) getSubscriptionInConsumer(ctx context.Context, subscriptionID string, consumer string) (*store.EventSubscription, error) {
 	tenantID := tenant.DefaultTenantID
 
-	if namespace == "" {
-		return nil, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
+	if consumer == "" {
+		return nil, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
 	id, err := parseUUID(subscriptionID, "subscription ID")
@@ -32,8 +32,8 @@ func (s *WebhookService) getSubscriptionInNamespace(ctx context.Context, subscri
 	if err != nil {
 		return nil, err
 	}
-	if sub.Namespace != namespace {
-		return nil, svcerrors.Error(svcerrors.NotFound, "subscription not found in namespace")
+	if sub.Consumer != consumer {
+		return nil, svcerrors.Error(svcerrors.NotFound, "subscription not found in consumer")
 	}
 	return sub, nil
 }
@@ -46,11 +46,11 @@ func (s *WebhookService) ListSubscriptionsByWebhookIDs(ctx context.Context, webh
 
 // Subscription Management Implementation
 
-func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, eventName, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error) {
-	s.logger.InfoContext(ctx, "Creating subscription", "webhook_id", webhookID, "event_name", eventName, "namespace", namespace)
+func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error) {
+	s.logger.InfoContext(ctx, "Creating subscription", "webhook_id", webhookID, "event_name", eventName, "consumer", consumer)
 
-	if namespace == "" {
-		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
+	if consumer == "" {
+		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -67,7 +67,7 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 	sub := &store.EventSubscription{
 		WebhookID:         id,
 		EventName:         eventName,
-		Namespace:         namespace,
+		Consumer:          consumer,
 		Headers:           headers,
 		Method:            method,
 		Timeout:           timeout,
@@ -83,13 +83,13 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 	return sub.ID.String(), sub.CreatedAt, nil
 }
 
-func (s *WebhookService) GetSubscription(ctx context.Context, subscriptionID string, namespace string) (*store.EventSubscription, error) {
-	return s.getSubscriptionInNamespace(ctx, subscriptionID, namespace)
+func (s *WebhookService) GetSubscription(ctx context.Context, subscriptionID string, consumer string) (*store.EventSubscription, error) {
+	return s.getSubscriptionInConsumer(ctx, subscriptionID, consumer)
 }
 
-func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error) {
-	if namespace == "" {
-		return nil, 0, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
+func (s *WebhookService) ListSubscriptions(ctx context.Context, consumer string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error) {
+	if consumer == "" {
+		return nil, 0, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -107,10 +107,10 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 		if err != nil {
 			return nil, 0, err
 		}
-		// Verify the webhook belongs to the requested namespace before listing.
-		if _, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace); err != nil {
+		// Verify the webhook belongs to the requested consumer before listing.
+		if _, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, consumer); err != nil {
 			if storage.IsNotFound(err) {
-				return nil, 0, svcerrors.Error(svcerrors.NotFound, "webhook not found in namespace")
+				return nil, 0, svcerrors.Error(svcerrors.NotFound, "webhook not found in consumer")
 			}
 			return nil, 0, fmt.Errorf("failed to get webhook: %w", err)
 		}
@@ -119,12 +119,12 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 		// ponytail: repo lists all rows, paginate in memory; push LIMIT/OFFSET into SQL if per-webhook subscription counts grow large
 		subs = paginateSubscriptions(subs, offset, limit)
 	} else if eventName != "" {
-		subs, err = s.webhookRepo.ListSubscriptionsByEvent(ctx, tenantID, namespace, eventName)
+		subs, err = s.webhookRepo.ListSubscriptionsByEvent(ctx, tenantID, consumer, eventName)
 		totalCount = len(subs)
 		subs = paginateSubscriptions(subs, offset, limit)
 	} else {
-		// List all subscriptions in namespace
-		subs, totalCount, err = s.webhookRepo.ListSubscriptionsByNamespace(ctx, tenantID, namespace, int(limit), int(offset))
+		// List all subscriptions in consumer
+		subs, totalCount, err = s.webhookRepo.ListSubscriptionsByConsumer(ctx, tenantID, consumer, int(limit), int(offset))
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to list subscriptions: %w", err)
 		}
@@ -146,12 +146,12 @@ func paginateSubscriptions(subs []*store.EventSubscription, offset, limit int32)
 	return subs[start:end]
 }
 
-func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID string, namespace string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error {
+func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error {
 	if err := validateLabels(labelFilters, "label_filters"); err != nil {
 		return err
 	}
 
-	sub, err := s.getSubscriptionInNamespace(ctx, subscriptionID, namespace)
+	sub, err := s.getSubscriptionInConsumer(ctx, subscriptionID, consumer)
 	if err != nil {
 		return err
 	}
@@ -166,19 +166,19 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 	return s.webhookRepo.UpdateSubscription(ctx, tenant.DefaultTenantID, sub)
 }
 
-func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID string, namespace string) error {
-	sub, err := s.getSubscriptionInNamespace(ctx, subscriptionID, namespace)
+func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID string, consumer string) error {
+	sub, err := s.getSubscriptionInConsumer(ctx, subscriptionID, consumer)
 	if err != nil {
 		return err
 	}
 	return s.webhookRepo.DeleteSubscription(ctx, tenant.DefaultTenantID, sub.ID)
 }
 
-func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, namespace string) (string, error) {
+func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string) (string, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.TestSubscriptionTemplate")
 	defer span.End()
 
-	s.logger.InfoContext(ctx, "Processing test subscription template request", "event_name", eventName, "namespace", namespace)
+	s.logger.InfoContext(ctx, "Processing test subscription template request", "event_name", eventName, "consumer", consumer)
 
 	if eventName == "" {
 		return "", svcerrors.Error(svcerrors.InvalidArgument, "event name is required")

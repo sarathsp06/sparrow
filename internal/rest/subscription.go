@@ -13,7 +13,7 @@ import (
 
 type createSubscriptionBody struct {
 	WebhookID         string            `json:"webhook_id" required:"true" doc:"Webhook to deliver matching events to."`
-	EventName         string            `json:"event_name" required:"true" doc:"Event type name to subscribe to, or \"*\" to receive every event in the namespace (catch-all)."`
+	EventName         string            `json:"event_name" required:"true" doc:"Event type name to subscribe to, or \"*\" to receive every event in the consumer (catch-all)."`
 	Headers           map[string]string `json:"headers,omitempty" doc:"Extra HTTP headers to send with deliveries created by this subscription, merged with the webhook's own headers."`
 	Method            string            `json:"method,omitempty" doc:"HTTP method used for deliveries from this subscription. Defaults to POST."`
 	Timeout           int               `json:"timeout,omitempty" doc:"Per-delivery request timeout in seconds, overriding the webhook's default."`
@@ -23,18 +23,18 @@ type createSubscriptionBody struct {
 }
 
 type createSubscriptionInput struct {
-	Namespace string `path:"namespace"`
-	Body      createSubscriptionBody
+	Consumer string `path:"consumer"`
+	Body     createSubscriptionBody
 }
 
 type subscriptionIDInput struct {
-	Namespace      string `path:"namespace"`
+	Consumer       string `path:"consumer"`
 	SubscriptionID string `path:"subscription_id"`
 }
 
 type subscriptionItem struct {
 	SubscriptionID    string            `json:"subscription_id" doc:"Subscription id (UUID)."`
-	Namespace         string            `json:"namespace" doc:"Tenant namespace this subscription belongs to."`
+	Consumer          string            `json:"consumer" doc:"Tenant consumer this subscription belongs to."`
 	WebhookID         string            `json:"webhook_id" doc:"Webhook this subscription delivers to."`
 	EventName         string            `json:"event_name" doc:"Event type name this subscription matches, or \"*\" for catch-all."`
 	Headers           map[string]string `json:"headers,omitempty" doc:"Extra HTTP headers sent with deliveries from this subscription."`
@@ -54,7 +54,7 @@ type subscriptionOutput struct {
 func toSubscriptionItem(s *store.EventSubscription) subscriptionItem {
 	return subscriptionItem{
 		SubscriptionID:    s.ID.String(),
-		Namespace:         s.Namespace,
+		Consumer:          s.Consumer,
 		WebhookID:         s.WebhookID.String(),
 		EventName:         s.EventName,
 		Headers:           s.Headers,
@@ -73,7 +73,7 @@ func toSubscriptionOutput(s *store.EventSubscription) *subscriptionOutput {
 }
 
 type listSubscriptionsInput struct {
-	Namespace string `path:"namespace" doc:"Tenant namespace to list subscriptions in."`
+	Consumer  string `path:"consumer" doc:"Tenant consumer to list subscriptions in."`
 	WebhookID string `query:"webhook_id,omitempty" doc:"Filter to subscriptions for one webhook."`
 	EventName string `query:"event_name,omitempty" doc:"Filter to subscriptions for one event type name."`
 	Limit     int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
@@ -100,7 +100,7 @@ type patchSubscriptionBody struct {
 }
 
 type patchSubscriptionInput struct {
-	Namespace      string `path:"namespace"`
+	Consumer       string `path:"consumer"`
 	SubscriptionID string `path:"subscription_id"`
 	Body           patchSubscriptionBody
 }
@@ -124,18 +124,18 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 	huma.Register(api, huma.Operation{
 		OperationID:   "createSubscription",
 		Method:        http.MethodPost,
-		Path:          "/v1/namespaces/{namespace}/subscriptions",
+		Path:          "/v1/consumers/{consumer}/subscriptions",
 		Summary:       "Create a subscription linking a webhook to an event",
-		Description:   "Subscribes a webhook to an event type within a namespace, with an optional payload transform and label filters. Registering a webhook already auto-creates one subscription per listed event — use this endpoint for additional or catch-all (\"*\") subscriptions.",
+		Description:   "Subscribes a webhook to an event type within a consumer, with an optional payload transform and label filters. Registering a webhook already auto-creates one subscription per listed event — use this endpoint for additional or catch-all (\"*\") subscriptions.",
 		Errors:        []int{400, 404},
 		Tags:          []string{"Subscriptions"},
 		DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, in *createSubscriptionInput) (*subscriptionOutput, error) {
-		id, _, err := svc.CreateSubscription(ctx, in.Body.WebhookID, in.Body.EventName, in.Namespace, in.Body.Headers, in.Body.Method, in.Body.Timeout, in.Body.TransformEnabled, in.Body.TransformTemplate, in.Body.LabelFilters)
+		id, _, err := svc.CreateSubscription(ctx, in.Body.WebhookID, in.Body.EventName, in.Consumer, in.Body.Headers, in.Body.Method, in.Body.Timeout, in.Body.TransformEnabled, in.Body.TransformTemplate, in.Body.LabelFilters)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to create subscription")
 		}
-		sub, err := svc.GetSubscription(ctx, id, in.Namespace)
+		sub, err := svc.GetSubscription(ctx, id, in.Consumer)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to reload subscription")
 		}
@@ -145,13 +145,13 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 	huma.Register(api, huma.Operation{
 		OperationID: "getSubscription",
 		Method:      http.MethodGet,
-		Path:        "/v1/namespaces/{namespace}/subscriptions/{subscription_id}",
+		Path:        "/v1/consumers/{consumer}/subscriptions/{subscription_id}",
 		Summary:     "Get a subscription by id",
 		Description: "Fetches one subscription's webhook link, transform template, and label filters.",
 		Errors:      []int{404},
 		Tags:        []string{"Subscriptions"},
 	}, func(ctx context.Context, in *subscriptionIDInput) (*subscriptionOutput, error) {
-		sub, err := svc.GetSubscription(ctx, in.SubscriptionID, in.Namespace)
+		sub, err := svc.GetSubscription(ctx, in.SubscriptionID, in.Consumer)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get subscription")
 		}
@@ -161,13 +161,13 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 	huma.Register(api, huma.Operation{
 		OperationID: "listSubscriptions",
 		Method:      http.MethodGet,
-		Path:        "/v1/namespaces/{namespace}/subscriptions",
+		Path:        "/v1/consumers/{consumer}/subscriptions",
 		Summary:     "List subscriptions",
-		Description: "Lists subscriptions in a namespace, optionally filtered by webhook or event type name.",
+		Description: "Lists subscriptions in a consumer, optionally filtered by webhook or event type name.",
 		Tags:        []string{"Subscriptions"},
 	}, func(ctx context.Context, in *listSubscriptionsInput) (*listSubscriptionsOutput, error) {
 		limit, offset := in.Limit, in.Offset
-		subs, total, err := svc.ListSubscriptions(ctx, in.Namespace, in.WebhookID, in.EventName, limit, offset)
+		subs, total, err := svc.ListSubscriptions(ctx, in.Consumer, in.WebhookID, in.EventName, limit, offset)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to list subscriptions")
 		}
@@ -183,13 +183,13 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 	huma.Register(api, huma.Operation{
 		OperationID: "updateSubscription",
 		Method:      http.MethodPatch,
-		Path:        "/v1/namespaces/{namespace}/subscriptions/{subscription_id}",
+		Path:        "/v1/consumers/{consumer}/subscriptions/{subscription_id}",
 		Summary:     "Partially update a subscription",
 		Description: "Merge-patches a subscription's headers, method, timeout, transform, or label filters. The linked webhook_id and event_name cannot be changed — delete and recreate instead.",
 		Errors:      []int{400, 404},
 		Tags:        []string{"Subscriptions"},
 	}, func(ctx context.Context, in *patchSubscriptionInput) (*subscriptionOutput, error) {
-		existing, err := svc.GetSubscription(ctx, in.SubscriptionID, in.Namespace)
+		existing, err := svc.GetSubscription(ctx, in.SubscriptionID, in.Consumer)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get subscription")
 		}
@@ -217,10 +217,10 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 		if in.Body.LabelFilters != nil {
 			labelFilters = *in.Body.LabelFilters
 		}
-		if err := svc.UpdateSubscription(ctx, in.SubscriptionID, in.Namespace, headers, method, timeout, transformEnabled, transformTemplate, labelFilters); err != nil {
+		if err := svc.UpdateSubscription(ctx, in.SubscriptionID, in.Consumer, headers, method, timeout, transformEnabled, transformTemplate, labelFilters); err != nil {
 			return nil, mapError(ctx, err, "failed to update subscription")
 		}
-		updated, err := svc.GetSubscription(ctx, in.SubscriptionID, in.Namespace)
+		updated, err := svc.GetSubscription(ctx, in.SubscriptionID, in.Consumer)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to reload subscription")
 		}
@@ -230,14 +230,14 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 	huma.Register(api, huma.Operation{
 		OperationID:   "deleteSubscription",
 		Method:        http.MethodDelete,
-		Path:          "/v1/namespaces/{namespace}/subscriptions/{subscription_id}",
+		Path:          "/v1/consumers/{consumer}/subscriptions/{subscription_id}",
 		Summary:       "Delete a subscription",
 		Description:   "Removes the link between a webhook and an event type. The webhook stops receiving that event's occurrences; its delivery history is unaffected.",
 		Errors:        []int{404},
 		Tags:          []string{"Subscriptions"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *subscriptionIDInput) (*emptyOutput, error) {
-		if err := svc.DeleteSubscription(ctx, in.SubscriptionID, in.Namespace); err != nil {
+		if err := svc.DeleteSubscription(ctx, in.SubscriptionID, in.Consumer); err != nil {
 			return nil, mapError(ctx, err, "failed to delete subscription")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil

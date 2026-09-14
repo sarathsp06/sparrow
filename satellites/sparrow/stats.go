@@ -11,23 +11,23 @@ import (
 func newStatsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stats",
-		Short: "Show aggregate delivery statistics for the namespace",
+		Short: "Show aggregate delivery statistics for the consumer",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			client, cfg, err := clientFromCmd(cmd)
 			if err != nil {
 				return err
 			}
-			return runStats(cmd.Context(), cmd.OutOrStdout(), client, cfg.Namespace, outputFmt(cmd))
+			return runStats(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, outputFmt(cmd))
 		},
 	}
 	addOutputFlag(cmd)
 	return cmd
 }
 
-// runStats prints delivery statistics for the configured namespace.
-func runStats(ctx context.Context, out io.Writer, client *apiClient, namespace, format string) error {
-	stats, err := client.getNamespaceStats(ctx, namespace)
+// runStats prints delivery statistics for the configured consumer.
+func runStats(ctx context.Context, out io.Writer, client *apiClient, consumer, format string) error {
+	stats, err := client.getConsumerStats(ctx, consumer)
 	if err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func runStats(ctx context.Context, out io.Writer, client *apiClient, namespace, 
 	}
 
 	pal := newPalette(out)
-	_, _ = fmt.Fprintln(out, pal.bold("namespace: "+namespace))
+	_, _ = fmt.Fprintln(out, pal.bold("consumer: "+consumer))
 	_, _ = fmt.Fprintf(out, "webhooks:     %d (%d active)\n", stats.TotalWebhooks, stats.ActiveWebhooks)
 	_, _ = fmt.Fprintf(out, "deliveries:   %d\n", stats.TotalDeliveries)
 	_, _ = fmt.Fprintf(out, "  succeeded:  %d\n", stats.SuccessfulDeliveries)

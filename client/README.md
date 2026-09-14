@@ -28,7 +28,7 @@ from sparrow_client.models.register_webhook_body import RegisterWebhookBody
 client = AuthenticatedClient(base_url="http://localhost:8080", token="<api-key>",
                               prefix="", auth_header_name="X-API-Key")
 resp = register_webhook.sync_detailed(
-    namespace="default",
+    consumer="default",
     client=client,
     body=RegisterWebhookBody(events=["order.created"], url="https://example.com/hook"),
 )

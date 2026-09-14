@@ -154,7 +154,7 @@ func (e *TemplateEngine) ValidateTemplate(tmplStr string) error {
 // It uses snake_case keys so that templates reference fields as
 // {{.event_id}}, {{.event_name}}, {{.timestamp}}, {{.attempt}}, and
 // {{.payload}}.
-// Namespace, WebhookID, and DeliveryID are conveyed via HTTP headers
+// Consumer, WebhookID, and DeliveryID are conveyed via HTTP headers
 // and are intentionally omitted from the template context.
 type WebhookTemplateContext = map[string]any
 

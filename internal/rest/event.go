@@ -94,9 +94,9 @@ type pushEventBody struct {
 }
 
 type pushEventInput struct {
-	Namespace string `path:"namespace" doc:"Tenant namespace to record the occurrence in."`
-	Event     string `query:"event" required:"true" doc:"Name of a registered event type."`
-	Body      pushEventBody
+	Consumer string `path:"consumer" doc:"Tenant consumer to record the occurrence in."`
+	Event    string `query:"event" required:"true" doc:"Name of a registered event type."`
+	Body     pushEventBody
 }
 
 type pushEventOutput struct {
@@ -108,7 +108,7 @@ type pushEventOutput struct {
 	}
 }
 
-// eventIDOnlyInput is used for occurrence lookups that are namespace-agnostic
+// eventIDOnlyInput is used for occurrence lookups that are consumer-agnostic
 // in the domain layer (event IDs are globally unique UUIDs).
 type eventIDOnlyInput struct {
 	EventID string `path:"event_id"`
@@ -116,7 +116,7 @@ type eventIDOnlyInput struct {
 
 type eventOccurrenceItem struct {
 	EventID              string            `json:"event_id" doc:"Event occurrence id (UUID)."`
-	Namespace            string            `json:"namespace" doc:"Tenant namespace this occurrence was pushed into."`
+	Consumer             string            `json:"consumer" doc:"Tenant consumer this occurrence was pushed into."`
 	Event                string            `json:"event" doc:"Event type name."`
 	Payload              map[string]any    `json:"payload" doc:"The pushed payload."`
 	Metadata             map[string]string `json:"metadata,omitempty" doc:"Arbitrary key/value metadata stored with the occurrence."`
@@ -134,7 +134,7 @@ type eventOccurrenceOutput struct {
 }
 
 type listEventOccurrencesInput struct {
-	Namespace     string `path:"namespace" doc:"Tenant namespace to list occurrences in."`
+	Consumer      string `path:"consumer" doc:"Tenant consumer to list occurrences in."`
 	Event         string `query:"event,omitempty" doc:"Filter to occurrences of this event type name."`
 	PrepareRepush bool   `query:"prepare_repush" default:"false" doc:"If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint."`
 	Limit         int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
@@ -157,21 +157,21 @@ type repushEventOutput struct {
 }
 
 type repushBatchInput struct {
-	Namespace string `path:"namespace"`
-	Body      struct {
+	Consumer string `path:"consumer"`
+	Body     struct {
 		RepushID string `json:"repush_id" required:"true" doc:"Snapshot id from an earlier prepare_repush=true or prepare_retry=true list call."`
 	}
 }
 
 type jobIDInput struct {
-	Namespace string `path:"namespace"`
-	JobID     string `path:"job_id"`
+	Consumer string `path:"consumer"`
+	JobID    string `path:"job_id"`
 }
 
 type batchJobOutput struct {
 	Body struct {
 		ID        string `json:"id" doc:"Batch job id (UUID) — the repush_id/retry_id used elsewhere."`
-		Namespace string `json:"namespace" doc:"Tenant namespace the job runs in."`
+		Consumer  string `json:"consumer" doc:"Tenant consumer the job runs in."`
 		JobType   string `json:"job_type" enum:"event_repush,delivery_retry" doc:"Which batch operation this job performs."`
 		Status    string `json:"status" enum:"pending,processing,completed,failed,cancelled" doc:"Current job status."`
 		Total     int    `json:"total" doc:"Total items in the batch snapshot."`
@@ -185,7 +185,7 @@ type batchJobOutput struct {
 func toBatchJobOutput(b *store.BatchJob) *batchJobOutput {
 	out := &batchJobOutput{}
 	out.Body.ID = b.ID.String()
-	out.Body.Namespace = b.Namespace
+	out.Body.Consumer = b.Consumer
 	out.Body.JobType = string(b.JobType)
 	out.Body.Status = string(b.Status)
 	out.Body.Total = b.Total
@@ -325,14 +325,14 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "pushEvent",
 		Method:        http.MethodPost,
-		Path:          "/v1/namespaces/{namespace}/events",
+		Path:          "/v1/consumers/{consumer}/events",
 		Summary:       "Push an event occurrence for asynchronous delivery",
 		Description:   "Records one occurrence of a registered event type and asynchronously fans it out to every subscription whose event name and label filters match. Returns immediately; delivery happens in the background — check Deliveries for outcomes.",
 		Errors:        []int{400, 404},
 		Tags:          []string{"Events"},
 		DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, in *pushEventInput) (*pushEventOutput, error) {
-		eventID, isDuplicate, schemaValid, warnings, err := svc.PushEvent(ctx, in.Namespace, in.Event, in.Body.Payload, in.Body.TTLSeconds, in.Body.Metadata, in.Body.Labels, in.Body.IdempotencyKey)
+		eventID, isDuplicate, schemaValid, warnings, err := svc.PushEvent(ctx, in.Consumer, in.Event, in.Body.Payload, in.Body.TTLSeconds, in.Body.Metadata, in.Body.Labels, in.Body.IdempotencyKey)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to push event")
 		}
@@ -347,14 +347,14 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "listEventOccurrences",
 		Method:      http.MethodGet,
-		Path:        "/v1/namespaces/{namespace}/events",
+		Path:        "/v1/consumers/{consumer}/events",
 		Summary:     "List pushed event occurrences",
-		Description: "Lists pushed event occurrences in a namespace, with delivery outcome counts per occurrence. Set prepare_repush to snapshot the filtered set for the batch re-push endpoint.",
+		Description: "Lists pushed event occurrences in a consumer, with delivery outcome counts per occurrence. Set prepare_repush to snapshot the filtered set for the batch re-push endpoint.",
 		Tags:        []string{"Events"},
 	}, func(ctx context.Context, in *listEventOccurrencesInput) (*listEventOccurrencesOutput, error) {
 		limit, offset := in.Limit, in.Offset
 		filter := store.EventReportFilter{
-			Namespace:     in.Namespace,
+			Consumer:      in.Consumer,
 			Limit:         int(limit),
 			Offset:        int(offset),
 			PrepareRepush: in.PrepareRepush,
@@ -371,7 +371,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		for _, r := range reports {
 			var o eventOccurrenceOutput
 			o.Body.EventID = r.ID.String()
-			o.Body.Namespace = r.Namespace
+			o.Body.Consumer = r.Consumer
 			o.Body.Event = r.Event
 			o.Body.Payload = r.Payload
 			o.Body.Metadata = r.Metadata
@@ -394,7 +394,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Method:      http.MethodGet,
 		Path:        "/v1/events/{event_id}",
 		Summary:     "Get a pushed event occurrence by id",
-		Description: "Fetches one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally unique, so no namespace is required.",
+		Description: "Fetches one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally unique, so no consumer is required.",
 		Errors:      []int{400, 404},
 		Tags:        []string{"Events"},
 	}, func(ctx context.Context, in *eventIDOnlyInput) (*eventOccurrenceOutput, error) {
@@ -407,7 +407,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		}
 		out := &eventOccurrenceOutput{}
 		out.Body.EventID = rec.ID.String()
-		out.Body.Namespace = rec.Namespace
+		out.Body.Consumer = rec.Consumer
 		out.Body.Event = rec.Event
 		out.Body.Payload = rec.Payload
 		out.Body.Metadata = rec.Metadata
@@ -443,7 +443,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "startEventRepushJob",
 		Method:        http.MethodPost,
-		Path:          "/v1/namespaces/{namespace}/events:rePush",
+		Path:          "/v1/consumers/{consumer}/events:rePush",
 		Summary:       "Start a batch re-push job from a prepared snapshot",
 		Description:   "Starts an async job that replays every event occurrence captured by an earlier prepare_repush=true list call. Poll the returned job with getEventRepushJob.",
 		Errors:        []int{400, 404},
@@ -463,7 +463,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "getEventRepushJob",
 		Method:      http.MethodGet,
-		Path:        "/v1/namespaces/{namespace}/repush-jobs/{job_id}",
+		Path:        "/v1/consumers/{consumer}/repush-jobs/{job_id}",
 		Summary:     "Get batch re-push job progress",
 		Description: "Returns a batch re-push job's status and processed/failed/total counts.",
 		Errors:      []int{404},
@@ -479,7 +479,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "cancelEventRepushJob",
 		Method:        http.MethodPost,
-		Path:          "/v1/namespaces/{namespace}/repush-jobs/{job_id}:cancel",
+		Path:          "/v1/consumers/{consumer}/repush-jobs/{job_id}:cancel",
 		Summary:       "Cancel a pending or in-progress batch re-push job",
 		Description:   "Requests cancellation of a batch re-push job. Occurrences already re-pushed are not rolled back.",
 		Errors:        []int{404, 409},

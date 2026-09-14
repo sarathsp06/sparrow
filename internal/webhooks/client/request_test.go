@@ -31,7 +31,7 @@ func TestBuildRequest(t *testing.T) {
 		Secret:    "my-secret",
 		EventID:   eventID,
 		EventName: "user.created",
-		Namespace: "default",
+		Consumer:  "default",
 	}
 
 	req, err := BuildRequest(ctx, dr)
@@ -232,9 +232,9 @@ func TestPrepareDeliveryRequest(t *testing.T) {
 	}
 
 	event := &store.EventRecord{
-		ID:        eventID,
-		Event:     "user.created",
-		Namespace: "default",
+		ID:       eventID,
+		Event:    "user.created",
+		Consumer: "default",
 	}
 
 	payload := []byte(`{"user_id": "123"}`)
@@ -302,9 +302,9 @@ func TestPrepareDeliveryRequestWithoutSubscription(t *testing.T) {
 	}
 
 	event := &store.EventRecord{
-		ID:        eventID,
-		Event:     "user.created",
-		Namespace: "default",
+		ID:       eventID,
+		Event:    "user.created",
+		Consumer: "default",
 	}
 
 	payload := []byte(`{"user_id": "123"}`)
@@ -337,9 +337,9 @@ func TestPrepareDeliveryRequestDefaultTimeout(t *testing.T) {
 	}
 
 	event := &store.EventRecord{
-		ID:        uuid.New(),
-		Event:     "user.created",
-		Namespace: "default",
+		ID:       uuid.New(),
+		Event:    "user.created",
+		Consumer: "default",
 	}
 
 	dr, err := PrepareDeliveryRequest(webhook, nil, event, "delivery-123", []byte(`{}`), nil)
@@ -386,7 +386,7 @@ func TestPrepareDeliveryRequestFailsClosedOnDecryptError(t *testing.T) {
 		URL:           "https://example.com/webhook",
 		WebhookSecret: encrypted,
 	}
-	event := &store.EventRecord{ID: uuid.New(), Event: "user.created", Namespace: "default"}
+	event := &store.EventRecord{ID: uuid.New(), Event: "user.created", Consumer: "default"}
 
 	dr, err := PrepareDeliveryRequest(webhook, nil, event, "delivery-1", []byte(`{}`), svcB)
 	if err == nil {

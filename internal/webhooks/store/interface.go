@@ -25,7 +25,7 @@ type RepositoryInterface interface {
 
 	// Composite operations that span multiple domains.
 	RegisterWebhookWithSubscriptions(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration, subscriptions []*EventSubscription) error
-	ReplaceWebhookSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, newSubscriptions []*EventSubscription) error
+	ReplaceWebhookSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, newSubscriptions []*EventSubscription) error
 }
 
 // Transactor allows executing operations within a database transaction.

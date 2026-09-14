@@ -12,9 +12,9 @@ timestamp: 2026-06-22T00:00:00Z
 
 ```
 tenants
-  ├── namespaces (tenant_id FK)
+  ├── consumers (tenant_id FK)
   ├── event_registrations (tenant_id FK, composite PK)
-  ├── webhook_registrations (tenant_id + namespace FK to namespaces)
+  ├── webhook_registrations (tenant_id + consumer FK to consumers)
   ├── event_subscriptions (tenant_id FK)
   └── event_records (tenant_id FK)
 
@@ -35,14 +35,14 @@ event_subscriptions → webhook_deliveries (subscription_id FK, SET NULL)
 ### tenants
 Basic tenant info. Default tenant auto-created on startup.
 
-### namespaces
+### consumers
 `(tenant_id, name)` UNIQUE. Scopes webhooks and events.
 
 ### event_registrations
 Composite PK `(tenant_id, name)`. Includes optional JSON schema, active flag.
 
 ### webhook_registrations
-23 columns — URL, HTTP config, secrets, health, rate limit, Ed25519 key, signature type. FK to namespaces via `(tenant_id, namespace)`.
+23 columns — URL, HTTP config, secrets, health, rate limit, Ed25519 key, signature type. FK to consumers via `(tenant_id, consumer)`.
 
 ### event_subscriptions
 11 columns — binds webhook to event. Includes `transform_template` (Go template) and `label_filters`.
@@ -72,17 +72,17 @@ Composite PK `(tenant_id, name)`. Includes optional JSON schema, active flag.
 
 | Index | Columns | Purpose |
 |-------|---------|---------|
-| `idx_event_subscriptions_tenant_ns_event` | `(tenant_id, namespace, event_name)` | Fan-out query |
+| `idx_event_subscriptions_tenant_ns_event` | `(tenant_id, consumer, event_name)` | Fan-out query |
 | `idx_webhook_deliveries_webhook_created` | `(webhook_id, created_at DESC)` | Delivery listing |
 | `idx_webhook_deliveries_event_created` | `(event_id, created_at DESC)` | Delivery-by-event |
-| `idx_event_records_tenant_ns_created` | `(tenant_id, namespace, created_at DESC)` | Event listing |
+| `idx_event_records_tenant_ns_created` | `(tenant_id, consumer, created_at DESC)` | Event listing |
 | `idx_event_records_tenant_event_created` | `(tenant_id, event, created_at DESC)` | Event name filter |
-| `idx_webhook_registrations_tenant_ns_active` | `(tenant_id, namespace, active)` | Filtered listing |
+| `idx_webhook_registrations_tenant_ns_active` | `(tenant_id, consumer, active)` | Filtered listing |
 
 ## FK Cascade Map
 
 - All `tenant_id` FKs → `tenants.id` with CASCADE
-- `webhook_registrations(tenant_id, ns)` → `namespaces(tenant_id, name)` CASCADE
+- `webhook_registrations(tenant_id, ns)` → `consumers(tenant_id, name)` CASCADE
 - `webhook_deliveries.subscription_id` → `event_subscriptions.id` SET NULL
 - All other entity FKs → parent with CASCADE
 
@@ -99,12 +99,12 @@ Composite PK `(tenant_id, name)`. Includes optional JSON schema, active flag.
 | 000005 | Tenant external_id (no-op) |
 | 000006 | Tenant created_by |
 | 000007 | Remove event registration UUID |
-| 000008 | Namespaces table |
-| 000009 | Webhook namespace FK |
+| 000008 | Consumers table |
+| 000009 | Webhook consumer FK |
 | 000010 | Composite indexes + drop unused |
-| 000011 | Remove namespace_memberships |
+| 000011 | Remove consumer_memberships |
 | 000012 | Labels on events/subscriptions |
-| 000013 | Drop unused namespace entities |
+| 000013 | Drop unused consumer entities |
 | 000014 | Secret headers |
 | 000015 | Envelope encryption migration |
 | 000016 | schema_valid flag on event_records |

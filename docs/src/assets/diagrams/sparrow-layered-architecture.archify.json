@@ -205,7 +205,7 @@
       "dot": "cyan",
       "title": "Subscribe",
       "items": [
-        "POST /v1/namespaces/{ns}/webhooks with event types",
+        "POST /v1/consumers/{ns}/webhooks with event types",
         "Subscriptions auto-created; whsec_ secret returned once",
         "Secrets envelope-encrypted at rest (AES-256-GCM)"
       ]
@@ -214,7 +214,7 @@
       "dot": "emerald",
       "title": "Push",
       "items": [
-        "POST /v1/namespaces/{ns}/events, async 201",
+        "POST /v1/consumers/{ns}/events, async 201",
         "Idempotency keys dedup repeats",
         "Fan-out enqueues one delivery per matching subscription"
       ]

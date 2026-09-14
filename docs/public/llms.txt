@@ -6,8 +6,8 @@ Key facts for integrators:
 
 - Base URL: `http://<host>:8080`, all endpoints under `/v1`. OpenAPI 3.1 spec served live at `/openapi.yaml` and `/openapi.json`; interactive docs at `/docs`.
 - Auth is optional: if `SPARROW_API_KEY` is set, send it in the `X-API-Key` header on every request. When unset, all endpoints are open (intended for internal/VPN deployments).
-- Namespaced resources live under `/v1/namespaces/{namespace}/...`; the `default` namespace always exists. Event types are global (`/v1/event-types`) and act as a schema registry — only registered, active event types can be pushed.
-- Push is async: `POST /v1/namespaces/{ns}/events?event=<type>` with `{"payload":{...},"idempotency_key":"..."}` returns immediately; fan-out and delivery happen in background River workers. Delivery is at-least-once.
+- Consumerd resources live under `/v1/consumers/{consumer}/...`; the `default` consumer always exists. Event types are global (`/v1/event-types`) and act as a schema registry — only registered, active event types can be pushed.
+- Push is async: `POST /v1/consumers/{ns}/events?event=<type>` with `{"payload":{...},"idempotency_key":"..."}` returns immediately; fan-out and delivery happen in background River workers. Delivery is at-least-once.
 - Deliveries are signed per Standard Webhooks: headers `webhook-id`, `webhook-timestamp`, `webhook-signature` (`v1,` = HMAC-SHA256 with the `whsec_` secret; `v1a,` = Ed25519 with the webhook's `signing_public_key`). Signed message is `{id}.{timestamp}.{raw body}`; reject timestamps older than 5 minutes.
 - Retry behavior: retryable failures (5xx, timeout, connection refused, network errors, 429 with `Retry-After`) back off as `retry_backoff_seconds * 2^(attempt-1) + jitter` until success, `max_retries` exhausted (`FAILED`), or the event's `ttl_seconds` expires (`EXPIRED`). Non-retryable failures (4xx, DNS, TLS, unexpected status) fail immediately.
 - Webhook secrets and secret headers are envelope-encrypted at rest (AES-256-GCM); `SPARROW_ENCRYPTION_KEY` (64-char hex, `openssl rand -hex 32`) is required at startup. Event payloads are stored in plaintext JSONB.
@@ -15,12 +15,12 @@ Key facts for integrators:
 Core endpoints (all JSON):
 
 - `POST /v1/event-types` — register an event type (`{"name","description","active"}`)
-- `POST /v1/namespaces/{ns}/webhooks` — register a webhook (`{"url","events":[...],"active"}`); subscriptions are created automatically and a `whsec_` secret is returned once
-- `POST /v1/namespaces/{ns}/events?event=<type>` — push an event; supports idempotency keys
-- `GET /v1/namespaces/{ns}/deliveries` — list deliveries; `GET .../deliveries/{id}/attempts` for per-attempt status, response, and error category
-- `POST /v1/namespaces/{ns}/deliveries/{id}:retry` — retry one delivery; `:retryBatch` and `events:rePush` for bulk (up to 10K)
-- `POST /v1/namespaces/{ns}/webhooks/{id}:pause` / `:resume` — pause/resume delivery
-- `GET /v1/namespaces/{ns}/webhooks/{id}/health`, `GET /v1/health-summary`, `GET /v1/stats` — health state machine (healthy → degraded → unhealthy), 24h error breakdown, metrics
+- `POST /v1/consumers/{ns}/webhooks` — register a webhook (`{"url","events":[...],"active"}`); subscriptions are created automatically and a `whsec_` secret is returned once
+- `POST /v1/consumers/{ns}/events?event=<type>` — push an event; supports idempotency keys
+- `GET /v1/consumers/{ns}/deliveries` — list deliveries; `GET .../deliveries/{id}/attempts` for per-attempt status, response, and error category
+- `POST /v1/consumers/{ns}/deliveries/{id}:retry` — retry one delivery; `:retryBatch` and `events:rePush` for bulk (up to 10K)
+- `POST /v1/consumers/{ns}/webhooks/{id}:pause` / `:resume` — pause/resume delivery
+- `GET /v1/consumers/{ns}/webhooks/{id}/health`, `GET /v1/health-summary`, `GET /v1/stats` — health state machine (healthy → degraded → unhealthy), 24h error breakdown, metrics
 - `POST /v1/subscriptions:testTemplate` — dry-run a payload transform template
 
 Full inlined documentation for large-context use: [llms-full.txt](https://sarathsp06.github.io/sparrow/llms-full.txt)

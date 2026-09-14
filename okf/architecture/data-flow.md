@@ -29,7 +29,7 @@ PushEvent (REST)
     ▼
 EventProcessingWorker.Work()
     ├── Load event from DB
-    ├── Query matching subscriptions (tenant_id + namespace + event_name)
+    ├── Query matching subscriptions (tenant_id + consumer + event_name)
     ├── For each subscription: apply Go template transform (if enabled)
     ├── Batch-insert delivery records (single multi-row INSERT)
     └── Batch-enqueue WebhookArgs jobs → River "webhooks" queue

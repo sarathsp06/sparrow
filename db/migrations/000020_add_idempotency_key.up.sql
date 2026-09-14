@@ -4,8 +4,8 @@
 ALTER TABLE event_records ADD COLUMN idempotency_key VARCHAR(255);
 
 -- Partial unique index: only enforced when idempotency_key IS NOT NULL.
--- Scoped by (tenant_id, namespace) so the same key can be used independently
--- in different namespaces.
+-- Scoped by (tenant_id, consumer) so the same key can be used independently
+-- in different consumers.
 CREATE UNIQUE INDEX idx_event_records_idempotency_key
-    ON event_records (tenant_id, namespace, idempotency_key)
+    ON event_records (tenant_id, consumer, idempotency_key)
     WHERE idempotency_key IS NOT NULL;

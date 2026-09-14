@@ -41,8 +41,8 @@ type mockRepo struct {
 	mock.Mock
 }
 
-func (m *mockRepo) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace, event string, activeOnly bool, health store.WebhookHealth, limit, offset int) ([]*store.WebhookRegistration, int, error) {
-	args := m.Called(ctx, tenantID, namespace, event, activeOnly, health, limit, offset)
+func (m *mockRepo) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, consumer, event string, activeOnly bool, health store.WebhookHealth, limit, offset int) ([]*store.WebhookRegistration, int, error) {
+	args := m.Called(ctx, tenantID, consumer, event, activeOnly, health, limit, offset)
 	return args.Get(0).([]*store.WebhookRegistration), args.Int(1), args.Error(2)
 }
 
@@ -56,8 +56,8 @@ func (m *mockRepo) ListSubscriptions(ctx context.Context, tenantID uuid.UUID, we
 	return args.Get(0).([]*store.EventSubscription), args.Error(1)
 }
 
-func (m *mockRepo) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string) (*store.WebhookRegistration, error) {
-	args := m.Called(ctx, tenantID, webhookID, namespace)
+func (m *mockRepo) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string) (*store.WebhookRegistration, error) {
+	args := m.Called(ctx, tenantID, webhookID, consumer)
 	res := args.Get(0)
 	if res == nil {
 		return nil, args.Error(1)
@@ -65,8 +65,8 @@ func (m *mockRepo) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webho
 	return res.(*store.WebhookRegistration), args.Error(1)
 }
 
-func (m *mockRepo) GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, namespace string) (*store.WebhookDelivery, error) {
-	args := m.Called(ctx, tenantID, deliveryID, namespace)
+func (m *mockRepo) GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, consumer string) (*store.WebhookDelivery, error) {
+	args := m.Called(ctx, tenantID, deliveryID, consumer)
 	res := args.Get(0)
 	if res == nil {
 		return nil, args.Error(1)
@@ -74,8 +74,8 @@ func (m *mockRepo) GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deli
 	return res.(*store.WebhookDelivery), args.Error(1)
 }
 
-func (m *mockRepo) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, force bool) ([]*store.WebhookDelivery, error) {
-	args := m.Called(ctx, tenantID, webhookID, namespace, force)
+func (m *mockRepo) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, force bool) ([]*store.WebhookDelivery, error) {
+	args := m.Called(ctx, tenantID, webhookID, consumer, force)
 	return args.Get(0).([]*store.WebhookDelivery), args.Error(1)
 }
 
@@ -84,13 +84,13 @@ func (m *mockRepo) ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UU
 	return args.Error(0)
 }
 
-func (m *mockRepo) GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, limit, offset int) ([]*store.WebhookDelivery, int, error) {
-	args := m.Called(ctx, tenantID, webhookID, namespace, limit, offset)
+func (m *mockRepo) GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, limit, offset int) ([]*store.WebhookDelivery, int, error) {
+	args := m.Called(ctx, tenantID, webhookID, consumer, limit, offset)
 	return args.Get(0).([]*store.WebhookDelivery), args.Int(1), args.Error(2)
 }
 
-func (m *mockRepo) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, limit, offset int) ([]*store.WebhookDelivery, int, error) {
-	args := m.Called(ctx, tenantID, namespace, limit, offset)
+func (m *mockRepo) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.UUID, consumer string, limit, offset int) ([]*store.WebhookDelivery, int, error) {
+	args := m.Called(ctx, tenantID, consumer, limit, offset)
 	return args.Get(0).([]*store.WebhookDelivery), args.Int(1), args.Error(2)
 }
 
@@ -133,8 +133,8 @@ func (m *mockRepo) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *st
 	return args.Error(0)
 }
 
-func (m *mockRepo) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, namespace, idempotencyKey string) (*store.EventRecord, error) {
-	args := m.Called(ctx, tenantID, namespace, idempotencyKey)
+func (m *mockRepo) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, consumer, idempotencyKey string) (*store.EventRecord, error) {
+	args := m.Called(ctx, tenantID, consumer, idempotencyKey)
 	res := args.Get(0)
 	if res == nil {
 		return nil, args.Error(1)
@@ -153,18 +153,18 @@ func TestWebhookService_ListWebhooks_Pagination(t *testing.T) {
 	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
-	namespace := "default"
+	consumer := "default"
 	limit := int32(10)
 	offset := int32(0)
 
 	expectedWebhooks := []*store.WebhookRegistration{
-		{ID: uuid.New(), Namespace: namespace, URL: "http://example.com"},
+		{ID: uuid.New(), Consumer: consumer, URL: "http://example.com"},
 	}
 
-	repo.On("ListWebhooksPaginated", mock.Anything, mock.Anything, namespace, "", false, store.WebhookHealth(""), int(limit), int(offset)).
+	repo.On("ListWebhooksPaginated", mock.Anything, mock.Anything, consumer, "", false, store.WebhookHealth(""), int(limit), int(offset)).
 		Return(expectedWebhooks, 1, nil)
 
-	webhooks, totalCount, err := service.ListWebhooks(ctx, namespace, "", "", false, "", limit, offset)
+	webhooks, totalCount, err := service.ListWebhooks(ctx, consumer, "", "", false, "", limit, offset)
 
 	assert.NoError(t, err)
 	assert.Equal(t, int32(1), totalCount)
@@ -178,7 +178,7 @@ func TestWebhookService_RetryDelivery(t *testing.T) {
 	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
-	namespace := "default"
+	consumer := "default"
 	deliveryID := uuid.New()
 	webhookID := uuid.New()
 
@@ -191,16 +191,16 @@ func TestWebhookService_RetryDelivery(t *testing.T) {
 	}
 
 	webhook := &store.WebhookRegistration{
-		ID:        webhookID,
-		Namespace: namespace,
+		ID:       webhookID,
+		Consumer: consumer,
 	}
 
-	repo.On("GetDeliveryByID", mock.Anything, mock.Anything, deliveryID, namespace).Return(delivery, nil)
+	repo.On("GetDeliveryByID", mock.Anything, mock.Anything, deliveryID, consumer).Return(delivery, nil)
 	repo.On("ResetDeliveryForRetry", mock.Anything, deliveryID).Return(nil)
-	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, namespace).Return(webhook, nil)
+	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, consumer).Return(webhook, nil)
 	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
 
-	ids, count, err := service.RetryDelivery(ctx, namespace, deliveryID.String(), "", false)
+	ids, count, err := service.RetryDelivery(ctx, consumer, deliveryID.String(), "", false)
 
 	assert.NoError(t, err)
 	assert.Equal(t, int32(1), count)
@@ -215,7 +215,7 @@ func TestWebhookService_ListDeliveries_Pagination(t *testing.T) {
 	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
-	namespace := "default"
+	consumer := "default"
 
 	expectedDeliveries := []*store.WebhookDelivery{
 		{ID: uuid.New(), WebhookID: uuid.New(), EventID: uuid.New()},
@@ -223,13 +223,13 @@ func TestWebhookService_ListDeliveries_Pagination(t *testing.T) {
 
 	// The service normalises limit/offset, so match the filter as built by the service.
 	repo.On("ListDeliveriesFiltered", mock.Anything, mock.Anything, mock.MatchedBy(func(f store.DeliveryFilter) bool {
-		return f.Namespace == namespace && f.Limit == 20 && f.Offset == 0
+		return f.Consumer == consumer && f.Limit == 20 && f.Offset == 0
 	})).Return(expectedDeliveries, 1, nil)
 
 	filter := store.DeliveryFilter{
-		Namespace: namespace,
-		Limit:     20,
-		Offset:    0,
+		Consumer: consumer,
+		Limit:    20,
+		Offset:   0,
 	}
 	deliveries, totalCount, _, err := service.ListDeliveries(ctx, filter)
 
@@ -246,12 +246,12 @@ func TestWebhookService_CreateSubscription(t *testing.T) {
 
 	ctx := testContext()
 	webhookID := uuid.New().String()
-	namespace := "default"
+	consumer := "default"
 	eventName := "user.created"
 
 	repo.On("CreateSubscription", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	id, createdAt, err := service.CreateSubscription(ctx, webhookID, eventName, namespace, nil, "POST", 30, false, "", nil)
+	id, createdAt, err := service.CreateSubscription(ctx, webhookID, eventName, consumer, nil, "POST", 30, false, "", nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
@@ -305,7 +305,7 @@ func TestWebhookService_PushEvent_AutoRegister(t *testing.T) {
 	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
-	namespace := "default"
+	consumer := "default"
 	eventName := "user.signup"
 	payload := map[string]any{"user_id": "123"}
 
@@ -317,7 +317,7 @@ func TestWebhookService_PushEvent_AutoRegister(t *testing.T) {
 	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
 
-	eventID, _, _, _, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, nil, nil)
+	eventID, _, _, _, err := service.PushEvent(ctx, consumer, eventName, payload, 0, nil, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
@@ -331,7 +331,7 @@ func TestWebhookService_PushEvent_ExistingEvent(t *testing.T) {
 	service := NewWebhookService(inserter, repo, nil)
 
 	ctx := testContext()
-	namespace := "default"
+	consumer := "default"
 	eventName := "user.created"
 	payload := map[string]any{"user_id": "456"}
 
@@ -343,7 +343,7 @@ func TestWebhookService_PushEvent_ExistingEvent(t *testing.T) {
 	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
 
-	eventID, _, _, _, err := service.PushEvent(ctx, namespace, eventName, payload, 0, nil, nil, nil)
+	eventID, _, _, _, err := service.PushEvent(ctx, consumer, eventName, payload, 0, nil, nil, nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, eventID)
@@ -380,13 +380,13 @@ func TestWebhookService_CreateSubscription_CatchAll(t *testing.T) {
 
 	ctx := testContext()
 	webhookID := uuid.New().String()
-	namespace := "default"
+	consumer := "default"
 
 	repo.On("CreateSubscription", mock.Anything, mock.Anything, mock.MatchedBy(func(sub *store.EventSubscription) bool {
 		return sub.EventName == store.CatchAllEventName
 	})).Return(nil)
 
-	id, createdAt, err := service.CreateSubscription(ctx, webhookID, store.CatchAllEventName, namespace, nil, "POST", 30, false, "", nil)
+	id, createdAt, err := service.CreateSubscription(ctx, webhookID, store.CatchAllEventName, consumer, nil, "POST", 30, false, "", nil)
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)

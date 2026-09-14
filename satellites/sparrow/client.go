@@ -103,7 +103,7 @@ type webhookRequest struct {
 
 type webhookOut struct {
 	WebhookID   string   `json:"webhook_id"`
-	Namespace   string   `json:"namespace,omitempty"`
+	Consumer    string   `json:"consumer,omitempty"`
 	URL         string   `json:"url"`
 	Events      []string `json:"events,omitempty"`
 	Active      bool     `json:"active"`
@@ -175,38 +175,38 @@ func (c *apiClient) getEventType(ctx context.Context, name string) (eventTypeIte
 	return out, err
 }
 
-func (c *apiClient) pushEvent(ctx context.Context, namespace, event string, body pushBody) (pushResult, error) {
+func (c *apiClient) pushEvent(ctx context.Context, consumer, event string, body pushBody) (pushResult, error) {
 	var out pushResult
-	path := "/v1/namespaces/" + url.PathEscape(namespace) + "/events?event=" + url.QueryEscape(event)
+	path := "/v1/consumers/" + url.PathEscape(consumer) + "/events?event=" + url.QueryEscape(event)
 	err := c.do(ctx, http.MethodPost, path, body, &out)
 	return out, err
 }
 
-func (c *apiClient) registerWebhook(ctx context.Context, namespace string, req webhookRequest) (webhookOut, error) {
+func (c *apiClient) registerWebhook(ctx context.Context, consumer string, req webhookRequest) (webhookOut, error) {
 	var out webhookOut
-	err := c.do(ctx, http.MethodPost, "/v1/namespaces/"+url.PathEscape(namespace)+"/webhooks", req, &out)
+	err := c.do(ctx, http.MethodPost, "/v1/consumers/"+url.PathEscape(consumer)+"/webhooks", req, &out)
 	return out, err
 }
 
-func (c *apiClient) deleteWebhook(ctx context.Context, namespace, webhookID string) error {
-	return c.do(ctx, http.MethodDelete, "/v1/namespaces/"+url.PathEscape(namespace)+"/webhooks/"+url.PathEscape(webhookID), nil, nil)
+func (c *apiClient) deleteWebhook(ctx context.Context, consumer, webhookID string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/consumers/"+url.PathEscape(consumer)+"/webhooks/"+url.PathEscape(webhookID), nil, nil)
 }
 
-func (c *apiClient) listSubscriptions(ctx context.Context, namespace, webhookID string) ([]subscriptionItem, error) {
+func (c *apiClient) listSubscriptions(ctx context.Context, consumer, webhookID string) ([]subscriptionItem, error) {
 	var out struct {
 		Items []subscriptionItem `json:"items"`
 	}
-	path := "/v1/namespaces/" + url.PathEscape(namespace) + "/subscriptions?webhook_id=" + url.QueryEscape(webhookID)
+	path := "/v1/consumers/" + url.PathEscape(consumer) + "/subscriptions?webhook_id=" + url.QueryEscape(webhookID)
 	err := c.do(ctx, http.MethodGet, path, nil, &out)
 	return out.Items, err
 }
 
-func (c *apiClient) patchSubscription(ctx context.Context, namespace, subscriptionID string, patch subscriptionPatch) error {
-	path := "/v1/namespaces/" + url.PathEscape(namespace) + "/subscriptions/" + url.PathEscape(subscriptionID)
+func (c *apiClient) patchSubscription(ctx context.Context, consumer, subscriptionID string, patch subscriptionPatch) error {
+	path := "/v1/consumers/" + url.PathEscape(consumer) + "/subscriptions/" + url.PathEscape(subscriptionID)
 	return c.do(ctx, http.MethodPatch, path, patch, nil)
 }
 
-func (c *apiClient) listDeliveries(ctx context.Context, namespace, status string, limit int) ([]deliveryItem, error) {
+func (c *apiClient) listDeliveries(ctx context.Context, consumer, status string, limit int) ([]deliveryItem, error) {
 	var out struct {
 		Items []deliveryItem `json:"items"`
 	}
@@ -214,12 +214,12 @@ func (c *apiClient) listDeliveries(ctx context.Context, namespace, status string
 	if status != "" {
 		q.Set("status", status)
 	}
-	path := "/v1/namespaces/" + url.PathEscape(namespace) + "/deliveries?" + q.Encode()
+	path := "/v1/consumers/" + url.PathEscape(consumer) + "/deliveries?" + q.Encode()
 	err := c.do(ctx, http.MethodGet, path, nil, &out)
 	return out.Items, err
 }
 
-func (c *apiClient) listWebhooks(ctx context.Context, namespace string, activeOnly bool) ([]webhookOut, error) {
+func (c *apiClient) listWebhooks(ctx context.Context, consumer string, activeOnly bool) ([]webhookOut, error) {
 	var out struct {
 		Items []webhookOut `json:"items"`
 	}
@@ -227,13 +227,13 @@ func (c *apiClient) listWebhooks(ctx context.Context, namespace string, activeOn
 	if activeOnly {
 		q.Set("active", "true")
 	}
-	err := c.do(ctx, http.MethodGet, "/v1/namespaces/"+url.PathEscape(namespace)+"/webhooks?"+q.Encode(), nil, &out)
+	err := c.do(ctx, http.MethodGet, "/v1/consumers/"+url.PathEscape(consumer)+"/webhooks?"+q.Encode(), nil, &out)
 	return out.Items, err
 }
 
-func (c *apiClient) getWebhook(ctx context.Context, namespace, webhookID string) (webhookOut, error) {
+func (c *apiClient) getWebhook(ctx context.Context, consumer, webhookID string) (webhookOut, error) {
 	var out webhookOut
-	err := c.do(ctx, http.MethodGet, "/v1/namespaces/"+url.PathEscape(namespace)+"/webhooks/"+url.PathEscape(webhookID), nil, &out)
+	err := c.do(ctx, http.MethodGet, "/v1/consumers/"+url.PathEscape(consumer)+"/webhooks/"+url.PathEscape(webhookID), nil, &out)
 	return out, err
 }
 
@@ -250,7 +250,7 @@ func (c *apiClient) listTemplateFunctions(ctx context.Context) ([]templateFuncti
 	return out.Items, err
 }
 
-type namespaceStats struct {
+type consumerStats struct {
 	TotalWebhooks        int     `json:"total_webhooks"`
 	ActiveWebhooks       int     `json:"active_webhooks"`
 	TotalDeliveries      int     `json:"total_deliveries"`
@@ -260,8 +260,8 @@ type namespaceStats struct {
 	SuccessRate          float64 `json:"success_rate"`
 }
 
-func (c *apiClient) getNamespaceStats(ctx context.Context, namespace string) (namespaceStats, error) {
-	var out namespaceStats
-	err := c.do(ctx, http.MethodGet, "/v1/namespaces/"+url.PathEscape(namespace)+"/stats", nil, &out)
+func (c *apiClient) getConsumerStats(ctx context.Context, consumer string) (consumerStats, error) {
+	var out consumerStats
+	err := c.do(ctx, http.MethodGet, "/v1/consumers/"+url.PathEscape(consumer)+"/stats", nil, &out)
 	return out, err
 }

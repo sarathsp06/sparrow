@@ -45,8 +45,8 @@ type HealthSummaryData struct {
 	TotalCount     int `json:"total_count"`
 }
 
-// NamespaceStatsData represents namespace statistics
-type NamespaceStatsData struct {
+// ConsumerStatsData represents consumer statistics
+type ConsumerStatsData struct {
 	TotalWebhooks        int     `json:"total_webhooks"`
 	ActiveWebhooks       int     `json:"active_webhooks"`
 	TotalDeliveries      int     `json:"total_deliveries"`
@@ -57,21 +57,21 @@ type NamespaceStatsData struct {
 }
 
 // GetWebhookHealth retrieves health metrics for a webhook
-func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string, namespace string) (*WebhookHealthData, error) {
+func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string, consumer string) (*WebhookHealthData, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.GetWebhookHealth")
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing get webhook health request",
 		"webhook_id", webhookID,
-		"namespace", namespace)
+		"consumer", consumer)
 
 	// Validate required fields
 	if webhookID == "" {
 		return nil, svcerrors.Error(svcerrors.InvalidArgument, "webhook ID is required")
 	}
 
-	if namespace == "" {
-		return nil, svcerrors.Error(svcerrors.InvalidArgument, "namespace is required")
+	if consumer == "" {
+		return nil, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
 
 	tenantID := tenant.DefaultTenantID
@@ -82,7 +82,7 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 	}
 
 	// Get webhook to verify it exists and get current health
-	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, namespace)
+	webhook, err := s.webhookRepo.GetWebhookByID(ctx, tenantID, id, consumer)
 	if err != nil {
 		span.RecordError(err)
 		if storage.IsNotFound(err) {
@@ -154,7 +154,7 @@ func (s *WebhookService) GetWebhookHealth(ctx context.Context, webhookID string,
 	return healthData, nil
 }
 
-// GetHealthSummary retrieves a summary of webhook health across all namespaces
+// GetHealthSummary retrieves a summary of webhook health across all consumers
 func (s *WebhookService) GetHealthSummary(ctx context.Context) (*HealthSummaryData, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.GetHealthSummary")
 	defer span.End()
@@ -163,7 +163,7 @@ func (s *WebhookService) GetHealthSummary(ctx context.Context) (*HealthSummaryDa
 
 	tenantID := tenant.DefaultTenantID
 
-	// Health summary is a cross-namespace query — only tenant-level roles can do this
+	// Health summary is a cross-consumer query — only tenant-level roles can do this
 
 	// Get health summary from repository
 	summary, err := s.webhookRepo.GetHealthSummary(ctx, tenantID)
@@ -196,22 +196,22 @@ func (s *WebhookService) GetHealthSummary(ctx context.Context) (*HealthSummaryDa
 	return healthSummary, nil
 }
 
-// GetNamespaceStats retrieves statistics for a namespace, or across all namespaces if empty
-func (s *WebhookService) GetNamespaceStats(ctx context.Context, namespace string) (*NamespaceStatsData, error) {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.GetNamespaceStats")
+// GetConsumerStats retrieves statistics for a consumer, or across all consumers if empty
+func (s *WebhookService) GetConsumerStats(ctx context.Context, consumer string) (*ConsumerStatsData, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.GetConsumerStats")
 	defer span.End()
 
-	s.logger.InfoContext(ctx, "Processing get namespace stats request", "namespace", namespace)
+	s.logger.InfoContext(ctx, "Processing get consumer stats request", "consumer", consumer)
 
 	tenantID := tenant.DefaultTenantID
 
-	stats, err := s.webhookRepo.GetNamespaceStats(ctx, tenantID, namespace)
+	stats, err := s.webhookRepo.GetConsumerStats(ctx, tenantID, consumer)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to get namespace stats", "error", err)
+		s.logger.ErrorContext(ctx, "Failed to get consumer stats", "error", err)
 		return nil, err
 	}
 
-	res := &NamespaceStatsData{
+	res := &ConsumerStatsData{
 		TotalWebhooks:        stats.TotalWebhooks,
 		ActiveWebhooks:       stats.ActiveWebhooks,
 		TotalDeliveries:      stats.TotalDeliveries,
@@ -221,8 +221,8 @@ func (s *WebhookService) GetNamespaceStats(ctx context.Context, namespace string
 		SuccessRate:          stats.SuccessRate,
 	}
 
-	s.logger.InfoContext(ctx, "Namespace stats retrieved successfully",
-		"namespace", namespace,
+	s.logger.InfoContext(ctx, "Consumer stats retrieved successfully",
+		"consumer", consumer,
 		"total_webhooks", res.TotalWebhooks,
 		"active_webhooks", res.ActiveWebhooks,
 		"success_rate", res.SuccessRate)

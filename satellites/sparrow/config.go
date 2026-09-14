@@ -10,7 +10,7 @@ import (
 
 const (
 	defaultServerURL = "http://localhost:8080"
-	defaultNamespace = "default"
+	defaultConsumer  = "default"
 )
 
 // config is the resolved CLI configuration.
@@ -18,7 +18,7 @@ const (
 type config struct {
 	ServerURL string `yaml:"server_url"`
 	APIKey    string `yaml:"api_key,omitempty"`
-	Namespace string `yaml:"namespace"`
+	Consumer  string `yaml:"consumer"`
 }
 
 // configPath returns ~/.sparrow/config.yaml, honoring SPARROW_CONFIG for tests.
@@ -34,7 +34,7 @@ func configPath() (string, error) {
 }
 
 // resolveConfig merges file < flags < env, then applies defaults.
-func resolveConfig(flagURL, flagAPIKey, flagNamespace string) (config, error) {
+func resolveConfig(flagURL, flagAPIKey, flagConsumer string) (config, error) {
 	var cfg config
 	path, err := configPath()
 	if err != nil {
@@ -55,12 +55,12 @@ func resolveConfig(flagURL, flagAPIKey, flagNamespace string) (config, error) {
 	}
 	overlay(&cfg.ServerURL, flagURL, "SPARROW_URL")
 	overlay(&cfg.APIKey, flagAPIKey, "SPARROW_API_KEY")
-	overlay(&cfg.Namespace, flagNamespace, "SPARROW_NAMESPACE")
+	overlay(&cfg.Consumer, flagConsumer, "SPARROW_CONSUMER")
 	if cfg.ServerURL == "" {
 		cfg.ServerURL = defaultServerURL
 	}
-	if cfg.Namespace == "" {
-		cfg.Namespace = defaultNamespace
+	if cfg.Consumer == "" {
+		cfg.Consumer = defaultConsumer
 	}
 	return cfg, nil
 }

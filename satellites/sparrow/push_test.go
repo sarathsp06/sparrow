@@ -17,7 +17,7 @@ func pushEnv(t *testing.T, srv *httptest.Server) {
 	t.Setenv("SPARROW_CONFIG", filepath.Join(t.TempDir(), "missing.yaml"))
 	t.Setenv("SPARROW_URL", srv.URL)
 	t.Setenv("SPARROW_API_KEY", "sekrit")
-	t.Setenv("SPARROW_NAMESPACE", "acme")
+	t.Setenv("SPARROW_CONSUMER", "acme")
 }
 
 func TestPushRequestShape(t *testing.T) {
@@ -47,7 +47,7 @@ func TestPushRequestShape(t *testing.T) {
 	if got.method != http.MethodPost {
 		t.Errorf("method = %s", got.method)
 	}
-	if got.path != "/v1/namespaces/acme/events" {
+	if got.path != "/v1/consumers/acme/events" {
 		t.Errorf("path = %s", got.path)
 	}
 	if got.query != "event=order.created" {

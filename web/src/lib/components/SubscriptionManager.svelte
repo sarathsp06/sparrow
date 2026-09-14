@@ -12,12 +12,12 @@
 
   let {
     webhookId,
-    namespace,
+    consumer,
     subscriptions = $bindable([]),
     onRefresh,
   }: {
     webhookId: string;
-    namespace: string;
+    consumer: string;
     subscriptions: SubscriptionItem[];
     onRefresh?: () => void;
   } = $props();
@@ -51,7 +51,7 @@
   let form = $state({
     subscriptionId: "",
     eventName: "",
-    namespace: "",
+    consumer: "",
     transformEnabled: false,
     transformTemplate: "",
     method: "POST",
@@ -71,7 +71,7 @@
     form = {
       subscriptionId: "",
       eventName: "",
-      namespace: namespace || "",
+      consumer: consumer || "",
       transformEnabled: false,
       transformTemplate: "",
       method: "POST",
@@ -166,8 +166,8 @@
     if (!webhookId) return;
     try {
       loading = true;
-      const response = unwrap(await api.GET('/v1/namespaces/{namespace}/subscriptions', {
-        params: { path: { namespace: namespace || "default" }, query: { webhook_id: webhookId } },
+      const response = unwrap(await api.GET('/v1/consumers/{consumer}/subscriptions', {
+        params: { path: { consumer: consumer || "default" }, query: { webhook_id: webhookId } },
       }));
       subscriptions = response.items || [];
       onRefresh?.();
@@ -182,10 +182,10 @@
     error = "";
     try {
       const eventName = catchAllEnabled ? CATCH_ALL_EVENT : form.eventName;
-      const ns = form.namespace || namespace || "default";
+      const ns = form.consumer || consumer || "default";
       if (modalMode === "create") {
-        unwrap(await api.POST('/v1/namespaces/{namespace}/subscriptions', {
-          params: { path: { namespace: ns } },
+        unwrap(await api.POST('/v1/consumers/{consumer}/subscriptions', {
+          params: { path: { consumer: ns } },
           body: {
             webhook_id: webhookId,
             event_name: eventName,
@@ -198,8 +198,8 @@
           },
         }));
       } else {
-        unwrap(await api.PATCH('/v1/namespaces/{namespace}/subscriptions/{subscription_id}', {
-          params: { path: { namespace: ns, subscription_id: form.subscriptionId } },
+        unwrap(await api.PATCH('/v1/consumers/{consumer}/subscriptions/{subscription_id}', {
+          params: { path: { consumer: ns, subscription_id: form.subscriptionId } },
           body: {
             headers: form.headers,
             method: form.method,
@@ -229,7 +229,7 @@
     form = {
       subscriptionId: subscription.subscription_id,
       eventName: subscription.event_name,
-      namespace: subscription.namespace,
+      consumer: subscription.consumer,
       transformEnabled: subscription.transform_enabled,
       transformTemplate: subscription.transform_template || "",
       method: subscription.method || "POST",
@@ -250,8 +250,8 @@
   async function executeDelete() {
     if (!subscriptionToDelete) return;
     try {
-      unwrap(await api.DELETE('/v1/namespaces/{namespace}/subscriptions/{subscription_id}', {
-        params: { path: { namespace: namespace || "default", subscription_id: subscriptionToDelete } },
+      unwrap(await api.DELETE('/v1/consumers/{consumer}/subscriptions/{subscription_id}', {
+        params: { path: { consumer: consumer || "default", subscription_id: subscriptionToDelete } },
       }));
       confirmDeleteOpen = false;
       subscriptionToDelete = null;
@@ -412,7 +412,7 @@
                     </span>
                   {/if}
                   <span class="chip">
-                    {subscription.namespace}
+                    {subscription.consumer}
                   </span>
                   <span class="chip">
                     {subscription.method || "POST"}
@@ -521,7 +521,7 @@
               </button>
               <div>
                 <span class="text-sm font-medium text-text">Catch-All Subscription</span>
-                <p class="text-xs text-muted">Receive every event in this namespace</p>
+                <p class="text-xs text-muted">Receive every event in this consumer</p>
               </div>
             </div>
 
@@ -538,7 +538,7 @@
               </div>
             {:else}
               <div class="panel-2 px-3 py-2" style="border-color:color-mix(in srgb,var(--color-beacon) 35%,transparent)">
-                <p class="text-sm font-medium" style="color:var(--color-beacon)">This subscription will receive all events in the namespace.</p>
+                <p class="text-sm font-medium" style="color:var(--color-beacon)">This subscription will receive all events in the consumer.</p>
                 <p class="text-xs text-muted mt-1">
                   Use template variables <code class="chip !px-1 !py-0">{"{{.EventName}}"}</code>,
                   <code class="chip !px-1 !py-0">{"{{.EventID}}"}</code>,
@@ -552,11 +552,11 @@
         </div>
 
         <div>
-          <label for="modal-namespace" class="field-label">Namespace</label>
+          <label for="modal-consumer" class="field-label">Consumer</label>
           <input
-            id="modal-namespace"
+            id="modal-consumer"
             type="text"
-            bind:value={form.namespace}
+            bind:value={form.consumer}
             disabled={modalMode === "edit"}
             class="input {modalMode === 'edit' ? 'opacity-60' : ''}"
           />

@@ -44,7 +44,7 @@ RegisterWebhook(proto request)
   │    │
   │    ├─ webhook_repository.go:249 — RegisterWebhookWithSubscriptions()
   │    │    TRANSACTION {
-  │    │      :251 — checkWebhookDuplicate() — SELECT by tenant+namespace+url
+  │    │      :251 — checkWebhookDuplicate() — SELECT by tenant+consumer+url
   │    │      :254 — INSERT INTO webhook_registrations (25 columns)
   │    │      :259 — For each event: INSERT INTO event_subscriptions (13 columns)
   │    │    }
@@ -106,10 +106,10 @@ PushEvent(proto request)
   ├─ :20-30 — Convert payload, extract optional idempotency key from req.Id
   │
   └─ webhook_service.go:728 — PushEvent()
-       ├─ :745-761 — Validate namespace, event name, labels (max 20, key≤64, value≤256)
+       ├─ :745-761 — Validate consumer, event name, labels (max 20, key≤64, value≤256)
        │
        ├─ :768-785 — IDEMPOTENCY CHECK (when key provided):
-       │    GetEventByIdempotencyKey() → SELECT by tenant+namespace+key
+       │    GetEventByIdempotencyKey() → SELECT by tenant+consumer+key
        │    If found → return (existingID, duplicate=true) ← SHORT CIRCUIT
        │
        ├─ :788-811 — Event lookup / auto-register:
@@ -126,7 +126,7 @@ PushEvent(proto request)
        ├─ :871 — INSERT INTO event_records (12 columns)
        │
        ├─ :896 — ENQUEUE River job:
-       │    EventArgs{TenantID, EventID, Namespace, Event, TTL, Metadata, Labels}
+       │    EventArgs{TenantID, EventID, Consumer, Event, TTL, Metadata, Labels}
        │    → river.Insert() → queue="events", kind="event_processing"
        │    OTel trace context injected into job.Metadata
        │
@@ -166,7 +166,7 @@ EventProcessingWorker.Work(job)
   ├─ :55-59 — GetEventByID() — load event record (verify exists)
   │
   ├─ :67 — SUBSCRIPTION MATCHING:
-  │    GetSubscriptionsWithWebhooksByEvent(tenant, namespace, event, labels)
+  │    GetSubscriptionsWithWebhooksByEvent(tenant, consumer, event, labels)
   │    → JOIN event_subscriptions + webhook_registrations WHERE:
   │      - event_name matches OR event_name = '*' (catch-all)
   │      - webhook active = true
@@ -192,7 +192,7 @@ EventProcessingWorker.Work(job)
 
 ### Key Decision Points
 
-- **Catch-all subscriptions**: Subscriptions with `event_name = '*'` match every event in the namespace.
+- **Catch-all subscriptions**: Subscriptions with `event_name = '*'` match every event in the consumer.
 - **Label filtering**: Uses PostgreSQL JSONB containment (`<@`) — the subscription's label_filters must be a subset of the event's labels.
 - **Batch efficiency**: All deliveries and River jobs are inserted in a single batch operation each, not one-by-one.
 - **MaxAttempts**: Calculated as `webhook.MaxRetries + 1` with a floor of 3. This means even a webhook with `max_retries=0` gets at least 3 delivery attempts.
@@ -329,7 +329,7 @@ WebhookWorker.Work(job)
 CreateSubscription(proto request)
   │
   └─ webhook_service.go:2174 — CreateSubscription()
-       ├─ :2177 — Validate namespace not empty
+       ├─ :2177 — Validate consumer not empty
        ├─ :2183 — Parse webhook UUID
        ├─ :2188 — validateLabels(labelFilters) — max 20, key/value constraints
        ├─ :2192 — Build store.EventSubscription struct

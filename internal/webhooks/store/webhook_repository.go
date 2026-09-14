@@ -17,9 +17,9 @@ import (
 type WebhookRepository interface {
 	RegisterWebhook(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration) error
 	UnregisterWebhook(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) error
-	ListWebhooks(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool) ([]*WebhookRegistration, error)
-	ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool, health WebhookHealth, limit, offset int) ([]*WebhookRegistration, int, error)
-	GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string) (*WebhookRegistration, error)
+	ListWebhooks(ctx context.Context, tenantID uuid.UUID, consumer string, event string, activeOnly bool) ([]*WebhookRegistration, error)
+	ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, consumer string, event string, activeOnly bool, health WebhookHealth, limit, offset int) ([]*WebhookRegistration, int, error)
+	GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string) (*WebhookRegistration, error)
 	UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webhook *WebhookRegistration) error
 }
 
@@ -31,7 +31,7 @@ type RateLimitRepository interface {
 }
 
 // RegisterWebhook creates a new webhook registration.
-// Returns storage.ErrAlreadyExists if a webhook with the same tenant, namespace,
+// Returns storage.ErrAlreadyExists if a webhook with the same tenant, consumer,
 // and URL already exists.
 func (r *Repository) RegisterWebhook(ctx context.Context, tenantID uuid.UUID, registration *WebhookRegistration) error {
 	if err := checkWebhookDuplicate(ctx, r.conn, tenantID, registration); err != nil {
@@ -47,13 +47,13 @@ func (r *Repository) UnregisterWebhook(ctx context.Context, tenantID uuid.UUID, 
 	return storage.Error(err)
 }
 
-// checkWebhookDuplicate checks if a webhook with the same tenant, namespace, and URL
+// checkWebhookDuplicate checks if a webhook with the same tenant, consumer, and URL
 // already exists. If found, sets registration.ID to the existing ID and returns
 // storage.ErrAlreadyExists. Used by RegisterWebhook and RegisterWebhookWithSubscriptions.
 func checkWebhookDuplicate(ctx context.Context, conn storage.DBTX, tenantID uuid.UUID, registration *WebhookRegistration) error {
-	checkQuery := `SELECT id FROM webhook_registrations WHERE tenant_id = $1 AND namespace = $2 AND url = $3 LIMIT 1`
+	checkQuery := `SELECT id FROM webhook_registrations WHERE tenant_id = $1 AND consumer = $2 AND url = $3 LIMIT 1`
 	var existingID uuid.UUID
-	err := conn.GetContext(ctx, &existingID, checkQuery, tenantID, registration.Namespace, registration.URL)
+	err := conn.GetContext(ctx, &existingID, checkQuery, tenantID, registration.Consumer, registration.URL)
 	if err == nil && existingID != uuid.Nil {
 		registration.ID = existingID
 		return storage.ErrAlreadyExists
@@ -86,7 +86,7 @@ func insertWebhookRegistration(ctx context.Context, conn storage.DBTX, tenantID 
 
 	query := `
 		INSERT INTO webhook_registrations (
-			id, tenant_id, namespace, url, headers, timeout, active, description, health,
+			id, tenant_id, consumer, url, headers, timeout, active, description, health,
 			max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
 			user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, created_at, updated_at
@@ -96,7 +96,7 @@ func insertWebhookRegistration(ctx context.Context, conn storage.DBTX, tenantID 
 	_, err = conn.ExecContext(ctx, query,
 		registration.ID,
 		registration.TenantID,
-		registration.Namespace,
+		registration.Consumer,
 		registration.URL,
 		headersJSON,
 		registration.Timeout,
@@ -123,19 +123,19 @@ func insertWebhookRegistration(ctx context.Context, conn storage.DBTX, tenantID 
 	return storage.Error(err)
 }
 
-// ListWebhooks retrieves webhooks for a namespace with optional active status filtering and event filtering.
-func (r *Repository) ListWebhooks(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool) ([]*WebhookRegistration, error) {
-	webhooks, _, err := r.ListWebhooksPaginated(ctx, tenantID, namespace, event, activeOnly, "", 1000, 0)
+// ListWebhooks retrieves webhooks for a consumer with optional active status filtering and event filtering.
+func (r *Repository) ListWebhooks(ctx context.Context, tenantID uuid.UUID, consumer string, event string, activeOnly bool) ([]*WebhookRegistration, error) {
+	webhooks, _, err := r.ListWebhooksPaginated(ctx, tenantID, consumer, event, activeOnly, "", 1000, 0)
 	return webhooks, err
 }
 
 // ListWebhooksPaginated retrieves webhooks with pagination.
-// When namespace is empty, returns webhooks across all namespaces within the tenant.
+// When consumer is empty, returns webhooks across all consumers within the tenant.
 // When health is non-empty, only webhooks with that health status are returned.
-func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, event string, activeOnly bool, health WebhookHealth, limit, offset int) ([]*WebhookRegistration, int, error) {
+func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UUID, consumer string, event string, activeOnly bool, health WebhookHealth, limit, offset int) ([]*WebhookRegistration, int, error) {
 	var ns any
-	if namespace != "" {
-		ns = namespace
+	if consumer != "" {
+		ns = consumer
 	}
 
 	args := []any{tenantID, ns, activeOnly, event, string(health)}
@@ -145,7 +145,7 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 		FROM webhook_registrations wr
 		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
 		WHERE wr.tenant_id = $1
-		  AND ($2::text IS NULL OR wr.namespace = $2)
+		  AND ($2::text IS NULL OR wr.consumer = $2)
 		  AND ($3 IS FALSE OR wr.active = true)
 		  AND ($4 = '' OR es.event_name = $4)
 		  AND ($5 = '' OR wr.health = $5)
@@ -158,14 +158,14 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 	}
 
 	query := `
-		SELECT DISTINCT wr.id, wr.tenant_id, wr.namespace, wr.url, wr.headers, wr.timeout, wr.active, wr.description, wr.health,
+		SELECT DISTINCT wr.id, wr.tenant_id, wr.consumer, wr.url, wr.headers, wr.timeout, wr.active, wr.description, wr.health,
 		       wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
 		       wr.verify_ssl, wr.request_timeout_seconds, wr.expected_status_codes, wr.webhook_secret,
 		       wr.user_agent, wr.content_type, wr.secret_headers, wr.rate_limit_rps, wr.ed25519_private_key, wr.signature_type, wr.created_at, wr.updated_at
 		FROM webhook_registrations wr
 		LEFT JOIN event_subscriptions es ON wr.id = es.webhook_id
 		WHERE wr.tenant_id = $1
-		  AND ($2::text IS NULL OR wr.namespace = $2)
+		  AND ($2::text IS NULL OR wr.consumer = $2)
 		  AND ($3 IS FALSE OR wr.active = true)
 		  AND ($4 = '' OR es.event_name = $4)
 		  AND ($5 = '' OR wr.health = $5)
@@ -183,11 +183,11 @@ func (r *Repository) ListWebhooksPaginated(ctx context.Context, tenantID uuid.UU
 	return webhooks, totalCount, nil
 }
 
-// GetNamespaceStats retrieves statistics for a namespace, or across all namespaces within the tenant if namespace is empty
-func (r *Repository) GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, namespace string) (*NamespaceStats, error) {
+// GetConsumerStats retrieves statistics for a consumer, or across all consumers within the tenant if consumer is empty
+func (r *Repository) GetConsumerStats(ctx context.Context, tenantID uuid.UUID, consumer string) (*ConsumerStats, error) {
 	var ns any
-	if namespace != "" {
-		ns = namespace
+	if consumer != "" {
+		ns = consumer
 	}
 
 	args := []any{tenantID, ns}
@@ -199,7 +199,7 @@ func (r *Repository) GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, 
 				COUNT(*) FILTER (WHERE active = true) as active_webhooks
 			FROM webhook_registrations
 			WHERE tenant_id = $1
-			  AND ($2::text IS NULL OR namespace = $2)
+			  AND ($2::text IS NULL OR consumer = $2)
 		),
 		delivery_stats AS (
 			SELECT
@@ -210,7 +210,7 @@ func (r *Repository) GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, 
 			FROM webhook_deliveries wd
 			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 			WHERE wr.tenant_id = $1
-			  AND ($2::text IS NULL OR wr.namespace = $2)
+			  AND ($2::text IS NULL OR wr.consumer = $2)
 		)
 		SELECT
 			wc.total_webhooks,
@@ -227,7 +227,7 @@ func (r *Repository) GetNamespaceStats(ctx context.Context, tenantID uuid.UUID, 
 		FROM webhook_counts wc, delivery_stats ds
 	`
 
-	var stats NamespaceStats
+	var stats ConsumerStats
 	err := r.conn.GetContext(ctx, &stats, query, args...)
 	if err != nil {
 		return nil, storage.Error(err)
@@ -263,18 +263,18 @@ func (r *Repository) RegisterWebhookWithSubscriptions(ctx context.Context, tenan
 // ReplaceWebhookSubscriptions atomically deletes all existing subscriptions for a webhook
 // and creates new ones. This prevents the partial-update bug where old subscriptions
 // could be deleted but new ones fail to create.
-func (r *Repository) ReplaceWebhookSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, newSubscriptions []*EventSubscription) error {
+func (r *Repository) ReplaceWebhookSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, newSubscriptions []*EventSubscription) error {
 	// When called through RunInTransaction, r.conn is already a tx.
 	// When called standalone, wrap in a new transaction for atomicity.
 	if _, isTx := r.conn.(*sqlx.Tx); isTx {
-		return r.replaceWebhookSubscriptions(ctx, r.conn, tenantID, webhookID, namespace, newSubscriptions)
+		return r.replaceWebhookSubscriptions(ctx, r.conn, tenantID, webhookID, consumer, newSubscriptions)
 	}
 	return storage.WithTransaction(r.db, func(tx storage.DBTX) error {
-		return r.replaceWebhookSubscriptions(ctx, tx, tenantID, webhookID, namespace, newSubscriptions)
+		return r.replaceWebhookSubscriptions(ctx, tx, tenantID, webhookID, consumer, newSubscriptions)
 	})
 }
 
-func (r *Repository) replaceWebhookSubscriptions(ctx context.Context, conn storage.DBTX, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, newSubscriptions []*EventSubscription) error {
+func (r *Repository) replaceWebhookSubscriptions(ctx context.Context, conn storage.DBTX, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, newSubscriptions []*EventSubscription) error {
 	// Delete all existing subscriptions for this webhook
 	deleteQuery := `DELETE FROM event_subscriptions WHERE tenant_id = $1 AND webhook_id = $2`
 	_, err := conn.ExecContext(ctx, deleteQuery, tenantID, webhookID)
@@ -285,7 +285,7 @@ func (r *Repository) replaceWebhookSubscriptions(ctx context.Context, conn stora
 	// Create new subscriptions
 	for _, sub := range newSubscriptions {
 		sub.WebhookID = webhookID
-		sub.Namespace = namespace
+		sub.Consumer = consumer
 		if err := insertSubscription(ctx, conn, tenantID, sub); err != nil {
 			return fmt.Errorf("failed to create subscription for event %s: %w", sub.EventName, err)
 		}
@@ -294,25 +294,25 @@ func (r *Repository) replaceWebhookSubscriptions(ctx context.Context, conn stora
 	return nil
 }
 
-// GetWebhookByID gets a webhook by ID within a tenant, optionally filtered by namespace.
-// When namespace is empty, looks up by webhook ID within the tenant.
-func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string) (*WebhookRegistration, error) {
+// GetWebhookByID gets a webhook by ID within a tenant, optionally filtered by consumer.
+// When consumer is empty, looks up by webhook ID within the tenant.
+func (r *Repository) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string) (*WebhookRegistration, error) {
 	var query string
 	var args []any
 
-	if namespace != "" {
+	if consumer != "" {
 		query = `
-			SELECT id, tenant_id, namespace, url, headers, timeout, active, description, health,
+			SELECT id, tenant_id, consumer, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
 			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, created_at, updated_at
 			FROM webhook_registrations
-			WHERE id = $1 AND tenant_id = $2 AND namespace = $3
+			WHERE id = $1 AND tenant_id = $2 AND consumer = $3
 		`
-		args = []any{webhookID, tenantID, namespace}
+		args = []any{webhookID, tenantID, consumer}
 	} else {
 		query = `
-			SELECT id, tenant_id, namespace, url, headers, timeout, active, description, health,
+			SELECT id, tenant_id, consumer, url, headers, timeout, active, description, health,
 			       max_retries, retry_backoff_seconds, capture_response_body, follow_redirects,
 			       verify_ssl, request_timeout_seconds, expected_status_codes, webhook_secret,
 			       user_agent, content_type, secret_headers, rate_limit_rps, ed25519_private_key, signature_type, created_at, updated_at
@@ -352,11 +352,11 @@ func (r *Repository) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webh
 		    user_agent = $17, content_type = $18,
 		    secret_headers = $19, rate_limit_rps = $20,
 		    ed25519_private_key = $21, signature_type = $22, updated_at = NOW()
-		WHERE id = $1 AND tenant_id = $2 AND namespace = $3
+		WHERE id = $1 AND tenant_id = $2 AND consumer = $3
 	`
 
 	_, err = r.conn.ExecContext(ctx, query,
-		webhook.ID, tenantID, webhook.Namespace,
+		webhook.ID, tenantID, webhook.Consumer,
 		webhook.URL, headersJSON, webhook.Timeout, webhook.Active, webhook.Description,
 		webhook.MaxRetries, webhook.RetryBackoffSeconds,
 		webhook.CaptureResponseBody, webhook.FollowRedirects,
@@ -401,7 +401,7 @@ func insertSubscription(ctx context.Context, conn storage.DBTX, tenantID uuid.UU
 
 	query := `
 		INSERT INTO event_subscriptions (
-			id, tenant_id, webhook_id, event_name, namespace, headers, method,
+			id, tenant_id, webhook_id, event_name, consumer, headers, method,
 			transform_enabled, transform_template, timeout, label_filters, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
@@ -411,7 +411,7 @@ func insertSubscription(ctx context.Context, conn storage.DBTX, tenantID uuid.UU
 		sub.TenantID,
 		sub.WebhookID,
 		sub.EventName,
-		sub.Namespace,
+		sub.Consumer,
 		headersJSON,
 		sub.Method,
 		sub.TransformEnabled,

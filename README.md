@@ -129,7 +129,7 @@ curl -X POST http://localhost:8080/v1/event-types \
   }'
 
 # 2) Register a webhook; Sparrow auto-creates the subscription
-curl -X POST http://localhost:8080/v1/namespaces/default/webhooks \
+curl -X POST http://localhost:8080/v1/consumers/default/webhooks \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://httpbin.org/post",
@@ -138,7 +138,7 @@ curl -X POST http://localhost:8080/v1/namespaces/default/webhooks \
   }'
 
 # 3) Push an event occurrence; delivery happens asynchronously
-curl -X POST "http://localhost:8080/v1/namespaces/default/events?event=order.created" \
+curl -X POST "http://localhost:8080/v1/consumers/default/events?event=order.created" \
   -H "Content-Type: application/json" \
   -d '{
     "payload": {
@@ -151,7 +151,7 @@ curl -X POST "http://localhost:8080/v1/namespaces/default/events?event=order.cre
   }'
 
 # 4) Inspect delivery state
-curl "http://localhost:8080/v1/namespaces/default/deliveries?limit=10"
+curl "http://localhost:8080/v1/consumers/default/deliveries?limit=10"
 ```
 
 What happens next: Sparrow stores the event, enqueues async fan-out work in River, creates deliveries for matching subscriptions, signs outbound requests, retries retryable failures, and records the full result history.

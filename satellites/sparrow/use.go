@@ -111,7 +111,7 @@ func newUseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runUse(cmd.Context(), cmd.OutOrStdout(), client, cfg.Namespace, args[0], file, events, params, labels)
+			return runUse(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, args[0], file, events, params, labels)
 		},
 	}
 	f := cmd.Flags()
@@ -122,7 +122,7 @@ func newUseCmd() *cobra.Command {
 	return cmd
 }
 
-func runUse(ctx context.Context, out io.Writer, client *apiClient, namespace, recipeArg, file string, events listFlag, params, labels kvFlag) error {
+func runUse(ctx context.Context, out io.Writer, client *apiClient, consumer, recipeArg, file string, events listFlag, params, labels kvFlag) error {
 	path, err := findRecipe(recipeArg, file)
 	if err != nil {
 		return err
@@ -173,7 +173,7 @@ func runUse(ctx context.Context, out io.Writer, client *apiClient, namespace, re
 		return err
 	}
 
-	hook, err := client.registerWebhook(ctx, namespace, webhookRequest{
+	hook, err := client.registerWebhook(ctx, consumer, webhookRequest{
 		URL:         hookURL,
 		Events:      events,
 		Active:      true,
@@ -185,7 +185,7 @@ func runUse(ctx context.Context, out io.Writer, client *apiClient, namespace, re
 	}
 	_, _ = fmt.Fprintf(out, "webhook %s -> %s\n", hook.WebhookID, hookURL)
 
-	subs, err := client.listSubscriptions(ctx, namespace, hook.WebhookID)
+	subs, err := client.listSubscriptions(ctx, consumer, hook.WebhookID)
 	if err != nil {
 		return fmt.Errorf("list subscriptions: %w", err)
 	}
@@ -195,11 +195,11 @@ func runUse(ctx context.Context, out io.Writer, client *apiClient, namespace, re
 			patch.TransformEnabled = true
 			patch.TransformTemplate = tmpl
 		}
-		if err := client.patchSubscription(ctx, namespace, sub.SubscriptionID, patch); err != nil {
+		if err := client.patchSubscription(ctx, consumer, sub.SubscriptionID, patch); err != nil {
 			return fmt.Errorf("update subscription %s: %w", sub.SubscriptionID, err)
 		}
 		_, _ = fmt.Fprintf(out, "subscription %s (%s): transform %v, label filters %v\n", sub.SubscriptionID, sub.EventName, tmpl != "", map[string]string(labels))
 	}
-	_, _ = fmt.Fprintf(out, "recipe %q applied in namespace %q\n", r.Name, namespace)
+	_, _ = fmt.Fprintf(out, "recipe %q applied in consumer %q\n", r.Name, consumer)
 	return nil
 }

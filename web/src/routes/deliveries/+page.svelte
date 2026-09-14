@@ -1,7 +1,7 @@
 <script lang="ts">
     import { api, unwrap } from '$lib/services';
     import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError, timeAgo } from '$lib/utils';
-    import { namespaceStore } from '$lib/namespace.svelte';
+    import { consumerStore } from '$lib/consumer.svelte';
     import { pulseStore } from '$lib/pulse.svelte';
     import { onDestroy } from 'svelte';
     import type { components } from '$lib/api-types';
@@ -64,13 +64,13 @@
         loading = !prepareRetry && !silent;
         if (!prepareRetry) error = '';
 
-        const ns = namespaceStore.value;
+        const ns = consumerStore.value;
         const offset = (pageNum - 1) * pageSize;
 
         try {
-            const res = unwrap(await api.GET('/v1/namespaces/{namespace}/deliveries', {
+            const res = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries', {
                 params: {
-                    path: { namespace: ns },
+                    path: { consumer: ns },
                     query: {
                         webhook_id: webhookIdFilter.trim() || undefined,
                         event_id: eventIdFilter.trim() || undefined,
@@ -133,9 +133,9 @@
         retryingDeliveries.add(deliveryId);
         retryingDeliveries = new Set(retryingDeliveries);
         try {
-            const ns = namespaceStore.value;
-            unwrap(await api.POST('/v1/namespaces/{namespace}/deliveries/{delivery_id}:retry', {
-                params: { path: { namespace: ns, delivery_id: deliveryId } },
+            const ns = consumerStore.value;
+            unwrap(await api.POST('/v1/consumers/{consumer}/deliveries/{delivery_id}:retry', {
+                params: { path: { consumer: ns, delivery_id: deliveryId } },
             }));
             await fetchDeliveries(currentPage);
         } catch (e: any) {
@@ -159,10 +159,10 @@
     async function executeRetry() {
         confirmRetry = false;
         if (!retryId) return;
-        const ns = namespaceStore.value;
+        const ns = consumerStore.value;
         try {
-            const res = unwrap(await api.POST('/v1/namespaces/{namespace}/deliveries:retryBatch', {
-                params: { path: { namespace: ns } },
+            const res = unwrap(await api.POST('/v1/consumers/{consumer}/deliveries:retryBatch', {
+                params: { path: { consumer: ns } },
                 body: { repush_id: retryId },
             }));
             batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
@@ -174,12 +174,12 @@
 
     function startPolling() {
         if (pollingTimer) clearInterval(pollingTimer);
-        const ns = namespaceStore.value;
+        const ns = consumerStore.value;
         pollingTimer = setInterval(async () => {
             if (!retryId) { stopPolling(); return; }
             try {
-                const res = unwrap(await api.GET('/v1/namespaces/{namespace}/retry-jobs/{job_id}', {
-                    params: { path: { namespace: ns, job_id: retryId } },
+                const res = unwrap(await api.GET('/v1/consumers/{consumer}/retry-jobs/{job_id}', {
+                    params: { path: { consumer: ns, job_id: retryId } },
                 }));
                 batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
                 if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
@@ -197,10 +197,10 @@
 
     async function cancelRetryBatch() {
         if (!retryId) return;
-        const ns = namespaceStore.value;
+        const ns = consumerStore.value;
         try {
-            await api.POST('/v1/namespaces/{namespace}/retry-jobs/{job_id}:cancel', {
-                params: { path: { namespace: ns, job_id: retryId } },
+            await api.POST('/v1/consumers/{consumer}/retry-jobs/{job_id}:cancel', {
+                params: { path: { consumer: ns, job_id: retryId } },
             });
         } catch (e: any) {
             error = formatAPIError(e, 'Failed to cancel retry');
@@ -218,7 +218,7 @@
     }
 
     $effect(() => {
-        namespaceStore.value; // refetch when the active namespace changes
+        consumerStore.value; // refetch when the active consumer changes
         fetchDeliveries(1);
     });
 </script>
@@ -232,7 +232,7 @@
         <div>
             <p class="eyebrow mb-1.5">Traffic / Deliveries</p>
             <h1 class="text-2xl">Deliveries</h1>
-            <p class="text-sm text-muted mt-1">All webhook deliveries in namespace <span class="mono text-text">{namespaceStore.value}</span></p>
+            <p class="text-sm text-muted mt-1">All webhook deliveries in consumer <span class="mono text-text">{consumerStore.value}</span></p>
         </div>
         <div class="flex items-center gap-3">
             <button onclick={toggleLive} aria-pressed={live} class="btn btn-ghost !px-3 !py-1.5 !text-xs" title="Auto-refresh every 5s">

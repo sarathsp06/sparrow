@@ -19,7 +19,7 @@ It exists only for DI wiring and the generated OTel decorator (`//go:generate
 gowrap -i WebhookServiceInterface`); new consumers should depend on a single
 domain interface instead.
 
-- **WebhookManager**: RegisterWebhook, CreateWebhook, UnregisterWebhook, ListWebhooks, UpdateWebhookConfig, PauseWebhook, ResumeWebhook, GetNamespaceStats
+- **WebhookManager**: RegisterWebhook, CreateWebhook, UnregisterWebhook, ListWebhooks, UpdateWebhookConfig, PauseWebhook, ResumeWebhook, GetConsumerStats
 - **EventManager**: RegisterEvent, ListEvents, UpdateEvent, DeleteEvent, GetEvent, PushEvent, RePushEvent, GetEventRecord, ListEventReports
 - **SubscriptionManager**: CreateSubscription, GetSubscription, ListSubscriptions, UpdateSubscription, DeleteSubscription, TestSubscriptionTemplate, ListSubscriptionsByWebhookIDs, GetTemplateFunctions
 - **DeliveryManager**: GetDeliveryStatus, GetDeliveryAttempts, ListDeliveries, RetryDelivery

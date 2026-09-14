@@ -42,7 +42,7 @@ Refactored all 4 store repository files to eliminate dynamic SQL builders:
 - **`delivery_repository.go`**: `ListDeliveriesFiltered` → fixed SQL with `($N::text IS NULL OR wd.status::text = $N)` pattern. Cast `wd.status::text` for PG enum comparison. Deleted `buildDeliveryFilterConditions`.
 - **`event_repository.go`**: `ListEventReports`, `ListEventReportsWithStats`, `ListEventReportsFiltered` → fixed SQL. Deleted `buildEventReportFilterConditions`. Removed `strings` import.
 - **`batch_repository.go`**: `SnapshotEventIDs`, `SnapshotDeliveryIDs` → fixed SQL. Deleted `joinConditions`.
-- **`webhook_repository.go`**: `ListWebhooksPaginated`, `GetNamespaceStats` → fixed SQL. Removed `strings` import.
+- **`webhook_repository.go`**: `ListWebhooksPaginated`, `GetConsumerStats` → fixed SQL. Removed `strings` import.
 
 Key insight: PG custom enum `webhook_delivery_status` must be cast to `text` for parameter comparison (`wd.status::text = $5`).
 

@@ -16,15 +16,15 @@ import (
 func newInitCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
-		Short: "Configure server URL, API key, and namespace",
+		Short: "Configure server URL, API key, and consumer",
 		Long: `Write ~/.sparrow/config.yaml with the server URL, API key, and default
-namespace. Values come from --url/--api-key/--namespace, or from interactive
+consumer. Values come from --url/--api-key/--consumer, or from interactive
 prompts when stdin is a terminal. Re-running overwrites the file.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			urlFlag, _ := cmd.Flags().GetString("url")
 			apiKeyFlag, _ := cmd.Flags().GetString("api-key")
-			nsFlag, _ := cmd.Flags().GetString("namespace")
+			nsFlag, _ := cmd.Flags().GetString("consumer")
 			return runInit(cmd.Context(), cmd.OutOrStdout(), urlFlag, apiKeyFlag, nsFlag)
 		},
 	}
@@ -56,7 +56,7 @@ func runInit(ctx context.Context, out io.Writer, urlFlag, apiKeyFlag, nsFlag str
 	cfg := config{
 		ServerURL: strings.TrimRight(prompt("Server URL", defaultServerURL, urlFlag), "/"),
 		APIKey:    prompt("API key (empty for none)", "", apiKeyFlag),
-		Namespace: prompt("Namespace", defaultNamespace, nsFlag),
+		Consumer:  prompt("Consumer", defaultConsumer, nsFlag),
 	}
 
 	if err := probeServer(ctx, cfg); err != nil {
@@ -69,7 +69,7 @@ func runInit(ctx context.Context, out io.Writer, urlFlag, apiKeyFlag, nsFlag str
 	if err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
-	_, _ = fmt.Fprintf(out, "wrote %s (namespace %q)\n", path, cfg.Namespace)
+	_, _ = fmt.Fprintf(out, "wrote %s (consumer %q)\n", path, cfg.Consumer)
 	return nil
 }
 

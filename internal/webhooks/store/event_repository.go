@@ -14,13 +14,13 @@ import (
 // EventRepository defines operations for event records and event report listings.
 type EventRepository interface {
 	StoreEvent(ctx context.Context, tenantID uuid.UUID, event *EventRecord) error
-	GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, namespace, idempotencyKey string) (*EventRecord, error)
+	GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, consumer, idempotencyKey string) (*EventRecord, error)
 	GetEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (*EventRecord, error)
 	GetEventDeliveryStats(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (int32, int32, int32, int32, error)
 	DeleteEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) error
 
-	ListEventReports(ctx context.Context, tenantID uuid.UUID, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
-	ListEventReportsWithStats(ctx context.Context, tenantID uuid.UUID, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
+	ListEventReports(ctx context.Context, tenantID uuid.UUID, consumer string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
+	ListEventReportsWithStats(ctx context.Context, tenantID uuid.UUID, consumer string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
 	ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, int, error)
 }
 
@@ -43,7 +43,7 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 
 	query := `
 		INSERT INTO event_records (
-			id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
+			id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`
 
@@ -60,7 +60,7 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 	_, err = r.conn.ExecContext(ctx, query,
 		event.ID,
 		event.TenantID,
-		event.Namespace,
+		event.Consumer,
 		event.Event,
 		event.Payload,
 		event.TTL,
@@ -77,7 +77,7 @@ func (r *Repository) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *
 // GetEventByID gets an event record by ID within a tenant
 func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (*EventRecord, error) {
 	query := `
-		SELECT id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
+		SELECT id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
 		FROM event_records
 		WHERE id = $1 AND tenant_id = $2
 	`
@@ -96,15 +96,15 @@ func (r *Repository) GetEventByID(ctx context.Context, tenantID uuid.UUID, event
 
 // GetEventByIdempotencyKey looks up an event record by its client-provided idempotency key.
 // Returns nil, nil when no matching record exists.
-func (r *Repository) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, namespace, idempotencyKey string) (*EventRecord, error) {
+func (r *Repository) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid.UUID, consumer, idempotencyKey string) (*EventRecord, error) {
 	query := `
-		SELECT id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
+		SELECT id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
 		FROM event_records
-		WHERE tenant_id = $1 AND namespace = $2 AND idempotency_key = $3
+		WHERE tenant_id = $1 AND consumer = $2 AND idempotency_key = $3
 	`
 
 	var eventRow EventRecord
-	err := r.conn.GetContext(ctx, &eventRow, query, tenantID, namespace, idempotencyKey)
+	err := r.conn.GetContext(ctx, &eventRow, query, tenantID, consumer, idempotencyKey)
 	if err != nil {
 		if storage.IsNotFound(storage.Error(err)) {
 			return nil, nil
@@ -116,20 +116,20 @@ func (r *Repository) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid
 
 // ListEventReports gets event records in descending order by creation time.
 // Uses ($N::type IS NULL OR col = $N) guards so unset filters become no-op.
-func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
+func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, consumer string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
 	var ns any
-	if namespace != "" {
-		ns = namespace
+	if consumer != "" {
+		ns = consumer
 	}
 
 	args := []any{tenantID, ns, eventName}
 
 	baseQuery := `
 		SELECT
-			id, tenant_id, namespace, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
+			id, tenant_id, consumer, event, payload, ttl, metadata, labels, schema_valid, idempotency_key, created_at, expires_at
 		FROM event_records
 		WHERE tenant_id = $1
-		  AND ($2::text IS NULL OR namespace = $2)
+		  AND ($2::text IS NULL OR consumer = $2)
 		  AND ($3::text IS NULL OR event = $3)
 		ORDER BY created_at DESC
 		LIMIT $4 OFFSET $5
@@ -139,7 +139,7 @@ func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, n
 		SELECT COUNT(*)
 		FROM event_records
 		WHERE tenant_id = $1
-		  AND ($2::text IS NULL OR namespace = $2)
+		  AND ($2::text IS NULL OR consumer = $2)
 		  AND ($3::text IS NULL OR event = $3)
 	`
 
@@ -169,17 +169,17 @@ func (r *Repository) ListEventReports(ctx context.Context, tenantID uuid.UUID, n
 
 // ListEventReportsWithStats retrieves event records enriched with delivery statistics.
 // Uses ($N::type IS NULL OR col = $N) guards so unset filters become no-op.
-func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uuid.UUID, namespace string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
+func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uuid.UUID, consumer string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error) {
 	var ns any
-	if namespace != "" {
-		ns = namespace
+	if consumer != "" {
+		ns = consumer
 	}
 
 	args := []any{tenantID, ns, eventName}
 
 	baseQuery := `
 		SELECT
-			er.id, er.tenant_id, er.namespace, er.event, er.payload, er.ttl,
+			er.id, er.tenant_id, er.consumer, er.event, er.payload, er.ttl,
 			er.metadata, er.labels, er.schema_valid, er.created_at, er.expires_at,
 			COALESCE(ds.webhook_count, 0) as webhook_count,
 			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
@@ -198,7 +198,7 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 			GROUP BY wd.event_id
 		) ds ON er.id = ds.event_id
 		WHERE er.tenant_id = $1
-		  AND ($2::text IS NULL OR er.namespace = $2)
+		  AND ($2::text IS NULL OR er.consumer = $2)
 		  AND ($3::text IS NULL OR er.event = $3::text)
 		ORDER BY er.created_at DESC
 		LIMIT $4 OFFSET $5
@@ -208,7 +208,7 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 		SELECT COUNT(*)
 		FROM event_records
 		WHERE tenant_id = $1
-		  AND ($2::text IS NULL OR namespace = $2)
+		  AND ($2::text IS NULL OR consumer = $2)
 		  AND ($3::text IS NULL OR event = $3::text)
 	`
 
@@ -234,8 +234,8 @@ func (r *Repository) ListEventReportsWithStats(ctx context.Context, tenantID uui
 // schema_valid, and event_name are optional via ($N::type IS NULL OR col = $N).
 func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid.UUID, filter EventReportFilter) ([]*EventReportWithStats, int, error) {
 	var ns any
-	if filter.Namespace != "" {
-		ns = filter.Namespace
+	if filter.Consumer != "" {
+		ns = filter.Consumer
 	}
 
 	var labelsJSON any
@@ -251,7 +251,7 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 
 	baseQuery := `
 		SELECT
-			er.id, er.tenant_id, er.namespace, er.event, er.payload, er.ttl,
+			er.id, er.tenant_id, er.consumer, er.event, er.payload, er.ttl,
 			er.metadata, er.labels, er.schema_valid, er.created_at, er.expires_at,
 			COALESCE(ds.webhook_count, 0) as webhook_count,
 			COALESCE(ds.successful_deliveries, 0) as successful_deliveries,
@@ -270,7 +270,7 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 			GROUP BY wd.event_id
 		) ds ON er.id = ds.event_id
 		WHERE er.tenant_id = $1
-		  AND ($2::text IS NULL OR er.namespace = $2)
+		  AND ($2::text IS NULL OR er.consumer = $2)
 		  AND ($3::text IS NULL OR er.event = $3)
 		  AND ($4::boolean IS NULL OR er.schema_valid = $4)
 		  AND ($5::jsonb IS NULL OR er.labels @> $5::jsonb)
@@ -284,7 +284,7 @@ func (r *Repository) ListEventReportsFiltered(ctx context.Context, tenantID uuid
 		SELECT COUNT(*)
 		FROM event_records
 		WHERE tenant_id = $1
-		  AND ($2::text IS NULL OR namespace = $2)
+		  AND ($2::text IS NULL OR consumer = $2)
 		  AND ($3::text IS NULL OR event = $3)
 		  AND ($4::boolean IS NULL OR schema_valid = $4)
 		  AND ($5::jsonb IS NULL OR labels @> $5::jsonb)

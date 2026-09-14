@@ -8,7 +8,7 @@ timestamp: 2026-06-22T00:00:00Z
 
 # Subscription
 
-A subscription binds a [webhook](/concepts/webhook-registration.md) to an [event](/concepts/event.md) under a namespace. When an event is pushed, all matching subscriptions receive deliveries.
+A subscription binds a [webhook](/concepts/webhook-registration.md) to an [event](/concepts/event.md) under a consumer. When an event is pushed, all matching subscriptions receive deliveries.
 
 ## Key Fields
 

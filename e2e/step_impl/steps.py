@@ -26,14 +26,14 @@ def _targets():
 
 
 # ---------------------------------------------------------------------------
-# Namespace
+# Consumer
 # ---------------------------------------------------------------------------
 
-@step("Create namespace <prefix>")
-def create_namespace(prefix):
+@step("Create consumer <prefix>")
+def create_consumer(prefix):
     ts = data_store.scenario["_ns_counter"]
     ns = f"{prefix}-{ts}"
-    data_store.scenario["namespace"] = ns
+    data_store.scenario["consumer"] = ns
 
 
 # ---------------------------------------------------------------------------
@@ -65,9 +65,9 @@ def start_target_ok(name):
 # Webhook registration
 # ---------------------------------------------------------------------------
 
-@step("Register webhook <name> in current namespace subscribed to <events>")
+@step("Register webhook <name> in current consumer subscribed to <events>")
 def register_webhook_subscribed(name, events):
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     url = data_store.scenario[f"target_url_{name}"]
     event_list = [e.strip() for e in events.split(",")]
     resp = _api().register_webhook(ns, url, *event_list)
@@ -75,35 +75,35 @@ def register_webhook_subscribed(name, events):
     data_store.scenario[f"webhook_resp_{name}"] = resp
 
 
-@step("Register webhook <name> in current namespace subscribed to <events> with max_retries <retries>")
+@step("Register webhook <name> in current consumer subscribed to <events> with max_retries <retries>")
 def register_webhook_retries(name, events, retries):
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     url = data_store.scenario[f"target_url_{name}"]
     event_list = [e.strip() for e in events.split(",")]
     resp = _api().register_webhook(ns, url, *event_list, max_retries=int(retries))
     data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
 
 
-@step("Register webhook <name> in current namespace subscribed to <events> with max_retries <retries> and timeout <timeout>")
+@step("Register webhook <name> in current consumer subscribed to <events> with max_retries <retries> and timeout <timeout>")
 def register_webhook_retries_timeout(name, events, retries, timeout):
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     url = data_store.scenario[f"target_url_{name}"]
     event_list = [e.strip() for e in events.split(",")]
     resp = _api().register_webhook(ns, url, *event_list, max_retries=int(retries), request_timeout=int(timeout))
     data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
 
 
-@step("Register webhook <name> in current namespace with no subscriptions")
+@step("Register webhook <name> in current consumer with no subscriptions")
 def register_webhook_no_sub(name):
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     url = data_store.scenario[f"target_url_{name}"]
     resp = _api().register_webhook(ns, url)
     data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
 
 
-@step("Register webhook <name> in current namespace subscribed to <events> with signature type <signature_type>")
+@step("Register webhook <name> in current consumer subscribed to <events> with signature type <signature_type>")
 def register_webhook_signature_type(name, events, signature_type):
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     url = data_store.scenario[f"target_url_{name}"]
     event_list = [e.strip() for e in events.split(",")]
     resp = _api().register_webhook(ns, url, *event_list, signature_type=signature_type)
@@ -118,7 +118,7 @@ def register_webhook_signature_type(name, events, signature_type):
 @step("Subscribe webhook <name> to <event> with template <template>")
 def subscribe_with_template(name, event, template):
     webhook_id = data_store.scenario[f"webhook_id_{name}"]
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     _api().subscribe_to_event(webhook_id, event, ns, template=template)
 
 
@@ -133,7 +133,7 @@ def subscribe_with_broken_template(name, event, template):
 
 @step("Push event <event> with payload <payload_json>")
 def push_event(event, payload_json):
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     payload = json.loads(payload_json)
     resp = _api().push_event(event, ns, payload)
     data_store.scenario["last_push_resp"] = resp
@@ -142,7 +142,7 @@ def push_event(event, payload_json):
 
 @step("Push event <event> with payload <payload_json> and idempotency key <key>")
 def push_event_with_key(event, payload_json, key):
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     payload = json.loads(payload_json)
     resp = _api().push_event(event, ns, payload, idempotency_key=key)
     data_store.scenario["last_push_resp"] = resp
@@ -233,16 +233,16 @@ def assert_body_not_has_key(name, key):
 # API delivery status
 # ---------------------------------------------------------------------------
 
-@step("Wait for all deliveries in current namespace to be terminal with count <count>")
+@step("Wait for all deliveries in current consumer to be terminal with count <count>")
 def wait_all_terminal(count):
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     deliveries = _api().wait_for_all_deliveries_terminal(ns, expected_count=int(count), timeout=60.0)
     data_store.scenario["terminal_deliveries"] = deliveries
 
 
-@step("Wait for all deliveries in current namespace to be terminal with count <count> within <timeout> seconds")
+@step("Wait for all deliveries in current consumer to be terminal with count <count> within <timeout> seconds")
 def wait_all_terminal_timeout(count, timeout):
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     deliveries = _api().wait_for_all_deliveries_terminal(ns, expected_count=int(count), timeout=float(timeout))
     data_store.scenario["terminal_deliveries"] = deliveries
 
@@ -266,10 +266,10 @@ def assert_delivery_attempt_count(index, count):
     assert actual == int(count), f"Expected attempt_count {count}, got {actual}"
 
 
-@step("API should show <count> deliveries in current namespace")
+@step("API should show <count> deliveries in current consumer")
 def assert_api_delivery_count(count):
-    ns = data_store.scenario["namespace"]
-    resp = _api().list_deliveries(namespace=ns)
+    ns = data_store.scenario["consumer"]
+    resp = _api().list_deliveries(consumer=ns)
     deliveries = resp.get("deliveries", [])
     assert len(deliveries) == int(count), f"Expected {count} deliveries, got {len(deliveries)}"
 
@@ -277,7 +277,7 @@ def assert_api_delivery_count(count):
 @step("Get delivery attempts for delivery <index> and verify count is <count>")
 def verify_attempts_count(index, count):
     d = data_store.scenario["terminal_deliveries"][int(index)]
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     resp = _api().get_delivery_attempts(ns, d["delivery_id"])
     attempts = resp.get("items", [])
     assert len(attempts) == int(count), f"Expected {count} attempts, got {len(attempts)}"
@@ -290,14 +290,14 @@ def verify_attempts_count(index, count):
 @step("Pause webhook <name>")
 def pause_webhook(name):
     webhook_id = data_store.scenario[f"webhook_id_{name}"]
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     _api().pause_webhook(webhook_id, ns)
 
 
 @step("Resume webhook <name>")
 def resume_webhook(name):
     webhook_id = data_store.scenario[f"webhook_id_{name}"]
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     _api().resume_webhook(webhook_id, ns)
 
 
@@ -341,7 +341,7 @@ def save_first_event_id():
 @step("Retry the failed delivery")
 def retry_failed_delivery():
     deliveries = data_store.scenario["terminal_deliveries"]
-    ns = data_store.scenario["namespace"]
+    ns = data_store.scenario["consumer"]
     failed = [d for d in deliveries if d["status"] == "failed"]
     assert failed, "No failed delivery found to retry"
     delivery_id = failed[0]["delivery_id"]

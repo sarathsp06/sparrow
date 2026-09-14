@@ -113,7 +113,7 @@
   async function fetchData() {
     if (!webhookId) return;
     try {
-      // Look up by id across all namespaces (namespace not yet known).
+      // Look up by id across all consumers (consumer not yet known).
       const webhookRes = unwrap(await api.GET('/v1/webhooks', { params: { query: { webhook_id: webhookId } } }));
       webhook = webhookRes.items?.[0];
 
@@ -122,12 +122,12 @@
         return;
       }
 
-      const ns = webhook.namespace;
+      const ns = webhook.consumer;
 
       const [deliveriesRes, healthRes, subscriptionsRes] = await Promise.all([
-        api.GET('/v1/namespaces/{namespace}/deliveries', {
+        api.GET('/v1/consumers/{consumer}/deliveries', {
           params: {
-            path: { namespace: ns },
+            path: { consumer: ns },
             query: {
               webhook_id: webhookId,
               status: deliveryStatusFilter || undefined,
@@ -136,11 +136,11 @@
             },
           },
         }),
-        api.GET('/v1/namespaces/{namespace}/webhooks/{webhook_id}/health', {
-          params: { path: { namespace: ns, webhook_id: webhookId } },
+        api.GET('/v1/consumers/{consumer}/webhooks/{webhook_id}/health', {
+          params: { path: { consumer: ns, webhook_id: webhookId } },
         }),
-        api.GET('/v1/namespaces/{namespace}/subscriptions', {
-          params: { path: { namespace: ns }, query: { webhook_id: webhookId } },
+        api.GET('/v1/consumers/{consumer}/subscriptions', {
+          params: { path: { consumer: ns }, query: { webhook_id: webhookId } },
         }),
       ]);
 
@@ -161,12 +161,12 @@
     if (!webhook) return;
     try {
       if (webhook.active) {
-        unwrap(await api.POST('/v1/namespaces/{namespace}/webhooks/{webhook_id}:pause', {
-          params: { path: { namespace: webhook.namespace, webhook_id: webhookId } },
+        unwrap(await api.POST('/v1/consumers/{consumer}/webhooks/{webhook_id}:pause', {
+          params: { path: { consumer: webhook.consumer, webhook_id: webhookId } },
         }));
       } else {
-        unwrap(await api.POST('/v1/namespaces/{namespace}/webhooks/{webhook_id}:resume', {
-          params: { path: { namespace: webhook.namespace, webhook_id: webhookId } },
+        unwrap(await api.POST('/v1/consumers/{consumer}/webhooks/{webhook_id}:resume', {
+          params: { path: { consumer: webhook.consumer, webhook_id: webhookId } },
         }));
       }
       await fetchData();
@@ -178,8 +178,8 @@
   async function executeUnregister() {
     if (!webhook) return;
     try {
-      unwrap(await api.DELETE('/v1/namespaces/{namespace}/webhooks/{webhook_id}', {
-        params: { path: { namespace: webhook.namespace, webhook_id: webhookId } },
+      unwrap(await api.DELETE('/v1/consumers/{consumer}/webhooks/{webhook_id}', {
+        params: { path: { consumer: webhook.consumer, webhook_id: webhookId } },
       }));
       confirmUnregister = false;
       goto('/webhooks');
@@ -221,8 +221,8 @@
     savingUrl = true;
     error = '';
     try {
-      unwrap(await api.PATCH('/v1/namespaces/{namespace}/webhooks/{webhook_id}', {
-        params: { path: { namespace: webhook.namespace, webhook_id: webhookId } },
+      unwrap(await api.PATCH('/v1/consumers/{consumer}/webhooks/{webhook_id}', {
+        params: { path: { consumer: webhook.consumer, webhook_id: webhookId } },
         body: { url: trimmedUrl, active: webhook.active },
       }));
       editingUrl = false;
@@ -319,8 +319,8 @@
 
       const hasNewSecretHeaders = Object.keys(newSecretHeaders).length > 0;
 
-      unwrap(await api.PATCH('/v1/namespaces/{namespace}/webhooks/{webhook_id}', {
-        params: { path: { namespace: webhook.namespace, webhook_id: webhookId } },
+      unwrap(await api.PATCH('/v1/consumers/{consumer}/webhooks/{webhook_id}', {
+        params: { path: { consumer: webhook.consumer, webhook_id: webhookId } },
         body: {
           url: trimmedUrl,
           active: configForm.active,
@@ -394,9 +394,9 @@
     if (!webhook) return;
     preparingRetry = true;
     try {
-      const res = unwrap(await api.GET('/v1/namespaces/{namespace}/deliveries', {
+      const res = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries', {
         params: {
-          path: { namespace: webhook.namespace },
+          path: { consumer: webhook.consumer },
           query: {
             webhook_id: webhookId,
             status: deliveryStatusFilter || undefined,
@@ -424,8 +424,8 @@
     confirmRetry = false;
     if (!retryId || !webhook) return;
     try {
-      const res = unwrap(await api.POST('/v1/namespaces/{namespace}/deliveries:retryBatch', {
-        params: { path: { namespace: webhook.namespace } },
+      const res = unwrap(await api.POST('/v1/consumers/{consumer}/deliveries:retryBatch', {
+        params: { path: { consumer: webhook.consumer } },
         body: { repush_id: retryId },
       }));
       batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
@@ -440,8 +440,8 @@
     pollingTimer = setInterval(async () => {
       if (!retryId || !webhook) { stopRetryPolling(); return; }
       try {
-        const res = unwrap(await api.GET('/v1/namespaces/{namespace}/retry-jobs/{job_id}', {
-          params: { path: { namespace: webhook.namespace, job_id: retryId } },
+        const res = unwrap(await api.GET('/v1/consumers/{consumer}/retry-jobs/{job_id}', {
+          params: { path: { consumer: webhook.consumer, job_id: retryId } },
         }));
         batchStatus = { status: res.status, total: res.total, processed: res.processed, failed: res.failed };
         if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
@@ -460,8 +460,8 @@
   async function cancelRetryBatch() {
     if (!retryId || !webhook) return;
     try {
-      await api.POST('/v1/namespaces/{namespace}/retry-jobs/{job_id}:cancel', {
-        params: { path: { namespace: webhook.namespace, job_id: retryId } },
+      await api.POST('/v1/consumers/{consumer}/retry-jobs/{job_id}:cancel', {
+        params: { path: { consumer: webhook.consumer, job_id: retryId } },
       });
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to cancel retry');
@@ -576,7 +576,7 @@
             {/if}
 
             <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted">
-              <span>Namespace: <span class="chip">{webhook.namespace}</span></span>
+              <span>Consumer: <span class="chip">{webhook.consumer}</span></span>
               <span>Created: <span class="mono tnum text-text">{formatTimestamp(webhook.created_at)}</span></span>
               <span class="mono text-xs text-faint">ID: {webhookId}</span>
             </div>
@@ -1173,7 +1173,7 @@
       {#if activeTab === 'subscriptions'}
         <SubscriptionManager
           {webhookId}
-          namespace={webhook.namespace}
+          consumer={webhook.consumer}
           bind:subscriptions
           onRefresh={fetchData}
         />

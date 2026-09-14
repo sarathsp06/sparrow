@@ -12,7 +12,7 @@ import (
 // --- Register ---
 
 type registerWebhookBody struct {
-	Events        []string           `json:"events,omitempty" doc:"Event type names this webhook should receive; auto-creates one subscription per entry. Use \"*\" as the sole entry to subscribe to every event in the namespace. Omit or leave empty to register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-subscription transform_template)."`
+	Events        []string           `json:"events,omitempty" doc:"Event type names this webhook should receive; auto-creates one subscription per entry. Use \"*\" as the sole entry to subscribe to every event in the consumer. Omit or leave empty to register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-subscription transform_template)."`
 	URL           string             `json:"url" required:"true" format:"uri" doc:"HTTPS/HTTP endpoint to POST deliveries to. Private, loopback, and cloud metadata addresses are rejected (SSRF protection)."`
 	Headers       map[string]any     `json:"headers,omitempty" doc:"Static HTTP headers sent with every delivery to this webhook."`
 	SecretHeaders map[string]string  `json:"secret_headers,omitempty" doc:"HTTP headers whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token)."`
@@ -57,27 +57,27 @@ func (c *webhookHTTPConfig) toDomain() *webhooks.WebhookHTTPConfig {
 }
 
 type registerWebhookInput struct {
-	Namespace string `path:"namespace"`
-	Body      registerWebhookBody
+	Consumer string `path:"consumer"`
+	Body     registerWebhookBody
 }
 
 type webhookOutput struct {
 	Body WebhookOut
 }
 
-type namespaceOnlyInput struct {
-	Namespace string `path:"namespace"`
+type consumerOnlyInput struct {
+	Consumer string `path:"consumer"`
 }
 
 type webhookIDInput struct {
-	Namespace string `path:"namespace" doc:"Tenant namespace the webhook belongs to."`
+	Consumer  string `path:"consumer" doc:"Tenant consumer the webhook belongs to."`
 	WebhookID string `path:"webhook_id" doc:"Webhook id (UUID)."`
 }
 
 // --- List ---
 
 type listWebhooksInput struct {
-	Namespace string `path:"namespace" doc:"Tenant namespace to list webhooks in."`
+	Consumer  string `path:"consumer" doc:"Tenant consumer to list webhooks in."`
 	WebhookID string `query:"webhook_id,omitempty" doc:"Filter to a single webhook by id."`
 	Event     string `query:"event,omitempty" doc:"Filter to webhooks subscribed to this event type name."`
 	Active    bool   `query:"active" default:"false" doc:"Only return active webhooks."`
@@ -110,7 +110,7 @@ type patchWebhookBody struct {
 }
 
 type patchWebhookInput struct {
-	Namespace string `path:"namespace"`
+	Consumer  string `path:"consumer"`
 	WebhookID string `path:"webhook_id"`
 	Body      patchWebhookBody
 }
@@ -119,7 +119,7 @@ type emptyOutput struct {
 	Status int
 }
 
-type namespaceStatsOutput struct {
+type consumerStatsOutput struct {
 	Body struct {
 		TotalWebhooks        int     `json:"total_webhooks" doc:"Total webhooks registered."`
 		ActiveWebhooks       int     `json:"active_webhooks" doc:"Webhooks currently active (not paused)."`
@@ -154,7 +154,7 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "registerWebhook",
 		Method:        http.MethodPost,
-		Path:          "/v1/namespaces/{namespace}/webhooks",
+		Path:          "/v1/consumers/{consumer}/webhooks",
 		Summary:       "Register a webhook",
 		Description:   "Registers a new HTTP endpoint to receive deliveries and auto-creates a subscription for each listed event type. Returns the plaintext webhook secret once — it is masked on every subsequent read.",
 		Errors:        []int{400, 409},
@@ -170,7 +170,7 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 			active = *in.Body.Active
 		}
 		req := webhooks.WebhookRegistrationRequest{
-			Namespace:     in.Namespace,
+			Consumer:      in.Consumer,
 			Events:        in.Body.Events,
 			URL:           in.Body.URL,
 			Headers:       headers,
@@ -191,14 +191,14 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "listWebhooks",
 		Method:      http.MethodGet,
-		Path:        "/v1/namespaces/{namespace}/webhooks",
+		Path:        "/v1/consumers/{consumer}/webhooks",
 		Summary:     "List webhooks",
-		Description: "Lists webhooks in a namespace, optionally filtered by id, subscribed event, active flag, or computed health status.",
+		Description: "Lists webhooks in a consumer, optionally filtered by id, subscribed event, active flag, or computed health status.",
 		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *listWebhooksInput) (*listWebhooksOutput, error) {
 		limit, offset := in.Limit, in.Offset
 		activeOnly := in.Active
-		regs, total, err := svc.ListWebhooks(ctx, in.Namespace, in.WebhookID, in.Event, activeOnly, in.Health, limit, offset)
+		regs, total, err := svc.ListWebhooks(ctx, in.Consumer, in.WebhookID, in.Event, activeOnly, in.Health, limit, offset)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to list webhooks")
 		}
@@ -215,13 +215,13 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "getWebhook",
 		Method:      http.MethodGet,
-		Path:        "/v1/namespaces/{namespace}/webhooks/{webhook_id}",
+		Path:        "/v1/consumers/{consumer}/webhooks/{webhook_id}",
 		Summary:     "Get a webhook by id",
 		Description: "Fetches a single webhook's configuration, masked secrets, and current health.",
 		Errors:      []int{404},
 		Tags:        []string{"Webhooks"},
 	}, func(ctx context.Context, in *webhookIDInput) (*webhookOutput, error) {
-		regs, _, err := svc.ListWebhooks(ctx, in.Namespace, in.WebhookID, "", false, "", 1, 0)
+		regs, _, err := svc.ListWebhooks(ctx, in.Consumer, in.WebhookID, "", false, "", 1, 0)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get webhook")
 		}
@@ -235,7 +235,7 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID: "updateWebhook",
 		Method:      http.MethodPatch,
-		Path:        "/v1/namespaces/{namespace}/webhooks/{webhook_id}",
+		Path:        "/v1/consumers/{consumer}/webhooks/{webhook_id}",
 		Summary:     "Partially update a webhook",
 		Description: "Merge-patches a webhook: only fields present in the request body are changed. Omit a field to leave it untouched.",
 		Errors:      []int{400, 404},
@@ -310,11 +310,11 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 			}
 		}
 
-		err := svc.UpdateWebhookConfig(ctx, in.WebhookID, in.Namespace, events, url, headers, active, description, httpCfg, secretHeaders, signatureType, mask)
+		err := svc.UpdateWebhookConfig(ctx, in.WebhookID, in.Consumer, events, url, headers, active, description, httpCfg, secretHeaders, signatureType, mask)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to update webhook")
 		}
-		regs, _, err := svc.ListWebhooks(ctx, in.Namespace, in.WebhookID, "", false, "", 1, 0)
+		regs, _, err := svc.ListWebhooks(ctx, in.Consumer, in.WebhookID, "", false, "", 1, 0)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to reload webhook")
 		}
@@ -328,14 +328,14 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "deleteWebhook",
 		Method:        http.MethodDelete,
-		Path:          "/v1/namespaces/{namespace}/webhooks/{webhook_id}",
+		Path:          "/v1/consumers/{consumer}/webhooks/{webhook_id}",
 		Summary:       "Delete a webhook",
 		Description:   "Permanently unregisters a webhook and cascade-deletes its subscriptions and delivery history. This cannot be undone.",
 		Errors:        []int{404},
 		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *webhookIDInput) (*emptyOutput, error) {
-		if err := svc.UnregisterWebhook(ctx, in.WebhookID, in.Namespace); err != nil {
+		if err := svc.UnregisterWebhook(ctx, in.WebhookID, in.Consumer); err != nil {
 			return nil, mapError(ctx, err, "failed to unregister webhook")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil
@@ -344,14 +344,14 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "pauseWebhook",
 		Method:        http.MethodPost,
-		Path:          "/v1/namespaces/{namespace}/webhooks/{webhook_id}:pause",
+		Path:          "/v1/consumers/{consumer}/webhooks/{webhook_id}:pause",
 		Summary:       "Pause a webhook",
 		Description:   "Stops new deliveries to this webhook without deleting it. Events matching its subscriptions are still recorded but not delivered until resumed.",
 		Errors:        []int{404},
 		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *webhookIDInput) (*emptyOutput, error) {
-		if err := svc.PauseWebhook(ctx, in.WebhookID, in.Namespace, ""); err != nil {
+		if err := svc.PauseWebhook(ctx, in.WebhookID, in.Consumer, ""); err != nil {
 			return nil, mapError(ctx, err, "failed to pause webhook")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil
@@ -360,32 +360,32 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 	huma.Register(api, huma.Operation{
 		OperationID:   "resumeWebhook",
 		Method:        http.MethodPost,
-		Path:          "/v1/namespaces/{namespace}/webhooks/{webhook_id}:resume",
+		Path:          "/v1/consumers/{consumer}/webhooks/{webhook_id}:resume",
 		Summary:       "Resume a paused webhook",
 		Description:   "Re-enables deliveries to a previously paused webhook.",
 		Errors:        []int{404},
 		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusNoContent,
 	}, func(ctx context.Context, in *webhookIDInput) (*emptyOutput, error) {
-		if err := svc.ResumeWebhook(ctx, in.WebhookID, in.Namespace); err != nil {
+		if err := svc.ResumeWebhook(ctx, in.WebhookID, in.Consumer); err != nil {
 			return nil, mapError(ctx, err, "failed to resume webhook")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID: "getNamespaceStats",
+		OperationID: "getConsumerStats",
 		Method:      http.MethodGet,
-		Path:        "/v1/namespaces/{namespace}/stats",
-		Summary:     "Get aggregate delivery statistics for a namespace",
-		Description: "Returns webhook and delivery counts (total, active, successful, failed, pending, success rate) scoped to one namespace.",
+		Path:        "/v1/consumers/{consumer}/stats",
+		Summary:     "Get aggregate delivery statistics for a consumer",
+		Description: "Returns webhook and delivery counts (total, active, successful, failed, pending, success rate) scoped to one consumer.",
 		Tags:        []string{"Webhooks"},
-	}, func(ctx context.Context, in *namespaceOnlyInput) (*namespaceStatsOutput, error) {
-		stats, err := svc.GetNamespaceStats(ctx, in.Namespace)
+	}, func(ctx context.Context, in *consumerOnlyInput) (*consumerStatsOutput, error) {
+		stats, err := svc.GetConsumerStats(ctx, in.Consumer)
 		if err != nil {
-			return nil, mapError(ctx, err, "failed to get namespace stats")
+			return nil, mapError(ctx, err, "failed to get consumer stats")
 		}
-		out := &namespaceStatsOutput{}
+		out := &consumerStatsOutput{}
 		out.Body.TotalWebhooks = stats.TotalWebhooks
 		out.Body.ActiveWebhooks = stats.ActiveWebhooks
 		out.Body.TotalDeliveries = stats.TotalDeliveries
@@ -417,15 +417,15 @@ func registerWebhookRoutes(api huma.API, svc webhookRouteService) {
 		OperationID: "getGlobalStats",
 		Method:      http.MethodGet,
 		Path:        "/v1/stats",
-		Summary:     "Get aggregate delivery statistics across all namespaces",
-		Description: "Returns the same counters as the per-namespace stats endpoint, aggregated across every namespace.",
+		Summary:     "Get aggregate delivery statistics across all consumers",
+		Description: "Returns the same counters as the per-consumer stats endpoint, aggregated across every consumer.",
 		Tags:        []string{"Webhooks"},
-	}, func(ctx context.Context, in *struct{}) (*namespaceStatsOutput, error) {
-		stats, err := svc.GetNamespaceStats(ctx, "")
+	}, func(ctx context.Context, in *struct{}) (*consumerStatsOutput, error) {
+		stats, err := svc.GetConsumerStats(ctx, "")
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get stats")
 		}
-		out := &namespaceStatsOutput{}
+		out := &consumerStatsOutput{}
 		out.Body.TotalWebhooks = stats.TotalWebhooks
 		out.Body.ActiveWebhooks = stats.ActiveWebhooks
 		out.Body.TotalDeliveries = stats.TotalDeliveries

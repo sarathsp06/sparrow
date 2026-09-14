@@ -40,7 +40,7 @@ func NewEventProcessingWorker(subscriptionRepo store.SubscriptionRepository, eve
 // Work processes an event and creates webhook delivery jobs
 func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventArgs]) error {
 	args := job.Args
-	w.logger.InfoContext(ctx, "Processing event", "event_id", args.EventID, "namespace", args.Namespace, "event", args.Event)
+	w.logger.InfoContext(ctx, "Processing event", "event_id", args.EventID, "consumer", args.Consumer, "event", args.Event)
 
 	// get trace id and set that as metadata
 	carrier := make(propagation.MapCarrier)
@@ -74,8 +74,8 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		return river.JobCancel(fmt.Errorf("event record %s not found", args.EventID))
 	}
 
-	// Find all subscriptions for this namespace/event with webhook details (including label matching)
-	subscriptions, err := w.subscriptionRepo.GetSubscriptionsWithWebhooksByEvent(ctx, tenantID, args.Namespace, args.Event, args.Labels)
+	// Find all subscriptions for this consumer/event with webhook details (including label matching)
+	subscriptions, err := w.subscriptionRepo.GetSubscriptionsWithWebhooksByEvent(ctx, tenantID, args.Consumer, args.Event, args.Labels)
 	if err != nil {
 		w.logger.ErrorContext(ctx, "Failed to get event subscriptions", "error", err)
 		return err
@@ -83,7 +83,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 
 	if len(subscriptions) == 0 {
 		w.logger.InfoContext(ctx, "No subscriptions found for event",
-			"namespace", args.Namespace,
+			"consumer", args.Consumer,
 			"event", args.Event,
 		)
 		return nil
@@ -91,7 +91,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 
 	w.logger.InfoContext(ctx, "Found subscriptions",
 		"count", len(subscriptions),
-		"namespace", args.Namespace,
+		"consumer", args.Consumer,
 		"event", args.Event,
 	)
 
@@ -133,7 +133,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 			SubscriptionID:      sub.ID.String(),
 			EventID:             args.EventID,
 			ExpiresAt:           expiresAt,
-			Namespace:           args.Namespace,
+			Consumer:            args.Consumer,
 			MaxAttempts:         maxAttempts,
 			RetryBackoffSeconds: webhook.RetryBackoffSeconds,
 		})
@@ -180,7 +180,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 
 	w.logger.InfoContext(ctx, "Scheduled webhook deliveries",
 		"count", len(deliveries),
-		"namespace", args.Namespace,
+		"consumer", args.Consumer,
 		"event", args.Event,
 	)
 

@@ -16,8 +16,8 @@ All examples use `http://localhost:8080` (REST/HTTP API). Replace with your serv
 :::note
 The `X-API-Key` header is only needed when the server was started with
 `SPARROW_API_KEY` set — omit it otherwise. All URLs use the `default`
-namespace (bootstrapped on startup); swap the `default` path segment for
-another namespace to isolate a different tenant's webhooks and events.
+consumer (bootstrapped on startup); swap the `default` path segment for
+another consumer to isolate a different tenant's webhooks and events.
 :::
 
 <Steps>
@@ -38,7 +38,7 @@ another namespace to isolate a different tenant's webhooks and events.
 2. **Register a webhook**
 
     ```bash
-    curl -X POST http://localhost:8080/v1/namespaces/default/webhooks \
+    curl -X POST http://localhost:8080/v1/consumers/default/webhooks \
       -H "Content-Type: application/json" \
       -H "X-API-Key: sk_live_..." \
       -d '{
@@ -53,7 +53,7 @@ another namespace to isolate a different tenant's webhooks and events.
 3. **Push an event**
 
     ```bash
-    curl -X POST http://localhost:8080/v1/namespaces/default/events \
+    curl -X POST http://localhost:8080/v1/consumers/default/events \
       -H "Content-Type: application/json" \
       -H "X-API-Key: sk_live_..." \
       -d '{
@@ -70,7 +70,7 @@ another namespace to isolate a different tenant's webhooks and events.
 4. **Check delivery status**
 
     ```bash
-    curl "http://localhost:8080/v1/namespaces/default/deliveries?webhook_id=YOUR_WEBHOOK_ID&limit=10" \
+    curl "http://localhost:8080/v1/consumers/default/deliveries?webhook_id=YOUR_WEBHOOK_ID&limit=10" \
       -H "X-API-Key: sk_live_..."
     ```
 

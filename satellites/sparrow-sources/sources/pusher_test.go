@@ -23,7 +23,7 @@ func TestClientAutoCreatesEventType(t *testing.T) {
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			known[body.Name] = true
 			w.WriteHeader(http.StatusCreated)
-		case "/v1/namespaces/default/events":
+		case "/v1/consumers/default/events":
 			pushes++
 			if !known[r.URL.Query().Get("event")] {
 				w.WriteHeader(http.StatusNotFound)
@@ -36,7 +36,7 @@ func TestClientAutoCreatesEventType(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewClient(SparrowConfig{URL: srv.URL, Namespace: "default"})
+	c := NewClient(SparrowConfig{URL: srv.URL, Consumer: "default"})
 	err := c.PushEvent(context.Background(), "report.tick", json.RawMessage(`{}`), map[string]string{"source": "cron"})
 	if err != nil {
 		t.Fatalf("PushEvent: %v", err)

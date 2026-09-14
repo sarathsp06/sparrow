@@ -31,7 +31,7 @@ func TestE2E_EventDeliveryStats_NoDeliveries(t *testing.T) {
 	env := setupEnv(t)
 	ctx := context.Background()
 
-	// Push an event into a namespace that has no webhook subscribed to it.
+	// Push an event into a consumer that has no webhook subscribed to it.
 	// PushEvent auto-registers the event type and stores the event record; with
 	// no matching subscription the event processing worker creates zero
 	// deliveries — the exact state that triggered the reported scan error.

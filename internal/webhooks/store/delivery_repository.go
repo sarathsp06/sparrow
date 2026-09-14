@@ -18,12 +18,12 @@ type DeliveryRepository interface {
 	BatchCreateDeliveries(ctx context.Context, tenantID uuid.UUID, deliveries []*WebhookDelivery) error
 	UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error
 	UpdateDeliveryRequestBody(ctx context.Context, deliveryID uuid.UUID, requestBody string) error
-	GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, namespace string) (*WebhookDelivery, error)
-	GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error)
-	GetDeliveriesByEventPaginated(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error)
-	ListDeliveriesPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error)
+	GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, consumer string) (*WebhookDelivery, error)
+	GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, limit, offset int) ([]*WebhookDelivery, int, error)
+	GetDeliveriesByEventPaginated(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID, consumer string, limit, offset int) ([]*WebhookDelivery, int, error)
+	ListDeliveriesPaginated(ctx context.Context, tenantID uuid.UUID, consumer string, limit, offset int) ([]*WebhookDelivery, int, error)
 	ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, int, error)
-	GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, force bool) ([]*WebhookDelivery, error)
+	GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, force bool) ([]*WebhookDelivery, error)
 	ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UUID) error
 	DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUID) error
 	GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error)
@@ -146,20 +146,20 @@ func (r *Repository) UpdateDeliveryRequestBody(ctx context.Context, deliveryID u
 	return storage.Error(err)
 }
 
-// GetDeliveryByID gets a delivery by ID, optionally filtered by namespace, within a tenant.
-// When namespace is empty, looks up by delivery ID alone (still tenant-scoped).
-func (r *Repository) GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, namespace string) (*WebhookDelivery, error) {
+// GetDeliveryByID gets a delivery by ID, optionally filtered by consumer, within a tenant.
+// When consumer is empty, looks up by delivery ID alone (still tenant-scoped).
+func (r *Repository) GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, consumer string) (*WebhookDelivery, error) {
 	var query string
 	var args []any
 
-	if namespace != "" {
+	if consumer != "" {
 		query = fmt.Sprintf(`
 			SELECT %s
 			FROM webhook_deliveries wd
 			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-			WHERE wd.id = $1 AND wr.tenant_id = $2 AND wr.namespace = $3
+			WHERE wd.id = $1 AND wr.tenant_id = $2 AND wr.consumer = $3
 		`, deliveryColumns)
-		args = []any{deliveryID, tenantID, namespace}
+		args = []any{deliveryID, tenantID, consumer}
 	} else {
 		query = fmt.Sprintf(`
 			SELECT %s
@@ -183,17 +183,17 @@ func (r *Repository) GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, de
 }
 
 // GetDeliveriesByWebhookID retrieves webhook delivery records for a specific webhook within a tenant
-func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error) {
+func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, limit, offset int) ([]*WebhookDelivery, int, error) {
 	// First get total count
 	countQuery := `
 		SELECT COUNT(*)
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE wd.webhook_id = $1 AND wr.tenant_id = $2 AND wr.namespace = $3
+		WHERE wd.webhook_id = $1 AND wr.tenant_id = $2 AND wr.consumer = $3
 	`
 
 	var totalCount int
-	err := r.conn.GetContext(ctx, &totalCount, countQuery, webhookID, tenantID, namespace)
+	err := r.conn.GetContext(ctx, &totalCount, countQuery, webhookID, tenantID, consumer)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -203,13 +203,13 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid
 		SELECT %s
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE wd.webhook_id = $1 AND wr.tenant_id = $2 AND wr.namespace = $3
+		WHERE wd.webhook_id = $1 AND wr.tenant_id = $2 AND wr.consumer = $3
 		ORDER BY wd.created_at DESC
 		LIMIT $4 OFFSET $5
 	`, deliveryColumns)
 
 	var deliveries []*WebhookDelivery
-	err = r.conn.SelectContext(ctx, &deliveries, query, webhookID, tenantID, namespace, limit, offset)
+	err = r.conn.SelectContext(ctx, &deliveries, query, webhookID, tenantID, consumer, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -218,17 +218,17 @@ func (r *Repository) GetDeliveriesByWebhookID(ctx context.Context, tenantID uuid
 }
 
 // GetDeliveriesByEventPaginated retrieves webhook delivery records for a specific event within a tenant
-func (r *Repository) GetDeliveriesByEventPaginated(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error) {
+func (r *Repository) GetDeliveriesByEventPaginated(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID, consumer string, limit, offset int) ([]*WebhookDelivery, int, error) {
 	// First get total count
 	countQuery := `
 		SELECT COUNT(*)
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE wd.event_id = $1 AND wr.tenant_id = $2 AND wr.namespace = $3
+		WHERE wd.event_id = $1 AND wr.tenant_id = $2 AND wr.consumer = $3
 	`
 
 	var totalCount int
-	err := r.conn.GetContext(ctx, &totalCount, countQuery, eventID, tenantID, namespace)
+	err := r.conn.GetContext(ctx, &totalCount, countQuery, eventID, tenantID, consumer)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -238,13 +238,13 @@ func (r *Repository) GetDeliveriesByEventPaginated(ctx context.Context, tenantID
 		SELECT %s
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-		WHERE wd.event_id = $1 AND wr.tenant_id = $2 AND wr.namespace = $3
+		WHERE wd.event_id = $1 AND wr.tenant_id = $2 AND wr.consumer = $3
 		ORDER BY wd.created_at DESC
 		LIMIT $4 OFFSET $5
 	`, deliveryColumns)
 
 	var deliveries []*WebhookDelivery
-	err = r.conn.SelectContext(ctx, &deliveries, query, eventID, tenantID, namespace, limit, offset)
+	err = r.conn.SelectContext(ctx, &deliveries, query, eventID, tenantID, consumer, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
@@ -252,21 +252,21 @@ func (r *Repository) GetDeliveriesByEventPaginated(ctx context.Context, tenantID
 	return deliveries, totalCount, nil
 }
 
-// ListDeliveriesPaginated retrieves webhook delivery records within a tenant, optionally filtered by namespace.
-// When namespace is empty, returns deliveries across all namespaces for the tenant.
-func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.UUID, namespace string, limit, offset int) ([]*WebhookDelivery, int, error) {
+// ListDeliveriesPaginated retrieves webhook delivery records within a tenant, optionally filtered by consumer.
+// When consumer is empty, returns deliveries across all consumers for the tenant.
+func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.UUID, consumer string, limit, offset int) ([]*WebhookDelivery, int, error) {
 	var countQuery, query string
 	var args []any
 
-	if namespace != "" {
+	if consumer != "" {
 		// First get total count
 		countQuery = `
 			SELECT COUNT(*)
 			FROM webhook_deliveries wd
 			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-			WHERE wr.tenant_id = $1 AND wr.namespace = $2
+			WHERE wr.tenant_id = $1 AND wr.consumer = $2
 		`
-		args = []any{tenantID, namespace}
+		args = []any{tenantID, consumer}
 
 		var totalCount int
 		err := r.conn.GetContext(ctx, &totalCount, countQuery, args...)
@@ -279,13 +279,13 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 			SELECT %s
 			FROM webhook_deliveries wd
 			JOIN webhook_registrations wr ON wd.webhook_id = wr.id
-			WHERE wr.tenant_id = $1 AND wr.namespace = $2
+			WHERE wr.tenant_id = $1 AND wr.consumer = $2
 			ORDER BY wd.created_at DESC
 			LIMIT $3 OFFSET $4
 		`, deliveryColumns)
 
 		var deliveries []*WebhookDelivery
-		err = r.conn.SelectContext(ctx, &deliveries, query, tenantID, namespace, limit, offset)
+		err = r.conn.SelectContext(ctx, &deliveries, query, tenantID, consumer, limit, offset)
 		if err != nil {
 			return nil, 0, storage.Error(err)
 		}
@@ -293,7 +293,7 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 		return deliveries, totalCount, nil
 	}
 
-	// No namespace filter - return all deliveries for the tenant
+	// No consumer filter - return all deliveries for the tenant
 	countQuery = `
 		SELECT COUNT(*)
 		FROM webhook_deliveries wd
@@ -329,8 +329,8 @@ func (r *Repository) ListDeliveriesPaginated(ctx context.Context, tenantID uuid.
 // fields become no-op conditions — no dynamic SQL building required.
 func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) ([]*WebhookDelivery, int, error) {
 	var ns any
-	if filter.Namespace != "" {
-		ns = filter.Namespace
+	if filter.Consumer != "" {
+		ns = filter.Consumer
 	}
 
 	args := []any{tenantID, ns, filter.WebhookID, filter.EventID, filter.Status, filter.ErrorCategory, filter.SubscriptionID, filter.CreatedAfter, filter.CreatedBefore}
@@ -340,7 +340,7 @@ func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.U
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wr.tenant_id = $1
-		  AND ($2::text IS NULL OR wr.namespace = $2)
+		  AND ($2::text IS NULL OR wr.consumer = $2)
 		  AND ($3::uuid IS NULL OR wd.webhook_id = $3)
 		  AND ($4::uuid IS NULL OR wd.event_id = $4)
 		  AND ($5::text IS NULL OR wd.status::text = $5)
@@ -361,7 +361,7 @@ func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.U
 		FROM webhook_deliveries wd
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wr.tenant_id = $1
-		  AND ($2::text IS NULL OR wr.namespace = $2)
+		  AND ($2::text IS NULL OR wr.consumer = $2)
 		  AND ($3::uuid IS NULL OR wd.webhook_id = $3)
 		  AND ($4::uuid IS NULL OR wd.event_id = $4)
 		  AND ($5::text IS NULL OR wd.status::text = $5)
@@ -384,7 +384,7 @@ func (r *Repository) ListDeliveriesFiltered(ctx context.Context, tenantID uuid.U
 }
 
 // GetRetriableDeliveries finds webhook deliveries eligible for retry attempts within a tenant.
-func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, namespace string, force bool) ([]*WebhookDelivery, error) {
+func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID, consumer string, force bool) ([]*WebhookDelivery, error) {
 	query := `
 		SELECT wd.id, wd.webhook_id, wd.event_id, wd.status, wd.attempt_count, wd.max_attempts,
 		       wd.created_at, wd.last_attempted_at, wd.next_retry_at, wd.expires_at,
@@ -393,13 +393,13 @@ func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.U
 		JOIN webhook_registrations wr ON wd.webhook_id = wr.id
 		WHERE wd.webhook_id = $1
 		  AND wr.tenant_id = $2
-		  AND wr.namespace = $3
+		  AND wr.consumer = $3
 		  AND ($4 IS TRUE OR wd.status IN ('failed', 'pending', 'retrying'))
 		ORDER BY wd.created_at DESC
 	`
 
 	var deliveries []*WebhookDelivery
-	err := r.conn.SelectContext(ctx, &deliveries, query, webhookID, tenantID, namespace, force)
+	err := r.conn.SelectContext(ctx, &deliveries, query, webhookID, tenantID, consumer, force)
 	if err != nil {
 		return nil, storage.Error(err)
 	}

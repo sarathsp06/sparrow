@@ -26,7 +26,7 @@ retried once.`,
 			if err != nil {
 				return err
 			}
-			return runPush(cmd.Context(), cmd.OutOrStdout(), client, cfg.Namespace, args[0], data, labels, idempotencyKey)
+			return runPush(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, args[0], data, labels, idempotencyKey)
 		},
 	}
 	f := cmd.Flags()
@@ -38,14 +38,14 @@ retried once.`,
 
 // runPush pushes one event occurrence. If the event type is not registered
 // yet, it is auto-created and the push retried once.
-func runPush(ctx context.Context, out io.Writer, client *apiClient, namespace, event, data string, labels kvFlag, idempotencyKey string) error {
+func runPush(ctx context.Context, out io.Writer, client *apiClient, consumer, event, data string, labels kvFlag, idempotencyKey string) error {
 	payload, err := parseJSONArg(data)
 	if err != nil {
 		return err
 	}
 	body := pushBody{Payload: payload, Labels: labels, IdempotencyKey: idempotencyKey}
 
-	res, err := client.pushEvent(ctx, namespace, event, body)
+	res, err := client.pushEvent(ctx, consumer, event, body)
 	var apiErr *apiError
 	if errors.As(err, &apiErr) && (apiErr.Status == http.StatusNotFound || apiErr.Status == http.StatusUnprocessableEntity) {
 		// Unknown event type: register it and retry once.
@@ -53,7 +53,7 @@ func runPush(ctx context.Context, out io.Writer, client *apiClient, namespace, e
 			return fmt.Errorf("push failed (%v) and auto-creating event type failed: %w", err, cerr)
 		}
 		_, _ = fmt.Fprintf(out, "event type %q auto-created\n", event)
-		res, err = client.pushEvent(ctx, namespace, event, body)
+		res, err = client.pushEvent(ctx, consumer, event, body)
 	}
 	if err != nil {
 		return err

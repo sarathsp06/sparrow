@@ -25,8 +25,8 @@ network, and the recommended way to add real user authentication.
 What it does **not** provide:
 
 - **User accounts.** There is one key. Everyone who has it is equally trusted.
-- **Tenant isolation via namespaces.** Namespaces organize resources; they are
-  *not* a security boundary. Any valid API key can read and write every namespace.
+- **Tenant isolation via consumers.** Consumers organize resources; they are
+  *not* a security boundary. Any valid API key can read and write every consumer.
 - **Rate limiting on the API.** Put a reverse proxy in front if you need it.
 
 ## Trust model of the embedded dashboard

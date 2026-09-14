@@ -9,13 +9,13 @@
 
   import { api, unwrap } from "$lib/services";
   import { formatAPIError } from '$lib/utils';
-  import { namespaceStore } from '$lib/namespace.svelte';
+  import { consumerStore } from '$lib/consumer.svelte';
   import { onMount } from "svelte";
   import type { components } from "$lib/api-types";
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 
-  let namespace = $state(namespaceStore.value);
+  let consumer = $state(consumerStore.value);
   let event = $state("");
   let payload = $state({ json: {} } as Content);
   let labels = $state<Record<string, string>>({});
@@ -116,8 +116,8 @@
         payloadObj = payload.json;
       }
 
-      const res = unwrap(await api.POST('/v1/namespaces/{namespace}/events', {
-        params: { path: { namespace }, query: { event } },
+      const res = unwrap(await api.POST('/v1/consumers/{consumer}/events', {
+        params: { path: { consumer }, query: { event } },
         body: { payload: payloadObj, labels },
       }));
       successMessage = `Event pushed successfully! Event ID: ${res.event_id}`;
@@ -171,8 +171,8 @@
   {:else}
     <form onsubmit={pushEvent} class="panel p-6 space-y-5">
       <div>
-        <label for="namespace" class="field-label">Namespace</label>
-        <input id="namespace" type="text" bind:value={namespace} required class="input" />
+        <label for="consumer" class="field-label">Consumer</label>
+        <input id="consumer" type="text" bind:value={consumer} required class="input" />
       </div>
 
       <div>

@@ -4,6 +4,434 @@
  */
 
 export interface paths {
+    "/v1/consumers/{consumer}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List deliveries
+         * @description Lists deliveries in a consumer, optionally filtered by webhook, event occurrence, or status. Set prepare_retry to snapshot the filtered set for the batch retry endpoint.
+         */
+        get: operations["listDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/deliveries/{delivery_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a delivery by id
+         * @description Fetches one delivery's status, response code/body, and error classification.
+         */
+        get: operations["getDelivery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/deliveries/{delivery_id}/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a delivery's per-attempt history
+         * @description Returns the full per-attempt record for one delivery: response code, timing, and error classification for every attempt made so far.
+         */
+        get: operations["getDeliveryAttempts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/deliveries/{delivery_id}:retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a single delivery
+         * @description Immediately re-attempts one delivery, regardless of its current status or remaining attempt budget.
+         */
+        post: operations["retryDelivery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/deliveries:retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry deliveries in bulk for a webhook
+         * @description Retries every eligible (failed/pending) delivery for one webhook. Set force to also retry deliveries that already exhausted max_attempts.
+         */
+        post: operations["retryDeliveriesByWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/deliveries:retryBatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a batch retry job from a prepared snapshot
+         * @description Starts an async job that retries every delivery captured by an earlier prepare_retry=true list call. Poll the returned job with getDeliveryRetryJob.
+         */
+        post: operations["startDeliveryRetryJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pushed event occurrences
+         * @description Lists pushed event occurrences in a consumer, with delivery outcome counts per occurrence. Set prepare_repush to snapshot the filtered set for the batch re-push endpoint.
+         */
+        get: operations["listEventOccurrences"];
+        put?: never;
+        /**
+         * Push an event occurrence for asynchronous delivery
+         * @description Records one occurrence of a registered event type and asynchronously fans it out to every subscription whose event name and label filters match. Returns immediately; delivery happens in the background — check Deliveries for outcomes.
+         */
+        post: operations["pushEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/events:rePush": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a batch re-push job from a prepared snapshot
+         * @description Starts an async job that replays every event occurrence captured by an earlier prepare_repush=true list call. Poll the returned job with getEventRepushJob.
+         */
+        post: operations["startEventRepushJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/repush-jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get batch re-push job progress
+         * @description Returns a batch re-push job's status and processed/failed/total counts.
+         */
+        get: operations["getEventRepushJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/repush-jobs/{job_id}:cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a pending or in-progress batch re-push job
+         * @description Requests cancellation of a batch re-push job. Occurrences already re-pushed are not rolled back.
+         */
+        post: operations["cancelEventRepushJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/retry-jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get batch retry job progress
+         * @description Returns a batch retry job's status and processed/failed/total counts.
+         */
+        get: operations["getDeliveryRetryJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/retry-jobs/{job_id}:cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a pending or in-progress batch retry job
+         * @description Requests cancellation of a batch retry job. Deliveries already retried are not rolled back.
+         */
+        post: operations["cancelDeliveryRetryJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get aggregate delivery statistics for a consumer
+         * @description Returns webhook and delivery counts (total, active, successful, failed, pending, success rate) scoped to one consumer.
+         */
+        get: operations["getConsumerStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List subscriptions
+         * @description Lists subscriptions in a consumer, optionally filtered by webhook or event type name.
+         */
+        get: operations["listSubscriptions"];
+        put?: never;
+        /**
+         * Create a subscription linking a webhook to an event
+         * @description Subscribes a webhook to an event type within a consumer, with an optional payload transform and label filters. Registering a webhook already auto-creates one subscription per listed event — use this endpoint for additional or catch-all ("*") subscriptions.
+         */
+        post: operations["createSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/subscriptions/{subscription_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a subscription by id
+         * @description Fetches one subscription's webhook link, transform template, and label filters.
+         */
+        get: operations["getSubscription"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a subscription
+         * @description Removes the link between a webhook and an event type. The webhook stops receiving that event's occurrences; its delivery history is unaffected.
+         */
+        delete: operations["deleteSubscription"];
+        options?: never;
+        head?: never;
+        /**
+         * Partially update a subscription
+         * @description Merge-patches a subscription's headers, method, timeout, transform, or label filters. The linked webhook_id and event_name cannot be changed — delete and recreate instead.
+         */
+        patch: operations["updateSubscription"];
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List webhooks
+         * @description Lists webhooks in a consumer, optionally filtered by id, subscribed event, active flag, or computed health status.
+         */
+        get: operations["listWebhooks"];
+        put?: never;
+        /**
+         * Register a webhook
+         * @description Registers a new HTTP endpoint to receive deliveries and auto-creates a subscription for each listed event type. Returns the plaintext webhook secret once — it is masked on every subsequent read.
+         */
+        post: operations["registerWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/webhooks/{webhook_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a webhook by id
+         * @description Fetches a single webhook's configuration, masked secrets, and current health.
+         */
+        get: operations["getWebhook"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a webhook
+         * @description Permanently unregisters a webhook and cascade-deletes its subscriptions and delivery history. This cannot be undone.
+         */
+        delete: operations["deleteWebhook"];
+        options?: never;
+        head?: never;
+        /**
+         * Partially update a webhook
+         * @description Merge-patches a webhook: only fields present in the request body are changed. Omit a field to leave it untouched.
+         */
+        patch: operations["updateWebhook"];
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/webhooks/{webhook_id}/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get health status and metrics for a webhook
+         * @description Returns one webhook's computed health status (healthy/degraded/unhealthy) plus rolling delivery counts and per-category error counts (client, server, timeout, network, unexpected-status).
+         */
+        get: operations["getWebhookHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/webhooks/{webhook_id}:pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause a webhook
+         * @description Stops new deliveries to this webhook without deleting it. Events matching its subscriptions are still recorded but not delivered until resumed.
+         */
+        post: operations["pauseWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/webhooks/{webhook_id}:resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a paused webhook
+         * @description Re-enables deliveries to a previously paused webhook.
+         */
+        post: operations["resumeWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/deliveries/{delivery_id}": {
         parameters: {
             query?: never;
@@ -12,8 +440,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get a delivery by id (any namespace)
-         * @description Namespace-agnostic lookup by delivery id, for callers that only have the id (e.g. a webhook-signature verification failure report) and don't know which namespace it belongs to.
+         * Get a delivery by id (any consumer)
+         * @description Consumer-agnostic lookup by delivery id, for callers that only have the id (e.g. a webhook-signature verification failure report) and don't know which consumer it belongs to.
          */
         get: operations["getDeliveryGlobal"];
         put?: never;
@@ -32,8 +460,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get a delivery's per-attempt history (any namespace)
-         * @description Namespace-agnostic variant of getDeliveryAttempts.
+         * Get a delivery's per-attempt history (any consumer)
+         * @description Consumer-agnostic variant of getDeliveryAttempts.
          */
         get: operations["getDeliveryAttemptsGlobal"];
         put?: never;
@@ -54,8 +482,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Retry a single delivery (any namespace)
-         * @description Namespace-agnostic variant of retryDelivery.
+         * Retry a single delivery (any consumer)
+         * @description Consumer-agnostic variant of retryDelivery.
          */
         post: operations["retryDeliveryGlobal"];
         delete?: never;
@@ -125,7 +553,7 @@ export interface paths {
         };
         /**
          * Get a pushed event occurrence by id
-         * @description Fetches one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally unique, so no namespace is required.
+         * @description Fetches one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally unique, so no consumer is required.
          */
         get: operations["getEventOccurrence"];
         put?: never;
@@ -164,440 +592,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get aggregate webhook health counts across all namespaces
-         * @description Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, across every namespace — for a top-level dashboard tile.
+         * Get aggregate webhook health counts across all consumers
+         * @description Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, across every consumer — for a top-level dashboard tile.
          */
         get: operations["getHealthSummary"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/deliveries": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List deliveries
-         * @description Lists deliveries in a namespace, optionally filtered by webhook, event occurrence, or status. Set prepare_retry to snapshot the filtered set for the batch retry endpoint.
-         */
-        get: operations["listDeliveries"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/deliveries/{delivery_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a delivery by id
-         * @description Fetches one delivery's status, response code/body, and error classification.
-         */
-        get: operations["getDelivery"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/deliveries/{delivery_id}/attempts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a delivery's per-attempt history
-         * @description Returns the full per-attempt record for one delivery: response code, timing, and error classification for every attempt made so far.
-         */
-        get: operations["getDeliveryAttempts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/deliveries/{delivery_id}:retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Retry a single delivery
-         * @description Immediately re-attempts one delivery, regardless of its current status or remaining attempt budget.
-         */
-        post: operations["retryDelivery"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/deliveries:retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Retry deliveries in bulk for a webhook
-         * @description Retries every eligible (failed/pending) delivery for one webhook. Set force to also retry deliveries that already exhausted max_attempts.
-         */
-        post: operations["retryDeliveriesByWebhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/deliveries:retryBatch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start a batch retry job from a prepared snapshot
-         * @description Starts an async job that retries every delivery captured by an earlier prepare_retry=true list call. Poll the returned job with getDeliveryRetryJob.
-         */
-        post: operations["startDeliveryRetryJob"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List pushed event occurrences
-         * @description Lists pushed event occurrences in a namespace, with delivery outcome counts per occurrence. Set prepare_repush to snapshot the filtered set for the batch re-push endpoint.
-         */
-        get: operations["listEventOccurrences"];
-        put?: never;
-        /**
-         * Push an event occurrence for asynchronous delivery
-         * @description Records one occurrence of a registered event type and asynchronously fans it out to every subscription whose event name and label filters match. Returns immediately; delivery happens in the background — check Deliveries for outcomes.
-         */
-        post: operations["pushEvent"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/events:rePush": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start a batch re-push job from a prepared snapshot
-         * @description Starts an async job that replays every event occurrence captured by an earlier prepare_repush=true list call. Poll the returned job with getEventRepushJob.
-         */
-        post: operations["startEventRepushJob"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/repush-jobs/{job_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get batch re-push job progress
-         * @description Returns a batch re-push job's status and processed/failed/total counts.
-         */
-        get: operations["getEventRepushJob"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/repush-jobs/{job_id}:cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel a pending or in-progress batch re-push job
-         * @description Requests cancellation of a batch re-push job. Occurrences already re-pushed are not rolled back.
-         */
-        post: operations["cancelEventRepushJob"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/retry-jobs/{job_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get batch retry job progress
-         * @description Returns a batch retry job's status and processed/failed/total counts.
-         */
-        get: operations["getDeliveryRetryJob"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/retry-jobs/{job_id}:cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel a pending or in-progress batch retry job
-         * @description Requests cancellation of a batch retry job. Deliveries already retried are not rolled back.
-         */
-        post: operations["cancelDeliveryRetryJob"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get aggregate delivery statistics for a namespace
-         * @description Returns webhook and delivery counts (total, active, successful, failed, pending, success rate) scoped to one namespace.
-         */
-        get: operations["getNamespaceStats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/subscriptions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List subscriptions
-         * @description Lists subscriptions in a namespace, optionally filtered by webhook or event type name.
-         */
-        get: operations["listSubscriptions"];
-        put?: never;
-        /**
-         * Create a subscription linking a webhook to an event
-         * @description Subscribes a webhook to an event type within a namespace, with an optional payload transform and label filters. Registering a webhook already auto-creates one subscription per listed event — use this endpoint for additional or catch-all ("*") subscriptions.
-         */
-        post: operations["createSubscription"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/subscriptions/{subscription_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a subscription by id
-         * @description Fetches one subscription's webhook link, transform template, and label filters.
-         */
-        get: operations["getSubscription"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete a subscription
-         * @description Removes the link between a webhook and an event type. The webhook stops receiving that event's occurrences; its delivery history is unaffected.
-         */
-        delete: operations["deleteSubscription"];
-        options?: never;
-        head?: never;
-        /**
-         * Partially update a subscription
-         * @description Merge-patches a subscription's headers, method, timeout, transform, or label filters. The linked webhook_id and event_name cannot be changed — delete and recreate instead.
-         */
-        patch: operations["updateSubscription"];
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/webhooks": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List webhooks
-         * @description Lists webhooks in a namespace, optionally filtered by id, subscribed event, active flag, or computed health status.
-         */
-        get: operations["listWebhooks"];
-        put?: never;
-        /**
-         * Register a webhook
-         * @description Registers a new HTTP endpoint to receive deliveries and auto-creates a subscription for each listed event type. Returns the plaintext webhook secret once — it is masked on every subsequent read.
-         */
-        post: operations["registerWebhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/webhooks/{webhook_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a webhook by id
-         * @description Fetches a single webhook's configuration, masked secrets, and current health.
-         */
-        get: operations["getWebhook"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete a webhook
-         * @description Permanently unregisters a webhook and cascade-deletes its subscriptions and delivery history. This cannot be undone.
-         */
-        delete: operations["deleteWebhook"];
-        options?: never;
-        head?: never;
-        /**
-         * Partially update a webhook
-         * @description Merge-patches a webhook: only fields present in the request body are changed. Omit a field to leave it untouched.
-         */
-        patch: operations["updateWebhook"];
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/webhooks/{webhook_id}/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get health status and metrics for a webhook
-         * @description Returns one webhook's computed health status (healthy/degraded/unhealthy) plus rolling delivery counts and per-category error counts (client, server, timeout, network, unexpected-status).
-         */
-        get: operations["getWebhookHealth"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/webhooks/{webhook_id}:pause": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Pause a webhook
-         * @description Stops new deliveries to this webhook without deleting it. Events matching its subscriptions are still recorded but not delivered until resumed.
-         */
-        post: operations["pauseWebhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/namespaces/{namespace}/webhooks/{webhook_id}:resume": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Resume a paused webhook
-         * @description Re-enables deliveries to a previously paused webhook.
-         */
-        post: operations["resumeWebhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -612,8 +612,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get aggregate delivery statistics across all namespaces
-         * @description Returns the same counters as the per-namespace stats endpoint, aggregated across every namespace.
+         * Get aggregate delivery statistics across all consumers
+         * @description Returns the same counters as the per-consumer stats endpoint, aggregated across every consumer.
          */
         get: operations["getGlobalStats"];
         put?: never;
@@ -672,8 +672,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List webhooks across all namespaces filtered by computed health status
-         * @description Cross-namespace webhook listing. Pass health to filter by computed status, or webhook_id for an id-only lookup when the namespace isn't known.
+         * List webhooks across all consumers filtered by computed health status
+         * @description Cross-consumer webhook listing. Pass health to filter by computed status, or webhook_id for an id-only lookup when the consumer isn't known.
          */
         get: operations["listWebhooksByHealth"];
         put?: never;
@@ -727,6 +727,8 @@ export interface components {
              * @example https://example.com/schemas/BatchJobOutputBody.json
              */
             readonly $schema?: string;
+            /** @description Tenant consumer the job runs in. */
+            consumer: string;
             /** @description Creation timestamp, RFC3339. */
             created_at: string;
             /** @description When the job's underlying snapshot expires, RFC3339. */
@@ -743,8 +745,6 @@ export interface components {
              * @enum {string}
              */
             job_type: "event_repush" | "delivery_retry";
-            /** @description Tenant namespace the job runs in. */
-            namespace: string;
             /**
              * Format: int64
              * @description Items processed so far (successes + failures).
@@ -761,6 +761,49 @@ export interface components {
              */
             total: number;
         };
+        ConsumerStatsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ConsumerStatsOutputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: int64
+             * @description Webhooks currently active (not paused).
+             */
+            active_webhooks: number;
+            /**
+             * Format: int64
+             * @description Deliveries that failed.
+             */
+            failed_deliveries: number;
+            /**
+             * Format: int64
+             * @description Deliveries pending or retrying.
+             */
+            pending_deliveries: number;
+            /**
+             * Format: double
+             * @description Overall success rate, 0.0 to 1.0.
+             */
+            success_rate: number;
+            /**
+             * Format: int64
+             * @description Deliveries that succeeded.
+             */
+            successful_deliveries: number;
+            /**
+             * Format: int64
+             * @description Total delivery attempts recorded.
+             */
+            total_deliveries: number;
+            /**
+             * Format: int64
+             * @description Total webhooks registered.
+             */
+            total_webhooks: number;
+        };
         CreateSubscriptionBody: {
             /**
              * Format: uri
@@ -768,7 +811,7 @@ export interface components {
              * @example https://example.com/schemas/CreateSubscriptionBody.json
              */
             readonly $schema?: string;
-            /** @description Event type name to subscribe to, or "*" to receive every event in the namespace (catch-all). */
+            /** @description Event type name to subscribe to, or "*" to receive every event in the consumer (catch-all). */
             event_name: string;
             /** @description Extra HTTP headers to send with deliveries created by this subscription, merged with the webhook's own headers. */
             headers?: {
@@ -895,6 +938,8 @@ export interface components {
              * @example https://example.com/schemas/EventOccurrenceItem.json
              */
             readonly $schema?: string;
+            /** @description Tenant consumer this occurrence was pushed into. */
+            consumer: string;
             /** @description When this occurrence was pushed, RFC3339. */
             created_at: string;
             /** @description Event type name. */
@@ -914,8 +959,6 @@ export interface components {
             metadata?: {
                 [key: string]: string;
             };
-            /** @description Tenant namespace this occurrence was pushed into. */
-            namespace: string;
             /** @description The pushed payload. */
             payload: {
                 [key: string]: unknown;
@@ -999,22 +1042,22 @@ export interface components {
             readonly $schema?: string;
             /**
              * Format: int64
-             * @description Webhooks currently degraded, across all namespaces.
+             * @description Webhooks currently degraded, across all consumers.
              */
             degraded_count: number;
             /**
              * Format: int64
-             * @description Webhooks currently healthy, across all namespaces.
+             * @description Webhooks currently healthy, across all consumers.
              */
             healthy_count: number;
             /**
              * Format: int64
-             * @description Webhooks currently unhealthy, across all namespaces.
+             * @description Webhooks currently unhealthy, across all consumers.
              */
             unhealthy_count: number;
             /**
              * Format: int64
-             * @description Webhooks with no recent delivery attempts, across all namespaces.
+             * @description Webhooks with no recent delivery attempts, across all consumers.
              */
             unknown_count: number;
         };
@@ -1071,49 +1114,6 @@ export interface components {
             readonly $schema?: string;
             items: components["schemas"]["WebhookOut"][] | null;
             pagination: components["schemas"]["PaginationOutput"];
-        };
-        NamespaceStatsOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/NamespaceStatsOutputBody.json
-             */
-            readonly $schema?: string;
-            /**
-             * Format: int64
-             * @description Webhooks currently active (not paused).
-             */
-            active_webhooks: number;
-            /**
-             * Format: int64
-             * @description Deliveries that failed.
-             */
-            failed_deliveries: number;
-            /**
-             * Format: int64
-             * @description Deliveries pending or retrying.
-             */
-            pending_deliveries: number;
-            /**
-             * Format: double
-             * @description Overall success rate, 0.0 to 1.0.
-             */
-            success_rate: number;
-            /**
-             * Format: int64
-             * @description Deliveries that succeeded.
-             */
-            successful_deliveries: number;
-            /**
-             * Format: int64
-             * @description Total delivery attempts recorded.
-             */
-            total_deliveries: number;
-            /**
-             * Format: int64
-             * @description Total webhooks registered.
-             */
-            total_webhooks: number;
         };
         PaginationOutput: {
             has_more: boolean;
@@ -1238,7 +1238,7 @@ export interface components {
             active?: boolean;
             /** @description Free-text note for humans, e.g. which system or team owns this endpoint. */
             description?: string;
-            /** @description Event type names this webhook should receive; auto-creates one subscription per entry. Use "*" as the sole entry to subscribe to every event in the namespace. Omit or leave empty to register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-subscription transform_template). */
+            /** @description Event type names this webhook should receive; auto-creates one subscription per entry. Use "*" as the sole entry to subscribe to every event in the consumer. Omit or leave empty to register the webhook with no subscriptions, then attach them individually via POST .../subscriptions (e.g. to set a per-subscription transform_template). */
             events?: string[] | null;
             /** @description Static HTTP headers sent with every delivery to this webhook. */
             headers?: {
@@ -1322,6 +1322,8 @@ export interface components {
              * @example https://example.com/schemas/SubscriptionItem.json
              */
             readonly $schema?: string;
+            /** @description Tenant consumer this subscription belongs to. */
+            consumer: string;
             /** @description Creation timestamp, RFC3339. */
             created_at: string;
             /** @description Event type name this subscription matches, or "*" for catch-all. */
@@ -1339,8 +1341,6 @@ export interface components {
              * @enum {string}
              */
             method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-            /** @description Tenant namespace this subscription belongs to. */
-            namespace: string;
             /** @description Subscription id (UUID). */
             subscription_id: string;
             /**
@@ -1543,6 +1543,8 @@ export interface components {
             readonly $schema?: string;
             /** @description Whether the webhook currently receives deliveries. */
             active: boolean;
+            /** @description Tenant consumer this webhook belongs to. */
+            consumer: string;
             /** @description Creation timestamp, RFC3339. */
             created_at: string;
             /** @description Human-readable note about this webhook. */
@@ -1560,8 +1562,6 @@ export interface components {
             health: "healthy" | "degraded" | "unhealthy" | "unknown";
             /** @description Per-webhook HTTP delivery configuration. */
             http_config: components["schemas"]["WebhookHTTPConfigOut"];
-            /** @description Tenant namespace this webhook belongs to. */
-            namespace: string;
             /** @description Encrypted secret header names, with values always masked. */
             secret_headers?: {
                 [key: string]: string;
@@ -1589,6 +1589,1436 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listDeliveries: {
+        parameters: {
+            query?: {
+                /** @description Filter to deliveries for one webhook. */
+                webhook_id?: string;
+                /** @description Filter to deliveries for one pushed event occurrence. */
+                event_id?: string;
+                /** @description Filter by delivery status (e.g. pending, success, failed, retrying). */
+                status?: string;
+                /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
+                error_category?: string;
+                /** @description If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint. */
+                prepare_retry?: boolean;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Number of items to skip, for pagination. */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Tenant consumer to list deliveries in. */
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListDeliveriesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the delivery belongs to. */
+                consumer: string;
+                /** @description Delivery id (UUID). */
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryItem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getDeliveryAttempts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the delivery belongs to. */
+                consumer: string;
+                /** @description Delivery id (UUID). */
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttemptsOutputBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    retryDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the delivery belongs to. */
+                consumer: string;
+                /** @description Delivery id (UUID) to retry. */
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetryOutputBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    retryDeliveriesByWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the webhook belongs to. */
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetryDeliveriesByWebhookInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetryOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    startDeliveryRetryJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepushBatchInputBody"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchJobOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listEventOccurrences: {
+        parameters: {
+            query?: {
+                /** @description Filter to occurrences of this event type name. */
+                event?: string;
+                /** @description If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint. */
+                prepare_repush?: boolean;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Number of items to skip, for pagination. */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Tenant consumer to list occurrences in. */
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEventOccurrencesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    pushEvent: {
+        parameters: {
+            query: {
+                /** @description Name of a registered event type. */
+                event: string;
+            };
+            header?: never;
+            path: {
+                /** @description Tenant consumer to record the occurrence in. */
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushEventBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushEventOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    startEventRepushJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepushBatchInputBody"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchJobOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getEventRepushJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchJobOutputBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    cancelEventRepushJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getDeliveryRetryJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchJobOutputBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    cancelDeliveryRetryJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getConsumerStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsumerStatsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listSubscriptions: {
+        parameters: {
+            query?: {
+                /** @description Filter to subscriptions for one webhook. */
+                webhook_id?: string;
+                /** @description Filter to subscriptions for one event type name. */
+                event_name?: string;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Number of items to skip, for pagination. */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Tenant consumer to list subscriptions in. */
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSubscriptionsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSubscriptionBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionItem"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionItem"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchSubscriptionBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionItem"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listWebhooks: {
+        parameters: {
+            query?: {
+                /** @description Filter to a single webhook by id. */
+                webhook_id?: string;
+                /** @description Filter to webhooks subscribed to this event type name. */
+                event?: string;
+                /** @description Only return active webhooks. */
+                active?: boolean;
+                /** @description Filter by computed health status. */
+                health?: "healthy" | "degraded" | "unhealthy" | "unknown" | "";
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Number of items to skip, for pagination. */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Tenant consumer to list webhooks in. */
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListWebhooksOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    registerWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterWebhookBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the webhook belongs to. */
+                consumer: string;
+                /** @description Webhook id (UUID). */
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the webhook belongs to. */
+                consumer: string;
+                /** @description Webhook id (UUID). */
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    updateWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchWebhookBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookOut"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getWebhookHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the webhook belongs to. */
+                consumer: string;
+                /** @description Webhook id (UUID). */
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookHealthOutputBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    pauseWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the webhook belongs to. */
+                consumer: string;
+                /** @description Webhook id (UUID). */
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    resumeWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant consumer the webhook belongs to. */
+                consumer: string;
+                /** @description Webhook id (UUID). */
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     getDeliveryGlobal: {
         parameters: {
             query?: never;
@@ -2126,1436 +3556,6 @@ export interface operations {
             };
         };
     };
-    listDeliveries: {
-        parameters: {
-            query?: {
-                /** @description Filter to deliveries for one webhook. */
-                webhook_id?: string;
-                /** @description Filter to deliveries for one pushed event occurrence. */
-                event_id?: string;
-                /** @description Filter by delivery status (e.g. pending, success, failed, retrying). */
-                status?: string;
-                /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
-                error_category?: string;
-                /** @description If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint. */
-                prepare_retry?: boolean;
-                /** @description Maximum items to return. */
-                limit?: number;
-                /** @description Number of items to skip, for pagination. */
-                offset?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Tenant namespace to list deliveries in. */
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListDeliveriesOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    getDelivery: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Tenant namespace the delivery belongs to. */
-                namespace: string;
-                /** @description Delivery id (UUID). */
-                delivery_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeliveryItem"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    getDeliveryAttempts: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Tenant namespace the delivery belongs to. */
-                namespace: string;
-                /** @description Delivery id (UUID). */
-                delivery_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AttemptsOutputBody"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    retryDelivery: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Tenant namespace the delivery belongs to. */
-                namespace: string;
-                /** @description Delivery id (UUID) to retry. */
-                delivery_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RetryOutputBody"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    retryDeliveriesByWebhook: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Tenant namespace the webhook belongs to. */
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RetryDeliveriesByWebhookInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RetryOutputBody"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    startDeliveryRetryJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RepushBatchInputBody"];
-            };
-        };
-        responses: {
-            /** @description Accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BatchJobOutputBody"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    listEventOccurrences: {
-        parameters: {
-            query?: {
-                /** @description Filter to occurrences of this event type name. */
-                event?: string;
-                /** @description If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint. */
-                prepare_repush?: boolean;
-                /** @description Maximum items to return. */
-                limit?: number;
-                /** @description Number of items to skip, for pagination. */
-                offset?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Tenant namespace to list occurrences in. */
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListEventOccurrencesOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    pushEvent: {
-        parameters: {
-            query: {
-                /** @description Name of a registered event type. */
-                event: string;
-            };
-            header?: never;
-            path: {
-                /** @description Tenant namespace to record the occurrence in. */
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PushEventBody"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PushEventOutputBody"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    startEventRepushJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RepushBatchInputBody"];
-            };
-        };
-        responses: {
-            /** @description Accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BatchJobOutputBody"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    getEventRepushJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BatchJobOutputBody"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    cancelEventRepushJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    getDeliveryRetryJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BatchJobOutputBody"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    cancelDeliveryRetryJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-                job_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    getNamespaceStats: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NamespaceStatsOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    listSubscriptions: {
-        parameters: {
-            query?: {
-                /** @description Filter to subscriptions for one webhook. */
-                webhook_id?: string;
-                /** @description Filter to subscriptions for one event type name. */
-                event_name?: string;
-                /** @description Maximum items to return. */
-                limit?: number;
-                /** @description Number of items to skip, for pagination. */
-                offset?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Tenant namespace to list subscriptions in. */
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListSubscriptionsOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    createSubscription: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateSubscriptionBody"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SubscriptionItem"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    getSubscription: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-                subscription_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SubscriptionItem"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    deleteSubscription: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-                subscription_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    updateSubscription: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-                subscription_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatchSubscriptionBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SubscriptionItem"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    listWebhooks: {
-        parameters: {
-            query?: {
-                /** @description Filter to a single webhook by id. */
-                webhook_id?: string;
-                /** @description Filter to webhooks subscribed to this event type name. */
-                event?: string;
-                /** @description Only return active webhooks. */
-                active?: boolean;
-                /** @description Filter by computed health status. */
-                health?: "healthy" | "degraded" | "unhealthy" | "unknown" | "";
-                /** @description Maximum items to return. */
-                limit?: number;
-                /** @description Number of items to skip, for pagination. */
-                offset?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Tenant namespace to list webhooks in. */
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListWebhooksOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    registerWebhook: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RegisterWebhookBody"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WebhookOut"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    getWebhook: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Tenant namespace the webhook belongs to. */
-                namespace: string;
-                /** @description Webhook id (UUID). */
-                webhook_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WebhookOut"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    deleteWebhook: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Tenant namespace the webhook belongs to. */
-                namespace: string;
-                /** @description Webhook id (UUID). */
-                webhook_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    updateWebhook: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                namespace: string;
-                webhook_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatchWebhookBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WebhookOut"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    getWebhookHealth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Tenant namespace the webhook belongs to. */
-                namespace: string;
-                /** @description Webhook id (UUID). */
-                webhook_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WebhookHealthOutputBody"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    pauseWebhook: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Tenant namespace the webhook belongs to. */
-                namespace: string;
-                /** @description Webhook id (UUID). */
-                webhook_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    resumeWebhook: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Tenant namespace the webhook belongs to. */
-                namespace: string;
-                /** @description Webhook id (UUID). */
-                webhook_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     getGlobalStats: {
         parameters: {
             query?: never;
@@ -3571,7 +3571,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NamespaceStatsOutputBody"];
+                    "application/json": components["schemas"]["ConsumerStatsOutputBody"];
                 };
             };
             /** @description Error */
@@ -3679,7 +3679,7 @@ export interface operations {
             query?: {
                 /** @description Filter to webhooks with this computed health status. */
                 health?: "healthy" | "degraded" | "unhealthy" | "unknown" | "";
-                /** @description Look up a single webhook by id when its namespace is unknown. */
+                /** @description Look up a single webhook by id when its consumer is unknown. */
                 webhook_id?: string;
                 /** @description Maximum items to return. */
                 limit?: number;
