@@ -33,6 +33,7 @@ type DeliveryRequest struct {
 	Secret            string
 	Ed25519PrivateKey []byte // Raw Ed25519 private key (64 bytes) for asymmetric signing
 	Timeout           time.Duration
+	FollowRedirects   bool
 	EventID           uuid.UUID
 	EventName         string
 	Namespace         string
@@ -258,6 +259,7 @@ func PrepareDeliveryRequest(
 		Secret:            webhookSecret,
 		Ed25519PrivateKey: ed25519PrivateKey,
 		Timeout:           timeout,
+		FollowRedirects:   webhook.FollowRedirects,
 		EventID:           event.ID,
 		EventName:         event.Event,
 		Namespace:         event.Namespace,

@@ -15,8 +15,11 @@ import (
 // WebhookClient handles webhook delivery
 type WebhookClient struct {
 	httpClient *http.Client
-	tmpl       *template.TemplateEngine
-	config     *Config
+	// noRedirectClient shares the transport but never follows redirects,
+	// used when a webhook has follow_redirects=false.
+	noRedirectClient *http.Client
+	tmpl             *template.TemplateEngine
+	config           *Config
 }
 
 // NewWebhookClient creates a new webhook client
@@ -36,12 +39,10 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		dialer.Control = ssrfDialControl
 	}
 
-	var checkRedirect func(req *http.Request, via []*http.Request) error
-	if !config.AllowPrivateNetworks {
-		// SEC-001: Validate redirect targets against SSRF blocklist.
-		// Each redirect URL is checked for internal/private IPs and
-		// restricted hostnames before following.
-		checkRedirect = ssrfSafeCheckRedirect
+	checkRedirect := ssrfSafeCheckRedirect // SEC-001: validate redirect targets against SSRF blocklist
+	if config.AllowPrivateNetworks {
+		// Still bound redirect count and schemes; skip IP validation.
+		checkRedirect = permissiveCheckRedirect
 	}
 
 	transport := &http.Transport{
@@ -52,11 +53,19 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		DialContext:         dialer.DialContext,
 	}
 
+	instrumented := otelhttp.NewTransport(transport)
 	return &WebhookClient{
 		httpClient: &http.Client{
-			Transport:     otelhttp.NewTransport(transport),
+			Transport:     instrumented,
 			Timeout:       config.Timeout,
 			CheckRedirect: checkRedirect,
+		},
+		noRedirectClient: &http.Client{
+			Transport: instrumented,
+			Timeout:   config.Timeout,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
 		},
 		tmpl:   template.NewTemplateEngine(),
 		config: config,
@@ -87,8 +96,13 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 		httpReq = httpReq.WithContext(ctx)
 	}
 
+	httpClient := c.httpClient
+	if !req.FollowRedirects {
+		httpClient = c.noRedirectClient
+	}
+
 	start := time.Now()
-	resp, err := c.httpClient.Do(httpReq)
+	resp, err := httpClient.Do(httpReq)
 	duration := time.Since(start)
 
 	if err != nil {

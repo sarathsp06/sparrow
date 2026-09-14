@@ -55,6 +55,9 @@ func main() {
 	if err := cfg.Validate(); err != nil {
 		log.Fatalf("Invalid configuration: %v", err)
 	}
+	for _, warn := range cfg.Warnings() {
+		log.Printf("⚠️  %s", warn)
+	}
 
 	ctx := context.Background()
 	startTime := time.Now() // Track service start time for uptime calculation
@@ -220,7 +223,8 @@ func main() {
 	// health endpoints and UI are open.
 	r := chi.NewRouter()
 
-	// Global middleware: security headers, then CORS
+	// Global middleware: body size cap, security headers, then CORS
+	r.Use(middleware.MaxBodyBytes(cfg.MaxBodyBytes))
 	r.Use(middleware.SecurityHeaders)
 	corsHandler := buildCORSHandler(cfg)
 	r.Use(corsHandler.Handler)

@@ -76,7 +76,7 @@ type listSubscriptionsInput struct {
 	Namespace string `path:"namespace" doc:"Tenant namespace to list subscriptions in."`
 	WebhookID string `query:"webhook_id,omitempty" doc:"Filter to subscriptions for one webhook."`
 	EventName string `query:"event_name,omitempty" doc:"Filter to subscriptions for one event type name."`
-	Limit     int32  `query:"limit" default:"50" doc:"Maximum items to return."`
+	Limit     int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
 	Offset    int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
 }
 

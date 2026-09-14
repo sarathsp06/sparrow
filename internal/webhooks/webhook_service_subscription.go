@@ -94,12 +94,8 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, namespace string
 
 	tenantID := tenant.DefaultTenantID
 
-	if limit <= 0 {
-		limit = 50
-	}
-	if offset < 0 {
-		offset = 0
-	}
+	l, o := normalizePagination(int(limit), int(offset))
+	limit, offset = int32(l), int32(o)
 
 	var subs []*store.EventSubscription
 	var totalCount int

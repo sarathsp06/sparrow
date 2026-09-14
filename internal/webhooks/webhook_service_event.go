@@ -450,12 +450,8 @@ func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, limit,
 
 	// Event types are tenant-scoped
 
-	if limit <= 0 {
-		limit = 50
-	}
-	if offset < 0 {
-		offset = 0
-	}
+	l, o := normalizePagination(int(limit), int(offset))
+	limit, offset = int32(l), int32(o)
 
 	events, totalCount, err := s.webhookRepo.ListEventsPaginated(ctx, tenantID, activeOnly, int(limit), int(offset))
 	if err != nil {
@@ -676,17 +672,7 @@ func (s *WebhookService) ListEventReports(ctx context.Context, filter store.Even
 
 	tenantID := tenant.DefaultTenantID
 
-	// Set default limit if not provided or out of range
-	if filter.Limit <= 0 {
-		filter.Limit = 50
-	} else if filter.Limit > 1000 {
-		filter.Limit = 1000
-	}
-
-	// Ensure offset is not negative
-	if filter.Offset < 0 {
-		filter.Offset = 0
-	}
+	filter.Limit, filter.Offset = normalizePagination(filter.Limit, filter.Offset)
 
 	events, totalCount, err := s.webhookRepo.ListEventReportsFiltered(ctx, tenantID, filter)
 	if err != nil {

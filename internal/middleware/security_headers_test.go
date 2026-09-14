@@ -25,6 +25,7 @@ func TestSecurityHeaders(t *testing.T) {
 		{"X-Frame-Options", "DENY"},
 		{"Referrer-Policy", "strict-origin-when-cross-origin"},
 		{"Permissions-Policy", "interest-cohort=()"},
+		{"Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"},
 	}
 
 	for _, tt := range tests {

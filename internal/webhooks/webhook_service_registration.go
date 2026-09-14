@@ -428,12 +428,8 @@ func (s *WebhookService) ListWebhooks(ctx context.Context, namespace string, web
 
 	tenantID := tenant.DefaultTenantID
 
-	if limit <= 0 {
-		limit = 50
-	}
-	if offset < 0 {
-		offset = 0
-	}
+	l, o := normalizePagination(int(limit), int(offset))
+	limit, offset = int32(l), int32(o)
 
 	if webhookID != "" {
 		id, err := parseUUID(webhookID, "webhook ID")

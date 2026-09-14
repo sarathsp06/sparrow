@@ -79,7 +79,7 @@ type listDeliveriesInput struct {
 	Status        string `query:"status,omitempty" doc:"Filter by delivery status (e.g. pending, success, failed, retrying)."`
 	ErrorCategory string `query:"error_category,omitempty" doc:"Filter by failure classification (e.g. server_error, client_error, timeout)."`
 	PrepareRetry  bool   `query:"prepare_retry" default:"false" doc:"If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint."`
-	Limit         int32  `query:"limit" default:"50" doc:"Maximum items to return."`
+	Limit         int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
 	Offset        int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
 }
 

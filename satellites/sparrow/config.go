@@ -33,7 +33,6 @@ func configPath() (string, error) {
 	return filepath.Join(home, ".sparrow", "config.yaml"), nil
 }
 
-
 // resolveConfig merges file < flags < env, then applies defaults.
 func resolveConfig(flagURL, flagAPIKey, flagNamespace string) (config, error) {
 	var cfg config

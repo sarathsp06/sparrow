@@ -128,6 +128,20 @@ func ssrfSafeCheckRedirect(req *http.Request, via []*http.Request) error {
 	return validateRedirectURL(req.URL.String())
 }
 
+// permissiveCheckRedirect is used when AllowPrivateNetworks is enabled. It
+// still bounds the redirect chain and restricts schemes to http/https, but
+// skips IP/hostname validation.
+func permissiveCheckRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= maxRedirects {
+		return fmt.Errorf("stopped after %d redirects", maxRedirects)
+	}
+	scheme := strings.ToLower(req.URL.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("redirect to disallowed scheme %q", req.URL.Scheme)
+	}
+	return nil
+}
+
 // ssrfDialControl returns a net.Dialer Control function that validates
 // resolved IP addresses at connect time, preventing DNS rebinding attacks.
 // This is called after DNS resolution but before the TCP connection is

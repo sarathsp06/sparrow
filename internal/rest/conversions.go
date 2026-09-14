@@ -19,15 +19,17 @@ type conversionService interface {
 	ListSubscriptionsByWebhookIDs(ctx context.Context, webhookIDs []uuid.UUID) ([]*store.EventSubscription, error)
 }
 
-// maskSecret shows the first 4 characters of a plaintext secret, masking the rest.
+// maskSecret masks a plaintext secret for API responses. Only the whsec_
+// prefix (if present) stays visible; no plaintext secret bytes are exposed.
 func maskSecret(secret string) string {
 	if secret == "" {
 		return ""
 	}
-	if len(secret) <= 4 {
-		return strings.Repeat("*", len(secret))
+	const prefix = "whsec_"
+	if rest, ok := strings.CutPrefix(secret, prefix); ok {
+		return prefix + strings.Repeat("•", len(rest))
 	}
-	return secret[:4] + strings.Repeat("*", len(secret)-4)
+	return strings.Repeat("•", len(secret))
 }
 
 // maskEncryptedSecret decrypts an encrypted webhook secret and masks it for

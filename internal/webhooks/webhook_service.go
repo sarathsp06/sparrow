@@ -167,10 +167,16 @@ func parseUUID(s string, entityName string) (uuid.UUID, error) {
 	return id, nil
 }
 
-// normalizePagination applies default limit (50) and ensures offset is non-negative.
+// maxPageLimit caps list page sizes to bound response size and DB load.
+const maxPageLimit = 1000
+
+// normalizePagination applies default limit (50), caps limit at maxPageLimit,
+// and ensures offset is non-negative.
 func normalizePagination(limit, offset int) (int, int) {
 	if limit <= 0 {
 		limit = 50
+	} else if limit > maxPageLimit {
+		limit = maxPageLimit
 	}
 	if offset < 0 {
 		offset = 0

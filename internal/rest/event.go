@@ -72,7 +72,7 @@ func toEventTypeOutput(e *store.EventRegistration) *eventTypeOutput {
 
 type listEventTypesInput struct {
 	ActiveOnly bool  `query:"active_only" default:"false" doc:"Only return active event types."`
-	Limit      int32 `query:"limit" default:"50" doc:"Maximum items to return."`
+	Limit      int32 `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
 	Offset     int32 `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
 }
 
@@ -137,7 +137,7 @@ type listEventOccurrencesInput struct {
 	Namespace     string `path:"namespace" doc:"Tenant namespace to list occurrences in."`
 	Event         string `query:"event,omitempty" doc:"Filter to occurrences of this event type name."`
 	PrepareRepush bool   `query:"prepare_repush" default:"false" doc:"If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint."`
-	Limit         int32  `query:"limit" default:"50" doc:"Maximum items to return."`
+	Limit         int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
 	Offset        int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
 }
 

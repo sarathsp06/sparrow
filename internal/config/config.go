@@ -9,9 +9,12 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 
 	"github.com/kelseyhightower/envconfig"
+
+	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 // Config holds all server configuration populated from environment variables.
@@ -61,6 +64,12 @@ type Config struct {
 	// When empty in development, all origins are allowed.
 	// Env: CORS_ALLOWED_ORIGINS
 	CORSAllowedOrigins []string `envconfig:"CORS_ALLOWED_ORIGINS" default:""`
+
+	// MaxBodyBytes caps the size of incoming HTTP request bodies in bytes.
+	// Defaults to 5 MiB. Must be at least 1 MiB (Huma's per-operation limit)
+	// so oversized bodies surface as 413 rather than 500.
+	// Env: SPARROW_MAX_BODY_BYTES
+	MaxBodyBytes int64 `envconfig:"SPARROW_MAX_BODY_BYTES" default:"5242880"`
 }
 
 // Load populates a Config struct from environment variables.
@@ -88,10 +97,31 @@ func (c *Config) Validate() error {
 	if c.EncryptionKey == "" {
 		return fmt.Errorf("SPARROW_ENCRYPTION_KEY is required (generate with: openssl rand -hex 32)")
 	}
+	if _, err := crypto.ParseKey(c.EncryptionKey); err != nil {
+		return fmt.Errorf("SPARROW_ENCRYPTION_KEY: must be a 64-character hex string (generate with: openssl rand -hex 32): %w", err)
+	}
 	if c.DatabaseURL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
 	}
+	if c.IsProduction() && c.APIKey == "" {
+		return fmt.Errorf("SPARROW_API_KEY is required in production (without it all endpoints are unauthenticated)")
+	}
+	if c.MaxBodyBytes < 1<<20 {
+		return fmt.Errorf("SPARROW_MAX_BODY_BYTES: %d is below the 1 MiB minimum", c.MaxBodyBytes)
+	}
 	return nil
+}
+
+// Warnings returns non-fatal configuration advisories the caller should log.
+func (c *Config) Warnings() []string {
+	var warnings []string
+	if u, err := url.Parse(c.DatabaseURL); err == nil {
+		host := u.Hostname()
+		if u.Query().Get("sslmode") == "disable" && host != "" && host != "localhost" && host != "127.0.0.1" && host != "::1" {
+			warnings = append(warnings, fmt.Sprintf("DATABASE_URL uses sslmode=disable with non-local host %q — database traffic is unencrypted", host))
+		}
+	}
+	return warnings
 }
 
 // validatePort checks that a port string is a valid TCP port number (1-65535).

@@ -82,7 +82,7 @@ type listWebhooksInput struct {
 	Event     string `query:"event,omitempty" doc:"Filter to webhooks subscribed to this event type name."`
 	Active    bool   `query:"active" default:"false" doc:"Only return active webhooks."`
 	Health    string `query:"health,omitempty" enum:"healthy,degraded,unhealthy,unknown," doc:"Filter by computed health status."`
-	Limit     int32  `query:"limit" default:"50" doc:"Maximum items to return."`
+	Limit     int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
 	Offset    int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
 }
 

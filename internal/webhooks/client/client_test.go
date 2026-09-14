@@ -109,6 +109,54 @@ func TestSend(t *testing.T) {
 	}
 }
 
+func TestSendFollowRedirects(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/final" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		http.Redirect(w, r, "/final", http.StatusFound)
+	}))
+	defer server.Close()
+
+	client := NewWebhookClient(&Config{
+		Timeout:              30 * time.Second,
+		MaxIdleConns:         100,
+		MaxConnsPerHost:      10,
+		IdleConnTimeout:      90 * time.Second,
+		AllowPrivateNetworks: true, // httptest.NewServer binds to 127.0.0.1
+	})
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		follow     bool
+		wantStatus int
+	}{
+		{follow: false, wantStatus: http.StatusFound},
+		{follow: true, wantStatus: http.StatusOK},
+	} {
+		req := &DeliveryRequest{
+			WebhookID:       uuid.New(),
+			DeliveryID:      "delivery-123",
+			URL:             server.URL,
+			Method:          "POST",
+			Headers:         map[string]string{},
+			Payload:         []byte(`{}`),
+			EventID:         uuid.New(),
+			EventName:       "test.event",
+			FollowRedirects: tc.follow,
+		}
+		resp, _, err := client.Send(ctx, req)
+		if err != nil {
+			t.Fatalf("follow=%v: unexpected error: %v", tc.follow, err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != tc.wantStatus {
+			t.Errorf("follow=%v: expected status %d, got %d", tc.follow, tc.wantStatus, resp.StatusCode)
+		}
+	}
+}
+
 func TestSendFailure(t *testing.T) {
 	client := NewWebhookClient(nil)
 	ctx := context.Background()
