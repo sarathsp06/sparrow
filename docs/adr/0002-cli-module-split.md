@@ -63,15 +63,26 @@ special-casing — `go mod tidy` does not honour `go.work` replaces.
 Nested modules are versioned by **path-prefixed tags**, and `go install
 ...@version` refuses a module whose `go.mod` contains `replace` directives.
 So the working-tree `replace` must be stripped and real versions pinned before
-tagging. Release order:
+tagging. `scripts/release-submodules.sh vX.Y.Z --push` automates this end to
+end and is wired into `.github/workflows/release.yml` as the
+`release-submodules` job, running on every `v*` tag push alongside GoReleaser:
 
-1. Tag the leaves: `pkg/signature/vX.Y.Z`, then `pkg/template/vX.Y.Z`
-   (template requires signature).
-2. In `satellites/sparrow/go.mod` (and `pkg/template/go.mod`), remove the
-   `replace` lines and set the `require`s to the real `pkg/*` versions from
-   step 1.
-3. Tag the CLI: `satellites/sparrow/vX.Y.Z`.
-4. The server and other root binaries release under the existing `vX.Y.Z` tag.
+1. Tag the leaf `pkg/signature/vX.Y.Z` directly (stdlib-only, no `replace` to
+   strip).
+2. In a disposable detached worktree (never a branch merged to `main`), strip
+   `pkg/template/go.mod`'s `replace` line, pin its `pkg/signature` `require`
+   to the version from step 1, `go mod tidy`, commit, and tag
+   `pkg/template/vX.Y.Z`.
+3. Same recipe for `satellites/sparrow/go.mod`, pinning both `pkg/signature`
+   and `pkg/template`, then tag `satellites/sparrow/vX.Y.Z`.
+4. The server and other root binaries release under the existing `vX.Y.Z` tag
+   as before.
+
+`main`'s `go.work` + `replace` setup is untouched by any of this — the
+replace-stripped `go.mod`s only ever exist in the disposable worktrees behind
+each nested tag. The script is idempotent (skips any module already tagged at
+the requested version) and defaults to a dry run; `--push` is required to
+actually tag and push.
 
 The end-user command is unchanged:
 `go install github.com/sarathsp06/sparrow/satellites/sparrow@latest`.
