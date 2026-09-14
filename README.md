@@ -256,12 +256,13 @@ Everything is configured through environment variables.
 |---|---|---|---|
 | `DATABASE_URL` | Yes | `postgres://localhost/riverqueue?sslmode=disable` | PostgreSQL connection string |
 | `SPARROW_ENCRYPTION_KEY` | Yes | — | 64-char hex master key for envelope encryption |
-| `SPARROW_API_KEY` | No | — | Require `X-API-Key` on API requests |
+| `SPARROW_API_KEY` | Only if `ENVIRONMENT=production` | — | Require `X-API-Key` on API requests |
+| `ENVIRONMENT` | No | — | `production` enforces `SPARROW_API_KEY` at startup |
 | `SPARROW_HTTP_PORT` | No | `8080` | HTTP listen port |
 | `SPARROW_SERVE_UI` | No | `false` | Serve the embedded dashboard |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Disable the private-network SSRF guard |
+| `SPARROW_MAX_BODY_BYTES` | No | `5242880` (5 MiB) | Max request body size (min 1 MiB); oversized bodies get `413` |
 | `CORS_ALLOWED_ORIGINS` | No | — | Comma-separated browser allowlist |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | — | OTLP endpoint for traces / metrics / logs |
 
 Full reference: [`okf/config/env-vars.md`](okf/config/env-vars.md).
 

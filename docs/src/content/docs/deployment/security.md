@@ -3,11 +3,12 @@ title: Securing Sparrow
 description: Sparrow's security model, the trust assumptions of the embedded dashboard, and how to add SSO (username/password, Microsoft Entra, Google) with an identity-aware proxy.
 ---
 
-Sparrow's built-in authentication is deliberately minimal: one optional shared
-secret (`SPARROW_API_KEY`) checked on every API request. Everything beyond that
-— per-user logins, SSO, MFA, audit of *who* did what — is a deployment concern,
-solved by putting an identity-aware proxy in front of Sparrow rather than by
-building an identity provider into it.
+Sparrow's built-in authentication is deliberately minimal: one shared secret
+(`SPARROW_API_KEY`) checked on every API request — optional in development,
+required when `ENVIRONMENT=production` (the server refuses to start without
+it). Everything beyond that — per-user logins, SSO, MFA, audit of *who* did
+what — is a deployment concern, solved by putting an identity-aware proxy in
+front of Sparrow rather than by building an identity provider into it.
 
 This page covers what Sparrow does natively, what it assumes about your
 network, and the recommended way to add real user authentication.
@@ -16,7 +17,7 @@ network, and the recommended way to add real user authentication.
 
 | Control | Mechanism |
 |---|---|
-| API authentication | Optional shared secret: `SPARROW_API_KEY` → `X-API-Key` header, constant-time compare |
+| API authentication | Shared secret: `SPARROW_API_KEY` → `X-API-Key` header, constant-time compare; mandatory in production |
 | Secrets at rest | Envelope encryption (AES-256-GCM, per-record DEK) keyed by `SPARROW_ENCRYPTION_KEY` |
 | Outbound signing | Standard Webhooks signatures (`v1` HMAC-SHA256, `v1a` Ed25519) on every delivery |
 | SSRF protection | Private/loopback/link-local/metadata IPs blocked at dial time; redirects re-validated |
@@ -129,8 +130,9 @@ of one, but every part is thoroughly documented and widely deployed.
 
 Whether or not you add SSO:
 
-- [ ] Set `SPARROW_API_KEY` (generate: `openssl rand -hex 32`). Without it,
-      anyone who can reach the port owns the instance.
+- [ ] Set `SPARROW_API_KEY` (generate: `openssl rand -hex 32`) — mandatory
+      when `ENVIRONMENT=production`, and without it anyone who can reach the
+      port owns the instance regardless of environment.
 - [ ] Set `SPARROW_ENCRYPTION_KEY` and store it in a secret manager, never in
       the database or repo.
 - [ ] Use TLS to PostgreSQL (`sslmode=require` or stronger) whenever the

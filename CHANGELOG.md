@@ -6,16 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased]
+## [0.3.0] - 2026-09-14
 
 ### Added
 
 - `twilio` recipe: send events as SMS via the Twilio Messages API
 - Recipes can declare `webhook.secret_headers`; values are envelope-encrypted at rest and masked in API responses (wired through the CLI `use` command)
+- `SPARROW_MAX_BODY_BYTES` caps incoming request body size (default 5 MiB, min 1 MiB); oversized bodies return `413`
+- Content-Security-Policy header on all responses
+- `scripts/release-submodules.sh`, wired into CI, tags and publishes `pkg/signature`, `pkg/template`, and `satellites/sparrow` with working-tree `replace` directives stripped so `go install .../satellites/sparrow@latest` resolves (see `docs/adr/0002-cli-module-split.md`)
 
 ### Changed
 
+- **BREAKING:** renamed the "namespace" concept to "consumer" throughout the API (`/v1/consumers/{consumer}/...`), JSON fields, DB schema, CLI (`--consumer` / `SPARROW_CONSUMER`), and UI
+- **BREAKING:** with `ENVIRONMENT=production`, the server now refuses to start unless `SPARROW_API_KEY` is set
 - `clickhouse` recipe now stores the ClickHouse key as an encrypted `X-ClickHouse-Key` secret header instead of a plaintext header
+- `http_config`'s `max_retries`, `verify_ssl`, `follow_redirects`, and `capture_response_body` now distinguish "left unset" from "explicitly set to zero/false" — setting any one no longer silently resets the others to their zero value, and `max_retries: 0` is honored instead of falling back to the default
+- Per-webhook `follow_redirects: false` is now honored (previously silently ignored)
+- Pagination `limit` is capped at 1000 through a single shared helper; documented min/max in the OpenAPI spec
+- Delivery `status` reports `retrying` while River attempts remain, reserving `failed` for the actual terminal state (previously flipped from `failed` back to `success` mid-retry-cycle)
+- Webhook creation response now returns the real `created_at`/`updated_at` instead of the zero timestamp
+- Dashboard's Health page moved to `/dashboard/health` so it no longer collides with the server's `/health` liveness endpoint on hard refresh/deep-link
+- `maskSecret` no longer leaks plaintext secret characters (masks to the `whsec_` prefix only)
 
 ## [1.4.1] - 2026-06-23
 
