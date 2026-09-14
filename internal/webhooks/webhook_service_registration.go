@@ -242,11 +242,11 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 		Active:                webhookReg.Active,
 		Description:           webhookReg.Description,
 		Health:                store.WebhookHealth(webhookReg.Health),
-		MaxRetries:            webhookReg.HTTPConfig.MaxRetries,
+		MaxRetries:            DerefIntOr(webhookReg.HTTPConfig.MaxRetries, 3),
 		RetryBackoffSeconds:   webhookReg.HTTPConfig.RetryBackoffSeconds,
-		CaptureResponseBody:   webhookReg.HTTPConfig.CaptureResponseBody,
-		FollowRedirects:       webhookReg.HTTPConfig.FollowRedirects,
-		VerifySSL:             webhookReg.HTTPConfig.VerifySSL,
+		CaptureResponseBody:   DerefBoolOr(webhookReg.HTTPConfig.CaptureResponseBody, false),
+		FollowRedirects:       DerefBoolOr(webhookReg.HTTPConfig.FollowRedirects, true),
+		VerifySSL:             DerefBoolOr(webhookReg.HTTPConfig.VerifySSL, true),
 		RequestTimeoutSeconds: webhookReg.HTTPConfig.RequestTimeoutSeconds,
 		UserAgent:             webhookReg.HTTPConfig.UserAgent,
 		ContentType:           webhookReg.HTTPConfig.ContentType,
@@ -367,9 +367,12 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 
 	span.SetStatus(otelcodes.Ok, "webhook created successfully")
 
-	// Attach encrypted Ed25519 key so the handler can derive the public key for the response
+	// Attach encrypted Ed25519 key and the actual persisted timestamps so the
+	// handler returns what was stored, not zero-value placeholders (F-009).
 	webhookReg.Ed25519EncryptedPrivateKey = storeWebhook.Ed25519PrivateKey
 	webhookReg.SignatureType = string(storeWebhook.SignatureType)
+	webhookReg.CreatedAt = storeWebhook.CreatedAt
+	webhookReg.UpdatedAt = storeWebhook.UpdatedAt
 
 	return webhookReg, nil
 }
@@ -573,8 +576,8 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	}
 	// Apply HTTP config updates if provided
 	if shouldUpdate("http_config") && httpConfig != nil {
-		if httpConfig.MaxRetries > 0 {
-			webhook.MaxRetries = httpConfig.MaxRetries
+		if httpConfig.MaxRetries != nil {
+			webhook.MaxRetries = *httpConfig.MaxRetries
 		}
 		if httpConfig.RetryBackoffSeconds > 0 {
 			webhook.RetryBackoffSeconds = httpConfig.RetryBackoffSeconds
@@ -611,9 +614,15 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		if httpConfig.ContentType != "" {
 			webhook.ContentType = httpConfig.ContentType
 		}
-		webhook.CaptureResponseBody = httpConfig.CaptureResponseBody
-		webhook.FollowRedirects = httpConfig.FollowRedirects
-		webhook.VerifySSL = httpConfig.VerifySSL
+		if httpConfig.CaptureResponseBody != nil {
+			webhook.CaptureResponseBody = *httpConfig.CaptureResponseBody
+		}
+		if httpConfig.FollowRedirects != nil {
+			webhook.FollowRedirects = *httpConfig.FollowRedirects
+		}
+		if httpConfig.VerifySSL != nil {
+			webhook.VerifySSL = *httpConfig.VerifySSL
+		}
 		// RateLimitRPS: pointer field — nil means "not provided" (keep existing),
 		// non-nil overrides. With mask, "http_config.rate_limit_rps" must be in the mask.
 		updateRateLimit := false

@@ -128,13 +128,27 @@ never open duplicate incidents:
 
 Inserts each delivery as a row via ClickHouse's HTTP interface
 (`INSERT ... FORMAT JSONEachRow`). Params: `base_url`, `table`, `user`,
-`password` (sent as `X-ClickHouse-User`/`X-ClickHouse-Key` headers). The
+`password` (`user` is sent as the `X-ClickHouse-User` header; `password` as an
+envelope-encrypted `X-ClickHouse-Key` secret header). The
 target table needs `event_id`/`event_name`/`timestamp`/`payload` String
 columns:
 
 ```json
 {"event_id": "evt_0195c2a1", "event_name": "order.created", "timestamp": "2026-01-02T03:04:05Z", "payload": "{\"amount\":1999,\"order_id\":\"ord_42\"}"}
 ```
+
+### twilio
+
+Sends each delivery as an SMS via the Twilio Messages API. Params:
+`account_sid`, `basic_auth`, `from_number`, `to_number`. Twilio uses HTTP Basic
+auth: `basic_auth` is `base64("<AccountSID>:<AuthToken>")`, stored as an
+envelope-encrypted `Authorization` secret header so the auth token is never
+persisted in plaintext. The body is `application/x-www-form-urlencoded`:
+
+```text
+To=%2B15559876543&From=%2B15551230000&Body=Sparrow+order.created+%28event+evt_0195c2a1%2C+attempt+1%29+at+2026-01-02T03%3A04%3A05Z
+```
+
 
 ## Writing your own
 
@@ -145,18 +159,24 @@ version: 1
 name: myservice                # must match the filename
 description: One-line human description
 params:                        # values supplied at apply time via --param
+  - name: api_token
+    prompt: "MyService API token"
+    required: true
   - name: api_url
     prompt: "MyService ingest URL"
     required: true
 webhook:
   url: '{{param "api_url"}}'
   headers: {Content-Type: application/json}
+  secret_headers:             # envelope-encrypted at rest, masked on read
+    Authorization: 'Bearer {{param "api_token"}}'
 subscription:
   transform_template: |
     {"title": {{.event_name | json}}, "body": {{.payload | json}}}
 ```
 
-`{{param "x"}}` tokens in `webhook.url`, header values, and the template are
+`{{param "x"}}` tokens in `webhook.url`, header values, `secret_headers` values,
+and the template are
 replaced by the CLI at apply time via plain string substitution. The
 substituted template is registered on the subscription and rendered per
 delivery with `.event_id`, `.event_name`, `.timestamp` (RFC3339), `.attempt`,

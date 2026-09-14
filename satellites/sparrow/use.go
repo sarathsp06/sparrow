@@ -21,8 +21,9 @@ type recipe struct {
 	Description string        `yaml:"description"`
 	Params      []recipeParam `yaml:"params"`
 	Webhook     struct {
-		URL     string            `yaml:"url"`
-		Headers map[string]string `yaml:"headers"`
+		URL           string            `yaml:"url"`
+		Headers       map[string]string `yaml:"headers"`
+		SecretHeaders map[string]string `yaml:"secret_headers"`
 	} `yaml:"webhook"`
 	Subscription struct {
 		TransformTemplate string `yaml:"transform_template"`
@@ -168,17 +169,24 @@ func runUse(ctx context.Context, out io.Writer, client *apiClient, consumer, rec
 			return err
 		}
 	}
+	secretHeaders := make(map[string]string, len(r.Webhook.SecretHeaders))
+	for k, v := range r.Webhook.SecretHeaders {
+		if secretHeaders[k], err = substituteParams(v, params); err != nil {
+			return err
+		}
+	}
 	tmpl, err := substituteParams(r.Subscription.TransformTemplate, params)
 	if err != nil {
 		return err
 	}
 
 	hook, err := client.registerWebhook(ctx, consumer, webhookRequest{
-		URL:         hookURL,
-		Events:      events,
-		Active:      true,
-		Description: fmt.Sprintf("recipe %s: %s", r.Name, r.Description),
-		Headers:     headers,
+		URL:           hookURL,
+		Events:        events,
+		Active:        true,
+		Description:   fmt.Sprintf("recipe %s: %s", r.Name, r.Description),
+		Headers:       headers,
+		SecretHeaders: secretHeaders,
 	})
 	if err != nil {
 		return fmt.Errorf("register webhook: %w", err)

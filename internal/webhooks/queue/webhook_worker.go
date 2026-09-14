@@ -91,6 +91,18 @@ func (w *WebhookWorker) NextRetry(job *river.Job[WebhookArgs]) time.Time {
 	return time.Now().Add(delay)
 }
 
+// statusForFailure resolves the delivery status to record for a failed
+// attempt: StatusRetrying while River still has attempts left, StatusFailed
+// once this was the last one. Without this distinction "failed" isn't
+// terminal — a later successful retry flips it back to "success", making
+// "failed" an unreliable signal for anyone polling delivery status.
+func statusForFailure(attempt, maxAttempts int) store.WebhookDeliveryStatus {
+	if attempt < maxAttempts {
+		return store.StatusRetrying
+	}
+	return store.StatusFailed
+}
+
 // Work processes the webhook delivery job
 func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) error {
 	args := job.Args
@@ -311,7 +323,15 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			"error_category", string(errorCategory),
 		)
 
-		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, store.StatusFailed, 0, "", fmt.Sprintf("Request failed: %v", err), string(errorCategory))
+		// Non-retryable categories (DNS, TLS) are terminal regardless of
+		// attempts remaining; everything else is only "failed" once River
+		// has exhausted retries.
+		terminal := errorCategory != sparrowerrors.CategoryUnknown && !sparrowerrors.IsRetryableCategory(errorCategory)
+		status := store.StatusFailed
+		if !terminal {
+			status = statusForFailure(job.Attempt, args.MaxAttempts)
+		}
+		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, status, 0, "", fmt.Sprintf("Request failed: %v", err), string(errorCategory))
 
 		// Record health event and update health state
 		w.recordHealthOutcome(ctx, log, webhookID, deliveryID, false, int(duration.Milliseconds()), 0, err.Error(), string(errorCategory))
@@ -320,7 +340,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		// by returning nil instead of an error. The delivery is already marked failed.
 		// Unclassified transport errors (CategoryUnknown) are retried: an
 		// unrecognized network failure is more likely transient than permanent.
-		if errorCategory != sparrowerrors.CategoryUnknown && !sparrowerrors.IsRetryableCategory(errorCategory) {
+		if terminal {
 			log.WarnContext(ctx, "Non-retryable error category, cancelling retries",
 				"error_category", string(errorCategory),
 			)
@@ -414,8 +434,16 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	span.SetStatus(otelcodes.Error, "webhook delivery failed")
 	span.SetAttributes(attribute.String("error_category", string(errorCategory)))
 
+	// Client errors (4xx) are terminal regardless of attempts remaining;
+	// everything else is only "failed" once River has exhausted retries.
+	terminal := !sparrowerrors.IsRetryableCategory(errorCategory)
+	status := store.StatusFailed
+	if !terminal {
+		status = statusForFailure(job.Attempt, args.MaxAttempts)
+	}
+
 	err = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID,
-		store.StatusFailed, resp.StatusCode, string(body), errorMessage, string(errorCategory))
+		status, resp.StatusCode, string(body), errorMessage, string(errorCategory))
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update delivery status to failed", "error", err)
 	}
@@ -430,7 +458,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 
 	// For client errors (4xx), do not retry - return nil to cancel River retries.
 	// The delivery is already marked as failed with the appropriate error category.
-	if !sparrowerrors.IsRetryableCategory(errorCategory) {
+	if terminal {
 		log.WarnContext(ctx, "Non-retryable HTTP status, cancelling retries",
 			"status_code", resp.StatusCode,
 			"error_category", string(errorCategory),

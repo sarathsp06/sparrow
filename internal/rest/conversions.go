@@ -173,11 +173,11 @@ func toWebhookOutFromDomain(reg *webhooks.WebhookRegistration, svc webhooks.Secr
 		SignatureType:    reg.SignatureType,
 		SigningPublicKey: svc.WebhookSigningPublicKeyHex(reg.Ed25519EncryptedPrivateKey),
 		HTTPConfig: WebhookHTTPConfigOut{
-			MaxRetries:            reg.HTTPConfig.MaxRetries,
+			MaxRetries:            webhooks.DerefIntOr(reg.HTTPConfig.MaxRetries, 3),
 			RetryBackoffSeconds:   reg.HTTPConfig.RetryBackoffSeconds,
-			CaptureResponseBody:   reg.HTTPConfig.CaptureResponseBody,
-			FollowRedirects:       reg.HTTPConfig.FollowRedirects,
-			VerifySSL:             reg.HTTPConfig.VerifySSL,
+			CaptureResponseBody:   webhooks.DerefBoolOr(reg.HTTPConfig.CaptureResponseBody, false),
+			FollowRedirects:       webhooks.DerefBoolOr(reg.HTTPConfig.FollowRedirects, true),
+			VerifySSL:             webhooks.DerefBoolOr(reg.HTTPConfig.VerifySSL, true),
 			RequestTimeoutSeconds: reg.HTTPConfig.RequestTimeoutSeconds,
 			ExpectedStatusCodes:   codes,
 			WebhookSecret:         reg.HTTPConfig.WebhookSecret, // shown once, plaintext, at creation

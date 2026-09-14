@@ -18,6 +18,8 @@ webhook:
   url: '{{param "base_url"}}/?query=INSERT%20INTO%20{{param "table"}}%20FORMAT%20JSONEachRow'
   headers:
     X-ClickHouse-User: '{{param "user"}}'
+  secret_headers:
+    # Password is envelope-encrypted at rest and masked in API responses.
     X-ClickHouse-Key: '{{param "password"}}'
 subscription:
   transform_template: |

@@ -75,7 +75,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface) huma.API {
 			Type:        "apiKey",
 			In:          "header",
 			Name:        "X-API-Key",
-			Description: "Required only when the server is started with SPARROW_API_KEY set; otherwise all endpoints are open.",
+			Description: "Required only when the server is started with SPARROW_API_KEY set; otherwise all endpoints are open. Note: if the embedded dashboard is enabled (SPARROW_SERVE_UI=true), it is served without authentication and exposes this key to any browser that can load it — treat the deployment as trusted-network-only, or disable the dashboard / put it behind an authenticating proxy for untrusted networks.",
 		},
 	}
 	// Optional auth: try the API key, but an empty requirement ({}) means

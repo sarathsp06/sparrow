@@ -282,6 +282,9 @@ Adapters as config: a recipe is a YAML file pairing a destination URL with a tra
 | [`ntfy`](satellites/recipes/ntfy.yaml) | ntfy topic (push notification) | `topic_url` |
 | [`pagerduty`](satellites/recipes/pagerduty.yaml) | PagerDuty Events API v2 (deduped alerts) | `routing_key` |
 | [`clickhouse`](satellites/recipes/clickhouse.yaml) | ClickHouse HTTP insert (one row per delivery) | `base_url`, `table`, `user`, `password` |
+| [`twilio`](satellites/recipes/twilio.yaml) | Twilio SMS (Messages API) | `account_sid`, `basic_auth`, `from_number`, `to_number` |
+
+Recipe credentials that map to HTTP headers (Twilio `basic_auth`, ClickHouse `password`) are stored as **envelope-encrypted secret headers** and masked in every API response. PagerDuty's `routing_key` is part of the request body the API requires, so it lives in the transform template.
 
 ### Sources
 

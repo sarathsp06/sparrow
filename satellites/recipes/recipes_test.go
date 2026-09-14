@@ -102,6 +102,9 @@ func TestRecipes(t *testing.T) {
 			for _, v := range r.Webhook.Headers {
 				substitutable = append(substitutable, v)
 			}
+			for _, v := range r.Webhook.SecretHeaders {
+				substitutable = append(substitutable, v)
+			}
 			for _, s := range substitutable {
 				for _, name := range tokenRefs(s) {
 					if !declared[name] {
@@ -119,7 +122,7 @@ func TestRecipes(t *testing.T) {
 			}
 
 			// Every destination except ntfy speaks JSON.
-			if r.Name != "ntfy" && !json.Valid(out) {
+			if r.Name != "ntfy" && r.Name != "twilio" && !json.Valid(out) {
 				t.Errorf("rendered output is not valid JSON:\n%s", out)
 			}
 		})

@@ -8,10 +8,10 @@ package recipes
 // Recipe is one adapter recipe, schema version 1.
 //
 // Occurrences of {{param "name"}} in Webhook.URL, Webhook.Headers values,
-// and Subscription.TransformTemplate are replaced with user-supplied values
-// at apply time via plain string substitution. The (substituted) transform
-// template is then passed verbatim to Sparrow and rendered server-side per
-// delivery.
+// Webhook.SecretHeaders values, and Subscription.TransformTemplate are
+// replaced with user-supplied values at apply time via plain string
+// substitution. The (substituted) transform template is then passed verbatim
+// to Sparrow and rendered server-side per delivery.
 type Recipe struct {
 	Version      int          `yaml:"version" json:"version"`
 	Name         string       `yaml:"name" json:"name"`
@@ -32,6 +32,11 @@ type Param struct {
 type Webhook struct {
 	URL     string            `yaml:"url" json:"url"`
 	Headers map[string]string `yaml:"headers" json:"headers,omitempty"`
+	// SecretHeaders are HTTP headers whose values are envelope-encrypted at
+	// rest and masked in every API response — use for upstream auth tokens
+	// and passwords (e.g. Twilio Basic auth, ClickHouse key). Values support
+	// {{param "name"}} substitution like URL and Headers.
+	SecretHeaders map[string]string `yaml:"secret_headers" json:"secret_headers,omitempty"`
 }
 
 // Subscription holds the per-subscription transform applied to deliveries.

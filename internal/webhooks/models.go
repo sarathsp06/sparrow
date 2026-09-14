@@ -38,14 +38,16 @@ type WebhookRegistration struct {
 
 // WebhookHTTPConfig contains HTTP-specific configuration for webhook delivery
 type WebhookHTTPConfig struct {
-	MaxRetries          int `db:"max_retries" json:"max_retries"`
-	RetryBackoffSeconds int `db:"retry_backoff_seconds" json:"retry_backoff_seconds"`
+	MaxRetries          *int `db:"max_retries" json:"max_retries"`
+	RetryBackoffSeconds int  `db:"retry_backoff_seconds" json:"retry_backoff_seconds"`
 	// CaptureResponseBody controls the stored response body size limit per delivery attempt.
 	// false (default): stores up to 1 KB. true: stores up to 1 MB.
 	// The response body is always read regardless of this setting (required for HTTP connection reuse).
-	CaptureResponseBody   bool     `db:"capture_response_body" json:"capture_response_body"`
-	FollowRedirects       bool     `db:"follow_redirects" json:"follow_redirects"`
-	VerifySSL             bool     `db:"verify_ssl" json:"verify_ssl"`
+	// CaptureResponseBody, FollowRedirects, VerifySSL, and MaxRetries are pointers:
+	// nil means "not explicitly set, use default"; non-nil (including a zero/false value) overrides it.
+	CaptureResponseBody   *bool    `db:"capture_response_body" json:"capture_response_body"`
+	FollowRedirects       *bool    `db:"follow_redirects" json:"follow_redirects"`
+	VerifySSL             *bool    `db:"verify_ssl" json:"verify_ssl"`
 	RequestTimeoutSeconds int      `db:"request_timeout_seconds" json:"request_timeout_seconds"`
 	ExpectedStatusCodes   IntArray `db:"expected_status_codes" json:"expected_status_codes"`
 	WebhookSecret         string   `db:"webhook_secret" json:"webhook_secret,omitempty"`
@@ -54,14 +56,32 @@ type WebhookHTTPConfig struct {
 	RateLimitRPS          *float64 `db:"rate_limit_rps" json:"rate_limit_rps,omitempty"`
 }
 
+// DerefIntOr and DerefBoolOr resolve an optional "explicitly set" config
+// pointer to its concrete value, falling back to def when unset. Callers
+// should only need the fallback defensively: DefaultWebhookHTTPConfig +
+// ApplyConfig always leave these fields non-nil in practice.
+func DerefIntOr(p *int, def int) int {
+	if p == nil {
+		return def
+	}
+	return *p
+}
+
+func DerefBoolOr(p *bool, def bool) bool {
+	if p == nil {
+		return def
+	}
+	return *p
+}
+
 // DefaultWebhookHTTPConfig returns default HTTP configuration
 func DefaultWebhookHTTPConfig() WebhookHTTPConfig {
 	return WebhookHTTPConfig{
-		MaxRetries:            3,
+		MaxRetries:            new(3),
 		RetryBackoffSeconds:   60,
-		CaptureResponseBody:   false, // stores up to 1 KB of response body; set true for up to 1 MB
-		FollowRedirects:       true,
-		VerifySSL:             true,
+		CaptureResponseBody:   new(false), // stores up to 1 KB of response body; set true for up to 1 MB
+		FollowRedirects:       new(true),
+		VerifySSL:             new(true),
 		RequestTimeoutSeconds: 30,
 		ExpectedStatusCodes:   IntArray{200, 201, 202, 204},
 		UserAgent:             "Sparrow-Webhook/1.0",
@@ -91,8 +111,8 @@ func (config WebhookHTTPConfig) IsSuccessStatusCode(statusCode int) bool {
 
 // ValidateConfig validates the HTTP configuration
 func (config WebhookHTTPConfig) ValidateConfig() error {
-	if config.MaxRetries < 0 || config.MaxRetries > 10 {
-		return svcerrors.Errorf(svcerrors.InvalidArgument, "max_retries must be between 0 and 10, got %d", config.MaxRetries)
+	if config.MaxRetries != nil && (*config.MaxRetries < 0 || *config.MaxRetries > 10) {
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "max_retries must be between 0 and 10, got %d", *config.MaxRetries)
 	}
 
 	if config.RetryBackoffSeconds <= 0 || config.RetryBackoffSeconds > 3600 {
@@ -132,8 +152,9 @@ func (config *WebhookHTTPConfig) ApplyConfig(other *WebhookHTTPConfig) {
 		return
 	}
 
-	// Override non-zero numeric values
-	if other.MaxRetries > 0 {
+	// MaxRetries is a pointer: nil means "not set, keep default"; non-nil overrides,
+	// including an explicit 0 (no retries).
+	if other.MaxRetries != nil {
 		config.MaxRetries = other.MaxRetries
 	}
 	if other.RetryBackoffSeconds > 0 {
@@ -159,15 +180,17 @@ func (config *WebhookHTTPConfig) ApplyConfig(other *WebhookHTTPConfig) {
 		config.ContentType = other.ContentType
 	}
 
-	// For booleans, we can't easily distinguish "explicitly set to false" from "default false"
-	// So we'll apply them directly, which means:
-	// - CaptureResponseBody: false by default, user can set to true
-	// - FollowRedirects: true by default, user can set to false
-	// - VerifySSL: true by default, user can set to false
-	// This works for most cases since users typically want to enable capture or disable SSL/redirects
-	config.CaptureResponseBody = other.CaptureResponseBody
-	config.FollowRedirects = other.FollowRedirects
-	config.VerifySSL = other.VerifySSL
+	// Booleans are pointers: nil means "not set, keep default"; non-nil overrides,
+	// including an explicit false.
+	if other.CaptureResponseBody != nil {
+		config.CaptureResponseBody = other.CaptureResponseBody
+	}
+	if other.FollowRedirects != nil {
+		config.FollowRedirects = other.FollowRedirects
+	}
+	if other.VerifySSL != nil {
+		config.VerifySSL = other.VerifySSL
+	}
 
 	// RateLimitRPS is a pointer: nil means "don't change", non-nil overrides (including to set a limit)
 	if other.RateLimitRPS != nil {
@@ -276,11 +299,11 @@ func (m JSONBMap) Value() (driver.Value, error) {
 // HTTPConfigUpdate represents HTTP configuration fields that can be updated.
 // Used as an optional parameter in UpdateWebhookConfig to apply http_config changes.
 type HTTPConfigUpdate struct {
-	MaxRetries            int
+	MaxRetries            *int
 	RetryBackoffSeconds   int
-	CaptureResponseBody   bool
-	FollowRedirects       bool
-	VerifySSL             bool
+	CaptureResponseBody   *bool
+	FollowRedirects       *bool
+	VerifySSL             *bool
 	RequestTimeoutSeconds int
 	ExpectedStatusCodes   []int
 	WebhookSecret         string

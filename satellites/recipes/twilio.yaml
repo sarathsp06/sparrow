@@ -1,0 +1,31 @@
+version: 1
+name: twilio
+description: Send events as SMS via the Twilio Messages API
+params:
+  - name: account_sid
+    prompt: "Twilio Account SID (starts with AC...)"
+    required: true
+  - name: basic_auth
+    prompt: "Twilio Basic auth token — run: printf '%s:%s' <AccountSID> <AuthToken> | base64"
+    required: true
+  - name: from_number
+    prompt: "Sender number in E.164 without '+', digits only (e.g. 15551230000)"
+    required: true
+  - name: to_number
+    prompt: "Recipient number in E.164 without '+', digits only (e.g. 15559876543)"
+    required: true
+webhook:
+  url: 'https://api.twilio.com/2010-04-01/Accounts/{{param "account_sid"}}/Messages.json'
+  headers:
+    Content-Type: application/x-www-form-urlencoded
+  secret_headers:
+    # Envelope-encrypted at rest, masked in API responses. Twilio auth is HTTP
+    # Basic: base64("<AccountSID>:<AuthToken>"). The AuthToken never leaves the
+    # encrypted store in plaintext.
+    Authorization: 'Basic {{param "basic_auth"}}'
+subscription:
+  # Twilio expects application/x-www-form-urlencoded. To/From are set from params
+  # at apply time (digits are URL-safe; %2B is the encoded '+'); Body is rendered
+  # per delivery and URL-encoded.
+  transform_template: |
+    To=%2B{{param "to_number"}}&From=%2B{{param "from_number"}}&Body={{printf "Sparrow %s (event %s, attempt %d) at %s" .event_name .event_id .attempt .timestamp | urlencode}}

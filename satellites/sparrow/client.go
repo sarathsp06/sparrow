@@ -94,11 +94,12 @@ type pushResult struct {
 }
 
 type webhookRequest struct {
-	URL         string            `json:"url"`
-	Events      []string          `json:"events"`
-	Active      bool              `json:"active"`
-	Description string            `json:"description,omitempty"`
-	Headers     map[string]string `json:"headers,omitempty"`
+	URL           string            `json:"url"`
+	Events        []string          `json:"events"`
+	Active        bool              `json:"active"`
+	Description   string            `json:"description,omitempty"`
+	Headers       map[string]string `json:"headers,omitempty"`
+	SecretHeaders map[string]string `json:"secret_headers,omitempty"`
 }
 
 type webhookOut struct {

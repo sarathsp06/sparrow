@@ -20,17 +20,17 @@ type registerWebhookBody struct {
 	Description   string             `json:"description,omitempty" doc:"Free-text note for humans, e.g. which system or team owns this endpoint."`
 	HTTPConfig    *webhookHTTPConfig `json:"http_config,omitempty" doc:"Per-webhook HTTP delivery tuning (retries, timeouts, rate limit). Falls back to server defaults for any field left unset."`
 	RateLimitRPS  *float64           `json:"rate_limit_rps,omitempty" doc:"Maximum sustained delivery rate to this webhook, in requests per second. Excess deliveries queue and are sent once the leaky bucket has capacity."`
-	SignatureType string             `json:"signature_type,omitempty" enum:"hmac,ed25519," doc:"Which signature algorithm to require verification against. Every delivery is always dual-signed (HMAC-SHA256 and Ed25519, Standard Webhooks format); this only changes which one is treated as authoritative. Defaults to hmac."`
+	SignatureType string             `json:"signature_type,omitempty" enum:"hmac,ed25519," doc:"Which signature algorithm to require verification against. Deliveries are HMAC-SHA256 signed (v1,) by default; once signature_type is set to ed25519 (which generates a signing keypair), later deliveries are dual-signed (v1, and v1a,, Standard Webhooks format). Defaults to hmac."`
 }
 
 // webhookHTTPConfig tunes how deliveries to a single webhook are made and
 // retried; every field is optional and falls back to a server default.
 type webhookHTTPConfig struct {
-	MaxRetries            int      `json:"max_retries,omitempty" doc:"Maximum delivery attempts before a delivery is marked failed."`
+	MaxRetries            *int     `json:"max_retries,omitempty" doc:"Maximum delivery attempts before a delivery is marked failed. 0 means no retries."`
 	RetryBackoffSeconds   int      `json:"retry_backoff_seconds,omitempty" doc:"Base delay between retry attempts, in seconds. Backoff grows exponentially from this value."`
-	CaptureResponseBody   bool     `json:"capture_response_body,omitempty" doc:"Whether to store the endpoint's response body alongside each delivery attempt, for debugging."`
-	FollowRedirects       bool     `json:"follow_redirects,omitempty" doc:"Whether to follow HTTP redirects returned by the endpoint."`
-	VerifySSL             bool     `json:"verify_ssl,omitempty" doc:"Whether to verify the endpoint's TLS certificate. Disable only for trusted internal endpoints with self-signed certs."`
+	CaptureResponseBody   *bool    `json:"capture_response_body,omitempty" doc:"Whether to store the endpoint's response body alongside each delivery attempt, for debugging."`
+	FollowRedirects       *bool    `json:"follow_redirects,omitempty" doc:"Whether to follow HTTP redirects returned by the endpoint."`
+	VerifySSL             *bool    `json:"verify_ssl,omitempty" doc:"Whether to verify the endpoint's TLS certificate. Disable only for trusted internal endpoints with self-signed certs."`
 	RequestTimeoutSeconds int      `json:"request_timeout_seconds,omitempty" doc:"How long to wait for the endpoint to respond before treating the attempt as a timeout."`
 	ExpectedStatusCodes   []int    `json:"expected_status_codes,omitempty" doc:"HTTP status codes treated as a successful delivery. Defaults to 2xx if left empty."`
 	UserAgent             string   `json:"user_agent,omitempty" doc:"Custom User-Agent header sent with deliveries."`

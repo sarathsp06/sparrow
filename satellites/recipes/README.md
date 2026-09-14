@@ -22,6 +22,7 @@ sparrow use slack --param webhook_url=https://hooks.slack.com/services/T000/B000
 | `ntfy` | ntfy topic (plain-text push notification) | `topic_url` |
 | `pagerduty` | PagerDuty Events API v2 (trigger alert) | `routing_key` |
 | `clickhouse` | ClickHouse HTTP interface (JSONEachRow insert) | `base_url`, `table`, `user`, `password` |
+| `twilio` | Twilio SMS (Messages API) | `account_sid`, `basic_auth`, `from_number`, `to_number` |
 
 ## Schema (version 1)
 
@@ -36,6 +37,8 @@ params:                        # values the user supplies at apply time
 webhook:
   url: '{{param "webhook_url"}}'
   headers: {Content-Type: application/json}
+  secret_headers:              # envelope-encrypted at rest, masked in API responses
+    Authorization: 'Bearer {{param "api_token"}}'  # for header-based auth tokens/passwords
 subscription:
   transform_template: |
     <Go template producing destination-native JSON from .event_name/.payload/etc>
@@ -46,7 +49,8 @@ The Go struct for this schema lives in [`schema.go`](schema.go)
 
 ## How params work
 
-`{{param "x"}}` tokens in `webhook.url`, `webhook.headers` values, and
+`{{param "x"}}` tokens in `webhook.url`, `webhook.headers` values,
+`webhook.secret_headers` values, and
 `subscription.transform_template` are replaced by the CLI at apply time via
 plain string substitution — write the token exactly as shown, with no extra
 spaces or pipes. The substituted `transform_template` is then registered

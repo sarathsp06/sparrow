@@ -843,7 +843,7 @@ components:
           description: HTTP headers whose values are envelope-encrypted at rest and masked in every API response (e.g. an upstream auth token).
           type: object
         signature_type:
-          description: Which signature algorithm to require verification against. Every delivery is always dual-signed (HMAC-SHA256 and Ed25519, Standard Webhooks format); this only changes which one is treated as authoritative. Defaults to hmac.
+          description: Which signature algorithm to require verification against. Deliveries are HMAC-SHA256 signed (v1,) by default; once signature_type is set to ed25519 (which generates a signing keypair), later deliveries are dual-signed (v1, and v1a,, Standard Webhooks format). Defaults to hmac.
           enum:
             - hmac
             - ed25519
@@ -1093,7 +1093,7 @@ components:
           description: Whether to follow HTTP redirects returned by the endpoint.
           type: boolean
         max_retries:
-          description: Maximum delivery attempts before a delivery is marked failed.
+          description: Maximum delivery attempts before a delivery is marked failed. 0 means no retries.
           format: int64
           type: integer
         rate_limit_rps:
@@ -1330,7 +1330,7 @@ components:
       type: object
   securitySchemes:
     ApiKeyAuth:
-      description: Required only when the server is started with SPARROW_API_KEY set; otherwise all endpoints are open.
+      description: "Required only when the server is started with SPARROW_API_KEY set; otherwise all endpoints are open. Note: if the embedded dashboard is enabled (SPARROW_SERVE_UI=true), it is served without authentication and exposes this key to any browser that can load it — treat the deployment as trusted-network-only, or disable the dashboard / put it behind an authenticating proxy for untrusted networks."
       in: header
       name: X-API-Key
       type: apiKey

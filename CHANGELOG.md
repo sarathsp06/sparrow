@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [Unreleased]
+
+### Added
+
+- `twilio` recipe: send events as SMS via the Twilio Messages API
+- Recipes can declare `webhook.secret_headers`; values are envelope-encrypted at rest and masked in API responses (wired through the CLI `use` command)
+
+### Changed
+
+- `clickhouse` recipe now stores the ClickHouse key as an encrypted `X-ClickHouse-Key` secret header instead of a plaintext header
+
 ## [1.4.1] - 2026-06-23
 
 ### Changed
