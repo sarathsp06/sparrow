@@ -4,7 +4,7 @@ Tags: timeout, retry
 Shopify's endpoint takes 10s to respond but timeout is 2s. Both attempts time out.
 
 ## Slow Endpoint Is Classified As Timeout
-* Create consumer "timeout"
+* Use consumer "timeout"
 * Start target "shopify" with behavior "slow_10s"
 * Register event type "cart.abandoned"
 * Register webhook "shopify" in current consumer subscribed to "cart.abandoned" with max_retries "1" and timeout "2"

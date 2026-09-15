@@ -22,6 +22,8 @@ class SparrowEnvironment:
         self._postgres = None
         self._sparrow = None
         self._sparrow_url = None
+        self._authed = None
+        self._authed_url = None
 
     def start(self) -> str:
         """Start Postgres + Sparrow. Returns the Sparrow HTTP URL."""
@@ -55,6 +57,37 @@ class SparrowEnvironment:
 
         return self._sparrow_url
 
+    def start_authed(self, api_key: str) -> str:
+        """Start a second Sparrow container with API key auth enabled, reusing Postgres."""
+        if self._authed_url:
+            return self._authed_url
+
+        pg_port = self._postgres.get_exposed_port(5432)
+        db_url = f"postgres://sparrow:sparrow@host.docker.internal:{pg_port}/sparrow?sslmode=disable"
+
+        self._authed = DockerContainer(SPARROW_IMAGE)
+        self._authed.with_env("DATABASE_URL", db_url)
+        self._authed.with_env("SPARROW_SERVE_UI", "false")
+        self._authed.with_env("SPARROW_ENCRYPTION_KEY", ENCRYPTION_KEY)
+        self._authed.with_env("SPARROW_ALLOW_PRIVATE_NETWORKS", "true")
+        self._authed.with_env("SPARROW_HTTP_PORT", "8080")
+        self._authed.with_env("SPARROW_API_KEY", api_key)
+        self._authed.with_exposed_ports(8080)
+        self._authed.with_kwargs(extra_hosts={"host.docker.internal": "host-gateway"})
+        self._authed.start()
+
+        http_port = self._authed.get_exposed_port(8080)
+        self._authed_url = f"http://localhost:{http_port}"
+        self._wait_for_health(self._authed_url, timeout=30)
+
+        return self._authed_url
+
+    def stop_authed(self):
+        if self._authed:
+            self._authed.stop()
+            self._authed = None
+        self._authed_url = None
+
     @property
     def url(self) -> str:
         if not self._sparrow_url:
@@ -62,6 +95,7 @@ class SparrowEnvironment:
         return self._sparrow_url
 
     def stop(self):
+        self.stop_authed()
         if self._sparrow:
             self._sparrow.stop()
             self._sparrow = None

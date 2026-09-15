@@ -4,7 +4,7 @@ Tags: idempotency, dedup
 Duplicate pushes with the same idempotency key deliver only once.
 
 ## Duplicate Push With Idempotency Key Delivers Once
-* Create consumer "idemp"
+* Use consumer "idemp"
 * Start target "stripe"
 * Register event type "charge.completed"
 * Register webhook "stripe" in current consumer subscribed to "charge.completed"
@@ -20,11 +20,10 @@ Duplicate pushes with the same idempotency key deliver only once.
 * API should show "1" deliveries in current consumer
 
 ## Push Without Idempotency Key Creates Separate Events
-* Create consumer "no-idemp"
+* Use consumer "no-idemp"
 * Start target "stripe2"
 * Register event type "charge.completed.v2"
 * Register webhook "stripe2" in current consumer subscribed to "charge.completed.v2"
 * Push event "charge.completed.v2" with payload "{\"amount\": 50.00}"
 * Push event "charge.completed.v2" with payload "{\"amount\": 50.00}"
 * Wait for "stripe2" to receive "2" deliveries
-* Target "stripe2" should have received "2" deliveries

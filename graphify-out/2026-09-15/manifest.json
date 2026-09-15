@@ -205,8 +205,8 @@
     "semantic_hash": "ef22a70165b9970b542c7b86e2c305dc"
   },
   "docs/astro.config.mjs": {
-    "mtime": 1789372980.6077867,
-    "ast_hash": "19ddb55b55e5caa2349ece93dd066537",
+    "mtime": 1789461897.0077183,
+    "ast_hash": "1e1d2c2a5134d4a53110df578bd46304",
     "semantic_hash": ""
   },
   "docs/package.json": {
@@ -355,8 +355,8 @@
     "semantic_hash": ""
   },
   "internal/webhooks/WebhookServiceInterface_otel.go": {
-    "mtime": 1789386530.121164,
-    "ast_hash": "eb74450a4a329fdbc7efb3488fc322b8",
+    "mtime": 1789461337.0076487,
+    "ast_hash": "73c70d3e99a37deb85ffa023f0025a49",
     "semantic_hash": ""
   },
   "internal/webhooks/client/client.go": {
@@ -415,7 +415,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/JobInserter_otel.go": {
-    "mtime": 1789386513.1688788,
+    "mtime": 1789461337.7402816,
     "ast_hash": "68656aa23b9ee0ef2b6509ca6284e84e",
     "semantic_hash": "68656aa23b9ee0ef2b6509ca6284e84e"
   },
@@ -440,8 +440,8 @@
     "semantic_hash": "22761e32895ed13ed48e502ca648d906"
   },
   "internal/webhooks/queue/manager.go": {
-    "mtime": 1789196640.5705857,
-    "ast_hash": "78c0fef86d91cacd3631037d7dd681a4",
+    "mtime": 1789461220.6007628,
+    "ast_hash": "49e117fac2741b14253f0844b28b9124",
     "semantic_hash": ""
   },
   "internal/webhooks/queue/rate_limit_test.go": {
@@ -455,8 +455,8 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/webhook_worker.go": {
-    "mtime": 1789386039.8698637,
-    "ast_hash": "66276a46e9de3bd749fc019c8d39046a",
+    "mtime": 1789461213.5947108,
+    "ast_hash": "32f3fca9669e506dc91094a987c8e47b",
     "semantic_hash": ""
   },
   "internal/webhooks/rate_limit_test.go": {
@@ -465,8 +465,8 @@
     "semantic_hash": ""
   },
   "internal/webhooks/store/RepositoryInterface_otel.go": {
-    "mtime": 1789386516.2438626,
-    "ast_hash": "f1f460a22910a4802d0b8244cb6e4e6b",
+    "mtime": 1789461340.3574343,
+    "ast_hash": "28253b58a0b2fe056f431fefe95ca2fc",
     "semantic_hash": ""
   },
   "internal/webhooks/store/batch_repository.go": {
@@ -485,13 +485,13 @@
     "semantic_hash": ""
   },
   "internal/webhooks/store/health_repository.go": {
-    "mtime": 1789376549.6315725,
-    "ast_hash": "f7f67138f227f0f7fd54a0a7137b5e6a",
+    "mtime": 1789461049.0629232,
+    "ast_hash": "5fcb47141fd613aab31f182b7e568f1c",
     "semantic_hash": ""
   },
   "internal/webhooks/store/interface.go": {
-    "mtime": 1789376549.6319094,
-    "ast_hash": "2ef1de879f1de0252afd6324aef69205",
+    "mtime": 1789461063.606389,
+    "ast_hash": "e095cb6380fe3d4214464d59ed8822b4",
     "semantic_hash": ""
   },
   "internal/webhooks/store/models.go": {
@@ -515,8 +515,8 @@
     "semantic_hash": ""
   },
   "internal/webhooks/webhook_service.go": {
-    "mtime": 1789376549.6122441,
-    "ast_hash": "207470efcd86e14c8942d7cda48e796b",
+    "mtime": 1789460990.25725,
+    "ast_hash": "852f2aa798def31ff6579fd488073785",
     "semantic_hash": ""
   },
   "internal/webhooks/webhook_service_test.go": {
@@ -1015,8 +1015,8 @@
     "semantic_hash": ""
   },
   "api/openapi.json": {
-    "mtime": 1789386509.9621923,
-    "ast_hash": "f581df2c394199c432eaea210a396220",
+    "mtime": 1789461333.5058045,
+    "ast_hash": "448bef3657b0420c843d77deb53fca67",
     "semantic_hash": ""
   },
   "client/verify/js/sparrow-verify.ts": {
@@ -1050,8 +1050,8 @@
     "semantic_hash": ""
   },
   "internal/rest/app.go": {
-    "mtime": 1789385949.3610039,
-    "ast_hash": "27b8942ce83df04432bb883905558694",
+    "mtime": 1789461027.6001616,
+    "ast_hash": "9cf35c99cc2f5381adc5af669e0d5e57",
     "semantic_hash": ""
   },
   "internal/rest/conversions.go": {
@@ -1140,8 +1140,8 @@
     "semantic_hash": ""
   },
   "api/openapi.yaml": {
-    "mtime": 1789386509.9587767,
-    "ast_hash": "e04a10e491fcc32cc82bbecdce6491d4",
+    "mtime": 1789461333.4994528,
+    "ast_hash": "4a1fcc456dea90944f704ba859ebd8f7",
     "semantic_hash": ""
   },
   "docs/public/diagrams/sparrow-layered-architecture.html": {
@@ -1470,13 +1470,13 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/index.mdx": {
-    "mtime": 1789372627.9774766,
-    "ast_hash": "1ad97f37cc882b6b5dd78072b7dbe9d8",
+    "mtime": 1789452502.522733,
+    "ast_hash": "27b3d042c8b376a3538db2ecc2936265",
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/recipes.mdx": {
-    "mtime": 1789451001.4393206,
-    "ast_hash": "0e265589c639b502088dfc19cd403915",
+    "mtime": 1789461902.6242776,
+    "ast_hash": "a0de5051b093a8dc8fa6296d4ee904f0",
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/sinks.mdx": {
@@ -1490,8 +1490,8 @@
     "semantic_hash": ""
   },
   "satellites/recipes/README.md": {
-    "mtime": 1789384391.155775,
-    "ast_hash": "db4900aebb9d2c977f791858ba67c88b",
+    "mtime": 1789461315.432392,
+    "ast_hash": "0524023162488112e7ec104c6f5f29b2",
     "semantic_hash": ""
   },
   "satellites/recipes/clickhouse.yaml": {
@@ -1692,6 +1692,106 @@
   "satellites/recipes/twilio.yaml": {
     "mtime": 1789384295.5072327,
     "ast_hash": "678926409785cfdb05c7bd4ef0d0bd76",
+    "semantic_hash": ""
+  },
+  "db/migrations/000025_webhook_alert_configs.down.sql": {
+    "mtime": 1789460950.2439582,
+    "ast_hash": "302c9fc9cae9c2ba13144bc7d726657a",
+    "semantic_hash": ""
+  },
+  "db/migrations/000025_webhook_alert_configs.up.sql": {
+    "mtime": 1789460950.2286327,
+    "ast_hash": "0256f580a9a3246a164238ec12cdeaf5",
+    "semantic_hash": ""
+  },
+  "internal/integration/webhook_health_alerts_test.go": {
+    "mtime": 1789461737.313406,
+    "ast_hash": "9bf753448212885e7a724226f5ffb862",
+    "semantic_hash": ""
+  },
+  "internal/rest/alert_config.go": {
+    "mtime": 1789461022.569768,
+    "ast_hash": "92dc2f65706fc124aa6edfc72cb869d2",
+    "semantic_hash": ""
+  },
+  "internal/webhooks/queue/system_events.go": {
+    "mtime": 1789461183.613271,
+    "ast_hash": "0fb7d3b81d81ed5da22a60afcbd78ca1",
+    "semantic_hash": ""
+  },
+  "internal/webhooks/queue/system_events_test.go": {
+    "mtime": 1789461451.826352,
+    "ast_hash": "d5478d49b1cd9782d1c982c2307f3390",
+    "semantic_hash": ""
+  },
+  "internal/webhooks/store/alert_config_repository.go": {
+    "mtime": 1789460968.1410432,
+    "ast_hash": "5f9bbf74e725fb32b7863a203906b982",
+    "semantic_hash": ""
+  },
+  "internal/webhooks/webhook_service_alert_config.go": {
+    "mtime": 1789461231.2519915,
+    "ast_hash": "be49b613bd8b62c64f3549b7eabca021",
+    "semantic_hash": ""
+  },
+  "internal/webhooks/webhook_service_alert_config_test.go": {
+    "mtime": 1789461508.887436,
+    "ast_hash": "4499bd109ccf7d41153eb734aa56e6b9",
+    "semantic_hash": ""
+  },
+  "satellites/recipes/sendgrid_test.go": {
+    "mtime": 1789461552.701691,
+    "ast_hash": "094f7b2973a79409b6a323034e4da114",
+    "semantic_hash": ""
+  },
+  "docs/design/webhook-health-alerts.pseudocode.md": {
+    "mtime": 1789459633.0927067,
+    "ast_hash": "a314f67eb472a9204009f4d490569c35",
+    "semantic_hash": ""
+  },
+  "docs/src/content/docs/guides/webhook-health-alerts.mdx": {
+    "mtime": 1789461893.4396534,
+    "ast_hash": "21f0a279091a7eecc04edbcfc2bbf39a",
+    "semantic_hash": ""
+  },
+  "openspec/changes/webhook-health-alerts/.openspec.yaml": {
+    "mtime": 1789459721.7150252,
+    "ast_hash": "82c2a3fac04d2e62e8fa8291088cf725",
+    "semantic_hash": ""
+  },
+  "openspec/changes/webhook-health-alerts/design.md": {
+    "mtime": 1789459813.8860462,
+    "ast_hash": "285dc3aa4686ed75b51c15a1e59ee5ac",
+    "semantic_hash": ""
+  },
+  "openspec/changes/webhook-health-alerts/proposal.md": {
+    "mtime": 1789459745.049212,
+    "ast_hash": "8abb6353aa7228949920ca7b882f70bb",
+    "semantic_hash": ""
+  },
+  "openspec/changes/webhook-health-alerts/specs/system-events/spec.md": {
+    "mtime": 1789459768.7118118,
+    "ast_hash": "3126ce31164f71106a1b550711d5cb8e",
+    "semantic_hash": ""
+  },
+  "openspec/changes/webhook-health-alerts/specs/webhook-alert-emails/spec.md": {
+    "mtime": 1789459789.5997055,
+    "ast_hash": "f6fdcc9157b49996d58d1a7d06fe4193",
+    "semantic_hash": ""
+  },
+  "openspec/changes/webhook-health-alerts/tasks.md": {
+    "mtime": 1789461831.5063894,
+    "ast_hash": "f71cb038423932ca07cf486e906cda8b",
+    "semantic_hash": ""
+  },
+  "openspec/config.yaml": {
+    "mtime": 1789459712.187693,
+    "ast_hash": "a88f7d80935e1a432dc9b5affe49eb27",
+    "semantic_hash": ""
+  },
+  "satellites/recipes/sendgrid.yaml": {
+    "mtime": 1789461311.8336487,
+    "ast_hash": "ee2ed3729429585bd25f45a9a47672ee",
     "semantic_hash": ""
   }
 }

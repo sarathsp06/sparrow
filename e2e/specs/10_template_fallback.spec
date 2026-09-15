@@ -5,7 +5,7 @@ A broken Go template doesn't drop the delivery. PagerDuty receives the envelope
 payload as fallback.
 
 ## Broken Template Falls Back To Envelope Payload
-* Create consumer "fallback"
+* Use consumer "fallback"
 * Start target "pagerduty"
 * Register event type "deploy.failed"
 * Register webhook "pagerduty" in current consumer with no subscriptions

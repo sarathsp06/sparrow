@@ -5,7 +5,7 @@ Only matching subscribers receive deliveries. Stripe subscribes to order.created
 FedEx to order.shipped, Datadog to both. When order.created fires, FedEx gets nothing.
 
 ## Only Matching Subscribers Receive Deliveries
-* Create consumer "selective"
+* Use consumer "selective"
 * Start target "stripe"
 * Start target "fedex"
 * Start target "datadog"

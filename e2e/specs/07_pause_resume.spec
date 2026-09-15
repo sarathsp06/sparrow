@@ -4,7 +4,7 @@ Tags: pause, resume, lifecycle
 Paused webhooks don't receive events. After resume, new events are delivered.
 
 ## Paused Webhook Does Not Receive Events
-* Create consumer "pause"
+* Use consumer "pause"
 * Start target "twilio"
 * Register event type "sms.received"
 * Register webhook "twilio" in current consumer subscribed to "sms.received"
@@ -17,4 +17,3 @@ Paused webhooks don't receive events. After resume, new events are delivered.
 * Resume webhook "twilio"
 * Push event "sms.received" with payload "{\"from\": \"+1555000333\", \"body\": \"After maintenance\"}"
 * Wait for "twilio" to receive "2" deliveries
-* Target "twilio" should have received "2" deliveries

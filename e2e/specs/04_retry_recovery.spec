@@ -4,7 +4,7 @@ Tags: retry, recovery
 Google's endpoint fails once then recovers. Sparrow retries and delivers successfully.
 
 ## Retries Succeed After Target Recovers
-* Create consumer "retry"
+* Use consumer "retry"
 * Start target "google" with behavior "fail_then_succeed_1"
 * Register event type "user.signup"
 * Register webhook "google" in current consumer subscribed to "user.signup" with max_retries "3"

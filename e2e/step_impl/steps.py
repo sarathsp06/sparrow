@@ -29,8 +29,8 @@ def _targets():
 # Consumer
 # ---------------------------------------------------------------------------
 
-@step("Create consumer <prefix>")
-def create_consumer(prefix):
+@step("Use consumer <prefix>")
+def use_consumer(prefix):
     ts = data_store.scenario["_ns_counter"]
     ns = f"{prefix}-{ts}"
     data_store.scenario["consumer"] = ns
@@ -65,50 +65,38 @@ def start_target_ok(name):
 # Webhook registration
 # ---------------------------------------------------------------------------
 
-@step("Register webhook <name> in current consumer subscribed to <events>")
-def register_webhook_subscribed(name, events):
+def _register_webhook(name, events=None, **kwargs):
     ns = data_store.scenario["consumer"]
     url = data_store.scenario[f"target_url_{name}"]
-    event_list = [e.strip() for e in events.split(",")]
-    resp = _api().register_webhook(ns, url, *event_list)
+    event_list = [e.strip() for e in events.split(",")] if events else []
+    resp = _api().register_webhook(ns, url, *event_list, **kwargs)
     data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
     data_store.scenario[f"webhook_resp_{name}"] = resp
+
+
+@step("Register webhook <name> in current consumer subscribed to <events>")
+def register_webhook_subscribed(name, events):
+    _register_webhook(name, events)
 
 
 @step("Register webhook <name> in current consumer subscribed to <events> with max_retries <retries>")
 def register_webhook_retries(name, events, retries):
-    ns = data_store.scenario["consumer"]
-    url = data_store.scenario[f"target_url_{name}"]
-    event_list = [e.strip() for e in events.split(",")]
-    resp = _api().register_webhook(ns, url, *event_list, max_retries=int(retries))
-    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
+    _register_webhook(name, events, max_retries=int(retries))
 
 
 @step("Register webhook <name> in current consumer subscribed to <events> with max_retries <retries> and timeout <timeout>")
 def register_webhook_retries_timeout(name, events, retries, timeout):
-    ns = data_store.scenario["consumer"]
-    url = data_store.scenario[f"target_url_{name}"]
-    event_list = [e.strip() for e in events.split(",")]
-    resp = _api().register_webhook(ns, url, *event_list, max_retries=int(retries), request_timeout=int(timeout))
-    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
+    _register_webhook(name, events, max_retries=int(retries), request_timeout=int(timeout))
 
 
 @step("Register webhook <name> in current consumer with no subscriptions")
 def register_webhook_no_sub(name):
-    ns = data_store.scenario["consumer"]
-    url = data_store.scenario[f"target_url_{name}"]
-    resp = _api().register_webhook(ns, url)
-    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
+    _register_webhook(name)
 
 
 @step("Register webhook <name> in current consumer subscribed to <events> with signature type <signature_type>")
 def register_webhook_signature_type(name, events, signature_type):
-    ns = data_store.scenario["consumer"]
-    url = data_store.scenario[f"target_url_{name}"]
-    event_list = [e.strip() for e in events.split(",")]
-    resp = _api().register_webhook(ns, url, *event_list, signature_type=signature_type)
-    data_store.scenario[f"webhook_id_{name}"] = resp.get("webhook_id")
-    data_store.scenario[f"webhook_resp_{name}"] = resp
+    _register_webhook(name, events, signature_type=signature_type)
 
 
 # ---------------------------------------------------------------------------

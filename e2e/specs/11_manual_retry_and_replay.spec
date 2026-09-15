@@ -4,7 +4,7 @@ Tags: retry, manual, replay
 ## Retry Failed Delivery After Fixing Endpoint
 Facebook fails with 404, gets fixed, manual retry succeeds.
 
-* Create consumer "retry-replay"
+* Use consumer "retry-replay"
 * Start target "facebook" with behavior "status_404"
 * Start target "github"
 * Register event type "invoice.sent"
@@ -18,7 +18,7 @@ Facebook fails with 404, gets fixed, manual retry succeeds.
 * Target "facebook" should have received "2" deliveries
 
 ## Replay Event Reaches New Subscribers
-* Create consumer "replay"
+* Use consumer "replay"
 * Start target "github2"
 * Register event type "invoice.sent.v2"
 * Register webhook "github2" in current consumer subscribed to "invoice.sent.v2"
@@ -29,4 +29,3 @@ Facebook fails with 404, gets fixed, manual retry succeeds.
 * Replay the last pushed event
 * Wait for "github2" to receive "2" deliveries
 * Wait for "zendesk" to receive "1" deliveries
-* Target "zendesk" should have received "1" deliveries

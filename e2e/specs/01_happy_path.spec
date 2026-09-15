@@ -5,7 +5,7 @@ When an order is created, Stripe, Shippo, and Slack all need to know.
 Push one event and all three receive it with valid signatures.
 
 ## One Event Fans Out To All Subscribers With Valid Signatures
-* Create consumer "happy-path"
+* Use consumer "happy-path"
 * Start target "stripe"
 * Start target "shippo"
 * Start target "slack"
@@ -17,15 +17,12 @@ Push one event and all three receive it with valid signatures.
 * Wait for "stripe" to receive "1" deliveries
 * Wait for "shippo" to receive "1" deliveries
 * Wait for "slack" to receive "1" deliveries
-* Target "stripe" should have received "1" deliveries
-* Target "shippo" should have received "1" deliveries
-* Target "slack" should have received "1" deliveries
 * Latest delivery to "stripe" has signature headers
 * Latest delivery to "stripe" has a valid HMAC signature
 * API should show "3" deliveries in current consumer
 
 ## Ed25519-Configured Webhook Receives A Valid Ed25519 Signature
-* Create consumer "happy-path-ed25519"
+* Use consumer "happy-path-ed25519"
 * Start target "coinbase"
 * Register event type "order.created"
 * Register webhook "coinbase" in current consumer subscribed to "order.created" with signature type "ed25519"

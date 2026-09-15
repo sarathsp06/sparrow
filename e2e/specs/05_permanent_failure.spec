@@ -4,7 +4,7 @@ Tags: failure
 ## Client Error Is Not Retried
 Facebook returns 404 -- no retries, immediate failure.
 
-* Create consumer "perm-fail-a"
+* Use consumer "perm-fail-a"
 * Start target "facebook" with behavior "status_404"
 * Register event type "payment.refunded"
 * Register webhook "facebook" in current consumer subscribed to "payment.refunded" with max_retries "3"
@@ -18,7 +18,7 @@ Facebook returns 404 -- no retries, immediate failure.
 ## Server Error Exhausts All Retries
 Microsoft returns 500 forever -- retries exhaust then fails.
 
-* Create consumer "perm-fail-b"
+* Use consumer "perm-fail-b"
 * Start target "microsoft" with behavior "status_500"
 * Register event type "payment.refunded.v2"
 * Register webhook "microsoft" in current consumer subscribed to "payment.refunded.v2" with max_retries "2"

@@ -5,7 +5,7 @@ Slack expects a specific JSON format. A Go template transforms the alert payload
 into Slack's format before delivery.
 
 ## Template Transforms Payload Before Delivery
-* Create consumer "transform"
+* Use consumer "transform"
 * Start target "slack"
 * Register event type "alert.fired"
 * Register webhook "slack" in current consumer with no subscriptions

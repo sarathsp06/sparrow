@@ -79,6 +79,8 @@ class SparrowAPI:
         http_config = WebhookHTTPConfig(
             max_retries=max_retries,
             request_timeout_seconds=request_timeout,
+            # Server default is 60s; e2e waits are 30-90s, so use a fast backoff.
+            retry_backoff_seconds=2,
             capture_response_body=True,
         )
         body = RegisterWebhookBody(events=list(events), url=url, active=True, http_config=http_config)
