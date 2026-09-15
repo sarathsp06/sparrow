@@ -2,6 +2,7 @@
 // "console" of what it just did as a copyable curl command — handy for
 // scripting the same action or filing a bug report with exact repro steps.
 // Redacts the API key; it's a dev/debugging aid, not a secrets viewer.
+import { untrack } from "svelte";
 import type { Middleware } from "openapi-fetch";
 
 export interface ApiLogEntry {
@@ -73,20 +74,26 @@ export const apiLogMiddleware: Middleware = {
       headers: [...request.headers.entries()],
       body: body || undefined,
     };
-    // Coalesce a repeat of an existing entry (poll loops like /v1/stats and
-    // /v1/health-summary, which alternate) into one row with a xN counter,
-    // bumped in place, instead of flooding the log.
-    const prev = entries.findIndex(
-      (e) => e.method === next.method && e.url === next.url && e.body === next.body,
-    );
-    if (prev !== -1) {
-      // Keep next.id so the newest response's settle() finds this row;
-      // the superseded request's settle is intentionally dropped.
-      started.delete(entries[prev].id);
-      entries = entries.with(prev, { ...next, count: (entries[prev].count ?? 1) + 1 });
-      return;
-    }
-    entries = [next, ...entries].slice(0, MAX_ENTRIES);
+    // untrack: this runs synchronously inside whatever $effect issued the
+    // fetch — without it, reading+writing `entries` here makes the log a
+    // dependency of that effect and every request re-triggers it (infinite
+    // refetch loop).
+    untrack(() => {
+      // Coalesce a repeat of an existing entry (poll loops like /v1/stats and
+      // /v1/health-summary, which alternate) into one row with a xN counter,
+      // bumped in place, instead of flooding the log.
+      const prev = entries.findIndex(
+        (e) => e.method === next.method && e.url === next.url && e.body === next.body,
+      );
+      if (prev !== -1) {
+        // Keep next.id so the newest response's settle() finds this row;
+        // the superseded request's settle is intentionally dropped.
+        started.delete(entries[prev].id);
+        entries = entries.with(prev, { ...next, count: (entries[prev].count ?? 1) + 1 });
+        return;
+      }
+      entries = [next, ...entries].slice(0, MAX_ENTRIES);
+    });
   },
   async onResponse({ response, id }) {
     settle(id, response.status);
