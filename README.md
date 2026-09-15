@@ -13,7 +13,7 @@
 [![Docs](https://img.shields.io/badge/docs-Starlight-F97316?style=flat-square)](https://sarathsp06.github.io/sparrow/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
-[Quick Start](#quick-start) · [CLI](#quick-start-with-the-cli) · [Why Sparrow](#why-sparrow) · [Security](#security) · [Architecture](#architecture) · [Satellites](#satellites) · [Docs](#docs) · [Contributing](#contributing)
+[Quick Start](#quick-start) · [Local Dev](#local-development) · [CLI](#quick-start-with-the-cli) · [Why Sparrow](#why-sparrow) · [Security](#security) · [Architecture](#architecture) · [Satellites](#satellites) · [Docs](#docs) · [Contributing](#contributing)
 
 </div>
 
@@ -84,6 +84,35 @@ Open <http://localhost:8080> for the UI. The REST API is on the same address, an
 > `SPARROW_ENCRYPTION_KEY` is the master key for data encrypted at rest. Generate it once, store it in your secret manager, and back it up. Lose it and encrypted webhook secrets are unrecoverable.
 
 If you set `SPARROW_API_KEY`, add `X-API-Key: <your-key>` to every API request.
+
+## Local Development
+
+Running from source needs Go 1.26+, Node (for the UI), and a PostgreSQL instance.
+
+**Fastest**: spin up Postgres via the dev Compose file, then run the server with `make`:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d   # Postgres only
+make migrate                                     # apply schema
+make run                                         # go run ./cmd/server, SPARROW_SERVE_UI=true
+```
+
+`make run` targets `DATABASE_URL=postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable` by default — override by passing `DATABASE_URL=... SPARROW_ENCRYPTION_KEY=... make run`. Server comes up on <http://localhost:8080>; migrations also run automatically on startup.
+
+**Full container stack** (server + Postgres, rebuilt from source on every change):
+
+```bash
+make docker-dev     # docker compose -f docker-compose.dev.yml up -d --build
+make docker-purge   # tear it down, including volumes
+```
+
+**UI with hot reload** — run the Go server as above, then in a second terminal:
+
+```bash
+make run-web    # cd web && npm run dev, served at localhost:5173
+```
+
+Other useful targets: `make build` / `make build-with-ui` (binary, optionally with embedded UI), `make test` (all modules), `make lint`, `make fmt`. Full list: `make help`.
 
 ### Quick start with the CLI
 

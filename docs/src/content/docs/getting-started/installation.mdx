@@ -62,13 +62,22 @@ docker compose down -v     # stop and delete data
 ### Run
 
 ```bash
-export DATABASE_URL=postgres://user:pass@localhost:5432/sparrow?sslmode=disable
+export DATABASE_URL=postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable
+export SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32)
 
-# Run migrations
-make migrate
+make migrate   # apply schema
+make run       # go run ./cmd/server, SPARROW_SERVE_UI=true
+```
 
-# Start the server with UI
-SPARROW_SERVE_UI=true ./build/server-*
+No local Postgres yet? `docker compose -f docker-compose.dev.yml up -d` starts one on the default `DATABASE_URL` above.
+
+For UI hot reload, run `make run` in one terminal and `make run-web` (`cd web && npm run dev`, served at `localhost:5173`) in another.
+
+To run the full stack in containers instead, rebuilding from source on every change:
+
+```bash
+make docker-dev     # docker compose -f docker-compose.dev.yml up -d --build
+make docker-purge   # tear down, including volumes
 ```
 
 ## Pre-built Binaries
