@@ -14,7 +14,7 @@
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 
-  let consumer = $state(consumerStore.value);
+  let consumer = $state(consumerStore.value || "default");
   let event = $state("");
   let payload = $state({ json: {} } as Content);
   let labels = $state<Record<string, string>>({});

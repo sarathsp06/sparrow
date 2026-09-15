@@ -110,11 +110,16 @@ func (r *Repository) ListSubscriptions(ctx context.Context, tenantID uuid.UUID, 
 	return subs, nil
 }
 
-// ListSubscriptionsByConsumer lists all subscriptions in a consumer within a tenant with pagination.
+// ListSubscriptionsByConsumer lists subscriptions within a tenant with pagination.
+// When consumer is empty, returns subscriptions across all consumers.
 func (r *Repository) ListSubscriptionsByConsumer(ctx context.Context, tenantID uuid.UUID, consumer string, limit, offset int) ([]*EventSubscription, int, error) {
-	countQuery := `SELECT COUNT(*) FROM event_subscriptions WHERE tenant_id = $1 AND consumer = $2`
+	var ns any
+	if consumer != "" {
+		ns = consumer
+	}
+	countQuery := `SELECT COUNT(*) FROM event_subscriptions WHERE tenant_id = $1 AND ($2::text IS NULL OR consumer = $2)`
 	var totalCount int
-	if err := r.conn.GetContext(ctx, &totalCount, countQuery, tenantID, consumer); err != nil {
+	if err := r.conn.GetContext(ctx, &totalCount, countQuery, tenantID, ns); err != nil {
 		return nil, 0, storage.Error(err)
 	}
 
@@ -122,31 +127,36 @@ func (r *Repository) ListSubscriptionsByConsumer(ctx context.Context, tenantID u
 		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
 		       transform_enabled, transform_template, timeout, label_filters, created_at, updated_at
 		FROM event_subscriptions
-		WHERE tenant_id = $1 AND consumer = $2
+		WHERE tenant_id = $1 AND ($2::text IS NULL OR consumer = $2)
 		ORDER BY created_at DESC
 		LIMIT $3 OFFSET $4
 	`
 	var subs []*EventSubscription
-	err := r.conn.SelectContext(ctx, &subs, query, tenantID, consumer, limit, offset)
+	err := r.conn.SelectContext(ctx, &subs, query, tenantID, ns, limit, offset)
 	if err != nil {
 		return nil, 0, storage.Error(err)
 	}
 	return subs, totalCount, nil
 }
 
-// ListSubscriptionsByEvent lists all subscriptions for a specific event in a consumer
-// within a tenant, with no active-webhook or label-filter predicates. Used by the admin
-// listing API; delivery fan-out uses GetSubscriptionsByEvent instead.
+// ListSubscriptionsByEvent lists all subscriptions for a specific event within
+// a tenant, with no active-webhook or label-filter predicates. When consumer is
+// empty, searches across all consumers. Used by the admin listing API;
+// delivery fan-out uses GetSubscriptionsByEvent instead.
 func (r *Repository) ListSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string) ([]*EventSubscription, error) {
+	var ns any
+	if consumer != "" {
+		ns = consumer
+	}
 	query := `
 		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
 		       transform_enabled, transform_template, timeout, label_filters, created_at, updated_at
 		FROM event_subscriptions
-		WHERE tenant_id = $1 AND consumer = $2 AND event_name = $3
+		WHERE tenant_id = $1 AND ($2::text IS NULL OR consumer = $2) AND event_name = $3
 		ORDER BY created_at DESC
 	`
 	var subs []*EventSubscription
-	if err := r.conn.SelectContext(ctx, &subs, query, tenantID, consumer, event); err != nil {
+	if err := r.conn.SelectContext(ctx, &subs, query, tenantID, ns, event); err != nil {
 		return nil, storage.Error(err)
 	}
 	return subs, nil

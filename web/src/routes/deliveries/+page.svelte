@@ -68,10 +68,10 @@
         const offset = (pageNum - 1) * pageSize;
 
         try {
-            const res = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries', {
+            const res = unwrap(await api.GET('/v1/deliveries', {
                 params: {
-                    path: { consumer: ns },
                     query: {
+                        consumer: ns || undefined,
                         webhook_id: webhookIdFilter.trim() || undefined,
                         event_id: eventIdFilter.trim() || undefined,
                         status: statusFilter || undefined,
@@ -133,9 +133,8 @@
         retryingDeliveries.add(deliveryId);
         retryingDeliveries = new Set(retryingDeliveries);
         try {
-            const ns = consumerStore.value;
-            unwrap(await api.POST('/v1/consumers/{consumer}/deliveries/{delivery_id}:retry', {
-                params: { path: { consumer: ns, delivery_id: deliveryId } },
+            unwrap(await api.POST('/v1/deliveries/{delivery_id}:retry', {
+                params: { path: { delivery_id: deliveryId } },
             }));
             await fetchDeliveries(currentPage);
         } catch (e: any) {
@@ -159,7 +158,9 @@
     async function executeRetry() {
         confirmRetry = false;
         if (!retryId) return;
-        const ns = consumerStore.value;
+        // Retry-job routes ignore the path consumer (jobs are id-scoped);
+        // "default" is a placeholder when scope is all-consumers.
+        const ns = consumerStore.value || 'default';
         try {
             const res = unwrap(await api.POST('/v1/consumers/{consumer}/deliveries:retryBatch', {
                 params: { path: { consumer: ns } },
@@ -174,7 +175,7 @@
 
     function startPolling() {
         if (pollingTimer) clearInterval(pollingTimer);
-        const ns = consumerStore.value;
+        const ns = consumerStore.value || 'default';
         pollingTimer = setInterval(async () => {
             if (!retryId) { stopPolling(); return; }
             try {
@@ -197,7 +198,7 @@
 
     async function cancelRetryBatch() {
         if (!retryId) return;
-        const ns = consumerStore.value;
+        const ns = consumerStore.value || 'default';
         try {
             await api.POST('/v1/consumers/{consumer}/retry-jobs/{job_id}:cancel', {
                 params: { path: { consumer: ns, job_id: retryId } },
@@ -232,7 +233,7 @@
         <div>
             <p class="eyebrow mb-1.5">Traffic / Deliveries</p>
             <h1 class="text-2xl">Deliveries</h1>
-            <p class="text-sm text-muted mt-1">All webhook deliveries in consumer <span class="mono text-text">{consumerStore.value}</span></p>
+            <p class="text-sm text-muted mt-1">All webhook deliveries in <span class="mono text-text">{consumerStore.label}</span></p>
         </div>
         <div class="flex items-center gap-3">
             <button onclick={toggleLive} aria-pressed={live} class="btn btn-ghost !px-3 !py-1.5 !text-xs" title="Auto-refresh every 5s">

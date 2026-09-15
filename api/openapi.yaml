@@ -2968,6 +2968,90 @@ paths:
       summary: Resume a paused webhook
       tags:
         - Webhooks
+  /v1/deliveries:
+    get:
+      description: Cross-consumer delivery listing with the same filters as the per-consumer route. Pass consumer to scope to one consumer.
+      operationId: listDeliveriesGlobal
+      parameters:
+        - description: Filter to one consumer; omit to list deliveries across all consumers.
+          explode: false
+          in: query
+          name: consumer
+          schema:
+            description: Filter to one consumer; omit to list deliveries across all consumers.
+            type: string
+        - description: Filter to deliveries for one webhook.
+          explode: false
+          in: query
+          name: webhook_id
+          schema:
+            description: Filter to deliveries for one webhook.
+            type: string
+        - description: Filter to deliveries for one pushed event occurrence.
+          explode: false
+          in: query
+          name: event_id
+          schema:
+            description: Filter to deliveries for one pushed event occurrence.
+            type: string
+        - description: Filter by delivery status (e.g. pending, success, failed, retrying).
+          explode: false
+          in: query
+          name: status
+          schema:
+            description: Filter by delivery status (e.g. pending, success, failed, retrying).
+            type: string
+        - description: Filter by failure classification (e.g. server_error, client_error, timeout).
+          explode: false
+          in: query
+          name: error_category
+          schema:
+            description: Filter by failure classification (e.g. server_error, client_error, timeout).
+            type: string
+        - description: If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint.
+          explode: false
+          in: query
+          name: prepare_retry
+          schema:
+            default: false
+            description: If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint.
+            type: boolean
+        - description: Maximum items to return.
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            description: Maximum items to return.
+            format: int32
+            maximum: 1000
+            minimum: 1
+            type: integer
+        - description: Number of items to skip, for pagination.
+          explode: false
+          in: query
+          name: offset
+          schema:
+            default: 0
+            description: Number of items to skip, for pagination.
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListDeliveriesOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: List deliveries across all consumers
+      tags:
+        - Deliveries
   /v1/deliveries/{delivery_id}:
     get:
       description: Consumer-agnostic lookup by delivery id, for callers that only have the id (e.g. a webhook-signature verification failure report) and don't know which consumer it belongs to.
@@ -3338,6 +3422,69 @@ paths:
       summary: Validate a payload against an event type's JSON Schema
       tags:
         - Event Types
+  /v1/events:
+    get:
+      description: Cross-consumer event occurrence listing with the same filters as the per-consumer route. Pass consumer to scope to one consumer.
+      operationId: listEventOccurrencesGlobal
+      parameters:
+        - description: Filter to one consumer; omit to list occurrences across all consumers.
+          explode: false
+          in: query
+          name: consumer
+          schema:
+            description: Filter to one consumer; omit to list occurrences across all consumers.
+            type: string
+        - description: Filter to occurrences of this event type name.
+          explode: false
+          in: query
+          name: event
+          schema:
+            description: Filter to occurrences of this event type name.
+            type: string
+        - description: If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint.
+          explode: false
+          in: query
+          name: prepare_repush
+          schema:
+            default: false
+            description: If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint.
+            type: boolean
+        - description: Maximum items to return.
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            description: Maximum items to return.
+            format: int32
+            maximum: 1000
+            minimum: 1
+            type: integer
+        - description: Number of items to skip, for pagination.
+          explode: false
+          in: query
+          name: offset
+          schema:
+            default: 0
+            description: Number of items to skip, for pagination.
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListEventOccurrencesOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: List pushed event occurrences across all consumers
+      tags:
+        - Events
   /v1/events/{event_id}:
     get:
       description: Fetches one event occurrence's payload, labels, and delivery outcome counts. Event ids are globally unique, so no consumer is required.
@@ -3460,6 +3607,68 @@ paths:
       summary: Get aggregate delivery statistics across all consumers
       tags:
         - Webhooks
+  /v1/subscriptions:
+    get:
+      description: Cross-consumer subscription listing with the same filters as the per-consumer route. Pass consumer to scope to one consumer.
+      operationId: listSubscriptionsGlobal
+      parameters:
+        - description: Filter to one consumer; omit to list subscriptions across all consumers.
+          explode: false
+          in: query
+          name: consumer
+          schema:
+            description: Filter to one consumer; omit to list subscriptions across all consumers.
+            type: string
+        - description: Filter to subscriptions for one webhook.
+          explode: false
+          in: query
+          name: webhook_id
+          schema:
+            description: Filter to subscriptions for one webhook.
+            type: string
+        - description: Filter to subscriptions for one event type name.
+          explode: false
+          in: query
+          name: event_name
+          schema:
+            description: Filter to subscriptions for one event type name.
+            type: string
+        - description: Maximum items to return.
+          explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            description: Maximum items to return.
+            format: int32
+            maximum: 1000
+            minimum: 1
+            type: integer
+        - description: Number of items to skip, for pagination.
+          explode: false
+          in: query
+          name: offset
+          schema:
+            default: 0
+            description: Number of items to skip, for pagination.
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListSubscriptionsOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: List subscriptions across all consumers
+      tags:
+        - Subscriptions
   /v1/subscriptions:testTemplate:
     post:
       description: Dry-runs a transform template against the named event type's stored sample payload, without creating a subscription or any delivery. Use this to iterate on transform_template before saving it.
@@ -3526,9 +3735,16 @@ paths:
         - Webhooks
   /v1/webhooks:
     get:
-      description: Cross-consumer webhook listing. Pass health to filter by computed status, or webhook_id for an id-only lookup when the consumer isn't known.
+      description: Cross-consumer webhook listing. Pass consumer to scope to one consumer, health to filter by computed status, or webhook_id for an id-only lookup when the consumer isn't known.
       operationId: listWebhooksByHealth
       parameters:
+        - description: Filter to one consumer; omit to list webhooks across all consumers.
+          explode: false
+          in: query
+          name: consumer
+          schema:
+            description: Filter to one consumer; omit to list webhooks across all consumers.
+            type: string
         - description: Filter to webhooks with this computed health status.
           explode: false
           in: query
@@ -3580,7 +3796,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Error
-      summary: List webhooks across all consumers filtered by computed health status
+      summary: List webhooks across all consumers
       tags:
         - Health
 security:

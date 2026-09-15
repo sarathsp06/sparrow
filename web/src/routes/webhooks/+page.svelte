@@ -60,20 +60,16 @@
     loading = true;
     error = '';
     try {
-      if (healthFilter !== null) {
-        // Global endpoint — health is computed per-webhook, independent of consumer.
-        const res = unwrap(await api.GET('/v1/webhooks', {
-          params: { query: { health: healthFilter as any, limit, offset } },
-        }));
-        webhooks = res.items || [];
-        totalCount = res.pagination?.total_count || 0;
-      } else {
-        const res = unwrap(await api.GET('/v1/consumers/{consumer}/webhooks', {
-          params: { path: { consumer: consumerStore.value }, query: { limit, offset } },
-        }));
-        webhooks = res.items || [];
-        totalCount = res.pagination?.total_count || 0;
-      }
+      // Single global endpoint; consumer and health are both optional filters.
+      const res = unwrap(await api.GET('/v1/webhooks', {
+        params: { query: {
+          consumer: consumerStore.value || undefined,
+          health: (healthFilter as any) || undefined,
+          limit, offset,
+        } },
+      }));
+      webhooks = res.items || [];
+      totalCount = res.pagination?.total_count || 0;
       consumerStore.remember(...webhooks.map((w) => w.consumer));
 
       stats = {

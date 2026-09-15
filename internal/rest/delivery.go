@@ -72,8 +72,9 @@ func toDeliveryOutput(dl *store.WebhookDelivery) *deliveryOutput {
 	return &deliveryOutput{Body: toDeliveryItem(dl)}
 }
 
-type listDeliveriesInput struct {
-	Consumer      string `path:"consumer" doc:"Tenant consumer to list deliveries in."`
+// DeliveryListParams are the query filters shared by the consumer-scoped and
+// global delivery list routes.
+type DeliveryListParams struct {
 	WebhookID     string `query:"webhook_id,omitempty" doc:"Filter to deliveries for one webhook."`
 	EventID       string `query:"event_id,omitempty" doc:"Filter to deliveries for one pushed event occurrence."`
 	Status        string `query:"status,omitempty" doc:"Filter by delivery status (e.g. pending, success, failed, retrying)."`
@@ -81,6 +82,16 @@ type listDeliveriesInput struct {
 	PrepareRetry  bool   `query:"prepare_retry" default:"false" doc:"If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint."`
 	Limit         int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
 	Offset        int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
+}
+
+type listDeliveriesInput struct {
+	Consumer string `path:"consumer" doc:"Tenant consumer to list deliveries in."`
+	DeliveryListParams
+}
+
+type listDeliveriesGlobalInput struct {
+	Consumer string `query:"consumer,omitempty" doc:"Filter to one consumer; omit to list deliveries across all consumers."`
+	DeliveryListParams
 }
 
 type listDeliveriesOutput struct {
@@ -158,45 +169,18 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		Description: "Lists deliveries in a consumer, optionally filtered by webhook, event occurrence, or status. Set prepare_retry to snapshot the filtered set for the batch retry endpoint.",
 		Tags:        []string{"Deliveries"},
 	}, func(ctx context.Context, in *listDeliveriesInput) (*listDeliveriesOutput, error) {
-		limit, offset := in.Limit, in.Offset
-		filter := store.DeliveryFilter{
-			Consumer:     in.Consumer,
-			Limit:        int(limit),
-			Offset:       int(offset),
-			PrepareRetry: in.PrepareRetry,
-		}
-		if in.WebhookID != "" {
-			id, err := uuid.Parse(in.WebhookID)
-			if err != nil {
-				return nil, huma.Error400BadRequest("webhook_id must be a valid UUID")
-			}
-			filter.WebhookID = &id
-		}
-		if in.EventID != "" {
-			id, err := uuid.Parse(in.EventID)
-			if err != nil {
-				return nil, huma.Error400BadRequest("event_id must be a valid UUID")
-			}
-			filter.EventID = &id
-		}
-		if in.Status != "" {
-			filter.Status = &in.Status
-		}
-		if in.ErrorCategory != "" {
-			filter.ErrorCategory = &in.ErrorCategory
-		}
-		deliveries, total, retryID, err := svc.ListDeliveries(ctx, filter)
-		if err != nil {
-			return nil, mapError(ctx, err, "failed to list deliveries")
-		}
-		out := &listDeliveriesOutput{}
-		out.Body.Items = make([]deliveryItem, 0, len(deliveries))
-		for _, dl := range deliveries {
-			out.Body.Items = append(out.Body.Items, toDeliveryItem(dl))
-		}
-		out.Body.Pagination = newPagination(limit, offset, total)
-		out.Body.RetryID = retryID
-		return out, nil
+		return listDeliveriesImpl(ctx, svc, in.Consumer, in.DeliveryListParams)
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listDeliveriesGlobal",
+		Method:      http.MethodGet,
+		Path:        "/v1/deliveries",
+		Summary:     "List deliveries across all consumers",
+		Description: "Cross-consumer delivery listing with the same filters as the per-consumer route. Pass consumer to scope to one consumer.",
+		Tags:        []string{"Deliveries"},
+	}, func(ctx context.Context, in *listDeliveriesGlobalInput) (*listDeliveriesOutput, error) {
+		return listDeliveriesImpl(ctx, svc, in.Consumer, in.DeliveryListParams)
 	})
 
 	huma.Register(api, huma.Operation{
@@ -379,4 +363,47 @@ func registerDeliveryRoutes(api huma.API, svc deliveryRouteService) {
 		out.Body.DeliveryIDs = ids
 		return out, nil
 	})
+}
+
+// listDeliveriesImpl is the shared body of the consumer-scoped and global
+// delivery list routes. An empty consumer lists across all consumers.
+func listDeliveriesImpl(ctx context.Context, svc deliveryRouteService, consumer string, p DeliveryListParams) (*listDeliveriesOutput, error) {
+	filter := store.DeliveryFilter{
+		Consumer:     consumer,
+		Limit:        int(p.Limit),
+		Offset:       int(p.Offset),
+		PrepareRetry: p.PrepareRetry,
+	}
+	if p.WebhookID != "" {
+		id, err := uuid.Parse(p.WebhookID)
+		if err != nil {
+			return nil, huma.Error400BadRequest("webhook_id must be a valid UUID")
+		}
+		filter.WebhookID = &id
+	}
+	if p.EventID != "" {
+		id, err := uuid.Parse(p.EventID)
+		if err != nil {
+			return nil, huma.Error400BadRequest("event_id must be a valid UUID")
+		}
+		filter.EventID = &id
+	}
+	if p.Status != "" {
+		filter.Status = &p.Status
+	}
+	if p.ErrorCategory != "" {
+		filter.ErrorCategory = &p.ErrorCategory
+	}
+	deliveries, total, retryID, err := svc.ListDeliveries(ctx, filter)
+	if err != nil {
+		return nil, mapError(ctx, err, "failed to list deliveries")
+	}
+	out := &listDeliveriesOutput{}
+	out.Body.Items = make([]deliveryItem, 0, len(deliveries))
+	for _, dl := range deliveries {
+		out.Body.Items = append(out.Body.Items, toDeliveryItem(dl))
+	}
+	out.Body.Pagination = newPagination(p.Limit, p.Offset, total)
+	out.Body.RetryID = retryID
+	return out, nil
 }

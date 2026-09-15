@@ -63,10 +63,9 @@
         const ns = consumerStore.value;
 
         try {
-            const res = unwrap(await api.GET('/v1/consumers/{consumer}/events', {
+            const res = unwrap(await api.GET('/v1/events', {
                 params: {
-                    path: { consumer: ns },
-                    query: { event: eventName, prepare_repush: prepareRepush, limit: pageSize, offset },
+                    query: { consumer: ns || undefined, event: eventName, prepare_repush: prepareRepush, limit: pageSize, offset },
                 },
             }));
             if (prepareRepush) {
@@ -129,7 +128,9 @@
     async function executeRepush() {
         confirmRepush = false;
         if (!repushId) return;
-        const ns = consumerStore.value;
+        // Repush-job routes ignore the path consumer (jobs are id-scoped);
+        // "default" is a placeholder when scope is all-consumers.
+        const ns = consumerStore.value || 'default';
         try {
             const res = unwrap(await api.POST('/v1/consumers/{consumer}/events:rePush', {
                 params: { path: { consumer: ns } },
@@ -144,7 +145,7 @@
 
     function startPolling() {
         if (pollingTimer) clearInterval(pollingTimer);
-        const ns = consumerStore.value;
+        const ns = consumerStore.value || 'default';
         pollingTimer = setInterval(async () => {
             if (!repushId) { stopPolling(); return; }
             try {
@@ -167,7 +168,7 @@
 
     async function cancelRepush() {
         if (!repushId) return;
-        const ns = consumerStore.value;
+        const ns = consumerStore.value || 'default';
         try {
             await api.POST('/v1/consumers/{consumer}/repush-jobs/{job_id}:cancel', {
                 params: { path: { consumer: ns, job_id: repushId } },
@@ -204,7 +205,7 @@
                 <p class="eyebrow mb-1.5">Catalog / Reports</p>
                 <h1 class="text-2xl">Event Reports</h1>
                 <p class="text-sm text-muted mt-1">
-                    Instances of "{currentEvent?.name || 'Loading…'}" in consumer <span class="chip">{consumerStore.value}</span>
+                    Instances of "{currentEvent?.name || 'Loading…'}" in <span class="chip">{consumerStore.label}</span>
                 </p>
             </div>
             {#if !loading}

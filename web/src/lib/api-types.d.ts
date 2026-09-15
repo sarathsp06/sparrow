@@ -476,6 +476,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List deliveries across all consumers
+         * @description Cross-consumer delivery listing with the same filters as the per-consumer route. Pass consumer to scope to one consumer.
+         */
+        get: operations["listDeliveriesGlobal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/deliveries/{delivery_id}": {
         parameters: {
             query?: never;
@@ -608,6 +628,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pushed event occurrences across all consumers
+         * @description Cross-consumer event occurrence listing with the same filters as the per-consumer route. Pass consumer to scope to one consumer.
+         */
+        get: operations["listEventOccurrencesGlobal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/events/{event_id}": {
         parameters: {
             query?: never;
@@ -688,6 +728,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List subscriptions across all consumers
+         * @description Cross-consumer subscription listing with the same filters as the per-consumer route. Pass consumer to scope to one consumer.
+         */
+        get: operations["listSubscriptionsGlobal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/subscriptions:testTemplate": {
         parameters: {
             query?: never;
@@ -736,8 +796,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List webhooks across all consumers filtered by computed health status
-         * @description Cross-consumer webhook listing. Pass health to filter by computed status, or webhook_id for an id-only lookup when the consumer isn't known.
+         * List webhooks across all consumers
+         * @description Cross-consumer webhook listing. Pass consumer to scope to one consumer, health to filter by computed status, or webhook_id for an id-only lookup when the consumer isn't known.
          */
         get: operations["listWebhooksByHealth"];
         put?: never;
@@ -3298,6 +3358,52 @@ export interface operations {
             };
         };
     };
+    listDeliveriesGlobal: {
+        parameters: {
+            query?: {
+                /** @description Filter to one consumer; omit to list deliveries across all consumers. */
+                consumer?: string;
+                /** @description Filter to deliveries for one webhook. */
+                webhook_id?: string;
+                /** @description Filter to deliveries for one pushed event occurrence. */
+                event_id?: string;
+                /** @description Filter by delivery status (e.g. pending, success, failed, retrying). */
+                status?: string;
+                /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
+                error_category?: string;
+                /** @description If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint. */
+                prepare_retry?: boolean;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Number of items to skip, for pagination. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListDeliveriesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     getDeliveryGlobal: {
         parameters: {
             query?: never;
@@ -3752,6 +3858,46 @@ export interface operations {
             };
         };
     };
+    listEventOccurrencesGlobal: {
+        parameters: {
+            query?: {
+                /** @description Filter to one consumer; omit to list occurrences across all consumers. */
+                consumer?: string;
+                /** @description Filter to occurrences of this event type name. */
+                event?: string;
+                /** @description If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint. */
+                prepare_repush?: boolean;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Number of items to skip, for pagination. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEventOccurrencesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     getEventOccurrence: {
         parameters: {
             query?: never;
@@ -3917,6 +4063,46 @@ export interface operations {
             };
         };
     };
+    listSubscriptionsGlobal: {
+        parameters: {
+            query?: {
+                /** @description Filter to one consumer; omit to list subscriptions across all consumers. */
+                consumer?: string;
+                /** @description Filter to subscriptions for one webhook. */
+                webhook_id?: string;
+                /** @description Filter to subscriptions for one event type name. */
+                event_name?: string;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Number of items to skip, for pagination. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSubscriptionsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     testSubscriptionTemplate: {
         parameters: {
             query?: never;
@@ -4009,6 +4195,8 @@ export interface operations {
     listWebhooksByHealth: {
         parameters: {
             query?: {
+                /** @description Filter to one consumer; omit to list webhooks across all consumers. */
+                consumer?: string;
                 /** @description Filter to webhooks with this computed health status. */
                 health?: "healthy" | "degraded" | "unhealthy" | "unknown" | "";
                 /** @description Look up a single webhook by id when its consumer is unknown. */

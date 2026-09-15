@@ -41,6 +41,7 @@ type healthSummaryOutput struct {
 // webhook by id when its consumer is unknown (ListWebhooks supports empty
 // consumer = search all consumers).
 type listWebhooksGlobalInput struct {
+	Consumer  string `query:"consumer,omitempty" doc:"Filter to one consumer; omit to list webhooks across all consumers."`
 	Health    string `query:"health,omitempty" enum:"healthy,degraded,unhealthy,unknown," doc:"Filter to webhooks with this computed health status."`
 	WebhookID string `query:"webhook_id,omitempty" doc:"Look up a single webhook by id when its consumer is unknown."`
 	Limit     int32  `query:"limit" default:"50" doc:"Maximum items to return."`
@@ -111,11 +112,11 @@ func registerHealthRoutes(api huma.API, svc healthRouteService) {
 		OperationID: "listWebhooksByHealth",
 		Method:      http.MethodGet,
 		Path:        "/v1/webhooks",
-		Summary:     "List webhooks across all consumers filtered by computed health status",
-		Description: "Cross-consumer webhook listing. Pass health to filter by computed status, or webhook_id for an id-only lookup when the consumer isn't known.",
+		Summary:     "List webhooks across all consumers",
+		Description: "Cross-consumer webhook listing. Pass consumer to scope to one consumer, health to filter by computed status, or webhook_id for an id-only lookup when the consumer isn't known.",
 		Tags:        []string{"Health"},
 	}, func(ctx context.Context, in *listWebhooksGlobalInput) (*listWebhooksOutput, error) {
-		regs, total, err := svc.ListWebhooks(ctx, "", in.WebhookID, "", false, in.Health, in.Limit, in.Offset)
+		regs, total, err := svc.ListWebhooks(ctx, in.Consumer, in.WebhookID, "", false, in.Health, in.Limit, in.Offset)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to list webhooks")
 		}

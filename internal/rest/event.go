@@ -148,12 +148,23 @@ type eventOccurrenceOutput struct {
 	Body eventOccurrenceItem
 }
 
-type listEventOccurrencesInput struct {
-	Consumer      string `path:"consumer" doc:"Tenant consumer to list occurrences in."`
+// EventOccurrenceListParams are the query filters shared by the
+// consumer-scoped and global event occurrence list routes.
+type EventOccurrenceListParams struct {
 	Event         string `query:"event,omitempty" doc:"Filter to occurrences of this event type name."`
 	PrepareRepush bool   `query:"prepare_repush" default:"false" doc:"If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint."`
 	Limit         int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
 	Offset        int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
+}
+
+type listEventOccurrencesInput struct {
+	Consumer string `path:"consumer" doc:"Tenant consumer to list occurrences in."`
+	EventOccurrenceListParams
+}
+
+type listEventOccurrencesGlobalInput struct {
+	Consumer string `query:"consumer,omitempty" doc:"Filter to one consumer; omit to list occurrences across all consumers."`
+	EventOccurrenceListParams
 }
 
 type listEventOccurrencesOutput struct {
@@ -395,41 +406,18 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Description: "Lists pushed event occurrences in a consumer, with delivery outcome counts per occurrence. Set prepare_repush to snapshot the filtered set for the batch re-push endpoint.",
 		Tags:        []string{"Events"},
 	}, func(ctx context.Context, in *listEventOccurrencesInput) (*listEventOccurrencesOutput, error) {
-		limit, offset := in.Limit, in.Offset
-		filter := store.EventReportFilter{
-			Consumer:      in.Consumer,
-			Limit:         int(limit),
-			Offset:        int(offset),
-			PrepareRepush: in.PrepareRepush,
-		}
-		if in.Event != "" {
-			filter.EventName = &in.Event
-		}
-		reports, total, repushID, err := svc.ListEventReports(ctx, filter)
-		if err != nil {
-			return nil, mapError(ctx, err, "failed to list event occurrences")
-		}
-		out := &listEventOccurrencesOutput{}
-		out.Body.Items = make([]eventOccurrenceItem, 0, len(reports))
-		for _, r := range reports {
-			var o eventOccurrenceOutput
-			o.Body.EventID = r.ID.String()
-			o.Body.Consumer = r.Consumer
-			o.Body.Event = r.Event
-			o.Body.Payload = r.Payload
-			o.Body.Metadata = r.Metadata
-			o.Body.Labels = r.Labels
-			o.Body.SchemaValid = r.SchemaValid
-			o.Body.WebhookCount = r.WebhookCount
-			o.Body.SuccessfulDeliveries = r.SuccessfulDeliveries
-			o.Body.FailedDeliveries = r.FailedDeliveries
-			o.Body.PendingDeliveries = r.PendingDeliveries
-			o.Body.CreatedAt = r.CreatedAt.Format(time.RFC3339Nano)
-			out.Body.Items = append(out.Body.Items, o.Body)
-		}
-		out.Body.Pagination = newPagination(limit, offset, total)
-		out.Body.RepushID = repushID
-		return out, nil
+		return listEventOccurrencesImpl(ctx, svc, in.Consumer, in.EventOccurrenceListParams)
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listEventOccurrencesGlobal",
+		Method:      http.MethodGet,
+		Path:        "/v1/events",
+		Summary:     "List pushed event occurrences across all consumers",
+		Description: "Cross-consumer event occurrence listing with the same filters as the per-consumer route. Pass consumer to scope to one consumer.",
+		Tags:        []string{"Events"},
+	}, func(ctx context.Context, in *listEventOccurrencesGlobalInput) (*listEventOccurrencesOutput, error) {
+		return listEventOccurrencesImpl(ctx, svc, in.Consumer, in.EventOccurrenceListParams)
 	})
 
 	huma.Register(api, huma.Operation{
@@ -534,4 +522,44 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil
 	})
+}
+
+// listEventOccurrencesImpl is the shared body of the consumer-scoped and
+// global event occurrence list routes. An empty consumer lists across all
+// consumers.
+func listEventOccurrencesImpl(ctx context.Context, svc eventRouteService, consumer string, p EventOccurrenceListParams) (*listEventOccurrencesOutput, error) {
+	filter := store.EventReportFilter{
+		Consumer:      consumer,
+		Limit:         int(p.Limit),
+		Offset:        int(p.Offset),
+		PrepareRepush: p.PrepareRepush,
+	}
+	if p.Event != "" {
+		filter.EventName = &p.Event
+	}
+	reports, total, repushID, err := svc.ListEventReports(ctx, filter)
+	if err != nil {
+		return nil, mapError(ctx, err, "failed to list event occurrences")
+	}
+	out := &listEventOccurrencesOutput{}
+	out.Body.Items = make([]eventOccurrenceItem, 0, len(reports))
+	for _, r := range reports {
+		var o eventOccurrenceOutput
+		o.Body.EventID = r.ID.String()
+		o.Body.Consumer = r.Consumer
+		o.Body.Event = r.Event
+		o.Body.Payload = r.Payload
+		o.Body.Metadata = r.Metadata
+		o.Body.Labels = r.Labels
+		o.Body.SchemaValid = r.SchemaValid
+		o.Body.WebhookCount = r.WebhookCount
+		o.Body.SuccessfulDeliveries = r.SuccessfulDeliveries
+		o.Body.FailedDeliveries = r.FailedDeliveries
+		o.Body.PendingDeliveries = r.PendingDeliveries
+		o.Body.CreatedAt = r.CreatedAt.Format(time.RFC3339Nano)
+		out.Body.Items = append(out.Body.Items, o.Body)
+	}
+	out.Body.Pagination = newPagination(p.Limit, p.Offset, total)
+	out.Body.RepushID = repushID
+	return out, nil
 }

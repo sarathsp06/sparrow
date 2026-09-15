@@ -107,6 +107,7 @@
             list="ns-options"
             class="input !pl-8"
             aria-label="Active consumer"
+            placeholder="all consumers"
             value={consumerStore.value}
             onchange={(e) => (consumerStore.value = e.currentTarget.value)}
           />
@@ -177,7 +178,7 @@
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <span class="font-display font-bold tracking-[0.18em] text-text text-sm">SPARROW</span>
-      <span class="ml-auto chip">{consumerStore.value}</span>
+      <span class="ml-auto chip">{consumerStore.label}</span>
     </div>
 
     {@render children?.()}

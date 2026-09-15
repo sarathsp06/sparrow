@@ -8,7 +8,7 @@
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 
-  let consumer = $state(consumerStore.value);
+  let consumer = $state(consumerStore.value || 'default');
   let events: string[] = $state([]);
   let url = $state('');
   let description = $state('');

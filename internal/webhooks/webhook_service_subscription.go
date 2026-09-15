@@ -87,10 +87,9 @@ func (s *WebhookService) GetSubscription(ctx context.Context, subscriptionID str
 	return s.getSubscriptionInConsumer(ctx, subscriptionID, consumer)
 }
 
+// ListSubscriptions lists subscriptions, optionally filtered by consumer,
+// webhook, or event name. An empty consumer lists across all consumers.
 func (s *WebhookService) ListSubscriptions(ctx context.Context, consumer string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error) {
-	if consumer == "" {
-		return nil, 0, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
-	}
 
 	tenantID := tenant.DefaultTenantID
 
@@ -108,11 +107,14 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, consumer string,
 			return nil, 0, err
 		}
 		// Verify the webhook belongs to the requested consumer before listing.
-		if _, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, consumer); err != nil {
-			if storage.IsNotFound(err) {
-				return nil, 0, svcerrors.Error(svcerrors.NotFound, "webhook not found in consumer")
+		// With no consumer given, the id alone (globally unique) is the scope.
+		if consumer != "" {
+			if _, err = s.webhookRepo.GetWebhookByID(ctx, tenantID, id, consumer); err != nil {
+				if storage.IsNotFound(err) {
+					return nil, 0, svcerrors.Error(svcerrors.NotFound, "webhook not found in consumer")
+				}
+				return nil, 0, fmt.Errorf("failed to get webhook: %w", err)
 			}
-			return nil, 0, fmt.Errorf("failed to get webhook: %w", err)
 		}
 		subs, err = s.webhookRepo.ListSubscriptions(ctx, tenantID, id)
 		totalCount = len(subs)
@@ -123,7 +125,7 @@ func (s *WebhookService) ListSubscriptions(ctx context.Context, consumer string,
 		totalCount = len(subs)
 		subs = paginateSubscriptions(subs, offset, limit)
 	} else {
-		// List all subscriptions in consumer
+		// List all subscriptions, optionally scoped to one consumer
 		subs, totalCount, err = s.webhookRepo.ListSubscriptionsByConsumer(ctx, tenantID, consumer, int(limit), int(offset))
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to list subscriptions: %w", err)

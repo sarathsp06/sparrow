@@ -72,12 +72,23 @@ func toSubscriptionOutput(s *store.EventSubscription) *subscriptionOutput {
 	return &subscriptionOutput{Body: toSubscriptionItem(s)}
 }
 
-type listSubscriptionsInput struct {
-	Consumer  string `path:"consumer" doc:"Tenant consumer to list subscriptions in."`
+// SubscriptionListParams are the query filters shared by the consumer-scoped
+// and global subscription list routes.
+type SubscriptionListParams struct {
 	WebhookID string `query:"webhook_id,omitempty" doc:"Filter to subscriptions for one webhook."`
 	EventName string `query:"event_name,omitempty" doc:"Filter to subscriptions for one event type name."`
 	Limit     int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
 	Offset    int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
+}
+
+type listSubscriptionsInput struct {
+	Consumer string `path:"consumer" doc:"Tenant consumer to list subscriptions in."`
+	SubscriptionListParams
+}
+
+type listSubscriptionsGlobalInput struct {
+	Consumer string `query:"consumer,omitempty" doc:"Filter to one consumer; omit to list subscriptions across all consumers."`
+	SubscriptionListParams
 }
 
 type listSubscriptionsOutput struct {
@@ -166,18 +177,18 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 		Description: "Lists subscriptions in a consumer, optionally filtered by webhook or event type name.",
 		Tags:        []string{"Subscriptions"},
 	}, func(ctx context.Context, in *listSubscriptionsInput) (*listSubscriptionsOutput, error) {
-		limit, offset := in.Limit, in.Offset
-		subs, total, err := svc.ListSubscriptions(ctx, in.Consumer, in.WebhookID, in.EventName, limit, offset)
-		if err != nil {
-			return nil, mapError(ctx, err, "failed to list subscriptions")
-		}
-		out := &listSubscriptionsOutput{}
-		out.Body.Items = make([]subscriptionItem, 0, len(subs))
-		for _, s := range subs {
-			out.Body.Items = append(out.Body.Items, toSubscriptionItem(s))
-		}
-		out.Body.Pagination = newPagination(limit, offset, total)
-		return out, nil
+		return listSubscriptionsImpl(ctx, svc, in.Consumer, in.SubscriptionListParams)
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listSubscriptionsGlobal",
+		Method:      http.MethodGet,
+		Path:        "/v1/subscriptions",
+		Summary:     "List subscriptions across all consumers",
+		Description: "Cross-consumer subscription listing with the same filters as the per-consumer route. Pass consumer to scope to one consumer.",
+		Tags:        []string{"Subscriptions"},
+	}, func(ctx context.Context, in *listSubscriptionsGlobalInput) (*listSubscriptionsOutput, error) {
+		return listSubscriptionsImpl(ctx, svc, in.Consumer, in.SubscriptionListParams)
 	})
 
 	huma.Register(api, huma.Operation{
@@ -260,4 +271,20 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 		out.Body.Rendered = rendered
 		return out, nil
 	})
+}
+
+// listSubscriptionsImpl is the shared body of the consumer-scoped and global
+// subscription list routes. An empty consumer lists across all consumers.
+func listSubscriptionsImpl(ctx context.Context, svc webhooks.SubscriptionManager, consumer string, p SubscriptionListParams) (*listSubscriptionsOutput, error) {
+	subs, total, err := svc.ListSubscriptions(ctx, consumer, p.WebhookID, p.EventName, p.Limit, p.Offset)
+	if err != nil {
+		return nil, mapError(ctx, err, "failed to list subscriptions")
+	}
+	out := &listSubscriptionsOutput{}
+	out.Body.Items = make([]subscriptionItem, 0, len(subs))
+	for _, s := range subs {
+		out.Body.Items = append(out.Body.Items, toSubscriptionItem(s))
+	}
+	out.Body.Pagination = newPagination(p.Limit, p.Offset, total)
+	return out, nil
 }
