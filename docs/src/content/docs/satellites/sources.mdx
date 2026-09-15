@@ -21,7 +21,7 @@ configured. Two independent loops share one pusher:
 
 ```
 cron loop (per schedule entry):
-  tick → POST /v1/consumers/{ns}/events?event=<name>
+  tick → POST /v1/consumers/{consumer}/events?event=<name>
            {payload, labels}
          on 404 unknown event type
            → POST /v1/event-types {name, active: true}

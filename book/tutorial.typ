@@ -79,7 +79,7 @@ The `$state()` rune tells the Svelte compiler to track a variable. When that var
 #source-code("web/src/routes/health/+page.svelte, lines 15-21")[
 ```
 let healthSummary: HealthSummary | undefined = $state();
-let namespaceStats: NamespaceStats | undefined = $state();
+let consumerStats: ConsumerStats | undefined = $state();
 let unhealthyWebhooks: RegisteredWebhook[] = $state([]);
 let degradedWebhooks: RegisteredWebhook[] = $state([]);
 let webhookMetrics: Map<string, WebhookHealthMetrics>
@@ -403,7 +403,7 @@ let filteredWebhooks = $derived.by(() => {
       wh.url.toLowerCase().includes(q) ||
       wh.description.toLowerCase().includes(q) ||
       wh.webhookId.toLowerCase().includes(q) ||
-      wh.namespace.toLowerCase().includes(q)
+      wh.consumer.toLowerCase().includes(q)
     );
   }
   return result;
@@ -826,7 +826,7 @@ async function copyId(e: Event) {
 #source-code("web/src/routes/deliveries/+page.svelte, line 267")[
 ```
 <input
-  bind:value={namespaceFilter}
+  bind:value={consumerFilter}
   onkeydown={(e) => e.key === 'Enter' && applyFilters()}
 />
 ```
@@ -1136,12 +1136,12 @@ Form inputs need to both display a value and update it when the user types. Svel
 ```
 let {
   webhookId,
-  namespace,
+  consumer,
   subscriptions = $bindable([]),
   onRefresh,
 }: {
   webhookId: string;
-  namespace: string;
+  consumer: string;
   subscriptions: EventSubscription[];
   onRefresh?: () => void;
 } = $props();
@@ -1291,7 +1291,7 @@ export const subscriptionClient = createClient(SubscriptionService, transport);
 const [summaryRes, statsRes, unhealthyRes, degradedRes] =
   await Promise.all([
     healthClient.getHealthSummary({}),
-    webhookClient.getNamespaceStats({ namespace: '' }),
+    webhookClient.getConsumerStats({ consumer: '' }),
     healthClient.listWebhooksByHealth({
       health: WebhookHealth.HEALTH_UNHEALTHY,
       pagination: { limit: 20, offset: 0 },
@@ -1719,7 +1719,7 @@ async function fetchWebhooks() {
   error = '';
   try {
     const res = await client.listWebhooks({
-      namespace: '',
+      consumer: '',
       pagination: { limit, offset },
     });
     // res.webhooks is RegisteredWebhook[]

@@ -9,7 +9,7 @@ timestamp: 2026-09-13T00:00:00Z
 # Satellites
 
 Satellites are companion tools that **orbit the core**. They speak only
-Sparrow's public contract — the REST API (`POST /v1/consumers/{ns}/events`,
+Sparrow's public contract — the REST API (`POST /v1/consumers/{consumer}/events`,
 webhook/subscription CRUD) and the Standard Webhooks signature — and are built
 entirely outside `internal/`.
 
