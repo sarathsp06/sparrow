@@ -80,6 +80,9 @@ export const apiLogMiddleware: Middleware = {
       (e) => e.method === next.method && e.url === next.url && e.body === next.body,
     );
     if (prev !== -1) {
+      // Keep next.id so the newest response's settle() finds this row;
+      // the superseded request's settle is intentionally dropped.
+      started.delete(entries[prev].id);
       entries = entries.with(prev, { ...next, count: (entries[prev].count ?? 1) + 1 });
       return;
     }

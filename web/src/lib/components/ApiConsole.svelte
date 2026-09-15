@@ -36,7 +36,7 @@
 <svelte:window
   onkeydown={(e) => {
     if (e.key === "Escape" && open) open = false;
-    else if ((e.code === "Backquote" || e.key === "`") && (e.ctrlKey || e.metaKey)) {
+    else if ((e.code === "Backquote" || e.key === "`" || e.key === "~") && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       open = !open;
     }

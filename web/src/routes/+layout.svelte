@@ -128,15 +128,15 @@
 
       <button
         onclick={() => (consoleOpen = true)}
-        title="Every request this UI makes, as copy-ready curl (Ctrl+`)"
-        class="w-full flex items-center gap-2 px-2.5 py-2 rounded-md border border-line bg-panel-2 text-xs text-muted hover:text-text hover:border-line-strong transition-colors"
+        title="Every request this UI makes, as copy-ready curl (Ctrl+` or Ctrl+~)"
+        class="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-xs text-[#c9c2b2] bg-[#171512] border border-black/40 shadow-sm hover:text-[#f5f1e6] hover:border-[#3a352c] transition-colors"
       >
-        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m8 9 3 3-3 3m5 0h4" /><rect x="3" y="4" width="18" height="16" rx="2" stroke-width="1.8" /></svg>
-        <span class="font-medium">API Console</span>
+        <svg class="w-4 h-4 shrink-0 text-beacon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m8 9 3 3-3 3m5 0h4" /><rect x="3" y="4" width="18" height="16" rx="2" stroke-width="1.8" /></svg>
+        <span class="font-medium mono">API Console</span>
         {#if apiConsole.entries.length > 0}
-          <span class="mono text-[10px] px-1.5 py-px rounded-full bg-beacon/15 text-beacon-dim tnum">{apiConsole.entries.length}</span>
+          <span class="mono text-[10px] px-1.5 py-px rounded-full bg-beacon/20 text-beacon tnum">{apiConsole.entries.length}</span>
         {/if}
-        <kbd class="ml-auto mono text-[10px] px-1.5 py-0.5 rounded border border-line bg-panel text-faint">⌃`</kbd>
+        <kbd class="ml-auto mono text-[10px] px-1.5 py-0.5 rounded border border-white/15 bg-white/5 text-[#8f887a]">⌃`</kbd>
       </button>
 
       <div class="flex items-center gap-1 text-muted">
