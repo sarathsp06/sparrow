@@ -40,6 +40,13 @@ release-dry-run: build-ui ## Test GoReleaser locally (no publish)
 
 docker-dev: ## Run the development environment with Docker Compose (builds from source)
 	docker compose -f docker-compose.dev.yml up -d --build
+	@echo ""
+	@echo "✅ Sparrow is deployed:"
+	@echo "   Web UI:   http://localhost:8080/"
+	@echo "   REST API: http://localhost:8080/"
+	@echo "   API docs: http://localhost:8080/docs"
+	@echo "   Health:   http://localhost:8080/health"
+	@echo "   Logs:     docker compose -f docker-compose.dev.yml logs -f sparrow"
 
 docker-purge: ## Stop and remove Docker containers, networks, volumes, and images created by Docker Compose for development
 	docker compose -f docker-compose.dev.yml down -v
