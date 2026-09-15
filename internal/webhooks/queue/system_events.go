@@ -74,6 +74,30 @@ var systemEventSchemas = map[string]map[string]any{
 	},
 }
 
+// SystemEventRegistrations returns the full catalog entries (name,
+// description, JSON schema, generated sample payload) for Sparrow's
+// self-generated event types. Single source of truth shared by the server's
+// startup bootstrap (cmd/server) and pushSystemEvent's auto-register path,
+// so a fresh database gets the same schema/validation UX either way.
+func SystemEventRegistrations() []store.EventRegistration {
+	return []store.EventRegistration{
+		{
+			Name:          systemEventHealthChanged,
+			Description:   "A webhook's health status changed (e.g. healthy -> degraded, degraded -> unhealthy, unhealthy -> healthy).",
+			Schema:        systemEventSchemas[systemEventHealthChanged],
+			SamplePayload: systemEventSamplePayload(systemEventSchemas[systemEventHealthChanged]),
+			Active:        true,
+		},
+		{
+			Name:          systemEventDeliveryFailed,
+			Description:   "A webhook delivery permanently failed after exhausting every retry.",
+			Schema:        systemEventSchemas[systemEventDeliveryFailed],
+			SamplePayload: systemEventSamplePayload(systemEventSchemas[systemEventDeliveryFailed]),
+			Active:        true,
+		},
+	}
+}
+
 // systemEventRepo is the narrow event-repository surface WebhookWorker needs:
 // reading event records for ordinary delivery, plus registering/storing its
 // own system events. The concrete value passed in is always the full

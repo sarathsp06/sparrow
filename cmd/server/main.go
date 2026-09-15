@@ -458,24 +458,13 @@ func migrateWebhookSecrets(ctx context.Context, db *sqlx.DB, cryptoSvc *crypto.S
 }
 
 // registerSystemEventTypes idempotently registers the event types Sparrow
-// generates about its own webhooks (see internal/webhooks/queue/system_events.go).
-// Tenants opt an email address into them via the webhook_alert_configs API;
-// they are never delivered directly, only fanned out through the normal
-// event/subscription/delivery pipeline under the "_sparrow" consumer.
+// generates about its own webhooks, with their JSON schemas and sample
+// payloads (see queue.SystemEventRegistrations). Tenants opt an email address
+// into them via the webhook_alert_configs API; they are never delivered
+// directly, only fanned out through the normal event/subscription/delivery
+// pipeline under the "_sparrow" consumer.
 func registerSystemEventTypes(ctx context.Context, repo store.EventTypeRepository) {
-	types := []store.EventRegistration{
-		{
-			Name:        "sparrow.webhook.health_changed",
-			Description: "A webhook's health status changed (e.g. healthy -> degraded, degraded -> unhealthy, unhealthy -> healthy).",
-			Active:      true,
-		},
-		{
-			Name:        "sparrow.webhook.delivery_failed",
-			Description: "A webhook delivery permanently failed after exhausting every retry.",
-			Active:      true,
-		},
-	}
-	for _, t := range types {
+	for _, t := range queue.SystemEventRegistrations() {
 		existing, err := repo.GetEventByName(ctx, tenant.DefaultTenantID, t.Name)
 		if err != nil {
 			log.Printf("⚠️  Failed to look up system event type %s: %v", t.Name, err)
