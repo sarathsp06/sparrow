@@ -1,6 +1,7 @@
 import { env } from "$env/dynamic/public";
 import createClient from "openapi-fetch";
 import type { paths } from "./api-types";
+import { apiLogMiddleware } from "./apiConsole.svelte";
 
 // Runtime config injected by the Go server into window.__SPARROW_CONFIG__.
 // The API key is always provided at runtime (never baked into the build).
@@ -25,6 +26,7 @@ export const api = createClient<paths>({
   baseUrl: env.PUBLIC_API_URL || "/",
   headers: apiKey ? { "X-API-Key": apiKey } : undefined,
 });
+api.use(apiLogMiddleware);
 
 /**
  * Throws a readable Error when an openapi-fetch call returns `error`.

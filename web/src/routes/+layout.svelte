@@ -3,14 +3,17 @@
   import { onMount, onDestroy } from "svelte";
   import favicon from "$lib/assets/favicon.svg";
   import Pulse from "$lib/components/Pulse.svelte";
+  import ApiConsole from "$lib/components/ApiConsole.svelte";
   import { consumerStore } from "$lib/consumer.svelte";
   import { api, unwrap } from "$lib/services";
   import { pulseStore } from "$lib/pulse.svelte";
+  import { apiConsole } from "$lib/apiConsole.svelte";
   import "../app.css";
 
   let { children } = $props();
 
   let sidebarOpen = $state(false);
+  let consoleOpen = $state(false);
   let fleet = $state<{ tone: string; label: string } | null>(null);
 
   const nav = [
@@ -123,6 +126,19 @@
         <span class="mono">{fleet?.label ?? "…"}</span>
       </a>
 
+      <button
+        onclick={() => (consoleOpen = true)}
+        title="Every request this UI makes, as copy-ready curl (Ctrl+`)"
+        class="w-full flex items-center gap-2 px-2.5 py-2 rounded-md border border-line bg-panel-2 text-xs text-muted hover:text-text hover:border-line-strong transition-colors"
+      >
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m8 9 3 3-3 3m5 0h4" /><rect x="3" y="4" width="18" height="16" rx="2" stroke-width="1.8" /></svg>
+        <span class="font-medium">API Console</span>
+        {#if apiConsole.entries.length > 0}
+          <span class="mono text-[10px] px-1.5 py-px rounded-full bg-beacon/15 text-beacon-dim tnum">{apiConsole.entries.length}</span>
+        {/if}
+        <kbd class="ml-auto mono text-[10px] px-1.5 py-0.5 rounded border border-line bg-panel text-faint">⌃`</kbd>
+      </button>
+
       <div class="flex items-center gap-1 text-muted">
         <a href="/docs" target="_blank" rel="noreferrer" class="flex-1 text-center px-2 py-1.5 rounded-md text-xs hover:text-text hover:bg-black/5 transition-colors">Docs</a>
         <a href="https://github.com/sarathsp06/sparrow" target="_blank" rel="noreferrer" aria-label="Sparrow on GitHub" class="grid place-items-center w-8 h-8 rounded-md hover:text-text hover:bg-black/5 transition-colors">
@@ -167,3 +183,5 @@
     {@render children?.()}
   </div>
 </div>
+
+<ApiConsole bind:open={consoleOpen} />
