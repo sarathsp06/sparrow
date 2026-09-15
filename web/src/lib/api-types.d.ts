@@ -4,6 +4,50 @@
  */
 
 export interface paths {
+    "/v1/consumers/{consumer}/alert-configs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List email alert recipients
+         * @description Lists alert configs in a consumer, optionally filtered to one webhook's own configs.
+         */
+        get: operations["listAlertConfigs"];
+        put?: never;
+        /**
+         * Register an email alert recipient
+         * @description Opts an email address into Sparrow's self-generated health-change and permanent-delivery-failure notifications, scoped to one webhook or the whole consumer.
+         */
+        post: operations["createAlertConfig"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/alert-configs/{alert_config_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete an email alert recipient
+         * @description Removes an alert config. The webhook and its delivery history are unaffected.
+         */
+        delete: operations["deleteAlertConfig"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/consumers/{consumer}/deliveries": {
         parameters: {
             query?: never;
@@ -544,6 +588,26 @@ export interface paths {
         patch: operations["updateEventType"];
         trace?: never;
     };
+    "/v1/event-types/{name}:validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate a payload against an event type's JSON Schema
+         * @description Checks a payload against the event type's registered JSON Schema without pushing an event. Does not affect delivery — pushEvent always accepts events regardless of schema validity; this lets callers (e.g. the Push Test Event UI) enforce a hard gate before submitting.
+         */
+        post: operations["validateEventPayload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/events/{event_id}": {
         parameters: {
             query?: never;
@@ -688,6 +752,26 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AlertConfigItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/AlertConfigItem.json
+             */
+            readonly $schema?: string;
+            /** @description Consumer this alert config belongs to. */
+            consumer: string;
+            /** @description Creation timestamp, RFC3339. */
+            created_at: string;
+            /** @description Recipient email address. */
+            email: string;
+            /** @description Sparrow system event types this recipient is alerted on. */
+            event_types: string[] | null;
+            /** @description Alert config id (UUID). */
+            id: string;
+            /** @description Webhook this alert is scoped to; omitted for consumer-wide alerts. */
+            webhook_id?: string;
+        };
         AttemptItem: {
             /**
              * @description Failure classification for this attempt.
@@ -803,6 +887,23 @@ export interface components {
              * @description Total webhooks registered.
              */
             total_webhooks: number;
+        };
+        CreateAlertConfigBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateAlertConfigBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: email
+             * @description Recipient email address.
+             */
+            email: string;
+            /** @description Sparrow system event types to alert on: sparrow.webhook.health_changed, sparrow.webhook.delivery_failed. */
+            event_types: string[] | null;
+            /** @description Scope the alert to one webhook. Omit for a consumer-wide alert covering every webhook. */
+            webhook_id?: string;
         };
         CreateSubscriptionBody: {
             /**
@@ -1061,6 +1162,15 @@ export interface components {
              */
             unknown_count: number;
         };
+        ListAlertConfigsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListAlertConfigsOutputBody.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["AlertConfigItem"][] | null;
+        };
         ListDeliveriesOutputBody: {
             /**
              * Format: uri
@@ -1256,7 +1366,7 @@ export interface components {
                 [key: string]: string;
             };
             /**
-             * @description Which signature algorithm to require verification against. Every delivery is always dual-signed (HMAC-SHA256 and Ed25519, Standard Webhooks format); this only changes which one is treated as authoritative. Defaults to hmac.
+             * @description Which signature algorithm to require verification against. Deliveries are HMAC-SHA256 signed (v1,) by default; once signature_type is set to ed25519 (which generates a signing keypair), later deliveries are dual-signed (v1, and v1a,, Standard Webhooks format). Defaults to hmac.
              * @enum {string}
              */
             signature_type?: "hmac" | "ed25519" | "";
@@ -1394,6 +1504,30 @@ export interface components {
             /** @description The template rendered against the event type's sample payload. */
             rendered: string;
         };
+        ValidateEventPayloadInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ValidateEventPayloadInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Payload to validate against the event type's registered JSON Schema. */
+            payload: {
+                [key: string]: unknown;
+            };
+        };
+        ValidateEventPayloadOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ValidateEventPayloadOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Whether the payload matches the event type's JSON Schema. Always true when the event type has no schema registered. */
+            valid: boolean;
+            /** @description Per-field validation errors, present when valid is false. */
+            warnings?: string[] | null;
+        };
         WebhookHTTPConfig: {
             /** @description Whether to store the endpoint's response body alongside each delivery attempt, for debugging. */
             capture_response_body?: boolean;
@@ -1405,7 +1539,7 @@ export interface components {
             follow_redirects?: boolean;
             /**
              * Format: int64
-             * @description Maximum delivery attempts before a delivery is marked failed.
+             * @description Maximum delivery attempts before a delivery is marked failed. 0 means no retries.
              */
             max_retries?: number;
             /**
@@ -1589,6 +1723,151 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listAlertConfigs: {
+        parameters: {
+            query?: {
+                /** @description Filter to alert configs scoped to one webhook. Omit to list every config in the consumer, including consumer-wide ones. */
+                webhook_id?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Consumer to list alert configs in. */
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListAlertConfigsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createAlertConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAlertConfigBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertConfigItem"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    deleteAlertConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                alert_config_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     listDeliveries: {
         parameters: {
             query?: {
@@ -3389,6 +3668,59 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    validateEventPayload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateEventPayloadInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidateEventPayloadOutputBody"];
                 };
             };
             /** @description Not Found */

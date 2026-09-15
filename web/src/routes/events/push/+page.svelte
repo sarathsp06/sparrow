@@ -115,6 +115,18 @@
         payloadObj = payload.json;
       }
 
+      if (hasSchema()) {
+        const check = unwrap(await api.POST('/v1/event-types/{name}:validate', {
+          params: { path: { name: event } },
+          body: { payload: payloadObj },
+        }));
+        if (!check.valid) {
+          error = "Payload does not match the event schema";
+          validationDetails = check.warnings ?? [];
+          return;
+        }
+      }
+
       const res = unwrap(await api.POST('/v1/consumers/{consumer}/events', {
         params: { path: { consumer }, query: { event } },
         body: { payload: payloadObj, labels },

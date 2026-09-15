@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -51,6 +52,20 @@ type eventTypeItem struct {
 
 type eventTypeOutput struct {
 	Body eventTypeItem
+}
+
+type validateEventPayloadInput struct {
+	Name string `path:"name"`
+	Body struct {
+		Payload map[string]any `json:"payload" required:"true" doc:"Payload to validate against the event type's registered JSON Schema."`
+	}
+}
+
+type validateEventPayloadOutput struct {
+	Body struct {
+		Valid    bool     `json:"valid" doc:"Whether the payload matches the event type's JSON Schema. Always true when the event type has no schema registered."`
+		Warnings []string `json:"warnings,omitempty" doc:"Per-field validation errors, present when valid is false."`
+	}
 }
 
 func toEventTypeItem(e *store.EventRegistration) eventTypeItem {
@@ -320,6 +335,34 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 			return nil, mapError(ctx, err, "failed to delete event type")
 		}
 		return &emptyOutput{Status: http.StatusNoContent}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "validateEventPayload",
+		Method:      http.MethodPost,
+		Path:        "/v1/event-types/{name}:validate",
+		Summary:     "Validate a payload against an event type's JSON Schema",
+		Description: "Checks a payload against the event type's registered JSON Schema without pushing an event. Does not affect delivery — pushEvent always accepts events regardless of schema validity; this lets callers (e.g. the Push Test Event UI) enforce a hard gate before submitting.",
+		Errors:      []int{404},
+		Tags:        []string{"Event Types"},
+	}, func(ctx context.Context, in *validateEventPayloadInput) (*validateEventPayloadOutput, error) {
+		e, err := svc.GetEvent(ctx, in.Name)
+		if err != nil {
+			return nil, mapError(ctx, err, "failed to get event type")
+		}
+		out := &validateEventPayloadOutput{}
+		out.Body.Valid = true
+		if len(e.Schema) > 0 {
+			if err := webhooks.ValidateJSONSchema(e.Schema, in.Body.Payload); err != nil {
+				var schemaErr *webhooks.SchemaValidationError
+				if !errors.As(err, &schemaErr) {
+					return nil, mapError(ctx, err, "failed to validate payload")
+				}
+				out.Body.Valid = false
+				out.Body.Warnings = schemaErr.Warnings()
+			}
+		}
+		return out, nil
 	})
 
 	huma.Register(api, huma.Operation{
