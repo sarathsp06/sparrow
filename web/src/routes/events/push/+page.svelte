@@ -1,14 +1,13 @@
 <script lang="ts">
   import {
     type Content,
-    createAjvValidator,
     JSONEditor,
     Mode,
     type Validator
   } from "svelte-jsoneditor";
 
   import { api, unwrap } from "$lib/services";
-  import { formatAPIError } from '$lib/utils';
+  import { formatAPIError, safeAjvValidator } from '$lib/utils';
   import { consumerStore } from '$lib/consumer.svelte';
   import { onMount } from "svelte";
   import type { components } from "$lib/api-types";
@@ -36,12 +35,12 @@
     }
   });
 
-  const validator: Validator = $derived.by(() => {
+  const validator: Validator | undefined = $derived.by(() => {
     const selectedEvent = availableEvents.find((e) => e.name === event);
     if (selectedEvent && selectedEvent.event_schema && Object.keys(selectedEvent.event_schema).length > 0) {
-      return createAjvValidator({ schema: selectedEvent.event_schema as any });
+      return safeAjvValidator({ schema: selectedEvent.event_schema as any });
     }
-    return createAjvValidator({ schema: {} });
+    return safeAjvValidator({ schema: {} });
   });
 
   function hasSchema(): boolean {

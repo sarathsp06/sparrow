@@ -2,10 +2,9 @@
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
   import { api, unwrap } from "$lib/services";
-  import { JSONSchemaMetaSchema, jsonToJsonSchema, toJSONObject, formatAPIError } from "$lib/utils";
+  import { JSONSchemaMetaSchema, jsonToJsonSchema, toJSONObject, formatAPIError, safeAjvValidator } from "$lib/utils";
   import { onMount } from "svelte";
   import {
-    createAjvValidator,
     type JSONContent,
     JSONEditor,
     Mode,
@@ -23,8 +22,7 @@
   let sampleJson: JSONContent = $state({ json: {} });
   let schemaHelperError = $state('');
 
-  const validator: Validator = createAjvValidator({ schema: JSONSchemaMetaSchema });
-
+  const validator: Validator | undefined = safeAjvValidator({ schema: JSONSchemaMetaSchema });
   onMount(async () => {
     const eventName = decodeURIComponent(page.params.eventName ?? '');
     try {

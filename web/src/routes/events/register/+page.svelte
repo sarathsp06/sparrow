@@ -2,9 +2,8 @@
   import { goto } from '$app/navigation';
   import { api, unwrap } from '$lib/services';
   import { JSONSchemaMetaSchema, jsonToJsonSchema } from '$lib';
-  import { formatAPIError } from '$lib/utils';
+  import { formatAPIError, safeAjvValidator } from '$lib/utils';
   import {
-    createAjvValidator,
     JSONEditor,
     Mode,
     type JSONContent,
@@ -21,7 +20,7 @@
   let sampleJson = $state({ json: {} } as JSONContent);
   let schemaHelperError = $state('');
 
-  const validator: Validator = createAjvValidator({ schema: JSONSchemaMetaSchema });
+  const validator: Validator | undefined = safeAjvValidator({ schema: JSONSchemaMetaSchema });
 
   function generateSchemaFromSample() {
     schemaHelperError = '';

@@ -1,4 +1,4 @@
-import { type Content } from "svelte-jsoneditor";
+import { createAjvValidator, type Content, type Validator } from "svelte-jsoneditor";
 
 /**
  * Returns a JSON string representation of the given content.
@@ -29,6 +29,25 @@ const JSONSchemaMetaSchema = {
   type: "object",
   additionalProperties: true,
 };
+
+/**
+ * Wraps {@link createAjvValidator} so a CSP that omits `script-src
+ * 'unsafe-eval'` can't crash the whole page. Ajv compiles schemas to
+ * validator functions via `new Function(...)`, which such a CSP blocks
+ * outright — anywhere this ran unguarded at component setup (e.g. `const
+ * validator = createAjvValidator(...)`), the exception was thrown before
+ * `onMount`, so the entire page never rendered. Falling back to `undefined`
+ * (no live schema validation, which JSONEditor's `validator` prop already
+ * treats as optional) keeps the page usable instead of blank.
+ */
+function safeAjvValidator(options: Parameters<typeof createAjvValidator>[0]): Validator | undefined {
+  try {
+    return createAjvValidator(options);
+  } catch (e) {
+    console.warn("JSON schema validation unavailable (CSP blocks script-src 'unsafe-eval')", e);
+    return undefined;
+  }
+}
 
 /**
  * Infer a JSON Schema type string from a JavaScript value.
@@ -265,6 +284,7 @@ export {
   getCategoryBadge,
   getCategoryDisplay,
   jsonToJsonSchema,
+  safeAjvValidator,
   stringifyContent,
   toJSONObject,
   timeAgo,

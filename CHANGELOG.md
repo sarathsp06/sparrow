@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Fixed
+
+- Event type Update/Register/Push pages rendered blank: `svelte-jsoneditor`'s Ajv-based schema validator compiles validators via `new Function(...)` at component setup, which the app's `script-src` CSP (missing `unsafe-eval`) throws on before `onMount` runs, crashing the whole page silently. Validator creation now degrades to no live validation instead of crashing the page.
+
 ## [0.4.0] - 2026-09-15
 
 ### Added
