@@ -27,14 +27,27 @@ func (f *fakeAlertConfigRepo) ResolveAlertRecipients(ctx context.Context, tenant
 }
 
 // fakeSystemEventRepo fails the test if a system event is pushed when a
-// guard should have skipped emission (e.g. zero recipients).
+// guard should have skipped emission (e.g. zero recipients). When
+// notRegistered is set, GetEventByName reports no existing registration so
+// pushSystemEvent takes the auto-register path; registered captures what
+// RegisterEvent was called with.
 type fakeSystemEventRepo struct {
 	systemEventRepo
-	stored []string // event names pushed via StoreEvent
+	stored        []string // event names pushed via StoreEvent
+	notRegistered bool
+	registered    *store.EventRegistration
 }
 
 func (f *fakeSystemEventRepo) GetEventByName(ctx context.Context, tenantID uuid.UUID, name string) (*store.EventRegistration, error) {
+	if f.notRegistered {
+		return nil, nil
+	}
 	return &store.EventRegistration{Name: name, Active: true}, nil
+}
+
+func (f *fakeSystemEventRepo) RegisterEvent(ctx context.Context, tenantID uuid.UUID, event *store.EventRegistration) error {
+	f.registered = event
+	return nil
 }
 
 func (f *fakeSystemEventRepo) StoreEvent(ctx context.Context, tenantID uuid.UUID, event *store.EventRecord) error {
@@ -171,5 +184,22 @@ func TestToAlertRecipients(t *testing.T) {
 	got := toAlertRecipients([]string{"a@example.com", "b@example.com"})
 	if len(got) != 2 || got[0]["email"] != "a@example.com" || got[1]["email"] != "b@example.com" {
 		t.Errorf("unexpected recipients shape: %v", got)
+	}
+}
+
+func TestPushSystemEvent_AutoRegistersWithSchema(t *testing.T) {
+	for _, event := range []string{systemEventHealthChanged, systemEventDeliveryFailed} {
+		eventRepo := &fakeSystemEventRepo{notRegistered: true}
+		pushSystemEvent(context.Background(), slog.Default(), eventRepo, noopJobInserter{}, uuid.New(), event, map[string]any{})
+
+		if eventRepo.registered == nil {
+			t.Fatalf("%s: expected auto-registration, got none", event)
+		}
+		if len(eventRepo.registered.Schema) == 0 {
+			t.Errorf("%s: expected non-empty schema on auto-registration, got %v", event, eventRepo.registered.Schema)
+		}
+		if len(eventRepo.registered.SamplePayload) == 0 {
+			t.Errorf("%s: expected non-empty sample payload on auto-registration, got %v", event, eventRepo.registered.SamplePayload)
+		}
 	}
 }

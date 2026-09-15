@@ -2,10 +2,12 @@ package queue
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sarathsp06/schemagen"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
@@ -25,6 +27,52 @@ const (
 	// retry and is permanently failed.
 	systemEventDeliveryFailed = "sparrow.webhook.delivery_failed"
 )
+
+// systemEventSchemas holds the JSON Schema for each self-generated system
+// event, keyed by event name, so auto-registration (pushSystemEvent) gives
+// them the same schema/validation UX as any tenant-registered event type
+// instead of leaving schema empty.
+var systemEventSchemas = map[string]map[string]any{
+	systemEventHealthChanged: {
+		"type":     "object",
+		"required": []string{"webhook_id", "consumer", "url", "old_health", "new_health"},
+		"properties": map[string]any{
+			"webhook_id": map[string]any{"type": "string", "format": "uuid"},
+			"consumer":   map[string]any{"type": "string"},
+			"url":        map[string]any{"type": "string"},
+			"old_health": map[string]any{"type": "string"},
+			"new_health": map[string]any{"type": "string"},
+			"alert_recipients": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type":       "object",
+					"properties": map[string]any{"email": map[string]any{"type": "string", "format": "email"}},
+				},
+			},
+		},
+	},
+	systemEventDeliveryFailed: {
+		"type":     "object",
+		"required": []string{"webhook_id", "consumer", "url", "delivery_id", "event_id", "attempt", "error_category", "error_message"},
+		"properties": map[string]any{
+			"webhook_id":     map[string]any{"type": "string", "format": "uuid"},
+			"consumer":       map[string]any{"type": "string"},
+			"url":            map[string]any{"type": "string"},
+			"delivery_id":    map[string]any{"type": "string", "format": "uuid"},
+			"event_id":       map[string]any{"type": "string", "format": "uuid"},
+			"attempt":        map[string]any{"type": "integer"},
+			"error_category": map[string]any{"type": "string"},
+			"error_message":  map[string]any{"type": "string"},
+			"alert_recipients": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type":       "object",
+					"properties": map[string]any{"email": map[string]any{"type": "string", "format": "email"}},
+				},
+			},
+		},
+	},
+}
 
 // systemEventRepo is the narrow event-repository surface WebhookWorker needs:
 // reading event records for ordinary delivery, plus registering/storing its
@@ -60,10 +108,13 @@ func pushSystemEvent(ctx context.Context, log *slog.Logger, eventRepo systemEven
 		return
 	}
 	if eventReg == nil {
+		schema := systemEventSchemas[event]
 		eventReg = &store.EventRegistration{
-			Name:        event,
-			Description: "Sparrow-generated system event.",
-			Active:      true,
+			Name:          event,
+			Description:   "Sparrow-generated system event.",
+			Schema:        schema,
+			SamplePayload: systemEventSamplePayload(schema),
+			Active:        true,
 		}
 		if err := eventRepo.RegisterEvent(ctx, tenantID, eventReg); err != nil {
 			log.ErrorContext(ctx, "Failed to auto-register system event", "event", event, "error", err)
@@ -94,6 +145,25 @@ func pushSystemEvent(ctx context.Context, log *slog.Logger, eventRepo systemEven
 	}); err != nil {
 		log.ErrorContext(ctx, "Failed to enqueue system event processing job", "event", event, "error", err)
 	}
+}
+
+// systemEventSamplePayload generates an example payload from a system
+// event's schema for the Push Test Event UI, mirroring
+// WebhookService.generateSamplePayload. Duplicated (rather than shared)
+// because the queue package cannot import webhooks — see pushSystemEvent.
+func systemEventSamplePayload(schema map[string]any) map[string]any {
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return map[string]any{}
+	}
+	sample, err := schemagen.NewGenerator().SetGenerateAllFields(true).Generate(schemaBytes)
+	if err != nil {
+		return map[string]any{}
+	}
+	if sampleMap, ok := sample.(map[string]any); ok {
+		return sampleMap
+	}
+	return map[string]any{}
 }
 
 // emitHealthChangedEvent pushes systemEventHealthChanged when a delivery
