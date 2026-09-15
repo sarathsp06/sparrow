@@ -90,6 +90,14 @@ type BatchManager interface {
 	CancelRetry(ctx context.Context, retryID string) error
 }
 
+// AlertConfigManager manages opt-in email recipients for Sparrow's
+// self-generated webhook.health_changed / webhook.delivery_failed events.
+type AlertConfigManager interface {
+	CreateAlertConfig(ctx context.Context, consumer, webhookID, email string, eventTypes []string) (*store.AlertConfig, error)
+	ListAlertConfigs(ctx context.Context, consumer string, webhookID string) ([]*store.AlertConfig, error)
+	DeleteAlertConfig(ctx context.Context, consumer, id string) error
+}
+
 // SecretRevealer decrypts stored webhook secrets for masking and exposes the
 // Ed25519 signing public key. Used by response conversion, never for delivery.
 type SecretRevealer interface {
@@ -111,6 +119,7 @@ type WebhookServiceInterface interface {
 	HealthManager
 	BatchManager
 	SecretRevealer
+	AlertConfigManager
 }
 
 type TemplateFunctionInfo struct {

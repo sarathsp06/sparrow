@@ -11,11 +11,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 
 	_codes "go.opentelemetry.io/otel/codes"
 )
@@ -87,6 +86,33 @@ func (_d WebhookServiceInterfaceWithTracing) CancelRetry(ctx context.Context, re
 	return _d.WebhookServiceInterface.CancelRetry(ctx, retryID)
 }
 
+// CreateAlertConfig implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) CreateAlertConfig(ctx context.Context, consumer string, webhookID string, email string, eventTypes []string) (ap1 *store.AlertConfig, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.CreateAlertConfig")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":        ctx,
+				"consumer":   consumer,
+				"webhookID":  webhookID,
+				"email":      email,
+				"eventTypes": eventTypes}, map[string]interface{}{
+				"ap1": ap1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.CreateAlertConfig(ctx, consumer, webhookID, email, eventTypes)
+}
+
 // CreateSubscription implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) CreateSubscription(ctx context.Context, webhookID string, eventName string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (s1 string, t1 time.Time, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.CreateSubscription")
@@ -142,6 +168,30 @@ func (_d WebhookServiceInterfaceWithTracing) CreateWebhook(ctx context.Context, 
 		_span.End()
 	}()
 	return _d.WebhookServiceInterface.CreateWebhook(ctx, req)
+}
+
+// DeleteAlertConfig implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) DeleteAlertConfig(ctx context.Context, consumer string, id string) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.DeleteAlertConfig")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"consumer": consumer,
+				"id":       id}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.DeleteAlertConfig(ctx, consumer, id)
 }
 
 // DeleteEvent implements WebhookServiceInterface
@@ -435,6 +485,31 @@ func (_d WebhookServiceInterfaceWithTracing) GetWebhookHealth(ctx context.Contex
 		_span.End()
 	}()
 	return _d.WebhookServiceInterface.GetWebhookHealth(ctx, webhookID, consumer)
+}
+
+// ListAlertConfigs implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) ListAlertConfigs(ctx context.Context, consumer string, webhookID string) (apa1 []*store.AlertConfig, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListAlertConfigs")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":       ctx,
+				"consumer":  consumer,
+				"webhookID": webhookID}, map[string]interface{}{
+				"apa1": apa1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.ListAlertConfigs(ctx, consumer, webhookID)
 }
 
 // ListDeliveries implements WebhookServiceInterface

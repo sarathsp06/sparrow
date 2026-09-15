@@ -1,0 +1,32 @@
+version: 1
+name: sendgrid
+description: Send events as email via the SendGrid v3 Mail Send API
+params:
+  - name: api_key
+    prompt: "SendGrid API key"
+    required: true
+  - name: from_email
+    prompt: "Verified sender email address"
+    required: true
+  - name: from_name
+    prompt: "Sender display name"
+    required: true
+webhook:
+  url: 'https://api.sendgrid.com/v3/mail/send'
+  headers:
+    Content-Type: application/json
+  secret_headers:
+    # Envelope-encrypted at rest, masked in API responses.
+    Authorization: 'Bearer {{param "api_key"}}'
+subscription:
+  # Built for Sparrow's own sparrow.webhook.health_changed / delivery_failed
+  # system events (see the webhook_alert_configs API): payload.alert_recipients
+  # is a list of {email} objects, one per opted-in recipient. Each gets its
+  # own personalization so recipients never see each other's address.
+  transform_template: |
+    {
+      "personalizations": [{{range $i, $r := .payload.alert_recipients}}{{if $i}},{{end}}{"to": [{"email": {{$r.email | json}}}]}{{end}}],
+      "from": {"email": "{{param "from_email"}}", "name": "{{param "from_name"}}"},
+      "subject": {{if eq .event_name "sparrow.webhook.health_changed"}}{{if eq .payload.new_health "healthy"}}{{printf "Sparrow: webhook for %v recovered" .payload.consumer | json}}{{else}}{{printf "Sparrow: webhook for %v is now %v" .payload.consumer .payload.new_health | json}}{{end}}{{else}}{{printf "Sparrow: delivery to %v failed permanently" .payload.consumer | json}}{{end}},
+      "content": [{"type": "text/plain", "value": {{if eq .event_name "sparrow.webhook.health_changed"}}{{printf "Webhook %v (%v) health changed: %v -> %v" .payload.webhook_id .payload.url .payload.old_health .payload.new_health | json}}{{else}}{{printf "Webhook %v (%v) delivery %v failed permanently after %v attempt(s): %v (%v)" .payload.webhook_id .payload.url .payload.delivery_id .payload.attempt .payload.error_message .payload.error_category | json}}{{end}}}]
+    }

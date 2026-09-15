@@ -30,9 +30,9 @@ rendering happens inside the Sparrow server on every delivery:
 ```
 apply time (sparrow use <name>):
   1. load the recipe YAML (built-in name or --file), prompt for params
-  2. POST /v1/consumers/{ns}/webhooks
+  2. POST /v1/consumers/{consumer}/webhooks
        url + headers from the recipe, params substituted
-  3. PATCH /v1/consumers/{ns}/subscriptions/{id}
+  3. PATCH /v1/consumers/{consumer}/subscriptions/{id}
        transform_enabled: true, transform_template: <recipe template>,
        events + label filters from --event/--label
 
@@ -121,6 +121,25 @@ never open duplicate incidents:
     "timestamp": "2026-01-02T03:04:05Z",
     "custom_details": {"amount": 1999, "order_id": "ord_42"}
   }
+}
+```
+
+### sendgrid
+
+Sends an email via SendGrid's v3 Mail Send API. Params: `api_key`,
+`from_email`, `from_name`. Built for Sparrow's own
+[webhook health alerts](/sparrow/guides/webhook-health-alerts/): the
+transform ranges `payload.alert_recipients` into one `personalizations` entry
+per recipient, so a single delivery emails everyone opted in:
+
+```json
+{
+  "personalizations": [
+    {"to": [{"email": "ops@acme.example.com"}]}
+  ],
+  "from": {"email": "alerts@yourdomain.com", "name": "Sparrow Alerts"},
+  "subject": "Webhook health: degraded",
+  "content": [{"type": "text/plain", "value": "..."}]
 }
 ```
 

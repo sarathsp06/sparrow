@@ -23,6 +23,7 @@ sparrow use slack --param webhook_url=https://hooks.slack.com/services/T000/B000
 | `pagerduty` | PagerDuty Events API v2 (trigger alert) | `routing_key` |
 | `clickhouse` | ClickHouse HTTP interface (JSONEachRow insert) | `base_url`, `table`, `user`, `password` |
 | `twilio` | Twilio SMS (Messages API) | `account_sid`, `basic_auth`, `from_number`, `to_number` |
+| `sendgrid` | SendGrid v3 Mail Send (per-recipient personalizations) | `api_key`, `from_email`, `from_name` |
 
 ## Schema (version 1)
 

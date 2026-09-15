@@ -12,7 +12,7 @@ import (
 
 // HealthRepository defines operations for webhook health tracking.
 type HealthRepository interface {
-	UpdateWebhookHealthState(ctx context.Context, webhookID uuid.UUID, success bool, eventTimestamp time.Time) error
+	UpdateWebhookHealthState(ctx context.Context, webhookID uuid.UUID, success bool, eventTimestamp time.Time) (oldHealth, newHealth string, err error)
 	CalculateWebhookHealth(ctx context.Context, webhookID uuid.UUID, lookbackHours int) (string, error)
 	RecordWebhookHealthEvent(ctx context.Context, webhookID, deliveryID uuid.UUID, success bool, responseTime, responseCode int, errorMessage string, errorCategory string) error
 	GetWebhookHealthState(ctx context.Context, webhookID uuid.UUID) (*WebhookHealthMetrics, error)
@@ -26,9 +26,16 @@ type HealthRepository interface {
 // UpdateWebhookHealthState records a webhook delivery outcome and updates health metrics.
 // For successful deliveries, it resets consecutive failures to 0 and updates last success timestamp.
 // For failed deliveries, it increments consecutive failures and updates last failure timestamp.
-// After updating health state, it recalculates the overall webhook health status (healthy/degraded/unhealthy).
+// After updating health state, it recalculates the overall webhook health status (healthy/degraded/unhealthy)
+// and returns the health value from immediately before and after this call, so callers can detect a
+// transition (e.g. to emit a health-change notification) without a separate read.
 // This function performs upsert operations to handle both new webhooks and existing ones.
-func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID uuid.UUID, success bool, eventTimestamp time.Time) error {
+func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID uuid.UUID, success bool, eventTimestamp time.Time) (string, string, error) {
+	var oldHealth string
+	if err := r.conn.GetContext(ctx, &oldHealth, `SELECT health FROM webhook_registrations WHERE id = $1`, webhookID); err != nil {
+		return "", "", storage.Error(err)
+	}
+
 	var lastSuccessAt, lastFailureAt *time.Time
 	if success {
 		lastSuccessAt = &eventTimestamp
@@ -64,18 +71,21 @@ func (r *Repository) UpdateWebhookHealthState(ctx context.Context, webhookID uui
 		success,
 	)
 	if err != nil {
-		return storage.Error(err)
+		return "", "", storage.Error(err)
 	}
 
 	// Calculate health status
-	healthStatus, err := r.CalculateWebhookHealth(ctx, webhookID, 24)
+	newHealth, err := r.CalculateWebhookHealth(ctx, webhookID, 24)
 	if err != nil {
-		return storage.Error(err)
+		return "", "", storage.Error(err)
 	}
 
 	// Update webhook_registrations health field
-	_, err = r.conn.ExecContext(ctx, `UPDATE webhook_registrations SET health = $1, updated_at = NOW() WHERE id = $2`, healthStatus, webhookID)
-	return storage.Error(err)
+	_, err = r.conn.ExecContext(ctx, `UPDATE webhook_registrations SET health = $1, updated_at = NOW() WHERE id = $2`, newHealth, webhookID)
+	if err != nil {
+		return "", "", storage.Error(err)
+	}
+	return oldHealth, newHealth, nil
 }
 
 // CalculateWebhookHealth determines webhook health status based on delivery patterns.

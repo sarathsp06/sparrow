@@ -66,6 +66,8 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface) huma.API {
 			"history. Failed deliveries can be retried singly or in bulk via a prepared batch snapshot."},
 		{Name: "Health", Description: "Rolling per-webhook health status computed from recent delivery " +
 			"outcomes, plus cross-consumer aggregate counts for dashboards."},
+		{Name: "Alert Configs", Description: "Opt-in email recipients for Sparrow's own self-generated " +
+			"webhook.health_changed and webhook.delivery_failed system events."},
 	}
 	config.DocsPath = "/docs"
 	config.DocsRenderer = huma.DocsRendererScalar
@@ -92,6 +94,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface) huma.API {
 	registerSubscriptionRoutes(api, svc)
 	registerDeliveryRoutes(api, svc)
 	registerHealthRoutes(api, svc)
+	registerAlertConfigRoutes(api, svc)
 
 	return api
 }

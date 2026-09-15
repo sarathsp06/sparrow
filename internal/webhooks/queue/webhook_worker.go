@@ -31,11 +31,13 @@ import (
 type WebhookWorker struct {
 	river.WorkerDefaults[WebhookArgs]
 	webhookRepo      store.WebhookRepository
-	eventRepo        store.EventRepository
+	eventRepo        systemEventRepo
 	deliveryRepo     store.DeliveryRepository
 	subscriptionRepo store.SubscriptionRepository
 	healthRepo       store.HealthRepository
 	rateLimitRepo    store.RateLimitRepository
+	alertConfigRepo  store.AlertConfigRepository
+	jobInserter      JobInserter
 	cryptoSvc        *crypto.Service
 	tracer           trace.Tracer
 	logger           *slog.Logger
@@ -43,7 +45,7 @@ type WebhookWorker struct {
 }
 
 // NewWebhookWorker creates a new webhook worker
-func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo store.EventRepository, deliveryRepo store.DeliveryRepository, subscriptionRepo store.SubscriptionRepository, healthRepo store.HealthRepository, rateLimitRepo store.RateLimitRepository, cryptoSvc *crypto.Service, clientConfig *client.Config) *WebhookWorker {
+func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEventRepo, deliveryRepo store.DeliveryRepository, subscriptionRepo store.SubscriptionRepository, healthRepo store.HealthRepository, rateLimitRepo store.RateLimitRepository, alertConfigRepo store.AlertConfigRepository, jobInserter JobInserter, cryptoSvc *crypto.Service, clientConfig *client.Config) *WebhookWorker {
 	// Initialize the centralized webhook client
 	webhookClient := client.NewWebhookClient(clientConfig)
 
@@ -54,6 +56,8 @@ func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo store.Event
 		subscriptionRepo: subscriptionRepo,
 		healthRepo:       healthRepo,
 		rateLimitRepo:    rateLimitRepo,
+		alertConfigRepo:  alertConfigRepo,
+		jobInserter:      jobInserter,
 		cryptoSvc:        cryptoSvc,
 		logger:           slog.Default().With("component", "webhook-worker"),
 		tracer:           observability.GetTracer("sparrow.workers.webhook"),
@@ -334,7 +338,10 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		_ = w.deliveryRepo.UpdateDeliveryStatus(ctx, deliveryID, status, 0, "", fmt.Sprintf("Request failed: %v", err), string(errorCategory))
 
 		// Record health event and update health state
-		w.recordHealthOutcome(ctx, log, webhookID, deliveryID, false, int(duration.Milliseconds()), 0, err.Error(), string(errorCategory))
+		w.recordHealthOutcome(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, webhook.URL, false, int(duration.Milliseconds()), 0, err.Error(), string(errorCategory))
+		if status == store.StatusFailed {
+			w.emitDeliveryFailedEvent(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, eventID, webhook.URL, job.Attempt, string(errorCategory), fmt.Sprintf("Request failed: %v", err))
+		}
 
 		// For non-retryable error categories (DNS, TLS), cancel River retries
 		// by returning nil instead of an error. The delivery is already marked failed.
@@ -386,7 +393,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			log.ErrorContext(ctx, "Failed to update delivery status to success", "error", err)
 		}
 
-		w.recordHealthOutcome(ctx, log, webhookID, deliveryID, true, int(duration.Milliseconds()), resp.StatusCode, "", string(sparrowerrors.CategorySuccess))
+		w.recordHealthOutcome(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, webhook.URL, true, int(duration.Milliseconds()), resp.StatusCode, "", string(sparrowerrors.CategorySuccess))
 
 		return nil
 	}
@@ -408,7 +415,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		)
 
 		// Record the 429 as a health event (the endpoint is overloaded)
-		w.recordHealthOutcome(ctx, log, webhookID, deliveryID, false,
+		w.recordHealthOutcome(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, webhook.URL, false,
 			int(duration.Milliseconds()), resp.StatusCode,
 			"HTTP 429: Too Many Requests", string(sparrowerrors.CategoryRateLimited))
 
@@ -448,7 +455,10 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		log.ErrorContext(ctx, "Failed to update delivery status to failed", "error", err)
 	}
 
-	w.recordHealthOutcome(ctx, log, webhookID, deliveryID, false, int(duration.Milliseconds()), resp.StatusCode, errorMessage, string(errorCategory))
+	w.recordHealthOutcome(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, webhook.URL, false, int(duration.Milliseconds()), resp.StatusCode, errorMessage, string(errorCategory))
+	if status == store.StatusFailed {
+		w.emitDeliveryFailedEvent(ctx, log, tenantID, args.Consumer, webhookID, deliveryID, eventID, webhook.URL, job.Attempt, string(errorCategory), errorMessage)
+	}
 
 	log.WarnContext(ctx, "Webhook delivery failed",
 		"status_code", resp.StatusCode,
@@ -471,13 +481,16 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 
 // recordHealthOutcome records a webhook health event and updates the health state.
 // This is the shared implementation for all delivery outcome paths (success, client error, server error).
-func (w *WebhookWorker) recordHealthOutcome(ctx context.Context, log *slog.Logger, webhookID, deliveryID uuid.UUID, success bool, durationMs int, statusCode int, errorMessage string, errorCategory string) {
+func (w *WebhookWorker) recordHealthOutcome(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID, deliveryID uuid.UUID, url string, success bool, durationMs int, statusCode int, errorMessage string, errorCategory string) {
 	if err := w.healthRepo.RecordWebhookHealthEvent(ctx, webhookID, deliveryID, success, durationMs, statusCode, errorMessage, errorCategory); err != nil {
 		log.ErrorContext(ctx, "Failed to record health event", "error", err)
 	}
-	if err := w.healthRepo.UpdateWebhookHealthState(ctx, webhookID, success, time.Now()); err != nil {
+	oldHealth, newHealth, err := w.healthRepo.UpdateWebhookHealthState(ctx, webhookID, success, time.Now())
+	if err != nil {
 		log.ErrorContext(ctx, "Failed to update webhook health state", "error", err)
+		return
 	}
+	w.emitHealthChangedEvent(ctx, log, tenantID, consumer, webhookID, url, oldHealth, newHealth)
 }
 
 // Helper function for status code checking (re-implemented as standalone or private method)

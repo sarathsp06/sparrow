@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.4.0] - 2026-09-15
+
+### Added
+
+- Sparrow now self-generates two internal events under a reserved `_sparrow` consumer: `sparrow.webhook.health_changed` (on any health transition, skipping the initial `unknown` → `healthy`) and `sparrow.webhook.delivery_failed` (when a delivery exhausts all retries)
+- Opt-in email alerts on those events via a new `webhook_alert_configs` resource (`/v1/consumers/{consumer}/alert-configs`), scoped per-webhook or consumer-wide
+- `sendgrid` recipe: sends alert emails via SendGrid's v3 Mail Send API, fanning out to every opted-in recipient in one call
+- New guide: [Webhook Health Alert Emails](docs/src/content/docs/guides/webhook-health-alerts.mdx)
+
+### Fixed
+
+- Corrected the satellites summary table in the docs, tutorial, and OKF architecture notes
+
 ## [0.3.0] - 2026-09-14
 
 ### Added

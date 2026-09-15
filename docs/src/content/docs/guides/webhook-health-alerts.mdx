@@ -1,0 +1,106 @@
+---
+title: Webhook Health Alert Emails
+description: Get emailed when a webhook degrades, recovers, or a delivery permanently fails — using Sparrow's own event pipeline.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Sparrow already tracks each webhook's health (`healthy` / `degraded` /
+`unhealthy`) and retries failed deliveries until they succeed or exhaust their
+attempts. This feature lets you get emailed the moment either of those things
+happens, without polling the API or wiring up your own monitor.
+
+<Aside type="note" title="Opt-in, per-consumer or per-webhook">
+Nothing is emailed until you create an alert config. No config, no email —
+existing consumers are unaffected.
+</Aside>
+
+## How it works
+
+Sparrow emits two events into a Sparrow-owned internal consumer, `_sparrow`,
+using its own event/subscription/delivery pipeline — the same one your events
+flow through:
+
+| Event | Fires when |
+|-------|------------|
+| `sparrow.webhook.health_changed` | A webhook's health transitions (e.g. `healthy` → `degraded`). The very first `unknown` → `healthy` transition is skipped — every webhook starts `unknown` and this would otherwise fire on every registration. |
+| `sparrow.webhook.delivery_failed` | A delivery exhausts all of its retries and is marked permanently failed. |
+
+You never subscribe to these events directly. Instead, you register an
+**alert config** naming an email address; Sparrow embeds every matching
+recipient into the event's payload (`payload.alert_recipients`) at the moment
+it's pushed, and a mail-sending recipe (see below) fans that out to a real
+email via SendGrid.
+
+## Register an alert config
+
+<Steps>
+
+1. **Consumer-wide** — every webhook under a consumer:
+
+   ```bash
+   curl -X POST http://localhost:8080/v1/consumers/acme/alert-configs \
+     -H 'Content-Type: application/json' \
+     -d '{
+       "email": "ops@acme.example.com",
+       "event_types": ["sparrow.webhook.health_changed", "sparrow.webhook.delivery_failed"]
+     }'
+   ```
+
+2. **One specific webhook** — add `webhook_id`:
+
+   ```bash
+   curl -X POST http://localhost:8080/v1/consumers/acme/alert-configs \
+     -H 'Content-Type: application/json' \
+     -d '{
+       "webhook_id": "wh_123",
+       "email": "oncall@acme.example.com",
+       "event_types": ["sparrow.webhook.delivery_failed"]
+     }'
+   ```
+
+3. **List or remove** configs the same way you would any other resource:
+
+   ```bash
+   curl http://localhost:8080/v1/consumers/acme/alert-configs
+   curl -X DELETE http://localhost:8080/v1/consumers/acme/alert-configs/{alert_config_id}
+   ```
+
+</Steps>
+
+A webhook whose own consumer is `_sparrow` never generates these events —
+that would create a feedback loop.
+
+## Set up the email delivery channel
+
+Alert emails go out through Sparrow's own webhook pipeline: a webhook
+registered under the `_sparrow` consumer, subscribed to both system events,
+targeting SendGrid's Mail Send API. Apply the bundled recipe once per
+deployment:
+
+```bash
+sparrow --consumer _sparrow use sendgrid \
+  --param api_key=$SENDGRID_API_KEY \
+  --param from_email=alerts@yourdomain.com \
+  --param from_name="Sparrow Alerts" \
+  --event sparrow.webhook.health_changed \
+  --event sparrow.webhook.delivery_failed
+```
+
+The recipe's transform ranges `payload.alert_recipients` into SendGrid's `v3`
+`personalizations` array — one SendGrid API call delivers to every opted-in
+recipient, each in their own personalization. See
+[Recipes](/sparrow/satellites/recipes/) for how recipes are applied and
+parameterized.
+
+## Good to know
+
+- **No recipients, no event.** If zero alert configs match a given
+  transition or failure, Sparrow skips pushing the event entirely — no
+  wasted storage or queue work.
+- **Errors here never affect delivery.** If emitting a system event fails,
+  Sparrow logs it and moves on; it never retries or blocks the webhook
+  delivery that triggered it.
+- **`_sparrow`'s events are internal.** They don't show up in your
+  consumer's event history — they live under the `_sparrow` consumer and
+  exist only to drive this alerting pipeline.

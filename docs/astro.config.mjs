@@ -36,6 +36,7 @@ export default defineConfig({
           label: 'Guides',
           items: [
             { slug: 'guides/payload-transformation' },
+            { slug: 'guides/webhook-health-alerts' },
           ],
         },
         {
