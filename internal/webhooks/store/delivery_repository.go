@@ -123,8 +123,11 @@ func (r *Repository) DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUI
 // UpdateDeliveryStatus records the outcome of a webhook delivery attempt.
 func (r *Repository) UpdateDeliveryStatus(ctx context.Context, deliveryID uuid.UUID, status WebhookDeliveryStatus, responseCode int, responseBody, errorMessage, errorCategory string) error {
 	now := time.Now()
+	// Each call that records an attempt outcome (success, terminal failure, or a
+	// failed attempt that will be retried) counts one attempt. Expiry is not an
+	// attempt: no request was made.
 	attemptIncrement := 0
-	if status == StatusFailed || status == StatusSuccess || status == StatusExpired {
+	if status == StatusFailed || status == StatusSuccess || status == StatusRetrying {
 		attemptIncrement = 1
 	}
 
