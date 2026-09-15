@@ -220,6 +220,8 @@ func main() {
 	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks))
 	tracedWebhookService := webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, "")
 
+	bootstrapAlertChannel(ctx, cfg, webhookService)
+
 	// Create chi router for the REST API, health endpoints, and embedded UI.
 	// Chi provides clean route grouping: API routes get auth middleware,
 	// health endpoints and UI are open.
@@ -477,5 +479,84 @@ func registerSystemEventTypes(ctx context.Context, repo store.EventTypeRepositor
 		if err := repo.RegisterEvent(ctx, tenant.DefaultTenantID, &reg); err != nil {
 			log.Printf("⚠️  Failed to register system event type %s: %v", t.Name, err)
 		}
+	}
+}
+
+// sendGridMailSendURL is the SendGrid v3 Mail Send endpoint the bootstrapped
+// alert webhook posts to.
+const sendGridMailSendURL = "https://api.sendgrid.com/v3/mail/send"
+
+// sendGridTransformTemplate mirrors satellites/recipes/sendgrid.yaml (kept in
+// sync by hand — the recipes package is a separate module). {{param "..."}}
+// placeholders are substituted with config values at bootstrap time; the rest
+// is rendered server-side per delivery.
+const sendGridTransformTemplate = `{
+  "personalizations": [{{range $i, $r := .payload.alert_recipients}}{{if $i}},{{end}}{"to": [{"email": {{$r.email | json}}}]}{{end}}],
+  "from": {"email": "{{param "from_email"}}", "name": "{{param "from_name"}}"},
+  "subject": {{if eq .event_name "sparrow.webhook.health_changed"}}{{if eq .payload.new_health "healthy"}}{{printf "Sparrow: webhook for %v recovered" .payload.consumer | json}}{{else}}{{printf "Sparrow: webhook for %v is now %v" .payload.consumer .payload.new_health | json}}{{end}}{{else}}{{printf "Sparrow: delivery to %v failed permanently" .payload.consumer | json}}{{end}},
+  "content": [{"type": "text/plain", "value": {{if eq .event_name "sparrow.webhook.health_changed"}}{{printf "Webhook %v (%v) health changed: %v -> %v" .payload.webhook_id .payload.url .payload.old_health .payload.new_health | json}}{{else}}{{printf "Webhook %v (%v) delivery %v failed permanently after %v attempt(s): %v (%v)" .payload.webhook_id .payload.url .payload.delivery_id .payload.attempt .payload.error_message .payload.error_category | json}}{{end}}}]
+}`
+
+// bootstrapAlertChannel idempotently wires the default delivery channel for
+// Sparrow's system events: a SendGrid webhook + one transformed subscription
+// per system event under the "_sparrow" consumer. When SPARROW_SENDGRID_API_KEY
+// is unset the webhook is created with a mock key and left inactive; setting
+// the key on a later restart re-activates it with the real key. Any existing
+// "_sparrow" webhook (operator-wired or previously bootstrapped) is otherwise
+// left untouched.
+func bootstrapAlertChannel(ctx context.Context, cfg *config.Config, svc *webhooks.WebhookService) {
+	existing, _, err := svc.ListWebhooks(ctx, queue.SystemEventConsumer, "", "", false, "", 10, 0)
+	if err != nil {
+		log.Printf("⚠️  Failed to list %s webhooks for alert bootstrap: %v", queue.SystemEventConsumer, err)
+		return
+	}
+
+	if len(existing) > 0 {
+		if cfg.SendGridAPIKey == "" {
+			return
+		}
+		// Key newly provided: re-activate the bootstrapped webhook with it.
+		for _, w := range existing {
+			if w.URL != sendGridMailSendURL || w.Active {
+				continue
+			}
+			err := svc.UpdateWebhookConfig(ctx, w.ID.String(), queue.SystemEventConsumer, nil, "", nil, true, "", nil,
+				map[string]string{"Authorization": "Bearer " + cfg.SendGridAPIKey}, "", []string{"active", "secret_headers"})
+			if err != nil {
+				log.Printf("⚠️  Failed to activate SendGrid alert webhook %s: %v", w.ID, err)
+				continue
+			}
+			fmt.Println("📧 SendGrid alert webhook activated (SPARROW_SENDGRID_API_KEY is set)")
+		}
+		return
+	}
+
+	apiKey := cfg.SendGridAPIKey
+	active := apiKey != ""
+	if apiKey == "" {
+		apiKey = "SG.mock-set-SPARROW_SENDGRID_API_KEY-to-activate"
+	}
+	webhookID, _, err := svc.RegisterWebhook(ctx, queue.SystemEventConsumer, nil, sendGridMailSendURL,
+		map[string]string{"Content-Type": "application/json"}, 30, active,
+		"SendGrid email alerts for Sparrow system events (auto-created; set SPARROW_SENDGRID_API_KEY to activate)",
+		map[string]string{"Authorization": "Bearer " + apiKey})
+	if err != nil {
+		log.Printf("⚠️  Failed to create SendGrid alert webhook: %v", err)
+		return
+	}
+
+	tmpl := strings.NewReplacer(
+		`{{param "from_email"}}`, cfg.AlertFromEmail,
+		`{{param "from_name"}}`, cfg.AlertFromName,
+	).Replace(sendGridTransformTemplate)
+	for _, reg := range queue.SystemEventRegistrations() {
+		if _, _, err := svc.CreateSubscription(ctx, webhookID, reg.Name, queue.SystemEventConsumer, nil, "", 30, true, tmpl, nil); err != nil {
+			log.Printf("⚠️  Failed to subscribe SendGrid alert webhook to %s: %v", reg.Name, err)
+		}
+	}
+	if active {
+		fmt.Println("📧 SendGrid alert webhook created and active")
+	} else {
+		fmt.Println("📧 SendGrid alert webhook created inactive (set SPARROW_SENDGRID_API_KEY to activate)")
 	}
 }

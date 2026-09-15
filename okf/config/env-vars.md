@@ -47,6 +47,14 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 |----------|---------|---------|
 | `CORS_ALLOWED_ORIGINS` | Comma-separated CORS origins | — |
 
+## Alerts
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `SPARROW_SENDGRID_API_KEY` | Activates the bootstrapped SendGrid alert webhook (system events -> email); unset = created inactive with a mock key | — |
+| `SPARROW_ALERT_FROM_EMAIL` | Verified SendGrid sender address for alert emails | `alerts@example.com` |
+| `SPARROW_ALERT_FROM_NAME` | Sender display name for alert emails | `Sparrow` |
+
 ## Database Pools
 
 | Pool | Library | Config | Purpose |

@@ -39,6 +39,11 @@ services:
       # Dev default: allow localhost/private-network webhook targets (SSRF
       # protection stays on in production images; this compose is local-only).
       SPARROW_ALLOW_PRIVATE_NETWORKS: "${SPARROW_ALLOW_PRIVATE_NETWORKS:-true}"
+      # Optional: SendGrid key for the bootstrapped alert webhook (system
+      # events -> email). Unset = webhook created inactive with a mock key.
+      SPARROW_SENDGRID_API_KEY: "${SPARROW_SENDGRID_API_KEY:-}"
+      SPARROW_ALERT_FROM_EMAIL: "${SPARROW_ALERT_FROM_EMAIL:-alerts@example.com}"
+      SPARROW_ALERT_FROM_NAME: "${SPARROW_ALERT_FROM_NAME:-Sparrow}"
       # Optional: require an API key for all requests
       # SPARROW_API_KEY: "change-me-to-a-secure-random-string"
       # Optional: custom port (default HTTP=8080)

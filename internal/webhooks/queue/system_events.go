@@ -12,12 +12,12 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 )
 
-// systemEventConsumer is the internal consumer Sparrow's own self-generated
+// SystemEventConsumer is the internal consumer Sparrow's own self-generated
 // events are scoped to. Tenants never receive these events directly; they
 // opt an email address into them via webhook_alert_configs, and an operator
 // wires an actual delivery channel (e.g. the sendgrid recipe) as a normal
 // webhook + subscription under this consumer.
-const systemEventConsumer = "_sparrow"
+const SystemEventConsumer = "_sparrow"
 
 const (
 	// systemEventHealthChanged fires on every webhook health transition
@@ -150,7 +150,7 @@ func pushSystemEvent(ctx context.Context, log *slog.Logger, eventRepo systemEven
 	createdAt := time.Now()
 	record := &store.EventRecord{
 		ID:          eventID,
-		Consumer:    systemEventConsumer,
+		Consumer:    SystemEventConsumer,
 		Event:       event,
 		Payload:     payload,
 		SchemaValid: true,
@@ -162,7 +162,7 @@ func pushSystemEvent(ctx context.Context, log *slog.Logger, eventRepo systemEven
 	}
 	if _, err := jobInserter.Insert(ctx, EventArgs{
 		EventID:   eventID.String(),
-		Consumer:  systemEventConsumer,
+		Consumer:  SystemEventConsumer,
 		Event:     event,
 		CreatedAt: createdAt,
 		TenantID:  tenantID.String(),
@@ -196,7 +196,7 @@ func systemEventSamplePayload(schema map[string]any) map[string]any {
 // self-events for _sparrow's own webhooks (feedback-loop guard), and
 // transitions nobody has opted an alert into.
 func (w *WebhookWorker) emitHealthChangedEvent(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID uuid.UUID, url, oldHealth, newHealth string) {
-	if consumer == systemEventConsumer || oldHealth == newHealth {
+	if consumer == SystemEventConsumer || oldHealth == newHealth {
 		return
 	}
 	if oldHealth == string(store.HealthUnknown) && newHealth == string(store.HealthHealthy) {
@@ -224,7 +224,7 @@ func (w *WebhookWorker) emitHealthChangedEvent(ctx context.Context, log *slog.Lo
 // exhausted every retry, skipping self-events for _sparrow's own webhooks and
 // deliveries nobody has opted an alert into.
 func (w *WebhookWorker) emitDeliveryFailedEvent(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID, deliveryID, eventID uuid.UUID, url string, attempt int, errorCategory, errorMessage string) {
-	if consumer == systemEventConsumer {
+	if consumer == SystemEventConsumer {
 		return
 	}
 	recipients, err := w.alertConfigRepo.ResolveAlertRecipients(ctx, tenantID, webhookID, consumer, systemEventDeliveryFailed)

@@ -110,7 +110,7 @@ func TestEmitHealthChangedEvent_SkipsSparrowConsumer(t *testing.T) {
 	eventRepo := &fakeSystemEventRepo{}
 	w := newTestWorker(alertRepo, eventRepo)
 
-	w.emitHealthChangedEvent(context.Background(), slog.Default(), uuid.New(), systemEventConsumer, uuid.New(), "https://x", string(store.HealthHealthy), string(store.HealthDegraded))
+	w.emitHealthChangedEvent(context.Background(), slog.Default(), uuid.New(), SystemEventConsumer, uuid.New(), "https://x", string(store.HealthHealthy), string(store.HealthDegraded))
 
 	if alertRepo.calls != 0 {
 		t.Errorf("expected no recipient lookup for _sparrow's own webhooks (feedback-loop guard), got %d calls", alertRepo.calls)
@@ -149,7 +149,7 @@ func TestEmitDeliveryFailedEvent_SkipsSparrowConsumer(t *testing.T) {
 	eventRepo := &fakeSystemEventRepo{}
 	w := newTestWorker(alertRepo, eventRepo)
 
-	w.emitDeliveryFailedEvent(context.Background(), slog.Default(), uuid.New(), systemEventConsumer, uuid.New(), uuid.New(), uuid.New(), "https://x", 3, "server_error", "boom")
+	w.emitDeliveryFailedEvent(context.Background(), slog.Default(), uuid.New(), SystemEventConsumer, uuid.New(), uuid.New(), uuid.New(), "https://x", 3, "server_error", "boom")
 
 	if alertRepo.calls != 0 {
 		t.Errorf("expected no recipient lookup for _sparrow's own webhooks (feedback-loop guard), got %d calls", alertRepo.calls)

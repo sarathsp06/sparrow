@@ -70,6 +70,21 @@ type Config struct {
 	// so oversized bodies surface as 413 rather than 500.
 	// Env: SPARROW_MAX_BODY_BYTES
 	MaxBodyBytes int64 `envconfig:"SPARROW_MAX_BODY_BYTES" default:"5242880"`
+
+	// SendGridAPIKey is the SendGrid API key for the bootstrapped alert
+	// webhook (system events -> email). When set, the webhook is created (or
+	// re-activated) with this key. When empty, the webhook is still created
+	// with a mock key but left inactive.
+	// Env: SPARROW_SENDGRID_API_KEY
+	SendGridAPIKey string `envconfig:"SPARROW_SENDGRID_API_KEY" default:""`
+
+	// AlertFromEmail is the verified sender address used by the bootstrapped
+	// SendGrid alert webhook. Env: SPARROW_ALERT_FROM_EMAIL
+	AlertFromEmail string `envconfig:"SPARROW_ALERT_FROM_EMAIL" default:"alerts@example.com"`
+
+	// AlertFromName is the sender display name used by the bootstrapped
+	// SendGrid alert webhook. Env: SPARROW_ALERT_FROM_NAME
+	AlertFromName string `envconfig:"SPARROW_ALERT_FROM_NAME" default:"Sparrow"`
 }
 
 // Load populates a Config struct from environment variables.

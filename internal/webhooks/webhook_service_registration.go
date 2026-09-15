@@ -104,12 +104,24 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, consumer string, e
 		timeout = 30
 	}
 	registration := &store.WebhookRegistration{
-		Consumer:    consumer,
-		URL:         url,
-		Headers:     headers,
-		Timeout:     int(timeout),
-		Active:      active,
-		Description: description,
+		Consumer:      consumer,
+		URL:           url,
+		Headers:       headers,
+		Timeout:       int(timeout),
+		Active:        active,
+		Description:   description,
+		SignatureType: store.SignatureTypeHMAC,
+		// HTTP config defaults (mirror DefaultWebhookHTTPConfig / DB column
+		// defaults) — the insert writes every column, so zero values would
+		// violate the timeout/backoff check constraints.
+		MaxRetries:            3,
+		RetryBackoffSeconds:   60,
+		FollowRedirects:       true,
+		VerifySSL:             true,
+		RequestTimeoutSeconds: int(timeout),
+		ExpectedStatusCodes:   pq.Int64Array{200, 201, 202, 204},
+		UserAgent:             "Sparrow-Webhook/1.0",
+		ContentType:           "application/json",
 	}
 
 	// Encrypt secret headers if provided

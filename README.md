@@ -292,6 +292,9 @@ Everything is configured through environment variables.
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Disable the private-network SSRF guard |
 | `SPARROW_MAX_BODY_BYTES` | No | `5242880` (5 MiB) | Max request body size (min 1 MiB); oversized bodies get `413` |
 | `CORS_ALLOWED_ORIGINS` | No | — | Comma-separated browser allowlist |
+| `SPARROW_SENDGRID_API_KEY` | No | — | Activates the bootstrapped SendGrid alert webhook; unset = created inactive with a mock key |
+| `SPARROW_ALERT_FROM_EMAIL` | No | `alerts@example.com` | Verified sender for SendGrid alert emails |
+| `SPARROW_ALERT_FROM_NAME` | No | `Sparrow` | Sender display name for SendGrid alert emails |
 
 Full reference: [`okf/config/env-vars.md`](okf/config/env-vars.md).
 
