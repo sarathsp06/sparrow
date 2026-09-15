@@ -19,7 +19,7 @@ SET schema = '{
     }
   }
 }'
-WHERE name = 'sparrow.webhook.health_changed' AND (schema IS NULL OR schema = '{}'::jsonb);
+WHERE name = 'sparrow.webhook.health_changed' AND (schema IS NULL OR schema = '' OR schema = '{}');
 
 UPDATE event_registrations
 SET sample_payload = '{
@@ -53,7 +53,7 @@ SET schema = '{
     }
   }
 }'
-WHERE name = 'sparrow.webhook.delivery_failed' AND (schema IS NULL OR schema = '{}'::jsonb);
+WHERE name = 'sparrow.webhook.delivery_failed' AND (schema IS NULL OR schema = '' OR schema = '{}');
 
 UPDATE event_registrations
 SET sample_payload = '{
