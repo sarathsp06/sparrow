@@ -72,6 +72,69 @@ Consequences:
 - On a shared or internet-facing network: **do not expose the port directly.**
   Put an authenticating proxy in front (next section) or disable the UI.
 
+## The consumer portal
+
+The portal (`/portal`) inverts the dashboard's trust model: instead of the
+admin key baked into the page, each visitor carries a **portal token** — a
+signed, expiring, consumer-scoped bearer credential minted with the admin key
+(`POST /v1/consumers/{consumer}/portal-token`). Portal users never log in and
+need no accounts; the magic link *is* the credential, and it can only touch
+that one consumer's webhooks, subscriptions, and deliveries (never event
+injection, other consumers, or admin routes). The `/portal` HTML is served
+**without** the injected API key, and its framing headers allow embedding in
+an iframe. See the [security reference](/sparrow/reference/security/#portal-tokens)
+for the exact scope.
+
+How that plays out per network topology:
+
+- **Sparrow on a VPN, consumers internal too** — works as-is. Hand teams
+  portal links instead of dashboard access: they manage their own endpoints
+  without ever holding the admin key.
+- **Sparrow on a VPN, consumers external** — expose only the portal slice
+  through your reverse proxy and keep everything else private:
+
+  ```text
+  internet ──▶ proxy (TLS + rate limit)
+                 ├─ /portal, /_app/*                         → Sparrow
+                 ├─ /v1/consumers/*                          → Sparrow (bearer-scoped)
+                 ├─ GET /v1/event-types*, GET /v1/template-functions,
+                 │  POST /v1/subscriptions:testTemplate      → Sparrow
+                 └─ everything else                          → deny
+  VPN ──▶ Sparrow :8080 (admin UI, full API, token minting)
+  ```
+
+  `SPARROW_API_KEY` **must** be set in this topology — without it the auth
+  middleware is disabled and the exposed paths are open to everyone. The
+  "proxy" can be a standalone reverse proxy **or your own product's
+  backend** forwarding those routes over the VPN — same origin as your app,
+  so no CORS setup and no iframe required. Two constraints: paths must be
+  preserved verbatim (`/portal`, `/_app`, `/v1` are root-absolute in the SPA
+  — use a dedicated subdomain if they collide with your app's routes), and
+  the proxy must never inject the admin `X-API-Key` on these routes.
+- **Embedded in your own product** (the intended design) — your app is
+  already public and already authenticates its users. Its backend calls the
+  mint endpoint over the private network and renders the returned
+  `/portal#token=...` path in an iframe (or links to it via the proxy
+  above). Sparrow delegates identity entirely to your product; the portal
+  slice above is the only thing that needs to be reachable from the user's
+  browser.
+
+What does **not** work: fetching `/portal` HTML server-side and inlining it
+into your own pages. The portal is a single-page app — the HTML is only a
+shell whose scripts and API calls (`/_app/*`, `/v1/consumers/*`) run from the
+**visitor's browser** and must reach Sparrow through one of the routes above.
+Copying the HTML copies neither. If you want zero Sparrow UI in the browser,
+build your own screens on the consumer-scoped REST API instead: your backend
+holds the token, calls Sparrow over the VPN, and renders native components.
+
+A full worked example of the external topology — nginx and Express proxy
+configs, the mint flow, and the threat analysis — is in [Embedding the
+Consumer Portal](/sparrow/guides/portal-embedding/).
+
+Portal caveats: revocation is expiry-only (default 7 days, max 30 — mint
+shorter-lived tokens for sensitive consumers), and the token rides in the URL
+fragment, so anyone the link is forwarded to can use it until it expires.
+
 ## Recommended: SSO via an identity-aware proxy
 
 For per-user login — username/password, Microsoft Entra ID, Google, or any
@@ -96,6 +159,11 @@ Rules for this topology:
 2. Set `SPARROW_API_KEY`; give it only to the proxy config and machine clients.
 3. Set `CORS_ALLOWED_ORIGINS` to the proxy's public origin (or leave unset if
    the UI is served through the same origin).
+4. **Never inject `X-API-Key` on `/portal` or `/v1/consumers/*` if portal
+   users go through the same proxy.** A valid API key outranks portal-token
+   scoping, so blanket header injection silently escalates every portal
+   visitor to admin. Exclude those paths from injection, or serve the portal
+   on a separate route/vhost without the overlay.
 
 ### Option A — Authentik (username/password + Entra + Google in one tool)
 

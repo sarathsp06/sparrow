@@ -17,7 +17,7 @@ import (
 // approved design); this test is the drift guard that keeps the committed
 // spec — and everything generated from it (clients, e2e) — honest.
 func TestOpenAPISpecMatchesCommitted(t *testing.T) {
-	api := rest.Mount(chi.NewRouter(), nil)
+	api := rest.Mount(chi.NewRouter(), nil, nil)
 
 	got, err := api.OpenAPI().YAML()
 	require.NoError(t, err)

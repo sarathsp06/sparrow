@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -25,7 +26,7 @@ func TestSecurityHeaders(t *testing.T) {
 		{"X-Frame-Options", "DENY"},
 		{"Referrer-Policy", "strict-origin-when-cross-origin"},
 		{"Permissions-Policy", "interest-cohort=()"},
-		{"Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"},
+		{"Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"},
 	}
 
 	for _, tt := range tests {
@@ -33,6 +34,23 @@ func TestSecurityHeaders(t *testing.T) {
 		if got != tt.expected {
 			t.Errorf("%s = %q, want %q", tt.header, got, tt.expected)
 		}
+	}
+}
+
+func TestSecurityHeadersPortalAllowsFraming(t *testing.T) {
+	handler := SecurityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/portal", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("X-Frame-Options"); got != "" {
+		t.Errorf("X-Frame-Options on /portal = %q, want unset", got)
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); !strings.Contains(got, "frame-ancestors *") {
+		t.Errorf("CSP on /portal = %q, want frame-ancestors *", got)
 	}
 }
 

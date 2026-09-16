@@ -1,6 +1,9 @@
 package middleware
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 // csp is the Content-Security-Policy for the embedded Svelte SPA. The UI
 // injects an inline <script> for runtime config and Svelte emits inline
@@ -18,10 +21,13 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		// enabling reflected XSS.
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 
-		// Prevent clickjacking by disallowing framing entirely.
-		// Sparrow has no legitimate use case for being embedded in
-		// an iframe.
-		w.Header().Set("X-Frame-Options", "DENY")
+		// Prevent clickjacking by disallowing framing — except the
+		// consumer portal, which is designed to be embedded in the
+		// operator's own product via an iframe.
+		portal := strings.HasPrefix(r.URL.Path, "/portal")
+		if !portal {
+			w.Header().Set("X-Frame-Options", "DENY")
+		}
 
 		// Limit the Referer header to same-origin only. This prevents
 		// leaking internal URLs (which may contain consumer names or
@@ -32,8 +38,14 @@ func SecurityHeaders(next http.Handler) http.Handler {
 		// internal tool but costs nothing and is good hygiene.
 		w.Header().Set("Permissions-Policy", "interest-cohort=()")
 
-		// Restrict resource loading to same-origin (see csp above).
-		w.Header().Set("Content-Security-Policy", csp)
+		// Restrict resource loading to same-origin (see csp above), and
+		// mirror the framing policy in CSP (frame-ancestors supersedes
+		// X-Frame-Options in modern browsers).
+		if portal {
+			w.Header().Set("Content-Security-Policy", csp+"; frame-ancestors *")
+		} else {
+			w.Header().Set("Content-Security-Policy", csp+"; frame-ancestors 'none'")
+		}
 
 		next.ServeHTTP(w, r)
 	})

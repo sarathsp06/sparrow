@@ -27,6 +27,25 @@ Empty `SPARROW_API_KEY` disables auth entirely -- intentional for local dev.
 With `ENVIRONMENT=production`, the server refuses to boot without a key, so
 this can't ship silently misconfigured.
 
+### Portal tokens
+
+The one scoped exception to the single-key model: `POST
+/v1/consumers/{consumer}/portal-token` (admin key required) mints a signed,
+expiring bearer token for one consumer — the credential behind the embeddable
+[consumer portal](/sparrow/deployment/security/#the-consumer-portal). Tokens
+are stateless HMAC-SHA256 values keyed by `SPARROW_ENCRYPTION_KEY` (no
+database row, no new secret), default 7-day / maximum 30-day TTL, and travel
+in the `Authorization: Bearer` header — or the `/portal#token=...` URL
+*fragment*, which browsers never send to the server, so it stays out of
+access logs.
+
+A portal token authorizes exactly: everything under
+`/v1/consumers/{its-consumer}/` **except** pushing events and minting further
+tokens, plus the read-only helpers the portal UI needs (event-type catalog,
+template functions, template dry-run). Every other path — other consumers,
+global routes, admin operations — returns 401. Revocation is expiry-only:
+mint short-lived tokens if links may leak.
+
 :::note
 Sparrow does not rate-limit or lock out inbound API requests itself. If the
 API is reachable from untrusted networks, put it behind a reverse proxy that

@@ -5,6 +5,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/sarathsp06/sparrow/internal/middleware"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 )
 
@@ -15,7 +16,7 @@ const APIVersion = "1.0.0"
 // the OpenAPI document at /openapi.{json,yaml} (+ 3.0 variants), and the
 // Scalar interactive reference at /docs. Returns the huma.API so callers can
 // export the spec (see cmd/openapi-export).
-func Mount(r chi.Router, svc webhooks.WebhookServiceInterface) huma.API {
+func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, portal *middleware.PortalTokens) huma.API {
 	config := huma.DefaultConfig("Sparrow", APIVersion)
 	config.Info.Description = "Sparrow is a self-hosted webhook delivery platform: register the " +
 		"events your system produces, register the webhooks that should receive them, then push " +
@@ -42,7 +43,11 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface) huma.API {
 		"resource id is already globally unique.\n\n" +
 		"## Authentication\n\n" +
 		"Optional. When the server is started with `SPARROW_API_KEY` set, every `/v1/*` request " +
-		"must include it in the `X-API-Key` header. When unset, all endpoints are open."
+		"must include it in the `X-API-Key` header. When unset, all endpoints are open.\n\n" +
+		"Alternatively, a consumer-scoped **portal token** (minted via `createPortalToken`, sent " +
+		"as `Authorization: Bearer <token>`) grants access to that consumer's routes only — " +
+		"everything under `/v1/consumers/{consumer}/` except pushing events and minting tokens, " +
+		"plus the read-only event-type catalog and template helpers."
 	config.Info.Contact = &huma.Contact{
 		Name: "Sparrow",
 		URL:  "https://github.com/sarathsp06/sparrow",
@@ -95,6 +100,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface) huma.API {
 	registerDeliveryRoutes(api, svc)
 	registerHealthRoutes(api, svc)
 	registerAlertConfigRoutes(api, svc)
+	registerPortalRoutes(api, portal)
 
 	return api
 }

@@ -20,11 +20,45 @@ const runtimeConfig: SparrowConfig =
 
 const apiKey: string = runtimeConfig.apiKey || "";
 
+// Portal mode: pages under /portal authenticate with a consumer-scoped
+// bearer token instead of the admin API key (which is never injected into
+// portal HTML). The token arrives in the URL fragment (#token=...) so it
+// never hits server logs, and is kept in sessionStorage to survive reloads.
+// Token format: spt_v1.<b64url(consumer)>.<unix-expiry>.<b64url(signature)>
+export interface PortalSession {
+  token: string;
+  consumer: string;
+  expiresAt: Date | null;
+}
+
+function initPortal(): PortalSession | null {
+  if (typeof window === "undefined" || !window.location.pathname.startsWith("/portal")) return null;
+  const fromHash = window.location.hash.match(/(?:^#|[#&])token=([^&]+)/)?.[1] ?? "";
+  if (fromHash) sessionStorage.setItem("sparrow_portal_token", fromHash);
+  const token = fromHash || sessionStorage.getItem("sparrow_portal_token") || "";
+  if (!token) return null;
+  const parts = token.split(".");
+  let consumer = "";
+  try {
+    consumer = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
+  } catch {
+    return null;
+  }
+  const expUnix = Number(parts[2]);
+  return { token, consumer, expiresAt: Number.isFinite(expUnix) ? new Date(expUnix * 1000) : null };
+}
+
+export const portal = initPortal();
+
 // Single typed REST client for the whole app. Sparrow's interface is
 // REST/OpenAPI only (Connect-RPC and gRPC have been removed).
 export const api = createClient<paths>({
   baseUrl: env.PUBLIC_API_URL || "/",
-  headers: apiKey ? { "X-API-Key": apiKey } : undefined,
+  headers: portal
+    ? { Authorization: `Bearer ${portal.token}` }
+    : apiKey
+      ? { "X-API-Key": apiKey }
+      : undefined,
 });
 api.use(apiLogMiddleware);
 
