@@ -22,7 +22,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sparrow — Self-hosted webhook delivery</title>
-  <meta name="description" content="Sparrow is an open-source webhook delivery server: at-least-once delivery, classified retries, dual signatures, and OpenTelemetry tracing. One Go binary, one PostgreSQL database." />
+  <meta name="description" content="Sparrow is an open-source webhook delivery server: at-least-once delivery, classified retries, signed deliveries (HMAC-SHA256 or Ed25519), and OpenTelemetry tracing. One Go binary, one PostgreSQL database." />
   <meta name="color-scheme" content="light" />
   <link rel="icon" href={favicon} type="image/svg+xml" />
   <link rel="alternate" type="text/markdown" href={`${base}llms.txt`} title="llms.txt" />
@@ -64,7 +64,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
       <h1>Webhook delivery<br/>you run yourself</h1>
       <p class="sp-hero-sub">
         Sparrow is an open-source webhook delivery server: at-least-once delivery,
-        retries with error classification, dual signatures, and OpenTelemetry tracing.
+        retries with error classification, signed deliveries, and OpenTelemetry tracing.
         One Go binary. One PostgreSQL database.
       </p>
       <div class="sp-hero-actions">
@@ -111,7 +111,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="M12 3 4 7v5c0 4.5 3.2 7.9 8 9 4.8-1.1 8-4.5 8-9V7l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>
             <h3>Secure by default</h3>
           </div>
-          <p>HMAC-SHA256 and Ed25519 signatures on every delivery. Secrets envelope-encrypted at rest with AES-256-GCM. SSRF protection blocks private and metadata IPs.</p>
+          <p>Every delivery signed per Standard Webhooks — HMAC-SHA256 by default, Ed25519 per webhook. Secrets envelope-encrypted at rest with AES-256-GCM. SSRF protection blocks private and metadata IPs.</p>
           <span class="sp-card-link">Webhook API<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
         </a>
 
@@ -154,7 +154,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
           <span class="sp-label">PUSH AN EVENT</span>
           <h2>One POST. Sparrow does the rest.</h2>
           <p>Push an event with an idempotency key and Sparrow validates it, persists it, and fans out to every matching subscription. Duplicate pushes are detected and returned as such.</p>
-          <p>Each delivery arrives signed with both <code>HMAC-SHA256</code> and <code>Ed25519</code>, so consumers verify with a shared secret or a public key — whichever fits their trust model.</p>
+          <p>Each delivery arrives signed per Standard Webhooks — <code>HMAC-SHA256</code> with a shared secret by default, or switch a webhook to <code>Ed25519</code> to verify with a public key instead.</p>
           <a href={quickstart} class="sp-link">Quickstart<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
         </div>
         <div class="sp-feature-visual">
@@ -224,7 +224,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
               <div class="sp-pipeline-num">04</div>
               <div class="sp-pipeline-content">
                 <span class="sp-pipeline-name">Deliver</span>
-                <span class="sp-pipeline-desc">HTTP POST, HMAC + Ed25519</span>
+                <span class="sp-pipeline-desc">HTTP POST, signed (HMAC / Ed25519)</span>
               </div>
             </div>
             <div class="sp-pipeline-line"></div>

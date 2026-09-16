@@ -18,7 +18,7 @@ Sparrow is MIT-licensed, and all core features are available in the open-source 
     At-least-once delivery with exponential backoff, 10-category error classification, per-webhook health tracking (healthy/degraded/unhealthy state machine), and automatic retry logic that distinguishes retryable failures from permanent ones.
   </Card>
   <Card title="Cryptographic Signing" icon="approve-check">
-    Every delivery is dual-signed with both HMAC-SHA256 and Ed25519 using the [Standard Webhooks](https://www.standardwebhooks.com/) format. Consumers choose which signature to verify. Per-webhook keypairs are generated automatically.
+    Every delivery is signed in the [Standard Webhooks](https://www.standardwebhooks.com/) format — HMAC-SHA256 by default, or Ed25519 per webhook for public-key verification. Ed25519 keypairs are generated automatically on opt-in.
   </Card>
   <Card title="Encryption at Rest" icon="seti:lock">
     Webhook secrets, signing keys, and sensitive headers are envelope-encrypted with AES-256-GCM and per-record data encryption keys. Not just "encrypted in the database" -- actual envelope encryption with key hierarchy.
@@ -78,7 +78,7 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 ### Where Sparrow is stronger
 
 - **Operational simplicity** -- one database, one binary, no Redis. Fewer moving parts means fewer failure modes in production.
-- **Cryptographic depth** -- dual signing (HMAC + Ed25519) and real envelope encryption are production security features that most webhook platforms skip or gate behind paid tiers.
+- **Cryptographic depth** -- Standard Webhooks signing (HMAC-SHA256 or Ed25519) and real envelope encryption are production security features that most webhook platforms skip or gate behind paid tiers.
 - **Payload transformation** -- Go `text/template` transforms per subscription (37 built-in functions, including structural `dict`/`list`/`merge`/`append` and arithmetic) let you reshape payloads for different consumers (Slack, PagerDuty, custom formats) without proxy layers. This is a **deliberate design choice over an embedded JavaScript runtime**: templates are parsed once and cached, so each delivery runs with near-zero overhead; there is no per-worker JS VM to pool, no extra dependency, and the server stays a single distroless ~15MB binary with a small, predictable memory footprint. Parsed templates are concurrency-safe and reused across all delivery workers, so transform throughput scales with workers instead of contending on interpreter instances. Every transform is bounded by a 1MB output cap and a 5s execution timeout. Available to all users, not a paid feature.
 - **Error intelligence** -- 10 error categories with retryability classification. You know *why* a delivery failed (DNS resolution? TLS handshake? Rate limited? Connection refused?), not just *that* it failed.
 - **Bulk operations** -- snapshot-based batch re-push and retry with deterministic execution. What you filter is exactly what gets retried -- no race conditions from new data arriving between search and action.
