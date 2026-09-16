@@ -1,0 +1,5 @@
+flowchart TD
+    IN["POST /v1/consumers/{consumer}/events"] --> H
+    H["Events REST handler (internal/rest)<br>1. Dedup on idempotency key<br>2. Validate payload vs registered schema<br>3. Insert event_record<br>4. Enqueue EventArgs (River, events queue)"] --> EW
+    EW["EventProcessingWorker.Work()<br>1. Load event from DB<br>2. Query matching subscriptions (tenant + consumer + event_name + labels)<br>3. Apply Go template transform per subscription<br>4. Batch-insert webhook_delivery records<br>5. Batch-enqueue WebhookArgs jobs (InsertMany)"] --> WW
+    WW["WebhookWorker.Work()<br>1. Load delivery from DB<br>2. Check rate limit (leaky bucket in PostgreSQL)<br>3. HTTP POST with headers + Standard Webhooks signing<br>4. Record delivery_attempt<br>5. Update delivery status<br>6. Update webhook_health_events + state<br>7. On failure with retries left: re-enqueue with backoff"] --> T[Target URL receives webhook payload]

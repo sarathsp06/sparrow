@@ -1,7 +1,7 @@
 ---
 type: UI Route
 title: SvelteKit Routes
-description: 13 SvelteKit pages for webhook management, event operations, delivery tracking, and health monitoring
+description: SvelteKit dashboard plus an embeddable consumer portal for webhook, event, delivery, and health management
 tags: [sveltekit, ui, routes]
 timestamp: 2026-08-29T00:00:00Z
 ---
@@ -10,21 +10,16 @@ timestamp: 2026-08-29T00:00:00Z
 
 Built with SvelteKit 2, Svelte 5, Tailwind CSS v4, adapter-static (SPA mode).
 
-| Route | Page |
-|-------|------|
-| `/` | Marketing landing page (hero, features, getting started, architecture, CTA) |
-| `/webhooks` | Webhook list |
-| `/webhooks/register` | Register new webhook |
-| `/webhooks/[webhookId]` | Webhook detail + deliveries |
-| `/events` | Event type list |
-| `/events/register` | Register new event type |
-| `/events/push` | Push event form |
-| `/events/[eventName]/update` | Edit event type |
-| `/events/[eventName]/reports` | Event delivery reports |
-| `/events/instances/[eventId]` | Event instance detail |
-| `/health` | Webhook health dashboard |
-| `/deliveries` | Delivery list |
-| `/deliveries/[deliveryId]` | Delivery detail |
+The dashboard covers the full webhook lifecycle plus an embeddable, token-scoped consumer portal. Route groups:
+
+- Marketing landing page (`/`)
+- Webhooks — list, register, detail
+- Events — type list, register, push, edit, delivery reports, instance detail
+- Deliveries — list and detail
+- Health dashboard (`/dashboard/health`)
+- Consumer portal (`/portal`) — token-scoped, embeddable self-service for a single consumer
+
+Route files live under `web/src/routes/`; browse there for the current, authoritative set.
 
 ## Stack
 

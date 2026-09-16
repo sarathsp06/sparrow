@@ -40,7 +40,7 @@ producers / curl / UI / SDKs
 - **Cryptographic signing** — HMAC-SHA256 on every delivery, plus Ed25519 when a webhook uses `signature_type: ed25519`, both in [Standard Webhooks](https://www.standardwebhooks.com/) format.
 - **Encryption at rest** — webhook secrets and sensitive headers are envelope-encrypted with AES-256-GCM.
 - **Payload transforms** — per-subscription Go templates let you reshape payloads per consumer.
-- **Adapter recipes** — event → Slack/Discord/PagerDuty/ntfy/ClickHouse as pure subscription config via `sparrow use`; templates render server-side per delivery.
+- **Adapter recipes** — event → Slack/Discord/PagerDuty/ntfy/ClickHouse/Twilio/SendGrid as pure subscription config via `sparrow use`; templates render server-side per delivery.
 - **Soft schema validation** — invalid payloads produce warnings instead of being dropped.
 - **Embedded admin UI** — webhooks, events, deliveries, health, and event-instance inspection in one dashboard.
 - **Consumer self-service portal** — hand each customer a scoped, expiring link to register their own endpoints and inspect and retry their own deliveries, isolated to their consumer.
@@ -296,6 +296,8 @@ Everything is configured through environment variables.
 | `SPARROW_SENDGRID_API_KEY` | No | — | Activates the bootstrapped SendGrid alert webhook; unset = created inactive with a mock key |
 | `SPARROW_ALERT_FROM_EMAIL` | No | `alerts@example.com` | Verified sender for SendGrid alert emails |
 | `SPARROW_ALERT_FROM_NAME` | No | `Sparrow` | Sender display name for SendGrid alert emails |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | — | OTLP endpoint for traces, metrics, and logs (export off when unset) |
+| `SPARROW_EVENT_RETENTION_DAYS` | No | `0` (keep forever) | Purge events and their deliveries older than N days; runs hourly |
 
 Full reference: [`okf/config/env-vars.md`](okf/config/env-vars.md).
 
@@ -317,8 +319,9 @@ Adapters as config: a recipe is a YAML file pairing a destination URL with a tra
 | [`pagerduty`](satellites/recipes/pagerduty.yaml) | PagerDuty Events API v2 (deduped alerts) | `routing_key` |
 | [`clickhouse`](satellites/recipes/clickhouse.yaml) | ClickHouse HTTP insert (one row per delivery) | `base_url`, `table`, `user`, `password` |
 | [`twilio`](satellites/recipes/twilio.yaml) | Twilio SMS (Messages API) | `account_sid`, `basic_auth`, `from_number`, `to_number` |
+| [`sendgrid`](satellites/recipes/sendgrid.yaml) | SendGrid Mail Send API (transactional email) | `api_key`, `from_email`, `from_name` |
 
-Recipe credentials that map to HTTP headers (Twilio `basic_auth`, ClickHouse `password`) are stored as **envelope-encrypted secret headers** and masked in every API response. PagerDuty's `routing_key` is part of the request body the API requires, so it lives in the transform template.
+Recipe credentials that map to HTTP headers (Twilio `basic_auth`, ClickHouse `password`, SendGrid `api_key`) are stored as **envelope-encrypted secret headers** and masked in every API response. PagerDuty's `routing_key` is part of the request body the API requires, so it lives in the transform template.
 
 ### Sources
 

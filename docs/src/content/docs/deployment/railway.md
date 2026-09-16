@@ -62,13 +62,16 @@ Sparrow runs migrations on startup automatically -- no separate migration step o
 
 ## Environment Variables
 
+Sparrow reads all configuration from environment variables — the [Configuration](/sparrow/getting-started/configuration/) page lists every variable with its default. The essentials for Railway:
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | Yes | -- | PostgreSQL connection string (auto-set via Railway reference variable) |
 | `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard |
-| `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests |
+| `SPARROW_API_KEY` | In production | -- | Require this key in `X-API-Key` header. Mandatory when `ENVIRONMENT=production` — the server refuses to start without it |
 | `SPARROW_ENCRYPTION_KEY` | Yes | -- | 64-char hex key for envelope encryption of secrets. Generate with `openssl rand -hex 32` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP endpoint for traces, metrics, and logs |
+| `ENVIRONMENT` | No | -- | Set to `production` to enforce `SPARROW_API_KEY` and block cross-origin requests by default |
 
 ## Using the Docker Image Directly
 

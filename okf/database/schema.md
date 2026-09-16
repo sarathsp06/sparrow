@@ -1,7 +1,7 @@
 ---
 type: Concept
 title: Database Schema
-description: 11 tables, 23 migrations, comprehensive FK relationships and composite indexes
+description: 11 core tables with comprehensive FK relationships and composite indexes
 tags: [database, schema, postgresql, migrations]
 timestamp: 2026-06-22T00:00:00Z
 ---
@@ -86,35 +86,9 @@ Composite PK `(tenant_id, name)`. Includes optional JSON schema, active flag.
 - `webhook_deliveries.subscription_id` → `event_subscriptions.id` SET NULL
 - All other entity FKs → parent with CASCADE
 
-## Migrations (23)
+## Migrations
 
-`db/migrations/` — 23 pairs of `.up.sql` / `.down.sql`.
-
-| # | Description |
-|---|-------------|
-| 000001 | Consolidated initial schema |
-| 000002 | Error categories |
-| 000003 | error_category on deliveries |
-| 000004 | Tenants table + FK migration |
-| 000005 | Tenant external_id (no-op) |
-| 000006 | Tenant created_by |
-| 000007 | Remove event registration UUID |
-| 000008 | Consumers table |
-| 000009 | Webhook consumer FK |
-| 000010 | Composite indexes + drop unused |
-| 000011 | Remove consumer_memberships |
-| 000012 | Labels on events/subscriptions |
-| 000013 | Drop unused consumer entities |
-| 000014 | Secret headers |
-| 000015 | Envelope encryption migration |
-| 000016 | schema_valid flag on event_records |
-| 000017 | batch_jobs table |
-| 000018 | Unexpected status errors in summaries |
-| 000019 | Drop system_settings table |
-| 000020 | Idempotency key + partial unique index |
-| 000021 | Rate limiting columns + state table |
-| 000022 | Ed25519 private key column |
-| 000023 | Signature type column |
+`db/migrations/` — sequential `.up.sql` / `.down.sql` pairs applied automatically on server startup via golang-migrate (Postgres advisory-locked, safe for concurrent instances). Browse the directory for the current, authoritative set and its history.
 
 ## Citations
 

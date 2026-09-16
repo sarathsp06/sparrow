@@ -1,32 +1,18 @@
 ---
 type: REST Resource
-title: Events
-description: Event type definitions, pushing, listing, re-push, and batch operations — 12 endpoints
+title: Events & Event Types
+description: Define event types (optional JSON Schema) and push, list, and replay event occurrences
 tags: [rest, events]
-timestamp: 2026-08-29T00:00:00Z
+timestamp: 2026-09-16T00:00:00Z
 ---
 
-# Events
+# Events & Event Types
 
-Registered under the `Event Types` and `Events` tags in the Huma-generated OpenAPI spec. Implemented in `internal/rest/event.go`.
+Two related concerns under the `Event Types` and `Events` tags. Event types are the registered catalog of event names, each with an optional JSON Schema used for soft payload validation. Event occurrences are pushed against a consumer (triggering fan-out to matching subscriptions), then listable, individually replayable, and batch re-pushable from a prepared snapshot via [batch jobs](/concepts/batch-jobs.md).
 
-## Endpoints
-
-| Method | Path | OperationID | Description |
-|--------|------|-------------|-------------|
-| POST | `/v1/event-types` | `registerEventType` | Register an event type with optional JSON schema |
-| GET | `/v1/event-types` | `listEventTypes` | List registered event types |
-| GET | `/v1/event-types/{name}` | `getEventType` | Get a single event type |
-| PATCH | `/v1/event-types/{name}` | `updateEventType` | Update event type definition |
-| DELETE | `/v1/event-types/{name}` | `deleteEventType` | Delete an event type |
-| POST | `/v1/consumers/{consumer}/events` | `pushEvent` | Push a new event — triggers fan-out to subscriptions |
-| GET | `/v1/consumers/{consumer}/events` | `listEventOccurrences` | Filterable event occurrence listing (supports `prepare_repush`) |
-| GET | `/v1/events/{event_id}` | `getEventOccurrence` | Get a single event occurrence |
-| POST | `/v1/events/{event_id}:repush` | `repushEvent` | Re-push a single event through current subscriptions |
-| POST | `/v1/consumers/{consumer}/events:rePush` | `startEventRepushJob` | Batch re-push via snapshot — uses batch_jobs |
-| GET | `/v1/consumers/{consumer}/repush-jobs/{job_id}` | `getEventRepushJob` | Poll batch re-push progress |
-| POST | `/v1/consumers/{consumer}/repush-jobs/{job_id}:cancel` | `cancelEventRepushJob` | Cancel a batch re-push operation |
+The authoritative endpoint list — paths, methods, and schemas — is the OpenAPI spec at `api/openapi.yaml` (browse at `/docs`).
 
 ## Citations
 
 - `internal/rest/event.go` — endpoint registration + handlers
+- `api/openapi.yaml` — canonical endpoint definitions

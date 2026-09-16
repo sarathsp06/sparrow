@@ -1,31 +1,18 @@
 ---
 type: REST Resource
 title: Deliveries
-description: Delivery status, listing, retry, and batch retry — 11 endpoints
+description: Inspect delivery status and attempt history; retry single, bulk, or batched deliveries
 tags: [rest, deliveries]
-timestamp: 2026-08-29T00:00:00Z
+timestamp: 2026-09-16T00:00:00Z
 ---
 
 # Deliveries
 
-Registered under the `Deliveries` tag in the Huma-generated OpenAPI spec. Implemented in `internal/rest/delivery.go`.
+Read and retry webhook [deliveries](/concepts/delivery.md). Exposes delivery status, per-attempt history, single and bulk (per-webhook) retries, and snapshot-based batch retry jobs with progress polling and cancellation — offered both consumer-scoped and in global (cross-consumer) variants. Registered under the `Deliveries` tag.
 
-## Endpoints
-
-| Method | Path | OperationID | Description |
-|--------|------|-------------|-------------|
-| GET | `/v1/consumers/{consumer}/deliveries/{delivery_id}` | `getDelivery` | Get a single delivery status |
-| GET | `/v1/consumers/{consumer}/deliveries` | `listDeliveries` | Filterable delivery listing (supports `prepare_retry`) |
-| POST | `/v1/consumers/{consumer}/deliveries/{delivery_id}:retry` | `retryDelivery` | Retry a single failed delivery |
-| POST | `/v1/consumers/{consumer}/deliveries:retry` | `retryDeliveriesByWebhook` | Retry every eligible delivery for one webhook |
-| GET | `/v1/consumers/{consumer}/deliveries/{delivery_id}/attempts` | `getDeliveryAttempts` | List HTTP attempt records for a delivery |
-| POST | `/v1/consumers/{consumer}/deliveries:retryBatch` | `startDeliveryRetryJob` | Batch retry via snapshot — uses batch_jobs |
-| GET | `/v1/consumers/{consumer}/retry-jobs/{job_id}` | `getDeliveryRetryJob` | Poll batch retry progress |
-| POST | `/v1/consumers/{consumer}/retry-jobs/{job_id}:cancel` | `cancelDeliveryRetryJob` | Cancel a batch retry operation |
-| GET | `/v1/deliveries/{delivery_id}` | `getDeliveryGlobal` | Get a delivery by id (any consumer) |
-| GET | `/v1/deliveries/{delivery_id}/attempts` | `getDeliveryAttemptsGlobal` | Get a delivery's attempt history (any consumer) |
-| POST | `/v1/deliveries/{delivery_id}:retry` | `retryDeliveryGlobal` | Retry a single delivery (any consumer) |
+The authoritative endpoint list — paths, methods, and schemas — is the OpenAPI spec at `api/openapi.yaml` (browse at `/docs`).
 
 ## Citations
 
 - `internal/rest/delivery.go` — endpoint registration + handlers
+- `api/openapi.yaml` — canonical endpoint definitions

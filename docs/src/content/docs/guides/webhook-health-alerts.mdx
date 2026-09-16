@@ -5,7 +5,7 @@ description: Get emailed when a webhook degrades, recovers, or a delivery perman
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-Sparrow already tracks each webhook's health (`healthy` / `degraded` /
+Sparrow already tracks each webhook's health (`unknown` / `healthy` / `degraded` /
 `unhealthy`) and retries failed deliveries until they succeed or exhaust their
 attempts. This feature lets you get emailed the moment either of those things
 happens, without polling the API or wiring up your own monitor.

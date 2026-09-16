@@ -59,17 +59,17 @@ The table below compares Sparrow with the main alternatives for webhook delivery
 
 | Capability | Sparrow | Svix | Convoy | Hookdeck | AWS SNS | DIY |
 |-----------|---------|------|--------|----------|---------|-----|
-| **Fully open source (MIT)** | Yes | Partial (OSS core, paid features) | Yes (MPL-2.0) | Partial (Outpost OSS, core platform closed) | No | Yes |
+| **Fully open source (MIT)** | Yes | Partial (OSS core, paid features) | No (Elastic 2.0) | Partial (Outpost OSS, core platform closed) | No | Yes |
 | **Self-hosted** | Yes | Yes | Yes | Partial (Outpost self-hosted, platform SaaS) | No (Managed) | Yes |
 | **No vendor per-message pricing (self-hosted)** | Yes (self-hosted; infra only) | No | Yes (OSS self-hosted) | No | No | Yes (your infra only) |
 | **Infra complexity (core deps)** | PostgreSQL only | PostgreSQL + Redis | PostgreSQL + Redis (or Mongo + Redis) | SaaS | Managed | Varies |
 | **Job queue backend** | PostgreSQL (River) | Redis-backed queue/workers | Background workers + Redis | Managed | Managed | Varies |
 | **Webhook signing** | Dual HMAC-SHA256 + Ed25519 | HMAC-SHA256 | HMAC-SHA256 | HMAC-SHA256 | X.509 signature (not HMAC) | Manual |
 | **Security model for secrets** | Envelope encryption with per-record DEKs | Encrypted at rest (service-managed keys) | Deployment-dependent (no built-in envelope hierarchy) | Vendor-managed encryption | Vendor-managed encryption | Manual |
-| **Payload transformation** | Go templates per subscription (50+ functions) | Varies by edition/plan | Yes (JS transform) | Yes (JS transform) | No | Manual |
+| **Payload transformation** | Go templates per subscription (37 functions) | Varies by edition/plan | Yes (JS transform) | Yes (JS transform) | No | Manual |
 | **Per-webhook rate limiting** | Leaky bucket (DB-backed) | Available (details vary) | Yes | Yes | Regional quotas | Manual |
 | **Delivery semantics** | At-least-once + explicit idempotency model | At-least-once + retries | At-least-once + retries | At-least-once + replay | At-least-once | Varies |
-| **Delivery health model** | State machine (healthy/degraded/unhealthy) | Endpoint status | Circuit breaker | Dashboard metrics | CloudWatch | Manual |
+| **Delivery health model** | State machine (unknown/healthy/degraded/unhealthy) | Endpoint status | Circuit breaker | Dashboard metrics | CloudWatch | Manual |
 | **Error classification** | 10 protocol-aware categories with retryability flags | Basic status and error reporting | Success/failure | Categorized | CloudWatch | Manual |
 | **Bulk retry/re-push** | Deterministic snapshot-based (up to 10K) | Not in OSS | Manual retry | UI retry | No | Manual |
 | **Idempotent ingestion** | Built-in dedup with idempotency keys | Application-level (no OSS ingest dedup) | Event IDs | Dedup available | Message dedup (5min) | Manual |
@@ -78,7 +78,7 @@ The table below compares Sparrow with the main alternatives for webhook delivery
 | **Tracing & metrics** | OpenTelemetry (traces + metrics + logs, job-level propagation) | Logging | Prometheus metrics | Dashboard | CloudWatch | Manual |
 | **SSRF protection** | Built-in (private IPs, redirects) | Built-in controls (plus proxy best practices) | Built-in controls / IP filtering | Managed | N/A | Manual |
 | **Client SDKs** | 3 (Go, Python, TypeScript) | Broad coverage | Multiple | Multiple | All AWS SDKs | 0 |
-| **Consumer app portal** | No | Yes (embeddable) | No | No | No | No |
+| **Consumer app portal** | Yes (embeddable, token-scoped) | Yes (embeddable) | No | No | No | No |
 | **Multi-region / HA story** | PostgreSQL-native HA + stateless workers | Vendor/infra-managed | Vendor/infra-managed | Vendor-managed | Global managed service | Manual |
 | **Multi-tenant SaaS mode** | No (single-tenant focus) | Yes | Yes | Yes | Yes | Manual |
 
@@ -109,7 +109,6 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 ### Where alternatives are stronger
 
 - **Client SDK breadth** -- Sparrow ships 3 generated SDKs today. Some alternatives provide broader first-party SDK coverage.
-- **Consumer app portal** -- Sparrow's UI is admin-only. If you need an embeddable end-user portal, evaluate alternatives that provide one.
 - **Multi-tenant SaaS mode** -- Svix, Convoy, and Hookdeck are designed for SaaS platforms where each customer manages their own webhooks. Sparrow is designed for teams running their own infrastructure.
 - **Managed cloud offering** -- Svix Cloud and Hookdeck handle infrastructure for you. Sparrow is self-hosted only.
 - **JavaScript transforms** -- Convoy and Hookdeck use JavaScript for payload transformation, which may be more familiar to web developers than Go templates.

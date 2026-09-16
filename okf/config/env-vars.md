@@ -55,6 +55,12 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 | `SPARROW_ALERT_FROM_EMAIL` | Verified SendGrid sender address for alert emails | `alerts@example.com` |
 | `SPARROW_ALERT_FROM_NAME` | Sender display name for alert emails | `Sparrow` |
 
+## Retention
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `SPARROW_EVENT_RETENTION_DAYS` | Purge events (and cascaded deliveries) older than N days via an hourly background job; `0` disables retention (data kept forever) | `0` |
+
 ## Database Pools
 
 | Pool | Library | Config | Purpose |

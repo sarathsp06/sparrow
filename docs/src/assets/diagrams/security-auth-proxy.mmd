@@ -1,0 +1,4 @@
+flowchart LR
+    B[browser] -->|"login: password / Entra / Google"| AP["auth proxy<br>injects X-API-Key"]
+    AP --> S["Sparrow :8080<br>(not directly reachable)"]
+    CI["CI / services"] -->|"X-API-Key directly"| S

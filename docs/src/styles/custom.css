@@ -162,14 +162,14 @@ nav.sidebar a[aria-current='page'] {
   font-size: 0.93rem;
   width: fit-content;
   max-width: 100%;
-  border: 1px solid var(--sp-border);
   background: var(--sp-surface-container-lowest);
   border-collapse: collapse;
 }
 
 .sl-markdown-content th,
 .sl-markdown-content td {
-  border: 1px solid var(--sp-border);
+  border: none;
+  border-bottom: 1px solid var(--sp-border);
   padding: 0.85rem 1rem;
   vertical-align: top;
 }

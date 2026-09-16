@@ -8,6 +8,10 @@ import systemOverviewDark from '../../../assets/diagrams/system-overview-dark.sv
 import systemOverviewLight from '../../../assets/diagrams/system-overview-light.svg';
 import healthStateMachineDark from '../../../assets/diagrams/health-state-machine-dark.svg';
 import healthStateMachineLight from '../../../assets/diagrams/health-state-machine-light.svg';
+import eventProcessingLight from '../../../assets/diagrams/event-processing-pipeline-light.svg';
+import eventProcessingDark from '../../../assets/diagrams/event-processing-pipeline-dark.svg';
+import packageStructureLight from '../../../assets/diagrams/package-structure-light.svg';
+import packageStructureDark from '../../../assets/diagrams/package-structure-dark.svg';
 
 ## Overview
 
@@ -45,34 +49,11 @@ See the [API Reference](/sparrow/reference/api/) for the full endpoint list.
 
 ## Event Processing Pipeline
 
-```
-POST /v1/consumers/{consumer}/events
-    │
-    v
-Events REST handler (internal/rest)
-    │  1. If idempotency key provided, check for existing event (dedup)
-    │  2. Validate payload against registered event schema
-    │  3. Insert event_record (with optional idempotency_key)
-    │  4. Enqueue EventArgs job (River, "events" queue)
-    v
-EventProcessingWorker.Work()
-    │  1. Load event from DB
-    │  2. Query matching subscriptions (tenant_id + consumer + event_name + labels)
-    │  3. For each subscription: apply Go template transform (if enabled)
-    │  4. Batch-insert all webhook_delivery records (single multi-row INSERT)
-    │  5. Batch-enqueue all WebhookArgs jobs (River InsertMany)
-    v
-WebhookWorker.Work()
-    │  1. Load delivery from DB
-    │  2. Check for rate limit availability (Leaky Bucket via PostgreSQL)
-    │  3. HTTP POST to webhook URL (with headers, Standard Webhooks signing, timeout)
-    │  4. Record delivery_attempt
-    │  5. Update delivery status (success/failed/retrying)
-    │  6. Update webhook_health_events + webhook_health_state
-    │  7. If failed + retries remaining: re-enqueue with backoff
-    v
-Target URL receives webhook payload
-```
+<ThemeDiagram
+  light={eventProcessingLight}
+  dark={eventProcessingDark}
+  alt="Event processing pipeline: a POST to the consumer events endpoint hits the Events REST handler (dedup, schema validation, insert event_record, enqueue EventArgs); EventProcessingWorker loads the event, queries matching subscriptions, applies template transforms, batch-inserts webhook_delivery rows and batch-enqueues WebhookArgs; WebhookWorker loads each delivery, checks the rate limit, HTTP POSTs with Standard Webhooks signing, records the attempt, updates delivery status and health state, and re-enqueues with backoff on retryable failure; the target URL then receives the webhook payload."
+/>
 
 ---
 
@@ -252,16 +233,11 @@ isolation.
 
 ## Package Structure
 
-```
-cmd/server/main.go  (composition root — wires everything)
-    │
-    ├── internal/tenant    ──→ pkg/storage
-    ├── internal/webhooks  ──→ pkg/storage, pkg/errors
-    │       ├── store/     ──→ pkg/storage, pkg/types
-    │       ├── queue/     ──→ store, client, pkg/errors, internal/observability
-    │       └── client/    ──→ store (models only), pkg/errors
-    └── internal/rest      ──→ both domain packages (transport layer)
-```
+<ThemeDiagram
+  light={packageStructureLight}
+  dark={packageStructureDark}
+  alt="Package structure: cmd/server/main.go is the composition root wiring internal/tenant, internal/webhooks, and internal/rest. tenant depends on pkg/storage; webhooks depends on pkg/storage and pkg/errors and contains store/ (pkg/storage, pkg/types), queue/ (store, client, pkg/errors, internal/observability), and client/ (store models, pkg/errors); internal/rest is the transport layer over both domain packages. tenant and webhooks never import each other."
+/>
 
 `tenant` and `webhooks` never import each other. Zero cycles.
 

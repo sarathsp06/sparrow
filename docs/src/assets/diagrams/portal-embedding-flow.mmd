@@ -1,0 +1,16 @@
+sequenceDiagram
+    actor U as Consumer browser
+    participant A as yourapp.com (public proxy)
+    participant S as sparrow:8080 (private / VPN)
+    U->>A: 1. Log in with your own auth
+    A->>S: 2. POST portal-token (X-API-Key: admin key)
+    S-->>A: token + link /portal#token=spt_v1...
+    A-->>U: 3. Hand over link or iframe
+    U->>A: 4. GET /portal and /_app/*.js
+    A->>S: forward (no admin key)
+    S-->>A: portal HTML + SPA bundle
+    A-->>U: portal HTML + SPA bundle
+    U->>A: 5. GET /v1/consumers/acme/webhooks (Bearer token)
+    A->>S: forward over VPN
+    S-->>A: bearer verified, scoped to acme, 200 JSON
+    A-->>U: 200 JSON

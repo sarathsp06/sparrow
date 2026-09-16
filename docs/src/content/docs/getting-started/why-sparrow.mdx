@@ -59,7 +59,7 @@ The table below compares Sparrow with the main alternatives for webhook delivery
 | **Idempotent ingestion** | Built-in dedup with idempotency keys | Application-level (no OSS ingest dedup) | Event IDs | Dedup available | Message dedup (5min) | Manual |
 | **REST / OpenAPI API** | Yes (OpenAPI 3.1 spec) | Yes (REST) | Yes (REST) | Yes (REST) | No | Manual |
 | **Event schema validation** | Soft validation (warns, never rejects; server-side check on test pushes) | JSON Schema defs (not enforced) | No | Filters (not schema) | No | Manual |
-| **Prebuilt integration recipes** | Yes (Slack, Discord, PagerDuty, ntfy, ClickHouse — one YAML, rendered server-side) | Limited | Limited | Yes (integrations) | Limited destinations | Manual |
+| **Prebuilt integration recipes** | Yes (Slack, Discord, PagerDuty, ntfy, ClickHouse, Twilio, SendGrid — one YAML, rendered server-side) | Limited | Limited | Yes (integrations) | Limited destinations | Manual |
 | **Inbound ingestion (verify provider signatures)** | Yes (`sparrow-sources`: Stripe, GitHub, cron schedules) | Yes (Ingest product) | Yes (incoming webhooks) | Yes (core feature) | No | Manual |
 | **Non-HTTP delivery (email, object storage, OTLP)** | Yes (`sparrow-sinks`: SMTP, S3/MinIO, OTLP logs) | Limited | Limited | Limited | SNS-native targets | Manual |
 | **Self-monitoring alerts** | Built-in system events (webhook health, delivery failure) + opt-in email alerts | Operational webhooks | Alert configs | Issue alerts | CloudWatch alarms | Manual |

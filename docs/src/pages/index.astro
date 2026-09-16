@@ -174,7 +174,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
               <span class="sp-terminal-title">terminal</span>
             </div>
             <div class="sp-terminal-body">
-              <code><span class="sp-t-muted">$</span> curl -X POST http://localhost:8080/v1/consumers/payments/events \</code>
+              <code><span class="sp-t-muted">$</span> curl -X POST <span class="sp-t-str">"http://localhost:8080/v1/consumers/payments/events?event=invoice.created"</span> \</code>
               <code>  <span class="sp-t-flag">-H</span> <span class="sp-t-str">"Content-Type: application/json"</span> \</code>
               <code>  <span class="sp-t-flag">-H</span> <span class="sp-t-str">"X-API-Key: sk_live_..."</span> \</code>
               <code>  <span class="sp-t-flag">-d</span> <span class="sp-t-str">'{`{`}</span></code>
@@ -274,7 +274,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             <h3>Recipes</h3>
           </div>
-          <p>Slack, Discord, PagerDuty, ntfy, ClickHouse — adapters as config, applied with <code>sparrow use</code>. No glue service.</p>
+          <p>Slack, Discord, PagerDuty, ntfy, ClickHouse, Twilio, SendGrid — adapters as config, applied with <code>sparrow use</code>. No glue service.</p>
           <span class="sp-card-link">Recipes<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
         </a>
 

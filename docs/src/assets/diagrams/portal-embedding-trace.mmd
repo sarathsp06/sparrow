@@ -1,0 +1,10 @@
+sequenceDiagram
+    actor U as Browser
+    participant P as Proxy
+    participant S as Sparrow
+    U->>P: GET /v1/consumers/acme/webhooks (Bearer spt_v1...)
+    Note over P: path starts with /v1/consumers/ -> allowed
+    P->>S: GET /v1/consumers/acme/webhooks (over VPN)
+    Note over S: verify token signature + expiry,<br>check path belongs to acme
+    S-->>P: 200 + JSON
+    P-->>U: stream 200 back unchanged

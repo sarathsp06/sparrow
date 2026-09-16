@@ -6,6 +6,9 @@ sidebar:
 ---
 
 import { Steps } from '@astrojs/starlight/components';
+import ThemeDiagram from '../../../components/ThemeDiagram.astro';
+import eventPipelineLight from '../../../assets/diagrams/event-pipeline-light.svg';
+import eventPipelineDark from '../../../assets/diagrams/event-pipeline-dark.svg';
 
 Sparrow accepts webhook registrations and event definitions, fans out events to matching subscribers, and delivers them reliably with retries and health tracking.
 
@@ -37,17 +40,11 @@ Sparrow accepts webhook registrations and event definitions, fans out events to 
 
 </Steps>
 
-```
-Push Event ──→ Event Worker ──→ Find Subscriptions ──→ Create Deliveries
-                                                            │
-                                                            v
-                                                     Webhook Worker
-                                                       │        │
-                                                    Success    Failure
-                                                       │        │
-                                                    Record    Retry with
-                                                    result    backoff
-```
+<ThemeDiagram
+  light={eventPipelineLight}
+  dark={eventPipelineDark}
+  alt="Flow: Push Event goes to the Event Worker, which finds subscriptions and creates deliveries; the Webhook Worker then either records the result on success or retries with backoff on failure."
+/>
 
 ## Core Concepts
 

@@ -1,23 +1,18 @@
 ---
 type: REST Resource
 title: Health
-description: Webhook health queries — status, filtering, summary — 3 endpoints
+description: Query per-webhook health status and metrics, and aggregate health counts across consumers
 tags: [rest, health]
-timestamp: 2026-08-29T00:00:00Z
+timestamp: 2026-09-16T00:00:00Z
 ---
 
 # Health
 
-Registered under the `Health` tag in the Huma-generated OpenAPI spec. Implemented in `internal/rest/health.go`.
+Read-only views over event-sourced [webhook health](/concepts/webhook-health.md): the status and metrics for a single webhook, an aggregate health-count summary, and a listing of webhooks by health state across all consumers. Registered under the `Health` tag.
 
-## Endpoints
-
-| Method | Path | OperationID | Description |
-|--------|------|-------------|-------------|
-| GET | `/v1/consumers/{consumer}/webhooks/{webhook_id}/health` | `getWebhookHealth` | Health state for a single webhook |
-| GET | `/v1/health-summary` | `getHealthSummary` | Aggregate health summary across webhooks |
-| GET | `/v1/webhooks` | `listWebhooksByHealth` | List webhooks across all consumers, filtered by health status |
+The authoritative endpoint list — paths, methods, and schemas — is the OpenAPI spec at `api/openapi.yaml` (browse at `/docs`).
 
 ## Citations
 
 - `internal/rest/health.go` — endpoint registration + handlers
+- `api/openapi.yaml` — canonical endpoint definitions
