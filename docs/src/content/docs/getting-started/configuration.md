@@ -59,10 +59,6 @@ export SPARROW_ENCRYPTION_KEY=your-64-char-hex-key
 | Event payloads | JSONB | No (plaintext) |
 | Delivery responses | TEXT | No (plaintext) |
 
-### Backward Compatibility
-
-Existing data encrypted with the previous direct AES-256-GCM format is automatically detected and decrypted. New writes always use envelope encryption.
-
 ## Database Pools
 
 Sparrow uses two connection pools:

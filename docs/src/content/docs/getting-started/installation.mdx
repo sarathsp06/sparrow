@@ -19,8 +19,16 @@ The simplest way to run Sparrow. No need to clone the repo:
 
 ```bash
 curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
-SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32) docker compose up -d
+echo "SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32)" > .env
+docker compose up -d
 ```
+
+> [!IMPORTANT]
+> `SPARROW_ENCRYPTION_KEY` is never stored by Sparrow -- write it to `.env`
+> (don't pass it inline to a single command). An inline `KEY=$(openssl rand
+> -hex 32) docker compose up -d` regenerates the key on every run and
+> permanently orphans anything already encrypted. Back up `.env` before you
+> rely on this instance.
 
 The server is available at:
 
@@ -62,11 +70,11 @@ docker compose down -v     # stop and delete data
 ### Run
 
 ```bash
-export DATABASE_URL=postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable
-export SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32)
+echo "DATABASE_URL=postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable" > .env
+echo "SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
 
 make migrate   # apply schema
-make run       # go run ./cmd/server, SPARROW_SERVE_UI=true
+make run       # go run ./cmd/server, SPARROW_SERVE_UI=true; loads .env automatically
 ```
 
 No local Postgres yet? `docker compose -f docker-compose.dev.yml up -d` starts one on the default `DATABASE_URL` above.

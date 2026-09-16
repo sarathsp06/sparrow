@@ -12,12 +12,6 @@
 // the KEK. This enables efficient key rotation: re-wrap every DEK with the
 // new KEK without touching the (potentially large) data.
 //
-// # Backward Compatibility
-//
-// Decrypt auto-detects envelope-encrypted data (version prefix 0x01). If the
-// prefix is absent, it falls back to legacy direct AES-256-GCM decryption so
-// that data encrypted before the envelope migration is still readable.
-//
 // When no encryption key is configured, any attempt to encrypt or decrypt
 // returns [ErrNoEncryptionKey].
 package crypto
@@ -193,18 +187,6 @@ func (s *Service) EnvelopeDecrypt(ciphertext []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
-// IsEnvelopeEncrypted reports whether ciphertext appears to be envelope-encrypted.
-func IsEnvelopeEncrypted(ciphertext []byte) bool {
-	if len(ciphertext) < envelopeMinSize {
-		return false
-	}
-	if ciphertext[0] != envelopeVersion {
-		return false
-	}
-	edekLen := int(binary.LittleEndian.Uint16(ciphertext[1:3]))
-	return edekLen == wrappedDEKSize && len(ciphertext) >= envelopeHeaderSize+edekLen+12+16
-}
-
 // newAEAD creates an AES-256-GCM AEAD from a 32-byte key.
 func newAEAD(key []byte) (cipher.AEAD, error) {
 	block, err := aes.NewCipher(key)
@@ -219,68 +201,32 @@ func (s *Service) Enabled() bool {
 	return s != nil && s.aead != nil
 }
 
-// Decrypt decrypts ciphertext, auto-detecting the format:
-//   - Envelope format (version 0x01 prefix): uses envelope decryption
-//   - Legacy format (no prefix): falls back to direct AES-256-GCM
-//
-// IsEnvelopeEncrypted can false-positive on legacy direct-AES-GCM blobs
-// (~2^-24 for blobs >= envelopeMinSize whose first bytes happen to match
-// the envelope header), so on envelope-decrypt failure we also try the
-// legacy format. AEAD authentication makes a wrong-format attempt safe.
+// Decrypt decrypts ciphertext produced by EnvelopeEncrypt.
 func (s *Service) Decrypt(ciphertext []byte) ([]byte, error) {
-	if !s.Enabled() {
-		return nil, ErrNoEncryptionKey
-	}
-	if IsEnvelopeEncrypted(ciphertext) {
-		plaintext, err := s.EnvelopeDecrypt(ciphertext)
-		if err == nil {
-			return plaintext, nil
-		}
-		if plaintext, directErr := s.directDecrypt(ciphertext); directErr == nil {
-			return plaintext, nil
-		}
-		return nil, fmt.Errorf("crypto: envelope decrypt failed (legacy fallback also failed): %w", err)
-	}
-	return s.directDecrypt(ciphertext)
-}
-
-// directDecrypt decrypts data encrypted with the legacy direct AES-256-GCM
-// format: nonce(12) || ciphertext || tag(16).
-func (s *Service) directDecrypt(ciphertext []byte) ([]byte, error) {
-	nonceSize := s.aead.NonceSize()
-	if len(ciphertext) < nonceSize {
-		return nil, errors.New("crypto: ciphertext too short")
-	}
-	nonce, data := ciphertext[:nonceSize], ciphertext[nonceSize:]
-	plaintext, err := s.aead.Open(nil, nonce, data, nil)
-	if err != nil {
-		return nil, fmt.Errorf("crypto: decrypt: %w", err)
-	}
-	return plaintext, nil
+	return s.EnvelopeDecrypt(ciphertext)
 }
 
 // EncryptJSON marshals v to JSON, then encrypts using envelope encryption.
 func (s *Service) EncryptJSON(v any) ([]byte, error) {
-	plain, err := json.Marshal(v)
+	plaintext, err := json.Marshal(v)
 	if err != nil {
-		return nil, fmt.Errorf("crypto: marshal: %w", err)
+		return nil, fmt.Errorf("crypto: marshal JSON: %w", err)
 	}
-	return s.EnvelopeEncrypt(plain)
+	return s.EnvelopeEncrypt(plaintext)
 }
 
-// DecryptJSON decrypts ciphertext (auto-detecting format) and unmarshals into v.
+// DecryptJSON decrypts ciphertext and unmarshals into v.
 func (s *Service) DecryptJSON(ciphertext []byte, v any) error {
 	plain, err := s.Decrypt(ciphertext)
 	if err != nil {
 		return err
 	}
-	if err := json.Unmarshal(plain, v); err != nil {
-		return fmt.Errorf("crypto: unmarshal: %w", err)
-	}
-	return nil
+	return json.Unmarshal(plain, v)
 }
 
 // EncryptString encrypts a plaintext string and returns the ciphertext bytes.
+// An empty string returns nil rather than an envelope, so callers can store
+// NULL for "no secret configured" instead of an encrypted empty payload.
 func (s *Service) EncryptString(plaintext string) ([]byte, error) {
 	if plaintext == "" {
 		return nil, nil
@@ -288,7 +234,8 @@ func (s *Service) EncryptString(plaintext string) ([]byte, error) {
 	return s.EnvelopeEncrypt([]byte(plaintext))
 }
 
-// DecryptString decrypts ciphertext back to a plaintext string.
+// DecryptString decrypts ciphertext back to a plaintext string. Nil/empty
+// ciphertext (the EncryptString("") case) decrypts to "" with no error.
 func (s *Service) DecryptString(ciphertext []byte) (string, error) {
 	if len(ciphertext) == 0 {
 		return "", nil

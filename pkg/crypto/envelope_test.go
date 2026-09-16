@@ -21,9 +21,6 @@ func TestEnvelopeEncryptDecrypt(t *testing.T) {
 	// First byte should be version marker
 	assert.Equal(t, envelopeVersion, ciphertext[0])
 
-	// Should be detected as envelope-encrypted
-	assert.True(t, IsEnvelopeEncrypted(ciphertext))
-
 	// Decrypt should recover original
 	decrypted, err := svc.EnvelopeDecrypt(ciphertext)
 	require.NoError(t, err)
@@ -37,7 +34,6 @@ func TestEnvelopeEncryptDecrypt_Empty(t *testing.T) {
 	// Encrypting empty plaintext should work
 	ciphertext, err := svc.EnvelopeEncrypt([]byte{})
 	require.NoError(t, err)
-	assert.True(t, IsEnvelopeEncrypted(ciphertext))
 
 	decrypted, err := svc.EnvelopeDecrypt(ciphertext)
 	require.NoError(t, err)
@@ -151,33 +147,6 @@ func TestEnvelopeDecrypt_NoKey(t *testing.T) {
 
 	_, err = svc.EnvelopeDecrypt([]byte("data"))
 	assert.ErrorIs(t, err, ErrNoEncryptionKey)
-}
-
-func TestIsEnvelopeEncrypted(t *testing.T) {
-	svc, err := NewService(testKey())
-	require.NoError(t, err)
-
-	// Envelope-encrypted data should be detected
-	ct, err := svc.EnvelopeEncrypt([]byte("test"))
-	require.NoError(t, err)
-	assert.True(t, IsEnvelopeEncrypted(ct))
-
-	// Legacy direct-encrypted data should NOT be detected as envelope.
-	// Craft it manually using the internal directDecrypt-compatible format.
-	legacyDirect := make([]byte, 12+16+4) // nonce(12) + ciphertext+tag
-	legacyDirect[0] = 0x00                // first byte != envelopeVersion
-	assert.False(t, IsEnvelopeEncrypted(legacyDirect))
-
-	// Even if first byte happens to be 0x01, edek_len won't match wrappedDEKSize
-	legacyDirect[0] = envelopeVersion
-	legacyDirect[1] = 0x00 // edek_len = 0, not wrappedDEKSize
-	legacyDirect[2] = 0x00
-	assert.False(t, IsEnvelopeEncrypted(legacyDirect))
-
-	// Random bytes should not be detected
-	assert.False(t, IsEnvelopeEncrypted([]byte("random garbage")))
-	assert.False(t, IsEnvelopeEncrypted(nil))
-	assert.False(t, IsEnvelopeEncrypted([]byte{}))
 }
 
 func TestEnvelopeDecrypt_BadEdekLen(t *testing.T) {

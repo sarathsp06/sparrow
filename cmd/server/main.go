@@ -14,7 +14,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	slogotel "github.com/remychantenay/slog-otel"
 	"github.com/rs/cors"
@@ -161,12 +160,6 @@ func main() {
 		log.Fatalf("Failed to create crypto service: %v", err)
 	}
 	fmt.Println("🔐 Encryption enabled (envelope encryption with per-record DEK)")
-
-	// Re-encrypt any plaintext webhook_secret values that were converted from TEXT to BYTEA
-	// by migration 000015. These are raw UTF-8 bytes, not envelope-encrypted.
-	if err := migrateWebhookSecrets(ctx, sqlxDB, cryptoSvc); err != nil {
-		log.Printf("⚠️  Failed to migrate webhook secrets: %v (non-fatal, will retry on next restart)", err)
-	}
 
 	// Configure optional API key authentication.
 	// When SPARROW_API_KEY is set, all API requests must include the key via
@@ -408,55 +401,6 @@ func resolveEncryptionKey(cfg *config.Config) ([]byte, error) {
 		return nil, fmt.Errorf("invalid SPARROW_ENCRYPTION_KEY: %w", err)
 	}
 	return key, nil
-}
-
-// migrateWebhookSecrets re-encrypts any webhook_secret values that were
-// converted from TEXT to BYTEA by migration 000015 but are not yet
-// envelope-encrypted. These are raw UTF-8 bytes of the original plaintext.
-func migrateWebhookSecrets(ctx context.Context, db *sqlx.DB, cryptoSvc *crypto.Service) error {
-	type row struct {
-		ID            string `db:"id"`
-		WebhookSecret []byte `db:"webhook_secret"`
-	}
-
-	var rows []row
-	err := db.SelectContext(ctx, &rows,
-		`SELECT id, webhook_secret FROM webhook_registrations WHERE webhook_secret IS NOT NULL`)
-	if err != nil {
-		return fmt.Errorf("query webhook secrets: %w", err)
-	}
-
-	var migrated int
-	for _, r := range rows {
-		if len(r.WebhookSecret) == 0 {
-			continue
-		}
-		// Skip already envelope-encrypted values
-		if crypto.IsEnvelopeEncrypted(r.WebhookSecret) {
-			continue
-		}
-
-		// The value is raw plaintext bytes (from TEXT->BYTEA cast).
-		// Encrypt it with envelope encryption.
-		plaintext := string(r.WebhookSecret)
-		encrypted, err := cryptoSvc.EncryptString(plaintext)
-		if err != nil {
-			return fmt.Errorf("encrypt webhook secret for %s: %w", r.ID, err)
-		}
-
-		_, err = db.ExecContext(ctx,
-			`UPDATE webhook_registrations SET webhook_secret = $1 WHERE id = $2`,
-			encrypted, r.ID)
-		if err != nil {
-			return fmt.Errorf("update webhook secret for %s: %w", r.ID, err)
-		}
-		migrated++
-	}
-
-	if migrated > 0 {
-		fmt.Printf("🔐 Migrated %d webhook secret(s) to envelope encryption\n", migrated)
-	}
-	return nil
 }
 
 // registerSystemEventTypes idempotently registers the event types Sparrow

@@ -244,10 +244,6 @@ The KEK is provided via the `SPARROW_ENCRYPTION_KEY` environment variable (64-ch
 
 The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager, Kubernetes Secret, or `.env` file to provide the key.
 
-### Backward Compatibility
-
-The `Decrypt()` function auto-detects the format: if the version byte indicates envelope encryption, it uses envelope decryption; otherwise, it falls back to legacy direct AES-256-GCM decryption. This ensures existing encrypted data remains readable without migration.
-
 ---
 
 ## Package Structure

@@ -9,15 +9,25 @@ The simplest way to run Sparrow. No need to clone the repo -- download the compo
 
 ```bash
 curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
-SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32) docker compose up -d
-```
-
-On Windows PowerShell, set the key first, then start:
-
-```powershell
-$env:SPARROW_ENCRYPTION_KEY = -join (1..32 | % { '{0:x2}' -f (Get-Random -Max 256) })
+echo "SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32)" > .env
 docker compose up -d
 ```
+
+On Windows PowerShell:
+
+```powershell
+"SPARROW_ENCRYPTION_KEY=$(-join (1..32 | % { '{0:x2}' -f (Get-Random -Max 256) }))" | Out-File -Encoding ascii .env
+docker compose up -d
+```
+
+> [!IMPORTANT]
+> `SPARROW_ENCRYPTION_KEY` is never stored by Sparrow -- it only decrypts what
+> it already encrypted. Writing it to `.env` (not passing it inline to a
+> single command) is required: an inline `KEY=$(openssl rand -hex 32) docker
+> compose up -d` generates a *new* random key on every invocation and
+> permanently orphans anything encrypted under the previous one. Back up
+> `.env` (or move the key into a secrets manager) before you rely on this
+> instance.
 
 The server is available at:
 - **Web UI:** http://localhost:8080
