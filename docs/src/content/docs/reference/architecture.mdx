@@ -244,6 +244,10 @@ The KEK is provided via the `SPARROW_ENCRYPTION_KEY` environment variable (64-ch
 
 The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager, Kubernetes Secret, or `.env` file to provide the key.
 
+See the [Security Model](/sparrow/reference/security/) page for API
+authentication, SSRF protection, HTTP hardening, secret masking, and tenant
+isolation.
+
 ---
 
 ## Package Structure

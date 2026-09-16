@@ -1,0 +1,143 @@
+---
+title: Security Model
+description: API authentication, SSRF protection, HTTP hardening, secret masking, and tenant isolation -- the trust boundaries Sparrow enforces and the code that implements them.
+---
+
+Every trust boundary Sparrow crosses -- inbound API, outbound delivery, and
+data at rest -- and exactly what protects it. For envelope encryption at rest
+and outbound delivery signing, see [Architecture: Encryption at
+Rest](/sparrow/reference/architecture/#encryption-at-rest) and [Verifying
+Webhook Signatures](/sparrow/reference/architecture/#verifying-webhook-signatures).
+For SSO / per-user login in front of Sparrow, see [Securing
+Sparrow](/sparrow/deployment/security/).
+
+## API Authentication
+
+A single static API key gates every inbound request -- simple on purpose,
+since Sparrow is a service-to-service webhook relay, not a multi-user
+product.
+
+The key travels in the `X-API-Key` header only, never a query parameter --
+URLs get logged by proxies, kept in browser history, and leaked via
+`Referer`. Comparison uses `crypto/subtle.ConstantTimeCompare`
+(`internal/middleware/apikey.go`), so a wrong guess takes the same time
+regardless of how many characters match, defeating timing side-channel
+attacks.
+
+Empty `SPARROW_API_KEY` disables auth entirely -- intentional for local dev.
+`internal/config/config.go` refuses to boot in production mode without a
+key, so this can't ship silently misconfigured.
+
+## SSRF Protection
+
+Sparrow makes outbound HTTP requests to user-supplied URLs -- the classic
+server-side request forgery surface. Blocked at two points: registration and
+every redirect hop.
+
+- **Registration-time** (`internal/webhooks/urlvalidation.go`): rejects
+  non-http(s) schemes, then resolves the hostname and checks *every*
+  returned IP, not just the literal host string. This stops DNS-rebinding
+  SSRF, where a public-looking hostname resolves to a private/internal
+  address.
+- **Redirect-time** (`internal/webhooks/client/ssrf.go`): a custom
+  `CheckRedirect` re-validates every redirect target before following it --
+  a webhook can't register a public URL that 302s to an internal one at
+  delivery time. Redirect count is bounded too.
+
+Blocked ranges: loopback (`127.0.0.0/8`, `::1`), private (`10/8`,
+`172.16/12`, `192.168/16`), link-local (`169.254.0.0/16` -- covers the
+`169.254.169.254` cloud metadata endpoint), CGNAT (`100.64.0.0/10`, RFC
+6598), and IETF special-use/multicast/reserved ranges (RFC 6890).
+
+:::note
+`AllowPrivateNetworks` (`SPARROW_ALLOW_PRIVATE_NETWORKS`) disables all of
+this -- for self-hosted deployments where webhook targets legitimately live
+on the same private network, and for local development against a receiver
+on localhost. Off by default.
+:::
+
+## HTTP Hardening
+
+Defense-in-depth headers on every response, applied by
+`internal/middleware/security_headers.go`:
+
+| Header | Value | Stops |
+|---|---|---|
+| `X-Content-Type-Options` | `nosniff` | Browser MIME-sniffing a JSON response as HTML -> reflected XSS |
+| `X-Frame-Options` | `DENY` | Clickjacking -- the UI is never legitimately framed |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Leaking consumer/webhook IDs in URLs to an external `Referer` |
+| `Permissions-Policy` | `interest-cohort=()` | FLoC / Topics API tracking |
+| `Content-Security-Policy` | `default-src 'self'; ...` | Loading any script/style/image from a non-Sparrow origin |
+
+Two more request-level controls:
+
+- **Body size cap** (`internal/middleware/max_body.go`): `http.MaxBytesReader`
+  caps every request body (`SPARROW_MAX_BODY_BYTES`, minimum 1 MiB) --
+  bounds memory use against oversized payloads before they're read.
+- **Per-webhook rate limiting**: optional leaky-bucket `rate_limit_rps` per
+  webhook throttles *outbound* delivery -- protects the receiver from being
+  hammered, not Sparrow's own inbound API.
+
+## Secret Masking in Responses
+
+Secrets are shown in full exactly once, at creation, then masked forever
+after, everywhere the API returns them. Three functions in
+`internal/rest/conversions.go` cover the three shapes secrets come in:
+
+- **`maskSecret(secret string) string`** -- the base masker. Keeps the
+  `whsec_` prefix visible (harmless, it just identifies the format) and
+  replaces every remaining character with `•`. A secret with no recognized
+  prefix is masked in full. Used directly on the one response that returns
+  a real secret: webhook creation, where the caller needs to actually copy
+  it down.
+- **`maskEncryptedSecret(encrypted []byte, svc) string`** -- used by every
+  other webhook response (list, get, update). Decrypts the stored
+  `webhook_secret` server-side only to re-mask it -- the plaintext is never
+  written to the response, only its shape (prefix + dot count). Decryption
+  failure or an empty result degrades to a fixed `••••••` rather than
+  erroring the whole response or leaking which webhooks fail to decrypt.
+- **`maskSecretHeaders(encrypted []byte, svc) map[string]string`** -- secret
+  headers never round-trip their value at all, masked or not: every key
+  that was set comes back as a flat `••••••`, regardless of the original
+  value's length or content. Only the header *name* is real; a wrong guess
+  can't even infer secret length from the mask.
+
+All three fail closed on nil/empty input, returning `""`/`nil` rather than a
+zero-length mask that could be mistaken for "no secret configured" vs.
+"secret failed to decrypt".
+
+## Tenant / Consumer Isolation
+
+Every domain query is scoped by `tenant_id`, and within a tenant, by
+`consumer` -- the two-level namespace that keeps one integration's webhooks,
+events, and deliveries invisible to another's.
+
+All repository methods take the tenant/consumer as SQL parameters -- there
+is no cross-tenant query path, hand-written or ORM-generated. The global
+list routes (`GET /v1/webhooks`, `/v1/deliveries`, etc.) make `consumer`
+optional but `tenant_id` is never optional; "all consumers" still means
+"all consumers *of this tenant*".
+
+:::caution
+Consumers organize resources; they are **not** a security boundary. Any
+valid API key can read and write every consumer under that tenant -- see
+[Securing Sparrow](/sparrow/deployment/security/#what-sparrow-provides-natively)
+for the full trust model.
+:::
+
+## Production Config Checklist
+
+What `internal/config/config.go` enforces before the server will boot in
+production mode:
+
+| Variable | Requirement |
+|---|---|
+| `SPARROW_ENCRYPTION_KEY` | Always required -- 64 hex chars. No key, no boot. |
+| `SPARROW_API_KEY` | Required when `ENVIRONMENT=production`. Empty is fine for local dev only. |
+| `DATABASE_URL` | Always required. |
+| `SPARROW_MAX_BODY_BYTES` | Must be >= 1 MiB (Huma's own per-operation cap floor). |
+
+:::danger
+Without an API key, every endpoint is unauthenticated -- config validation
+exists specifically to stop that shipping to production by accident.
+:::

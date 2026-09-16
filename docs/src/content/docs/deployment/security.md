@@ -11,7 +11,10 @@ what — is a deployment concern, solved by putting an identity-aware proxy in
 front of Sparrow rather than by building an identity provider into it.
 
 This page covers what Sparrow does natively, what it assumes about your
-network, and the recommended way to add real user authentication.
+network, and the recommended way to add real user authentication. For the
+implementation details -- SSRF protection, HTTP hardening headers, secret
+masking, tenant isolation -- see the [Security
+Model](/sparrow/reference/security/) reference page.
 
 ## What Sparrow provides natively
 
