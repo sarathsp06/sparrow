@@ -1132,6 +1132,16 @@
               {:else}
                 <p class="text-sm text-muted">Using default HTTP configuration.</p>
               {/if}
+              {#if webhook.signing_public_key}
+                <div class="mt-4 pt-4 border-t border-line">
+                  <h4 class="eyebrow mb-1">Ed25519 Signing Public Key</h4>
+                  <p class="text-[10px] text-faint mb-2">Verifies the v1a, delivery signature — no shared secret needed. Safe to share with the receiver.</p>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs mono panel-2 px-2 py-1.5 rounded break-all text-text">{webhook.signing_public_key}</span>
+                    <button onclick={() => navigator.clipboard.writeText(webhook?.signing_public_key || '')} class="btn btn-ghost !px-2 !py-1 !text-xs shrink-0" title="Copy public key">Copy</button>
+                  </div>
+                </div>
+              {/if}
             </div>
 
             <div class="panel p-5">
