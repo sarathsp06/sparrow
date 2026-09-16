@@ -144,7 +144,7 @@ func setupEnv(t *testing.T) *testEnv {
 	// 11. Mount the REST API (Huma) on a chi router.
 	tracedSvc := webhooks.NewWebhookServiceInterfaceWithTracing(webhookSvc, "")
 	r := chi.NewRouter()
-	rest.Mount(r, tracedSvc)
+	rest.Mount(r, tracedSvc, nil)
 
 	// 12. Start HTTP server on a random free port
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
