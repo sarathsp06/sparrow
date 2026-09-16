@@ -27,7 +27,7 @@ jobs:
       - name: Extract version from latest tag
         id: version
         run: |
-          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo "")
           VERSION=${TAG#v}
           echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
 
