@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightLlmsTxt from 'starlight-llms-txt';
 
 
 export default defineConfig({
@@ -12,6 +13,7 @@ export default defineConfig({
         src: './src/assets/favicon.svg',
       },
       description: 'Self-hosted webhook delivery platform',
+      plugins: [starlightLlmsTxt({ projectName: 'Sparrow' })],
       social: [
         {
           icon: 'github',
