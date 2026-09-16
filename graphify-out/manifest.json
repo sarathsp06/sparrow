@@ -205,8 +205,8 @@
     "semantic_hash": "ef22a70165b9970b542c7b86e2c305dc"
   },
   "docs/astro.config.mjs": {
-    "mtime": 1789461897.0077183,
-    "ast_hash": "1e1d2c2a5134d4a53110df578bd46304",
+    "mtime": 1789547682.8963203,
+    "ast_hash": "d158ce078d78c99cdb26862c5799256f",
     "semantic_hash": ""
   },
   "docs/package.json": {
@@ -905,8 +905,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/architecture.mdx": {
-    "mtime": 1789547005.7482371,
-    "ast_hash": "70171feadde2ad572630c008d6ffe444",
+    "mtime": 1789547685.8388214,
+    "ast_hash": "0f3d6ba7e5a9868e1828974f93df41f2",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/client-libraries.mdx": {
@@ -1650,8 +1650,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/security.md": {
-    "mtime": 1789396580.22633,
-    "ast_hash": "bcf87d2077baa7e1bb3138dedd22473a",
+    "mtime": 1789547688.2437212,
+    "ast_hash": "7faca8a70ea053acd4e25b4f9f540ccd",
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/payload-transformation.mdx": {
@@ -1827,6 +1827,11 @@
   "web/src/lib/components/ApiConsole.svelte": {
     "mtime": 1789485133.9098637,
     "ast_hash": "bf369d971cc28909caee5482aad9bc5f",
+    "semantic_hash": ""
+  },
+  "docs/src/content/docs/reference/security.mdx": {
+    "mtime": 1789547676.7689981,
+    "ast_hash": "d3d88b1bf8f75ebed4b00c1d4feb1393",
     "semantic_hash": ""
   }
 }
