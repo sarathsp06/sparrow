@@ -43,6 +43,7 @@ producers / curl / UI / SDKs
 - **Adapter recipes** — event → Slack/Discord/PagerDuty/ntfy/ClickHouse as pure subscription config via `sparrow use`; templates render server-side per delivery.
 - **Soft schema validation** — invalid payloads produce warnings instead of being dropped.
 - **Embedded admin UI** — webhooks, events, deliveries, health, and event-instance inspection in one dashboard.
+- **Consumer self-service portal** — hand each customer a scoped, expiring link to register their own endpoints and inspect and retry their own deliveries, isolated to their consumer.
 - **OpenAPI-first API** — REST on `:8080`, interactive docs at `/docs`, committed spec at [`api/openapi.yaml`](api/openapi.yaml).
 - **Operationally boring** — one database, one binary, Docker image, Railway deploy, and a hardened Helm chart.
 - **OpenTelemetry built in** — traces, metrics, and logs, including propagation through async jobs.
@@ -55,11 +56,11 @@ producers / curl / UI / SDKs
 - delivery guarantees, retries, replay, and inspection without building it yourself
 - real security controls for secrets, signatures, and outbound network access
 - a Postgres-only operational model instead of Postgres + Redis + separate workers
+- an embeddable, token-scoped consumer portal so customers self-serve their own webhooks
 
 **Reach for something else when you need:**
 
 - a fully managed webhook SaaS
-- an end-user / consumer portal where your customers manage their own endpoints
 - a multi-tenant SaaS control plane instead of a self-hosted operator tool
 
 ## Quick Start
