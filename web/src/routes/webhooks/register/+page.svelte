@@ -5,6 +5,7 @@
   import { consumerStore } from '$lib/consumer.svelte';
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-types';
+  import { recipes, substituteParams, type Recipe } from '$lib/recipes';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 
@@ -36,6 +37,13 @@
 
   // Secret Headers (encrypted server-side)
   let secretHeaders: { key: string; value: string }[] = $state([]);
+
+  // Recipe pre-fill
+  let selectedRecipe: Recipe | null = $state(null);
+  let recipeParams: Record<string, string> = $state({});
+  let appliedRecipe = $state('');
+  let recipeError = $state('');
+  let transformTemplate = $state('');
 
   // Validation
   let urlError = $state('');
@@ -71,6 +79,34 @@
 
   function removeSecretHeader(index: number) {
     secretHeaders = secretHeaders.filter((_, i) => i !== index);
+  }
+
+  function pickRecipe(r: Recipe) {
+    selectedRecipe = r;
+    recipeParams = Object.fromEntries((r.params ?? []).map(p => [p.name, '']));
+    recipeError = '';
+  }
+
+  function applyRecipe() {
+    const r = selectedRecipe;
+    if (!r) return;
+    const missing = (r.params ?? []).filter(p => p.required && !recipeParams[p.name]?.trim());
+    if (missing.length) {
+      recipeError = `Required: ${missing.map(p => p.prompt || p.name).join('; ')}`;
+      return;
+    }
+    url = substituteParams(r.webhook.url, recipeParams);
+    headers = Object.entries(r.webhook.headers ?? {}).map(([key, value]) => ({ key, value: substituteParams(value, recipeParams) }));
+    secretHeaders = Object.entries(r.webhook.secret_headers ?? {}).map(([key, value]) => ({ key, value: substituteParams(value, recipeParams) }));
+    transformTemplate = substituteParams(r.subscription?.transform_template ?? '', recipeParams);
+    description = `recipe ${r.name}: ${r.description}`;
+    appliedRecipe = r.name;
+    selectedRecipe = null;
+  }
+
+  function clearRecipe() {
+    appliedRecipe = '';
+    transformTemplate = '';
   }
 
   function validateUrl(val: string): boolean {
@@ -115,7 +151,7 @@
         .map(code => parseInt(code.trim()))
         .filter(code => !isNaN(code) && code >= 100 && code < 600);
 
-      unwrap(await api.POST('/v1/consumers/{consumer}/webhooks', {
+      const created = unwrap(await api.POST('/v1/consumers/{consumer}/webhooks', {
         params: { path: { consumer } },
         body: {
           events,
@@ -137,6 +173,19 @@
           } : undefined,
         },
       }));
+
+      // Recipe transform applies per subscription — patch the auto-created ones.
+      if (transformTemplate.trim()) {
+        const subs = unwrap(await api.GET('/v1/consumers/{consumer}/subscriptions', {
+          params: { path: { consumer }, query: { webhook_id: created.webhook_id } },
+        }));
+        for (const sub of subs.items || []) {
+          unwrap(await api.PATCH('/v1/consumers/{consumer}/subscriptions/{subscription_id}', {
+            params: { path: { consumer, subscription_id: sub.subscription_id } },
+            body: { transform_enabled: true, transform_template: transformTemplate },
+          }));
+        }
+      }
       goto('/webhooks');
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to register webhook');
@@ -163,6 +212,42 @@
   </div>
 
     <form onsubmit={registerWebhook} class="space-y-6">
+      <section class="panel p-5">
+        <span class="field-label">Start from a recipe</span>
+        {#if appliedRecipe}
+          <div class="panel-2 p-3 flex items-center justify-between gap-3">
+            <p class="text-sm text-text">Using recipe <span class="mono">{appliedRecipe}</span> — destination, headers, and transform template pre-filled below.</p>
+            <button type="button" onclick={clearRecipe} class="btn btn-ghost !px-3 !py-1.5 shrink-0">Clear</button>
+          </div>
+        {:else}
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {#each recipes as r}
+              <button type="button" onclick={() => pickRecipe(r)}
+                class="panel-2 p-3 text-left"
+                style={selectedRecipe?.name === r.name ? 'border-color:var(--color-beacon)' : ''}>
+                <p class="text-sm font-medium text-text capitalize">{r.name}</p>
+                <p class="text-xs text-muted mt-0.5">{r.description}</p>
+              </button>
+            {/each}
+          </div>
+          {#if selectedRecipe}
+            <div class="mt-4 space-y-3">
+              {#each selectedRecipe.params ?? [] as p}
+                <div>
+                  <label for={`recipe-param-${p.name}`} class="field-label">{p.prompt || p.name}{p.required ? '' : ' (optional)'}</label>
+                  <input id={`recipe-param-${p.name}`} type="text" bind:value={recipeParams[p.name]} class="input" />
+                </div>
+              {/each}
+              {#if recipeError}<p class="text-xs" style="color:var(--color-bad)">{recipeError}</p>{/if}
+              <div class="flex gap-2">
+                <button type="button" onclick={applyRecipe} class="btn btn-beacon !px-3 !py-1.5">Use recipe</button>
+                <button type="button" onclick={() => (selectedRecipe = null)} class="btn btn-ghost !px-3 !py-1.5">Cancel</button>
+              </div>
+            </div>
+          {/if}
+        {/if}
+      </section>
+
       <section class="panel p-5 space-y-4">
         <div>
           <label for="consumer" class="field-label">Consumer</label>
@@ -228,6 +313,14 @@
         {/each}
         <button type="button" onclick={addSecretHeader} class="btn btn-ghost !px-3 !py-1.5">+ Add Secret Header</button>
       </section>
+
+      {#if transformTemplate}
+        <section class="panel p-5">
+          <label for="transformTemplate" class="field-label">Transform template (applied to each created subscription)</label>
+          <textarea id="transformTemplate" bind:value={transformTemplate} rows="12" class="input mono !text-xs"></textarea>
+          <p class="text-muted text-xs mt-2">Editable — rendered server-side per delivery. Clear the recipe above to drop it.</p>
+        </section>
+      {/if}
 
       <section class="panel">
         <button type="button" onclick={() => (showAdvanced = !showAdvanced)} class="w-full flex items-center justify-between p-5 text-left">

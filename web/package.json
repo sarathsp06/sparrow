@@ -19,6 +19,7 @@
 		"@tailwindcss/forms": "^0.5.10",
 		"@tailwindcss/typography": "^0.5.18",
 		"@tailwindcss/vite": "^4.1.13",
+		"@types/js-yaml": "^4.0.9",
 		"@types/node": "^24.9.2",
 		"openapi-typescript": "^7.4.0",
 		"svelte": "^5.39.5",
@@ -29,6 +30,7 @@
 		"vite-plugin-devtools-json": "^1.0.0"
 	},
 	"dependencies": {
+		"js-yaml": "^5.4.2",
 		"openapi-fetch": "^0.13.4",
 		"svelte-jsoneditor": "^3.10.0"
 	}

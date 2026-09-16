@@ -7,5 +7,9 @@ export default defineConfig({
   plugins: [tailwindcss(), sveltekit(), devtoolsJson()],
   server: {
     allowedHosts: true,
+    fs: {
+      // recipes are bundled from ../satellites/recipes/*.yaml
+      allow: [".."],
+    },
   },
 });
