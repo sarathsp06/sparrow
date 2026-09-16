@@ -26,6 +26,9 @@ Sparrow is MIT-licensed, and all core features are available in the open-source 
   <Card title="Zero External Dependencies" icon="setting">
     PostgreSQL is the only infrastructure requirement. No Redis, no message broker, no object storage. The [River](https://riverqueue.com) job queue runs inside PostgreSQL. One database to back up, monitor, and scale.
   </Card>
+  <Card title="Consumer Self-Service Portal" icon="laptop">
+    Hand each consumer a scoped, expiring link to a portal where they register their own endpoints, manage subscriptions, and inspect and retry their own deliveries -- no admin API key, no visibility into anyone else's data. One admin call mints the token; it is stateless (HMAC-signed, revoked by expiry) and rides in the URL fragment. This is the [App Portal](/sparrow/guides/portal-embedding/) capability Svix is known for -- built in, no extra service to run.
+  </Card>
 </CardGrid>
 
 ## Feature Comparison
@@ -65,7 +68,7 @@ The table below compares Sparrow with the main alternatives for webhook delivery
 | **Tracing & metrics** | OpenTelemetry (traces + metrics + logs, job-level propagation) | Logging | Prometheus metrics | Dashboard | CloudWatch | Manual |
 | **SSRF protection** | Built-in (private IPs, redirects) | Built-in controls (plus proxy best practices) | Built-in controls / IP filtering | Managed | N/A | Manual |
 | **Client SDKs** | 3 (Go, Python, TypeScript) | Broad coverage | Multiple | Multiple | All AWS SDKs | 0 |
-| **Consumer app portal** | No | Yes (embeddable) | No | No | No | No |
+| **Consumer app portal** | Yes (embeddable, token-scoped) | Yes (embeddable) | No | No | No | No |
 | **Multi-region / HA story** | PostgreSQL-native HA + stateless workers | Vendor/infra-managed | Vendor/infra-managed | Vendor-managed | Global managed service | Manual |
 | **Multi-tenant SaaS mode** | No (single-tenant focus) | Yes | Yes | Yes | Yes | Manual |
 
@@ -80,6 +83,7 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 | **API protocol** | REST/HTTP on :8080 (OpenAPI 3.1 spec) | REST API only |
 | **Helm chart** | Security-hardened (NetworkPolicy, seccomp, read-only rootfs) | Available |
 | **Container image** | Distroless (~15MB), non-root | Standard |
+| **Consumer self-service portal** | Built-in, token-scoped -- embed or hand off a link | App Portal (magic-link session) |
 
 ### Where Sparrow is stronger
 
@@ -94,11 +98,11 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 - **No Redis** -- Sparrow uses PostgreSQL for everything including job queuing (via River). This keeps operational complexity lower for teams that want fewer infrastructure dependencies.
 - **Satellites** -- companion tools built entirely on the public REST API: a [CLI](/sparrow/satellites/cli/) (push, tail, local listen, template debugging), [recipes](/sparrow/satellites/recipes/) (Slack, Discord, PagerDuty, ntfy, ClickHouse as one YAML file each, rendered server-side), [sources](/sparrow/satellites/sources/) (Stripe/GitHub signature verification + cron schedules re-published as typed events), and [sinks](/sparrow/satellites/sinks/) (SMTP email, S3/MinIO archives, OTLP log export). The core stays one small server; delete every satellite and Sparrow still works.
 - **Self-monitoring** -- Sparrow emits its own system events (`sparrow.webhook.health_changed`, `sparrow.webhook.delivery_failed`) through the same pipeline it delivers with, and can email you about them via opt-in alert configs -- your webhook infrastructure alerts on itself, no external monitoring stack required.
+- **Consumer self-service** -- mint a scoped, expiring token for one consumer and hand them the [embedded portal](/sparrow/guides/portal-embedding/): they register endpoints, manage subscriptions, and inspect and retry their own deliveries with no API key and no visibility into any other consumer. Stateless HMAC tokens (signed with the encryption key, revoked by expiry) mean no session store and no extra service to run -- the same end-user portal Svix ships as its App Portal, without the SaaS.
 
 ### Where alternatives are stronger
 
 - **Client SDK breadth** -- Sparrow ships 3 generated SDKs today. Some alternatives provide broader first-party SDK coverage.
-- **Consumer app portal** -- Sparrow's UI is admin-only. If you need an embeddable end-user portal, evaluate alternatives that provide one.
 - **Multi-tenant SaaS mode** -- Svix, Convoy, and Hookdeck are designed for SaaS platforms where each customer manages their own webhooks. Sparrow is designed for teams running their own infrastructure.
 - **Managed cloud offering** -- Svix Cloud and Hookdeck handle infrastructure for you. Sparrow is self-hosted only.
 - **JavaScript transforms** -- Convoy and Hookdeck use JavaScript for payload transformation, which may be more familiar to web developers. Sparrow deliberately uses Go templates instead: cached, concurrency-safe execution with no embedded JS runtime means a smaller memory footprint, higher throughput, and zero extra dependencies -- the tradeoff is JavaScript's familiarity. The 37 built-in functions (structural map/list building, arithmetic, `dig`, type coercion) cover payload reshaping without a scripting engine.
