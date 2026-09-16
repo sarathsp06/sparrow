@@ -14,6 +14,7 @@ const recipesDocs = `${base}satellites/recipes/`;
 const sourcesDocs = `${base}satellites/sources/`;
 const sinksDocs = `${base}satellites/sinks/`;
 const whySparrow = `${base}getting-started/why-sparrow/#feature-comparison`;
+const portalDocs = `${base}guides/portal-embedding/`;
 const githubURL = 'https://github.com/sarathsp06/sparrow';
 ---
 
@@ -121,8 +122,17 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>
             <h3>Observable</h3>
           </div>
-          <p>OpenTelemetry traces propagate through every queue job. Structured logs and metrics export via OTLP. An embedded dashboard shows deliveries and per-webhook health.</p>
+          <p>OpenTelemetry traces propagate through every queue job; structured logs and metrics export via OTLP. The embedded dashboard shows delivery logs and per-webhook health, and interactive API docs render live at <code>/docs</code>.</p>
           <span class="sp-card-link">Architecture<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        </a>
+
+        <a class="sp-card" href={portalDocs}>
+          <div class="sp-card-head">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            <h3>Consumer portal</h3>
+          </div>
+          <p>Hand each consumer a scoped, expiring link to a self-service portal: they register their own endpoints, browse the event catalog, and inspect and retry their own delivery logs — no admin key, no access to anyone else's data.</p>
+          <span class="sp-card-link">Consumer portal<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
         </a>
 
         <a class="sp-card" href={docsHome}>
@@ -302,7 +312,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
             <tr><th></th><th class="sp-compare-hero">Sparrow</th><th>Svix</th><th>Convoy</th><th>Hookdeck</th><th>DIY</th></tr>
           </thead>
           <tbody>
-            <tr><th>Fully open source (MIT)</th><td class="sp-compare-hero">Yes</td><td>Partial</td><td>Yes (MPL-2.0)</td><td>Partial</td><td>Yes</td></tr>
+            <tr><th>Fully open source (MIT)</th><td class="sp-compare-hero">Yes</td><td>Partial</td><td>No (Elastic 2.0)</td><td>Partial</td><td>Yes</td></tr>
             <tr><th>Core infrastructure</th><td class="sp-compare-hero">PostgreSQL only</td><td>PostgreSQL + Redis</td><td>PostgreSQL + Redis</td><td>SaaS</td><td>Varies</td></tr>
             <tr><th>Webhook signing</th><td class="sp-compare-hero">HMAC-SHA256 + Ed25519</td><td>HMAC-SHA256</td><td>HMAC-SHA256</td><td>HMAC-SHA256</td><td>Manual</td></tr>
             <tr><th>Secrets at rest</th><td class="sp-compare-hero">Envelope encryption, per-record DEKs</td><td>Encrypted at rest</td><td>Deployment-dependent</td><td>Vendor-managed</td><td>Manual</td></tr>
