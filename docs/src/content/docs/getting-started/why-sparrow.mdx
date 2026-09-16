@@ -35,7 +35,7 @@ Sparrow is MIT-licensed, and all core features are available in the open-source 
 
 ### Sparrow vs the Landscape
 
-The table below compares Sparrow with the main alternatives for webhook delivery: [Svix](https://www.svix.com/) (open-source + cloud), [Convoy](https://getconvoy.io/) (open-source), [Hookdeck](https://hookdeck.com/) (SaaS platform with open-source Outpost agent), [AWS SNS](https://aws.amazon.com/sns/) (managed), and building it yourself (DIY).
+The table below compares Sparrow with the main alternatives for webhook delivery: [Svix](https://www.svix.com/) (open-source + cloud), [Convoy](https://getconvoy.io/) (source-available, Elastic 2.0), [Hookdeck](https://hookdeck.com/) (SaaS platform with open-source Outpost agent), [AWS SNS](https://aws.amazon.com/sns/) (managed), and building it yourself (DIY).
 
 <Aside type="note" title="Comparison scope">
   Third-party capabilities and packaging can change over time. Treat this table as directional and verify critical details against each vendor's latest docs.
@@ -43,10 +43,10 @@ The table below compares Sparrow with the main alternatives for webhook delivery
 
 | Capability | Sparrow | Svix | Convoy | Hookdeck | AWS SNS | DIY |
 |-----------|---------|------|--------|----------|---------|-----|
-| **Fully open source (MIT)** | Yes | Partial (OSS core, paid features) | Yes (MPL-2.0) | Partial (Outpost OSS, core platform closed) | No | Yes |
+| **Fully open source (MIT)** | Yes | Partial (OSS core, paid features) | No (Elastic 2.0, source-available) | Partial (Outpost OSS, core platform closed) | No | Yes |
 | **Self-hosted** | Yes | Yes | Yes | Partial (Outpost self-hosted, platform SaaS) | No (Managed) | Yes |
-| **No vendor per-message pricing (self-hosted)** | Yes (self-hosted; infra only) | No | Yes (OSS self-hosted) | No | No | Yes (your infra only) |
-| **Infra complexity (core deps)** | PostgreSQL only | PostgreSQL + Redis | PostgreSQL + Redis (or Mongo + Redis) | SaaS | Managed | Varies |
+| **No vendor per-message pricing (self-hosted)** | Yes (self-hosted; infra only) | No | Yes (self-hosted) | No | No | Yes (your infra only) |
+| **Infra complexity (core deps)** | PostgreSQL only | PostgreSQL (+ Redis for HA) | PostgreSQL + Redis | SaaS | Managed | Varies |
 | **Job queue backend** | PostgreSQL (River) | Redis-backed queue/workers | Background workers + Redis | Managed | Managed | Varies |
 | **Webhook signing** | Dual HMAC-SHA256 + Ed25519 | HMAC-SHA256 | HMAC-SHA256 | HMAC-SHA256 | X.509 signature (not HMAC) | Manual |
 | **Security model for secrets** | Envelope encryption with per-record DEKs | Encrypted at rest (service-managed keys) | Deployment-dependent (no built-in envelope hierarchy) | Vendor-managed encryption | Vendor-managed encryption | Manual |
@@ -58,7 +58,7 @@ The table below compares Sparrow with the main alternatives for webhook delivery
 | **Bulk retry/re-push** | Deterministic snapshot-based (up to 10K) | Not in OSS | Manual retry | UI retry | No | Manual |
 | **Idempotent ingestion** | Built-in dedup with idempotency keys | Application-level (no OSS ingest dedup) | Event IDs | Dedup available | Message dedup (5min) | Manual |
 | **REST / OpenAPI API** | Yes (OpenAPI 3.1 spec) | Yes (REST) | Yes (REST) | Yes (REST) | No | Manual |
-| **Event schema validation** | Soft validation (warns, never rejects; server-side check on test pushes) | JSON Schema (hard reject) | No | Filters (not schema) | No | Manual |
+| **Event schema validation** | Soft validation (warns, never rejects; server-side check on test pushes) | JSON Schema defs (not enforced) | No | Filters (not schema) | No | Manual |
 | **Prebuilt integration recipes** | Yes (Slack, Discord, PagerDuty, ntfy, ClickHouse — one YAML, rendered server-side) | Limited | Limited | Yes (integrations) | Limited destinations | Manual |
 | **Inbound ingestion (verify provider signatures)** | Yes (`sparrow-sources`: Stripe, GitHub, cron schedules) | Yes (Ingest product) | Yes (incoming webhooks) | Yes (core feature) | No | Manual |
 | **Non-HTTP delivery (email, object storage, OTLP)** | Yes (`sparrow-sinks`: SMTP, S3/MinIO, OTLP logs) | Limited | Limited | Limited | SNS-native targets | Manual |
@@ -68,7 +68,7 @@ The table below compares Sparrow with the main alternatives for webhook delivery
 | **Tracing & metrics** | OpenTelemetry (traces + metrics + logs, job-level propagation) | Logging | Prometheus metrics | Dashboard | CloudWatch | Manual |
 | **SSRF protection** | Built-in (private IPs, redirects) | Built-in controls (plus proxy best practices) | Built-in controls / IP filtering | Managed | N/A | Manual |
 | **Client SDKs** | 3 (Go, Python, TypeScript) | Broad coverage | Multiple | Multiple | All AWS SDKs | 0 |
-| **Consumer app portal** | Yes (embeddable, token-scoped) | Yes (embeddable) | No | No | No | No |
+| **Consumer app portal** | Yes (embeddable, token-scoped) | Yes (embeddable) | Yes (Portal Links) | Yes (Outpost/managed) | No | No |
 | **Multi-region / HA story** | PostgreSQL-native HA + stateless workers | Vendor/infra-managed | Vendor/infra-managed | Vendor-managed | Global managed service | Manual |
 | **Multi-tenant SaaS mode** | No (single-tenant focus) | Yes | Yes | Yes | Yes | Manual |
 
@@ -78,10 +78,10 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 
 | Capability | Sparrow | Svix OSS |
 |-----------|---------|----------|
-| **Event schema validation** | Soft validation (warnings, never rejects) | JSON Schema (hard reject) |
+| **Event schema validation** | Soft validation (warnings, never rejects) | JSON Schema defs (not enforced) |
 | **Consumer isolation** | Built-in logical separation | Application-level |
 | **API protocol** | REST/HTTP on :8080 (OpenAPI 3.1 spec) | REST API only |
-| **Helm chart** | Security-hardened (NetworkPolicy, seccomp, read-only rootfs) | Available |
+| **Helm chart** | Security-hardened (NetworkPolicy, seccomp, read-only rootfs) | Community chart only |
 | **Container image** | Distroless (~15MB), non-root | Standard |
 | **Consumer self-service portal** | Built-in, token-scoped -- embed or hand off a link | App Portal (magic-link session) |
 
