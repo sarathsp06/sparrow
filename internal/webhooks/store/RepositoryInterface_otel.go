@@ -352,6 +352,30 @@ func (_d RepositoryInterfaceWithTracing) DeleteEventByID(ctx context.Context, te
 	return _d.RepositoryInterface.DeleteEventByID(ctx, tenantID, eventID)
 }
 
+// DeleteEventsBefore implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) DeleteEventsBefore(ctx context.Context, cutoff time.Time) (i1 int64, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.DeleteEventsBefore")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":    ctx,
+				"cutoff": cutoff}, map[string]interface{}{
+				"i1":  i1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.DeleteEventsBefore(ctx, cutoff)
+}
+
 // DeleteRateLimitState implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) DeleteRateLimitState(ctx context.Context, webhookID uuid.UUID) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.DeleteRateLimitState")

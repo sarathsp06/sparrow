@@ -18,6 +18,7 @@ type EventRepository interface {
 	GetEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (*EventRecord, error)
 	GetEventDeliveryStats(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) (int32, int32, int32, int32, error)
 	DeleteEventByID(ctx context.Context, tenantID uuid.UUID, eventID uuid.UUID) error
+	DeleteEventsBefore(ctx context.Context, cutoff time.Time) (int64, error)
 
 	ListEventReports(ctx context.Context, tenantID uuid.UUID, consumer string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
 	ListEventReportsWithStats(ctx context.Context, tenantID uuid.UUID, consumer string, eventName *string, limit, offset int) ([]*EventReportWithStats, int, error)
@@ -112,6 +113,38 @@ func (r *Repository) GetEventByIdempotencyKey(ctx context.Context, tenantID uuid
 		return nil, storage.Error(err)
 	}
 	return &eventRow, nil
+}
+
+// DeleteEventsBefore purges event records created before cutoff, in batches
+// of 10k to keep transactions and lock windows small. Deliveries cascade via
+// FK; webhook_health_events rows older than cutoff are purged too (they have
+// no FK to deliveries). Server-wide by design: retention is an operator
+// policy, not a tenant-scoped API operation. Returns events deleted.
+func (r *Repository) DeleteEventsBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	const batch = `
+		DELETE FROM event_records
+		WHERE id IN (SELECT id FROM event_records WHERE created_at < $1 LIMIT 10000)
+	`
+	var total int64
+	for {
+		res, err := r.conn.ExecContext(ctx, batch, cutoff)
+		if err != nil {
+			return total, storage.Error(err)
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return total, storage.Error(err)
+		}
+		total += n
+		if n < 10000 {
+			break
+		}
+	}
+	_, err := r.conn.ExecContext(ctx, `DELETE FROM webhook_health_events WHERE timestamp < $1`, cutoff)
+	if err != nil {
+		return total, storage.Error(err)
+	}
+	return total, nil
 }
 
 // ListEventReports gets event records in descending order by creation time.

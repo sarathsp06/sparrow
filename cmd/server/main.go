@@ -187,6 +187,11 @@ func main() {
 		fmt.Println("⚠️  SPARROW_ALLOW_PRIVATE_NETWORKS=true — SSRF protection relaxed (loopback/private IPs allowed)")
 	}
 
+	// Event retention: purge events (and their deliveries) older than N days.
+	if cfg.EventRetentionDays > 0 {
+		fmt.Printf("🧹 Event retention enabled — purging data older than %d days (SPARROW_EVENT_RETENTION_DAYS)\n", cfg.EventRetentionDays)
+	}
+
 	// Create webhook repository
 	webhookRepo := store.NewRepositoryInterfaceWithTracing(store.NewRepository(sqlxDB), "")
 
@@ -197,7 +202,7 @@ func main() {
 	clientConfig.AllowPrivateNetworks = cfg.AllowPrivateNetworks
 
 	// Initialize queue manager
-	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig)
+	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig, cfg.EventRetentionDays)
 	if err != nil {
 		log.Fatalf("Failed to create queue manager: %v", err)
 	}

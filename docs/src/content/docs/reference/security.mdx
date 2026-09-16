@@ -131,6 +131,7 @@ What Sparrow enforces before the server will boot, and what you should set:
 | `DATABASE_URL` | Always required. |
 | `SPARROW_MAX_BODY_BYTES` | Optional, default 5 MiB. Values below 1 MiB are rejected at startup. |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | Leave unset (`false`) unless your webhook targets live on your own private network -- `true` disables all SSRF network checks. |
+| `SPARROW_EVENT_RETENTION_DAYS` | Optional, default `0` (keep forever). Purges events and their deliveries older than N days -- event payloads are stored in plaintext, so pair a retention window with storage-layer encryption when payloads are sensitive. See [Securing Sparrow](/sparrow/deployment/security/#data-retention-and-compliance-posture). |
 
 :::danger
 Without an API key, every endpoint is unauthenticated -- config validation

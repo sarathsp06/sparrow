@@ -33,6 +33,25 @@ What it does **not** provide:
   *not* a security boundary. Any valid API key can read and write every consumer.
 - **Rate limiting on the API.** Put a reverse proxy in front if you need it.
 
+## Data retention and compliance posture
+
+Sparrow stores event payloads and delivery request bodies as **plaintext in
+PostgreSQL** — they must stay queryable and transformable. Secrets and
+signing keys are envelope-encrypted; payloads are not. If payloads carry
+regulated data (PHI, PII), plan for it:
+
+- **Encrypt at the storage layer.** Encryption-at-rest requirements
+  (HIPAA-style) are satisfied below the application: encrypted
+  disks/volumes, or the managed encryption RDS/Cloud SQL enable by default,
+  plus TLS to PostgreSQL.
+- **Bound how long data lives.** Set `SPARROW_EVENT_RETENTION_DAYS` to purge
+  events — and, via cascade, their deliveries — older than N days. Runs
+  hourly in the background. Unset (the default), data is kept forever.
+- **Keep response capture off.** `capture_response_body` is off by default;
+  leave it off if endpoints may echo sensitive data back.
+- **Self-hosting is the compliance boundary.** Payloads never leave your
+  infrastructure — there is no vendor to sign a BAA with.
+
 ## Trust model of the embedded dashboard
 
 The embedded web UI (`SPARROW_SERVE_UI=true`) is designed for **trusted,
@@ -143,6 +162,8 @@ Whether or not you add SSO:
 - [ ] Set `CORS_ALLOWED_ORIGINS` explicitly for any browser-based access.
 - [ ] Leave `SPARROW_ALLOW_PRIVATE_NETWORKS=false` unless webhook targets are
       genuinely on your LAN — enabling it disables SSRF protection globally.
+- [ ] Set `SPARROW_EVENT_RETENTION_DAYS` if payloads carry regulated data or
+      you have any retention policy — the default keeps events forever.
 - [ ] Terminate TLS and apply rate limiting at a reverse proxy; Sparrow serves
       plain HTTP.
 - [ ] Keep `/health`, `/ready`, `/docs`, and `/openapi.*` in mind: they are

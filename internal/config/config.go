@@ -85,6 +85,12 @@ type Config struct {
 	// AlertFromName is the sender display name used by the bootstrapped
 	// SendGrid alert webhook. Env: SPARROW_ALERT_FROM_NAME
 	AlertFromName string `envconfig:"SPARROW_ALERT_FROM_NAME" default:"Sparrow"`
+
+	// EventRetentionDays purges events (and their deliveries, via cascade)
+	// older than this many days. 0 (default) disables retention: data is
+	// kept forever. Runs hourly as a background job.
+	// Env: SPARROW_EVENT_RETENTION_DAYS
+	EventRetentionDays int `envconfig:"SPARROW_EVENT_RETENTION_DAYS" default:"0"`
 }
 
 // Load populates a Config struct from environment variables.
@@ -123,6 +129,9 @@ func (c *Config) Validate() error {
 	}
 	if c.MaxBodyBytes < 1<<20 {
 		return fmt.Errorf("SPARROW_MAX_BODY_BYTES: %d is below the 1 MiB minimum", c.MaxBodyBytes)
+	}
+	if c.EventRetentionDays < 0 {
+		return fmt.Errorf("SPARROW_EVENT_RETENTION_DAYS: must be >= 0, got %d", c.EventRetentionDays)
 	}
 	return nil
 }

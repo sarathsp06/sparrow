@@ -23,13 +23,24 @@ type Manager struct {
 	logger *slog.Logger
 }
 
-// NewManager creates a new queue manager
-func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service, dbPool *pgxpool.Pool, clientConfig *client.Config) (*Manager, error) {
+// NewManager creates a new queue manager. retentionDays > 0 enables an hourly
+// periodic job that purges events older than that many days.
+func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryptoSvc *crypto.Service, dbPool *pgxpool.Pool, clientConfig *client.Config, retentionDays int) (*Manager, error) {
 	// Initialize River workers
 	riverWorkers := river.NewWorkers()
 
+	var periodicJobs []*river.PeriodicJob
+	if retentionDays > 0 {
+		periodicJobs = append(periodicJobs, river.NewPeriodicJob(
+			river.PeriodicInterval(time.Hour),
+			func() (river.JobArgs, *river.InsertOpts) { return RetentionArgs{}, nil },
+			&river.PeriodicJobOpts{RunOnStart: true},
+		))
+	}
+
 	// Create River client first (needed for workers)
 	riverClient, err := river.NewClient(riverpgxv5.New(dbPool), &river.Config{
+		PeriodicJobs: periodicJobs,
 		Queues: map[string]river.QueueConfig{
 			QueueDefault:         {MaxWorkers: 5},
 			QueueEventProcessing: {MaxWorkers: 20, FetchPollInterval: time.Second * 2}, // Event processing queue
@@ -54,6 +65,7 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 	river.AddWorker(riverWorkers, NewWebhookWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter(), cryptoSvc, clientConfig))
 	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
 	river.AddWorker(riverWorkers, NewBatchJobWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
+	river.AddWorker(riverWorkers, NewRetentionWorker(webhookRepo, retentionDays))
 
 	return manager, nil
 }

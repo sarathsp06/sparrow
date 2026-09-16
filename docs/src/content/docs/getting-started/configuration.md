@@ -23,6 +23,7 @@ All configuration is done via environment variables. No config files needed.
 | `SPARROW_SENDGRID_API_KEY` | No | -- | SendGrid API key for the bootstrapped alert webhook that emails system events (`sparrow.webhook.health_changed` / `delivery_failed`). When set, the webhook is created (or re-activated) with this key; when unset, it is created inactive with a mock key. |
 | `SPARROW_ALERT_FROM_EMAIL` | No | `alerts@example.com` | Verified SendGrid sender address for alert emails |
 | `SPARROW_ALERT_FROM_NAME` | No | `Sparrow` | Sender display name for alert emails |
+| `SPARROW_EVENT_RETENTION_DAYS` | No | `0` (keep forever) | Purge events — and, via cascade, their deliveries — older than this many days. Runs hourly in the background. |
 
 ### Frontend Development Variables
 
