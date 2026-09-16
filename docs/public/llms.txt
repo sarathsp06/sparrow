@@ -6,10 +6,10 @@ Key facts for integrators:
 
 - Base URL: `http://<host>:8080`, all endpoints under `/v1`. OpenAPI 3.1 spec served live at `/openapi.yaml` and `/openapi.json`; interactive docs at `/docs`.
 - Auth is optional: if `SPARROW_API_KEY` is set, send it in the `X-API-Key` header on every request. When unset, all endpoints are open (intended for internal/VPN deployments).
-- Consumerd resources live under `/v1/consumers/{consumer}/...`; the `default` consumer always exists. Event types are global (`/v1/event-types`) and act as a schema registry — only registered, active event types can be pushed.
+- Consumer-scoped resources live under `/v1/consumers/{consumer}/...`; the `default` consumer always exists. Event types are global (`/v1/event-types`) and act as a schema registry — pushing an unregistered event type auto-registers it; pushing an explicitly deactivated event type is rejected.
 - Push is async: `POST /v1/consumers/{ns}/events?event=<type>` with `{"payload":{...},"idempotency_key":"..."}` returns immediately; fan-out and delivery happen in background River workers. Delivery is at-least-once.
 - Deliveries are signed per Standard Webhooks: headers `webhook-id`, `webhook-timestamp`, `webhook-signature` (`v1,` = HMAC-SHA256 with the `whsec_` secret; `v1a,` = Ed25519 with the webhook's `signing_public_key`). Signed message is `{id}.{timestamp}.{raw body}`; reject timestamps older than 5 minutes.
-- Retry behavior: retryable failures (5xx, timeout, connection refused, network errors, 429 with `Retry-After`) back off as `retry_backoff_seconds * 2^(attempt-1) + jitter` until success, `max_retries` exhausted (`FAILED`), or the event's `ttl_seconds` expires (`EXPIRED`). Non-retryable failures (4xx, DNS, TLS, unexpected status) fail immediately.
+- Retry behavior: retryable failures (5xx, timeout, connection refused, network errors, 429 with `Retry-After`) back off as `retry_backoff_seconds * 2^(attempt-1)` (capped at 24 hours) until success, `max_retries` exhausted (`FAILED`), or the event's `ttl_seconds` expires (`EXPIRED`). Non-retryable failures (4xx, DNS, TLS, unexpected status) fail immediately.
 - Webhook secrets and secret headers are envelope-encrypted at rest (AES-256-GCM); `SPARROW_ENCRYPTION_KEY` (64-char hex, `openssl rand -hex 32`) is required at startup. Event payloads are stored in plaintext JSONB.
 
 Core endpoints (all JSON):

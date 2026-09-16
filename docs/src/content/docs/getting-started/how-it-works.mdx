@@ -20,7 +20,7 @@ Sparrow accepts webhook registrations and event definitions, fans out events to 
 3. **Push an event** — when something happens, send the event payload to Sparrow:
 
     ```bash
-    curl -X POST http://localhost:8080/v1/consumers/default/events \
+    curl -X POST "http://localhost:8080/v1/consumers/default/events?event=order.created" \
       -H "Content-Type: application/json" \
       -H "X-API-Key: sk_live_..." \
       -d '{
@@ -53,7 +53,7 @@ Push Event ──→ Event Worker ──→ Find Subscriptions ──→ Create 
 
 ### Events
 
-An **event** represents something that happened in your system — `order.created`, `user.signed_up`, `payment.failed`, etc. Before you can push events, you register their types with Sparrow:
+An **event** represents something that happened in your system — `order.created`, `user.signed_up`, `payment.failed`, etc. Event types can be registered explicitly, which lets you attach a description and a JSON Schema:
 
 ```bash
 curl -X POST http://localhost:8080/v1/event-types \
@@ -62,7 +62,7 @@ curl -X POST http://localhost:8080/v1/event-types \
   -d '{"name": "order.created", "description": "Fires when a new order is placed", "active": true}'
 ```
 
-Event registrations act as a schema registry. Only registered, active event types can be pushed.
+Event registrations act as a schema registry. Pushing an unregistered event type auto-registers it; pushing an event type that was explicitly deactivated is rejected.
 
 ### Webhooks
 

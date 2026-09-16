@@ -26,7 +26,7 @@ Sparrow classifies every delivery error into categories. The classification dete
 When a delivery attempt fails with a **retryable** error category, Sparrow re-enqueues the delivery with exponential backoff:
 
 ```
-backoff = retry_backoff_seconds * 2^(attempt - 1) + random_jitter
+backoff = retry_backoff_seconds * 2^(attempt - 1)   # capped at 24 hours
 ```
 
 Retries continue until:

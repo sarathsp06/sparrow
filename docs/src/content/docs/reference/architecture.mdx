@@ -144,13 +144,13 @@ When a subscription has `transform_enabled = true` and a `transform_template`, t
 Every webhook delivery includes these headers:
 
 - `Content-Type: application/json`
-- `User-Agent: Sparrow-Webhook/0.1.2`
+- `User-Agent: Sparrow-Webhook/<version>` (set at build time, e.g. `Sparrow-Webhook/0.2.0`)
 - `X-Sparrow-Event-ID` -- Same as `event_id` in the body.
 - `X-Sparrow-Delivery-ID` -- Same as `delivery_id` in the body.
 - `X-Sparrow-Webhook-ID` -- Same as `webhook_id` in the body.
-- `webhook-id` -- Standard Webhooks message ID (`msg_<delivery_id>`). Only present when `webhook_secret` is set.
-- `webhook-timestamp` -- Unix epoch seconds. Only present when `webhook_secret` is set.
-- `webhook-signature` -- Space-delimited signatures (see below). Only present when `webhook_secret` is set.
+- `webhook-id` -- Standard Webhooks message ID (`msg_<delivery_id>`). Only present when the webhook has a signing secret or an Ed25519 keypair.
+- `webhook-timestamp` -- Unix epoch seconds. Only present when the webhook has a signing secret or an Ed25519 keypair.
+- `webhook-signature` -- Space-delimited signatures (see below). Only present when the webhook has a signing secret or an Ed25519 keypair.
 
 Custom headers configured on the webhook or subscription are merged in, with subscription-level headers overriding webhook-level defaults.
 
@@ -188,8 +188,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
         http.Error(w, "invalid signature", http.StatusUnauthorized)
         return
     }
-    // or, for asymmetric verification without sharing the secret:
-    // signature.VerifyEd25519(body, r.Header, webhook.SigningPublicKey)
+    // Or verify the Ed25519 signature instead — no shared secret needed.
+    // The key is the webhook resource's signing_public_key field (hex),
+    // present when the webhook was registered with signature_type "ed25519":
+    // signature.VerifyEd25519(body, r.Header, signingPublicKeyHex)
 }
 ```
 

@@ -20,7 +20,7 @@ All requests use an API key in the `X-API-Key` header (required only when the se
 with `SPARROW_API_KEY` set):
 
 ```bash
-curl -X POST http://localhost:8080/v1/consumers/payments/events \
+curl -X POST "http://localhost:8080/v1/consumers/payments/events?event=invoice.paid" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: sk_live_..." \
   -d '{

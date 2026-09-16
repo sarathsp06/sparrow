@@ -107,7 +107,7 @@ curl -s -X POST http://localhost:8080/v1/consumers/default/webhooks \
   -d '{"url":"https://testhooks.sarathsadasivan.com/hooks","events":["order.created"],"active":true}'
 
 # Push an event
-curl -s -X POST http://localhost:8080/v1/consumers/default/events \
+curl -s -X POST "http://localhost:8080/v1/consumers/default/events?event=order.created" \
   -H "Content-Type: application/json" \
   -d '{"payload":{"order_id":"ord_k8s_001","amount":42.00}}'
 

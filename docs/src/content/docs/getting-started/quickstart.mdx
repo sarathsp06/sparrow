@@ -52,12 +52,12 @@ another consumer to isolate a different tenant's webhooks and events.
       }'
     ```
 
-    Save the `webhookId` from the response for later use.
+    Save the `webhook_id` from the response for later use.
 
 3. **Push an event**
 
     ```bash
-    curl -X POST http://localhost:8080/v1/consumers/default/events \
+    curl -X POST "http://localhost:8080/v1/consumers/default/events?event=order.created" \
       -H "Content-Type: application/json" \
       -H "X-API-Key: sk_live_..." \
       -d '{
