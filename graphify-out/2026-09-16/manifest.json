@@ -355,7 +355,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/WebhookServiceInterface_otel.go": {
-    "mtime": 1789547073.2980568,
+    "mtime": 1789487995.7602832,
     "ast_hash": "73c70d3e99a37deb85ffa023f0025a49",
     "semantic_hash": ""
   },
@@ -530,19 +530,19 @@
     "semantic_hash": "df8ba1bef188edb14e0e3783976bbc00"
   },
   "pkg/crypto/crypto.go": {
-    "mtime": 1789547049.36296,
-    "ast_hash": "f217825a18a216bd2878b66d43cf36f7",
+    "mtime": 1789053026.8870552,
+    "ast_hash": "785ca2b6cae324343d51315b1d8b312f",
     "semantic_hash": ""
   },
   "pkg/crypto/crypto_test.go": {
-    "mtime": 1789546903.603305,
-    "ast_hash": "d3f95df7cb1ef663f3e469af26ee25bc",
+    "mtime": 1789053040.690723,
+    "ast_hash": "69ea22960d4d170922cccc8ca05912d6",
     "semantic_hash": ""
   },
   "pkg/crypto/envelope_test.go": {
-    "mtime": 1789546910.8634412,
-    "ast_hash": "b1072354b8f5d2a1fda7dcfb3a2795e9",
-    "semantic_hash": ""
+    "mtime": 1788089756.0517914,
+    "ast_hash": "28f6e65415776c27e10952e28228f016",
+    "semantic_hash": "28f6e65415776c27e10952e28228f016"
   },
   "pkg/errors/category.go": {
     "mtime": 1788089756.0520248,
@@ -860,13 +860,13 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/docker-compose.md": {
-    "mtime": 1789546985.2494748,
-    "ast_hash": "7d10b4c012623cb2fd6da5a933cf1d2f",
+    "mtime": 1789318611.6636193,
+    "ast_hash": "5e319370f23be0a7812c5e0ced165636",
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/kubernetes.md": {
-    "mtime": 1789546161.1279273,
-    "ast_hash": "c77d6ba68262d4df911ab78fc6a35454",
+    "mtime": 1789376704.6810498,
+    "ast_hash": "2f8377522c109182bc61260146ac77ea",
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/railway.md": {
@@ -875,23 +875,23 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/configuration.md": {
-    "mtime": 1789547007.4328947,
-    "ast_hash": "268afd05e563c0ccad59913e62c0c58a",
+    "mtime": 1789485566.033129,
+    "ast_hash": "0ce7a3d2382ee7c49c5d71c762f2d6a8",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/how-it-works.mdx": {
-    "mtime": 1789546161.124287,
-    "ast_hash": "900c3f9308faa799840653269fabe37a",
+    "mtime": 1789376704.680447,
+    "ast_hash": "e99ac6692af38cf73d5fb57dc4f48043",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/installation.mdx": {
-    "mtime": 1789546989.9695582,
-    "ast_hash": "cb74e7d02fb25e0f144af2d1e2522b92",
+    "mtime": 1789469178.5898886,
+    "ast_hash": "b042d8eb8666c109bcd4a23431007df2",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/quickstart.mdx": {
-    "mtime": 1789545994.6966267,
-    "ast_hash": "eae4a7a16301c5391628572bcc802dd6",
+    "mtime": 1789469181.2604344,
+    "ast_hash": "cf59ed31ecb5866638658e58d6965303",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/why-sparrow.mdx": {
@@ -905,18 +905,18 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/architecture.mdx": {
-    "mtime": 1789547005.7482371,
-    "ast_hash": "70171feadde2ad572630c008d6ffe444",
+    "mtime": 1789545838.242599,
+    "ast_hash": "c3e9853011e7495896ca359d03b6f582",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/client-libraries.mdx": {
-    "mtime": 1789546161.1263995,
-    "ast_hash": "8ad915d2ebb6466c6fae95bd920d5ebf",
+    "mtime": 1789376704.6821806,
+    "ast_hash": "645b755be459982146054b73ce04b27a",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/error-classification.md": {
-    "mtime": 1789546118.7788525,
-    "ast_hash": "a5a01455683e66656112a328e99070d6",
+    "mtime": 1789376704.6835346,
+    "ast_hash": "580ee5cf3e71aa80f086102e87326bc0",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/template-functions.md": {
@@ -1195,13 +1195,13 @@
     "semantic_hash": ""
   },
   "docs/public/llms-full.txt": {
-    "mtime": 1789546184.8551757,
-    "ast_hash": "2f7f64b7d59f0f462f4c8aabd9a5e546",
+    "mtime": 1789376704.709548,
+    "ast_hash": "bd80b1fc0eed826a68d6d23a7a1e08ea",
     "semantic_hash": ""
   },
   "docs/public/llms.txt": {
-    "mtime": 1789546184.8463535,
-    "ast_hash": "c413f07cf8923d44c8acf128613dec25",
+    "mtime": 1789376704.68605,
+    "ast_hash": "5574500f5004a0f4cb92eebaa7b82629",
     "semantic_hash": ""
   },
   "docs/src/assets/diagrams/health-state-machine-light.svg": {
