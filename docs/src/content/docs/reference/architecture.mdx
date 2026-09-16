@@ -167,126 +167,56 @@ Sparrow sets three headers: `webhook-id`, `webhook-timestamp`, and `webhook-sign
 - **Ed25519** signatures are prefixed with `v1a,` and base64-encoded.
 - Multiple signatures are space-delimited in the `webhook-signature` header.
 
-**Verification steps (HMAC):**
+**Don't hand-roll verification.** Sparrow signs in the Standard Webhooks format, so use a
+maintained verifier:
 
-1. Read the raw request body bytes (before any JSON parsing).
-2. Extract the `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers.
-3. **Reject stale timestamps.** If the difference exceeds your tolerance (e.g. 5 minutes), reject the request.
-4. Reconstruct the signed message: `webhook_id + "." + timestamp + "." + raw_body`.
-5. Compute `HMAC-SHA256(message, webhook_secret)` and base64-encode the result.
-6. Find the `v1,` prefixed signature in the `webhook-signature` header and **use constant-time comparison**.
+**Go** — Sparrow ships [`pkg/signature`](https://github.com/sarathsp06/sparrow/tree/main/pkg/signature),
+a dependency-light module that handles both schemes, `whsec_`-prefixed and raw secrets, and
+replay protection (5-minute timestamp tolerance):
 
-**Example: Go**
+```bash
+go get github.com/sarathsp06/sparrow/pkg/signature
+```
 
 ```go
-import (
-    "crypto/hmac"
-    "crypto/sha256"
-    "crypto/subtle"
-    "encoding/base64"
-    "fmt"
-    "io"
-    "math"
-    "net/http"
-    "strconv"
-    "strings"
-    "time"
-)
+import "github.com/sarathsp06/sparrow/pkg/signature"
 
-func VerifyWebhook(r *http.Request, secret string) error {
-    body, err := io.ReadAll(r.Body)
-    if err != nil {
-        return fmt.Errorf("failed to read body: %w", err)
-    }
+func handler(w http.ResponseWriter, r *http.Request) {
+    body, _ := io.ReadAll(r.Body)
 
-    msgID := r.Header.Get("webhook-id")
-    timestamp := r.Header.Get("webhook-timestamp")
-    signatures := r.Header.Get("webhook-signature")
-    if msgID == "" || timestamp == "" || signatures == "" {
-        return fmt.Errorf("missing signature headers")
+    if err := signature.VerifyHMAC(body, r.Header, webhookSecret); err != nil {
+        http.Error(w, "invalid signature", http.StatusUnauthorized)
+        return
     }
-
-    ts, err := strconv.ParseInt(timestamp, 10, 64)
-    if err != nil {
-        return fmt.Errorf("invalid timestamp: %w", err)
-    }
-    if math.Abs(float64(time.Now().Unix()-ts)) > 300 {
-        return fmt.Errorf("timestamp too old, possible replay attack")
-    }
-
-    message := msgID + "." + timestamp + "." + string(body)
-    mac := hmac.New(sha256.New, []byte(secret))
-    mac.Write([]byte(message))
-    expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
-
-    for _, sig := range strings.Split(signatures, " ") {
-        if strings.HasPrefix(sig, "v1,") {
-            actual := strings.TrimPrefix(sig, "v1,")
-            if subtle.ConstantTimeCompare([]byte(expected), []byte(actual)) == 1 {
-                return nil
-            }
-        }
-    }
-    return fmt.Errorf("signature mismatch")
+    // or, for asymmetric verification without sharing the secret:
+    // signature.VerifyEd25519(body, r.Header, webhook.SigningPublicKey)
 }
 ```
 
-**Example: Node.js**
+**Other languages** — use the official [Standard Webhooks libraries](https://github.com/standard-webhooks/standard-webhooks#reference-implementations)
+(JavaScript, Python, Java, Rust, Ruby, PHP, C#, Elixir, and more ship a `Webhook.verify`):
 
 ```javascript
-const crypto = require("crypto");
+import { Webhook } from "standard-webhooks"; // npm i standard-webhooks
 
-function verifyWebhook(rawBody, headers, secret) {
-  const msgId = headers["webhook-id"];
-  const timestamp = headers["webhook-timestamp"];
-  const signatures = headers["webhook-signature"];
-
-  const age = Math.abs(Date.now() / 1000 - parseInt(timestamp, 10));
-  if (age > 300) throw new Error("Timestamp too old");
-
-  const message = `${msgId}.${timestamp}.${rawBody}`;
-  const expected = crypto
-    .createHmac("sha256", secret)
-    .update(message)
-    .digest("base64");
-
-  const verified = signatures.split(" ").some((sig) => {
-    if (!sig.startsWith("v1,")) return false;
-    const actual = sig.slice(3);
-    return crypto.timingSafeEqual(
-      Buffer.from(expected),
-      Buffer.from(actual)
-    );
-  });
-
-  if (!verified) throw new Error("Signature mismatch");
-}
+new Webhook(webhookSecret).verify(rawBody, headers); // throws on mismatch
 ```
-
-**Example: Python**
 
 ```python
-import base64, hashlib, hmac, time
+from standardwebhooks import Webhook  # pip install standardwebhooks
 
-def verify_webhook(raw_body: bytes, headers: dict, secret: str):
-    msg_id = headers["webhook-id"]
-    timestamp = headers["webhook-timestamp"]
-    signatures = headers["webhook-signature"]
-
-    if abs(time.time() - int(timestamp)) > 300:
-        raise ValueError("Timestamp too old")
-
-    message = f"{msg_id}.{timestamp}.{raw_body.decode()}".encode()
-    expected = base64.b64encode(
-        hmac.new(secret.encode(), message, hashlib.sha256).digest()
-    ).decode()
-
-    for sig in signatures.split(" "):
-        if sig.startswith("v1,"):
-            if hmac.compare_digest(expected, sig[3:]):
-                return
-    raise ValueError("Signature mismatch")
+Webhook(webhook_secret).verify(raw_body, headers)  # raises on mismatch
 ```
+
+The Standard Webhooks libraries expect the secret in `whsec_` format — which is what Sparrow
+generates by default. If you configured a custom raw-string secret, either re-encode it as
+`whsec_` + base64 or use `pkg/signature`, which accepts both.
+
+If you need to verify by hand (an unsupported language, or auditing what a library does), the
+reference implementation is [`pkg/signature/signature.go`](https://github.com/sarathsp06/sparrow/blob/main/pkg/signature/signature.go):
+read the raw body before JSON parsing, reject stale `webhook-timestamp` values, recompute
+`HMAC-SHA256("{webhook-id}.{timestamp}.{raw_body}", secret)` base64-encoded, and compare against
+each `v1,` signature in constant time.
 
 ---
 
