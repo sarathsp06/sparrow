@@ -1,15 +1,14 @@
 ---
 title: Sources
-description: Turn cron schedules, Stripe webhooks, and GitHub webhooks into Sparrow events with the sparrow-sources binary.
+description: Turn cron schedules and provider webhooks (Stripe, GitHub) into Sparrow events with the sparrow-sources binary.
 ---
 
-`sparrow-sources` is a small companion binary that pushes events **into** Sparrow from the outside world. It ships these sources:
+`sparrow-sources` is a small companion binary that pushes events **into** Sparrow from the outside world. It ships two source types:
 
 - **Cron** — emit a fixed event on a schedule (`report.tick` every 5 minutes).
-- **Stripe** — receive Stripe webhooks, verify their signature, and re-publish them as Sparrow events.
-- **GitHub** — same for GitHub webhooks.
+- **Webhooks** — receive a provider's webhooks, verify their signature, and re-publish them as Sparrow events. Supported providers today: **Stripe** and **GitHub**.
 
-Stripe and GitHub are the webhook providers supported today; **more will be added over time**. Each provider follows the same shape — an HTTP path you choose, a signing secret, and the Sparrow event prefix it publishes under — so this is just the starting set, not a fixed list.
+More webhook providers will be added over time. Each follows the same shape — an HTTP path you choose, a signing secret, and the Sparrow event prefix it publishes under — so Stripe and GitHub are the starting set, not a fixed list.
 
 Once an external event is inside Sparrow, everything Sparrow offers applies: fan-out to multiple consumers, retries with backoff, label filtering, payload transforms, delivery observability.
 
