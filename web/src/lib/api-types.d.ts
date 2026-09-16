@@ -212,6 +212,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/consumers/{consumer}/portal-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a consumer-scoped portal access token
+         * @description Creates a signed, expiring bearer token that lets an end consumer use the embedded portal UI (or the API directly) scoped to this consumer only: manage their webhooks and subscriptions, and inspect/retry their deliveries. Portal tokens cannot push events or mint further tokens. Requires the admin API key; hand the returned path (with the token in the URL fragment) to the end consumer.
+         */
+        post: operations["createPortalToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/consumers/{consumer}/repush-jobs/{job_id}": {
         parameters: {
             query?: never;
@@ -964,6 +984,23 @@ export interface components {
             event_types: string[] | null;
             /** @description Scope the alert to one webhook. Omit for a consumer-wide alert covering every webhook. */
             webhook_id?: string;
+        };
+        CreatePortalTokenOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreatePortalTokenOutputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: date-time
+             * @description When the token stops working. Tokens are stateless — the only revocation is expiry.
+             */
+            expires_at: string;
+            /** @description Server-relative portal URL with the token in the fragment (never sent to the server or logged). Prepend your Sparrow base URL and hand it to the end consumer. */
+            path: string;
+            /** @description Bearer token for the consumer portal. Send as 'Authorization: Bearer <token>'. */
+            token: string;
         };
         CreateSubscriptionBody: {
             /**
@@ -2416,6 +2453,67 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createPortalToken: {
+        parameters: {
+            query?: {
+                /** @description Token lifetime in seconds. Defaults to 7 days, capped at 30 days. */
+                ttl_seconds?: number;
+            };
+            header?: never;
+            path: {
+                consumer: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatePortalTokenOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

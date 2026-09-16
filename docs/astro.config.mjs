@@ -37,6 +37,7 @@ export default defineConfig({
           items: [
             { slug: 'guides/payload-transformation' },
             { slug: 'guides/webhook-health-alerts' },
+            { slug: 'guides/portal-embedding' },
           ],
         },
         {

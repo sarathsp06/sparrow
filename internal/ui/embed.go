@@ -76,9 +76,12 @@ func Handler(logger *slog.Logger, config *Config) http.Handler {
 			return
 		}
 
-		// Inject runtime config into the HTML <head>.
+		// Inject runtime config into the HTML <head> — except for the
+		// consumer portal: portal pages are served to end consumers who
+		// must never see the admin API key. The portal authenticates with
+		// its own bearer token from the URL fragment instead.
 		html := string(indexBytes)
-		if configScript != "" {
+		if configScript != "" && !strings.HasPrefix(r.URL.Path, "/portal") {
 			html = strings.Replace(html, "</head>", configScript+"</head>", 1)
 		}
 

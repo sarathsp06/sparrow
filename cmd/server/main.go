@@ -161,10 +161,16 @@ func main() {
 	}
 	fmt.Println("🔐 Encryption enabled (envelope encryption with per-record DEK)")
 
+	// Consumer portal tokens: signed with the encryption key, they grant an
+	// end consumer scoped access to /v1/consumers/{consumer}/ routes and the
+	// embedded portal UI at /portal. Minted via POST .../portal-token (admin).
+	portalTokens := middleware.NewPortalTokens(encKey)
+
 	// Configure optional API key authentication.
 	// When SPARROW_API_KEY is set, all API requests must include the key via
-	// X-API-Key header. Health/ready, the OpenAPI docs/spec, and static UI
-	// assets are excluded. When unset, all requests are allowed (open access).
+	// X-API-Key header (or a consumer-scoped portal bearer token). Health/
+	// ready, the OpenAPI docs/spec, and static UI assets are excluded. When
+	// unset, all requests are allowed (open access).
 	apiKeyAuth := &middleware.APIKeyAuth{
 		APIKey: cfg.APIKey,
 		ExcludedPathPrefixes: []string{
@@ -173,6 +179,7 @@ func main() {
 			"/docs",
 			"/openapi",
 		},
+		Portal: portalTokens,
 	}
 	if apiKeyAuth.Enabled() {
 		fmt.Println("🔑 API key authentication enabled (SPARROW_API_KEY is set)")
@@ -236,7 +243,7 @@ func main() {
 	// operation plus /openapi.{json,yaml} and the Scalar reference at /docs.
 	r.Group(func(r chi.Router) {
 		r.Use(apiKeyAuth.HTTPMiddleware)
-		rest.Mount(r, tracedWebhookService)
+		rest.Mount(r, tracedWebhookService, portalTokens)
 	})
 
 	// Initialize health checker

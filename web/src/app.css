@@ -33,6 +33,32 @@
 	--color-idle: #8b8578;
 }
 
+/*
+  Dark theme — activated via data-theme="dark" on <html>. Used by the
+  consumer portal (/portal), which supports both schemes; the admin UI
+  stays light. Only the surface/text/status tokens change, so every
+  component built on the tokens adapts automatically.
+*/
+[data-theme='dark'] {
+	color-scheme: dark;
+	--color-ink: #131110;
+	--color-panel: #1c1917;
+	--color-panel-2: #26221c;
+	--color-line: #37322a;
+	--color-line-strong: #4c4638;
+	--color-text: #ece7db;
+	--color-muted: #a59d8c;
+	--color-faint: #6f6a5e;
+	--color-beacon: #f2a93b;
+	--color-beacon-dim: #c9832a;
+	--color-ok: #34c088;
+	--color-warn: #e3aa41;
+	--color-bad: #ff6f66;
+	--color-idle: #7c766a;
+}
+[data-theme='dark'] .row-hover:hover { background: rgba(255, 255, 255, 0.035); }
+[data-theme='dark'] .panel { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); }
+
 @layer base {
 	html {
 		color-scheme: light;

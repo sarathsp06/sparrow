@@ -12,6 +12,10 @@
 
   let { children } = $props();
 
+  // Portal routes render standalone (no admin chrome, no admin telemetry) —
+  // they are served to end consumers who only hold a consumer-scoped token.
+  const isPortal = $derived(page.route.id?.startsWith("/portal") ?? false);
+
   let sidebarOpen = $state(false);
   let consoleOpen = $state(false);
   let fleet = $state<{ tone: string; label: string } | null>(null);
@@ -55,6 +59,7 @@
 
   let telemetryTimer: ReturnType<typeof setInterval>;
   onMount(() => {
+    if (isPortal) return;
     refreshTelemetry();
     telemetryTimer = setInterval(refreshTelemetry, 10000);
   });
@@ -150,6 +155,9 @@
   </div>
 {/snippet}
 
+{#if isPortal}
+  {@render children?.()}
+{:else}
 <!-- Pulse: sticky heartbeat strip across the whole top -->
 <div class="sticky top-0 z-40 bg-ink border-b border-line">
   <Pulse height={26} />
@@ -186,3 +194,4 @@
 </div>
 
 <ApiConsole bind:open={consoleOpen} />
+{/if}

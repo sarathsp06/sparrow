@@ -235,6 +235,31 @@ components:
         - email
         - event_types
       type: object
+    CreatePortalTokenOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CreatePortalTokenOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        expires_at:
+          description: When the token stops working. Tokens are stateless — the only revocation is expiry.
+          format: date-time
+          type: string
+        path:
+          description: Server-relative portal URL with the token in the fragment (never sent to the server or logged). Prepend your Sparrow base URL and hand it to the end consumer.
+          type: string
+        token:
+          description: "Bearer token for the consumer portal. Send as 'Authorization: Bearer <token>'."
+          type: string
+      required:
+        - token
+        - expires_at
+        - path
+      type: object
     CreateSubscriptionBody:
       additionalProperties: false
       properties:
@@ -1483,6 +1508,8 @@ info:
     ## Authentication
 
     Optional. When the server is started with `SPARROW_API_KEY` set, every `/v1/*` request must include it in the `X-API-Key` header. When unset, all endpoints are open.
+
+    Alternatively, a consumer-scoped **portal token** (minted via `createPortalToken`, sent as `Authorization: Bearer <token>`) grants access to that consumer's routes only — everything under `/v1/consumers/{consumer}/` except pushing events and minting tokens, plus the read-only event-type catalog and template helpers.
   license:
     identifier: MIT
     name: MIT
@@ -2112,6 +2139,60 @@ paths:
       summary: Start a batch re-push job from a prepared snapshot
       tags:
         - Events
+  /v1/consumers/{consumer}/portal-token:
+    post:
+      description: "Creates a signed, expiring bearer token that lets an end consumer use the embedded portal UI (or the API directly) scoped to this consumer only: manage their webhooks and subscriptions, and inspect/retry their deliveries. Portal tokens cannot push events or mint further tokens. Requires the admin API key; hand the returned path (with the token in the URL fragment) to the end consumer."
+      operationId: createPortalToken
+      parameters:
+        - in: path
+          name: consumer
+          required: true
+          schema:
+            type: string
+        - description: Token lifetime in seconds. Defaults to 7 days, capped at 30 days.
+          explode: false
+          in: query
+          name: ttl_seconds
+          schema:
+            description: Token lifetime in seconds. Defaults to 7 days, capped at 30 days.
+            format: int64
+            maximum: 2592000
+            minimum: 1
+            type: integer
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatePortalTokenOutputBody"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Bad Request
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Service Unavailable
+      summary: Mint a consumer-scoped portal access token
+      tags:
+        - Webhooks
   /v1/consumers/{consumer}/repush-jobs/{job_id}:
     get:
       description: Returns a batch re-push job's status and processed/failed/total counts.
