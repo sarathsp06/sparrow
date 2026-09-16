@@ -13,6 +13,7 @@ const cliDocs = `${base}satellites/cli/`;
 const recipesDocs = `${base}satellites/recipes/`;
 const sourcesDocs = `${base}satellites/sources/`;
 const sinksDocs = `${base}satellites/sinks/`;
+const whySparrow = `${base}getting-started/why-sparrow/#feature-comparison`;
 const githubURL = 'https://github.com/sarathsp06/sparrow';
 ---
 
@@ -285,6 +286,32 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
           <span class="sp-card-link">Sinks<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
         </a>
 
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARISON -->
+  <section class="sp-section sp-section-muted">
+    <div class="sp-w">
+      <span class="sp-label">COMPARISON</span>
+      <h2 class="sp-section-title">How Sparrow stacks up</h2>
+      <p class="sp-section-sub">Directional snapshot against the main alternatives — vendors change packaging often, so verify details against their docs. <a href={whySparrow}>Full feature comparison →</a></p>
+      <div class="sp-compare-wrap">
+        <table class="sp-compare">
+          <thead>
+            <tr><th></th><th class="sp-compare-hero">Sparrow</th><th>Svix</th><th>Convoy</th><th>Hookdeck</th><th>DIY</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>Fully open source (MIT)</th><td class="sp-compare-hero">Yes</td><td>Partial</td><td>Yes (MPL-2.0)</td><td>Partial</td><td>Yes</td></tr>
+            <tr><th>Core infrastructure</th><td class="sp-compare-hero">PostgreSQL only</td><td>PostgreSQL + Redis</td><td>PostgreSQL + Redis</td><td>SaaS</td><td>Varies</td></tr>
+            <tr><th>Webhook signing</th><td class="sp-compare-hero">HMAC-SHA256 + Ed25519</td><td>HMAC-SHA256</td><td>HMAC-SHA256</td><td>HMAC-SHA256</td><td>Manual</td></tr>
+            <tr><th>Secrets at rest</th><td class="sp-compare-hero">Envelope encryption, per-record DEKs</td><td>Encrypted at rest</td><td>Deployment-dependent</td><td>Vendor-managed</td><td>Manual</td></tr>
+            <tr><th>Payload transforms</th><td class="sp-compare-hero">Go templates, cached, no JS runtime</td><td>Plan-dependent</td><td>JavaScript</td><td>JavaScript</td><td>Manual</td></tr>
+            <tr><th>Prebuilt integrations</th><td class="sp-compare-hero">Recipes: Slack, Discord, PagerDuty, ntfy, ClickHouse</td><td>Limited</td><td>Limited</td><td>Yes</td><td>Manual</td></tr>
+            <tr><th>Self-monitoring alerts</th><td class="sp-compare-hero">System events + email alerts</td><td>Operational webhooks</td><td>Alert configs</td><td>Issue alerts</td><td>Manual</td></tr>
+            <tr><th>Tracing &amp; metrics</th><td class="sp-compare-hero">OpenTelemetry end-to-end</td><td>Logging</td><td>Prometheus</td><td>Dashboard</td><td>Manual</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </section>
@@ -691,6 +718,46 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   margin-left: 1.875rem;
   background: var(--sp-border-hover);
 }
+
+/* --- Comparison table --- */
+.sp-compare-wrap {
+  margin-top: 1.75rem;
+  overflow-x: auto;
+  border: 1px solid var(--sp-outline-variant);
+  border-radius: var(--sp-radius-lg);
+  background: var(--sp-surface-container-lowest);
+}
+.sp-compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 720px;
+}
+.sp-compare th, .sp-compare td {
+  padding: 0.65rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--sp-outline-variant);
+  vertical-align: top;
+}
+.sp-compare tbody tr:last-child th,
+.sp-compare tbody tr:last-child td { border-bottom: none; }
+.sp-compare thead th {
+  font-family: var(--sp-font-mono);
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--sp-text-muted);
+}
+.sp-compare tbody th {
+  font-weight: 600; color: var(--sp-on-surface);
+  white-space: nowrap;
+}
+.sp-compare td { color: var(--sp-on-surface-variant); }
+.sp-compare .sp-compare-hero {
+  background: var(--sp-surface-container-low);
+  color: var(--sp-on-surface);
+  font-weight: 500;
+}
+.sp-compare thead th.sp-compare-hero { color: var(--sp-brand-primary-text); }
 
 /* --- Footer --- */
 .sp-footer {
