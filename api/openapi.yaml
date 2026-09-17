@@ -1509,7 +1509,7 @@ info:
 
     Optional. When the server is started with `SPARROW_API_KEY` set, every `/v1/*` request must include it in the `X-API-Key` header. When unset, all endpoints are open.
 
-    Alternatively, a consumer-scoped **portal token** (minted via `createPortalToken`, sent as `Authorization: Bearer <token>`) grants access to that consumer's routes only — everything under `/v1/consumers/{consumer}/` except pushing events and minting tokens, plus the read-only event-type catalog and template helpers.
+    Alternatively, a consumer-scoped **portal token** (minted via `createPortalToken`) powers the embedded portal at `/portal`, whose API calls are served under the single `/portal/api/` prefix — the consumer is carried by the token, not the URL, so exposing the portal means allowlisting only `/portal`, `/_app`, and `/portal/api`. Portal tokens reach their own consumer's webhooks, subscriptions, and deliveries (never event injection, token minting, other consumers, or admin routes).
   license:
     identifier: MIT
     name: MIT
@@ -2141,7 +2141,7 @@ paths:
         - Events
   /v1/consumers/{consumer}/portal-token:
     post:
-      description: "Creates a signed, expiring bearer token that lets an end consumer use the embedded portal UI (or the API directly) scoped to this consumer only: manage their webhooks and subscriptions, and inspect/retry their deliveries. Portal tokens cannot push events or mint further tokens. Requires the admin API key; hand the returned path (with the token in the URL fragment) to the end consumer."
+      description: "Creates a signed, expiring bearer token that lets an end consumer use the embedded portal UI scoped to this consumer only: manage their webhooks and subscriptions, and inspect/retry their deliveries. The portal serves its API under the single `/portal/api/` prefix (the consumer rides in the token, not the URL). Portal tokens cannot push events or mint further tokens. Requires the admin API key; hand the returned path (with the token in the URL fragment) to the end consumer."
       operationId: createPortalToken
       parameters:
         - in: path

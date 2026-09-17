@@ -162,15 +162,16 @@ func main() {
 	fmt.Println("🔐 Encryption enabled (envelope encryption with per-record DEK)")
 
 	// Consumer portal tokens: signed with the encryption key, they grant an
-	// end consumer scoped access to /v1/consumers/{consumer}/ routes and the
-	// embedded portal UI at /portal. Minted via POST .../portal-token (admin).
+	// end consumer scoped access to their consumer's routes via the portal
+	// gateway at /portal/api and the embedded portal UI at /portal. Minted
+	// via POST .../portal-token (admin).
 	portalTokens := middleware.NewPortalTokens(encKey)
 
 	// Configure optional API key authentication.
-	// When SPARROW_API_KEY is set, all API requests must include the key via
-	// X-API-Key header (or a consumer-scoped portal bearer token). Health/
-	// ready, the OpenAPI docs/spec, and static UI assets are excluded. When
-	// unset, all requests are allowed (open access).
+	// When SPARROW_API_KEY is set, all /v1 requests must include the key via
+	// the X-API-Key header. Health/ready, the OpenAPI docs/spec, and static UI
+	// assets are excluded. Portal traffic arrives pre-authorized through the
+	// /portal/api gateway (see below). When unset, all requests are open.
 	apiKeyAuth := &middleware.APIKeyAuth{
 		APIKey: cfg.APIKey,
 		ExcludedPathPrefixes: []string{
@@ -179,7 +180,6 @@ func main() {
 			"/docs",
 			"/openapi",
 		},
-		Portal: portalTokens,
 	}
 	if apiKeyAuth.Enabled() {
 		fmt.Println("🔑 API key authentication enabled (SPARROW_API_KEY is set)")
@@ -245,6 +245,13 @@ func main() {
 		r.Use(apiKeyAuth.HTTPMiddleware)
 		rest.Mount(r, tracedWebhookService, portalTokens)
 	})
+
+	// Consumer portal API — one static public prefix. The gateway verifies the
+	// consumer-scoped bearer token, maps /portal/api/<rest> to its real /v1
+	// path, and re-dispatches into the router so the same handlers run. The
+	// consumer is carried by the token, never the URL, so an operator exposing
+	// the portal allowlists just /portal, /_app, and /portal/api.
+	r.Handle("/portal/api/*", middleware.PortalGateway(portalTokens, r))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, startTime)

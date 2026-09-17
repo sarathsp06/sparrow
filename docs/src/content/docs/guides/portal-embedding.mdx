@@ -49,11 +49,13 @@ browser is a token that can touch one consumer and nothing more.
 4. **The browser loads the portal through your proxy.** The HTML and JS
    bundle come from Sparrow via the forwarded routes. Portal HTML is served
    *without* the injected admin key (unlike the admin dashboard).
-5. **The portal calls the API through the same proxy**, sending
-   `Authorization: Bearer <token>` on every request. Sparrow verifies the
-   HMAC signature and expiry statelessly, then authorizes the path: a token
-   for `acme` reaches `/v1/consumers/acme/...` (minus event injection and
-   token minting) plus three read-only helpers — every other path is 401.
+5. **The portal calls the API through the same proxy**, under the single
+   `/portal/api/` prefix, sending `Authorization: Bearer <token>` on every
+   request. Sparrow's portal gateway verifies the HMAC signature and expiry
+   statelessly, derives the consumer *from the token* (never the URL), and
+   maps `/portal/api/<rest>` to that consumer's real route — so cross-consumer
+   access is structurally impossible, and event injection and token minting
+   are refused. No token, bad token, or a denied action is a 401/403.
 
 ## What "forwarding" actually means
 
@@ -74,7 +76,7 @@ Trace one real request through it:
 <ThemeDiagram
   light={portalTraceLight}
   dark={portalTraceDark}
-  alt="Sequence diagram tracing one request: the browser sends a bearer-authenticated GET to the proxy; the proxy matches the /v1/consumers/ allowlist and forwards to Sparrow over the VPN; Sparrow verifies the token signature and expiry and that the path belongs to the consumer, then returns 200 and JSON; the proxy streams the response back to the browser unchanged."
+  alt="Sequence diagram tracing one request: the browser sends a bearer-authenticated GET to the proxy under /portal/api; the proxy matches the single /portal/api allowlist and forwards to Sparrow over the VPN; Sparrow's portal gateway verifies the token signature and expiry, derives the consumer from the token, maps the call to that consumer's route, then returns 200 and JSON; the proxy streams the response back to the browser unchanged."
 />
 
 The browser never learns Sparrow's address, never joins the VPN, and never
@@ -94,26 +96,27 @@ origin, no CORS configuration is needed anywhere.
 
 ## The route allowlist
 
-Forward exactly these, deny everything else:
+Forward exactly these three prefixes, deny everything else:
 
 | Route | Why the portal needs it |
 |---|---|
 | `GET /portal` | the portal page itself |
 | `GET /_app/*` | SPA JS/CSS bundle |
+| `* /portal/api/*` | **every** portal API call — webhooks, subscriptions, deliveries, retries, and the read-only catalog/template helpers, all bearer-scoped to the token's consumer |
 | `GET /favicon.png` | tab icon (optional) |
-| `* /v1/consumers/*` | webhooks, subscriptions, deliveries, retries — bearer-scoped per consumer |
-| `GET /v1/event-types`, `GET /v1/event-types/*` | event catalog for the subscribe form |
-| `GET /v1/template-functions` | template helper list for the transform editor |
-| `POST /v1/subscriptions:testTemplate` | stateless template dry-run |
 
-Not forwarded — and therefore unreachable from the internet: the admin
-dashboard (`/`), token minting (`POST .../portal-token`), event injection
-(`POST .../events`), the global list/admin routes, `/docs`, `/openapi.*`.
+That single `/portal/api/*` prefix replaces every per-consumer and per-helper
+`/v1` rule. You need **no deny rules**: the portal gateway derives the consumer
+from the token, and refuses event injection and token minting itself. Token
+minting (`POST /v1/consumers/{consumer}/portal-token`), event injection, the
+admin dashboard (`/`), the global `/v1` API, `/docs`, and `/openapi.*` are
+simply never forwarded, so they stay unreachable from the internet.
 
-Paths must be preserved **verbatim**: the SPA's asset and API paths are
-root-absolute (`/_app`, `/v1`), so the portal cannot be remounted under
-`/integrations/webhooks/`. If those roots collide with your app's own routes,
-put the proxy on a dedicated subdomain (`hooks.yourapp.com`).
+Paths must be preserved **verbatim**: the portal page, its API prefix, and its
+assets are root-absolute (`/portal`, `/portal/api`, `/_app`), so the portal
+cannot be remounted under `/integrations/webhooks/`. If those roots collide
+with your app's own routes, put the proxy on a dedicated subdomain
+(`hooks.yourapp.com`).
 
 ## Example: Caddy (simplest — start here)
 
@@ -122,15 +125,8 @@ the entire public vhost is one `Caddyfile` block:
 
 ```text
 hooks.yourapp.com {
-	# Admin-only routes stay unreachable even inside the slice.
-	@blocked path_regexp ^/v1/consumers/[^/]+/(portal-token|events)$
-	respond @blocked 403
-
-	@portal {
-		path /portal /_app/* /favicon.png
-		path /v1/consumers/* /v1/event-types /v1/event-types/*
-		path /v1/template-functions /v1/subscriptions:testTemplate
-	}
+	# No deny rules needed — the portal gateway scopes and refuses on its own.
+	@portal path /portal /portal/api/* /_app/* /favicon.png
 	reverse_proxy @portal sparrow:8080
 
 	respond 404   # everything else
@@ -156,18 +152,12 @@ server {
     location /_app/             { proxy_pass http://sparrow:8080; }
     location = /favicon.png     { proxy_pass http://sparrow:8080; }
 
-    location /v1/consumers/ {
+    # Every portal API call, bearer-scoped by the gateway. No deny rules
+    # needed — the gateway refuses minting/injection and cross-consumer itself.
+    location /portal/api/ {
         limit_req zone=portal burst=40 nodelay;
-        # Belt and braces: these must stay admin-only even if Sparrow's
-        # own checks change. The portal UI never calls them.
-        location ~ ^/v1/consumers/[^/]+/portal-token$ { return 403; }
-        location ~ ^/v1/consumers/[^/]+/events$       { return 403; }
         proxy_pass http://sparrow:8080;
     }
-    location = /v1/event-types            { proxy_pass http://sparrow:8080; }
-    location /v1/event-types/             { proxy_pass http://sparrow:8080; }
-    location = /v1/template-functions     { proxy_pass http://sparrow:8080; }
-    location = /v1/subscriptions:testTemplate { proxy_pass http://sparrow:8080; }
 
     location / { return 404; }
 }
@@ -179,7 +169,7 @@ portal visitor an admin.
 
 ## Example: Express (your app's backend as the proxy)
 
-If you'd rather not run a separate vhost, ~20 lines in your existing Node
+If you'd rather not run a separate vhost, a few lines in your existing Node
 backend do the same job:
 
 ```js
@@ -187,27 +177,11 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 
 const SPARROW = "http://sparrow:8080"; // reachable over the VPN only
 
-const portalSlice = [
-  "/portal",
-  "/_app",
-  "/favicon.png",
-  "/v1/consumers",
-  "/v1/event-types",
-  "/v1/template-functions",
-  "/v1/subscriptions:testTemplate",
-];
+const portalSlice = ["/portal", "/portal/api", "/_app", "/favicon.png"];
 
-app.use(
-  portalSlice,
-  (req, res, next) => {
-    // Admin-only routes stay unreachable even through the slice.
-    if (/^\/v1\/consumers\/[^/]+\/(portal-token|events)$/.test(req.path)) {
-      return res.sendStatus(403);
-    }
-    next();
-  },
-  createProxyMiddleware({ target: SPARROW, changeOrigin: true }),
-);
+// No deny middleware needed: the gateway derives the consumer from the token
+// and refuses minting, event injection, and cross-consumer access itself.
+app.use(portalSlice, createProxyMiddleware({ target: SPARROW, changeOrigin: true }));
 
 // Minting stays server-side, behind YOUR auth:
 app.post("/api/webhook-portal-link", requireLogin, async (req, res) => {
@@ -231,7 +205,7 @@ What each party can and cannot do:
 | Actor | Can | Cannot |
 |---|---|---|
 | Portal visitor with a valid token for `acme` | Manage `acme`'s webhooks/subscriptions, view and retry `acme`'s deliveries | Read any other consumer, inject events, mint tokens, reach the admin UI/API |
-| Anyone hitting the public vhost without a token | Load the portal shell (renders "missing access link") | Call any API route — everything under `/v1` returns 401 |
+| Anyone hitting the public vhost without a token | Load the portal shell (renders "missing access link") | Call any API route — everything under `/portal/api` returns 401 |
 | Someone who steals a portal link | Everything the legitimate holder can, until expiry | Escalate beyond that consumer |
 | Your backend | Mint tokens for any consumer (it holds the admin key) | — (it is fully trusted; keep the key server-side) |
 
@@ -241,11 +215,11 @@ Why the pieces hold:
   `SPARROW_ENCRYPTION_KEY` and verified in constant time. Tampering with the
   consumer name or expiry invalidates the signature; forging one requires
   the server's key.
-- **Scope is enforced by Sparrow, not the proxy.** The proxy allowlist is
-  defense-in-depth; even if you forwarded all of `/v1`, a bearer token still
-  only authorizes its own consumer's paths. Conversely, the proxy's `403`s
-  on minting/injection protect you even if a future admin key leaks into the
-  slice.
+- **Scope is enforced by Sparrow, not the proxy.** The consumer comes from
+  the signed token, never the URL, so the portal gateway maps every
+  `/portal/api` call to that consumer's own route and refuses minting and
+  event injection — the proxy needs no deny rules and cross-consumer access
+  is impossible even if the whole prefix is forwarded.
 - **No admin key in the browser, ever.** Portal HTML omits the config
   injection the admin dashboard relies on, and the mint call is
   server-to-server. The single fatal misconfiguration is a proxy that
@@ -266,9 +240,8 @@ Checklist before going live:
       secret manager.
 - [ ] Proxy forwards **only** the allowlist; default route denies.
 - [ ] No `X-API-Key` injection anywhere on the public vhost.
-- [ ] TLS terminated at the proxy; rate limiting on `/v1/consumers/`.
 - [ ] Short `ttl_seconds`, minted per visit behind your login.
-
+- [ ] TLS terminated at the proxy; rate limiting on `/portal/api/`.
 ## Alternative: no Sparrow UI at all
 
 If you want full brand control, skip the portal UI and build your own

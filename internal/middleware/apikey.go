@@ -21,12 +21,6 @@ type APIKeyAuth struct {
 	// ExcludedPathPrefixes are HTTP path prefixes that bypass authentication
 	// (e.g., "/health", "/ready").
 	ExcludedPathPrefixes []string
-
-	// Portal optionally verifies consumer-scoped portal bearer tokens
-	// (Authorization: Bearer spt_v1....). A valid token grants access only
-	// to that consumer's /v1/consumers/{consumer}/ routes plus a few
-	// read-only helper endpoints — see portalAllowed.
-	Portal *PortalTokens
 }
 
 // Enabled reports whether API key authentication is active.
@@ -56,7 +50,7 @@ func (a *APIKeyAuth) HTTPMiddleware(next http.Handler) http.Handler {
 			}
 		}
 
-		if !a.validKey(a.keyFromHTTPRequest(r)) && !a.validPortalRequest(r) {
+		if !a.validKey(a.keyFromHTTPRequest(r)) && !PortalAuthorized(r.Context()) {
 			http.Error(w, `{"error":"unauthorized","message":"missing or invalid API key"}`, http.StatusUnauthorized)
 			return
 		}
@@ -67,52 +61,6 @@ func (a *APIKeyAuth) HTTPMiddleware(next http.Handler) http.Handler {
 
 func (a *APIKeyAuth) keyFromHTTPRequest(r *http.Request) string {
 	return r.Header.Get(APIKeyHeader)
-}
-
-// validPortalRequest reports whether the request carries a valid portal
-// bearer token AND targets a path that token's consumer may access.
-func (a *APIKeyAuth) validPortalRequest(r *http.Request) bool {
-	if a.Portal == nil {
-		return false
-	}
-	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if !ok {
-		return false
-	}
-	consumer, err := a.Portal.Verify(strings.TrimSpace(token))
-	if err != nil {
-		return false
-	}
-	return portalAllowed(r.Method, r.URL.Path, consumer)
-}
-
-// portalAllowed is the whole authorization model for portal tokens: the API
-// is already path-scoped per consumer, so a token for consumer C may hit
-// anything under /v1/consumers/C/ except pushing events (event injection is
-// the producer's job, not the receiving consumer's) and minting further
-// tokens. A few global read-only/stateless helpers needed by the portal UI
-// (event-type catalog, template helpers, template dry-run) are also allowed.
-func portalAllowed(method, path, consumer string) bool {
-	prefix := "/v1/consumers/" + consumer + "/"
-	if strings.HasPrefix(path, prefix) {
-		rest := path[len(prefix):]
-		if rest == "portal-token" {
-			return false
-		}
-		if method == http.MethodPost && rest == "events" {
-			return false
-		}
-		return true
-	}
-	if method == http.MethodGet {
-		if path == "/v1/event-types" || strings.HasPrefix(path, "/v1/event-types/") {
-			return true
-		}
-		if path == "/v1/template-functions" {
-			return true
-		}
-	}
-	return method == http.MethodPost && path == "/v1/subscriptions:testTemplate"
 }
 
 // validKey performs a constant-time comparison to prevent timing attacks.

@@ -102,7 +102,7 @@ How that plays out per network topology:
   <ThemeDiagram
     light={portalSliceLight}
     dark={portalSliceDark}
-    alt="Portal slice topology: the internet reaches a proxy (TLS and rate limiting) that forwards only /portal and /_app/* , the bearer-scoped /v1/consumers/* routes, and the read-only event-types, template-functions, and testTemplate routes to Sparrow, denying everything else; a separate VPN path reaches Sparrow :8080 for the admin UI, full API, and token minting."
+    alt="Portal slice topology: the internet reaches a proxy (TLS and rate limiting) that forwards only /portal, /_app/*, and the single bearer-scoped /portal/api/* prefix to Sparrow, denying everything else; a separate VPN path reaches Sparrow :8080 for the admin UI, full API, and token minting."
   />
 
   `SPARROW_API_KEY` **must** be set in this topology — without it the auth
@@ -110,9 +110,9 @@ How that plays out per network topology:
   "proxy" can be a standalone reverse proxy **or your own product's
   backend** forwarding those routes over the VPN — same origin as your app,
   so no CORS setup and no iframe required. Two constraints: paths must be
-  preserved verbatim (`/portal`, `/_app`, `/v1` are root-absolute in the SPA
-  — use a dedicated subdomain if they collide with your app's routes), and
-  the proxy must never inject the admin `X-API-Key` on these routes.
+  preserved verbatim (`/portal`, `/portal/api`, `/_app` are root-absolute in
+  the SPA — use a dedicated subdomain if they collide with your app's routes),
+  and the proxy must never inject the admin `X-API-Key` on these routes.
 - **Embedded in your own product** (the intended design) — your app is
   already public and already authenticates its users. Its backend calls the
   mint endpoint over the private network and renders the returned
@@ -123,7 +123,7 @@ How that plays out per network topology:
 
 What does **not** work: fetching `/portal` HTML server-side and inlining it
 into your own pages. The portal is a single-page app — the HTML is only a
-shell whose scripts and API calls (`/_app/*`, `/v1/consumers/*`) run from the
+shell whose scripts and API calls (`/_app/*`, `/portal/api/*`) run from the
 **visitor's browser** and must reach Sparrow through one of the routes above.
 Copying the HTML copies neither. If you want zero Sparrow UI in the browser,
 build your own screens on the consumer-scoped REST API instead: your backend
@@ -158,7 +158,7 @@ Rules for this topology:
 2. Set `SPARROW_API_KEY`; give it only to the proxy config and machine clients.
 3. Set `CORS_ALLOWED_ORIGINS` to the proxy's public origin (or leave unset if
    the UI is served through the same origin).
-4. **Never inject `X-API-Key` on `/portal` or `/v1/consumers/*` if portal
+4. **Never inject `X-API-Key` on `/portal` or `/portal/api/*` if portal
    users go through the same proxy.** A valid API key outranks portal-token
    scoping, so blanket header injection silently escalates every portal
    visitor to admin. Exclude those paths from injection, or serve the portal

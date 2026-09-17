@@ -44,10 +44,12 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, portal *middlewar
 		"## Authentication\n\n" +
 		"Optional. When the server is started with `SPARROW_API_KEY` set, every `/v1/*` request " +
 		"must include it in the `X-API-Key` header. When unset, all endpoints are open.\n\n" +
-		"Alternatively, a consumer-scoped **portal token** (minted via `createPortalToken`, sent " +
-		"as `Authorization: Bearer <token>`) grants access to that consumer's routes only — " +
-		"everything under `/v1/consumers/{consumer}/` except pushing events and minting tokens, " +
-		"plus the read-only event-type catalog and template helpers."
+		"Alternatively, a consumer-scoped **portal token** (minted via `createPortalToken`) " +
+		"powers the embedded portal at `/portal`, whose API calls are served under the single " +
+		"`/portal/api/` prefix — the consumer is carried by the token, not the URL, so exposing " +
+		"the portal means allowlisting only `/portal`, `/_app`, and `/portal/api`. Portal tokens " +
+		"reach their own consumer's webhooks, subscriptions, and deliveries (never event injection, " +
+		"token minting, other consumers, or admin routes)."
 	config.Info.Contact = &huma.Contact{
 		Name: "Sparrow",
 		URL:  "https://github.com/sarathsp06/sparrow",

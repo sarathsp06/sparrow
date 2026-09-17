@@ -39,12 +39,14 @@ in the `Authorization: Bearer` header — or the `/portal#token=...` URL
 *fragment*, which browsers never send to the server, so it stays out of
 access logs.
 
-A portal token authorizes exactly: everything under
-`/v1/consumers/{its-consumer}/` **except** pushing events and minting further
-tokens, plus the read-only helpers the portal UI needs (event-type catalog,
-template functions, template dry-run). Every other path — other consumers,
-global routes, admin operations — returns 401. Revocation is expiry-only:
-mint short-lived tokens if links may leak.
+A portal token authorizes exactly: everything under its own consumer's routes
+**except** pushing events and minting further tokens, plus the read-only
+helpers the portal UI needs (event-type catalog, template functions, template
+dry-run). The portal calls these through the single `/portal/api/` gateway
+prefix — the consumer is carried by the token, not the URL, so cross-consumer
+access is structurally impossible and event injection, token minting, other
+consumers, global routes, and admin operations all return 401/403. Revocation
+is expiry-only: mint short-lived tokens if links may leak.
 
 :::note
 Sparrow does not rate-limit or lock out inbound API requests itself. If the

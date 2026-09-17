@@ -10,7 +10,7 @@ sequenceDiagram
     A->>S: forward (no admin key)
     S-->>A: portal HTML + SPA bundle
     A-->>U: portal HTML + SPA bundle
-    U->>A: 5. GET /v1/consumers/acme/webhooks (Bearer token)
+    U->>A: 5. GET /portal/api/webhooks (Bearer token)
     A->>S: forward over VPN
-    S-->>A: bearer verified, scoped to acme, 200 JSON
+    S-->>A: gateway derives consumer from token, 200 JSON
     A-->>U: 200 JSON

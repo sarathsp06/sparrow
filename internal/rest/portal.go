@@ -32,10 +32,11 @@ func registerPortalRoutes(api huma.API, portal *middleware.PortalTokens) {
 		Path:        "/v1/consumers/{consumer}/portal-token",
 		Summary:     "Mint a consumer-scoped portal access token",
 		Description: "Creates a signed, expiring bearer token that lets an end consumer use the " +
-			"embedded portal UI (or the API directly) scoped to this consumer only: manage their " +
-			"webhooks and subscriptions, and inspect/retry their deliveries. Portal tokens cannot " +
-			"push events or mint further tokens. Requires the admin API key; hand the returned " +
-			"path (with the token in the URL fragment) to the end consumer.",
+			"embedded portal UI scoped to this consumer only: manage their webhooks and " +
+			"subscriptions, and inspect/retry their deliveries. The portal serves its API under " +
+			"the single `/portal/api/` prefix (the consumer rides in the token, not the URL). " +
+			"Portal tokens cannot push events or mint further tokens. Requires the admin API key; " +
+			"hand the returned path (with the token in the URL fragment) to the end consumer.",
 		Errors:        []int{400, 503},
 		Tags:          []string{"Webhooks"},
 		DefaultStatus: http.StatusCreated,

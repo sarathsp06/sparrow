@@ -6,7 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased]
+## [0.5.3] - 2026-09-17
+
+### Changed
+
+- **BREAKING (portal embedding):** the consumer portal now serves its entire API under a single static prefix, `/portal/api/*`, via a new gateway that derives the consumer from the bearer token instead of the URL. Operators exposing the portal to external users allowlist just `/portal`, `/_app`, and `/portal/api` — no per-consumer forwarding rules and no hand-written deny rules for event injection or token minting (the gateway refuses those itself, and cross-consumer access is now structurally impossible). Portal tokens no longer authenticate against `/v1/consumers/{consumer}/*` directly; all portal traffic routes through `/portal/api`. Minting (`POST /v1/consumers/{consumer}/portal-token`, admin key) is unchanged.
 
 ### Fixed
 

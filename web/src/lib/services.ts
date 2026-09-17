@@ -62,6 +62,30 @@ export const api = createClient<paths>({
 });
 api.use(apiLogMiddleware);
 
+// Portal path gateway: in portal mode every API call goes out under the single
+// /portal/api/ prefix instead of /v1/..., so an operator embedding the portal
+// allowlists just one API path (plus /portal and /_app) with no per-consumer
+// rules. The consumer is carried by the bearer token, so we drop it from the
+// URL here; the server's PortalGateway maps /portal/api/<rest> back to the real
+// /v1 path. This covers every call site (including shared components) with no
+// per-call changes.
+if (portal) {
+  const scoped = `/v1/consumers/${portal.consumer}/`;
+  api.use({
+    onRequest({ request }) {
+      const url = new URL(request.url);
+      if (url.pathname.startsWith(scoped)) {
+        url.pathname = "/portal/api/" + url.pathname.slice(scoped.length);
+      } else if (url.pathname.startsWith("/v1/")) {
+        url.pathname = "/portal/api/" + url.pathname.slice("/v1/".length);
+      } else {
+        return request;
+      }
+      return new Request(url, request);
+    },
+  });
+}
+
 /**
  * Throws a readable Error when an openapi-fetch call returns `error`.
  *

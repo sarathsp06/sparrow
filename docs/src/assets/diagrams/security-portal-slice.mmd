@@ -1,7 +1,6 @@
 flowchart LR
     Net[internet] --> Proxy["proxy<br>TLS + rate limit"]
     Proxy -->|"/portal, /_app/*"| S["Sparrow :8080"]
-    Proxy -->|"/v1/consumers/* — bearer-scoped"| S
-    Proxy -->|"GET /v1/event-types*, /v1/template-functions,<br>POST /v1/subscriptions:testTemplate"| S
+    Proxy -->|"/portal/api/* — bearer-scoped, all portal API"| S
     Proxy -->|everything else| Deny[deny]
     VPN["VPN (admin)"] -->|"admin UI, full API, token minting"| S
