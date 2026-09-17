@@ -9,7 +9,7 @@
 [![Release](https://img.shields.io/github/v/release/sarathsp06/sparrow?sort=semver&style=flat-square)](https://github.com/sarathsp06/sparrow/releases)
 [![CI](https://img.shields.io/github/actions/workflow/status/sarathsp06/sparrow/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/sarathsp06/sparrow/actions/workflows/ci.yml)
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
-[![Docker](https://img.shields.io/badge/ghcr.io-sarathsp06%2Fsparrow-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/sarathsp06/sparrow/pkgs/container/sparrow)
+[![Docker](https://img.shields.io/badge/Docker-ghcr.io%2Fsarathsp06%2Fsparrow%3Alatest-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/sarathsp06/sparrow/pkgs/container/sparrow?tag=latest)
 [![Docs](https://img.shields.io/badge/docs-Starlight-F97316?style=flat-square)](https://sarathsp06.github.io/sparrow/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
@@ -259,6 +259,8 @@ Open the full interactive diagram for pan/zoom, search, focus, and export.
 ## Deployment
 
 ### Docker image
+
+Latest Docker release: [`ghcr.io/sarathsp06/sparrow:latest`](https://github.com/sarathsp06/sparrow/pkgs/container/sparrow?tag=latest).
 
 ```bash
 docker pull ghcr.io/sarathsp06/sparrow:latest

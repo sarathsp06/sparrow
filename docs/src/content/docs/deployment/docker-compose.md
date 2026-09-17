@@ -44,14 +44,10 @@ docker compose down -v     # stop and delete data
 
 Pre-built multi-arch images (linux/amd64, linux/arm64) are published to GitHub Container Registry on every release:
 
+Latest Docker release: [`ghcr.io/sarathsp06/sparrow:latest`](https://github.com/sarathsp06/sparrow/pkgs/container/sparrow?tag=latest).
+
 ```bash
 docker pull ghcr.io/sarathsp06/sparrow:latest
-```
-
-You can also pin to a specific version:
-
-```bash
-docker pull ghcr.io/sarathsp06/sparrow:0.2.0
 ```
 
 ## Development (Build from Source)

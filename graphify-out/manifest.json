@@ -775,8 +775,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1789674108.7527184,
-    "ast_hash": "b91b9ce847df7959e8b831714027e6f7",
+    "mtime": 1789674485.8797767,
+    "ast_hash": "4703dad2b08c6708aafc3ecf2e225dcf",
     "semantic_hash": ""
   },
   "client/README.md": {
@@ -800,8 +800,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/docker-compose.md": {
-    "mtime": 1789633614.487369,
-    "ast_hash": "7d10b4c012623cb2fd6da5a933cf1d2f",
+    "mtime": 1789674485.885417,
+    "ast_hash": "06a36752550ef11e36459b524a4aec53",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/configuration.md": {
@@ -815,8 +815,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/installation.mdx": {
-    "mtime": 1789674108.7553291,
-    "ast_hash": "6ab9e67a9008bf1597f6d11cbabc4c7e",
+    "mtime": 1789674485.8875642,
+    "ast_hash": "4b8ca729e054fa629024b69f621a8ed2",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/quickstart.mdx": {
