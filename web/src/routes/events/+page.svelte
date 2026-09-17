@@ -126,6 +126,7 @@
 			<input
 				type="text"
 				placeholder="Search by name or description…"
+				aria-label="Search events by name or description"
 				bind:value={searchQuery}
 				class="input flex-1"
 			/>

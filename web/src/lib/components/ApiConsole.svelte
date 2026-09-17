@@ -4,6 +4,7 @@
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
   let copiedId = $state<string | null>(null);
+  const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const METHOD_TONE: Record<string, string> = {
     GET: "var(--color-ok)",
@@ -51,12 +52,12 @@
       class="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
       role="presentation"
       onclick={() => (open = false)}
-      transition:fade={{ duration: 150 }}
+      transition:fade={{ duration: reduce ? 0 : 150 }}
     ></div>
 
     <aside
       class="console relative w-full max-w-2xl h-full flex flex-col"
-      transition:fly={{ x: 480, duration: 220, opacity: 1 }}
+      transition:fly={{ x: 480, duration: reduce ? 0 : 220, opacity: 1 }}
     >
       <!-- terminal title bar -->
       <div class="flex items-center gap-3 px-4 h-14 border-b border-white/10 shrink-0">

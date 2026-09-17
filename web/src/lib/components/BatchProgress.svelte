@@ -125,8 +125,12 @@
         <!-- Progress bar -->
         <div class="w-full bg-panel-2 border border-line rounded-full h-2 overflow-hidden mb-2">
             <div
-                class="h-full rounded-full transition-all duration-500 {statusColor}"
+                class="h-full rounded-full transition-[width] duration-500 {statusColor}"
                 style="width: {progressPercent}%"
+                role="progressbar"
+                aria-valuenow={progressPercent}
+                aria-valuemin="0"
+                aria-valuemax="100"
             ></div>
         </div>
 

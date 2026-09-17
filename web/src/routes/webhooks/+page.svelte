@@ -346,7 +346,7 @@
                   </button>
                 </td>
                 <td class="td text-right">
-                  <button onclick={(e) => promptUnregister(wh, e)} class="text-xs mono transition-colors" style="color:var(--color-faint)" onmouseenter={(e)=>e.currentTarget.style.color='var(--color-bad)'} onmouseleave={(e)=>e.currentTarget.style.color='var(--color-faint)'}>Unregister</button>
+                  <button onclick={(e) => promptUnregister(wh, e)} aria-label={`Unregister webhook ${wh.webhook_id}`} class="unregister-btn text-xs mono transition-colors">Unregister</button>
                 </td>
               </tr>
             {/each}
@@ -370,3 +370,8 @@
 />
 
 <FloatingAction href="/webhooks/register" label="Register Webhook" targetSelector="#header-register-btn" />
+
+<style>
+  .unregister-btn { color: var(--color-faint); }
+  .unregister-btn:hover, .unregister-btn:focus-visible { color: var(--color-bad); }
+</style>

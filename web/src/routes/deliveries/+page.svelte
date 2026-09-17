@@ -258,9 +258,9 @@
 
     <div class="panel p-4 mb-4">
         <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
-            <input type="text" placeholder="Webhook ID" bind:value={webhookIdFilter} class="input flex-1" />
-            <input type="text" placeholder="Event ID" bind:value={eventIdFilter} class="input flex-1" />
-            <select bind:value={statusFilter} class="select sm:w-44">
+            <input type="text" placeholder="Webhook ID" aria-label="Filter by webhook ID" bind:value={webhookIdFilter} class="input flex-1" />
+            <input type="text" placeholder="Event ID" aria-label="Filter by event ID" bind:value={eventIdFilter} class="input flex-1" />
+            <select bind:value={statusFilter} aria-label="Filter by status" class="select sm:w-44">
                 <option value="">All statuses</option>
                 <option value="pending">Pending</option>
                 <option value="sending">Sending</option>
@@ -287,7 +287,7 @@
     {/if}
 
     {#if error}
-        <div class="panel p-4 mb-4" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+        <div class="panel p-4 mb-4" role="alert" aria-live="assertive" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
             <p class="text-sm" style="color:var(--color-bad)">{error}</p>
         </div>
     {/if}

@@ -24,8 +24,9 @@
   const tone = { danger: "bad", warning: "warn", info: "beacon" } as const;
 
   let confirmBtn = $state<HTMLButtonElement | null>(null);
+  let cancelBtn = $state<HTMLButtonElement | null>(null);
   $effect(() => {
-    if (open) confirmBtn?.focus();
+    if (open) (variant === "danger" ? cancelBtn : confirmBtn)?.focus();
   });
 </script>
 
@@ -49,7 +50,7 @@
       <h3 id="confirm-title" class="text-lg font-semibold text-text mt-2 mb-2">{title}</h3>
       <p id="confirm-message" class="text-sm text-muted mb-6 leading-relaxed">{message}</p>
       <div class="flex justify-end gap-3">
-        <button onclick={oncancel} class="btn btn-ghost">{cancelLabel}</button>
+        <button bind:this={cancelBtn} onclick={oncancel} class="btn btn-ghost">{cancelLabel}</button>
         <button
           bind:this={confirmBtn}
           onclick={onconfirm}

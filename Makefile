@@ -79,6 +79,9 @@ docker-build-e2e: ## Build the Docker image the e2e suite runs (tag: $(IMAGE_E2E
 test-e2e: client-python docker-build-e2e ## Run end-to-end tests (Gauge + Python, requires Docker)
 	cd e2e && uv run gauge run specs/
 
+test-ui: ## Run Playwright UI/portal browser tests (boots Postgres + embedded-UI server; requires Docker)
+	./scripts/test-ui.sh
+
 test-e2e-spec: client-python docker-build-e2e ## Run a single e2e spec (usage: make test-e2e-spec SPEC=00_hello_world)
 	cd e2e && uv run gauge run specs/$(SPEC).spec
 
@@ -129,4 +132,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run test test-integration test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge migrate lint fmt run-web book help
+.PHONY: build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run test test-integration test-ui test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package migrate lint fmt run-web book help

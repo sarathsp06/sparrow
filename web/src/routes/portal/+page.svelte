@@ -220,8 +220,8 @@
       </span>
       <div class="ml-auto flex items-center gap-3">
         {#if portal?.expiresAt && !expired}
-          <span class="chip hidden sm:inline-flex" title={portal.expiresAt.toLocaleString()}>
-            access until {portal.expiresAt.toLocaleDateString()}
+          <span class="chip inline-flex" title={portal.expiresAt.toLocaleString()}>
+            Access until {portal.expiresAt.toLocaleDateString()}
           </span>
         {/if}
         <button
@@ -253,7 +253,7 @@
       </div>
     {:else}
       {#if error}
-        <div class="panel p-3 flex items-start justify-between" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+        <div class="panel p-3 flex items-start justify-between" role="alert" aria-live="assertive" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
           <p class="text-sm" style="color:var(--color-bad)">{error}</p>
           <button onclick={() => (error = "")} class="ml-3 shrink-0 text-faint hover:text-text" aria-label="Dismiss error">✕</button>
         </div>

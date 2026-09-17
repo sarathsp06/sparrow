@@ -65,7 +65,7 @@
             <div class="panel h-40 bg-black/[0.03]"></div>
         </div>
     {:else if error}
-        <div class="panel p-4" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+        <div class="panel p-4" role="alert" aria-live="assertive" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
             <p class="text-sm" style="color:var(--color-bad)">{error}</p>
         </div>
     {:else if delivery}

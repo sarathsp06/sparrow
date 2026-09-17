@@ -56,11 +56,11 @@
         schemaString = JSON.stringify(schema.json);
       }
 
-      const event_schema = JSON.parse(schemaString);
+      const eventSchema = JSON.parse(schemaString);
+      const body = { name, description, active } as { name: string; description: string; active: boolean; event_schema?: Record<string, unknown> };
+      if (eventSchema && typeof eventSchema === 'object' && !Array.isArray(eventSchema) && Object.keys(eventSchema).length) body.event_schema = eventSchema;
 
-      unwrap(await api.POST('/v1/event-types', {
-        body: { name, description, event_schema, active },
-      }));
+      unwrap(await api.POST('/v1/event-types', { body }));
       goto('/events');
     } catch (e: any) {
       error = formatAPIError(e, 'Failed to register event');
@@ -143,14 +143,14 @@
     </section>
 
     {#if error}
-      <div class="panel p-4" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+      <div class="panel p-4" role="alert" aria-live="assertive" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
         <p class="text-sm" style="color:var(--color-bad)">{error}</p>
       </div>
     {/if}
 
     <div class="flex items-center justify-end gap-3 pt-2">
       <a href="/events" class="btn btn-ghost">Cancel</a>
-      <button type="submit" disabled={submitting} class="btn btn-beacon">
+      <button type="submit" disabled={submitting} aria-busy={submitting} class="btn btn-beacon">
         {submitting ? 'Registering…' : 'Register Event'}
       </button>
     </div>

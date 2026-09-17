@@ -20,7 +20,7 @@
 	/* text */
 	--color-text: #1c1a16;
 	--color-muted: #6b6558;
-	--color-faint: #9b9587;
+	--color-faint: #77715f;
 
 	/* brand beacon (warm amber accent, used sparingly) */
 	--color-beacon: #ea9d2b;
@@ -48,7 +48,7 @@
 	--color-line-strong: #4c4638;
 	--color-text: #ece7db;
 	--color-muted: #a59d8c;
-	--color-faint: #6f6a5e;
+	--color-faint: #8a8474;
 	--color-beacon: #f2a93b;
 	--color-beacon-dim: #c9832a;
 	--color-ok: #34c088;
