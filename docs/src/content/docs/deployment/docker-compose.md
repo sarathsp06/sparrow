@@ -9,19 +9,21 @@ The simplest way to run Sparrow. No need to clone the repo -- download the compo
 
 ```bash
 curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
-echo "SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32)" > .env
+echo "SPARROW_ENCRYPTION_KEYS=main=$(openssl rand -hex 32)" > .env
+echo "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" >> .env
 docker compose up -d
 ```
 
 On Windows PowerShell:
 
 ```powershell
-"SPARROW_ENCRYPTION_KEY=$(-join (1..32 | % { '{0:x2}' -f (Get-Random -Max 256) }))" | Out-File -Encoding ascii .env
+"SPARROW_ENCRYPTION_KEYS=main=$(-join (1..32 | % { '{0:x2}' -f (Get-Random -Max 256) }))" | Out-File -Encoding ascii .env
+"SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" | Out-File -Encoding ascii -Append .env
 docker compose up -d
 ```
 
 > [!IMPORTANT]
-> `SPARROW_ENCRYPTION_KEY` is never stored by Sparrow -- it only decrypts what
+> `SPARROW_ENCRYPTION_KEYS` is never stored by Sparrow -- it only decrypts what
 > it already encrypted. Writing it to `.env` (not passing it inline to a
 > single command) is required: an inline `KEY=$(openssl rand -hex 32) docker
 > compose up -d` generates a *new* random key on every invocation and
@@ -51,7 +53,7 @@ docker pull ghcr.io/sarathsp06/sparrow:latest
 You can also pin to a specific version:
 
 ```bash
-docker pull ghcr.io/sarathsp06/sparrow:0.2.0
+docker pull ghcr.io/sarathsp06/sparrow:0.5.6
 ```
 
 ## Development (Build from Source)

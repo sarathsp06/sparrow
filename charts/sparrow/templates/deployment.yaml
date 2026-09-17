@@ -77,11 +77,22 @@ spec:
                 secretKeyRef:
                   name: {{ include "sparrow.secretName" . }}
                   key: DATABASE_URL
-            - name: SPARROW_ENCRYPTION_KEY
+            {{- if or .Values.secrets.encryptionKeys .Values.secrets.existingSecret }}
+            - name: SPARROW_ENCRYPTION_KEYS
               valueFrom:
                 secretKeyRef:
                   name: {{ include "sparrow.secretName" . }}
-                  key: SPARROW_ENCRYPTION_KEY
+                  key: SPARROW_ENCRYPTION_KEYS
+                  optional: true
+            {{- end }}
+            {{- if or .Values.secrets.encryptionPrimaryKeyID .Values.secrets.existingSecret }}
+            - name: SPARROW_ENCRYPTION_PRIMARY_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sparrow.secretName" . }}
+                  key: SPARROW_ENCRYPTION_PRIMARY_KEY_ID
+                  optional: true
+            {{- end }}
             {{- if or .Values.secrets.apiKey (and .Values.secrets.existingSecret true) }}
             - name: SPARROW_API_KEY
               valueFrom:

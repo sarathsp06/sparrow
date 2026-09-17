@@ -34,8 +34,9 @@ services:
     environment:
       DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
       SPARROW_SERVE_UI: "true"
-      # Required: 64-char hex key for envelope encryption (generate with: openssl rand -hex 32)
-      SPARROW_ENCRYPTION_KEY: "${SPARROW_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}"
+      # Required: keyring for envelope encryption (generate with: openssl rand -hex 32)
+      SPARROW_ENCRYPTION_KEYS: "${SPARROW_ENCRYPTION_KEYS:-main=0000000000000000000000000000000000000000000000000000000000000000}"
+      SPARROW_ENCRYPTION_PRIMARY_KEY_ID: "${SPARROW_ENCRYPTION_PRIMARY_KEY_ID:-main}"
       # Dev default: allow localhost/private-network webhook targets (SSRF
       # protection stays on in production images; this compose is local-only).
       SPARROW_ALLOW_PRIVATE_NETWORKS: "${SPARROW_ALLOW_PRIVATE_NETWORKS:-true}"

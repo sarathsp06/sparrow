@@ -2,6 +2,7 @@ import { env } from "$env/dynamic/public";
 import createClient from "openapi-fetch";
 import type { paths } from "./api-types";
 import { apiLogMiddleware } from "./apiConsole.svelte";
+import { parsePortalToken, type PortalSession } from "./portal-token";
 
 // Runtime config injected by the Go server into window.__SPARROW_CONFIG__.
 // The API key is always provided at runtime (never baked into the build).
@@ -24,28 +25,14 @@ const apiKey: string = runtimeConfig.apiKey || "";
 // bearer token instead of the admin API key (which is never injected into
 // portal HTML). The token arrives in the URL fragment (#token=...) so it
 // never hits server logs, and is kept in sessionStorage to survive reloads.
-// Token format: spt_v1.<b64url(consumer)>.<unix-expiry>.<b64url(signature)>
-export interface PortalSession {
-  token: string;
-  consumer: string;
-  expiresAt: Date | null;
-}
-
+// Supported token format:
+// - spt_v2.<key-id>.<b64url(consumer)>.<unix-expiry>.<b64url(signature)>
 function initPortal(): PortalSession | null {
   if (typeof window === "undefined" || !window.location.pathname.startsWith("/portal")) return null;
   const fromHash = window.location.hash.match(/(?:^#|[#&])token=([^&]+)/)?.[1] ?? "";
   if (fromHash) sessionStorage.setItem("sparrow_portal_token", fromHash);
   const token = fromHash || sessionStorage.getItem("sparrow_portal_token") || "";
-  if (!token) return null;
-  const parts = token.split(".");
-  let consumer = "";
-  try {
-    consumer = atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"));
-  } catch {
-    return null;
-  }
-  const expUnix = Number(parts[2]);
-  return { token, consumer, expiresAt: Number.isFinite(expUnix) ? new Date(expUnix * 1000) : null };
+  return parsePortalToken(token);
 }
 
 export const portal = initPortal();

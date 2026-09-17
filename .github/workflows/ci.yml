@@ -46,7 +46,11 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Lint Helm chart
-        run: helm lint charts/sparrow/
+        run: |
+          helm lint charts/sparrow/ \
+            --set secrets.encryptionKeys=old=0000000000000000000000000000000000000000000000000000000000000000,new=1111111111111111111111111111111111111111111111111111111111111111 \
+            --set secrets.encryptionPrimaryKeyID=new \
+            --set secrets.databaseURL=postgresql://user:pass@db:5432/sparrow?sslmode=disable
 
   test:
     name: Test
@@ -76,6 +80,11 @@ jobs:
           go-version: '1.26.1'
           cache: true
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Ensure embedded UI placeholder exists
         run: |
           mkdir -p internal/ui/dist
@@ -83,6 +92,9 @@ jobs:
 
       - name: Install dependencies
         run: go mod download
+
+      - name: Run frontend tests
+        run: cd web && npm test
 
       - name: Run tests
         env:

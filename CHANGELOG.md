@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6] - 2026-09-17
+
+### Changed
+
+- **BREAKING (encryption config):** Sparrow now requires `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` for all deployments. The old single-key `SPARROW_ENCRYPTION_KEY` path is no longer supported.
+- Envelope encryption is now keyring-only: newly encrypted values always carry a key ID, and keyed envelopes are the only supported ciphertext format.
+- Portal tokens are now keyring-only `spt_v2` tokens with deterministic key-ID verification; legacy `spt_v1` portal tokens are no longer accepted.
+- Helm chart, CI, Makefile, README, and deployment/docs examples now use the keyring-only configuration path.
 
 ## [0.5.3] - 2026-09-17
 

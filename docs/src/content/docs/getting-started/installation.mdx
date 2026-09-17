@@ -19,12 +19,13 @@ The simplest way to run Sparrow. No need to clone the repo:
 
 ```bash
 curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
-echo "SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32)" > .env
+echo "SPARROW_ENCRYPTION_KEYS=main=$(openssl rand -hex 32)" > .env
+echo "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" >> .env
 docker compose up -d
 ```
 
 > [!IMPORTANT]
-> `SPARROW_ENCRYPTION_KEY` is never stored by Sparrow -- write it to `.env`
+> `SPARROW_ENCRYPTION_KEYS` is never stored by Sparrow -- write it to `.env`
 > (don't pass it inline to a single command). An inline `KEY=$(openssl rand
 > -hex 32) docker compose up -d` regenerates the key on every run and
 > permanently orphans anything already encrypted. Back up `.env` before you
@@ -71,7 +72,8 @@ docker compose down -v     # stop and delete data
 
 ```bash
 echo "DATABASE_URL=postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable" > .env
-echo "SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
+echo "SPARROW_ENCRYPTION_KEYS=main=$(openssl rand -hex 32)" >> .env
+echo "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" >> .env
 
 make migrate   # apply schema
 make run       # go run ./cmd/server, SPARROW_SERVE_UI=true; loads .env automatically

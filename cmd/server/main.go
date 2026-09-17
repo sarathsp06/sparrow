@@ -150,22 +150,24 @@ func main() {
 	}
 
 	// Initialize encryption service.
-	// SPARROW_ENCRYPTION_KEY is required. The server will not start without it.
-	encKey, err := resolveEncryptionKey(cfg)
+	// SPARROW_ENCRYPTION_KEYS and SPARROW_ENCRYPTION_PRIMARY_KEY_ID must be
+	// configured. The server will not start without a valid keyring.
+	encKeyring, err := resolveEncryptionKeyring(cfg)
 	if err != nil {
-		log.Fatalf("Failed to resolve encryption key: %v", err)
+		log.Fatalf("Failed to resolve encryption keyring: %v", err)
 	}
-	cryptoSvc, err := crypto.NewService(encKey)
+	cryptoSvc, err := crypto.NewServiceFromKeyring(encKeyring)
 	if err != nil {
 		log.Fatalf("Failed to create crypto service: %v", err)
 	}
 	fmt.Println("🔐 Encryption enabled (envelope encryption with per-record DEK)")
 
-	// Consumer portal tokens: signed with the encryption key, they grant an
-	// end consumer scoped access to their consumer's routes via the portal
-	// gateway at /portal/api and the embedded portal UI at /portal. Minted
-	// via POST .../portal-token (admin).
-	portalTokens := middleware.NewPortalTokens(encKey)
+	// Consumer portal tokens: signed with the primary encryption key for new
+	// tokens, while verification can accept any configured key in the ring.
+	// They grant an end consumer scoped access to their consumer's routes via
+	// the portal gateway at /portal/api and the embedded portal UI at /portal.
+	// Minted via POST .../portal-token (admin).
+	portalTokens := middleware.NewPortalTokensFromKeyring(encKeyring)
 
 	// Configure optional API key authentication.
 	// When SPARROW_API_KEY is set, all /v1 requests must include the key via
@@ -403,23 +405,16 @@ func buildCORSHandler(cfg *config.Config) *cors.Cors {
 	})
 }
 
-// resolveEncryptionKey determines the 32-byte KEK.
+// resolveEncryptionKeyring determines the configured KEK set.
 //
-// cfg.EncryptionKey must be set to a 64-character hex string (32 bytes).
-// The server will not start without it. The key is NOT stored in the
-// database — storing the encryption key next to the data it protects
-// defeats the purpose of encryption at rest.
-//
-// Generate a key with: openssl rand -hex 32
-func resolveEncryptionKey(cfg *config.Config) ([]byte, error) {
-	if cfg.EncryptionKey == "" {
-		return nil, fmt.Errorf("SPARROW_ENCRYPTION_KEY is required. Generate one with: openssl rand -hex 32")
-	}
-	key, err := crypto.ParseKey(cfg.EncryptionKey)
+// cfg.EncryptionKeys and cfg.EncryptionPrimaryKeyID must be configured. The
+// key material is never stored in the database.
+func resolveEncryptionKeyring(cfg *config.Config) (*crypto.Keyring, error) {
+	keyring, err := cfg.EncryptionKeyring()
 	if err != nil {
-		return nil, fmt.Errorf("invalid SPARROW_ENCRYPTION_KEY: %w", err)
+		return nil, err
 	}
-	return key, nil
+	return keyring, nil
 }
 
 // registerSystemEventTypes idempotently registers the event types Sparrow

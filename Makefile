@@ -54,23 +54,33 @@ docker-purge: ## Stop and remove Docker containers, networks, volumes, and image
 ## -- Helm / Kubernetes --
 
 CHART_DIR := charts/sparrow
-HELM_FAKE_ENCRYPTION_KEY := 0000000000000000000000000000000000000000000000000000000000000000
+HELM_FAKE_ENCRYPTION_KEYS := old=0000000000000000000000000000000000000000000000000000000000000000,new=1111111111111111111111111111111111111111111111111111111111111111
+HELM_FAKE_ENCRYPTION_PRIMARY_KEY_ID := new
 HELM_FAKE_DATABASE_URL := postgresql://user:pass@db:5432/sparrow?sslmode=disable
 
-helm-lint: ## Lint the Helm chart
+helm-lint: ## Lint the Helm chart with multi-key encryption config
 	helm lint $(CHART_DIR) \
-		--set secrets.encryptionKey="$(HELM_FAKE_ENCRYPTION_KEY)" \
+		--set secrets.encryptionKeys="$(HELM_FAKE_ENCRYPTION_KEYS)" \
+		--set secrets.encryptionPrimaryKeyID="$(HELM_FAKE_ENCRYPTION_PRIMARY_KEY_ID)" \
 		--set secrets.databaseURL="$(HELM_FAKE_DATABASE_URL)"
 
 helm-template: ## Render chart templates locally (dry-run)
 	helm template sparrow $(CHART_DIR) \
-		--set secrets.encryptionKey="$(HELM_FAKE_ENCRYPTION_KEY)" \
+		--set secrets.encryptionKeys="$(HELM_FAKE_ENCRYPTION_KEYS)" \
+		--set secrets.encryptionPrimaryKeyID="$(HELM_FAKE_ENCRYPTION_PRIMARY_KEY_ID)" \
+		--set secrets.databaseURL="$(HELM_FAKE_DATABASE_URL)"
+
+helm-template-keyring: ## Render chart templates with multi-key encryption config
+	helm template sparrow $(CHART_DIR) \
+		--set secrets.encryptionKeys="$(HELM_FAKE_ENCRYPTION_KEYS)" \
+		--set secrets.encryptionPrimaryKeyID="$(HELM_FAKE_ENCRYPTION_PRIMARY_KEY_ID)" \
 		--set secrets.databaseURL="$(HELM_FAKE_DATABASE_URL)"
 
 helm-template-pg: ## Render chart templates with bundled PostgreSQL enabled
 	helm template sparrow $(CHART_DIR) \
 		--set postgresql.enabled=true \
-		--set secrets.encryptionKey="$(HELM_FAKE_ENCRYPTION_KEY)"
+		--set secrets.encryptionKeys="$(HELM_FAKE_ENCRYPTION_KEYS)" \
+		--set secrets.encryptionPrimaryKeyID="$(HELM_FAKE_ENCRYPTION_PRIMARY_KEY_ID)"
 
 helm-package: ## Package the Helm chart into a .tgz archive
 	mkdir -p build
@@ -78,6 +88,9 @@ helm-package: ## Package the Helm chart into a .tgz archive
 
 run-web: ## Run the web development server
 	cd web && npm run dev
+
+web-test: ## Run frontend unit tests
+	cd web && npm test
 
 # The CLI (satellites/sparrow) and pkg/{signature,template} are separate Go
 # modules joined by the committed go.work (see docs/adr/0002-cli-module-split.md).
@@ -89,6 +102,7 @@ MODULE_TEST_PATHS := ./... \
 	github.com/sarathsp06/sparrow/pkg/template/...
 
 test: ## Run tests (all modules)
+	cd web && npm test
 	go test -v $(MODULE_TEST_PATHS)
 
 test-integration: ## Run integration tests (requires Docker for testcontainers)

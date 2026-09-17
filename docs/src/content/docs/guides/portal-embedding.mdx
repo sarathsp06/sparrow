@@ -36,7 +36,7 @@ browser is a token that can touch one consumer and nothing more.
    curl -s -X POST \
      -H "X-API-Key: $SPARROW_API_KEY" \
      "http://sparrow:8080/v1/consumers/acme/portal-token?ttl_seconds=3600"
-   # → { "token": "spt_v1....", "expires_at": "...", "path": "/portal#token=spt_v1...." }
+   # → { "token": "spt_v2....", "expires_at": "...", "path": "/portal#token=spt_v2...." }
    ```
 
    This is the **only** call that uses the admin key, and it happens
@@ -51,7 +51,7 @@ browser is a token that can touch one consumer and nothing more.
    *without* the injected admin key (unlike the admin dashboard).
 5. **The portal calls the API through the same proxy**, under the single
    `/portal/api/` prefix, sending `Authorization: Bearer <token>` on every
-   request. Sparrow's portal gateway verifies the HMAC signature and expiry
+   request. Sparrow's portal gateway verifies the HMAC signature, key ID, and expiry
    statelessly, derives the consumer *from the token* (never the URL), and
    maps `/portal/api/<rest>` to that consumer's real route — so cross-consumer
    access is structurally impossible, and event injection and token minting
@@ -92,7 +92,8 @@ origin, no CORS configuration is needed anywhere.
 - A DNS name for it (`hooks.yourapp.com`) with a TLS certificate — Caddy
   below provisions one automatically.
 - Sparrow reachable from that machine as `sparrow:8080` (substitute your
-  real host/IP), with `SPARROW_API_KEY` and `SPARROW_ENCRYPTION_KEY` set.
+  real host/IP), with `SPARROW_API_KEY`, `SPARROW_ENCRYPTION_KEYS`, and
+  `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` set.
 
 ## The route allowlist
 
@@ -212,7 +213,7 @@ What each party can and cannot do:
 Why the pieces hold:
 
 - **Token integrity** — tokens are HMAC-SHA256 signed with
-  `SPARROW_ENCRYPTION_KEY` and verified in constant time. Tampering with the
+  the primary configured encryption key from `SPARROW_ENCRYPTION_KEYS` and verified in constant time. Tampering with the
   consumer name or expiry invalidates the signature; forging one requires
   the server's key.
 - **Scope is enforced by Sparrow, not the proxy.** The consumer comes from
@@ -236,7 +237,7 @@ Checklist before going live:
 
 - [ ] `SPARROW_API_KEY` set — with an empty key Sparrow's auth middleware is
       disabled and the forwarded slice would be wide open.
-- [ ] `SPARROW_ENCRYPTION_KEY` set (it signs the tokens) and stored in a
+- [ ] `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` configured and stored in a
       secret manager.
 - [ ] Proxy forwards **only** the allowlist; default route denies.
 - [ ] No `X-API-Key` injection anywhere on the public vhost.

@@ -2,7 +2,7 @@ sequenceDiagram
     actor U as Browser
     participant P as Proxy
     participant S as Sparrow
-    U->>P: GET /portal/api/webhooks (Bearer spt_v1...)
+    U->>P: GET /portal/api/webhooks (Bearer spt_v2...)
     Note over P: path starts with /portal/api/ -> allowed
     P->>S: GET /portal/api/webhooks (over VPN)
     Note over S: verify token, derive consumer acme,<br>map to /v1/consumers/acme/webhooks

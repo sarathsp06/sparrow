@@ -18,7 +18,7 @@ func (s *WebhookService) EncryptSecretHeaders(headers map[string]string) ([]byte
 		return nil, nil
 	}
 	if s.crypto == nil || !s.crypto.Enabled() {
-		return nil, svcerrors.Error(svcerrors.FailedPrecondition, "encryption is required for secret headers but SPARROW_ENCRYPTION_KEY is not configured")
+		return nil, svcerrors.Error(svcerrors.FailedPrecondition, "encryption is required for secret headers but SPARROW_ENCRYPTION_KEYS is not configured")
 	}
 	return s.crypto.EncryptJSON(headers)
 }
@@ -46,7 +46,7 @@ func (s *WebhookService) EncryptWebhookSecret(secret string) ([]byte, error) {
 		return nil, nil
 	}
 	if s.crypto == nil || !s.crypto.Enabled() {
-		return nil, svcerrors.Error(svcerrors.FailedPrecondition, "encryption is required for webhook secrets but SPARROW_ENCRYPTION_KEY is not configured")
+		return nil, svcerrors.Error(svcerrors.FailedPrecondition, "encryption is required for webhook secrets but SPARROW_ENCRYPTION_KEYS is not configured")
 	}
 	return s.crypto.EncryptString(secret)
 }

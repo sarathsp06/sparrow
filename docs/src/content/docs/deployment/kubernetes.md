@@ -14,7 +14,7 @@ With default values, `helm install` creates:
 - A **Deployment** running 1 Sparrow pod (stateless, safe to scale)
 - A **ClusterIP Service** exposing HTTP (`:8080`)
 - A **ConfigMap** with application settings
-- A **Secret** with `DATABASE_URL` and `SPARROW_ENCRYPTION_KEY`
+- A **Secret** with `DATABASE_URL`, `SPARROW_ENCRYPTION_KEYS`, and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`
 - Liveness (`/health`) and readiness (`/ready`) probes
 - Hardened security context (nonroot, read-only fs, all capabilities dropped)
 
@@ -26,7 +26,9 @@ The expected production setup. You provide your own PostgreSQL:
 
 ```bash
 helm install sparrow charts/sparrow/ \
-  --set secrets.databaseURL="postgres://user:pass@your-db:5432/sparrow?sslmode=require"
+  --set secrets.databaseURL="postgres://user:pass@your-db:5432/sparrow?sslmode=require" \
+  --set secrets.encryptionKeys="main=$(openssl rand -hex 32)" \
+  --set secrets.encryptionPrimaryKeyID=main
 ```
 
 Sparrow runs migrations on startup automatically -- no separate migration step needed.
@@ -37,7 +39,9 @@ For evaluation and development. Deploys a single-replica PostgreSQL StatefulSet 
 
 ```bash
 helm install sparrow charts/sparrow/ \
-  --set postgresql.enabled=true
+  --set postgresql.enabled=true \
+  --set secrets.encryptionKeys="main=$(openssl rand -hex 32)" \
+  --set secrets.encryptionPrimaryKeyID=main
 ```
 
 When `postgresql.enabled=true` and `secrets.databaseURL` is empty, the connection string is auto-constructed from `postgresql.auth.*` values.
@@ -71,6 +75,8 @@ k3d image import ghcr.io/sarathsp06/sparrow:latest -c sparrow-dev
 ```bash
 helm install sparrow charts/sparrow/ \
   --set postgresql.enabled=true \
+  --set secrets.encryptionKeys="main=$(openssl rand -hex 32)" \
+  --set secrets.encryptionPrimaryKeyID=main \
   --set image.repository=ghcr.io/sarathsp06/sparrow \
   --set image.tag=latest \
   --set image.pullPolicy=Never \
@@ -132,9 +138,11 @@ All chart values are documented with comments in [`values.yaml`](https://github.
 
 **`image.*`** -- Container image, tag, pull policy.
 
-**`secrets.databaseURL`** -- PostgreSQL connection string. Required when `postgresql.enabled=false`. When using an existing Kubernetes Secret, set `secrets.existingSecret` instead -- it must contain `DATABASE_URL` and `SPARROW_ENCRYPTION_KEY` keys.
+**`secrets.databaseURL`** -- PostgreSQL connection string. Required when `postgresql.enabled=false`. When using an existing Kubernetes Secret, set `secrets.existingSecret` instead -- it must contain `DATABASE_URL`, `SPARROW_ENCRYPTION_KEYS`, and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`.
 
-**`secrets.encryptionKey`** -- 64-char hex key for envelope encryption of webhook secrets and headers. Generate with `openssl rand -hex 32`. Required -- the server will not start without it.
+**`secrets.encryptionKeys`** -- Comma-separated keyring entries like `main=<64-char-hex-key>` or `old=<hex>,new=<hex>`. Required unless you use `secrets.existingSecret`.
+
+**`secrets.encryptionPrimaryKeyID`** -- Primary key ID for new encryption and portal token signing. Required unless you use `secrets.existingSecret`.
 
 **`sparrow.extraEnv`** -- Inject arbitrary environment variables. Use this for OpenTelemetry, feature flags, or any env var Sparrow supports:
 
@@ -159,7 +167,7 @@ For anything beyond a quick test, use a values file:
 
 ```yaml title="values-prod.yaml"
 image:
-  tag: "1.0.0"
+  tag: "0.5.6"
 
 secrets:
   existingSecret: sparrow-prod-creds
