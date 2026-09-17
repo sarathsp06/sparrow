@@ -75,6 +75,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, portal *middlewar
 			"outcomes, plus cross-consumer aggregate counts for dashboards."},
 		{Name: "Alert Configs", Description: "Opt-in email recipients for Sparrow's own self-generated " +
 			"webhook.health_changed and webhook.delivery_failed system events."},
+		{Name: "Recipes", Description: "Shipped webhook adapter recipes that pre-fill destinations, headers, and payload transforms."},
 	}
 	config.DocsPath = "/docs"
 	config.DocsRenderer = huma.DocsRendererScalar
@@ -102,6 +103,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, portal *middlewar
 	registerDeliveryRoutes(api, svc)
 	registerHealthRoutes(api, svc)
 	registerAlertConfigRoutes(api, svc)
+	registerRecipeRoutes(api)
 	registerPortalRoutes(api, portal)
 
 	return api

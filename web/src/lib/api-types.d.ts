@@ -223,7 +223,7 @@ export interface paths {
         put?: never;
         /**
          * Mint a consumer-scoped portal access token
-         * @description Creates a signed, expiring bearer token that lets an end consumer use the embedded portal UI (or the API directly) scoped to this consumer only: manage their webhooks and subscriptions, and inspect/retry their deliveries. Portal tokens cannot push events or mint further tokens. Requires the admin API key; hand the returned path (with the token in the URL fragment) to the end consumer.
+         * @description Creates a signed, expiring bearer token that lets an end consumer use the embedded portal UI scoped to this consumer only: manage their webhooks and subscriptions, and inspect/retry their deliveries. The portal serves its API under the single `/portal/api/` prefix (the consumer rides in the token, not the URL). Portal tokens cannot push events or mint further tokens. Requires the admin API key; hand the returned path (with the token in the URL fragment) to the end consumer.
          */
         post: operations["createPortalToken"];
         delete?: never;
@@ -720,6 +720,26 @@ export interface paths {
          * @description Returns how many webhooks are currently healthy, degraded, unhealthy, or unknown, across every consumer — for a top-level dashboard tile.
          */
         get: operations["getHealthSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recipes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List shipped adapter recipes
+         * @description Lists recipe templates shipped with this Sparrow server. Recipes pre-fill webhook destinations, headers, and optional subscription transforms.
+         */
+        get: operations["listRecipes"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1302,6 +1322,15 @@ export interface components {
             items: components["schemas"]["EventTypeItem"][] | null;
             pagination: components["schemas"]["PaginationOutput"];
         };
+        ListRecipesOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListRecipesOutputBody.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["Recipe"][] | null;
+        };
         ListSubscriptionsOutputBody: {
             /**
              * Format: uri
@@ -1330,6 +1359,11 @@ export interface components {
             offset: number;
             /** Format: int32 */
             total_count: number;
+        };
+        Param: {
+            name: string;
+            prompt: string;
+            required: boolean;
         };
         PatchSubscriptionBody: {
             /**
@@ -1434,6 +1468,15 @@ export interface components {
             /** @description Non-fatal schema validation warnings. The event is stored and delivered regardless. */
             warnings?: string[] | null;
         };
+        Recipe: {
+            description: string;
+            name: string;
+            params?: components["schemas"]["Param"][] | null;
+            subscription: components["schemas"]["Subscription"];
+            /** Format: int64 */
+            version: number;
+            webhook: components["schemas"]["Webhook"];
+        };
         RegisterWebhookBody: {
             /**
              * Format: uri
@@ -1521,6 +1564,9 @@ export interface components {
             count: number;
             /** @description Ids of the deliveries that were retried. */
             delivery_ids?: string[] | null;
+        };
+        Subscription: {
+            transform_template: string;
         };
         SubscriptionItem: {
             /**
@@ -1624,6 +1670,15 @@ export interface components {
             valid: boolean;
             /** @description Per-field validation errors, present when valid is false. */
             warnings?: string[] | null;
+        };
+        Webhook: {
+            headers?: {
+                [key: string]: string;
+            };
+            secret_headers?: {
+                [key: string]: string;
+            };
+            url: string;
         };
         WebhookHTTPConfig: {
             /** @description Whether to store the endpoint's response body alongside each delivery attempt, for debugging. */
@@ -4123,6 +4178,35 @@ export interface operations {
             };
             /** @description Error */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listRecipes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListRecipesOutputBody"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

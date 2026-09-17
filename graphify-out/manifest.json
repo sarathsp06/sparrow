@@ -355,8 +355,8 @@
     "semantic_hash": ""
   },
   "internal/webhooks/WebhookServiceInterface_otel.go": {
-    "mtime": 1789553674.6634223,
-    "ast_hash": "81857bb9066a95c0f94f0b4f8d7f60f8",
+    "mtime": 1789673082.8459787,
+    "ast_hash": "73c70d3e99a37deb85ffa023f0025a49",
     "semantic_hash": ""
   },
   "internal/webhooks/client/client.go": {
@@ -415,7 +415,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/JobInserter_otel.go": {
-    "mtime": 1789487915.3971925,
+    "mtime": 1789673083.6446269,
     "ast_hash": "68656aa23b9ee0ef2b6509ca6284e84e",
     "semantic_hash": "68656aa23b9ee0ef2b6509ca6284e84e"
   },
@@ -465,7 +465,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/store/RepositoryInterface_otel.go": {
-    "mtime": 1789553503.220063,
+    "mtime": 1789673086.3274176,
     "ast_hash": "121ff1fc7b173d7c2f0cc5a6a1916775",
     "semantic_hash": ""
   },
@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "web/package.json": {
-    "mtime": 1789568626.656885,
-    "ast_hash": "80888f33736f689e7aeb76e0cc5ae454",
+    "mtime": 1789673063.072954,
+    "ast_hash": "3b185759c7646720ba0a74988cf79bdd",
     "semantic_hash": ""
   },
   "web/src/app.d.ts": {
@@ -720,8 +720,8 @@
     "semantic_hash": ""
   },
   "web/src/routes/webhooks/register/+page.svelte": {
-    "mtime": 1789568661.643162,
-    "ast_hash": "412b9744cf93d3d8839ef49a876fca9a",
+    "mtime": 1789673054.4894464,
+    "ast_hash": "e0ad97f90f7bdafc1dc37ac2f202977c",
     "semantic_hash": ""
   },
   "web/svelte.config.js": {
@@ -1015,8 +1015,8 @@
     "semantic_hash": ""
   },
   "api/openapi.json": {
-    "mtime": 1789670538.7447753,
-    "ast_hash": "fb928eb26fc52b5ae391c27b5c0e414a",
+    "mtime": 1789673076.6501207,
+    "ast_hash": "fa727befb69ba81f80edc865c19391bb",
     "semantic_hash": ""
   },
   "client/verify/js/sparrow-verify.ts": {
@@ -1050,8 +1050,8 @@
     "semantic_hash": ""
   },
   "internal/rest/app.go": {
-    "mtime": 1789670538.7566478,
-    "ast_hash": "5e770cea014e73230bf0265e359501b4",
+    "mtime": 1789673016.1824076,
+    "ast_hash": "de96c2b7d4d31f55a36bcf3bdfddcc7c",
     "semantic_hash": ""
   },
   "internal/rest/conversions.go": {
@@ -1120,8 +1120,8 @@
     "semantic_hash": ""
   },
   "web/src/lib/api-types.d.ts": {
-    "mtime": 1789584201.8368998,
-    "ast_hash": "95da82cc55318a20cde6a73470c36b58",
+    "mtime": 1789673094.0108123,
+    "ast_hash": "6cffc6cbd61f15264de041928d5361c9",
     "semantic_hash": ""
   },
   "web/src/lib/components/Pulse.svelte": {
@@ -1140,8 +1140,8 @@
     "semantic_hash": ""
   },
   "api/openapi.yaml": {
-    "mtime": 1789670538.745259,
-    "ast_hash": "8e93da430f9445bbedd10822b81f3c89",
+    "mtime": 1789673076.6437976,
+    "ast_hash": "08366b8959052d1db028cc386ce35b4a",
     "semantic_hash": ""
   },
   "docs/public/diagrams/sparrow-layered-architecture.html": {
@@ -1275,8 +1275,8 @@
     "semantic_hash": ""
   },
   "satellites/recipes/recipes_test.go": {
-    "mtime": 1789384303.862805,
-    "ast_hash": "589eb357495eefbf0b1b98d014b46ffb",
+    "mtime": 1789673042.4346106,
+    "ast_hash": "a6c74f79d1a80434e542d66f25dfb3ab",
     "semantic_hash": ""
   },
   "satellites/recipes/schema.go": {
@@ -1845,8 +1845,8 @@
     "semantic_hash": ""
   },
   "web/src/lib/recipes.ts": {
-    "mtime": 1789568638.008587,
-    "ast_hash": "7e19a431f29bdbe5354d7acf7eb3882e",
+    "mtime": 1789673118.1759708,
+    "ast_hash": "81bff3dcc69979c7df790ad132565223",
     "semantic_hash": ""
   },
   "web/src/routes/portal/+page.svelte": {
@@ -1932,6 +1932,16 @@
   "docs/src/assets/diagrams/security-portal-slice-light.svg": {
     "mtime": 1789670538.75295,
     "ast_hash": "7285b2375bdf0dbaa8353986c1e6739d",
+    "semantic_hash": ""
+  },
+  "internal/rest/recipe.go": {
+    "mtime": 1789673010.7880397,
+    "ast_hash": "6f3b6e5ee466021795e5c03e80eb922e",
+    "semantic_hash": ""
+  },
+  "satellites/recipes/catalog.go": {
+    "mtime": 1789673003.5663443,
+    "ast_hash": "370176dae8c5811edf991b3c65a4da08",
     "semantic_hash": ""
   }
 }

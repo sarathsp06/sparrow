@@ -62,6 +62,14 @@ func TestRecipes(t *testing.T) {
 		t.Fatalf("expected at least 5 recipes, found %d", len(files))
 	}
 
+	embedded, err := recipes.All()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(embedded) != len(files) {
+		t.Fatalf("embedded recipes = %d, want %d", len(embedded), len(files))
+	}
+
 	engine := template.NewTemplateEngine()
 
 	for _, file := range files {

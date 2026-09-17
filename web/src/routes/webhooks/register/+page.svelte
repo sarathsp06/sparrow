@@ -5,7 +5,7 @@
   import { consumerStore } from '$lib/consumer.svelte';
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-types';
-  import { recipes, substituteParams, type Recipe } from '$lib/recipes';
+  import { substituteParams, type Recipe } from '$lib/recipes';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 
@@ -44,6 +44,7 @@
   let appliedRecipe = $state('');
   let recipeError = $state('');
   let transformTemplate = $state('');
+  let recipes: Recipe[] = $state([]);
 
   // Validation
   let urlError = $state('');
@@ -58,10 +59,14 @@
 
   onMount(async () => {
     try {
-      const res = unwrap(await api.GET('/v1/event-types', { params: { query: { active_only: true } } }));
-      allEvents = res.items || [];
+      const [eventRes, recipeRes] = await Promise.all([
+        api.GET('/v1/event-types', { params: { query: { active_only: true } } }),
+        api.GET('/v1/recipes'),
+      ]);
+      allEvents = unwrap(eventRes).items || [];
+      recipes = unwrap(recipeRes).items || [];
     } catch (e: any) {
-      error = formatAPIError(e, 'Failed to load events');
+      error = formatAPIError(e, 'Failed to load form data');
     }
   });
 

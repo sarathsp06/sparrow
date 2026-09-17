@@ -706,6 +706,25 @@ components:
         - items
         - pagination
       type: object
+    ListRecipesOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ListRecipesOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/Recipe"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
     ListSubscriptionsOutputBody:
       additionalProperties: false
       properties:
@@ -769,6 +788,20 @@ components:
         - offset
         - total_count
         - has_more
+      type: object
+    Param:
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        prompt:
+          type: string
+        required:
+          type: boolean
+      required:
+        - name
+        - prompt
+        - required
       type: object
     PatchSubscriptionBody:
       additionalProperties: false
@@ -914,6 +947,33 @@ components:
         - duplicate
         - schema_valid
       type: object
+    Recipe:
+      additionalProperties: false
+      properties:
+        description:
+          type: string
+        name:
+          type: string
+        params:
+          items:
+            $ref: "#/components/schemas/Param"
+          type:
+            - array
+            - "null"
+        subscription:
+          $ref: "#/components/schemas/Subscription"
+        version:
+          format: int64
+          type: integer
+        webhook:
+          $ref: "#/components/schemas/Webhook"
+      required:
+        - version
+        - name
+        - description
+        - webhook
+        - subscription
+      type: object
     RegisterWebhookBody:
       additionalProperties: false
       properties:
@@ -1048,6 +1108,14 @@ components:
             - "null"
       required:
         - count
+      type: object
+    Subscription:
+      additionalProperties: false
+      properties:
+        transform_template:
+          type: string
+      required:
+        - transform_template
       type: object
     SubscriptionItem:
       additionalProperties: false
@@ -1222,6 +1290,22 @@ components:
             - "null"
       required:
         - valid
+      type: object
+    Webhook:
+      additionalProperties: false
+      properties:
+        headers:
+          additionalProperties:
+            type: string
+          type: object
+        secret_headers:
+          additionalProperties:
+            type: string
+          type: object
+        url:
+          type: string
+      required:
+        - url
       type: object
     WebhookHTTPConfig:
       additionalProperties: false
@@ -3668,6 +3752,26 @@ paths:
       summary: Get aggregate webhook health counts across all consumers
       tags:
         - Health
+  /v1/recipes:
+    get:
+      description: Lists recipe templates shipped with this Sparrow server. Recipes pre-fill webhook destinations, headers, and optional subscription transforms.
+      operationId: listRecipes
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListRecipesOutputBody"
+          description: OK
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: List shipped adapter recipes
+      tags:
+        - Recipes
   /v1/stats:
     get:
       description: Returns the same counters as the per-consumer stats endpoint, aggregated across every consumer.
@@ -3898,3 +4002,5 @@ tags:
     name: Health
   - description: Opt-in email recipients for Sparrow's own self-generated webhook.health_changed and webhook.delivery_failed system events.
     name: Alert Configs
+  - description: Shipped webhook adapter recipes that pre-fill destinations, headers, and payload transforms.
+    name: Recipes

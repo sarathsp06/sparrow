@@ -1,7 +1,5 @@
-// Shipped adapter recipes, bundled from satellites/recipes/*.yaml at build
-// time. A recipe is pure pre-fill: destination (webhook) + transform template.
-import { load } from 'js-yaml';
-
+// Shipped adapter recipes are served by the Sparrow API. This file only keeps
+// the small client-side type and param substitution helper.
 export interface RecipeParam {
   name: string;
   prompt?: string;
@@ -12,7 +10,7 @@ export interface Recipe {
   version: number;
   name: string;
   description: string;
-  params?: RecipeParam[];
+  params?: RecipeParam[] | null;
   webhook: {
     url: string;
     headers?: Record<string, string>;
@@ -22,17 +20,6 @@ export interface Recipe {
     transform_template?: string;
   };
 }
-
-const files = import.meta.glob('../../../satellites/recipes/*.yaml', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-}) as Record<string, string>;
-
-export const recipes: Recipe[] = Object.values(files)
-  .map((raw) => load(raw) as Recipe)
-  .filter((r) => r?.version === 1 && !!r.name && !!r.webhook?.url)
-  .sort((a, b) => a.name.localeCompare(b.name));
 
 /** Replace {{param "name"}} placeholders — same substitution the CLI applies. */
 export function substituteParams(s: string, params: Record<string, string>): string {
