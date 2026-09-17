@@ -72,7 +72,7 @@ func Handler(logger *slog.Logger, config *Config) http.Handler {
 		indexBytes, err := fs.ReadFile(staticFS, "index.html")
 		if err != nil {
 			logger.ErrorContext(r.Context(), "ui: index.html not found in embedded filesystem — was the frontend built?")
-			http.Error(w, "UI not available. Build the frontend with: cd web && npm run build:static", http.StatusNotFound)
+			http.Error(w, "UI not available. Build the frontend with: cd web && npm run build", http.StatusNotFound)
 			return
 		}
 

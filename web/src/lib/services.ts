@@ -1,3 +1,4 @@
+import { dev } from "$app/environment";
 import { env } from "$env/dynamic/public";
 import createClient from "openapi-fetch";
 import type { paths } from "./api-types";
@@ -19,6 +20,8 @@ const runtimeConfig: SparrowConfig =
   (typeof window !== "undefined" && window.__SPARROW_CONFIG__) || {};
 
 const apiKey: string = runtimeConfig.apiKey || "";
+
+const baseUrl = env.PUBLIC_API_URL || (dev ? "http://localhost:8080" : "/");
 
 // Portal mode: pages under /portal authenticate with a consumer-scoped
 // bearer token instead of the admin API key (which is never injected into
@@ -53,7 +56,7 @@ export const portal = initPortal();
 // Single typed REST client for the whole app. Sparrow's interface is
 // REST/OpenAPI only (Connect-RPC and gRPC have been removed).
 export const api = createClient<paths>({
-  baseUrl: env.PUBLIC_API_URL || "/",
+  baseUrl,
   headers: portal
     ? { Authorization: `Bearer ${portal.token}` }
     : apiKey
