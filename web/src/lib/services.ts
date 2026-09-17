@@ -20,6 +20,11 @@ const runtimeConfig: SparrowConfig =
   (typeof window !== "undefined" && window.__SPARROW_CONFIG__) || {};
 
 const apiKey: string = runtimeConfig.apiKey || "";
+class SameOriginRequest extends Request {
+  constructor(input: RequestInfo | URL, init?: RequestInit) {
+    super(typeof input === "string" ? new URL(input, location.href).href : input, init);
+  }
+}
 
 const baseUrl = env.PUBLIC_API_URL || (dev ? "http://localhost:8080" : "/");
 
@@ -53,17 +58,6 @@ function initPortal(): PortalSession | null {
 
 export const portal = initPortal();
 
-// Single typed REST client for the whole app. Sparrow's interface is
-// REST/OpenAPI only (Connect-RPC and gRPC have been removed).
-export const api = createClient<paths>({
-  baseUrl,
-  headers: portal
-    ? { Authorization: `Bearer ${portal.token}` }
-    : apiKey
-      ? { "X-API-Key": apiKey }
-      : undefined,
-});
-api.use(apiLogMiddleware);
 
 // Portal path gateway: in portal mode every API call goes out under the single
 // /portal/api/ prefix instead of /v1/..., so an operator embedding the portal
@@ -72,22 +66,38 @@ api.use(apiLogMiddleware);
 // URL here; the server's PortalGateway maps /portal/api/<rest> back to the real
 // /v1 path. This covers every call site (including shared components) with no
 // per-call changes.
-if (portal) {
-  const scoped = `/v1/consumers/${portal.consumer}/`;
-  api.use({
-    onRequest({ request }) {
-      const url = new URL(request.url);
-      if (url.pathname.startsWith(scoped)) {
-        url.pathname = "/portal/api/" + url.pathname.slice(scoped.length);
-      } else if (url.pathname.startsWith("/v1/")) {
-        url.pathname = "/portal/api/" + url.pathname.slice("/v1/".length);
-      } else {
-        return request;
-      }
-      return new Request(url, request);
-    },
-  });
+async function rewritePortalURL(request: Request) {
+  const url = new URL(request.url, window.location.href);
+  const scoped = portal ? `/v1/consumers/${portal.consumer}/` : "";
+
+  if (portal && url.pathname.startsWith(scoped)) {
+    url.pathname = "/portal/api/" + url.pathname.slice(scoped.length);
+  } else if (portal && url.pathname.startsWith("/v1/")) {
+    url.pathname = "/portal/api/" + url.pathname.slice("/v1/".length);
+  } else {
+    return request;
+  }
+
+  const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.clone().arrayBuffer();
+  return new SameOriginRequest(url.href, { method: request.method, headers: request.headers, body, signal: request.signal });
 }
+
+// Single typed REST client for the whole app. Sparrow's interface is
+// REST/OpenAPI only (Connect-RPC and gRPC have been removed).
+export const api = createClient<paths>({
+  baseUrl,
+  Request: SameOriginRequest,
+  headers: portal
+    ? { Authorization: `Bearer ${portal.token}` }
+    : apiKey
+      ? { "X-API-Key": apiKey }
+      : undefined,
+});
+api.use(apiLogMiddleware);
+if (portal) {
+  api.use({ onRequest: ({ request }) => rewritePortalURL(request) });
+}
+
 
 /**
  * Throws a readable Error when an openapi-fetch call returns `error`.
@@ -112,8 +122,8 @@ export function unwrap<T>(result: { data?: T; error?: unknown; response: Respons
     }
     throw new Error(message);
   }
-  if (result.data === undefined) {
+  if (result.data === undefined && result.response.status !== 204) {
     throw new Error(`Request failed (${result.response.status})`);
   }
-  return result.data;
+  return result.data as T;
 }

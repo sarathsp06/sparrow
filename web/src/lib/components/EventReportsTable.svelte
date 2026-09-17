@@ -191,6 +191,7 @@
                             <td class="td">
                                 <button
                                     onclick={() => toggleRow(report.event_id, report.consumer)}
+                                    aria-expanded={expandedRows.has(report.event_id)}
                                     class="link text-xs mono transition"
                                 >
                                     {expandedRows.has(report.event_id) ? 'Hide' : 'Deliveries'}
@@ -244,6 +245,7 @@
                                                                 <td class="td !py-2 !px-3 hidden md:table-cell">
                                                                     <button
                                                                         onclick={() => toggleDeliveryAttempts(delivery.delivery_id, report.consumer)}
+                                                                        aria-expanded={expandedDeliveries.has(delivery.delivery_id)}
                                                                         class="link-beacon mono tnum font-medium transition"
                                                                     >
                                                                         {delivery.attempt_count}/{delivery.max_attempts}

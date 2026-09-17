@@ -486,9 +486,9 @@
   <div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto">
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" role="presentation" onclick={() => { modalOpen = false; resetForm(); }}></div>
-    <div class="panel relative w-full max-w-2xl mx-4 my-12">
+    <div class="panel relative w-full max-w-2xl mx-4 my-12" role="dialog" aria-modal="true" aria-labelledby="sub-modal-title" tabindex="-1" onkeydown={(e) => { if (e.key === "Escape") { modalOpen = false; resetForm(); } }}>
       <div class="flex items-center justify-between px-6 py-4 border-b border-line">
-        <h3 class="text-lg font-semibold text-text">
+        <h3 id="sub-modal-title" class="text-lg font-semibold text-text">
           {modalMode === "create" ? "Create Subscription" : "Edit Subscription"}
         </h3>
         <button onclick={() => { modalOpen = false; resetForm(); }} class="p-1 text-faint hover:text-text rounded transition" aria-label="Close modal">

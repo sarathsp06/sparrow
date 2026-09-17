@@ -222,7 +222,7 @@
       </div>
 
       <div class="flex items-center gap-3 pt-2">
-        <button type="submit" disabled={loading} class="btn btn-beacon">
+        <button type="submit" disabled={loading} aria-busy={loading} class="btn btn-beacon">
           {loading ? 'Pushing…' : 'Push Event'}
         </button>
       </div>
@@ -230,7 +230,7 @@
   {/if}
 
   {#if error}
-    <div class="mt-4 panel p-4" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
+    <div class="mt-4 panel p-4" role="alert" aria-live="assertive" style="border-color:color-mix(in srgb,var(--color-bad) 40%,transparent);background:color-mix(in srgb,var(--color-bad) 8%,var(--color-panel))">
       <p class="text-sm font-medium" style="color:var(--color-bad)">{error}</p>
       {#if validationDetails.length > 0}
         <ul class="mt-2 text-xs list-disc list-inside" style="color:var(--color-bad)">
@@ -243,7 +243,7 @@
   {/if}
 
   {#if successMessage}
-    <div class="mt-4 panel p-4" style="border-color:color-mix(in srgb,var(--color-ok) 40%,transparent);background:color-mix(in srgb,var(--color-ok) 8%,var(--color-panel))">
+    <div class="mt-4 panel p-4" role="status" aria-live="polite" style="border-color:color-mix(in srgb,var(--color-ok) 40%,transparent);background:color-mix(in srgb,var(--color-ok) 8%,var(--color-panel))">
       <p class="text-sm" style="color:var(--color-ok)">{successMessage}</p>
     </div>
   {/if}

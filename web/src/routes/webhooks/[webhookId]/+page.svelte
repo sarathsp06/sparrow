@@ -819,7 +819,7 @@
                       <td class="td tnum text-muted hidden md:table-cell">{delivery.attempt_count}</td>
                       <td class="td hidden lg:table-cell"><span class="mono tnum text-muted text-xs">{formatTimestamp(delivery.last_attempted_at)}</span></td>
                       <td class="td">
-                        <button onclick={() => toggleDeliveryExpansion(delivery.delivery_id)} class="text-xs mono text-muted hover:text-text transition">
+                        <button onclick={() => toggleDeliveryExpansion(delivery.delivery_id)} aria-expanded={expandedDeliveries.has(delivery.delivery_id)} class="text-xs mono text-muted hover:text-text transition">
                           {expandedDeliveries.has(delivery.delivery_id) ? 'Hide' : 'Details'}
                         </button>
                       </td>

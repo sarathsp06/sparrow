@@ -39,6 +39,7 @@
   let secretHeaders: { key: string; value: string }[] = $state([]);
 
   // Recipe pre-fill
+  let recipesOpen = $state(false);
   let selectedRecipe: Recipe | null = $state(null);
   let recipeParams: Record<string, string> = $state({});
   let appliedRecipe = $state('');
@@ -106,6 +107,7 @@
     transformTemplate = substituteParams(r.subscription?.transform_template ?? '', recipeParams);
     description = `recipe ${r.name}: ${r.description}`;
     appliedRecipe = r.name;
+    recipesOpen = false;
     selectedRecipe = null;
   }
 
@@ -225,30 +227,48 @@
             <button type="button" onclick={clearRecipe} class="btn btn-ghost !px-3 !py-1.5 shrink-0">Clear</button>
           </div>
         {:else}
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {#each recipes as r}
-              <button type="button" onclick={() => pickRecipe(r)}
-                class="panel-2 p-3 text-left"
-                style={selectedRecipe?.name === r.name ? 'border-color:var(--color-beacon)' : ''}>
-                <p class="text-sm font-medium text-text capitalize">{r.name}</p>
-                <p class="text-xs text-muted mt-0.5">{r.description}</p>
-              </button>
-            {/each}
-          </div>
-          {#if selectedRecipe}
-            <div class="mt-4 space-y-3">
-              {#each selectedRecipe.params ?? [] as p}
-                <div>
-                  <label for={`recipe-param-${p.name}`} class="field-label">{p.prompt || p.name}{p.required ? '' : ' (optional)'}</label>
-                  <input id={`recipe-param-${p.name}`} type="text" bind:value={recipeParams[p.name]} class="input" />
+          <button
+            type="button"
+            class="panel-2 w-full p-4 text-left flex items-center justify-between gap-4"
+            aria-expanded={recipesOpen}
+            onclick={() => (recipesOpen = !recipesOpen)}
+          >
+            <span>
+              <span class="text-sm font-medium text-text">Recipes</span>
+              <span class="block text-xs text-muted mt-0.5">Start with a preset destination and transform template.</span>
+            </span>
+            <span class="text-xs text-muted">{recipesOpen ? 'Hide' : 'Choose'}</span>
+          </button>
+
+          {#if recipesOpen}
+            {#if selectedRecipe}
+              <div class="mt-4 space-y-3">
+                <div class="panel-2 p-3">
+                  <p class="text-sm font-medium text-text capitalize">{selectedRecipe.name}</p>
+                  <p class="text-xs text-muted mt-0.5">{selectedRecipe.description}</p>
                 </div>
-              {/each}
-              {#if recipeError}<p class="text-xs" style="color:var(--color-bad)">{recipeError}</p>{/if}
-              <div class="flex gap-2">
-                <button type="button" onclick={applyRecipe} class="btn btn-beacon !px-3 !py-1.5">Use recipe</button>
-                <button type="button" onclick={() => (selectedRecipe = null)} class="btn btn-ghost !px-3 !py-1.5">Cancel</button>
+                {#each selectedRecipe.params ?? [] as p}
+                  <div>
+                    <label for={`recipe-param-${p.name}`} class="field-label">{p.prompt || p.name}{p.required ? '' : ' (optional)'}</label>
+                    <input id={`recipe-param-${p.name}`} type="text" bind:value={recipeParams[p.name]} class="input" />
+                  </div>
+                {/each}
+                {#if recipeError}<p class="text-xs" style="color:var(--color-bad)">{recipeError}</p>{/if}
+                <div class="flex gap-2">
+                  <button type="button" onclick={applyRecipe} class="btn btn-beacon !px-3 !py-1.5">Use recipe</button>
+                  <button type="button" onclick={() => (selectedRecipe = null)} class="btn btn-ghost !px-3 !py-1.5">Choose another</button>
+                </div>
               </div>
-            </div>
+            {:else}
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
+                {#each recipes as r}
+                  <button type="button" onclick={() => pickRecipe(r)} class="panel-2 p-3 text-left">
+                    <p class="text-sm font-medium text-text capitalize">{r.name}</p>
+                    <p class="text-xs text-muted mt-0.5">{r.description}</p>
+                  </button>
+                {/each}
+              </div>
+            {/if}
           {/if}
         {/if}
       </section>
