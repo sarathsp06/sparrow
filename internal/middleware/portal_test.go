@@ -97,6 +97,7 @@ func TestPortalGatewayScopesToTokenConsumer(t *testing.T) {
 	}{
 		{http.MethodGet, "/portal/api/webhooks", http.StatusNoContent, "/v1/consumers/acme/webhooks"},
 		{http.MethodPost, "/portal/api/subscriptions", http.StatusNoContent, "/v1/consumers/acme/subscriptions"},
+		{http.MethodPost, "/portal/api/alert-configs", http.StatusNoContent, "/v1/consumers/acme/alert-configs"},
 		{http.MethodGet, "/portal/api/deliveries", http.StatusNoContent, "/v1/consumers/acme/deliveries"},
 		{http.MethodPost, "/portal/api/deliveries/abc:retry", http.StatusNoContent, "/v1/consumers/acme/deliveries/abc:retry"},
 		{http.MethodGet, "/portal/api/events", http.StatusNoContent, "/v1/consumers/acme/events"},

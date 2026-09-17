@@ -2,7 +2,6 @@
   import { onMount } from "svelte";
   import { api, unwrap, portal } from "$lib/services";
   import { formatAPIError } from "$lib/utils";
-  import favicon from "$lib/assets/favicon.svg";
   import HealthBadge from "$lib/components/HealthBadge.svelte";
   import StatusBadge from "$lib/components/StatusBadge.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
@@ -15,6 +14,10 @@
   type DeliveryItem = components["schemas"]["DeliveryItem"];
   type SubscriptionItem = components["schemas"]["SubscriptionItem"];
   type EventTypeItem = components["schemas"]["EventTypeItem"];
+  const ALERT_EVENT_TYPES = ["sparrow.webhook.health_changed", "sparrow.webhook.delivery_failed"];
+  const SPARROW_URL = "https://github.com/sarathsp06/sparrow";
+  const VERIFY_WEBHOOK_URL = "https://sarathsp06.github.io/sparrow/reference/architecture/#verifying-webhook-signatures";
+  const LLMS_URL = "https://sarathsp06.github.io/sparrow/llms.txt";
 
   const consumer = portal?.consumer ?? "";
 
@@ -57,6 +60,8 @@
   let regDescription = $state("");
   let regEvents = $state<string[]>([]);
   let regBusy = $state(false);
+  let regAlertEmail = $state("");
+
 
   // Delete confirmation
   let confirmDeleteId = $state<string | null>(null);
@@ -155,15 +160,28 @@
     e.preventDefault();
     regBusy = true;
     try {
-      unwrap(
+      const created = unwrap(
         await api.POST("/v1/consumers/{consumer}/webhooks", {
           params: { path: { consumer } },
           body: { url: regUrl, description: regDescription || undefined, events: regEvents.length ? regEvents : undefined },
         }),
       );
+      if (regAlertEmail.trim()) {
+        unwrap(
+          await api.POST("/v1/consumers/{consumer}/alert-configs", {
+            params: { path: { consumer } },
+            body: {
+              webhook_id: created.webhook_id,
+              email: regAlertEmail.trim(),
+              event_types: ALERT_EVENT_TYPES,
+            },
+          }),
+        );
+      }
       regUrl = "";
       regDescription = "";
       regEvents = [];
+      regAlertEmail = "";
       registerOpen = false;
       await refresh();
     } catch (err) {
@@ -208,16 +226,9 @@
 </svelte:head>
 
 <div class="min-h-screen bg-ink text-text">
-  <!-- Header -->
-  <header class="border-b border-line bg-panel/60 backdrop-blur-sm sticky top-0 z-30">
-    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
-      <span class="grid place-items-center w-8 h-8 rounded-lg border border-line bg-panel-2">
-        <img src={favicon} alt="" class="w-4.5 h-4.5" />
-      </span>
-      <span class="flex flex-col leading-none">
-        <span class="font-display font-bold tracking-[0.16em] text-sm">WEBHOOK PORTAL</span>
-        {#if consumer}<span class="eyebrow mt-1" style="font-size:9.5px">{consumer}</span>{/if}
-      </span>
+  <header class="border-b border-line bg-panel/40">
+    <div class="max-w-5xl mx-auto px-4 h-12 flex items-center gap-3">
+      <span class="text-sm font-medium text-muted">{consumer || "Portal"}</span>
       <div class="ml-auto flex items-center gap-3">
         {#if portal?.expiresAt && !expired}
           <span class="chip inline-flex" title={portal.expiresAt.toLocaleString()}>
@@ -287,6 +298,11 @@
             <div>
               <label class="field-label" for="portal-reg-desc">Description (optional)</label>
               <input id="portal-reg-desc" class="input" type="text" placeholder="What is this endpoint for?" bind:value={regDescription} />
+            </div>
+            <div>
+              <label class="field-label" for="portal-reg-alert-email">Health alert email (optional)</label>
+              <input id="portal-reg-alert-email" class="input" type="email" placeholder="ops@example.com" bind:value={regAlertEmail} />
+              <p class="text-xs text-faint mt-2">Sends health-change and permanent-failure alerts for this endpoint.</p>
             </div>
             {#if eventTypes.length > 0}
               <fieldset>
@@ -417,6 +433,15 @@
       </section>
     {/if}
   </main>
+  <footer class="max-w-5xl mx-auto px-4 pb-6 text-xs text-muted">
+    <div class="border-t border-line pt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+      <span>Powered by <a href={SPARROW_URL} target="_blank" rel="noreferrer" class="text-text hover:text-beacon">Sparrow</a></span>
+      <span class="text-faint">/</span>
+      <a href={VERIFY_WEBHOOK_URL} target="_blank" rel="noreferrer" class="hover:text-text">Verify webhooks</a>
+      <span class="text-faint">/</span>
+      <a href={LLMS_URL} target="_blank" rel="noreferrer" class="hover:text-text">llms.txt</a>
+    </div>
+  </footer>
 </div>
 
 <ConfirmDialog

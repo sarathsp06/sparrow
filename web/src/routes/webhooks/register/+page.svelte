@@ -8,6 +8,8 @@
   import { substituteParams, type Recipe } from '$lib/recipes';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
+  const ALERT_EVENT_TYPES = ["sparrow.webhook.health_changed", "sparrow.webhook.delivery_failed"];
+
 
   let consumer = $state(consumerStore.value || 'default');
   let events: string[] = $state([]);
@@ -18,6 +20,8 @@
   let error = $state('');
   let submitting = $state(false);
   let eventSearch = $state('');
+  let alertEmail = $state('');
+
 
   // HTTP Configuration
   let showAdvanced = $state(false);
@@ -181,6 +185,17 @@
         },
       }));
 
+      if (alertEmail.trim()) {
+        unwrap(await api.POST('/v1/consumers/{consumer}/alert-configs', {
+          params: { path: { consumer } },
+          body: {
+            webhook_id: created.webhook_id,
+            email: alertEmail.trim(),
+            event_types: ALERT_EVENT_TYPES,
+          },
+        }));
+      }
+
       // Recipe transform applies per subscription — patch the auto-created ones.
       if (transformTemplate.trim()) {
         const subs = unwrap(await api.GET('/v1/consumers/{consumer}/subscriptions', {
@@ -314,6 +329,13 @@
           {/each}
         </div>
       </section>
+
+      <section class="panel p-5">
+        <label for="alert-email" class="field-label">Health alert email (optional)</label>
+        <input id="alert-email" type="email" bind:value={alertEmail} placeholder="ops@example.com" class="input" />
+        <p class="text-xs text-faint mt-2">Sends health-change and permanent-failure alerts for this webhook.</p>
+      </section>
+
 
       <section class="panel p-5">
         <span class="field-label">HTTP Headers</span>

@@ -8,6 +8,7 @@ test('home redirects to the webhooks list', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/webhooks\/?$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Webhooks' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Star Sparrow on GitHub' })).toHaveAttribute('href', 'https://github.com/sarathsp06/sparrow');
 });
 
 test('core pages render without uncaught errors', async ({ page }) => {
@@ -28,6 +29,7 @@ test('core pages render without uncaught errors', async ({ page }) => {
 
 test('register webhook hides recipe choices until opened', async ({ page }) => {
   await page.goto('/webhooks/register');
+  await expect(page.getByLabel(/Health alert email/)).toBeVisible();
   await expect(page.getByRole('button', { name: /Clickhouse/i })).toHaveCount(0);
 
   await page.getByRole('button', { name: /Recipes/ }).click();

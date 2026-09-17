@@ -90,8 +90,9 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
           <a href={`${base}deployment/docker-compose/`}>Deploy</a>
         </div>
         <div class="sp-nav-end">
-          <a href={githubURL} target="_blank" rel="noopener" class="sp-nav-gh" aria-label="GitHub">
+          <a href={githubURL} target="_blank" rel="noopener" class="sp-nav-gh" aria-label="Star Sparrow on GitHub">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+            <span>Star on GitHub</span>
           </a>
           <a href={docsHome} class="sp-btn">Get started<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
         </div>
@@ -189,7 +190,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
             <h3>Open source</h3>
           </div>
           <p>MIT-licensed and built in the open. The REST API is described by a committed OpenAPI 3.1 spec, so you can generate a client in any language.</p>
-          <span class="sp-card-link">GitHub<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+          <span class="sp-card-link">Star on GitHub<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
         </a>
 
       </div>
@@ -426,7 +427,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         </div>
         <div class="sp-footer-col">
           <span class="sp-footer-heading">Resources</span>
-          <a href={githubURL} target="_blank" rel="noopener">GitHub</a>
+          <a href={githubURL} target="_blank" rel="noopener">Star on GitHub</a>
           <a href={`${base}reference/architecture/`}>Architecture</a>
           <a href={`${base}reference/error-classification/`}>Error Reference</a>
           <a href={`${base}llms.txt`}>llms.txt</a>
@@ -498,7 +499,8 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   margin-left: auto; display: flex; align-items: center; gap: 0.75rem;
 }
 .sp-nav-gh {
-  color: var(--sp-on-surface-variant); transition: color 0.12s;
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 13px; font-weight: 600; color: var(--sp-on-surface-variant); transition: color 0.12s;
 }
 .sp-nav-gh:hover { color: var(--sp-on-surface); }
 
