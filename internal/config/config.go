@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/kelseyhightower/envconfig"
 
@@ -48,11 +49,21 @@ type Config struct {
 	// Env: SPARROW_ALLOW_PRIVATE_NETWORKS
 	AllowPrivateNetworks bool `envconfig:"SPARROW_ALLOW_PRIVATE_NETWORKS" default:"false"`
 
-	// EncryptionKey is a 64-character hex string (32 bytes) used as the KEK
-	// for envelope encryption of webhook secrets. Required -- the server will
-	// not start without it. Generate with: openssl rand -hex 32
+	// EncryptionKey is a deprecated single-key configuration. It is rejected at
+	// validation time; use EncryptionKeys and EncryptionPrimaryKeyID instead.
 	// Env: SPARROW_ENCRYPTION_KEY
 	EncryptionKey string `envconfig:"SPARROW_ENCRYPTION_KEY" default:""`
+
+	// EncryptionKeys is the required keyring configuration. Each entry
+	// must be "<key-id>=<64-char-hex-key>". New encryption uses the primary key;
+	// all configured keys remain valid for decryption.
+	// Env: SPARROW_ENCRYPTION_KEYS
+	EncryptionKeys []string `envconfig:"SPARROW_ENCRYPTION_KEYS" default:""`
+
+	// EncryptionPrimaryKeyID selects which key from EncryptionKeys is primary
+	// for new encryption. Required whenever EncryptionKeys is set.
+	// Env: SPARROW_ENCRYPTION_PRIMARY_KEY_ID
+	EncryptionPrimaryKeyID string `envconfig:"SPARROW_ENCRYPTION_PRIMARY_KEY_ID" default:""`
 
 	// OTLPEndpoint is the OpenTelemetry OTLP HTTP export endpoint.
 	// When empty, OTel export is disabled.
@@ -115,11 +126,8 @@ func (c *Config) Validate() error {
 	if err := validatePort(c.HTTPPort, "SPARROW_HTTP_PORT"); err != nil {
 		return err
 	}
-	if c.EncryptionKey == "" {
-		return fmt.Errorf("SPARROW_ENCRYPTION_KEY is required (generate with: openssl rand -hex 32)")
-	}
-	if _, err := crypto.ParseKey(c.EncryptionKey); err != nil {
-		return fmt.Errorf("SPARROW_ENCRYPTION_KEY: must be a 64-character hex string (generate with: openssl rand -hex 32): %w", err)
+	if _, err := c.EncryptionKeyring(); err != nil {
+		return err
 	}
 	if c.DatabaseURL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
@@ -149,6 +157,58 @@ func (c *Config) Warnings() []string {
 }
 
 // validatePort checks that a port string is a valid TCP port number (1-65535).
+// EncryptionKeyring resolves the configured KEK keyring from
+// SPARROW_ENCRYPTION_KEYS and SPARROW_ENCRYPTION_PRIMARY_KEY_ID.
+func (c *Config) EncryptionKeyring() (*crypto.Keyring, error) {
+	entries := make([]string, 0, len(c.EncryptionKeys))
+	for _, entry := range c.EncryptionKeys {
+		entry = strings.TrimSpace(entry)
+		if entry != "" {
+			entries = append(entries, entry)
+		}
+	}
+
+	if c.EncryptionKey != "" {
+		return nil, fmt.Errorf("SPARROW_ENCRYPTION_KEY is no longer supported; use SPARROW_ENCRYPTION_KEYS and SPARROW_ENCRYPTION_PRIMARY_KEY_ID")
+	}
+
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("SPARROW_ENCRYPTION_KEYS is required (format: <key-id>=<64-char-hex-key>)")
+	}
+
+	keys := make([]crypto.Key, 0, len(entries))
+	for _, entry := range entries {
+		parts := strings.SplitN(entry, "=", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("SPARROW_ENCRYPTION_KEYS: invalid entry %q (want <key-id>=<64-char-hex-key>)", entry)
+		}
+		id := strings.TrimSpace(parts[0])
+		raw := strings.TrimSpace(parts[1])
+		if id == "" {
+			return nil, fmt.Errorf("SPARROW_ENCRYPTION_KEYS: invalid entry %q (empty key id)", entry)
+		}
+		key, err := crypto.ParseKey(raw)
+		if err != nil {
+			return nil, fmt.Errorf("SPARROW_ENCRYPTION_KEYS: invalid key for %q: %w", id, err)
+		}
+		keys = append(keys, crypto.Key{ID: id, Material: key})
+	}
+
+	primaryID := strings.TrimSpace(c.EncryptionPrimaryKeyID)
+	if primaryID == "" {
+		return nil, fmt.Errorf("SPARROW_ENCRYPTION_PRIMARY_KEY_ID is required when SPARROW_ENCRYPTION_KEYS is set")
+	}
+
+	keyring, err := crypto.NewKeyring(keys, primaryID)
+	if err != nil {
+		if strings.Contains(err.Error(), "primary key id") {
+			return nil, fmt.Errorf("SPARROW_ENCRYPTION_PRIMARY_KEY_ID: %w", err)
+		}
+		return nil, err
+	}
+	return keyring, nil
+}
+
 func validatePort(port, envVar string) error {
 	n, err := strconv.Atoi(port)
 	if err != nil {

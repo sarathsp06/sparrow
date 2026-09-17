@@ -29,15 +29,16 @@ this can't ship silently misconfigured.
 
 ### Portal tokens
 
-The one scoped exception to the single-key model: `POST
+The one scoped exception to Sparrow's instance-wide auth model: `POST
 /v1/consumers/{consumer}/portal-token` (admin key required) mints a signed,
 expiring bearer token for one consumer — the credential behind the embeddable
 [consumer portal](/sparrow/deployment/security/#the-consumer-portal). Tokens
-are stateless HMAC-SHA256 values keyed by `SPARROW_ENCRYPTION_KEY` (no
-database row, no new secret), default 7-day / maximum 30-day TTL, and travel
-in the `Authorization: Bearer` header — or the `/portal#token=...` URL
-*fragment*, which browsers never send to the server, so it stays out of
-access logs.
+are stateless HMAC-SHA256 values signed by the primary configured encryption
+key from `SPARROW_ENCRYPTION_KEYS`. Every token carries a key ID so
+verification remains deterministic during rotations. Tokens are default 7-day /
+maximum 30-day TTL, and travel in the `Authorization: Bearer` header — or the
+`/portal#token=...` URL *fragment*, which browsers never send to the server,
+so it stays out of access logs.
 
 A portal token authorizes exactly: everything under its own consumer's routes
 **except** pushing events and minting further tokens, plus the read-only
@@ -147,7 +148,8 @@ What Sparrow enforces before the server will boot, and what you should set:
 
 | Variable | Requirement |
 |---|---|
-| `SPARROW_ENCRYPTION_KEY` | Always required -- 64 hex chars (`openssl rand -hex 32`). No key, no boot. |
+| `SPARROW_ENCRYPTION_KEYS` | Always required. Comma-separated `<key-id>=<64-char-hex-key>` entries. |
+| `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Always required. Selects the primary key for new encryption and portal token signing. |
 | `SPARROW_API_KEY` | Required when `ENVIRONMENT=production`. Empty is fine for local dev only. |
 | `DATABASE_URL` | Always required. |
 | `SPARROW_MAX_BODY_BYTES` | Optional, default 5 MiB. Values below 1 MiB are rejected at startup. |

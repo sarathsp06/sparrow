@@ -19,12 +19,63 @@ func TestEnvelopeEncryptDecrypt(t *testing.T) {
 	assert.NotEqual(t, plaintext, ciphertext)
 
 	// First byte should be version marker
-	assert.Equal(t, envelopeVersion, ciphertext[0])
+	assert.Equal(t, envelopeVersionWithKeyID, ciphertext[0])
 
 	// Decrypt should recover original
 	decrypted, err := svc.EnvelopeDecrypt(ciphertext)
 	require.NoError(t, err)
 	assert.Equal(t, plaintext, decrypted)
+}
+
+func TestEnvelopeEncrypt_UsesPrimaryKeyID(t *testing.T) {
+	keyring, err := NewKeyring([]Key{
+		{ID: "old", Material: testKey()},
+		{ID: "new", Material: otherTestKey()},
+	}, "new")
+	require.NoError(t, err)
+
+	svc, err := NewServiceFromKeyring(keyring)
+	require.NoError(t, err)
+
+	ciphertext, err := svc.EnvelopeEncrypt([]byte("secret data"))
+	require.NoError(t, err)
+
+	assert.Equal(t, envelopeVersionWithKeyID, ciphertext[0])
+	assert.Equal(t, byte(len("new")), ciphertext[1])
+	assert.Equal(t, "new", string(ciphertext[2:2+len("new")]))
+}
+
+func TestEnvelopeDecrypt_RejectsLegacyVersion(t *testing.T) {
+	keyring, err := NewKeyring([]Key{{ID: "new", Material: otherTestKey()}}, "new")
+	require.NoError(t, err)
+
+	svc, err := NewServiceFromKeyring(keyring)
+	require.NoError(t, err)
+
+	legacyCiphertext := []byte{envelopeVersion, 0x00, 0x00}
+	_, err = svc.EnvelopeDecrypt(legacyCiphertext)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown envelope version")
+}
+
+func TestEnvelopeDecrypt_UnknownKeyIDFails(t *testing.T) {
+	keyring, err := NewKeyring([]Key{
+		{ID: "new", Material: otherTestKey()},
+	}, "new")
+	require.NoError(t, err)
+
+	svc, err := NewServiceFromKeyring(keyring)
+	require.NoError(t, err)
+
+	ciphertext, err := svc.EnvelopeEncrypt([]byte("secret data"))
+	require.NoError(t, err)
+
+	ciphertext[1] = byte(len("old"))
+	copy(ciphertext[2:], []byte("old"))
+
+	_, err = svc.EnvelopeDecrypt(ciphertext)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown key id")
 }
 
 func TestEnvelopeEncryptDecrypt_Empty(t *testing.T) {
@@ -113,7 +164,7 @@ func TestEnvelopeDecrypt_TooShort(t *testing.T) {
 	svc, err := NewService(testKey())
 	require.NoError(t, err)
 
-	_, err = svc.EnvelopeDecrypt([]byte("short"))
+	_, err = svc.EnvelopeDecrypt([]byte{envelopeVersionWithKeyID})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "too short")
 }
