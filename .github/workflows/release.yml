@@ -32,8 +32,6 @@ jobs:
           cache: "npm"
           cache-dependency-path: web/package-lock.json
 
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
 
       - name: Extract version from tag
         id: version
@@ -42,17 +40,6 @@ jobs:
       - name: Build frontend
         run: make build-ui SEMVER=${{ steps.version.outputs.VERSION }}
 
-      - name: Package Helm chart
-        run: |
-          sed -i "s/^version:.*/version: ${{ steps.version.outputs.VERSION }}/" charts/sparrow/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"${{ steps.version.outputs.VERSION }}\"/" charts/sparrow/Chart.yaml
-          mkdir -p build
-          helm package charts/sparrow/ -d build
-
-      - name: Restore clean git state
-        run: |
-          touch internal/ui/dist/.gitkeep
-          git checkout charts/sparrow/Chart.yaml
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

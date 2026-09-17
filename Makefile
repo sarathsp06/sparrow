@@ -51,31 +51,6 @@ docker-dev: ## Run the development environment with Docker Compose (builds from 
 docker-purge: ## Stop and remove Docker containers, networks, volumes, and images created by Docker Compose for development
 	docker compose -f docker-compose.dev.yml down -v
 
-## -- Helm / Kubernetes --
-
-CHART_DIR := charts/sparrow
-HELM_FAKE_ENCRYPTION_KEY := 0000000000000000000000000000000000000000000000000000000000000000
-HELM_FAKE_DATABASE_URL := postgresql://user:pass@db:5432/sparrow?sslmode=disable
-
-helm-lint: ## Lint the Helm chart
-	helm lint $(CHART_DIR) \
-		--set secrets.encryptionKey="$(HELM_FAKE_ENCRYPTION_KEY)" \
-		--set secrets.databaseURL="$(HELM_FAKE_DATABASE_URL)"
-
-helm-template: ## Render chart templates locally (dry-run)
-	helm template sparrow $(CHART_DIR) \
-		--set secrets.encryptionKey="$(HELM_FAKE_ENCRYPTION_KEY)" \
-		--set secrets.databaseURL="$(HELM_FAKE_DATABASE_URL)"
-
-helm-template-pg: ## Render chart templates with bundled PostgreSQL enabled
-	helm template sparrow $(CHART_DIR) \
-		--set postgresql.enabled=true \
-		--set secrets.encryptionKey="$(HELM_FAKE_ENCRYPTION_KEY)"
-
-helm-package: ## Package the Helm chart into a .tgz archive
-	mkdir -p build
-	helm package $(CHART_DIR) -d build
-
 run-web: ## Run the web development server
 	cd web && npm run dev
 
@@ -154,4 +129,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run test test-integration test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package migrate lint fmt run-web book help
+.PHONY: build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run test test-integration test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge migrate lint fmt run-web book help

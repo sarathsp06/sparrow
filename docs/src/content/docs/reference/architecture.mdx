@@ -223,7 +223,7 @@ Each encrypted value uses a unique random data encryption key (DEK). The DEK is 
 
 The KEK is provided via the `SPARROW_ENCRYPTION_KEY` environment variable (64-char hex = 32 bytes). The server will not start without it. Generate one with `openssl rand -hex 32`.
 
-The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager, Kubernetes Secret, or `.env` file to provide the key.
+The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager or `.env` file to provide the key.
 
 See the [Security Model](/sparrow/reference/security/) page for API
 authentication, SSRF protection, HTTP hardening, secret masking, and tenant

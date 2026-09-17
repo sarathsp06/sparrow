@@ -41,7 +41,7 @@ Sparrow encrypts webhook secrets and sensitive headers at rest using **envelope 
 
 The encryption key is provided via the `SPARROW_ENCRYPTION_KEY` environment variable (64-char hex string = 32 bytes). The server will not start without it.
 
-The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager, Kubernetes Secret, or `.env` file to provide the key:
+The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager or `.env` file to provide the key:
 
 ```bash
 # Generate a key

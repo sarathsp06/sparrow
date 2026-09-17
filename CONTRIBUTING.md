@@ -41,5 +41,4 @@ If the tag already exists remotely, bump to the next version and push that tag.
 
 ## Notes
 
-- Keep Helm chart changes lintable with `make helm-lint`.
 - Avoid committing generated files unless the change intentionally updates generated output.

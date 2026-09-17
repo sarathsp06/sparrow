@@ -72,8 +72,6 @@ export default defineConfig({
           label: 'Deployment',
           items: [
             { slug: 'deployment/docker-compose' },
-            { slug: 'deployment/railway' },
-            { slug: 'deployment/kubernetes' },
             { slug: 'deployment/security' },
           ],
         },

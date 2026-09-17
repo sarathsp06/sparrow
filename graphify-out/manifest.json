@@ -205,8 +205,8 @@
     "semantic_hash": "ef22a70165b9970b542c7b86e2c305dc"
   },
   "docs/astro.config.mjs": {
-    "mtime": 1789589882.9562023,
-    "ast_hash": "1ff61a7ed782ba4d071fe41752ddfeb6",
+    "mtime": 1789673438.0647523,
+    "ast_hash": "4aedce0169b8024adb70e13fbacb045c",
     "semantic_hash": ""
   },
   "docs/package.json": {
@@ -740,8 +740,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/ci.yml": {
-    "mtime": 1789312084.634187,
-    "ast_hash": "7bbc66aaf12ba06011e05489d039d8ae",
+    "mtime": 1789673438.0577755,
+    "ast_hash": "9e9a865947110a19cb56456fa8ba3ffe",
     "semantic_hash": ""
   },
   ".github/workflows/deploy-docs.yml": {
@@ -750,8 +750,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/release.yml": {
-    "mtime": 1789386481.0479217,
-    "ast_hash": "47ad0d6170eb52b9ad332b6a27650d6a",
+    "mtime": 1789673438.062053,
+    "ast_hash": "b23d2fb119adc82da57c6d0b582f8ea5",
     "semantic_hash": ""
   },
   ".goreleaser.yml": {
@@ -770,73 +770,13 @@
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
-    "mtime": 1788089756.0190303,
-    "ast_hash": "4738691dbb4b63833daadfa79430d229",
-    "semantic_hash": "4738691dbb4b63833daadfa79430d229"
+    "mtime": 1789673438.0676298,
+    "ast_hash": "08dbafce70c6c0cf5fb259edcb2667b1",
+    "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1789588633.5539355,
-    "ast_hash": "3d3af0da89e7e473572065254142acd5",
-    "semantic_hash": ""
-  },
-  "charts/sparrow/Chart.yaml": {
-    "mtime": 1789033060.3445177,
-    "ast_hash": "3c647eaf3c9d6f3538a0b3e73967aedb",
-    "semantic_hash": ""
-  },
-  "charts/sparrow/templates/NOTES.txt": {
-    "mtime": 1788089756.0260239,
-    "ast_hash": "5ee809dc92f6d121dd1e7bd614dab259",
-    "semantic_hash": ""
-  },
-  "charts/sparrow/templates/configmap.yaml": {
-    "mtime": 1788089756.0264416,
-    "ast_hash": "3dd2e732305cef89b0fb258bdf26509b",
-    "semantic_hash": "3dd2e732305cef89b0fb258bdf26509b"
-  },
-  "charts/sparrow/templates/deployment.yaml": {
-    "mtime": 1789033055.0141168,
-    "ast_hash": "6c88752e82b90d73705cbc2180283c37",
-    "semantic_hash": ""
-  },
-  "charts/sparrow/templates/hpa.yaml": {
-    "mtime": 1788089756.0267205,
-    "ast_hash": "695b304e0cdaa3a7fdb107f2e1d4a432",
-    "semantic_hash": "695b304e0cdaa3a7fdb107f2e1d4a432"
-  },
-  "charts/sparrow/templates/ingress.yaml": {
-    "mtime": 1788089756.0267732,
-    "ast_hash": "bd769935fd265662f4edeae27551973c",
-    "semantic_hash": "bd769935fd265662f4edeae27551973c"
-  },
-  "charts/sparrow/templates/networkpolicy.yaml": {
-    "mtime": 1789033055.0154045,
-    "ast_hash": "ea5098b9b1ad8e044167170191c94eb9",
-    "semantic_hash": ""
-  },
-  "charts/sparrow/templates/pdb.yaml": {
-    "mtime": 1789033055.0149708,
-    "ast_hash": "84b451a3ff22aa702e3c7ba1afaea5f5",
-    "semantic_hash": ""
-  },
-  "charts/sparrow/templates/postgresql/service.yaml": {
-    "mtime": 1788089756.0270283,
-    "ast_hash": "3cd67531a380226359d340ac5941fc61",
-    "semantic_hash": "3cd67531a380226359d340ac5941fc61"
-  },
-  "charts/sparrow/templates/postgresql/statefulset.yaml": {
-    "mtime": 1788089756.0270984,
-    "ast_hash": "a728414926e79ba71b1ae1efc6e7aa18",
-    "semantic_hash": "a728414926e79ba71b1ae1efc6e7aa18"
-  },
-  "charts/sparrow/templates/service.yaml": {
-    "mtime": 1789033055.014596,
-    "ast_hash": "cb8676667b0eaa0cc7d8115741096922",
-    "semantic_hash": ""
-  },
-  "charts/sparrow/values.yaml": {
-    "mtime": 1788089756.0273345,
-    "ast_hash": "9b057150662dae8198dcfe14996ce706",
+    "mtime": 1789673446.7338762,
+    "ast_hash": "b91b9ce847df7959e8b831714027e6f7",
     "semantic_hash": ""
   },
   "client/README.md": {
@@ -864,19 +804,9 @@
     "ast_hash": "7d10b4c012623cb2fd6da5a933cf1d2f",
     "semantic_hash": ""
   },
-  "docs/src/content/docs/deployment/kubernetes.md": {
-    "mtime": 1789546161.1279273,
-    "ast_hash": "c77d6ba68262d4df911ab78fc6a35454",
-    "semantic_hash": ""
-  },
-  "docs/src/content/docs/deployment/railway.md": {
-    "mtime": 1789588651.9297464,
-    "ast_hash": "1ac8aa7c5916b9a0811823ca809be586",
-    "semantic_hash": ""
-  },
   "docs/src/content/docs/getting-started/configuration.md": {
-    "mtime": 1789553634.9365757,
-    "ast_hash": "1b1f55afd6fba55bad72e5a06ec9757a",
+    "mtime": 1789673477.5589466,
+    "ast_hash": "66e472f8066e32b2c5538acc475cf3a1",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/how-it-works.mdx": {
@@ -885,8 +815,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/installation.mdx": {
-    "mtime": 1789546989.9695582,
-    "ast_hash": "cb74e7d02fb25e0f144af2d1e2522b92",
+    "mtime": 1789673464.0948434,
+    "ast_hash": "6ab9e67a9008bf1597f6d11cbabc4c7e",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/quickstart.mdx": {
@@ -895,8 +825,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/why-sparrow.mdx": {
-    "mtime": 1789588611.3788333,
-    "ast_hash": "4da6d3244832023ceb65af1a2838f5d9",
+    "mtime": 1789673494.025852,
+    "ast_hash": "be96685b5faae77d1397f7fa41c9f6fb",
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/comment-guide.md": {
@@ -905,8 +835,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/architecture.mdx": {
-    "mtime": 1789588977.9945564,
-    "ast_hash": "e34ac565da8ad66ea057bdd9cc9efd2b",
+    "mtime": 1789673494.0296595,
+    "ast_hash": "449bb22efa4077f058d700c1ab91ac40",
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/client-libraries.mdx": {
@@ -1187,11 +1117,6 @@
   "internal/webhooks/store/subscription_repository.go": {
     "mtime": 1789487649.1584883,
     "ast_hash": "b436e50589f4b8832f0652d01b1c1296",
-    "semantic_hash": ""
-  },
-  "charts/sparrow/templates/tests/test-connection.yaml": {
-    "mtime": 1789032587.62533,
-    "ast_hash": "910a65cc46817592bdedb8c62fd0bd2a",
     "semantic_hash": ""
   },
   "docs/src/assets/diagrams/health-state-machine-light.svg": {

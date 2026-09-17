@@ -81,7 +81,7 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 | **Event schema validation** | Soft validation (warnings, never rejects) | JSON Schema defs (not enforced) |
 | **Consumer isolation** | Built-in logical separation | Application-level |
 | **API protocol** | REST/HTTP on :8080 (OpenAPI 3.1 spec) | REST API only |
-| **Helm chart** | Security-hardened (NetworkPolicy, seccomp, read-only rootfs) | Community chart only |
+| **Deployment shape** | Single binary + Docker image | Broader deployment options |
 | **Container image** | Distroless (~15MB), non-root | Standard |
 | **Consumer self-service portal** | Built-in, token-scoped -- embed or hand off a link | App Portal (magic-link session) |
 
@@ -115,9 +115,7 @@ Since Svix is the closest competitor architecturally, here's a deeper look:
 
 ## Deployment Flexibility
 
-Sparrow runs anywhere you can run a container and connect to PostgreSQL:
+Sparrow runs anywhere you can run one container and connect it to PostgreSQL:
 
-- **One-click deploy** on [Railway](https://railway.com/deploy/KzfSI3)
 - **Docker Compose** for local development and small deployments
-- **Kubernetes** with the included Helm chart (security-hardened: NetworkPolicy, read-only rootfs, non-root, seccomp, capabilities dropped)
 - **Any container platform** -- the distroless image is ~15MB with zero OS-level attack surface

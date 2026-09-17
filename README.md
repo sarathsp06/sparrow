@@ -45,7 +45,7 @@ producers / curl / UI / SDKs
 - **Embedded admin UI** — webhooks, events, deliveries, health, and event-instance inspection in one dashboard.
 - **Consumer self-service portal** — hand each customer a scoped, expiring link to register their own endpoints and inspect and retry their own deliveries, isolated to their consumer.
 - **OpenAPI-first API** — REST on `:8080`, interactive docs at `/docs`, committed spec at [`api/openapi.yaml`](api/openapi.yaml).
-- **Operationally boring** — one database, one binary, Docker image, Railway deploy, and a hardened Helm chart.
+- **Operationally boring** — one database, one binary, and a Docker image/Compose file.
 - **OpenTelemetry built in** — traces, metrics, and logs, including propagation through async jobs.
 
 ## Why Sparrow
@@ -195,7 +195,7 @@ Sparrow assumes you run it inside a network you control, then adds application-l
 - **SSRF protection** — private, loopback, link-local, and cloud-metadata IPs are blocked by default, and redirects are re-validated.
 - **Optional shared-secret auth** — set `SPARROW_API_KEY` to require `X-API-Key` on API requests.
 - **No default telemetry egress** — OpenTelemetry export is off unless you set `OTEL_EXPORTER_OTLP_ENDPOINT`.
-- **Hardened Helm defaults** — non-root, read-only root filesystem, dropped Linux capabilities, seccomp, and NetworkPolicy isolation.
+- **Proxy-friendly** — terminate TLS, SSO, and rate limiting at the reverse proxy; Sparrow stays a small HTTP service.
 
 > [!WARNING]
 > With `SPARROW_API_KEY` unset, anyone who can reach the port can use the API and dashboard. The embedded dashboard (`SPARROW_SERVE_UI=true`) is served without authentication and exposes the API key to any browser that can load it — treat it as trusted-network-only. On shared or internet-facing networks, set an API key and put Sparrow behind an authenticating proxy.
@@ -258,25 +258,13 @@ Open the full interactive diagram for pan/zoom, search, focus, and export.
 
 ## Deployment
 
-### Railway
-
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic)
-
 ### Docker image
 
 ```bash
 docker pull ghcr.io/sarathsp06/sparrow:latest
 ```
 
-### Kubernetes
-
-The Helm chart lives at [`charts/sparrow/`](charts/sparrow/) and includes bundled or external PostgreSQL options, secrets wiring, ingress, HPA, PDB, and NetworkPolicy.
-
-```bash
-helm install sparrow charts/sparrow/ \
-  --set secrets.databaseURL="postgres://user:pass@your-db:5432/sparrow?sslmode=require" \
-  --set secrets.existingSecret="sparrow-secrets"
-```
+Use the Compose file in [`deploy/docker-compose.yml`](deploy/docker-compose.yml) for a small self-hosted install, or run the image on any container platform with PostgreSQL and the environment variables below.
 
 ## Configuration
 
