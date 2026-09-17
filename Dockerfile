@@ -14,6 +14,7 @@ RUN npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
 
 # Copy frontend source
 COPY web/ .
+COPY satellites/recipes/ ../satellites/recipes/
 
 # Build static frontend
 # adapter-static outputs to ../internal/ui/dist (i.e. /build/internal/ui/dist)
