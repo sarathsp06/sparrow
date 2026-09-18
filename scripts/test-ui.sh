@@ -43,15 +43,28 @@ if [ "$SKIP_SERVER" != "1" ]; then
   SPARROW_HTTP_PORT="$HTTP_PORT" \
   SPARROW_SERVE_UI=true \
   SPARROW_ALLOW_PRIVATE_NETWORKS=true \
-  SPARROW_ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000 \
+  SPARROW_ENCRYPTION_KEYS=main=0000000000000000000000000000000000000000000000000000000000000000 \
+  SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main \
     go run ./cmd/server >/tmp/sparrow-ui-server.log 2>&1 &
   SERVER_PID=$!
 
   echo "==> Waiting for $SPARROW_BASE_URL/health"
+  SERVER_READY=0
   for _ in $(seq 1 60); do
-    curl -fsS "$SPARROW_BASE_URL/health" >/dev/null 2>&1 && break
+    if curl -fsS "$SPARROW_BASE_URL/health" >/dev/null 2>&1; then
+      SERVER_READY=1
+      break
+    fi
+    if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+      cat /tmp/sparrow-ui-server.log
+      exit 1
+    fi
     sleep 1
   done
+  if [ "$SERVER_READY" != "1" ]; then
+    cat /tmp/sparrow-ui-server.log
+    exit 1
+  fi
 fi
 
 echo "==> Running Playwright tests against $SPARROW_BASE_URL"
