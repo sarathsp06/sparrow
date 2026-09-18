@@ -1,12 +1,14 @@
 # Sparrow -- standalone deployment using the published Docker image.
 # No need to clone the repo. Just save this file and run:
 #
-#   echo "SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32)" > .env
+#   # 32 cryptographically random bytes, hex-encoded as 64 chars
+#   echo "SPARROW_ENCRYPTION_KEYS=main=$(openssl rand -hex 32)" > .env
+#   echo "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" >> .env
 #   docker compose up -d
 #
-# The key is generated once and persisted in .env (Compose loads it
+# The keyring is generated once and persisted in .env (Compose loads it
 # automatically for every subsequent command, including down/stop/ps).
-# Back up .env -- lose the key and encrypted webhook secrets are unrecoverable.
+# Back up .env -- lose the keys and encrypted webhook secrets are unrecoverable.
 #
 # The server starts on:
 #   - Web UI + REST API: http://localhost:8080 (API docs at /docs)
@@ -36,8 +38,9 @@ services:
     environment:
       DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
       SPARROW_SERVE_UI: "true"
-      # Required: 64-char hex key for envelope encryption (generate with: openssl rand -hex 32)
-      SPARROW_ENCRYPTION_KEY: "${SPARROW_ENCRYPTION_KEY}"
+      # Required: keyring for envelope encryption; each key value should be a cryptographically random 32-byte (256-bit) key encoded as 64 hex chars (for example: openssl rand -hex 32)
+      SPARROW_ENCRYPTION_KEYS: "${SPARROW_ENCRYPTION_KEYS}"
+      SPARROW_ENCRYPTION_PRIMARY_KEY_ID: "${SPARROW_ENCRYPTION_PRIMARY_KEY_ID}"
       # Optional: require an API key for all requests
       # SPARROW_API_KEY: "change-me-to-a-secure-random-string"
       # Optional: custom port (default HTTP=8080)

@@ -27,7 +27,7 @@ Model](/sparrow/reference/security/) reference page.
 | Control | Mechanism |
 |---|---|
 | API authentication | Shared secret: `SPARROW_API_KEY` → `X-API-Key` header, constant-time compare; mandatory in production |
-| Secrets at rest | Envelope encryption (AES-256-GCM, per-record DEK) keyed by `SPARROW_ENCRYPTION_KEY` |
+| Secrets at rest | Envelope encryption (AES-256-GCM, per-record DEK) keyed by the `SPARROW_ENCRYPTION_KEYS` keyring |
 | Outbound signing | Standard Webhooks signatures (`v1` HMAC-SHA256, `v1a` Ed25519) on every delivery |
 | SSRF protection | Private/loopback/link-local/metadata IPs blocked at dial time; redirects re-validated |
 | Browser access | `CORS_ALLOWED_ORIGINS` allowlist; security headers on all responses |
@@ -222,7 +222,7 @@ Whether or not you add SSO:
 - [ ] Set `SPARROW_API_KEY` (generate: `openssl rand -hex 32`) — mandatory
       when `ENVIRONMENT=production`, and without it anyone who can reach the
       port owns the instance regardless of environment.
-- [ ] Set `SPARROW_ENCRYPTION_KEY` and store it in a secret manager, never in
+- [ ] Configure `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`, and store the key material in a secret manager, never in
       the database or repo.
 - [ ] Use TLS to PostgreSQL (`sslmode=require` or stronger) whenever the
       database is not on localhost.

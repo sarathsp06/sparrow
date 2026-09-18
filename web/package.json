@@ -8,10 +8,11 @@
 		"build": "PUBLIC_API_URL=/ vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
+		"test": "playwright test",
+		"test:unit": "node --test --experimental-strip-types src/lib/portal-token.test.mjs",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"gen:api-types": "openapi-typescript ../api/openapi.yaml -o src/lib/api-types.d.ts",
-		"test": "playwright test"
+		"gen:api-types": "openapi-typescript ../api/openapi.yaml -o src/lib/api-types.d.ts"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.56.0",

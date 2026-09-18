@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 func newPortalGateway(t *testing.T) (*PortalTokens, http.Handler, *string) {
@@ -35,8 +37,62 @@ func doBearer(handler http.Handler, method, path, token string) int {
 	return rr.Code
 }
 
+func testPortalKeyring(t *testing.T, primary string) *crypto.Keyring {
+	t.Helper()
+	keyring, err := crypto.NewKeyring([]crypto.Key{
+		{ID: "old", Material: []byte("01234567890123456789012345678901")},
+		{ID: "new", Material: []byte("abcdefghijklmnopqrstuvwxyz012345")},
+	}, primary)
+	if err != nil {
+		t.Fatalf("NewKeyring() error = %v", err)
+	}
+	return keyring
+}
+
+func TestPortalTokens_V2MintIncludesKeyID(t *testing.T) {
+	pt := NewPortalTokensFromKeyring(testPortalKeyring(t, "new"))
+	token, _, err := pt.Mint("acme", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := strings.Split(token, ".")
+	if len(parts) != 5 {
+		t.Fatalf("token parts = %d, want 5", len(parts))
+	}
+	if parts[0] != portalTokenPrefixV2 {
+		t.Fatalf("token prefix = %q, want %q", parts[0], portalTokenPrefixV2)
+	}
+	if parts[1] != "new" {
+		t.Fatalf("token key id = %q, want new", parts[1])
+	}
+}
+
+func TestPortalTokens_RejectLegacyV1Tokens(t *testing.T) {
+	pt := NewPortalTokensFromKeyring(testPortalKeyring(t, "new"))
+	if _, err := pt.Verify("spt_v1.YWNtZQ.1735689600.signature"); err == nil {
+		t.Fatal("legacy token verified")
+	}
+}
+
+func TestPortalTokens_VerifyV2WithKnownSecondaryKey(t *testing.T) {
+	beforeRotation := NewPortalTokensFromKeyring(testPortalKeyring(t, "old"))
+	afterRotation := NewPortalTokensFromKeyring(testPortalKeyring(t, "new"))
+
+	token, _, err := beforeRotation.Mint("acme", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consumer, err := afterRotation.Verify(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if consumer != "acme" {
+		t.Fatalf("consumer = %q, want acme", consumer)
+	}
+}
+
 func TestPortalTokenMintVerifyRoundTrip(t *testing.T) {
-	pt := NewPortalTokens([]byte("key"))
+	pt := NewPortalTokens([]byte("01234567890123456789012345678901"))
 	token, exp, err := pt.Mint("acme", time.Hour)
 	if err != nil {
 		t.Fatal(err)
@@ -51,21 +107,25 @@ func TestPortalTokenMintVerifyRoundTrip(t *testing.T) {
 	if consumer != "acme" {
 		t.Fatalf("consumer = %q, want acme", consumer)
 	}
+	parts := strings.Split(token, ".")
+	if len(parts) != 5 || parts[0] != portalTokenPrefixV2 {
+		t.Fatalf("token = %q, want v2 format", token)
+	}
 }
 
 func TestPortalTokenRejectsTamperedAndExpired(t *testing.T) {
-	pt := NewPortalTokens([]byte("key"))
+	pt := NewPortalTokens([]byte("01234567890123456789012345678901"))
 	token, _, _ := pt.Mint("acme", time.Hour)
 
 	// Tampered consumer segment: signature no longer matches.
 	parts := strings.Split(token, ".")
-	parts[1] = "ZXZpbA" // base64url("evil")
+	parts[2] = "ZXZpbA" // base64url("evil")
 	if _, err := pt.Verify(strings.Join(parts, ".")); err == nil {
 		t.Fatal("tampered token verified")
 	}
 
 	// Different key: signature invalid.
-	other := NewPortalTokens([]byte("other"))
+	other := NewPortalTokens([]byte("abcdefghijklmnopqrstuvwxyz012345"))
 	if _, err := other.Verify(token); err == nil {
 		t.Fatal("cross-key token verified")
 	}
@@ -74,7 +134,7 @@ func TestPortalTokenRejectsTamperedAndExpired(t *testing.T) {
 	// clock; simulate by hand-crafting an already-expired token.
 	expired, _, _ := pt.Mint("acme", time.Second)
 	partsExp := strings.Split(expired, ".")
-	partsExp[2] = "1000000000" // year 2001 — signature won't match, also expired
+	partsExp[3] = "1000000000" // year 2001 — signature won't match, also expired
 	if _, err := pt.Verify(strings.Join(partsExp, ".")); err == nil {
 		t.Fatal("expired/tampered token verified")
 	}

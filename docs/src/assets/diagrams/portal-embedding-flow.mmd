@@ -4,7 +4,7 @@ sequenceDiagram
     participant S as sparrow:8080 (private / VPN)
     U->>A: 1. Log in with your own auth
     A->>S: 2. POST portal-token (X-API-Key: admin key)
-    S-->>A: token + link /portal#token=spt_v1...
+    S-->>A: token + link /portal#token=spt_v2...
     A-->>U: 3. Hand over link or iframe
     U->>A: 4. GET /portal and /_app/*.js
     A->>S: forward (no admin key)

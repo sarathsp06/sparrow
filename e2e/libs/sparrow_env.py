@@ -13,6 +13,8 @@ from testcontainers.core.container import DockerContainer
 
 SPARROW_IMAGE = os.environ.get("SPARROW_IMAGE", os.environ.get("sparrow_image", "sparrow:e2e"))
 ENCRYPTION_KEY = os.environ.get("encryption_key", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+ENCRYPTION_KEYS = os.environ.get("encryption_keys", f"main={ENCRYPTION_KEY}")
+ENCRYPTION_PRIMARY_KEY_ID = os.environ.get("encryption_primary_key_id", "main")
 
 
 class SparrowEnvironment:
@@ -44,7 +46,8 @@ class SparrowEnvironment:
         self._sparrow = DockerContainer(SPARROW_IMAGE)
         self._sparrow.with_env("DATABASE_URL", db_url)
         self._sparrow.with_env("SPARROW_SERVE_UI", "false")
-        self._sparrow.with_env("SPARROW_ENCRYPTION_KEY", ENCRYPTION_KEY)
+        self._sparrow.with_env("SPARROW_ENCRYPTION_KEYS", ENCRYPTION_KEYS)
+        self._sparrow.with_env("SPARROW_ENCRYPTION_PRIMARY_KEY_ID", ENCRYPTION_PRIMARY_KEY_ID)
         self._sparrow.with_env("SPARROW_ALLOW_PRIVATE_NETWORKS", "true")
         self._sparrow.with_env("SPARROW_HTTP_PORT", "8080")
         self._sparrow.with_exposed_ports(8080)
@@ -68,7 +71,8 @@ class SparrowEnvironment:
         self._authed = DockerContainer(SPARROW_IMAGE)
         self._authed.with_env("DATABASE_URL", db_url)
         self._authed.with_env("SPARROW_SERVE_UI", "false")
-        self._authed.with_env("SPARROW_ENCRYPTION_KEY", ENCRYPTION_KEY)
+        self._authed.with_env("SPARROW_ENCRYPTION_KEYS", ENCRYPTION_KEYS)
+        self._authed.with_env("SPARROW_ENCRYPTION_PRIMARY_KEY_ID", ENCRYPTION_PRIMARY_KEY_ID)
         self._authed.with_env("SPARROW_ALLOW_PRIVATE_NETWORKS", "true")
         self._authed.with_env("SPARROW_HTTP_PORT", "8080")
         self._authed.with_env("SPARROW_API_KEY", api_key)

@@ -54,6 +54,9 @@ docker-purge: ## Stop and remove Docker containers, networks, volumes, and image
 run-web: ## Run the web development server
 	cd web && npm run dev
 
+web-test: ## Run frontend unit tests
+	cd web && npm run test:unit
+
 # The CLI (satellites/sparrow) and pkg/{signature,template} are separate Go
 # modules joined by the committed go.work (see docs/adr/0002-cli-module-split.md).
 # Root ./... only covers the root module, so the workspace modules are listed

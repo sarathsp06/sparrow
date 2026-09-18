@@ -40,7 +40,7 @@ These principles apply globally to Sparrow, not just this feature set:
 | Ed25519 signing | Complete | Opt-in via `signature_type: ed25519` (adds `v1a,` alongside HMAC `v1,`), per-webhook keypair, hex public key via API |
 | Signature verification helpers | Complete | Go `pkg/signature`, Python + TS/JS verifiers in `client/verify/`, documented in README "Verifying Webhook Signatures" |
 | SSRF protection | Complete | Blocks private/loopback/metadata IPs, validates redirects |
-| Envelope encryption | Complete | AES-256-GCM for webhook secrets + secret headers |
+| Envelope encryption | Complete | AES-256-GCM for webhook secrets + secret headers, with KEK keyring rotation support |
 | Health tracking | Complete | State machine (healthy/degraded/unhealthy), rolling summaries |
 | Soft schema validation | Complete | Warnings not errors, `schema_valid` flag on events |
 | Batch re-push/retry | Complete | Deterministic snapshot-based, up to 10K items, async via River |

@@ -125,7 +125,7 @@ When a subscription has `transform_enabled = true` and a `transform_template`, t
 Every webhook delivery includes these headers:
 
 - `Content-Type: application/json`
-- `User-Agent: Sparrow-Webhook/<version>` (set at build time, e.g. `Sparrow-Webhook/0.2.0`)
+- `User-Agent: Sparrow-Webhook/<version>` (set at build time, e.g. `Sparrow-Webhook/0.5.6`)
 - `X-Sparrow-Event-ID` -- Same as `event_id` in the body.
 - `X-Sparrow-Delivery-ID` -- Same as `delivery_id` in the body.
 - `X-Sparrow-Webhook-ID` -- Same as `webhook_id` in the body.
@@ -209,21 +209,22 @@ Webhook secrets (`webhook_secret`) and sensitive headers (`secret_headers`) are 
 
 ### How It Works
 
-Each encrypted value uses a unique random data encryption key (DEK). The DEK is wrapped (encrypted) by the master key encryption key (KEK) and stored alongside the ciphertext:
+Each encrypted value uses a unique random data encryption key (DEK). The DEK is wrapped (encrypted) by a key encryption key (KEK) and stored alongside the ciphertext:
 
 ```
-[version:1] [edek_len:2 LE] [wrapped_dek:60] [nonce:12] [ciphertext+tag]
+[version:2] [kid_len:1] [key_id:kid_len] [edek_len:2 LE] [wrapped_dek:60] [nonce:12] [ciphertext+tag]
 ```
 
-- **Version byte** (`0x01`) identifies the envelope format
+- **Version byte** (`0x02`) identifies the envelope format
+- **Key ID** selects which KEK wrapped the DEK, so ciphertext decrypts deterministically during rotations
 - **Wrapped DEK** (60 bytes) = 12-byte nonce + 32-byte DEK + 16-byte GCM tag
 - **Data ciphertext** uses its own 12-byte nonce + GCM authenticated encryption
 
 ### Key Resolution
 
-The KEK is provided via the `SPARROW_ENCRYPTION_KEY` environment variable (64-char hex = 32 bytes). The server will not start without it. Generate one with `openssl rand -hex 32`.
+The KEK is provided by the `SPARROW_ENCRYPTION_KEYS` keyring plus `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`. The server will not start without both variables. Generate keys with `openssl rand -hex 32`.
 
-The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager or `.env` file to provide the key.
+The key material is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager, Kubernetes Secret, or `.env` file to provide the key. During a rotation, Sparrow encrypts new values with the primary key and continues decrypting existing values with any configured secondary keys.
 
 See the [Security Model](/sparrow/reference/security/) page for API
 authentication, SSRF protection, HTTP hardening, secret masking, and tenant

@@ -14,7 +14,8 @@ All configuration is done via environment variables. No config files needed.
 | `DATABASE_URL` | Yes | `postgres://localhost/riverqueue?sslmode=disable` (dev-only fallback) | PostgreSQL connection string |
 | `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard on the HTTP port |
 | `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests |
-| `SPARROW_ENCRYPTION_KEY` | Yes | -- | 64-char hex key (32 bytes) for envelope encryption of webhook secrets and headers. Generate with `openssl rand -hex 32` |
+| `SPARROW_ENCRYPTION_KEYS` | Yes | -- | Keyring entries as comma-separated `<key-id>=<64-char-hex-key>` pairs where each value is a cryptographically random 32-byte (256-bit) key hex-encoded to 64 chars (`key-id` chars: `A-Z`, `a-z`, `0-9`, `_`, `-`) |
+| `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Yes | -- | Which configured key ID is primary for new encryption |
 | `SPARROW_HTTP_PORT` | No | `8080` | HTTP listen port for the REST/OpenAPI API (also serves the web UI) |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private IP addresses as webhook URLs. Enable for local development and testing |
 | `ENVIRONMENT` | No | -- | Deployment tag; any value is accepted. Set to `production` to block cross-origin requests by default (see `CORS_ALLOWED_ORIGINS`) and tag logs/OTel; any other value behaves as development. |
@@ -24,6 +25,8 @@ All configuration is done via environment variables. No config files needed.
 | `SPARROW_ALERT_FROM_EMAIL` | No | `alerts@example.com` | Verified SendGrid sender address for alert emails |
 | `SPARROW_ALERT_FROM_NAME` | No | `Sparrow` | Sender display name for alert emails |
 | `SPARROW_EVENT_RETENTION_DAYS` | No | `0` (keep forever) | Purge events — and, via cascade, their deliveries — older than this many days. Runs hourly in the background. |
+
+For a single-key deployment, still use the keyring format: `SPARROW_ENCRYPTION_KEYS=main=<64-char-hex-key>` with `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main`.
 
 ### Frontend Development Variables
 
@@ -35,21 +38,28 @@ These variables are used only when running the SvelteKit web UI in development m
 
 ## Encryption
 
-Sparrow encrypts webhook secrets and sensitive headers at rest using **envelope encryption** (AES-256-GCM). Each record gets its own random data encryption key (DEK), which is wrapped by the master key encryption key (KEK).
+Sparrow encrypts webhook secrets and sensitive headers at rest using **envelope encryption** (AES-256-GCM). Each record gets its own random data encryption key (DEK), which is wrapped by a configured key encryption key (KEK).
 
 ### Key Management
 
-The encryption key is provided via the `SPARROW_ENCRYPTION_KEY` environment variable (64-char hex string = 32 bytes). The server will not start without it.
+Configure encryption with `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID`.
 
-The key is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Use a secrets manager or `.env` file to provide the key:
+The server will not start without both of these variables.
+
+The key material is **never** stored in the database. Storing the encryption key next to the data it protects defeats the purpose of encryption at rest. Each key value should be a cryptographically random 32-byte (256-bit) key, hex-encoded as 64 characters. `openssl rand -hex 32` is a suitable way to generate one. Use a secrets manager, Kubernetes Secret, or `.env` file to provide the key:
 
 ```bash
-# Generate a key
-openssl rand -hex 32
+# Single-key deployment in keyring form
+export SPARROW_ENCRYPTION_KEYS="main=$(openssl rand -hex 32)"
+export SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main
 
-# Set it
-export SPARROW_ENCRYPTION_KEY=your-64-char-hex-key
+# Rotation-friendly multi-key deployment
+# key IDs must use only A-Z, a-z, 0-9, _ and -
+export SPARROW_ENCRYPTION_KEYS="old=$(openssl rand -hex 32),new=$(openssl rand -hex 32)"
+export SPARROW_ENCRYPTION_PRIMARY_KEY_ID=new
 ```
+
+New writes use the primary key ID while decryption accepts all configured keys in the ring. That lets you rotate by adding a new key, switching the primary, and retiring the old key after data has been rewritten.
 
 ### What Gets Encrypted
 

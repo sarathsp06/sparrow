@@ -69,20 +69,23 @@ The fastest path is Docker Compose. No repo clone needed:
 
 ```bash
 curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
-echo "SPARROW_ENCRYPTION_KEY=$(openssl rand -hex 32)" > .env
+# 32 cryptographically random bytes, hex-encoded as 64 chars
+echo "SPARROW_ENCRYPTION_KEYS=main=$(openssl rand -hex 32)" > .env
+echo "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" >> .env
 docker compose up -d
 ```
 
-> On Windows PowerShell, replace the `openssl`/`echo` line with:
+> On Windows PowerShell, replace the key lines with:
 >
 > ```powershell
-> "SPARROW_ENCRYPTION_KEY=$(-join (1..32 | % { '{0:x2}' -f (Get-Random -Max 256) }))" | Out-File -Encoding ascii .env
+> "SPARROW_ENCRYPTION_KEYS=main=$(-join (1..32 | % { '{0:x2}' -f (Get-Random -Max 256) }))" | Out-File -Encoding ascii .env
+> "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" | Out-File -Encoding ascii -Append .env
 > ```
 
 Open <http://localhost:8080> for the UI. The REST API is on the same address, and interactive API docs are at <http://localhost:8080/docs>.
 
 > [!IMPORTANT]
-> `SPARROW_ENCRYPTION_KEY` is the master key for data encrypted at rest. Generate it once, store it in your secret manager, and back it up. Lose it and encrypted webhook secrets are unrecoverable.
+> `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` are required for data encrypted at rest. Use a cryptographically random 32-byte (256-bit) key encoded as 64 hex characters per key entry; `openssl rand -hex 32` is a suitable way to generate one. Store the key material in your secret manager and back it up. Lose it and encrypted webhook secrets are unrecoverable.
 
 If you set `SPARROW_API_KEY`, add `X-API-Key: <your-key>` to every API request.
 
@@ -98,7 +101,7 @@ make migrate                                     # apply schema
 make run                                         # go run ./cmd/server, SPARROW_SERVE_UI=true
 ```
 
-`make run` targets `DATABASE_URL=postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable` by default — override by passing `DATABASE_URL=... SPARROW_ENCRYPTION_KEY=... make run`. Server comes up on <http://localhost:8080>; migrations also run automatically on startup.
+`make run` targets `DATABASE_URL=postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable` by default — override by passing `DATABASE_URL=... SPARROW_ENCRYPTION_KEYS=main=... SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main make run`. Server comes up on <http://localhost:8080>; migrations also run automatically on startup.
 
 **Full container stack** (server + Postgres, rebuilt from source on every change):
 
@@ -190,7 +193,7 @@ What happens next: Sparrow stores the event, enqueues async fan-out work in Rive
 
 Sparrow assumes you run it inside a network you control, then adds application-level protections around secrets and delivery behavior:
 
-- **Envelope encryption** — secrets and sensitive headers are encrypted with per-record data keys wrapped by `SPARROW_ENCRYPTION_KEY`.
+- **Envelope encryption** — secrets and sensitive headers are encrypted with per-record data keys wrapped by the configured `SPARROW_ENCRYPTION_KEYS` keyring.
 - **Signed deliveries** — every request carries `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers in Standard Webhooks format.
 - **SSRF protection** — private, loopback, link-local, and cloud-metadata IPs are blocked by default, and redirects are re-validated.
 - **Optional shared-secret auth** — set `SPARROW_API_KEY` to require `X-API-Key` on API requests.
@@ -272,10 +275,13 @@ Use the Compose file in [`deploy/docker-compose.yml`](deploy/docker-compose.yml)
 
 Everything is configured through environment variables.
 
+`SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` are required. Key IDs may contain only `A-Z`, `a-z`, `0-9`, `_`, and `-`.
+
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `DATABASE_URL` | Yes | `postgres://localhost/riverqueue?sslmode=disable` | PostgreSQL connection string |
-| `SPARROW_ENCRYPTION_KEY` | Yes | — | 64-char hex master key for envelope encryption |
+| `SPARROW_ENCRYPTION_KEYS` | Yes | — | Comma-separated keyring entries as `<key-id>=<64-char-hex-key>` where each value is a cryptographically random 32-byte (256-bit) key hex-encoded to 64 chars (`key-id` chars: `A-Z`, `a-z`, `0-9`, `_`, `-`) |
+| `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Yes | — | Which configured key ID is primary for new encryption |
 | `SPARROW_API_KEY` | Only if `ENVIRONMENT=production` | — | Require `X-API-Key` on API requests |
 | `ENVIRONMENT` | No | — | `production` enforces `SPARROW_API_KEY` at startup |
 | `SPARROW_HTTP_PORT` | No | `8080` | HTTP listen port |
@@ -288,6 +294,8 @@ Everything is configured through environment variables.
 | `SPARROW_ALERT_FROM_NAME` | No | `Sparrow` | Sender display name for SendGrid alert emails |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | — | OTLP endpoint for traces, metrics, and logs (export off when unset) |
 | `SPARROW_EVENT_RETENTION_DAYS` | No | `0` (keep forever) | Purge events and their deliveries older than N days; runs hourly |
+
+For a single-key deployment, still use the keyring format: for example `SPARROW_ENCRYPTION_KEYS=main=<64-char-hex-key>` with `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main`.
 
 Full reference: [`okf/config/env-vars.md`](okf/config/env-vars.md).
 

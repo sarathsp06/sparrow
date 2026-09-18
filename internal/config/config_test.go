@@ -7,10 +7,11 @@ import (
 
 func validConfig() *Config {
 	return &Config{
-		HTTPPort:      "8080",
-		DatabaseURL:   "postgres://localhost/riverqueue?sslmode=disable",
-		EncryptionKey: strings.Repeat("ab", 32),
-		MaxBodyBytes:  5242880,
+		HTTPPort:               "8080",
+		DatabaseURL:            "postgres://localhost/riverqueue?sslmode=disable",
+		EncryptionKeys:         []string{"new=" + strings.Repeat("ab", 32)},
+		EncryptionPrimaryKeyID: "new",
+		MaxBodyBytes:           5242880,
 	}
 }
 
@@ -23,9 +24,38 @@ func TestValidate(t *testing.T) {
 		{"valid", func(c *Config) {}, ""},
 		{"production without api key", func(c *Config) { c.Environment = "production" }, "SPARROW_API_KEY"},
 		{"production with api key", func(c *Config) { c.Environment = "production"; c.APIKey = "k" }, ""},
-		{"missing encryption key", func(c *Config) { c.EncryptionKey = "" }, "SPARROW_ENCRYPTION_KEY"},
-		{"non-hex encryption key", func(c *Config) { c.EncryptionKey = strings.Repeat("zz", 32) }, "SPARROW_ENCRYPTION_KEY"},
-		{"short encryption key", func(c *Config) { c.EncryptionKey = "abcd" }, "SPARROW_ENCRYPTION_KEY"},
+		{"missing encryption keyring", func(c *Config) { c.EncryptionKeys = nil }, "SPARROW_ENCRYPTION_KEYS"},
+		{"legacy single encryption key no longer satisfies config", func(c *Config) {
+			c.EncryptionKeys = nil
+			c.EncryptionPrimaryKeyID = ""
+		}, "SPARROW_ENCRYPTION_KEYS"},
+		{"invalid keyring hex", func(c *Config) { c.EncryptionKeys = []string{"new=" + strings.Repeat("zz", 32)} }, "SPARROW_ENCRYPTION_KEYS"},
+		{"short keyring key", func(c *Config) { c.EncryptionKeys = []string{"new=abcd"} }, "SPARROW_ENCRYPTION_KEYS"},
+		{"valid encryption keyring", func(c *Config) {
+			c.EncryptionKeys = []string{
+				"old=" + strings.Repeat("ab", 32),
+				"new=" + strings.Repeat("cd", 32),
+			}
+			c.EncryptionPrimaryKeyID = "new"
+		}, ""},
+		{"single-key primary missing", func(c *Config) {
+			c.EncryptionKeys = []string{"main=" + strings.Repeat("ab", 32)}
+			c.EncryptionPrimaryKeyID = ""
+		}, "SPARROW_ENCRYPTION_PRIMARY_KEY_ID"},
+		{"keyring primary missing", func(c *Config) {
+			c.EncryptionKeys = []string{
+				"old=" + strings.Repeat("ab", 32),
+				"new=" + strings.Repeat("cd", 32),
+			}
+			c.EncryptionPrimaryKeyID = ""
+		}, "SPARROW_ENCRYPTION_PRIMARY_KEY_ID"},
+		{"keyring primary not found", func(c *Config) {
+			c.EncryptionKeys = []string{
+				"old=" + strings.Repeat("ab", 32),
+				"new=" + strings.Repeat("cd", 32),
+			}
+			c.EncryptionPrimaryKeyID = "missing"
+		}, "SPARROW_ENCRYPTION_PRIMARY_KEY_ID"},
 		{"body limit below minimum", func(c *Config) { c.MaxBodyBytes = 1024 }, "SPARROW_MAX_BODY_BYTES"},
 	}
 

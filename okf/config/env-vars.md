@@ -15,7 +15,8 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `DATABASE_URL` | PostgreSQL connection string | `postgres://localhost/riverqueue?sslmode=disable` |
-| `SPARROW_ENCRYPTION_KEY` | 64-char hex (32 bytes) KEK | Required |
+| `SPARROW_ENCRYPTION_KEYS` | KEK keyring as `<key-id>=<64-char-hex-key>` entries (`key-id` chars: `A-Z`, `a-z`, `0-9`, `_`, `-`) | Required |
+| `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Primary key ID for new encryption and portal token signing | Required |
 
 ## Server
 

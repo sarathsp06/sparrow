@@ -12,6 +12,30 @@ func testKey() []byte {
 	return []byte("01234567890123456789012345678901")
 }
 
+func otherTestKey() []byte {
+	return []byte("abcdefghijklmnopqrstuvwxyz012345")
+}
+
+func TestNewKeyring_PrimaryAndLookup(t *testing.T) {
+	keyring, err := NewKeyring([]Key{
+		{ID: "old", Material: testKey()},
+		{ID: "new", Material: otherTestKey()},
+	}, "new")
+	require.NoError(t, err)
+
+	assert.Equal(t, "new", keyring.Primary().ID)
+	_, ok := keyring.Lookup("old")
+	assert.True(t, ok)
+	_, ok = keyring.Lookup("new")
+	assert.True(t, ok)
+}
+
+func TestNewKeyring_RejectsUnsafeKeyID(t *testing.T) {
+	_, err := NewKeyring([]Key{{ID: "old.key", Material: testKey()}}, "old.key")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "key id")
+}
+
 func TestNewService_NilKey(t *testing.T) {
 	svc, err := NewService(nil)
 	require.NoError(t, err)
@@ -86,7 +110,7 @@ func TestDecrypt_TooShort(t *testing.T) {
 	svc, err := NewService(testKey())
 	require.NoError(t, err)
 
-	_, err = svc.Decrypt([]byte("short"))
+	_, err = svc.Decrypt([]byte{envelopeVersionWithKeyID})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "too short")
 }
