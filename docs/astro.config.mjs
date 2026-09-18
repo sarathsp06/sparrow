@@ -1,8 +1,8 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
-import starlightLlmsTxt from 'starlight-llms-txt';
 import sitemap from '@astrojs/sitemap';
-
+import starlightLlmsTxt from './src/lib/llms/starlight-llms-txt/index.mjs';
+import { llmsBasePrompt, llmsRootDetails } from './src/lib/llms/prompts.mjs';
 
 export default defineConfig({
   site: 'https://sarathsp06.github.io',
@@ -14,7 +14,11 @@ export default defineConfig({
         src: './src/assets/favicon.svg',
       },
       description: 'Self-hosted webhook delivery platform',
-      plugins: [starlightLlmsTxt({ projectName: 'Sparrow' })],
+      plugins: [starlightLlmsTxt({
+        projectName: 'Sparrow',
+        description: llmsBasePrompt,
+        details: llmsRootDetails,
+      })],
       social: [
         {
           icon: 'github',
