@@ -49,14 +49,11 @@ type Config struct {
 	// Env: SPARROW_ALLOW_PRIVATE_NETWORKS
 	AllowPrivateNetworks bool `envconfig:"SPARROW_ALLOW_PRIVATE_NETWORKS" default:"false"`
 
-	// EncryptionKey is a deprecated single-key configuration. It is rejected at
-	// validation time; use EncryptionKeys and EncryptionPrimaryKeyID instead.
-	// Env: SPARROW_ENCRYPTION_KEY
-	EncryptionKey string `envconfig:"SPARROW_ENCRYPTION_KEY" default:""`
-
 	// EncryptionKeys is the required keyring configuration. Each entry
-	// must be "<key-id>=<64-char-hex-key>". New encryption uses the primary key;
-	// all configured keys remain valid for decryption.
+	// must be "<key-id>=<64-char-hex-key>" where the key is a cryptographically
+	// random 32-byte (256-bit) value encoded as 64 hex characters. New
+	// encryption uses the primary key; all configured keys remain valid for
+	// decryption.
 	// Env: SPARROW_ENCRYPTION_KEYS
 	EncryptionKeys []string `envconfig:"SPARROW_ENCRYPTION_KEYS" default:""`
 
@@ -166,10 +163,6 @@ func (c *Config) EncryptionKeyring() (*crypto.Keyring, error) {
 		if entry != "" {
 			entries = append(entries, entry)
 		}
-	}
-
-	if c.EncryptionKey != "" {
-		return nil, fmt.Errorf("SPARROW_ENCRYPTION_KEY is no longer supported; use SPARROW_ENCRYPTION_KEYS and SPARROW_ENCRYPTION_PRIMARY_KEY_ID")
 	}
 
 	if len(entries) == 0 {

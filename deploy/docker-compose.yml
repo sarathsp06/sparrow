@@ -1,6 +1,7 @@
 # Sparrow -- standalone deployment using the published Docker image.
 # No need to clone the repo. Just save this file and run:
 #
+#   # 32 cryptographically random bytes, hex-encoded as 64 chars
 #   echo "SPARROW_ENCRYPTION_KEYS=main=$(openssl rand -hex 32)" > .env
 #   echo "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" >> .env
 #   docker compose up -d
@@ -37,7 +38,7 @@ services:
     environment:
       DATABASE_URL: postgres://sparrow:sparrow@postgres:5432/sparrow?sslmode=disable
       SPARROW_SERVE_UI: "true"
-      # Required: keyring for envelope encryption (generate with: openssl rand -hex 32)
+      # Required: keyring for envelope encryption; each key value should be a cryptographically random 32-byte (256-bit) key encoded as 64 hex chars (for example: openssl rand -hex 32)
       SPARROW_ENCRYPTION_KEYS: "${SPARROW_ENCRYPTION_KEYS}"
       SPARROW_ENCRYPTION_PRIMARY_KEY_ID: "${SPARROW_ENCRYPTION_PRIMARY_KEY_ID}"
       # Optional: require an API key for all requests

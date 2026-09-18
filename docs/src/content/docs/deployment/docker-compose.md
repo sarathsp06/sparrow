@@ -9,6 +9,7 @@ The simplest way to run Sparrow. No need to clone the repo -- download the compo
 
 ```bash
 curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
+# 32 cryptographically random bytes, hex-encoded as 64 chars
 echo "SPARROW_ENCRYPTION_KEYS=main=$(openssl rand -hex 32)" > .env
 echo "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" >> .env
 docker compose up -d
@@ -24,6 +25,8 @@ docker compose up -d
 
 > [!IMPORTANT]
 > `SPARROW_ENCRYPTION_KEYS` is never stored by Sparrow -- it only decrypts what
+> it already encrypted, and each key value should be a cryptographically random
+> 32-byte (256-bit) key hex-encoded as 64 characters.
 > it already encrypted. Writing it to `.env` (not passing it inline to a
 > single command) is required: an inline `KEY=$(openssl rand -hex 32) docker
 > compose up -d` generates a *new* random key on every invocation and

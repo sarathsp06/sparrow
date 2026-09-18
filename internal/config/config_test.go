@@ -25,10 +25,9 @@ func TestValidate(t *testing.T) {
 		{"production without api key", func(c *Config) { c.Environment = "production" }, "SPARROW_API_KEY"},
 		{"production with api key", func(c *Config) { c.Environment = "production"; c.APIKey = "k" }, ""},
 		{"missing encryption keyring", func(c *Config) { c.EncryptionKeys = nil }, "SPARROW_ENCRYPTION_KEYS"},
-		{"legacy single encryption key rejected", func(c *Config) {
+		{"legacy single encryption key no longer satisfies config", func(c *Config) {
 			c.EncryptionKeys = nil
 			c.EncryptionPrimaryKeyID = ""
-			c.EncryptionKey = strings.Repeat("ab", 32)
 		}, "SPARROW_ENCRYPTION_KEYS"},
 		{"invalid keyring hex", func(c *Config) { c.EncryptionKeys = []string{"new=" + strings.Repeat("zz", 32)} }, "SPARROW_ENCRYPTION_KEYS"},
 		{"short keyring key", func(c *Config) { c.EncryptionKeys = []string{"new=abcd"} }, "SPARROW_ENCRYPTION_KEYS"},

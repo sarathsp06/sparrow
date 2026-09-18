@@ -69,6 +69,7 @@ The fastest path is Docker Compose. No repo clone needed:
 
 ```bash
 curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
+# 32 cryptographically random bytes, hex-encoded as 64 chars
 echo "SPARROW_ENCRYPTION_KEYS=main=$(openssl rand -hex 32)" > .env
 echo "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" >> .env
 docker compose up -d
@@ -84,7 +85,7 @@ docker compose up -d
 Open <http://localhost:8080> for the UI. The REST API is on the same address, and interactive API docs are at <http://localhost:8080/docs>.
 
 > [!IMPORTANT]
-> `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` are required for data encrypted at rest. Store the key material in your secret manager and back it up. Lose it and encrypted webhook secrets are unrecoverable.
+> `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` are required for data encrypted at rest. Use a cryptographically random 32-byte (256-bit) key encoded as 64 hex characters per key entry; `openssl rand -hex 32` is a suitable way to generate one. Store the key material in your secret manager and back it up. Lose it and encrypted webhook secrets are unrecoverable.
 
 If you set `SPARROW_API_KEY`, add `X-API-Key: <your-key>` to every API request.
 
@@ -279,7 +280,7 @@ Everything is configured through environment variables.
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
 | `DATABASE_URL` | Yes | `postgres://localhost/riverqueue?sslmode=disable` | PostgreSQL connection string |
-| `SPARROW_ENCRYPTION_KEYS` | Yes | — | Comma-separated keyring entries as `<key-id>=<64-char-hex-key>` (`key-id` chars: `A-Z`, `a-z`, `0-9`, `_`, `-`) |
+| `SPARROW_ENCRYPTION_KEYS` | Yes | — | Comma-separated keyring entries as `<key-id>=<64-char-hex-key>` where each value is a cryptographically random 32-byte (256-bit) key hex-encoded to 64 chars (`key-id` chars: `A-Z`, `a-z`, `0-9`, `_`, `-`) |
 | `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Yes | — | Which configured key ID is primary for new encryption |
 | `SPARROW_API_KEY` | Only if `ENVIRONMENT=production` | — | Require `X-API-Key` on API requests |
 | `ENVIRONMENT` | No | — | `production` enforces `SPARROW_API_KEY` at startup |
