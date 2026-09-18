@@ -70,11 +70,6 @@ jobs:
           go-version: '1.26.1'
           cache: true
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
       - name: Ensure embedded UI placeholder exists
         run: |
           mkdir -p internal/ui/dist
@@ -82,9 +77,6 @@ jobs:
 
       - name: Install dependencies
         run: go mod download
-
-      - name: Run frontend tests
-        run: cd web && npm test
 
       - name: Run tests
         env:
@@ -126,6 +118,10 @@ jobs:
       - name: Install web dependencies
         working-directory: web
         run: npm ci
+
+      - name: Run frontend unit tests
+        working-directory: web
+        run: npm run test:unit
 
       - name: Run UI browser tests
         run: make test-ui

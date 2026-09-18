@@ -55,7 +55,7 @@ run-web: ## Run the web development server
 	cd web && npm run dev
 
 web-test: ## Run frontend unit tests
-	cd web && npm test
+	cd web && npm run test:unit
 
 # The CLI (satellites/sparrow) and pkg/{signature,template} are separate Go
 # modules joined by the committed go.work (see docs/adr/0002-cli-module-split.md).
@@ -67,7 +67,6 @@ MODULE_TEST_PATHS := ./... \
 	github.com/sarathsp06/sparrow/pkg/template/...
 
 test: ## Run tests (all modules)
-	cd web && npm test
 	go test -v $(MODULE_TEST_PATHS)
 
 test-integration: ## Run integration tests (requires Docker for testcontainers)
