@@ -104,7 +104,7 @@ type patchWebhookBody struct {
 	Timeout       *int               `json:"timeout,omitempty" doc:"Replace the request timeout in seconds (equivalent to http_config.request_timeout_seconds)."`
 	Active        *bool              `json:"active,omitempty" doc:"Enable or disable the webhook."`
 	Description   *string            `json:"description,omitempty" doc:"Replace the human-readable description."`
-	SecretHeaders *map[string]string `json:"secret_headers,omitempty" doc:"Replace the encrypted, masked-on-read secret headers."`
+	SecretHeaders *map[string]string `json:"secret_headers,omitempty" doc:"Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it."`
 	SignatureType *string            `json:"signature_type,omitempty" doc:"Replace the authoritative signature algorithm (hmac or ed25519)."`
 	HTTPConfig    *webhookHTTPConfig `json:"http_config,omitempty" doc:"Replace the HTTP delivery configuration."`
 }

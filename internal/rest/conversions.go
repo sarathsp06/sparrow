@@ -112,7 +112,7 @@ type WebhookOut struct {
 	Active           bool                 `json:"active" doc:"Whether the webhook currently receives deliveries."`
 	Description      string               `json:"description,omitempty" doc:"Human-readable note about this webhook."`
 	Health           string               `json:"health" enum:"healthy,degraded,unhealthy,unknown" doc:"Computed rolling health status."`
-	SecretHeaders    map[string]string    `json:"secret_headers,omitempty" doc:"Encrypted secret header names, with values always masked."`
+	SecretHeaders    map[string]string    `json:"secret_headers,omitempty" doc:"Encrypted secret header names, with values always masked. Update them via PATCH secret_headers; send an empty string to remove one."`
 	SigningPublicKey string               `json:"signing_public_key,omitempty" doc:"Hex-encoded Ed25519 public key for verifying the v1a, delivery signature. Safe to expose; there is no private-key equivalent to mask."`
 	SignatureType    string               `json:"signature_type" enum:"hmac,ed25519" doc:"Signing scheme. \"hmac\" (default) signs every delivery with HMAC-SHA256 (v1,); \"ed25519\" adds an Ed25519 signature (v1a,) alongside the HMAC one."`
 	HTTPConfig       WebhookHTTPConfigOut `json:"http_config" doc:"Per-webhook HTTP delivery configuration."`

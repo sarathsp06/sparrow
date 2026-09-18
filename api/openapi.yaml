@@ -869,7 +869,7 @@ components:
         secret_headers:
           additionalProperties:
             type: string
-          description: Replace the encrypted, masked-on-read secret headers.
+          description: Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it.
           type: object
         signature_type:
           description: Replace the authoritative signature algorithm (hmac or ed25519).
@@ -1531,7 +1531,7 @@ components:
         secret_headers:
           additionalProperties:
             type: string
-          description: Encrypted secret header names, with values always masked.
+          description: Encrypted secret header names, with values always masked. Update them via PATCH secret_headers; send an empty string to remove one.
           type: object
         signature_type:
           description: Signing scheme. "hmac" (default) signs every delivery with HMAC-SHA256 (v1,); "ed25519" adds an Ed25519 signature (v1a,) alongside the HMAC one.

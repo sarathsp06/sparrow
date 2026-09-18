@@ -647,13 +647,32 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 			webhook.RateLimitRPS = httpConfig.RateLimitRPS
 		}
 	}
-	// Encrypt and set secret headers if in mask (or legacy non-empty)
-	if shouldUpdate("secret_headers") && len(secretHeaders) > 0 {
-		encrypted, err := s.EncryptSecretHeaders(secretHeaders)
+	// Merge secret header updates into the existing encrypted map.
+	// Empty-string values remove a header; omitted keys stay untouched.
+	if shouldUpdate("secret_headers") {
+		mergedSecretHeaders, err := s.DecryptSecretHeaders(webhook.SecretHeaders)
 		if err != nil {
-			return fmt.Errorf("failed to encrypt secret headers: %w", err)
+			return fmt.Errorf("failed to decrypt existing secret headers: %w", err)
 		}
-		webhook.SecretHeaders = encrypted
+		if len(secretHeaders) == 0 {
+			webhook.SecretHeaders = nil
+		} else {
+			if mergedSecretHeaders == nil {
+				mergedSecretHeaders = map[string]string{}
+			}
+			for key, value := range secretHeaders {
+				if value == "" {
+					delete(mergedSecretHeaders, key)
+					continue
+				}
+				mergedSecretHeaders[key] = value
+			}
+			encrypted, err := s.EncryptSecretHeaders(mergedSecretHeaders)
+			if err != nil {
+				return fmt.Errorf("failed to encrypt secret headers: %w", err)
+			}
+			webhook.SecretHeaders = encrypted
+		}
 	}
 	// Update signature_type if in mask (or legacy non-empty)
 	if shouldUpdate("signature_type") && signatureType != "" {

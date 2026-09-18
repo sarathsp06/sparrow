@@ -355,7 +355,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/WebhookServiceInterface_otel.go": {
-    "mtime": 1789673082.8459787,
+    "mtime": 1789731390.0531433,
     "ast_hash": "73c70d3e99a37deb85ffa023f0025a49",
     "semantic_hash": ""
   },
@@ -415,7 +415,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/JobInserter_otel.go": {
-    "mtime": 1789673083.6446269,
+    "mtime": 1789731390.7592778,
     "ast_hash": "68656aa23b9ee0ef2b6509ca6284e84e",
     "semantic_hash": "68656aa23b9ee0ef2b6509ca6284e84e"
   },
@@ -465,7 +465,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/store/RepositoryInterface_otel.go": {
-    "mtime": 1789673086.3274176,
+    "mtime": 1789731393.376958,
     "ast_hash": "121ff1fc7b173d7c2f0cc5a6a1916775",
     "semantic_hash": ""
   },
@@ -520,8 +520,8 @@
     "semantic_hash": ""
   },
   "internal/webhooks/webhook_service_test.go": {
-    "mtime": 1789376573.689316,
-    "ast_hash": "e920b9f56d59197fb86e548bb7a651b3",
+    "mtime": 1789731371.6267588,
+    "ast_hash": "a4bb13387613cebfb6b6334b15ec661b",
     "semantic_hash": ""
   },
   "opencode.json": {
@@ -715,13 +715,13 @@
     "semantic_hash": ""
   },
   "web/src/routes/webhooks/[webhookId]/+page.svelte": {
-    "mtime": 1789674582.3607576,
-    "ast_hash": "686dc5b06223c6e099199bde27478908",
+    "mtime": 1789731328.2585473,
+    "ast_hash": "4091bbc2a3552ba3497dc9b7e32081a0",
     "semantic_hash": ""
   },
   "web/src/routes/webhooks/register/+page.svelte": {
-    "mtime": 1789675576.0565238,
-    "ast_hash": "53816102ea7007a00b13bea0e235caba",
+    "mtime": 1789726093.8085938,
+    "ast_hash": "b3b49a5cedda4002a7cd767e0cd1ab34",
     "semantic_hash": ""
   },
   "web/svelte.config.js": {
@@ -935,8 +935,8 @@
     "semantic_hash": ""
   },
   "internal/webhooks/webhook_service_registration.go": {
-    "mtime": 1789485693.0861945,
-    "ast_hash": "8253d9a0f6349a5669bc4fd2cf2f92f7",
+    "mtime": 1789731328.2610476,
+    "ast_hash": "2c823a88b8b58fca72da981c612f5860",
     "semantic_hash": ""
   },
   "internal/webhooks/webhook_service_subscription.go": {
@@ -945,8 +945,8 @@
     "semantic_hash": ""
   },
   "api/openapi.json": {
-    "mtime": 1789673076.6501207,
-    "ast_hash": "fa727befb69ba81f80edc865c19391bb",
+    "mtime": 1789731386.6825285,
+    "ast_hash": "33b8ea9c0e0c80c63a85b2aaf10812dd",
     "semantic_hash": ""
   },
   "client/verify/js/sparrow-verify.ts": {
@@ -985,8 +985,8 @@
     "semantic_hash": ""
   },
   "internal/rest/conversions.go": {
-    "mtime": 1789385863.7811751,
-    "ast_hash": "50fae8aedd45977a08b622cb310558ad",
+    "mtime": 1789731328.265097,
+    "ast_hash": "975cb5b4aed41a12880f8f24faa70d84",
     "semantic_hash": ""
   },
   "internal/rest/delivery.go": {
@@ -1025,8 +1025,8 @@
     "semantic_hash": ""
   },
   "internal/rest/webhook.go": {
-    "mtime": 1789385939.7134755,
-    "ast_hash": "8a8d0f5515a546d72381aee787866204",
+    "mtime": 1789731328.2633336,
+    "ast_hash": "7d681112d616d61cfa2fa2c40bd70ef2",
     "semantic_hash": ""
   },
   "internal/webhooks/client/request_verify_test.go": {
@@ -1070,8 +1070,8 @@
     "semantic_hash": ""
   },
   "api/openapi.yaml": {
-    "mtime": 1789673076.6437976,
-    "ast_hash": "08366b8959052d1db028cc386ce35b4a",
+    "mtime": 1789731386.6764987,
+    "ast_hash": "b6a96c1c17a2608054588a9ee972bea5",
     "semantic_hash": ""
   },
   "docs/public/diagrams/sparrow-layered-architecture.html": {
@@ -1907,16 +1907,6 @@
   "satellites/recipes/catalog.go": {
     "mtime": 1789673003.5663443,
     "ast_hash": "370176dae8c5811edf991b3c65a4da08",
-    "semantic_hash": ""
-  },
-  "web/test-results/.last-run.json": {
-    "mtime": 1789711016.2791402,
-    "ast_hash": "f196824657d8858bc7fa44eecbba38b1",
-    "semantic_hash": ""
-  },
-  "web/playwright-report/index.html": {
-    "mtime": 1789711016.2789462,
-    "ast_hash": "0197c11395a7d25369f4d03650dbad28",
     "semantic_hash": ""
   },
   "docs/src/lib/llms/prompts.mjs": {

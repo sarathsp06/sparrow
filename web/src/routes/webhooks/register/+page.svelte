@@ -354,7 +354,7 @@
         {#each secretHeaders as h, i}
           <div class="flex gap-2 mb-2">
             <input type="text" placeholder="key" bind:value={h.key} class="input flex-1" />
-            <input type="password" placeholder="value" bind:value={h.value} class="input flex-1" />
+            <input type="text" placeholder="value" bind:value={h.value} class="input flex-1" />
             <button type="button" onclick={() => removeSecretHeader(i)} class="px-2 text-faint hover:text-bad transition-colors" aria-label="Remove secret header">&times;</button>
           </div>
         {/each}

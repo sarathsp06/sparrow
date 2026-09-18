@@ -59,6 +59,7 @@
   let configSecretHeaderKey = $state('');
   let configSecretHeaderValue = $state('');
   let existingSecretHeaderKeys = $state<Set<string>>(new Set());
+  let removedSecretHeaderKeys = $state<Set<string>>(new Set());
   let newSecretHeaders = $state<Record<string, string>>({});
 
   let confirmUnregister = $state(false);
@@ -253,6 +254,7 @@
       headers: { ...(webhook.headers || {}) },
     };
     existingSecretHeaderKeys = new Set(Object.keys(webhook.secret_headers || {}));
+    removedSecretHeaderKeys = new Set();
     newSecretHeaders = {};
     configHeaderKey = '';
     configHeaderValue = '';
@@ -282,17 +284,30 @@
   function addConfigSecretHeader() {
     if (configSecretHeaderKey.trim() && configSecretHeaderValue.trim()) {
       const key = configSecretHeaderKey.trim();
-      existingSecretHeaderKeys.delete(key);
-      existingSecretHeaderKeys = new Set(existingSecretHeaderKeys);
+      removedSecretHeaderKeys.delete(key);
+      removedSecretHeaderKeys = new Set(removedSecretHeaderKeys);
       newSecretHeaders = { ...newSecretHeaders, [key]: configSecretHeaderValue.trim() };
       configSecretHeaderKey = '';
       configSecretHeaderValue = '';
     }
   }
 
+  function updateConfigSecretHeaderValue(key: string, value: string) {
+    removedSecretHeaderKeys.delete(key);
+    removedSecretHeaderKeys = new Set(removedSecretHeaderKeys);
+    if (value.trim()) {
+      newSecretHeaders = { ...newSecretHeaders, [key]: value };
+      return;
+    }
+    const { [key]: _, ...rest } = newSecretHeaders;
+    newSecretHeaders = rest;
+  }
+
   function removeConfigSecretHeader(key: string) {
-    existingSecretHeaderKeys.delete(key);
-    existingSecretHeaderKeys = new Set(existingSecretHeaderKeys);
+    if (existingSecretHeaderKeys.has(key)) {
+      removedSecretHeaderKeys.add(key);
+      removedSecretHeaderKeys = new Set(removedSecretHeaderKeys);
+    }
     const { [key]: _, ...rest } = newSecretHeaders;
     newSecretHeaders = rest;
   }
@@ -317,7 +332,15 @@
       if (!trimmedUrl) { error = 'URL is required'; savingConfig = false; return; }
       try { new URL(trimmedUrl); } catch { error = 'Enter a valid URL'; savingConfig = false; return; }
 
-      const hasNewSecretHeaders = Object.keys(newSecretHeaders).length > 0;
+      const secretHeaderChanges = Object.fromEntries(
+        Object.entries(newSecretHeaders)
+          .map(([key, value]) => [key, value.trim()])
+          .filter(([, value]) => value)
+      ) as Record<string, string>;
+      for (const key of removedSecretHeaderKeys) {
+        secretHeaderChanges[key] = '';
+      }
+      const hasSecretHeaderChanges = Object.keys(secretHeaderChanges).length > 0;
 
       unwrap(await api.PATCH('/v1/consumers/{consumer}/webhooks/{webhook_id}', {
         params: { path: { consumer: webhook.consumer, webhook_id: webhookId } },
@@ -326,7 +349,7 @@
           active: configForm.active,
           description: configForm.description,
           headers: configForm.headers,
-          ...(hasNewSecretHeaders ? { secret_headers: newSecretHeaders } : {}),
+          ...(hasSecretHeaderChanges ? { secret_headers: secretHeaderChanges } : {}),
           http_config: {
             max_retries: configForm.maxRetries,
             retry_backoff_seconds: configForm.retryBackoffSeconds,
@@ -1018,13 +1041,20 @@
 
                 <div class="border-t border-line pt-4">
                   <h4 class="eyebrow mb-1">Secret Headers</h4>
-                  <p class="text-[10px] text-faint mb-3">Encrypted headers for sensitive values (API keys, tokens). Existing values are preserved unless you remove or replace them.</p>
-                  {#if existingSecretHeaderKeys.size > 0 || Object.keys(newSecretHeaders).length > 0}
+                  <p class="text-[10px] text-faint mb-3">Encrypted headers for sensitive values (API keys, tokens). Existing values stay masked until you enter a replacement.</p>
+                  {#if [...existingSecretHeaderKeys].some((key) => !removedSecretHeaderKeys.has(key)) || Object.entries(newSecretHeaders).some(([key]) => !existingSecretHeaderKeys.has(key))}
                     <div class="space-y-1.5 mb-3">
-                      {#each [...existingSecretHeaderKeys] as key}
+                      {#each [...existingSecretHeaderKeys].filter((key) => !removedSecretHeaderKeys.has(key)) as key}
                         <div class="flex items-center gap-2">
                           <span class="flex-1 text-xs mono panel-2 px-2 py-1.5 rounded truncate text-text">{key}</span>
-                          <span class="flex-1 text-xs mono panel-2 px-2 py-1.5 rounded truncate text-faint">••••••</span>
+                          <input
+                            type="text"
+                            value={newSecretHeaders[key] ?? ''}
+                            oninput={(e) => updateConfigSecretHeaderValue(key, (e.currentTarget as HTMLInputElement).value)}
+                            placeholder="Existing value masked — enter a new value to replace it"
+                            class="input flex-1 mono !text-xs"
+                            aria-label="Secret header value for {key}"
+                          />
                           <button onclick={() => removeConfigSecretHeader(key)} class="shrink-0 p-1 text-faint hover:text-bad rounded transition" aria-label="Remove secret header {key}">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -1032,10 +1062,16 @@
                           </button>
                         </div>
                       {/each}
-                      {#each Object.entries(newSecretHeaders) as [key, value]}
+                      {#each Object.entries(newSecretHeaders).filter(([key]) => !existingSecretHeaderKeys.has(key)) as [key, value]}
                         <div class="flex items-center gap-2">
                           <span class="flex-1 text-xs mono px-2 py-1.5 rounded truncate" style="color:var(--color-ok);border:1px solid color-mix(in srgb,var(--color-ok) 35%,transparent);background:color-mix(in srgb,var(--color-ok) 10%,var(--color-panel-2))">{key}</span>
-                          <span class="flex-1 text-xs mono px-2 py-1.5 rounded truncate" style="color:var(--color-ok);border:1px solid color-mix(in srgb,var(--color-ok) 35%,transparent);background:color-mix(in srgb,var(--color-ok) 10%,var(--color-panel-2))">new value set</span>
+                          <input
+                            type="text"
+                            value={value}
+                            oninput={(e) => updateConfigSecretHeaderValue(key, (e.currentTarget as HTMLInputElement).value)}
+                            class="input flex-1 mono !text-xs"
+                            aria-label="Secret header value for {key}"
+                          />
                           <button onclick={() => removeConfigSecretHeader(key)} class="shrink-0 p-1 text-faint hover:text-bad rounded transition" aria-label="Remove secret header {key}">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -1047,7 +1083,7 @@
                   {/if}
                   <div class="flex items-center gap-2">
                     <input type="text" bind:value={configSecretHeaderKey} placeholder="Header name (e.g. Authorization)" class="input flex-1" />
-                    <input type="password" bind:value={configSecretHeaderValue} placeholder="Header value (e.g. Bearer sk-…)" class="input flex-1" />
+                    <input type="text" bind:value={configSecretHeaderValue} placeholder="Header value (e.g. Bearer sk-…)" class="input flex-1" />
                     <button onclick={addConfigSecretHeader} disabled={!configSecretHeaderKey.trim() || !configSecretHeaderValue.trim()} class="btn btn-ghost !px-3 !py-1.5 shrink-0">
                       Add
                     </button>

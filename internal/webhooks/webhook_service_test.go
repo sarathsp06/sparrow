@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -10,8 +11,10 @@ import (
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	cryptosvc "github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 type mockJobInserter struct {
@@ -63,6 +66,25 @@ func (m *mockRepo) GetWebhookByID(ctx context.Context, tenantID uuid.UUID, webho
 		return nil, args.Error(1)
 	}
 	return res.(*store.WebhookRegistration), args.Error(1)
+}
+
+func (m *mockRepo) UpdateWebhook(ctx context.Context, tenantID uuid.UUID, webhook *store.WebhookRegistration) error {
+	args := m.Called(ctx, tenantID, webhook)
+	return args.Error(0)
+}
+
+func (m *mockRepo) RunInTransaction(fn func(store.RepositoryInterface) error) error {
+	return fn(m)
+}
+
+func (m *mockRepo) UpsertRateLimitState(ctx context.Context, webhookID uuid.UUID) error {
+	args := m.Called(ctx, webhookID)
+	return args.Error(0)
+}
+
+func (m *mockRepo) DeleteRateLimitState(ctx context.Context, webhookID uuid.UUID) error {
+	args := m.Called(ctx, webhookID)
+	return args.Error(0)
 }
 
 func (m *mockRepo) GetDeliveryByID(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID, consumer string) (*store.WebhookDelivery, error) {
@@ -391,5 +413,49 @@ func TestWebhookService_CreateSubscription_CatchAll(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
 	assert.False(t, createdAt.IsZero())
+	repo.AssertExpectations(t)
+}
+
+func TestWebhookService_UpdateWebhookConfig_MergesSecretHeaderChanges(t *testing.T) {
+	repo := new(mockRepo)
+	key := bytes.Repeat([]byte{1}, 32)
+	cryptoSvc, err := cryptosvc.NewService(key)
+	require.NoError(t, err)
+	service := NewWebhookService(nil, repo, cryptoSvc)
+
+	ctx := testContext()
+	consumer := "default"
+	webhookID := uuid.New()
+	existingHeaders := map[string]string{
+		"Authorization": "Bearer old",
+		"X-Trace":       "keep-me",
+		"X-Remove":      "drop-me",
+	}
+	encryptedHeaders, err := service.EncryptSecretHeaders(existingHeaders)
+	require.NoError(t, err)
+
+	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, consumer).Return(&store.WebhookRegistration{
+		ID:            webhookID,
+		Consumer:      consumer,
+		URL:           "https://example.com/webhook",
+		Active:        true,
+		SecretHeaders: encryptedHeaders,
+	}, nil)
+	repo.On("UpdateWebhook", mock.Anything, mock.Anything, mock.MatchedBy(func(webhook *store.WebhookRegistration) bool {
+		decrypted, err := service.DecryptSecretHeaders(webhook.SecretHeaders)
+		require.NoError(t, err)
+		return assert.Equal(t, map[string]string{
+			"Authorization": "Bearer new",
+			"X-Trace":       "keep-me",
+		}, decrypted)
+	})).Return(nil)
+	repo.On("DeleteRateLimitState", mock.Anything, webhookID).Return(nil)
+
+	err = service.UpdateWebhookConfig(ctx, webhookID.String(), consumer, nil, "", nil, true, "", nil, map[string]string{
+		"Authorization": "Bearer new",
+		"X-Remove":      "",
+	}, "", []string{"secret_headers"})
+
+	require.NoError(t, err)
 	repo.AssertExpectations(t)
 }
