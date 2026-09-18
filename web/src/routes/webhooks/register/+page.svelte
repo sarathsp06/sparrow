@@ -5,7 +5,7 @@
   import { consumerStore } from '$lib/consumer.svelte';
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-types';
-  import { substituteParams, type Recipe } from '$lib/recipes';
+  import { substituteParams, type Recipe, type RecipeParam } from '$lib/recipes';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
   const ALERT_EVENT_TYPES = ["sparrow.webhook.health_changed", "sparrow.webhook.delivery_failed"];
@@ -93,22 +93,39 @@
 
   function pickRecipe(r: Recipe) {
     selectedRecipe = r;
-    recipeParams = Object.fromEntries((r.params ?? []).map(p => [p.name, '']));
+    recipeParams = Object.fromEntries(
+      (r.params ?? []).map((p) => [p.name, p.default && !p.must_override_default ? p.default : ''])
+    );
     recipeError = '';
+  }
+
+  function recipeParamError(p: RecipeParam, value: string): string {
+    if ((p.required || p.activation_required) && !value) return `${p.prompt || p.name} is required`;
+    if (p.must_override_default && p.default && value === p.default) return `${p.prompt || p.name} must be changed from ${p.default}`;
+    return '';
+  }
+
+  function recipeParamValue(p: RecipeParam): string {
+    return (recipeParams[p.name]?.trim() || p.default || '').trim();
   }
 
   function applyRecipe() {
     const r = selectedRecipe;
     if (!r) return;
-    const missing = (r.params ?? []).filter(p => p.required && !recipeParams[p.name]?.trim());
-    if (missing.length) {
-      recipeError = `Required: ${missing.map(p => p.prompt || p.name).join('; ')}`;
-      return;
+    const params: Record<string, string> = {};
+    for (const p of r.params ?? []) {
+      const value = recipeParamValue(p);
+      const error = recipeParamError(p, value);
+      if (error) {
+        recipeError = error;
+        return;
+      }
+      params[p.name] = value;
     }
-    url = substituteParams(r.webhook.url, recipeParams);
-    headers = Object.entries(r.webhook.headers ?? {}).map(([key, value]) => ({ key, value: substituteParams(value, recipeParams) }));
-    secretHeaders = Object.entries(r.webhook.secret_headers ?? {}).map(([key, value]) => ({ key, value: substituteParams(value, recipeParams) }));
-    transformTemplate = substituteParams(r.subscription?.transform_template ?? '', recipeParams);
+    url = substituteParams(r.webhook.url, params);
+    headers = Object.entries(r.webhook.headers ?? {}).map(([key, value]) => ({ key, value: substituteParams(value, params) }));
+    secretHeaders = Object.entries(r.webhook.secret_headers ?? {}).map(([key, value]) => ({ key, value: substituteParams(value, params) }));
+    transformTemplate = substituteParams(r.subscription?.transform_template ?? '', params);
     description = `recipe ${r.name}: ${r.description}`;
     appliedRecipe = r.name;
     recipesOpen = false;
@@ -264,8 +281,9 @@
                 </div>
                 {#each selectedRecipe.params ?? [] as p}
                   <div>
-                    <label for={`recipe-param-${p.name}`} class="field-label">{p.prompt || p.name}{p.required ? '' : ' (optional)'}</label>
-                    <input id={`recipe-param-${p.name}`} type="text" bind:value={recipeParams[p.name]} class="input" />
+                    <label for={`recipe-param-${p.name}`} class="field-label">{p.prompt || p.name}{p.required || p.activation_required ? '' : ' (optional)'}</label>
+                    <input id={`recipe-param-${p.name}`} type={p.secret ? 'password' : 'text'} bind:value={recipeParams[p.name]} placeholder={p.default ?? ''} class="input" />
+                    {#if p.activation_required}<p class="text-xs text-muted mt-1">Required before this recipe can be enabled.</p>{/if}
                   </div>
                 {/each}
                 {#if recipeError}<p class="text-xs" style="color:var(--color-bad)">{recipeError}</p>{/if}

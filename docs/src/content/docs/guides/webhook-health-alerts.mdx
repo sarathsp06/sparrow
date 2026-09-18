@@ -73,10 +73,19 @@ that would create a feedback loop.
 
 ## Set up the email delivery channel
 
-Alert emails go out through Sparrow's own webhook pipeline: a webhook
-registered under the `_sparrow` consumer, subscribed to both system events,
-targeting SendGrid's Mail Send API. Apply the bundled recipe once per
-deployment:
+On startup, Sparrow creates the `_sparrow` SendGrid webhook and subscribes it
+to both system events. Without both SendGrid environment variables below, the
+webhook is created inactive. Set them, then restart Sparrow; the existing
+inactive webhook is activated automatically.
+
+```bash
+export SPARROW_SENDGRID_API_KEY=$SENDGRID_API_KEY
+export SPARROW_ALERT_FROM_EMAIL=alerts@yourdomain.com
+export SPARROW_ALERT_FROM_NAME="Sparrow Alerts"
+```
+
+You can also apply the bundled recipe manually if you want to manage the
+`_sparrow` webhook yourself:
 
 ```bash
 sparrow --consumer _sparrow use sendgrid \

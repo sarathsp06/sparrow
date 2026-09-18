@@ -1361,9 +1361,13 @@ export interface components {
             total_count: number;
         };
         Param: {
+            activation_required?: boolean;
+            default?: string;
+            must_override_default?: boolean;
             name: string;
             prompt: string;
             required: boolean;
+            secret?: boolean;
         };
         PatchSubscriptionBody: {
             /**
@@ -1411,7 +1415,7 @@ export interface components {
             };
             /** @description Replace the HTTP delivery configuration. */
             http_config?: components["schemas"]["WebhookHTTPConfig"];
-            /** @description Replace the encrypted, masked-on-read secret headers. */
+            /** @description Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. */
             secret_headers?: {
                 [key: string]: string;
             };
@@ -1848,7 +1852,7 @@ export interface components {
             health: "healthy" | "degraded" | "unhealthy" | "unknown";
             /** @description Per-webhook HTTP delivery configuration. */
             http_config: components["schemas"]["WebhookHTTPConfigOut"];
-            /** @description Encrypted secret header names, with values always masked. */
+            /** @description Encrypted secret header names, with values always masked. Update them via PATCH secret_headers; send an empty string to remove one. */
             secret_headers?: {
                 [key: string]: string;
             };
@@ -2031,6 +2035,10 @@ export interface operations {
                 status?: string;
                 /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
                 error_category?: string;
+                /** @description Filter to deliveries created on or after this date (YYYY-MM-DD). */
+                created_after?: string;
+                /** @description Filter to deliveries created on or before this date (YYYY-MM-DD). */
+                created_before?: string;
                 /** @description If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint. */
                 prepare_retry?: boolean;
                 /** @description Maximum items to return. */
@@ -2353,6 +2361,14 @@ export interface operations {
             query?: {
                 /** @description Filter to occurrences of this event type name. */
                 event?: string;
+                /** @description Filter by schema validation result: valid or invalid. */
+                schema_valid?: string;
+                /** @description Filter by labels as comma-separated key=value pairs. Matches occurrences whose labels contain every pair. */
+                labels?: string;
+                /** @description Filter to occurrences created on or after this date (YYYY-MM-DD). */
+                created_after?: string;
+                /** @description Filter to occurrences created on or before this date (YYYY-MM-DD). */
+                created_before?: string;
                 /** @description If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint. */
                 prepare_repush?: boolean;
                 /** @description Maximum items to return. */
@@ -3524,6 +3540,10 @@ export interface operations {
                 status?: string;
                 /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
                 error_category?: string;
+                /** @description Filter to deliveries created on or after this date (YYYY-MM-DD). */
+                created_after?: string;
+                /** @description Filter to deliveries created on or before this date (YYYY-MM-DD). */
+                created_before?: string;
                 /** @description If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint. */
                 prepare_retry?: boolean;
                 /** @description Maximum items to return. */
@@ -4018,6 +4038,14 @@ export interface operations {
                 consumer?: string;
                 /** @description Filter to occurrences of this event type name. */
                 event?: string;
+                /** @description Filter by schema validation result: valid or invalid. */
+                schema_valid?: string;
+                /** @description Filter by labels as comma-separated key=value pairs. Matches occurrences whose labels contain every pair. */
+                labels?: string;
+                /** @description Filter to occurrences created on or after this date (YYYY-MM-DD). */
+                created_after?: string;
+                /** @description Filter to occurrences created on or before this date (YYYY-MM-DD). */
+                created_before?: string;
                 /** @description If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint. */
                 prepare_repush?: boolean;
                 /** @description Maximum items to return. */

@@ -27,6 +27,8 @@
     let eventIdFilter = $state('');
     let statusFilter = $state('');
     let errorCategoryFilter = $state('');
+    let createdAfterFilter = $state('');
+    let createdBeforeFilter = $state('');
 
     // Batch retry state
     let retryId = $state('');
@@ -76,6 +78,8 @@
                         event_id: eventIdFilter.trim() || undefined,
                         status: statusFilter || undefined,
                         error_category: errorCategoryFilter || undefined,
+                        created_after: createdAfterFilter || undefined,
+                        created_before: createdBeforeFilter || undefined,
                         prepare_retry: prepareRetry,
                         limit: pageSize,
                         offset,
@@ -119,6 +123,8 @@
         eventIdFilter = '';
         statusFilter = '';
         errorCategoryFilter = '';
+        createdAfterFilter = '';
+        createdBeforeFilter = '';
         applyFilters();
     }
 
@@ -126,7 +132,9 @@
         webhookIdFilter.trim() !== '' ||
         eventIdFilter.trim() !== '' ||
         statusFilter !== '' ||
-        errorCategoryFilter !== ''
+        errorCategoryFilter !== '' ||
+        createdAfterFilter !== '' ||
+        createdBeforeFilter !== ''
     );
 
     async function retrySingleDelivery(deliveryId: string) {
@@ -249,7 +257,7 @@
                 </span>
                 {#if totalCount > 0}
                     <button onclick={prepareRetryBatch} disabled={preparingRetry} class="btn btn-ghost !px-3 !py-1.5 !text-xs">
-                        {preparingRetry ? 'Preparing…' : 'Retry all matching'}
+                        {preparingRetry ? 'Preparing…' : 'Re-deliver all matching'}
                     </button>
                 {/if}
             {/if}
@@ -257,22 +265,43 @@
     </div>
 
     <div class="panel p-4 mb-4">
-        <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
-            <input type="text" placeholder="Webhook ID" aria-label="Filter by webhook ID" bind:value={webhookIdFilter} class="input flex-1" />
-            <input type="text" placeholder="Event ID" aria-label="Filter by event ID" bind:value={eventIdFilter} class="input flex-1" />
-            <select bind:value={statusFilter} aria-label="Filter by status" class="select sm:w-44">
-                <option value="">All statuses</option>
-                <option value="pending">Pending</option>
-                <option value="sending">Sending</option>
-                <option value="success">Success</option>
-                <option value="failed">Failed</option>
-                <option value="retrying">Retrying</option>
-                <option value="expired">Expired</option>
-            </select>
-            <button onclick={applyFilters} class="btn btn-beacon">Apply</button>
-            {#if hasActiveFilters}
-                <button onclick={clearFilters} class="btn btn-ghost">Clear</button>
-            {/if}
+        <div class="flex flex-col gap-3">
+            <div class="flex flex-col sm:flex-row gap-3 flex-wrap">
+                <input type="text" placeholder="Webhook ID" aria-label="Filter by webhook ID" bind:value={webhookIdFilter} class="input flex-1" />
+                <input type="text" placeholder="Event ID" aria-label="Filter by event ID" bind:value={eventIdFilter} class="input flex-1" />
+                <select bind:value={statusFilter} aria-label="Filter by status" class="select sm:w-44">
+                    <option value="">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="sending">Sending</option>
+                    <option value="success">Success</option>
+                    <option value="failed">Failed</option>
+                    <option value="retrying">Retrying</option>
+                    <option value="expired">Expired</option>
+                </select>
+                <select bind:value={errorCategoryFilter} aria-label="Filter by error category" class="select sm:w-52">
+                    <option value="">All error categories</option>
+                    {#each ERROR_CATEGORIES as cat}
+                        <option value={cat.value}>{cat.label}</option>
+                    {/each}
+                </select>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3 flex-wrap sm:items-end">
+                <label class="block">
+                    <span class="field-label !mb-1.5">Created after</span>
+                    <input type="date" bind:value={createdAfterFilter} aria-label="Filter deliveries created after" class="input sm:w-44" />
+                </label>
+                <label class="block">
+                    <span class="field-label !mb-1.5">Created before</span>
+                    <input type="date" bind:value={createdBeforeFilter} aria-label="Filter deliveries created before" class="input sm:w-44" />
+                </label>
+                <div class="flex items-center gap-3 sm:ml-auto">
+                    <span class="text-xs text-muted">Scope: <span class="chip">{consumerStore.label}</span></span>
+                    <button onclick={applyFilters} class="btn btn-beacon">Apply</button>
+                    {#if hasActiveFilters}
+                        <button onclick={clearFilters} class="btn btn-ghost">Clear</button>
+                    {/if}
+                </div>
+            </div>
         </div>
     </div>
 
@@ -373,9 +402,9 @@
 
 <ConfirmDialog
     open={confirmRetry}
-    title="Retry Deliveries"
-    message="This will retry {retryTotal} matching deliver{retryTotal !== 1 ? 'ies' : 'y'}. Each delivery will be re-attempted with its original payload. Continue?"
-    confirmLabel="Retry"
+    title="Re-deliver Matching Deliveries"
+    message="This will retry {retryTotal} matching deliver{retryTotal !== 1 ? 'ies' : 'y'}. Sparrow re-sends each stored delivery to the same webhook; it does not create new events. Continue?"
+    confirmLabel="Re-deliver"
     variant="warning"
     onconfirm={executeRetry}
     oncancel={() => { confirmRetry = false; retryId = ''; }}

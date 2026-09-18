@@ -136,3 +136,30 @@ func TestRecipes(t *testing.T) {
 		})
 	}
 }
+
+func TestSendGridActivationParams(t *testing.T) {
+	raw, err := os.ReadFile("sendgrid.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r recipes.Recipe
+	if err := yaml.Unmarshal(raw, &r); err != nil {
+		t.Fatal(err)
+	}
+
+	params := make(map[string]recipes.Param, len(r.Params))
+	for _, p := range r.Params {
+		params[p.Name] = p
+	}
+
+	if !params["api_key"].Secret || !params["api_key"].ActivationRequired {
+		t.Fatalf("api_key must be marked as a secret activation param: %+v", params["api_key"])
+	}
+	fromEmail := params["from_email"]
+	if fromEmail.Default != "alerts@example.com" || !fromEmail.ActivationRequired || !fromEmail.MustOverrideDefault {
+		t.Fatalf("from_email must expose the placeholder without accepting it for activation: %+v", fromEmail)
+	}
+	if params["from_name"].Default != "Sparrow" {
+		t.Fatalf("from_name default = %q, want Sparrow", params["from_name"].Default)
+	}
+}

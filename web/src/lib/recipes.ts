@@ -4,8 +4,11 @@ export interface RecipeParam {
   name: string;
   prompt?: string;
   required?: boolean;
+  default?: string;
+  secret?: boolean;
+  activation_required?: boolean;
+  must_override_default?: boolean;
 }
-
 export interface Recipe {
   version: number;
   name: string;

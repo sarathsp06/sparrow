@@ -65,7 +65,17 @@
         try {
             const res = unwrap(await api.GET('/v1/events', {
                 params: {
-                    query: { consumer: ns || undefined, event: eventName, prepare_repush: prepareRepush, limit: pageSize, offset },
+                    query: {
+                        consumer: ns || undefined,
+                        event: eventName,
+                        schema_valid: schemaValidFilter === 'all' ? undefined : schemaValidFilter,
+                        labels: labelsFilter.trim() || undefined,
+                        created_after: createdAfterFilter || undefined,
+                        created_before: createdBeforeFilter || undefined,
+                        prepare_repush: prepareRepush,
+                        limit: pageSize,
+                        offset,
+                    },
                 },
             }));
             if (prepareRepush) {
@@ -219,7 +229,7 @@
                             disabled={preparingRepush}
                             class="btn btn-ghost !px-3 !py-1.5 text-xs"
                         >
-                            {preparingRepush ? 'Preparing…' : 'Re-push All Matching'}
+                            {preparingRepush ? 'Preparing…' : 'Re-push all matching as new events'}
                         </button>
                     {/if}
                 </div>
@@ -228,17 +238,32 @@
     </div>
 
     <div class="panel p-4 mb-4">
-        <div class="flex flex-col sm:flex-row gap-3">
-            <input type="text" placeholder="Labels (key1=val1, key2=val2)" bind:value={labelsFilter} class="input flex-1" />
-            <select bind:value={schemaValidFilter} class="select sm:w-48">
-                <option value="all">All schema validity</option>
-                <option value="valid">Valid only</option>
-                <option value="invalid">Invalid only</option>
-            </select>
-            <button onclick={applyFilters} class="btn btn-beacon !px-4 !py-1.5 text-sm">Apply</button>
-            {#if hasActiveFilters}
-                <button onclick={clearFilters} class="btn btn-ghost !px-4 !py-1.5 text-sm">Clear</button>
-            {/if}
+        <div class="flex flex-col gap-3">
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input type="text" placeholder="Labels (key=value, key2=value2)" bind:value={labelsFilter} class="input flex-1" />
+                <select bind:value={schemaValidFilter} class="select sm:w-48">
+                    <option value="all">All schema validity</option>
+                    <option value="valid">Valid only</option>
+                    <option value="invalid">Invalid only</option>
+                </select>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3 flex-wrap sm:items-end">
+                <label class="block">
+                    <span class="field-label !mb-1.5">Created after</span>
+                    <input type="date" bind:value={createdAfterFilter} class="input sm:w-44" />
+                </label>
+                <label class="block">
+                    <span class="field-label !mb-1.5">Created before</span>
+                    <input type="date" bind:value={createdBeforeFilter} class="input sm:w-44" />
+                </label>
+                <div class="flex items-center gap-3 sm:ml-auto">
+                    <span class="text-xs text-muted">Scope: <span class="chip">{consumerStore.label}</span></span>
+                    <button onclick={applyFilters} class="btn btn-beacon !px-4 !py-1.5 text-sm">Apply</button>
+                    {#if hasActiveFilters}
+                        <button onclick={clearFilters} class="btn btn-ghost !px-4 !py-1.5 text-sm">Clear</button>
+                    {/if}
+                </div>
+            </div>
         </div>
     </div>
 
@@ -284,9 +309,9 @@
 
 <ConfirmDialog
     open={confirmRepush}
-    title="Re-push Events"
-    message="This will re-push {repushTotal} matching event{repushTotal !== 1 ? 's' : ''} as new events. Each event will be schema-validated against the current schema and delivered to all matching subscriptions. Continue?"
-    confirmLabel="Re-push"
+    title="Re-push Matching Events"
+    message="This will re-push {repushTotal} matching event{repushTotal !== 1 ? 's' : ''} as new event occurrences. Sparrow re-runs current schema validation, subscription matching, and delivery fan-out. Continue?"
+    confirmLabel="Re-push as new events"
     variant="warning"
     onconfirm={executeRepush}
     oncancel={() => { confirmRepush = false; repushId = ''; }}

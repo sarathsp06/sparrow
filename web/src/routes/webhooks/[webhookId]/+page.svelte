@@ -132,6 +132,9 @@
             query: {
               webhook_id: webhookId,
               status: deliveryStatusFilter || undefined,
+              error_category: deliveryErrorCategoryFilter || undefined,
+              created_after: deliveryCreatedAfterFilter || undefined,
+              created_before: deliveryCreatedBeforeFilter || undefined,
               limit,
               offset,
             },
@@ -423,6 +426,9 @@
           query: {
             webhook_id: webhookId,
             status: deliveryStatusFilter || undefined,
+            error_category: deliveryErrorCategoryFilter || undefined,
+            created_after: deliveryCreatedAfterFilter || undefined,
+            created_before: deliveryCreatedBeforeFilter || undefined,
             prepare_retry: true,
             limit: 1,
             offset: 0,
@@ -783,13 +789,21 @@
                 {/each}
               </select>
             </div>
-            <div class="flex items-center gap-2">
+            <label class="block">
+              <span class="field-label">Created after</span>
+              <input type="date" bind:value={deliveryCreatedAfterFilter} onchange={applyDeliveryFilters} class="input sm:w-40" />
+            </label>
+            <label class="block">
+              <span class="field-label">Created before</span>
+              <input type="date" bind:value={deliveryCreatedBeforeFilter} onchange={applyDeliveryFilters} class="input sm:w-40" />
+            </label>
+            <div class="flex items-center gap-2 sm:ml-auto">
               {#if hasDeliveryFilters}
                 <button onclick={clearDeliveryFilters} class="btn btn-ghost !px-3 !py-1.5">Clear</button>
               {/if}
               {#if totalCount > 0}
                 <button onclick={prepareRetryBatch} disabled={preparingRetry} class="btn btn-beacon !px-3 !py-1.5">
-                  {preparingRetry ? 'Preparing…' : 'Retry All Matching'}
+                  {preparingRetry ? 'Preparing…' : 'Re-deliver matching'}
                 </button>
               {/if}
             </div>
@@ -1239,9 +1253,9 @@
 
 <ConfirmDialog
   open={confirmRetry}
-  title="Retry Deliveries"
-  message="This will retry {retryTotal} matching deliver{retryTotal !== 1 ? 'ies' : 'y'} for this webhook. Continue?"
-  confirmLabel="Retry"
+  title="Re-deliver Matching Deliveries"
+  message="This will retry {retryTotal} matching deliver{retryTotal !== 1 ? 'ies' : 'y'} for this webhook. Sparrow re-sends the stored deliveries; it does not create new events. Continue?"
+  confirmLabel="Re-deliver"
   variant="warning"
   onconfirm={executeRetry}
   oncancel={() => { confirmRetry = false; retryId = ''; }}

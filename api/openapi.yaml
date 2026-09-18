@@ -792,11 +792,19 @@ components:
     Param:
       additionalProperties: false
       properties:
+        activation_required:
+          type: boolean
+        default:
+          type: string
+        must_override_default:
+          type: boolean
         name:
           type: string
         prompt:
           type: string
         required:
+          type: boolean
+        secret:
           type: boolean
       required:
         - name
@@ -1764,6 +1772,20 @@ paths:
           schema:
             description: Filter by failure classification (e.g. server_error, client_error, timeout).
             type: string
+        - description: Filter to deliveries created on or after this date (YYYY-MM-DD).
+          explode: false
+          in: query
+          name: created_after
+          schema:
+            description: Filter to deliveries created on or after this date (YYYY-MM-DD).
+            type: string
+        - description: Filter to deliveries created on or before this date (YYYY-MM-DD).
+          explode: false
+          in: query
+          name: created_before
+          schema:
+            description: Filter to deliveries created on or before this date (YYYY-MM-DD).
+            type: string
         - description: If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint.
           explode: false
           in: query
@@ -2069,6 +2091,34 @@ paths:
           name: event
           schema:
             description: Filter to occurrences of this event type name.
+            type: string
+        - description: "Filter by schema validation result: valid or invalid."
+          explode: false
+          in: query
+          name: schema_valid
+          schema:
+            description: "Filter by schema validation result: valid or invalid."
+            type: string
+        - description: Filter by labels as comma-separated key=value pairs. Matches occurrences whose labels contain every pair.
+          explode: false
+          in: query
+          name: labels
+          schema:
+            description: Filter by labels as comma-separated key=value pairs. Matches occurrences whose labels contain every pair.
+            type: string
+        - description: Filter to occurrences created on or after this date (YYYY-MM-DD).
+          explode: false
+          in: query
+          name: created_after
+          schema:
+            description: Filter to occurrences created on or after this date (YYYY-MM-DD).
+            type: string
+        - description: Filter to occurrences created on or before this date (YYYY-MM-DD).
+          explode: false
+          in: query
+          name: created_before
+          schema:
+            description: Filter to occurrences created on or before this date (YYYY-MM-DD).
             type: string
         - description: If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint.
           explode: false
@@ -3173,6 +3223,20 @@ paths:
           schema:
             description: Filter by failure classification (e.g. server_error, client_error, timeout).
             type: string
+        - description: Filter to deliveries created on or after this date (YYYY-MM-DD).
+          explode: false
+          in: query
+          name: created_after
+          schema:
+            description: Filter to deliveries created on or after this date (YYYY-MM-DD).
+            type: string
+        - description: Filter to deliveries created on or before this date (YYYY-MM-DD).
+          explode: false
+          in: query
+          name: created_before
+          schema:
+            description: Filter to deliveries created on or before this date (YYYY-MM-DD).
+            type: string
         - description: If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint.
           explode: false
           in: query
@@ -3605,6 +3669,34 @@ paths:
           name: event
           schema:
             description: Filter to occurrences of this event type name.
+            type: string
+        - description: "Filter by schema validation result: valid or invalid."
+          explode: false
+          in: query
+          name: schema_valid
+          schema:
+            description: "Filter by schema validation result: valid or invalid."
+            type: string
+        - description: Filter by labels as comma-separated key=value pairs. Matches occurrences whose labels contain every pair.
+          explode: false
+          in: query
+          name: labels
+          schema:
+            description: Filter by labels as comma-separated key=value pairs. Matches occurrences whose labels contain every pair.
+            type: string
+        - description: Filter to occurrences created on or after this date (YYYY-MM-DD).
+          explode: false
+          in: query
+          name: created_after
+          schema:
+            description: Filter to occurrences created on or after this date (YYYY-MM-DD).
+            type: string
+        - description: Filter to occurrences created on or before this date (YYYY-MM-DD).
+          explode: false
+          in: query
+          name: created_before
+          schema:
+            description: Filter to occurrences created on or before this date (YYYY-MM-DD).
             type: string
         - description: If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint.
           explode: false

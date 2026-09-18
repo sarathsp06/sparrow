@@ -31,9 +31,13 @@ type recipe struct {
 }
 
 type recipeParam struct {
-	Name     string `yaml:"name"`
-	Prompt   string `yaml:"prompt"`
-	Required bool   `yaml:"required"`
+	Name                string `yaml:"name"`
+	Prompt              string `yaml:"prompt"`
+	Required            bool   `yaml:"required"`
+	Default             string `yaml:"default"`
+	Secret              bool   `yaml:"secret"`
+	ActivationRequired  bool   `yaml:"activation_required"`
+	MustOverrideDefault bool   `yaml:"must_override_default"`
 }
 
 var paramToken = regexp.MustCompile(`\{\{\s*param\s+"([^"]+)"\s*\}\}`)
@@ -143,6 +147,9 @@ func runUse(ctx context.Context, out io.Writer, client *apiClient, consumer, rec
 		if promptText == "" {
 			promptText = p.Name
 		}
+		if p.Default != "" && !p.MustOverrideDefault {
+			promptText += " [" + p.Default + "]"
+		}
 		if isTerminal(os.Stdin) {
 			_, _ = fmt.Fprintf(out, "%s: ", promptText)
 			if stdin.Scan() {
@@ -152,10 +159,19 @@ func runUse(ctx context.Context, out io.Writer, client *apiClient, consumer, rec
 				}
 			}
 		}
+		if p.Default != "" && !p.MustOverrideDefault {
+			params[p.Name] = p.Default
+			continue
+		}
 		if p.Required {
 			return fmt.Errorf("param %q is required (pass --param %s=value)", p.Name, p.Name)
 		}
 		params[p.Name] = ""
+	}
+	for _, p := range r.Params {
+		if p.MustOverrideDefault && p.Default != "" && strings.TrimSpace(params[p.Name]) == p.Default {
+			return fmt.Errorf("param %q must be changed from its default %q", p.Name, p.Default)
+		}
 	}
 
 	// Substitute {{param "x"}} in url, header values, and the template.

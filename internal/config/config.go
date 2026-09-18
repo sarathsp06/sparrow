@@ -80,9 +80,8 @@ type Config struct {
 	MaxBodyBytes int64 `envconfig:"SPARROW_MAX_BODY_BYTES" default:"5242880"`
 
 	// SendGridAPIKey is the SendGrid API key for the bootstrapped alert
-	// webhook (system events -> email). When set, the webhook is created (or
-	// re-activated) with this key. When empty, the webhook is still created
-	// with a mock key but left inactive.
+	// webhook (system events -> email). The webhook stays inactive until this
+	// and a non-placeholder AlertFromEmail are configured.
 	// Env: SPARROW_SENDGRID_API_KEY
 	SendGridAPIKey string `envconfig:"SPARROW_SENDGRID_API_KEY" default:""`
 

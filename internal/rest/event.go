@@ -152,6 +152,10 @@ type eventOccurrenceOutput struct {
 // consumer-scoped and global event occurrence list routes.
 type EventOccurrenceListParams struct {
 	Event         string `query:"event,omitempty" doc:"Filter to occurrences of this event type name."`
+	SchemaValid   string `query:"schema_valid,omitempty" doc:"Filter by schema validation result: valid or invalid."`
+	Labels        string `query:"labels,omitempty" doc:"Filter by labels as comma-separated key=value pairs. Matches occurrences whose labels contain every pair."`
+	CreatedAfter  string `query:"created_after,omitempty" doc:"Filter to occurrences created on or after this date (YYYY-MM-DD)."`
+	CreatedBefore string `query:"created_before,omitempty" doc:"Filter to occurrences created on or before this date (YYYY-MM-DD)."`
 	PrepareRepush bool   `query:"prepare_repush" default:"false" doc:"If true, snapshot the matching occurrences into a repush_id you can pass to the batch re-push endpoint."`
 	Limit         int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
 	Offset        int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
@@ -537,6 +541,32 @@ func listEventOccurrencesImpl(ctx context.Context, svc eventRouteService, consum
 	if p.Event != "" {
 		filter.EventName = &p.Event
 	}
+	switch p.SchemaValid {
+	case "":
+	case "valid":
+		v := true
+		filter.SchemaValid = &v
+	case "invalid":
+		v := false
+		filter.SchemaValid = &v
+	default:
+		return nil, huma.Error400BadRequest("schema_valid must be 'valid' or 'invalid'")
+	}
+	labels, err := parseLabelFilter(p.Labels)
+	if err != nil {
+		return nil, huma.Error400BadRequest(err.Error())
+	}
+	filter.Labels = labels
+	createdAfter, err := parseDateFilter(p.CreatedAfter, false)
+	if err != nil {
+		return nil, huma.Error400BadRequest("created_after " + err.Error())
+	}
+	filter.CreatedAfter = createdAfter
+	createdBefore, err := parseDateFilter(p.CreatedBefore, true)
+	if err != nil {
+		return nil, huma.Error400BadRequest("created_before " + err.Error())
+	}
+	filter.CreatedBefore = createdBefore
 	reports, total, repushID, err := svc.ListEventReports(ctx, filter)
 	if err != nil {
 		return nil, mapError(ctx, err, "failed to list event occurrences")

@@ -35,6 +35,10 @@ params:                        # values the user supplies at apply time
   - name: webhook_url          # substituted as {{param "webhook_url"}} in url/headers/template
     prompt: "Slack incoming webhook URL"
     required: true
+    default: ""                # optional fallback used by CLIs/UIs
+    secret: false              # UIs may mask input for tokens/passwords
+    activation_required: false # missing value blocks enabling an auto-provisioned recipe
+    must_override_default: false # placeholder defaults must be replaced before activation
 webhook:
   url: '{{param "webhook_url"}}'
   headers: {Content-Type: application/json}

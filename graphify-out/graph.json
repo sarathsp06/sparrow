@@ -315,8 +315,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "cmd_migrate_main",
-      "community": 116,
-      "community_name": "Handler",
+      "community": 51,
+      "community_name": "RunAllMigrations",
       "norm_label": "migrate/main.go"
     },
     {
@@ -326,8 +326,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "cmd_migrate_main_main",
-      "community": 116,
-      "community_name": "Handler",
+      "community": 51,
+      "community_name": "RunAllMigrations",
       "norm_label": "main()"
     },
     {
@@ -3713,8 +3713,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_config_config",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": "config/config.go"
     },
     {
@@ -3724,74 +3724,74 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "config_config",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": "config"
     },
     {
       "label": "Load()",
       "file_type": "code",
       "source_file": "internal/config/config.go",
-      "source_location": "L107",
+      "source_location": "L106",
       "_origin": "ast",
       "id": "internal_config_config_load",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": "load()"
     },
     {
       "label": ".IsProduction()",
       "file_type": "code",
       "source_file": "internal/config/config.go",
-      "source_location": "L116",
+      "source_location": "L115",
       "_origin": "ast",
       "id": "config_config_isproduction",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": ".isproduction()"
     },
     {
       "label": ".Validate()",
       "file_type": "code",
       "source_file": "internal/config/config.go",
-      "source_location": "L122",
+      "source_location": "L121",
       "_origin": "ast",
       "id": "config_config_validate",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": ".validate()"
     },
     {
       "label": ".Warnings()",
       "file_type": "code",
       "source_file": "internal/config/config.go",
-      "source_location": "L145",
+      "source_location": "L144",
       "_origin": "ast",
       "id": "config_config_warnings",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": ".warnings()"
     },
     {
       "label": ".EncryptionKeyring()",
       "file_type": "code",
       "source_file": "internal/config/config.go",
-      "source_location": "L159",
+      "source_location": "L158",
       "_origin": "ast",
       "id": "config_config_encryptionkeyring",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": ".encryptionkeyring()"
     },
     {
       "label": "validatePort()",
       "file_type": "code",
       "source_file": "internal/config/config.go",
-      "source_location": "L205",
+      "source_location": "L204",
       "_origin": "ast",
       "id": "internal_config_config_validateport",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": "validateport()"
     },
     {
@@ -5638,8 +5638,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_migration_migrate",
-      "community": 116,
-      "community_name": "Handler",
+      "community": 51,
+      "community_name": "RunAllMigrations",
       "norm_label": "migrate.go"
     },
     {
@@ -5649,8 +5649,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "internal_migration_migrate_runrivermigrations",
-      "community": 116,
-      "community_name": "Handler",
+      "community": 51,
+      "community_name": "RunAllMigrations",
       "norm_label": "runrivermigrations()"
     },
     {
@@ -5660,8 +5660,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_migration_migrate_go_context",
-      "community": 116,
-      "community_name": "Handler",
+      "community": 51,
+      "community_name": "RunAllMigrations",
       "norm_label": "context"
     },
     {
@@ -5671,8 +5671,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_migration_migrate_go_logger",
-      "community": 116,
-      "community_name": "Handler",
+      "community": 51,
+      "community_name": "RunAllMigrations",
       "norm_label": "logger"
     },
     {
@@ -5682,8 +5682,8 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "internal_migration_migrate_runappmigrations",
-      "community": 116,
-      "community_name": "Handler",
+      "community": 51,
+      "community_name": "RunAllMigrations",
       "norm_label": "runappmigrations()"
     },
     {
@@ -5693,8 +5693,8 @@
       "source_location": "L201",
       "_origin": "ast",
       "id": "internal_migration_migrate_runallmigrations",
-      "community": 116,
-      "community_name": "Handler",
+      "community": 51,
+      "community_name": "RunAllMigrations",
       "norm_label": "runallmigrations()"
     },
     {
@@ -5836,8 +5836,8 @@
       "source_location": "L190",
       "_origin": "ast",
       "id": "internal_observability_otel_gettracer",
-      "community": 51,
-      "community_name": "RepositoryInterface",
+      "community": 55,
+      "community_name": "otel.go",
       "norm_label": "gettracer()"
     },
     {
@@ -5847,8 +5847,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_observability_otel_go_tracer",
-      "community": 51,
-      "community_name": "RepositoryInterface",
+      "community": 55,
+      "community_name": "otel.go",
       "norm_label": "tracer"
     },
     {
@@ -5858,8 +5858,8 @@
       "source_location": "L195",
       "_origin": "ast",
       "id": "internal_observability_otel_getmeter",
-      "community": 3,
-      "community_name": "testContext",
+      "community": 55,
+      "community_name": "otel.go",
       "norm_label": "getmeter()"
     },
     {
@@ -5869,8 +5869,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "meter",
-      "community": 3,
-      "community_name": "testContext",
+      "community": 55,
+      "community_name": "otel.go",
       "norm_label": "meter"
     },
     {
@@ -5880,8 +5880,8 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "observability_sparrowmetrics",
-      "community": 3,
-      "community_name": "testContext",
+      "community": 55,
+      "community_name": "otel.go",
       "norm_label": "sparrowmetrics"
     },
     {
@@ -5891,8 +5891,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "int64counter",
-      "community": 3,
-      "community_name": "testContext",
+      "community": 55,
+      "community_name": "otel.go",
       "norm_label": "int64counter"
     },
     {
@@ -5902,8 +5902,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "int64updowncounter",
-      "community": 3,
-      "community_name": "testContext",
+      "community": 55,
+      "community_name": "otel.go",
       "norm_label": "int64updowncounter"
     },
     {
@@ -5913,8 +5913,8 @@
       "source_location": "L207",
       "_origin": "ast",
       "id": "internal_observability_otel_newsparrowmetrics",
-      "community": 3,
-      "community_name": "testContext",
+      "community": 55,
+      "community_name": "otel.go",
       "norm_label": "newsparrowmetrics()"
     },
     {
@@ -6306,7 +6306,7 @@
       "label": "listDeliveriesInput",
       "file_type": "code",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L87",
+      "source_location": "L89",
       "_origin": "ast",
       "id": "rest_listdeliveriesinput",
       "community": 6,
@@ -6317,7 +6317,7 @@
       "label": "listDeliveriesGlobalInput",
       "file_type": "code",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L92",
+      "source_location": "L94",
       "_origin": "ast",
       "id": "rest_listdeliveriesglobalinput",
       "community": 6,
@@ -6328,7 +6328,7 @@
       "label": "listDeliveriesOutput",
       "file_type": "code",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L97",
+      "source_location": "L99",
       "_origin": "ast",
       "id": "rest_listdeliveriesoutput",
       "community": 6,
@@ -6339,7 +6339,7 @@
       "label": "retryDeliveryInput",
       "file_type": "code",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L105",
+      "source_location": "L107",
       "_origin": "ast",
       "id": "rest_retrydeliveryinput",
       "community": 6,
@@ -6350,7 +6350,7 @@
       "label": "retryDeliveriesByWebhookInput",
       "file_type": "code",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L110",
+      "source_location": "L112",
       "_origin": "ast",
       "id": "rest_retrydeliveriesbywebhookinput",
       "community": 6,
@@ -6361,7 +6361,7 @@
       "label": "retryOutput",
       "file_type": "code",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L118",
+      "source_location": "L120",
       "_origin": "ast",
       "id": "rest_retryoutput",
       "community": 6,
@@ -6372,7 +6372,7 @@
       "label": "attemptItem",
       "file_type": "code",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L125",
+      "source_location": "L127",
       "_origin": "ast",
       "id": "rest_attemptitem",
       "community": 6,
@@ -6383,7 +6383,7 @@
       "label": "attemptsOutput",
       "file_type": "code",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L134",
+      "source_location": "L136",
       "_origin": "ast",
       "id": "rest_attemptsoutput",
       "community": 6,
@@ -6394,7 +6394,7 @@
       "label": "deliveryRouteService",
       "file_type": "code",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L142",
+      "source_location": "L144",
       "_origin": "ast",
       "id": "rest_deliveryrouteservice",
       "community": 43,
@@ -6405,7 +6405,7 @@
       "label": "registerDeliveryRoutes()",
       "file_type": "code",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L147",
+      "source_location": "L149",
       "_origin": "ast",
       "id": "internal_rest_delivery_registerdeliveryroutes",
       "community": 6,
@@ -6427,7 +6427,7 @@
       "label": "listDeliveriesImpl()",
       "file_type": "code",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L370",
+      "source_location": "L372",
       "_origin": "ast",
       "id": "internal_rest_delivery_listdeliveriesimpl",
       "community": 6,
@@ -6702,7 +6702,7 @@
       "label": "listEventOccurrencesInput",
       "file_type": "code",
       "source_file": "internal/rest/event.go",
-      "source_location": "L160",
+      "source_location": "L164",
       "_origin": "ast",
       "id": "rest_listeventoccurrencesinput",
       "community": 1,
@@ -6713,7 +6713,7 @@
       "label": "listEventOccurrencesGlobalInput",
       "file_type": "code",
       "source_file": "internal/rest/event.go",
-      "source_location": "L165",
+      "source_location": "L169",
       "_origin": "ast",
       "id": "rest_listeventoccurrencesglobalinput",
       "community": 1,
@@ -6724,7 +6724,7 @@
       "label": "listEventOccurrencesOutput",
       "file_type": "code",
       "source_file": "internal/rest/event.go",
-      "source_location": "L170",
+      "source_location": "L174",
       "_origin": "ast",
       "id": "rest_listeventoccurrencesoutput",
       "community": 1,
@@ -6735,7 +6735,7 @@
       "label": "repushEventOutput",
       "file_type": "code",
       "source_file": "internal/rest/event.go",
-      "source_location": "L178",
+      "source_location": "L182",
       "_origin": "ast",
       "id": "rest_repusheventoutput",
       "community": 1,
@@ -6746,7 +6746,7 @@
       "label": "repushBatchInput",
       "file_type": "code",
       "source_file": "internal/rest/event.go",
-      "source_location": "L185",
+      "source_location": "L189",
       "_origin": "ast",
       "id": "rest_repushbatchinput",
       "community": 1,
@@ -6757,7 +6757,7 @@
       "label": "jobIDInput",
       "file_type": "code",
       "source_file": "internal/rest/event.go",
-      "source_location": "L192",
+      "source_location": "L196",
       "_origin": "ast",
       "id": "rest_jobidinput",
       "community": 1,
@@ -6768,7 +6768,7 @@
       "label": "batchJobOutput",
       "file_type": "code",
       "source_file": "internal/rest/event.go",
-      "source_location": "L197",
+      "source_location": "L201",
       "_origin": "ast",
       "id": "rest_batchjoboutput",
       "community": 1,
@@ -6779,7 +6779,7 @@
       "label": "toBatchJobOutput()",
       "file_type": "code",
       "source_file": "internal/rest/event.go",
-      "source_location": "L211",
+      "source_location": "L215",
       "_origin": "ast",
       "id": "internal_rest_event_tobatchjoboutput",
       "community": 1,
@@ -6790,7 +6790,7 @@
       "label": "eventRouteService",
       "file_type": "code",
       "source_file": "internal/rest/event.go",
-      "source_location": "L227",
+      "source_location": "L231",
       "_origin": "ast",
       "id": "rest_eventrouteservice",
       "community": 43,
@@ -6801,7 +6801,7 @@
       "label": "registerEventRoutes()",
       "file_type": "code",
       "source_file": "internal/rest/event.go",
-      "source_location": "L232",
+      "source_location": "L236",
       "_origin": "ast",
       "id": "internal_rest_event_registereventroutes",
       "community": 1,
@@ -6823,7 +6823,7 @@
       "label": "listEventOccurrencesImpl()",
       "file_type": "code",
       "source_file": "internal/rest/event.go",
-      "source_location": "L530",
+      "source_location": "L534",
       "_origin": "ast",
       "id": "internal_rest_event_listeventoccurrencesimpl",
       "community": 1,
@@ -6842,13 +6842,101 @@
       "norm_label": "context"
     },
     {
+      "label": "filter_helpers.go",
+      "file_type": "code",
+      "source_file": "internal/rest/filter_helpers.go",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "internal_rest_filter_helpers",
+      "community": 153,
+      "community_name": "parseDateFilter",
+      "norm_label": "filter_helpers.go"
+    },
+    {
+      "label": "parseLabelFilter()",
+      "file_type": "code",
+      "source_file": "internal/rest/filter_helpers.go",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "internal_rest_filter_helpers_parselabelfilter",
+      "community": 153,
+      "community_name": "parseDateFilter",
+      "norm_label": "parselabelfilter()"
+    },
+    {
+      "label": "parseDateFilter()",
+      "file_type": "code",
+      "source_file": "internal/rest/filter_helpers.go",
+      "source_location": "L38",
+      "_origin": "ast",
+      "id": "internal_rest_filter_helpers_parsedatefilter",
+      "community": 153,
+      "community_name": "parseDateFilter",
+      "norm_label": "parsedatefilter()"
+    },
+    {
+      "label": "Time",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast",
+      "id": "internal_rest_filter_helpers_go_time",
+      "community": 153,
+      "community_name": "parseDateFilter",
+      "norm_label": "time"
+    },
+    {
+      "label": "filter_helpers_test.go",
+      "file_type": "code",
+      "source_file": "internal/rest/filter_helpers_test.go",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "internal_rest_filter_helpers_test",
+      "community": 153,
+      "community_name": "parseDateFilter",
+      "norm_label": "filter_helpers_test.go"
+    },
+    {
+      "label": "TestParseLabelFilter()",
+      "file_type": "code",
+      "source_file": "internal/rest/filter_helpers_test.go",
+      "source_location": "L8",
+      "_origin": "ast",
+      "id": "internal_rest_filter_helpers_test_testparselabelfilter",
+      "community": 153,
+      "community_name": "parseDateFilter",
+      "norm_label": "testparselabelfilter()"
+    },
+    {
+      "label": "T",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast",
+      "id": "internal_rest_filter_helpers_test_go_t",
+      "community": 153,
+      "community_name": "parseDateFilter",
+      "norm_label": "t"
+    },
+    {
+      "label": "TestParseDateFilter()",
+      "file_type": "code",
+      "source_file": "internal/rest/filter_helpers_test.go",
+      "source_location": "L25",
+      "_origin": "ast",
+      "id": "internal_rest_filter_helpers_test_testparsedatefilter",
+      "community": 153,
+      "community_name": "parseDateFilter",
+      "norm_label": "testparsedatefilter()"
+    },
+    {
       "label": "health.go",
       "file_type": "code",
       "source_file": "internal/rest/health.go",
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_rest_health",
-      "community": 159,
+      "community": 148,
       "community_name": "health.go",
       "norm_label": "health.go"
     },
@@ -6859,7 +6947,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "rest_webhookhealthoutput",
-      "community": 159,
+      "community": 148,
       "community_name": "health.go",
       "norm_label": "webhookhealthoutput"
     },
@@ -6870,7 +6958,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "rest_healthsummaryoutput",
-      "community": 159,
+      "community": 148,
       "community_name": "health.go",
       "norm_label": "healthsummaryoutput"
     },
@@ -6881,7 +6969,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "rest_listwebhooksglobalinput",
-      "community": 159,
+      "community": 148,
       "community_name": "health.go",
       "norm_label": "listwebhooksglobalinput"
     },
@@ -7376,8 +7464,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "rest_webhookhttpconfig_todomain",
-      "community": 8,
-      "community_name": "rest/webhook.go",
+      "community": 45,
+      "community_name": "registerWebhookRoutes",
       "norm_label": ".todomain()"
     },
     {
@@ -8960,8 +9048,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_client_ssrf",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 154,
+      "community_name": "ValidateIP",
       "norm_label": "ssrf.go"
     },
     {
@@ -8971,8 +9059,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "internal_webhooks_client_ssrf_validateip",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 154,
+      "community_name": "ValidateIP",
       "norm_label": "validateip()"
     },
     {
@@ -8982,8 +9070,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ip",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 154,
+      "community_name": "ValidateIP",
       "norm_label": "ip"
     },
     {
@@ -8993,8 +9081,8 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "internal_webhooks_client_ssrf_validateredirecturl",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 154,
+      "community_name": "ValidateIP",
       "norm_label": "validateredirecturl()"
     },
     {
@@ -9004,8 +9092,8 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "internal_webhooks_client_ssrf_ssrfsafecheckredirect",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 154,
+      "community_name": "ValidateIP",
       "norm_label": "ssrfsafecheckredirect()"
     },
     {
@@ -9015,8 +9103,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_client_ssrf_go_request",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 154,
+      "community_name": "ValidateIP",
       "norm_label": "request"
     },
     {
@@ -9026,8 +9114,8 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "internal_webhooks_client_ssrf_permissivecheckredirect",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 154,
+      "community_name": "ValidateIP",
       "norm_label": "permissivecheckredirect()"
     },
     {
@@ -9037,8 +9125,8 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "internal_webhooks_client_ssrf_ssrfdialcontrol",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 154,
+      "community_name": "ValidateIP",
       "norm_label": "ssrfdialcontrol()"
     },
     {
@@ -9048,8 +9136,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "rawconn",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 154,
+      "community_name": "ValidateIP",
       "norm_label": "rawconn"
     },
     {
@@ -9059,8 +9147,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_client_ssrf_test",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 154,
+      "community_name": "ValidateIP",
       "norm_label": "ssrf_test.go"
     },
     {
@@ -9070,8 +9158,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "internal_webhooks_client_ssrf_test_testvalidateip",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 154,
+      "community_name": "ValidateIP",
       "norm_label": "testvalidateip()"
     },
     {
@@ -9081,8 +9169,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_client_ssrf_test_go_t",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 154,
+      "community_name": "ValidateIP",
       "norm_label": "t"
     },
     {
@@ -9554,8 +9642,8 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "internal_webhooks_models_derefintor",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 45,
+      "community_name": "registerWebhookRoutes",
       "norm_label": "derefintor()"
     },
     {
@@ -9565,8 +9653,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "internal_webhooks_models_derefboolor",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 45,
+      "community_name": "registerWebhookRoutes",
       "norm_label": "derefboolor()"
     },
     {
@@ -10050,7 +10138,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker",
       "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RepositoryInterface",
       "norm_label": "events_worker.go"
     },
     {
@@ -10061,7 +10149,7 @@
       "_origin": "ast",
       "id": "queue_eventprocessingworker",
       "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RepositoryInterface",
       "norm_label": "eventprocessingworker"
     },
     {
@@ -10072,7 +10160,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_workerdefaults",
       "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RepositoryInterface",
       "norm_label": "workerdefaults"
     },
     {
@@ -10083,7 +10171,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_logger",
       "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RepositoryInterface",
       "norm_label": "logger"
     },
     {
@@ -10094,7 +10182,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_jobinserter",
       "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RepositoryInterface",
       "norm_label": "jobinserter"
     },
     {
@@ -10105,7 +10193,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_neweventprocessingworker",
       "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RepositoryInterface",
       "norm_label": "neweventprocessingworker()"
     },
     {
@@ -10115,8 +10203,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "queue_eventprocessingworker_work",
-      "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "EventArgs",
       "norm_label": ".work()"
     },
     {
@@ -10126,8 +10214,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_context",
-      "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "EventArgs",
       "norm_label": "context"
     },
     {
@@ -10137,8 +10225,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_job",
-      "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "EventArgs",
       "norm_label": "job"
     },
     {
@@ -10159,8 +10247,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "queue_eventargs",
-      "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "EventArgs",
       "norm_label": "eventargs"
     },
     {
@@ -10170,8 +10258,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_jobs_go_time",
-      "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "EventArgs",
       "norm_label": "time"
     },
     {
@@ -10181,8 +10269,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "queue_eventargs_insertopts",
-      "community": 102,
-      "community_name": "jobInserter",
+      "community": 36,
+      "community_name": "EventArgs",
       "norm_label": ".insertopts()"
     },
     {
@@ -10192,8 +10280,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_jobs_go_insertopts",
-      "community": 102,
-      "community_name": "jobInserter",
+      "community": 36,
+      "community_name": "EventArgs",
       "norm_label": "insertopts"
     },
     {
@@ -10203,8 +10291,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "queue_eventargs_kind",
-      "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "EventArgs",
       "norm_label": ".kind()"
     },
     {
@@ -10225,8 +10313,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "queue_webhookargs_insertopts",
-      "community": 102,
-      "community_name": "jobInserter",
+      "community": 36,
+      "community_name": "EventArgs",
       "norm_label": ".insertopts()"
     },
     {
@@ -10247,8 +10335,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "queue_batchjobargs",
-      "community": 102,
-      "community_name": "jobInserter",
+      "community": 68,
+      "community_name": "BatchJobWorker",
       "norm_label": "batchjobargs"
     },
     {
@@ -10258,8 +10346,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "queue_batchjobargs_insertopts",
-      "community": 102,
-      "community_name": "jobInserter",
+      "community": 68,
+      "community_name": "BatchJobWorker",
       "norm_label": ".insertopts()"
     },
     {
@@ -10269,8 +10357,8 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "queue_batchjobargs_kind",
-      "community": 102,
-      "community_name": "jobInserter",
+      "community": 68,
+      "community_name": "BatchJobWorker",
       "norm_label": ".kind()"
     },
     {
@@ -10644,7 +10732,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker",
       "community": 86,
-      "community_name": "EventRepository",
+      "community_name": "RetentionWorker",
       "norm_label": "retention_worker.go"
     },
     {
@@ -10655,7 +10743,7 @@
       "_origin": "ast",
       "id": "queue_retentionargs",
       "community": 86,
-      "community_name": "EventRepository",
+      "community_name": "RetentionWorker",
       "norm_label": "retentionargs"
     },
     {
@@ -10666,7 +10754,7 @@
       "_origin": "ast",
       "id": "queue_retentionargs_kind",
       "community": 86,
-      "community_name": "EventRepository",
+      "community_name": "RetentionWorker",
       "norm_label": ".kind()"
     },
     {
@@ -10677,7 +10765,7 @@
       "_origin": "ast",
       "id": "queue_retentionargs_insertopts",
       "community": 86,
-      "community_name": "EventRepository",
+      "community_name": "RetentionWorker",
       "norm_label": ".insertopts()"
     },
     {
@@ -10688,7 +10776,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_insertopts",
       "community": 86,
-      "community_name": "EventRepository",
+      "community_name": "RetentionWorker",
       "norm_label": "insertopts"
     },
     {
@@ -10699,7 +10787,7 @@
       "_origin": "ast",
       "id": "queue_retentionworker",
       "community": 86,
-      "community_name": "EventRepository",
+      "community_name": "RetentionWorker",
       "norm_label": "retentionworker"
     },
     {
@@ -10710,7 +10798,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_workerdefaults",
       "community": 86,
-      "community_name": "EventRepository",
+      "community_name": "RetentionWorker",
       "norm_label": "workerdefaults"
     },
     {
@@ -10721,7 +10809,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_logger",
       "community": 86,
-      "community_name": "EventRepository",
+      "community_name": "RetentionWorker",
       "norm_label": "logger"
     },
     {
@@ -10732,7 +10820,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_newretentionworker",
       "community": 86,
-      "community_name": "EventRepository",
+      "community_name": "RetentionWorker",
       "norm_label": "newretentionworker()"
     },
     {
@@ -10743,7 +10831,7 @@
       "_origin": "ast",
       "id": "queue_retentionworker_work",
       "community": 86,
-      "community_name": "EventRepository",
+      "community_name": "RetentionWorker",
       "norm_label": ".work()"
     },
     {
@@ -10754,7 +10842,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_context",
       "community": 86,
-      "community_name": "EventRepository",
+      "community_name": "RetentionWorker",
       "norm_label": "context"
     },
     {
@@ -10765,7 +10853,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_job",
       "community": 86,
-      "community_name": "EventRepository",
+      "community_name": "RetentionWorker",
       "norm_label": "job"
     },
     {
@@ -10797,7 +10885,7 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "queue_systemeventrepo",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "systemeventrepo"
     },
@@ -11281,7 +11369,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_webhook_worker_go_jobinserter",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "jobinserter"
     },
@@ -11314,7 +11402,7 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "internal_webhooks_queue_webhook_worker_newwebhookworker",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "newwebhookworker()"
     },
@@ -11325,7 +11413,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_webhook_worker_go_config",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "config"
     },
@@ -11490,8 +11578,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 151,
+      "community_name": "validConfig",
       "norm_label": "webhooks/rate_limit_test.go"
     },
     {
@@ -11501,8 +11589,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_testvalidateconfig_ratelimitrps",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 151,
+      "community_name": "validConfig",
       "norm_label": "testvalidateconfig_ratelimitrps()"
     },
     {
@@ -11512,8 +11600,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_go_t",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 151,
+      "community_name": "validConfig",
       "norm_label": "t"
     },
     {
@@ -11523,8 +11611,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_testapplyconfig_ratelimitrps",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 151,
+      "community_name": "validConfig",
       "norm_label": "testapplyconfig_ratelimitrps()"
     },
     {
@@ -11534,8 +11622,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_testdefaultwebhookhttpconfig_ratelimitrps",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 151,
+      "community_name": "validConfig",
       "norm_label": "testdefaultwebhookhttpconfig_ratelimitrps()"
     },
     {
@@ -11545,8 +11633,8 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_testtowebhookregistration_ratelimitrps",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 151,
+      "community_name": "validConfig",
       "norm_label": "testtowebhookregistration_ratelimitrps()"
     },
     {
@@ -11699,8 +11787,8 @@
       "source_location": "L186",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_createbatchjob",
-      "community": 27,
-      "community_name": "BatchJob",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": ".createbatchjob()"
     },
     {
@@ -11820,8 +11908,8 @@
       "source_location": "L452",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_getbatchjob",
-      "community": 27,
-      "community_name": "BatchJob",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": ".getbatchjob()"
     },
     {
@@ -12073,8 +12161,8 @@
       "source_location": "L1026",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_listeventreports",
-      "community": 154,
-      "community_name": "EventReportWithStats",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": ".listeventreports()"
     },
     {
@@ -12084,8 +12172,8 @@
       "source_location": "L1055",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_listeventreportsfiltered",
-      "community": 154,
-      "community_name": "EventReportWithStats",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": ".listeventreportsfiltered()"
     },
     {
@@ -12095,8 +12183,8 @@
       "source_location": "L1081",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_listeventreportswithstats",
-      "community": 154,
-      "community_name": "EventReportWithStats",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": ".listeventreportswithstats()"
     },
     {
@@ -12282,8 +12370,8 @@
       "source_location": "L1528",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_snapshoteventids",
-      "community": 154,
-      "community_name": "EventReportWithStats",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": ".snapshoteventids()"
     },
     {
@@ -12326,8 +12414,8 @@
       "source_location": "L1626",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_updatebatchjobstatus",
-      "community": 27,
-      "community_name": "BatchJob",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": ".updatebatchjobstatus()"
     },
     {
@@ -12414,8 +12502,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository",
-      "community": 51,
-      "community_name": "RepositoryInterface",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "alert_config_repository.go"
     },
     {
@@ -12425,8 +12513,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "store_alertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "alertconfig"
     },
     {
@@ -12436,8 +12524,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository_go_uuid",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "uuid"
     },
     {
@@ -12447,8 +12535,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository_go_time",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "time"
     },
     {
@@ -12458,7 +12546,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "store_alertconfigrepository",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "alertconfigrepository"
     },
@@ -12469,8 +12557,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository_go_store_repository",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "repository"
     },
     {
@@ -12480,8 +12568,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "store_repository_createalertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".createalertconfig()"
     },
     {
@@ -12491,8 +12579,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository_go_context",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "context"
     },
     {
@@ -12502,8 +12590,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "store_repository_listalertconfigs",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".listalertconfigs()"
     },
     {
@@ -12513,8 +12601,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "store_repository_getalertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".getalertconfig()"
     },
     {
@@ -12524,8 +12612,8 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "store_repository_deletealertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".deletealertconfig()"
     },
     {
@@ -12535,8 +12623,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "store_repository_resolvealertrecipients",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".resolvealertrecipients()"
     },
     {
@@ -12569,7 +12657,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_batch_repository_go_store_repository",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": "repository"
     },
     {
@@ -12580,7 +12668,7 @@
       "_origin": "ast",
       "id": "store_repository_createbatchjob",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": ".createbatchjob()"
     },
     {
@@ -12591,7 +12679,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_batch_repository_go_context",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": "context"
     },
     {
@@ -12602,7 +12690,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_batch_repository_go_uuid",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": "uuid"
     },
     {
@@ -12613,7 +12701,7 @@
       "_origin": "ast",
       "id": "store_repository_getbatchjob",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": ".getbatchjob()"
     },
     {
@@ -12624,7 +12712,7 @@
       "_origin": "ast",
       "id": "store_repository_updatebatchjobstatus",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": ".updatebatchjobstatus()"
     },
     {
@@ -12635,7 +12723,7 @@
       "_origin": "ast",
       "id": "store_repository_updatebatchjobprogress",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": ".updatebatchjobprogress()"
     },
     {
@@ -12646,7 +12734,7 @@
       "_origin": "ast",
       "id": "store_repository_cleanupexpiredbatchjobs",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": ".cleanupexpiredbatchjobs()"
     },
     {
@@ -12657,7 +12745,7 @@
       "_origin": "ast",
       "id": "store_repository_snapshoteventids",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": ".snapshoteventids()"
     },
     {
@@ -12668,7 +12756,7 @@
       "_origin": "ast",
       "id": "store_repository_snapshotdeliveryids",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": ".snapshotdeliveryids()"
     },
     {
@@ -12679,7 +12767,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_delivery_repository",
       "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RepositoryInterface",
       "norm_label": "delivery_repository.go"
     },
     {
@@ -12690,7 +12778,7 @@
       "_origin": "ast",
       "id": "store_deliveryrepository",
       "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RepositoryInterface",
       "norm_label": "deliveryrepository"
     },
     {
@@ -12876,8 +12964,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_event_repository",
-      "community": 86,
-      "community_name": "EventRepository",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "event_repository.go"
     },
     {
@@ -12887,8 +12975,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "store_eventrepository",
-      "community": 86,
-      "community_name": "EventRepository",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "eventrepository"
     },
     {
@@ -12898,8 +12986,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "internal_webhooks_store_event_repository_go_store_repository",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "repository"
     },
     {
@@ -12909,8 +12997,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "store_repository_storeevent",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".storeevent()"
     },
     {
@@ -12920,8 +13008,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_event_repository_go_context",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "context"
     },
     {
@@ -12931,8 +13019,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_event_repository_go_uuid",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "uuid"
     },
     {
@@ -12942,8 +13030,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "store_repository_geteventbyid",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".geteventbyid()"
     },
     {
@@ -12953,8 +13041,8 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "store_repository_geteventbyidempotencykey",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".geteventbyidempotencykey()"
     },
     {
@@ -12964,8 +13052,8 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "store_repository_deleteeventsbefore",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".deleteeventsbefore()"
     },
     {
@@ -12975,8 +13063,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_event_repository_go_time",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "time"
     },
     {
@@ -12986,8 +13074,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "store_repository_listeventreports",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".listeventreports()"
     },
     {
@@ -12997,8 +13085,8 @@
       "source_location": "L205",
       "_origin": "ast",
       "id": "store_repository_listeventreportswithstats",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".listeventreportswithstats()"
     },
     {
@@ -13008,8 +13096,8 @@
       "source_location": "L268",
       "_origin": "ast",
       "id": "store_repository_listeventreportsfiltered",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".listeventreportsfiltered()"
     },
     {
@@ -13019,8 +13107,8 @@
       "source_location": "L347",
       "_origin": "ast",
       "id": "store_repository_deleteeventbyid",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".deleteeventbyid()"
     },
     {
@@ -13030,8 +13118,8 @@
       "source_location": "L354",
       "_origin": "ast",
       "id": "store_repository_geteventdeliverystats",
-      "community": 132,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".geteventdeliverystats()"
     },
     {
@@ -13041,7 +13129,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_event_type_repository",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "event_type_repository.go"
     },
@@ -13052,7 +13140,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "store_eventtyperepository",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "eventtyperepository"
     },
@@ -13162,7 +13250,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_health_repository",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "health_repository.go"
     },
@@ -13173,7 +13261,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "store_healthrepository",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "healthrepository"
     },
@@ -13184,8 +13272,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "internal_webhooks_store_health_repository_go_store_repository",
-      "community": 148,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "repository"
     },
     {
@@ -13195,8 +13283,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "store_repository_updatewebhookhealthstate",
-      "community": 148,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".updatewebhookhealthstate()"
     },
     {
@@ -13206,8 +13294,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_health_repository_go_context",
-      "community": 148,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "context"
     },
     {
@@ -13217,8 +13305,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_health_repository_go_uuid",
-      "community": 148,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "uuid"
     },
     {
@@ -13228,8 +13316,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_health_repository_go_time",
-      "community": 148,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "time"
     },
     {
@@ -13239,8 +13327,8 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "store_repository_calculatewebhookhealth",
-      "community": 148,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".calculatewebhookhealth()"
     },
     {
@@ -13250,8 +13338,8 @@
       "source_location": "L149",
       "_origin": "ast",
       "id": "store_repository_recordwebhookhealthevent",
-      "community": 148,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".recordwebhookhealthevent()"
     },
     {
@@ -13261,8 +13349,8 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "store_repository_getwebhookhealthstate",
-      "community": 148,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".getwebhookhealthstate()"
     },
     {
@@ -13272,8 +13360,8 @@
       "source_location": "L188",
       "_origin": "ast",
       "id": "store_repository_getwebhookhealthsummary",
-      "community": 148,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".getwebhookhealthsummary()"
     },
     {
@@ -13283,8 +13371,8 @@
       "source_location": "L231",
       "_origin": "ast",
       "id": "store_repository_getwebhookhealthtimeseries",
-      "community": 148,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".getwebhookhealthtimeseries()"
     },
     {
@@ -13294,8 +13382,8 @@
       "source_location": "L305",
       "_origin": "ast",
       "id": "store_repository_aggregatehealthsummaries",
-      "community": 148,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".aggregatehealthsummaries()"
     },
     {
@@ -13305,8 +13393,8 @@
       "source_location": "L372",
       "_origin": "ast",
       "id": "store_repository_gethealthsummary",
-      "community": 148,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".gethealthsummary()"
     },
     {
@@ -13316,7 +13404,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_interface",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "interface.go"
     },
@@ -13327,7 +13415,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "store_repositoryinterface",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "repositoryinterface"
     },
@@ -13338,7 +13426,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "store_transactor",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "transactor"
     },
@@ -13371,8 +13459,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "store_signaturetype",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 75,
+      "community_name": "parseUUID",
       "norm_label": "signaturetype"
     },
     {
@@ -13481,8 +13569,8 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "store_eventreportwithstats",
-      "community": 154,
-      "community_name": "EventReportWithStats",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": "eventreportwithstats"
     },
     {
@@ -13492,8 +13580,8 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "store_eventreportfilter",
-      "community": 154,
-      "community_name": "EventReportWithStats",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": "eventreportfilter"
     },
     {
@@ -13591,8 +13679,8 @@
       "source_location": "L275",
       "_origin": "ast",
       "id": "store_batchjobstatus",
-      "community": 27,
-      "community_name": "BatchJob",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": "batchjobstatus"
     },
     {
@@ -13603,7 +13691,7 @@
       "_origin": "ast",
       "id": "store_batchjobtype",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": "batchjobtype"
     },
     {
@@ -13613,8 +13701,8 @@
       "source_location": "L295",
       "_origin": "ast",
       "id": "store_batchjobdata",
-      "community": 27,
-      "community_name": "BatchJob",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": "batchjobdata"
     },
     {
@@ -13625,7 +13713,7 @@
       "_origin": "ast",
       "id": "store_batchjob",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": "batchjob"
     },
     {
@@ -13636,7 +13724,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_models_go_rawmessage",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": "rawmessage"
     },
     {
@@ -13647,7 +13735,7 @@
       "_origin": "ast",
       "id": "store_batchjob_getdata",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "IsNotFound",
       "norm_label": ".getdata()"
     },
     {
@@ -13955,7 +14043,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_subscription_repository",
       "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RepositoryInterface",
       "norm_label": "subscription_repository.go"
     },
     {
@@ -13966,7 +14054,7 @@
       "_origin": "ast",
       "id": "store_subscriptionrepository",
       "community": 107,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RepositoryInterface",
       "norm_label": "subscriptionrepository"
     },
     {
@@ -14141,7 +14229,7 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "store_ratelimitrepository",
-      "community": 51,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "ratelimitrepository"
     },
@@ -14548,8 +14636,8 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "webhooks_templatefunctioninfo",
-      "community": 100,
-      "community_name": "WebhookService",
+      "community": 43,
+      "community_name": "webhook_service.go",
       "norm_label": "templatefunctioninfo"
     },
     {
@@ -14614,8 +14702,8 @@
       "source_location": "L184",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_normalizepagination",
-      "community": 154,
-      "community_name": "EventReportWithStats",
+      "community": 33,
+      "community_name": "Errorf",
       "norm_label": "normalizepagination()"
     },
     {
@@ -14647,7 +14735,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_alert_config_go_webhooks_webhookservice",
-      "community": 36,
+      "community": 27,
       "community_name": "IsNotFound",
       "norm_label": "webhookservice"
     },
@@ -14658,7 +14746,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "webhooks_webhookservice_createalertconfig",
-      "community": 36,
+      "community": 27,
       "community_name": "IsNotFound",
       "norm_label": ".createalertconfig()"
     },
@@ -14669,7 +14757,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_alert_config_go_context",
-      "community": 36,
+      "community": 27,
       "community_name": "IsNotFound",
       "norm_label": "context"
     },
@@ -14680,7 +14768,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "webhooks_webhookservice_listalertconfigs",
-      "community": 36,
+      "community": 27,
       "community_name": "IsNotFound",
       "norm_label": ".listalertconfigs()"
     },
@@ -14691,7 +14779,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "webhooks_webhookservice_deletealertconfig",
-      "community": 36,
+      "community": 27,
       "community_name": "IsNotFound",
       "norm_label": ".deletealertconfig()"
     },
@@ -14867,8 +14955,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_batch_go_webhooks_webhookservice",
-      "community": 153,
-      "community_name": ".loadAndValidateBatch",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "webhookservice"
     },
     {
@@ -14878,8 +14966,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "webhooks_webhookservice_loadandvalidatebatch",
-      "community": 153,
-      "community_name": ".loadAndValidateBatch",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".loadandvalidatebatch()"
     },
     {
@@ -14889,8 +14977,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_batch_go_context",
-      "community": 153,
-      "community_name": ".loadAndValidateBatch",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": "context"
     },
     {
@@ -14900,8 +14988,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "webhooks_webhookservice_startbatch",
-      "community": 153,
-      "community_name": ".loadAndValidateBatch",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".startbatch()"
     },
     {
@@ -14911,8 +14999,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "webhooks_webhookservice_cancelbatch",
-      "community": 153,
-      "community_name": ".loadAndValidateBatch",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".cancelbatch()"
     },
     {
@@ -14922,8 +15010,8 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "webhooks_webhookservice_repushevents",
-      "community": 153,
-      "community_name": ".loadAndValidateBatch",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".repushevents()"
     },
     {
@@ -14933,8 +15021,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "webhooks_webhookservice_getrepushstatus",
-      "community": 153,
-      "community_name": ".loadAndValidateBatch",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".getrepushstatus()"
     },
     {
@@ -14944,8 +15032,8 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "webhooks_webhookservice_cancelrepush",
-      "community": 153,
-      "community_name": ".loadAndValidateBatch",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".cancelrepush()"
     },
     {
@@ -14955,8 +15043,8 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "webhooks_webhookservice_retrydeliveries",
-      "community": 153,
-      "community_name": ".loadAndValidateBatch",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".retrydeliveries()"
     },
     {
@@ -14966,8 +15054,8 @@
       "source_location": "L128",
       "_origin": "ast",
       "id": "webhooks_webhookservice_getretrystatus",
-      "community": 153,
-      "community_name": ".loadAndValidateBatch",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".getretrystatus()"
     },
     {
@@ -14977,8 +15065,8 @@
       "source_location": "L135",
       "_origin": "ast",
       "id": "webhooks_webhookservice_cancelretry",
-      "community": 153,
-      "community_name": ".loadAndValidateBatch",
+      "community": 27,
+      "community_name": "IsNotFound",
       "norm_label": ".cancelretry()"
     },
     {
@@ -15098,8 +15186,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_delivery_go_webhooks_webhookservice",
-      "community": 75,
-      "community_name": "parseUUID",
+      "community": 147,
+      "community_name": ".ListDeliveries",
       "norm_label": "webhookservice"
     },
     {
@@ -15109,8 +15197,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "webhooks_webhookservice_getdeliverystatus",
-      "community": 75,
-      "community_name": "parseUUID",
+      "community": 147,
+      "community_name": ".ListDeliveries",
       "norm_label": ".getdeliverystatus()"
     },
     {
@@ -15120,8 +15208,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_delivery_go_context",
-      "community": 75,
-      "community_name": "parseUUID",
+      "community": 147,
+      "community_name": ".ListDeliveries",
       "norm_label": "context"
     },
     {
@@ -15131,8 +15219,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "webhooks_webhookservice_getdeliveryattempts",
-      "community": 75,
-      "community_name": "parseUUID",
+      "community": 147,
+      "community_name": ".ListDeliveries",
       "norm_label": ".getdeliveryattempts()"
     },
     {
@@ -15142,8 +15230,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "webhooks_webhookservice_listdeliveries",
-      "community": 154,
-      "community_name": "EventReportWithStats",
+      "community": 147,
+      "community_name": ".ListDeliveries",
       "norm_label": ".listdeliveries()"
     },
     {
@@ -15153,8 +15241,8 @@
       "source_location": "L145",
       "_origin": "ast",
       "id": "webhooks_webhookservice_retrydelivery",
-      "community": 75,
-      "community_name": "parseUUID",
+      "community": 147,
+      "community_name": ".ListDeliveries",
       "norm_label": ".retrydelivery()"
     },
     {
@@ -15263,8 +15351,8 @@
       "source_location": "L442",
       "_origin": "ast",
       "id": "webhooks_webhookservice_listevents",
-      "community": 154,
-      "community_name": "EventReportWithStats",
+      "community": 33,
+      "community_name": "Errorf",
       "norm_label": ".listevents()"
     },
     {
@@ -15351,8 +15439,8 @@
       "source_location": "L662",
       "_origin": "ast",
       "id": "webhooks_webhookservice_listeventreports",
-      "community": 154,
-      "community_name": "EventReportWithStats",
+      "community": 33,
+      "community_name": "Errorf",
       "norm_label": ".listeventreports()"
     },
     {
@@ -15417,8 +15505,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_health_go_webhooks_webhookservice",
-      "community": 36,
-      "community_name": "IsNotFound",
+      "community": 12,
+      "community_name": "WebhookServiceInterfaceWithTracing",
       "norm_label": "webhookservice"
     },
     {
@@ -15428,8 +15516,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "webhooks_webhookservice_getwebhookhealth",
-      "community": 36,
-      "community_name": "IsNotFound",
+      "community": 12,
+      "community_name": "WebhookServiceInterfaceWithTracing",
       "norm_label": ".getwebhookhealth()"
     },
     {
@@ -15439,8 +15527,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_health_go_context",
-      "community": 36,
-      "community_name": "IsNotFound",
+      "community": 12,
+      "community_name": "WebhookServiceInterfaceWithTracing",
       "norm_label": "context"
     },
     {
@@ -15450,8 +15538,8 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "webhooks_webhookservice_gethealthsummary",
-      "community": 36,
-      "community_name": "IsNotFound",
+      "community": 12,
+      "community_name": "WebhookServiceInterfaceWithTracing",
       "norm_label": ".gethealthsummary()"
     },
     {
@@ -15461,8 +15549,8 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "webhooks_webhookservice_getconsumerstats",
-      "community": 36,
-      "community_name": "IsNotFound",
+      "community": 12,
+      "community_name": "WebhookServiceInterfaceWithTracing",
       "norm_label": ".getconsumerstats()"
     },
     {
@@ -15769,8 +15857,8 @@
       "source_location": "L218",
       "_origin": "ast",
       "id": "webhooks_webhookservice_gettemplatefunctions",
-      "community": 100,
-      "community_name": "WebhookService",
+      "community": 43,
+      "community_name": "webhook_service.go",
       "norm_label": ".gettemplatefunctions()"
     },
     {
@@ -15956,8 +16044,8 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "webhooks_mockrepo_runintransaction",
-      "community": 51,
-      "community_name": "RepositoryInterface",
+      "community": 78,
+      "community_name": "mockRepo",
       "norm_label": ".runintransaction()"
     },
     {
@@ -17419,8 +17507,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "pkg_errors_service_wrapf",
-      "community": 75,
-      "community_name": "parseUUID",
+      "community": 71,
+      "community_name": "ServiceError",
       "norm_label": "wrapf()"
     },
     {
@@ -17762,7 +17850,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "pkg_storage_errors",
-      "community": 36,
+      "community": 27,
       "community_name": "IsNotFound",
       "norm_label": "storage/errors.go"
     },
@@ -17773,7 +17861,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "pkg_storage_errors_isnotfound",
-      "community": 36,
+      "community": 27,
       "community_name": "IsNotFound",
       "norm_label": "isnotfound()"
     },
@@ -17784,7 +17872,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "pkg_storage_errors_error",
-      "community": 36,
+      "community": 27,
       "community_name": "IsNotFound",
       "norm_label": "error()"
     },
@@ -18600,8 +18688,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "satellites_recipes_catalog",
-      "community": 69,
-      "community_name": "TestRecipes",
+      "community": 150,
+      "community_name": "mapError",
       "norm_label": "catalog.go"
     },
     {
@@ -18611,8 +18699,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "satellites_recipes_catalog_all",
-      "community": 69,
-      "community_name": "TestRecipes",
+      "community": 150,
+      "community_name": "mapError",
       "norm_label": "all()"
     },
     {
@@ -18622,8 +18710,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_recipes_catalog_go_recipe",
-      "community": 69,
-      "community_name": "TestRecipes",
+      "community": 150,
+      "community_name": "mapError",
       "norm_label": "recipe"
     },
     {
@@ -18704,6 +18792,17 @@
       "norm_label": "t"
     },
     {
+      "label": "TestSendGridActivationParams()",
+      "file_type": "code",
+      "source_file": "satellites/recipes/recipes_test.go",
+      "source_location": "L140",
+      "_origin": "ast",
+      "id": "satellites_recipes_recipes_test_testsendgridactivationparams",
+      "community": 69,
+      "community_name": "TestRecipes",
+      "norm_label": "testsendgridactivationparams()"
+    },
+    {
       "label": "schema.go",
       "file_type": "code",
       "source_file": "satellites/recipes/schema.go",
@@ -18740,7 +18839,7 @@
       "label": "Webhook",
       "file_type": "code",
       "source_file": "satellites/recipes/schema.go",
-      "source_location": "L32",
+      "source_location": "L36",
       "_origin": "ast",
       "id": "recipes_webhook",
       "community": 101,
@@ -18751,7 +18850,7 @@
       "label": "Subscription",
       "file_type": "code",
       "source_file": "satellites/recipes/schema.go",
-      "source_location": "L43",
+      "source_location": "L47",
       "_origin": "ast",
       "id": "recipes_subscription",
       "community": 101,
@@ -18897,8 +18996,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "satellites_sparrow_sinks_email",
-      "community": 38,
-      "community_name": "envelope",
+      "community": 53,
+      "community_name": "newEmailSink",
       "norm_label": "email.go"
     },
     {
@@ -18908,8 +19007,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "sparrow_sinks_emailsink",
-      "community": 38,
-      "community_name": "envelope",
+      "community": 53,
+      "community_name": "newEmailSink",
       "norm_label": "emailsink"
     },
     {
@@ -18919,8 +19018,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_sinks_email_go_template",
-      "community": 38,
-      "community_name": "envelope",
+      "community": 53,
+      "community_name": "newEmailSink",
       "norm_label": "template"
     },
     {
@@ -18974,8 +19073,8 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "sparrow_sinks_emailsink_send",
-      "community": 38,
-      "community_name": "envelope",
+      "community": 53,
+      "community_name": "newEmailSink",
       "norm_label": ".send()"
     },
     {
@@ -20569,8 +20668,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "satellites_sparrow_client_newapiclient",
-      "community": 147,
-      "community_name": "runInit",
+      "community": 32,
+      "community_name": "apiClient",
       "norm_label": "newapiclient()"
     },
     {
@@ -20580,8 +20679,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_client_go_config",
-      "community": 147,
-      "community_name": "runInit",
+      "community": 32,
+      "community_name": "apiClient",
       "norm_label": "config"
     },
     {
@@ -20888,7 +20987,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "satellites_sparrow_color",
-      "community": 94,
+      "community": 63,
       "community_name": "newPalette",
       "norm_label": "color.go"
     },
@@ -20899,8 +20998,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "sparrow_palette",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": "palette"
     },
     {
@@ -20910,7 +21009,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "satellites_sparrow_color_newpalette",
-      "community": 94,
+      "community": 63,
       "community_name": "newPalette",
       "norm_label": "newpalette()"
     },
@@ -20921,7 +21020,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_color_go_writer",
-      "community": 94,
+      "community": 63,
       "community_name": "newPalette",
       "norm_label": "writer"
     },
@@ -20932,8 +21031,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "sparrow_palette_paint",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".paint()"
     },
     {
@@ -20943,8 +21042,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "sparrow_palette_bold",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".bold()"
     },
     {
@@ -20954,8 +21053,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "sparrow_palette_dim",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".dim()"
     },
     {
@@ -20965,8 +21064,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "sparrow_palette_red",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".red()"
     },
     {
@@ -20976,8 +21075,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "sparrow_palette_green",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".green()"
     },
     {
@@ -20987,8 +21086,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "sparrow_palette_yellow",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".yellow()"
     },
     {
@@ -20998,8 +21097,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "sparrow_palette_status",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".status()"
     },
     {
@@ -21131,7 +21230,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_events",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "events.go"
     },
     {
@@ -21164,7 +21263,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_events_runevents",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "runevents()"
     },
     {
@@ -21175,7 +21274,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_events_go_context",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "context"
     },
     {
@@ -21186,7 +21285,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_events_go_writer",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "writer"
     },
     {
@@ -21197,7 +21296,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_events_printeventtype",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "printeventtype()"
     },
     {
@@ -21208,7 +21307,7 @@
       "_origin": "ast",
       "id": "eventtypeitem",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "eventtypeitem"
     },
     {
@@ -21219,7 +21318,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_events_indentjson",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "indentjson()"
     },
     {
@@ -21438,8 +21537,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "satellites_sparrow_functions_newfunctionscmd",
-      "community": 95,
-      "community_name": "runFunctions",
+      "community": 24,
+      "community_name": "newRootCmd",
       "norm_label": "newfunctionscmd()"
     },
     {
@@ -21449,8 +21548,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_functions_go_command",
-      "community": 95,
-      "community_name": "runFunctions",
+      "community": 24,
+      "community_name": "newRootCmd",
       "norm_label": "command"
     },
     {
@@ -21517,8 +21616,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd",
-      "community": 147,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "init_cmd.go"
     },
     {
@@ -21528,8 +21627,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_newinitcmd",
-      "community": 147,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "newinitcmd()"
     },
     {
@@ -21539,8 +21638,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_go_command",
-      "community": 147,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "command"
     },
     {
@@ -21550,8 +21649,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_runinit",
-      "community": 147,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "runinit()"
     },
     {
@@ -21561,8 +21660,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_go_context",
-      "community": 147,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "context"
     },
     {
@@ -21572,8 +21671,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_go_writer",
-      "community": 147,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "writer"
     },
     {
@@ -21583,8 +21682,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_probeserver",
-      "community": 147,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "probeserver()"
     },
     {
@@ -21594,8 +21693,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_go_config",
-      "community": 147,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "config"
     },
     {
@@ -21605,8 +21704,8 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_isterminal",
-      "community": 147,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "isterminal()"
     },
     {
@@ -21616,8 +21715,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "file",
-      "community": 147,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "file"
     },
     {
@@ -21793,7 +21892,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_output",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "output.go"
     },
     {
@@ -21804,7 +21903,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_output_renderstructured",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "renderstructured()"
     },
     {
@@ -21815,7 +21914,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_output_go_writer",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "writer"
     },
     {
@@ -21826,7 +21925,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_output_yesno",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "yesno()"
     },
     {
@@ -22079,7 +22178,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "tail.go"
     },
     {
@@ -22090,7 +22189,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail_newtailcmd",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "newtailcmd()"
     },
     {
@@ -22101,7 +22200,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail_go_command",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "command"
     },
     {
@@ -22112,7 +22211,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail_runtail",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "runtail()"
     },
     {
@@ -22123,7 +22222,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail_go_context",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "context"
     },
     {
@@ -22134,7 +22233,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail_go_writer",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "writer"
     },
     {
@@ -22145,7 +22244,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail_printdelivery",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "printdelivery()"
     },
     {
@@ -22156,7 +22255,7 @@
       "_origin": "ast",
       "id": "deliveryitem",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "deliveryitem"
     },
     {
@@ -22295,7 +22394,7 @@
       "label": "substituteParams()",
       "file_type": "code",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L43",
+      "source_location": "L47",
       "_origin": "ast",
       "id": "satellites_sparrow_use_substituteparams",
       "community": 84,
@@ -22306,7 +22405,7 @@
       "label": "findRecipe()",
       "file_type": "code",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L62",
+      "source_location": "L66",
       "_origin": "ast",
       "id": "satellites_sparrow_use_findrecipe",
       "community": 84,
@@ -22317,7 +22416,7 @@
       "label": "loadRecipe()",
       "file_type": "code",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L78",
+      "source_location": "L82",
       "_origin": "ast",
       "id": "satellites_sparrow_use_loadrecipe",
       "community": 84,
@@ -22328,7 +22427,7 @@
       "label": "newUseCmd()",
       "file_type": "code",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L98",
+      "source_location": "L102",
       "_origin": "ast",
       "id": "satellites_sparrow_use_newusecmd",
       "community": 84,
@@ -22350,7 +22449,7 @@
       "label": "runUse()",
       "file_type": "code",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L126",
+      "source_location": "L130",
       "_origin": "ast",
       "id": "satellites_sparrow_use_runuse",
       "community": 84,
@@ -22431,7 +22530,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_webhooks",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "webhooks.go"
     },
     {
@@ -22441,8 +22540,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "satellites_sparrow_webhooks_newwebhookscmd",
-      "community": 63,
-      "community_name": "runEvents",
+      "community": 24,
+      "community_name": "newRootCmd",
       "norm_label": "newwebhookscmd()"
     },
     {
@@ -22452,8 +22551,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_webhooks_go_command",
-      "community": 63,
-      "community_name": "runEvents",
+      "community": 24,
+      "community_name": "newRootCmd",
       "norm_label": "command"
     },
     {
@@ -22464,7 +22563,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_webhooks_runwebhooks",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "runwebhooks()"
     },
     {
@@ -22475,7 +22574,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_webhooks_go_context",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "context"
     },
     {
@@ -22486,7 +22585,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_webhooks_go_writer",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "writer"
     },
     {
@@ -22497,7 +22596,7 @@
       "_origin": "ast",
       "id": "sparrow_webhookdetail",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "webhookdetail"
     },
     {
@@ -22508,7 +22607,7 @@
       "_origin": "ast",
       "id": "subscriptionitem",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "subscriptionitem"
     },
     {
@@ -22519,7 +22618,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_webhooks_printwebhook",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "printwebhook()"
     },
     {
@@ -22840,8 +22939,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "web_package_devdependencies_playwright_test",
-      "community": 168,
-      "community_name": "@playwright/test",
+      "community": 62,
+      "community_name": "devDependencies",
       "norm_label": "@playwright/test"
     },
     {
@@ -22851,8 +22950,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "playwright_test",
-      "community": 168,
-      "community_name": "@playwright/test",
+      "community": 62,
+      "community_name": "devDependencies",
       "norm_label": "@playwright/test"
     },
     {
@@ -23016,8 +23115,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "web_package_devdependencies_openapi_typescript",
-      "community": 62,
-      "community_name": "devDependencies",
+      "community": 173,
+      "community_name": "openapi-typescript",
       "norm_label": "openapi-typescript"
     },
     {
@@ -23027,8 +23126,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "openapi_typescript",
-      "community": 62,
-      "community_name": "devDependencies",
+      "community": 173,
+      "community_name": "openapi-typescript",
       "norm_label": "openapi-typescript"
     },
     {
@@ -23082,8 +23181,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "web_package_devdependencies_tailwindcss",
-      "community": 146,
-      "community_name": "SSRF Protection",
+      "community": 159,
+      "community_name": "tailwindcss",
       "norm_label": "tailwindcss"
     },
     {
@@ -23093,8 +23192,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "tailwindcss",
-      "community": 146,
-      "community_name": "SSRF Protection",
+      "community": 159,
+      "community_name": "tailwindcss",
       "norm_label": "tailwindcss"
     },
     {
@@ -23294,7 +23393,7 @@
       "label": "$defs",
       "file_type": "code",
       "source_file": "web/src/lib/api-types.d.ts",
-      "source_location": "L1876",
+      "source_location": "L1880",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
@@ -23307,7 +23406,7 @@
       "label": "operations",
       "file_type": "code",
       "source_file": "web/src/lib/api-types.d.ts",
-      "source_location": "L1877",
+      "source_location": "L1881",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
@@ -23819,7 +23918,7 @@
       "label": "Recipe",
       "file_type": "code",
       "source_file": "web/src/lib/recipes.ts",
-      "source_location": "L9",
+      "source_location": "L12",
       "_callable": true,
       "_callable_class": true,
       "_origin": "ast",
@@ -23832,7 +23931,7 @@
       "label": "substituteParams()",
       "file_type": "code",
       "source_file": "web/src/lib/recipes.ts",
-      "source_location": "L25",
+      "source_location": "L28",
       "_callable": true,
       "_origin": "ast",
       "id": "web_src_lib_recipes_substituteparams",
@@ -24279,26 +24378,14 @@
       "norm_label": "reports/+page.svelte"
     },
     {
-      "label": "if()",
-      "file_type": "code",
-      "source_file": "web/src/routes/events/[eventName]/reports/+page.svelte",
-      "source_location": "L72",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "web_src_routes_events_eventname_reports_page_if",
-      "community": 54,
-      "community_name": "lib/utils.ts",
-      "norm_label": "if()"
-    },
-    {
       "label": "update/+page.svelte",
       "file_type": "code",
       "source_file": "web/src/routes/events/[eventName]/update/+page.svelte",
       "source_location": "L1",
       "_origin": "ast",
       "id": "web_src_routes_events_eventname_update_page",
-      "community": 44,
-      "community_name": "$lib/api-types",
+      "community": 111,
+      "community_name": "services.ts",
       "norm_label": "update/+page.svelte"
     },
     {
@@ -24589,7 +24676,7 @@
       "label": "#if()",
       "file_type": "code",
       "source_file": "web/src/routes/webhooks/[webhookId]/+page.svelte",
-      "source_location": "L853",
+      "source_location": "L867",
       "_callable": true,
       "_origin": "ast",
       "id": "web_src_routes_webhooks_webhookid_page_if",
@@ -25620,7 +25707,7 @@
       "label": "Good to know",
       "file_type": "document",
       "source_file": "docs/src/content/docs/guides/webhook-health-alerts.mdx",
-      "source_location": "L96",
+      "source_location": "L105",
       "_origin": "ast",
       "id": "docs_src_content_docs_guides_webhook_health_alerts_good_to_know",
       "community": 120,
@@ -27699,7 +27786,7 @@
       "label": "How params work",
       "file_type": "document",
       "source_file": "satellites/recipes/README.md",
-      "source_location": "L51",
+      "source_location": "L55",
       "_origin": "ast",
       "id": "satellites_recipes_readme_how_params_work",
       "community": 93,
@@ -27710,7 +27797,7 @@
       "label": "Contributing a recipe",
       "file_type": "document",
       "source_file": "satellites/recipes/README.md",
-      "source_location": "L74",
+      "source_location": "L78",
       "_origin": "ast",
       "id": "satellites_recipes_readme_contributing_a_recipe",
       "community": 93,
@@ -35119,7 +35206,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/config/config.go",
-      "source_location": "L107",
+      "source_location": "L106",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_config_config",
@@ -35130,7 +35217,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/config/config.go",
-      "source_location": "L205",
+      "source_location": "L204",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_config_config",
@@ -35141,7 +35228,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "internal/config/config.go",
-      "source_location": "L159",
+      "source_location": "L158",
       "weight": 1.0,
       "_origin": "ast",
       "source": "config_config",
@@ -35152,7 +35239,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "internal/config/config.go",
-      "source_location": "L116",
+      "source_location": "L115",
       "weight": 1.0,
       "_origin": "ast",
       "source": "config_config",
@@ -35163,7 +35250,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "internal/config/config.go",
-      "source_location": "L122",
+      "source_location": "L121",
       "weight": 1.0,
       "_origin": "ast",
       "source": "config_config",
@@ -35174,7 +35261,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "internal/config/config.go",
-      "source_location": "L145",
+      "source_location": "L144",
       "weight": 1.0,
       "_origin": "ast",
       "source": "config_config",
@@ -35185,7 +35272,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/config/config.go",
-      "source_location": "L107",
+      "source_location": "L106",
       "weight": 1.0,
       "context": "return_type",
       "_origin": "ast",
@@ -35199,7 +35286,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/config/config.go",
-      "source_location": "L110",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_config_config_load",
@@ -35210,7 +35297,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/config/config.go",
-      "source_location": "L132",
+      "source_location": "L131",
       "weight": 1.0,
       "_origin": "ast",
       "source": "config_config_validate",
@@ -35222,7 +35309,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/config/config.go",
-      "source_location": "L126",
+      "source_location": "L125",
       "weight": 1.0,
       "_origin": "ast",
       "source": "config_config_validate",
@@ -35234,7 +35321,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/config/config.go",
-      "source_location": "L123",
+      "source_location": "L122",
       "weight": 1.0,
       "_origin": "ast",
       "source": "config_config_validate",
@@ -35247,7 +35334,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/config/config.go",
-      "source_location": "L130",
+      "source_location": "L129",
       "weight": 1.0,
       "_origin": "ast",
       "source": "config_config_validate",
@@ -35257,7 +35344,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/config/config.go",
-      "source_location": "L159",
+      "source_location": "L158",
       "weight": 1.0,
       "context": "return_type",
       "_origin": "ast",
@@ -35271,7 +35358,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/config/config.go",
-      "source_location": "L195",
+      "source_location": "L194",
       "weight": 1.0,
       "_origin": "ast",
       "source": "config_config_encryptionkeyring",
@@ -35283,7 +35370,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/config/config.go",
-      "source_location": "L183",
+      "source_location": "L182",
       "weight": 1.0,
       "_origin": "ast",
       "source": "config_config_encryptionkeyring",
@@ -35295,7 +35382,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/config/config.go",
-      "source_location": "L169",
+      "source_location": "L168",
       "weight": 1.0,
       "_origin": "ast",
       "source": "config_config_encryptionkeyring",
@@ -35307,7 +35394,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/config/config.go",
-      "source_location": "L208",
+      "source_location": "L207",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_config_config_validateport",
@@ -42584,7 +42671,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L370",
+      "source_location": "L372",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery",
@@ -42595,7 +42682,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L147",
+      "source_location": "L149",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery",
@@ -42628,7 +42715,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L125",
+      "source_location": "L127",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery",
@@ -42639,7 +42726,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L134",
+      "source_location": "L136",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery",
@@ -42705,7 +42792,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L142",
+      "source_location": "L144",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery",
@@ -42716,7 +42803,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L92",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery",
@@ -42727,7 +42814,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L87",
+      "source_location": "L89",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery",
@@ -42738,7 +42825,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L97",
+      "source_location": "L99",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery",
@@ -42749,7 +42836,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L110",
+      "source_location": "L112",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery",
@@ -42760,7 +42847,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L105",
+      "source_location": "L107",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery",
@@ -42771,7 +42858,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L118",
+      "source_location": "L120",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery",
@@ -42806,7 +42893,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L98",
+      "source_location": "L100",
       "weight": 1.0,
       "context": "field",
       "_origin": "ast",
@@ -42831,7 +42918,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L404",
+      "source_location": "L416",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery_listdeliveriesimpl",
@@ -42867,7 +42954,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L161",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery_registerdeliveryroutes",
@@ -42890,7 +42977,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L370",
+      "source_location": "L372",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -42902,7 +42989,7 @@
       "relation": "embeds",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L94",
+      "source_location": "L96",
       "weight": 1.0,
       "_origin": "ast",
       "source": "rest_listdeliveriesglobalinput",
@@ -42913,7 +43000,7 @@
       "relation": "embeds",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L89",
+      "source_location": "L91",
       "weight": 1.0,
       "_origin": "ast",
       "source": "rest_listdeliveriesinput",
@@ -42924,7 +43011,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L370",
+      "source_location": "L372",
       "weight": 1.0,
       "context": "return_type",
       "_origin": "ast",
@@ -42936,7 +43023,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L98",
+      "source_location": "L100",
       "weight": 1.0,
       "context": "field",
       "_origin": "ast",
@@ -42948,7 +43035,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L135",
+      "source_location": "L137",
       "weight": 1.0,
       "context": "field",
       "_origin": "ast",
@@ -42960,7 +43047,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L370",
+      "source_location": "L372",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -42972,7 +43059,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L147",
+      "source_location": "L149",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -42984,7 +43071,7 @@
       "relation": "embeds",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L144",
+      "source_location": "L146",
       "weight": 1.0,
       "_origin": "ast",
       "source": "rest_deliveryrouteservice",
@@ -42995,7 +43082,7 @@
       "relation": "embeds",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L143",
+      "source_location": "L145",
       "weight": 1.0,
       "_origin": "ast",
       "source": "rest_deliveryrouteservice",
@@ -43006,7 +43093,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L147",
+      "source_location": "L149",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -43019,7 +43106,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L172",
+      "source_location": "L174",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery_registerdeliveryroutes",
@@ -43032,7 +43119,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L159",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery_registerdeliveryroutes",
@@ -43044,7 +43131,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L269",
+      "source_location": "L271",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery_registerdeliveryroutes",
@@ -43054,7 +43141,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L370",
+      "source_location": "L372",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -43068,7 +43155,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L399",
+      "source_location": "L411",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery_listdeliveriesimpl",
@@ -43080,7 +43167,19 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/rest/delivery.go",
-      "source_location": "L406",
+      "source_location": "L399",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "internal_rest_delivery_listdeliveriesimpl",
+      "target": "internal_rest_filter_helpers_parsedatefilter"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "internal/rest/delivery.go",
+      "source_location": "L418",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_delivery_listdeliveriesimpl",
@@ -43127,7 +43226,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/rest/event.go",
-      "source_location": "L542",
+      "source_location": "L572",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event_listeventoccurrencesimpl",
@@ -43139,7 +43238,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/rest/event.go",
-      "source_location": "L248",
+      "source_location": "L252",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event_registereventroutes",
@@ -43209,7 +43308,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L530",
+      "source_location": "L534",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event",
@@ -43220,7 +43319,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L232",
+      "source_location": "L236",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event",
@@ -43231,7 +43330,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L211",
+      "source_location": "L215",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event",
@@ -43264,7 +43363,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L197",
+      "source_location": "L201",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event",
@@ -43319,7 +43418,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L227",
+      "source_location": "L231",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event",
@@ -43374,7 +43473,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L192",
+      "source_location": "L196",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event",
@@ -43385,7 +43484,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L165",
+      "source_location": "L169",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event",
@@ -43396,7 +43495,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L160",
+      "source_location": "L164",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event",
@@ -43407,7 +43506,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L170",
+      "source_location": "L174",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event",
@@ -43495,7 +43594,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L185",
+      "source_location": "L189",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event",
@@ -43506,7 +43605,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L178",
+      "source_location": "L182",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event",
@@ -43612,7 +43711,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L274",
+      "source_location": "L278",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event_registereventroutes",
@@ -43648,7 +43747,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L254",
+      "source_location": "L258",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event_registereventroutes",
@@ -43707,7 +43806,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L171",
+      "source_location": "L175",
       "weight": 1.0,
       "context": "field",
       "_origin": "ast",
@@ -43719,7 +43818,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L530",
+      "source_location": "L534",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -43731,7 +43830,7 @@
       "relation": "embeds",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L167",
+      "source_location": "L171",
       "weight": 1.0,
       "_origin": "ast",
       "source": "rest_listeventoccurrencesglobalinput",
@@ -43742,7 +43841,7 @@
       "relation": "embeds",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L162",
+      "source_location": "L166",
       "weight": 1.0,
       "_origin": "ast",
       "source": "rest_listeventoccurrencesinput",
@@ -43753,7 +43852,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L530",
+      "source_location": "L534",
       "weight": 1.0,
       "context": "return_type",
       "_origin": "ast",
@@ -43765,7 +43864,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L171",
+      "source_location": "L175",
       "weight": 1.0,
       "context": "field",
       "_origin": "ast",
@@ -43777,7 +43876,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L211",
+      "source_location": "L215",
       "weight": 1.0,
       "context": "return_type",
       "_origin": "ast",
@@ -43790,7 +43889,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L491",
+      "source_location": "L495",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event_registereventroutes",
@@ -43801,7 +43900,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L211",
+      "source_location": "L215",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -43813,7 +43912,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L530",
+      "source_location": "L534",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -43825,7 +43924,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L232",
+      "source_location": "L236",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -43837,7 +43936,7 @@
       "relation": "embeds",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L229",
+      "source_location": "L233",
       "weight": 1.0,
       "_origin": "ast",
       "source": "rest_eventrouteservice",
@@ -43848,7 +43947,7 @@
       "relation": "embeds",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L228",
+      "source_location": "L232",
       "weight": 1.0,
       "_origin": "ast",
       "source": "rest_eventrouteservice",
@@ -43859,7 +43958,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L232",
+      "source_location": "L236",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -43872,7 +43971,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L409",
+      "source_location": "L413",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event_registereventroutes",
@@ -43885,7 +43984,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/rest/event.go",
-      "source_location": "L276",
+      "source_location": "L280",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event_registereventroutes",
@@ -43897,7 +43996,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/rest/event.go",
-      "source_location": "L367",
+      "source_location": "L371",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event_registereventroutes",
@@ -43907,7 +44006,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/rest/event.go",
-      "source_location": "L530",
+      "source_location": "L534",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -43921,11 +44020,163 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/rest/event.go",
-      "source_location": "L562",
+      "source_location": "L560",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "internal_rest_event_listeventoccurrencesimpl",
+      "target": "internal_rest_filter_helpers_parsedatefilter"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "internal/rest/event.go",
+      "source_location": "L555",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "internal_rest_event_listeventoccurrencesimpl",
+      "target": "internal_rest_filter_helpers_parselabelfilter"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "internal/rest/event.go",
+      "source_location": "L592",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_rest_event_listeventoccurrencesimpl",
       "target": "internal_rest_pagination_newpagination"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/rest/filter_helpers.go",
+      "source_location": "L38",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "internal_rest_filter_helpers",
+      "target": "internal_rest_filter_helpers_parsedatefilter",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/rest/filter_helpers.go",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "internal_rest_filter_helpers",
+      "target": "internal_rest_filter_helpers_parselabelfilter",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "internal/rest/filter_helpers.go",
+      "source_location": "L23",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "internal_rest_filter_helpers_parselabelfilter",
+      "target": "pkg_errors_service_errorf"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "internal/rest/filter_helpers_test.go",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "internal_rest_filter_helpers_test_testparselabelfilter",
+      "target": "internal_rest_filter_helpers_parselabelfilter"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/rest/filter_helpers.go",
+      "source_location": "L38",
+      "weight": 1.0,
+      "context": "return_type",
+      "_origin": "ast",
+      "source": "internal_rest_filter_helpers_parsedatefilter",
+      "target": "internal_rest_filter_helpers_go_time",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "internal/rest/filter_helpers.go",
+      "source_location": "L45",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "internal_rest_filter_helpers_parsedatefilter",
+      "target": "pkg_errors_service_errorf"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "internal/rest/filter_helpers_test.go",
+      "source_location": "L26",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "internal_rest_filter_helpers_test_testparsedatefilter",
+      "target": "internal_rest_filter_helpers_parsedatefilter"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/rest/filter_helpers_test.go",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "internal_rest_filter_helpers_test",
+      "target": "internal_rest_filter_helpers_test_testparsedatefilter",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/rest/filter_helpers_test.go",
+      "source_location": "L8",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "internal_rest_filter_helpers_test",
+      "target": "internal_rest_filter_helpers_test_testparselabelfilter",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/rest/filter_helpers_test.go",
+      "source_location": "L8",
+      "weight": 1.0,
+      "context": "parameter_type",
+      "_origin": "ast",
+      "source": "internal_rest_filter_helpers_test_testparselabelfilter",
+      "target": "internal_rest_filter_helpers_test_go_t",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "internal/rest/filter_helpers_test.go",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "parameter_type",
+      "_origin": "ast",
+      "source": "internal_rest_filter_helpers_test_testparsedatefilter",
+      "target": "internal_rest_filter_helpers_test_go_t",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -71850,7 +72101,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L75",
+      "source_location": "L79",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use_findrecipe",
@@ -71862,7 +72113,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L85",
+      "source_location": "L89",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use_loadrecipe",
@@ -71874,7 +72125,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L109",
+      "source_location": "L113",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use_newusecmd",
@@ -71886,7 +72137,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L156",
+      "source_location": "L167",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use_runuse",
@@ -71898,7 +72149,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L55",
+      "source_location": "L59",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use_substituteparams",
@@ -74448,6 +74699,17 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/recipes/recipes_test.go",
+      "source_location": "L140",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "satellites_recipes_recipes_test",
+      "target": "satellites_recipes_recipes_test_testsendgridactivationparams",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "satellites/recipes/recipes_test.go",
       "source_location": "L48",
       "weight": 1.0,
       "_origin": "ast",
@@ -74552,6 +74814,18 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "satellites/recipes/recipes_test.go",
+      "source_location": "L140",
+      "weight": 1.0,
+      "context": "parameter_type",
+      "_origin": "ast",
+      "source": "satellites_recipes_recipes_test_testsendgridactivationparams",
+      "target": "satellites_recipes_recipes_test_go_t",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/recipes/schema.go",
@@ -74577,7 +74851,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/recipes/schema.go",
-      "source_location": "L43",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_recipes_schema",
@@ -74588,7 +74862,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/recipes/schema.go",
-      "source_location": "L32",
+      "source_location": "L36",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_recipes_schema",
@@ -78484,7 +78758,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L111",
+      "source_location": "L115",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use_newusecmd",
@@ -78841,7 +79115,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L126",
+      "source_location": "L130",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -80444,7 +80718,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L126",
+      "source_location": "L130",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -80501,7 +80775,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L126",
+      "source_location": "L130",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -80923,7 +81197,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L146",
+      "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use_runuse",
@@ -81857,7 +82131,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L62",
+      "source_location": "L66",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use",
@@ -81868,7 +82142,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L78",
+      "source_location": "L82",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use",
@@ -81879,7 +82153,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L98",
+      "source_location": "L102",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use",
@@ -81890,7 +82164,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L126",
+      "source_location": "L130",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use",
@@ -81901,7 +82175,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L43",
+      "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use",
@@ -81934,7 +82208,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L78",
+      "source_location": "L82",
       "weight": 1.0,
       "context": "return_type",
       "_origin": "ast",
@@ -81959,7 +82233,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L162",
+      "source_location": "L178",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use_runuse",
@@ -81971,7 +82245,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L127",
+      "source_location": "L131",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use_runuse",
@@ -81983,7 +82257,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L131",
+      "source_location": "L135",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use_runuse",
@@ -82006,7 +82280,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L98",
+      "source_location": "L102",
       "weight": 1.0,
       "context": "return_type",
       "_origin": "ast",
@@ -82019,7 +82293,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L115",
+      "source_location": "L119",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use_newusecmd",
@@ -82031,7 +82305,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L115",
+      "source_location": "L119",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_sparrow_use_newusecmd",
@@ -82042,7 +82316,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L126",
+      "source_location": "L130",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -82054,7 +82328,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "satellites/sparrow/use.go",
-      "source_location": "L126",
+      "source_location": "L130",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -82978,7 +83252,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/lib/api-types.d.ts",
-      "source_location": "L1876",
+      "source_location": "L1880",
       "weight": 1.0,
       "_origin": "ast",
       "source": "web_src_lib_api_types_d",
@@ -82989,7 +83263,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/lib/api-types.d.ts",
-      "source_location": "L1877",
+      "source_location": "L1881",
       "weight": 1.0,
       "_origin": "ast",
       "source": "web_src_lib_api_types_d",
@@ -84205,7 +84479,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/lib/recipes.ts",
-      "source_location": "L9",
+      "source_location": "L12",
       "weight": 1.0,
       "_origin": "ast",
       "source": "web_src_lib_recipes",
@@ -84227,7 +84501,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/lib/recipes.ts",
-      "source_location": "L25",
+      "source_location": "L28",
       "weight": 1.0,
       "_origin": "ast",
       "source": "web_src_lib_recipes",
@@ -85073,17 +85347,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "web/src/routes/events/[eventName]/reports/+page.svelte",
-      "source_location": "L72",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "web_src_routes_events_eventname_reports_page",
-      "target": "web_src_routes_events_eventname_reports_page_if",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "web/src/routes/portal/+page.svelte",
       "source_location": "L54",
       "weight": 1.0,
@@ -85368,7 +85631,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/src/routes/webhooks/[webhookId]/+page.svelte",
-      "source_location": "L853",
+      "source_location": "L867",
       "weight": 1.0,
       "_origin": "ast",
       "source": "web_src_routes_webhooks_webhookid_page",
@@ -86326,7 +86589,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/src/content/docs/guides/webhook-health-alerts.mdx",
-      "source_location": "L96",
+      "source_location": "L105",
       "weight": 1.0,
       "_origin": "ast",
       "source": "docs_src_content_docs_guides_webhook_health_alerts",
@@ -88240,7 +88503,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/recipes/README.md",
-      "source_location": "L74",
+      "source_location": "L78",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_recipes_readme_sparrow_recipes",
@@ -88251,7 +88514,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/recipes/README.md",
-      "source_location": "L51",
+      "source_location": "L55",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_recipes_readme_sparrow_recipes",
@@ -89230,5 +89493,5 @@
       "source_file": "docs/src/content/docs/getting-started/why-sparrow.mdx"
     }
   ],
-  "built_at_commit": "8eef564c0fdb2efd1ce47c2cd06ac01e5493e0ba"
+  "built_at_commit": "7cf0215193790390988cbb8c0a4951bc65037f05"
 }

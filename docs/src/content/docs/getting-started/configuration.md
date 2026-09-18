@@ -21,8 +21,8 @@ All configuration is done via environment variables. No config files needed.
 | `ENVIRONMENT` | No | -- | Deployment tag; any value is accepted. Set to `production` to block cross-origin requests by default (see `CORS_ALLOWED_ORIGINS`) and tag logs/OTel; any other value behaves as development. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
 | `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of allowed CORS origins (e.g. `https://ui.example.com,https://admin.example.com`). Required when the UI is hosted separately from the API. In production (`ENVIRONMENT=production`), cross-origin requests are blocked by default; in development, all origins are allowed. |
-| `SPARROW_SENDGRID_API_KEY` | No | -- | SendGrid API key for the bootstrapped alert webhook that emails system events (`sparrow.webhook.health_changed` / `delivery_failed`). When set, the webhook is created (or re-activated) with this key; when unset, it is created inactive with a mock key. |
-| `SPARROW_ALERT_FROM_EMAIL` | No | `alerts@example.com` | Verified SendGrid sender address for alert emails |
+| `SPARROW_SENDGRID_API_KEY` | No | -- | SendGrid API key for the bootstrapped alert webhook that emails system events (`sparrow.webhook.health_changed` / `delivery_failed`). The webhook stays inactive until this and `SPARROW_ALERT_FROM_EMAIL` are set. |
+| `SPARROW_ALERT_FROM_EMAIL` | No | `alerts@example.com` | Verified SendGrid sender address for alert emails. Replace the placeholder to activate the bootstrapped SendGrid webhook. |
 | `SPARROW_ALERT_FROM_NAME` | No | `Sparrow` | Sender display name for alert emails |
 | `SPARROW_EVENT_RETENTION_DAYS` | No | `0` (keep forever) | Purge events — and, via cascade, their deliveries — older than this many days. Runs hourly in the background. |
 

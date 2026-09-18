@@ -5,12 +5,17 @@ params:
   - name: api_key
     prompt: "SendGrid API key"
     required: true
+    secret: true
+    activation_required: true
   - name: from_email
     prompt: "Verified sender email address"
     required: true
+    default: alerts@example.com
+    activation_required: true
+    must_override_default: true
   - name: from_name
     prompt: "Sender display name"
-    required: true
+    default: Sparrow
 webhook:
   url: 'https://api.sendgrid.com/v3/mail/send'
   headers:

@@ -23,9 +23,13 @@ type Recipe struct {
 
 // Param is a value the user supplies when applying a recipe.
 type Param struct {
-	Name     string `yaml:"name" json:"name"`
-	Prompt   string `yaml:"prompt" json:"prompt"`
-	Required bool   `yaml:"required" json:"required"`
+	Name                string `yaml:"name" json:"name"`
+	Prompt              string `yaml:"prompt" json:"prompt"`
+	Required            bool   `yaml:"required" json:"required"`
+	Default             string `yaml:"default,omitempty" json:"default,omitempty"`
+	Secret              bool   `yaml:"secret,omitempty" json:"secret,omitempty"`
+	ActivationRequired  bool   `yaml:"activation_required,omitempty" json:"activation_required,omitempty"`
+	MustOverrideDefault bool   `yaml:"must_override_default,omitempty" json:"must_override_default,omitempty"`
 }
 
 // Webhook describes the destination endpoint registered for the recipe.

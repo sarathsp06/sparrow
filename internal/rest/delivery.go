@@ -79,6 +79,8 @@ type DeliveryListParams struct {
 	EventID       string `query:"event_id,omitempty" doc:"Filter to deliveries for one pushed event occurrence."`
 	Status        string `query:"status,omitempty" doc:"Filter by delivery status (e.g. pending, success, failed, retrying)."`
 	ErrorCategory string `query:"error_category,omitempty" doc:"Filter by failure classification (e.g. server_error, client_error, timeout)."`
+	CreatedAfter  string `query:"created_after,omitempty" doc:"Filter to deliveries created on or after this date (YYYY-MM-DD)."`
+	CreatedBefore string `query:"created_before,omitempty" doc:"Filter to deliveries created on or before this date (YYYY-MM-DD)."`
 	PrepareRetry  bool   `query:"prepare_retry" default:"false" doc:"If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint."`
 	Limit         int32  `query:"limit" default:"50" minimum:"1" maximum:"1000" doc:"Maximum items to return."`
 	Offset        int32  `query:"offset" default:"0" doc:"Number of items to skip, for pagination."`
@@ -394,6 +396,16 @@ func listDeliveriesImpl(ctx context.Context, svc deliveryRouteService, consumer 
 	if p.ErrorCategory != "" {
 		filter.ErrorCategory = &p.ErrorCategory
 	}
+	createdAfter, err := parseDateFilter(p.CreatedAfter, false)
+	if err != nil {
+		return nil, huma.Error400BadRequest("created_after " + err.Error())
+	}
+	filter.CreatedAfter = createdAfter
+	createdBefore, err := parseDateFilter(p.CreatedBefore, true)
+	if err != nil {
+		return nil, huma.Error400BadRequest("created_before " + err.Error())
+	}
+	filter.CreatedBefore = createdBefore
 	deliveries, total, retryID, err := svc.ListDeliveries(ctx, filter)
 	if err != nil {
 		return nil, mapError(ctx, err, "failed to list deliveries")
