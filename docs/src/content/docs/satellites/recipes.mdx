@@ -3,6 +3,12 @@ title: Recipes
 description: Adapters as config — turn Sparrow deliveries into Slack, Discord, PagerDuty, ntfy, or ClickHouse payloads with one command.
 ---
 
+:::tip[Interactive Studio Apps Available]
+Try the interactive applications embedded directly in our documentation:
+- **[SendGrid Email Recipe Studio](/sparrow/tools/email-studio/)**: Interactively design, copy subscription schemas, verify templates, and preview rendered emails in a simulated inbox view.
+- **[Satellite Recipe Workbench](/sparrow/tools/recipe-workbench/)**: Test and preview all 7 satellite recipes (Slack, Discord, SendGrid, ntfy, PagerDuty, ClickHouse, Twilio) in real time.
+:::
+
 Recipes are adapters as config. Each recipe is a small YAML file pairing a
 destination URL (plus headers) with a `transform_template` — a Go template
 that Sparrow renders **server-side, per delivery**, turning the generic event

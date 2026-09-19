@@ -1,0 +1,61 @@
+---
+import EmailStudioApp from '../../components/tools/EmailStudioApp.svelte';
+import '../../styles/sparrow-tokens.css';
+import '../../styles/custom.css';
+import faviconSrc from '../../assets/favicon.svg';
+
+const favicon = faviconSrc.src;
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const docsHome = `${base}getting-started/installation/`;
+const satellitesDocs = `${base}satellites/`;
+const recipeWorkbenchUrl = `${base}tools/recipe-workbench/`;
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SendGrid Email Recipe Studio — Sparrow Tools</title>
+  <meta name="description" content="Design, verify, and preview SendGrid email recipes with Sparrow schemas and Go templates." />
+  <link rel="icon" href={favicon} type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+
+<body class="sp">
+  <!-- NAV -->
+  <nav class="sp-nav">
+    <div class="sp-w">
+      <div class="sp-nav-inner">
+        <a href={base} class="sp-logo">
+          <img src={favicon} alt="Sparrow Logo" width="28" height="28" />
+          <span>Sparrow Tools</span>
+        </a>
+        <div class="sp-nav-links">
+          <a href={docsHome}>Docs</a>
+          <a href={satellitesDocs}>Satellites</a>
+          <a href={`${base}tools/email-studio/`} class="sp-active">Email Studio</a>
+          <a href={recipeWorkbenchUrl}>Recipe Workbench</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="sp-w">
+    <EmailStudioApp client:load />
+  </main>
+</body>
+</html>
+
+<style>
+.sp { margin: 0; padding: 0; font-family: var(--sp-font-body, system-ui, sans-serif); background: var(--sp-surface, #fbfbfa); color: var(--sp-on-surface, #1f2937); }
+.sp-w { max-width: 1280px; margin: 0 auto; padding: 0 1.5rem; }
+.sp-nav { height: 3.5rem; border-bottom: 1px solid var(--sp-outline-variant, #e5e7eb); background: #ffffff; }
+.sp-nav-inner { display: flex; align-items: center; height: 100%; justify-content: space-between; }
+.sp-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; font-weight: 700; color: inherit; }
+.sp-nav-links { display: flex; gap: 1.5rem; }
+.sp-nav-links a { text-decoration: none; color: var(--sp-on-surface-variant, #4b5563); font-size: 14px; font-weight: 500; }
+.sp-nav-links a.sp-active { color: #d97706; font-weight: 700; }
+</style>

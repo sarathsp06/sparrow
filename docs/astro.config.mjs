@@ -1,6 +1,7 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import sitemap from '@astrojs/sitemap';
+import svelte from '@astrojs/svelte';
 import starlightLlmsTxt from './src/lib/llms/starlight-llms-txt/index.mjs';
 import { llmsBasePrompt, llmsRootDetails } from './src/lib/llms/prompts.mjs';
 
@@ -55,6 +56,13 @@ export default defineConfig({
             { slug: 'satellites/recipes' },
             { slug: 'satellites/sources' },
             { slug: 'satellites/sinks' },
+          ],
+        },
+        {
+          label: 'Interactive Apps',
+          items: [
+            { label: 'Email Recipe Studio', link: '/tools/email-studio/' },
+            { label: 'Recipe Workbench', link: '/tools/recipe-workbench/' },
           ],
         },
         {
@@ -118,5 +126,6 @@ export default defineConfig({
       },
     }),
     sitemap(),
+    svelte(),
   ],
 });
