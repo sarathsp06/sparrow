@@ -27,6 +27,7 @@ type DeliveryRepository interface {
 	ResetDeliveryForRetry(ctx context.Context, deliveryID uuid.UUID) error
 	DeleteDeliveryByID(ctx context.Context, deliveryID uuid.UUID) error
 	GetDeliveryAttempts(ctx context.Context, tenantID uuid.UUID, deliveryID uuid.UUID) ([]*WebhookHealthEvent, error)
+	CountFailedDeliveriesByWebhook(ctx context.Context, tenantID uuid.UUID) ([]*DLQDepth, error)
 }
 
 // deliveryColumns is the canonical SELECT column list for webhook_deliveries (aliased as wd).
@@ -408,6 +409,28 @@ func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.U
 	}
 
 	return deliveries, nil
+}
+
+// CountFailedDeliveriesByWebhook returns the DLQ depth (terminal-failed
+// delivery count) per webhook within a tenant. Webhooks with no failed
+// deliveries are omitted. Served by the partial index idx_webhook_deliveries_dlq.
+func (r *Repository) CountFailedDeliveriesByWebhook(ctx context.Context, tenantID uuid.UUID) ([]*DLQDepth, error) {
+	query := `
+		SELECT wd.webhook_id, wr.consumer, COUNT(*) AS depth
+		FROM webhook_deliveries wd
+		JOIN webhook_registrations wr ON wr.id = wd.webhook_id
+		WHERE wd.status = 'failed'
+		  AND wr.tenant_id = $1
+		GROUP BY wd.webhook_id, wr.consumer
+	`
+
+	var depths []*DLQDepth
+	err := r.conn.SelectContext(ctx, &depths, query, tenantID)
+	if err != nil {
+		return nil, storage.Error(err)
+	}
+
+	return depths, nil
 }
 
 // ResetDeliveryForRetry resets a delivery status to pending for retry

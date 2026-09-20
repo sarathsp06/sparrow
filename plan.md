@@ -58,11 +58,10 @@ These principles apply globally to Sparrow, not just this feature set:
 
 | Gap | Priority | Notes |
 |-----|----------|-------|
-| No dead letter queue | High | Failed deliveries stuck in deliveries table forever |
 | No API-level rate limiting | Medium | Per-webhook rate limiting exists, but API endpoints are unthrottled |
 | No CLI tool | Medium | Users rely on curl or the interactive `/docs` (Scalar) UI |
 | No payload size limits | Medium | Unbounded event payloads |
-| No data retention / cleanup | High | No TTL-based purge of old events/deliveries |
+| Partial data retention | Medium | `RetentionWorker` purges events (deliveries cascade) after `SPARROW_EVENT_RETENTION_DAYS`; health events and batch jobs still grow unbounded |
 | No scheduled/delayed webhooks | Low | Not in Svix OSS either |
 | No API versioning beyond URL path | Low | REST paths are `/v1/...`; no header/content-negotiation versioning scheme |
 | Limited client SDKs | Medium | Python generated from OpenAPI; no Go/JS/Java/Ruby/C#/PHP |
@@ -153,33 +152,29 @@ Updated `plan.md` inaccuracies: RPC count 34→36, migrations 22→23, gap table
 
 ## Part 11: Dead Letter Queue
 
-**Status**: Pending
+**Status**: Complete
 
-**Priority**: High -- currently failed deliveries accumulate forever with no mechanism to surface, redrive, or purge them.
+### Design (as implemented)
 
-### Design
+During implementation it turned out most of the planned surface already existed, because `failed` is a reliable terminal status (`statusForFailure` keeps in-flight retries at `retrying`; `failed` means attempts exhausted or non-retryable error):
 
-After all retry attempts are exhausted, a delivery enters `failed` terminal state. Today it sits in `webhook_deliveries` indefinitely. A DLQ mechanism should:
-
-1. **Surface failed deliveries clearly** -- dedicated `ListDLQ` RPC filtered to terminal-failed deliveries past max attempts
-2. **Redrive** -- `RedriveDLQ` RPC: re-enqueue failed deliveries for another round of attempts (resets attempt counter)
-3. **Bulk redrive** -- reuse existing batch infrastructure (`batch_jobs` with `job_type = "dlq_redrive"`)
-4. **Per-webhook DLQ depth metric** -- OTel gauge `sparrow.dlq.depth` by webhook_id
-5. **UI** -- DLQ tab on webhook detail page + global DLQ view
-
-### Why not a separate table?
-
-Failed deliveries already have all the data (payload, headers, target URL, error info). A separate DLQ table would duplicate storage. Instead, use a filtered view: `status = 'failed' AND attempts >= max_attempts`.
+1. **Surface failed deliveries** -- `ListDeliveries` with `status=failed` IS the DLQ view (global, per-consumer, per-webhook via existing filters). No new `:dlq` endpoint.
+2. **Redrive single** -- existing `POST /v1/deliveries/{delivery_id}:retry` (resets delivery, re-enqueues with a fresh River job, so the attempt budget restarts).
+3. **Bulk redrive** -- existing `prepare_retry=true` snapshot + `deliveries:retryBatch` (job_type `delivery_retry`); a separate `dlq_redrive` job type would have been a duplicate.
+4. **Per-webhook DLQ depth metric** -- OTel observable gauge `sparrow.dlq.depth` (attrs: `webhook_id`, `consumer`), registered in `internal/webhooks/dlq_metrics.go`, backed by `CountFailedDeliveriesByWebhook`.
+5. **UI** -- webhook detail "Failed (DLQ)" stat card links to `/deliveries?webhook_id=X&status=failed`; the deliveries page now seeds its filters from URL query params (deep-linkable DLQ view with bulk "Re-deliver all matching").
 
 ### Migration
 
-- Add index: `idx_webhook_deliveries_dlq ON webhook_deliveries (webhook_id, status) WHERE status = 'failed'`
+- 000027: partial index `idx_webhook_deliveries_dlq ON webhook_deliveries (webhook_id, created_at DESC) WHERE status = 'failed'` (serves both the list view and the depth gauge).
 
-### API Changes
+### Key decisions vs original plan
 
-- `GET /v1/consumers/{consumer}/deliveries:dlq` -> paginated failed deliveries
-- `POST /v1/consumers/{consumer}/webhooks/{webhook_id}/dlq:redrive` -> redrive all failed for a webhook
-- `POST /v1/deliveries/{delivery_id}:redrive` -> redrive single delivery
+| Original plan | Actual implementation | Rationale |
+|---|---|---|
+| Dedicated `:dlq` / `:redrive` endpoints | Reuse `ListDeliveries?status=failed` + existing retry endpoints | They would have been 1:1 duplicates of existing routes; `failed` is already terminal |
+| `job_type = "dlq_redrive"` batch type | Existing `delivery_retry` batch type | Identical semantics |
+| Filter `attempts >= max_attempts` | Filter `status = 'failed'` alone | Worker only writes `failed` when terminal (exhausted or non-retryable), so the attempts predicate is redundant |
 
 ---
 

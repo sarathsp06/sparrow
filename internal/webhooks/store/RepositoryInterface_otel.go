@@ -159,6 +159,30 @@ func (_d RepositoryInterfaceWithTracing) CleanupExpiredBatchJobs(ctx context.Con
 	return _d.RepositoryInterface.CleanupExpiredBatchJobs(ctx)
 }
 
+// CountFailedDeliveriesByWebhook implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) CountFailedDeliveriesByWebhook(ctx context.Context, tenantID uuid.UUID) (dpa1 []*DLQDepth, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CountFailedDeliveriesByWebhook")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"tenantID": tenantID}, map[string]interface{}{
+				"dpa1": dpa1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.CountFailedDeliveriesByWebhook(ctx, tenantID)
+}
+
 // CreateAlertConfig implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) CreateAlertConfig(ctx context.Context, cfg *AlertConfig) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.CreateAlertConfig")

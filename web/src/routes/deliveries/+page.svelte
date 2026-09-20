@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { page } from '$app/state';
     import { api, unwrap } from '$lib/services';
     import { getCategoryBadge, ERROR_CATEGORIES, formatAPIError, timeAgo } from '$lib/utils';
     import { consumerStore } from '$lib/consumer.svelte';
@@ -22,11 +23,13 @@
     let pageSize = $state(25);
     let totalPages = $derived(Math.max(1, Math.ceil(totalCount / pageSize)));
 
-    // Filters
-    let webhookIdFilter = $state('');
-    let eventIdFilter = $state('');
-    let statusFilter = $state('');
-    let errorCategoryFilter = $state('');
+    // Filters (seeded from URL query params so pages can deep-link,
+    // e.g. /deliveries?webhook_id=X&status=failed for a webhook's DLQ view)
+    const initialParams = page.url.searchParams;
+    let webhookIdFilter = $state(initialParams.get('webhook_id') ?? '');
+    let eventIdFilter = $state(initialParams.get('event_id') ?? '');
+    let statusFilter = $state(initialParams.get('status') ?? '');
+    let errorCategoryFilter = $state(initialParams.get('error_category') ?? '');
     let createdAfterFilter = $state('');
     let createdBeforeFilter = $state('');
 

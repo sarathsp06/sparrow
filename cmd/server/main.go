@@ -227,6 +227,10 @@ func main() {
 	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks))
 	tracedWebhookService := webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, "")
 
+	if err := webhooks.RegisterDLQDepthGauge(webhookRepo); err != nil {
+		log.Printf("⚠️  Failed to register DLQ depth gauge: %v", err)
+	}
+
 	bootstrapAlertChannel(ctx, cfg, webhookService)
 
 	// Create chi router for the REST API, health endpoints, and embedded UI.

@@ -659,10 +659,10 @@
               <p class="text-xs text-muted mb-0.5">Succeeded</p>
               <p class="text-xl font-semibold tnum" style="color:var(--color-ok)">{healthMetrics.successful_deliveries}</p>
             </div>
-            <div class="panel-2 p-3">
-              <p class="text-xs text-muted mb-0.5">Failed</p>
+            <a href="/deliveries?webhook_id={webhookId}&status=failed" class="panel-2 p-3 hover:border-accent transition" title="View this webhook's failed deliveries (DLQ)">
+              <p class="text-xs text-muted mb-0.5">Failed (DLQ)</p>
               <p class="text-xl font-semibold tnum" style="color:var(--color-bad)">{healthMetrics.failed_deliveries}</p>
-            </div>
+            </a>
             <div class="panel-2 p-3">
               <p class="text-xs text-muted mb-0.5">Avg Response</p>
               <p class="text-xl font-semibold tnum text-text">{healthMetrics.avg_response_time}<span class="text-xs font-normal text-faint">ms</span></p>

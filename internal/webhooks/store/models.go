@@ -177,6 +177,14 @@ type DeliveryFilter struct {
 	PrepareRetry   bool // When true, snapshot matching IDs into a batch job and return retry_id
 }
 
+// DLQDepth is the count of terminal-failed deliveries for one webhook,
+// used for the sparrow.dlq.depth gauge.
+type DLQDepth struct {
+	WebhookID uuid.UUID `db:"webhook_id"`
+	Consumer  string    `db:"consumer"`
+	Depth     int64     `db:"depth"`
+}
+
 // WebhookHealthSummary represents aggregated health metrics for a webhook
 type WebhookHealthSummary struct {
 	ID                     uuid.UUID `json:"id" db:"id"`
