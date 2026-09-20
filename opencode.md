@@ -103,8 +103,7 @@ huma.Register(api, huma.Operation{
 
 1. No API-level rate limiting
 2. No payload size limits
-3. Partial data retention (events purge via `SPARROW_EVENT_RETENTION_DAYS`; health events and batch jobs grow unbounded)
-4. No scheduled/delayed webhooks (not in Svix OSS either)
+3. No scheduled/delayed webhooks (not in Svix OSS either)
 
 ## Development History
 

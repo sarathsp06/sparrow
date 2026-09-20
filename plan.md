@@ -53,6 +53,8 @@ These principles apply globally to Sparrow, not just this feature set:
 | DB migrations | Complete | Automated on startup, see `db/migrations/` |
 | Helm chart | Complete | `charts/sparrow/` |
 | CI/CD + GoReleaser | Complete | Cross-platform binaries, Helm chart artifact |
+| Data retention | Complete | `RetentionWorker` purges `event_records` (cascades to deliveries) via `SPARROW_EVENT_RETENTION_DAYS` |
+| CLI tool | Complete | `satellites/sparrow`, separate Go module, REST over HTTP |
 
 ### Known Gaps (vs Svix and general best practices)
 
@@ -60,7 +62,6 @@ These principles apply globally to Sparrow, not just this feature set:
 |-----|----------|-------|
 | No API-level rate limiting | Medium | Per-webhook rate limiting exists, but API endpoints are unthrottled |
 | No payload size limits | Medium | Unbounded event payloads |
-| Partial data retention | Medium | `RetentionWorker` purges `event_records` (cascades to deliveries) via `SPARROW_EVENT_RETENTION_DAYS`; `webhook_health_events` and `batch_jobs` still grow unbounded |
 | No scheduled/delayed webhooks | Low | Not in Svix OSS either |
 | Limited client SDKs | Medium | Python generated from OpenAPI; no Go/JS/Java/Ruby/C#/PHP |
 | OKF bundle | Complete | `okf/` generated with 47 concepts across 58 files, 0 errors |
@@ -166,25 +167,16 @@ be a new name for data and endpoints that already exist.
 
 ## Part 12: Data Retention & Cleanup
 
-**Status**: Partial
+**Status**: Complete
 
-**Priority**: Medium -- `event_records` (and deliveries, via FK cascade) already purge on a schedule. `webhook_health_events` and `batch_jobs` still grow unbounded, but both are low-volume compared to deliveries (health events roll up into summaries; batch jobs already expire after a 15min TTL and are typically few).
-
-### What's implemented
-
-- `RetentionWorker` (`internal/webhooks/queue/retention_worker.go`), a River periodic job
+- `RetentionWorker` (`internal/webhooks/queue/retention_worker.go`), a River periodic job, `RunOnStart: true`, runs hourly
 - `SPARROW_EVENT_RETENTION_DAYS` (default `0` = disabled) purges `event_records` older than N days; deliveries cascade via FK
-- Runs every hour, logs rows deleted
+- Logs rows deleted per run
 
-### Remaining gap (optional)
-
-Extend the same worker with two more config-gated deletes rather than
-building a new mechanism:
-- `SPARROW_RETENTION_HEALTH_EVENTS_DAYS` -- delete `webhook_health_events` older than N days
-- `SPARROW_RETENTION_BATCH_JOBS_DAYS` -- delete terminal (completed/cancelled/expired) `batch_jobs` older than N days
-
-Only worth doing if these tables are observed to grow large in practice --
-no evidence of that yet.
+`webhook_health_events` and `batch_jobs` are not purged by this worker --
+not treated as a gap: health events roll up into summaries and batch jobs
+already expire after a 15min TTL, so neither has been observed to grow
+large. Extend the same worker with config-gated deletes if that changes.
 
 ---
 
@@ -237,13 +229,9 @@ None -- enforcement is server-side only.
 
 ## Part 15: CLI Tool
 
-**Status**: Not planned -- moved to Future Considerations
+**Status**: Complete
 
-curl and the interactive `/docs` (Scalar) UI already cover every operation
-this would wrap, with zero additional binary to build, distribute, or
-version. No CLI-specific capability (piping, scripting, config file) is
-currently blocked, and no user demand has been identified. See Future
-Considerations below.
+Ships as `satellites/sparrow`, a separate Go module (see `docs/adr/0002-cli-module-split.md`), released with its own path-prefixed tags. Cobra-based, subcommands: `init`, `push`, `events`, `webhooks`, `tail`, `stats`, `listen`, `use` (recipes), `template`, `functions`, `version`. REST over HTTP against the same API, reusing API key auth. Connection config resolves env > flags > `~/.sparrow/config.yaml` > defaults.
 
 ---
 
@@ -292,7 +280,6 @@ These are features identified from the Svix comparison that are **not currently 
 | Email notifications on failure | Requires email infrastructure (SMTP config, templates). Could add later with a webhook-to-email bridge pattern. |
 | Operational webhooks (meta-webhooks) | Low priority for single-tenant. Could use existing subscription mechanism to subscribe to internal events. |
 | More client SDKs (Java, Ruby, C#, PHP) | Could auto-generate from the committed OpenAPI spec (`api/openapi.yaml`) with the respective language's OpenAPI generator, same as the Python client. Prioritize when there's user demand. |
-| CLI tool (`sparrow-cli`) | curl + interactive Scalar docs already cover all operations; no identified user demand |
 
 ---
 
@@ -309,9 +296,10 @@ Completed:
   Part 10 (docs sync + OKF bundle)
   Part 14 (Ed25519 signing)
   Part 17 (REST/OpenAPI migration)
+  Part 12 (retention)
+  Part 15 (CLI tool)
 
 Next:
-  Part 12 (retention) -- independent; extend existing RetentionWorker only if health_events/batch_jobs growth becomes a problem
   Part 13 (payload limits) -- independent
   Part 16 (API rate limiting) -- independent
 ```
@@ -340,7 +328,7 @@ Next:
 | Ed25519 key storage | Reuse envelope encryption | Consistent with existing secret storage pattern |
 | Ed25519 signing model | Always dual-sign (HMAC + Ed25519) | No config needed, negligible cost, consumer chooses which to verify |
 | Ed25519 public key storage | Derived at runtime from private key | One fewer column, public key always derivable |
-| CLI tool | Deferred (not planned) | curl + Scalar docs already cover all operations; no identified demand |
+| CLI tool | Separate module (`satellites/sparrow`), REST over HTTP | Own release cadence, reuses API key auth, same protocol as web UI |
 | API rate limiting state | In-memory (single instance) | Simplest. Upgrade to PG-backed if multi-instance needed |
 | Redis dependency | No | Postgres-only is a competitive advantage over Svix OSS |
 | Multi-tenant activation | Deferred | Different product; infrastructure retained but not activated |

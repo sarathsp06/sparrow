@@ -860,13 +860,13 @@
     "semantic_hash": "213dee3aa72c54ee6afc521992cc2f8d"
   },
   "opencode.md": {
-    "mtime": 1789899474.716596,
-    "ast_hash": "60882939fcd5917556f1f0ecefbe0c2b",
+    "mtime": 1789895092.8668547,
+    "ast_hash": "79f59eaf6a26958a688b30ecc4bf3adb",
     "semantic_hash": ""
   },
   "plan.md": {
-    "mtime": 1789899493.4988678,
-    "ast_hash": "3dbe7cdf73f1cf0d99e0cbdcc209d92b",
+    "mtime": 1789895079.385048,
+    "ast_hash": "70d6ecffe96cd377132e217e28a8ea14",
     "semantic_hash": ""
   },
   "web/README.md": {
