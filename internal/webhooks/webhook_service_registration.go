@@ -503,6 +503,17 @@ func (s *WebhookService) ResumeWebhook(ctx context.Context, webhookID string, co
 	return s.setWebhookActive(ctx, webhookID, consumer, true)
 }
 
+// maskGate resolves whether a sub-field nested under a masked top-level field
+// (e.g. "http_config.rate_limit_rps") should update: with an explicit mask,
+// the field's own path must be present; in legacy (no mask) mode, fall back
+// to the caller's non-zero/non-empty check on the incoming value.
+func maskGate(useMask bool, mask map[string]bool, path string, legacyNonZero bool) bool {
+	if useMask {
+		return mask[path]
+	}
+	return legacyNonZero
+}
+
 // UpdateWebhookConfig updates webhook configuration.
 // When updateMask is non-empty, only the listed field paths are applied.
 // When updateMask is empty, falls back to legacy behavior (all non-zero fields applied).
@@ -607,12 +618,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		// Only update the webhook secret if explicitly requested via mask.
 		// Without mask (legacy mode), non-empty secret is applied.
 		// With mask, "http_config.webhook_secret" must be in the mask.
-		updateSecret := false
-		if useMask {
-			updateSecret = mask["http_config.webhook_secret"]
-		} else {
-			updateSecret = httpConfig.WebhookSecret != ""
-		}
+		updateSecret := maskGate(useMask, mask, "http_config.webhook_secret", httpConfig.WebhookSecret != "")
 		if updateSecret && httpConfig.WebhookSecret != "" {
 			encSecret, err := s.EncryptWebhookSecret(httpConfig.WebhookSecret)
 			if err != nil {
@@ -637,13 +643,7 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		}
 		// RateLimitRPS: pointer field — nil means "not provided" (keep existing),
 		// non-nil overrides. With mask, "http_config.rate_limit_rps" must be in the mask.
-		updateRateLimit := false
-		if useMask {
-			updateRateLimit = mask["http_config.rate_limit_rps"]
-		} else {
-			updateRateLimit = httpConfig.RateLimitRPS != nil
-		}
-		if updateRateLimit {
+		if maskGate(useMask, mask, "http_config.rate_limit_rps", httpConfig.RateLimitRPS != nil) {
 			webhook.RateLimitRPS = httpConfig.RateLimitRPS
 		}
 	}
