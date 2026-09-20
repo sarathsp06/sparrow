@@ -8,6 +8,7 @@ params:
   - name: basic_auth
     prompt: "Twilio Basic auth token — run: printf '%s:%s' <AccountSID> <AuthToken> | base64"
     required: true
+    secret: true
   - name: from_number
     prompt: "Sender number in E.164 without '+', digits only (e.g. 15551230000)"
     required: true

@@ -129,8 +129,8 @@ func TestRecipes(t *testing.T) {
 				t.Fatalf("render transform_template: %v", err)
 			}
 
-			// Every destination except ntfy speaks JSON.
-			if r.Name != "ntfy" && r.Name != "twilio" && !json.Valid(out) {
+			// Every destination except twilio (form-encoded) speaks JSON.
+			if r.Name != "twilio" && !json.Valid(out) {
 				t.Errorf("rendered output is not valid JSON:\n%s", out)
 			}
 		})
@@ -161,5 +161,42 @@ func TestSendGridActivationParams(t *testing.T) {
 	}
 	if params["from_name"].Default != "Sparrow" {
 		t.Fatalf("from_name default = %q, want Sparrow", params["from_name"].Default)
+	}
+}
+
+// TestPagerdutyRecipe_Severity checks that the payload's own severity wins and
+// the severity param is only a fallback.
+func TestPagerdutyRecipe_Severity(t *testing.T) {
+	raw, err := os.ReadFile("pagerduty.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r recipes.Recipe
+	if err := yaml.Unmarshal(raw, &r); err != nil {
+		t.Fatal(err)
+	}
+	tmpl := substituteParams(r.Subscription.TransformTemplate, r.Params)
+	engine := template.NewTemplateEngine()
+
+	for payloadSev, want := range map[string]string{"critical": "critical", "": "dummy-severity"} {
+		payload := map[string]any{"service": "api"}
+		if payloadSev != "" {
+			payload["severity"] = payloadSev
+		}
+		ctx := template.NewWebhookTemplateContext("evt_pd1", "incident.opened",
+			time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339), 1, payload)
+		out, err := engine.Execute(tmpl, ctx)
+		if err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		var body struct {
+			Payload struct{ Severity string }
+		}
+		if err := json.Unmarshal(out, &body); err != nil {
+			t.Fatalf("unmarshal: %v\n%s", err, out)
+		}
+		if body.Payload.Severity != want {
+			t.Errorf("severity = %q, want %q (payload severity %q)", body.Payload.Severity, want, payloadSev)
+		}
 	}
 }

@@ -22,5 +22,9 @@ webhook:
     # Password is envelope-encrypted at rest and masked in API responses.
     X-ClickHouse-Key: '{{param "password"}}'
 subscription:
+  # payload is double-encoded ({{.payload | json | json}}) on purpose: the
+  # payload column is a String, so the first json turns the map into a JSON
+  # document and the second escapes that document into a JSON string literal
+  # for the JSONEachRow row.
   transform_template: |
     {"event_id": {{.event_id | json}}, "event_name": {{.event_name | json}}, "timestamp": {{.timestamp | json}}, "payload": {{.payload | json | json}}}

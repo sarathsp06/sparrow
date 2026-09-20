@@ -32,6 +32,9 @@ func All() ([]Recipe, error) {
 		if err := yaml.Unmarshal(raw, &recipe); err != nil {
 			return nil, err
 		}
+		if err := recipe.Validate(); err != nil {
+			return nil, err
+		}
 		if recipe.Version == 1 && recipe.Name != "" && recipe.Webhook.URL != "" {
 			out = append(out, recipe)
 		}

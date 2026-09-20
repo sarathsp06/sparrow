@@ -5,6 +5,11 @@
 // files and registers them via the REST API.
 package recipes
 
+import (
+	"fmt"
+	"regexp"
+)
+
 // Recipe is one adapter recipe, schema version 1.
 //
 // Occurrences of {{param "name"}} in Webhook.URL, Webhook.Headers values,
@@ -46,4 +51,36 @@ type Webhook struct {
 // Subscription holds the per-subscription transform applied to deliveries.
 type Subscription struct {
 	TransformTemplate string `yaml:"transform_template" json:"transform_template"`
+}
+
+// paramToken matches the exact substitution token the CLI replaces at apply
+// time: {{param "name"}}.
+var paramToken = regexp.MustCompile(`\{\{param "([^"]+)"\}\}`)
+
+// Validate checks structural invariants the YAML schema can't express: every
+// {{param "x"}} token in the URL, headers, and transform template must
+// reference a declared param, so a typo can't silently ship a literal token.
+func (r *Recipe) Validate() error {
+	declared := make(map[string]bool, len(r.Params))
+	for _, p := range r.Params {
+		if p.Name == "" {
+			return fmt.Errorf("recipe %s: param with empty name", r.Name)
+		}
+		declared[p.Name] = true
+	}
+	fields := []string{r.Webhook.URL, r.Subscription.TransformTemplate}
+	for _, v := range r.Webhook.Headers {
+		fields = append(fields, v)
+	}
+	for _, v := range r.Webhook.SecretHeaders {
+		fields = append(fields, v)
+	}
+	for _, s := range fields {
+		for _, m := range paramToken.FindAllStringSubmatch(s, -1) {
+			if !declared[m[1]] {
+				return fmt.Errorf("recipe %s: {{param %q}} references undeclared param", r.Name, m[1])
+			}
+		}
+	}
+	return nil
 }

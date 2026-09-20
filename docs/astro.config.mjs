@@ -2,12 +2,21 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import sitemap from '@astrojs/sitemap';
 import svelte from '@astrojs/svelte';
+import react from '@astrojs/react';
 import starlightLlmsTxt from './src/lib/llms/starlight-llms-txt/index.mjs';
 import { llmsBasePrompt, llmsRootDetails } from './src/lib/llms/prompts.mjs';
 
 export default defineConfig({
   site: 'https://sarathsp06.github.io',
   base: '/sparrow',
+  redirects: {
+    '/tools': '/sparrow/tools/recipe-workbench/',
+    '/tools/email-studio': '/sparrow/tools/recipe-workbench/',
+  },
+  vite: {
+    // The workbench imports the recipe catalog straight from satellites/recipes/*.yaml.
+    server: { fs: { allow: ['..'] } },
+  },
   integrations: [
     starlight({
       title: 'Sparrow',
@@ -127,5 +136,6 @@ export default defineConfig({
     }),
     sitemap(),
     svelte(),
+    react(),
   ],
 });

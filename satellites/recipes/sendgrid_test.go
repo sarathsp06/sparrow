@@ -129,3 +129,42 @@ func TestSendgridRecipe_DeliveryFailed(t *testing.T) {
 		t.Errorf("expected content body to mention the error, got %+v", body.Content)
 	}
 }
+
+// TestSendgridRecipe_CustomEvent renders sendgrid.yaml against a custom event
+// without payload.alert_recipients: the default_recipient param must become
+// the sole recipient and the subject must name the event, not a system alert.
+func TestSendgridRecipe_CustomEvent(t *testing.T) {
+	tmpl := loadSendgridTemplate(t)
+	ctx := template.NewWebhookTemplateContext(
+		"evt_custom1", "order.created",
+		time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC).Format(time.RFC3339), 1,
+		map[string]any{"order_id": "ord_1", "total": 42.5},
+	)
+
+	out, err := template.NewTemplateEngine().Execute(tmpl, ctx)
+	if err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if !json.Valid(out) {
+		t.Fatalf("rendered output is not valid JSON:\n%s", out)
+	}
+
+	var body struct {
+		Personalizations []struct {
+			To []struct{ Email string }
+		}
+		Subject string
+	}
+	if err := json.Unmarshal(out, &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(body.Personalizations) != 1 || body.Personalizations[0].To[0].Email != "dummy-default_recipient" {
+		t.Errorf("expected fallback to default_recipient param, got %+v", body.Personalizations)
+	}
+	if body.Subject != "Sparrow event: order.created" {
+		t.Errorf("expected generic subject naming the event, got %q", body.Subject)
+	}
+	if strings.Contains(body.Subject, "failed") {
+		t.Errorf("custom event must not claim a delivery failure: %q", body.Subject)
+	}
+}

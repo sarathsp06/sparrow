@@ -1,20 +1,25 @@
 version: 1
 name: ntfy
-description: Push events as plain-text notifications to an ntfy topic
+description: Push events as notifications to an ntfy topic
 params:
-  - name: topic_url
-    prompt: "ntfy topic URL (https://ntfy.sh/<topic> or your self-hosted equivalent)"
+  - name: server_url
+    prompt: "ntfy server URL"
+    default: https://ntfy.sh
+  - name: topic
+    prompt: "ntfy topic name (e.g. sparrow_alerts)"
     required: true
 webhook:
-  url: '{{param "topic_url"}}'
+  # JSON publishing endpoint: POST to the server root with the topic in the
+  # body. Unlike header-based publishing (X-Title etc.), this lets the title
+  # be rendered per delivery instead of being fixed at apply time.
+  url: '{{param "server_url"}}'
   headers:
-    # ntfy reads notification metadata from headers; the request body is the
-    # raw message text. X-Title/X-Priority/X-Tags are ntfy's canonical names.
-    X-Title: Sparrow event
-    X-Priority: default
-    X-Tags: incoming_envelope
+    Content-Type: application/json
 subscription:
   transform_template: |
-    {{.event_name}} (event {{.event_id}}, attempt {{.attempt}}) at {{.timestamp}}
-
-    {{.payload | json}}
+    {
+      "topic": "{{param "topic"}}",
+      "title": {{.event_name | json}},
+      "message": {{printf "event %v, attempt %v at %v\n\n%v" .event_id .attempt .timestamp (json .payload) | json}},
+      "tags": ["incoming_envelope"]
+    }
