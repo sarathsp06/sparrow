@@ -4,9 +4,8 @@ description: Adapters as config — turn Sparrow deliveries into Slack, Discord,
 ---
 
 :::tip[Interactive Studio Apps Available]
-Try the interactive applications embedded directly in our documentation:
-- **[SendGrid Email Recipe Studio](/sparrow/tools/email-studio/)**: Interactively design, copy subscription schemas, verify templates, and preview rendered emails in a simulated inbox view.
-- **[Satellite Recipe Workbench](/sparrow/tools/recipe-workbench/)**: Test and preview all 7 satellite recipes (Slack, Discord, SendGrid, ntfy, PagerDuty, ClickHouse, Twilio) in real time.
+Try the interactive workbench embedded directly in our documentation:
+- **[Satellite Recipe Workbench](/sparrow/tools/recipe-workbench/)**: Compose emails (plain text or rich HTML), SMS, and Slack messages with variable chips — the workbench generates the transform template — and preview all 7 satellite recipes (Slack, Discord, SendGrid, ntfy, PagerDuty, ClickHouse, Twilio) in real time.
 :::
 
 Recipes are adapters as config. Each recipe is a small YAML file pairing a
@@ -101,21 +100,26 @@ Posts an embed to a Discord channel webhook. Param: `webhook_url`.
 
 ### ntfy
 
-Pushes a plain-text notification to an ntfy topic. Param: `topic_url`. Title,
-priority, and tags travel as static `X-Title`/`X-Priority`/`X-Tags` headers;
-the body is raw text:
+Pushes a notification to an ntfy topic via the JSON publishing endpoint
+(`POST` to the server root). Params: `server_url` (default `https://ntfy.sh`),
+`topic`. Publishing as JSON — instead of the header-based endpoint — lets the
+title be rendered per delivery from the event name:
 
-```text
-order.created (event evt_0195c2a1, attempt 1) at 2026-01-02T03:04:05Z
-
-{"amount":1999,"order_id":"ord_42"}
+```json
+{
+  "topic": "sparrow_alerts",
+  "title": "order.created",
+  "message": "event evt_0195c2a1, attempt 1 at 2026-01-02T03:04:05Z\n\n{\"amount\":1999,\"order_id\":\"ord_42\"}",
+  "tags": ["incoming_envelope"]
+}
 ```
 
 ### pagerduty
 
-Triggers an alert via the PagerDuty Events API v2 (`/v2/enqueue`). Param:
-`routing_key`. The event id becomes the `dedup_key`, so Sparrow's retries
-never open duplicate incidents:
+Triggers an alert via the PagerDuty Events API v2 (`/v2/enqueue`). Params:
+`routing_key`, `severity` (fallback, default `error` — a `severity` field in
+the event payload wins). The event id becomes the `dedup_key`, so Sparrow's
+retries never open duplicate incidents:
 
 ```json
 {
@@ -135,10 +139,12 @@ never open duplicate incidents:
 ### sendgrid
 
 Sends an email via SendGrid's v3 Mail Send API. Params: `api_key`,
-`from_email`, `from_name`. Built for Sparrow's own
+`from_email`, `from_name`, `default_recipient`. Built for Sparrow's own
 [webhook health alerts](/sparrow/guides/webhook-health-alerts/): the
 transform ranges `payload.alert_recipients` into one `personalizations` entry
-per recipient, so a single delivery emails everyone opted in:
+per recipient, so a single delivery emails everyone opted in. Events without
+`alert_recipients` (custom events) go to `default_recipient` with a generic
+subject naming the event:
 
 ```json
 {

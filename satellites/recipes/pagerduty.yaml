@@ -5,6 +5,9 @@ params:
   - name: routing_key
     prompt: "PagerDuty Events API v2 integration/routing key (32 characters)"
     required: true
+  - name: severity
+    prompt: "Default severity when the payload has none (critical|error|warning|info)"
+    default: error
 webhook:
   url: https://events.pagerduty.com/v2/enqueue
   headers:
@@ -18,7 +21,7 @@ subscription:
       "payload": {
         "summary": {{printf "Sparrow event: %s" .event_name | json}},
         "source": "sparrow",
-        "severity": "error",
+        "severity": {{dig "severity" "{{param "severity"}}" .payload | json}},
         "timestamp": {{.timestamp | json}},
         "custom_details": {{.payload | json}}
       }
