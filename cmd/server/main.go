@@ -449,10 +449,10 @@ const sendGridMailSendURL = "https://api.sendgrid.com/v3/mail/send"
 // placeholders are substituted with config values at bootstrap time; the rest
 // is rendered server-side per delivery.
 const sendGridTransformTemplate = `{
-  "personalizations": [{{range $i, $r := .payload.alert_recipients}}{{if $i}},{{end}}{"to": [{"email": {{$r.email | json}}}]}{{end}}],
+  "personalizations": [{{if .payload.alert_recipients}}{{range $i, $r := .payload.alert_recipients}}{{if $i}},{{end}}{"to": [{"email": {{$r.email | json}}}]}{{end}}{{else}}{"to": [{"email": "{{param "default_recipient"}}"}]}{{end}}],
   "from": {"email": "{{param "from_email"}}", "name": "{{param "from_name"}}"},
-  "subject": {{if eq .event_name "sparrow.webhook.health_changed"}}{{if eq .payload.new_health "healthy"}}{{printf "Sparrow: webhook for %v recovered" .payload.consumer | json}}{{else}}{{printf "Sparrow: webhook for %v is now %v" .payload.consumer .payload.new_health | json}}{{end}}{{else}}{{printf "Sparrow: delivery to %v failed permanently" .payload.consumer | json}}{{end}},
-  "content": [{"type": "text/plain", "value": {{if eq .event_name "sparrow.webhook.health_changed"}}{{printf "Webhook %v (%v) health changed: %v -> %v" .payload.webhook_id .payload.url .payload.old_health .payload.new_health | json}}{{else}}{{printf "Webhook %v (%v) delivery %v failed permanently after %v attempt(s): %v (%v)" .payload.webhook_id .payload.url .payload.delivery_id .payload.attempt .payload.error_message .payload.error_category | json}}{{end}}}]
+  "subject": {{if eq .event_name "sparrow.webhook.health_changed"}}{{if eq .payload.new_health "healthy"}}{{printf "Sparrow: webhook for %v recovered" .payload.consumer | json}}{{else}}{{printf "Sparrow: webhook for %v is now %v" .payload.consumer .payload.new_health | json}}{{end}}{{else if eq .event_name "sparrow.webhook.delivery_failed"}}{{printf "Sparrow: delivery to %v failed permanently" .payload.consumer | json}}{{else}}{{printf "Sparrow event: %v" .event_name | json}}{{end}},
+  "content": [{"type": "text/plain", "value": {{if eq .event_name "sparrow.webhook.health_changed"}}{{printf "Webhook %v (%v) health changed: %v -> %v" .payload.webhook_id .payload.url .payload.old_health .payload.new_health | json}}{{else if eq .event_name "sparrow.webhook.delivery_failed"}}{{printf "Webhook %v (%v) delivery %v failed permanently after %v attempt(s): %v (%v)" .payload.webhook_id .payload.url .payload.delivery_id .payload.attempt .payload.error_message .payload.error_category | json}}{{else}}{{printf "Event %v (id %v, attempt %v) at %v\n\n%v" .event_name .event_id .attempt .timestamp (json .payload) | json}}{{end}}}]
 }`
 
 const sendGridDefaultFromEmail = "alerts@example.com"
@@ -473,6 +473,7 @@ func sendGridAlertTemplate(cfg *config.Config) string {
 	return strings.NewReplacer(
 		`{{param "from_email"}}`, cfg.AlertFromEmail,
 		`{{param "from_name"}}`, cfg.AlertFromName,
+		`{{param "default_recipient"}}`, cfg.AlertFromEmail,
 	).Replace(sendGridTransformTemplate)
 }
 
