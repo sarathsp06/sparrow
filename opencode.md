@@ -102,12 +102,9 @@ huma.Register(api, huma.Operation{
 ## Known Gaps
 
 1. No API-level rate limiting
-2. No dead letter queue
-3. No API versioning beyond URL path (`/v1/...`)
-4. No payload size limits
-5. No tenant usage quotas
-6. No scheduled/delayed webhooks
-7. No data retention / cleanup
+2. No payload size limits
+3. Partial data retention (events purge via `SPARROW_EVENT_RETENTION_DAYS`; health events and batch jobs grow unbounded)
+4. No scheduled/delayed webhooks (not in Svix OSS either)
 
 ## Development History
 
