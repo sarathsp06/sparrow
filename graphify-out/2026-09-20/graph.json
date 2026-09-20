@@ -4061,8 +4061,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_config_config",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": "config/config.go"
     },
     {
@@ -4072,8 +4072,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "config_config",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": "config"
     },
     {
@@ -4083,8 +4083,8 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "internal_config_config_load",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": "load()"
     },
     {
@@ -4094,8 +4094,8 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "config_config_isproduction",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": ".isproduction()"
     },
     {
@@ -4105,8 +4105,8 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "config_config_validate",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": ".validate()"
     },
     {
@@ -4116,8 +4116,8 @@
       "source_location": "L144",
       "_origin": "ast",
       "id": "config_config_warnings",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": ".warnings()"
     },
     {
@@ -4138,8 +4138,8 @@
       "source_location": "L204",
       "_origin": "ast",
       "id": "internal_config_config_validateport",
-      "community": 11,
-      "community_name": "NewService",
+      "community": 132,
+      "community_name": "Config",
       "norm_label": "validateport()"
     },
     {
@@ -4149,7 +4149,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_config_config_test",
-      "community": 151,
+      "community": 178,
       "community_name": "validConfig",
       "norm_label": "config/config_test.go"
     },
@@ -4160,7 +4160,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "internal_config_config_test_validconfig",
-      "community": 151,
+      "community": 178,
       "community_name": "validConfig",
       "norm_label": "validconfig()"
     },
@@ -4171,7 +4171,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_config_config_test_go_config",
-      "community": 151,
+      "community": 178,
       "community_name": "validConfig",
       "norm_label": "config"
     },
@@ -4182,7 +4182,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "internal_config_config_test_testvalidate",
-      "community": 151,
+      "community": 178,
       "community_name": "validConfig",
       "norm_label": "testvalidate()"
     },
@@ -4193,7 +4193,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_config_config_test_go_t",
-      "community": 151,
+      "community": 178,
       "community_name": "validConfig",
       "norm_label": "t"
     },
@@ -4204,7 +4204,7 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "internal_config_config_test_testwarnings",
-      "community": 151,
+      "community": 178,
       "community_name": "validConfig",
       "norm_label": "testwarnings()"
     },
@@ -4336,8 +4336,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "handlerfunc",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "handlerfunc"
     },
     {
@@ -4358,8 +4358,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_integration_cli_e2e_test",
-      "community": 190,
-      "community_name": "TestCLI_E2E",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "cli_e2e_test.go"
     },
     {
@@ -4369,8 +4369,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "internal_integration_cli_e2e_test_buildcli",
-      "community": 190,
-      "community_name": "TestCLI_E2E",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "buildcli()"
     },
     {
@@ -4380,8 +4380,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_cli_e2e_test_go_t",
-      "community": 190,
-      "community_name": "TestCLI_E2E",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -4391,8 +4391,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "internal_integration_cli_e2e_test_runcli",
-      "community": 190,
-      "community_name": "TestCLI_E2E",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "runcli()"
     },
     {
@@ -4402,8 +4402,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "internal_integration_cli_e2e_test_testcli_e2e",
-      "community": 190,
-      "community_name": "TestCLI_E2E",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "testcli_e2e()"
     },
     {
@@ -4414,7 +4414,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "e2e_retry_test.go"
     },
     {
@@ -4425,7 +4425,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_startfailthensucceedtarget",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "startfailthensucceedtarget()"
     },
     {
@@ -4436,7 +4436,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_go_t",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -4447,7 +4447,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_go_server",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "server"
     },
     {
@@ -4458,7 +4458,7 @@
       "_origin": "ast",
       "id": "int32",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "int32"
     },
     {
@@ -4469,7 +4469,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_startalwaysfailtarget",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "startalwaysfailtarget()"
     },
     {
@@ -4480,7 +4480,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_startcountingtarget",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "startcountingtarget()"
     },
     {
@@ -4491,7 +4491,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_registereventtype",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "registereventtype()"
     },
     {
@@ -4502,7 +4502,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_go_context",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -4513,7 +4513,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_registerwebhookpipeline",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "registerwebhookpipeline()"
     },
     {
@@ -4524,7 +4524,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_pushtestevent",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "pushtestevent()"
     },
     {
@@ -4535,7 +4535,7 @@
       "_origin": "ast",
       "id": "integration_deliveryitem",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "deliveryitem"
     },
     {
@@ -4546,7 +4546,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_polldeliverystatus",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "polldeliverystatus()"
     },
     {
@@ -4557,7 +4557,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_pollbatchjob",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "pollbatchjob()"
     },
     {
@@ -4568,7 +4568,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_retryonservererror",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_retryonservererror()"
     },
     {
@@ -4579,7 +4579,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_exhaustedretries",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_exhaustedretries()"
     },
     {
@@ -4590,7 +4590,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_fanoutmultiplesubscribers",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_fanoutmultiplesubscribers()"
     },
     {
@@ -4601,7 +4601,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_pausedwebhooknodelivery",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_pausedwebhooknodelivery()"
     },
     {
@@ -4612,7 +4612,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_deletesubscriptionstopsdelivery",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_deletesubscriptionstopsdelivery()"
     },
     {
@@ -4623,7 +4623,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_singlerepush",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_singlerepush()"
     },
     {
@@ -4634,7 +4634,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_idempotencykeydedup",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_idempotencykeydedup()"
     },
     {
@@ -4645,7 +4645,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_batchretrydeliveries",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_batchretrydeliveries()"
     },
     {
@@ -4656,7 +4656,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_pausewebhookstopsretries",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_pausewebhookstopsretries()"
     },
     {
@@ -4667,7 +4667,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_batchrepushevents",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_batchrepushevents()"
     },
     {
@@ -4678,7 +4678,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_timeoutretry",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_timeoutretry()"
     },
     {
@@ -4689,7 +4689,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_envelopepayloadformat",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_envelopepayloadformat()"
     },
     {
@@ -4700,7 +4700,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_nulllabelfiltersstilldelivers",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_nulllabelfiltersstilldelivers()"
     },
     {
@@ -4710,8 +4710,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_integration_e2e_test",
-      "community": 149,
-      "community_name": "startWebhookTarget",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "e2e_test.go"
     },
     {
@@ -4721,8 +4721,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "integration_capturedwebhook",
-      "community": 149,
-      "community_name": "startWebhookTarget",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "capturedwebhook"
     },
     {
@@ -4732,8 +4732,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_e2e_test_go_header",
-      "community": 149,
-      "community_name": "startWebhookTarget",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "header"
     },
     {
@@ -4743,8 +4743,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "internal_integration_e2e_test_startwebhooktarget",
-      "community": 149,
-      "community_name": "startWebhookTarget",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "startwebhooktarget()"
     },
     {
@@ -4754,8 +4754,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_e2e_test_go_t",
-      "community": 149,
-      "community_name": "startWebhookTarget",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -4765,8 +4765,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_e2e_test_go_server",
-      "community": 149,
-      "community_name": "startWebhookTarget",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "server"
     },
     {
@@ -4776,8 +4776,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_e2e_test_go_context",
-      "community": 149,
-      "community_name": "startWebhookTarget",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -4787,8 +4787,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "internal_integration_e2e_test_teste2e_happypath",
-      "community": 149,
-      "community_name": "startWebhookTarget",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "teste2e_happypath()"
     },
     {
@@ -4798,8 +4798,8 @@
       "source_location": "L242",
       "_origin": "ast",
       "id": "internal_integration_e2e_test_validatehmac",
-      "community": 149,
-      "community_name": "startWebhookTarget",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "validatehmac()"
     },
     {
@@ -4809,8 +4809,8 @@
       "source_location": "L270",
       "_origin": "ast",
       "id": "internal_integration_e2e_test_polldeliverysuccess",
-      "community": 149,
-      "community_name": "startWebhookTarget",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "polldeliverysuccess()"
     },
     {
@@ -4820,8 +4820,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_e2e_test_go_duration",
-      "community": 149,
-      "community_name": "startWebhookTarget",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "duration"
     },
     {
@@ -4864,7 +4864,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_integration_rate_limit_slot_test",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "rate_limit_slot_test.go"
     },
@@ -4875,7 +4875,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "internal_integration_rate_limit_slot_test_testacquiredeliveryslot_busybucketdoesnotburnslots",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "testacquiredeliveryslot_busybucketdoesnotburnslots()"
     },
@@ -4886,7 +4886,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_rate_limit_slot_test_go_t",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "t"
     },
@@ -4897,8 +4897,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_integration_recipes_e2e_test",
-      "community": 191,
-      "community_name": "TestE2E_SlackRecipeTransform",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "recipes_e2e_test.go"
     },
     {
@@ -4908,8 +4908,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "internal_integration_recipes_e2e_test_startbodycapturetarget",
-      "community": 191,
-      "community_name": "TestE2E_SlackRecipeTransform",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "startbodycapturetarget()"
     },
     {
@@ -4919,8 +4919,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_recipes_e2e_test_go_t",
-      "community": 191,
-      "community_name": "TestE2E_SlackRecipeTransform",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -4930,8 +4930,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_recipes_e2e_test_go_server",
-      "community": 191,
-      "community_name": "TestE2E_SlackRecipeTransform",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "server"
     },
     {
@@ -4941,8 +4941,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "internal_integration_recipes_e2e_test_teste2e_slackrecipetransform",
-      "community": 191,
-      "community_name": "TestE2E_SlackRecipeTransform",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "teste2e_slackrecipetransform()"
     },
     {
@@ -4952,8 +4952,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_integration_rest_client_test",
-      "community": 177,
-      "community_name": "restClient",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "rest_client_test.go"
     },
     {
@@ -4963,8 +4963,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "integration_restclient",
-      "community": 177,
-      "community_name": "restClient",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "restclient"
     },
     {
@@ -4974,8 +4974,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_rest_client_test_go_t",
-      "community": 177,
-      "community_name": "restClient",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -4986,7 +4986,7 @@
       "_origin": "ast",
       "id": "internal_integration_rest_client_test_newrestclient",
       "community": 0,
-      "community_name": "newRESTClient",
+      "community_name": "setupEnv",
       "norm_label": "newrestclient()"
     },
     {
@@ -4996,8 +4996,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "integration_restclient_do",
-      "community": 177,
-      "community_name": "restClient",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": ".do()"
     },
     {
@@ -5007,8 +5007,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_rest_client_test_go_context",
-      "community": 177,
-      "community_name": "restClient",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -5018,8 +5018,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_rest_client_test_go_response",
-      "community": 177,
-      "community_name": "restClient",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "response"
     },
     {
@@ -5029,8 +5029,8 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "integration_restclient_post",
-      "community": 177,
-      "community_name": "restClient",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": ".post()"
     },
     {
@@ -5040,8 +5040,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "integration_restclient_get",
-      "community": 177,
-      "community_name": "restClient",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": ".get()"
     },
     {
@@ -5051,8 +5051,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test",
-      "community": 175,
-      "community_name": "TestE2E_EmailSink",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "sinks_e2e_test.go"
     },
     {
@@ -5062,8 +5062,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "integration_sinksmtpmessage",
-      "community": 175,
-      "community_name": "TestE2E_EmailSink",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "sinksmtpmessage"
     },
     {
@@ -5073,8 +5073,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_startsinksmtpserver",
-      "community": 175,
-      "community_name": "TestE2E_EmailSink",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "startsinksmtpserver()"
     },
     {
@@ -5084,8 +5084,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_go_t",
-      "community": 175,
-      "community_name": "TestE2E_EmailSink",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -5095,8 +5095,8 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_freeport",
-      "community": 175,
-      "community_name": "TestE2E_EmailSink",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "freeport()"
     },
     {
@@ -5106,8 +5106,8 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_startsinksbinary",
-      "community": 175,
-      "community_name": "TestE2E_EmailSink",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "startsinksbinary()"
     },
     {
@@ -5117,8 +5117,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_go_context",
-      "community": 175,
-      "community_name": "TestE2E_EmailSink",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -5128,8 +5128,8 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_teste2e_emailsink",
-      "community": 175,
-      "community_name": "TestE2E_EmailSink",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "teste2e_emailsink()"
     },
     {
@@ -5139,8 +5139,8 @@
       "source_location": "L208",
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_teste2e_otlpsink",
-      "community": 175,
-      "community_name": "TestE2E_EmailSink",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "teste2e_otlpsink()"
     },
     {
@@ -5150,8 +5150,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test",
-      "community": 178,
-      "community_name": "TestE2E_SourcesGitHubWebhook",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "sources_e2e_test.go"
     },
     {
@@ -5161,8 +5161,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_startwebhook",
-      "community": 178,
-      "community_name": "TestE2E_SourcesGitHubWebhook",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "startwebhook()"
     },
     {
@@ -5172,8 +5172,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_go_t",
-      "community": 178,
-      "community_name": "TestE2E_SourcesGitHubWebhook",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -5183,8 +5183,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_go_server",
-      "community": 178,
-      "community_name": "TestE2E_SourcesGitHubWebhook",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "server"
     },
     {
@@ -5194,8 +5194,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_findeventoccurrence",
-      "community": 178,
-      "community_name": "TestE2E_SourcesGitHubWebhook",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "findeventoccurrence()"
     },
     {
@@ -5205,8 +5205,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_go_context",
-      "community": 178,
-      "community_name": "TestE2E_SourcesGitHubWebhook",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -5216,8 +5216,8 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_teste2e_sourcesstripewebhook",
-      "community": 178,
-      "community_name": "TestE2E_SourcesGitHubWebhook",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "teste2e_sourcesstripewebhook()"
     },
     {
@@ -5227,8 +5227,8 @@
       "source_location": "L114",
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_teste2e_sourcesgithubwebhook",
-      "community": 178,
-      "community_name": "TestE2E_SourcesGitHubWebhook",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "teste2e_sourcesgithubwebhook()"
     },
     {
@@ -5238,7 +5238,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "testhelpers_test.go"
     },
@@ -5249,7 +5249,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "integration_testenv",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "testenv"
     },
@@ -5260,7 +5260,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "container",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "container"
     },
@@ -5271,7 +5271,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_go_pool",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "pool"
     },
@@ -5282,7 +5282,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_go_server",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "server"
     },
@@ -5293,7 +5293,7 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_setuptestdb",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "setuptestdb()"
     },
@@ -5304,7 +5304,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_go_t",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "t"
     },
@@ -5315,7 +5315,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_go_context",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "context"
     },
@@ -5326,7 +5326,7 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_runmigrations",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "runmigrations()"
     },
@@ -5337,7 +5337,7 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_setupenv",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "setupenv()"
     },
@@ -5348,8 +5348,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_integration_webhook_health_alerts_test",
-      "community": 189,
-      "community_name": "TestE2E_WebhookHealthAlerts",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "webhook_health_alerts_test.go"
     },
     {
@@ -5359,8 +5359,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "internal_integration_webhook_health_alerts_test_pollsystemevent",
-      "community": 189,
-      "community_name": "TestE2E_WebhookHealthAlerts",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "pollsystemevent()"
     },
     {
@@ -5370,8 +5370,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_webhook_health_alerts_test_go_t",
-      "community": 189,
-      "community_name": "TestE2E_WebhookHealthAlerts",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -5381,8 +5381,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_integration_webhook_health_alerts_test_go_context",
-      "community": 189,
-      "community_name": "TestE2E_WebhookHealthAlerts",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -5392,8 +5392,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "internal_integration_webhook_health_alerts_test_teste2e_webhookhealthalerts",
-      "community": 189,
-      "community_name": "TestE2E_WebhookHealthAlerts",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "teste2e_webhookhealthalerts()"
     },
     {
@@ -5403,8 +5403,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "internal_integration_webhook_health_alerts_test_asserthasrecipient",
-      "community": 189,
-      "community_name": "TestE2E_WebhookHealthAlerts",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "asserthasrecipient()"
     },
     {
@@ -5491,8 +5491,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_middleware_apikey_test",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "apikey_test.go"
     },
     {
@@ -5502,8 +5502,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "internal_middleware_apikey_test_testapikeyhttpmiddlewareacceptsheader",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "testapikeyhttpmiddlewareacceptsheader()"
     },
     {
@@ -5513,8 +5513,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_middleware_apikey_test_go_t",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -5524,8 +5524,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "internal_middleware_apikey_test_testapikeyhttpmiddlewarerejectsqueryparameter",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "testapikeyhttpmiddlewarerejectsqueryparameter()"
     },
     {
@@ -5535,8 +5535,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "internal_middleware_apikey_test_testapikeyhttpmiddlewarebypassesexcludedpath",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "testapikeyhttpmiddlewarebypassesexcludedpath()"
     },
     {
@@ -5909,8 +5909,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_middleware_security_headers",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "security_headers.go"
     },
     {
@@ -5920,8 +5920,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_securityheaders",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "securityheaders()"
     },
     {
@@ -5931,8 +5931,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_test",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "security_headers_test.go"
     },
     {
@@ -5942,8 +5942,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_test_testsecurityheaders",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "testsecurityheaders()"
     },
     {
@@ -5953,8 +5953,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_test_go_t",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -5964,8 +5964,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_test_testsecurityheadersportalallowsframing",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "testsecurityheadersportalallowsframing()"
     },
     {
@@ -5975,8 +5975,8 @@
       "source_location": "L57",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_test_testsecurityheaderspassthrough",
-      "community": 132,
-      "community_name": "HandlerFunc",
+      "community": 0,
+      "community_name": "setupEnv",
       "norm_label": "testsecurityheaderspassthrough()"
     },
     {
@@ -6184,8 +6184,8 @@
       "source_location": "L190",
       "_origin": "ast",
       "id": "internal_observability_otel_gettracer",
-      "community": 55,
-      "community_name": "otel.go",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "gettracer()"
     },
     {
@@ -6195,8 +6195,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_observability_otel_go_tracer",
-      "community": 55,
-      "community_name": "otel.go",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "tracer"
     },
     {
@@ -6438,7 +6438,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "conversions.go"
     },
     {
@@ -6449,7 +6449,7 @@
       "_origin": "ast",
       "id": "rest_conversionservice",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "conversionservice"
     },
     {
@@ -6460,7 +6460,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_masksecret",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "masksecret()"
     },
     {
@@ -6471,7 +6471,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_maskencryptedsecret",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "maskencryptedsecret()"
     },
     {
@@ -6482,7 +6482,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_masksecretheaders",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "masksecretheaders()"
     },
     {
@@ -6493,7 +6493,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_getwebhookeventsmap",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "getwebhookeventsmap()"
     },
     {
@@ -6504,7 +6504,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_go_context",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "context"
     },
     {
@@ -6515,7 +6515,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_go_webhookregistration",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "webhookregistration"
     },
     {
@@ -6526,7 +6526,7 @@
       "_origin": "ast",
       "id": "rest_webhookhttpconfigout",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "webhookhttpconfigout"
     },
     {
@@ -6537,7 +6537,7 @@
       "_origin": "ast",
       "id": "rest_webhookout",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "webhookout"
     },
     {
@@ -6548,7 +6548,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_towebhookout",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "towebhookout()"
     },
     {
@@ -6558,8 +6558,8 @@
       "source_location": "L160",
       "_origin": "ast",
       "id": "internal_rest_conversions_towebhookoutfromdomain",
-      "community": 10,
-      "community_name": ".CreateWebhook",
+      "community": 45,
+      "community_name": "registerWebhookRoutes",
       "norm_label": "towebhookoutfromdomain()"
     },
     {
@@ -7284,8 +7284,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_rest_health",
-      "community": 45,
-      "community_name": "conversions.go",
+      "community": 148,
+      "community_name": "health.go",
       "norm_label": "health.go"
     },
     {
@@ -7295,8 +7295,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "rest_webhookhealthoutput",
-      "community": 45,
-      "community_name": "conversions.go",
+      "community": 148,
+      "community_name": "health.go",
       "norm_label": "webhookhealthoutput"
     },
     {
@@ -7306,8 +7306,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "rest_healthsummaryoutput",
-      "community": 45,
-      "community_name": "conversions.go",
+      "community": 148,
+      "community_name": "health.go",
       "norm_label": "healthsummaryoutput"
     },
     {
@@ -7317,8 +7317,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "rest_listwebhooksglobalinput",
-      "community": 45,
-      "community_name": "conversions.go",
+      "community": 148,
+      "community_name": "health.go",
       "norm_label": "listwebhooksglobalinput"
     },
     {
@@ -7340,7 +7340,7 @@
       "_origin": "ast",
       "id": "internal_rest_health_registerhealthroutes",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "registerhealthroutes()"
     },
     {
@@ -7351,7 +7351,7 @@
       "_origin": "ast",
       "id": "internal_rest_health_go_api",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "api"
     },
     {
@@ -7394,8 +7394,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_rest_pagination",
-      "community": 1,
-      "community_name": "event.go",
+      "community": 45,
+      "community_name": "registerWebhookRoutes",
       "norm_label": "pagination.go"
     },
     {
@@ -7405,8 +7405,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "rest_paginationoutput",
-      "community": 1,
-      "community_name": "event.go",
+      "community": 45,
+      "community_name": "registerWebhookRoutes",
       "norm_label": "paginationoutput"
     },
     {
@@ -7416,8 +7416,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "internal_rest_pagination_newpagination",
-      "community": 1,
-      "community_name": "event.go",
+      "community": 45,
+      "community_name": "registerWebhookRoutes",
       "norm_label": "newpagination()"
     },
     {
@@ -7812,8 +7812,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "rest_webhookhttpconfig_todomain",
-      "community": 8,
-      "community_name": "rest/webhook.go",
+      "community": 177,
+      "community_name": "IntArray",
       "norm_label": ".todomain()"
     },
     {
@@ -7835,7 +7835,7 @@
       "_origin": "ast",
       "id": "rest_webhookoutput",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "webhookoutput"
     },
     {
@@ -7879,7 +7879,7 @@
       "_origin": "ast",
       "id": "rest_listwebhooksoutput",
       "community": 45,
-      "community_name": "conversions.go",
+      "community_name": "registerWebhookRoutes",
       "norm_label": "listwebhooksoutput"
     },
     {
@@ -7966,8 +7966,8 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "internal_rest_webhook_registerwebhookroutes",
-      "community": 8,
-      "community_name": "rest/webhook.go",
+      "community": 45,
+      "community_name": "registerWebhookRoutes",
       "norm_label": "registerwebhookroutes()"
     },
     {
@@ -7977,8 +7977,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_rest_webhook_go_api",
-      "community": 8,
-      "community_name": "rest/webhook.go",
+      "community": 45,
+      "community_name": "registerWebhookRoutes",
       "norm_label": "api"
     },
     {
@@ -7988,7 +7988,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_tenant_tenant",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "tenant.go"
     },
@@ -7999,7 +7999,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "internal_tenant_tenant_bootstrap",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "bootstrap()"
     },
@@ -8010,7 +8010,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_tenant_tenant_go_context",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "context"
     },
@@ -8164,8 +8164,8 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_createalertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 168,
+      "community_name": "AlertConfig",
       "norm_label": ".createalertconfig()"
     },
     {
@@ -8197,8 +8197,8 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_createwebhook",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 10,
+      "community_name": "webhooks/models.go",
       "norm_label": ".createwebhook()"
     },
     {
@@ -8208,8 +8208,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhookserviceinterface_otel_go_webhookregistration",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 10,
+      "community_name": "webhooks/models.go",
       "norm_label": "webhookregistration"
     },
     {
@@ -8252,8 +8252,8 @@
       "source_location": "L245",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_getconsumerstats",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 175,
+      "community_name": "WebhookHealthData",
       "norm_label": ".getconsumerstats()"
     },
     {
@@ -8307,8 +8307,8 @@
       "source_location": "L370",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_gethealthsummary",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 175,
+      "community_name": "WebhookHealthData",
       "norm_label": ".gethealthsummary()"
     },
     {
@@ -8351,8 +8351,8 @@
       "source_location": "L466",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_getwebhookhealth",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 175,
+      "community_name": "WebhookHealthData",
       "norm_label": ".getwebhookhealth()"
     },
     {
@@ -8362,8 +8362,8 @@
       "source_location": "L491",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_listalertconfigs",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 168,
+      "community_name": "AlertConfig",
       "norm_label": ".listalertconfigs()"
     },
     {
@@ -8439,8 +8439,8 @@
       "source_location": "L648",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_listwebhooks",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 10,
+      "community_name": "webhooks/models.go",
       "norm_label": ".listwebhooks()"
     },
     {
@@ -8593,8 +8593,8 @@
       "source_location": "L1028",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_updatewebhookconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 10,
+      "community_name": "webhooks/models.go",
       "norm_label": ".updatewebhookconfig()"
     },
     {
@@ -9165,8 +9165,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "internal_webhooks_client_request_buildenvelopepayload",
-      "community": 136,
-      "community_name": "PrepareDeliveryRequest",
+      "community": 41,
+      "community_name": "WebhookWorker",
       "norm_label": "buildenvelopepayload()"
     },
     {
@@ -9947,7 +9947,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_models",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": "webhooks/models.go"
     },
     {
@@ -9958,7 +9958,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookregistration",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": "webhookregistration"
     },
     {
@@ -9969,7 +9969,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_models_go_time",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": "time"
     },
     {
@@ -9980,7 +9980,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookhttpconfig",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": "webhookhttpconfig"
     },
     {
@@ -9991,7 +9991,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_models_derefintor",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": "derefintor()"
     },
     {
@@ -10002,7 +10002,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_models_derefboolor",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": "derefboolor()"
     },
     {
@@ -10013,7 +10013,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_models_defaultwebhookhttpconfig",
       "community": 151,
-      "community_name": "validConfig",
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "defaultwebhookhttpconfig()"
     },
     {
@@ -10024,7 +10024,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookhttpconfig_getrequesttimeout",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": ".getrequesttimeout()"
     },
     {
@@ -10035,7 +10035,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_models_go_duration",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": "duration"
     },
     {
@@ -10046,7 +10046,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookhttpconfig_getretrybackoff",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": ".getretrybackoff()"
     },
     {
@@ -10057,7 +10057,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookhttpconfig_issuccessstatuscode",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": ".issuccessstatuscode()"
     },
     {
@@ -10068,7 +10068,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookhttpconfig_validateconfig",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": ".validateconfig()"
     },
     {
@@ -10079,7 +10079,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookhttpconfig_applyconfig",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": ".applyconfig()"
     },
     {
@@ -10090,7 +10090,7 @@
       "_origin": "ast",
       "id": "webhooks_stringarray",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": "stringarray"
     },
     {
@@ -10101,7 +10101,7 @@
       "_origin": "ast",
       "id": "webhooks_stringarray_scan",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": ".scan()"
     },
     {
@@ -10111,8 +10111,8 @@
       "source_location": "L225",
       "_origin": "ast",
       "id": "webhooks_stringarray_value",
-      "community": 10,
-      "community_name": ".CreateWebhook",
+      "community": 177,
+      "community_name": "IntArray",
       "norm_label": ".value()"
     },
     {
@@ -10122,8 +10122,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_models_go_value",
-      "community": 10,
-      "community_name": ".CreateWebhook",
+      "community": 177,
+      "community_name": "IntArray",
       "norm_label": "value"
     },
     {
@@ -10133,8 +10133,8 @@
       "source_location": "L233",
       "_origin": "ast",
       "id": "webhooks_intarray",
-      "community": 10,
-      "community_name": ".CreateWebhook",
+      "community": 177,
+      "community_name": "IntArray",
       "norm_label": "intarray"
     },
     {
@@ -10144,8 +10144,8 @@
       "source_location": "L236",
       "_origin": "ast",
       "id": "webhooks_intarray_scan",
-      "community": 10,
-      "community_name": ".CreateWebhook",
+      "community": 177,
+      "community_name": "IntArray",
       "norm_label": ".scan()"
     },
     {
@@ -10155,8 +10155,8 @@
       "source_location": "L259",
       "_origin": "ast",
       "id": "webhooks_intarray_value",
-      "community": 10,
-      "community_name": ".CreateWebhook",
+      "community": 177,
+      "community_name": "IntArray",
       "norm_label": ".value()"
     },
     {
@@ -10167,7 +10167,7 @@
       "_origin": "ast",
       "id": "webhooks_jsonbmap",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": "jsonbmap"
     },
     {
@@ -10178,7 +10178,7 @@
       "_origin": "ast",
       "id": "webhooks_jsonbmap_scan",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": ".scan()"
     },
     {
@@ -10188,8 +10188,8 @@
       "source_location": "L292",
       "_origin": "ast",
       "id": "webhooks_jsonbmap_value",
-      "community": 10,
-      "community_name": ".CreateWebhook",
+      "community": 177,
+      "community_name": "IntArray",
       "norm_label": ".value()"
     },
     {
@@ -10200,7 +10200,7 @@
       "_origin": "ast",
       "id": "webhooks_httpconfigupdate",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": "httpconfigupdate"
     },
     {
@@ -10211,7 +10211,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookregistrationrequest",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": "webhookregistrationrequest"
     },
     {
@@ -10222,7 +10222,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookregistrationrequest_towebhookregistration",
       "community": 10,
-      "community_name": ".CreateWebhook",
+      "community_name": "webhooks/models.go",
       "norm_label": ".towebhookregistration()"
     },
     {
@@ -10486,7 +10486,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker",
       "community": 36,
-      "community_name": "RepositoryInterface",
+      "community_name": "EventProcessingWorker",
       "norm_label": "events_worker.go"
     },
     {
@@ -10497,7 +10497,7 @@
       "_origin": "ast",
       "id": "queue_eventprocessingworker",
       "community": 36,
-      "community_name": "RepositoryInterface",
+      "community_name": "EventProcessingWorker",
       "norm_label": "eventprocessingworker"
     },
     {
@@ -10508,7 +10508,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_workerdefaults",
       "community": 36,
-      "community_name": "RepositoryInterface",
+      "community_name": "EventProcessingWorker",
       "norm_label": "workerdefaults"
     },
     {
@@ -10519,7 +10519,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_logger",
       "community": 36,
-      "community_name": "RepositoryInterface",
+      "community_name": "EventProcessingWorker",
       "norm_label": "logger"
     },
     {
@@ -10530,7 +10530,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_jobinserter",
       "community": 36,
-      "community_name": "RepositoryInterface",
+      "community_name": "EventProcessingWorker",
       "norm_label": "jobinserter"
     },
     {
@@ -10541,7 +10541,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_neweventprocessingworker",
       "community": 36,
-      "community_name": "RepositoryInterface",
+      "community_name": "EventProcessingWorker",
       "norm_label": "neweventprocessingworker()"
     },
     {
@@ -10551,8 +10551,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "queue_eventprocessingworker_work",
-      "community": 148,
-      "community_name": "EventArgs",
+      "community": 36,
+      "community_name": "EventProcessingWorker",
       "norm_label": ".work()"
     },
     {
@@ -10562,8 +10562,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_context",
-      "community": 148,
-      "community_name": "EventArgs",
+      "community": 36,
+      "community_name": "EventProcessingWorker",
       "norm_label": "context"
     },
     {
@@ -10573,8 +10573,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_job",
-      "community": 148,
-      "community_name": "EventArgs",
+      "community": 36,
+      "community_name": "EventProcessingWorker",
       "norm_label": "job"
     },
     {
@@ -10595,8 +10595,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "queue_eventargs",
-      "community": 148,
-      "community_name": "EventArgs",
+      "community": 36,
+      "community_name": "EventProcessingWorker",
       "norm_label": "eventargs"
     },
     {
@@ -10606,8 +10606,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_jobs_go_time",
-      "community": 148,
-      "community_name": "EventArgs",
+      "community": 36,
+      "community_name": "EventProcessingWorker",
       "norm_label": "time"
     },
     {
@@ -10617,8 +10617,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "queue_eventargs_insertopts",
-      "community": 148,
-      "community_name": "EventArgs",
+      "community": 102,
+      "community_name": "jobInserter",
       "norm_label": ".insertopts()"
     },
     {
@@ -10628,8 +10628,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_jobs_go_insertopts",
-      "community": 148,
-      "community_name": "EventArgs",
+      "community": 102,
+      "community_name": "jobInserter",
       "norm_label": "insertopts"
     },
     {
@@ -10639,8 +10639,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "queue_eventargs_kind",
-      "community": 148,
-      "community_name": "EventArgs",
+      "community": 36,
+      "community_name": "EventProcessingWorker",
       "norm_label": ".kind()"
     },
     {
@@ -10661,8 +10661,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "queue_webhookargs_insertopts",
-      "community": 148,
-      "community_name": "EventArgs",
+      "community": 102,
+      "community_name": "jobInserter",
       "norm_label": ".insertopts()"
     },
     {
@@ -10683,8 +10683,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "queue_batchjobargs",
-      "community": 148,
-      "community_name": "EventArgs",
+      "community": 102,
+      "community_name": "jobInserter",
       "norm_label": "batchjobargs"
     },
     {
@@ -10694,8 +10694,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "queue_batchjobargs_insertopts",
-      "community": 148,
-      "community_name": "EventArgs",
+      "community": 102,
+      "community_name": "jobInserter",
       "norm_label": ".insertopts()"
     },
     {
@@ -10705,8 +10705,8 @@
       "source_location": "L98",
       "_origin": "ast",
       "id": "queue_batchjobargs_kind",
-      "community": 148,
-      "community_name": "EventArgs",
+      "community": 102,
+      "community_name": "jobInserter",
       "norm_label": ".kind()"
     },
     {
@@ -11080,7 +11080,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker",
       "community": 86,
-      "community_name": "RetentionWorker",
+      "community_name": "EventRepository",
       "norm_label": "retention_worker.go"
     },
     {
@@ -11091,7 +11091,7 @@
       "_origin": "ast",
       "id": "queue_retentionargs",
       "community": 86,
-      "community_name": "RetentionWorker",
+      "community_name": "EventRepository",
       "norm_label": "retentionargs"
     },
     {
@@ -11102,7 +11102,7 @@
       "_origin": "ast",
       "id": "queue_retentionargs_kind",
       "community": 86,
-      "community_name": "RetentionWorker",
+      "community_name": "EventRepository",
       "norm_label": ".kind()"
     },
     {
@@ -11113,7 +11113,7 @@
       "_origin": "ast",
       "id": "queue_retentionargs_insertopts",
       "community": 86,
-      "community_name": "RetentionWorker",
+      "community_name": "EventRepository",
       "norm_label": ".insertopts()"
     },
     {
@@ -11124,7 +11124,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_insertopts",
       "community": 86,
-      "community_name": "RetentionWorker",
+      "community_name": "EventRepository",
       "norm_label": "insertopts"
     },
     {
@@ -11135,7 +11135,7 @@
       "_origin": "ast",
       "id": "queue_retentionworker",
       "community": 86,
-      "community_name": "RetentionWorker",
+      "community_name": "EventRepository",
       "norm_label": "retentionworker"
     },
     {
@@ -11146,7 +11146,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_workerdefaults",
       "community": 86,
-      "community_name": "RetentionWorker",
+      "community_name": "EventRepository",
       "norm_label": "workerdefaults"
     },
     {
@@ -11157,7 +11157,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_logger",
       "community": 86,
-      "community_name": "RetentionWorker",
+      "community_name": "EventRepository",
       "norm_label": "logger"
     },
     {
@@ -11168,7 +11168,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_newretentionworker",
       "community": 86,
-      "community_name": "RetentionWorker",
+      "community_name": "EventRepository",
       "norm_label": "newretentionworker()"
     },
     {
@@ -11179,7 +11179,7 @@
       "_origin": "ast",
       "id": "queue_retentionworker_work",
       "community": 86,
-      "community_name": "RetentionWorker",
+      "community_name": "EventRepository",
       "norm_label": ".work()"
     },
     {
@@ -11190,7 +11190,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_context",
       "community": 86,
-      "community_name": "RetentionWorker",
+      "community_name": "EventRepository",
       "norm_label": "context"
     },
     {
@@ -11201,7 +11201,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_job",
       "community": 86,
-      "community_name": "RetentionWorker",
+      "community_name": "EventRepository",
       "norm_label": "job"
     },
     {
@@ -11233,8 +11233,8 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "queue_systemeventrepo",
-      "community": 17,
-      "community_name": "system_events_test.go",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "systemeventrepo"
     },
     {
@@ -11684,8 +11684,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_queue_webhook_worker",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 60,
+      "community_name": "parseRetryAfter",
       "norm_label": "webhook_worker.go"
     },
     {
@@ -11717,8 +11717,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_webhook_worker_go_jobinserter",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "jobinserter"
     },
     {
@@ -11750,8 +11750,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "internal_webhooks_queue_webhook_worker_newwebhookworker",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "newwebhookworker()"
     },
     {
@@ -11761,8 +11761,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_webhook_worker_go_config",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "config"
     },
     {
@@ -11805,8 +11805,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "internal_webhooks_queue_webhook_worker_statusforfailure",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 60,
+      "community_name": "parseRetryAfter",
       "norm_label": "statusforfailure()"
     },
     {
@@ -11860,8 +11860,8 @@
       "source_location": "L497",
       "_origin": "ast",
       "id": "internal_webhooks_queue_webhook_worker_issuccessstatuscode",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 60,
+      "community_name": "parseRetryAfter",
       "norm_label": "issuccessstatuscode()"
     },
     {
@@ -11893,8 +11893,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_queue_webhook_worker_test",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 60,
+      "community_name": "parseRetryAfter",
       "norm_label": "webhook_worker_test.go"
     },
     {
@@ -11904,8 +11904,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "internal_webhooks_queue_webhook_worker_test_teststatusforfailure",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 60,
+      "community_name": "parseRetryAfter",
       "norm_label": "teststatusforfailure()"
     },
     {
@@ -11915,8 +11915,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_webhook_worker_test_go_t",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 60,
+      "community_name": "parseRetryAfter",
       "norm_label": "t"
     },
     {
@@ -11927,7 +11927,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test",
       "community": 151,
-      "community_name": "validConfig",
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "webhooks/rate_limit_test.go"
     },
     {
@@ -11938,7 +11938,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_testvalidateconfig_ratelimitrps",
       "community": 151,
-      "community_name": "validConfig",
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "testvalidateconfig_ratelimitrps()"
     },
     {
@@ -11949,7 +11949,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_go_t",
       "community": 151,
-      "community_name": "validConfig",
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "t"
     },
     {
@@ -11960,7 +11960,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_testapplyconfig_ratelimitrps",
       "community": 151,
-      "community_name": "validConfig",
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "testapplyconfig_ratelimitrps()"
     },
     {
@@ -11971,7 +11971,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_testdefaultwebhookhttpconfig_ratelimitrps",
       "community": 151,
-      "community_name": "validConfig",
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "testdefaultwebhookhttpconfig_ratelimitrps()"
     },
     {
@@ -11982,7 +11982,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_testtowebhookregistration_ratelimitrps",
       "community": 151,
-      "community_name": "validConfig",
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "testtowebhookregistration_ratelimitrps()"
     },
     {
@@ -12850,8 +12850,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "alert_config_repository.go"
     },
     {
@@ -12861,8 +12861,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "store_alertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 168,
+      "community_name": "AlertConfig",
       "norm_label": "alertconfig"
     },
     {
@@ -12872,8 +12872,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository_go_uuid",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 168,
+      "community_name": "AlertConfig",
       "norm_label": "uuid"
     },
     {
@@ -12883,8 +12883,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository_go_time",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 168,
+      "community_name": "AlertConfig",
       "norm_label": "time"
     },
     {
@@ -12894,8 +12894,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "store_alertconfigrepository",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "alertconfigrepository"
     },
     {
@@ -12905,8 +12905,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository_go_store_repository",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 168,
+      "community_name": "AlertConfig",
       "norm_label": "repository"
     },
     {
@@ -12916,8 +12916,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "store_repository_createalertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 168,
+      "community_name": "AlertConfig",
       "norm_label": ".createalertconfig()"
     },
     {
@@ -12927,8 +12927,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository_go_context",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 168,
+      "community_name": "AlertConfig",
       "norm_label": "context"
     },
     {
@@ -12938,8 +12938,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "store_repository_listalertconfigs",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 168,
+      "community_name": "AlertConfig",
       "norm_label": ".listalertconfigs()"
     },
     {
@@ -12949,8 +12949,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "store_repository_getalertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 168,
+      "community_name": "AlertConfig",
       "norm_label": ".getalertconfig()"
     },
     {
@@ -12960,8 +12960,8 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "store_repository_deletealertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 168,
+      "community_name": "AlertConfig",
       "norm_label": ".deletealertconfig()"
     },
     {
@@ -12971,8 +12971,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "store_repository_resolvealertrecipients",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 168,
+      "community_name": "AlertConfig",
       "norm_label": ".resolvealertrecipients()"
     },
     {
@@ -13004,8 +13004,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "internal_webhooks_store_batch_repository_go_store_repository",
-      "community": 168,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "BatchJob",
       "norm_label": "repository"
     },
     {
@@ -13015,8 +13015,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "store_repository_createbatchjob",
-      "community": 168,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "BatchJob",
       "norm_label": ".createbatchjob()"
     },
     {
@@ -13026,8 +13026,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_batch_repository_go_context",
-      "community": 168,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "BatchJob",
       "norm_label": "context"
     },
     {
@@ -13037,8 +13037,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_batch_repository_go_uuid",
-      "community": 168,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "BatchJob",
       "norm_label": "uuid"
     },
     {
@@ -13048,8 +13048,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "store_repository_getbatchjob",
-      "community": 168,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "BatchJob",
       "norm_label": ".getbatchjob()"
     },
     {
@@ -13059,8 +13059,8 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "store_repository_updatebatchjobstatus",
-      "community": 168,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "BatchJob",
       "norm_label": ".updatebatchjobstatus()"
     },
     {
@@ -13070,8 +13070,8 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "store_repository_updatebatchjobprogress",
-      "community": 168,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "BatchJob",
       "norm_label": ".updatebatchjobprogress()"
     },
     {
@@ -13081,8 +13081,8 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "store_repository_cleanupexpiredbatchjobs",
-      "community": 168,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "BatchJob",
       "norm_label": ".cleanupexpiredbatchjobs()"
     },
     {
@@ -13092,8 +13092,8 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "store_repository_snapshoteventids",
-      "community": 168,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "BatchJob",
       "norm_label": ".snapshoteventids()"
     },
     {
@@ -13103,8 +13103,8 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "store_repository_snapshotdeliveryids",
-      "community": 168,
-      "community_name": "Context",
+      "community": 27,
+      "community_name": "BatchJob",
       "norm_label": ".snapshotdeliveryids()"
     },
     {
@@ -13115,7 +13115,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_delivery_repository",
       "community": 36,
-      "community_name": "RepositoryInterface",
+      "community_name": "EventProcessingWorker",
       "norm_label": "delivery_repository.go"
     },
     {
@@ -13126,7 +13126,7 @@
       "_origin": "ast",
       "id": "store_deliveryrepository",
       "community": 36,
-      "community_name": "RepositoryInterface",
+      "community_name": "EventProcessingWorker",
       "norm_label": "deliveryrepository"
     },
     {
@@ -13312,8 +13312,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_event_repository",
-      "community": 36,
-      "community_name": "RepositoryInterface",
+      "community": 86,
+      "community_name": "EventRepository",
       "norm_label": "event_repository.go"
     },
     {
@@ -13323,8 +13323,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "store_eventrepository",
-      "community": 36,
-      "community_name": "RepositoryInterface",
+      "community": 86,
+      "community_name": "EventRepository",
       "norm_label": "eventrepository"
     },
     {
@@ -13477,8 +13477,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_event_type_repository",
-      "community": 17,
-      "community_name": "system_events_test.go",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "event_type_repository.go"
     },
     {
@@ -13488,8 +13488,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "store_eventtyperepository",
-      "community": 17,
-      "community_name": "system_events_test.go",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "eventtyperepository"
     },
     {
@@ -13598,8 +13598,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_health_repository",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "health_repository.go"
     },
     {
@@ -13609,8 +13609,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "store_healthrepository",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "healthrepository"
     },
     {
@@ -13752,7 +13752,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_interface",
-      "community": 36,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "interface.go"
     },
@@ -13763,7 +13763,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "store_repositoryinterface",
-      "community": 36,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "repositoryinterface"
     },
@@ -13774,7 +13774,7 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "store_transactor",
-      "community": 36,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": "transactor"
     },
@@ -14027,8 +14027,8 @@
       "source_location": "L275",
       "_origin": "ast",
       "id": "store_batchjobstatus",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 68,
+      "community_name": "BatchJobWorker",
       "norm_label": "batchjobstatus"
     },
     {
@@ -14049,8 +14049,8 @@
       "source_location": "L295",
       "_origin": "ast",
       "id": "store_batchjobdata",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 27,
+      "community_name": "BatchJob",
       "norm_label": "batchjobdata"
     },
     {
@@ -14093,8 +14093,8 @@
       "source_location": "L338",
       "_origin": "ast",
       "id": "store_jsonmap",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 131,
+      "community_name": "EventRegistration",
       "norm_label": "jsonmap"
     },
     {
@@ -14104,8 +14104,8 @@
       "source_location": "L341",
       "_origin": "ast",
       "id": "store_jsonmap_scan",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 131,
+      "community_name": "EventRegistration",
       "norm_label": ".scan()"
     },
     {
@@ -14115,8 +14115,8 @@
       "source_location": "L366",
       "_origin": "ast",
       "id": "store_jsonmap_value",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 131,
+      "community_name": "EventRegistration",
       "norm_label": ".value()"
     },
     {
@@ -14126,8 +14126,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_models_go_value",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 131,
+      "community_name": "EventRegistration",
       "norm_label": "value"
     },
     {
@@ -14148,8 +14148,8 @@
       "source_location": "L378",
       "_origin": "ast",
       "id": "store_jsonstringmap_scan",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 23,
+      "community_name": "store/models.go",
       "norm_label": ".scan()"
     },
     {
@@ -14159,8 +14159,8 @@
       "source_location": "L411",
       "_origin": "ast",
       "id": "store_jsonstringmap_value",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 131,
+      "community_name": "EventRegistration",
       "norm_label": ".value()"
     },
     {
@@ -14391,7 +14391,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_subscription_repository",
       "community": 36,
-      "community_name": "RepositoryInterface",
+      "community_name": "EventProcessingWorker",
       "norm_label": "subscription_repository.go"
     },
     {
@@ -14402,7 +14402,7 @@
       "_origin": "ast",
       "id": "store_subscriptionrepository",
       "community": 36,
-      "community_name": "RepositoryInterface",
+      "community_name": "EventProcessingWorker",
       "norm_label": "subscriptionrepository"
     },
     {
@@ -14577,8 +14577,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "store_ratelimitrepository",
-      "community": 41,
-      "community_name": "WebhookWorker",
+      "community": 107,
+      "community_name": "RepositoryInterface",
       "norm_label": "ratelimitrepository"
     },
     {
@@ -14808,8 +14808,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_urlvalidation",
-      "community": 71,
-      "community_name": "ServiceError",
+      "community": 75,
+      "community_name": ".CreateWebhook",
       "norm_label": "urlvalidation.go"
     },
     {
@@ -14819,8 +14819,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "internal_webhooks_urlvalidation_validatewebhookurl",
-      "community": 71,
-      "community_name": "ServiceError",
+      "community": 75,
+      "community_name": ".CreateWebhook",
       "norm_label": "validatewebhookurl()"
     },
     {
@@ -15425,7 +15425,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_crypto",
       "community": 75,
-      "community_name": "Context",
+      "community_name": ".CreateWebhook",
       "norm_label": "webhook_service_crypto.go"
     },
     {
@@ -15513,7 +15513,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_crypto_generatewebhooksecret",
       "community": 75,
-      "community_name": "Context",
+      "community_name": ".CreateWebhook",
       "norm_label": "generatewebhooksecret()"
     },
     {
@@ -15798,8 +15798,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_health",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 175,
+      "community_name": "WebhookHealthData",
       "norm_label": "webhook_service_health.go"
     },
     {
@@ -15809,8 +15809,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "webhooks_webhookhealthdata",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 175,
+      "community_name": "WebhookHealthData",
       "norm_label": "webhookhealthdata"
     },
     {
@@ -15820,8 +15820,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_health_go_time",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 175,
+      "community_name": "WebhookHealthData",
       "norm_label": "time"
     },
     {
@@ -15831,8 +15831,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "webhooks_healthsummarydata",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 175,
+      "community_name": "WebhookHealthData",
       "norm_label": "healthsummarydata"
     },
     {
@@ -15842,8 +15842,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "webhooks_consumerstatsdata",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 175,
+      "community_name": "WebhookHealthData",
       "norm_label": "consumerstatsdata"
     },
     {
@@ -15853,8 +15853,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_health_go_webhooks_webhookservice",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 175,
+      "community_name": "WebhookHealthData",
       "norm_label": "webhookservice"
     },
     {
@@ -15864,8 +15864,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "webhooks_webhookservice_getwebhookhealth",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 147,
+      "community_name": "parseUUID",
       "norm_label": ".getwebhookhealth()"
     },
     {
@@ -15875,8 +15875,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_health_go_context",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 175,
+      "community_name": "WebhookHealthData",
       "norm_label": "context"
     },
     {
@@ -15886,8 +15886,8 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "webhooks_webhookservice_gethealthsummary",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 175,
+      "community_name": "WebhookHealthData",
       "norm_label": ".gethealthsummary()"
     },
     {
@@ -15897,8 +15897,8 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "webhooks_webhookservice_getconsumerstats",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 175,
+      "community_name": "WebhookHealthData",
       "norm_label": ".getconsumerstats()"
     },
     {
@@ -15920,7 +15920,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_registration_go_webhooks_webhookservice",
       "community": 75,
-      "community_name": "Context",
+      "community_name": ".CreateWebhook",
       "norm_label": "webhookservice"
     },
     {
@@ -15931,7 +15931,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_setwebhookactive",
       "community": 75,
-      "community_name": "Context",
+      "community_name": ".CreateWebhook",
       "norm_label": ".setwebhookactive()"
     },
     {
@@ -15942,7 +15942,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_registration_go_context",
       "community": 75,
-      "community_name": "Context",
+      "community_name": ".CreateWebhook",
       "norm_label": "context"
     },
     {
@@ -15953,7 +15953,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_registerwebhook",
       "community": 75,
-      "community_name": "Context",
+      "community_name": ".CreateWebhook",
       "norm_label": ".registerwebhook()"
     },
     {
@@ -15964,7 +15964,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_registration_go_time",
       "community": 75,
-      "community_name": "Context",
+      "community_name": ".CreateWebhook",
       "norm_label": "time"
     },
     {
@@ -15974,7 +15974,7 @@
       "source_location": "L187",
       "_origin": "ast",
       "id": "webhooks_webhookservice_createwebhook",
-      "community": 10,
+      "community": 75,
       "community_name": ".CreateWebhook",
       "norm_label": ".createwebhook()"
     },
@@ -15985,7 +15985,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_registration_go_webhookregistration",
-      "community": 10,
+      "community": 75,
       "community_name": ".CreateWebhook",
       "norm_label": "webhookregistration"
     },
@@ -15997,7 +15997,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_unregisterwebhook",
       "community": 75,
-      "community_name": "Context",
+      "community_name": ".CreateWebhook",
       "norm_label": ".unregisterwebhook()"
     },
     {
@@ -16008,7 +16008,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_listwebhooks",
       "community": 75,
-      "community_name": "Context",
+      "community_name": ".CreateWebhook",
       "norm_label": ".listwebhooks()"
     },
     {
@@ -16019,7 +16019,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_pausewebhook",
       "community": 75,
-      "community_name": "Context",
+      "community_name": ".CreateWebhook",
       "norm_label": ".pausewebhook()"
     },
     {
@@ -16030,7 +16030,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_resumewebhook",
       "community": 75,
-      "community_name": "Context",
+      "community_name": ".CreateWebhook",
       "norm_label": ".resumewebhook()"
     },
     {
@@ -16041,7 +16041,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_updatewebhookconfig",
       "community": 75,
-      "community_name": "Context",
+      "community_name": ".CreateWebhook",
       "norm_label": ".updatewebhookconfig()"
     },
     {
@@ -16392,7 +16392,7 @@
       "source_location": "L76",
       "_origin": "ast",
       "id": "webhooks_mockrepo_runintransaction",
-      "community": 36,
+      "community": 107,
       "community_name": "RepositoryInterface",
       "norm_label": ".runintransaction()"
     },
@@ -17855,8 +17855,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "pkg_errors_service_wrapf",
-      "community": 71,
-      "community_name": "ServiceError",
+      "community": 75,
+      "community_name": ".CreateWebhook",
       "norm_label": "wrapf()"
     },
     {
@@ -18231,7 +18231,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "sqlx.go"
     },
@@ -18242,7 +18242,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx_open",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "open()"
     },
@@ -18253,7 +18253,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "postgres_openconnectionoption",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "openconnectionoption"
     },
@@ -18264,7 +18264,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx_withconnectionmaxlifetime",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "withconnectionmaxlifetime()"
     },
@@ -18275,7 +18275,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx_go_duration",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "duration"
     },
@@ -18286,7 +18286,7 @@
       "source_location": "L56",
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx_withmaxopenconnections",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "withmaxopenconnections()"
     },
@@ -18297,7 +18297,7 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx_withmaxidleconnections",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "withmaxidleconnections()"
     },
@@ -18308,7 +18308,7 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx_withsetconnmaxidletime",
-      "community": 107,
+      "community": 0,
       "community_name": "setupEnv",
       "norm_label": "withsetconnmaxidletime()"
     },
@@ -21016,8 +21016,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "satellites_sparrow_client_newapiclient",
-      "community": 146,
-      "community_name": "runInit",
+      "community": 32,
+      "community_name": "apiClient",
       "norm_label": "newapiclient()"
     },
     {
@@ -21027,8 +21027,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_client_go_config",
-      "community": 146,
-      "community_name": "runInit",
+      "community": 32,
+      "community_name": "apiClient",
       "norm_label": "config"
     },
     {
@@ -21335,7 +21335,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "satellites_sparrow_color",
-      "community": 94,
+      "community": 63,
       "community_name": "newPalette",
       "norm_label": "color.go"
     },
@@ -21346,8 +21346,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "sparrow_palette",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": "palette"
     },
     {
@@ -21357,7 +21357,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "satellites_sparrow_color_newpalette",
-      "community": 94,
+      "community": 63,
       "community_name": "newPalette",
       "norm_label": "newpalette()"
     },
@@ -21368,7 +21368,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_color_go_writer",
-      "community": 94,
+      "community": 63,
       "community_name": "newPalette",
       "norm_label": "writer"
     },
@@ -21379,8 +21379,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "sparrow_palette_paint",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".paint()"
     },
     {
@@ -21390,8 +21390,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "sparrow_palette_bold",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".bold()"
     },
     {
@@ -21401,8 +21401,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "sparrow_palette_dim",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".dim()"
     },
     {
@@ -21412,8 +21412,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "sparrow_palette_red",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".red()"
     },
     {
@@ -21423,8 +21423,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "sparrow_palette_green",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".green()"
     },
     {
@@ -21434,8 +21434,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "sparrow_palette_yellow",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".yellow()"
     },
     {
@@ -21445,8 +21445,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "sparrow_palette_status",
-      "community": 94,
-      "community_name": "newPalette",
+      "community": 146,
+      "community_name": "palette",
       "norm_label": ".status()"
     },
     {
@@ -21578,7 +21578,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_events",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "events.go"
     },
     {
@@ -21611,7 +21611,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_events_runevents",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "runevents()"
     },
     {
@@ -21622,7 +21622,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_events_go_context",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "context"
     },
     {
@@ -21633,7 +21633,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_events_go_writer",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "writer"
     },
     {
@@ -21644,7 +21644,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_events_printeventtype",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "printeventtype()"
     },
     {
@@ -21655,7 +21655,7 @@
       "_origin": "ast",
       "id": "eventtypeitem",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "eventtypeitem"
     },
     {
@@ -21666,7 +21666,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_events_indentjson",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "indentjson()"
     },
     {
@@ -21964,8 +21964,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd",
-      "community": 146,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "init_cmd.go"
     },
     {
@@ -21975,8 +21975,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_newinitcmd",
-      "community": 146,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "newinitcmd()"
     },
     {
@@ -21986,8 +21986,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_go_command",
-      "community": 146,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "command"
     },
     {
@@ -21997,8 +21997,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_runinit",
-      "community": 146,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "runinit()"
     },
     {
@@ -22008,8 +22008,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_go_context",
-      "community": 146,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "context"
     },
     {
@@ -22019,8 +22019,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_go_writer",
-      "community": 146,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "writer"
     },
     {
@@ -22030,8 +22030,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_probeserver",
-      "community": 146,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "probeserver()"
     },
     {
@@ -22041,8 +22041,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_go_config",
-      "community": 146,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "config"
     },
     {
@@ -22052,8 +22052,8 @@
       "source_location": "L90",
       "_origin": "ast",
       "id": "satellites_sparrow_init_cmd_isterminal",
-      "community": 146,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "isterminal()"
     },
     {
@@ -22063,8 +22063,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "file",
-      "community": 146,
-      "community_name": "runInit",
+      "community": 84,
+      "community_name": "runUse",
       "norm_label": "file"
     },
     {
@@ -22239,8 +22239,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "satellites_sparrow_output",
-      "community": 95,
-      "community_name": "runFunctions",
+      "community": 63,
+      "community_name": "newPalette",
       "norm_label": "output.go"
     },
     {
@@ -22250,8 +22250,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "satellites_sparrow_output_renderstructured",
-      "community": 95,
-      "community_name": "runFunctions",
+      "community": 63,
+      "community_name": "newPalette",
       "norm_label": "renderstructured()"
     },
     {
@@ -22261,8 +22261,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_output_go_writer",
-      "community": 95,
-      "community_name": "runFunctions",
+      "community": 63,
+      "community_name": "newPalette",
       "norm_label": "writer"
     },
     {
@@ -22273,7 +22273,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_output_yesno",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "yesno()"
     },
     {
@@ -22526,7 +22526,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "tail.go"
     },
     {
@@ -22537,7 +22537,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail_newtailcmd",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "newtailcmd()"
     },
     {
@@ -22548,7 +22548,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail_go_command",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "command"
     },
     {
@@ -22559,7 +22559,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail_runtail",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "runtail()"
     },
     {
@@ -22570,7 +22570,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail_go_context",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "context"
     },
     {
@@ -22581,7 +22581,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail_go_writer",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "writer"
     },
     {
@@ -22592,7 +22592,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_tail_printdelivery",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "printdelivery()"
     },
     {
@@ -22603,7 +22603,7 @@
       "_origin": "ast",
       "id": "deliveryitem",
       "community": 94,
-      "community_name": "newPalette",
+      "community_name": "newTailCmd",
       "norm_label": "deliveryitem"
     },
     {
@@ -22668,8 +22668,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "satellites_sparrow_template_cmd_test",
-      "community": 84,
-      "community_name": "runUse",
+      "community": 24,
+      "community_name": "newRootCmd",
       "norm_label": "template_cmd_test.go"
     },
     {
@@ -22679,8 +22679,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "satellites_sparrow_template_cmd_test_testtemplatetestrendersfixturerecipe",
-      "community": 84,
-      "community_name": "runUse",
+      "community": 24,
+      "community_name": "newRootCmd",
       "norm_label": "testtemplatetestrendersfixturerecipe()"
     },
     {
@@ -22690,8 +22690,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "satellites_sparrow_template_cmd_test_go_t",
-      "community": 84,
-      "community_name": "runUse",
+      "community": 24,
+      "community_name": "newRootCmd",
       "norm_label": "t"
     },
     {
@@ -22701,8 +22701,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "satellites_sparrow_template_cmd_test_testtemplatetestreportsparseerror",
-      "community": 84,
-      "community_name": "runUse",
+      "community": 24,
+      "community_name": "newRootCmd",
       "norm_label": "testtemplatetestreportsparseerror()"
     },
     {
@@ -22878,7 +22878,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_webhooks",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "webhooks.go"
     },
     {
@@ -22911,7 +22911,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_webhooks_runwebhooks",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "runwebhooks()"
     },
     {
@@ -22922,7 +22922,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_webhooks_go_context",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "context"
     },
     {
@@ -22933,7 +22933,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_webhooks_go_writer",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "writer"
     },
     {
@@ -22944,7 +22944,7 @@
       "_origin": "ast",
       "id": "sparrow_webhookdetail",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "webhookdetail"
     },
     {
@@ -22955,7 +22955,7 @@
       "_origin": "ast",
       "id": "subscriptionitem",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "subscriptionitem"
     },
     {
@@ -22966,7 +22966,7 @@
       "_origin": "ast",
       "id": "satellites_sparrow_webhooks_printwebhook",
       "community": 63,
-      "community_name": "runEvents",
+      "community_name": "newPalette",
       "norm_label": "printwebhook()"
     },
     {
@@ -23287,8 +23287,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "web_package_devdependencies_playwright_test",
-      "community": 192,
-      "community_name": "@playwright/test",
+      "community": 62,
+      "community_name": "devDependencies",
       "norm_label": "@playwright/test"
     },
     {
@@ -23298,8 +23298,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "playwright_test",
-      "community": 192,
-      "community_name": "@playwright/test",
+      "community": 62,
+      "community_name": "devDependencies",
       "norm_label": "@playwright/test"
     },
     {
@@ -23551,8 +23551,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "web_package_devdependencies_typescript",
-      "community": 62,
-      "community_name": "devDependencies",
+      "community": 149,
+      "community_name": "typescript",
       "norm_label": "typescript"
     },
     {
@@ -23562,8 +23562,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "typescript",
-      "community": 62,
-      "community_name": "devDependencies",
+      "community": 149,
+      "community_name": "typescript",
       "norm_label": "typescript"
     },
     {
@@ -27254,7 +27254,7 @@
       "label": "Development History",
       "file_type": "document",
       "source_file": "opencode.md",
-      "source_location": "L108",
+      "source_location": "L109",
       "_origin": "ast",
       "id": "opencode_development_history",
       "community": 124,
@@ -27870,7 +27870,7 @@
       "label": "Known Gaps (vs Svix and general best practices)",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L59",
+      "source_location": "L57",
       "_origin": "ast",
       "id": "plan_known_gaps_vs_svix_and_general_best_practices",
       "community": 42,
@@ -27881,7 +27881,7 @@
       "label": "Completed Parts (v0.8.0 -- v1.2.1)",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L71",
+      "source_location": "L70",
       "_origin": "ast",
       "id": "plan_completed_parts_v0_8_0_v1_2_1",
       "community": 42,
@@ -27892,7 +27892,7 @@
       "label": "Part 1: Soft Schema Validation + Template Fallback",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L73",
+      "source_location": "L72",
       "_origin": "ast",
       "id": "plan_part_1_soft_schema_validation_template_fallback",
       "community": 42,
@@ -27903,7 +27903,7 @@
       "label": "Part 2: Search Filters",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L81",
+      "source_location": "L80",
       "_origin": "ast",
       "id": "plan_part_2_search_filters",
       "community": 42,
@@ -27914,7 +27914,7 @@
       "label": "Part 3: Single Event Re-push",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L88",
+      "source_location": "L87",
       "_origin": "ast",
       "id": "plan_part_3_single_event_re_push",
       "community": 42,
@@ -27925,7 +27925,7 @@
       "label": "Part 4: Deterministic Batch Operations",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L94",
+      "source_location": "L93",
       "_origin": "ast",
       "id": "plan_part_4_deterministic_batch_operations",
       "community": 42,
@@ -27936,7 +27936,7 @@
       "label": "Part 5: Delivery Retry by Filter",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L103",
+      "source_location": "L102",
       "_origin": "ast",
       "id": "plan_part_5_delivery_retry_by_filter",
       "community": 42,
@@ -27947,7 +27947,7 @@
       "label": "Part 6: Web UI",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L109",
+      "source_location": "L108",
       "_origin": "ast",
       "id": "plan_part_6_web_ui",
       "community": 42,
@@ -27958,7 +27958,7 @@
       "label": "Part 7: Docs Fixes",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L117",
+      "source_location": "L116",
       "_origin": "ast",
       "id": "plan_part_7_docs_fixes",
       "community": 42,
@@ -27969,7 +27969,7 @@
       "label": "Part 8: Idempotency Keys on PushEvent",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L121",
+      "source_location": "L120",
       "_origin": "ast",
       "id": "plan_part_8_idempotency_keys_on_pushevent",
       "community": 42,
@@ -27980,7 +27980,7 @@
       "label": "Part 9: Per-Webhook Rate Limiting",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L129",
+      "source_location": "L128",
       "_origin": "ast",
       "id": "plan_part_9_per_webhook_rate_limiting",
       "community": 42,
@@ -27991,7 +27991,7 @@
       "label": "Part 10: OKF Bundle + Docs Sync",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L140",
+      "source_location": "L139",
       "_origin": "ast",
       "id": "plan_part_10_okf_bundle_docs_sync",
       "community": 42,
@@ -28002,7 +28002,7 @@
       "label": "Part 11: Dead Letter Queue",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L152",
+      "source_location": "L151",
       "_origin": "ast",
       "id": "plan_part_11_dead_letter_queue",
       "community": 42,
@@ -28013,7 +28013,7 @@
       "label": "Part 12: Data Retention & Cleanup",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L168",
+      "source_location": "L167",
       "_origin": "ast",
       "id": "plan_part_12_data_retention_cleanup",
       "community": 42,
@@ -28021,10 +28021,32 @@
       "norm_label": "part 12: data retention & cleanup"
     },
     {
+      "label": "What's implemented",
+      "file_type": "document",
+      "source_file": "plan.md",
+      "source_location": "L173",
+      "_origin": "ast",
+      "id": "plan_what_s_implemented_173",
+      "community": 42,
+      "community_name": "Sparrow Implementation Plan",
+      "norm_label": "what's implemented"
+    },
+    {
+      "label": "Remaining gap (optional)",
+      "file_type": "document",
+      "source_file": "plan.md",
+      "source_location": "L179",
+      "_origin": "ast",
+      "id": "plan_remaining_gap_optional",
+      "community": 42,
+      "community_name": "Sparrow Implementation Plan",
+      "norm_label": "remaining gap (optional)"
+    },
+    {
       "label": "Part 13: Payload Size Limits",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L183",
+      "source_location": "L191",
       "_origin": "ast",
       "id": "plan_part_13_payload_size_limits",
       "community": 42,
@@ -28035,7 +28057,7 @@
       "label": "Design",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L189",
+      "source_location": "L197",
       "_origin": "ast",
       "id": "plan_design",
       "community": 42,
@@ -28046,7 +28068,7 @@
       "label": "API Changes",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L196",
+      "source_location": "L204",
       "_origin": "ast",
       "id": "plan_api_changes",
       "community": 42,
@@ -28057,7 +28079,7 @@
       "label": "Part 14: Asymmetric Webhook Signatures (Ed25519)",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L202",
+      "source_location": "L210",
       "_origin": "ast",
       "id": "plan_part_14_asymmetric_webhook_signatures_ed25519",
       "community": 42,
@@ -28068,7 +28090,7 @@
       "label": "Design (as implemented)",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L206",
+      "source_location": "L214",
       "_origin": "ast",
       "id": "plan_design_as_implemented",
       "community": 42,
@@ -28079,7 +28101,7 @@
       "label": "Migration",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L216",
+      "source_location": "L224",
       "_origin": "ast",
       "id": "plan_migration",
       "community": 42,
@@ -28090,7 +28112,7 @@
       "label": "Key decisions vs original plan",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L220",
+      "source_location": "L228",
       "_origin": "ast",
       "id": "plan_key_decisions_vs_original_plan",
       "community": 42,
@@ -28101,7 +28123,7 @@
       "label": "Part 15: CLI Tool",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L230",
+      "source_location": "L238",
       "_origin": "ast",
       "id": "plan_part_15_cli_tool",
       "community": 42,
@@ -28112,7 +28134,7 @@
       "label": "Part 16: API-Level Rate Limiting",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L238",
+      "source_location": "L250",
       "_origin": "ast",
       "id": "plan_part_16_api_level_rate_limiting",
       "community": 42,
@@ -28123,9 +28145,9 @@
       "label": "Design",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L244",
+      "source_location": "L256",
       "_origin": "ast",
-      "id": "plan_design_244",
+      "id": "plan_design_256",
       "community": 42,
       "community_name": "Sparrow Implementation Plan",
       "norm_label": "design"
@@ -28134,7 +28156,7 @@
       "label": "Part 17: REST/OpenAPI Migration (removed gRPC + Connect-RPC)",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L253",
+      "source_location": "L265",
       "_origin": "ast",
       "id": "plan_part_17_rest_openapi_migration_removed_grpc_connect_rpc",
       "community": 42,
@@ -28145,7 +28167,7 @@
       "label": "Future Considerations (Not Planned)",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L268",
+      "source_location": "L280",
       "_origin": "ast",
       "id": "plan_future_considerations_not_planned",
       "community": 42,
@@ -28156,7 +28178,7 @@
       "label": "Implementation Order",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L286",
+      "source_location": "L299",
       "_origin": "ast",
       "id": "plan_implementation_order",
       "community": 42,
@@ -28167,7 +28189,7 @@
       "label": "Decisions Log",
       "file_type": "document",
       "source_file": "plan.md",
-      "source_location": "L309",
+      "source_location": "L321",
       "_origin": "ast",
       "id": "plan_decisions_log",
       "community": 42,
@@ -88200,7 +88222,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "opencode.md",
-      "source_location": "L108",
+      "source_location": "L109",
       "weight": 1.0,
       "_origin": "ast",
       "source": "opencode_sparrow_condensed_reference",
@@ -88772,7 +88794,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L71",
+      "source_location": "L70",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_sparrow_implementation_plan",
@@ -88794,7 +88816,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L309",
+      "source_location": "L321",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_sparrow_implementation_plan",
@@ -88816,7 +88838,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L268",
+      "source_location": "L280",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_sparrow_implementation_plan",
@@ -88827,7 +88849,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L286",
+      "source_location": "L299",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_sparrow_implementation_plan",
@@ -88838,7 +88860,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L140",
+      "source_location": "L139",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_sparrow_implementation_plan",
@@ -88849,7 +88871,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L152",
+      "source_location": "L151",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_sparrow_implementation_plan",
@@ -88860,7 +88882,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L168",
+      "source_location": "L167",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_sparrow_implementation_plan",
@@ -88871,7 +88893,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L183",
+      "source_location": "L191",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_sparrow_implementation_plan",
@@ -88882,7 +88904,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L202",
+      "source_location": "L210",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_sparrow_implementation_plan",
@@ -88893,7 +88915,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L230",
+      "source_location": "L238",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_sparrow_implementation_plan",
@@ -88904,7 +88926,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L238",
+      "source_location": "L250",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_sparrow_implementation_plan",
@@ -88915,7 +88937,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L253",
+      "source_location": "L265",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_sparrow_implementation_plan",
@@ -88926,7 +88948,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L59",
+      "source_location": "L57",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_current_state_as_of_v1_2_1",
@@ -88948,7 +88970,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L73",
+      "source_location": "L72",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_completed_parts_v0_8_0_v1_2_1",
@@ -88959,7 +88981,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L81",
+      "source_location": "L80",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_completed_parts_v0_8_0_v1_2_1",
@@ -88970,7 +88992,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L88",
+      "source_location": "L87",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_completed_parts_v0_8_0_v1_2_1",
@@ -88981,7 +89003,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L94",
+      "source_location": "L93",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_completed_parts_v0_8_0_v1_2_1",
@@ -88992,7 +89014,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L103",
+      "source_location": "L102",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_completed_parts_v0_8_0_v1_2_1",
@@ -89003,7 +89025,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L109",
+      "source_location": "L108",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_completed_parts_v0_8_0_v1_2_1",
@@ -89014,7 +89036,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L117",
+      "source_location": "L116",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_completed_parts_v0_8_0_v1_2_1",
@@ -89025,7 +89047,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L121",
+      "source_location": "L120",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_completed_parts_v0_8_0_v1_2_1",
@@ -89036,7 +89058,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L129",
+      "source_location": "L128",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_completed_parts_v0_8_0_v1_2_1",
@@ -89047,7 +89069,29 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L196",
+      "source_location": "L179",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "plan_part_12_data_retention_cleanup",
+      "target": "plan_remaining_gap_optional",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "plan.md",
+      "source_location": "L173",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "plan_part_12_data_retention_cleanup",
+      "target": "plan_what_s_implemented_173",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "plan.md",
+      "source_location": "L204",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_part_13_payload_size_limits",
@@ -89058,7 +89102,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L189",
+      "source_location": "L197",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_part_13_payload_size_limits",
@@ -89069,7 +89113,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L206",
+      "source_location": "L214",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_part_14_asymmetric_webhook_signatures_ed25519",
@@ -89080,7 +89124,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L220",
+      "source_location": "L228",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_part_14_asymmetric_webhook_signatures_ed25519",
@@ -89091,7 +89135,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L216",
+      "source_location": "L224",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_part_14_asymmetric_webhook_signatures_ed25519",
@@ -89102,11 +89146,11 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "plan.md",
-      "source_location": "L244",
+      "source_location": "L256",
       "weight": 1.0,
       "_origin": "ast",
       "source": "plan_part_16_api_level_rate_limiting",
-      "target": "plan_design_244",
+      "target": "plan_design_256",
       "confidence_score": 1.0
     },
     {
@@ -90114,5 +90158,5 @@
       "source_file": "docs/src/content/docs/getting-started/why-sparrow.mdx"
     }
   ],
-  "built_at_commit": "5866ad004db9ca74c218c0ab4914ad1c7e089a55"
+  "built_at_commit": "ec8d81868770339e41a4e1b462027aacacff45d5"
 }

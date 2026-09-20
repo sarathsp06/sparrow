@@ -53,18 +53,16 @@ These principles apply globally to Sparrow, not just this feature set:
 | DB migrations | Complete | Automated on startup, see `db/migrations/` |
 | Helm chart | Complete | `charts/sparrow/` |
 | CI/CD + GoReleaser | Complete | Cross-platform binaries, Helm chart artifact |
+| Data retention | Complete | `RetentionWorker` purges `event_records` (cascades to deliveries) via `SPARROW_EVENT_RETENTION_DAYS` |
+| CLI tool | Complete | `satellites/sparrow`, separate Go module, REST over HTTP |
 
 ### Known Gaps (vs Svix and general best practices)
 
 | Gap | Priority | Notes |
 |-----|----------|-------|
-| No dead letter queue | High | Failed deliveries stuck in deliveries table forever |
 | No API-level rate limiting | Medium | Per-webhook rate limiting exists, but API endpoints are unthrottled |
-| No CLI tool | Medium | Users rely on curl or the interactive `/docs` (Scalar) UI |
 | No payload size limits | Medium | Unbounded event payloads |
-| No data retention / cleanup | High | No TTL-based purge of old events/deliveries |
 | No scheduled/delayed webhooks | Low | Not in Svix OSS either |
-| No API versioning beyond URL path | Low | REST paths are `/v1/...`; no header/content-negotiation versioning scheme |
 | Limited client SDKs | Medium | Python generated from OpenAPI; no Go/JS/Java/Ruby/C#/PHP |
 | OKF bundle | Complete | `okf/` generated with 47 concepts across 58 files, 0 errors |
 
@@ -153,64 +151,32 @@ Updated `plan.md` inaccuracies: RPC count 34→36, migrations 22→23, gap table
 
 ## Part 11: Dead Letter Queue
 
-**Status**: Pending
+**Status**: Rejected -- not needed
 
-**Priority**: High -- currently failed deliveries accumulate forever with no mechanism to surface, redrive, or purge them.
-
-### Design
-
-After all retry attempts are exhausted, a delivery enters `failed` terminal state. Today it sits in `webhook_deliveries` indefinitely. A DLQ mechanism should:
-
-1. **Surface failed deliveries clearly** -- dedicated `ListDLQ` RPC filtered to terminal-failed deliveries past max attempts
-2. **Redrive** -- `RedriveDLQ` RPC: re-enqueue failed deliveries for another round of attempts (resets attempt counter)
-3. **Bulk redrive** -- reuse existing batch infrastructure (`batch_jobs` with `job_type = "dlq_redrive"`)
-4. **Per-webhook DLQ depth metric** -- OTel gauge `sparrow.dlq.depth` by webhook_id
-5. **UI** -- DLQ tab on webhook detail page + global DLQ view
-
-### Why not a separate table?
-
-Failed deliveries already have all the data (payload, headers, target URL, error info). A separate DLQ table would duplicate storage. Instead, use a filtered view: `status = 'failed' AND attempts >= max_attempts`.
-
-### Migration
-
-- Add index: `idx_webhook_deliveries_dlq ON webhook_deliveries (webhook_id, status) WHERE status = 'failed'`
-
-### API Changes
-
-- `GET /v1/consumers/{consumer}/deliveries:dlq` -> paginated failed deliveries
-- `POST /v1/consumers/{consumer}/webhooks/{webhook_id}/dlq:redrive` -> redrive all failed for a webhook
-- `POST /v1/deliveries/{delivery_id}:redrive` -> redrive single delivery
+`status = 'failed'` is already a permanent, queryable, filterable, retryable
+terminal state on `webhook_deliveries` (`ListDeliveries?status=failed`,
+single `retry`, bulk `prepare_retry`+`retryBatch`). A DLQ as a distinct
+concept exists in queue systems (SQS, Kafka) to solve two problems Sparrow
+doesn't have: a poison message blocking the queue behind it, and no
+persistent storage for give-ups. Deliveries are independent rows, not a
+blocking queue, and failed deliveries are already fully retained and
+actionable. There is no second mechanism to build here -- "DLQ" would just
+be a new name for data and endpoints that already exist.
 
 ---
 
 ## Part 12: Data Retention & Cleanup
 
-**Status**: Pending
+**Status**: Complete
 
-**Priority**: High -- without cleanup, tables grow unbounded. Event records, deliveries, health events, and batch jobs all need TTL-based purging.
+- `RetentionWorker` (`internal/webhooks/queue/retention_worker.go`), a River periodic job, `RunOnStart: true`, runs hourly
+- `SPARROW_EVENT_RETENTION_DAYS` (default `0` = disabled) purges `event_records` older than N days; deliveries cascade via FK
+- Logs rows deleted per run
 
-### Design
-
-River periodic (cron) job that runs cleanup on a configurable schedule.
-
-### Configuration
-
-New env vars:
-- `SPARROW_RETENTION_EVENTS_DAYS` -- default 30. Delete event_records older than N days.
-- `SPARROW_RETENTION_DELIVERIES_DAYS` -- default 30. Delete webhook_deliveries + delivery attempts older than N days.
-- `SPARROW_RETENTION_HEALTH_EVENTS_DAYS` -- default 7. Delete webhook_health_events older than N days.
-- `SPARROW_RETENTION_BATCH_JOBS_DAYS` -- default 1. Delete completed/cancelled/expired batch_jobs older than N days.
-
-### Implementation
-
-- New `RetentionWorker` as a River periodic job (runs every hour)
-- Deletes in batches (1000 rows per DELETE) to avoid long-held locks
-- Logs rows deleted per table per run
-- OTel counter: `sparrow.retention.rows_deleted` by table
-
-### Migration
-
-- Add `created_at` indexes on tables that lack them for efficient range deletes
+`webhook_health_events` and `batch_jobs` are not purged by this worker --
+not treated as a gap: health events roll up into summaries and batch jobs
+already expire after a 15min TTL, so neither has been observed to grow
+large. Extend the same worker with config-gated deletes if that changes.
 
 ---
 
@@ -263,35 +229,9 @@ None -- enforcement is server-side only.
 
 ## Part 15: CLI Tool
 
-**Status**: Pending
+**Status**: Complete
 
-**Priority**: Medium -- currently users need curl for all operations. A dedicated CLI improves DX significantly.
-
-### Design
-
-Standalone Go binary (`cmd/cli/`) using cobra. Connects to Sparrow server via the REST API (HTTP).
-
-### Commands
-
-```
-sparrow-cli webhooks list [--consumer NS]
-sparrow-cli webhooks register --url URL --consumer NS [--secret SECRET]
-sparrow-cli webhooks pause ID
-sparrow-cli webhooks resume ID
-sparrow-cli events list [--consumer NS]
-sparrow-cli events register --name NAME [--schema FILE]
-sparrow-cli events push --name NAME --consumer NS --payload FILE|STDIN
-sparrow-cli deliveries list [--status STATUS] [--webhook-id ID]
-sparrow-cli deliveries retry ID
-sparrow-cli health summary [--consumer NS]
-sparrow-cli config  # show server connection info
-```
-
-### Configuration
-
-- `SPARROW_URL` env var (default: `http://localhost:8080`)
-- `SPARROW_API_KEY` env var (reuse existing)
-- Optional `~/.sparrow.yaml` config file
+Ships as `satellites/sparrow`, a separate Go module (see `docs/adr/0002-cli-module-split.md`), released with its own path-prefixed tags. Cobra-based, subcommands: `init`, `push`, `events`, `webhooks`, `tail`, `stats`, `listen`, `use` (recipes), `template`, `functions`, `version`. REST over HTTP against the same API, reusing API key auth. Connection config resolves env > flags > `~/.sparrow/config.yaml` > defaults.
 
 ---
 
@@ -356,11 +296,11 @@ Completed:
   Part 10 (docs sync + OKF bundle)
   Part 14 (Ed25519 signing)
   Part 17 (REST/OpenAPI migration)
+  Part 12 (retention)
+  Part 15 (CLI tool)
 
 Next:
-  Part 11 (DLQ) ──────> Part 12 (retention) -- DLQ first so retention doesn't delete un-redriven failures
   Part 13 (payload limits) -- independent
-  Part 15 (CLI) -- independent
   Part 16 (API rate limiting) -- independent
 ```
 
@@ -383,12 +323,12 @@ Next:
 | Re-push dedup | RePushEvent passes nil key | Re-push must never be deduplicated |
 | Idempotency index | Partial unique index (WHERE NOT NULL) | No overhead for events without idempotency keys |
 | Rate limiting algorithm | Leaky bucket (DB-backed) | Simple, predictable, no Redis needed |
-| DLQ approach | Filtered view, not separate table | Failed deliveries already have all data; avoid duplication |
+| DLQ approach | Rejected -- no separate concept needed | `status='failed'` is already permanent, queryable, retryable; deliveries aren't a blocking queue, so DLQ's isolation rationale doesn't apply |
 | Retention strategy | River periodic job, batched deletes | Avoids long locks, configurable per table |
 | Ed25519 key storage | Reuse envelope encryption | Consistent with existing secret storage pattern |
 | Ed25519 signing model | Always dual-sign (HMAC + Ed25519) | No config needed, negligible cost, consumer chooses which to verify |
 | Ed25519 public key storage | Derived at runtime from private key | One fewer column, public key always derivable |
-| CLI transport | REST over HTTP | Same protocol as web UI, reuses API key auth |
+| CLI tool | Separate module (`satellites/sparrow`), REST over HTTP | Own release cadence, reuses API key auth, same protocol as web UI |
 | API rate limiting state | In-memory (single instance) | Simplest. Upgrade to PG-backed if multi-instance needed |
 | Redis dependency | No | Postgres-only is a competitive advantage over Svix OSS |
 | Multi-tenant activation | Deferred | Different product; infrastructure retained but not activated |
