@@ -98,12 +98,6 @@ type Config struct {
 	// kept forever. Runs hourly as a background job.
 	// Env: SPARROW_EVENT_RETENTION_DAYS
 	EventRetentionDays int `envconfig:"SPARROW_EVENT_RETENTION_DAYS" default:"0"`
-
-	// APIRateLimit caps API requests per second per client (API key, or
-	// remote IP when unauthenticated). 0 (default) disables throttling.
-	// State is in-memory and process-local.
-	// Env: SPARROW_API_RATE_LIMIT
-	APIRateLimit int `envconfig:"SPARROW_API_RATE_LIMIT" default:"0"`
 }
 
 // Load populates a Config struct from environment variables.
@@ -142,9 +136,6 @@ func (c *Config) Validate() error {
 	}
 	if c.EventRetentionDays < 0 {
 		return fmt.Errorf("SPARROW_EVENT_RETENTION_DAYS: must be >= 0, got %d", c.EventRetentionDays)
-	}
-	if c.APIRateLimit < 0 {
-		return fmt.Errorf("SPARROW_API_RATE_LIMIT: must be >= 0, got %d", c.APIRateLimit)
 	}
 	return nil
 }

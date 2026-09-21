@@ -32,7 +32,6 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 |----------|---------|---------|
 | `SPARROW_API_KEY` | API key for auth, accepted via `X-API-Key`. **Required when `ENVIRONMENT=production`** (`Validate()` refuses to start without it); otherwise optional and all endpoints are open | — (open access) |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | Allow localhost/private IPs as webhook URLs | `false` |
-| `SPARROW_API_RATE_LIMIT` | API requests/second per client (API key, else remote IP); over-limit requests return `429` with `Retry-After`. In-memory, per-instance; `0` disables | `0` |
 
 ## Observability
 

@@ -241,11 +241,9 @@ func main() {
 	r.Use(corsHandler.Handler)
 	r.Use(otelhttp.NewMiddleware("sparrow"))
 
-	// REST API — rate-limited (when SPARROW_API_RATE_LIMIT > 0) and protected
-	// by API key auth. Huma registers every /v1 operation plus
-	// /openapi.{json,yaml} and the Scalar reference at /docs.
+	// REST API — protected by API key auth. Huma registers every /v1
+	// operation plus /openapi.{json,yaml} and the Scalar reference at /docs.
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.RateLimit(cfg.APIRateLimit))
 		r.Use(apiKeyAuth.HTTPMiddleware)
 		rest.Mount(r, tracedWebhookService, portalTokens)
 	})

@@ -52,7 +52,7 @@
 | `internal/webhooks/` | Business logic + store + queue workers |
 | `internal/webhooks/store/` | DB repository (sqlx, WithConn transaction pattern) |
 | `internal/webhooks/queue/` | River job types + workers |
-| `internal/middleware/` | API key auth, rate limiting, security headers |
+| `internal/middleware/` | API key auth, security headers |
 | `pkg/storage/` | DB abstractions, transaction helpers, error sentinels |
 | `pkg/crypto/` | Envelope encryption (AES-256-GCM) |
 | `pkg/errors/` | Error categories, service errors, retryability |
@@ -70,7 +70,7 @@ Optional shared-secret auth via `SPARROW_API_KEY` env var. When set, every `/v1/
 | `GET /health`, `/ready` | Health check | No | JSON status |
 | `* (NotFound)` | UI SPA | No | GET/HEAD → HTML; others → JSON 404 |
 
-Route-group middleware (API key auth, rate limiting) wraps only the `/v1/*` group (`r.Group` in `cmd/server/main.go`), not health, docs, or the UI.
+Route-group middleware (API key auth) wraps only the `/v1/*` group (`r.Group` in `cmd/server/main.go`), not health, docs, or the UI.
 
 ## Code conventions
 
@@ -150,6 +150,7 @@ huma.Register(api, huma.Operation{
 
 - No scheduled/delayed webhooks (not in Svix OSS either)
 - Limited client SDKs (Python only; generate others from `api/openapi.yaml` on demand)
+- **No inbound API rate limiting.** Sparrow does not throttle its own `/v1/*` API — put a reverse proxy in front of it if the API is reachable from untrusted networks. (Outbound *delivery* rate limiting per webhook — `rate_limit_rps` / `webhook_rate_limit_state` — is unrelated and unaffected; it protects receivers from being hammered, not Sparrow's inbound API.)
 
 ## graphify
 
