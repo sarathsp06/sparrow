@@ -511,10 +511,13 @@ func bootstrapAlertChannel(ctx context.Context, cfg *config.Config, svc *webhook
 
 	if len(existing) > 0 {
 		for _, w := range existing {
-			if w.URL != sendGridMailSendURL || w.Active {
+			if w.URL != sendGridMailSendURL {
 				continue
 			}
-			activateSendGridAlertWebhook(ctx, cfg, svc, w.ID.String())
+			ensureAlertSubscriptions(ctx, cfg, svc, w.ID.String())
+			if !w.Active {
+				activateSendGridAlertWebhook(ctx, cfg, svc, w.ID.String())
+			}
 		}
 		return
 	}
@@ -533,15 +536,34 @@ func bootstrapAlertChannel(ctx context.Context, cfg *config.Config, svc *webhook
 		return
 	}
 
-	tmpl := sendGridAlertTemplate(cfg)
-	for _, reg := range queue.SystemEventRegistrations() {
-		if _, _, err := svc.CreateSubscription(ctx, webhookID, reg.Name, queue.SystemEventConsumer, nil, "", 30, true, tmpl, nil); err != nil {
-			log.Printf("⚠️  Failed to subscribe SendGrid alert webhook to %s: %v", reg.Name, err)
-		}
-	}
+	ensureAlertSubscriptions(ctx, cfg, svc, webhookID)
 	if active {
 		fmt.Println("📧 SendGrid alert webhook created and active")
 	} else {
 		fmt.Println("📧 SendGrid alert webhook created inactive (set SPARROW_SENDGRID_API_KEY and SPARROW_ALERT_FROM_EMAIL to activate)")
+	}
+}
+
+// ensureAlertSubscriptions creates any missing system-event subscriptions on
+// the alert webhook. Idempotent: installs upgraded from versions that shipped
+// the webhook without one of the subscriptions get repaired at startup.
+func ensureAlertSubscriptions(ctx context.Context, cfg *config.Config, svc *webhooks.WebhookService, webhookID string) {
+	subs, _, err := svc.ListSubscriptions(ctx, queue.SystemEventConsumer, webhookID, "", 100, 0)
+	if err != nil {
+		log.Printf("⚠️  Failed to list %s subscriptions for alert bootstrap: %v", queue.SystemEventConsumer, err)
+		return
+	}
+	subscribed := make(map[string]bool, len(subs))
+	for _, sub := range subs {
+		subscribed[sub.EventName] = true
+	}
+	tmpl := sendGridAlertTemplate(cfg)
+	for _, reg := range queue.SystemEventRegistrations() {
+		if subscribed[reg.Name] {
+			continue
+		}
+		if _, _, err := svc.CreateSubscription(ctx, webhookID, reg.Name, queue.SystemEventConsumer, nil, "", 30, true, tmpl, nil); err != nil {
+			log.Printf("⚠️  Failed to subscribe SendGrid alert webhook to %s: %v", reg.Name, err)
+		}
 	}
 }
