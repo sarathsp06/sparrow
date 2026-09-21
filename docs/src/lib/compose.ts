@@ -54,20 +54,37 @@ export const ENVELOPE_PATHS = ['.event_name', '.event_id', '.timestamp', '.attem
 // ---------- SendGrid ----------
 
 export interface EmailCompose {
-  toMode: 'alert_recipients' | 'single';
-  toAddress: string; // used when toMode === 'single'; may contain {{.payload.x}}
+  toMode: 'list' | 'addresses';
+  listPath: string; // payload array accessor, e.g. '.payload.alert_recipients'
+  listField: string; // address field on each list item; '' = items are plain strings
+  to: string; // comma-separated; entries may contain {{.payload.x}}
+  cc: string; // comma-separated, optional (addresses mode only)
+  bcc: string; // comma-separated, optional (addresses mode only)
   subject: string;
   bodyMode: 'plain' | 'html';
   bodyText: string;
   bodyHtml: string;
 }
 
+/** `"a@b.c, {{.payload.x}}"` → SendGrid address array `[{"email": ...}, …]`, or null when empty. */
+function emailArray(csv: string): string | null {
+  const entries = csv.split(',').map((s) => s.trim()).filter(Boolean);
+  if (entries.length === 0) return null;
+  return `[${entries.map((e) => `{"email": ${toJsonExpr(e)}}`).join(', ')}]`;
+}
+
 export function generateSendgridTemplate(c: EmailCompose): string {
-  // Mirrors sendgrid.yaml: alert_recipients when present, default_recipient param otherwise.
-  const personalizations =
-    c.toMode === 'alert_recipients'
-      ? `[{{if .payload.alert_recipients}}{{range $i, $r := .payload.alert_recipients}}{{if $i}},{{end}}{"to": [{"email": {{$r.email | json}}}]}{{end}}{{else}}{"to": [{"email": "{{param "default_recipient"}}"}]}{{end}}]`
-      : `[{"to": [{"email": ${toJsonExpr(c.toAddress)}}]}]`;
+  let personalizations: string;
+  if (c.toMode === 'list') {
+    // One personalization per list entry so recipients never see each other,
+    // falling back to the default_recipient param — mirrors sendgrid.yaml.
+    const addr = c.listField ? `$r.${c.listField}` : '$r';
+    personalizations = `[{{if ${c.listPath}}}{{range $i, $r := ${c.listPath}}}{{if $i}},{{end}}{"to": [{"email": {{${addr} | json}}}]}{{end}}{{else}}{"to": [{"email": "{{param "default_recipient"}}"}]}{{end}}]`;
+  } else {
+    const cc = emailArray(c.cc);
+    const bcc = emailArray(c.bcc);
+    personalizations = `[{"to": ${emailArray(c.to) ?? '[]'}${cc ? `, "cc": ${cc}` : ''}${bcc ? `, "bcc": ${bcc}` : ''}}]`;
+  }
   const body = c.bodyMode === 'html' ? c.bodyHtml : c.bodyText;
   return `{
   "personalizations": ${personalizations},

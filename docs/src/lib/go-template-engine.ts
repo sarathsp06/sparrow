@@ -31,7 +31,8 @@ export function substituteParams(template: string, params: Record<string, string
  */
 function goPrintf(formatStr: string, ...args: any[]): string {
   let idx = 0;
-  return formatStr.replace(/%(?:[vsdjq]|(\.\d+f)|f)/g, (match) => {
+  return formatStr.replace(/%(?:%|[vsdjq]|(\.\d+f)|f)/g, (match) => {
+    if (match === '%%') return '%';
     if (idx >= args.length) return match;
     const arg = args[idx++];
     if (match === '%j') return JSON.stringify(arg);

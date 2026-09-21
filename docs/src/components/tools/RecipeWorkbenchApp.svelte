@@ -47,8 +47,12 @@
 
   // ---- Composer state ----
   let email = $state<EmailCompose>({
-    toMode: 'alert_recipients',
-    toAddress: '{{.payload.customer_email}}',
+    toMode: 'list',
+    listPath: '.payload.alert_recipients',
+    listField: 'email',
+    to: '{{.payload.customer_email}}',
+    cc: '',
+    bcc: '',
     subject: 'Sparrow: webhook for {{.payload.consumer}} is now {{.payload.new_health}}',
     bodyMode: 'plain',
     bodyText:
@@ -100,9 +104,15 @@
   let smsRendered = $derived.by(() => (parsedPayload ? renderGoTemplate(sms, eventContext, params).result : ''));
   let smsInfo = $derived(smsSegments(smsRendered));
 
+  // Sample values (resolved from the current event) make Unlayer's merge-tag
+  // menu and design preview show real data instead of raw template syntax.
   let mergeTags = $derived(
     Object.fromEntries(
-      chips.map((p) => [p.replace(/\W/g, '_'), { name: p, value: `{{${p}}}` }]),
+      chips.map((p) => {
+        let v: unknown = eventContext;
+        for (const k of p.slice(1).split('.')) v = (v as Record<string, unknown> | undefined)?.[k];
+        return [p.replace(/\W/g, '_'), { name: p, value: `{{${p}}}`, sample: v == null ? p : String(v) }];
+      }),
     ),
   );
 
@@ -110,10 +120,12 @@
     const content = renderResult.jsonObj?.content?.[0];
     return { type: content?.type ?? 'text/plain', value: content?.value ?? '' };
   });
-  let emailRecipients = $derived.by(() => {
-    const out: string[] = [];
+  let emailAddresses = $derived.by(() => {
+    const out: Record<'to' | 'cc' | 'bcc', string[]> = { to: [], cc: [], bcc: [] };
     for (const p of renderResult.jsonObj?.personalizations ?? []) {
-      for (const t of p?.to ?? []) if (t?.email) out.push(t.email);
+      for (const key of ['to', 'cc', 'bcc'] as const) {
+        for (const t of p?.[key] ?? []) if (t?.email) out[key].push(t.email);
+      }
     }
     return out;
   });
@@ -140,7 +152,7 @@
     eventName = p.event_name;
     payloadStr = JSON.stringify(p.payload, null, 2);
     if (selectedId === 'sendgrid') {
-      email.toMode = 'alert_recipients' in p.payload ? 'alert_recipients' : 'single';
+      email.toMode = 'alert_recipients' in p.payload ? 'list' : 'addresses';
     }
   }
 
@@ -243,13 +255,34 @@
             <label for="em_to">To</label>
             <div class="rw-to-row">
               <select bind:value={email.toMode}>
-                <option value="alert_recipients">Everyone in payload.alert_recipients</option>
-                <option value="single">Single address</option>
+                <option value="addresses">Addresses</option>
+                <option value="list">Everyone in a payload list</option>
               </select>
-              {#if email.toMode === 'single'}
-                <input id="em_to" type="text" bind:value={email.toAddress} placeholder="jane@acme.com or a variable" />
+              {#if email.toMode === 'addresses'}
+                <input id="em_to" type="text" bind:value={email.to} placeholder={'jane@acme.com, {{.payload.customer_email}}'} />
+              {:else}
+                <input id="em_to" type="text" bind:value={email.listPath} placeholder=".payload.alert_recipients" title="Go accessor of a payload array" />
+                <input class="rw-to-field" type="text" bind:value={email.listField} placeholder="email" title="Address field on each list item; leave empty when the list holds plain strings" />
               {/if}
             </div>
+            {#if email.toMode === 'list'}
+              <p class="rw-sub">
+                One email per address in the list — recipients never see each other. Falls back to the
+                <code>default_recipient</code> parameter when the list is missing. Second box: the field on each item
+                holding the address (empty for a list of plain strings).
+              </p>
+            {:else}
+              <div class="rw-form-grid" style="margin-top: 0.5rem;">
+                <div class="rw-field">
+                  <label for="em_cc">Cc (optional)</label>
+                  <input id="em_cc" type="text" bind:value={email.cc} placeholder="manager@acme.com" />
+                </div>
+                <div class="rw-field">
+                  <label for="em_bcc">Bcc (optional)</label>
+                  <input id="em_bcc" type="text" bind:value={email.bcc} placeholder="audit@acme.com" />
+                </div>
+              </div>
+            {/if}
           </div>
           <div class="rw-field">
             <label for="em_subject">Subject</label>
@@ -343,8 +376,14 @@
                 <div><strong>From:</strong> {params.from_name} &lt;{params.from_email}&gt;</div>
                 <div>
                   <strong>To:</strong>
-                  {emailRecipients.length ? emailRecipients.join(', ') : '(no recipients — check payload.alert_recipients)'}
+                  {emailAddresses.to.length ? emailAddresses.to.join(', ') : '(no recipients)'}
                 </div>
+                {#if emailAddresses.cc.length}
+                  <div><strong>Cc:</strong> {emailAddresses.cc.join(', ')}</div>
+                {/if}
+                {#if emailAddresses.bcc.length}
+                  <div><strong>Bcc:</strong> {emailAddresses.bcc.join(', ')}</div>
+                {/if}
               </div>
               {#if emailBodyRendered.type === 'text/html'}
                 <iframe class="rw-email-iframe" title="Email preview" sandbox="" srcdoc={emailBodyRendered.value}></iframe>
@@ -510,6 +549,7 @@
   .rw-to-row { display: flex; gap: 0.5rem; }
   .rw-to-row select { flex: 0 0 auto; }
   .rw-to-row input { flex: 1; }
+  .rw-to-row .rw-to-field { flex: 0 0 110px; }
   .rw-check { display: flex; align-items: center; gap: 0.5rem; font-size: 13px; margin-top: 0.5rem; }
 
   .rw-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem; }

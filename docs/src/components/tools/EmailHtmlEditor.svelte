@@ -5,14 +5,28 @@
     mergeTags = {},
     onHtml,
   }: {
-    mergeTags?: Record<string, { name: string; value: string }>;
+    mergeTags?: Record<string, { name: string; value: string; sample: string }>;
     onHtml: (html: string) => void;
   } = $props();
 
+  interface UnlayerInstance {
+    setMergeTags(tags: Record<string, { name: string; value: string; sample: string }>): void;
+    exportHtml(cb: (data: { html: string }) => void): void;
+    addEventListener(event: string, cb: () => void): void;
+  }
+
   let container: HTMLDivElement;
   let root: { unmount(): void } | null = null;
+  let unlayerInstance: UnlayerInstance | null = $state(null);
   let failed = $state(false);
   let loading = $state(true);
+
+  // Merge tags go through setMergeTags, not createEditor options: the options
+  // path is unreliable in react-email-editor (tags render as "[object Object]")
+  // and never updates when the sample payload changes.
+  $effect(() => {
+    unlayerInstance?.setMergeTags({ ...mergeTags });
+  });
 
   onMount(async () => {
     try {
@@ -25,10 +39,11 @@
       root.render(
         React.createElement(EmailEditor, {
           minHeight: 520,
-          options: { displayMode: 'email', mergeTags },
-          onReady: (unlayer: any) => {
+          options: { displayMode: 'email' },
+          onReady: (unlayer: UnlayerInstance) => {
             loading = false;
-            const push = () => unlayer.exportHtml(({ html }: { html: string }) => onHtml(html));
+            unlayerInstance = unlayer;
+            const push = () => unlayer.exportHtml(({ html }) => onHtml(html));
             unlayer.addEventListener('design:updated', push);
             push();
           },
