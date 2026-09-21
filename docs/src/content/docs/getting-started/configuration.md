@@ -91,12 +91,9 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4318
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `webhook_registrations` | Counter | Total webhook registrations |
-| `events_pushed` | Counter | Total events pushed |
-| `webhook_deliveries` | Counter | Deliveries by status |
-| `delivery_duration` | Histogram | Delivery response time |
-| `queue_depth` | Gauge | Pending jobs per queue |
-| `active_webhooks` | Gauge | Currently active webhooks |
+| `sparrow_webhook_registrations_total` | Counter | Total number of webhook registrations |
+| `sparrow_events_pushed_total` | Counter | Total number of events pushed |
+| `sparrow_active_webhooks` | UpDownCounter | Current number of active webhook registrations |
 
 ## Default Tenant
 
