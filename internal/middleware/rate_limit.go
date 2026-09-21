@@ -12,8 +12,8 @@ import (
 // requests per second (burst = rps) per client. Clients are identified by
 // API key when present, else by remote IP. rps <= 0 disables limiting.
 //
-// State is in-memory and process-local — sufficient for single-instance
-// deployments (see plan.md Part 16).
+// State is in-memory and process-local — correct fit for Sparrow's
+// single-container Docker Compose deployment model (see AGENTS.md).
 func RateLimit(rps int) func(http.Handler) http.Handler {
 	if rps <= 0 {
 		return func(next http.Handler) http.Handler { return next }

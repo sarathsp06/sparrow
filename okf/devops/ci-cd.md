@@ -1,7 +1,7 @@
 ---
 type: DevOps Config
 title: CI/CD and Release
-description: GoReleaser-based release automation with conventional commits, cross-platform builds, and Helm chart artifact
+description: GoReleaser-based release automation with conventional commits and cross-platform builds
 tags: [ci-cd, release, goreleaser]
 timestamp: 2026-08-29T00:00:00Z
 ---
@@ -28,9 +28,7 @@ timestamp: 2026-08-29T00:00:00Z
 - **Builds**: Single `sparrow` binary from `./cmd/server`; CGO_ENABLED=0
 - **Platforms**: linux/darwin/windows × amd64/arm64 (no windows/arm64)
 - **Archives**: `sparrow-{{ .Version }}-{{ .Os }}-{{ .Arch }}` with LICENSE + README
-- **Release Notes**: Generated from conventional commits (feat→Added, fix→Fixed, etc.)
-- **Changelog**: Hand-curated `CHANGELOG.md`
-- **Artifacts**: Attaches Helm chart `.tgz`
+- **Release Notes**: Generated from conventional commits (feat→Added, fix→Fixed, etc.) via `.goreleaser.yml`'s `changelog:` block — no separate CHANGELOG.md file to maintain
 
 ## Release Workflow
 
@@ -39,7 +37,7 @@ git tag v1.x.x
 git push origin main --tags
 ```
 
-CI builds the UI, packages the Helm chart, runs GoReleaser which cross-compiles, creates release notes, and publishes GitHub release + artifacts.
+CI runs GoReleaser which cross-compiles, generates release notes from commit history, and publishes GitHub release + artifacts.
 
 ## Citations
 

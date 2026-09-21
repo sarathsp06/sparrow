@@ -2,9 +2,8 @@
 
 ## First reads
 
-- `opencode.json` loads `plan.md` as instructions — keep it accurate.
 - `okf/index.md` has the full architecture overview (knowledge bundle at `okf/`).
-- `opencode.md` is a condensed reference with design principles, code patterns, handler patterns, and naming conventions.
+- This file has design principles, code patterns, handler patterns, and naming conventions.
 
 ## Quick commands
 
@@ -33,6 +32,16 @@
 - **DB**: pgxpool (50 conns, 10 min) for River + sqlx (25 conns) for app queries.
 - **Config**: env vars via `kelseyhightower/envconfig` — see `internal/config/config.go`.
 
+## Design Principles
+
+1. **Deterministic bulk operations** — Batch actions snapshot matching IDs into `batch_jobs` at query time. The bulk action operates on that snapshot, NOT a live re-query.
+2. **Soft validation over hard rejection** — Schema validation produces warnings, not errors. Events tagged `schema_valid=false`, never discarded.
+3. **Graceful degradation** — When a non-critical step fails (e.g., Go template transform), fall back to a safe default (envelope payload).
+4. **Generic infrastructure over per-feature tables** — Shared concerns use generic tables with `job_type` + JSONB `data` columns.
+5. **Implicit infrastructure, explicit actions** — Batch jobs are an implementation detail. Users see "re-push ID" and "retry ID", not "batch job IDs".
+6. **Postgres-only, no Redis** — All queuing, state, and caching uses PostgreSQL. Don't introduce Redis or other external dependencies without strong justification.
+7. **Self-hosted first** — Sparrow targets teams running it behind a VPN for internal webhook delivery, not multi-tenant SaaS.
+
 ## Key packages
 
 | Path | Purpose |
@@ -43,10 +52,25 @@
 | `internal/webhooks/` | Business logic + store + queue workers |
 | `internal/webhooks/store/` | DB repository (sqlx, WithConn transaction pattern) |
 | `internal/webhooks/queue/` | River job types + workers |
-| `internal/middleware/` | API key auth, security headers |
+| `internal/middleware/` | API key auth, rate limiting, security headers |
 | `pkg/storage/` | DB abstractions, transaction helpers, error sentinels |
 | `pkg/crypto/` | Envelope encryption (AES-256-GCM) |
 | `pkg/errors/` | Error categories, service errors, retryability |
+
+## API Key Authentication
+
+Optional shared-secret auth via `SPARROW_API_KEY` env var. When set, every `/v1/*` REST request must include `X-API-Key: <key>`. When unset, all endpoints are open. Excluded paths: `/health`, `/ready`, `/docs`, `/openapi`, UI catch-all. Uses constant-time comparison (`crypto/subtle`). The embedded UI gets the key injected at runtime via `window.__SPARROW_CONFIG__`.
+
+## HTTP Routing (chi)
+
+| Pattern | Handler | Auth | Notes |
+|---------|---------|------|-------|
+| `/v1/*` | Huma REST API | Yes | See `internal/rest/` — one file per resource |
+| `/docs`, `/openapi.*` | Huma-served Scalar UI + spec | No | Interactive API reference |
+| `GET /health`, `/ready` | Health check | No | JSON status |
+| `* (NotFound)` | UI SPA | No | GET/HEAD → HTML; others → JSON 404 |
+
+Route-group middleware (API key auth, rate limiting) wraps only the `/v1/*` group (`r.Group` in `cmd/server/main.go`), not health, docs, or the UI.
 
 ## Code conventions
 
@@ -58,6 +82,40 @@
 - **Naming**: files `snake_case.go`, packages lowercase single word, REST OperationIDs `camelCase` verb-first (e.g. `registerWebhook`, `listDeliveries`).
 - **OTel wrappers**: generated via `//go:generate gowrap gen -i InterfaceName ...` — do not hand-edit `*_otel.go` files.
 - **OpenAPI spec**: exported from Go via `cmd/openapi-export`, committed at `api/openapi.{yaml,json}` — regenerate with `make generate` after any handler change; `internal/rest/openapi_drift_test.go` fails CI if it's stale.
+
+### Repository / Storage pattern
+
+```go
+type DBTX interface { GetContext, SelectContext, NamedExecContext, ExecContext }
+type DB interface { DBTX + Ping, Close, Beginx }
+
+// WithConn pattern (used by all repos)
+type Repository struct { db storage.DB; conn storage.DBTX }
+func (r *Repository) WithConn(conn storage.DBTX) *Repository
+```
+
+SQL error translation: `sql.ErrNoRows` → `ErrNotFound`, PG 23505 → `ErrAlreadyExists`, PG 23502 → `ErrInvalidInput`, PG 23503 → `ErrForeignKeyViolation`.
+
+### Handler pattern
+
+```go
+huma.Register(api, huma.Operation{
+    OperationID: "getWebhook",
+    Method:      http.MethodGet,
+    Path:        "/v1/consumers/{consumer}/webhooks/{webhook_id}",
+    Summary:     "Get a webhook by id",
+    Tags:        []string{"Webhooks"},
+}, func(ctx context.Context, in *webhookIDInput) (*webhookOutput, error) {
+    regs, _, err := d.Svc.ListWebhooks(ctx, in.Consumer, in.WebhookID, "", false, 1, 0)
+    if err != nil {
+        return nil, mapError(ctx, err, "failed to get webhook")
+    }
+    if len(regs) == 0 {
+        return nil, huma.Error404NotFound("webhook not found")
+    }
+    return &webhookOutput{Body: toWebhookOut(regs[0], nil, d.Svc)}, nil
+})
+```
 
 ## Frontend (Svelte 5)
 
@@ -85,8 +143,13 @@
 
 - Server + `recipes`/`sinks`/`sources` release under `vX.Y.Z`: `git tag vX.Y.Z && git push origin main --tags`.
 - The CLI (`satellites/sparrow`) and `pkg/signature`, `pkg/template` are **separate modules** (see `docs/adr/0002-cli-module-split.md`). They use path-prefixed tags (`pkg/signature/vX.Y.Z`, `satellites/sparrow/vX.Y.Z`) and their working-tree `replace` lines must be stripped before tagging — full recipe in the ADR.
-- GoReleaser config at `.goreleaser.yml`; it builds every binary from the checkout via `replace`, so binary releases don't need the tag dance.
-- Conventional Commits (`feat:`, `fix:`, etc.) for clean changelog grouping.
+- GoReleaser config at `.goreleaser.yml`; it builds every binary from the checkout via `replace`, so binary releases don't need the tag dance. Release notes are generated by GoReleaser from Conventional Commits (`feat:`/`fix:`/etc.), grouped in `.goreleaser.yml`'s `changelog:` block — no separate CHANGELOG file to maintain.
+- Conventional Commits (`feat:`, `fix:`, etc.) for clean release-note grouping.
+
+## Known Gaps
+
+- No scheduled/delayed webhooks (not in Svix OSS either)
+- Limited client SDKs (Python only; generate others from `api/openapi.yaml` on demand)
 
 ## graphify
 
