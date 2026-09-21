@@ -61,6 +61,7 @@
   });
 
   let catchAllEnabled = $state(false);
+  let advancedOpen = $state(false);
 
   let newHeaderKey = $state("");
   let newHeaderValue = $state("");
@@ -80,6 +81,7 @@
       labelFilters: {},
     };
     catchAllEnabled = false;
+    advancedOpen = false;
     newHeaderKey = "";
     newHeaderValue = "";
     newLabelFilterKey = "";
@@ -238,6 +240,11 @@
       labelFilters: { ...(subscription.label_filters || {}) },
     };
     handleEventChange(subscription.event_name);
+    advancedOpen =
+      form.method !== "POST" ||
+      form.timeout !== 30 ||
+      Object.keys(form.headers).length > 0 ||
+      Object.keys(form.labelFilters).length > 0;
     modalMode = "edit";
     modalOpen = true;
   }
@@ -551,33 +558,6 @@
           {/if}
         </div>
 
-        <div>
-          <label for="modal-consumer" class="field-label">Consumer</label>
-          <input
-            id="modal-consumer"
-            type="text"
-            bind:value={form.consumer}
-            disabled={modalMode === "edit"}
-            class="input {modalMode === 'edit' ? 'opacity-60' : ''}"
-          />
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label for="modal-method" class="field-label">Method</label>
-            <select id="modal-method" bind:value={form.method} class="select">
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="PATCH">PATCH</option>
-            </select>
-          </div>
-          <div>
-            <label for="modal-timeout" class="field-label">Timeout (seconds)</label>
-            <input id="modal-timeout" type="number" bind:value={form.timeout} min="1" max="300" class="input" />
-          </div>
-        </div>
-
         <div class="flex items-center gap-3">
           <button
             type="button"
@@ -594,9 +574,14 @@
           <div class="space-y-3">
             <div class="flex items-center justify-between">
               <label for="modal-template" class="field-label !mb-0">Transform Template</label>
-              <button type="button" onclick={fetchTemplateFunctions} class="text-xs font-medium text-muted hover:text-text transition">
-                {showTemplateDocs ? "Hide" : "Show"} Functions Reference
-              </button>
+              <div class="flex items-center gap-3">
+                <a href="https://sarathsp06.github.io/sparrow/tools/recipe-workbench/" target="_blank" rel="noopener" class="text-xs font-medium text-muted hover:text-text transition">
+                  Compose in Workbench ↗
+                </a>
+                <button type="button" onclick={fetchTemplateFunctions} class="text-xs font-medium text-muted hover:text-text transition">
+                  {showTemplateDocs ? "Hide" : "Show"} Functions Reference
+                </button>
+              </div>
             </div>
 
             {#if selectedEventDetails}
@@ -678,6 +663,40 @@
           </div>
         {/if}
 
+        <details bind:open={advancedOpen} class="group border border-line rounded-lg">
+          <summary class="px-4 py-3 cursor-pointer select-none text-sm font-medium text-muted hover:text-text transition list-none flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            Advanced options
+            <span class="text-xs text-faint font-normal">consumer, method, timeout, headers, label filters</span>
+          </summary>
+          <div class="px-4 pb-4 space-y-4">
+        <div>
+          <label for="modal-consumer" class="field-label">Consumer</label>
+          <input
+            id="modal-consumer"
+            type="text"
+            bind:value={form.consumer}
+            disabled={modalMode === "edit"}
+            class="input {modalMode === 'edit' ? 'opacity-60' : ''}"
+          />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="modal-method" class="field-label">Method</label>
+            <select id="modal-method" bind:value={form.method} class="select">
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+            </select>
+          </div>
+          <div>
+            <label for="modal-timeout" class="field-label">Timeout (seconds)</label>
+            <input id="modal-timeout" type="number" bind:value={form.timeout} min="1" max="300" class="input" />
+          </div>
+        </div>
         <div>
           <div class="flex items-center justify-between mb-2">
             <span class="field-label !mb-0">Custom Headers</span>
@@ -767,6 +786,8 @@
             </button>
           </div>
         </div>
+          </div>
+        </details>
       </div>
 
       <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-line">
