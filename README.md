@@ -307,7 +307,7 @@ Satellites are companion tools that orbit the core — they use Sparrow, never r
 
 ### Recipes
 
-Adapters as config: a recipe is a YAML file pairing a destination URL with a transform template that Sparrow renders server-side per delivery. Apply one with `sparrow use <name> --param ... --event ...` and you get retries, signing, and delivery tracking for free — no glue service to run.
+Adapters as config: a recipe is a YAML file pairing a destination URL with a transform template that Sparrow renders server-side per delivery. All shipped recipes are **embedded in the `sparrow` CLI binary** — `sparrow recipes` lists them, `sparrow use <name> --param ... --event ...` applies one from anywhere (use `--file` or `SPARROW_RECIPES_DIR` for your own) — and you get retries, signing, and delivery tracking for free, no glue service to run.
 
 | Recipe | Destination | Params |
 |---|---|---|

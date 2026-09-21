@@ -29,6 +29,10 @@ sparrow use slack \
 k=v` adds label filters. Both are apply-time choices, never baked into the
 recipe. `--param` supplies the values the recipe declares.
 
+All shipped recipes are built into the `sparrow` binary — `sparrow recipes`
+lists them; no files needed. `--file` (or a `./recipes/<name>.yaml` /
+`$SPARROW_RECIPES_DIR` copy) applies your own or overrides a built-in.
+
 ## How it's connected
 
 A recipe never runs anywhere. Applying one is pure API configuration, and the

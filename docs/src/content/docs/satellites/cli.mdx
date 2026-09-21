@@ -174,12 +174,23 @@ sparrow listen --event order.created --public-url https://my-tunnel.example  # e
   For local receivers, start the server with
   `SPARROW_ALLOW_PRIVATE_NETWORKS=true`.
 
+### `sparrow recipes`
+
+Lists the recipes built into the binary (name, params, description). Supports
+`-o json|yaml`.
+
+```bash
+sparrow recipes
+```
+
 ### `sparrow use <recipe>`
 
 Applies a recipe: registers a webhook with the recipe's URL and headers, then
 enables its transform template (plus any `--label` filters) on the created
-subscription(s). Recipes are looked up as `--file`, then `./satellites/recipes/<name>.yaml`,
-then `$SPARROW_RECIPES_DIR/<name>.yaml`.
+subscription(s). All shipped recipes are **embedded in the binary**, so
+`sparrow use slack` works anywhere. Lookup order: `--file`, then
+`./recipes/<name>.yaml`, then `$SPARROW_RECIPES_DIR/<name>.yaml` (local files
+override a built-in of the same name), then the built-in catalog.
 
 ```bash
 sparrow use slack --event order.created --param webhook_url=https://hooks.slack.com/services/T00/B00/xxx

@@ -4,5 +4,6 @@ use (
 	.
 	./pkg/signature
 	./pkg/template
+	./satellites/recipes
 	./satellites/sparrow
 )

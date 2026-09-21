@@ -63,6 +63,7 @@ web-test: ## Run frontend unit tests
 # explicitly; go.work makes the cross-module import paths resolve.
 MODULE_TEST_PATHS := ./... \
 	github.com/sarathsp06/sparrow/satellites/sparrow/... \
+	github.com/sarathsp06/sparrow/satellites/recipes/... \
 	github.com/sarathsp06/sparrow/pkg/signature/... \
 	github.com/sarathsp06/sparrow/pkg/template/...
 

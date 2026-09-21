@@ -47,3 +47,18 @@ func TestLoadRecipeFixture(t *testing.T) {
 		t.Fatalf("template not loaded: %q", r.Subscription.TransformTemplate)
 	}
 }
+
+func TestResolveRecipeBuiltin(t *testing.T) {
+	t.Setenv("SPARROW_RECIPES_DIR", "")
+	r, err := resolveRecipe("slack", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Name != "slack" || r.Webhook.URL == "" {
+		t.Fatalf("unexpected built-in recipe: %+v", r)
+	}
+
+	if _, err := resolveRecipe("nope", ""); err == nil || !strings.Contains(err.Error(), "sparrow recipes") {
+		t.Fatalf("expected not-found error pointing at 'sparrow recipes', got %v", err)
+	}
+}

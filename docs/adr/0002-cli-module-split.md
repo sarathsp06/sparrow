@@ -29,12 +29,17 @@ leaving the heavy server tree in the root module:
 
 - `pkg/signature/go.mod` — stdlib only.
 - `pkg/template/go.mod` — `golang-lru/v2` + `pkg/signature`.
-- `satellites/sparrow/go.mod` (the CLI) — cobra, pflag, yaml, and the two
-  `pkg` modules above.
-- Root module (`github.com/sarathsp06/sparrow`) keeps the server, `recipes`,
-  `sparrow-sinks`, and `sparrow-sources`, and `require`s the two light modules.
+- `satellites/recipes/go.mod` — yaml only (`pkg/template` for tests); the
+  recipe schema plus the `go:embed`ed built-in catalog, so the CLI ships the
+  recipes inside the binary (2026-09 amendment: extracted from the root module
+  when the CLI grew the embedded catalog).
+- `satellites/sparrow/go.mod` (the CLI) — cobra, pflag, yaml, and the three
+  light modules above.
+- Root module (`github.com/sarathsp06/sparrow`) keeps the server,
+  `sparrow-sinks`, and `sparrow-sources`, and `require`s the light modules it
+  uses.
 
-Development is wired with a committed `go.work` (`use` all four modules) plus
+Development is wired with a committed `go.work` (`use` all five modules) plus
 `replace` directives in each consuming `go.mod` pointing at the local relative
 paths. `replace` (not `go.work` alone) is deliberate: it keeps `go mod tidy`,
 `go build`, `go test`, and GoReleaser working per-module with no workspace-only
@@ -73,8 +78,10 @@ end and is wired into `.github/workflows/release.yml` as the
    `pkg/template/go.mod`'s `replace` line, pin its `pkg/signature` `require`
    to the version from step 1, `go mod tidy`, commit, and tag
    `pkg/template/vX.Y.Z`.
-3. Same recipe for `satellites/sparrow/go.mod`, pinning both `pkg/signature`
-   and `pkg/template`, then tag `satellites/sparrow/vX.Y.Z`.
+3. Same recipe for `satellites/recipes/go.mod` (pinning `pkg/template`), then
+   `satellites/sparrow/go.mod`, pinning `pkg/signature`, `pkg/template`, and
+   `satellites/recipes`; tag `satellites/recipes/vX.Y.Z` and
+   `satellites/sparrow/vX.Y.Z`.
 4. The server and other root binaries release under the existing `vX.Y.Z` tag
    as before.
 
@@ -92,8 +99,10 @@ The end-user command is unchanged:
 Only extract a module when a consumer is *distributed independently* and its
 graph actually leaks (the CLI's `go install` path). Do **not** split for code
 organisation alone — Go 1.17+ build pruning already keeps *binaries* lean, and
-extra modules add a `go.work`/`replace`/ordered-tag release cost. `recipes`,
-`sinks`, and `sources` stay in the root module for exactly this reason.
+extra modules add a `go.work`/`replace`/ordered-tag release cost. `sinks` and
+`sources` stay in the root module for exactly this reason; `recipes` was
+extracted only when the CLI (an independently-installed consumer) needed to
+embed it.
 
 ## Trigger to revisit
 

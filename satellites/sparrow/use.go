@@ -12,33 +12,13 @@ import (
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
+
+	"github.com/sarathsp06/sparrow/satellites/recipes"
 )
 
-// recipe is the on-disk recipe schema (version 1).
-type recipe struct {
-	Version     int           `yaml:"version"`
-	Name        string        `yaml:"name"`
-	Description string        `yaml:"description"`
-	Params      []recipeParam `yaml:"params"`
-	Webhook     struct {
-		URL           string            `yaml:"url"`
-		Headers       map[string]string `yaml:"headers"`
-		SecretHeaders map[string]string `yaml:"secret_headers"`
-	} `yaml:"webhook"`
-	Subscription struct {
-		TransformTemplate string `yaml:"transform_template"`
-	} `yaml:"subscription"`
-}
-
-type recipeParam struct {
-	Name                string `yaml:"name"`
-	Prompt              string `yaml:"prompt"`
-	Required            bool   `yaml:"required"`
-	Default             string `yaml:"default"`
-	Secret              bool   `yaml:"secret"`
-	ActivationRequired  bool   `yaml:"activation_required"`
-	MustOverrideDefault bool   `yaml:"must_override_default"`
-}
+// recipe is the shared recipe schema (version 1), defined in the recipes module
+// alongside the built-in catalog embedded in this binary.
+type recipe = recipes.Recipe
 
 var paramToken = regexp.MustCompile(`\{\{\s*param\s+"([^"]+)"\s*\}\}`)
 
@@ -61,11 +41,12 @@ func substituteParams(s string, values map[string]string) (string, error) {
 	return result, nil
 }
 
-// findRecipe resolves the recipe file: explicit --file, ./recipes/<name>.yaml,
-// then $SPARROW_RECIPES_DIR/<name>.yaml.
-func findRecipe(name, file string) (string, error) {
+// resolveRecipe resolves the recipe: explicit --file, ./recipes/<name>.yaml,
+// $SPARROW_RECIPES_DIR/<name>.yaml (local files can override built-ins), then
+// the catalog embedded in the binary.
+func resolveRecipe(name, file string) (recipe, error) {
 	if file != "" {
-		return file, nil
+		return loadRecipe(file)
 	}
 	candidates := []string{filepath.Join("recipes", name+".yaml")}
 	if dir := os.Getenv("SPARROW_RECIPES_DIR"); dir != "" {
@@ -73,10 +54,19 @@ func findRecipe(name, file string) (string, error) {
 	}
 	for _, p := range candidates {
 		if _, err := os.Stat(p); err == nil {
-			return p, nil
+			return loadRecipe(p)
 		}
 	}
-	return "", fmt.Errorf("recipe %q not found (tried %s; use --file or set SPARROW_RECIPES_DIR)", name, strings.Join(candidates, ", "))
+	builtin, err := recipes.All()
+	if err != nil {
+		return recipe{}, err
+	}
+	for _, r := range builtin {
+		if r.Name == name {
+			return r, nil
+		}
+	}
+	return recipe{}, fmt.Errorf("recipe %q not found (no built-in recipe by that name — run 'sparrow recipes' to list them — and no %s; use --file or set SPARROW_RECIPES_DIR)", name, strings.Join(candidates, ", "))
 }
 
 func loadRecipe(path string) (recipe, error) {
@@ -93,6 +83,9 @@ func loadRecipe(path string) (recipe, error) {
 	}
 	if r.Webhook.URL == "" {
 		return r, fmt.Errorf("%s: recipe has no webhook.url", path)
+	}
+	if err := r.Validate(); err != nil {
+		return r, fmt.Errorf("%s: %w", path, err)
 	}
 	return r, nil
 }
@@ -128,11 +121,7 @@ func newUseCmd() *cobra.Command {
 }
 
 func runUse(ctx context.Context, out io.Writer, client *apiClient, consumer, recipeArg, file string, events listFlag, params, labels kvFlag) error {
-	path, err := findRecipe(recipeArg, file)
-	if err != nil {
-		return err
-	}
-	r, err := loadRecipe(path)
+	r, err := resolveRecipe(recipeArg, file)
 	if err != nil {
 		return err
 	}
