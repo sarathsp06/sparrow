@@ -69,7 +69,6 @@ BatchJobWorker processes snapshot:
 
 ## Citations
 
-- Flow described in `opencode.md` Data Flow section
 - `internal/webhooks/queue/events_worker.go` — fan-out implementation
 - `internal/webhooks/queue/webhook_worker.go` — delivery with rate limiting
 - `internal/webhooks/queue/batch_worker.go` — batch processing

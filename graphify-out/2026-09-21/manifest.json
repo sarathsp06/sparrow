@@ -285,13 +285,13 @@
     "semantic_hash": ""
   },
   "go.mod": {
-    "mtime": 1789980775.7407064,
-    "ast_hash": "1b4d6f3c74efa87350d1d1a19d62d83a",
+    "mtime": 1789977791.8954797,
+    "ast_hash": "aed50c296540f233119fe53f7584c244",
     "semantic_hash": ""
   },
   "internal/config/config.go": {
-    "mtime": 1789980762.094246,
-    "ast_hash": "867796d5749f1ea3e60b28d13ce34305",
+    "mtime": 1789977791.9221277,
+    "ast_hash": "17dec3d95d521fdff833fff24e696ebf",
     "semantic_hash": ""
   },
   "internal/health/checker.go": {
@@ -760,8 +760,8 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1789980800.5419292,
-    "ast_hash": "f3697eb55ba6333dc0f1dd909b9492e4",
+    "mtime": 1789978813.8139045,
+    "ast_hash": "c42420bf55fe00043d1d969ee85e8f70",
     "semantic_hash": ""
   },
   "CONTRIBUTING.md": {
@@ -770,8 +770,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1789980786.8028436,
-    "ast_hash": "458110f48fd5723061e6b5e674fc54f3",
+    "mtime": 1789977791.8428774,
+    "ast_hash": "eff3e010fd831d6ff5fe6c9356bb7b84",
     "semantic_hash": ""
   },
   "client/README.md": {
@@ -1982,6 +1982,16 @@
   "docs/src/lib/recipes.ts": {
     "mtime": 1789977791.8869846,
     "ast_hash": "854490a814daa8765f306d124b13ff47",
+    "semantic_hash": ""
+  },
+  "internal/middleware/rate_limit.go": {
+    "mtime": 1789978837.8150682,
+    "ast_hash": "9d25112a9593b4a6c5ea160a65660d39",
+    "semantic_hash": ""
+  },
+  "internal/middleware/rate_limit_test.go": {
+    "mtime": 1789977791.9271069,
+    "ast_hash": "e87ad2ba4dd3edd6ccecc05172402c41",
     "semantic_hash": ""
   }
 }

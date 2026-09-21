@@ -161,8 +161,6 @@ release:
     name: sparrow
   header: |
     ## Sparrow {{ .Tag }}
-
-    See [CHANGELOG.md](https://github.com/sarathsp06/sparrow/blob/main/CHANGELOG.md) for the full project history.
   extra_files:
     - glob: build/sparrow-*.tgz
 
