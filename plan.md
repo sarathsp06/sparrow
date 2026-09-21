@@ -51,8 +51,7 @@ These principles apply globally to Sparrow, not just this feature set:
 | Security headers | Complete | nosniff, DENY framing, strict referrer, no FLoC |
 | OTel observability | Complete | Traces, metrics, logs, job trace propagation, gowrap wrappers |
 | DB migrations | Complete | Automated on startup, see `db/migrations/` |
-| Helm chart | Complete | `charts/sparrow/` |
-| CI/CD + GoReleaser | Complete | Cross-platform binaries, Helm chart artifact |
+| CI/CD + GoReleaser | Complete | Cross-platform binaries, Docker image |
 | Data retention | Complete | `RetentionWorker` purges `event_records` (cascades to deliveries) via `SPARROW_EVENT_RETENTION_DAYS` |
 | CLI tool | Complete | `satellites/sparrow`, separate Go module, REST over HTTP |
 
@@ -242,8 +241,8 @@ Ships as `satellites/sparrow`, a separate Go module (see `docs/adr/0002-cli-modu
 - Over-limit requests get `429` + `Retry-After: 1`
 - Mounted on the `/v1` group only -- `/health`, `/ready`, UI, and portal
   gateway are exempt
-- State is in-memory and process-local; PG-backed limiter deferred until a
-  multi-instance deployment needs it
+- State is in-memory and process-local — correct fit for the single-container
+  Docker Compose deployment model this app ships (no Helm/k8s replicas)
 
 ## Part 17: REST/OpenAPI Migration (removed gRPC + Connect-RPC)
 
@@ -325,7 +324,7 @@ Rejected:
 | Ed25519 signing model | Always dual-sign (HMAC + Ed25519) | No config needed, negligible cost, consumer chooses which to verify |
 | Ed25519 public key storage | Derived at runtime from private key | One fewer column, public key always derivable |
 | CLI tool | Separate module (`satellites/sparrow`), REST over HTTP | Own release cadence, reuses API key auth, same protocol as web UI |
-| API rate limiting state | In-memory (single instance) | Simplest. Upgrade to PG-backed if multi-instance needed |
+| API rate limiting state | In-memory (single instance) | Correct fit for the actual deployment model: single-container Docker Compose, no Helm/k8s replicas. Revisit only if a multi-instance topology is added |
 | Payload size limits | Rejected -- already covered | Huma's 1 MiB per-op body limit + `SPARROW_MAX_BODY_BYTES` already bound payloads at the HTTP layer; template output is bounded by template x input |
 | API rate limit default | `0` (disabled) instead of planned 100 rps | Self-hosted deployments shouldn't get surprise throttling from an upgrade; opt-in for public-facing setups |
 | Redis dependency | No | Postgres-only is a competitive advantage over Svix OSS |
