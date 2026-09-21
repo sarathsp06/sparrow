@@ -294,6 +294,7 @@ Everything is configured through environment variables.
 13. `SPARROW_ALERT_FROM_NAME` — optional. Default: `Sparrow`. Sender display name for SendGrid alert emails.
 14. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP endpoint for traces, metrics, and logs; export is off when unset.
 15. `SPARROW_EVENT_RETENTION_DAYS` — optional. Default: `0` (keep forever). Purges events and their deliveries older than N days; runs hourly.
+16. `SPARROW_API_RATE_LIMIT` — optional. Default: `0` (disabled). API requests/second per client (API key, else IP); over-limit requests get `429` with `Retry-After`. In-memory, per-instance.
 
 For a single-key deployment, still use the keyring format: for example `SPARROW_ENCRYPTION_KEYS=main=<64-char-hex-key>` with `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main`.
 

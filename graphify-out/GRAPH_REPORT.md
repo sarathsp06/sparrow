@@ -1,21 +1,21 @@
-# Graph Report - organic-lamprey  (2026-09-20)
+# Graph Report - famed-spider  (2026-09-21)
 
 ## Corpus Check
-- 357 files · ~314,676 words
+- 358 files · ~314,365 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2611 nodes · 5251 edges · 204 communities (170 shown, 34 thin omitted)
-- Extraction: 85% EXTRACTED · 15% INFERRED · 0% AMBIGUOUS · INFERRED: 764 edges (avg confidence: 0.8)
+- 2653 nodes · 5308 edges · 194 communities (161 shown, 33 thin omitted)
+- Extraction: 85% EXTRACTED · 15% INFERRED · 0% AMBIGUOUS · INFERRED: 771 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5866ad00`
+- Built from commit: `d9a809f2`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- newRESTClient
+- setupEnv
 - event.go
 - Mount
 - testContext
@@ -54,7 +54,7 @@
 - envelope
 - VerifyHMAC
 - WebhookDelivery
-- WebhookWorker
+- .Work
 - Sparrow Implementation Plan
 - webhook_service.go
 - conversions.go
@@ -62,7 +62,7 @@
 - NewWebhookClient
 - TemplateEngine
 - NewTemplateEngine
-- RunAllMigrations
+- WebhookWorker
 - runPush
 - newEmailSink
 - go-template-engine.ts
@@ -71,7 +71,7 @@
 - Commands
 - EventSubscription
 - postSink
-- parseRetryAfter
+- typescript
 - newOTLPSink
 - devDependencies
 - runEvents
@@ -86,7 +86,7 @@
 - config
 - newS3Sink
 - sinks.mdx
-- Context
+- parseUUID
 - Real-world examples
 - pushEnv
 - mockRepo
@@ -118,7 +118,6 @@
 - SparrowEnvironment
 - index.mdx
 - 2. Split the `sparrow` CLI into its own module to isolate its `go install` graph
-- setupEnv
 - 1. Payload transform engine: Go `text/template`, not embedded JavaScript
 - consumer.svelte.ts
 - runTemplateTest
@@ -142,7 +141,6 @@
 - steps_auth.py
 - CI Build Job
 - EventRegistration
-- HandlerFunc
 - GetBuffer
 - web/package.json
 - svelte
@@ -157,12 +155,10 @@
 - Sparrow Web Dashboard
 - @sveltejs/kit
 - runInit
-- parseUUID
-- EventArgs
-- startWebhookTarget
+- WebhookArgs
 - mapError
 - validConfig
-- parseDateFilter
+- listEventOccurrencesImpl
 - ValidateIP
 - NewWebhookTemplateContext
 - DefaultConfig
@@ -177,24 +173,15 @@
 - +layout.ts
 - WithConn Transaction Pattern
 - SSRF Protection
-- Context
 - ../../components/ThemeDiagram.astro
 - content.config.ts
 - proto2astro
-- pages/index.astro
+- index.astro
 - openapi-typescript
 - Context
-- TestE2E_EmailSink
 - WebhookService
-- restClient
-- TestE2E_SourcesGitHubWebhook
 - svelte.config.js
-- recipes.ts
-- tools/index.astro
-- TestE2E_WebhookHealthAlerts
-- TestCLI_E2E
-- TestE2E_SlackRecipeTransform
-- @playwright/test
+- web/src/lib/recipes.ts
 - generator.ts
 - Release Workflow
 - github.com/sarathsp06/sparrow
@@ -202,7 +189,7 @@
 - Envelope Encryption at Rest (AES-256-GCM)
 
 ## God Nodes (most connected - your core abstractions)
-1. `Errorf()` - 159 edges
+1. `Errorf()` - 160 edges
 2. `RepositoryInterfaceWithTracing` - 74 edges
 3. `WebhookServiceInterfaceWithTracing` - 43 edges
 4. `setupEnv()` - 40 edges
@@ -222,8 +209,8 @@
   cmd/migrate/main.go → internal/migration/migrate.go
 - `main()` --calls--> `Mount()`  [INFERRED]
   cmd/openapi-export/main.go → internal/rest/app.go
-- `RunAppMigrations()` --calls--> `GetMigrationsFS()`  [INFERRED]
-  internal/migration/migrate.go → db/migrations.go
+- `Load()` --calls--> `Errorf()`  [INFERRED]
+  internal/config/config.go → pkg/errors/service.go
 
 ## Import Cycles
 - None detected.
@@ -234,15 +221,15 @@
 - **Sparrow RPC service surface** — concept_webhook_service, concept_event_service, concept_subscription_service, concept_delivery_service, concept_health_service [EXTRACTED 1.00]
 - **Sparrow security feature set** — concept_envelope_encryption, concept_standard_webhooks_signing, concept_ssrf_protection [EXTRACTED 0.95]
 
-## Communities (204 total, 34 thin omitted)
+## Communities (194 total, 33 thin omitted)
 
-### Community 0 - "newRESTClient"
-Cohesion: 0.33
-Nodes (27): Int32, deliveryItem, Context, Server, T, pollBatchJob(), pollDeliveryStatus(), pushTestEvent() (+19 more)
+### Community 0 - "setupEnv"
+Cohesion: 0.05
+Nodes (99): Container, HandlerFunc, Int32, capturedWebhook, deliveryItem, restClient, sinkSMTPMessage, testEnv (+91 more)
 
 ### Community 1 - "event.go"
 Cohesion: 0.10
-Nodes (33): API, Context, listEventOccurrencesImpl(), registerEventRoutes(), toBatchJobOutput(), toEventTypeItem(), toEventTypeOutput(), newPagination() (+25 more)
+Nodes (31): API, registerEventRoutes(), toBatchJobOutput(), toEventTypeItem(), toEventTypeOutput(), newPagination(), batchJobOutput, eventIDOnlyInput (+23 more)
 
 ### Community 2 - "Mount"
 Cohesion: 0.22
@@ -277,8 +264,8 @@ Cohesion: 0.32
 Nodes (11): _check_timestamp(), _decode_signatures(), Verify Sparrow webhook delivery signatures (Standard Webhooks format). Every…, Raised when a delivery signature cannot be verified., Verify the ``v1,`` (HMAC-SHA256) signature. Raises on failure. ``payload`` must…, Verify the ``v1a,`` (Ed25519) signature. Raises on failure. ``payload`` must be…, _required_headers(), SignatureVerificationError (+3 more)
 
 ### Community 10 - ".CreateWebhook"
-Cohesion: 0.12
-Nodes (14): toWebhookOutFromDomain(), DerefBoolOr(), DerefIntOr(), Duration, Time, Value, WebhookRegistration, HTTPConfigUpdate (+6 more)
+Cohesion: 0.11
+Nodes (15): toWebhookOutFromDomain(), DerefBoolOr(), DerefIntOr(), Duration, Time, Value, generateWebhookSecret(), WebhookRegistration (+7 more)
 
 ### Community 11 - "NewService"
 Cohesion: 0.08
@@ -333,16 +320,16 @@ Cohesion: 0.19
 Nodes (19): addOutputFlag(), clientFromCmd(), Command, config, Writer, newRootCmd(), newVersionCmd(), outputFmt() (+11 more)
 
 ### Community 27 - "BatchJob"
-Cohesion: 0.33
-Nodes (5): RawMessage, Context, WebhookService, BatchJob, BatchJobType
+Cohesion: 0.19
+Nodes (8): Context, Repository, UUID, RawMessage, Context, WebhookService, BatchJob, BatchJobType
 
 ### Community 32 - "apiClient"
 Cohesion: 0.17
 Nodes (13): Context, apiClient, apiError, consumerStats, deliveryItem, eventTypeItem, pushBody, pushResult (+5 more)
 
 ### Community 33 - "Errorf"
-Cohesion: 0.19
-Nodes (8): generateSamplePayload(), Context, Time, WebhookService, ValidateJSONSchema(), normalizePagination(), Errorf(), SchemaValidationError
+Cohesion: 0.15
+Nodes (10): Context, WebhookService, generateSamplePayload(), Context, Time, WebhookService, ValidateJSONSchema(), normalizePagination() (+2 more)
 
 ### Community 34 - "Sparrow Architecture"
 Cohesion: 0.29
@@ -372,13 +359,13 @@ Nodes (16): T, TestBuildRequestSignaturesVerifiable(), Header, Time, parseHeader
 Cohesion: 0.33
 Nodes (5): Context, Repository, UUID, WebhookDelivery, WebhookDeliveryStatus
 
-### Community 41 - "WebhookWorker"
-Cohesion: 0.11
-Nodes (20): Config, Context, Duration, Job, JobInserter, Logger, WebhookWorker, Time (+12 more)
+### Community 41 - ".Work"
+Cohesion: 0.13
+Nodes (18): BuildEnvelopePayload(), T, TestDefaultAndMaxRetryAfterConstants(), TestIsSuccessStatusCode(), TestParseRetryAfter(), TestParseRetryAfter_HTTPDate(), TestParseRetryAfter_HTTPDate_FarFuture(), TestParseRetryAfter_HTTPDate_Past() (+10 more)
 
 ### Community 42 - "Sparrow Implementation Plan"
-Cohesion: 0.06
-Nodes (32): API Changes, Completed Parts (v0.8.0 -- v1.2.1), Current State (as of v1.2.1), Decisions Log, Design, Design, Design (as implemented), Design Principles (+24 more)
+Cohesion: 0.07
+Nodes (29): Completed Parts (v0.8.0 -- v1.2.1), Current State (as of v1.2.1), Decisions Log, Design (as implemented), Design Principles, Future Considerations (Not Planned), Implementation Order, Key decisions vs original plan (+21 more)
 
 ### Community 43 - "webhook_service.go"
 Cohesion: 0.22
@@ -389,8 +376,8 @@ Cohesion: 0.15
 Nodes (17): getWebhookEventsMap(), Context, WebhookRegistration, maskEncryptedSecret(), maskSecret(), maskSecretHeaders(), toWebhookOut(), API (+9 more)
 
 ### Community 47 - "dependencies"
-Cohesion: 0.06
-Nodes (34): @astrojs/sitemap, @astrojs/starlight, @astrojs/svelte, dependencies, astro, @astrojs/sitemap, @astrojs/starlight, @astrojs/svelte (+26 more)
+Cohesion: 0.04
+Nodes (48): @astrojs/react, @astrojs/sitemap, @astrojs/starlight, @astrojs/svelte, dependencies, astro, @astrojs/react, @astrojs/sitemap (+40 more)
 
 ### Community 48 - "NewWebhookClient"
 Cohesion: 0.18
@@ -404,9 +391,9 @@ Nodes (10): getBuffer(), Buffer, putBuffer(), FuncMap, Template, WebhookTemplate
 Cohesion: 0.27
 Nodes (17): NewTemplateEngine(), BenchmarkExecuteComplex(), BenchmarkExecuteSimple(), B, T, TestExecuteComplexTemplate(), TestExecuteEmptyTemplate(), TestExecuteInvalidTemplate() (+9 more)
 
-### Community 51 - "RunAllMigrations"
-Cohesion: 0.46
-Nodes (6): main(), Context, Logger, RunAllMigrations(), RunAppMigrations(), RunRiverMigrations()
+### Community 51 - "WebhookWorker"
+Cohesion: 0.19
+Nodes (12): GetTracer(), Tracer, Config, JobInserter, Logger, WebhookWorker, Tracer, WorkerDefaults (+4 more)
 
 ### Community 52 - "runPush"
 Cohesion: 0.12
@@ -417,12 +404,12 @@ Cohesion: 0.37
 Nodes (12): Conn, newEmailSink(), T, serveSMTP(), startSMTPServer(), TestEmailRender_BadTemplate(), TestEmailRender_CustomTemplatesAndHeaderInjection(), TestEmailRender_Defaults() (+4 more)
 
 ### Community 54 - "go-template-engine.ts"
-Cohesion: 0.14
-Nodes (17): applyFilterStage(), evaluateExpression(), evaluateToken(), EventContext, extractIfElseBlocks(), extractMatchingEnd(), goPrintf(), parseTokens() (+9 more)
+Cohesion: 0.06
+Nodes (33): selectPreset(), switchRecipe(), EmailCompose, ENVELOPE_PATHS, generateSendgridTemplate(), generateSlackTemplate(), generateTwilioTemplate(), SlackCompose (+25 more)
 
 ### Community 55 - "otel.go"
-Cohesion: 0.18
-Nodes (19): Int64Counter, Int64UpDownCounter, DefaultConfig(), GetMeter(), GetTracer(), Context, Tracer, newLoggerProvider() (+11 more)
+Cohesion: 0.22
+Nodes (17): Int64Counter, Int64UpDownCounter, DefaultConfig(), GetMeter(), Context, newLoggerProvider(), NewSparrowMetrics(), Setup() (+9 more)
 
 ### Community 56 - "run"
 Cohesion: 0.50
@@ -440,17 +427,13 @@ Nodes (4): Context, Repository, UUID, EventSubscription
 Cohesion: 0.40
 Nodes (12): ResponseRecorder, Context, Header, T, postSink(), signHeaders(), TestSinkHandler_DownstreamFailureIs502(), TestSinkHandler_MissingHeaders() (+4 more)
 
-### Community 60 - "parseRetryAfter"
-Cohesion: 0.44
-Nodes (8): T, TestDefaultAndMaxRetryAfterConstants(), TestIsSuccessStatusCode(), TestParseRetryAfter(), TestParseRetryAfter_HTTPDate(), TestParseRetryAfter_HTTPDate_FarFuture(), TestParseRetryAfter_HTTPDate_Past(), parseRetryAfter()
-
 ### Community 61 - "newOTLPSink"
 Cohesion: 0.27
 Nodes (10): Context, logsURL(), newOTLPSink(), otlpPayload(), T, TestLogsURL(), TestOTLPSinkDeliver(), TestOTLPSinkDeliverDownstreamFailure() (+2 more)
 
 ### Community 62 - "devDependencies"
 Cohesion: 0.15
-Nodes (13): @tailwindcss/forms, @tailwindcss/typography, @tailwindcss/vite, @types/node, typescript, vite, devDependencies, @tailwindcss/forms (+5 more)
+Nodes (13): @playwright/test, @tailwindcss/forms, @tailwindcss/typography, @tailwindcss/vite, @types/node, vite, devDependencies, @playwright/test (+5 more)
 
 ### Community 63 - "runEvents"
 Cohesion: 0.21
@@ -473,20 +456,20 @@ Cohesion: 0.14
 Nodes (7): SparrowAPI -- wraps the generated REST client (sparrow_client, generated from…, Poll until all deliveries reach terminal status., Poll a single delivery until terminal., Convert a generated attrs model (or None) to a plain dict., Client for Sparrow's REST API, built on the generated sparrow_client SDK., SparrowAPI, _to_dict()
 
 ### Community 68 - "BatchJobWorker"
-Cohesion: 0.23
-Nodes (10): Context, Job, JobInserter, Logger, UUID, WorkerDefaults, NewBatchJobWorker(), BatchJobWorker (+2 more)
+Cohesion: 0.18
+Nodes (11): Context, Job, JobInserter, Logger, UUID, WorkerDefaults, NewBatchJobWorker(), BatchJobArgs (+3 more)
 
 ### Community 69 - "TestRecipes"
 Cohesion: 0.24
-Nodes (10): T, WebhookTemplateContext, sampleContext(), substituteParams(), TestRecipes(), TestSendGridActivationParams(), tokenRefs(), T (+2 more)
+Nodes (11): T, WebhookTemplateContext, sampleContext(), substituteParams(), TestPagerdutyRecipe_Severity(), TestRecipes(), TestSendGridActivationParams(), tokenRefs() (+3 more)
 
 ### Community 70 - "resolveConfig"
 Cohesion: 0.36
 Nodes (9): configPath(), resolveConfig(), saveConfig(), T, TestResolveConfigDefaults(), TestResolveConfigPrecedence(), TestSaveConfigPermissions(), writeConfigFile() (+1 more)
 
 ### Community 71 - "ServiceError"
-Cohesion: 0.16
-Nodes (13): ServiceError, Status, ValidateWebhookURL(), Classify(), Error(), T, TestConstructors(), TestServiceError_ClientMessage() (+5 more)
+Cohesion: 0.18
+Nodes (12): ServiceError, Status, Classify(), Error(), T, TestConstructors(), TestServiceError_ClientMessage(), TestServiceError_Error() (+4 more)
 
 ### Community 72 - "config"
 Cohesion: 0.52
@@ -500,9 +483,9 @@ Nodes (7): Context, newS3Sink(), objectKey(), T, TestObjectKey(), TestS3Sink_Put
 Cohesion: 0.14
 Nodes (13): Configuration, How it's connected, Install and run, Real-World Use Cases, Retry semantics, Scenario 1: Long-Term Regulatory & Financial Audit Archiving (S3 / MinIO / R2), Scenario 2: Operational Stakeholder Notifications via SMTP Email, Scenario 3: Centralized OpenTelemetry Log & Event Pipeline (OTLP) (+5 more)
 
-### Community 75 - "Context"
-Cohesion: 0.29
-Nodes (4): generateWebhookSecret(), Context, Time, WebhookService
+### Community 75 - "parseUUID"
+Cohesion: 0.16
+Nodes (9): ValidateWebhookURL(), Context, WebhookService, UUID, parseUUID(), Context, Time, WebhookService (+1 more)
 
 ### Community 76 - "Real-world examples"
 Cohesion: 0.13
@@ -534,7 +517,7 @@ Nodes (4): Conventional Commits Convention, Release Docker Image Job, Release Go
 
 ### Community 83 - "portal/+page.svelte"
 Cohesion: 0.07
-Nodes (23): return(), beat, data, pulseStore, Telemetry, deliveriesLoading, error, executeDelete() (+15 more)
+Nodes (22): beat, data, pulseStore, Telemetry, deliveriesLoading, error, executeDelete(), expired (+14 more)
 
 ### Community 84 - "runUse"
 Cohesion: 0.21
@@ -605,7 +588,7 @@ Cohesion: 0.25
 Nodes (5): Context, Time, UUID, WebhookService, paginateSubscriptions()
 
 ### Community 101 - "Recipe"
-Cohesion: 0.70
+Cohesion: 0.53
 Nodes (4): Param, Recipe, Subscription, Webhook
 
 ### Community 102 - "jobInserter"
@@ -627,10 +610,6 @@ Nodes (5): Real-World Architecture & Use Cases, Scenario 1: E-Commerce Payment &
 ### Community 106 - "2. Split the `sparrow` CLI into its own module to isolate its `go install` graph"
 Cohesion: 0.25
 Nodes (7): 2. Split the `sparrow` CLI into its own module to isolate its `go install` graph, Consequences, Context, Decision, Releasing the split modules (tag scheme), Trigger to revisit, When this is worth it
-
-### Community 107 - "setupEnv"
-Cohesion: 0.15
-Nodes (20): Container, testEnv, T, TestAcquireDeliverySlot_BusyBucketDoesNotBurnSlots(), Context, Pool, Server, T (+12 more)
 
 ### Community 108 - "1. Payload transform engine: Go `text/template`, not embedded JavaScript"
 Cohesion: 0.33
@@ -665,8 +644,8 @@ Cohesion: 0.29
 Nodes (6): Capabilities, Impact, Modified Capabilities, New Capabilities, What Changes, Why
 
 ### Community 116 - "Handler"
-Cohesion: 0.07
-Nodes (38): GetMigrationsFS(), FS, Request, MaxBodyBytes(), decodePortalToken(), Context, PortalAuthorized(), PortalGateway() (+30 more)
+Cohesion: 0.05
+Nodes (48): main(), GetMigrationsFS(), FS, Request, MaxBodyBytes(), decodePortalToken(), Context, PortalAuthorized() (+40 more)
 
 ### Community 117 - "Feature: Webhook health/delivery-failure email alerts"
 Cohesion: 0.33
@@ -724,10 +703,6 @@ Nodes (5): CI Build Job, CI Workflow, CI Integration Test Job, CI Lint Job, CI T
 Cohesion: 0.53
 Nodes (4): Context, Repository, UUID, EventRegistration
 
-### Community 132 - "HandlerFunc"
-Cohesion: 0.29
-Nodes (10): HandlerFunc, T, TestAPIKeyHTTPMiddlewareAcceptsHeader(), TestAPIKeyHTTPMiddlewareBypassesExcludedPath(), TestAPIKeyHTTPMiddlewareRejectsQueryParameter(), SecurityHeaders(), T, TestSecurityHeaders() (+2 more)
-
 ### Community 133 - "GetBuffer"
 Cohesion: 0.28
 Nodes (11): GetBuffer(), GetHeaderMap(), Buffer, PutBuffer(), PutHeaderMap(), BenchmarkBufferPool(), BenchmarkHeaderMapPool(), B (+3 more)
@@ -737,8 +712,8 @@ Cohesion: 0.20
 Nodes (9): openapi-fetch, dependencies, openapi-fetch, svelte-jsoneditor, svelte-jsoneditor, name, private, type (+1 more)
 
 ### Community 136 - "PrepareDeliveryRequest"
-Cohesion: 0.16
-Nodes (22): DeliveryRequest, WebhookEnvelope, BuildEnvelopePayload(), BuildRequest(), generateEd25519Signature(), generateHMACSignature(), Context, Duration (+14 more)
+Cohesion: 0.17
+Nodes (21): DeliveryRequest, WebhookEnvelope, BuildRequest(), generateEd25519Signature(), generateHMACSignature(), Context, Duration, Request (+13 more)
 
 ### Community 138 - "manifest.json"
 Cohesion: 0.50
@@ -760,17 +735,9 @@ Nodes (8): Build, Embedding in the Go Binary, Environment Variables, Local Devel
 Cohesion: 0.24
 Nodes (11): File, config, newAPIClient(), Command, config, Context, Writer, isTerminal() (+3 more)
 
-### Community 147 - "parseUUID"
-Cohesion: 0.21
-Nodes (7): Context, WebhookService, Context, WebhookService, UUID, parseUUID(), IsNotFound()
-
-### Community 148 - "EventArgs"
-Cohesion: 0.17
-Nodes (6): Context, Job, InsertOpts, Time, BatchJobArgs, EventArgs
-
-### Community 149 - "startWebhookTarget"
-Cohesion: 0.31
-Nodes (10): capturedWebhook, Context, Duration, Header, Server, T, pollDeliverySuccess(), startWebhookTarget() (+2 more)
+### Community 148 - "WebhookArgs"
+Cohesion: 0.20
+Nodes (6): Context, Job, InsertOpts, Time, EventArgs, WebhookArgs
 
 ### Community 150 - "mapError"
 Cohesion: 0.18
@@ -780,9 +747,9 @@ Nodes (8): Context, mapError(), API, Recipe, registerRecipeRoutes(), listRecipes
 Cohesion: 0.24
 Nodes (11): Config, T, TestValidate(), TestWarnings(), validConfig(), DefaultWebhookHTTPConfig(), T, TestApplyConfig_RateLimitRPS() (+3 more)
 
-### Community 153 - "parseDateFilter"
-Cohesion: 0.32
-Nodes (6): Time, parseDateFilter(), parseLabelFilter(), T, TestParseDateFilter(), TestParseLabelFilter()
+### Community 153 - "listEventOccurrencesImpl"
+Cohesion: 0.27
+Nodes (8): Context, listEventOccurrencesImpl(), Time, parseDateFilter(), parseLabelFilter(), T, TestParseDateFilter(), TestParseLabelFilter()
 
 ### Community 154 - "ValidateIP"
 Cohesion: 0.23
@@ -790,7 +757,7 @@ Nodes (10): Request, permissiveCheckRedirect(), ssrfDialControl(), ssrfSafeCheck
 
 ### Community 155 - "NewWebhookTemplateContext"
 Cohesion: 0.67
-Nodes (5): NewWebhookTemplateContext(), T, loadSendgridTemplate(), TestSendgridRecipe_DeliveryFailed(), TestSendgridRecipe_HealthChanged()
+Nodes (6): NewWebhookTemplateContext(), T, loadSendgridTemplate(), TestSendgridRecipe_CustomEvent(), TestSendgridRecipe_DeliveryFailed(), TestSendgridRecipe_HealthChanged()
 
 ### Community 156 - "DefaultConfig"
 Cohesion: 0.33
@@ -800,37 +767,9 @@ Nodes (5): Config, DefaultConfig(), Duration, T, TestDefaultConfig()
 Cohesion: 0.67
 Nodes (3): Dual Webhook Signing (HMAC-SHA256 + Ed25519), Timestamp Replay Protection, Standard Webhooks Format
 
-### Community 168 - "Context"
-Cohesion: 0.44
-Nodes (3): Context, Repository, UUID
-
 ### Community 174 - "Context"
 Cohesion: 0.38
 Nodes (4): Context, Repository, Time, UUID
-
-### Community 175 - "TestE2E_EmailSink"
-Cohesion: 0.50
-Nodes (8): sinkSMTPMessage, freePort(), Context, T, startSinksBinary(), startSinkSMTPServer(), TestE2E_EmailSink(), TestE2E_OTLPSink()
-
-### Community 177 - "restClient"
-Cohesion: 0.46
-Nodes (4): restClient, Context, Response, T
-
-### Community 178 - "TestE2E_SourcesGitHubWebhook"
-Cohesion: 0.50
-Nodes (7): findEventOccurrence(), Context, Server, T, startWebhook(), TestE2E_SourcesGitHubWebhook(), TestE2E_SourcesStripeWebhook()
-
-### Community 189 - "TestE2E_WebhookHealthAlerts"
-Cohesion: 0.60
-Nodes (5): assertHasRecipient(), Context, T, pollSystemEvent(), TestE2E_WebhookHealthAlerts()
-
-### Community 190 - "TestCLI_E2E"
-Cohesion: 0.80
-Nodes (4): buildCLI(), T, runCLI(), TestCLI_E2E()
-
-### Community 191 - "TestE2E_SlackRecipeTransform"
-Cohesion: 0.60
-Nodes (4): Server, T, startBodyCaptureTarget(), TestE2E_SlackRecipeTransform()
 
 ### Community 229 - "generator.ts"
 Cohesion: 0.08
@@ -841,24 +780,24 @@ Cohesion: 0.67
 Nodes (4): github.com/sarathsp06/sparrow, github.com/sarathsp06/sparrow/pkg/signature, github.com/sarathsp06/sparrow/pkg/template, github.com/sarathsp06/sparrow/satellites/sparrow
 
 ## Knowledge Gaps
-- **395 isolated node(s):** `DEFAULT_TOLERANCE_SECONDS`, `SignatureVerificationError`, `Headers`, `name`, `type` (+390 more)
+- **408 isolated node(s):** `DEFAULT_TOLERANCE_SECONDS`, `SignatureVerificationError`, `Headers`, `name`, `type` (+403 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **34 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **33 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Errorf()` connect `Errorf` to `testContext`, `PrepareDeliveryRequest`, `.CreateWebhook`, `NewService`, `WebhookServiceInterfaceWithTracing`, `Context`, `runInit`, `parseUUID`, `EventArgs`, `NewWebhookHandler`, `parseDateFilter`, `ValidateIP`, `BatchJob`, `apiClient`, `ClassifyError`, `envelope`, `VerifyHMAC`, `Context`, `WebhookWorker`, `WebhookDelivery`, `Context`, `WebhookService`, `restClient`, `TemplateEngine`, `RunAllMigrations`, `runPush`, `newEmailSink`, `otel.go`, `EventSubscription`, `newOTLPSink`, `Client`, `EventRecord`, `BatchJobWorker`, `resolveConfig`, `ServiceError`, `config`, `newS3Sink`, `Context`, `runUse`, `runListen`, `GetFunctionMap`, `newPalette`, `runFunctions`, `NewManager`, `WebhookService`, `jobInserter`, `setupEnv`, `runTemplateTest`?**
-  _High betweenness centrality (0.249) - this node is a cross-community bridge._
-- **Why does `setupEnv()` connect `setupEnv` to `newRESTClient`, `NewManager`, `Mount`, `testContext`, `PrepareDeliveryRequest`, `webhook_service.go`, `WebhookServiceInterfaceWithTracing`, `NewService`, `Context`, `TestE2E_EmailSink`, `TestE2E_SourcesGitHubWebhook`, `startWebhookTarget`, `TestE2E_WebhookHealthAlerts`, `TestCLI_E2E`, `TestE2E_SlackRecipeTransform`?**
-  _High betweenness centrality (0.057) - this node is a cross-community bridge._
-- **Why does `NewManager()` connect `NewManager` to `Errorf`, `Client`, `BatchJobWorker`, `RepositoryInterface`, `WebhookWorker`, `NewService`, `setupEnv`, `RetentionWorker`?**
-  _High betweenness centrality (0.051) - this node is a cross-community bridge._
-- **Are the 156 inferred relationships involving `Errorf()` (e.g. with `.EncryptionKeyring()` and `.Validate()`) actually correct?**
-  _`Errorf()` has 156 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `Errorf()` connect `Errorf` to `setupEnv`, `testContext`, `PrepareDeliveryRequest`, `.CreateWebhook`, `NewService`, `WebhookServiceInterfaceWithTracing`, `Context`, `runInit`, `WebhookArgs`, `NewWebhookHandler`, `listEventOccurrencesImpl`, `ValidateIP`, `BatchJob`, `apiClient`, `ClassifyError`, `envelope`, `VerifyHMAC`, `WebhookDelivery`, `.Work`, `Context`, `WebhookService`, `TemplateEngine`, `runPush`, `newEmailSink`, `otel.go`, `EventSubscription`, `newOTLPSink`, `Client`, `EventRecord`, `BatchJobWorker`, `resolveConfig`, `ServiceError`, `config`, `newS3Sink`, `parseUUID`, `runUse`, `runListen`, `GetFunctionMap`, `newPalette`, `runFunctions`, `NewManager`, `WebhookService`, `Recipe`, `jobInserter`, `runTemplateTest`, `Handler`?**
+  _High betweenness centrality (0.240) - this node is a cross-community bridge._
+- **Why does `setupEnv()` connect `setupEnv` to `NewManager`, `Mount`, `testContext`, `PrepareDeliveryRequest`, `webhook_service.go`, `WebhookServiceInterfaceWithTracing`, `NewService`, `Context`?**
+  _High betweenness centrality (0.042) - this node is a cross-community bridge._
+- **Why does `NewManager()` connect `NewManager` to `setupEnv`, `Errorf`, `Client`, `BatchJobWorker`, `RepositoryInterface`, `NewService`, `WebhookWorker`, `RetentionWorker`?**
+  _High betweenness centrality (0.040) - this node is a cross-community bridge._
+- **Are the 157 inferred relationships involving `Errorf()` (e.g. with `.EncryptionKeyring()` and `.Validate()`) actually correct?**
+  _`Errorf()` has 157 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `DEFAULT_TOLERANCE_SECONDS`, `SignatureVerificationError`, `Headers` to the rest of the system?**
-  _395 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _408 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `setupEnv` be split into smaller, more focused modules?**
+  _Cohesion score 0.05069260241674035 - nodes in this community are weakly interconnected._
 - **Should `event.go` be split into smaller, more focused modules?**
-  _Cohesion score 0.0957983193277311 - nodes in this community are weakly interconnected._
-- **Should `testContext` be split into smaller, more focused modules?**
-  _Cohesion score 0.081377151799687 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09659090909090909 - nodes in this community are weakly interconnected._

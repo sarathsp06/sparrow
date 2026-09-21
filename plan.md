@@ -60,8 +60,6 @@ These principles apply globally to Sparrow, not just this feature set:
 
 | Gap | Priority | Notes |
 |-----|----------|-------|
-| No API-level rate limiting | Medium | Per-webhook rate limiting exists, but API endpoints are unthrottled |
-| No payload size limits | Medium | Unbounded event payloads |
 | No scheduled/delayed webhooks | Low | Not in Svix OSS either |
 | Limited client SDKs | Medium | Python generated from OpenAPI; no Go/JS/Java/Ruby/C#/PHP |
 | OKF bundle | Complete | `okf/` generated with 47 concepts across 58 files, 0 errors |
@@ -182,20 +180,17 @@ large. Extend the same worker with config-gated deletes if that changes.
 
 ## Part 13: Payload Size Limits
 
-**Status**: Pending
+**Status**: Rejected -- already covered
 
-**Priority**: Medium
-
-### Design
-
-- New config: `SPARROW_MAX_PAYLOAD_BYTES` (default: 256KB)
-- Enforced in `PushEvent` service method before DB insert
-- Returns `codes.InvalidArgument` with clear message
-- Also enforced on template output (transformed payload)
-
-### API Changes
-
-None -- enforcement is server-side only.
+Payloads are already hard-capped at the HTTP layer: Huma enforces its 1 MiB
+per-operation body limit on every `/v1` operation (no handler overrides it),
+and `SPARROW_MAX_BODY_BYTES` (default 5 MiB, min 1 MiB) backstops the whole
+router via `http.MaxBytesReader`. Oversized pushes get a `413` before any
+service code runs. A separate `SPARROW_MAX_PAYLOAD_BYTES` check inside
+`PushEvent` would be a second knob enforcing a stricter copy of the same
+limit. Template output needs no cap either: Go `text/template` cannot loop
+unboundedly, so transformed output is bounded by template size x input size,
+and both are already bounded.
 
 ---
 
@@ -237,18 +232,18 @@ Ships as `satellites/sparrow`, a separate Go module (see `docs/adr/0002-cli-modu
 
 ## Part 16: API-Level Rate Limiting
 
-**Status**: Pending
+**Status**: Complete
 
-**Priority**: Medium -- per-webhook delivery rate limiting exists, but API endpoints have no request throttling. Important for public-facing deployments.
-
-### Design
-
-- Token bucket per API key (or per-IP if no API key)
-- Configurable via `SPARROW_API_RATE_LIMIT` (requests/second, default: 100)
-- Returns HTTP 429 with `Retry-After` header
-- Implemented as chi middleware
-- State stored in-memory (process-local) -- acceptable for single-instance deployments
-- For multi-instance: optional PostgreSQL-backed limiter using `pg_advisory_lock`
+- `internal/middleware/rate_limit.go`: token bucket (`golang.org/x/time/rate`,
+  burst = rps) per client -- API key when present, else remote IP
+- `SPARROW_API_RATE_LIMIT` (requests/second, default `0` = disabled; the
+  planned default of 100 was dropped -- self-hosted deployments shouldn't get
+  surprise throttling from an upgrade)
+- Over-limit requests get `429` + `Retry-After: 1`
+- Mounted on the `/v1` group only -- `/health`, `/ready`, UI, and portal
+  gateway are exempt
+- State is in-memory and process-local; PG-backed limiter deferred until a
+  multi-instance deployment needs it
 
 ## Part 17: REST/OpenAPI Migration (removed gRPC + Connect-RPC)
 
@@ -298,10 +293,11 @@ Completed:
   Part 17 (REST/OpenAPI migration)
   Part 12 (retention)
   Part 15 (CLI tool)
+  Part 16 (API rate limiting)
 
-Next:
-  Part 13 (payload limits) -- independent
-  Part 16 (API rate limiting) -- independent
+Rejected:
+  Part 11 (DLQ) -- status='failed' already is the DLQ
+  Part 13 (payload limits) -- covered by Huma 1 MiB per-op + SPARROW_MAX_BODY_BYTES
 ```
 
 ---
@@ -330,6 +326,8 @@ Next:
 | Ed25519 public key storage | Derived at runtime from private key | One fewer column, public key always derivable |
 | CLI tool | Separate module (`satellites/sparrow`), REST over HTTP | Own release cadence, reuses API key auth, same protocol as web UI |
 | API rate limiting state | In-memory (single instance) | Simplest. Upgrade to PG-backed if multi-instance needed |
+| Payload size limits | Rejected -- already covered | Huma's 1 MiB per-op body limit + `SPARROW_MAX_BODY_BYTES` already bound payloads at the HTTP layer; template output is bounded by template x input |
+| API rate limit default | `0` (disabled) instead of planned 100 rps | Self-hosted deployments shouldn't get surprise throttling from an upgrade; opt-in for public-facing setups |
 | Redis dependency | No | Postgres-only is a competitive advantage over Svix OSS |
 | Multi-tenant activation | Deferred | Different product; infrastructure retained but not activated |
 | Consumer portal | Deferred | Requires multi-tenancy; admin UI serves current use case |

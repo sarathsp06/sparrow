@@ -101,9 +101,8 @@ huma.Register(api, huma.Operation{
 
 ## Known Gaps
 
-1. No API-level rate limiting
-2. No payload size limits
-3. No scheduled/delayed webhooks (not in Svix OSS either)
+1. No scheduled/delayed webhooks (not in Svix OSS either)
+2. Limited client SDKs (Python only; generate others from `api/openapi.yaml` on demand)
 
 ## Development History
 
