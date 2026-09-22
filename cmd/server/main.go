@@ -152,7 +152,7 @@ func main() {
 	// Initialize encryption service.
 	// SPARROW_ENCRYPTION_KEYS and SPARROW_ENCRYPTION_PRIMARY_KEY_ID must be
 	// configured. The server will not start without a valid keyring.
-	encKeyring, err := resolveEncryptionKeyring(cfg)
+	encKeyring, err := cfg.EncryptionKeyring()
 	if err != nil {
 		log.Fatalf("Failed to resolve encryption keyring: %v", err)
 	}
@@ -401,18 +401,6 @@ func buildCORSHandler(cfg *config.Config) *cors.Cors {
 		AllowCredentials: true,
 		MaxAge:           300,
 	})
-}
-
-// resolveEncryptionKeyring determines the configured KEK set.
-//
-// cfg.EncryptionKeys and cfg.EncryptionPrimaryKeyID must be configured. The
-// key material is never stored in the database.
-func resolveEncryptionKeyring(cfg *config.Config) (*crypto.Keyring, error) {
-	keyring, err := cfg.EncryptionKeyring()
-	if err != nil {
-		return nil, err
-	}
-	return keyring, nil
 }
 
 // registerSystemEventTypes idempotently registers the event types Sparrow

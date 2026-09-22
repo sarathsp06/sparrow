@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	cryptosvc "github.com/sarathsp06/sparrow/pkg/crypto"
+	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
 type mockJobInserter struct {
@@ -458,4 +460,37 @@ func TestWebhookService_UpdateWebhookConfig_MergesSecretHeaderChanges(t *testing
 
 	require.NoError(t, err)
 	repo.AssertExpectations(t)
+}
+
+func TestWebhookService_UpdateWebhookConfig_RejectsOutOfBoundsValues(t *testing.T) {
+	repo := new(mockRepo)
+	service := NewWebhookService(nil, repo, nil)
+
+	ctx := testContext()
+	consumer := "default"
+	webhookID := uuid.New()
+
+	repo.On("GetWebhookByID", mock.Anything, mock.Anything, webhookID, consumer).Return(&store.WebhookRegistration{
+		ID:                    webhookID,
+		Consumer:              consumer,
+		URL:                   "https://example.com/webhook",
+		Active:                true,
+		MaxRetries:            3,
+		RetryBackoffSeconds:   60,
+		RequestTimeoutSeconds: 30,
+		ExpectedStatusCodes:   pq.Int64Array{200},
+		ContentType:           "application/json",
+	}, nil)
+
+	// request_timeout_seconds above the 300s create-path bound must be
+	// rejected on update too; UpdateWebhook must never be called.
+	err := service.UpdateWebhookConfig(ctx, webhookID.String(), consumer, nil, "", nil, true, "", &HTTPConfigUpdate{
+		RequestTimeoutSeconds: 86400,
+	}, nil, "", []string{"http_config"})
+
+	require.Error(t, err)
+	var svcErr *svcerrors.ServiceError
+	require.ErrorAs(t, err, &svcErr)
+	assert.Equal(t, svcerrors.InvalidArgument, svcErr.Status)
+	repo.AssertNotCalled(t, "UpdateWebhook", mock.Anything, mock.Anything, mock.Anything)
 }
