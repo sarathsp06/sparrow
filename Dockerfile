@@ -22,7 +22,7 @@ RUN VITE_APP_VERSION=${SEMVER} PUBLIC_API_URL=/ npm run build
 # Go build stage
 FROM golang:1.26.1-alpine AS builder
 
-RUN apk add --no-cache git ca-certificates tzdata
+RUN apk add --no-cache git
 
 WORKDIR /build
 
@@ -36,6 +36,7 @@ ENV GOWORK=off
 COPY go.mod go.sum ./
 COPY pkg/signature/go.mod ./pkg/signature/
 COPY pkg/template/go.mod ./pkg/template/
+COPY satellites/recipes/go.mod ./satellites/recipes/
 RUN go mod download
 
 # Copy source code
@@ -57,9 +58,8 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
 FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app
+# distroless/static already ships ca-certificates and tzdata — do not re-copy.
 
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 COPY --from=builder --chown=65532:65532 /build/server /app/server
 

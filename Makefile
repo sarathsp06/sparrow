@@ -7,26 +7,26 @@ OUTPUT ?= build/server-$(GOOS)-$(GOARCH)
 DATABASE_URL ?= 'postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable'
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 SEMVER  ?= $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0-dev")
-LDFLAGS := -X github.com/sarathsp06/sparrow.Version=$(VERSION)
+LDFLAGS := -s -w -X github.com/sarathsp06/sparrow.Version=$(VERSION)
 IMAGE_E2E ?= sparrow:e2e
 
 
 build: ## Build the server binary for current OS/arch
 	mkdir -p build
-	go build -ldflags "$(LDFLAGS)" -o $(OUTPUT) ./cmd/server
+	go build -trimpath -ldflags "$(LDFLAGS)" -o $(OUTPUT) ./cmd/server
 
 
 build-cli: ## Build the sparrow CLI binary for current OS/arch
 	mkdir -p build
-	go build -ldflags "-X main.version=$(VERSION)" -o build/sparrow-$(GOOS)-$(GOARCH) ./satellites/sparrow
+	go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o build/sparrow-$(GOOS)-$(GOARCH) ./satellites/sparrow
 
 build-sources: ## Build the sparrow-sources binary for current OS/arch
 	mkdir -p build
-	go build -o build/sparrow-sources-$(GOOS)-$(GOARCH) ./satellites/sparrow-sources
+	go build -trimpath -ldflags "-s -w" -o build/sparrow-sources-$(GOOS)-$(GOARCH) ./satellites/sparrow-sources
 
 build-sinks: ## Build the sparrow-sinks binary for current OS/arch
 	mkdir -p build
-	go build -o build/sparrow-sinks-$(GOOS)-$(GOARCH) ./satellites/sparrow-sinks
+	go build -trimpath -ldflags "-s -w" -o build/sparrow-sinks-$(GOOS)-$(GOARCH) ./satellites/sparrow-sinks
 
 build-all: build build-cli build-sources build-sinks ## Build server, CLI, sources, and sinks binaries
 

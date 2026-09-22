@@ -24,6 +24,7 @@ require (
 	github.com/sarathsp06/schemagen v0.1.1
 	github.com/sarathsp06/sparrow/pkg/signature v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/pkg/template v0.0.0-00010101000000-000000000000
+	github.com/sarathsp06/sparrow/satellites/recipes v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.41.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0
@@ -138,3 +139,5 @@ require (
 replace github.com/sarathsp06/sparrow/pkg/signature => ./pkg/signature
 
 replace github.com/sarathsp06/sparrow/pkg/template => ./pkg/template
+
+replace github.com/sarathsp06/sparrow/satellites/recipes => ./satellites/recipes
