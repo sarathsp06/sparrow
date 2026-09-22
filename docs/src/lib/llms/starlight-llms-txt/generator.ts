@@ -40,6 +40,6 @@ export async function generateLlmsTxt(
     docSegments.push(await entryToSimpleMarkdown(doc, context, minify));
     segments.push(docSegments.join('\n\n'));
   }
-  if (description) segments.unshift(`<SYSTEM>${description}</SYSTEM>`);
+  if (description) segments.unshift(description);
   return segments.join(pageSeparator);
 }

@@ -104,7 +104,7 @@ Environment variables override the `sparrow:` section: `SPARROW_URL`, `SPARROW_A
 
 Cron schedules support numbers, ranges (`1-5`), steps (`*/10`, `0-30/5`), lists (`0,15,30,45`), and `*` in each of the five fields (minute, hour, day-of-month, month, day-of-week; `0` and `7` both mean Sunday). Resolution is one minute, jitterless.
 
-Event types are **auto-created**: the first push of an unknown event name registers it and retries, so you don't need to pre-register `stripe.payment_intent.succeeded` and friends.
+Event types are **auto-created**: the first push of an unknown event name registers it inline before the push completes, so you don't need to pre-register `stripe.payment_intent.succeeded` and friends.
 
 ## Event naming
 

@@ -224,9 +224,9 @@ Two rules keep templates robust:
 
 1. Quote every interpolated value through `json` (e.g. `{{.event_name | json}}`)
    so quotes or newlines in payloads can't corrupt the output.
-2. Iterate locally with `sparrow template test` (wraps
-   `POST /v1/subscriptions:testTemplate`), which renders a template against an
-   event type's sample payload without creating anything.
+2. Iterate locally with `sparrow template test`, which renders the template
+   entirely client-side (no API call) against a synthetic sample context,
+   without creating anything.
 
 :::note
 Sparrow rejects private-network delivery URLs by default (SSRF guard). To

@@ -12,7 +12,7 @@ export const GET: APIRoute = async (context) => {
   const llmsSmallLink = new URL('./llms-small.txt', site);
 
   const segments = [`# ${title}`];
-  segments.push(`<SYSTEM>${llmsBasePrompt}\n\n${llmsRootDetails}</SYSTEM>`);
+  segments.push(`${llmsBasePrompt}\n\n${llmsRootDetails}`);
   segments.push('## Documentation Sets');
   segments.push([
     `- [Abridged documentation](${llmsSmallLink}): a compact version of the documentation for ${getSiteTitle()}, with non-essential content removed`,

@@ -79,10 +79,11 @@ You don't have to guess. Test any template against a sample event:
      }'
    ```
 
-3. **Or from the CLI:**
+3. **Or entirely offline with the CLI** (no server round-trip; renders locally
+   against a synthetic sample context instead of a stored event payload):
 
    ```bash
-   sparrow template test
+   sparrow template test partner.tmpl --payload '{"amount": 4200}'
    ```
 
 </Steps>
