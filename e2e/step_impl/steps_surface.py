@@ -229,3 +229,131 @@ def page_all_deliveries(limit, count):
             break
         offset += int(limit)
     assert len(seen) == int(count), f"Expected {count} unique deliveries, got {len(seen)}"
+
+
+# ---------------------------------------------------------------------------
+# Alert configs
+# ---------------------------------------------------------------------------
+
+@step("Create alert config <name> with email <email> for events <events>")
+def create_alert_config_wide(name, email, events):
+    event_list = [e.strip() for e in events.split(",")]
+    resp = requests.post(
+        f"{_base()}/v1/consumers/{_ns()}/alert-configs",
+        json={"email": email, "event_types": event_list},
+    )
+    assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
+    body = resp.json()
+    assert body["email"] == email, f"email not echoed: {body}"
+    assert body["event_types"] == event_list, f"event_types not echoed: {body}"
+    assert not body.get("webhook_id"), f"expected consumer-wide (no webhook_id): {body}"
+    data_store.scenario[f"alert_id_{name}"] = body["id"]
+
+
+@step("Create alert config <name> for webhook <wh> with email <email> for events <events>")
+def create_alert_config_scoped(name, wh, email, events):
+    event_list = [e.strip() for e in events.split(",")]
+    resp = requests.post(
+        f"{_base()}/v1/consumers/{_ns()}/alert-configs",
+        json={"webhook_id": _webhook_id(wh), "email": email, "event_types": event_list},
+    )
+    assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
+    body = resp.json()
+    assert body["webhook_id"] == _webhook_id(wh), f"webhook scope not echoed: {body}"
+    data_store.scenario[f"alert_id_{name}"] = body["id"]
+
+
+@step("Alert configs list should have <count> items")
+def alert_configs_count(count):
+    resp = requests.get(f"{_base()}/v1/consumers/{_ns()}/alert-configs")
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+    items = resp.json()["items"]
+    assert len(items) == int(count), f"Expected {count} configs, got {len(items)}: {items}"
+
+
+@step("Alert configs list for webhook <wh> should have <count> items")
+def alert_configs_count_for_webhook(wh, count):
+    resp = requests.get(
+        f"{_base()}/v1/consumers/{_ns()}/alert-configs",
+        params={"webhook_id": _webhook_id(wh)},
+    )
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+    items = resp.json()["items"]
+    assert len(items) == int(count), f"Expected {count} configs, got {len(items)}: {items}"
+
+
+@step("Delete alert config <name>")
+def delete_alert_config(name):
+    cfg_id = data_store.scenario[f"alert_id_{name}"]
+    resp = requests.delete(f"{_base()}/v1/consumers/{_ns()}/alert-configs/{cfg_id}")
+    assert resp.status_code == 204, f"Expected 204, got {resp.status_code}: {resp.text}"
+
+
+@step("Delete alert config with id <cfg_id> should return status <code>")
+def delete_alert_config_status(cfg_id, code):
+    resp = requests.delete(f"{_base()}/v1/consumers/{_ns()}/alert-configs/{cfg_id}")
+    assert resp.status_code == int(code), f"Expected {code}, got {resp.status_code}: {resp.text}"
+
+
+@step("Create alert config for webhook id <wh_id> with email <email> for events <events> expecting status <code>")
+def create_alert_config_bad_webhook(wh_id, email, events, code):
+    event_list = [e.strip() for e in events.split(",")]
+    resp = requests.post(
+        f"{_base()}/v1/consumers/{_ns()}/alert-configs",
+        json={"webhook_id": wh_id, "email": email, "event_types": event_list},
+    )
+    assert resp.status_code == int(code), f"Expected {code}, got {resp.status_code}: {resp.text}"
+
+
+# ---------------------------------------------------------------------------
+# Recipes
+# ---------------------------------------------------------------------------
+
+@step("GET recipes should return a non-empty catalog")
+def get_recipes_catalog():
+    resp = requests.get(f"{_base()}/v1/recipes")
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+    items = resp.json()["items"]
+    assert len(items) > 0, "recipe catalog is empty"
+    assert all(i.get("name") for i in items), f"recipe missing name: {items}"
+
+
+# ---------------------------------------------------------------------------
+# Portal tokens
+# ---------------------------------------------------------------------------
+
+@step("Mint portal token for current consumer")
+def mint_portal_token():
+    resp = requests.post(f"{_base()}/v1/consumers/{_ns()}/portal-token")
+    assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
+    body = resp.json()
+    assert body.get("token"), f"no token in response: {body}"
+    data_store.scenario["portal_token"] = body["token"]
+
+
+@step("Portal GET <suffix> should return status <code>")
+def portal_get(suffix, code):
+    token = data_store.scenario["portal_token"]
+    resp = requests.get(
+        f"{_base()}/portal/api/{suffix}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == int(code), f"Expected {code}, got {resp.status_code}: {resp.text}"
+
+
+@step("Portal GET <suffix> without token should return status <code>")
+def portal_get_no_token(suffix, code):
+    resp = requests.get(f"{_base()}/portal/api/{suffix}")
+    assert resp.status_code == int(code), f"Expected {code}, got {resp.status_code}: {resp.text}"
+
+
+@step("Portal webhooks list should contain webhook <name>")
+def portal_webhooks_contains(name):
+    token = data_store.scenario["portal_token"]
+    resp = requests.get(
+        f"{_base()}/portal/api/webhooks",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+    ids = [w["webhook_id"] for w in resp.json()["items"]]
+    assert _webhook_id(name) in ids, f"webhook {_webhook_id(name)} not in portal list: {ids}"
