@@ -124,6 +124,19 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
     </div>
   </section>
 
+  <!-- PROMO VIDEO -->
+  <section class="sp-video-section">
+    <div class="sp-w">
+      <div class="sp-video-frame">
+        <video
+          src={`${base}sparrow-promo.mp4`}
+          poster={`${base}og.png`}
+          controls autoplay muted loop playsinline preload="metadata"
+          aria-label="Sparrow product tour"></video>
+      </div>
+    </div>
+  </section>
+
   <!-- WHY — card grid -->
   <section class="sp-cards-section">
     <div class="sp-w">
@@ -373,10 +386,9 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         <div class="sp-feature-text">
           <span class="sp-label">GET STARTED</span>
           <h2>Docker Compose to production</h2>
-          <p>Two commands stand up Sparrow with PostgreSQL. For Kubernetes there is a Helm chart with hardened defaults: non-root, read-only root filesystem, NetworkPolicy isolation.</p>
+          <p>Two commands stand up Sparrow with PostgreSQL: download the Compose file, set an encryption keyring, and bring the stack up. Migrations run automatically on first boot.</p>
           <div class="sp-hero-actions" style="margin-top:1.5rem">
             <a href={docsHome} class="sp-btn sp-btn-lg">Installation guide<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
-            <a href="https://railway.com/deploy/KzfSI3?referralCode=otXr-t&utm_medium=integration&utm_source=template&utm_campaign=generic" target="_blank" rel="noopener" class="sp-btn-ghost sp-btn-lg">Deploy on Railway</a>
           </div>
         </div>
         <div class="sp-feature-visual">
@@ -421,8 +433,6 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         <div class="sp-footer-col">
           <span class="sp-footer-heading">Deploy</span>
           <a href={`${base}deployment/docker-compose/`}>Docker Compose</a>
-          <a href={`${base}deployment/kubernetes/`}>Kubernetes</a>
-          <a href={`${base}deployment/railway/`}>Railway</a>
         </div>
         <div class="sp-footer-col">
           <span class="sp-footer-heading">Resources</span>
@@ -846,4 +856,17 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   border-top: 1px solid var(--sp-outline-variant);
   font-size: 12px; color: var(--sp-text-muted);
 }
+/* --- Promo video --- */
+.sp-video-section { padding: 0 0 1rem; }
+.sp-video-frame {
+  max-width: 880px; margin: 0 auto;
+  border: 1px solid var(--sp-outline-variant);
+  border-radius: var(--sp-radius-lg);
+  overflow: hidden;
+  background: #0f1626;
+}
+.sp-video-frame video {
+  display: block; width: 100%; height: auto; aspect-ratio: 16 / 9;
+}
+
 </style>
