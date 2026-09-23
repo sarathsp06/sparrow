@@ -79,20 +79,6 @@ type Config struct {
 	// Env: SPARROW_MAX_BODY_BYTES
 	MaxBodyBytes int64 `envconfig:"SPARROW_MAX_BODY_BYTES" default:"5242880"`
 
-	// SendGridAPIKey is the SendGrid API key for the bootstrapped alert
-	// webhook (system events -> email). The webhook stays inactive until this
-	// and a non-placeholder AlertFromEmail are configured.
-	// Env: SPARROW_SENDGRID_API_KEY
-	SendGridAPIKey string `envconfig:"SPARROW_SENDGRID_API_KEY" default:""`
-
-	// AlertFromEmail is the verified sender address used by the bootstrapped
-	// SendGrid alert webhook. Env: SPARROW_ALERT_FROM_EMAIL
-	AlertFromEmail string `envconfig:"SPARROW_ALERT_FROM_EMAIL" default:"alerts@example.com"`
-
-	// AlertFromName is the sender display name used by the bootstrapped
-	// SendGrid alert webhook. Env: SPARROW_ALERT_FROM_NAME
-	AlertFromName string `envconfig:"SPARROW_ALERT_FROM_NAME" default:"Sparrow"`
-
 	// EventRetentionDays purges events (and their deliveries, via cascade)
 	// older than this many days. 0 (default) disables retention: data is
 	// kept forever. Runs hourly as a background job.

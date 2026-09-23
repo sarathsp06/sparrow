@@ -26,6 +26,14 @@ flow through:
 | `sparrow.webhook.health_changed` | A webhook's health transitions (e.g. `healthy` → `degraded`). The very first `unknown` → `healthy` transition is skipped — every webhook starts `unknown` and this would otherwise fire on every registration. |
 | `sparrow.webhook.delivery_failed` | A delivery exhausts all of its retries and is marked permanently failed. |
 
+<Aside type="note" title="`_sparrow` is a reserved namespace">
+`_sparrow` is a Sparrow-owned consumer (namespace) reserved by convention for
+these internal health events. Sparrow scopes its own events here and, in the
+other direction, skips re-emitting on any webhook you register under it (the
+feedback-loop guard). Keep your own webhooks in your own consumers; use
+`_sparrow` solely to wire where health alerts get delivered.
+</Aside>
+
 You never subscribe to these events directly. Instead, you register an
 **alert config** naming an email address; Sparrow embeds every matching
 recipient into the event's payload (`payload.alert_recipients`) at the moment
@@ -73,19 +81,9 @@ that would create a feedback loop.
 
 ## Set up the email delivery channel
 
-On startup, Sparrow creates the `_sparrow` SendGrid webhook and subscribes it
-to both system events. Without both SendGrid environment variables below, the
-webhook is created inactive. Set them, then restart Sparrow; the existing
-inactive webhook is activated automatically.
-
-```bash
-export SPARROW_SENDGRID_API_KEY=$SENDGRID_API_KEY
-export SPARROW_ALERT_FROM_EMAIL=alerts@yourdomain.com
-export SPARROW_ALERT_FROM_NAME="Sparrow Alerts"
-```
-
-You can also apply the bundled recipe manually if you want to manage the
-`_sparrow` webhook yourself:
+The system events above only become emails once you wire a mail-sending
+webhook under the `_sparrow` consumer. Sparrow ships a bundled **SendGrid**
+recipe for exactly this — apply it with the CLI:
 
 ```bash
 sparrow --consumer _sparrow use sendgrid \
@@ -96,11 +94,18 @@ sparrow --consumer _sparrow use sendgrid \
   --event sparrow.webhook.delivery_failed
 ```
 
-The recipe's transform ranges `payload.alert_recipients` into SendGrid's `v3`
-`personalizations` array — one SendGrid API call delivers to every opted-in
-recipient, each in their own personalization. See
-[Recipes](/sparrow/satellites/recipes/) for how recipes are applied and
-parameterized.
+That registers the SendGrid webhook, subscribes it to both system events, and
+installs the transform in one step. The transform ranges
+`payload.alert_recipients` into SendGrid's `v3` `personalizations` array — one
+SendGrid API call delivers to every opted-in recipient, each in their own
+personalization.
+
+<Aside type="tip" title="Preview the recipe first">
+Use the [Recipe Workbench](/sparrow/tools/recipe-workbench/) to inspect exactly
+what the SendGrid webhook, subscription, and rendered request body look like
+before you apply it. See [Recipes](/sparrow/satellites/recipes/) for how
+recipes are applied and parameterized.
+</Aside>
 
 ## Good to know
 

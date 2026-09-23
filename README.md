@@ -289,11 +289,8 @@ Everything is configured through environment variables.
 8. `SPARROW_ALLOW_PRIVATE_NETWORKS` — optional. Default: `false`. Disables the private-network SSRF guard.
 9. `SPARROW_MAX_BODY_BYTES` — optional. Default: `5242880` (5 MiB). Max request body size; minimum 1 MiB; oversized bodies get `413`.
 10. `CORS_ALLOWED_ORIGINS` — optional. Comma-separated browser allowlist.
-11. `SPARROW_SENDGRID_API_KEY` — optional. Activates the bootstrapped SendGrid alert webhook; unset means it is created inactive.
-12. `SPARROW_ALERT_FROM_EMAIL` — optional. Default: `alerts@example.com`. Verified sender for SendGrid alert emails.
-13. `SPARROW_ALERT_FROM_NAME` — optional. Default: `Sparrow`. Sender display name for SendGrid alert emails.
-14. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP endpoint for traces, metrics, and logs; export is off when unset.
-15. `SPARROW_EVENT_RETENTION_DAYS` — optional. Default: `0` (keep forever). Purges events and their deliveries older than N days; runs hourly.
+11. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP endpoint for traces, metrics, and logs; export is off when unset.
+12. `SPARROW_EVENT_RETENTION_DAYS` — optional. Default: `0` (keep forever). Purges events and their deliveries older than N days; runs hourly.
 
 For a single-key deployment, still use the keyring format: for example `SPARROW_ENCRYPTION_KEYS=main=<64-char-hex-key>` with `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main`.
 

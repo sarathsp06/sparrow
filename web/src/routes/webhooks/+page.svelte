@@ -293,6 +293,25 @@
         </div>
       </div>
 
+      <div class="max-w-2xl mx-auto border-t border-line pt-6 mb-6">
+        <p class="eyebrow mb-3">Health alerts</p>
+        <div class="panel-2 p-5 text-sm text-muted">
+          <p class="mb-2">
+            Sparrow watches every webhook's health and emits its own events —
+            <span class="mono text-text">sparrow.webhook.health_changed</span> and
+            <span class="mono text-text">sparrow.webhook.delivery_failed</span> —
+            into a reserved internal consumer named <span class="mono text-text">_sparrow</span>.
+          </p>
+          <p class="mb-3">
+            Opt an email address in with an alert config, then wire delivery by applying the
+            SendGrid recipe to the <span class="mono text-text">_sparrow</span> consumer. Webhooks
+            under <span class="mono text-text">_sparrow</span> never generate these events themselves
+            &mdash; no feedback loop.
+          </p>
+          <a href="https://sarathsp06.github.io/sparrow/guides/webhook-health-alerts/" target="_blank" rel="noreferrer" class="inline-flex items-center gap-1 text-xs link-beacon">Set up health alert emails <span class="text-[10px]">&rarr;</span></a>
+        </div>
+      </div>
+
       <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
         <a href="/events" class="btn btn-beacon">Start with Step 1</a>
         <a href="https://sarathsp06.github.io/sparrow/getting-started/how-it-works/" target="_blank" rel="noreferrer" class="btn btn-ghost">
