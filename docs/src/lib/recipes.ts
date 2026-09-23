@@ -45,7 +45,15 @@ const parsed: RecipeDef[] = Object.values(rawFiles).map((raw) => {
 });
 
 // Display metadata + sample events live here (docs-only concerns).
-export const RECIPE_META: Record<string, { title: string; demoParams: Record<string, string>; presets: EventPreset[] }> = {
+export const RECIPE_META: Record<
+  string,
+  {
+    title: string;
+    demoParams: Record<string, string>;
+    presets: EventPreset[];
+    setup: { docsUrl: string; docsLabel: string; steps: string[] };
+  }
+> = {
   sendgrid: {
     title: 'SendGrid Email',
     demoParams: {
@@ -53,6 +61,16 @@ export const RECIPE_META: Record<string, { title: string; demoParams: Record<str
       from_email: 'alerts@example.com',
       from_name: 'Sparrow Webhooks',
       default_recipient: 'team@acme.com',
+    },
+    setup: {
+      docsUrl: 'https://www.twilio.com/docs/sendgrid/ui/account-and-settings/api-keys',
+      docsLabel: 'SendGrid API keys & sender verification',
+      steps: [
+        'Settings → API Keys → Create API Key; pick Restricted Access and enable Mail Send.',
+        'Copy the key immediately (shown only once) into api_key.',
+        'Settings → Sender Authentication → verify a Single Sender (or authenticate your domain).',
+        'Use that verified address as from_email; from_name is the display name.',
+      ],
     },
     presets: [
       {
@@ -99,6 +117,16 @@ export const RECIPE_META: Record<string, { title: string; demoParams: Record<str
   slack: {
     title: 'Slack Message',
     demoParams: { webhook_url: 'https://hooks.slack.com/services/T00/B00/X123' },
+    setup: {
+      docsUrl: 'https://api.slack.com/messaging/webhooks',
+      docsLabel: 'Slack incoming webhooks',
+      steps: [
+        'Create an app at api.slack.com/apps → From scratch, pick your workspace.',
+        'Enable Incoming Webhooks, then Add New Webhook to Workspace and choose a channel.',
+        'Copy the hooks.slack.com/services/… URL into webhook_url — the URL is the secret.',
+        'The channel is fixed by the webhook; add one webhook per channel.',
+      ],
+    },
     presets: [
       {
         id: 'deploy',
@@ -116,6 +144,16 @@ export const RECIPE_META: Record<string, { title: string; demoParams: Record<str
       from_number: '15551230000',
       to_number: '15559876543',
     },
+    setup: {
+      docsUrl: 'https://www.twilio.com/docs/messaging/quickstart',
+      docsLabel: 'Twilio SMS quickstart',
+      steps: [
+        'In the Twilio Console copy your Account SID (AC…) and Auth Token.',
+        'Phone Numbers → Buy a number; pick an SMS-capable number for from_number (E.164 digits).',
+        "Build basic_auth: printf '%s:%s' <AccountSID> <AuthToken> | base64",
+        'Set to_number to the recipient in E.164 (digits only).',
+      ],
+    },
     presets: [
       {
         id: 'incident',
@@ -128,6 +166,15 @@ export const RECIPE_META: Record<string, { title: string; demoParams: Record<str
   discord: {
     title: 'Discord Embed',
     demoParams: { webhook_url: 'https://discord.com/api/webhooks/123/abc' },
+    setup: {
+      docsUrl: 'https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks',
+      docsLabel: 'Discord webhooks',
+      steps: [
+        'Open Server Settings → Integrations → Webhooks (or a channel’s Edit → Integrations).',
+        'Click New Webhook and select the target channel.',
+        'Copy Webhook URL into webhook_url.',
+      ],
+    },
     presets: [
       {
         id: 'signup',
@@ -140,6 +187,16 @@ export const RECIPE_META: Record<string, { title: string; demoParams: Record<str
   ntfy: {
     title: 'ntfy Push',
     demoParams: { server_url: 'https://ntfy.sh', topic: 'sparrow_alerts' },
+    setup: {
+      docsUrl: 'https://docs.ntfy.sh/publish/',
+      docsLabel: 'ntfy publish & subscribe',
+      steps: [
+        'Pick an unguessable topic name — anyone who knows it can read/write.',
+        'Subscribe to it in the ntfy app (iOS/Android) or ntfy.sh/app — no signup needed.',
+        'Set topic to that name; keep server_url as https://ntfy.sh unless self-hosting.',
+        'Self-hosted with access control: add auth per the ntfy docs.',
+      ],
+    },
     presets: [
       {
         id: 'cpu',
@@ -152,6 +209,15 @@ export const RECIPE_META: Record<string, { title: string; demoParams: Record<str
   pagerduty: {
     title: 'PagerDuty Incident',
     demoParams: { routing_key: 'pd-key-prod-9988', severity: 'error' },
+    setup: {
+      docsUrl: 'https://support.pagerduty.com/main/docs/services-and-integrations',
+      docsLabel: 'PagerDuty Events API v2',
+      steps: [
+        'Services → Service Directory; create or pick a service.',
+        'Integrations tab → Add integration → Events API V2 → Add.',
+        'Expand the integration and copy its Integration Key into routing_key.',
+      ],
+    },
     presets: [
       {
         id: 'pool',
@@ -164,6 +230,15 @@ export const RECIPE_META: Record<string, { title: string; demoParams: Record<str
   clickhouse: {
     title: 'ClickHouse Ingest',
     demoParams: { base_url: 'http://clickhouse.internal:8123', table: 'webhook_events', user: 'default', password: 'secret123' },
+    setup: {
+      docsUrl: 'https://clickhouse.com/docs/interfaces/http',
+      docsLabel: 'ClickHouse HTTP interface',
+      steps: [
+        'Confirm the HTTP endpoint (port 8123 HTTP / 8443 HTTPS) and set base_url.',
+        'Create the table: CREATE TABLE <t> (event_id String, event_name String, timestamp String, payload String) ENGINE = MergeTree ORDER BY event_id;',
+        'Set user/password; the recipe authenticates via X-ClickHouse-User / X-ClickHouse-Key headers.',
+      ],
+    },
     presets: [
       {
         id: 'signup',

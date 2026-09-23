@@ -60,6 +60,22 @@
     labelFilters: {} as Record<string, string>,
   });
 
+  const WORKBENCH_URL = "https://sarathsp06.github.io/sparrow/tools/recipe-workbench/";
+  // Deep-link the sample payload (else the schema) so the workbench pre-fills it.
+  let workbenchUrl = $derived.by(() => {
+    const src = selectedEventDetails?.sample_payload ?? selectedEventDetails?.event_schema;
+    if (!src) return WORKBENCH_URL;
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(src))));
+    return `${WORKBENCH_URL}?sample=${encodeURIComponent(b64)}`;
+  });
+
+  let sampleCopied = $state(false);
+  function copySample() {
+    navigator.clipboard.writeText(JSON.stringify(selectedEventDetails?.sample_payload ?? {}, null, 2));
+    sampleCopied = true;
+    setTimeout(() => (sampleCopied = false), 1500);
+  }
+
   let catchAllEnabled = $state(false);
   let advancedOpen = $state(false);
 
@@ -575,7 +591,7 @@
             <div class="flex items-center justify-between">
               <label for="modal-template" class="field-label !mb-0">Transform Template</label>
               <div class="flex items-center gap-3">
-                <a href="https://sarathsp06.github.io/sparrow/tools/recipe-workbench/" target="_blank" rel="noopener" class="text-xs font-medium text-muted hover:text-text transition">
+                <a href={workbenchUrl} target="_blank" rel="noopener" class="text-xs font-medium text-muted hover:text-text transition">
                   Compose in Workbench ↗
                 </a>
                 <button type="button" onclick={fetchTemplateFunctions} class="text-xs font-medium text-muted hover:text-text transition">
@@ -594,7 +610,10 @@
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                   <div>
-                    <p class="text-[10px] text-muted mb-1 font-medium">Input (Sample)</p>
+                    <div class="flex items-center justify-between mb-1">
+                      <p class="text-[10px] text-muted font-medium">Input (Sample)</p>
+                      <button type="button" onclick={copySample} class="text-[10px] font-medium text-muted hover:text-text transition">{sampleCopied ? "Copied" : "Copy"}</button>
+                    </div>
                     <pre class="panel p-2 rounded text-[10px] overflow-auto max-h-32 mono text-text">{JSON.stringify(selectedEventDetails.sample_payload, null, 2)}</pre>
                   </div>
                   <div>

@@ -5,20 +5,36 @@
     generateSendgridTemplate,
     generateTwilioTemplate,
     generateSlackTemplate,
+    generateDiscordTemplate,
+    generateNtfyTemplate,
+    generatePagerdutyTemplate,
     smsSegments,
     payloadPaths,
     ENVELOPE_PATHS,
     type EmailCompose,
     type SlackCompose,
+    type DiscordCompose,
+    type NtfyCompose,
+    type PagerdutyCompose,
   } from '../../lib/compose.js';
-  import EmailHtmlEditor from './EmailHtmlEditor.svelte';
+  import { onMount } from 'svelte';
 
   // ---- Recipe selection ----
   let selectedId = $state('sendgrid');
   let activeRecipe = $derived(RECIPES.find((r) => r.name === selectedId)!);
   let meta = $derived(RECIPE_META[selectedId]);
 
-  const COMPOSERS = new Set(['sendgrid', 'twilio', 'slack']);
+  const COMPOSERS = new Set(['sendgrid', 'twilio', 'slack', 'discord', 'ntfy', 'pagerduty']);
+  // Step-2 heading per recipe; clickhouse is a pure data sink (no composer).
+  const STEP2_TITLE: Record<string, string> = {
+    sendgrid: 'Compose the email',
+    twilio: 'Compose the SMS',
+    slack: 'Compose the Slack message',
+    discord: 'Compose the Discord embed',
+    ntfy: 'Compose the notification',
+    pagerduty: 'Compose the incident',
+    clickhouse: 'Column mapping',
+  };
 
   // ---- Parameters (seeded with demo values, namespaced per recipe so
   // recipes sharing a param name — e.g. webhook_url — don't collide) ----
@@ -54,10 +70,8 @@
     cc: '',
     bcc: '',
     subject: 'Sparrow: webhook for {{.payload.consumer}} is now {{.payload.new_health}}',
-    bodyMode: 'plain',
     bodyText:
       'Webhook {{.payload.webhook_id}} ({{.payload.url}}) health changed: {{.payload.old_health}} -> {{.payload.new_health}}',
-    bodyHtml: '',
   });
   let sms = $state('Sparrow {{.event_name}}: {{.payload.active_incidents}} active incidents in {{.payload.datacenter}}');
   let slack = $state<SlackCompose>({
@@ -65,10 +79,23 @@
     body: 'Service *{{.payload.service}}* deployed `{{.payload.version}}` to {{.payload.environment}} in {{.payload.duration_seconds}}s',
     includeContext: true,
   });
-  // Editable template copies for recipes without a composer.
-  let rawTemplates = $state<Record<string, string>>(
-    Object.fromEntries(RECIPES.map((r) => [r.name, r.transform_template])),
-  );
+  let discord = $state<DiscordCompose>({
+    title: '{{.event_name}}',
+    description: 'New signup: **{{.payload.user_id}}** on the {{.payload.plan}} plan (via {{.payload.referrer}}).',
+    includePayload: true,
+  });
+  let ntfy = $state<NtfyCompose>({
+    title: 'High CPU on {{.payload.host}}',
+    message: 'CPU usage hit {{.payload.usage_percent}}% — check the host.',
+    tags: 'warning, computer',
+    priority: 4,
+    includePayload: false,
+  });
+  let pd = $state<PagerdutyCompose>({
+    summary: 'Sparrow: {{.event_name}}',
+    severity: 'error',
+    source: 'sparrow',
+  });
 
   // ---- Derived rendering ----
   let parsedPayload = $derived.by(() => {
@@ -91,7 +118,10 @@
     if (selectedId === 'sendgrid') return generateSendgridTemplate(email);
     if (selectedId === 'twilio') return generateTwilioTemplate(sms);
     if (selectedId === 'slack') return generateSlackTemplate(slack);
-    return rawTemplates[selectedId];
+    if (selectedId === 'discord') return generateDiscordTemplate(discord);
+    if (selectedId === 'ntfy') return generateNtfyTemplate(ntfy);
+    if (selectedId === 'pagerduty') return generatePagerdutyTemplate(pd);
+    return activeRecipe.transform_template; // clickhouse: pure data sink, no composer
   });
 
   let renderResult = $derived.by(() => {
@@ -104,22 +134,7 @@
   let smsRendered = $derived.by(() => (parsedPayload ? renderGoTemplate(sms, eventContext, params).result : ''));
   let smsInfo = $derived(smsSegments(smsRendered));
 
-  // Sample values (resolved from the current event) make Unlayer's merge-tag
-  // menu and design preview show real data instead of raw template syntax.
-  let mergeTags = $derived(
-    Object.fromEntries(
-      chips.map((p) => {
-        let v: unknown = eventContext;
-        for (const k of p.slice(1).split('.')) v = (v as Record<string, unknown> | undefined)?.[k];
-        return [p.replace(/\W/g, '_'), { name: p, value: `{{${p}}}`, sample: v == null ? p : String(v) }];
-      }),
-    ),
-  );
-
-  let emailBodyRendered = $derived.by(() => {
-    const content = renderResult.jsonObj?.content?.[0];
-    return { type: content?.type ?? 'text/plain', value: content?.value ?? '' };
-  });
+  let emailBodyRendered = $derived(renderResult.jsonObj?.content?.[0]?.value ?? '');
   let emailAddresses = $derived.by(() => {
     const out: Record<'to' | 'cc' | 'bcc', string[]> = { to: [], cc: [], bcc: [] };
     for (const p of renderResult.jsonObj?.personalizations ?? []) {
@@ -176,6 +191,19 @@
     copiedToast = msg;
     setTimeout(() => (copiedToast = null), 2000);
   }
+
+  // A caller (e.g. Sparrow's subscription editor) can deep-link a sample event
+  // payload as ?sample=<base64-utf8 JSON>; seed the payload field with it.
+  onMount(() => {
+    const raw = new URLSearchParams(location.search).get('sample');
+    if (!raw) return;
+    try {
+      const json = decodeURIComponent(escape(atob(raw)));
+      payloadStr = JSON.stringify(JSON.parse(json), null, 2);
+    } catch {
+      /* malformed param — keep the preset payload */
+    }
+  });
 </script>
 
 <div class="rw-root">
@@ -239,7 +267,7 @@
 
       <!-- Composer -->
       <div class="rw-card" onfocusin={trackFocus}>
-        <h3>2. Compose the {selectedId === 'sendgrid' ? 'email' : selectedId === 'twilio' ? 'SMS' : selectedId === 'slack' ? 'Slack message' : 'payload'}</h3>
+        <h3>2. {STEP2_TITLE[selectedId] ?? 'Compose the payload'}</h3>
 
         {#if COMPOSERS.has(selectedId)}
           <p class="rw-sub">Chips insert the event field at the cursor of the last text field you clicked into.</p>
@@ -289,19 +317,8 @@
             <input id="em_subject" type="text" bind:value={email.subject} />
           </div>
           <div class="rw-field">
-            <div class="rw-field-header">
-              <span class="rw-label">Body</span>
-              <div class="rw-seg">
-                <button class="rw-seg-btn {email.bodyMode === 'plain' ? 'rw-seg-active' : ''}" onclick={() => (email.bodyMode = 'plain')}>Plain text</button>
-                <button class="rw-seg-btn {email.bodyMode === 'html' ? 'rw-seg-active' : ''}" onclick={() => (email.bodyMode = 'html')}>Rich HTML</button>
-              </div>
-            </div>
-            {#if email.bodyMode === 'plain'}
-              <textarea rows="5" bind:value={email.bodyText} class="rw-body-textarea"></textarea>
-            {:else}
-              <p class="rw-sub">Drag-and-drop editor (Unlayer). Use the merge-tag menu inside text blocks to insert event fields.</p>
-              <EmailHtmlEditor {mergeTags} onHtml={(h) => (email.bodyHtml = h)} />
-            {/if}
+            <label for="em_body">Body</label>
+            <textarea id="em_body" rows="5" bind:value={email.bodyText} class="rw-body-textarea"></textarea>
           </div>
 
         {:else if selectedId === 'twilio'}
@@ -327,13 +344,96 @@
             Include event context fields (ID, timestamp, attempt)
           </label>
 
+        {:else if selectedId === 'discord'}
+          <div class="rw-field">
+            <label for="dc_title">Title</label>
+            <input id="dc_title" type="text" bind:value={discord.title} />
+          </div>
+          <div class="rw-field">
+            <label for="dc_desc">Description (Markdown: **bold**, `code`)</label>
+            <textarea id="dc_desc" rows="3" bind:value={discord.description} class="rw-body-textarea"></textarea>
+          </div>
+          <label class="rw-check">
+            <input type="checkbox" bind:checked={discord.includePayload} />
+            Append the full event payload as a JSON code block
+          </label>
+
+        {:else if selectedId === 'ntfy'}
+          <div class="rw-field">
+            <label for="nt_title">Title</label>
+            <input id="nt_title" type="text" bind:value={ntfy.title} />
+          </div>
+          <div class="rw-field">
+            <label for="nt_msg">Message</label>
+            <textarea id="nt_msg" rows="3" bind:value={ntfy.message} class="rw-body-textarea"></textarea>
+          </div>
+          <div class="rw-form-grid" style="margin-top: 0.5rem;">
+            <div class="rw-field">
+              <label for="nt_tags">Tags (comma-separated; ntfy renders emoji)</label>
+              <input id="nt_tags" type="text" bind:value={ntfy.tags} placeholder="warning, computer" />
+            </div>
+            <div class="rw-field">
+              <label for="nt_prio">Priority</label>
+              <select id="nt_prio" bind:value={ntfy.priority}>
+                <option value={5}>5 — max / urgent</option>
+                <option value={4}>4 — high</option>
+                <option value={3}>3 — default</option>
+                <option value={2}>2 — low</option>
+                <option value={1}>1 — min</option>
+              </select>
+            </div>
+          </div>
+          <label class="rw-check">
+            <input type="checkbox" bind:checked={ntfy.includePayload} />
+            Append the full event payload to the message
+          </label>
+
+        {:else if selectedId === 'pagerduty'}
+          <div class="rw-field">
+            <label for="pd_summary">Summary</label>
+            <input id="pd_summary" type="text" bind:value={pd.summary} />
+          </div>
+          <div class="rw-form-grid" style="margin-top: 0.5rem;">
+            <div class="rw-field">
+              <label for="pd_sev">Severity</label>
+              <select id="pd_sev" bind:value={pd.severity}>
+                <option value="critical">critical</option>
+                <option value="error">error</option>
+                <option value="warning">warning</option>
+                <option value="info">info</option>
+              </select>
+            </div>
+            <div class="rw-field">
+              <label for="pd_source">Source</label>
+              <input id="pd_source" type="text" bind:value={pd.source} />
+            </div>
+          </div>
+          <p class="rw-sub">The full event payload is attached as <code>custom_details</code>; the dedup key is the event ID.</p>
+
         {:else}
-          <p class="rw-sub">This recipe ships a ready transform template — edit it if you need to.</p>
-          <textarea bind:value={rawTemplates[selectedId]} rows="10" class="rw-code-textarea"></textarea>
-          <button class="rw-btn-text" onclick={() => (rawTemplates[selectedId] = activeRecipe.transform_template)}>
-            Reset to shipped template
-          </button>
+          <p class="rw-sub">
+            A straight data sink — nothing to compose. Each event is inserted as one row via ClickHouse's
+            JSONEachRow HTTP endpoint, mapping envelope fields to fixed columns:
+          </p>
+          <table class="rw-ch-table">
+            <tbody>
+              <tr><th>event_id</th><td>envelope event ID</td></tr>
+              <tr><th>event_name</th><td>envelope event name</td></tr>
+              <tr><th>timestamp</th><td>delivery timestamp</td></tr>
+              <tr><th>payload</th><td>full event payload as a JSON string</td></tr>
+            </tbody>
+          </table>
+          <p class="rw-sub">Set the destination with the <code>table</code> parameter below; the stored template is shown next.</p>
         {/if}
+      </div>
+
+      <!-- Go transform template (what Sparrow stores) -->
+      <div class="rw-card">
+        <div class="rw-card-header">
+          <h3>Go transform template (what Sparrow stores)</h3>
+          <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={() => copyText(template, 'Copied template')}>Copy</button>
+        </div>
+        <pre class="rw-raw-code"><code>{template}</code></pre>
       </div>
 
       <!-- Parameters -->
@@ -353,6 +453,20 @@
             </div>
           {/each}
         </div>
+      </div>
+
+      <!-- Setup guide -->
+      <div class="rw-card">
+        <h3>4. How to set up {meta.title}</h3>
+        <p class="rw-sub">Where the credentials above come from, per the official docs.</p>
+        <ol class="rw-setup-steps">
+          {#each meta.setup.steps as s}
+            <li>{s}</li>
+          {/each}
+        </ol>
+        <a class="rw-btn-text" href={meta.setup.docsUrl} target="_blank" rel="noopener noreferrer">
+          {meta.setup.docsLabel} →
+        </a>
       </div>
     </div>
 
@@ -385,11 +499,7 @@
                   <div><strong>Bcc:</strong> {emailAddresses.bcc.join(', ')}</div>
                 {/if}
               </div>
-              {#if emailBodyRendered.type === 'text/html'}
-                <iframe class="rw-email-iframe" title="Email preview" sandbox="" srcdoc={emailBodyRendered.value}></iframe>
-              {:else}
-                <div class="rw-email-body">{emailBodyRendered.value}</div>
-              {/if}
+              <div class="rw-email-body">{emailBodyRendered}</div>
             </div>
 
           {:else if selectedId === 'twilio'}
@@ -478,13 +588,8 @@
         </div>
 
         <details class="rw-raw-toggle">
-          <summary>Generated transform template & raw request body</summary>
+          <summary>Rendered request body</summary>
           <div class="rw-raw-section">
-            <div class="rw-raw-head">
-              <span>Go transform template (what Sparrow stores)</span>
-              <button class="rw-btn-text" onclick={() => copyText(template, 'Copied template')}>Copy</button>
-            </div>
-            <pre class="rw-raw-code"><code>{template}</code></pre>
             <div class="rw-raw-head">
               <span>Rendered request body sent to {activeRecipe.webhook.url.split('/')[2] || 'destination'}</span>
               <button class="rw-btn-text" onclick={() => copyText(renderResult.result, 'Copied output')}>Copy</button>
@@ -555,14 +660,12 @@
   .rw-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem; }
   .rw-chip { font-family: monospace; font-size: 11.5px; padding: 0.2rem 0.55rem; background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; border-radius: 999px; cursor: pointer; }
   .rw-chip:hover { background: #e0e7ff; }
-
-  .rw-seg { display: inline-flex; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; }
-  .rw-seg-btn { font-size: 12px; padding: 0.3rem 0.7rem; background: #fff; border: none; cursor: pointer; color: #4b5563; }
-  .rw-seg-active { background: #b06a10; color: #fff; font-weight: 600; }
-
   .rw-code-textarea, .rw-body-textarea { font-family: var(--sp-font-mono, monospace); font-size: 12.5px; padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; resize: vertical; line-height: 1.5; }
   .rw-body-textarea { font-family: inherit; font-size: 13.5px; }
   .rw-btn-text { background: none; border: none; color: #b06a10; font-size: 12px; font-weight: 600; cursor: pointer; padding: 0.25rem 0; align-self: flex-start; }
+  a.rw-btn-text { text-decoration: none; }
+  .rw-setup-steps { margin: 0 0 0.5rem; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.35rem; font-size: 12.5px; color: #374151; line-height: 1.45; }
+  .rw-setup-steps li { padding-left: 0.15rem; }
   .rw-btn { padding: 0.4rem 0.9rem; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
   .rw-btn-secondary { background: #f3f4f6; border-color: #e5e7eb; color: #1f2937; }
   .rw-btn-sm { padding: 0.3rem 0.7rem; font-size: 12px; }
@@ -574,7 +677,6 @@
   .rw-email-card { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
   .rw-email-header { padding: 0.75rem 1rem; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 13px; display: flex; flex-direction: column; gap: 0.25rem; }
   .rw-email-body { padding: 1rem; font-size: 13.5px; white-space: pre-wrap; line-height: 1.6; }
-  .rw-email-iframe { width: 100%; height: 420px; border: none; background: #fff; }
 
   /* SMS preview */
   .rw-twilio-card { background: #f3f4f6; border-radius: 12px; padding: 1rem; max-width: 340px; }

@@ -61,9 +61,7 @@ export interface EmailCompose {
   cc: string; // comma-separated, optional (addresses mode only)
   bcc: string; // comma-separated, optional (addresses mode only)
   subject: string;
-  bodyMode: 'plain' | 'html';
   bodyText: string;
-  bodyHtml: string;
 }
 
 /** `"a@b.c, {{.payload.x}}"` → SendGrid address array `[{"email": ...}, …]`, or null when empty. */
@@ -85,12 +83,12 @@ export function generateSendgridTemplate(c: EmailCompose): string {
     const bcc = emailArray(c.bcc);
     personalizations = `[{"to": ${emailArray(c.to) ?? '[]'}${cc ? `, "cc": ${cc}` : ''}${bcc ? `, "bcc": ${bcc}` : ''}}]`;
   }
-  const body = c.bodyMode === 'html' ? c.bodyHtml : c.bodyText;
+  const body = c.bodyText;
   return `{
   "personalizations": ${personalizations},
   "from": {"email": "{{param "from_email"}}", "name": "{{param "from_name"}}"},
   "subject": ${toJsonExpr(c.subject)},
-  "content": [{"type": "text/${c.bodyMode === 'html' ? 'html' : 'plain'}", "value": ${toJsonExpr(body)}}]
+  "content": [{"type": "text/plain", "value": ${toJsonExpr(body)}}]
 }`;
 }
 
@@ -137,5 +135,81 @@ export function generateSlackTemplate(c: SlackCompose): string {
   "blocks": [
 ${blocks.join(',\n')}
   ]
+}`;
+}
+
+// ---------- Payload dump helper ----------
+
+/** Appends the full event payload to `text` as a trailing printf arg. */
+function withPayload(text: string, fenced: boolean): string {
+  const { fmt, args } = splitVars(text);
+  const dump = fenced ? '```json\n%s\n```' : '%s';
+  const combinedFmt = text ? `${fmt}\n\n${dump}` : dump;
+  return `{{printf ${JSON.stringify(combinedFmt)} ${[...args, '(json .payload | ellipsis 4000)'].join(' ')} | json}}`;
+}
+
+// ---------- Discord ----------
+
+export interface DiscordCompose {
+  title: string;
+  description: string;
+  includePayload: boolean; // append the raw event payload as a json code block
+}
+
+export function generateDiscordTemplate(c: DiscordCompose): string {
+  const description = c.includePayload ? withPayload(c.description, true) : toJsonExpr(c.description);
+  return `{
+  "embeds": [
+    {
+      "title": ${toJsonExpr(c.title)},
+      "description": ${description},
+      "timestamp": {{.timestamp | json}}
+    }
+  ]
+}`;
+}
+
+// ---------- ntfy ----------
+
+export interface NtfyCompose {
+  title: string;
+  message: string;
+  tags: string; // comma-separated; ntfy renders known names as emoji
+  priority: number; // 1 (min) .. 5 (max), 3 = default
+  includePayload: boolean;
+}
+
+export function generateNtfyTemplate(c: NtfyCompose): string {
+  const message = c.includePayload ? withPayload(c.message, false) : toJsonExpr(c.message);
+  const tags = c.tags.split(',').map((t) => t.trim()).filter(Boolean);
+  return `{
+  "topic": "{{param "topic"}}",
+  "title": ${toJsonExpr(c.title)},
+  "message": ${message},
+  "priority": ${c.priority},
+  "tags": ${JSON.stringify(tags)}
+}`;
+}
+
+// ---------- PagerDuty ----------
+
+export interface PagerdutyCompose {
+  summary: string;
+  severity: string; // critical | error | warning | info
+  source: string;
+}
+
+export function generatePagerdutyTemplate(c: PagerdutyCompose): string {
+  return `{
+  "routing_key": "{{param "routing_key"}}",
+  "event_action": "trigger",
+  "dedup_key": {{.event_id | json}},
+  "payload": {
+    "summary": ${toJsonExpr(c.summary)},
+    "source": ${toJsonExpr(c.source)},
+    "severity": ${toJsonExpr(c.severity)},
+    "timestamp": {{.timestamp | json}},
+    "custom_details": {{.payload | json}}
+  }
 }`;
 }
