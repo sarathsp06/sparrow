@@ -185,6 +185,23 @@
     lastField.focus();
   }
 
+  // ---- Modal state ----
+  let payloadModalOpen = $state(false);
+  let templateModalOpen = $state(false);
+  // Editable copy of the template shown in the template modal.
+  // Initialized from the auto-generated template when the modal opens;
+  // edits here re-render the preview in real time inside the modal.
+  let templateDraft = $state('');
+  let templateDraftRender = $derived.by(() => {
+    if (!parsedPayload || !templateDraft) return { result: '', error: '' };
+    return renderGoTemplate(templateDraft, eventContext, params);
+  });
+
+  function openTemplateModal() {
+    templateDraft = template;
+    templateModalOpen = true;
+  }
+
   let copiedToast = $state<string | null>(null);
   function copyText(txt: string, msg: string) {
     navigator.clipboard.writeText(txt);
@@ -259,9 +276,12 @@
         <div class="rw-field" style="margin-top: 0.75rem;">
           <div class="rw-field-header">
             <label for="rw_payload">Payload JSON</label>
-            <span class="rw-status-text">{parsedPayload ? '✓ Valid JSON' : '⚠️ Invalid JSON'}</span>
+            <div class="rw-field-actions">
+              <span class="rw-status-text">{parsedPayload ? '✓ Valid JSON' : '⚠️ Invalid JSON'}</span>
+              <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={() => (payloadModalOpen = true)}>Edit ↗</button>
+            </div>
           </div>
-          <textarea id="rw_payload" bind:value={payloadStr} rows="6" class="rw-code-textarea"></textarea>
+          <textarea id="rw_payload" bind:value={payloadStr} rows="10" class="rw-code-textarea"></textarea>
         </div>
       </div>
 
@@ -318,7 +338,7 @@
           </div>
           <div class="rw-field">
             <label for="em_body">Body</label>
-            <textarea id="em_body" rows="5" bind:value={email.bodyText} class="rw-body-textarea"></textarea>
+            <textarea id="em_body" rows="6" bind:value={email.bodyText} class="rw-body-textarea"></textarea>
           </div>
 
         {:else if selectedId === 'twilio'}
@@ -431,7 +451,10 @@
       <div class="rw-card">
         <div class="rw-card-header">
           <h3>Go transform template (what Sparrow stores)</h3>
-          <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={() => copyText(template, 'Copied template')}>Copy</button>
+          <div class="rw-field-actions">
+            <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={openTemplateModal}>Edit ↗</button>
+            <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={() => copyText(template, 'Copied template')}>Copy</button>
+          </div>
         </div>
         <pre class="rw-raw-code"><code>{template}</code></pre>
       </div>
@@ -617,6 +640,125 @@
   </div>
 </div>
 
+<!-- ============ Payload Edit Modal ============ -->
+{#if payloadModalOpen}
+  <div
+    class="rw-modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Edit Payload JSON"
+    tabindex="-1"
+    onkeydown={(e) => { if (e.key === 'Escape') payloadModalOpen = false; }}
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="rw-modal-scrim" onclick={() => (payloadModalOpen = false)}></div>
+    <div class="rw-modal-panel">
+      <div class="rw-modal-bar">
+        <span class="rw-badge">PAYLOAD EDITOR</span>
+        <div class="rw-field-actions">
+          <span class="rw-status-text">{parsedPayload ? '✓ Valid JSON' : '⚠️ Invalid JSON'}</span>
+          <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={() => (payloadModalOpen = false)}>Close <span class="rw-kbd">Esc</span></button>
+        </div>
+      </div>
+      <div class="rw-modal-body">
+        <div class="rw-modal-editor">
+          <label class="rw-modal-pane-label" for="rw_payload_modal">Payload JSON</label>
+          <textarea id="rw_payload_modal" bind:value={payloadStr} class="rw-code-textarea rw-modal-textarea"></textarea>
+        </div>
+        <div class="rw-modal-preview">
+          <span class="rw-modal-pane-label">Live preview — what {meta.title} receives</span>
+          <div class="rw-modal-preview-scroll">
+            {#if renderResult.error}
+              <div class="rw-error-box">{renderResult.error}</div>
+            {/if}
+            <div class="rw-visual-box">
+              {#if selectedId === 'sendgrid'}
+                <div class="rw-email-card">
+                  <div class="rw-email-header">
+                    <div><strong>Subject:</strong> {renderResult.jsonObj?.subject || '(No subject)'}</div>
+                    <div><strong>From:</strong> {params.from_name} &lt;{params.from_email}&gt;</div>
+                    <div><strong>To:</strong> {emailAddresses.to.length ? emailAddresses.to.join(', ') : '(no recipients)'}</div>
+                  </div>
+                  <div class="rw-email-body">{emailBodyRendered}</div>
+                </div>
+              {:else if selectedId === 'twilio'}
+                <div class="rw-twilio-card"><div class="rw-sms-header">To: +{params.to_number}</div><div class="rw-sms-bubble">{smsRendered}</div></div>
+              {:else if selectedId === 'slack'}
+                <div class="rw-slack-card">
+                  <div class="rw-slack-bot"><span class="rw-slack-avatar">S</span><span class="rw-slack-name">Sparrow Bot</span><span class="rw-slack-badge">APP</span></div>
+                  {#if renderResult.jsonObj?.blocks}
+                    <div class="rw-slack-blocks">
+                      {#each renderResult.jsonObj.blocks as block}
+                        {#if block.type === 'header'}<div class="rw-slack-header">{block.text?.text}</div>
+                        {:else if block.type === 'section' && block.fields}<div class="rw-slack-fields">{#each block.fields as f}<div class="rw-slack-field">{@html mrkdwn(f.text ?? '')}</div>{/each}</div>
+                        {:else if block.type === 'section' && block.text}<div class="rw-slack-text">{@html mrkdwn(block.text?.text ?? '')}</div>{/if}
+                      {/each}
+                    </div>
+                  {:else}<pre><code>{renderResult.result}</code></pre>{/if}
+                </div>
+              {:else if selectedId === 'discord'}
+                <div class="rw-discord-card"><div class="rw-discord-embed"><div class="rw-discord-title">{renderResult.jsonObj?.embeds?.[0]?.title || eventName}</div><pre class="rw-discord-desc"><code>{renderResult.jsonObj?.embeds?.[0]?.description}</code></pre></div></div>
+              {:else if selectedId === 'ntfy'}
+                <div class="rw-ntfy-card"><div class="rw-ntfy-title">{renderResult.jsonObj?.title ?? eventName}</div><pre class="rw-ntfy-body">{renderResult.jsonObj?.message ?? renderResult.result}</pre></div>
+              {:else if selectedId === 'pagerduty'}
+                <div class="rw-pd-card"><div class="rw-pd-header"><span class="rw-pd-badge">PAGERDUTY INCIDENT</span><span class="rw-pd-sev">{String(renderResult.jsonObj?.payload?.severity || '').toUpperCase()}</span></div><div class="rw-pd-summary">{renderResult.jsonObj?.payload?.summary}</div><pre class="rw-pd-details"><code>{JSON.stringify(renderResult.jsonObj?.payload?.custom_details, null, 2)}</code></pre></div>
+              {:else}
+                <pre class="rw-raw-code"><code>{renderResult.result}</code></pre>
+              {/if}
+            </div>
+            <details class="rw-raw-toggle" style="margin-top:0.75rem">
+              <summary>Rendered request body (JSON)</summary>
+              <pre class="rw-raw-code" style="margin-top:0.5rem"><code>{renderResult.result}</code></pre>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- ============ Template Edit Modal ============ -->
+{#if templateModalOpen}
+  <div
+    class="rw-modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Edit Transform Template"
+    tabindex="-1"
+    onkeydown={(e) => { if (e.key === 'Escape') templateModalOpen = false; }}
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="rw-modal-scrim" onclick={() => (templateModalOpen = false)}></div>
+    <div class="rw-modal-panel">
+      <div class="rw-modal-bar">
+        <span class="rw-badge">TEMPLATE EDITOR</span>
+        <div class="rw-field-actions">
+          <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={() => { templateDraft = template; }}>Reset to generated</button>
+          <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={() => copyText(templateDraft, 'Copied template')}>Copy</button>
+          <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={() => (templateModalOpen = false)}>Close <span class="rw-kbd">Esc</span></button>
+        </div>
+      </div>
+      <div class="rw-modal-body">
+        <div class="rw-modal-editor">
+          <label class="rw-modal-pane-label" for="rw_template_modal">Go transform template</label>
+          <textarea id="rw_template_modal" bind:value={templateDraft} class="rw-code-textarea rw-modal-textarea"></textarea>
+        </div>
+        <div class="rw-modal-preview">
+          <span class="rw-modal-pane-label">Live preview — rendered request body</span>
+          <div class="rw-modal-preview-scroll">
+            {#if templateDraftRender.error}
+              <div class="rw-error-box">{templateDraftRender.error}</div>
+            {/if}
+            <pre class="rw-raw-code"><code>{templateDraftRender.result}</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .rw-root { display: flex; flex-direction: column; gap: 1rem; font-family: var(--sp-font-body, system-ui, sans-serif); color: var(--sp-on-surface, #1f2937); margin: 1.5rem 0 3rem; }
   .rw-header { padding: 1.25rem 1.5rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
@@ -660,7 +802,7 @@
   .rw-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem; }
   .rw-chip { font-family: monospace; font-size: 11.5px; padding: 0.2rem 0.55rem; background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; border-radius: 999px; cursor: pointer; }
   .rw-chip:hover { background: #e0e7ff; }
-  .rw-code-textarea, .rw-body-textarea { font-family: var(--sp-font-mono, monospace); font-size: 12.5px; padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; resize: vertical; line-height: 1.5; }
+  .rw-code-textarea, .rw-body-textarea { font-family: var(--sp-font-mono, monospace); font-size: 12.5px; padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; resize: vertical; line-height: 1.5; width: 100%; box-sizing: border-box; }
   .rw-body-textarea { font-family: inherit; font-size: 13.5px; }
   .rw-btn-text { background: none; border: none; color: #b06a10; font-size: 12px; font-weight: 600; cursor: pointer; padding: 0.25rem 0; align-self: flex-start; }
   a.rw-btn-text { text-decoration: none; }
@@ -732,4 +874,51 @@
   .rw-raw-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; color: #374151; }
   .rw-raw-code { background: #0f172a; color: #f8fafc; padding: 0.75rem; border-radius: 6px; font-size: 12px; overflow-x: auto; margin: 0; max-height: 320px; }
   .rw-cli-block { background: #0f172a; color: #f8fafc; padding: 0.75rem; border-radius: 6px; font-family: monospace; font-size: 12px; margin: 0; overflow-x: auto; }
+
+  /* Field actions (inline row of buttons beside a label) */
+  .rw-field-actions { display: flex; align-items: center; gap: 0.5rem; }
+
+  /* Keyboard shortcut badge */
+  .rw-kbd { font-family: var(--sp-font-mono, monospace); font-size: 10px; padding: 1px 4px; border: 1px solid #d1d5db; border-radius: 3px; background: #f3f4f6; color: #6b7280; margin-left: 2px; }
+
+  /* ─── Wide edit modal ─────────────────────────────────────── */
+  .rw-modal-backdrop { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; }
+  .rw-modal-scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.45); backdrop-filter: blur(2px); }
+  .rw-modal-panel {
+    position: relative; z-index: 1;
+    width: 90vw; max-width: 80rem;
+    height: 85vh;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  }
+  .rw-modal-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    padding: 0.65rem 1rem; border-bottom: 1px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;
+  }
+  .rw-modal-body {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    flex: 1; min-height: 0; overflow: hidden;
+  }
+  @media (max-width: 700px) {
+    .rw-modal-body { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  }
+  .rw-modal-editor {
+    display: flex; flex-direction: column; padding: 0.75rem; border-right: 1px solid #e5e7eb;
+    min-height: 0; overflow: hidden;
+  }
+  @media (max-width: 700px) {
+    .rw-modal-editor { border-right: none; border-bottom: 1px solid #e5e7eb; }
+  }
+  .rw-modal-preview {
+    display: flex; flex-direction: column; padding: 0.75rem;
+    min-height: 0; overflow: hidden;
+  }
+  .rw-modal-pane-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6b7280; margin-bottom: 0.5rem; display: block; flex-shrink: 0; }
+  .rw-modal-textarea {
+    flex: 1; resize: none; width: 100%; min-height: 0;
+    font-family: var(--sp-font-mono, monospace); font-size: 12.5px;
+    padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; line-height: 1.5;
+  }
+  .rw-modal-preview-scroll { flex: 1; overflow-y: auto; min-height: 0; }
 </style>
