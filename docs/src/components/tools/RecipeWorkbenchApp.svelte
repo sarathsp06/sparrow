@@ -188,6 +188,7 @@
   // ---- Modal state ----
   let payloadModalOpen = $state(false);
   let templateModalOpen = $state(false);
+  let composeModalOpen = $state(false);
   // Editable copy of the template shown in the template modal.
   // Initialized from the auto-generated template when the modal opens;
   // edits here re-render the preview in real time inside the modal.
@@ -287,164 +288,13 @@
 
       <!-- Composer -->
       <div class="rw-card" onfocusin={trackFocus}>
-        <h3>2. {STEP2_TITLE[selectedId] ?? 'Compose the payload'}</h3>
-
-        {#if COMPOSERS.has(selectedId)}
-          <p class="rw-sub">Chips insert the event field at the cursor of the last text field you clicked into.</p>
-          <div class="rw-chips">
-            {#each chips as c}
-              <button class="rw-chip" onclick={() => insertChip(c)} title={'{{' + c + '}}'}>{c}</button>
-            {/each}
-          </div>
-        {/if}
-
-        {#if selectedId === 'sendgrid'}
-          <div class="rw-field">
-            <label for="em_to">To</label>
-            <div class="rw-to-row">
-              <select bind:value={email.toMode}>
-                <option value="addresses">Addresses</option>
-                <option value="list">Everyone in a payload list</option>
-              </select>
-              {#if email.toMode === 'addresses'}
-                <input id="em_to" type="text" bind:value={email.to} placeholder={'jane@acme.com, {{.payload.customer_email}}'} />
-              {:else}
-                <input id="em_to" type="text" bind:value={email.listPath} placeholder=".payload.alert_recipients" title="Go accessor of a payload array" />
-                <input class="rw-to-field" type="text" bind:value={email.listField} placeholder="email" title="Address field on each list item; leave empty when the list holds plain strings" />
-              {/if}
-            </div>
-            {#if email.toMode === 'list'}
-              <p class="rw-sub">
-                One email per address in the list — recipients never see each other. Falls back to the
-                <code>default_recipient</code> parameter when the list is missing. Second box: the field on each item
-                holding the address (empty for a list of plain strings).
-              </p>
-            {:else}
-              <div class="rw-form-grid" style="margin-top: 0.5rem;">
-                <div class="rw-field">
-                  <label for="em_cc">Cc (optional)</label>
-                  <input id="em_cc" type="text" bind:value={email.cc} placeholder="manager@acme.com" />
-                </div>
-                <div class="rw-field">
-                  <label for="em_bcc">Bcc (optional)</label>
-                  <input id="em_bcc" type="text" bind:value={email.bcc} placeholder="audit@acme.com" />
-                </div>
-              </div>
-            {/if}
-          </div>
-          <div class="rw-field">
-            <label for="em_subject">Subject</label>
-            <input id="em_subject" type="text" bind:value={email.subject} />
-          </div>
-          <div class="rw-field">
-            <label for="em_body">Body</label>
-            <textarea id="em_body" rows="6" bind:value={email.bodyText} class="rw-body-textarea"></textarea>
-          </div>
-
-        {:else if selectedId === 'twilio'}
-          <div class="rw-field">
-            <div class="rw-field-header">
-              <label for="sms_msg">Message</label>
-              <span class="rw-status-text" class:rw-multi-segment={smsInfo.segments > 1}>{smsInfo.chars} chars · {smsInfo.segments} segment{smsInfo.segments === 1 ? '' : 's'} ({smsInfo.encoding}){smsInfo.segments > 1 ? ' — billed per segment' : ''}</span>
-            </div>
-            <textarea id="sms_msg" rows="4" bind:value={sms} class="rw-body-textarea"></textarea>
-          </div>
-
-        {:else if selectedId === 'slack'}
-          <div class="rw-field">
-            <label for="sl_header">Header</label>
-            <input id="sl_header" type="text" bind:value={slack.header} />
-          </div>
-          <div class="rw-field">
-            <label for="sl_body">Message (mrkdwn: *bold*, `code`)</label>
-            <textarea id="sl_body" rows="4" bind:value={slack.body} class="rw-body-textarea"></textarea>
-          </div>
-          <label class="rw-check">
-            <input type="checkbox" bind:checked={slack.includeContext} />
-            Include event context fields (ID, timestamp, attempt)
-          </label>
-
-        {:else if selectedId === 'discord'}
-          <div class="rw-field">
-            <label for="dc_title">Title</label>
-            <input id="dc_title" type="text" bind:value={discord.title} />
-          </div>
-          <div class="rw-field">
-            <label for="dc_desc">Description (Markdown: **bold**, `code`)</label>
-            <textarea id="dc_desc" rows="3" bind:value={discord.description} class="rw-body-textarea"></textarea>
-          </div>
-          <label class="rw-check">
-            <input type="checkbox" bind:checked={discord.includePayload} />
-            Append the full event payload as a JSON code block
-          </label>
-
-        {:else if selectedId === 'ntfy'}
-          <div class="rw-field">
-            <label for="nt_title">Title</label>
-            <input id="nt_title" type="text" bind:value={ntfy.title} />
-          </div>
-          <div class="rw-field">
-            <label for="nt_msg">Message</label>
-            <textarea id="nt_msg" rows="3" bind:value={ntfy.message} class="rw-body-textarea"></textarea>
-          </div>
-          <div class="rw-form-grid" style="margin-top: 0.5rem;">
-            <div class="rw-field">
-              <label for="nt_tags">Tags (comma-separated; ntfy renders emoji)</label>
-              <input id="nt_tags" type="text" bind:value={ntfy.tags} placeholder="warning, computer" />
-            </div>
-            <div class="rw-field">
-              <label for="nt_prio">Priority</label>
-              <select id="nt_prio" bind:value={ntfy.priority}>
-                <option value={5}>5 — max / urgent</option>
-                <option value={4}>4 — high</option>
-                <option value={3}>3 — default</option>
-                <option value={2}>2 — low</option>
-                <option value={1}>1 — min</option>
-              </select>
-            </div>
-          </div>
-          <label class="rw-check">
-            <input type="checkbox" bind:checked={ntfy.includePayload} />
-            Append the full event payload to the message
-          </label>
-
-        {:else if selectedId === 'pagerduty'}
-          <div class="rw-field">
-            <label for="pd_summary">Summary</label>
-            <input id="pd_summary" type="text" bind:value={pd.summary} />
-          </div>
-          <div class="rw-form-grid" style="margin-top: 0.5rem;">
-            <div class="rw-field">
-              <label for="pd_sev">Severity</label>
-              <select id="pd_sev" bind:value={pd.severity}>
-                <option value="critical">critical</option>
-                <option value="error">error</option>
-                <option value="warning">warning</option>
-                <option value="info">info</option>
-              </select>
-            </div>
-            <div class="rw-field">
-              <label for="pd_source">Source</label>
-              <input id="pd_source" type="text" bind:value={pd.source} />
-            </div>
-          </div>
-          <p class="rw-sub">The full event payload is attached as <code>custom_details</code>; the dedup key is the event ID.</p>
-
-        {:else}
-          <p class="rw-sub">
-            A straight data sink — nothing to compose. Each event is inserted as one row via ClickHouse's
-            JSONEachRow HTTP endpoint, mapping envelope fields to fixed columns:
-          </p>
-          <table class="rw-ch-table">
-            <tbody>
-              <tr><th>event_id</th><td>envelope event ID</td></tr>
-              <tr><th>event_name</th><td>envelope event name</td></tr>
-              <tr><th>timestamp</th><td>delivery timestamp</td></tr>
-              <tr><th>payload</th><td>full event payload as a JSON string</td></tr>
-            </tbody>
-          </table>
-          <p class="rw-sub">Set the destination with the <code>table</code> parameter below; the stored template is shown next.</p>
-        {/if}
+        <div class="rw-card-header">
+          <h3>2. {STEP2_TITLE[selectedId] ?? 'Compose the payload'}</h3>
+          {#if COMPOSERS.has(selectedId)}
+            <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={() => (composeModalOpen = true)}>Edit ↗</button>
+          {/if}
+        </div>
+        {@render composerForm('')}
       </div>
 
       <!-- Go transform template (what Sparrow stores) -->
@@ -759,18 +609,259 @@
   </div>
 {/if}
 
+
+<!-- ============ Compose Message Modal ============ -->
+{#snippet composerForm(idp)}
+        {#if COMPOSERS.has(selectedId)}
+          <p class="rw-sub">Chips insert the event field at the cursor of the last text field you clicked into.</p>
+          <div class="rw-chips">
+            {#each chips as c}
+              <button class="rw-chip" onclick={() => insertChip(c)} title={'{{' + c + '}}'}>{c}</button>
+            {/each}
+          </div>
+        {/if}
+
+        {#if selectedId === 'sendgrid'}
+          <div class="rw-field">
+            <label for="{idp}em_to">To</label>
+            <div class="rw-to-row">
+              <select bind:value={email.toMode}>
+                <option value="addresses">Addresses</option>
+                <option value="list">Everyone in a payload list</option>
+              </select>
+              {#if email.toMode === 'addresses'}
+                <input id="{idp}em_to" type="text" bind:value={email.to} placeholder={'jane@acme.com, {{.payload.customer_email}}'} />
+              {:else}
+                <input id="{idp}em_to" type="text" bind:value={email.listPath} placeholder=".payload.alert_recipients" title="Go accessor of a payload array" />
+                <input class="rw-to-field" type="text" bind:value={email.listField} placeholder="email" title="Address field on each list item; leave empty when the list holds plain strings" />
+              {/if}
+            </div>
+            {#if email.toMode === 'list'}
+              <p class="rw-sub">
+                One email per address in the list — recipients never see each other. Falls back to the
+                <code>default_recipient</code> parameter when the list is missing. Second box: the field on each item
+                holding the address (empty for a list of plain strings).
+              </p>
+            {:else}
+              <div class="rw-form-grid" style="margin-top: 0.5rem;">
+                <div class="rw-field">
+                  <label for="{idp}em_cc">Cc (optional)</label>
+                  <input id="{idp}em_cc" type="text" bind:value={email.cc} placeholder="manager@acme.com" />
+                </div>
+                <div class="rw-field">
+                  <label for="{idp}em_bcc">Bcc (optional)</label>
+                  <input id="{idp}em_bcc" type="text" bind:value={email.bcc} placeholder="audit@acme.com" />
+                </div>
+              </div>
+            {/if}
+          </div>
+          <div class="rw-field">
+            <label for="{idp}em_subject">Subject</label>
+            <input id="{idp}em_subject" type="text" bind:value={email.subject} />
+          </div>
+          <div class="rw-field">
+            <label for="{idp}em_body">Body</label>
+            <textarea id="{idp}em_body" rows="6" bind:value={email.bodyText} class="rw-body-textarea"></textarea>
+          </div>
+
+        {:else if selectedId === 'twilio'}
+          <div class="rw-field">
+            <div class="rw-field-header">
+              <label for="{idp}sms_msg">Message</label>
+              <span class="rw-status-text" class:rw-multi-segment={smsInfo.segments > 1}>{smsInfo.chars} chars · {smsInfo.segments} segment{smsInfo.segments === 1 ? '' : 's'} ({smsInfo.encoding}){smsInfo.segments > 1 ? ' — billed per segment' : ''}</span>
+            </div>
+            <textarea id="{idp}sms_msg" rows="4" bind:value={sms} class="rw-body-textarea"></textarea>
+          </div>
+
+        {:else if selectedId === 'slack'}
+          <div class="rw-field">
+            <label for="{idp}sl_header">Header</label>
+            <input id="{idp}sl_header" type="text" bind:value={slack.header} />
+          </div>
+          <div class="rw-field">
+            <label for="{idp}sl_body">Message (mrkdwn: *bold*, `code`)</label>
+            <textarea id="{idp}sl_body" rows="4" bind:value={slack.body} class="rw-body-textarea"></textarea>
+          </div>
+          <label class="rw-check">
+            <input type="checkbox" bind:checked={slack.includeContext} />
+            Include event context fields (ID, timestamp, attempt)
+          </label>
+
+        {:else if selectedId === 'discord'}
+          <div class="rw-field">
+            <label for="{idp}dc_title">Title</label>
+            <input id="{idp}dc_title" type="text" bind:value={discord.title} />
+          </div>
+          <div class="rw-field">
+            <label for="{idp}dc_desc">Description (Markdown: **bold**, `code`)</label>
+            <textarea id="{idp}dc_desc" rows="3" bind:value={discord.description} class="rw-body-textarea"></textarea>
+          </div>
+          <label class="rw-check">
+            <input type="checkbox" bind:checked={discord.includePayload} />
+            Append the full event payload as a JSON code block
+          </label>
+
+        {:else if selectedId === 'ntfy'}
+          <div class="rw-field">
+            <label for="{idp}nt_title">Title</label>
+            <input id="{idp}nt_title" type="text" bind:value={ntfy.title} />
+          </div>
+          <div class="rw-field">
+            <label for="{idp}nt_msg">Message</label>
+            <textarea id="{idp}nt_msg" rows="3" bind:value={ntfy.message} class="rw-body-textarea"></textarea>
+          </div>
+          <div class="rw-form-grid" style="margin-top: 0.5rem;">
+            <div class="rw-field">
+              <label for="{idp}nt_tags">Tags (comma-separated; ntfy renders emoji)</label>
+              <input id="{idp}nt_tags" type="text" bind:value={ntfy.tags} placeholder="warning, computer" />
+            </div>
+            <div class="rw-field">
+              <label for="{idp}nt_prio">Priority</label>
+              <select id="{idp}nt_prio" bind:value={ntfy.priority}>
+                <option value={5}>5 — max / urgent</option>
+                <option value={4}>4 — high</option>
+                <option value={3}>3 — default</option>
+                <option value={2}>2 — low</option>
+                <option value={1}>1 — min</option>
+              </select>
+            </div>
+          </div>
+          <label class="rw-check">
+            <input type="checkbox" bind:checked={ntfy.includePayload} />
+            Append the full event payload to the message
+          </label>
+
+        {:else if selectedId === 'pagerduty'}
+          <div class="rw-field">
+            <label for="{idp}pd_summary">Summary</label>
+            <input id="{idp}pd_summary" type="text" bind:value={pd.summary} />
+          </div>
+          <div class="rw-form-grid" style="margin-top: 0.5rem;">
+            <div class="rw-field">
+              <label for="{idp}pd_sev">Severity</label>
+              <select id="{idp}pd_sev" bind:value={pd.severity}>
+                <option value="critical">critical</option>
+                <option value="error">error</option>
+                <option value="warning">warning</option>
+                <option value="info">info</option>
+              </select>
+            </div>
+            <div class="rw-field">
+              <label for="{idp}pd_source">Source</label>
+              <input id="{idp}pd_source" type="text" bind:value={pd.source} />
+            </div>
+          </div>
+          <p class="rw-sub">The full event payload is attached as <code>custom_details</code>; the dedup key is the event ID.</p>
+
+        {:else}
+          <p class="rw-sub">
+            A straight data sink — nothing to compose. Each event is inserted as one row via ClickHouse's
+            JSONEachRow HTTP endpoint, mapping envelope fields to fixed columns:
+          </p>
+          <table class="rw-ch-table">
+            <tbody>
+              <tr><th>event_id</th><td>envelope event ID</td></tr>
+              <tr><th>event_name</th><td>envelope event name</td></tr>
+              <tr><th>timestamp</th><td>delivery timestamp</td></tr>
+              <tr><th>payload</th><td>full event payload as a JSON string</td></tr>
+            </tbody>
+          </table>
+          <p class="rw-sub">Set the destination with the <code>table</code> parameter below; the stored template is shown next.</p>
+        {/if}
+{/snippet}
+
+{#if composeModalOpen}
+  <div
+    class="rw-modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Compose the message"
+    tabindex="-1"
+    onkeydown={(e) => { if (e.key === 'Escape') composeModalOpen = false; }}
+  >
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="rw-modal-scrim" onclick={() => (composeModalOpen = false)}></div>
+    <div class="rw-modal-panel">
+      <div class="rw-modal-bar">
+        <span class="rw-badge">MESSAGE COMPOSER</span>
+        <div class="rw-field-actions">
+          <span class="rw-status-text">2. {STEP2_TITLE[selectedId] ?? 'Compose the payload'}</span>
+          <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={() => (composeModalOpen = false)}>Close <span class="rw-kbd">Esc</span></button>
+        </div>
+      </div>
+      <div class="rw-modal-body">
+        <div class="rw-modal-editor" onfocusin={trackFocus}>
+          <span class="rw-modal-pane-label">Message</span>
+          <div class="rw-modal-editor-scroll">
+            {@render composerForm('m_')}
+          </div>
+        </div>
+        <div class="rw-modal-preview">
+          <span class="rw-modal-pane-label">Live preview — what {meta.title} receives</span>
+          <div class="rw-modal-preview-scroll">
+            {#if renderResult.error}
+              <div class="rw-error-box">{renderResult.error}</div>
+            {/if}
+            <div class="rw-visual-box">
+              {#if selectedId === 'sendgrid'}
+                <div class="rw-email-card">
+                  <div class="rw-email-header">
+                    <div><strong>Subject:</strong> {renderResult.jsonObj?.subject || '(No subject)'}</div>
+                    <div><strong>From:</strong> {params.from_name} &lt;{params.from_email}&gt;</div>
+                    <div><strong>To:</strong> {emailAddresses.to.length ? emailAddresses.to.join(', ') : '(no recipients)'}</div>
+                  </div>
+                  <div class="rw-email-body">{emailBodyRendered}</div>
+                </div>
+              {:else if selectedId === 'twilio'}
+                <div class="rw-twilio-card"><div class="rw-sms-header">To: +{params.to_number}</div><div class="rw-sms-bubble">{smsRendered}</div></div>
+              {:else if selectedId === 'slack'}
+                <div class="rw-slack-card">
+                  <div class="rw-slack-bot"><span class="rw-slack-avatar">S</span><span class="rw-slack-name">Sparrow Bot</span><span class="rw-slack-badge">APP</span></div>
+                  {#if renderResult.jsonObj?.blocks}
+                    <div class="rw-slack-blocks">
+                      {#each renderResult.jsonObj.blocks as block}
+                        {#if block.type === 'header'}<div class="rw-slack-header">{block.text?.text}</div>
+                        {:else if block.type === 'section' && block.fields}<div class="rw-slack-fields">{#each block.fields as f}<div class="rw-slack-field">{@html mrkdwn(f.text ?? '')}</div>{/each}</div>
+                        {:else if block.type === 'section' && block.text}<div class="rw-slack-text">{@html mrkdwn(block.text?.text ?? '')}</div>{/if}
+                      {/each}
+                    </div>
+                  {:else}<pre><code>{renderResult.result}</code></pre>{/if}
+                </div>
+              {:else if selectedId === 'discord'}
+                <div class="rw-discord-card"><div class="rw-discord-embed"><div class="rw-discord-title">{renderResult.jsonObj?.embeds?.[0]?.title || eventName}</div><pre class="rw-discord-desc"><code>{renderResult.jsonObj?.embeds?.[0]?.description}</code></pre></div></div>
+              {:else if selectedId === 'ntfy'}
+                <div class="rw-ntfy-card"><div class="rw-ntfy-title">{renderResult.jsonObj?.title ?? eventName}</div><pre class="rw-ntfy-body">{renderResult.jsonObj?.message ?? renderResult.result}</pre></div>
+              {:else if selectedId === 'pagerduty'}
+                <div class="rw-pd-card"><div class="rw-pd-header"><span class="rw-pd-badge">PAGERDUTY INCIDENT</span><span class="rw-pd-sev">{String(renderResult.jsonObj?.payload?.severity || '').toUpperCase()}</span></div><div class="rw-pd-summary">{renderResult.jsonObj?.payload?.summary}</div><pre class="rw-pd-details"><code>{JSON.stringify(renderResult.jsonObj?.payload?.custom_details, null, 2)}</code></pre></div>
+              {:else}
+                <pre class="rw-raw-code"><code>{renderResult.result}</code></pre>
+              {/if}
+            </div>
+            <details class="rw-raw-toggle" style="margin-top:0.75rem">
+              <summary>Rendered request body (JSON)</summary>
+              <pre class="rw-raw-code" style="margin-top:0.5rem"><code>{renderResult.result}</code></pre>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .rw-root { display: flex; flex-direction: column; gap: 1rem; font-family: var(--sp-font-body, system-ui, sans-serif); color: var(--sp-on-surface, #1f2937); margin: 1.5rem 0 3rem; }
-  .rw-header { padding: 1.25rem 1.5rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
-  .rw-header h1 { margin: 0.35rem 0 0.5rem; font-size: 1.6rem; }
-  .rw-header p { margin: 0; color: #4b5563; font-size: 0.95rem; max-width: 56rem; }
+  .rw-header { padding: 1.5rem 1.75rem; background: linear-gradient(135deg, #0f172a 0%, #111827 100%); border: 1px solid #1f2937; border-radius: 12px; color: #f1f5f9; }
+  .rw-header h1 { margin: 0.4rem 0 0.5rem; font-size: 1.6rem; color: #f8fafc; letter-spacing: -0.01em; }
+  .rw-header p { margin: 0; color: #94a3b8; font-size: 0.95rem; max-width: 56rem; }
   .rw-badge { font-family: var(--sp-font-mono, monospace); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: #b06a10; background: #fef3c7; padding: 2px 8px; border-radius: 4px; }
+  .rw-header .rw-badge { color: #fbbf24; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.25); }
   .rw-toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #111827; color: #fff; padding: 0.5rem 1rem; border-radius: 8px; font-size: 13px; z-index: 50; }
 
   .rw-recipe-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-  .rw-tab { padding: 0.45rem 0.9rem; border: 1px solid #e5e7eb; background: #fff; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; color: #4b5563; }
+  .rw-tab { padding: 0.45rem 0.9rem; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: #4b5563; }
   .rw-tab-active { background: #b06a10; border-color: #b06a10; color: #fff; }
-  .rw-tagline-bar { font-size: 13px; color: #4b5563; padding: 0.5rem 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; }
+  .rw-tagline-bar { font-size: 13px; color: #cbd5e1; padding: 0.55rem 0.85rem; background: #111827; border: 1px solid #1f2937; border-radius: 8px; font-family: var(--sp-font-mono, monospace); }
 
   .rw-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
   @media (max-width: 900px) { .rw-grid { grid-template-columns: 1fr; } }
@@ -921,4 +1012,5 @@
     padding: 0.6rem; border: 1px solid #d1d5db; border-radius: 6px; line-height: 1.5;
   }
   .rw-modal-preview-scroll { flex: 1; overflow-y: auto; min-height: 0; }
+  .rw-modal-editor-scroll { flex: 1; overflow-y: auto; min-height: 0; }
 </style>
