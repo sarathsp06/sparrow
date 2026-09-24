@@ -205,13 +205,13 @@
     "semantic_hash": "ef22a70165b9970b542c7b86e2c305dc"
   },
   "docs/astro.config.mjs": {
-    "mtime": 1789980332.0062554,
-    "ast_hash": "da41a5f56c7a61dc4cbde3f0900f85a0",
+    "mtime": 1790171017.0370467,
+    "ast_hash": "7ac07366b271514f7f68733949d6d270",
     "semantic_hash": ""
   },
   "docs/package.json": {
-    "mtime": 1789980332.007881,
-    "ast_hash": "8dae395d42fe79988e844cb7895f2107",
+    "mtime": 1790171017.0385773,
+    "ast_hash": "e60e5ffc0b45a3936f1a6aabb88168af",
     "semantic_hash": ""
   },
   "docs/src/assets/diagrams/mermaid-config-dark.json": {
@@ -235,8 +235,8 @@
     "semantic_hash": "8d64828780c256b931ec868eaa1ee002"
   },
   "docs/src/pages/index.astro": {
-    "mtime": 1789708842.1240134,
-    "ast_hash": "c4e0c1c0e6f5f01817024a89c9263fcc",
+    "mtime": 1790171385.9993105,
+    "ast_hash": "3ad48c3ab315bd3fa89e29a5e2d31baf",
     "semantic_hash": ""
   },
   "docs/tsconfig.json": {
@@ -285,13 +285,13 @@
     "semantic_hash": ""
   },
   "go.mod": {
-    "mtime": 1789310457.785669,
-    "ast_hash": "1b4d6f3c74efa87350d1d1a19d62d83a",
+    "mtime": 1790057074.7435782,
+    "ast_hash": "9f01874e47c15d248992677f3c77827c",
     "semantic_hash": ""
   },
   "internal/config/config.go": {
-    "mtime": 1789733835.7964435,
-    "ast_hash": "867796d5749f1ea3e60b28d13ce34305",
+    "mtime": 1790171017.0425837,
+    "ast_hash": "140184707311a05d76cdf19c965ce388",
     "semantic_hash": ""
   },
   "internal/health/checker.go": {
@@ -635,8 +635,8 @@
     "semantic_hash": ""
   },
   "web/src/lib/components/SubscriptionManager.svelte": {
-    "mtime": 1789981891.5485523,
-    "ast_hash": "cbdada633dc80a29a23c3cc48098fc94",
+    "mtime": 1790239994.6635382,
+    "ast_hash": "5f7ede78e5cecb8ab412b60e42c84ba8",
     "semantic_hash": ""
   },
   "web/src/lib/index.ts": {
@@ -690,8 +690,8 @@
     "semantic_hash": ""
   },
   "web/src/routes/events/[eventName]/update/+page.svelte": {
-    "mtime": 1789469489.0494308,
-    "ast_hash": "13635018d2260284f362d34ac0a77925",
+    "mtime": 1790239920.9806173,
+    "ast_hash": "1ba496fd47ba76fa3823e79278ba1b97",
     "semantic_hash": ""
   },
   "web/src/routes/events/instances/[eventId]/+page.svelte": {
@@ -700,18 +700,18 @@
     "semantic_hash": ""
   },
   "web/src/routes/events/push/+page.svelte": {
-    "mtime": 1789674582.3589137,
-    "ast_hash": "2c4df8813b4f4710c3e271b6486c5c06",
+    "mtime": 1790239948.5083654,
+    "ast_hash": "535c9a769e19fe8a063fc50f5e426f54",
     "semantic_hash": ""
   },
   "web/src/routes/events/register/+page.svelte": {
-    "mtime": 1789674582.3593132,
-    "ast_hash": "aaac63fd907ab75f2367a9533915fc75",
+    "mtime": 1790239868.0196152,
+    "ast_hash": "80f20d9825837801fbbc5039a758200b",
     "semantic_hash": ""
   },
   "web/src/routes/webhooks/+page.svelte": {
-    "mtime": 1789674582.3601394,
-    "ast_hash": "33740e7546cfdf208e92033d79872df7",
+    "mtime": 1790171017.0438902,
+    "ast_hash": "0640b5cb9d2cf1f0f69b11caed59a8eb",
     "semantic_hash": ""
   },
   "web/src/routes/webhooks/[webhookId]/+page.svelte": {
@@ -720,8 +720,8 @@
     "semantic_hash": ""
   },
   "web/src/routes/webhooks/register/+page.svelte": {
-    "mtime": 1789733715.2879214,
-    "ast_hash": "7618035f2410327253eec1d8eea16fcc",
+    "mtime": 1790239970.6525195,
+    "ast_hash": "072d9acd382720cb82b4380d4250edf6",
     "semantic_hash": ""
   },
   "web/svelte.config.js": {
@@ -770,8 +770,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1789999144.5412817,
-    "ast_hash": "25043c70344a7c4220b067d231b2d5d1",
+    "mtime": 1790171017.0358422,
+    "ast_hash": "52912225dbb8925f1e04d0dc09580cf6",
     "semantic_hash": ""
   },
   "client/README.md": {
@@ -785,8 +785,8 @@
     "semantic_hash": ""
   },
   "docker-compose.dev.yml": {
-    "mtime": 1789708842.1170802,
-    "ast_hash": "d2959007d099bcc17f7de4f3ed25f46e",
+    "mtime": 1790171017.0366578,
+    "ast_hash": "b3815126f07a4d96e8e6a1cfa8d7da96",
     "semantic_hash": ""
   },
   "docs/FLOWS.md": {
@@ -800,8 +800,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/configuration.md": {
-    "mtime": 1789895110.718998,
-    "ast_hash": "f3e76d8fbde640fea3966c3573811d17",
+    "mtime": 1790171017.0394092,
+    "ast_hash": "360b09e5440c49f5e6e826728efe22cf",
     "semantic_hash": ""
   },
   "docs/src/content/docs/getting-started/how-it-works.mdx": {
@@ -1355,8 +1355,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/cli.mdx": {
-    "mtime": 1789999077.2615373,
-    "ast_hash": "e13c0bdfdbe008871ea24d5d2158e508",
+    "mtime": 1790068200.456387,
+    "ast_hash": "3c1941a3edcb99008d58e13b54bcb977",
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/index.mdx": {
@@ -1365,8 +1365,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/recipes.mdx": {
-    "mtime": 1789999077.272386,
-    "ast_hash": "e0739d65e42aed9284e3651d7df87f51",
+    "mtime": 1790068200.4614744,
+    "ast_hash": "6f477ed8fb83e43d10341272af2aafa6",
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/sinks.mdx": {
@@ -1375,8 +1375,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/satellites/sources.mdx": {
-    "mtime": 1789564526.900828,
-    "ast_hash": "afb18424fe554cff5ed7702f9648cf18",
+    "mtime": 1790068200.4701233,
+    "ast_hash": "b4cff13c1dbf4ebbd810f0a16039a444",
     "semantic_hash": ""
   },
   "satellites/recipes/README.md": {
@@ -1545,8 +1545,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/payload-transformation.mdx": {
-    "mtime": 1789287429.900771,
-    "ast_hash": "69ccdb48fec523874521478f765411cf",
+    "mtime": 1790068200.466294,
+    "ast_hash": "a557e5072ab3a8e904deeff63c1a1e59",
     "semantic_hash": ""
   },
   "docs/src/assets/diagrams/satellite-topology-dark.svg": {
@@ -1600,13 +1600,13 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/system_events.go": {
-    "mtime": 1789485501.1288047,
-    "ast_hash": "896344a1237af5cfcc2e1c8ee5b95165",
+    "mtime": 1790239961.531919,
+    "ast_hash": "d89156647d51c97460d6fdd6a0ebcbfd",
     "semantic_hash": ""
   },
   "internal/webhooks/queue/system_events_test.go": {
-    "mtime": 1789485501.129012,
-    "ast_hash": "aedd529a1ec3a8bf3e858fd86535f937",
+    "mtime": 1790240000.3708215,
+    "ast_hash": "0035fc8ebb24e5259d551ab3cd0ea9c8",
     "semantic_hash": ""
   },
   "internal/webhooks/store/alert_config_repository.go": {
@@ -1635,8 +1635,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/webhook-health-alerts.mdx": {
-    "mtime": 1789733835.8046257,
-    "ast_hash": "ffa73689bb15458c7820654459507094",
+    "mtime": 1790240081.2577417,
+    "ast_hash": "b95a09e3802c8f6c16319768bc1d31d3",
     "semantic_hash": ""
   },
   "openspec/changes/webhook-health-alerts/.openspec.yaml": {
@@ -1690,8 +1690,8 @@
     "semantic_hash": ""
   },
   "e2e/step_impl/steps_surface.py": {
-    "mtime": 1789468557.362072,
-    "ast_hash": "c77152053e95ca397c91fd792fa34497",
+    "mtime": 1790171017.0422363,
+    "ast_hash": "9b61bc9c983796d0c1dc35144da846c7",
     "semantic_hash": ""
   },
   "e2e/NOT-TESTING.md": {
@@ -1900,8 +1900,8 @@
     "semantic_hash": ""
   },
   "docs/src/lib/llms/starlight-llms-txt/generator.ts": {
-    "mtime": 1789708842.122207,
-    "ast_hash": "dad62af24775a1c3ba29902ebd5e2f8e",
+    "mtime": 1790067278.475855,
+    "ast_hash": "ce39a035c26cf1ada39f3d55ccd14418",
     "semantic_hash": ""
   },
   "docs/src/lib/llms/starlight-llms-txt/index.mjs": {
@@ -1925,8 +1925,8 @@
     "semantic_hash": ""
   },
   "docs/src/lib/llms/starlight-llms-txt/llms.txt.ts": {
-    "mtime": 1789708842.1234434,
-    "ast_hash": "f57cb2a63cfcbad2efd3afdf26c58ea4",
+    "mtime": 1790067278.4803586,
+    "ast_hash": "f7fc6aff0eaea8d74ed8d1a3b3300375",
     "semantic_hash": ""
   },
   "docs/src/lib/llms/starlight-llms-txt/utils.ts": {
@@ -1955,8 +1955,8 @@
     "semantic_hash": ""
   },
   "docs/src/components/tools/RecipeWorkbenchApp.svelte": {
-    "mtime": 1789981168.5482557,
-    "ast_hash": "665e6b3b95fb7a6088b6f05b332c46de",
+    "mtime": 1790239590.810017,
+    "ast_hash": "07d8fd85f2a89a66b425d03c7b65bc2e",
     "semantic_hash": ""
   },
   "docs/src/lib/go-template-engine.ts": {
@@ -1969,19 +1969,14 @@
     "ast_hash": "a92010050d1c304709543eab6df3deac",
     "semantic_hash": ""
   },
-  "docs/src/components/tools/EmailHtmlEditor.svelte": {
-    "mtime": 1789981177.6241424,
-    "ast_hash": "c308c135ee97d95252a375fb1275c21d",
-    "semantic_hash": ""
-  },
   "docs/src/lib/compose.ts": {
-    "mtime": 1789981107.8359835,
-    "ast_hash": "06612438eb8f871ca65dabce5d7d3aad",
+    "mtime": 1790171017.0404544,
+    "ast_hash": "0e20c7215dae4ec7c95c32490e6134a3",
     "semantic_hash": ""
   },
   "docs/src/lib/recipes.ts": {
-    "mtime": 1789980332.0100946,
-    "ast_hash": "854490a814daa8765f306d124b13ff47",
+    "mtime": 1790171017.040848,
+    "ast_hash": "0f2304219a8426c5630eb433cd7d86c4",
     "semantic_hash": ""
   },
   "satellites/recipes/go.mod": {
@@ -1992,6 +1987,16 @@
   "satellites/sparrow/recipes_cmd.go": {
     "mtime": 1789999045.0827217,
     "ast_hash": "daa84da55daa7856705979c9ae3b1ca9",
+    "semantic_hash": ""
+  },
+  "web/src/lib/components/ExpandableEditor.svelte": {
+    "mtime": 1790240012.272476,
+    "ast_hash": "2b061432c90aee5551d2fd1e092cb682",
+    "semantic_hash": ""
+  },
+  "docs/public/sparrow-promo.mp4": {
+    "mtime": 1790068114.125355,
+    "ast_hash": "fb65a6a059ece56132c835fef5e10d60",
     "semantic_hash": ""
   }
 }
