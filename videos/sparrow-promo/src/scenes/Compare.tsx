@@ -1,6 +1,7 @@
 import React from "react";
-import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Easing, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { C, F } from "../theme";
+import { Kicker } from "../components/Kicker";
 
 // Condensed from the website's own comparison table
 // (docs/src/content/docs/getting-started/why-sparrow.mdx, "Sparrow vs the Landscape").
@@ -43,20 +44,8 @@ export const Compare: React.FC = () => {
   const titleIn = spring({ frame: frame - 8, fps, config: { damping: 200 } });
 
   return (
-    <AbsoluteFill style={{ background: C.cream, fontFamily: F.display, color: C.ink }}>
-      <div
-        style={{
-          position: "absolute",
-          top: 64,
-          left: 72,
-          fontFamily: F.mono,
-          fontSize: 22,
-          letterSpacing: "0.16em",
-          opacity: interpolate(frame, [0, 10], [0, 1], { extrapolateRight: "clamp" }),
-        }}
-      >
-        <span style={{ color: C.coralText }}>&#10033;</span> HOW IT COMPARES
-      </div>
+    <AbsoluteFill style={{ fontFamily: F.display, color: C.ink }}>
+      <Kicker text="HOW IT COMPARES" />
 
       <div
         style={{
@@ -64,9 +53,9 @@ export const Compare: React.FC = () => {
           top: 150,
           width: "100%",
           textAlign: "center",
-          fontSize: 64,
-          fontWeight: 600,
-          letterSpacing: "-0.02em",
+          fontSize: 72,
+          fontWeight: 700,
+          letterSpacing: "-0.035em",
           opacity: titleIn,
           transform: `translateY(${(1 - titleIn) * 20}px)`,
         }}
@@ -81,11 +70,18 @@ export const Compare: React.FC = () => {
           left: TABLE_X + LABEL_W,
           top: TABLE_Y - 64,
           width: COL_W,
-          height: 64 + ROWS.length * ROW_H + 16,
-          background: "rgba(0,173,216,0.09)",
-          border: "1.5px solid rgba(0,173,216,0.45)",
+          height:
+            (64 + ROWS.length * ROW_H + 16) *
+            interpolate(frame, [20, 46 + ROWS.length * 12], [0.12, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+              easing: Easing.inOut(Easing.cubic),
+            }),
+          background: "linear-gradient(180deg, rgba(0,173,216,0.16), rgba(0,173,216,0.06))",
+          border: "1.5px solid rgba(0,173,216,0.5)",
           borderRadius: 16,
-          ...pop(20),
+          boxShadow: "0 0 40px rgba(0,173,216,0.18)",
+          opacity: interpolate(frame, [20, 30], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
         }}
       />
 
@@ -128,20 +124,27 @@ export const Compare: React.FC = () => {
           <div style={{ width: LABEL_W, fontSize: 30, fontWeight: 500, paddingRight: 24 }}>
             {row.label}
           </div>
-          {row.marks.map((m, c) => (
-            <div
-              key={c}
-              style={{
-                width: COL_W,
-                textAlign: "center",
-                fontSize: m === "yes" ? 38 : 32,
-                fontWeight: 700,
-                color: MARK[m].color,
-              }}
-            >
-              {MARK[m].glyph}
-            </div>
-          ))}
+          {row.marks.map((m, c) => {
+            const at = 46 + r * 12 + c * 3;
+            const s = spring({ frame: frame - at, fps, config: { damping: 10, stiffness: 200 } });
+            return (
+              <div
+                key={c}
+                style={{
+                  width: COL_W,
+                  textAlign: "center",
+                  fontSize: m === "yes" ? 38 : 32,
+                  fontWeight: 700,
+                  color: MARK[m].color,
+                  scale: String(c === 0 ? 0.4 + s * 0.6 : 1),
+                  opacity: c === 0 ? s : interpolate(frame, [at, at + 8], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+                  textShadow: c === 0 ? `0 0 ${18 * s}px rgba(0,173,216,0.45)` : undefined,
+                }}
+              >
+                {MARK[m].glyph}
+              </div>
+            );
+          })}
         </div>
       ))}
 

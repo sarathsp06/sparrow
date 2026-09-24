@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Easing,
   Img,
   interpolate,
   spring,
@@ -9,6 +10,8 @@ import {
   useVideoConfig,
 } from "remotion";
 import { C, F } from "../theme";
+import { Kicker } from "../components/Kicker";
+import { Comet, Ripple, Wire } from "../components/Wire";
 
 // Architecture centerpiece, following the repo's own explanation
 // (docs/src/assets/diagrams/sparrow-layered-architecture.archify.json):
@@ -54,32 +57,6 @@ const card: React.CSSProperties = {
   boxShadow: "0 12px 34px rgba(11,15,20,0.07)",
   fontFamily: F.display,
   color: C.ink,
-};
-
-const Pulse: React.FC<{
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-  start: number;
-  end: number;
-  frame: number;
-  color?: string;
-}> = ({ x1, y1, x2, y2, start, end, frame, color = C.coral }) => {
-  const t = interpolate(frame, [start, end], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  if (frame < start || frame > end + 4) return null;
-  return (
-    <circle
-      cx={x1 + (x2 - x1) * t}
-      cy={y1 + (y2 - y1) * t}
-      r={9}
-      fill={color}
-      opacity={t >= 1 ? interpolate(frame, [end, end + 4], [1, 0]) : 1}
-    />
-  );
 };
 
 const StepBadge: React.FC<{
@@ -131,17 +108,8 @@ export const Flow: React.FC = () => {
   const ordersOut = { x: LEFT_X + LEFT_W, y: SVC_TOPS[0] + SVC_HEIGHTS[0] / 2 };
   const midIn = { x: MID.x, y: MID.y + MID.h / 2 };
   const midOut = { x: MID.x + MID.w, y: MID.y + MID.h / 2 };
+  const ry = (i: number) => RIGHT_TOP + i * (RIGHT_H + RIGHT_GAP) + RIGHT_H / 2;
 
-  // 1 · subscribe: consumers connect to Sparrow (right → mid), teal.
-  const subIn = interpolate(frame, [95, 120], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  // 2 · push: your service publishes (left → mid), coral.
-  const lineIn = interpolate(frame, [140, 158], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
   // Sparrow "processing" glow while the event is inside.
   const busy = interpolate(frame, [165, 180, 200, 220], [0, 1, 1, 0], {
     extrapolateLeft: "clamp",
@@ -150,21 +118,11 @@ export const Flow: React.FC = () => {
   const caption = spring({ frame: frame - 320, fps, config: { damping: 200 } });
 
   return (
-    <AbsoluteFill style={{ background: C.cream }}>
-      <div
-        style={{
-          position: "absolute",
-          top: 64,
-          left: 72,
-          fontFamily: F.mono,
-          fontSize: 22,
-          letterSpacing: "0.16em",
-          color: C.ink,
-          opacity: interpolate(frame, [0, 10], [0, 1], { extrapolateRight: "clamp" }),
-        }}
-      >
-        <span style={{ color: C.coralText }}>&#10033;</span> DROP IT INTO YOUR STACK
-      </div>
+    <AbsoluteFill>
+      <Kicker text="DROP IT INTO YOUR STACK" />
+
+      {/* Camera: slow push-in over the whole beat */}
+      <AbsoluteFill style={{ scale: String(interpolate(frame, [0, 450], [1, 1.045])) }}>
 
       <div
         style={{
@@ -185,7 +143,7 @@ export const Flow: React.FC = () => {
       <svg
         width={1920}
         height={1080}
-        style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+        style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible" }}
       >
         {/* Environment boundary: your services + Sparrow live inside your infra */}
         <rect
@@ -194,86 +152,57 @@ export const Flow: React.FC = () => {
           width={1135}
           height={545}
           rx={24}
-          fill="none"
+          fill="rgba(255,255,255,0.18)"
           stroke="rgba(11,15,20,0.22)"
           strokeWidth={2}
           strokeDasharray="10 10"
+          strokeDashoffset={frame * 0.4}
           opacity={badge(58)}
         />
-        {/* 1 · subscribe: receivers → Sparrow (teal) */}
-        {RECEIVERS.map((r, i) => {
-          const ry = RIGHT_TOP + i * (RIGHT_H + RIGHT_GAP) + RIGHT_H / 2;
-          return (
-            <line
-              key={`sub-${r.name}`}
-              x1={RIGHT_X}
-              y1={ry}
-              x2={RIGHT_X + (midOut.x - RIGHT_X) * subIn}
-              y2={ry + (midOut.y - ry) * subIn}
-              stroke="rgba(0,173,216,0.45)"
-              strokeWidth={3}
-              strokeDasharray="2 10"
-              strokeLinecap="round"
-            />
-          );
-        })}
-        {RECEIVERS.map((r, i) => {
-          const ry = RIGHT_TOP + i * (RIGHT_H + RIGHT_GAP) + RIGHT_H / 2;
-          return (
-            <Pulse
-              key={`subp-${r.name}`}
-              x1={RIGHT_X}
-              y1={ry}
-              x2={midOut.x}
-              y2={midOut.y}
-              start={100 + i * 4}
-              end={126 + i * 4}
-              frame={frame}
-              color={C.teal}
-            />
-          );
-        })}
+        {/* Landing shockwave when Sparrow drops in */}
+        <Ripple x={MID.x + MID.w / 2} y={MID.y + MID.h / 2} frame={frame} at={58} size={420} color={C.teal} />
 
-        {/* 2 · push: orders-api → Sparrow (coral) */}
-        <line
-          x1={ordersOut.x}
-          y1={ordersOut.y}
-          x2={ordersOut.x + (midIn.x - ordersOut.x) * lineIn}
-          y2={ordersOut.y + (midIn.y - ordersOut.y) * lineIn}
-          stroke="rgba(11,15,20,0.25)"
-          strokeWidth={3}
-          strokeDasharray="2 10"
-          strokeLinecap="round"
-        />
-        {[160, 350].map((s) => (
-          <Pulse
-            key={s}
-            x1={ordersOut.x}
-            y1={ordersOut.y}
-            x2={midIn.x}
-            y2={midIn.y}
-            start={s}
-            end={s + 30}
+        {/* 1 · subscribe: receivers → Sparrow (teal) */}
+        {RECEIVERS.map((r, i) => (
+          <Wire
+            key={`sub-${r.name}`}
+            id={`sub-${i}`}
+            a={{ x: RIGHT_X, y: ry(i) }}
+            b={midOut}
             frame={frame}
+            drawStart={95 + i * 3}
+            drawEnd={120 + i * 3}
+            color="rgba(0,173,216,0.5)"
+          />
+        ))}
+        {RECEIVERS.map((r, i) => (
+          <Comet
+            key={`subp-${r.name}`}
+            a={{ x: RIGHT_X, y: ry(i) }}
+            b={midOut}
+            start={100 + i * 4}
+            end={126 + i * 4}
+            frame={frame}
+            color={C.teal}
+            r={7}
           />
         ))}
 
+        {/* 2 · push: orders-api → Sparrow (coral) */}
+        <Wire id="push" a={ordersOut} b={midIn} frame={frame} drawStart={140} drawEnd={158} />
+        {[160, 350].map((s) => (
+          <Comet key={s} a={ordersOut} b={midIn} start={s} end={s + 30} frame={frame} r={11} />
+        ))}
+
         {/* 3 · deliver: Sparrow → receivers, reuses the subscribe corridor */}
-        {RECEIVERS.map((r, i) => {
-          const ry = RIGHT_TOP + i * (RIGHT_H + RIGHT_GAP) + RIGHT_H / 2;
-          return [r.at - 22, r.at + 190].map((s) => (
-            <Pulse
-              key={`${r.name}-${s}`}
-              x1={midOut.x}
-              y1={midOut.y}
-              x2={RIGHT_X}
-              y2={ry}
-              start={s}
-              end={s + 22}
-              frame={frame}
-            />
-          ));
-        })}
+        {RECEIVERS.map((r, i) =>
+          [r.at - 22, r.at + 190].map((s) => (
+            <React.Fragment key={`${r.name}-${s}`}>
+              <Comet a={midOut} b={{ x: RIGHT_X, y: ry(i) }} start={s} end={s + 22} frame={frame} />
+              <Ripple x={RIGHT_X} y={ry(i)} frame={frame} at={s + 22} color={C.coral} size={46} />
+            </React.Fragment>
+          )),
+        )}
       </svg>
 
       {/* Your ecosystem of services */}
@@ -345,7 +274,8 @@ export const Flow: React.FC = () => {
           })`,
           background: "rgba(255,255,255,0.75)",
           opacity: dropOpacity,
-          transform: `translateY(${(1 - drop) * -420}px)`,
+          translate: `0px ${(1 - drop) * -420}px`,
+          rotate: `${(1 - drop) * -4}deg`,
         }}
       >
         <div style={{ padding: "30px 34px", textAlign: "center" }}>
@@ -378,6 +308,20 @@ export const Flow: React.FC = () => {
                 {chip}
               </div>
             ))}
+          </div>
+          <div
+            style={{
+              marginTop: 22,
+              fontFamily: F.mono,
+              fontSize: 17,
+              color: C.coralText,
+              opacity: interpolate(frame, [186, 198], [0, 1], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              }),
+            }}
+          >
+            order.created &#8594; fan-out &#215;{RECEIVERS.length}
           </div>
         </div>
       </div>
@@ -424,6 +368,32 @@ export const Flow: React.FC = () => {
             >
               {r.status}
             </div>
+            <div
+              style={{
+                position: "absolute",
+                right: 22,
+                top: RIGHT_H / 2 - 17,
+                width: 34,
+                height: 34,
+                borderRadius: "50%",
+                background: r.status.includes("\u2713") ? C.tealDeep : C.coral,
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 19,
+                fontWeight: 700,
+                scale: String(
+                  interpolate(frame, [r.at, r.at + 8], [0, 1], {
+                    extrapolateLeft: "clamp",
+                    extrapolateRight: "clamp",
+                    easing: Easing.back(2.2),
+                  }),
+                ),
+              }}
+            >
+              &#10003;
+            </div>
           </div>
         );
       })}
@@ -446,6 +416,8 @@ export const Flow: React.FC = () => {
       <StepBadge x={560} y={330} color={C.coralText} label={"2 \u00B7 push"} in_={badge(150)} />
       <StepBadge x={1248} y={820} color="#0B0F14" label={"3 \u00B7 deliver"} in_={badge(195)} />
 
+      </AbsoluteFill>
+
       <div
         style={{
           position: "absolute",
@@ -455,7 +427,8 @@ export const Flow: React.FC = () => {
           fontFamily: F.display,
           color: C.ink,
           opacity: caption,
-          transform: `translateY(${(1 - caption) * 18}px)`,
+          translate: `0px ${(1 - caption) * 18}px`,
+          filter: `blur(${(1 - caption) * 6}px)`,
         }}
       >
         <div style={{ fontSize: 42, fontWeight: 500 }}>

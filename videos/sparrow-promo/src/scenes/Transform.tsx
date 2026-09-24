@@ -9,18 +9,21 @@ import {
   useVideoConfig,
 } from "remotion";
 import { C, F } from "../theme";
+import { Kicker } from "../components/Kicker";
 
 // Payload transformation: Go-template recipes reshape one event for each destination.
 // The seven recipes ship in satellites/recipes (docs/satellites/recipes.mdx).
+// `fmt` is each recipe's target format, from its yaml `description`.
 const DESTS = [
-  { label: "Slack", icon: "icons/slack.svg" },
-  { label: "Discord", icon: "icons/discord.svg" },
-  { label: "Email", icon: "icons/sendgrid.svg" },
-  { label: "SMS", icon: "icons/twilio.svg" },
-  { label: "Push", icon: "icons/ntfy.svg" },
-  { label: "PagerDuty", icon: "icons/pagerduty.svg" },
-  { label: "ClickHouse", icon: "icons/clickhouse.svg" },
+  { label: "Slack", icon: "icons/slack.svg", fmt: "Block Kit" },
+  { label: "Discord", icon: "icons/discord.svg", fmt: "embeds" },
+  { label: "Email", icon: "icons/sendgrid.svg", fmt: "SendGrid v3" },
+  { label: "SMS", icon: "icons/twilio.svg", fmt: "Twilio Messages" },
+  { label: "Push", icon: "icons/ntfy.svg", fmt: "ntfy topic" },
+  { label: "PagerDuty", icon: "icons/pagerduty.svg", fmt: "Events API v2" },
+  { label: "ClickHouse", icon: "icons/clickhouse.svg", fmt: "JSONEachRow" },
 ];
+const DEST_AT = (i: number) => 56 + i * 12;
 
 export const Transform: React.FC = () => {
   const frame = useCurrentFrame();
@@ -38,24 +41,11 @@ export const Transform: React.FC = () => {
   const caption = spring({ frame: frame - 130, fps, config: { damping: 200 } });
 
   return (
-    <AbsoluteFill style={{ background: C.cream }}>
-      <div
-        style={{
-          position: "absolute",
-          top: 64,
-          left: 72,
-          fontFamily: F.mono,
-          fontSize: 22,
-          letterSpacing: "0.16em",
-          color: C.ink,
-          opacity: interpolate(frame, [0, 10], [0, 1], { extrapolateRight: "clamp" }),
-        }}
-      >
-        <span style={{ color: C.coralText }}>&#10033;</span> ONE EVENT, ANY SHAPE
-      </div>
+    <AbsoluteFill>
+      <Kicker text="ONE EVENT, ANY SHAPE" />
 
-      <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 60 }}>
+      <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", paddingBottom: 90 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 48 }}>
           {/* Source payload */}
           <div
             style={{
@@ -83,41 +73,71 @@ export const Transform: React.FC = () => {
             <div>{"}"}</div>
           </div>
 
-          {/* Transform arrow */}
-          <div style={{ textAlign: "center", opacity: arrow }}>
+          {/* Transform arrow — the template line is straight from satellites/recipes/slack.yaml */}
+          <div style={{ textAlign: "center", opacity: arrow, width: 330 }}>
             <div
               style={{
+                display: "inline-block",
                 fontFamily: F.mono,
-                fontSize: 19,
-                color: C.ink,
-                opacity: 0.6,
-                marginBottom: 12,
+                fontSize: 21,
+                color: C.cream,
+                background: C.navy,
+                borderRadius: 10,
+                padding: "10px 16px",
+                marginBottom: 14,
+                boxShadow: "0 10px 24px rgba(11,15,20,0.18)",
               }}
             >
-              Go template
-              <br />
-              transform
+              <span style={{ color: C.coral }}>{"{{"}</span>.event_name <span style={{ color: C.teal }}>| json</span>
+              <span style={{ color: C.coral }}>{"}}"}</span>
             </div>
-            <svg width={150} height={30}>
+            <div style={{ fontFamily: F.mono, fontSize: 18, color: C.ink, opacity: 0.6, marginBottom: 10 }}>
+              Go template recipe
+            </div>
+            <svg width={330} height={30} style={{ overflow: "visible" }}>
               <line
                 x1={0}
                 y1={15}
-                x2={150 * arrow - 14}
+                x2={330 * arrow - 14}
                 y2={15}
                 stroke={C.coral}
                 strokeWidth={5}
                 strokeLinecap="round"
               />
               <path
-                d={`M ${150 * arrow - 18} 4 L ${150 * arrow} 15 L ${150 * arrow - 18} 26 Z`}
+                d={`M ${330 * arrow - 18} 4 L ${330 * arrow} 15 L ${330 * arrow - 18} 26 Z`}
                 fill={C.coral}
               />
+              {DESTS.map((d, i) => {
+                const t = interpolate(frame, [DEST_AT(i) - 12, DEST_AT(i)], [0, 1], {
+                  extrapolateLeft: "clamp",
+                  extrapolateRight: "clamp",
+                });
+                if (t <= 0 || t >= 1) return null;
+                return (
+                  <circle
+                    key={d.label}
+                    cx={t * 320}
+                    cy={15}
+                    r={10}
+                    fill={C.cream}
+                    stroke={C.coral}
+                    strokeWidth={4}
+                    style={{ filter: "drop-shadow(0 0 6px rgba(249,115,22,0.8))" }}
+                  />
+                );
+              })}
             </svg>
           </div>
 
           {/* Destinations */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {DESTS.map((d, i) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
+            {DESTS.map((d, i) => {
+              const flash = interpolate(frame, [DEST_AT(i), DEST_AT(i) + 16], [1, 0], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              });
+              return (
               <div
                 key={d.label}
                 style={{
@@ -129,17 +149,34 @@ export const Transform: React.FC = () => {
                   fontWeight: 500,
                   color: C.ink,
                   background: "rgba(255,255,255,0.6)",
-                  border: "1px solid rgba(11,15,20,0.12)",
+                  border: `1px solid rgba(11,15,20,${0.12 + flash * 0.5})`,
                   borderRadius: 999,
-                  padding: "12px 34px",
-                  boxShadow: "0 8px 22px rgba(11,15,20,0.06)",
-                  ...pop(56 + i * 12),
+                  padding: "9px 34px",
+                  minWidth: 470,
+                  boxShadow: `0 8px 22px rgba(11,15,20,0.06), 0 0 ${flash * 30}px rgba(249,115,22,${flash * 0.5})`,
+                  ...pop(DEST_AT(i)),
                 }}
               >
                 <Img src={staticFile(d.icon)} style={{ width: 30, height: 30 }} />
                 {d.label}
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    fontFamily: F.mono,
+                    fontSize: 18,
+                    fontWeight: 400,
+                    color: C.tealDeep,
+                    opacity: interpolate(frame, [DEST_AT(i) + 6, DEST_AT(i) + 14], [0, 1], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    }),
+                  }}
+                >
+                  {d.fmt}
+                </span>
               </div>
-            ))}
+              );
+            })}
             <div
               style={{
                 display: "flex",
@@ -151,7 +188,8 @@ export const Transform: React.FC = () => {
                 color: C.coralText,
                 border: `2px dashed ${C.coral}`,
                 borderRadius: 999,
-                padding: "12px 34px",
+                padding: "9px 34px",
+                minWidth: 470,
                 ...pop(56 + DESTS.length * 12),
               }}
             >

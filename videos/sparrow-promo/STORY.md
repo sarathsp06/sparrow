@@ -34,9 +34,10 @@
 
 ## Design system
 
-- Canvas: cream `#E6EDF3`, ink `#0B0F14`, terminal navy `#181615`, Go teal `#00ADD8` accent, coral `#F97316` as the single voltage color.
-- Type: system sans for display, monospace for code/kickers. No shipped font files.
-- Motion: spring-in word staggers, typewriter driven by frame interpolation, one coral bloom per act maximum. Crossfades between scenes.
+- Canvas: warm paper `#F4F2ED` (persistent `Backdrop`: drifting dot grid, slow teal/coral glows, film grain, vignette), ink `#0B0F14`, terminal navy `#181615` (the Hook opens dark), Go teal `#00ADD8` accent, coral `#F97316` as the voltage color.
+- Type: Inter (display), JetBrains Mono (code/kickers), Instrument Serif (the DIY beat) via `@remotion/google-fonts`.
+- Motion: blur-in word staggers, scramble-decode kickers, curved flowing connectors with comet-tail packets and arrival ripples (`components/Wire.tsx`), slow camera push-ins, a custom blur-fade transition (`components/blurFade.tsx`), and a sparrow fly-by synced to three of the whoosh SFX.
+- Micro-demos in the feature cards are illustrative; the `webhook-signature: v1,… v1a,…` format comes from `internal/webhooks/client/request.go`, and the destination formats and the `{{.event_name | json}}` line come from `satellites/recipes/*.yaml`.
 
 ## Render
 

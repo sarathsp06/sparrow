@@ -9,6 +9,8 @@ import {
   useVideoConfig,
 } from "remotion";
 import { C, F } from "../theme";
+import { Kicker } from "../components/Kicker";
+import { Comet, Ripple, Wire } from "../components/Wire";
 
 // Architecture finale: your environment (services + Sparrow + Postgres) → the outside world.
 // Then the pull one-liner — README "Latest Docker release" + why-sparrow.mdx
@@ -58,22 +60,7 @@ export const Close: React.FC = () => {
   };
   const sp = (delay: number) => spring({ frame: frame - delay, fps, config: { damping: 200 } });
 
-  // Connector draw-ins.
-  const inLines = interpolate(frame, [55, 75], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const outLines = interpolate(frame, [80, 102], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
 
-  // Traveling pulses, staggered loops so the diagram stays alive.
-  const pulseT = (start: number, dur: number) =>
-    interpolate(frame, [start, start + dur], [0, 1], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    });
 
   const typedN = Math.round(
     interpolate(frame, [150, 208], [0, CMD.length], {
@@ -95,21 +82,8 @@ export const Close: React.FC = () => {
   const outY = (i: number) => OUT_TOP + i * (OUT_H + OUT_GAP) + OUT_H / 2;
 
   return (
-    <AbsoluteFill style={{ background: C.cream }}>
-      <div
-        style={{
-          position: "absolute",
-          top: 64,
-          left: 72,
-          fontFamily: F.mono,
-          fontSize: 22,
-          letterSpacing: "0.16em",
-          color: C.ink,
-          opacity: interpolate(frame, [0, 10], [0, 1], { extrapolateRight: "clamp" }),
-        }}
-      >
-        <span style={{ color: C.coralText }}>&#10033;</span> ONE BINARY. ONE DATABASE. SELF-HOSTED.
-      </div>
+    <AbsoluteFill>
+      <Kicker text="ONE BINARY. ONE DATABASE. SELF-HOSTED." />
 
       {/* Diagram connectors */}
       <svg width={1920} height={1080} style={{ position: "absolute", inset: 0 }}>
@@ -125,66 +99,49 @@ export const Close: React.FC = () => {
           strokeDasharray="10 10"
           opacity={sp(6)}
         />
-        {SERVICES.map((s, i) => {
-          const o = svcOut(i);
-          return (
-            <line
-              key={s}
-              x1={o.x}
-              y1={o.y}
-              x2={o.x + (sparrowIn.x - o.x) * inLines}
-              y2={o.y + (sparrowIn.y - o.y) * inLines}
-              stroke="rgba(11,15,20,0.25)"
-              strokeWidth={2.5}
-              strokeDasharray="2 9"
-              strokeLinecap="round"
-            />
-          );
-        })}
+        {SERVICES.map((s, i) => (
+          <Wire key={s} id={`in-${i}`} a={svcOut(i)} b={sparrowIn} frame={frame} drawStart={55} drawEnd={75} />
+        ))}
         {OUTSIDE.map((o, i) => (
-          <line
+          <Wire
             key={o.name}
-            x1={sparrowOut.x}
-            y1={sparrowOut.y}
-            x2={sparrowOut.x + (OUT_X - sparrowOut.x) * outLines}
-            y2={sparrowOut.y + (outY(i) - sparrowOut.y) * outLines}
-            stroke="rgba(11,15,20,0.25)"
-            strokeWidth={2.5}
-            strokeDasharray="2 9"
-            strokeLinecap="round"
+            id={`out-${i}`}
+            a={sparrowOut}
+            b={{ x: OUT_X, y: outY(i) }}
+            frame={frame}
+            drawStart={80 + i * 2}
+            drawEnd={102 + i * 2}
           />
         ))}
-        {/* pulses: in from services, out to the world, two waves */}
-        {[95, 190].map((start) =>
-          SERVICES.map((s, i) => {
-            const o = svcOut(i);
-            const t = pulseT(start + i * 5, 22);
-            if (frame < start + i * 5 || t >= 1) return null;
-            return (
-              <circle
-                key={`${s}-${start}`}
-                cx={o.x + (sparrowIn.x - o.x) * t}
-                cy={o.y + (sparrowIn.y - o.y) * t}
-                r={7}
-                fill={C.coral}
-              />
-            );
-          }),
+        {/* pulses: in from services, out to the world — keep looping so the diagram stays alive */}
+        {[95, 170, 245].map((start) =>
+          SERVICES.map((s, i) => (
+            <Comet
+              key={`${s}-${start}`}
+              a={svcOut(i)}
+              b={sparrowIn}
+              start={start + i * 5}
+              end={start + i * 5 + 22}
+              frame={frame}
+              r={7}
+            />
+          )),
         )}
-        {[122, 217].map((start) =>
-          OUTSIDE.map((o, i) => {
-            const t = pulseT(start + i * 4, 20);
-            if (frame < start + i * 4 || t >= 1) return null;
-            return (
-              <circle
-                key={`${o.name}-${start}`}
-                cx={sparrowOut.x + (OUT_X - sparrowOut.x) * t}
-                cy={sparrowOut.y + (outY(i) - sparrowOut.y) * t}
+        {[122, 197, 272].map((start) =>
+          OUTSIDE.map((o, i) => (
+            <React.Fragment key={`${o.name}-${start}`}>
+              <Comet
+                a={sparrowOut}
+                b={{ x: OUT_X, y: outY(i) }}
+                start={start + i * 4}
+                end={start + i * 4 + 20}
+                frame={frame}
+                color={C.teal}
                 r={7}
-                fill={C.teal}
               />
-            );
-          }),
+              <Ripple x={OUT_X} y={outY(i)} frame={frame} at={start + i * 4 + 20} size={36} />
+            </React.Fragment>
+          )),
         )}
       </svg>
 
@@ -311,7 +268,8 @@ export const Close: React.FC = () => {
           display: "flex",
           justifyContent: "center",
           opacity: pillIn,
-          transform: `translateY(${(1 - pillIn) * 18}px)`,
+          translate: `0px ${(1 - pillIn) * 18}px`,
+          scale: String(0.94 + pillIn * 0.06),
         }}
       >
         <div
@@ -322,12 +280,24 @@ export const Close: React.FC = () => {
             color: C.cream,
             padding: "20px 34px",
             borderRadius: 14,
-            boxShadow: "0 16px 40px rgba(11,15,20,0.18)",
+            boxShadow: `0 16px 40px rgba(11,15,20,0.18), 0 0 ${
+              typedN >= CMD.length ? 36 : 0
+            }px rgba(0,173,216,0.35)`,
+            border: `1.5px solid rgba(0,173,216,${typedN >= CMD.length ? 0.6 : 0})`,
           }}
         >
           <span style={{ color: C.teal }}>$ </span>
           {CMD.slice(0, typedN)}
           <span style={{ opacity: caretOn && typedN < CMD.length ? 1 : 0 }}>&#9608;</span>
+          <span
+            style={{
+              marginLeft: 18,
+              color: C.teal,
+              opacity: interpolate(frame, [212, 220], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+            }}
+          >
+            &#10003;
+          </span>
         </div>
       </div>
 

@@ -9,6 +9,15 @@ import { Features } from "./scenes/Features";
 import { Inside } from "./scenes/Inside";
 import { Compare } from "./scenes/Compare";
 import { Close } from "./scenes/Close";
+import { withBackdrop } from "./components/Backdrop";
+
+const OldWayB = withBackdrop(OldWay);
+const FlowB = withBackdrop(Flow);
+const TransformB = withBackdrop(Transform);
+const FeaturesB = withBackdrop(Features);
+const InsideB = withBackdrop(Inside);
+const CompareB = withBackdrop(Compare);
+const CloseB = withBackdrop(Close);
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -32,7 +41,7 @@ export const RemotionRoot: React.FC = () => {
         />
         <Composition
           id="OldWay"
-          component={OldWay}
+          component={OldWayB}
           durationInFrames={240}
           fps={30}
           width={1920}
@@ -40,7 +49,7 @@ export const RemotionRoot: React.FC = () => {
         />
         <Composition
           id="Flow"
-          component={Flow}
+          component={FlowB}
           durationInFrames={450}
           fps={30}
           width={1920}
@@ -48,7 +57,7 @@ export const RemotionRoot: React.FC = () => {
         />
         <Composition
           id="Transform"
-          component={Transform}
+          component={TransformB}
           durationInFrames={240}
           fps={30}
           width={1920}
@@ -56,7 +65,7 @@ export const RemotionRoot: React.FC = () => {
         />
         <Composition
           id="Features"
-          component={Features}
+          component={FeaturesB}
           durationInFrames={180}
           fps={30}
           width={1920}
@@ -64,7 +73,7 @@ export const RemotionRoot: React.FC = () => {
         />
         <Composition
           id="Inside"
-          component={Inside}
+          component={InsideB}
           durationInFrames={75}
           fps={30}
           width={1920}
@@ -72,7 +81,7 @@ export const RemotionRoot: React.FC = () => {
         />
         <Composition
           id="Compare"
-          component={Compare}
+          component={CompareB}
           durationInFrames={260}
           fps={30}
           width={1920}
@@ -80,7 +89,7 @@ export const RemotionRoot: React.FC = () => {
         />
         <Composition
           id="Close"
-          component={Close}
+          component={CloseB}
           durationInFrames={290}
           fps={30}
           width={1920}
