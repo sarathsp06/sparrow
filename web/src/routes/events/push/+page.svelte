@@ -11,6 +11,7 @@
   import { consumerStore } from '$lib/consumer.svelte';
   import { onMount } from "svelte";
   import type { components } from "$lib/api-types";
+  import ExpandableEditor from "$lib/components/ExpandableEditor.svelte";
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
 
@@ -26,6 +27,7 @@
   let validationDetails = $state<string[]>([]);
   let successMessage = $state("");
   let availableEvents: EventTypeItem[] = $state([]);
+  let payloadExpanded = $state(false);
 
   // Watch for event changes and update payload with sample_payload
   $effect(() => {
@@ -149,7 +151,7 @@
   <title>Push Event | Sparrow</title>
 </svelte:head>
 
-<main class="mx-auto max-w-2xl px-4 sm:px-6 py-8">
+<main class="mx-auto max-w-5xl px-4 sm:px-6 py-8">
   <nav class="flex items-center gap-2 text-sm text-muted mb-6">
     <a class="link" href="/events">Events</a>
     <span class="text-faint">/</span>
@@ -180,51 +182,59 @@
       </div>
     </div>
   {:else}
-    <form onsubmit={pushEvent} class="panel p-6 space-y-5">
-      <div>
-        <label for="consumer" class="field-label">Consumer</label>
-        <input id="consumer" type="text" bind:value={consumer} required class="input" />
-      </div>
+    <form onsubmit={pushEvent} class="panel p-6">
+      <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-6">
+        <!-- Left: metadata -->
+        <div class="space-y-5">
+          <div>
+            <label for="consumer" class="field-label">Consumer</label>
+            <input id="consumer" type="text" bind:value={consumer} required class="input" />
+          </div>
 
-      <div>
-        <label for="event" class="field-label">Event Type</label>
-        <select id="event" bind:value={event} required class="select">
-          {#each availableEvents as e}
-            <option value={e.name}>{e.name}</option>
-          {/each}
-        </select>
-      </div>
+          <div>
+            <label for="event" class="field-label">Event Type</label>
+            <select id="event" bind:value={event} required class="select">
+              {#each availableEvents as e}
+                <option value={e.name}>{e.name}</option>
+              {/each}
+            </select>
+          </div>
 
-      <div>
-        <label for="payload" class="field-label">
-          Payload {hasSchema() ? '(validated against schema)' : ''}
-        </label>
-        <div class="h-40">
-          <JSONEditor bind:content={payload} {validator} />
+          <div>
+            <span class="field-label">Labels</span>
+            <div class="flex flex-wrap gap-2 mb-2">
+              {#each Object.entries(labels) as [k, v]}
+                <span class="chip">
+                  {k}={v}
+                  <button type="button" onclick={() => removeLabel(k)} aria-label="Remove label {k}" class="text-faint hover:text-text transition-colors">&times;</button>
+                </span>
+              {/each}
+            </div>
+            <div class="flex gap-2">
+              <input type="text" placeholder="key" bind:value={newLabelKey} class="input flex-1" />
+              <input type="text" placeholder="value" bind:value={newLabelValue} class="input flex-1" />
+              <button type="button" onclick={addLabel} class="btn btn-ghost !px-3 !py-1.5">Add</button>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 pt-2">
+            <button type="submit" disabled={loading} aria-busy={loading} class="btn btn-beacon">
+              {loading ? 'Pushing...' : 'Push Event'}
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div>
-        <span class="field-label">Labels</span>
-        <div class="flex flex-wrap gap-2 mb-2">
-          {#each Object.entries(labels) as [k, v]}
-            <span class="chip">
-              {k}={v}
-              <button type="button" onclick={() => removeLabel(k)} aria-label="Remove label {k}" class="text-faint hover:text-text transition-colors">&times;</button>
-            </span>
-          {/each}
+        <!-- Right: payload editor -->
+        <div>
+          <label for="payload" class="field-label">
+            Payload {hasSchema() ? '(validated against schema)' : ''}
+          </label>
+          <ExpandableEditor bind:expanded={payloadExpanded} label="Event Payload">
+            <div class="{payloadExpanded ? 'h-full' : 'h-72 lg:h-[26rem]'}">
+              <JSONEditor bind:content={payload} {validator} />
+            </div>
+          </ExpandableEditor>
         </div>
-        <div class="flex gap-2">
-          <input type="text" placeholder="key" bind:value={newLabelKey} class="input flex-1" />
-          <input type="text" placeholder="value" bind:value={newLabelValue} class="input flex-1" />
-          <button type="button" onclick={addLabel} class="btn btn-ghost !px-3 !py-1.5">Add</button>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-3 pt-2">
-        <button type="submit" disabled={loading} aria-busy={loading} class="btn btn-beacon">
-          {loading ? 'Pushing…' : 'Push Event'}
-        </button>
       </div>
     </form>
   {/if}

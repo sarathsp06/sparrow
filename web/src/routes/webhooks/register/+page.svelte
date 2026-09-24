@@ -6,6 +6,7 @@
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-types';
   import { substituteParams, type Recipe, type RecipeParam } from '$lib/recipes';
+  import ExpandableEditor from '$lib/components/ExpandableEditor.svelte';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
   const ALERT_EVENT_TYPES = ["sparrow.webhook.health_changed", "sparrow.webhook.delivery_failed"];
@@ -49,6 +50,7 @@
   let appliedRecipe = $state('');
   let recipeError = $state('');
   let transformTemplate = $state('');
+  let templateExpanded = $state(false);
   let recipes: Recipe[] = $state([]);
 
   // Validation
@@ -238,7 +240,7 @@
   <title>Register Webhook | Sparrow</title>
 </svelte:head>
 
-<main class="mx-auto max-w-2xl px-4 sm:px-6 py-8">
+<main class="mx-auto max-w-5xl px-4 sm:px-6 py-8">
   <nav class="flex items-center gap-2 text-sm text-muted mb-6">
     <a class="link" href="/webhooks">Webhooks</a>
     <span class="text-faint">/</span>
@@ -382,7 +384,9 @@
       {#if transformTemplate}
         <section class="panel p-5">
           <label for="transformTemplate" class="field-label">Transform template (applied to each created subscription)</label>
-          <textarea id="transformTemplate" bind:value={transformTemplate} rows="12" class="input mono !text-xs"></textarea>
+          <ExpandableEditor bind:expanded={templateExpanded} label="Transform Template">
+            <textarea id="transformTemplate" bind:value={transformTemplate} rows="14" class="input mono !text-xs w-full" style="resize:vertical;min-height:10rem;{templateExpanded ? 'height:100%' : ''}"></textarea>
+          </ExpandableEditor>
           <p class="text-muted text-xs mt-2">Editable — rendered server-side per delivery. Clear the recipe above to drop it.</p>
         </section>
       {/if}

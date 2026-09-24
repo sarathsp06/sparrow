@@ -5,6 +5,7 @@
   import EmptyState from "./EmptyState.svelte";
   import CopyableId from "./CopyableId.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
+  import ExpandableEditor from "./ExpandableEditor.svelte";
   import type { components } from "$lib/api-types";
 
   type SubscriptionItem = components["schemas"]["SubscriptionItem"];
@@ -38,6 +39,7 @@
   let templateFunctions: { name: string; description: string }[] = $state([]);
   let loadingTemplateFunctions = $state(false);
   let selectedFunction: { name: string; description: string } | null = $state(null);
+  let templateExpanded = $state(false);
 
   // Event data
   let availableEvents: EventTypeItem[] = $state([]);
@@ -107,6 +109,7 @@
     dryRunError = "";
     showTemplateDocs = false;
     selectedFunction = null;
+    templateExpanded = false;
   }
 
   function addHeader() {
@@ -509,7 +512,7 @@
   <div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto">
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" role="presentation" onclick={() => { modalOpen = false; resetForm(); }}></div>
-    <div class="panel relative w-full max-w-2xl mx-4 my-12" role="dialog" aria-modal="true" aria-labelledby="sub-modal-title" tabindex="-1" onkeydown={(e) => { if (e.key === "Escape") { modalOpen = false; resetForm(); } }}>
+    <div class="panel relative w-full max-w-5xl mx-4 my-12" role="dialog" aria-modal="true" aria-labelledby="sub-modal-title" tabindex="-1" onkeydown={(e) => { if (e.key === "Escape") { modalOpen = false; resetForm(); } }}>
       <div class="flex items-center justify-between px-6 py-4 border-b border-line">
         <h3 id="sub-modal-title" class="text-lg font-semibold text-text">
           {modalMode === "create" ? "Create Subscription" : "Edit Subscription"}
@@ -634,13 +637,16 @@
 
             <div class="grid gap-3" style="grid-template-columns: {showTemplateDocs ? '1fr 1fr' : '1fr'}">
               <div>
-                <textarea
-                  id="modal-template"
-                  bind:value={form.transformTemplate}
-                  rows="8"
-                  placeholder={'{\n  "user_id": "{{ .Payload.id }}",\n  "email": "{{ .Payload.email | urlencode }}"\n}'}
-                  class="input"
-                ></textarea>
+                <ExpandableEditor bind:expanded={templateExpanded} label="Transform Template">
+                  <textarea
+                    id="modal-template"
+                    bind:value={form.transformTemplate}
+                    rows="14"
+                    placeholder={'{\n  "user_id": "{{ .Payload.id }}",\n  "email": "{{ .Payload.email | urlencode }}"\n}'}
+                    class="input mono !text-xs w-full"
+                    style="resize:vertical;min-height:10rem;{templateExpanded ? 'height:100%' : ''}"
+                  ></textarea>
+                </ExpandableEditor>
                 <p class="text-xs text-faint mt-1">Go template syntax for payload transformation</p>
               </div>
 

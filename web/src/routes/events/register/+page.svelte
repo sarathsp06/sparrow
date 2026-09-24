@@ -3,6 +3,7 @@
   import { api, unwrap } from '$lib/services';
   import { JSONSchemaMetaSchema, jsonToJsonSchema } from '$lib';
   import { formatAPIError, safeAjvValidator } from '$lib/utils';
+  import ExpandableEditor from '$lib/components/ExpandableEditor.svelte';
   import {
     JSONEditor,
     Mode,
@@ -19,6 +20,7 @@
   let showSchemaHelper = $state(false);
   let sampleJson = $state({ json: {} } as JSONContent);
   let schemaHelperError = $state('');
+  let schemaExpanded = $state(false);
 
   const validator: Validator | undefined = safeAjvValidator({ schema: JSONSchemaMetaSchema });
 
@@ -74,7 +76,7 @@
   <title>Register Event | Sparrow</title>
 </svelte:head>
 
-<main class="mx-auto max-w-2xl px-4 sm:px-6 py-8">
+<main class="mx-auto max-w-5xl px-4 sm:px-6 py-8">
   <nav class="flex items-center gap-2 text-sm text-muted mb-6">
     <a class="link" href="/events">Events</a>
     <span class="text-faint">/</span>
@@ -88,7 +90,7 @@
   </div>
 
   <form onsubmit={registerEvent} class="space-y-6">
-    <section class="panel p-5 space-y-4">
+    <section class="panel p-5 space-y-4 max-w-2xl">
       <div>
         <label for="name" class="field-label">Event Name</label>
         <input
@@ -123,22 +125,28 @@
           {showSchemaHelper ? 'Hide' : 'Generate from sample'}
         </button>
       </div>
-      {#if showSchemaHelper}
-        <div class="panel-2 p-4 mb-4">
-          <p class="text-muted text-xs mb-2">Paste a sample payload to generate a schema:</p>
-          <div class="h-32 mb-2">
-            <JSONEditor bind:content={sampleJson} mode={Mode.text} />
-          </div>
-          {#if schemaHelperError}
-            <p class="text-xs mb-2" style="color:var(--color-bad)">{schemaHelperError}</p>
-          {/if}
-          <button type="button" onclick={generateSchemaFromSample} class="btn btn-beacon !px-3 !py-1.5">
-            Generate Schema
-          </button>
+      <div class="grid grid-cols-1 {showSchemaHelper ? 'lg:grid-cols-2' : ''} gap-4">
+        <div>
+          <ExpandableEditor bind:expanded={schemaExpanded} label="JSON Schema">
+            <div class="{schemaExpanded ? 'h-full' : 'h-72'}">
+              <JSONEditor bind:content={schema} {validator} />
+            </div>
+          </ExpandableEditor>
         </div>
-      {/if}
-      <div class="h-64">
-        <JSONEditor bind:content={schema} {validator} />
+        {#if showSchemaHelper}
+          <div class="panel-2 p-4">
+            <p class="text-muted text-xs mb-2">Paste a sample payload to generate a schema:</p>
+            <div class="h-52 mb-2">
+              <JSONEditor bind:content={sampleJson} mode={Mode.text} />
+            </div>
+            {#if schemaHelperError}
+              <p class="text-xs mb-2" style="color:var(--color-bad)">{schemaHelperError}</p>
+            {/if}
+            <button type="button" onclick={generateSchemaFromSample} class="btn btn-beacon !px-3 !py-1.5">
+              Generate Schema
+            </button>
+          </div>
+        {/if}
       </div>
     </section>
 
@@ -151,7 +159,7 @@
     <div class="flex items-center justify-end gap-3 pt-2">
       <a href="/events" class="btn btn-ghost">Cancel</a>
       <button type="submit" disabled={submitting} aria-busy={submitting} class="btn btn-beacon">
-        {submitting ? 'Registering…' : 'Register Event'}
+        {submitting ? 'Registering...' : 'Register Event'}
       </button>
     </div>
   </form>
