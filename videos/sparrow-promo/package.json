@@ -28,7 +28,8 @@
     "dev": "remotion studio",
     "build": "remotion bundle",
     "upgrade": "remotion upgrade",
-    "lint": "eslint src && tsc"
+    "lint": "eslint src && tsc",
+    "render:web": "bash ./scripts/render-web.sh"
   },
   "sideEffects": [
     "*.css"
