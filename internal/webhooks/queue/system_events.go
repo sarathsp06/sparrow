@@ -193,8 +193,9 @@ func systemEventSamplePayload(schema map[string]any) map[string]any {
 // emitHealthChangedEvent pushes systemEventHealthChanged when a delivery
 // outcome moved webhookID's health from oldHealth to newHealth, skipping:
 // no-op transitions, a webhook's first-ever outcome (unknown -> healthy),
-// self-events for _sparrow's own webhooks (feedback-loop guard), and
-// transitions nobody has opted an alert into.
+// and self-events for _sparrow's own webhooks (feedback-loop guard).
+// The event is always pushed regardless of whether any alert configs exist;
+// alert_recipients in the payload may be empty.
 func (w *WebhookWorker) emitHealthChangedEvent(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID uuid.UUID, url, oldHealth, newHealth string) {
 	if consumer == SystemEventConsumer || oldHealth == newHealth {
 		return
@@ -205,10 +206,9 @@ func (w *WebhookWorker) emitHealthChangedEvent(ctx context.Context, log *slog.Lo
 	recipients, err := w.alertConfigRepo.ResolveAlertRecipients(ctx, tenantID, webhookID, consumer, systemEventHealthChanged)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to resolve health_changed alert recipients", "error", err)
-		return
-	}
-	if len(recipients) == 0 {
-		return
+		// Resolve failure is non-fatal: push the event with empty recipients
+		// so the transition is recorded in the _sparrow event history.
+		recipients = nil
 	}
 	pushSystemEvent(ctx, log, w.eventRepo, w.jobInserter, tenantID, systemEventHealthChanged, map[string]any{
 		"webhook_id":       webhookID.String(),
@@ -221,8 +221,9 @@ func (w *WebhookWorker) emitHealthChangedEvent(ctx context.Context, log *slog.Lo
 }
 
 // emitDeliveryFailedEvent pushes systemEventDeliveryFailed once deliveryID has
-// exhausted every retry, skipping self-events for _sparrow's own webhooks and
-// deliveries nobody has opted an alert into.
+// exhausted every retry, skipping self-events for _sparrow's own webhooks.
+// The event is always pushed regardless of whether any alert configs exist;
+// alert_recipients in the payload may be empty.
 func (w *WebhookWorker) emitDeliveryFailedEvent(ctx context.Context, log *slog.Logger, tenantID uuid.UUID, consumer string, webhookID, deliveryID, eventID uuid.UUID, url string, attempt int, errorCategory, errorMessage string) {
 	if consumer == SystemEventConsumer {
 		return
@@ -230,10 +231,9 @@ func (w *WebhookWorker) emitDeliveryFailedEvent(ctx context.Context, log *slog.L
 	recipients, err := w.alertConfigRepo.ResolveAlertRecipients(ctx, tenantID, webhookID, consumer, systemEventDeliveryFailed)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to resolve delivery_failed alert recipients", "error", err)
-		return
-	}
-	if len(recipients) == 0 {
-		return
+		// Resolve failure is non-fatal: push the event with empty recipients
+		// so the failure is recorded in the _sparrow event history.
+		recipients = nil
 	}
 	pushSystemEvent(ctx, log, w.eventRepo, w.jobInserter, tenantID, systemEventDeliveryFailed, map[string]any{
 		"webhook_id":       webhookID.String(),

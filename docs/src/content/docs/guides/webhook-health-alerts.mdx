@@ -109,9 +109,12 @@ recipes are applied and parameterized.
 
 ## Good to know
 
-- **No recipients, no event.** If zero alert configs match a given
-  transition or failure, Sparrow skips pushing the event entirely — no
-  wasted storage or queue work.
+- **Events are always recorded.** Every health transition and permanent
+  delivery failure pushes an event under `_sparrow`, even when no alert
+  configs or subscriptions match — `alert_recipients` is then an empty list.
+  Nothing is sent unless a webhook subscribes to these events; with the
+  SendGrid recipe, an empty list goes to its `default_recipient` (typically
+  your ops inbox) as a catch-all.
 - **Errors here never affect delivery.** If emitting a system event fails,
   Sparrow logs it and moves on; it never retries or blocks the webhook
   delivery that triggered it.

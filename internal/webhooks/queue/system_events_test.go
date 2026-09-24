@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -26,11 +27,10 @@ func (f *fakeAlertConfigRepo) ResolveAlertRecipients(ctx context.Context, tenant
 	return f.recipients, nil
 }
 
-// fakeSystemEventRepo fails the test if a system event is pushed when a
-// guard should have skipped emission (e.g. zero recipients). When
-// notRegistered is set, GetEventByName reports no existing registration so
-// pushSystemEvent takes the auto-register path; registered captures what
-// RegisterEvent was called with.
+// fakeSystemEventRepo tracks system event emission. When notRegistered is
+// set, GetEventByName reports no existing registration so pushSystemEvent
+// takes the auto-register path; registered captures what RegisterEvent was
+// called with.
 type fakeSystemEventRepo struct {
 	systemEventRepo
 	stored        []string // event names pushed via StoreEvent
@@ -117,7 +117,7 @@ func TestEmitHealthChangedEvent_SkipsSparrowConsumer(t *testing.T) {
 	}
 }
 
-func TestEmitHealthChangedEvent_SkipsZeroRecipients(t *testing.T) {
+func TestEmitHealthChangedEvent_EmitsWithZeroRecipients(t *testing.T) {
 	alertRepo := &fakeAlertConfigRepo{recipients: nil}
 	eventRepo := &fakeSystemEventRepo{}
 	w := newTestWorker(alertRepo, eventRepo)
@@ -127,8 +127,8 @@ func TestEmitHealthChangedEvent_SkipsZeroRecipients(t *testing.T) {
 	if alertRepo.calls != 1 {
 		t.Errorf("expected recipient lookup to run once, got %d calls", alertRepo.calls)
 	}
-	if len(eventRepo.stored) != 0 {
-		t.Errorf("expected no event stored when nobody opted in, got %v", eventRepo.stored)
+	if len(eventRepo.stored) != 1 || eventRepo.stored[0] != systemEventHealthChanged {
+		t.Errorf("expected one %s event stored even with zero recipients, got %v", systemEventHealthChanged, eventRepo.stored)
 	}
 }
 
@@ -156,15 +156,18 @@ func TestEmitDeliveryFailedEvent_SkipsSparrowConsumer(t *testing.T) {
 	}
 }
 
-func TestEmitDeliveryFailedEvent_SkipsZeroRecipients(t *testing.T) {
+func TestEmitDeliveryFailedEvent_EmitsWithZeroRecipients(t *testing.T) {
 	alertRepo := &fakeAlertConfigRepo{recipients: nil}
 	eventRepo := &fakeSystemEventRepo{}
 	w := newTestWorker(alertRepo, eventRepo)
 
 	w.emitDeliveryFailedEvent(context.Background(), slog.Default(), uuid.New(), "acme", uuid.New(), uuid.New(), uuid.New(), "https://x", 3, "server_error", "boom")
 
-	if len(eventRepo.stored) != 0 {
-		t.Errorf("expected no event stored when nobody opted in, got %v", eventRepo.stored)
+	if alertRepo.calls != 1 {
+		t.Errorf("expected recipient lookup to run once, got %d calls", alertRepo.calls)
+	}
+	if len(eventRepo.stored) != 1 || eventRepo.stored[0] != systemEventDeliveryFailed {
+		t.Errorf("expected one %s event stored even with zero recipients, got %v", systemEventDeliveryFailed, eventRepo.stored)
 	}
 }
 
@@ -184,6 +187,55 @@ func TestToAlertRecipients(t *testing.T) {
 	got := toAlertRecipients([]string{"a@example.com", "b@example.com"})
 	if len(got) != 2 || got[0]["email"] != "a@example.com" || got[1]["email"] != "b@example.com" {
 		t.Errorf("unexpected recipients shape: %v", got)
+	}
+}
+
+// fakeAlertConfigRepoErr always returns an error from ResolveAlertRecipients.
+type fakeAlertConfigRepoErr struct {
+	store.AlertConfigRepository
+	calls int
+}
+
+func (f *fakeAlertConfigRepoErr) ResolveAlertRecipients(ctx context.Context, tenantID, webhookID uuid.UUID, consumer, eventType string) ([]string, error) {
+	f.calls++
+	return nil, fmt.Errorf("db connection lost")
+}
+
+func TestEmitHealthChangedEvent_EmitsOnRecipientLookupError(t *testing.T) {
+	alertRepo := &fakeAlertConfigRepoErr{}
+	eventRepo := &fakeSystemEventRepo{}
+	w := &WebhookWorker{
+		alertConfigRepo: alertRepo,
+		eventRepo:       eventRepo,
+		jobInserter:     noopJobInserter{},
+	}
+
+	w.emitHealthChangedEvent(context.Background(), slog.Default(), uuid.New(), "acme", uuid.New(), "https://x", string(store.HealthHealthy), string(store.HealthDegraded))
+
+	if alertRepo.calls != 1 {
+		t.Errorf("expected recipient lookup to run once, got %d calls", alertRepo.calls)
+	}
+	if len(eventRepo.stored) != 1 || eventRepo.stored[0] != systemEventHealthChanged {
+		t.Errorf("expected one %s event stored even on recipient lookup error, got %v", systemEventHealthChanged, eventRepo.stored)
+	}
+}
+
+func TestEmitDeliveryFailedEvent_EmitsOnRecipientLookupError(t *testing.T) {
+	alertRepo := &fakeAlertConfigRepoErr{}
+	eventRepo := &fakeSystemEventRepo{}
+	w := &WebhookWorker{
+		alertConfigRepo: alertRepo,
+		eventRepo:       eventRepo,
+		jobInserter:     noopJobInserter{},
+	}
+
+	w.emitDeliveryFailedEvent(context.Background(), slog.Default(), uuid.New(), "acme", uuid.New(), uuid.New(), uuid.New(), "https://x", 3, "server_error", "boom")
+
+	if alertRepo.calls != 1 {
+		t.Errorf("expected recipient lookup to run once, got %d calls", alertRepo.calls)
+	}
+	if len(eventRepo.stored) != 1 || eventRepo.stored[0] != systemEventDeliveryFailed {
+		t.Errorf("expected one %s event stored even on recipient lookup error, got %v", systemEventDeliveryFailed, eventRepo.stored)
 	}
 }
 
