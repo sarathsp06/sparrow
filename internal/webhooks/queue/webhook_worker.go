@@ -183,7 +183,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			attribute.String("delivery_id", args.DeliveryID),
 			attribute.String("webhook_id", args.WebhookID),
 			attribute.String("event_id", args.EventID),
-			attribute.String("url", webhook.URL),
+			attribute.String("url", client.RedactURL(webhook.URL)),
 			attribute.String("consumer", args.Consumer),
 			attribute.String("event", eventRecord.Event),
 		),

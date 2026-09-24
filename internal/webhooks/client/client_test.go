@@ -157,6 +157,52 @@ func TestSendFollowRedirects(t *testing.T) {
 	}
 }
 
+func TestSendSkipTLSVerify(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewWebhookClient(&Config{
+		Timeout:              30 * time.Second,
+		MaxIdleConns:         100,
+		MaxConnsPerHost:      10,
+		IdleConnTimeout:      90 * time.Second,
+		AllowPrivateNetworks: true, // httptest binds to 127.0.0.1
+	})
+	ctx := context.Background()
+
+	newReq := func(skip bool) *DeliveryRequest {
+		return &DeliveryRequest{
+			WebhookID:     uuid.New(),
+			DeliveryID:    "delivery-tls",
+			URL:           server.URL,
+			Method:        "POST",
+			Headers:       map[string]string{},
+			Payload:       []byte(`{}`),
+			EventID:       uuid.New(),
+			EventName:     "test.event",
+			SkipTLSVerify: skip,
+		}
+	}
+
+	// Default (verify): self-signed cert must be rejected.
+	if resp, _, err := client.Send(ctx, newReq(false)); err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("expected TLS verification failure against self-signed cert, got success")
+	}
+
+	// verify_ssl=false: delivery succeeds despite self-signed cert.
+	resp, _, err := client.Send(ctx, newReq(true))
+	if err != nil {
+		t.Fatalf("SkipTLSVerify=true: unexpected error: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+}
+
 func TestSendFailure(t *testing.T) {
 	client := NewWebhookClient(nil)
 	ctx := context.Background()

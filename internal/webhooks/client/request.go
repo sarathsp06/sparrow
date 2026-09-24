@@ -34,9 +34,12 @@ type DeliveryRequest struct {
 	Ed25519PrivateKey []byte // Raw Ed25519 private key (64 bytes) for asymmetric signing
 	Timeout           time.Duration
 	FollowRedirects   bool
-	EventID           uuid.UUID
-	EventName         string
-	Consumer          string
+	// SkipTLSVerify disables TLS certificate verification for this delivery
+	// (webhook verify_ssl=false). Zero value = verify, the safe default.
+	SkipTLSVerify bool
+	EventID       uuid.UUID
+	EventName     string
+	Consumer      string
 }
 
 // WebhookEnvelope is the default JSON body sent to webhook endpoints.
@@ -260,6 +263,7 @@ func PrepareDeliveryRequest(
 		Ed25519PrivateKey: ed25519PrivateKey,
 		Timeout:           timeout,
 		FollowRedirects:   webhook.FollowRedirects,
+		SkipTLSVerify:     !webhook.VerifySSL,
 		EventID:           event.ID,
 		EventName:         event.Event,
 		Consumer:          event.Consumer,

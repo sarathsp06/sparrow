@@ -57,6 +57,12 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		span.SetStatus(otelcodes.Error, "event is required")
 		return "", false, false, nil, err
 	}
+	if len(event) > 255 {
+		err := svcerrors.Error(svcerrors.InvalidArgument, "event name must be at most 255 characters")
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "event name too long")
+		return "", false, false, nil, err
+	}
 	if err := validateLabels(labels, "labels"); err != nil {
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "invalid labels")
@@ -394,6 +400,9 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 	s.logger.InfoContext(ctx, "Processing event registration request", "name", name, "description", description)
 	if name == "" {
 		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
+	}
+	if len(name) > 255 {
+		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "event name must be at most 255 characters")
 	}
 
 	tenantID := tenant.DefaultTenantID

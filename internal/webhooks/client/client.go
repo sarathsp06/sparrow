@@ -2,9 +2,11 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -18,8 +20,12 @@ type WebhookClient struct {
 	// noRedirectClient shares the transport but never follows redirects,
 	// used when a webhook has follow_redirects=false.
 	noRedirectClient *http.Client
-	tmpl             *template.TemplateEngine
-	config           *Config
+	// insecure* skip TLS certificate verification, used when a webhook has
+	// verify_ssl=false (trusted internal endpoints with self-signed certs).
+	insecureClient           *http.Client
+	insecureNoRedirectClient *http.Client
+	tmpl                     *template.TemplateEngine
+	config                   *Config
 }
 
 // NewWebhookClient creates a new webhook client
@@ -52,8 +58,16 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		TLSHandshakeTimeout: 10 * time.Second,
 		DialContext:         dialer.DialContext,
 	}
+	insecureTransport := transport.Clone()
+	// #nosec G402 -- explicit per-webhook verify_ssl=false opt-in for
+	// self-signed internal endpoints; the default transport always verifies.
+	insecureTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	instrumented := otelhttp.NewTransport(transport)
+	insecureInstrumented := otelhttp.NewTransport(insecureTransport)
+	noRedirect := func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
 	return &WebhookClient{
 		httpClient: &http.Client{
 			Transport:     instrumented,
@@ -61,11 +75,19 @@ func NewWebhookClient(config *Config) *WebhookClient {
 			CheckRedirect: checkRedirect,
 		},
 		noRedirectClient: &http.Client{
-			Transport: instrumented,
-			Timeout:   config.Timeout,
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
+			Transport:     instrumented,
+			Timeout:       config.Timeout,
+			CheckRedirect: noRedirect,
+		},
+		insecureClient: &http.Client{
+			Transport:     insecureInstrumented,
+			Timeout:       config.Timeout,
+			CheckRedirect: checkRedirect,
+		},
+		insecureNoRedirectClient: &http.Client{
+			Transport:     insecureInstrumented,
+			Timeout:       config.Timeout,
+			CheckRedirect: noRedirect,
 		},
 		tmpl:   template.NewTemplateEngine(),
 		config: config,
@@ -97,7 +119,12 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 	}
 
 	httpClient := c.httpClient
-	if !req.FollowRedirects {
+	switch {
+	case req.SkipTLSVerify && !req.FollowRedirects:
+		httpClient = c.insecureNoRedirectClient
+	case req.SkipTLSVerify:
+		httpClient = c.insecureClient
+	case !req.FollowRedirects:
 		httpClient = c.noRedirectClient
 	}
 
@@ -115,12 +142,23 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 // Close shuts down the client
 func (c *WebhookClient) Close() error {
 	c.httpClient.CloseIdleConnections()
+	c.insecureClient.CloseIdleConnections()
 	return nil
 }
 
 // TransformPayload transforms the webhook payload using a template
 func (c *WebhookClient) TransformPayload(tmplStr string, data template.WebhookTemplateContext) ([]byte, error) {
 	return c.tmpl.TransformPayload(tmplStr, data)
+}
+
+// RedactURL masks the password in a URL's userinfo for safe logging/tracing.
+// Invalid URLs are returned unchanged.
+func RedactURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	return u.Redacted()
 }
 
 // ReadBody reads up to limit bytes of the response body using a pooled buffer,

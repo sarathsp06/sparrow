@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/sarathsp06/sparrow/internal/tenant"
+	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 	"github.com/sarathsp06/sparrow/pkg/storage"
@@ -67,11 +68,12 @@ func (s *WebhookService) setWebhookActive(ctx context.Context, webhookID string,
 }
 
 func (s *WebhookService) RegisterWebhook(ctx context.Context, consumer string, events []string, url string, headers map[string]string, timeout int, active bool, description string, secretHeaders map[string]string) (string, time.Time, error) {
+	redactedURL := client.RedactURL(url)
 	ctx, span := s.tracer.Start(ctx, "webhook.register",
 		trace.WithAttributes(
 			attribute.String("consumer", consumer),
 			attribute.StringSlice("events", events),
-			attribute.String("url", url),
+			attribute.String("url", redactedURL),
 		),
 	)
 	defer span.End()
@@ -81,7 +83,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, consumer string, e
 	s.logger.InfoContext(ctx, "Processing webhook registration request",
 		"consumer", consumer,
 		"events", events,
-		"url", url,
+		"url", redactedURL,
 	)
 
 	if consumer == "" {
@@ -147,7 +149,7 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, consumer string, e
 		s.logger.ErrorContext(ctx, "Failed to register webhook",
 			"consumer", consumer,
 			"events", events,
-			"url", url,
+			"url", redactedURL,
 			"error", err,
 		)
 		return "", time.Time{}, fmt.Errorf("failed to register webhook: %w", err)
@@ -178,18 +180,19 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, consumer string, e
 		"webhook_id", registration.ID,
 		"consumer", consumer,
 		"events", events,
-		"url", url,
+		"url", redactedURL,
 	)
 	return registration.ID.String(), registration.CreatedAt, nil
 }
 
 // CreateWebhook creates a webhook registration with HTTP configuration support
 func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrationRequest) (*WebhookRegistration, error) {
+	redactedURL := client.RedactURL(req.URL)
 	ctx, span := s.tracer.Start(ctx, "webhook.create",
 		trace.WithAttributes(
 			attribute.String("consumer", req.Consumer),
 			attribute.StringSlice("events", req.Events),
-			attribute.String("url", req.URL),
+			attribute.String("url", redactedURL),
 		),
 	)
 	defer span.End()
@@ -197,7 +200,7 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	s.logger.InfoContext(ctx, "Processing enhanced webhook creation request",
 		"consumer", req.Consumer,
 		"events", req.Events,
-		"url", req.URL,
+		"url", redactedURL,
 	)
 
 	tenantID := tenant.DefaultTenantID
@@ -645,6 +648,24 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		}
 		if updateRateLimit {
 			webhook.RateLimitRPS = httpConfig.RateLimitRPS
+		}
+		// Enforce the same bounds the create path enforces: validate the
+		// merged result, not just the delta (e.g. request_timeout_seconds
+		// must stay within 1-300 after a PATCH).
+		codes := make(IntArray, len(webhook.ExpectedStatusCodes))
+		for i, code := range webhook.ExpectedStatusCodes {
+			codes[i] = int(code)
+		}
+		merged := WebhookHTTPConfig{
+			MaxRetries:            &webhook.MaxRetries,
+			RetryBackoffSeconds:   webhook.RetryBackoffSeconds,
+			RequestTimeoutSeconds: webhook.RequestTimeoutSeconds,
+			ExpectedStatusCodes:   codes,
+			ContentType:           webhook.ContentType,
+			RateLimitRPS:          webhook.RateLimitRPS,
+		}
+		if err := merged.ValidateConfig(); err != nil {
+			return err
 		}
 	}
 	// Merge secret header updates into the existing encrypted map.
