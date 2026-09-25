@@ -44,34 +44,16 @@ const satellitesDocs = `${base}satellites/`;
   <main class="sp-w">
     <RecipeWorkbenchApp client:load />
   </main>
-
-  <footer class="sp-footer">
-    <div class="sp-w sp-footer-inner">
-      <a href={base} class="sp-footer-brand">
-        <img src={favicon} alt="" width="20" height="20" />
-        <span>Sparrow</span>
-      </a>
-      <span class="sp-footer-note">Recipe Workbench · previews rendered in-browser · <a href={satellitesDocs}>Satellites docs ↗</a></span>
-    </div>
-  </footer>
 </body>
 </html>
 
 <style>
-.sp { margin: 0; padding: 0; min-height: 100vh; display: flex; flex-direction: column; font-family: var(--sp-font-body, system-ui, sans-serif); background: #0b0f17; color: #e2e8f0; }
-.sp-w { max-width: 1280px; margin: 0 auto; padding: 0 1.5rem; width: 100%; box-sizing: border-box; }
-main.sp-w { flex: 1; }
-.sp-nav { height: 3.5rem; border-bottom: 1px solid #1f2937; background: #0f172a; position: sticky; top: 0; z-index: 40; }
+.sp { margin: 0; padding: 0; font-family: var(--sp-font-body, system-ui, sans-serif); background: var(--sp-surface, #fbfbfa); color: var(--sp-on-surface, #1f2937); }
+.sp-w { max-width: 1280px; margin: 0 auto; padding: 0 1.5rem; }
+.sp-nav { height: 3.5rem; border-bottom: 1px solid var(--sp-outline-variant, #e5e7eb); background: #ffffff; }
 .sp-nav-inner { display: flex; align-items: center; height: 100%; justify-content: space-between; }
-.sp-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; font-weight: 700; color: #f1f5f9; letter-spacing: -0.01em; }
+.sp-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; font-weight: 700; color: inherit; }
 .sp-nav-links { display: flex; gap: 1.5rem; }
-.sp-nav-links a { text-decoration: none; color: #94a3b8; font-size: 14px; font-weight: 500; }
-.sp-nav-links a:hover { color: #e2e8f0; }
-.sp-nav-links a.sp-active { color: #fbbf24; font-weight: 700; }
-.sp-footer { border-top: 1px solid #1f2937; background: #0f172a; margin-top: auto; }
-.sp-footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 3.25rem; flex-wrap: wrap; }
-.sp-footer-brand { display: flex; align-items: center; gap: 0.4rem; text-decoration: none; color: #cbd5e1; font-weight: 600; font-size: 13px; }
-.sp-footer-note { font-family: var(--sp-font-mono, monospace); font-size: 11.5px; color: #64748b; }
-.sp-footer-note a { color: #94a3b8; text-decoration: none; }
-.sp-footer-note a:hover { color: #fbbf24; }
+.sp-nav-links a { text-decoration: none; color: var(--sp-on-surface-variant, #4b5563); font-size: 14px; font-weight: 500; }
+.sp-nav-links a.sp-active { color: #d97706; font-weight: 700; }
 </style>

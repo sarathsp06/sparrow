@@ -851,17 +851,16 @@
 
 <style>
   .rw-root { display: flex; flex-direction: column; gap: 1rem; font-family: var(--sp-font-body, system-ui, sans-serif); color: var(--sp-on-surface, #1f2937); margin: 1.5rem 0 3rem; }
-  .rw-header { padding: 1.5rem 1.75rem; background: linear-gradient(135deg, #0f172a 0%, #111827 100%); border: 1px solid #1f2937; border-radius: 12px; color: #f1f5f9; }
-  .rw-header h1 { margin: 0.4rem 0 0.5rem; font-size: 1.6rem; color: #f8fafc; letter-spacing: -0.01em; }
-  .rw-header p { margin: 0; color: #94a3b8; font-size: 0.95rem; max-width: 56rem; }
+  .rw-header { padding: 1.25rem 1.5rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; }
+  .rw-header h1 { margin: 0.35rem 0 0.5rem; font-size: 1.6rem; }
+  .rw-header p { margin: 0; color: #4b5563; font-size: 0.95rem; max-width: 56rem; }
   .rw-badge { font-family: var(--sp-font-mono, monospace); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: #b06a10; background: #fef3c7; padding: 2px 8px; border-radius: 4px; }
-  .rw-header .rw-badge { color: #fbbf24; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.25); }
   .rw-toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #111827; color: #fff; padding: 0.5rem 1rem; border-radius: 8px; font-size: 13px; z-index: 50; }
 
   .rw-recipe-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-  .rw-tab { padding: 0.45rem 0.9rem; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: #4b5563; }
+  .rw-tab { padding: 0.45rem 0.9rem; border: 1px solid #e5e7eb; background: #fff; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; color: #4b5563; }
   .rw-tab-active { background: #b06a10; border-color: #b06a10; color: #fff; }
-  .rw-tagline-bar { font-size: 13px; color: #cbd5e1; padding: 0.55rem 0.85rem; background: #111827; border: 1px solid #1f2937; border-radius: 8px; font-family: var(--sp-font-mono, monospace); }
+  .rw-tagline-bar { font-size: 13px; color: #4b5563; padding: 0.5rem 0.75rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; }
 
   .rw-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
   @media (max-width: 900px) { .rw-grid { grid-template-columns: 1fr; } }
