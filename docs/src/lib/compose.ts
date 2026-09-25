@@ -62,6 +62,7 @@ export interface EmailCompose {
   bcc: string; // comma-separated, optional (addresses mode only)
   subject: string;
   bodyText: string;
+  format: 'text' | 'html'; // content type: text/plain vs text/html
 }
 
 /** `"a@b.c, {{.payload.x}}"` → SendGrid address array `[{"email": ...}, …]`, or null when empty. */
@@ -88,7 +89,7 @@ export function generateSendgridTemplate(c: EmailCompose): string {
   "personalizations": ${personalizations},
   "from": {"email": "{{param "from_email"}}", "name": "{{param "from_name"}}"},
   "subject": ${toJsonExpr(c.subject)},
-  "content": [{"type": "text/plain", "value": ${toJsonExpr(body)}}]
+  "content": [{"type": ${c.format === 'html' ? '"text/html"' : '"text/plain"'}, "value": ${toJsonExpr(body)}}]
 }`;
 }
 

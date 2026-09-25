@@ -72,6 +72,7 @@
     subject: 'Sparrow: webhook for {{.payload.consumer}} is now {{.payload.new_health}}',
     bodyText:
       'Webhook {{.payload.webhook_id}} ({{.payload.url}}) health changed: {{.payload.old_health}} -> {{.payload.new_health}}',
+    format: 'text',
   });
   let sms = $state('Sparrow {{.event_name}}: {{.payload.active_incidents}} active incidents in {{.payload.datacenter}}');
   let slack = $state<SlackCompose>({
@@ -297,18 +298,6 @@
         {@render composerForm('')}
       </div>
 
-      <!-- Go transform template (what Sparrow stores) -->
-      <div class="rw-card">
-        <div class="rw-card-header">
-          <h3>Go transform template (what Sparrow stores)</h3>
-          <div class="rw-field-actions">
-            <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={openTemplateModal}>Edit ↗</button>
-            <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={() => copyText(template, 'Copied template')}>Copy</button>
-          </div>
-        </div>
-        <pre class="rw-raw-code"><code>{template}</code></pre>
-      </div>
-
       <!-- Parameters -->
       <div class="rw-card">
         <h3>3. Recipe parameters</h3>
@@ -326,20 +315,6 @@
             </div>
           {/each}
         </div>
-      </div>
-
-      <!-- Setup guide -->
-      <div class="rw-card">
-        <h3>4. How to set up {meta.title}</h3>
-        <p class="rw-sub">Where the credentials above come from, per the official docs.</p>
-        <ol class="rw-setup-steps">
-          {#each meta.setup.steps as s}
-            <li>{s}</li>
-          {/each}
-        </ol>
-        <a class="rw-btn-text" href={meta.setup.docsUrl} target="_blank" rel="noopener noreferrer">
-          {meta.setup.docsLabel} →
-        </a>
       </div>
     </div>
 
@@ -372,7 +347,7 @@
                   <div><strong>Bcc:</strong> {emailAddresses.bcc.join(', ')}</div>
                 {/if}
               </div>
-              <div class="rw-email-body">{emailBodyRendered}</div>
+              <div class="rw-email-body" class:rw-email-html={email.format === 'html'}>{#if email.format === 'html'}{@html emailBodyRendered}{:else}{emailBodyRendered}{/if}</div>
             </div>
 
           {:else if selectedId === 'twilio'}
@@ -473,6 +448,18 @@
         </details>
       </div>
 
+
+      <!-- Go transform template (what Sparrow stores) -->
+      <div class="rw-card">
+        <div class="rw-card-header">
+          <h3>Go transform template (what Sparrow stores)</h3>
+          <div class="rw-field-actions">
+            <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={openTemplateModal}>Edit ↗</button>
+            <button class="rw-btn rw-btn-secondary rw-btn-sm" onclick={() => copyText(template, 'Copied template')}>Copy</button>
+          </div>
+        </div>
+        <pre class="rw-raw-code"><code>{template}</code></pre>
+      </div>
       <div class="rw-card">
         <div class="rw-card-header">
           <h3>Apply with the Sparrow CLI</h3>
@@ -488,6 +475,20 @@
       </div>
     </div>
   </div>
+
+      <!-- Setup guide -->
+      <div class="rw-card">
+        <h3>4. How to set up {meta.title}</h3>
+        <p class="rw-sub">Where the credentials above come from, per the official docs.</p>
+        <ol class="rw-setup-steps">
+          {#each meta.setup.steps as s}
+            <li>{s}</li>
+          {/each}
+        </ol>
+        <a class="rw-btn-text" href={meta.setup.docsUrl} target="_blank" rel="noopener noreferrer">
+          {meta.setup.docsLabel} →
+        </a>
+      </div>
 </div>
 
 <!-- ============ Payload Edit Modal ============ -->
@@ -530,7 +531,7 @@
                     <div><strong>From:</strong> {params.from_name} &lt;{params.from_email}&gt;</div>
                     <div><strong>To:</strong> {emailAddresses.to.length ? emailAddresses.to.join(', ') : '(no recipients)'}</div>
                   </div>
-                  <div class="rw-email-body">{emailBodyRendered}</div>
+                  <div class="rw-email-body" class:rw-email-html={email.format === 'html'}>{#if email.format === 'html'}{@html emailBodyRendered}{:else}{emailBodyRendered}{/if}</div>
                 </div>
               {:else if selectedId === 'twilio'}
                 <div class="rw-twilio-card"><div class="rw-sms-header">To: +{params.to_number}</div><div class="rw-sms-bubble">{smsRendered}</div></div>
@@ -660,7 +661,13 @@
             <input id="{idp}em_subject" type="text" bind:value={email.subject} />
           </div>
           <div class="rw-field">
-            <label for="{idp}em_body">Body</label>
+            <div class="rw-field-header">
+              <label for="{idp}em_body">Body</label>
+              <select id="{idp}em_format" bind:value={email.format} aria-label="Body content type">
+                <option value="text">Plain text</option>
+                <option value="html">HTML</option>
+              </select>
+            </div>
             <textarea id="{idp}em_body" rows="6" bind:value={email.bodyText} class="rw-body-textarea"></textarea>
           </div>
 
@@ -811,7 +818,7 @@
                     <div><strong>From:</strong> {params.from_name} &lt;{params.from_email}&gt;</div>
                     <div><strong>To:</strong> {emailAddresses.to.length ? emailAddresses.to.join(', ') : '(no recipients)'}</div>
                   </div>
-                  <div class="rw-email-body">{emailBodyRendered}</div>
+                  <div class="rw-email-body" class:rw-email-html={email.format === 'html'}>{#if email.format === 'html'}{@html emailBodyRendered}{:else}{emailBodyRendered}{/if}</div>
                 </div>
               {:else if selectedId === 'twilio'}
                 <div class="rw-twilio-card"><div class="rw-sms-header">To: +{params.to_number}</div><div class="rw-sms-bubble">{smsRendered}</div></div>
@@ -909,6 +916,7 @@
   .rw-email-card { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
   .rw-email-header { padding: 0.75rem 1rem; background: #f9fafb; border-bottom: 1px solid #e5e7eb; font-size: 13px; display: flex; flex-direction: column; gap: 0.25rem; }
   .rw-email-body { padding: 1rem; font-size: 13.5px; white-space: pre-wrap; line-height: 1.6; }
+  .rw-email-html { white-space: normal; }
 
   /* SMS preview */
   .rw-twilio-card { background: #f3f4f6; border-radius: 12px; padding: 1rem; max-width: 340px; }

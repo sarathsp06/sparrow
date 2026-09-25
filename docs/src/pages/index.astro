@@ -11,6 +11,7 @@ const apiRef = `${base}reference/api/`;
 const satellitesDocs = `${base}satellites/`;
 const cliDocs = `${base}satellites/cli/`;
 const recipesDocs = `${base}satellites/recipes/`;
+const recipeWorkbench = `${base}tools/recipe-workbench/`;
 const sourcesDocs = `${base}satellites/sources/`;
 const sinksDocs = `${base}satellites/sinks/`;
 const whySparrow = `${base}getting-started/why-sparrow/#feature-comparison`;
@@ -85,6 +86,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
         <div class="sp-nav-links">
           <a href={docsHome}>Docs</a>
           <a href={satellitesDocs}>Satellites</a>
+          <a href={recipeWorkbench}>Workbench</a>
           <a href={apiRef}>API</a>
           <a href={`${base}reference/architecture/`}>Architecture</a>
           <a href={`${base}deployment/docker-compose/`}>Deploy</a>
@@ -328,6 +330,15 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
           </div>
           <p>Slack, Discord, PagerDuty, ntfy, ClickHouse, Twilio, SendGrid — adapters as config, applied with <code>sparrow use</code>. No glue service.</p>
           <span class="sp-card-link">Recipes<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+        </a>
+
+        <a class="sp-card" href={recipeWorkbench}>
+          <div class="sp-card-head">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.7"><path d="M14.7 6.3a4 4 0 0 0-5.63 5.03L3.5 16.9a1.5 1.5 0 0 0 2.12 2.12l5.57-5.57A4 4 0 0 0 16.9 8.1l-2.5 2.5-1.5-1.5 2.5-2.5z"/><path d="M15 15l5 5"/></svg>
+            <h3>Recipe Workbench</h3>
+          </div>
+          <p>Compose and preview any recipe in the browser — pick a destination, edit the payload or message, watch the live preview, then copy the exact <code>sparrow use</code> command. No install needed.</p>
+          <span class="sp-card-link">Open workbench<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
         </a>
 
         <a class="sp-card" href={sourcesDocs}>
