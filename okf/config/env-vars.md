@@ -46,7 +46,7 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `CORS_ALLOWED_ORIGINS` | Comma-separated CORS origins | — |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated exact origins allowed cross-origin (trailing `/` ignored; headers `Authorization`, `Content-Type`, `X-API-Key`; no credentials). Needed for a separately hosted UI. Unset: block all when `ENVIRONMENT=production`, allow all otherwise. Implemented in `internal/middleware/cors.go` | — |
 
 ## Retention
 

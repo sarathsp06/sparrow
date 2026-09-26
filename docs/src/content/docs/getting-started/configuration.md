@@ -20,18 +20,21 @@ All configuration is done via environment variables. No config files needed.
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private IP addresses as webhook URLs. Enable for local development and testing |
 | `ENVIRONMENT` | No | -- | Deployment tag; any value is accepted. Set to `production` to block cross-origin requests by default (see `CORS_ALLOWED_ORIGINS`) and tag logs/OTel; any other value behaves as development. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
-| `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of allowed CORS origins (e.g. `https://ui.example.com,https://admin.example.com`). Required when the UI is hosted separately from the API. In production (`ENVIRONMENT=production`), cross-origin requests are blocked by default; in development, all origins are allowed. |
+| `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of exact browser origins allowed to call the API (e.g. `https://ui.example.com,https://admin.example.com`; trailing slashes are ignored). Required when the UI is [hosted separately](/sparrow/deployment/separate-ui/). When unset: with `ENVIRONMENT=production` every cross-origin request is rejected; otherwise every origin is allowed (local development only). |
+| `SPARROW_MAX_BODY_BYTES` | No | `5242880` (5 MiB) | Maximum request body size in bytes. Minimum 1 MiB; larger bodies get `413`. |
 | `SPARROW_EVENT_RETENTION_DAYS` | No | `0` (keep forever) | Purge events — and, via cascade, their deliveries — older than this many days. Runs hourly in the background. |
 
 For a single-key deployment, still use the keyring format: `SPARROW_ENCRYPTION_KEYS=main=<64-char-hex-key>` with `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main`.
 
-### Frontend Development Variables
+### Web UI Variables
 
-These variables are used only when running the SvelteKit web UI in development mode (`npm run dev`). They are **not** part of the Go server configuration.
+These configure the web UI, not the Go server. They matter only when the UI is **not** served by Sparrow itself, i.e. under `npm run dev` or when you [host the UI separately](/sparrow/deployment/separate-ui/). With `SPARROW_SERVE_UI=true` the UI uses the same origin and gets the API key from the server, so none of this applies.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PUBLIC_API_URL` | `/` | API base URL for the frontend dev server to proxy requests |
+| Setting | Where | Default | Description |
+|---------|-------|---------|-------------|
+| `apiUrl` | `window.__SPARROW_CONFIG__` in the UI's `/config.js`, set on the static host at deploy time | -- | Absolute URL of the Sparrow server. Overrides `PUBLIC_API_URL`. |
+| `apiKey` | `window.__SPARROW_CONFIG__` in `/config.js` | -- | The server's `SPARROW_API_KEY`. Optional: without it, the UI asks for the key on the first `401` and remembers it in the browser. Anyone who can load the UI can read a key placed here. |
+| `PUBLIC_API_URL` | Environment variable for `vite build` / `vite dev` | Same origin (`npm run build`), `http://localhost:8080` (`npm run dev`) | Sparrow server URL baked into the bundle at build time. Changing it later requires a rebuild. |
 
 ## Encryption
 

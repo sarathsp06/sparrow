@@ -12,7 +12,8 @@
 | Build server | `make build` | Output: `build/server-$(GOOS)-$(GOARCH)` |
 | Build UI | `make build-ui` | Svelte 5 → `internal/ui/dist/` (embedded via `go:embed`) |
 | Build both | `make build-with-ui` | |
-| Run (dev) | `make run` | Needs `DATABASE_URL`, `SPARROW_ENCRYPTION_KEY` |
+| Run (dev) | `make run` | Shell/`.env` values win; otherwise `scripts/dev-env.sh` defaults `DATABASE_URL` + an all-zeros keyring. Start Postgres first with `make dev-db` |
+| Start dev Postgres | `make dev-db` | Throwaway `postgres:15-alpine` on localhost:5432 matching the default `DATABASE_URL` |
 | Run UI dev server | `make run-web` | Hot-reload Svelte at localhost (:5173 default) |
 | Run all tests | `make test` | `go test -v ./...` |
 | Single package test | `go test -v ./internal/webhooks/...` | |
@@ -52,14 +53,14 @@
 | `internal/webhooks/` | Business logic + store + queue workers |
 | `internal/webhooks/store/` | DB repository (sqlx, WithConn transaction pattern) |
 | `internal/webhooks/queue/` | River job types + workers |
-| `internal/middleware/` | API key auth, security headers |
+| `internal/middleware/` | API key auth, CORS, security headers |
 | `pkg/storage/` | DB abstractions, transaction helpers, error sentinels |
 | `pkg/crypto/` | Envelope encryption (AES-256-GCM) |
 | `pkg/errors/` | Error categories, service errors, retryability |
 
 ## API Key Authentication
 
-Optional shared-secret auth via `SPARROW_API_KEY` env var. When set, every `/v1/*` REST request must include `X-API-Key: <key>`. When unset, all endpoints are open. Excluded paths: `/health`, `/ready`, `/docs`, `/openapi`, UI catch-all. Uses constant-time comparison (`crypto/subtle`). The embedded UI gets the key injected at runtime via `window.__SPARROW_CONFIG__`.
+Optional shared-secret auth via `SPARROW_API_KEY` env var. When set, every `/v1/*` REST request must include `X-API-Key: <key>`. When unset, all endpoints are open. Excluded paths: `/health`, `/ready`, `/docs`, `/openapi`, UI catch-all. Uses constant-time comparison (`crypto/subtle`). The embedded UI gets the key injected at runtime via `window.__SPARROW_CONFIG__`. A separately hosted UI instead reads `apiUrl`/`apiKey` from its static `/config.js` (`web/static/config.js`) or, if the server requires a key and none is configured, prompts for it on the first 401 and stores it in `localStorage` (key `sparrow_api_key`).
 
 ## HTTP Routing (chi)
 

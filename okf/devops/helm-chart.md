@@ -41,7 +41,7 @@ Located at `charts/sparrow/`. Production-ready deployment for Kubernetes.
 | Feature | Configuration |
 |---------|--------------|
 | PostgreSQL | `postgresql.enabled` — bundled or external |
-| AP Key | `secrets.apiKey` or `existingSecret` |
+| API Key | `secrets.apiKey` or `existingSecret` |
 | Encryption Keys | Required via `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` |
 | Ingress | `ingress.enabled` |
 | Autoscaling | `hpa.enabled` |

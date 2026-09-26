@@ -14,23 +14,28 @@ Leaf package that loads all server configuration from environment variables.
 
 ```go
 type Config struct {
-    Environment          string // "development" or "production"
-    DatabaseURL          string
-    HTTPPort             string // default "8080"
-    APIKey               string // optional, SPARROW_API_KEY
-    ServeUI              bool
-    AllowPrivateNetworks bool
-    EncryptionKey        string // 64-char hex (32 bytes), required
-    OTLPEndpoint         string // OTLP HTTP exporter
-    CORSAllowedOrigins   []string
+    Environment            string   // "development" or "production" (ENVIRONMENT)
+    DatabaseURL            string   // DATABASE_URL
+    HTTPPort               string   // default "8080" (SPARROW_HTTP_PORT)
+    APIKey                 string   // optional (SPARROW_API_KEY)
+    ServeUI                bool     // SPARROW_SERVE_UI
+    AllowPrivateNetworks   bool     // SPARROW_ALLOW_PRIVATE_NETWORKS
+    EncryptionKeys         []string // "<key-id>=<64-char-hex>" entries (SPARROW_ENCRYPTION_KEYS)
+    EncryptionPrimaryKeyID string   // selects the active key (SPARROW_ENCRYPTION_PRIMARY_KEY_ID)
+    OTLPEndpoint           string   // OTLP HTTP exporter (OTEL_EXPORTER_OTLP_ENDPOINT)
+    CORSAllowedOrigins     []string // CORS_ALLOWED_ORIGINS
+    MaxBodyBytes           int64    // default 5 MiB, min 1 MiB (SPARROW_MAX_BODY_BYTES)
+    EventRetentionDays     int      // 0 = keep forever (SPARROW_EVENT_RETENTION_DAYS)
 }
 ```
 
 ## Functions
 
-- `Load() (*Config, error)` — reads env vars
+- `Load() (*Config, error)` — reads env vars (no prefix; spans SPARROW_*, DATABASE_URL, ENVIRONMENT, OTEL_*, CORS_*)
 - `(*Config).IsProduction() bool`
-- `(*Config).Validate() error`
+- `(*Config).Validate() error` — checks port, keyring, DATABASE_URL, production API key, body-size floor, retention range
+- `(*Config).Warnings() []string` — non-fatal advisories (e.g. sslmode=disable on non-local host)
+- `(*Config).EncryptionKeyring() (*crypto.Keyring, error)` — resolves SPARROW_ENCRYPTION_KEYS + primary ID into a crypto.Keyring
 
 ## Citations
 

@@ -1,14 +1,14 @@
 ---
 type: Go Package
 title: internal/middleware
-description: API key authentication and security headers middleware for the REST API
-tags: [middleware, auth, security]
+description: API key authentication, CORS, and security headers middleware for the REST API
+tags: [middleware, auth, cors, security]
 timestamp: 2026-08-29T00:00:00Z
 ---
 
 # internal/middleware
 
-Provides optional API key authentication and security headers for the HTTP server.
+Provides optional API key authentication, CORS, and security headers for the HTTP server.
 
 ## APIKeyAuth
 
@@ -40,13 +40,24 @@ functions, template dry-run). `APIKeyAuth.HTTPMiddleware` honors the
 `PortalAuthorized(ctx)` flag the gateway sets, so portal traffic reuses the
 `/v1` handlers without the admin key.
 
+## CORS
+
+`CORS(origins []string, production bool) (func(http.Handler) http.Handler, CORSMode)` builds the cross-origin policy:
+
+- **Origins set**: allow-list mode; only the listed origins may call the API. Trailing slashes are normalized away (`NormalizeOrigins`). Allowed headers: `Authorization`, `Content-Type`, `X-API-Key`. Credentials are not allowed (the UI uses API-key or bearer headers, not cookies).
+- **Origins empty, production**: block all cross-origin requests (the embedded UI is same-origin).
+- **Origins empty, non-production**: allow all origins for local development (e.g. Vite on :5173 talking to :8080).
+
+Returns a `CORSMode` (`CORSAllowList`, `CORSBlockAll`, `CORSAllowAll`) for startup logging.
+
 ## SecurityHeaders
 
 Sets standard security headers:
 - `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: DENY`
+- `X-Frame-Options: DENY` (except `/portal` paths, which allow framing so operators can embed the portal in an iframe)
 - `Referrer-Policy: strict-origin-when-cross-origin`
-- `Permissions-Policy` with restricted defaults
+- `Permissions-Policy: interest-cohort=()` (opts out of FLoC/Topics)
+- `Content-Security-Policy`: `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'`. Portal paths get `frame-ancestors *`; all other paths get `frame-ancestors 'none'`.
 
 ## Citations
 
@@ -56,3 +67,5 @@ Sets standard security headers:
 - `internal/middleware/portal_test.go`
 - `internal/middleware/apikey_test.go`
 - `internal/middleware/security_headers.go`
+- `internal/middleware/cors.go`
+- `internal/middleware/cors_test.go`

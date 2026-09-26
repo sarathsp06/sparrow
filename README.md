@@ -87,21 +87,20 @@ Open <http://localhost:8080> for the UI. The REST API is on the same address, an
 > [!IMPORTANT]
 > `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` are required for data encrypted at rest. Use a cryptographically random 32-byte (256-bit) key encoded as 64 hex characters per key entry; `openssl rand -hex 32` is a suitable way to generate one. Store the key material in your secret manager and back it up. Lose it and encrypted webhook secrets are unrecoverable.
 
-If you set `SPARROW_API_KEY`, add `X-API-Key: <your-key>` to every API request.
+If you set `SPARROW_API_KEY`, add `X-API-Key: <your-key>` to every API request. The embedded UI gets the key from the server automatically. To host the UI on its own domain instead, see [Hosting the UI separately](https://sarathsp06.github.io/sparrow/deployment/separate-ui/).
 
 ## Local Development
 
 Running from source needs Go 1.26+, Node (for the UI), and a PostgreSQL instance.
 
-**Fastest**: spin up Postgres via the dev Compose file, then run the server with `make`:
+**Fastest**: start a throwaway Postgres, then run the server with `make`:
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d   # Postgres only
-make migrate                                     # apply schema
-make run                                         # go run ./cmd/server, SPARROW_SERVE_UI=true
+make dev-db    # Postgres 15 on localhost:5432 (user/password/db: sparrow)
+make run       # go run ./cmd/server with SPARROW_SERVE_UI=true; migrations run on startup
 ```
 
-`make run` targets `DATABASE_URL=postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable` by default — override by passing `DATABASE_URL=... SPARROW_ENCRYPTION_KEYS=main=... SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main make run`. Server comes up on <http://localhost:8080>; migrations also run automatically on startup.
+`make run` uses `DATABASE_URL` and the encryption keyring from your shell or `.env`. When neither sets them, it falls back to `postgres://sparrow:sparrow@localhost:5432/sparrow?sslmode=disable` (the `make dev-db` database) and a dev-only all-zeros keyring. The server comes up on <http://localhost:8080>. The UI is only there after `make build-ui`; otherwise use `make run-web` below.
 
 **Full container stack** (server + Postgres, rebuilt from source on every change):
 
@@ -288,7 +287,7 @@ Everything is configured through environment variables.
 7. `SPARROW_SERVE_UI` — optional. Default: `false`. Serves the embedded dashboard.
 8. `SPARROW_ALLOW_PRIVATE_NETWORKS` — optional. Default: `false`. Disables the private-network SSRF guard.
 9. `SPARROW_MAX_BODY_BYTES` — optional. Default: `5242880` (5 MiB). Max request body size; minimum 1 MiB; oversized bodies get `413`.
-10. `CORS_ALLOWED_ORIGINS` — optional. Comma-separated browser allowlist.
+10. `CORS_ALLOWED_ORIGINS` — optional. Comma-separated browser origin allowlist. Required when the UI is [hosted separately](https://sarathsp06.github.io/sparrow/deployment/separate-ui/). Unset: all origins in development, none with `ENVIRONMENT=production`.
 11. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP endpoint for traces, metrics, and logs; export is off when unset.
 12. `SPARROW_EVENT_RETENTION_DAYS` — optional. Default: `0` (keep forever). Purges events and their deliveries older than N days; runs hourly.
 

@@ -14,7 +14,7 @@ timestamp: 2026-06-22T00:00:00Z
 |-------|-----------|---------|
 | `frontend` | `node:22-alpine` | Build SvelteKit SPA (adapter-static → `internal/ui/dist`) |
 | `builder` | `golang:1.26.1-alpine` | Compile `server` binary with `CGO_ENABLED=0`, embed UI |
-| **final** | `gcr.io/distroless/static-debian12:nonroot` | Minimal runtime, USER 65532, ports 50051+8080 |
+| **final** | `gcr.io/distroless/static-debian12:nonroot` | Minimal runtime, USER 65532, port 8080 |
 
 ## docker-compose
 

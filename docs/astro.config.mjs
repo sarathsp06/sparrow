@@ -93,6 +93,7 @@ export default defineConfig({
           label: 'Deployment',
           items: [
             { slug: 'deployment/docker-compose' },
+            { slug: 'deployment/separate-ui' },
             { slug: 'deployment/security' },
           ],
         },

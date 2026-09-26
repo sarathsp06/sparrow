@@ -67,7 +67,7 @@ docker compose down -v     # stop and delete data
 ### Run
 
 ```bash
-echo "DATABASE_URL=postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable" > .env
+echo "DATABASE_URL=postgres://sparrow:sparrow@localhost:5432/sparrow?sslmode=disable" > .env
 # 32 cryptographically random bytes, hex-encoded as 64 chars
 echo "SPARROW_ENCRYPTION_KEYS=main=$(openssl rand -hex 32)" >> .env
 echo "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" >> .env
@@ -76,7 +76,7 @@ make migrate   # apply schema
 make run       # go run ./cmd/server, SPARROW_SERVE_UI=true; loads .env automatically
 ```
 
-No local Postgres yet? `docker compose -f docker-compose.dev.yml up -d` starts one on the default `DATABASE_URL` above.
+No local Postgres yet? `make dev-db` starts one (Docker) on the `DATABASE_URL` above. Without a `.env`, `make run` and `make migrate` default to that database and a dev-only all-zeros keyring; anything set in the shell or `.env` takes precedence.
 
 For UI hot reload, run `make run` in one terminal and `make run-web` (`cd web && npm run dev`, served at `localhost:5173`) in another.
 

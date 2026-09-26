@@ -95,7 +95,7 @@ Defense-in-depth headers on every API and UI response:
 | `X-Frame-Options` | `DENY` | Clickjacking -- the UI is never legitimately framed |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Leaking consumer/webhook IDs in URLs to an external `Referer` |
 | `Permissions-Policy` | `interest-cohort=()` | FLoC / Topics API tracking |
-| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'` | Loading any script, style, or image from a non-Sparrow origin (`'unsafe-inline'` is required by the embedded UI's runtime config and inline styles) |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'` | Loading any script, style, or image from a non-Sparrow origin other than the UI's Google Fonts (`'unsafe-inline'` is required by the embedded UI's runtime config and inline styles). Applies only when Sparrow serves the UI; a separately hosted UI gets whatever headers its static host sets |
 
 Two more request-level controls:
 

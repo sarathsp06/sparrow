@@ -70,6 +70,10 @@ public-facing app:
   injects it into the served HTML (`window.__SPARROW_CONFIG__`). **Anyone who
   can load the dashboard can read the API key.** Enabling the UI on a network
   segment is equivalent to sharing the API key with that segment.
+- A [separately hosted UI](/sparrow/deployment/separate-ui/) avoids the
+  injection: with no `apiKey` in its `config.js`, each operator types the key
+  once into a prompt and it stays in their browser. Run the server with
+  `SPARROW_SERVE_UI=false` so the API host serves no key-bearing page.
 
 Consequences:
 
