@@ -84,3 +84,14 @@ test('health dashboard renders fleet statistics', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'Health Dashboard' })).toBeVisible();
   await expect(page.getByText('Total Webhooks')).toBeVisible();
 });
+
+test('the embedded UI loads without Content-Security-Policy violations', async ({ page }) => {
+  // The server's CSP applies only when it serves the UI; anything it blocks
+  // (e.g. the web font stylesheet) makes the embedded UI differ from `vite dev`.
+  const violations: string[] = [];
+  page.on('console', (m) => m.text().includes('Content Security Policy') && violations.push(m.text()));
+  await page.goto('/webhooks');
+  await expect(page.getByRole('heading', { level: 1, name: 'Webhooks' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  expect(violations, violations.join('\n')).toHaveLength(0);
+});

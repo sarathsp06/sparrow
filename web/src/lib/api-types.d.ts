@@ -1017,7 +1017,7 @@ export interface components {
              * @description When the token stops working. Tokens are stateless — the only revocation is expiry.
              */
             expires_at: string;
-            /** @description Server-relative portal URL with the token in the fragment (never sent to the server or logged). Prepend your Sparrow base URL and hand it to the end consumer. */
+            /** @description Server-relative portal URL with the token in the fragment (never sent to the server or logged). Prepend the base URL the UI is served from (the Sparrow server with SPARROW_SERVE_UI=true, or your separately hosted UI) and hand it to the end consumer. */
             path: string;
             /** @description Bearer token for the consumer portal. Send as 'Authorization: Bearer <token>'. */
             token: string;

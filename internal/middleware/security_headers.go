@@ -8,8 +8,11 @@ import (
 // csp is the Content-Security-Policy for the embedded Svelte SPA. The UI
 // injects an inline <script> for runtime config and Svelte emits inline
 // styles, so 'unsafe-inline' is required for both. Everything else is
-// same-origin; images additionally allow data: URIs for inline icons.
-const csp = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'"
+// same-origin, except the UI's web fonts (Google Fonts stylesheet + font
+// files, linked from web/src/app.html); images additionally allow data: URIs
+// for inline icons. Without the font hosts the embedded UI silently renders
+// with fallback fonts while `vite dev` and standalone hosts do not.
+const csp = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'"
 
 // SecurityHeaders is HTTP middleware that sets defensive security headers
 // on every response. These headers provide defense-in-depth against common

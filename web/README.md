@@ -17,7 +17,7 @@ npm install
 npm run dev
 ```
 
-The dev server connects to the Sparrow Go backend API. Make sure the backend is running (`make run` from the project root).
+The dev server connects to the Sparrow Go backend at `http://localhost:8080` (override with `PUBLIC_API_URL` in `web/.env`). Make sure the backend is running (`make run` from the project root). That's a cross-origin setup: it works because the server allows any origin unless `ENVIRONMENT=production`. In production mode, also set `CORS_ALLOWED_ORIGINS=http://localhost:5173`.
 
 ## Build
 
@@ -35,29 +35,40 @@ Build output goes to `../internal/ui/dist/` (the Go embed directory). The static
 
 ## Standalone Deployment
 
-The dashboard is a static SPA and can be served independently from any web server. Point `PUBLIC_API_URL` at your running Sparrow backend.
+The dashboard is a static SPA and can be served by any web server, on a different origin from the Sparrow API. Full guide: [Hosting the UI separately](https://sarathsp06.github.io/sparrow/deployment/separate-ui/).
 
-```bash
-cd web
-npm install
-PUBLIC_API_URL=https://sparrow.example.com npm run build
-```
+In short:
 
-The build output in `../internal/ui/dist/` contains only static files (`index.html`, JS, CSS, assets). Serve them with any static file server. Configure your server to fall back to `index.html` for all routes (SPA routing).
+1. `npm run build`, then upload `../internal/ui/dist/` to the static host. Configure it to fall back to `index.html` for unknown paths, and serve it at the origin root (not a sub-path).
+2. Edit `config.js` on the static host (no rebuild needed):
 
-When the dashboard runs on a different origin than the Sparrow API, set `CORS_ALLOWED_ORIGINS` on the Sparrow server:
+   ```js
+   window.__SPARROW_CONFIG__ = window.__SPARROW_CONFIG__ || {
+     apiUrl: "https://sparrow-api.example.com",
+   };
+   ```
 
-```bash
-CORS_ALLOWED_ORIGINS=https://dashboard.example.com ./server
-```
+3. On the Sparrow server, allow the dashboard's origin:
 
-## Environment Variables
+   ```bash
+   CORS_ALLOWED_ORIGINS=https://dashboard.example.com ./server
+   ```
 
-| Variable | Default | Description |
-|---|---|---|
-| `PUBLIC_API_URL` | `http://localhost:8080` | Sparrow backend REST API URL |
+If the server has `SPARROW_API_KEY` set, the dashboard shows an **API key required** prompt on the first `401` and keeps the key in the browser's `localStorage`. You can also set `apiKey` in `config.js`, but then anyone who can load the dashboard can read the key.
 
-Set this in `web/.env` for development. The default `npm run build` script sets `PUBLIC_API_URL=/` for embedded mode (same-origin). For standalone deployment, override it at build time to point at your Sparrow API server.
+## Configuration
+
+Resolved in this order (first match wins):
+
+| Setting | Source | Default | Description |
+|---|---|---|---|
+| API URL | `apiUrl` in `window.__SPARROW_CONFIG__` (from `static/config.js`, or injected by the Go server) | -- | Runtime, no rebuild |
+| API URL | `PUBLIC_API_URL` env var at `vite build` / `vite dev` time | -- | Baked into the bundle |
+| API URL | Built-in | `http://localhost:8080` under `npm run dev`, same origin for builds | |
+| API key | Key typed into the sign-in prompt (`localStorage`) | -- | |
+| API key | `apiKey` in `window.__SPARROW_CONFIG__` | -- | Injected by the Go server when it serves the UI |
+
+`npm run build` respects `PUBLIC_API_URL` from the environment or `web/.env`. `make build-ui` and the Dockerfile set `PUBLIC_API_URL=/` explicitly, so a local `.env` can't leak into the embedded build.
 
 ## Tech Stack
 

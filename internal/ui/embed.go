@@ -44,7 +44,11 @@ func Handler(logger *slog.Logger, config *Config) http.Handler {
 		// This should never happen since "dist" is embedded at compile time.
 		panic("ui: failed to create sub filesystem: " + err.Error())
 	}
+	return newHandler(logger, config, staticFS)
+}
 
+// newHandler serves the SPA from staticFS (the build output root).
+func newHandler(logger *slog.Logger, config *Config, staticFS fs.FS) http.Handler {
 	fileServer := http.FileServer(http.FS(staticFS))
 
 	// Pre-render the config script tag to inject into index.html.

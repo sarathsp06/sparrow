@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade, fly } from "svelte/transition";
   import { apiConsole, toCurl, type ApiLogEntry } from "$lib/apiConsole.svelte";
+  import { serverHref } from "$lib/services";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
   let copiedId = $state<string | null>(null);
@@ -79,7 +80,7 @@
 
       <p class="flex items-baseline gap-2 px-4 py-2 text-[11.5px] text-[#8f887a] border-b border-white/10 shrink-0">
         <span>Every request this UI makes, as copy-ready curl. <span class="mono text-[10.5px]">X-API-Key</span> is redacted.</span>
-        <a href="/docs" target="_blank" rel="noreferrer" class="ml-auto shrink-0 mono text-[10.5px] !text-beacon hover:underline">API reference ↗</a>
+        <a href={serverHref("/docs")} target="_blank" rel="noreferrer" class="ml-auto shrink-0 mono text-[10.5px] !text-beacon hover:underline">API reference ↗</a>
       </p>
 
       <div class="flex-1 overflow-y-auto">

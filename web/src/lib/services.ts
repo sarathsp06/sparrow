@@ -3,31 +3,26 @@ import { env } from "$env/dynamic/public";
 import createClient from "openapi-fetch";
 import type { paths } from "./api-types";
 import { apiLogMiddleware } from "./apiConsole.svelte";
+import { auth } from "./auth.svelte";
 import { parsePortalToken, type PortalSession } from "./portal-token";
+import { apiHref, portalGatewayURL, resolveApiBase, type SparrowConfig } from "./runtime-config";
 
-// Runtime config injected by the Go server into window.__SPARROW_CONFIG__.
-// The API key is always provided at runtime (never baked into the build).
-interface SparrowConfig {
-  apiKey?: string;
-}
-
-declare global {
-  interface Window {
-    __SPARROW_CONFIG__?: SparrowConfig;
-  }
-}
-
+// Runtime config: injected inline by the Go server (embedded UI) or set in the
+// static /config.js (standalone UI). See runtime-config.ts for precedence.
 const runtimeConfig: SparrowConfig =
   (typeof window !== "undefined" && window.__SPARROW_CONFIG__) || {};
 
-const apiKey: string = runtimeConfig.apiKey || "";
 class SameOriginRequest extends Request {
   constructor(input: RequestInfo | URL, init?: RequestInit) {
     super(typeof input === "string" ? new URL(input, location.href).href : input, init);
   }
 }
 
-const baseUrl = env.PUBLIC_API_URL || (dev ? "http://localhost:8080" : "/");
+/** API base URL without trailing slash; "" means same origin as the UI. */
+export const apiBase = resolveApiBase(runtimeConfig.apiUrl, env.PUBLIC_API_URL, dev);
+
+/** Absolute link to a server-side page such as "/docs" (on the API host, which may differ from the UI's). */
+export const serverHref = (path: string) => apiHref(apiBase, path);
 
 // Portal mode: pages under /portal authenticate with a consumer-scoped
 // bearer token instead of the admin API key (which is never injected into
@@ -53,37 +48,39 @@ export const portal = initPortal();
 // URL here; the server's PortalGateway maps /portal/api/<rest> back to the real
 // /v1 path. This covers every call site (including shared components) with no
 // per-call changes.
-async function rewritePortalURL(request: Request) {
-  const url = new URL(request.url, window.location.href);
-  const scoped = portal ? `/v1/consumers/${portal.consumer}/` : "";
-
-  if (portal && url.pathname.startsWith(scoped)) {
-    url.pathname = "/portal/api/" + url.pathname.slice(scoped.length);
-  } else if (portal && url.pathname.startsWith("/v1/")) {
-    url.pathname = "/portal/api/" + url.pathname.slice("/v1/".length);
-  } else {
-    return request;
-  }
+async function rewritePortalURL(request: Request, session: PortalSession) {
+  const target = portalGatewayURL(request.url, apiBase, session.consumer, window.location.href);
+  if (!target) return request;
 
   const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.clone().arrayBuffer();
-  return new SameOriginRequest(url.href, { method: request.method, headers: request.headers, body, signal: request.signal });
+  return new SameOriginRequest(target, { method: request.method, headers: request.headers, body, signal: request.signal });
 }
 
 // Single typed REST client for the whole app. Sparrow's interface is
 // REST/OpenAPI only (Connect-RPC and gRPC have been removed).
 export const api = createClient<paths>({
-  baseUrl,
+  baseUrl: apiBase,
   Request: SameOriginRequest,
-  headers: portal
-    ? { Authorization: `Bearer ${portal.token}` }
-    : apiKey
-      ? { "X-API-Key": apiKey }
-      : undefined,
+  headers: portal ? { Authorization: `Bearer ${portal.token}` } : undefined,
 });
-api.use(apiLogMiddleware);
 if (portal) {
-  api.use({ onRequest: ({ request }) => rewritePortalURL(request) });
+  const session = portal;
+  api.use({ onRequest: ({ request }) => rewritePortalURL(request, session) });
+} else {
+  // Admin auth: attach the current key on every request (it can change at
+  // runtime via the sign-in prompt) and open the prompt when the server says 401.
+  api.use({
+    onRequest({ request }) {
+      if (auth.key) request.headers.set("X-API-Key", auth.key);
+      return request;
+    },
+    onResponse({ response }) {
+      if (response.status === 401) auth.markRequired();
+      return response;
+    },
+  });
 }
+api.use(apiLogMiddleware);
 
 
 /**
