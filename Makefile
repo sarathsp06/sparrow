@@ -4,7 +4,6 @@
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 OUTPUT ?= build/server-$(GOOS)-$(GOARCH)
-DATABASE_URL ?= 'postgres://riveruser:riverpass@localhost:5432/riverqueue?sslmode=disable'
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 SEMVER  ?= $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0-dev")
 LDFLAGS := -s -w -X github.com/sarathsp06/sparrow.Version=$(VERSION)
@@ -31,7 +30,7 @@ build-sinks: ## Build the sparrow-sinks binary for current OS/arch
 build-all: build build-cli build-sources build-sinks ## Build server, CLI, sources, and sinks binaries
 
 build-ui: ## Build the frontend for embedding in the Go binary
-	cd web && VITE_APP_VERSION=$(SEMVER) npm ci && VITE_APP_VERSION=$(SEMVER) npm run build
+	cd web && VITE_APP_VERSION=$(SEMVER) npm ci && VITE_APP_VERSION=$(SEMVER) PUBLIC_API_URL=/ npm run build
 
 build-with-ui: build-ui build ## Build frontend + server binary with embedded UI
 
@@ -103,11 +102,19 @@ test-e2e-setup: ## Install Gauge and Python dependencies (one-time)
 	gauge install python || true
 	cd e2e && uv sync
 
-run:  ## Run the server
-	SPARROW_SERVE_UI=true DATABASE_URL=$(DATABASE_URL)  go run ./cmd/server
+# run/migrate: DATABASE_URL and the encryption keyring come from the shell or
+# .env; scripts/dev-env.sh fills dev defaults (the `make dev-db` Postgres and an
+# all-zeros keyring) only for what neither sets.
+run:  ## Run the server with the embedded UI (dev defaults; Postgres from `make dev-db`)
+	SPARROW_SERVE_UI=true ./scripts/dev-env.sh go run ./cmd/server
+
+dev-db: ## Start a throwaway Postgres on localhost:5432 matching the default DATABASE_URL
+	docker run -d --name sparrow-dev-pg -p 5432:5432 \
+		-e POSTGRES_USER=sparrow -e POSTGRES_PASSWORD=sparrow -e POSTGRES_DB=sparrow \
+		postgres:15-alpine
 
 migrate: ## Run database migrations
-	DATABASE_URL=$(DATABASE_URL) go run ./cmd/migrate
+	./scripts/dev-env.sh go run ./cmd/migrate
 
 
 clean: ## Clean up all build artifacts (Go, web)
@@ -136,4 +143,4 @@ fmt: ## Format the code
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-.PHONY: build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run test test-integration test-ui test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package migrate lint fmt run-web book help
+.PHONY: build build-cli build-sources build-sinks build-all build-ui client-python docker-build-e2e build-with-ui release-dry-run run dev-db test test-integration test-ui test-e2e test-e2e-spec test-e2e-tag test-e2e-parallel test-e2e-report test-e2e-setup clean generate docker-dev docker-purge helm-lint helm-template helm-template-pg helm-package migrate lint fmt run-web book help
