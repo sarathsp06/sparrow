@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	slogotel "github.com/remychantenay/slog-otel"
-	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/sarathsp06/sparrow/internal/config"
@@ -39,7 +37,7 @@ func main() {
 	// Load .env file if present, but only outside production.
 	// In production containers a .env file should not exist, but if one
 	// is accidentally present it could silently override critical env vars
-	// (DATABASE_URL, SPARROW_API_KEY, SPARROW_ENCRYPTION_KEY).
+	// (DATABASE_URL, SPARROW_API_KEY, SPARROW_ENCRYPTION_KEYS).
 	// We check ENVIRONMENT from the real OS env first (before godotenv)
 	// to avoid the chicken-and-egg problem.
 	if os.Getenv("ENVIRONMENT") != "production" {
@@ -235,8 +233,9 @@ func main() {
 	// Global middleware: body size cap, security headers, then CORS
 	r.Use(middleware.MaxBodyBytes(cfg.MaxBodyBytes))
 	r.Use(middleware.SecurityHeaders)
-	corsHandler := buildCORSHandler(cfg)
-	r.Use(corsHandler.Handler)
+	corsMiddleware, corsMode := middleware.CORS(cfg.CORSAllowedOrigins, cfg.IsProduction())
+	logCORSMode(corsMode, cfg.CORSAllowedOrigins)
+	r.Use(corsMiddleware)
 	r.Use(otelhttp.NewMiddleware("sparrow"))
 
 	// REST API — protected by API key auth. Huma registers every /v1
@@ -344,63 +343,17 @@ func main() {
 	fmt.Println("👋 Shutdown complete")
 }
 
-// buildCORSHandler creates a CORS handler configured via cfg.CORSAllowedOrigins.
-// When set, only the listed origins are allowed. When unset: production defaults
-// to no cross-origin access, development defaults to allow-all for convenience.
-//
-// If the UI is served separately (not embedded via SPARROW_SERVE_UI), the
-// operator must set CORS_ALLOWED_ORIGINS to the UI's origin, e.g.:
-//
-//	CORS_ALLOWED_ORIGINS=https://sparrow-ui.internal.example.com
-func buildCORSHandler(cfg *config.Config) *cors.Cors {
-	origins := cfg.CORSAllowedOrigins
-
-	if len(origins) == 0 || (len(origins) == 1 && origins[0] == "") {
-		// SEC: Defaulting to allow-all lets any website make API calls on
-		// behalf of a user who has network access. In production, restrict
-		// by default — the embedded UI is same-origin and doesn't need CORS.
-		// If the UI is hosted separately, the operator must set
-		// CORS_ALLOWED_ORIGINS explicitly.
-		if cfg.IsProduction() {
-			fmt.Println("🔒 CORS: production mode — cross-origin requests blocked")
-			fmt.Println("   If the UI is hosted separately, set CORS_ALLOWED_ORIGINS to the UI origin")
-			return cors.New(cors.Options{
-				AllowedOrigins: []string{}, // no origins allowed
-			})
-		}
+// logCORSMode prints the cross-origin policy chosen by middleware.CORS.
+func logCORSMode(mode middleware.CORSMode, origins []string) {
+	switch mode {
+	case middleware.CORSAllowList:
+		fmt.Printf("🔒 CORS allowed origins: %v\n", middleware.NormalizeOrigins(origins))
+	case middleware.CORSBlockAll:
+		fmt.Println("🔒 CORS: production mode — cross-origin requests blocked")
+		fmt.Println("   If the UI is hosted separately, set CORS_ALLOWED_ORIGINS to the UI origin")
+	case middleware.CORSAllowAll:
 		fmt.Println("⚠️  CORS_ALLOWED_ORIGINS not set — allowing all origins (development mode, not for production)")
-		return cors.AllowAll()
 	}
-
-	// Filter out any empty strings from the slice.
-	var filtered []string
-	for _, o := range origins {
-		o = strings.TrimSpace(o)
-		if o != "" {
-			filtered = append(filtered, o)
-		}
-	}
-
-	if len(filtered) == 0 {
-		if cfg.IsProduction() {
-			fmt.Println("🔒 CORS: production mode — cross-origin requests blocked (CORS_ALLOWED_ORIGINS is empty)")
-			fmt.Println("   If the UI is hosted separately, set CORS_ALLOWED_ORIGINS to the UI origin")
-			return cors.New(cors.Options{
-				AllowedOrigins: []string{},
-			})
-		}
-		fmt.Println("⚠️  CORS_ALLOWED_ORIGINS is empty — allowing all origins (development mode, not for production)")
-		return cors.AllowAll()
-	}
-
-	fmt.Printf("🔒 CORS allowed origins: %v\n", filtered)
-	return cors.New(cors.Options{
-		AllowedOrigins:   filtered,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
-		AllowedHeaders:   []string{"Authorization", "Content-Type", "Connect-Protocol-Version", "Connect-Timeout-Ms", "Grpc-Timeout", "X-Grpc-Web", "X-User-Agent", "X-API-Key"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	})
 }
 
 // resolveEncryptionKeyring determines the configured KEK set.
