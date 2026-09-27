@@ -90,6 +90,7 @@ release_module() {
 	)
 }
 
+release_leaf pkg/access "pkg/access/$VERSION"
 release_leaf pkg/signature "pkg/signature/$VERSION"
 release_module pkg/template "pkg/template/$VERSION" \
 	"github.com/sarathsp06/sparrow/pkg/signature@$VERSION"

@@ -22,6 +22,7 @@ require (
 	github.com/riverqueue/river/rivertype v0.33.0
 	github.com/rs/cors v1.11.1
 	github.com/sarathsp06/schemagen v0.1.1
+	github.com/sarathsp06/sparrow/pkg/access v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/pkg/signature v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/pkg/template v0.0.0-00010101000000-000000000000
 	github.com/sarathsp06/sparrow/satellites/recipes v0.0.0-00010101000000-000000000000
@@ -135,6 +136,8 @@ require (
 	google.golang.org/grpc v1.80.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
+
+replace github.com/sarathsp06/sparrow/pkg/access => ./pkg/access
 
 replace github.com/sarathsp06/sparrow/pkg/signature => ./pkg/signature
 

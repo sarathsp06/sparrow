@@ -63,6 +63,7 @@ web-test: ## Run frontend unit tests
 MODULE_TEST_PATHS := ./... \
 	github.com/sarathsp06/sparrow/satellites/sparrow/... \
 	github.com/sarathsp06/sparrow/satellites/recipes/... \
+	github.com/sarathsp06/sparrow/pkg/access/... \
 	github.com/sarathsp06/sparrow/pkg/signature/... \
 	github.com/sarathsp06/sparrow/pkg/template/...
 

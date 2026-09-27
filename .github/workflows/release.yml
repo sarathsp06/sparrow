@@ -72,7 +72,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Tag and publish pkg/signature, pkg/template, satellites/sparrow
+      - name: Tag and publish pkg/access, pkg/signature, pkg/template, satellites/sparrow
         run: scripts/release-submodules.sh "$GITHUB_REF_NAME" --push
 
   docker:
