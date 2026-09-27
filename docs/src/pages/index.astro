@@ -130,11 +130,13 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   <section class="sp-video-section">
     <div class="sp-w">
       <div class="sp-video-frame">
-        <video
-          src={`${base}sparrow-promo-v2.mp4`}
-          poster={`${base}og.png`}
-          controls autoplay muted loop playsinline preload="metadata"
-          aria-label="Sparrow product tour"></video>
+        <iframe
+          src="https://www.youtube-nocookie.com/embed/XjNpOLk9FRU?rel=0"
+          title="Sparrow explainer video"
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen></iframe>
       </div>
     </div>
   </section>
@@ -876,8 +878,8 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
   overflow: hidden;
   background: #0f1626;
 }
-.sp-video-frame video {
-  display: block; width: 100%; height: auto; aspect-ratio: 16 / 9;
+.sp-video-frame iframe {
+  display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border: 0;
 }
 
 </style>
