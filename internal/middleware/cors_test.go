@@ -11,9 +11,9 @@ const uiOrigin = "https://ui.example.com"
 
 // corsChain mirrors cmd/server's ordering: CORS runs before API key auth, so a
 // preflight is answered without needing the key.
-func corsChain(origins []string, production bool, apiKey string) (http.Handler, CORSMode) {
+func corsChain(t testing.TB, origins []string, production bool, apiKey string) (http.Handler, CORSMode) {
 	cors, mode := CORS(origins, production)
-	auth := &APIKeyAuth{APIKey: apiKey}
+	auth, _ := newAuth(t, apiKey)
 	api := auth.HTTPMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -66,7 +66,7 @@ func TestCORSModes(t *testing.T) {
 func TestCORSProductionDefaultBlocksCrossOrigin(t *testing.T) {
 	// Regression: rs/cors treats an empty AllowedOrigins as "*", so the
 	// production lockdown used to allow every origin.
-	h, _ := corsChain(nil, true, "")
+	h, _ := corsChain(t, nil, true, "")
 
 	if got := preflight(h, "https://evil.example.com", "x-api-key").Header().Get("Access-Control-Allow-Origin"); got != "" {
 		t.Fatalf("preflight Access-Control-Allow-Origin = %q, want none", got)
@@ -79,7 +79,7 @@ func TestCORSProductionDefaultBlocksCrossOrigin(t *testing.T) {
 func TestCORSAllowListSplitDeploymentWithAPIKey(t *testing.T) {
 	// UI on its own origin, server in production with an API key: the
 	// preflight must succeed without the key, the real request needs it.
-	h, _ := corsChain([]string{uiOrigin + "/"}, true, "secret")
+	h, _ := corsChain(t, []string{uiOrigin + "/"}, true, "secret")
 
 	// Browsers send the requested headers lowercased and sorted.
 	rec := preflight(h, uiOrigin, "content-type,x-api-key")
@@ -115,7 +115,7 @@ func TestCORSAllowListSplitDeploymentWithAPIKey(t *testing.T) {
 
 func TestCORSDevAllowsAnyOriginWithAPIKeyHeader(t *testing.T) {
 	// `make run` + `make run-web`: vite on :5173 calling :8080.
-	h, _ := corsChain(nil, false, "secret")
+	h, _ := corsChain(t, nil, false, "secret")
 
 	rec := preflight(h, "http://localhost:5173", "x-api-key")
 	if rec.Code != http.StatusNoContent || rec.Header().Get("Access-Control-Allow-Origin") == "" {

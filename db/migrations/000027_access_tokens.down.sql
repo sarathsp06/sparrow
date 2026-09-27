@@ -1,1 +1,2 @@
-DROP TABLE IF EXISTS access_link_redemptions;
+DROP TABLE IF EXISTS access_invites;
+DROP TABLE IF EXISTS access_tokens;

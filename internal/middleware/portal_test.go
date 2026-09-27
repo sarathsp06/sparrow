@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,6 +11,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/sarathsp06/sparrow/pkg/access"
+	"github.com/sarathsp06/sparrow/pkg/access/memstore"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
@@ -24,7 +28,7 @@ func newPortalGateway(t *testing.T) (*PortalTokens, http.Handler, *string) {
 		*seen = r.URL.Path
 		w.WriteHeader(http.StatusNoContent)
 	})
-	return pt, PortalGateway(pt, next), seen
+	return pt, PortalGateway(NewPortalVerifier(pt, nil, testRealm), next), seen
 }
 
 func doBearer(handler http.Handler, method, path, token string) int {
@@ -197,7 +201,7 @@ func TestPortalGatewayRejectsGarbageToken(t *testing.T) {
 // both work through an actual router (the wiring in cmd/server/main.go).
 func TestPortalGatewayReDispatchesThroughRouter(t *testing.T) {
 	pt := NewPortalTokens([]byte("test-key-32-bytes-test-key-32-by"))
-	auth := &APIKeyAuth{APIKey: "admin-secret"}
+	auth, _ := newAuth(t, "admin-secret")
 
 	r := chi.NewRouter()
 	r.Group(func(gr chi.Router) {
@@ -206,7 +210,7 @@ func TestPortalGatewayReDispatchesThroughRouter(t *testing.T) {
 			_, _ = w.Write([]byte(chi.URLParam(req, "consumer")))
 		})
 	})
-	r.Handle("/portal/api/*", PortalGateway(pt, r))
+	r.Handle("/portal/api/*", PortalGateway(NewPortalVerifier(pt, nil, testRealm), r))
 
 	token, _, err := pt.Mint("acme", time.Hour)
 	if err != nil {
@@ -228,5 +232,69 @@ func TestPortalGatewayReDispatchesThroughRouter(t *testing.T) {
 	r.ServeHTTP(rr2, direct)
 	if rr2.Code != http.StatusUnauthorized {
 		t.Fatalf("keyless /v1 call = %d, want 401", rr2.Code)
+	}
+}
+
+// downStore simulates a token store outage.
+type downStore struct{ access.Store }
+
+func (downStore) TokenByHash(context.Context, []byte) (access.Token, error) {
+	return access.Token{}, errors.New("db down")
+}
+
+func TestPortalGatewayAcceptsConsumerAccessTokens(t *testing.T) {
+	pt := NewPortalTokens([]byte("test-key-32-bytes-test-key-32-by"))
+	svc, err := access.New(access.Config{Store: memstore.New(), TokenPrefix: "sparrow_tk_"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := new(string)
+	gw := PortalGateway(NewPortalVerifier(pt, svc, testRealm), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*seen = r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	ctx := context.Background()
+	acme := "acme"
+
+	consumerTok, consumerSecret, _ := svc.CreateToken(ctx, access.CreateTokenRequest{Realm: testRealm, Scope: &acme, Name: "acme staff", CreatedBy: "x"})
+	if code := doBearer(gw, http.MethodGet, "/portal/api/webhooks", consumerSecret); code != http.StatusNoContent || *seen != "/v1/consumers/acme/webhooks" {
+		t.Fatalf("consumer token: %d %q", code, *seen)
+	}
+	// The portal allow-list still applies to access tokens.
+	if code := doBearer(gw, http.MethodPost, "/portal/api/events", consumerSecret); code != http.StatusForbidden {
+		t.Fatalf("event push via portal: %d, want 403", code)
+	}
+
+	_, fullSecret, _ := svc.CreateToken(ctx, access.CreateTokenRequest{Realm: testRealm, Name: "admin", CreatedBy: "x"})
+	if code := doBearer(gw, http.MethodGet, "/portal/api/webhooks", fullSecret); code != http.StatusForbidden {
+		t.Fatalf("full-access token via portal: %d, want 403", code)
+	}
+
+	_, foreignSecret, _ := svc.CreateToken(ctx, access.CreateTokenRequest{Realm: "other", Scope: &acme, Name: "x", CreatedBy: "x"})
+	if code := doBearer(gw, http.MethodGet, "/portal/api/webhooks", foreignSecret); code != http.StatusUnauthorized {
+		t.Fatalf("foreign realm: %d, want 401", code)
+	}
+
+	_ = svc.RevokeToken(ctx, testRealm, consumerTok.ID)
+	req := httptest.NewRequest(http.MethodGet, "/portal/api/webhooks", nil)
+	req.Header.Set("Authorization", "Bearer "+consumerSecret)
+	rr := httptest.NewRecorder()
+	gw.ServeHTTP(rr, req)
+	if rr.Code != http.StatusUnauthorized || !strings.Contains(rr.Body.String(), `"reason":"revoked"`) {
+		t.Fatalf("revoked: %d %s", rr.Code, rr.Body)
+	}
+
+	// Stateless portal tokens keep working next to access tokens.
+	legacy, _, _ := pt.Mint("globex", time.Hour)
+	if code := doBearer(gw, http.MethodGet, "/portal/api/webhooks", legacy); code != http.StatusNoContent || *seen != "/v1/consumers/globex/webhooks" {
+		t.Fatalf("spt_v2 token: %d %q", code, *seen)
+	}
+}
+
+func TestPortalGatewayStoreOutageIs503(t *testing.T) {
+	svc, _ := access.New(access.Config{Store: downStore{memstore.New()}, TokenPrefix: "sparrow_tk_"})
+	gw := PortalGateway(NewPortalVerifier(nil, svc, testRealm), http.NotFoundHandler())
+	if code := doBearer(gw, http.MethodGet, "/portal/api/webhooks", "sparrow_tk_anything"); code != http.StatusServiceUnavailable {
+		t.Fatalf("outage: %d, want 503", code)
 	}
 }

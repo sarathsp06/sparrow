@@ -1,12 +1,38 @@
--- One row per redeemed admin access link (internal/accesslink). The nonce is
--- the link's single-use identifier; rows are purged once the link has expired
--- (it could no longer verify), so the table stays tiny.
-CREATE TABLE access_link_redemptions (
-    nonce VARCHAR(64) PRIMARY KEY,
-    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    redeemed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+-- Access tokens and invites (pkg/access). realm is the tenant id as text
+-- (always the default tenant today); scope is the consumer name, NULL for
+-- tenant-wide access. The block below must stay identical to
+-- pkg/access/pgstore/schema.sql (checked by internal/accessauth tests).
+
+-- Schema for github.com/sarathsp06/sparrow/pkg/access/pgstore.
+-- Only SHA-256 hashes of secrets are stored.
+CREATE TABLE access_tokens (
+    id           TEXT PRIMARY KEY,
+    realm        TEXT NOT NULL,
+    scope        TEXT,
+    name         TEXT NOT NULL,
+    secret_hash  BYTEA NOT NULL UNIQUE,
+    created_by   TEXT NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL,
+    expires_at   TIMESTAMPTZ,
+    revoked_at   TIMESTAMPTZ,
+    last_used_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_access_link_redemptions_expires_at ON access_link_redemptions(expires_at);
+CREATE INDEX idx_access_tokens_realm ON access_tokens (realm, created_at DESC);
 
-COMMENT ON TABLE access_link_redemptions IS 'Redeemed one-time admin access links; rows live only until the link expires.';
+CREATE TABLE access_invites (
+    id                TEXT PRIMARY KEY,
+    realm             TEXT NOT NULL,
+    scope             TEXT,
+    name              TEXT NOT NULL,
+    secret_hash       BYTEA NOT NULL UNIQUE,
+    token_ttl_seconds BIGINT,
+    created_by        TEXT NOT NULL,
+    created_at        TIMESTAMPTZ NOT NULL,
+    expires_at        TIMESTAMPTZ NOT NULL,
+    redeemed_at       TIMESTAMPTZ,
+    cancelled_at      TIMESTAMPTZ,
+    token_id          TEXT REFERENCES access_tokens (id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_access_invites_realm ON access_invites (realm, created_at DESC);

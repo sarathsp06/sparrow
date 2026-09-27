@@ -2,10 +2,14 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/sarathsp06/sparrow/pkg/access"
+	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
 )
 
 // portalAPIPrefix is the single public entry point for every portal API call.
@@ -32,25 +36,21 @@ func PortalAuthorized(ctx context.Context) bool {
 // existing handlers run unchanged. The consumer never appears in the public
 // URL, which collapses the operator's proxy allowlist to a single prefix and
 // makes cross-consumer access structurally impossible.
-func PortalGateway(pt *PortalTokens, next http.Handler) http.Handler {
+func PortalGateway(verify PortalVerifier, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if pt == nil {
-			http.Error(w, `{"error":"unauthorized","message":"portal tokens not configured"}`, http.StatusUnauthorized)
-			return
-		}
 		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok {
-			http.Error(w, `{"error":"unauthorized","message":"missing portal token"}`, http.StatusUnauthorized)
+			writeJSONError(w, http.StatusUnauthorized, "unauthorized", "missing portal token")
 			return
 		}
-		consumer, err := pt.Verify(strings.TrimSpace(token))
+		consumer, err := verify(r.Context(), strings.TrimSpace(token))
 		if err != nil {
-			http.Error(w, `{"error":"unauthorized","message":"invalid or expired portal token"}`, http.StatusUnauthorized)
+			writePortalAuthError(w, err)
 			return
 		}
 		target, ok := portalTarget(r.Method, strings.TrimPrefix(r.URL.Path, portalAPIPrefix), consumer)
 		if !ok {
-			http.Error(w, `{"error":"forbidden","message":"not permitted for portal tokens"}`, http.StatusForbidden)
+			writeJSONError(w, http.StatusForbidden, "forbidden", "not permitted for portal tokens")
 			return
 		}
 
@@ -85,5 +85,20 @@ func portalTarget(method, rest, consumer string) (string, bool) {
 		return "/v1/subscriptions:testTemplate", true
 	default:
 		return "/v1/consumers/" + consumer + "/" + rest, true
+	}
+}
+
+// writePortalAuthError maps verifier failures: a store outage is 503 (the
+// portal keeps its token and retries), a full-access token is 403, and an
+// expired or revoked access token keeps its reason so the portal can say so.
+func writePortalAuthError(w http.ResponseWriter, err error) {
+	var authErr *access.AuthError
+	switch {
+	case errors.Is(err, ErrPortalFullAccessToken):
+		writeJSONError(w, http.StatusForbidden, "forbidden", err.Error())
+	case errors.Is(err, access.ErrUnavailable), errors.As(err, &authErr):
+		httpauth.WriteError(w, err)
+	default:
+		writeJSONError(w, http.StatusUnauthorized, "unauthorized", "invalid or expired portal token")
 	}
 }

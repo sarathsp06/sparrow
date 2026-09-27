@@ -18,6 +18,7 @@ def start_authed_server():
     env = data_store.suite["env"]
     url = env.start_authed(API_KEY)
     data_store.suite["authed_url"] = url
+    data_store.suite["authed_key"] = API_KEY
 
 
 def _get(path, key):

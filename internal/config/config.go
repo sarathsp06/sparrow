@@ -44,6 +44,13 @@ type Config struct {
 	// Env: SPARROW_SERVE_UI
 	ServeUI bool `envconfig:"SPARROW_SERVE_UI" default:"false"`
 
+	// UIInjectKey controls whether the embedded UI gets SPARROW_API_KEY
+	// written into its pages so it works without signing in. Anyone who can
+	// load the UI can then read the key. Set false to make the UI ask for a
+	// key or an invite instead (a pasted master key is swapped for a token).
+	// Env: SPARROW_UI_INJECT_KEY
+	UIInjectKey bool `envconfig:"SPARROW_UI_INJECT_KEY" default:"true"`
+
 	// AllowPrivateNetworks relaxes SSRF protection to allow localhost and
 	// private IP addresses as webhook target URLs. Useful for local dev.
 	// Env: SPARROW_ALLOW_PRIVATE_NETWORKS

@@ -207,31 +207,6 @@ components:
         - pending_deliveries
         - success_rate
       type: object
-    CreateAccessLinkOutputBody:
-      additionalProperties: false
-      properties:
-        $schema:
-          description: A URL to the JSON Schema for this object.
-          examples:
-            - https://example.com/schemas/CreateAccessLinkOutputBody.json
-          format: uri
-          readOnly: true
-          type: string
-        expires_at:
-          description: When the link stops working if it has not been used.
-          format: date-time
-          type: string
-        path:
-          description: UI-relative link with the token in the fragment (never sent to the server or logged). Prepend the base URL the UI is served from and send it to the person who needs access.
-          type: string
-        token:
-          description: One-time token. The UI exchanges it for the API key at POST /access-link/redeem.
-          type: string
-      required:
-        - token
-        - expires_at
-        - path
-      type: object
     CreateAlertConfigBody:
       additionalProperties: false
       properties:
@@ -259,6 +234,60 @@ components:
       required:
         - email
         - event_types
+      type: object
+    CreateInviteBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CreateInviteBody.json
+          format: uri
+          readOnly: true
+          type: string
+        consumer:
+          description: Invite into one consumer's portal. Omit for tenant-wide (operator console) access.
+          type: string
+        name:
+          description: Name for the token the invite creates, e.g. the invitee's name.
+          maxLength: 200
+          minLength: 1
+          type: string
+        token_ttl_seconds:
+          description: Lifetime of the token it creates; same defaults and limits as POST /v1/tokens.
+          format: int64
+          minimum: 0
+          type: integer
+        ttl_seconds:
+          description: How long the invite can be used. Defaults to 24 hours, at most 7 days.
+          format: int64
+          minimum: 0
+          type: integer
+      required:
+        - name
+      type: object
+    CreateInviteOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CreateInviteOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        invite:
+          $ref: "#/components/schemas/InviteOut"
+        path:
+          description: UI-relative link with the secret in the fragment (never sent to servers or logs). Prepend the base URL the UI is served from.
+          type: string
+        secret:
+          description: The invite secret. Shown only in this response.
+          type: string
+      required:
+        - invite
+        - secret
+        - path
       type: object
     CreatePortalTokenOutputBody:
       additionalProperties: false
@@ -327,6 +356,51 @@ components:
       required:
         - webhook_id
         - event_name
+      type: object
+    CreateTokenBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CreateTokenBody.json
+          format: uri
+          readOnly: true
+          type: string
+        consumer:
+          description: Limit the token to one consumer (portal API only). Omit for a tenant-wide token with the same power as SPARROW_API_KEY.
+          type: string
+        name:
+          description: Who or what the token is for, e.g. "alice" or "ci-deploy".
+          maxLength: 200
+          minLength: 1
+          type: string
+        ttl_seconds:
+          description: Lifetime in seconds. Tenant-wide tokens default to never expiring; consumer tokens default to 7 days and allow at most 30.
+          format: int64
+          minimum: 0
+          type: integer
+      required:
+        - name
+      type: object
+    CreateTokenOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/CreateTokenOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        secret:
+          description: "The credential. Shown only in this response; send it as X-API-Key or Authorization: Bearer."
+          type: string
+        token:
+          $ref: "#/components/schemas/TokenOut"
+      required:
+        - token
+        - secret
       type: object
     DeliveryItem:
       additionalProperties: false
@@ -640,6 +714,69 @@ components:
         - unhealthy_count
         - unknown_count
       type: object
+    InviteOut:
+      additionalProperties: false
+      properties:
+        cancelled_at:
+          format: date-time
+          type:
+            - string
+            - "null"
+        consumer:
+          description: "Consumer the resulting token is limited to. Null: tenant-wide."
+          type:
+            - string
+            - "null"
+        created_at:
+          format: date-time
+          type: string
+        created_by:
+          type: string
+        expires_at:
+          description: When the invite stops working if unused.
+          format: date-time
+          type: string
+        id:
+          type: string
+        name:
+          description: Name given to the token the invite creates.
+          type: string
+        redeemed_at:
+          format: date-time
+          type:
+            - string
+            - "null"
+        status:
+          enum:
+            - pending
+            - redeemed
+            - cancelled
+            - expired
+          type: string
+        token_id:
+          description: Token created when the invite was redeemed.
+          type:
+            - string
+            - "null"
+        token_ttl_seconds:
+          description: "Lifetime of the token it creates. Null: never expires."
+          format: int64
+          type:
+            - integer
+            - "null"
+      required:
+        - id
+        - name
+        - consumer
+        - status
+        - token_ttl_seconds
+        - created_by
+        - created_at
+        - expires_at
+        - redeemed_at
+        - cancelled_at
+        - token_id
+      type: object
     ListAlertConfigsOutputBody:
       additionalProperties: false
       properties:
@@ -731,6 +868,25 @@ components:
         - items
         - pagination
       type: object
+    ListInvitesOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ListInvitesOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/InviteOut"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
     ListRecipesOutputBody:
       additionalProperties: false
       properties:
@@ -771,6 +927,25 @@ components:
       required:
         - items
         - pagination
+      type: object
+    ListTokensOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ListTokensOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/TokenOut"
+          type:
+            - array
+            - "null"
+      required:
+        - items
       type: object
     ListWebhooksOutputBody:
       additionalProperties: false
@@ -1284,6 +1459,60 @@ components:
       required:
         - rendered
       type: object
+    TokenOut:
+      additionalProperties: false
+      properties:
+        consumer:
+          description: "Consumer the token is limited to (portal API only). Null: tenant-wide, same power as SPARROW_API_KEY."
+          type:
+            - string
+            - "null"
+        created_at:
+          format: date-time
+          type: string
+        created_by:
+          description: Name of the credential that created it (the master key, or another token).
+          type: string
+        expires_at:
+          description: "Null: never expires."
+          format: date-time
+          type:
+            - string
+            - "null"
+        id:
+          description: Token id (not the secret).
+          type: string
+        last_used_at:
+          description: Approximate (updated at most once a minute).
+          format: date-time
+          type:
+            - string
+            - "null"
+        name:
+          description: Who or what the token is for.
+          type: string
+        revoked_at:
+          format: date-time
+          type:
+            - string
+            - "null"
+        status:
+          enum:
+            - active
+            - revoked
+            - expired
+          type: string
+      required:
+        - id
+        - name
+        - consumer
+        - status
+        - created_by
+        - created_at
+        - expires_at
+        - revoked_at
+        - last_used_at
+      type: object
     ValidateEventPayloadInputBody:
       additionalProperties: false
       properties:
@@ -1596,6 +1825,36 @@ components:
         - created_at
         - updated_at
       type: object
+    WhoAmIOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/WhoAmIOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        auth_enabled:
+          description: "False when SPARROW_API_KEY is unset: every endpoint is open."
+          type: boolean
+        master_key:
+          description: True when the request used SPARROW_API_KEY itself.
+          type: boolean
+        name:
+          description: Name of the credential used for this request.
+          type: string
+        token_id:
+          description: Id of the access token used, if any.
+          type:
+            - string
+            - "null"
+      required:
+        - auth_enabled
+        - name
+        - master_key
+        - token_id
+      type: object
   securitySchemes:
     ApiKeyAuth:
       description: "Required only when the server is started with SPARROW_API_KEY set; otherwise all endpoints are open. Note: if the embedded dashboard is enabled (SPARROW_SERVE_UI=true), it is served without authentication and exposes this key to any browser that can load it — treat the deployment as trusted-network-only, or disable the dashboard / put it behind an authenticating proxy for untrusted networks."
@@ -1634,55 +1893,6 @@ info:
   version: 1.0.0
 openapi: 3.1.0
 paths:
-  /v1/access-links:
-    post:
-      description: Creates a signed, single-use, expiring link for sharing admin access to the web UI without pasting the API key anywhere. Opening the link makes the UI exchange its token for the API key once (POST /access-link/redeem) and remember it in that browser. Links are invalidated by use, by expiry, and by rotating SPARROW_API_KEY. Whoever redeems a link holds the real API key. Requires the admin API key; fails with 409 when the server has no SPARROW_API_KEY.
-      operationId: createAccessLink
-      parameters:
-        - description: Link lifetime in seconds. Defaults to 15 minutes, capped at 24 hours.
-          explode: false
-          in: query
-          name: ttl_seconds
-          schema:
-            description: Link lifetime in seconds. Defaults to 15 minutes, capped at 24 hours.
-            format: int64
-            maximum: 86400
-            minimum: 1
-            type: integer
-      responses:
-        "201":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CreateAccessLinkOutputBody"
-          description: Created
-        "409":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Conflict
-        "422":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Unprocessable Entity
-        "500":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Internal Server Error
-        "503":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Service Unavailable
-      summary: Mint a one-time link that signs a browser into the UI
-      tags:
-        - Access
   /v1/consumers/{consumer}/alert-configs:
     get:
       description: Lists alert configs in a consumer, optionally filtered to one webhook's own configs.
@@ -3918,6 +4128,134 @@ paths:
       summary: Get aggregate webhook health counts across all consumers
       tags:
         - Health
+  /v1/invites:
+    get:
+      description: Newest first. Only pending invites unless include_inactive is set. Secrets are never returned.
+      operationId: listInvites
+      parameters:
+        - description: Also return redeemed, cancelled, and expired invites.
+          explode: false
+          in: query
+          name: include_inactive
+          schema:
+            description: Also return redeemed, cancelled, and expired invites.
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListInvitesOutputBody"
+          description: OK
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Service Unavailable
+      summary: List invites
+      tags:
+        - Access
+    post:
+      description: Creates a single-use, expiring invite. Opening the returned path in the UI exchanges it for a new access token named after the invitee (POST /invite/redeem), so nobody pastes a key into chat. A consumer invite opens that consumer's portal instead of the operator console.
+      operationId: createInvite
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInviteBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateInviteOutputBody"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Bad Request
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Service Unavailable
+      summary: Invite someone with a one-time link
+      tags:
+        - Access
+  /v1/invites/{invite_id}:
+    delete:
+      operationId: cancelInvite
+      parameters:
+        - in: path
+          name: invite_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Service Unavailable
+      summary: Cancel a pending invite
+      tags:
+        - Access
   /v1/recipes:
     get:
       description: Lists recipe templates shipped with this Sparrow server. Recipes pre-fill webhook destinations, headers, and optional subscription transforms.
@@ -4084,6 +4422,136 @@ paths:
       summary: List available payload-transformation template functions
       tags:
         - Webhooks
+  /v1/tokens:
+    get:
+      description: Newest first. Secrets are never returned. Revoked and expired tokens are hidden unless include_inactive is set.
+      operationId: listTokens
+      parameters:
+        - description: Only tokens limited to this consumer.
+          explode: false
+          in: query
+          name: consumer
+          schema:
+            description: Only tokens limited to this consumer.
+            type: string
+        - description: Also return revoked and expired tokens.
+          explode: false
+          in: query
+          name: include_inactive
+          schema:
+            description: Also return revoked and expired tokens.
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListTokensOutputBody"
+          description: OK
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Service Unavailable
+      summary: List access tokens
+      tags:
+        - Access
+    post:
+      description: Creates a named token. A tenant-wide token (no consumer) works exactly like SPARROW_API_KEY but can be revoked on its own and never needs the master key to be shared. A consumer token only works through the portal API (/portal/api/), limited to that consumer. The secret is returned once.
+      operationId: createToken
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTokenBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTokenOutputBody"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Bad Request
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Service Unavailable
+      summary: Create an access token
+      tags:
+        - Access
+  /v1/tokens/{token_id}:
+    delete:
+      description: The token stops working immediately on this server and within 30 seconds everywhere else. Revoking is permanent and idempotent.
+      operationId: revokeToken
+      parameters:
+        - in: path
+          name: token_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Service Unavailable
+      summary: Revoke an access token
+      tags:
+        - Access
   /v1/webhooks:
     get:
       description: Cross-consumer webhook listing. Pass consumer to scope to one consumer, health to filter by computed status, or webhook_id for an id-only lookup when the consumer isn't known.
@@ -4150,6 +4618,25 @@ paths:
       summary: List webhooks across all consumers
       tags:
         - Health
+  /v1/whoami:
+    get:
+      operationId: getWhoAmI
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhoAmIOutputBody"
+          description: OK
+        default:
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Error
+      summary: Show which credential this request used
+      tags:
+        - Access
 security:
   - ApiKeyAuth: []
   - {}

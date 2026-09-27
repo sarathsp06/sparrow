@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -87,5 +88,25 @@ func TestWarnings(t *testing.T) {
 	w := cfg.Warnings()
 	if len(w) != 1 || !strings.Contains(w[0], "sslmode=disable") {
 		t.Fatalf("Warnings() for remote sslmode=disable = %v, want one advisory", w)
+	}
+}
+
+func TestUIInjectKeyDefaultsOn(t *testing.T) {
+	t.Setenv("SPARROW_UI_INJECT_KEY", "true") // registers the restore
+	_ = os.Unsetenv("SPARROW_UI_INJECT_KEY")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.UIInjectKey {
+		t.Fatal("SPARROW_UI_INJECT_KEY should default to true (existing setups keep working)")
+	}
+	t.Setenv("SPARROW_UI_INJECT_KEY", "false")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.UIInjectKey {
+		t.Fatal("SPARROW_UI_INJECT_KEY=false was ignored")
 	}
 }

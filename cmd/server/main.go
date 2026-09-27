@@ -17,7 +17,7 @@ import (
 	slogotel "github.com/remychantenay/slog-otel"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
-	"github.com/sarathsp06/sparrow/internal/accesslink"
+	"github.com/sarathsp06/sparrow/internal/accessauth"
 	"github.com/sarathsp06/sparrow/internal/config"
 	"github.com/sarathsp06/sparrow/internal/health"
 	"github.com/sarathsp06/sparrow/internal/middleware"
@@ -30,6 +30,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
 	"github.com/sarathsp06/sparrow/pkg/storage/postgres"
 )
@@ -168,26 +169,22 @@ func main() {
 	// Minted via POST .../portal-token (admin).
 	portalTokens := middleware.NewPortalTokensFromKeyring(encKeyring)
 
-	// One-time links that hand the admin API key to a browser (minted via
-	// POST /v1/access-links, redeemed once by the UI). Inert without SPARROW_API_KEY.
-	accessLinks := accesslink.New(encKeyring, cfg.APIKey, accesslink.PostgresClaims{DB: sqlxDB})
-
-	// Configure optional API key authentication.
-	// When SPARROW_API_KEY is set, all /v1 requests must include the key via
-	// the X-API-Key header. Health/ready, the OpenAPI docs/spec, and static UI
-	// assets are excluded. Portal traffic arrives pre-authorized through the
-	// /portal/api gateway (see below). When unset, all requests are open.
-	apiKeyAuth := &middleware.APIKeyAuth{
-		APIKey: cfg.APIKey,
-		ExcludedPathPrefixes: []string{
-			"/health",
-			"/ready",
-			"/docs",
-			"/openapi",
-		},
+	// Access tokens and invites (pkg/access, adapted in internal/accessauth).
+	// SPARROW_API_KEY is the root key; named tokens created from it can each
+	// be revoked. Consumer-scoped tokens only work through the portal gateway.
+	accessSvc, err := accessauth.New(sqlxDB.DB, cfg.APIKey)
+	if err != nil {
+		log.Fatalf("Failed to create access service: %v", err)
 	}
-	if apiKeyAuth.Enabled() {
-		fmt.Println("🔑 API key authentication enabled (SPARROW_API_KEY is set)")
+
+	// Authentication for /v1. When SPARROW_API_KEY is set, every request needs
+	// the master key or a tenant-wide access token (X-API-Key header or
+	// Authorization: Bearer). Health/ready and the OpenAPI docs/spec are
+	// excluded. Portal traffic arrives pre-authorized through the /portal/api
+	// gateway (see below). When unset, all requests are open.
+	auth := middleware.NewAuth(cfg.APIKey, accessSvc, accessauth.Realm(), "/health", "/ready", "/docs", "/openapi")
+	if auth.Enabled {
+		fmt.Println("🔑 Authentication enabled (SPARROW_API_KEY or an access token required)")
 	} else {
 		fmt.Println("⚠️  SPARROW_API_KEY not set — all endpoints are open (no authentication)")
 	}
@@ -246,20 +243,20 @@ func main() {
 	// REST API — protected by API key auth. Huma registers every /v1
 	// operation plus /openapi.{json,yaml} and the Scalar reference at /docs.
 	r.Group(func(r chi.Router) {
-		r.Use(apiKeyAuth.HTTPMiddleware)
-		rest.Mount(r, tracedWebhookService, portalTokens, accessLinks)
+		r.Use(auth.HTTPMiddleware)
+		rest.Mount(r, tracedWebhookService, portalTokens, rest.AccessDeps{Service: accessSvc, AuthEnabled: auth.Enabled})
 	})
 
-	// One-time admin access links: the token in the link is the credential,
-	// so redeeming it sits outside the API-key-protected /v1 group.
-	r.Post(accesslink.RedeemPath, accessLinks.RedeemHandler().ServeHTTP)
+	// Invite redemption: the invite in the request is the credential, so it
+	// sits outside the authenticated /v1 group.
+	r.Post("/invite/redeem", httpauth.RedeemHandler(accessSvc).ServeHTTP)
 
 	// Consumer portal API — one static public prefix. The gateway verifies the
 	// consumer-scoped bearer token, maps /portal/api/<rest> to its real /v1
 	// path, and re-dispatches into the router so the same handlers run. The
 	// consumer is carried by the token, never the URL, so an operator exposing
 	// the portal allowlists just /portal, /_app, and /portal/api.
-	r.Handle("/portal/api/*", middleware.PortalGateway(portalTokens, r))
+	r.Handle("/portal/api/*", middleware.PortalGateway(middleware.NewPortalVerifier(portalTokens, accessSvc, accessauth.Realm()), r))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, startTime)
@@ -275,7 +272,13 @@ func main() {
 	// never accidentally be served HTML by the SPA.
 	if cfg.ServeUI {
 		if ui.Available() {
-			uiConfig := &ui.Config{APIKey: apiKeyAuth.APIKey}
+			// The embedded UI gets the master key injected unless
+			// SPARROW_UI_INJECT_KEY=false, in which case it asks for a key or
+			// an invite (and swaps a pasted master key for a token).
+			uiConfig := &ui.Config{}
+			if cfg.UIInjectKey {
+				uiConfig.APIKey = cfg.APIKey
+			}
 			uiHandler := ui.Handler(slog.Default(), uiConfig)
 			r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 				// Serve SPA only for GET/HEAD requests. Non-GET to unknown
@@ -326,8 +329,8 @@ func main() {
 	if cfg.ServeUI && ui.Available() {
 		fmt.Printf("   Web UI: http://localhost:%s/\n", cfg.HTTPPort)
 	}
-	if apiKeyAuth.Enabled() {
-		fmt.Println("   Auth: API key required (X-API-Key header)")
+	if auth.Enabled {
+		fmt.Println("   Auth: API key or access token required (X-API-Key or Authorization: Bearer)")
 	} else {
 		fmt.Println("   Auth: disabled (set SPARROW_API_KEY to enable)")
 	}
