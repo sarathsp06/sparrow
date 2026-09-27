@@ -10,6 +10,9 @@ import { Inside } from "./scenes/Inside";
 import { Compare } from "./scenes/Compare";
 import { Close } from "./scenes/Close";
 import { withBackdrop } from "./components/Backdrop";
+import { SparrowExplainer, EXPLAINER_DURATION } from "./explainer/SparrowExplainer";
+import { SCENES as EXPLAINER_SCENES } from "./explainer/scenes";
+import { FRAMES as EXPLAINER_FRAMES, sceneFrames } from "./explainer/timing";
 
 const OldWayB = withBackdrop(OldWay);
 const FlowB = withBackdrop(Flow);
@@ -30,6 +33,27 @@ export const RemotionRoot: React.FC = () => {
         width={1920}
         height={1080}
       />
+      <Composition
+        id="SparrowExplainer"
+        component={SparrowExplainer}
+        durationInFrames={EXPLAINER_DURATION}
+        fps={30}
+        width={1920}
+        height={1080}
+      />
+      <Folder name="ExplainerScenes">
+        {EXPLAINER_SCENES.map((Scene, i) => (
+          <Composition
+            key={EXPLAINER_FRAMES[i].id}
+            id={`X${EXPLAINER_FRAMES[i].id}`}
+            component={withBackdrop(Scene)}
+            durationInFrames={sceneFrames(i)}
+            fps={30}
+            width={1920}
+            height={1080}
+          />
+        ))}
+      </Folder>
       <Folder name="Scenes">
         <Composition
           id="Hook"

@@ -1,5 +1,5 @@
 import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
-import { loadFont as loadMono } from "@remotion/google-fonts/JetBrainsMono";
+import { loadFont as loadMono } from "@remotion/google-fonts/FiraCode";
 import { loadFont as loadSerif } from "@remotion/google-fonts/InstrumentSerif";
 
 const inter = loadInter("normal", { weights: ["400", "500", "600", "700"], subsets: ["latin"] });
@@ -21,6 +21,6 @@ export const C = {
 
 export const F = {
   display: `${inter.fontFamily}, -apple-system, "Helvetica Neue", Arial, sans-serif`,
-  mono: `${mono.fontFamily}, Menlo, Consolas, monospace`,
+  mono: `${mono.fontFamily}, "JetBrains Mono", Menlo, Consolas, monospace`,
   serif: `${serif.fontFamily}, Georgia, serif`,
 } as const;

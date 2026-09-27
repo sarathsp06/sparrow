@@ -1,0 +1,277 @@
+{
+  "tts": {
+    "engine": "edge",
+    "voice": "en-US-AndrewMultilingualNeural",
+    "rate": "+8%"
+  },
+  "leadIn": 0.45,
+  "cueGap": 0.22,
+  "tail": 0.9,
+  "frames": [
+    {
+      "id": "01-hook",
+      "cues": [
+        {
+          "text": "Your app emits events."
+        },
+        {
+          "text": "The rest of your stack expects webhooks."
+        },
+        {
+          "text": "Which means retries. Signing. Health checks. Every time."
+        }
+      ]
+    },
+    {
+      "id": "02-pain",
+      "cues": [
+        {
+          "text": "So teams build it: a Redis queue, retry crons, signing code, dashboards, alerts."
+        },
+        {
+          "text": "And events still quietly get lost."
+        },
+        {
+          "text": "With Sparrow, it's just Postgres."
+        },
+        {
+          "text": "Sparrow: webhook delivery you run yourself."
+        }
+      ]
+    },
+    {
+      "id": "03-meet",
+      "cues": [
+        {
+          "text": "Let's follow one event, order.created,",
+          "say": "Let's follow one event, order dot created,"
+        },
+        {
+          "text": "from push, to delivered."
+        }
+      ]
+    },
+    {
+      "id": "04-push",
+      "cues": [
+        {
+          "text": "Step one: your service pushes the event."
+        },
+        {
+          "text": "One POST. Sparrow stores it and answers right away."
+        },
+        {
+          "text": "Push it again with the same idempotency key?"
+        },
+        {
+          "text": "You get the original back. No duplicate."
+        }
+      ]
+    },
+    {
+      "id": "05-fanout",
+      "cues": [
+        {
+          "text": "Step two: fan-out."
+        },
+        {
+          "text": "Sparrow finds every subscription that matches:"
+        },
+        {
+          "text": "the event name, the consumer, even labels like env=prod,",
+          "say": "the event name, the consumer, even labels like env equals prod,"
+        },
+        {
+          "text": "and queues one delivery for each. Right in Postgres."
+        }
+      ]
+    },
+    {
+      "id": "06-sign",
+      "cues": [
+        {
+          "text": "Step three: build the request."
+        },
+        {
+          "text": "The standard envelope, or your own shape with a Go template."
+        },
+        {
+          "text": "Headers too, even an API token, encrypted at rest."
+        },
+        {
+          "text": "Any method: POST, PUT, PATCH, DELETE."
+        },
+        {
+          "text": "So one event can call almost any HTTP API."
+        },
+        {
+          "text": "And every request is signed: HMAC or Ed25519.",
+          "say": "And every request is signed: H-MAC, or E-D twenty-five-five-nineteen."
+        }
+      ]
+    },
+    {
+      "id": "06b-recipes",
+      "cues": [
+        {
+          "text": "Recipes are exactly that, pre-packaged."
+        },
+        {
+          "text": "PagerDuty, Twilio, SendGrid, ClickHouse and more, one YAML file each."
+        },
+        {
+          "text": "One command applies one: sparrow use pagerduty.",
+          "say": "One command applies one. Sparrow, use PagerDuty."
+        }
+      ]
+    },
+    {
+      "id": "07-classify",
+      "cues": [
+        {
+          "text": "Step four: send, and read the answer."
+        },
+        {
+          "text": "Every failure lands in one of ten categories."
+        },
+        {
+          "text": "Server errors and timeouts? Worth another try."
+        },
+        {
+          "text": "DNS, TLS, or a 4xx? Retrying won't help,",
+          "say": "DNS, TLS, or a four-hundred error? Retrying won't help,"
+        },
+        {
+          "text": "so Sparrow stops."
+        }
+      ]
+    },
+    {
+      "id": "08-backoff",
+      "cues": [
+        {
+          "text": "Step five: back off."
+        },
+        {
+          "text": "By default, three retries: one minute, two, then four."
+        },
+        {
+          "text": "Doubling every time."
+        },
+        {
+          "text": "And a 429, slow down?",
+          "say": "And a four twenty-nine, slow down?"
+        },
+        {
+          "text": "Sparrow waits out Retry-After, without spending an attempt."
+        }
+      ]
+    },
+    {
+      "id": "09-health",
+      "cues": [
+        {
+          "text": "Meanwhile, every webhook carries a health state."
+        },
+        {
+          "text": "Healthy, above ninety percent success."
+        },
+        {
+          "text": "Degraded, between eighty and ninety."
+        },
+        {
+          "text": "Five failures in a row? Unhealthy."
+        },
+        {
+          "text": "And every change can email your on-call."
+        }
+      ]
+    },
+    {
+      "id": "10-record",
+      "cues": [
+        {
+          "text": "Nothing is a mystery."
+        },
+        {
+          "text": "Every attempt is recorded: status, timing, error category."
+        },
+        {
+          "text": "When the partner is back, retry it by ID."
+        }
+      ]
+    },
+    {
+      "id": "10b-dashboard",
+      "cues": [
+        {
+          "text": "And you don't have to dig through logs."
+        },
+        {
+          "text": "A dashboard ships inside the same binary: webhooks, events, deliveries, health."
+        },
+        {
+          "text": "Plus a consumer portal, so your customers manage their own webhooks."
+        },
+        {
+          "text": "And OpenTelemetry traces every event, end to end."
+        }
+      ]
+    },
+    {
+      "id": "12a-open",
+      "cues": [
+        {
+          "text": "So what does it need to run?"
+        },
+        {
+          "text": "Just PostgreSQL. The queue lives there too. No Redis, no broker."
+        },
+        {
+          "text": "And it's MIT licensed: free to run, fork and ship. No per-message pricing."
+        }
+      ]
+    },
+    {
+      "id": "12b-compare",
+      "cues": [
+        {
+          "text": "How does that stack up?"
+        },
+        {
+          "text": "Svix and Convoy add Redis. Hookdeck's core is SaaS."
+        },
+        {
+          "text": "Sparrow is fully MIT, with dual signing, recipes, a portal and self-monitoring."
+        }
+      ]
+    },
+    {
+      "id": "11-takeaway",
+      "cues": [
+        {
+          "text": "So, where did order.created end up?",
+          "say": "So, where did order dot created end up?"
+        },
+        {
+          "text": "Exactly where you sent it."
+        },
+        {
+          "text": "Push once. Sparrow does the rest."
+        }
+      ]
+    },
+    {
+      "id": "12-cta",
+      "cues": [
+        {
+          "text": "One Go binary. One Postgres."
+        },
+        {
+          "text": "docker compose up, and you're delivering.",
+          "say": "Docker compose up, and you're delivering."
+        }
+      ]
+    }
+  ]
+}

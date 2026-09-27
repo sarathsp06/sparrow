@@ -1,0 +1,457 @@
+{
+  "engine": "edge",
+  "voice": "en-US-AndrewMultilingualNeural",
+  "rate": "+8%",
+  "frames": [
+    {
+      "id": "01-hook",
+      "duration": 8.502,
+      "cues": [
+        {
+          "text": "Your app emits events.",
+          "src": "vo/01-hook-0.wav",
+          "start": 0.45,
+          "dur": 1.066
+        },
+        {
+          "text": "The rest of your stack expects webhooks.",
+          "src": "vo/01-hook-1.wav",
+          "start": 1.736,
+          "dur": 1.916
+        },
+        {
+          "text": "Which means retries. Signing. Health checks. Every time.",
+          "src": "vo/01-hook-2.wav",
+          "start": 3.872,
+          "dur": 3.73
+        }
+      ]
+    },
+    {
+      "id": "02-pain",
+      "duration": 13.719,
+      "cues": [
+        {
+          "text": "So teams build it: a Redis queue, retry crons, signing code, dashboards, alerts.",
+          "src": "vo/02-pain-0.wav",
+          "start": 0.45,
+          "dur": 5.558
+        },
+        {
+          "text": "And events still quietly get lost.",
+          "src": "vo/02-pain-1.wav",
+          "start": 6.228,
+          "dur": 1.954
+        },
+        {
+          "text": "With Sparrow, it's just Postgres.",
+          "src": "vo/02-pain-2.wav",
+          "start": 8.401,
+          "dur": 1.701
+        },
+        {
+          "text": "Sparrow: webhook delivery you run yourself.",
+          "src": "vo/02-pain-3.wav",
+          "start": 10.322,
+          "dur": 2.497
+        }
+      ]
+    },
+    {
+      "id": "03-meet",
+      "duration": 5.007,
+      "cues": [
+        {
+          "text": "Let's follow one event, order.created,",
+          "src": "vo/03-meet-0.wav",
+          "start": 0.45,
+          "dur": 2.007
+        },
+        {
+          "text": "from push, to delivered.",
+          "src": "vo/03-meet-1.wav",
+          "start": 2.677,
+          "dur": 1.429
+        }
+      ]
+    },
+    {
+      "id": "04-push",
+      "duration": 12.396,
+      "cues": [
+        {
+          "text": "Step one: your service pushes the event.",
+          "src": "vo/04-push-0.wav",
+          "start": 0.45,
+          "dur": 2.578
+        },
+        {
+          "text": "One POST. Sparrow stores it and answers right away.",
+          "src": "vo/04-push-1.wav",
+          "start": 3.248,
+          "dur": 2.998
+        },
+        {
+          "text": "Push it again with the same idempotency key?",
+          "src": "vo/04-push-2.wav",
+          "start": 6.466,
+          "dur": 2.858
+        },
+        {
+          "text": "You get the original back. No duplicate.",
+          "src": "vo/04-push-3.wav",
+          "start": 9.545,
+          "dur": 1.951
+        }
+      ]
+    },
+    {
+      "id": "05-fanout",
+      "duration": 13.236,
+      "cues": [
+        {
+          "text": "Step two: fan-out.",
+          "src": "vo/05-fanout-0.wav",
+          "start": 0.45,
+          "dur": 1.038
+        },
+        {
+          "text": "Sparrow finds every subscription that matches:",
+          "src": "vo/05-fanout-1.wav",
+          "start": 1.708,
+          "dur": 2.845
+        },
+        {
+          "text": "the event name, the consumer, even labels like env=prod,",
+          "src": "vo/05-fanout-2.wav",
+          "start": 4.772,
+          "dur": 4.181
+        },
+        {
+          "text": "and queues one delivery for each. Right in Postgres.",
+          "src": "vo/05-fanout-3.wav",
+          "start": 9.174,
+          "dur": 3.162
+        }
+      ]
+    },
+    {
+      "id": "06-sign",
+      "duration": 21.37,
+      "cues": [
+        {
+          "text": "Step three: build the request.",
+          "src": "vo/06-sign-0.wav",
+          "start": 0.45,
+          "dur": 1.94
+        },
+        {
+          "text": "The standard envelope, or your own shape with a Go template.",
+          "src": "vo/06-sign-1.wav",
+          "start": 2.61,
+          "dur": 2.809
+        },
+        {
+          "text": "Headers too, even an API token, encrypted at rest.",
+          "src": "vo/06-sign-2.wav",
+          "start": 5.639,
+          "dur": 3.293
+        },
+        {
+          "text": "Any method: POST, PUT, PATCH, DELETE.",
+          "src": "vo/06-sign-3.wav",
+          "start": 9.152,
+          "dur": 2.621
+        },
+        {
+          "text": "So one event can call almost any HTTP API.",
+          "src": "vo/06-sign-4.wav",
+          "start": 11.993,
+          "dur": 3.207
+        },
+        {
+          "text": "And every request is signed: HMAC or Ed25519.",
+          "src": "vo/06-sign-5.wav",
+          "start": 15.42,
+          "dur": 5.05
+        }
+      ]
+    },
+    {
+      "id": "06b-recipes",
+      "duration": 12.934,
+      "cues": [
+        {
+          "text": "Recipes are exactly that, pre-packaged.",
+          "src": "vo/06b-recipes-0.wav",
+          "start": 0.45,
+          "dur": 2.388
+        },
+        {
+          "text": "PagerDuty, Twilio, SendGrid, ClickHouse and more, one YAML file each.",
+          "src": "vo/06b-recipes-1.wav",
+          "start": 3.058,
+          "dur": 5.547
+        },
+        {
+          "text": "One command applies one: sparrow use pagerduty.",
+          "src": "vo/06b-recipes-2.wav",
+          "start": 8.825,
+          "dur": 3.209
+        }
+      ]
+    },
+    {
+      "id": "07-classify",
+      "duration": 15.19,
+      "cues": [
+        {
+          "text": "Step four: send, and read the answer.",
+          "src": "vo/07-classify-0.wav",
+          "start": 0.45,
+          "dur": 2.536
+        },
+        {
+          "text": "Every failure lands in one of ten categories.",
+          "src": "vo/07-classify-1.wav",
+          "start": 3.206,
+          "dur": 2.628
+        },
+        {
+          "text": "Server errors and timeouts? Worth another try.",
+          "src": "vo/07-classify-2.wav",
+          "start": 6.054,
+          "dur": 2.852
+        },
+        {
+          "text": "DNS, TLS, or a 4xx? Retrying won't help,",
+          "src": "vo/07-classify-3.wav",
+          "start": 9.126,
+          "dur": 3.927
+        },
+        {
+          "text": "so Sparrow stops.",
+          "src": "vo/07-classify-4.wav",
+          "start": 13.273,
+          "dur": 1.017
+        }
+      ]
+    },
+    {
+      "id": "08-backoff",
+      "duration": 12.949,
+      "cues": [
+        {
+          "text": "Step five: back off.",
+          "src": "vo/08-backoff-0.wav",
+          "start": 0.45,
+          "dur": 1.079
+        },
+        {
+          "text": "By default, three retries: one minute, two, then four.",
+          "src": "vo/08-backoff-1.wav",
+          "start": 1.749,
+          "dur": 3.597
+        },
+        {
+          "text": "Doubling every time.",
+          "src": "vo/08-backoff-2.wav",
+          "start": 5.565,
+          "dur": 0.918
+        },
+        {
+          "text": "And a 429, slow down?",
+          "src": "vo/08-backoff-3.wav",
+          "start": 6.704,
+          "dur": 1.829
+        },
+        {
+          "text": "Sparrow waits out Retry-After, without spending an attempt.",
+          "src": "vo/08-backoff-4.wav",
+          "start": 8.753,
+          "dur": 3.296
+        }
+      ]
+    },
+    {
+      "id": "09-health",
+      "duration": 13.323,
+      "cues": [
+        {
+          "text": "Meanwhile, every webhook carries a health state.",
+          "src": "vo/09-health-0.wav",
+          "start": 0.45,
+          "dur": 2.716
+        },
+        {
+          "text": "Healthy, above ninety percent success.",
+          "src": "vo/09-health-1.wav",
+          "start": 3.386,
+          "dur": 2.556
+        },
+        {
+          "text": "Degraded, between eighty and ninety.",
+          "src": "vo/09-health-2.wav",
+          "start": 6.163,
+          "dur": 2.004
+        },
+        {
+          "text": "Five failures in a row? Unhealthy.",
+          "src": "vo/09-health-3.wav",
+          "start": 8.387,
+          "dur": 1.974
+        },
+        {
+          "text": "And every change can email your on-call.",
+          "src": "vo/09-health-4.wav",
+          "start": 10.581,
+          "dur": 1.842
+        }
+      ]
+    },
+    {
+      "id": "10-record",
+      "duration": 9.103,
+      "cues": [
+        {
+          "text": "Nothing is a mystery.",
+          "src": "vo/10-record-0.wav",
+          "start": 0.45,
+          "dur": 0.926
+        },
+        {
+          "text": "Every attempt is recorded: status, timing, error category.",
+          "src": "vo/10-record-1.wav",
+          "start": 1.596,
+          "dur": 3.9
+        },
+        {
+          "text": "When the partner is back, retry it by ID.",
+          "src": "vo/10-record-2.wav",
+          "start": 5.716,
+          "dur": 2.487
+        }
+      ]
+    },
+    {
+      "id": "10b-dashboard",
+      "duration": 14.729,
+      "cues": [
+        {
+          "text": "And you don't have to dig through logs.",
+          "src": "vo/10b-dashboard-0.wav",
+          "start": 0.45,
+          "dur": 1.496
+        },
+        {
+          "text": "A dashboard ships inside the same binary: webhooks, events, deliveries, health.",
+          "src": "vo/10b-dashboard-1.wav",
+          "start": 2.166,
+          "dur": 4.772
+        },
+        {
+          "text": "Plus a consumer portal, so your customers manage their own webhooks.",
+          "src": "vo/10b-dashboard-2.wav",
+          "start": 7.158,
+          "dur": 3.323
+        },
+        {
+          "text": "And OpenTelemetry traces every event, end to end.",
+          "src": "vo/10b-dashboard-3.wav",
+          "start": 10.701,
+          "dur": 3.128
+        }
+      ]
+    },
+    {
+      "id": "12a-open",
+      "duration": 11.684,
+      "cues": [
+        {
+          "text": "So what does it need to run?",
+          "src": "vo/12a-open-0.wav",
+          "start": 0.45,
+          "dur": 0.725
+        },
+        {
+          "text": "Just PostgreSQL. The queue lives there too. No Redis, no broker.",
+          "src": "vo/12a-open-1.wav",
+          "start": 1.395,
+          "dur": 4.257
+        },
+        {
+          "text": "And it's MIT licensed: free to run, fork and ship. No per-message pricing.",
+          "src": "vo/12a-open-2.wav",
+          "start": 5.872,
+          "dur": 4.911
+        }
+      ]
+    },
+    {
+      "id": "12b-compare",
+      "duration": 12.098,
+      "cues": [
+        {
+          "text": "How does that stack up?",
+          "src": "vo/12b-compare-0.wav",
+          "start": 0.45,
+          "dur": 0.622
+        },
+        {
+          "text": "Svix and Convoy add Redis. Hookdeck's core is SaaS.",
+          "src": "vo/12b-compare-1.wav",
+          "start": 1.292,
+          "dur": 3.846
+        },
+        {
+          "text": "Sparrow is fully MIT, with dual signing, recipes, a portal and self-monitoring.",
+          "src": "vo/12b-compare-2.wav",
+          "start": 5.358,
+          "dur": 5.84
+        }
+      ]
+    },
+    {
+      "id": "11-takeaway",
+      "duration": 6.949,
+      "cues": [
+        {
+          "text": "So, where did order.created end up?",
+          "src": "vo/11-takeaway-0.wav",
+          "start": 0.45,
+          "dur": 2.002
+        },
+        {
+          "text": "Exactly where you sent it.",
+          "src": "vo/11-takeaway-1.wav",
+          "start": 2.672,
+          "dur": 1.128
+        },
+        {
+          "text": "Push once. Sparrow does the rest.",
+          "src": "vo/11-takeaway-2.wav",
+          "start": 4.02,
+          "dur": 2.028
+        }
+      ]
+    },
+    {
+      "id": "12-cta",
+      "duration": 5.448,
+      "cues": [
+        {
+          "text": "One Go binary. One Postgres.",
+          "src": "vo/12-cta-0.wav",
+          "start": 0.45,
+          "dur": 2.02
+        },
+        {
+          "text": "docker compose up, and you're delivering.",
+          "src": "vo/12-cta-1.wav",
+          "start": 2.69,
+          "dur": 1.858
+        }
+      ]
+    }
+  ]
+}
