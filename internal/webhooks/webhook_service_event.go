@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	jsonschema "github.com/kaptinlin/jsonschema"
@@ -21,6 +22,12 @@ import (
 	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 	"github.com/sarathsp06/sparrow/pkg/storage"
 )
+
+// maxEventNameLength matches the VARCHAR(255) event-name columns. Postgres
+// counts characters, not bytes, so the check does too.
+const maxEventNameLength = 255
+
+const eventNameTooLong = "event name must be at most 255 characters"
 
 // PushEvent pushes an event.
 // When idempotencyKey is non-nil and non-empty, duplicate detection is
@@ -55,6 +62,12 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		err := svcerrors.Error(svcerrors.InvalidArgument, "event is required")
 		span.RecordError(err)
 		span.SetStatus(otelcodes.Error, "event is required")
+		return "", false, false, nil, err
+	}
+	if utf8.RuneCountInString(event) > maxEventNameLength {
+		err := svcerrors.Error(svcerrors.InvalidArgument, eventNameTooLong)
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "event name too long")
 		return "", false, false, nil, err
 	}
 	if err := validateLabels(labels, "labels"); err != nil {
@@ -394,6 +407,9 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 	s.logger.InfoContext(ctx, "Processing event registration request", "name", name, "description", description)
 	if name == "" {
 		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
+	}
+	if utf8.RuneCountInString(name) > maxEventNameLength {
+		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, eventNameTooLong)
 	}
 
 	tenantID := tenant.DefaultTenantID

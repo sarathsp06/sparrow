@@ -115,6 +115,15 @@ where webhook targets legitimately live on the same private network, and for
 local development against a receiver on localhost. Off by default.
 :::
 
+### TLS verification
+
+Deliveries verify the receiver's TLS certificate. A webhook can opt out with
+`http_config.verify_ssl: false`, for trusted internal endpoints with
+self-signed certificates; it defaults to `true`, and the SSRF checks above
+still apply to opted-out webhooks. (Before v0.5.17 this flag was accepted but
+ignored, so certificates were always verified. Webhooks that explicitly set
+it to `false` now skip verification, as requested.)
+
 ## HTTP Hardening
 
 Defense-in-depth headers on every API and UI response:
@@ -155,6 +164,16 @@ so a reader can't even infer secret length from the mask.
 
 A webhook with no secret or secret headers simply returns empty fields --
 distinguishable from the fixed mask a decryption failure produces.
+
+## Webhook URLs in Logs and Traces
+
+Webhook URLs often carry credentials outside the `user:pass@` part: in the
+path (Slack's `/services/T…/B…/<secret>`, Discord's `/api/webhooks/<id>/<token>`)
+or the query string (`?token=`). Sparrow's logs and span attributes therefore
+record only the scheme and host (`https://hooks.slack.com/…`), and delivery
+error messages (e.g. connection refused) have the URL reduced the same way.
+Use the webhook ID to find the endpoint; the full URL is still available
+through the API to callers with access.
 
 ## Consumer Isolation
 

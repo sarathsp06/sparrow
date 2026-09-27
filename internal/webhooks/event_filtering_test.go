@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
+	svcerrors "github.com/sarathsp06/sparrow/pkg/errors"
 )
 
 // ---------------------------------------------------------------------------
@@ -610,4 +611,43 @@ func TestGetSubscriptionsWithWebhooksByEvent_LabelsPassedThrough(t *testing.T) {
 	_, err := repo.GetSubscriptionsWithWebhooksByEvent(ctx, uuid.New(), "default", "order.created", eventLabels)
 	assert.NoError(t, err)
 	repo.AssertExpectations(t)
+}
+
+// ---------------------------------------------------------------------------
+// Event-name length (VARCHAR(255): characters, not bytes)
+// ---------------------------------------------------------------------------
+
+func TestPushEvent_EventNameLengthCountsCharacters(t *testing.T) {
+	repo := new(mockRepo)
+	inserter := new(mockJobInserter)
+	service := NewWebhookService(inserter, repo, nil)
+	ctx := testContext()
+
+	// 255 two-byte characters = 510 bytes: fits the column, must be accepted.
+	fits := strings.Repeat("é", maxEventNameLength)
+	repo.On("GetEventByName", mock.Anything, mock.Anything, fits).Return(&store.EventRegistration{Name: fits, Active: true}, nil)
+	repo.On("StoreEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	inserter.On("Insert", mock.Anything, mock.Anything).Return(&rivertype.JobInsertResult{}, nil)
+	_, _, _, _, err := service.PushEvent(ctx, "default", fits, nil, 0, nil, nil, nil)
+	require.NoError(t, err)
+
+	for _, tooLong := range []string{strings.Repeat("x", maxEventNameLength+1), strings.Repeat("é", maxEventNameLength+1)} {
+		_, _, _, _, err := service.PushEvent(ctx, "default", tooLong, nil, 0, nil, nil, nil)
+		require.Error(t, err)
+		var svcErr *svcerrors.ServiceError
+		require.ErrorAs(t, err, &svcErr)
+		assert.Equal(t, svcerrors.InvalidArgument, svcErr.Status)
+		repo.AssertNotCalled(t, "GetEventByName", mock.Anything, mock.Anything, tooLong)
+	}
+}
+
+func TestRegisterEvent_RejectsNamesOver255Characters(t *testing.T) {
+	repo := new(mockRepo)
+	service := NewWebhookService(nil, repo, nil)
+	_, _, err := service.RegisterEvent(testContext(), strings.Repeat("é", maxEventNameLength+1), "", nil, nil, true)
+	require.Error(t, err)
+	var svcErr *svcerrors.ServiceError
+	require.ErrorAs(t, err, &svcErr)
+	assert.Equal(t, svcerrors.InvalidArgument, svcErr.Status)
+	repo.AssertNotCalled(t, "GetEventByName", mock.Anything, mock.Anything, mock.Anything)
 }
