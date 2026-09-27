@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api, unwrap, portal } from "$lib/services";
+  import { portalInvite } from "$lib/access/portal-invite.svelte";
   import { formatAPIError } from "$lib/utils";
   import HealthBadge from "$lib/components/HealthBadge.svelte";
   import StatusBadge from "$lib/components/StatusBadge.svelte";
@@ -252,7 +253,15 @@
   </header>
 
   <main class="max-w-5xl mx-auto px-4 py-6 space-y-5">
-    {#if !portal || expired}
+    {#if portalInvite.status === "redeeming"}
+      <div class="panel">
+        <EmptyState icon="link" title="Signing you in…" description="Using your invite link to open this portal." />
+      </div>
+    {:else if portalInvite.status === "failed"}
+      <div class="panel">
+        <EmptyState icon="link" title="This invite can't be used" description={portalInvite.message} />
+      </div>
+    {:else if !portal || expired}
       <div class="panel">
         <EmptyState
           icon="link"

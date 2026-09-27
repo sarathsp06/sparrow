@@ -1,48 +1,67 @@
 <script lang="ts">
-  import { auth } from "$lib/auth.svelte";
+  import { apiBase, browserSignInName } from "$lib/services";
+  import { auth } from "./auth.svelte";
+  import { exchangeKey, rejectMessage } from "./client";
 
-  // Shown when the Sparrow API answers 401: the server has SPARROW_API_KEY set
-  // and this UI either has no key (standalone deployment) or a stale one.
+  // Shown when the Sparrow API answers 401: the server requires a key and
+  // this browser has none, a wrong one, or a revoked/expired token.
+  // A pasted master key is swapped for a named browser token, so the master
+  // key itself is never stored; a pasted token is stored as is.
   let key = $state("");
+  let error = $state("");
+  let busy = $state(false);
   let input = $state<HTMLInputElement | null>(null);
-  const rejected = auth.key !== "";
 
   $effect(() => {
     if (auth.required) input?.focus();
   });
 
-  function submit(e: SubmitEvent) {
+  async function submit(e: SubmitEvent) {
     e.preventDefault();
-    if (!key.trim()) return;
-    auth.save(key);
-    // Reload so every page re-fetches with the new key.
-    location.reload();
+    const value = key.trim();
+    if (!value || busy) return;
+    busy = true;
+    error = "";
+    try {
+      const res = await exchangeKey(apiBase, value, browserSignInName());
+      if (res.kind === "rejected") {
+        error = rejectMessage(res.reason, true);
+        return;
+      }
+      if (res.kind === "token") auth.save(res.secret, res.tokenId);
+      else auth.save(value);
+      // Reload so every page re-fetches with the new credential.
+      location.reload();
+    } catch {
+      error = "Could not reach the Sparrow server. Check the connection and try again.";
+    } finally {
+      busy = false;
+    }
   }
 </script>
 
 {#if auth.required}
-  <div class="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="apikey-title">
+  <div class="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="signin-title">
     <div class="fixed inset-0 bg-black/40 backdrop-blur-sm" role="presentation"></div>
     <form class="panel relative max-w-md w-full p-6" onsubmit={submit}>
       <span class="eyebrow" style="color:var(--color-beacon)">Authentication</span>
-      <h3 id="apikey-title" class="text-lg font-semibold text-text mt-2 mb-2">API key required</h3>
+      <h3 id="signin-title" class="text-lg font-semibold text-text mt-2 mb-2">Sign in to Sparrow</h3>
       <p class="text-sm text-muted mb-4 leading-relaxed">
-        {#if auth.linkError}
-          {auth.linkError}
-        {:else if rejected}
-          The Sparrow server rejected the current API key. Enter the server's <span class="mono">SPARROW_API_KEY</span> to continue.
-        {:else}
-          This Sparrow server requires an API key. Enter its <span class="mono">SPARROW_API_KEY</span> to continue.
-        {/if}
-        It is kept in this browser only.
+        {auth.message || rejectMessage(undefined, auth.key !== "")}
       </p>
-      <label class="block mb-6">
-        <span class="field-label">API key</span>
-        <input bind:this={input} bind:value={key} type="password" autocomplete="current-password" class="input mono" aria-label="API key" />
+      <label class="block mb-2">
+        <span class="field-label">API key or access token</span>
+        <input bind:this={input} bind:value={key} type="password" autocomplete="current-password" class="input mono" aria-label="API key or access token" />
       </label>
+      <p class="text-xs text-faint mb-5 leading-relaxed">
+        A master key is exchanged for a token for this browser, so the key itself is never stored. You can also open an invite link instead.
+      </p>
+      {#if error}
+        <p class="text-sm mb-4" role="alert" style="color:var(--color-bad)">{error}</p>
+      {/if}
       <div class="flex justify-end gap-3">
         <button type="button" class="btn btn-ghost" onclick={() => auth.dismiss()}>Cancel</button>
-        <button type="submit" class="btn btn-beacon" disabled={!key.trim()}>Save key</button>
+        <button type="submit" class="btn btn-beacon" disabled={!key.trim() || busy}>{busy ? "Signing in…" : "Sign in"}</button>
       </div>
     </form>
   </div>

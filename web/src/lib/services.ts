@@ -4,7 +4,9 @@ import { env } from "$env/dynamic/public";
 import createClient from "openapi-fetch";
 import type { paths } from "./api-types";
 import { apiLogMiddleware } from "./apiConsole.svelte";
-import { auth } from "./auth.svelte";
+import { auth } from "./access/auth.svelte";
+import { browserTokenName, fragmentParam, InviteError, redeemInvite, rejectReason, TOKEN_PREFIX } from "./access/client";
+import { portalInvite } from "./access/portal-invite.svelte";
 import { parsePortalToken, type PortalSession } from "./portal-token";
 import { apiHref, portalGatewayURL, resolveApiBase, type SparrowConfig } from "./runtime-config";
 
@@ -27,16 +29,33 @@ export const serverHref = (path: string) => apiHref(apiBase, path);
 
 // Portal mode: pages under /portal authenticate with a consumer-scoped
 // bearer token instead of the admin API key (which is never injected into
-// portal HTML). The token arrives in the URL fragment (#token=...) so it
-// never hits server logs, and is kept in sessionStorage to survive reloads.
-// Supported token format:
-// - spt_v2.<key-id>.<b64url(consumer)>.<unix-expiry>.<b64url(signature)>
+// portal HTML). Tokens arrive in the URL fragment, so they never hit server
+// logs:
+//   - #token=spt_v2... : a stateless portal link (POST .../portal-token),
+//     kept in sessionStorage to survive reloads;
+//   - #invite=sparrow_inv_... : a one-time invite, exchanged below for a
+//     consumer access token that is remembered in localStorage.
+const PORTAL_TOKEN_STORAGE = "sparrow_portal_token";
+const PORTAL_SESSION_STORAGE = "sparrow_portal_session";
+
+function storedPortalSession(): PortalSession | null {
+  try {
+    const raw = localStorage.getItem(PORTAL_SESSION_STORAGE);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as { token: string; consumer: string; expiresAt: string | null };
+    if (!s.token?.startsWith(TOKEN_PREFIX) || !s.consumer) return null;
+    return { token: s.token, consumer: s.consumer, expiresAt: s.expiresAt ? new Date(s.expiresAt) : null };
+  } catch {
+    return null;
+  }
+}
+
 function initPortal(): PortalSession | null {
   if (typeof window === "undefined" || !window.location.pathname.startsWith("/portal")) return null;
-  const fromHash = window.location.hash.match(/(?:^#|[#&])token=([^&]+)/)?.[1] ?? "";
-  if (fromHash) sessionStorage.setItem("sparrow_portal_token", fromHash);
-  const token = fromHash || sessionStorage.getItem("sparrow_portal_token") || "";
-  return parsePortalToken(token);
+  const fromHash = fragmentParam(window.location.hash, "token");
+  if (fromHash) sessionStorage.setItem(PORTAL_TOKEN_STORAGE, fromHash);
+  const link = parsePortalToken(fromHash || sessionStorage.getItem(PORTAL_TOKEN_STORAGE) || "");
+  return link ?? storedPortalSession();
 }
 
 export const portal = initPortal();
@@ -75,52 +94,88 @@ if (portal) {
       if (auth.key) request.headers.set("X-API-Key", auth.key);
       return request;
     },
-    onResponse({ response }) {
-      if (response.status === 401) auth.markRequired();
+    async onResponse({ response }) {
+      if (response.status === 401) auth.reject(rejectReason(await response.clone().json().catch(() => null)));
       return response;
     },
   });
 }
 api.use(apiLogMiddleware);
 
-// One-time access link: /#access=<token> (minted with POST /v1/access-links or
-// `sparrow access-link create`). Exchange the token for the API key once,
-// remember the key like one typed into the prompt, and continue on the same
-// page without the token. The token lives in the fragment, so it never
-// reaches server logs.
+// Invite links: /#invite=<secret> (operator console) and
+// /portal#invite=<secret> (a consumer's portal), minted with POST /v1/invites
+// or `sparrow invite`. The invite is exchanged once for a new access token
+// named after the invitee, which is remembered in this browser.
 //
 // SvelteKit's router re-records the initial URL (fragment included) when it
 // starts, so the fragment is dropped with a real navigation on success and
-// with the router's own replaceState on failure — plain history.replaceState
-// would be undone and a reload would redeem the link a second time.
-async function redeemAccessLink(token: string) {
-  auth.beginRedeem();
+// with the router's own replaceState on failure; plain history.replaceState
+// would be undone and a reload would try the spent invite again.
+function dropFragment() {
   const clean = location.pathname + location.search;
   try {
-    const res = await fetch(`${apiBase}/access-link/redeem`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    });
-    const body = (await res.json().catch(() => ({}))) as { api_key?: string };
-    if (!res.ok || !body.api_key) throw new Error(`status ${res.status}`);
-    auth.save(body.api_key);
-    location.replace(clean); // full load without the fragment
+    replaceState(clean, {});
   } catch {
-    try {
-      replaceState(clean, {});
-    } catch {
-      history.replaceState(history.state, "", clean);
-    }
-    auth.failRedeem("This access link is invalid, expired, or has already been used. Ask for a new one, or enter the API key.");
+    history.replaceState(history.state, "", clean);
   }
 }
 
-if (!portal && typeof window !== "undefined") {
-  const token = window.location.hash.match(/(?:^#|[#&])access=([^&]+)/)?.[1];
-  if (token) void redeemAccessLink(decodeURIComponent(token));
+const INVITE_FAILED = "This invite link is invalid, expired, cancelled, or has already been used. Ask for a new one.";
+
+async function redeemConsoleInvite(secret: string) {
+  auth.beginRedeem();
+  try {
+    const res = await redeemInvite(apiBase, secret);
+    if (res.scope) {
+      // A consumer invite opened on the console: continue in that portal.
+      localStorage.setItem(PORTAL_SESSION_STORAGE, JSON.stringify({ token: res.token, consumer: res.scope, expiresAt: res.expires_at }));
+      location.replace("/portal");
+      return;
+    }
+    auth.save(res.token, res.token_id);
+    location.replace(location.pathname + location.search);
+  } catch (e) {
+    dropFragment();
+    auth.failRedeem(e instanceof InviteError ? INVITE_FAILED : "Could not reach the Sparrow server to use this invite. Reload to try again.");
+  }
 }
 
+async function redeemPortalInvite(secret: string) {
+  portalInvite.start();
+  try {
+    const res = await redeemInvite(apiBase, secret);
+    if (!res.scope) throw new InviteError("This invite is for the operator console, not a portal.");
+    localStorage.setItem(PORTAL_SESSION_STORAGE, JSON.stringify({ token: res.token, consumer: res.scope, expiresAt: res.expires_at }));
+    sessionStorage.removeItem(PORTAL_TOKEN_STORAGE);
+    location.replace("/portal");
+  } catch (e) {
+    dropFragment();
+    portalInvite.fail(e instanceof InviteError ? INVITE_FAILED : "Could not reach the server to use this invite. Reload to try again.");
+  }
+}
+
+if (typeof window !== "undefined") {
+  const invite = fragmentParam(window.location.hash, "invite");
+  if (invite && window.location.pathname.startsWith("/portal")) void redeemPortalInvite(invite);
+  else if (invite && !portal) void redeemConsoleInvite(invite);
+}
+
+/** Label for a token created when someone pastes the master key into the prompt. */
+export const browserSignInName = () => browserTokenName(typeof navigator === "undefined" ? "" : navigator.userAgent);
+
+/**
+ * Signs this browser out. A token created for this browser (invite or
+ * sign-in) is revoked on the server too; a pasted token or key is only
+ * forgotten locally, since it may be in use elsewhere.
+ */
+export async function signOut() {
+  const owned = auth.ownedTokenId;
+  if (owned) {
+    await api.DELETE("/v1/tokens/{token_id}", { params: { path: { token_id: owned } } }).catch(() => {});
+  }
+  auth.forget();
+  location.reload();
+}
 
 /**
  * Throws a readable Error when an openapi-fetch call returns `error`.
@@ -133,9 +188,9 @@ if (!portal && typeof window !== "undefined") {
 export function unwrap<T>(result: { data?: T; error?: unknown; response: Response }): T {
   if (result.error !== undefined) {
     const err = result.error as
-      | { detail?: string; title?: string; errors?: { location?: string; message?: string }[] }
+      | { detail?: string; message?: string; title?: string; errors?: { location?: string; message?: string }[] }
       | undefined;
-    let message = err?.detail || err?.title || `Request failed (${result.response.status})`;
+    let message = err?.detail || err?.message || err?.title || `Request failed (${result.response.status})`;
     if (err?.errors?.length) {
       const details = err.errors
         .map((e) => (e.location ? `${e.location}: ${e.message}` : e.message))

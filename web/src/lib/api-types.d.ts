@@ -4,26 +4,6 @@
  */
 
 export interface paths {
-    "/v1/access-links": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Mint a one-time link that signs a browser into the UI
-         * @description Creates a signed, single-use, expiring link for sharing admin access to the web UI without pasting the API key anywhere. Opening the link makes the UI exchange its token for the API key once (POST /access-link/redeem) and remember it in that browser. Links are invalidated by use, by expiry, and by rotating SPARROW_API_KEY. Whoever redeems a link holds the real API key. Requires the admin API key; fails with 409 when the server has no SPARROW_API_KEY.
-         */
-        post: operations["createAccessLink"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/consumers/{consumer}/alert-configs": {
         parameters: {
             query?: never;
@@ -748,6 +728,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List invites
+         * @description Newest first. Only pending invites unless include_inactive is set. Secrets are never returned.
+         */
+        get: operations["listInvites"];
+        put?: never;
+        /**
+         * Invite someone with a one-time link
+         * @description Creates a single-use, expiring invite. Opening the returned path in the UI exchanges it for a new access token named after the invitee (POST /invite/redeem), so nobody pastes a key into chat. A consumer invite opens that consumer's portal instead of the operator console.
+         */
+        post: operations["createInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invites/{invite_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel a pending invite */
+        delete: operations["cancelInvite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recipes": {
         parameters: {
             query?: never;
@@ -848,6 +869,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List access tokens
+         * @description Newest first. Secrets are never returned. Revoked and expired tokens are hidden unless include_inactive is set.
+         */
+        get: operations["listTokens"];
+        put?: never;
+        /**
+         * Create an access token
+         * @description Creates a named token. A tenant-wide token (no consumer) works exactly like SPARROW_API_KEY but can be revoked on its own and never needs the master key to be shared. A consumer token only works through the portal API (/portal/api/), limited to that consumer. The secret is returned once.
+         */
+        post: operations["createToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an access token
+         * @description The token stops working immediately on this server and within 30 seconds everywhere else. Revoking is permanent and idempotent.
+         */
+        delete: operations["revokeToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/webhooks": {
         parameters: {
             query?: never;
@@ -860,6 +925,23 @@ export interface paths {
          * @description Cross-consumer webhook listing. Pass consumer to scope to one consumer, health to filter by computed status, or webhook_id for an id-only lookup when the consumer isn't known.
          */
         get: operations["listWebhooksByHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/whoami": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Show which credential this request used */
+        get: operations["getWhoAmI"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1008,23 +1090,6 @@ export interface components {
              */
             total_webhooks: number;
         };
-        CreateAccessLinkOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateAccessLinkOutputBody.json
-             */
-            readonly $schema?: string;
-            /**
-             * Format: date-time
-             * @description When the link stops working if it has not been used.
-             */
-            expires_at: string;
-            /** @description UI-relative link with the token in the fragment (never sent to the server or logged). Prepend the base URL the UI is served from and send it to the person who needs access. */
-            path: string;
-            /** @description One-time token. The UI exchanges it for the API key at POST /access-link/redeem. */
-            token: string;
-        };
         CreateAlertConfigBody: {
             /**
              * Format: uri
@@ -1041,6 +1106,41 @@ export interface components {
             event_types: string[] | null;
             /** @description Scope the alert to one webhook. Omit for a consumer-wide alert covering every webhook. */
             webhook_id?: string;
+        };
+        CreateInviteBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateInviteBody.json
+             */
+            readonly $schema?: string;
+            /** @description Invite into one consumer's portal. Omit for tenant-wide (operator console) access. */
+            consumer?: string;
+            /** @description Name for the token the invite creates, e.g. the invitee's name. */
+            name: string;
+            /**
+             * Format: int64
+             * @description Lifetime of the token it creates; same defaults and limits as POST /v1/tokens.
+             */
+            token_ttl_seconds?: number;
+            /**
+             * Format: int64
+             * @description How long the invite can be used. Defaults to 24 hours, at most 7 days.
+             */
+            ttl_seconds?: number;
+        };
+        CreateInviteOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateInviteOutputBody.json
+             */
+            readonly $schema?: string;
+            invite: components["schemas"]["InviteOut"];
+            /** @description UI-relative link with the secret in the fragment (never sent to servers or logs). Prepend the base URL the UI is served from. */
+            path: string;
+            /** @description The invite secret. Shown only in this response. */
+            secret: string;
         };
         CreatePortalTokenOutputBody: {
             /**
@@ -1089,6 +1189,34 @@ export interface components {
             transform_template?: string;
             /** @description Webhook to deliver matching events to. */
             webhook_id: string;
+        };
+        CreateTokenBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateTokenBody.json
+             */
+            readonly $schema?: string;
+            /** @description Limit the token to one consumer (portal API only). Omit for a tenant-wide token with the same power as SPARROW_API_KEY. */
+            consumer?: string;
+            /** @description Who or what the token is for, e.g. "alice" or "ci-deploy". */
+            name: string;
+            /**
+             * Format: int64
+             * @description Lifetime in seconds. Tenant-wide tokens default to never expiring; consumer tokens default to 7 days and allow at most 30.
+             */
+            ttl_seconds?: number;
+        };
+        CreateTokenOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateTokenOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description The credential. Shown only in this response; send it as X-API-Key or Authorization: Bearer. */
+            secret: string;
+            token: components["schemas"]["TokenOut"];
         };
         DeliveryItem: {
             /**
@@ -1316,6 +1444,34 @@ export interface components {
              */
             unknown_count: number;
         };
+        InviteOut: {
+            /** Format: date-time */
+            cancelled_at: string | null;
+            /** @description Consumer the resulting token is limited to. Null: tenant-wide. */
+            consumer: string | null;
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+            /**
+             * Format: date-time
+             * @description When the invite stops working if unused.
+             */
+            expires_at: string;
+            id: string;
+            /** @description Name given to the token the invite creates. */
+            name: string;
+            /** Format: date-time */
+            redeemed_at: string | null;
+            /** @enum {string} */
+            status: "pending" | "redeemed" | "cancelled" | "expired";
+            /** @description Token created when the invite was redeemed. */
+            token_id: string | null;
+            /**
+             * Format: int64
+             * @description Lifetime of the token it creates. Null: never expires.
+             */
+            token_ttl_seconds: number | null;
+        };
         ListAlertConfigsOutputBody: {
             /**
              * Format: uri
@@ -1359,6 +1515,15 @@ export interface components {
             items: components["schemas"]["EventTypeItem"][] | null;
             pagination: components["schemas"]["PaginationOutput"];
         };
+        ListInvitesOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListInvitesOutputBody.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["InviteOut"][] | null;
+        };
         ListRecipesOutputBody: {
             /**
              * Format: uri
@@ -1377,6 +1542,15 @@ export interface components {
             readonly $schema?: string;
             items: components["schemas"]["SubscriptionItem"][] | null;
             pagination: components["schemas"]["PaginationOutput"];
+        };
+        ListTokensOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListTokensOutputBody.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["TokenOut"][] | null;
         };
         ListWebhooksOutputBody: {
             /**
@@ -1688,6 +1862,32 @@ export interface components {
             /** @description The template rendered against the event type's sample payload. */
             rendered: string;
         };
+        TokenOut: {
+            /** @description Consumer the token is limited to (portal API only). Null: tenant-wide, same power as SPARROW_API_KEY. */
+            consumer: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Name of the credential that created it (the master key, or another token). */
+            created_by: string;
+            /**
+             * Format: date-time
+             * @description Null: never expires.
+             */
+            expires_at: string | null;
+            /** @description Token id (not the secret). */
+            id: string;
+            /**
+             * Format: date-time
+             * @description Approximate (updated at most once a minute).
+             */
+            last_used_at: string | null;
+            /** @description Who or what the token is for. */
+            name: string;
+            /** Format: date-time */
+            revoked_at: string | null;
+            /** @enum {string} */
+            status: "active" | "revoked" | "expired";
+        };
         ValidateEventPayloadInputBody: {
             /**
              * Format: uri
@@ -1907,6 +2107,22 @@ export interface components {
             /** @description Webhook id (UUID). */
             webhook_id: string;
         };
+        WhoAmIOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/WhoAmIOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description False when SPARROW_API_KEY is unset: every endpoint is open. */
+            auth_enabled: boolean;
+            /** @description True when the request used SPARROW_API_KEY itself. */
+            master_key: boolean;
+            /** @description Name of the credential used for this request. */
+            name: string;
+            /** @description Id of the access token used, if any. */
+            token_id: string | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -1916,65 +2132,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    createAccessLink: {
-        parameters: {
-            query?: {
-                /** @description Link lifetime in seconds. Defaults to 15 minutes, capped at 24 hours. */
-                ttl_seconds?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreateAccessLinkOutputBody"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     listAlertConfigs: {
         parameters: {
             query?: {
@@ -4311,6 +4468,181 @@ export interface operations {
             };
         };
     };
+    listInvites: {
+        parameters: {
+            query?: {
+                /** @description Also return redeemed, cancelled, and expired invites. */
+                include_inactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListInvitesOutputBody"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInviteBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateInviteOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    cancelInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invite_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     listRecipes: {
         parameters: {
             query?: never;
@@ -4498,6 +4830,174 @@ export interface operations {
             };
         };
     };
+    listTokens: {
+        parameters: {
+            query?: {
+                /** @description Only tokens limited to this consumer. */
+                consumer?: string;
+                /** @description Also return revoked and expired tokens. */
+                include_inactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListTokensOutputBody"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    createToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTokenBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateTokenOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    revokeToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     listWebhooksByHealth: {
         parameters: {
             query?: {
@@ -4525,6 +5025,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListWebhooksOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getWhoAmI: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhoAmIOutputBody"];
                 };
             };
             /** @description Error */

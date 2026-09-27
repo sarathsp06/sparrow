@@ -54,7 +54,7 @@ In short:
    CORS_ALLOWED_ORIGINS=https://dashboard.example.com ./server
    ```
 
-If the server has `SPARROW_API_KEY` set, the dashboard shows an **API key required** prompt on the first `401` and keeps the key in the browser's `localStorage`. You can also set `apiKey` in `config.js`, but then anyone who can load the dashboard can read the key.
+If the server has `SPARROW_API_KEY` set, the dashboard shows a **Sign in to Sparrow** prompt on the first `401`. You can paste the master key or an access token. A pasted master key is exchanged for a named browser token behind the scenes, so the master key is never stored. You can also send someone a one-time invite link (`sparrow invite alice --ui-url https://dashboard.example.com`) -- opening it redeems the invite and signs them in automatically. Setting `apiKey` in `config.js` skips the prompt, but then anyone who can load the dashboard can read the key.
 
 ## Configuration
 

@@ -1,17 +1,20 @@
-// Admin API key state for the operator console.
+// Operator-console credential state.
 //
-// The key comes from one of two places:
-//   - window.__SPARROW_CONFIG__.apiKey — injected by the Go server when it
-//     serves the UI (SPARROW_SERVE_UI=true), or set in /config.js for a
-//     standalone deployment.
-//   - localStorage — typed by the operator into the sign-in prompt, which
-//     opens when the API answers 401, or received once from a one-time access
-//     link (#access=<token>, see services.ts). This is how a standalone UI talks
-//     to a server with SPARROW_API_KEY set without baking the key into any file.
+// The credential is one of:
+//   - window.__SPARROW_CONFIG__.apiKey: injected by the Go server when it
+//     serves the UI (SPARROW_UI_INJECT_KEY, on by default), or set in the
+//     standalone UI's /config.js.
+//   - A stored credential (localStorage, remembered across restarts): an
+//     access token from an invite link, a token created when someone pasted
+//     the master key into the sign-in prompt, or whatever was pasted if the
+//     server cannot mint tokens.
+// A stored credential wins over the injected one: it is the more recent,
+// explicit choice.
 //
-// A key the operator typed wins over the injected one: it is the more recent,
-// explicit choice (e.g. after the server key was rotated).
-import { API_KEY_STORAGE_KEY, type SparrowConfig } from "./runtime-config";
+// Tokens created for this browser (invite or master-key exchange) are
+// "owned": signing out revokes them on the server, not just locally.
+import type { SparrowConfig } from "../runtime-config";
+import { rejectMessage, type RejectReason } from "./client";
 
 declare global {
   interface Window {
@@ -19,68 +22,93 @@ declare global {
   }
 }
 
-function readStored(): string {
+/** localStorage keys. */
+export const KEY_STORAGE = "sparrow_api_key";
+export const OWNED_TOKEN_STORAGE = "sparrow_api_key_token_id";
+
+function read(key: string): string {
   try {
-    return localStorage.getItem(API_KEY_STORAGE_KEY) ?? "";
+    return localStorage.getItem(key) ?? "";
   } catch {
     return "";
   }
 }
 
-const injected = (typeof window !== "undefined" && window.__SPARROW_CONFIG__?.apiKey) || "";
-let stored = $state(typeof window !== "undefined" ? readStored() : "");
+function write(key: string, value: string) {
+  try {
+    if (value) localStorage.setItem(key, value);
+    else localStorage.removeItem(key);
+  } catch {
+    // Private mode / storage disabled: the credential still works for this page load.
+  }
+}
+
+const browser = typeof window !== "undefined";
+const injected = (browser && window.__SPARROW_CONFIG__?.apiKey) || "";
+let stored = $state(browser ? read(KEY_STORAGE) : "");
+let ownedTokenId = $state(browser ? read(OWNED_TOKEN_STORAGE) : "");
 let required = $state(false);
+let message = $state("");
 let redeeming = $state(false);
-let linkError = $state("");
+let inviteFailed = false;
 
 export const auth = {
-  /** The key to send, or "" for none. */
+  /** The credential to send, or "" for none. */
   get key() {
     return stored || injected;
   },
-  /** True when a key was saved from the sign-in prompt (so it can be forgotten). */
+  /** True when a credential is stored in this browser (so it can be signed out). */
   get hasStoredKey() {
     return stored !== "";
   },
-  /** True once the API rejected a request with 401 — the UI shows the sign-in prompt. */
+  /** Id of the token created for this browser, if any (revoked on sign-out). */
+  get ownedTokenId() {
+    return ownedTokenId;
+  },
+  /** True once the API rejected a request with 401: the UI shows the sign-in prompt. */
   get required() {
     return required;
   },
-  markRequired() {
-    // Requests racing an access-link exchange fail with 401; the page reloads
-    // with the key once the exchange succeeds, so don't flash the prompt.
-    if (!redeeming) required = true;
+  /** Why sign-in is needed, for the prompt. */
+  get message() {
+    return message;
   },
-  /** Set when an access link could not be used; shown in the sign-in prompt. */
-  get linkError() {
-    return linkError;
+  /** The server rejected the current credential. */
+  reject(reason?: RejectReason) {
+    // Requests racing an invite redemption fail with 401; the page reloads
+    // with the new token once redemption succeeds, so don't flash the prompt.
+    if (redeeming) return;
+    // Keep an invite failure's explanation: later 401s from the same page
+    // load would otherwise replace it with a generic "key required".
+    if (!inviteFailed) message = rejectMessage(reason, auth.key !== "");
+    required = true;
   },
   beginRedeem() {
     redeeming = true;
   },
-  failRedeem(message: string) {
+  /** An invite link could not be used. */
+  failRedeem(text: string) {
     redeeming = false;
-    linkError = message;
+    inviteFailed = true;
+    message = text;
     required = true;
   },
   dismiss() {
     required = false;
   },
-  save(key: string) {
+  /** Stores a credential. Pass tokenId when the token was created for this browser. */
+  save(key: string, tokenId = "") {
     stored = key.trim();
+    ownedTokenId = tokenId;
     required = false;
-    try {
-      localStorage.setItem(API_KEY_STORAGE_KEY, stored);
-    } catch {
-      // Private mode / storage disabled: the key still works for this page load.
-    }
+    write(KEY_STORAGE, stored);
+    write(OWNED_TOKEN_STORAGE, ownedTokenId);
   },
+  /** Forgets the stored credential locally. */
   forget() {
     stored = "";
-    try {
-      localStorage.removeItem(API_KEY_STORAGE_KEY);
-    } catch {
-      // ignore
-    }
+    ownedTokenId = "";
+    write(KEY_STORAGE, "");
+    write(OWNED_TOKEN_STORAGE, "");
   },
 };

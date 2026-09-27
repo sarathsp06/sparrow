@@ -4,8 +4,8 @@
   import favicon from "$lib/assets/favicon.svg";
   import Pulse from "$lib/components/Pulse.svelte";
   import ApiConsole from "$lib/components/ApiConsole.svelte";
-  import ApiKeyPrompt from "$lib/components/ApiKeyPrompt.svelte";
-  import { auth } from "$lib/auth.svelte";
+  import AccountBadge from "$lib/access/AccountBadge.svelte";
+  import SignInPrompt from "$lib/access/SignInPrompt.svelte";
   import { consumerStore } from "$lib/consumer.svelte";
   import { api, serverHref, unwrap } from "$lib/services";
   import { pulseStore } from "$lib/pulse.svelte";
@@ -27,6 +27,7 @@
     { href: "/events", label: "Events", d: "M13 2 3 14h7v8l10-12h-7z" },
     { href: "/deliveries", label: "Deliveries", d: "M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" },
     { href: "/dashboard/health", label: "Health", d: "M3 12h4l2 6 4-14 3 10 2-2h3" },
+    { href: "/access", label: "Access", d: "M15 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM3 21a8 8 0 0 1 13-6.2M18 14v6m-3-3h6" },
   ];
 
   function isActive(href: string): boolean {
@@ -154,13 +155,7 @@
           <span>Star</span>
         </a>
       </div>
-      {#if auth.hasStoredKey}
-        <button
-          onclick={() => { auth.forget(); location.reload(); }}
-          title="Remove the API key saved in this browser"
-          class="w-full px-2 py-1 rounded-md text-xs text-muted hover:text-text hover:bg-black/5 transition-colors"
-        >Forget API key</button>
-      {/if}
+      <AccountBadge />
     </div>
   </div>
 {/snippet}
@@ -204,5 +199,5 @@
 </div>
 
 <ApiConsole bind:open={consoleOpen} />
-<ApiKeyPrompt />
+<SignInPrompt />
 {/if}

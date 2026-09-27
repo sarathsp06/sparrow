@@ -95,3 +95,20 @@ test('the embedded UI loads without Content-Security-Policy violations', async (
   await page.waitForLoadState('networkidle');
   expect(violations, violations.join('\n')).toHaveLength(0);
 });
+
+test('the Access page warns when authentication is off and still manages tokens', async ({ page }) => {
+  // The embedded-UI test server runs without SPARROW_API_KEY.
+  await page.goto('/access');
+  await expect(page.getByRole('heading', { level: 1, name: 'Access' })).toBeVisible();
+  await expect(page.getByRole('note')).toContainText('Authentication is off');
+  await expect(page.getByTestId('account-badge')).toContainText('Authentication off');
+
+  const name = `open-${Date.now()}`;
+  await page.getByRole('button', { name: 'Create token' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create a token' });
+  await dialog.getByLabel('Name').fill(name);
+  await dialog.getByRole('button', { name: 'Create token' }).click();
+  await expect(dialog.getByLabel('Token')).toHaveValue(/^sparrow_tk_/);
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByTestId('token-row').filter({ hasText: name })).toContainText('anonymous');
+});
