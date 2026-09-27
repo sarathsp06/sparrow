@@ -46,6 +46,8 @@
   let scope = $state<"full" | "consumer">("full");
   let consumer = $state("");
   let inviteTTL = $state(24 * 3600);
+  /** Select value for a token that never expires (sent as never_expires). */
+  const NEVER = -1;
   let tokenTTL = $state(0);
   let creating = $state(false);
   let createError = $state("");
@@ -65,7 +67,8 @@
   }
 
   // Consumer tokens always expire (7 days by default, 30 at most); tenant-wide
-  // tokens never expire unless asked.
+  // tokens use the server default (SPARROW_TOKEN_DEFAULT_TTL, 90 days unless
+  // changed) unless asked. NEVER asks for a token that does not expire.
   const tokenTTLOptions = $derived(
     scope === "consumer"
       ? [
@@ -73,14 +76,15 @@
           [30 * 86400, "30 days"],
         ]
       : [
-          [0, "Never"],
+          [0, "Server default (90 days unless changed)"],
           [7 * 86400, "7 days"],
           [30 * 86400, "30 days"],
           [90 * 86400, "90 days"],
+          [NEVER, "Never (revoke when no longer needed)"],
         ],
   );
   $effect(() => {
-    if (scope === "consumer" && tokenTTL === 0) tokenTTL = 7 * 86400;
+    if (scope === "consumer" && tokenTTL <= 0) tokenTTL = 7 * 86400;
   });
 
   async function create(e: SubmitEvent) {
@@ -93,7 +97,13 @@
       if (dialog === "invite") {
         const res = unwrap(
           await api.POST("/v1/invites", {
-            body: { name: name.trim(), consumer: c, ttl_seconds: inviteTTL, token_ttl_seconds: tokenTTL || undefined },
+            body: {
+              name: name.trim(),
+              consumer: c,
+              ttl_seconds: inviteTTL,
+              token_ttl_seconds: tokenTTL > 0 ? tokenTTL : undefined,
+              token_never_expires: tokenTTL === NEVER || undefined,
+            },
           }),
         );
         result = {
@@ -102,7 +112,16 @@
           note: `Works once, until ${new Date(res.invite.expires_at).toLocaleString()}. ${c ? `It opens ${c}'s portal.` : "It signs the browser into this console."}`,
         };
       } else {
-        const res = unwrap(await api.POST("/v1/tokens", { body: { name: name.trim(), consumer: c, ttl_seconds: tokenTTL || undefined } }));
+        const res = unwrap(
+          await api.POST("/v1/tokens", {
+            body: {
+              name: name.trim(),
+              consumer: c,
+              ttl_seconds: tokenTTL > 0 ? tokenTTL : undefined,
+              never_expires: tokenTTL === NEVER || undefined,
+            },
+          }),
+        );
         result = {
           label: "Token",
           value: res.secret,

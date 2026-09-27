@@ -214,6 +214,7 @@ func main() {
 	clientConfig := client.DefaultConfig()
 	clientConfig.AllowPrivateNetworks = cfg.AllowPrivateNetworks
 	clientConfig.AllowedNetworks = cfg.AllowedNetworkList()
+	clientConfig.MaxCapturedResponseBytes = cfg.MaxCapturedResponseBytes
 
 	// Initialize queue manager
 	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig, cfg.EventRetentionDays)
@@ -249,7 +250,7 @@ func main() {
 	// operation plus /openapi.{json,yaml} and the Scalar reference at /docs.
 	r.Group(func(r chi.Router) {
 		r.Use(auth.HTTPMiddleware)
-		rest.Mount(r, tracedWebhookService, portalTokens, rest.AccessDeps{Service: accessSvc, AuthEnabled: auth.Enabled})
+		rest.Mount(r, tracedWebhookService, portalTokens, rest.AccessDeps{Service: accessSvc, AuthEnabled: auth.Enabled, TokenDefaultTTL: cfg.TokenDefaultTTL})
 	})
 
 	// Invite redemption: the invite in the request is the credential, so it

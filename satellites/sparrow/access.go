@@ -46,14 +46,17 @@ type createdInvite struct {
 	Path   string    `json:"path"`
 }
 
-func (c *apiClient) createToken(ctx context.Context, name, consumer string, ttl time.Duration) (createdToken, error) {
+func (c *apiClient) createToken(ctx context.Context, name, consumer string, ttl lifetimeFlag) (createdToken, error) {
 	var out createdToken
 	body := map[string]any{"name": name}
 	if consumer != "" {
 		body["consumer"] = consumer
 	}
-	if ttl > 0 {
-		body["ttl_seconds"] = int64(ttl / time.Second)
+	if ttl.d > 0 {
+		body["ttl_seconds"] = int64(ttl.d / time.Second)
+	}
+	if ttl.never {
+		body["never_expires"] = true
 	}
 	err := c.do(ctx, "POST", "/v1/tokens", body, &out)
 	return out, err
@@ -71,7 +74,7 @@ func (c *apiClient) revokeToken(ctx context.Context, id string) error {
 	return c.do(ctx, "DELETE", "/v1/tokens/"+url.PathEscape(id), nil, nil)
 }
 
-func (c *apiClient) createInvite(ctx context.Context, name, consumer string, ttl, tokenTTL time.Duration) (createdInvite, error) {
+func (c *apiClient) createInvite(ctx context.Context, name, consumer string, ttl time.Duration, tokenTTL lifetimeFlag) (createdInvite, error) {
 	var out createdInvite
 	body := map[string]any{"name": name}
 	if consumer != "" {
@@ -80,8 +83,11 @@ func (c *apiClient) createInvite(ctx context.Context, name, consumer string, ttl
 	if ttl > 0 {
 		body["ttl_seconds"] = int64(ttl / time.Second)
 	}
-	if tokenTTL > 0 {
-		body["token_ttl_seconds"] = int64(tokenTTL / time.Second)
+	if tokenTTL.d > 0 {
+		body["token_ttl_seconds"] = int64(tokenTTL.d / time.Second)
+	}
+	if tokenTTL.never {
+		body["token_never_expires"] = true
 	}
 	err := c.do(ctx, "POST", "/v1/invites", body, &out)
 	return out, err
@@ -121,6 +127,38 @@ func (f *durationFlag) Set(s string) error {
 
 func (f *durationFlag) Type() string { return "duration" }
 
+// lifetimeFlag is a token lifetime: a duration, or "never" for a tenant-wide
+// token that does not expire.
+type lifetimeFlag struct {
+	d     time.Duration
+	never bool
+}
+
+func (f *lifetimeFlag) String() string {
+	switch {
+	case f.never:
+		return "never"
+	case f.d == 0:
+		return ""
+	}
+	return f.d.String()
+}
+
+func (f *lifetimeFlag) Set(s string) error {
+	if strings.EqualFold(s, "never") {
+		f.d, f.never = 0, true
+		return nil
+	}
+	d, err := parseDuration(s)
+	if err != nil {
+		return fmt.Errorf("%w, or \"never\"", err)
+	}
+	f.d, f.never = d, false
+	return nil
+}
+
+func (f *lifetimeFlag) Type() string { return "duration|never" }
+
 func parseDuration(s string) (time.Duration, error) {
 	if days, ok := strings.CutSuffix(s, "d"); ok {
 		n, err := strconv.Atoi(days)
@@ -157,7 +195,8 @@ func newTokensCmd() *cobra.Command {
 		Use:   "tokens",
 		Short: "Manage access tokens (for scripts, CI, and services)",
 		Long: `Access tokens are named, revocable credentials. A tenant-wide token works
-exactly like SPARROW_API_KEY (and never expires unless --ttl is given); a
+exactly like SPARROW_API_KEY and expires after the server's default (90 days
+unless SPARROW_TOKEN_DEFAULT_TTL changes it; --ttl never for none); a
 consumer token only works through the portal API, limited to that consumer.
 
 To give a person access to the web UI, prefer 'sparrow invite'.`,
@@ -168,11 +207,12 @@ To give a person access to the web UI, prefer 'sparrow invite'.`,
 
 func newTokensCreateCmd() *cobra.Command {
 	var name, consumer string
-	var ttl durationFlag
+	var ttl lifetimeFlag
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a token; the secret is printed once",
 		Example: `  sparrow tokens create --name ci-deploy
+  sparrow tokens create --name build-bot --ttl never
   sparrow tokens create --name acme-sync --consumer acme --ttl 30d`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -180,18 +220,18 @@ func newTokensCreateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runTokensCreate(cmd.Context(), cmd.OutOrStdout(), client, name, consumer, ttl.d, outputFmt(cmd))
+			return runTokensCreate(cmd.Context(), cmd.OutOrStdout(), client, name, consumer, ttl, outputFmt(cmd))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "who or what the token is for (required)")
 	cmd.Flags().StringVar(&consumer, "consumer", "", "limit the token to one consumer's portal API")
-	cmd.Flags().Var(&ttl, "ttl", "lifetime, e.g. 90d or 12h (default: never for tenant-wide, 7d for consumer tokens)")
+	cmd.Flags().Var(&ttl, "ttl", "lifetime, e.g. 90d or 12h, or \"never\" (default: the server's default, 90d unless changed, for tenant-wide; 7d for consumer tokens)")
 	_ = cmd.MarkFlagRequired("name")
 	addOutputFlag(cmd)
 	return cmd
 }
 
-func runTokensCreate(ctx context.Context, out io.Writer, client *apiClient, name, consumer string, ttl time.Duration, format string) error {
+func runTokensCreate(ctx context.Context, out io.Writer, client *apiClient, name, consumer string, ttl lifetimeFlag, format string) error {
 	res, err := client.createToken(ctx, name, consumer, ttl)
 	if err != nil {
 		return err
@@ -266,7 +306,8 @@ func newTokensRevokeCmd() *cobra.Command {
 
 func newInviteCmd() *cobra.Command {
 	var consumer, uiURL string
-	var ttl, tokenTTL durationFlag
+	var ttl durationFlag
+	var tokenTTL lifetimeFlag
 	cmd := &cobra.Command{
 		Use:   "invite <name>",
 		Short: "Invite someone to the web UI with a one-time link",
@@ -291,12 +332,12 @@ server serves the UI itself). Pass the UI's address if it is hosted separately.`
 			if uiURL == "" {
 				uiURL = cfg.ServerURL
 			}
-			return runInvite(cmd.Context(), cmd.OutOrStdout(), client, args[0], consumer, uiURL, ttl.d, tokenTTL.d, outputFmt(cmd))
+			return runInvite(cmd.Context(), cmd.OutOrStdout(), client, args[0], consumer, uiURL, ttl.d, tokenTTL, outputFmt(cmd))
 		},
 	}
 	cmd.Flags().StringVar(&consumer, "consumer", "", "invite into this consumer's portal instead of the console")
 	cmd.Flags().Var(&ttl, "ttl", "how long the link can be used, e.g. 15m, 24h, 7d (default 24h, max 7d)")
-	cmd.Flags().Var(&tokenTTL, "token-ttl", "lifetime of the access it grants (default: never, or 7d for a consumer)")
+	cmd.Flags().Var(&tokenTTL, "token-ttl", "lifetime of the access it grants, or \"never\" (default: the server's default, 90d unless changed; 7d for a consumer)")
 	cmd.Flags().StringVar(&uiURL, "ui-url", "", "base URL of the web UI (default: the server URL)")
 	addOutputFlag(cmd)
 	return cmd
@@ -307,7 +348,7 @@ type inviteResult struct {
 	Invite inviteOut `json:"invite"`
 }
 
-func runInvite(ctx context.Context, out io.Writer, client *apiClient, name, consumer, uiURL string, ttl, tokenTTL time.Duration, format string) error {
+func runInvite(ctx context.Context, out io.Writer, client *apiClient, name, consumer, uiURL string, ttl time.Duration, tokenTTL lifetimeFlag, format string) error {
 	res, err := client.createInvite(ctx, name, consumer, ttl, tokenTTL)
 	if err != nil {
 		return err

@@ -92,6 +92,29 @@ func TestTokensCreateTenantWideOmitsOptionalFields(t *testing.T) {
 	}
 }
 
+func TestTokensCreateNeverExpires(t *testing.T) {
+	_, got := fakeServer(t, http.StatusCreated, `{"secret":"sparrow_tk_abc","token":{"id":"tok_1","name":"bot","consumer":null,"expires_at":null}}`)
+	if _, err := runCLI(t, "tokens", "create", "--name", "bot", "--ttl", "never"); err != nil {
+		t.Fatal(err)
+	}
+	if got.body["never_expires"] != true {
+		t.Fatalf("--ttl never did not send never_expires: %v", got.body)
+	}
+	if _, ok := got.body["ttl_seconds"]; ok {
+		t.Fatalf("ttl_seconds sent with --ttl never: %v", got.body)
+	}
+}
+
+func TestInviteTokenNeverExpires(t *testing.T) {
+	_, got := fakeServer(t, http.StatusCreated, `{"secret":"sparrow_inv_x","path":"/#invite=sparrow_inv_x","invite":{"id":"inv_1","name":"ops","expires_at":"2030-01-01T00:00:00Z"}}`)
+	if _, err := runCLI(t, "invite", "ops", "--token-ttl", "never", "-o", "json"); err != nil {
+		t.Fatal(err)
+	}
+	if got.body["token_never_expires"] != true {
+		t.Fatalf("--token-ttl never did not send token_never_expires: %v", got.body)
+	}
+}
+
 func TestTokensCreateRequiresName(t *testing.T) {
 	fakeServer(t, http.StatusCreated, `{}`)
 	if _, err := runCLI(t, "tokens", "create"); err == nil {

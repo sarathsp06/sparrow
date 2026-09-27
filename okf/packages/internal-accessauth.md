@@ -21,11 +21,11 @@ Sparrow's adapter for `pkg/access`. Everything generic (issuing, hashing, redeem
 
 | Credential | Default TTL | Maximum TTL |
 |------------|-------------|-------------|
-| Tenant-wide token | Never expires | No limit |
+| Tenant-wide token | `SPARROW_TOKEN_DEFAULT_TTL` (90 days; 0 = never) | No limit; `never_expires` for none |
 | Consumer token | 7 days | 30 days |
 | Invite | 24 hours | 7 days |
 
-`TokenTTL(consumer, requested)` and `InviteTTL(requested)` apply these rules.
+`TokenTTL(consumer, requested, neverExpires, tenantDefault)` and `InviteTTL(requested)` apply these rules.
 
 ## Constructor
 

@@ -329,7 +329,9 @@ test('consumer tokens are pinned to the portal API; full-access tokens cannot us
   const scoped = await mk({ name: 'scoped', consumer });
   expect(scoped.token.expires_at).not.toBeNull(); // consumer tokens always expire
   const full = await mk({ name: 'full' });
-  expect(full.token.expires_at).toBeNull(); // tenant-wide tokens never expire by default
+  expect(full.token.expires_at).not.toBeNull(); // tenant-wide tokens expire after the server default (90 days)
+  const forever = await mk({ name: 'forever', never_expires: true });
+  expect(forever.token.expires_at).toBeNull(); // ...unless explicitly created without expiry
 
   const as = (secret: string) => playwrightRequest.newContext({ baseURL: API, extraHTTPHeaders: { Authorization: `Bearer ${secret}` } });
   const s = await as(scoped.secret);

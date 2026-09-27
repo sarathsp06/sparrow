@@ -42,6 +42,8 @@ type WebhookWorker struct {
 	tracer           trace.Tracer
 	logger           *slog.Logger
 	client           *client.WebhookClient
+	// captureLimit is the storage limit for capture_response_body webhooks.
+	captureLimit int64
 }
 
 // NewWebhookWorker creates a new webhook worker
@@ -62,6 +64,7 @@ func NewWebhookWorker(webhookRepo store.WebhookRepository, eventRepo systemEvent
 		logger:           slog.Default().With("component", "webhook-worker"),
 		tracer:           observability.GetTracer("sparrow.workers.webhook"),
 		client:           webhookClient,
+		captureLimit:     clientConfig.CapturedResponseLimit(),
 	}
 }
 
@@ -362,12 +365,12 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 	// remainder afterwards so the keep-alive connection can be reused.
 	// CaptureResponseBody controls the storage size limit:
 	//   false (default) -> store up to 1 KB (useful for error diagnostics)
-	//   true            -> store up to 1 MB (full response capture)
-	const maxResponseBodyBytes = 1024 * 1024 // 1 MB
+	//   true            -> store up to SPARROW_MAX_CAPTURED_RESPONSE_BYTES
+	//                      (1 MiB by default; full response capture)
 	var body []byte
 	var bodyErr error
 	if webhook.CaptureResponseBody {
-		body, bodyErr = client.ReadBody(resp, maxResponseBodyBytes)
+		body, bodyErr = client.ReadBody(resp, w.captureLimit)
 	} else {
 		body, bodyErr = client.ReadBody(resp, 1024) // 1 KB — enough for error messages
 	}

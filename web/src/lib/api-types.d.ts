@@ -1118,6 +1118,8 @@ export interface components {
             consumer?: string;
             /** @description Name for the token the invite creates, e.g. the invitee's name. */
             name: string;
+            /** @description The token it creates never expires; same rules as never_expires on POST /v1/tokens. */
+            token_never_expires?: boolean;
             /**
              * Format: int64
              * @description Lifetime of the token it creates; same defaults and limits as POST /v1/tokens.
@@ -1201,9 +1203,11 @@ export interface components {
             consumer?: string;
             /** @description Who or what the token is for, e.g. "alice" or "ci-deploy". */
             name: string;
+            /** @description Create a tenant-wide token that never expires (revoke it when no longer needed). Not allowed with ttl_seconds or for consumer tokens. */
+            never_expires?: boolean;
             /**
              * Format: int64
-             * @description Lifetime in seconds. Tenant-wide tokens default to never expiring; consumer tokens default to 7 days and allow at most 30.
+             * @description Lifetime in seconds. Tenant-wide tokens default to the server's SPARROW_TOKEN_DEFAULT_TTL (90 days unless changed); consumer tokens default to 7 days and allow at most 30.
              */
             ttl_seconds?: number;
         };

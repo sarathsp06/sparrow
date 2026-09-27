@@ -49,18 +49,24 @@ export type Headers = Record<string, string | string[] | undefined>;
  * @param payload raw request body, exactly as received
  * @param headers request headers (case-insensitive lookup)
  * @param secret webhook secret, with or without the "whsec_" prefix
+ * @param nowSeconds overrides the clock (Unix seconds), e.g. in tests
  */
 export function verifyHmac(
   payload: string | Uint8Array,
   headers: Headers,
   secret: string,
   toleranceSeconds: number = DEFAULT_TOLERANCE_SECONDS,
+  nowSeconds?: number,
 ): void {
-  const { msgId, timestamp, signatures } = parseHeaders(headers, toleranceSeconds);
+  const { msgId, timestamp, signatures } = parseHeaders(headers, toleranceSeconds, nowSeconds);
 
-  const key = secret.startsWith("whsec_")
-    ? Buffer.from(secret.slice("whsec_".length), "base64")
-    : Buffer.from(secret);
+  const key = secret.startsWith("whsec_") ? decodeBase64Strict(secret.slice("whsec_".length)) : Buffer.from(secret);
+  if (key === null) {
+    throw new SignatureVerificationError("invalid whsec_ secret");
+  }
+  if (key.length === 0) {
+    throw new SignatureVerificationError("webhook secret is empty");
+  }
 
   const message = Buffer.concat([
     Buffer.from(`${msgId}.${timestamp}.`),
@@ -82,14 +88,16 @@ export function verifyHmac(
  * @param payload raw request body, exactly as received
  * @param headers request headers (case-insensitive lookup)
  * @param publicKeyHex hex-encoded key from the webhook resource's `signing_public_key` field
+ * @param nowSeconds overrides the clock (Unix seconds), e.g. in tests
  */
 export function verifyEd25519(
   payload: string | Uint8Array,
   headers: Headers,
   publicKeyHex: string,
   toleranceSeconds: number = DEFAULT_TOLERANCE_SECONDS,
+  nowSeconds?: number,
 ): void {
-  const { msgId, timestamp, signatures } = parseHeaders(headers, toleranceSeconds);
+  const { msgId, timestamp, signatures } = parseHeaders(headers, toleranceSeconds, nowSeconds);
 
   const raw = Buffer.from(publicKeyHex, "hex");
   if (raw.length !== 32 || raw.toString("hex") !== publicKeyHex.toLowerCase()) {
@@ -116,6 +124,7 @@ export function verifyEd25519(
 function parseHeaders(
   headers: Headers,
   toleranceSeconds: number,
+  nowSeconds?: number,
 ): { msgId: string; timestamp: string; signatures: string[] } {
   const get = (name: string): string => {
     for (const [key, value] of Object.entries(headers)) {
@@ -130,23 +139,30 @@ function parseHeaders(
   const timestamp = get("webhook-timestamp");
   const signatureHeader = get("webhook-signature");
 
-  const seconds = Number(timestamp);
-  if (!Number.isInteger(seconds)) {
+  if (!/^-?\d+$/.test(timestamp)) {
     throw new SignatureVerificationError(`invalid webhook-timestamp: ${timestamp}`);
   }
-  if (Math.abs(Date.now() / 1000 - seconds) > toleranceSeconds) {
+  const seconds = Number(timestamp);
+  const now = nowSeconds ?? Date.now() / 1000;
+  if (Math.abs(now - seconds) > toleranceSeconds) {
     throw new SignatureVerificationError(
       "webhook-timestamp outside tolerance (possible replay)",
     );
   }
 
-  return { msgId, timestamp, signatures: signatureHeader.split(/\s+/) };
+  return { msgId, timestamp, signatures: signatureHeader.split(/\s+/).filter(Boolean) };
+}
+
+/** Decodes standard base64, or returns null if s is not valid base64. */
+function decodeBase64Strict(s: string): Buffer | null {
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(s) || s.length % 4 !== 0) return null;
+  return Buffer.from(s, "base64");
 }
 
 function* decodeSignatures(signatures: string[], prefix: string): Generator<Buffer> {
   for (const part of signatures) {
     if (!part.startsWith(prefix)) continue;
-    const decoded = Buffer.from(part.slice(prefix.length), "base64");
-    if (decoded.length > 0) yield decoded;
+    const decoded = decodeBase64Strict(part.slice(prefix.length));
+    if (decoded !== null && decoded.length > 0) yield decoded;
   }
 }

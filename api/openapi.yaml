@@ -253,6 +253,9 @@ components:
           maxLength: 200
           minLength: 1
           type: string
+        token_never_expires:
+          description: The token it creates never expires; same rules as never_expires on POST /v1/tokens.
+          type: boolean
         token_ttl_seconds:
           description: Lifetime of the token it creates; same defaults and limits as POST /v1/tokens.
           format: int64
@@ -375,8 +378,11 @@ components:
           maxLength: 200
           minLength: 1
           type: string
+        never_expires:
+          description: Create a tenant-wide token that never expires (revoke it when no longer needed). Not allowed with ttl_seconds or for consumer tokens.
+          type: boolean
         ttl_seconds:
-          description: Lifetime in seconds. Tenant-wide tokens default to never expiring; consumer tokens default to 7 days and allow at most 30.
+          description: Lifetime in seconds. Tenant-wide tokens default to the server's SPARROW_TOKEN_DEFAULT_TTL (90 days unless changed); consumer tokens default to 7 days and allow at most 30.
           format: int64
           minimum: 0
           type: integer

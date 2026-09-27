@@ -254,7 +254,8 @@ sparrow tail deliveries
 
 Manage access tokens -- named, revocable credentials for people, CI, and
 services. A tenant-wide token (no `--consumer`) works exactly like
-`SPARROW_API_KEY` and never expires unless `--ttl` is given; a consumer token
+`SPARROW_API_KEY` and expires after the server's default (90 days unless
+`SPARROW_TOKEN_DEFAULT_TTL` changes it) unless `--ttl` is given; a consumer token
 only works through the portal API, limited to that consumer. To give a person
 access to the web UI, prefer `sparrow invite` (next section).
 
@@ -263,13 +264,17 @@ access to the web UI, prefer `sparrow invite` (next section).
 ```bash
 sparrow tokens create --name ci-deploy
 sparrow tokens create --name acme-sync --consumer acme --ttl 30d
+sparrow tokens create --name build-bot --ttl never
 sparrow tokens create --name alice -o json
 ```
 
 Prints the secret once. Store it now -- it is not shown again. Send it as
 `X-API-Key` or `Authorization: Bearer`. Durations accept Go syntax plus a `d`
-suffix (e.g. `90d`, `12h`, `15m`). Tenant-wide tokens never expire by default;
-consumer tokens default to 7 days (max 30).
+suffix (e.g. `90d`, `12h`, `15m`). Tenant-wide tokens default to the server's
+`SPARROW_TOKEN_DEFAULT_TTL` (90 days unless changed); pass `--ttl never` for one
+that does not expire (revoke it when no longer needed). Consumer tokens default
+to 7 days (max 30) and always expire. `sparrow invite --token-ttl` takes the
+same values.
 
 #### `sparrow tokens list`
 

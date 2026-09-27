@@ -2,12 +2,14 @@ package rest_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -82,5 +84,50 @@ func TestInvitePathsPointAtConsoleOrPortal(t *testing.T) {
 	}
 	if rec := post(h, "/v1/invites", `{"name":"x","ttl_seconds":`+strconv.Itoa(8*24*3600)+`}`); rec.Code != http.StatusBadRequest {
 		t.Fatalf("invite above 7 days = %d", rec.Code)
+	}
+}
+
+func TestTenantTokenLifetimeDefaultsAndNeverExpires(t *testing.T) {
+	svc, err := accessauth.NewWithStore(memstore.New(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := chi.NewRouter()
+	rest.Mount(r, nil, nil, rest.AccessDeps{Service: svc, TokenDefaultTTL: accessauth.TenantTokenDefaultTTL})
+
+	var out struct {
+		Token struct {
+			ExpiresAt *time.Time `json:"expires_at"`
+		} `json:"token"`
+	}
+	decode := func(rec *httptest.ResponseRecorder) {
+		t.Helper()
+		out.Token.ExpiresAt = nil
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("status %d: %s", rec.Code, rec.Body)
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	decode(post(r, "/v1/tokens", `{"name":"default"}`))
+	if out.Token.ExpiresAt == nil || time.Until(*out.Token.ExpiresAt) < 89*24*time.Hour {
+		t.Fatalf("default tenant token should expire in ~90 days, got %v", out.Token.ExpiresAt)
+	}
+	decode(post(r, "/v1/tokens", `{"name":"forever","never_expires":true}`))
+	if out.Token.ExpiresAt != nil {
+		t.Fatalf("never_expires token has expires_at %v", out.Token.ExpiresAt)
+	}
+	for _, body := range []string{
+		`{"name":"x","never_expires":true,"ttl_seconds":60}`,
+		`{"name":"x","consumer":"acme","never_expires":true}`,
+	} {
+		if rec := post(r, "/v1/tokens", body); rec.Code != http.StatusBadRequest {
+			t.Errorf("POST /v1/tokens %s = %d, want 400", body, rec.Code)
+		}
+	}
+	if rec := post(r, "/v1/invites", `{"name":"ops","token_never_expires":true}`); rec.Code != http.StatusCreated || !strings.Contains(rec.Body.String(), `"token_ttl_seconds":null`) {
+		t.Fatalf("invite with token_never_expires = %d %s", rec.Code, rec.Body)
 	}
 }

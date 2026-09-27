@@ -50,14 +50,16 @@ def verify_hmac(
     headers: Mapping[str, str],
     secret: str,
     tolerance_seconds: int = DEFAULT_TOLERANCE_SECONDS,
+    now: float | None = None,
 ) -> None:
     """Verify the ``v1,`` (HMAC-SHA256) signature. Raises on failure.
 
     ``payload`` must be the raw request body bytes, exactly as received.
     ``secret`` is the webhook secret, with or without the ``whsec_`` prefix.
+    ``now`` overrides the clock (Unix seconds), e.g. in tests.
     """
     msg_id, timestamp, sig_header = _required_headers(headers)
-    _check_timestamp(timestamp, tolerance_seconds)
+    _check_timestamp(timestamp, tolerance_seconds, now)
 
     if secret.startswith("whsec_"):
         try:
@@ -66,6 +68,8 @@ def verify_hmac(
             raise SignatureVerificationError(f"invalid whsec_ secret: {exc}") from exc
     else:
         key = secret.encode()
+    if not key:
+        raise SignatureVerificationError("webhook secret is empty")
 
     message = f"{msg_id}.{timestamp}.".encode() + payload
     expected = hmac.new(key, message, hashlib.sha256).digest()
@@ -81,12 +85,13 @@ def verify_ed25519(
     headers: Mapping[str, str],
     public_key_hex: str,
     tolerance_seconds: int = DEFAULT_TOLERANCE_SECONDS,
+    now: float | None = None,
 ) -> None:
     """Verify the ``v1a,`` (Ed25519) signature. Raises on failure.
 
     ``payload`` must be the raw request body bytes, exactly as received.
     ``public_key_hex`` is the hex-encoded key from the webhook resource's
-    ``signing_public_key`` field.
+    ``signing_public_key`` field. ``now`` overrides the clock (Unix seconds).
     """
     try:
         from cryptography.exceptions import InvalidSignature
@@ -97,7 +102,7 @@ def verify_ed25519(
         ) from exc
 
     msg_id, timestamp, sig_header = _required_headers(headers)
-    _check_timestamp(timestamp, tolerance_seconds)
+    _check_timestamp(timestamp, tolerance_seconds, now)
 
     try:
         public_key = Ed25519PublicKey.from_public_bytes(bytes.fromhex(public_key_hex))
@@ -126,12 +131,12 @@ def _required_headers(headers: Mapping[str, str]) -> tuple[str, str, str]:
         raise SignatureVerificationError(f"missing header: {exc.args[0]}") from exc
 
 
-def _check_timestamp(timestamp: str, tolerance_seconds: int) -> None:
-    try:
-        seconds = int(timestamp)
-    except ValueError as exc:
-        raise SignatureVerificationError(f"invalid webhook-timestamp: {timestamp!r}") from exc
-    if abs(time.time() - seconds) > tolerance_seconds:
+def _check_timestamp(timestamp: str, tolerance_seconds: int, now: float | None) -> None:
+    if not timestamp.isascii() or not timestamp.lstrip("-").isdigit():
+        raise SignatureVerificationError(f"invalid webhook-timestamp: {timestamp!r}")
+    seconds = int(timestamp)
+    current = time.time() if now is None else now
+    if abs(current - seconds) > tolerance_seconds:
         raise SignatureVerificationError("webhook-timestamp outside tolerance (possible replay)")
 
 

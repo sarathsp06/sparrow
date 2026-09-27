@@ -46,13 +46,53 @@ var (
 	ErrTimestamp = errors.New("signature: webhook-timestamp invalid or outside tolerance")
 	// ErrNoMatch is returned when no signature of the requested scheme matches.
 	ErrNoMatch = errors.New("signature: no matching signature")
+	// ErrEmptySecret is returned when the webhook secret is empty.
+	ErrEmptySecret = errors.New("signature: webhook secret is empty")
 )
+
+// Verifier verifies deliveries with a configurable clock and tolerance. The
+// zero value uses time.Now and DefaultTolerance; VerifyHMAC and
+// VerifyEd25519 use it.
+type Verifier struct {
+	// Tolerance is the maximum accepted clock difference (default
+	// DefaultTolerance).
+	Tolerance time.Duration
+	// Now returns the current time (default time.Now). Useful in tests.
+	Now func() time.Time
+}
 
 // VerifyHMAC verifies the "v1," (HMAC-SHA256) signature of a delivery.
 // payload must be the raw request body bytes, exactly as received.
 // secret is the webhook secret, with or without the "whsec_" prefix.
 func VerifyHMAC(payload []byte, headers http.Header, secret string) error {
-	msgID, timestamp, sigs, err := parseHeaders(headers, time.Now())
+	return Verifier{}.VerifyHMAC(payload, headers, secret)
+}
+
+// VerifyEd25519 verifies the "v1a," (Ed25519) signature of a delivery.
+// payload must be the raw request body bytes, exactly as received.
+// publicKeyHex is the hex-encoded public key from the webhook resource's
+// signing_public_key field.
+func VerifyEd25519(payload []byte, headers http.Header, publicKeyHex string) error {
+	return Verifier{}.VerifyEd25519(payload, headers, publicKeyHex)
+}
+
+func (v Verifier) now() time.Time {
+	if v.Now != nil {
+		return v.Now()
+	}
+	return time.Now()
+}
+
+func (v Verifier) tolerance() time.Duration {
+	if v.Tolerance > 0 {
+		return v.Tolerance
+	}
+	return DefaultTolerance
+}
+
+// VerifyHMAC is the package-level VerifyHMAC with v's clock and tolerance.
+func (v Verifier) VerifyHMAC(payload []byte, headers http.Header, secret string) error {
+	msgID, timestamp, sigs, err := parseHeaders(headers, v.now(), v.tolerance())
 	if err != nil {
 		return err
 	}
@@ -63,6 +103,9 @@ func VerifyHMAC(payload []byte, headers http.Header, secret string) error {
 		if err != nil {
 			return fmt.Errorf("signature: decode whsec_ secret: %w", err)
 		}
+	}
+	if len(key) == 0 {
+		return ErrEmptySecret
 	}
 
 	mac := hmac.New(sha256.New, key)
@@ -85,12 +128,10 @@ func VerifyHMAC(payload []byte, headers http.Header, secret string) error {
 	return ErrNoMatch
 }
 
-// VerifyEd25519 verifies the "v1a," (Ed25519) signature of a delivery.
-// payload must be the raw request body bytes, exactly as received.
-// publicKeyHex is the hex-encoded public key from the webhook resource's
-// signing_public_key field.
-func VerifyEd25519(payload []byte, headers http.Header, publicKeyHex string) error {
-	msgID, timestamp, sigs, err := parseHeaders(headers, time.Now())
+// VerifyEd25519 is the package-level VerifyEd25519 with v's clock and
+// tolerance.
+func (v Verifier) VerifyEd25519(payload []byte, headers http.Header, publicKeyHex string) error {
+	msgID, timestamp, sigs, err := parseHeaders(headers, v.now(), v.tolerance())
 	if err != nil {
 		return err
 	}
@@ -133,7 +174,7 @@ func signedMessage(msgID, timestamp string, payload []byte) []byte {
 
 // parseHeaders extracts the Standard Webhooks headers and enforces the
 // timestamp tolerance against now.
-func parseHeaders(h http.Header, now time.Time) (msgID, timestamp string, sigs []string, err error) {
+func parseHeaders(h http.Header, now time.Time, tolerance time.Duration) (msgID, timestamp string, sigs []string, err error) {
 	msgID = h.Get("webhook-id")
 	timestamp = h.Get("webhook-timestamp")
 	sigHeader := h.Get("webhook-signature")
@@ -145,7 +186,7 @@ func parseHeaders(h http.Header, now time.Time) (msgID, timestamp string, sigs [
 	if err != nil {
 		return "", "", nil, fmt.Errorf("%w: %v", ErrTimestamp, err)
 	}
-	if skew := now.Sub(time.Unix(seconds, 0)); skew > DefaultTolerance || skew < -DefaultTolerance {
+	if skew := now.Sub(time.Unix(seconds, 0)); skew > tolerance || skew < -tolerance {
 		return "", "", nil, ErrTimestamp
 	}
 

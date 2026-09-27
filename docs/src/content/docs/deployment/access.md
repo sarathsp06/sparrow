@@ -79,8 +79,11 @@ sparrow tokens create --name acme-sync --consumer acme --ttl 30d
 The secret is printed once. Store it in your CI secret store and use it as
 `X-API-Key` or `Authorization: Bearer`.
 
-Tenant-wide tokens (no `--consumer`) never expire unless `--ttl` is given.
-Consumer tokens default to 7 days and allow at most 30.
+Tenant-wide tokens (no `--consumer`) expire after the server's default —
+90 days unless `SPARROW_TOKEN_DEFAULT_TTL` changes it — unless `--ttl` is
+given. For a CI credential you rotate by hand, `--ttl never` creates one that
+does not expire; revoke it when it is retired. Consumer tokens default to 7
+days, allow at most 30, and always expire.
 
 ## Consumer (portal) access
 
@@ -121,11 +124,15 @@ the API key.
 
 | Credential | Default | Maximum |
 |---|---|---|
-| Tenant-wide token | Never expires | No limit |
+| Tenant-wide token | `SPARROW_TOKEN_DEFAULT_TTL` (90 days) | No limit, or never with `--ttl never` / `never_expires` |
 | Consumer token | 7 days | 30 days |
 | Invite (link expiry) | 24 hours | 7 days |
 
 Durations accept Go syntax plus a `d` suffix: `90d`, `12h`, `15m`.
+Set `SPARROW_TOKEN_DEFAULT_TTL=0` to restore the previous behaviour, where
+tenant-wide tokens never expire unless a TTL is given. Browser sign-ins (a
+pasted master key or an invite) also get the default lifetime, so people sign
+in again after it lapses.
 
 ## API endpoints
 

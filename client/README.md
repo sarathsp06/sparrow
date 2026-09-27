@@ -47,6 +47,18 @@ Standalone, dependency-light verifiers for Sparrow's Standard Webhooks delivery 
 
 - `verify/python/sparrow_verify.py` -- HMAC is stdlib-only; Ed25519 needs `cryptography`.
 - `verify/js/sparrow-verify.ts` -- Node >= 16 or Bun, `node:crypto` only.
-- Go consumers import `github.com/sarathsp06/sparrow/pkg/signature` instead.
+- `verify/java/SparrowVerify.java` -- Java 15+, JDK only.
+- `verify/kotlin/SparrowVerify.kt` -- JDK 15+, JDK only (independent of the Java file).
+- `verify/ruby/sparrow_verify.rb` -- stdlib `openssl` only; accepts Rack-style header names.
+- `verify/php/SparrowVerify.php` -- PHP 8.1+, no Composer; Ed25519 uses the bundled `sodium`.
+- `verify/rust/sparrow_verify.rs` -- deps: `hmac`, `sha2`, `base64`, `ed25519-dalek`.
+- `verify/elixir/sparrow_verify.ex` -- `:crypto` only (OTP 25+).
+- Go consumers import `github.com/sarathsp06/sparrow/pkg/signature` instead (`verify/go/`
+  only holds its vector runner).
 
-Usage examples live in the top-level README under "Verifying Webhook Signatures".
+Every directory has a `run-vectors.sh` that checks the helper against the shared vectors in
+`pkg/signature/testdata/` (generated from the server's signer by
+`go test ./internal/webhooks/client -run TestSignatureVectors -update-vectors`).
+`make verify-conformance` runs them all; CI runs one job per language.
+
+Framework examples: [Verifying Webhook Signatures](https://sarathsp06.github.io/sparrow/guides/verify-signatures/).

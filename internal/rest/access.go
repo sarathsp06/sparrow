@@ -20,6 +20,9 @@ type AccessDeps struct {
 	Service *access.Service
 	// AuthEnabled is true when SPARROW_API_KEY is set.
 	AuthEnabled bool
+	// TokenDefaultTTL is the lifetime of a tenant-wide token created without
+	// ttl_seconds or never_expires (SPARROW_TOKEN_DEFAULT_TTL). 0 = never.
+	TokenDefaultTTL time.Duration
 }
 
 // --- Output shapes ---
@@ -83,9 +86,10 @@ type whoAmIOutput struct {
 }
 
 type createTokenBody struct {
-	Name       string `json:"name" required:"true" minLength:"1" maxLength:"200" doc:"Who or what the token is for, e.g. \"alice\" or \"ci-deploy\"."`
-	Consumer   string `json:"consumer,omitempty" doc:"Limit the token to one consumer (portal API only). Omit for a tenant-wide token with the same power as SPARROW_API_KEY."`
-	TTLSeconds int64  `json:"ttl_seconds,omitempty" minimum:"0" doc:"Lifetime in seconds. Tenant-wide tokens default to never expiring; consumer tokens default to 7 days and allow at most 30."`
+	Name         string `json:"name" required:"true" minLength:"1" maxLength:"200" doc:"Who or what the token is for, e.g. \"alice\" or \"ci-deploy\"."`
+	Consumer     string `json:"consumer,omitempty" doc:"Limit the token to one consumer (portal API only). Omit for a tenant-wide token with the same power as SPARROW_API_KEY."`
+	TTLSeconds   int64  `json:"ttl_seconds,omitempty" minimum:"0" doc:"Lifetime in seconds. Tenant-wide tokens default to the server's SPARROW_TOKEN_DEFAULT_TTL (90 days unless changed); consumer tokens default to 7 days and allow at most 30."`
+	NeverExpires bool   `json:"never_expires,omitempty" doc:"Create a tenant-wide token that never expires (revoke it when no longer needed). Not allowed with ttl_seconds or for consumer tokens."`
 }
 
 type createTokenOutput struct {
@@ -111,10 +115,11 @@ type tokenIDInput struct {
 }
 
 type createInviteBody struct {
-	Name            string `json:"name" required:"true" minLength:"1" maxLength:"200" doc:"Name for the token the invite creates, e.g. the invitee's name."`
-	Consumer        string `json:"consumer,omitempty" doc:"Invite into one consumer's portal. Omit for tenant-wide (operator console) access."`
-	TTLSeconds      int64  `json:"ttl_seconds,omitempty" minimum:"0" doc:"How long the invite can be used. Defaults to 24 hours, at most 7 days."`
-	TokenTTLSeconds int64  `json:"token_ttl_seconds,omitempty" minimum:"0" doc:"Lifetime of the token it creates; same defaults and limits as POST /v1/tokens."`
+	Name              string `json:"name" required:"true" minLength:"1" maxLength:"200" doc:"Name for the token the invite creates, e.g. the invitee's name."`
+	Consumer          string `json:"consumer,omitempty" doc:"Invite into one consumer's portal. Omit for tenant-wide (operator console) access."`
+	TTLSeconds        int64  `json:"ttl_seconds,omitempty" minimum:"0" doc:"How long the invite can be used. Defaults to 24 hours, at most 7 days."`
+	TokenTTLSeconds   int64  `json:"token_ttl_seconds,omitempty" minimum:"0" doc:"Lifetime of the token it creates; same defaults and limits as POST /v1/tokens."`
+	TokenNeverExpires bool   `json:"token_never_expires,omitempty" doc:"The token it creates never expires; same rules as never_expires on POST /v1/tokens."`
 }
 
 type createInviteOutput struct {
@@ -217,7 +222,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		if err != nil {
 			return nil, err
 		}
-		ttl, err := accessauth.TokenTTL(consumer, time.Duration(in.Body.TTLSeconds)*time.Second)
+		ttl, err := accessauth.TokenTTL(consumer, time.Duration(in.Body.TTLSeconds)*time.Second, in.Body.NeverExpires, deps.TokenDefaultTTL)
 		if err != nil {
 			return nil, huma.Error400BadRequest(err.Error())
 		}
@@ -305,7 +310,7 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		if err != nil {
 			return nil, huma.Error400BadRequest(err.Error())
 		}
-		tokenTTL, err := accessauth.TokenTTL(consumer, time.Duration(in.Body.TokenTTLSeconds)*time.Second)
+		tokenTTL, err := accessauth.TokenTTL(consumer, time.Duration(in.Body.TokenTTLSeconds)*time.Second, in.Body.TokenNeverExpires, deps.TokenDefaultTTL)
 		if err != nil {
 			return nil, huma.Error400BadRequest(err.Error())
 		}

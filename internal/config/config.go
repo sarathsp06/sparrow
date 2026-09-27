@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/kelseyhightower/envconfig"
 
@@ -46,6 +47,18 @@ type Config struct {
 	// ServeUI enables the embedded SvelteKit web UI.
 	// Env: SPARROW_SERVE_UI
 	ServeUI bool `envconfig:"SPARROW_SERVE_UI" default:"false"`
+
+	// MaxCapturedResponseBytes caps the stored response body of webhooks
+	// with capture_response_body enabled (others always store 1 KiB). Lower
+	// it to bound what receivers can make Sparrow store.
+	// Env: SPARROW_MAX_CAPTURED_RESPONSE_BYTES (default 1 MiB)
+	MaxCapturedResponseBytes int64 `envconfig:"SPARROW_MAX_CAPTURED_RESPONSE_BYTES" default:"1048576"`
+
+	// TokenDefaultTTL is the lifetime of a tenant-wide access token created
+	// without an explicit TTL or never_expires. 0 restores tokens that never
+	// expire by default.
+	// Env: SPARROW_TOKEN_DEFAULT_TTL (Go duration, e.g. "2160h" = 90 days)
+	TokenDefaultTTL time.Duration `envconfig:"SPARROW_TOKEN_DEFAULT_TTL" default:"2160h"`
 
 	// AllowPrivateNetworks relaxes SSRF protection to allow localhost and
 	// private IP addresses as webhook target URLs. Useful for local dev.
@@ -133,6 +146,12 @@ func (c *Config) Validate() error {
 	}
 	if _, err := client.ParseNetworks(c.AllowedNetworks); err != nil {
 		return fmt.Errorf("SPARROW_ALLOWED_NETWORKS: %w", err)
+	}
+	if c.MaxCapturedResponseBytes < 1024 {
+		return fmt.Errorf("SPARROW_MAX_CAPTURED_RESPONSE_BYTES: %d is below the 1024-byte minimum", c.MaxCapturedResponseBytes)
+	}
+	if c.TokenDefaultTTL < 0 {
+		return fmt.Errorf("SPARROW_TOKEN_DEFAULT_TTL: must be >= 0, got %s", c.TokenDefaultTTL)
 	}
 	if c.MaxBodyBytes < 1<<20 {
 		return fmt.Errorf("SPARROW_MAX_BODY_BYTES: %d is below the 1 MiB minimum", c.MaxBodyBytes)

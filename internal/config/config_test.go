@@ -3,15 +3,17 @@ package config
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func validConfig() *Config {
 	return &Config{
-		HTTPPort:               "8080",
-		DatabaseURL:            "postgres://localhost/riverqueue?sslmode=disable",
-		EncryptionKeys:         []string{"new=" + strings.Repeat("ab", 32)},
-		EncryptionPrimaryKeyID: "new",
-		MaxBodyBytes:           5242880,
+		HTTPPort:                 "8080",
+		DatabaseURL:              "postgres://localhost/riverqueue?sslmode=disable",
+		EncryptionKeys:           []string{"new=" + strings.Repeat("ab", 32)},
+		EncryptionPrimaryKeyID:   "new",
+		MaxBodyBytes:             5242880,
+		MaxCapturedResponseBytes: 1 << 20,
 	}
 }
 
@@ -25,6 +27,8 @@ func TestValidate(t *testing.T) {
 		{"production without api key", func(c *Config) { c.Environment = "production" }, "SPARROW_API_KEY"},
 		{"production with short api key", func(c *Config) { c.Environment = "production"; c.APIKey = "k" }, "at least 32"},
 		{"production with api key", func(c *Config) { c.Environment = "production"; c.APIKey = strings.Repeat("k", 32) }, ""},
+		{"captured response cap too small", func(c *Config) { c.MaxCapturedResponseBytes = 10 }, "SPARROW_MAX_CAPTURED_RESPONSE_BYTES"},
+		{"negative token ttl", func(c *Config) { c.TokenDefaultTTL = -time.Hour }, "SPARROW_TOKEN_DEFAULT_TTL"},
 		{"invalid allowed networks", func(c *Config) { c.AllowedNetworks = []string{"nope"} }, "SPARROW_ALLOWED_NETWORKS"},
 		{"valid allowed networks", func(c *Config) { c.AllowedNetworks = []string{"10.0.0.0/8", "fd00::1"} }, ""},
 		{"missing encryption keyring", func(c *Config) { c.EncryptionKeys = nil }, "SPARROW_ENCRYPTION_KEYS"},

@@ -32,11 +32,13 @@ const MasterKeyName = "master key"
 func Realm() string { return tenant.DefaultTenantID.String() }
 
 // Lifetime rules.
-//   - Tenant-wide tokens act exactly like SPARROW_API_KEY and never expire
-//     unless a TTL is given.
+//   - Tenant-wide tokens act exactly like SPARROW_API_KEY. They expire after
+//     the operator's default (SPARROW_TOKEN_DEFAULT_TTL, 90 days unless
+//     changed) unless a TTL is given, or never when explicitly asked for.
 //   - Consumer tokens reach outside users, so they always expire.
 //   - Invites are links in chat: short-lived by default.
 const (
+	TenantTokenDefaultTTL   = 90 * 24 * time.Hour
 	ConsumerTokenDefaultTTL = 7 * 24 * time.Hour
 	ConsumerTokenMaxTTL     = 30 * 24 * time.Hour
 	InviteDefaultTTL        = 24 * time.Hour
@@ -44,9 +46,25 @@ const (
 )
 
 // TokenTTL applies the lifetime rules to a requested TTL (0 = default).
-func TokenTTL(consumer *string, requested time.Duration) (time.Duration, error) {
+// neverExpires asks for a tenant-wide token without expiry; tenantDefault is
+// the lifetime of a tenant-wide token when neither is given (0 = never).
+// A returned 0 means the token never expires.
+func TokenTTL(consumer *string, requested time.Duration, neverExpires bool, tenantDefault time.Duration) (time.Duration, error) {
+	if neverExpires && requested > 0 {
+		return 0, fmt.Errorf("set either a TTL or never_expires, not both")
+	}
 	if consumer == nil {
-		return requested, nil // 0 = never expires
+		switch {
+		case neverExpires:
+			return 0, nil
+		case requested > 0:
+			return requested, nil
+		default:
+			return tenantDefault, nil
+		}
+	}
+	if neverExpires {
+		return 0, fmt.Errorf("consumer tokens always expire (at most %d days)", ConsumerTokenMaxTTL/(24*time.Hour))
 	}
 	if requested == 0 {
 		return ConsumerTokenDefaultTTL, nil

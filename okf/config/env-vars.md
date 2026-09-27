@@ -32,6 +32,8 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 |----------|---------|---------|
 | `SPARROW_API_KEY` | Master key for auth, accepted via `X-API-Key` or `Authorization: Bearer`. Also accepted: tenant-wide access tokens. **Required when `ENVIRONMENT=production`** (`Validate()` refuses to start without it); must be at least 32 characters in production. Otherwise optional and all endpoints are open | — (open access) |
 | ~~`SPARROW_UI_INJECT_KEY`~~ | Removed. The server never writes the API key into the UI. If still set, a deprecation warning is logged and the value is ignored. | -- |
+| `SPARROW_TOKEN_DEFAULT_TTL` | Lifetime of tenant-wide tokens created without `ttl_seconds`/`never_expires` (Go duration). `0` = never expire. | `2160h` |
+| `SPARROW_MAX_CAPTURED_RESPONSE_BYTES` | Stored response body cap for `capture_response_body` webhooks (others 1 KiB). Min 1024. | `1048576` |
 | `SPARROW_ALLOWED_NETWORKS` | Comma-separated CIDRs or bare IPs (e.g. `10.20.0.0/16,fd12::/48`). Deliveries may reach these networks in addition to public addresses; loopback, cloud metadata and rest of private space stay blocked. Invalid entries fail startup. With an allowlist, `.internal`/`.local` hostnames are allowed (resolved addresses are checked instead of names). Recommended for VPN deployments. | -- |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | Allow all private IPs as webhook URLs (for local dev/test). Cloud metadata endpoints are still blocked even when `true`. Prefer `SPARROW_ALLOWED_NETWORKS` in production. | `false` |
 

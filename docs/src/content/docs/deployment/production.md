@@ -241,11 +241,12 @@ Give each person and CI job their own access token instead of sharing `SPARROW_A
 - [ ] `CORS_ALLOWED_ORIGINS` set if the UI is hosted on a different origin.
 - [ ] Use `SPARROW_ALLOWED_NETWORKS` (not `SPARROW_ALLOW_PRIVATE_NETWORKS`) for internal webhook targets. Cloud metadata endpoints are always blocked.
 - [ ] `SPARROW_EVENT_RETENTION_DAYS` set if payloads carry regulated data.
-- [ ] Each person and CI job uses their own [access token](/sparrow/deployment/access/), not the master key.
+- [ ] Each person and CI job uses their own [access token](/sparrow/deployment/access/), not the master key. Tokens expire after `SPARROW_TOKEN_DEFAULT_TTL` (90 days) unless created with `--ttl never`.
 - [ ] Revoke tokens when someone leaves or a machine credential is retired.
 
 ## Upgrade notes
 
 - **`SPARROW_API_KEY` minimum length.** With `ENVIRONMENT=production`, the server now requires `SPARROW_API_KEY` to be at least 32 characters. If your existing key is shorter, generate a new one with `openssl rand -hex 32` before upgrading. Outside production mode, a short key logs a warning but still works.
 - **Cloud metadata always blocked.** Cloud metadata endpoints (169.254.169.254, 169.254.170.2, etc.) are now blocked even when `SPARROW_ALLOW_PRIVATE_NETWORKS=true`. If you need to reach one deliberately, list it in `SPARROW_ALLOWED_NETWORKS`.
+- **Tenant-wide tokens expire by default.** New tenant-wide tokens, browser sign-ins and invite-created tokens now expire after `SPARROW_TOKEN_DEFAULT_TTL` (90 days) unless created with an explicit TTL or `never_expires` (`sparrow tokens create --ttl never`). Existing tokens keep their lifetime. Set `SPARROW_TOKEN_DEFAULT_TTL=0` to keep the old never-expiring default.
 - **Custom header validation.** Webhook headers are now validated on save. Invalid HTTP token names, CR/LF or control characters in values, values over 8 KiB, and reserved framing headers (`Host`, `Content-Length`, `Transfer-Encoding`, `Connection`, `Keep-Alive`, `Proxy-Connection`, `TE`, `Trailer`, `Upgrade`) are rejected with `400`. Existing webhooks keep delivering: a reserved framing header stored before this check is skipped at delivery (it never had an effect), and the webhook only needs fixing the next time its headers are updated.

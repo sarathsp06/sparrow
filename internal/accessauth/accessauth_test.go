@@ -34,18 +34,23 @@ func TestTTLRules(t *testing.T) {
 	cases := []struct {
 		consumer  *string
 		requested time.Duration
+		never     bool
+		def       time.Duration
 		want      time.Duration
 		wantErr   bool
 	}{
-		{nil, 0, 0, false}, // tenant-wide: never expires by default
-		{nil, 90 * 24 * time.Hour, 90 * 24 * time.Hour, false},
-		{nil, 10 * 365 * 24 * time.Hour, 10 * 365 * 24 * time.Hour, false},
-		{&acme, 0, ConsumerTokenDefaultTTL, false},
-		{&acme, time.Hour, time.Hour, false},
-		{&acme, ConsumerTokenMaxTTL + time.Second, 0, true},
+		{nil, 0, false, TenantTokenDefaultTTL, TenantTokenDefaultTTL, false}, // tenant-wide: operator default
+		{nil, 0, false, 0, 0, false},                                         // default 0 = never (opt-out)
+		{nil, 0, true, TenantTokenDefaultTTL, 0, false},                      // explicit never
+		{nil, time.Hour, true, TenantTokenDefaultTTL, 0, true},               // both: rejected
+		{nil, 10 * 365 * 24 * time.Hour, false, TenantTokenDefaultTTL, 10 * 365 * 24 * time.Hour, false},
+		{&acme, 0, false, TenantTokenDefaultTTL, ConsumerTokenDefaultTTL, false},
+		{&acme, time.Hour, false, 0, time.Hour, false},
+		{&acme, 0, true, 0, 0, true}, // consumer tokens always expire
+		{&acme, ConsumerTokenMaxTTL + time.Second, false, 0, 0, true},
 	}
 	for _, c := range cases {
-		got, err := TokenTTL(c.consumer, c.requested)
+		got, err := TokenTTL(c.consumer, c.requested, c.never, c.def)
 		if got != c.want || (err != nil) != c.wantErr {
 			t.Errorf("TokenTTL(%v, %v) = %v, %v", c.consumer, c.requested, got, err)
 		}
@@ -56,7 +61,7 @@ func TestTTLRules(t *testing.T) {
 	if _, err := InviteTTL(InviteMaxTTL + time.Second); err == nil || err.Error() != "invites can live at most 7 days" {
 		t.Errorf("InviteTTL above max: %v", err)
 	}
-	if _, err := TokenTTL(&acme, ConsumerTokenMaxTTL+time.Second); err == nil || err.Error() != "consumer tokens can live at most 30 days" {
+	if _, err := TokenTTL(&acme, ConsumerTokenMaxTTL+time.Second, false, 0); err == nil || err.Error() != "consumer tokens can live at most 30 days" {
 		t.Errorf("TokenTTL above max: %v", err)
 	}
 }
