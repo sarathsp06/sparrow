@@ -2,9 +2,9 @@
 // Kept free of SvelteKit imports so they can be unit-tested with node --test.
 //
 // Config sources, highest precedence first:
-//   1. window.__SPARROW_CONFIG__ — set at runtime, either injected inline by
-//      the Go server (embedded UI) or by the static /config.js file that ships
-//      with the build (standalone UI; edit it at deploy time, no rebuild).
+//   1. window.__SPARROW_CONFIG__ — set at runtime by the static /config.js
+//      file that ships with the build (edit it at deploy time, no rebuild).
+//      The Sparrow server serves it unchanged and never injects config.
 //   2. PUBLIC_API_URL — baked into the bundle at `vite build` time.
 //   3. Defaults: http://localhost:8080 under `vite dev`, same origin otherwise.
 

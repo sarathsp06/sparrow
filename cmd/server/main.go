@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -193,7 +194,10 @@ func main() {
 	// When true, localhost/private IPs are allowed as webhook targets.
 	// Useful for local dev or self-hosted deployments where targets are on the same network.
 	if cfg.AllowPrivateNetworks {
-		fmt.Println("⚠️  SPARROW_ALLOW_PRIVATE_NETWORKS=true — SSRF protection relaxed (loopback/private IPs allowed)")
+		fmt.Println("⚠️  SPARROW_ALLOW_PRIVATE_NETWORKS=true — SSRF protection relaxed (loopback/private IPs allowed; cloud metadata still blocked). Prefer SPARROW_ALLOWED_NETWORKS in production")
+	}
+	if len(cfg.AllowedNetworks) > 0 {
+		fmt.Printf("🌐 Webhook deliveries may also reach SPARROW_ALLOWED_NETWORKS: %s\n", strings.Join(cfg.AllowedNetworks, ", "))
 	}
 
 	// Event retention: purge events (and their deliveries) older than N days.
@@ -209,6 +213,7 @@ func main() {
 	// Initialize webhook HTTP client config
 	clientConfig := client.DefaultConfig()
 	clientConfig.AllowPrivateNetworks = cfg.AllowPrivateNetworks
+	clientConfig.AllowedNetworks = cfg.AllowedNetworkList()
 
 	// Initialize queue manager
 	queueManager, err := queue.NewManager(ctx, webhookRepo, cryptoSvc, dbPool, clientConfig, cfg.EventRetentionDays)
@@ -224,7 +229,7 @@ func main() {
 
 	fmt.Println("🚀 River queue started successfully")
 
-	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks))
+	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks), webhooks.WithAllowedNetworks(cfg.AllowedNetworkList()))
 	tracedWebhookService := webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, "")
 
 	// Create chi router for the REST API, health endpoints, and embedded UI.
@@ -234,7 +239,7 @@ func main() {
 
 	// Global middleware: body size cap, security headers, then CORS
 	r.Use(middleware.MaxBodyBytes(cfg.MaxBodyBytes))
-	r.Use(middleware.SecurityHeaders)
+	r.Use(middleware.SecurityHeaders(ui.InlineScriptHashes()))
 	corsMiddleware, corsMode := middleware.CORS(cfg.CORSAllowedOrigins, cfg.IsProduction())
 	logCORSMode(corsMode, cfg.CORSAllowedOrigins)
 	r.Use(corsMiddleware)
@@ -272,14 +277,10 @@ func main() {
 	// never accidentally be served HTML by the SPA.
 	if cfg.ServeUI {
 		if ui.Available() {
-			// The embedded UI gets the master key injected unless
-			// SPARROW_UI_INJECT_KEY=false, in which case it asks for a key or
-			// an invite (and swaps a pasted master key for a token).
-			uiConfig := &ui.Config{}
-			if cfg.UIInjectKey {
-				uiConfig.APIKey = cfg.APIKey
-			}
-			uiHandler := ui.Handler(slog.Default(), uiConfig)
+			// The UI is served as built — the API key is never written into
+			// its pages. Operators sign in with the key (swapped for a
+			// browser token), an access token, or an invite link.
+			uiHandler := ui.Handler(slog.Default())
 			r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 				// Serve SPA only for GET/HEAD requests. Non-GET to unknown
 				// paths returns a JSON 404 so API clients never get HTML.

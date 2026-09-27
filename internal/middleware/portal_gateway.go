@@ -74,6 +74,9 @@ func PortalGateway(verify PortalVerifier, next http.Handler) http.Handler {
 // read-only global helpers the portal UI needs (event-type catalog, template
 // function list, and the stateless template dry-run).
 func portalTarget(method, rest, consumer string) (string, bool) {
+	if !cleanPortalPath(rest) {
+		return "", false
+	}
 	switch {
 	case rest == "portal-token", method == http.MethodPost && rest == "events":
 		return "", false
@@ -86,6 +89,29 @@ func portalTarget(method, rest, consumer string) (string, bool) {
 	default:
 		return "/v1/consumers/" + consumer + "/" + rest, true
 	}
+}
+
+// cleanPortalPath reports whether rest is a plain relative path: no "." or
+// ".." segments, empty segments, backslashes, or control characters. The
+// router matches paths literally today, but the consumer pin must never
+// depend on that — a path-cleaning layer added later would otherwise turn
+// "../other/webhooks" into cross-consumer access. No portal API path
+// legitimately contains any of these.
+func cleanPortalPath(rest string) bool {
+	if rest == "" || strings.ContainsAny(rest, "\\\x00") {
+		return false
+	}
+	for _, seg := range strings.Split(strings.TrimSuffix(rest, "/"), "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return false
+		}
+		for _, r := range seg {
+			if r < 0x20 || r == 0x7f {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // writePortalAuthError maps verifier failures: a store outage is 503 (the

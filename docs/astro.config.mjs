@@ -92,6 +92,7 @@ export default defineConfig({
         {
           label: 'Deployment',
           items: [
+            { slug: 'deployment/production' },
             { slug: 'deployment/docker-compose' },
             { slug: 'deployment/access' },
             { slug: 'deployment/separate-ui' },

@@ -87,16 +87,24 @@ func BuildRequest(ctx context.Context, dr *DeliveryRequest) (*http.Request, erro
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set default headers
+	// Defaults that custom headers may override (e.g. a transform that
+	// emits form data sets its own Content-Type).
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "Sparrow-Webhook/"+sparrow.Version)
+	for k, v := range dr.Headers {
+		// Reserved framing headers are refused when headers are saved; skip
+		// any stored before that check existed rather than corrupting the
+		// request.
+		if isReservedHeader(k) {
+			continue
+		}
+		req.Header.Set(k, v)
+	}
+	// Sparrow's identifiers are set after custom headers so a configured
+	// header can never spoof them (receivers use them for dedup/tracing).
 	req.Header.Set("X-Sparrow-Event-ID", dr.EventID.String())
 	req.Header.Set("X-Sparrow-Delivery-ID", dr.DeliveryID)
 	req.Header.Set("X-Sparrow-Webhook-ID", dr.WebhookID.String())
-	// Set custom headers (overriding defaults if needed)
-	for k, v := range dr.Headers {
-		req.Header.Set(k, v)
-	}
 
 	// Standard Webhooks signing (https://www.standardwebhooks.com)
 	// Uses webhook-id, webhook-timestamp, webhook-signature headers.

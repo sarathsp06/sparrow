@@ -161,11 +161,18 @@ test('consumer portal works from the standalone UI through the API gateway', asy
   for (const u of calls) expect(u.startsWith(`${API}/portal/api/`), u).toBeTruthy();
 });
 
-test('the embedded UI on the same server gets the key injected (no prompt)', async ({ page }) => {
+test('the embedded UI on the same server never receives the key: it asks to sign in', async ({ page }) => {
   const { consumer, url } = await seedWebhook();
+  const html = await (await page.request.get(`${API}/webhooks`)).text();
+  expect(html).not.toContain(KEY);
+  expect(html).not.toContain('apiKey');
+
   await page.goto(`${API}/webhooks`);
+  const prompt = page.getByRole('dialog', { name: 'Sign in to Sparrow' });
+  await prompt.getByLabel('API key or access token').fill(KEY);
+  await prompt.getByRole('button', { name: 'Sign in' }).click();
   await expectWebhookListed(page, url, consumer);
-  await expect(page.getByRole('dialog', { name: 'Sign in to Sparrow' })).toHaveCount(0);
+  await expect(prompt).toHaveCount(0);
 });
 
 // ---------------------------------------------------------------------------
@@ -342,15 +349,15 @@ test('consumer tokens are pinned to the portal API; full-access tokens cannot us
   expect(tooLong.status()).toBe(400);
 });
 
-test('with SPARROW_UI_INJECT_KEY=false the embedded UI asks to sign in and never exposes the key', async ({ page }) => {
-  const NOINJECT = process.env.SPARROW_NOINJECT_URL ?? '';
-  test.skip(!NOINJECT, 'no-injection server not running');
+test('the embedded UI of a keyed server asks to sign in and never exposes the key', async ({ page }) => {
+  const KEYED = process.env.SPARROW_KEYED_URL ?? '';
+  test.skip(!KEYED, 'keyed embedded-UI server not running');
 
-  const html = await (await page.request.get(`${NOINJECT}/webhooks`)).text();
+  const html = await (await page.request.get(`${KEYED}/webhooks`)).text();
   expect(html).not.toContain(KEY);
   expect(html).not.toContain('apiKey');
 
-  await page.goto(`${NOINJECT}/webhooks`);
+  await page.goto(`${KEYED}/webhooks`);
   const prompt = page.getByRole('dialog', { name: 'Sign in to Sparrow' });
   await expect(prompt).toContainText('requires an API key');
   await prompt.getByLabel('API key or access token').fill(KEY);

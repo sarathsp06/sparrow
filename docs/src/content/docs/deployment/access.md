@@ -11,17 +11,11 @@ pasting secrets into chat.
 
 ## First run
 
-Nothing changes by default: the embedded UI still gets `SPARROW_API_KEY`
-injected into the page, so it works without signing in. That is fine on a
-private VPN. On a shared network, turn the injection off:
-
-```bash
-SPARROW_UI_INJECT_KEY=false
-```
-
-The UI will now show a **Sign in to Sparrow** prompt. You can paste the master
-key there — the UI exchanges it for a browser token behind the scenes, so the
-master key is never stored in the browser.
+When `SPARROW_API_KEY` is set (always the case with the production Docker
+Compose), the embedded UI shows a **Sign in to Sparrow** prompt on the first
+`401`. You can paste the master key there -- the UI exchanges it for a browser
+token behind the scenes, so the master key is never stored in the browser. An
+access token or invite link also works.
 
 ## Invite a teammate
 
@@ -122,16 +116,6 @@ invalidate existing tokens or pending invites**. Tokens are verified by their
 stored hash, not by a relationship to the master key. Stateless portal tokens
 (`spt_v2`) are also unaffected — they are signed by the encryption key, not
 the API key.
-
-## `SPARROW_UI_INJECT_KEY`
-
-| Value | Behaviour |
-|-------|-----------|
-| `true` (default) | Embedded UI gets `SPARROW_API_KEY` written into the page. Anyone who loads the UI can read the key. No sign-in prompt. |
-| `false` | Embedded UI shows the sign-in prompt. A pasted master key is exchanged for a browser token so the master key is never stored. Invites also work. |
-
-Only applies when `SPARROW_SERVE_UI=true`. A separately hosted UI never gets
-the key injected.
 
 ## Lifetimes
 

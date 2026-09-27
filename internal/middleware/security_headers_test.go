@@ -7,12 +7,14 @@ import (
 	"testing"
 )
 
-func TestSecurityHeaders(t *testing.T) {
+func TestSecurityHeadersNoHashes(t *testing.T) {
+	// When no hashes are provided (UI not built), script-src falls back
+	// to 'unsafe-inline'.
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	handler := SecurityHeaders(inner)
+	handler := SecurityHeaders(nil)(inner)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
@@ -37,8 +39,43 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 }
 
+func TestSecurityHeadersWithHashes(t *testing.T) {
+	// When hashes are provided, script-src uses hashes instead of
+	// 'unsafe-inline'.
+	hashes := []string{"'sha256-abc123'", "'sha256-def456'"}
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	handler := SecurityHeaders(hashes)(inner)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	csp := rec.Header().Get("Content-Security-Policy")
+
+	// script-src must NOT contain 'unsafe-inline'
+	for _, part := range strings.Split(csp, ";") {
+		trimmed := strings.TrimSpace(part)
+		if strings.HasPrefix(trimmed, "script-src") {
+			if strings.Contains(trimmed, "'unsafe-inline'") {
+				t.Errorf("script-src contains 'unsafe-inline' when hashes provided: %s", trimmed)
+			}
+		}
+	}
+	for _, h := range hashes {
+		if !strings.Contains(csp, h) {
+			t.Errorf("CSP missing hash %s: %s", h, csp)
+		}
+	}
+	if !strings.Contains(csp, "frame-ancestors 'none'") {
+		t.Errorf("CSP missing frame-ancestors 'none': %s", csp)
+	}
+}
+
 func TestSecurityHeadersPortalAllowsFraming(t *testing.T) {
-	handler := SecurityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := SecurityHeaders(nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -63,7 +100,7 @@ func TestSecurityHeadersPassthrough(t *testing.T) {
 		w.WriteHeader(http.StatusCreated)
 	})
 
-	handler := SecurityHeaders(inner)
+	handler := SecurityHeaders(nil)(inner)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/test", nil)
 	rec := httptest.NewRecorder()
@@ -82,4 +119,34 @@ func TestSecurityHeadersPassthrough(t *testing.T) {
 	if rec.Header().Get("X-Content-Type-Options") != "nosniff" {
 		t.Error("security header missing on POST response")
 	}
+}
+
+func TestBuildCSP(t *testing.T) {
+	t.Run("no hashes falls back to unsafe-inline", func(t *testing.T) {
+		csp := buildCSP(nil)
+		if !strings.Contains(csp, "'unsafe-inline'") {
+			t.Errorf("expected 'unsafe-inline' in script-src without hashes: %s", csp)
+		}
+	})
+
+	t.Run("with hashes omits unsafe-inline", func(t *testing.T) {
+		csp := buildCSP([]string{"'sha256-test123'"})
+		for _, part := range strings.Split(csp, ";") {
+			trimmed := strings.TrimSpace(part)
+			if strings.HasPrefix(trimmed, "script-src") {
+				if strings.Contains(trimmed, "'unsafe-inline'") {
+					t.Errorf("script-src contains 'unsafe-inline' with hashes: %s", trimmed)
+				}
+				if !strings.Contains(trimmed, "'sha256-test123'") {
+					t.Errorf("script-src missing hash: %s", trimmed)
+				}
+			}
+			// style-src should still have 'unsafe-inline'
+			if strings.HasPrefix(trimmed, "style-src") {
+				if !strings.Contains(trimmed, "'unsafe-inline'") {
+					t.Errorf("style-src should keep 'unsafe-inline': %s", trimmed)
+				}
+			}
+		}
+	})
 }

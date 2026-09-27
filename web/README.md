@@ -62,7 +62,7 @@ Each setting is resolved in this order; the first match wins.
 
 **API URL**
 
-1. `apiUrl` in `window.__SPARROW_CONFIG__`, from `static/config.js` on the static host (or injected by the Go server). Read at runtime, so no rebuild is needed.
+1. `apiUrl` in `window.__SPARROW_CONFIG__`, from `static/config.js` on the static host. Read at runtime, so no rebuild is needed.
 2. `PUBLIC_API_URL` at `vite build` / `vite dev` time. Baked into the bundle.
 3. Built-in default: `http://localhost:8080` under `npm run dev`, same origin for builds.
 
@@ -72,7 +72,7 @@ Each setting is resolved in this order; the first match wins.
    - an access token from an invite link (`/#invite=…`);
    - a browser token created when someone pastes the master key into the sign-in prompt (the master key itself is never stored);
    - or a token pasted into the prompt as is.
-2. `apiKey` in `window.__SPARROW_CONFIG__`: injected by the Go server when it serves the UI (unless `SPARROW_UI_INJECT_KEY=false`), or set in `config.js`.
+2. `apiKey` in `window.__SPARROW_CONFIG__`, set in `config.js` for a separately hosted UI. The Sparrow server never injects it.
 
 `npm run build` respects `PUBLIC_API_URL` from the environment or `web/.env`. `make build-ui` and the Dockerfile set `PUBLIC_API_URL=/` explicitly, so a local `.env` can't leak into the embedded build.
 

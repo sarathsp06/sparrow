@@ -30,9 +30,10 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `SPARROW_API_KEY` | Master key for auth, accepted via `X-API-Key` or `Authorization: Bearer`. Also accepted: tenant-wide access tokens. **Required when `ENVIRONMENT=production`** (`Validate()` refuses to start without it); otherwise optional and all endpoints are open | — (open access) |
-| `SPARROW_UI_INJECT_KEY` | When `true`, the embedded UI gets `SPARROW_API_KEY` written into its pages. Set `false` to show a sign-in prompt instead (pasted master key is exchanged for a browser token) | `true` |
-| `SPARROW_ALLOW_PRIVATE_NETWORKS` | Allow localhost/private IPs as webhook URLs | `false` |
+| `SPARROW_API_KEY` | Master key for auth, accepted via `X-API-Key` or `Authorization: Bearer`. Also accepted: tenant-wide access tokens. **Required when `ENVIRONMENT=production`** (`Validate()` refuses to start without it); must be at least 32 characters in production. Otherwise optional and all endpoints are open | — (open access) |
+| ~~`SPARROW_UI_INJECT_KEY`~~ | Removed. The server never writes the API key into the UI. If still set, a deprecation warning is logged and the value is ignored. | -- |
+| `SPARROW_ALLOWED_NETWORKS` | Comma-separated CIDRs or bare IPs (e.g. `10.20.0.0/16,fd12::/48`). Deliveries may reach these networks in addition to public addresses; loopback, cloud metadata and rest of private space stay blocked. Invalid entries fail startup. With an allowlist, `.internal`/`.local` hostnames are allowed (resolved addresses are checked instead of names). Recommended for VPN deployments. | -- |
+| `SPARROW_ALLOW_PRIVATE_NETWORKS` | Allow all private IPs as webhook URLs (for local dev/test). Cloud metadata endpoints are still blocked even when `true`. Prefer `SPARROW_ALLOWED_NETWORKS` in production. | `false` |
 
 ## Observability
 

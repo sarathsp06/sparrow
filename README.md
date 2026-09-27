@@ -65,29 +65,19 @@ producers / curl / UI / SDKs
 
 ## Quick Start
 
-The fastest path is Docker Compose. No repo clone needed:
+The fastest path is Docker Compose -- for local evaluation, no clone or secrets needed:
 
 ```bash
 curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
-# 32 cryptographically random bytes, hex-encoded as 64 chars
-echo "SPARROW_ENCRYPTION_KEYS=main=$(openssl rand -hex 32)" > .env
-echo "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" >> .env
 docker compose up -d
 ```
 
-> On Windows PowerShell, replace the key lines with:
->
-> ```powershell
-> "SPARROW_ENCRYPTION_KEYS=main=$(-join (1..32 | % { '{0:x2}' -f (Get-Random -Max 256) }))" | Out-File -Encoding ascii .env
-> "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" | Out-File -Encoding ascii -Append .env
-> ```
+Open <http://localhost:8080> for the UI. The REST API is on the same address, and interactive API docs are at <http://localhost:8080/docs>. Clean up with `docker compose down -v`.
 
-Open <http://localhost:8080> for the UI. The REST API is on the same address, and interactive API docs are at <http://localhost:8080/docs>.
+> [!NOTE]
+> The Compose file is deliberately a **local evaluation** setup: open API (no `SPARROW_API_KEY`), a well-known encryption key, and the port bound to `127.0.0.1` only. For a real deployment, see [Production Deployment](https://sarathsp06.github.io/sparrow/deployment/production/).
 
-> [!IMPORTANT]
-> `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` are required for data encrypted at rest. Use a cryptographically random 32-byte (256-bit) key encoded as 64 hex characters per key entry; `openssl rand -hex 32` is a suitable way to generate one. Store the key material in your secret manager and back it up. Lose it and encrypted webhook secrets are unrecoverable.
-
-If you set `SPARROW_API_KEY`, add `X-API-Key: <your-key>` to every API request. The embedded UI gets the key from the server automatically. For per-person credentials and one-time invite links instead of sharing the master key, see [Access: Tokens and Invites](https://sarathsp06.github.io/sparrow/deployment/access/). To host the UI on its own domain instead, see [Hosting the UI separately](https://sarathsp06.github.io/sparrow/deployment/separate-ui/).
+For per-person credentials and one-time invite links instead of sharing the master key, see [Access: Tokens and Invites](https://sarathsp06.github.io/sparrow/deployment/access/). To host the UI on its own domain instead, see [Hosting the UI separately](https://sarathsp06.github.io/sparrow/deployment/separate-ui/).
 
 ## Local Development
 
@@ -202,7 +192,7 @@ Sparrow assumes you run it inside a network you control, then adds application-l
 - **Proxy-friendly** — terminate TLS, SSO, and rate limiting at the reverse proxy; Sparrow stays a small HTTP service.
 
 > [!WARNING]
-> With `SPARROW_API_KEY` unset, anyone who can reach the port can use the API and dashboard. By default the embedded dashboard (`SPARROW_SERVE_UI=true`) gets the API key written into its pages, so any browser that can load it can read the key — treat it as trusted-network-only, or set `SPARROW_UI_INJECT_KEY=false` to make it ask people to sign in. On shared or internet-facing networks, set an API key and put Sparrow behind an authenticating proxy.
+> With `SPARROW_API_KEY` unset, anyone who can reach the port can use the API and dashboard — treat it as trusted-network-only. When `SPARROW_API_KEY` is set, the embedded dashboard shows a sign-in prompt: paste the master key (exchanged for a named browser token, never stored) or use an access token or invite link. On shared or internet-facing networks, set an API key and put Sparrow behind an authenticating proxy.
 
 Full details — trust model, SSO via an identity-aware proxy (Authentik, oauth2-proxy, Keycloak), and a hardening checklist: [Securing Sparrow](https://sarathsp06.github.io/sparrow/deployment/security/).
 
@@ -268,7 +258,7 @@ Latest Docker release: [`ghcr.io/sarathsp06/sparrow:latest`](https://github.com/
 docker pull ghcr.io/sarathsp06/sparrow:latest
 ```
 
-Use the Compose file in [`deploy/docker-compose.yml`](deploy/docker-compose.yml) for a small self-hosted install, or run the image on any container platform with PostgreSQL and the environment variables below.
+Use the Compose file in [`deploy/docker-compose.yml`](deploy/docker-compose.yml) for local evaluation. For a real deployment (Kubernetes or any container platform), see [Production Deployment](https://sarathsp06.github.io/sparrow/deployment/production/).
 
 ## Configuration
 
@@ -284,7 +274,7 @@ Everything is configured through environment variables.
 
 **Authentication and environment**
 
-4. `SPARROW_API_KEY` — the master API key. Optional, but required when `ENVIRONMENT=production`.
+4. `SPARROW_API_KEY` — the master API key. Optional, but required when `ENVIRONMENT=production`, where it must be at least 32 characters (`openssl rand -hex 32`).
    When set, API requests need it, or an [access token](https://sarathsp06.github.io/sparrow/deployment/access/), in `X-API-Key` or `Authorization: Bearer`.
 5. `ENVIRONMENT` — optional. Set to `production` to require `SPARROW_API_KEY` at startup and to block cross-origin requests unless `CORS_ALLOWED_ORIGINS` lists them.
 6. `CORS_ALLOWED_ORIGINS` — optional. Comma-separated browser origins allowed to call the API.
@@ -294,13 +284,13 @@ Everything is configured through environment variables.
 
 7. `SPARROW_HTTP_PORT` — optional. Default: `8080`. HTTP listen port.
 8. `SPARROW_SERVE_UI` — optional. Default: `false`. Serves the embedded dashboard on the same port.
-9. `SPARROW_UI_INJECT_KEY` — optional. Default: `true`.
-   When `true`, the embedded dashboard gets `SPARROW_API_KEY` written into its pages so it works without signing in. Set `false` to show a sign-in prompt instead (a pasted master key is swapped for a browser token).
 
 **Network and limits**
 
+9. `SPARROW_ALLOWED_NETWORKS` — optional. Comma-separated CIDRs or bare IPs (e.g. `10.20.0.0/16,fd12::/48`).
+   Webhook deliveries may reach these networks in addition to public addresses; loopback, cloud metadata, and other private space stay blocked. Recommended for internal services on a VPN. Invalid entries fail startup.
 10. `SPARROW_ALLOW_PRIVATE_NETWORKS` — optional. Default: `false`.
-    Allows loopback and private-network webhook targets (turns off the SSRF network checks).
+    Allows every loopback and private-network webhook target (for local development and tests). Cloud metadata endpoints stay blocked; prefer `SPARROW_ALLOWED_NETWORKS` in production.
 11. `SPARROW_MAX_BODY_BYTES` — optional. Default: `5242880` (5 MiB).
     Maximum request body size, at least 1 MiB; larger bodies get `413`.
 12. `SPARROW_EVENT_RETENTION_DAYS` — optional. Default: `0` (keep forever).

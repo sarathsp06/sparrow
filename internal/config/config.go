@@ -9,12 +9,15 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/kelseyhightower/envconfig"
 
+	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
@@ -44,17 +47,18 @@ type Config struct {
 	// Env: SPARROW_SERVE_UI
 	ServeUI bool `envconfig:"SPARROW_SERVE_UI" default:"false"`
 
-	// UIInjectKey controls whether the embedded UI gets SPARROW_API_KEY
-	// written into its pages so it works without signing in. Anyone who can
-	// load the UI can then read the key. Set false to make the UI ask for a
-	// key or an invite instead (a pasted master key is swapped for a token).
-	// Env: SPARROW_UI_INJECT_KEY
-	UIInjectKey bool `envconfig:"SPARROW_UI_INJECT_KEY" default:"true"`
-
 	// AllowPrivateNetworks relaxes SSRF protection to allow localhost and
 	// private IP addresses as webhook target URLs. Useful for local dev.
 	// Env: SPARROW_ALLOW_PRIVATE_NETWORKS
 	AllowPrivateNetworks bool `envconfig:"SPARROW_ALLOW_PRIVATE_NETWORKS" default:"false"`
+
+	// AllowedNetworks lists CIDRs (or bare IPs) webhook deliveries may reach
+	// in addition to public addresses — e.g. internal services on a VPN —
+	// while loopback, cloud metadata, and the rest of the private address
+	// space stay blocked. Prefer this over AllowPrivateNetworks in
+	// production. Cloud metadata endpoints are reachable only if listed here.
+	// Env: SPARROW_ALLOWED_NETWORKS (comma-separated, e.g. "10.20.0.0/16,fd12::/48")
+	AllowedNetworks []string `envconfig:"SPARROW_ALLOWED_NETWORKS"`
 
 	// EncryptionKeys is the required keyring configuration. Each entry
 	// must be "<key-id>=<64-char-hex-key>" where the key is a cryptographically
@@ -124,6 +128,12 @@ func (c *Config) Validate() error {
 	if c.IsProduction() && c.APIKey == "" {
 		return fmt.Errorf("SPARROW_API_KEY is required in production (without it all endpoints are unauthenticated)")
 	}
+	if c.IsProduction() && len(c.APIKey) < MinAPIKeyLength {
+		return fmt.Errorf("SPARROW_API_KEY must be at least %d characters in production (generate one with: openssl rand -hex 32)", MinAPIKeyLength)
+	}
+	if _, err := client.ParseNetworks(c.AllowedNetworks); err != nil {
+		return fmt.Errorf("SPARROW_ALLOWED_NETWORKS: %w", err)
+	}
 	if c.MaxBodyBytes < 1<<20 {
 		return fmt.Errorf("SPARROW_MAX_BODY_BYTES: %d is below the 1 MiB minimum", c.MaxBodyBytes)
 	}
@@ -131,6 +141,17 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("SPARROW_EVENT_RETENTION_DAYS: must be >= 0, got %d", c.EventRetentionDays)
 	}
 	return nil
+}
+
+// MinAPIKeyLength is the shortest master key accepted in production. 32
+// characters is 128+ bits for a random hex or base64 key.
+const MinAPIKeyLength = 32
+
+// AllowedNetworkList returns the parsed SPARROW_ALLOWED_NETWORKS entries.
+// Validate reports parse errors, so callers after Validate can ignore them.
+func (c *Config) AllowedNetworkList() []*net.IPNet {
+	nets, _ := client.ParseNetworks(c.AllowedNetworks)
+	return nets
 }
 
 // Warnings returns non-fatal configuration advisories the caller should log.
@@ -141,6 +162,12 @@ func (c *Config) Warnings() []string {
 		if u.Query().Get("sslmode") == "disable" && host != "" && host != "localhost" && host != "127.0.0.1" && host != "::1" {
 			warnings = append(warnings, fmt.Sprintf("DATABASE_URL uses sslmode=disable with non-local host %q — database traffic is unencrypted", host))
 		}
+	}
+	if c.APIKey != "" && len(c.APIKey) < MinAPIKeyLength && !c.IsProduction() {
+		warnings = append(warnings, fmt.Sprintf("SPARROW_API_KEY is shorter than %d characters — fine for local testing, but production refuses it (generate one with: openssl rand -hex 32)", MinAPIKeyLength))
+	}
+	if _, set := os.LookupEnv("SPARROW_UI_INJECT_KEY"); set {
+		warnings = append(warnings, "SPARROW_UI_INJECT_KEY is no longer supported and is ignored — the UI never receives the API key; sign in with the key, an access token, or an invite link")
 	}
 	return warnings
 }

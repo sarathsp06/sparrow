@@ -3,6 +3,7 @@ package webhooks
 import (
 	"context"
 	"log/slog"
+	"net"
 	"regexp"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/sarathsp06/sparrow/internal/observability"
+	"github.com/sarathsp06/sparrow/internal/webhooks/client"
 	"github.com/sarathsp06/sparrow/internal/webhooks/queue"
 	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"github.com/sarathsp06/sparrow/pkg/crypto"
@@ -17,13 +19,13 @@ import (
 )
 
 type WebhookService struct {
-	jobInserter          queue.JobInserter
-	webhookRepo          store.RepositoryInterface
-	crypto               *crypto.Service
-	logger               *slog.Logger
-	tracer               trace.Tracer
-	metrics              *observability.SparrowMetrics
-	allowPrivateNetworks bool
+	jobInserter   queue.JobInserter
+	webhookRepo   store.RepositoryInterface
+	crypto        *crypto.Service
+	logger        *slog.Logger
+	tracer        trace.Tracer
+	metrics       *observability.SparrowMetrics
+	networkPolicy client.NetworkPolicy
 }
 
 // WebhookManager manages webhook registrations and their lifecycle.
@@ -139,7 +141,16 @@ type WebhookServiceOption func(*WebhookService)
 // integration tests that use httptest.NewServer.
 func WithAllowPrivateNetworks(allow bool) WebhookServiceOption {
 	return func(s *WebhookService) {
-		s.allowPrivateNetworks = allow
+		s.networkPolicy.AllowPrivate = allow
+	}
+}
+
+// WithAllowedNetworks permits webhook URLs that resolve into these CIDRs
+// (e.g. internal services on a VPN) while every other private, loopback and
+// cloud-metadata address stays blocked.
+func WithAllowedNetworks(nets []*net.IPNet) WebhookServiceOption {
+	return func(s *WebhookService) {
+		s.networkPolicy.AllowedNetworks = nets
 	}
 }
 

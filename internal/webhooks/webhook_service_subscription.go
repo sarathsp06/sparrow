@@ -52,6 +52,9 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 	if consumer == "" {
 		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "consumer is required")
 	}
+	if err := validateHeaders("headers", headers); err != nil {
+		return "", time.Time{}, err
+	}
 
 	tenantID := tenant.DefaultTenantID
 
@@ -150,6 +153,9 @@ func paginateSubscriptions(subs []*store.EventSubscription, offset, limit int32)
 
 func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error {
 	if err := validateLabels(labelFilters, "label_filters"); err != nil {
+		return err
+	}
+	if err := validateHeaders("headers", headers); err != nil {
 		return err
 	}
 

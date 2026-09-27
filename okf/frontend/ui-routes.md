@@ -33,4 +33,4 @@ Route files live under `web/src/routes/`; browse there for the current, authorit
 ## Citations
 
 - `web/src/routes/` — all page files
-- `web/src/lib/services.ts` — REST client setup with API key injection
+- `web/src/lib/services.ts` — REST client setup with runtime config resolution

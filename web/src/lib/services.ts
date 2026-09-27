@@ -10,8 +10,8 @@ import { portalInvite } from "./access/portal-invite.svelte";
 import { parsePortalToken, type PortalSession } from "./portal-token";
 import { apiHref, portalGatewayURL, resolveApiBase, type SparrowConfig } from "./runtime-config";
 
-// Runtime config: injected inline by the Go server (embedded UI) or set in the
-// static /config.js (standalone UI). See runtime-config.ts for precedence.
+// Runtime config: set in the static /config.js. See runtime-config.ts for
+// precedence.
 const runtimeConfig: SparrowConfig =
   (typeof window !== "undefined" && window.__SPARROW_CONFIG__) || {};
 

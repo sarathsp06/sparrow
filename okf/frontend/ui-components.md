@@ -48,7 +48,7 @@ Invite dialog: name, full access or one consumer's portal, link expiry (1h/24h/7
 
 ## Service Layer
 
-`web/src/lib/services.ts` — creates a single typed REST client (`openapi-fetch`) against `/v1/*`, typed from the generated `api-types.d.ts`. Base URL and key come from `web/src/lib/runtime-config.ts` + `web/src/lib/access/auth.svelte.ts`: `window.__SPARROW_CONFIG__` (`apiUrl`/`apiKey`, injected inline by the Go server for the embedded UI, or set in the static `/config.js` for a separately hosted UI) > `PUBLIC_API_URL` (build time) > same origin (`http://localhost:8080` under `vite dev`). On a `401` the layout shows `SignInPrompt.svelte`; the credential (master key or access token) is stored in `localStorage` and wins over the injected one. A pasted master key is exchanged for a browser token. Portal pages use a bearer token and rewrite `/v1/...` to `<apiBase>/portal/api/...`.
+`web/src/lib/services.ts` — creates a single typed REST client (`openapi-fetch`) against `/v1/*`, typed from the generated `api-types.d.ts`. Base URL and key come from `web/src/lib/runtime-config.ts` + `web/src/lib/access/auth.svelte.ts`: `window.__SPARROW_CONFIG__` (`apiUrl`/`apiKey`, set in the static `/config.js` for a separately hosted UI) > `PUBLIC_API_URL` (build time) > same origin (`http://localhost:8080` under `vite dev`). On a `401` the layout shows `SignInPrompt.svelte`; the credential (master key or access token) is stored in `localStorage`. A pasted master key is exchanged for a browser token. Portal pages use a bearer token and rewrite `/v1/...` to `<apiBase>/portal/api/...`.
 
 ## Citations
 

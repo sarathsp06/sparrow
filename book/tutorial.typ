@@ -1645,9 +1645,8 @@ import type { paths } from './api-types';
 import { resolveApiBase,
   type SparrowConfig } from './runtime-config';
 
-// Runtime config: injected inline by the Go
-// server (embedded UI) or set in static
-// /config.js (standalone UI).
+// Runtime config: set in the static /config.js.
+// See runtime-config.ts for precedence.
 const runtimeConfig: SparrowConfig =
   (typeof window !== 'undefined'
     && window.__SPARROW_CONFIG__) || {};

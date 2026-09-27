@@ -21,7 +21,7 @@ PG_PORT=${PG_PORT:-55432}
 HTTP_PORT=${SPARROW_HTTP_PORT:-18080}
 SPLIT_API_PORT=${SPLIT_API_PORT:-18081}
 SPLIT_UI_PORT=${SPLIT_UI_PORT:-14173}
-NOINJECT_PORT=${NOINJECT_PORT:-18082}
+KEYED_PORT=${KEYED_PORT:-18082}
 export SPARROW_BASE_URL=${SPARROW_BASE_URL:-http://localhost:${HTTP_PORT}}
 SKIP_SERVER=${SKIP_SERVER:-0}
 [ "${1:-}" = "--skip-server" ] && { SKIP_SERVER=1; shift; }
@@ -29,9 +29,9 @@ SKIP_SERVER=${SKIP_SERVER:-0}
 SERVER_PID=""
 SPLIT_API_PID=""
 SPLIT_UI_PID=""
-NOINJECT_PID=""
+KEYED_PID=""
 cleanup() {
-  for pid in $SERVER_PID $SPLIT_API_PID $SPLIT_UI_PID $NOINJECT_PID; do kill "$pid" 2>/dev/null || true; done
+  for pid in $SERVER_PID $SPLIT_API_PID $SPLIT_UI_PID $KEYED_PID; do kill "$pid" 2>/dev/null || true; done
   [ "$SKIP_SERVER" = "1" ] || docker rm -f "$PG_NAME" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -102,7 +102,7 @@ echo "==> Running Playwright tests (embedded UI) against $SPARROW_BASE_URL"
 
 SPLIT_UI_URL="http://localhost:$SPLIT_UI_PORT"
 SPLIT_API_URL="http://localhost:$SPLIT_API_PORT"
-SPLIT_API_KEY="pw-split-$(date +%s)"
+SPLIT_API_KEY="pw-split-$(date +%s)-$(openssl rand -hex 16)" # production needs 32+ chars
 
 echo "==> Starting production-mode Sparrow server on :$SPLIT_API_PORT (API key + CORS for $SPLIT_UI_URL)"
 start_server "$SPLIT_API_PORT" /tmp/sparrow-ui-split-server.log \
@@ -112,13 +112,12 @@ start_server "$SPLIT_API_PORT" /tmp/sparrow-ui-split-server.log \
 SPLIT_API_PID=$SERVER_STARTED_PID
 wait_healthy "$SPLIT_API_URL" "$SPLIT_API_PID" /tmp/sparrow-ui-split-server.log
 
-echo "==> Starting an embedded-UI server with SPARROW_UI_INJECT_KEY=false on :$NOINJECT_PORT"
-NOINJECT_URL="http://localhost:$NOINJECT_PORT"
-start_server "$NOINJECT_PORT" /tmp/sparrow-ui-noinject-server.log \
-  SPARROW_API_KEY="$SPLIT_API_KEY" \
-  SPARROW_UI_INJECT_KEY=false
-NOINJECT_PID=$SERVER_STARTED_PID
-wait_healthy "$NOINJECT_URL" "$NOINJECT_PID" /tmp/sparrow-ui-noinject-server.log
+echo "==> Starting an embedded-UI server with SPARROW_API_KEY on :$KEYED_PORT"
+KEYED_URL="http://localhost:$KEYED_PORT"
+start_server "$KEYED_PORT" /tmp/sparrow-ui-keyed-server.log \
+  SPARROW_API_KEY="$SPLIT_API_KEY"
+KEYED_PID=$SERVER_STARTED_PID
+wait_healthy "$KEYED_URL" "$KEYED_PID" /tmp/sparrow-ui-keyed-server.log
 
 echo "==> Serving the UI build as a plain static site on :$SPLIT_UI_PORT"
 node web/tests/split/static-server.mjs internal/ui/dist "$SPLIT_UI_PORT" >/tmp/sparrow-ui-static.log 2>&1 &
@@ -132,5 +131,5 @@ wait_for_static
 
 echo "==> Running Playwright tests (split deployment)"
 (cd web && SPARROW_SPLIT_UI_URL="$SPLIT_UI_URL" SPARROW_SPLIT_API_URL="$SPLIT_API_URL" SPARROW_SPLIT_API_KEY="$SPLIT_API_KEY" \
-  SPARROW_NOINJECT_URL="$NOINJECT_URL" \
+  SPARROW_KEYED_URL="$KEYED_URL" \
   npx playwright test tests/split/ "$@")

@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -23,14 +24,20 @@ Without --public-url the webhook is registered as
 http://host.docker.internal:<port>, which assumes Sparrow runs in Docker on
 this machine (Docker Desktop resolves host.docker.internal to your host).
 Sparrow blocks private-network delivery URLs by default (SSRF guard); for
-local receivers start the server with SPARROW_ALLOW_PRIVATE_NETWORKS=true.
+local receivers start the server with SPARROW_ALLOW_PRIVATE_NETWORKS=true
+(or list your network in SPARROW_ALLOWED_NETWORKS).
+
+Only deliveries signed with the temporary webhook's secret are accepted:
+anything else on the port gets 401 and is never forwarded. Use --bind
+127.0.0.1 when Sparrow runs on this machine outside Docker.
 
 usage: sparrow listen --event <name> [--event <name>...] [--port N]
-                      [--public-url URL] [--forward URL]
+                      [--bind ADDR] [--public-url URL] [--forward URL]
 `
 
 func newListenCmd() *cobra.Command {
 	var port int
+	var bind string
 	var events listFlag
 	var publicURL string
 	var forward string
@@ -47,11 +54,12 @@ func newListenCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runListen(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, port, events, publicURL, forward)
+			return runListen(cmd.Context(), cmd.OutOrStdout(), client, cfg.Consumer, bind, port, events, publicURL, forward)
 		},
 	}
 	f := cmd.Flags()
 	f.IntVar(&port, "port", 0, "local port to listen on (default random)")
+	f.StringVar(&bind, "bind", "", "local address to listen on (default all interfaces, so Docker can reach it; 127.0.0.1 for loopback only)")
 	f.VarP(&events, "event", "e", "event type to subscribe to (repeatable, required)")
 	f.StringVar(&publicURL, "public-url", "", "URL the Sparrow server should deliver to (default http://host.docker.internal:<port>)")
 	f.StringVar(&forward, "forward", "", "proxy each delivery to this URL and mirror its status")
@@ -59,8 +67,8 @@ func newListenCmd() *cobra.Command {
 }
 
 // runListen receives deliveries on a local HTTP server via a temp webhook.
-func runListen(ctx context.Context, out io.Writer, client *apiClient, consumer string, port int, events listFlag, publicURL, forward string) error {
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+func runListen(ctx context.Context, out io.Writer, client *apiClient, consumer, bind string, port int, events listFlag, publicURL, forward string) error {
+	ln, err := net.Listen("tcp", net.JoinHostPort(bind, strconv.Itoa(port)))
 	if err != nil {
 		return err
 	}
@@ -82,18 +90,10 @@ func runListen(ctx context.Context, out io.Writer, client *apiClient, consumer s
 	}
 	secret := hook.HTTPConfig.WebhookSecret
 
-	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		printReceived(out, r, body, secret)
-		if forward != "" {
-			mirrorForward(out, w, r, body, forward)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	})}
+	srv := &http.Server{Handler: listenHandler(out, secret, forward), ReadHeaderTimeout: 10 * time.Second}
 	go srv.Serve(ln) //nolint:errcheck
 
-	_, _ = fmt.Fprintf(out, "listening on :%d, registered webhook %s -> %s (events: %v)\n", localPort, hook.WebhookID, registerURL, []string(events))
+	_, _ = fmt.Fprintf(out, "listening on %s, registered webhook %s -> %s (events: %v)\n", ln.Addr(), hook.WebhookID, registerURL, []string(events))
 	_, _ = fmt.Fprintln(out, "press Ctrl-C to stop and delete the webhook")
 
 	<-ctx.Done()
@@ -108,15 +108,39 @@ func runListen(ctx context.Context, out io.Writer, client *apiClient, consumer s
 	return nil
 }
 
+// listenHandler prints each delivery and acknowledges (or forwards) it only
+// when it carries a valid signature for secret.
+func listenHandler(out io.Writer, secret, forward string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(io.LimitReader(r.Body, maxListenBody))
+		if !printReceived(out, r, body, secret) {
+			// Not from Sparrow: the port may be reachable by others on the
+			// network, so never forward or acknowledge unsigned requests.
+			http.Error(w, "invalid or missing webhook signature", http.StatusUnauthorized)
+			return
+		}
+		if forward != "" {
+			mirrorForward(out, w, r, body, forward)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+}
+
+// maxListenBody caps a received delivery (Sparrow's own default body limit).
+const maxListenBody = 5 << 20
+
 // printReceived pretty-prints one delivery: signature check, headers, body.
-func printReceived(out io.Writer, r *http.Request, body []byte, secret string) {
+// It reports whether the delivery is authentic (always true when the
+// webhook has no secret, e.g. a server without signing).
+func printReceived(out io.Writer, r *http.Request, body []byte, secret string) bool {
 	_, _ = fmt.Fprintf(out, "\n── delivery %s ── %s %s\n", time.Now().Format("15:04:05"), r.Method, r.URL.Path)
 	if secret != "" {
 		if err := signature.VerifyHMAC(body, r.Header, secret); err != nil {
-			_, _ = fmt.Fprintf(out, "signature: INVALID (%v)\n", err)
-		} else {
-			_, _ = fmt.Fprintln(out, "signature: verified (v1, HMAC-SHA256)")
+			_, _ = fmt.Fprintf(out, "signature: INVALID (%v) — rejected with 401\n", err)
+			return false
 		}
+		_, _ = fmt.Fprintln(out, "signature: verified (v1, HMAC-SHA256)")
 	}
 	keys := make([]string, 0, len(r.Header))
 	for k := range r.Header {
@@ -133,6 +157,7 @@ func printReceived(out io.Writer, r *http.Request, body []byte, secret string) {
 		out.Write(body) //nolint:errcheck
 		_, _ = fmt.Fprintln(out)
 	}
+	return true
 }
 
 // mirrorForward proxies the delivery to forwardURL and mirrors its status.

@@ -173,6 +173,15 @@ func TestPortalGatewayScopesToTokenConsumer(t *testing.T) {
 		{http.MethodGet, "/portal/api/event-types/order.created", http.StatusNoContent, "/v1/event-types/order.created"},
 		{http.MethodGet, "/portal/api/template-functions", http.StatusNoContent, "/v1/template-functions"},
 		{http.MethodPost, "/portal/api/subscriptions:testTemplate", http.StatusNoContent, "/v1/subscriptions:testTemplate"},
+		// Dot segments, empty segments and backslashes never reach the router,
+		// so the consumer pin can't be escaped even if paths get cleaned later.
+		{http.MethodGet, "/portal/api/../other/webhooks", http.StatusForbidden, ""},
+		{http.MethodGet, "/portal/api/webhooks/../../other/webhooks", http.StatusForbidden, ""},
+		{http.MethodGet, "/portal/api/./webhooks", http.StatusForbidden, ""},
+		{http.MethodGet, "/portal/api/webhooks//x", http.StatusForbidden, ""},
+		{http.MethodGet, "/portal/api/..%5Cother", http.StatusForbidden, ""},
+		{http.MethodGet, "/portal/api/", http.StatusForbidden, ""},
+		{http.MethodGet, "/portal/api/webhooks/", http.StatusNoContent, "/v1/consumers/acme/webhooks/"},
 	}
 	for _, c := range cases {
 		*seen = ""

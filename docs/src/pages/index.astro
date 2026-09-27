@@ -396,8 +396,8 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
       <div class="sp-feature-row">
         <div class="sp-feature-text">
           <span class="sp-label">GET STARTED</span>
-          <h2>Docker Compose to production</h2>
-          <p>Two commands stand up Sparrow with PostgreSQL: download the Compose file, set an encryption keyring, and bring the stack up. Migrations run automatically on first boot.</p>
+          <h2>Two commands to try it</h2>
+          <p>Download the Compose file and bring it up. No clone, no secrets, no .env -- PostgreSQL included, migrations run automatically on first boot.</p>
           <div class="sp-hero-actions" style="margin-top:1.5rem">
             <a href={docsHome} class="sp-btn sp-btn-lg">Installation guide<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
           </div>
@@ -410,7 +410,7 @@ const githubURL = 'https://github.com/sarathsp06/sparrow';
             <div class="sp-terminal-body">
               <code><span class="sp-t-muted">$</span> curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml</code>
               <code></code>
-              <code><span class="sp-t-muted">$</span> echo "SPARROW_ENCRYPTION_KEYS=main=<span class="sp-t-str">$(openssl rand -hex 32)</span>" &gt; .env &amp;&amp; echo "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" &gt;&gt; .env &amp;&amp; docker compose up <span class="sp-t-flag">-d</span></code>
+              <code><span class="sp-t-muted">$</span> docker compose up <span class="sp-t-flag">-d</span></code>
               <code></code>
               <code><span class="sp-t-muted">Creating sparrow-postgres-1 ... done</span></code>
               <code><span class="sp-t-muted">Creating sparrow-sparrow-1  ... done</span></code>

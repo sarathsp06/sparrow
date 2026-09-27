@@ -1,8 +1,6 @@
 package webhooks
 
 import (
-	"fmt"
-	"net"
 	"net/url"
 	"strings"
 
@@ -13,13 +11,17 @@ import (
 // ValidateWebhookURL validates a webhook URL to prevent SSRF attacks.
 // It ensures the URL:
 //   - Uses http or https scheme only
-//   - Does not point to loopback, private, or link-local addresses
-//   - Does not target cloud metadata endpoints
 //   - Has a valid, non-empty host
+//   - Does not point to a destination the network policy forbids (loopback,
+//     private and link-local addresses by default; cloud metadata always,
+//     unless explicitly allowed)
+//
+// The delivery dialer re-checks every resolved address at connect time, so
+// this registration-time check is for early, actionable errors.
 //
 // All errors returned are *svcerrors.ServiceError with svcerrors.InvalidArgument,
-// so they propagate through toGRPCError to the client as actionable messages.
-func ValidateWebhookURL(rawURL string, allowPrivateNetworks bool) error {
+// so they propagate to the client as actionable messages.
+func ValidateWebhookURL(rawURL string, policy client.NetworkPolicy) error {
 	parsed, err := url.ParseRequestURI(rawURL)
 	if err != nil {
 		return svcerrors.Wrapf(err, svcerrors.InvalidArgument, "invalid URL: %v", err)
@@ -37,41 +39,29 @@ func ValidateWebhookURL(rawURL string, allowPrivateNetworks bool) error {
 		return svcerrors.Error(svcerrors.InvalidArgument, "URL must have a non-empty host")
 	}
 
-	// Skip network-level SSRF checks when private networks are allowed
-	// (self-hosted deployments, integration tests with httptest.NewServer)
-	if allowPrivateNetworks {
-		return nil
+	if err := policy.CheckHost(host); err != nil {
+		return svcerrors.Wrapf(err, svcerrors.InvalidArgument, "URL %s", err.Error())
 	}
-
-	// Check for IP addresses targeting internal networks
-	ip := net.ParseIP(host)
-	if ip != nil {
-		if err := client.ValidateIP(ip); err != nil {
-			return svcerrors.Wrapf(err, svcerrors.InvalidArgument, "%s", err.Error())
-		}
-	} else {
-		// It's a hostname — block well-known internal hostnames
-		lower := strings.ToLower(host)
-		if lower == "localhost" ||
-			lower == "metadata.google.internal" ||
-			strings.HasSuffix(lower, ".internal") ||
-			strings.HasSuffix(lower, ".local") {
-			return svcerrors.Errorf(svcerrors.InvalidArgument, "URL host %q is not allowed: internal/reserved hostname", host)
-		}
-
-		// Resolve the hostname and validate all resulting IPs.
-		// This prevents DNS-based SSRF where a public hostname resolves
-		// to a private IP.
-		ips, err := net.LookupIP(host)
-		if err != nil {
-			return svcerrors.Wrap(err, svcerrors.InvalidArgument, fmt.Sprintf("cannot resolve URL host %q", host))
-		}
-		for _, resolved := range ips {
-			if err := client.ValidateIP(resolved); err != nil {
-				return svcerrors.Wrap(err, svcerrors.InvalidArgument, fmt.Sprintf("URL host %q resolves to blocked address: %v", host, err))
-			}
-		}
-	}
-
 	return nil
+}
+
+// validateHeaders checks custom delivery headers (see client.ValidateHeaders)
+// and reports problems as InvalidArgument.
+func validateHeaders(field string, headers map[string]string) error {
+	if err := client.ValidateHeaders(field, headers); err != nil {
+		return svcerrors.Wrap(err, svcerrors.InvalidArgument, err.Error())
+	}
+	return nil
+}
+
+// stringHeaders keeps the string-valued entries of a JSON header map (the
+// only ones delivered).
+func stringHeaders(h map[string]any) map[string]string {
+	out := make(map[string]string, len(h))
+	for k, v := range h {
+		if s, ok := v.(string); ok {
+			out[k] = s
+		}
+	}
+	return out
 }

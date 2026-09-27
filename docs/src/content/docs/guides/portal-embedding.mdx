@@ -48,7 +48,7 @@ browser is a token that can touch one consumer and nothing more.
    requests — it stays out of your proxy's and Sparrow's access logs.
 4. **The browser loads the portal through your proxy.** The HTML and JS
    bundle come from Sparrow via the forwarded routes. Portal HTML is served
-   *without* the injected admin key (unlike the admin dashboard).
+   *without* the admin API key (neither the portal nor the dashboard receives it).
 5. **The portal calls the API through the same proxy**, under the single
    `/portal/api/` prefix, sending `Authorization: Bearer <token>` on every
    request. Sparrow's portal gateway verifies the HMAC signature, key ID, and expiry

@@ -73,7 +73,7 @@ endpoints:
 `listen` is the one command with a receiving side. Its technical path:
 
 ```
-1. bind a local TCP port (random unless --port)
+1. bind a local TCP port (random unless --port; bind address: --bind, default all interfaces)
 2. POST /v1/consumers/{consumer}/webhooks
      url = --public-url, default http://host.docker.internal:<port>
      → response contains the webhook secret (shown once)
@@ -81,14 +81,20 @@ endpoints:
      - verify the Standard Webhooks headers (webhook-id, webhook-timestamp,
        webhook-signature) against that secret — HMAC-SHA256 over
        "{id}.{timestamp}.{body}"
+     - unsigned or mis-signed requests get 401 and are never forwarded
+     - request bodies are capped at 5 MiB
      - pretty-print headers + body, or proxy to --forward and mirror its status
 4. Ctrl-C → DELETE the temporary webhook
 ```
 
+`--bind` controls the listen address: the default is all interfaces (so a
+Dockerized server can reach it); use `--bind 127.0.0.1` for loopback only.
+
 Because the server delivers *to* the CLI here, the server must be allowed to
 reach your machine: the `host.docker.internal` default covers a Dockerized
-server on the same host (with `SPARROW_ALLOW_PRIVATE_NETWORKS=true`); use
-`--public-url` with a tunnel for a remote server.
+server on the same host (with `SPARROW_ALLOW_PRIVATE_NETWORKS=true` or the
+local evaluation Compose file); use `--public-url` with a tunnel for a remote
+server.
 
 ## Configuration
 
@@ -159,20 +165,30 @@ secret via the Standard Webhooks headers). The webhook is deleted on Ctrl-C.
 ```bash
 sparrow listen --event order.created --event order.cancelled
 sparrow listen --event order.created --port 9099
+sparrow listen --event order.created --bind 127.0.0.1          # loopback only
 sparrow listen --event order.created --forward http://localhost:3000/hooks   # proxy to your app, mirror its status
 sparrow listen --event order.created --public-url https://my-tunnel.example  # e.g. an ngrok/cloudflared tunnel
 ```
+
+Only deliveries signed with the temporary webhook's secret are accepted;
+unsigned or mis-signed requests get `401` and are never forwarded with
+`--forward`. Request bodies are capped at 5 MiB.
+
+`--bind` controls the listen address (default: all interfaces, so a Dockerized
+server can reach it). Use `--bind 127.0.0.1` for loopback only.
 
 **Local-dev caveats:**
 
 - Without `--public-url`, the webhook is registered as
   `http://host.docker.internal:<port>` — this assumes the Sparrow server runs
   in Docker on the same machine (Docker Desktop resolves
-  `host.docker.internal` to your host). If the server runs directly on the
-  host, pass `--public-url http://localhost:<port>`.
+  `host.docker.internal` to your host; the local evaluation Compose file
+  maps it on Linux too). If the server runs directly on the host, pass
+  `--public-url http://localhost:<port>`.
 - Sparrow **blocks private-network delivery URLs by default** (SSRF guard).
   For local receivers, start the server with
-  `SPARROW_ALLOW_PRIVATE_NETWORKS=true`.
+  `SPARROW_ALLOW_PRIVATE_NETWORKS=true` (the local evaluation Compose file
+  already sets this).
 
 ### `sparrow recipes`
 
@@ -322,7 +338,7 @@ The `sparrow` CLI isn't just an administrative tool — it accelerates developer
 sparrow listen --event user.signup --forward http://localhost:3000/api/webhooks
 ```
 
-**How it works:** `sparrow listen` binds a local port, registers a temporary webhook on the Sparrow server pointing to your machine, verifies incoming Standard Webhooks signatures on the fly, proxies the body to your app, and cleans up the temporary webhook when you hit `Ctrl-C`.
+**How it works:** `sparrow listen` binds a local port, registers a temporary webhook on the Sparrow server pointing to your machine, verifies incoming Standard Webhooks signatures on the fly (unsigned requests are rejected with `401` and never forwarded), proxies the body to your app, and cleans up the temporary webhook when you hit `Ctrl-C`. Use `--bind 127.0.0.1` to restrict the listener to loopback only.
 
 ### Scenario 2: CI/CD Pipeline Automation & Deployment Notifications
 **Goal:** Trigger downstream workflows or notify monitoring systems whenever a continuous integration build or production release succeeds.

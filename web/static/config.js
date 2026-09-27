@@ -3,7 +3,7 @@
 // Only needed when the UI is deployed on its own (a static site on a different
 // host than the Sparrow server). Edit this file on the static host — no rebuild
 // required. When the Sparrow server serves the UI itself (SPARROW_SERVE_UI=true)
-// leave it as is: the server injects its own config after this file loads.
+// leave it as is: the UI talks to the same origin and asks you to sign in.
 //
 //   apiUrl  Absolute URL of the Sparrow server, e.g. "https://sparrow-api.example.com".
 //           Overrides PUBLIC_API_URL baked in at build time. Also add the UI's

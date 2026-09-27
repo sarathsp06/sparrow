@@ -92,7 +92,13 @@ func (s *WebhookService) RegisterWebhook(ctx context.Context, consumer string, e
 	if url == "" {
 		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "URL is required")
 	}
-	if err := ValidateWebhookURL(url, s.allowPrivateNetworks); err != nil {
+	if err := ValidateWebhookURL(url, s.networkPolicy); err != nil {
+		return "", time.Time{}, err
+	}
+	if err := validateHeaders("headers", headers); err != nil {
+		return "", time.Time{}, err
+	}
+	if err := validateHeaders("secret_headers", secretHeaders); err != nil {
 		return "", time.Time{}, err
 	}
 	if len(events) > 0 {
@@ -210,7 +216,13 @@ func (s *WebhookService) CreateWebhook(ctx context.Context, req WebhookRegistrat
 	}
 
 	// Validate webhook URL against SSRF
-	if err := ValidateWebhookURL(req.URL, s.allowPrivateNetworks); err != nil {
+	if err := ValidateWebhookURL(req.URL, s.networkPolicy); err != nil {
+		return nil, err
+	}
+	if err := validateHeaders("headers", stringHeaders(req.Headers)); err != nil {
+		return nil, err
+	}
+	if err := validateHeaders("secret_headers", req.SecretHeaders); err != nil {
 		return nil, err
 	}
 
@@ -575,12 +587,15 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 		if normalizedURL == "" {
 			return svcerrors.Error(svcerrors.InvalidArgument, "URL is required")
 		}
-		if err := ValidateWebhookURL(normalizedURL, s.allowPrivateNetworks); err != nil {
+		if err := ValidateWebhookURL(normalizedURL, s.networkPolicy); err != nil {
 			return err
 		}
 		webhook.URL = normalizedURL
 	}
 	if shouldUpdate("headers") && headers != nil {
+		if err := validateHeaders("headers", headers); err != nil {
+			return err
+		}
 		webhook.Headers = headers
 	}
 	if shouldUpdate("active") {
@@ -671,6 +686,9 @@ func (s *WebhookService) UpdateWebhookConfig(ctx context.Context, webhookID stri
 	// Merge secret header updates into the existing encrypted map.
 	// Empty-string values remove a header; omitted keys stay untouched.
 	if shouldUpdate("secret_headers") {
+		if err := validateHeaders("secret_headers", secretHeaders); err != nil {
+			return err
+		}
 		mergedSecretHeaders, err := s.DecryptSecretHeaders(webhook.SecretHeaders)
 		if err != nil {
 			return fmt.Errorf("failed to decrypt existing secret headers: %w", err)

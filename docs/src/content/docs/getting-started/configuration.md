@@ -13,23 +13,22 @@ All configuration is done via environment variables. No config files needed.
 |----------|----------|---------|-------------|
 | `DATABASE_URL` | Yes | `postgres://localhost/riverqueue?sslmode=disable` (dev-only fallback) | PostgreSQL connection string |
 | `SPARROW_SERVE_UI` | No | `false` | Serve the embedded web dashboard on the HTTP port |
-| `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests |
+| `SPARROW_API_KEY` | No | -- | Require this key in `X-API-Key` header for all API requests. Must be at least 32 characters when `ENVIRONMENT=production` (the server refuses to start otherwise); shorter keys log a warning in other environments. Generate with `openssl rand -hex 32`. |
 | `SPARROW_ENCRYPTION_KEYS` | Yes | -- | Keyring entries as comma-separated `<key-id>=<64-char-hex-key>` pairs where each value is a cryptographically random 32-byte (256-bit) key hex-encoded to 64 chars (`key-id` chars: `A-Z`, `a-z`, `0-9`, `_`, `-`) |
 | `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Yes | -- | Which configured key ID is primary for new encryption |
 | `SPARROW_HTTP_PORT` | No | `8080` | HTTP listen port for the REST/OpenAPI API (also serves the web UI) |
-| `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow localhost/private IP addresses as webhook URLs. Enable for local development and testing |
+| `SPARROW_ALLOWED_NETWORKS` | No | -- | Comma-separated CIDRs or bare IPs (e.g. `10.20.0.0/16,fd12::/48`). Webhook deliveries may reach these networks in addition to public addresses; loopback, cloud metadata, and the rest of private space stay blocked. This is the recommended way to deliver to internal services on a VPN. Invalid entries fail startup. When an allowlist is set, `.internal` and `.local` hostnames are no longer blocked by name; their resolved addresses are checked instead. |
+| `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow all private IP addresses as webhook URLs (for local development and testing). Cloud metadata endpoints are still blocked; use `SPARROW_ALLOWED_NETWORKS` for targeted access in production. |
 | `ENVIRONMENT` | No | -- | Deployment tag; any value is accepted. Set to `production` to block cross-origin requests by default (see `CORS_ALLOWED_ORIGINS`) and tag logs/OTel; any other value behaves as development. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
 | `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of exact browser origins allowed to call the API (e.g. `https://ui.example.com,https://admin.example.com`; trailing slashes are ignored). Required when the UI is [hosted separately](/sparrow/deployment/separate-ui/). When unset: with `ENVIRONMENT=production` every cross-origin request is rejected; otherwise every origin is allowed (local development only). |
 | `SPARROW_MAX_BODY_BYTES` | No | `5242880` (5 MiB) | Maximum request body size in bytes. Minimum 1 MiB; larger bodies get `413`. |
 | `SPARROW_EVENT_RETENTION_DAYS` | No | `0` (keep forever) | Purge events — and, via cascade, their deliveries — older than this many days. Runs hourly in the background. |
-| `SPARROW_UI_INJECT_KEY` | No | `true` | When `true`, the embedded UI (`SPARROW_SERVE_UI=true`) gets `SPARROW_API_KEY` written into its pages so it works without signing in. Set `false` to make the UI show a sign-in prompt instead (a pasted master key is exchanged for a browser token, so the key is never stored). See [Access: Tokens and Invites](/sparrow/deployment/access/). |
-
 For a single-key deployment, still use the keyring format: `SPARROW_ENCRYPTION_KEYS=main=<64-char-hex-key>` with `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main`.
 
 ### Web UI Variables
 
-These configure the web UI, not the Go server. They matter only when the UI is **not** served by Sparrow itself, i.e. under `npm run dev` or when you [host the UI separately](/sparrow/deployment/separate-ui/). With `SPARROW_SERVE_UI=true` the UI uses the same origin and gets the API key from the server, so none of this applies.
+These configure the web UI, not the Go server. They matter only when the UI is **not** served by Sparrow itself, i.e. under `npm run dev` or when you [host the UI separately](/sparrow/deployment/separate-ui/). With `SPARROW_SERVE_UI=true` the embedded UI uses the same origin; when `SPARROW_API_KEY` is set it shows a sign-in prompt on the first `401`.
 
 | Setting | Where | Default | Description |
 |---------|-------|---------|-------------|
@@ -100,4 +99,4 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4318
 
 A default tenant (`00000000-0000-0000-0000-000000000001`) is auto-created on startup. All operations use this tenant. The tenant infrastructure is retained for future multi-tenant support.
 
-Authentication is optional -- set `SPARROW_API_KEY` to require a shared secret on all API requests. When unset, all endpoints are open (designed for internal deployments behind a VPN). The embedded dashboard is served without authentication and exposes the API key to any browser that can load it -- see [Securing Sparrow](/sparrow/deployment/security/) for the trust model, SSO via an identity-aware proxy, and a hardening checklist.
+Authentication is optional -- set `SPARROW_API_KEY` to require a shared secret on all API requests. When unset, all endpoints are open (designed for internal deployments behind a VPN). When `SPARROW_API_KEY` is set, the embedded dashboard shows a sign-in prompt on the first `401` -- see [Securing Sparrow](/sparrow/deployment/security/) for the trust model, SSO via an identity-aware proxy, and a hardening checklist.

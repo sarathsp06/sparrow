@@ -41,18 +41,14 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
-	if !config.AllowPrivateNetworks {
-		// SEC-002: Validate resolved IPs at connect time to prevent DNS
-		// rebinding attacks. This closes the TOCTOU gap between URL
-		// validation at webhook registration and actual delivery.
-		dialer.Control = ssrfDialControl
-	}
+	policy := config.Policy()
+	// SEC-002: Validate resolved IPs at connect time to prevent DNS
+	// rebinding attacks. This closes the TOCTOU gap between URL
+	// validation at webhook registration and actual delivery. It runs in
+	// every mode: even AllowPrivateNetworks keeps cloud metadata blocked.
+	dialer.Control = policy.dialControl
 
-	checkRedirect := ssrfSafeCheckRedirect // SEC-001: validate redirect targets against SSRF blocklist
-	if config.AllowPrivateNetworks {
-		// Still bound redirect count and schemes; skip IP validation.
-		checkRedirect = permissiveCheckRedirect
-	}
+	checkRedirect := policy.checkRedirect // SEC-001: validate redirect targets against the policy
 
 	transport := &http.Transport{
 		MaxIdleConns:        config.MaxIdleConns,

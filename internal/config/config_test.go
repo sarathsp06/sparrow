@@ -1,7 +1,6 @@
 package config
 
 import (
-	"os"
 	"strings"
 	"testing"
 )
@@ -24,7 +23,10 @@ func TestValidate(t *testing.T) {
 	}{
 		{"valid", func(c *Config) {}, ""},
 		{"production without api key", func(c *Config) { c.Environment = "production" }, "SPARROW_API_KEY"},
-		{"production with api key", func(c *Config) { c.Environment = "production"; c.APIKey = "k" }, ""},
+		{"production with short api key", func(c *Config) { c.Environment = "production"; c.APIKey = "k" }, "at least 32"},
+		{"production with api key", func(c *Config) { c.Environment = "production"; c.APIKey = strings.Repeat("k", 32) }, ""},
+		{"invalid allowed networks", func(c *Config) { c.AllowedNetworks = []string{"nope"} }, "SPARROW_ALLOWED_NETWORKS"},
+		{"valid allowed networks", func(c *Config) { c.AllowedNetworks = []string{"10.0.0.0/8", "fd00::1"} }, ""},
 		{"missing encryption keyring", func(c *Config) { c.EncryptionKeys = nil }, "SPARROW_ENCRYPTION_KEYS"},
 		{"legacy single encryption key no longer satisfies config", func(c *Config) {
 			c.EncryptionKeys = nil
@@ -91,22 +93,11 @@ func TestWarnings(t *testing.T) {
 	}
 }
 
-func TestUIInjectKeyDefaultsOn(t *testing.T) {
-	t.Setenv("SPARROW_UI_INJECT_KEY", "true") // registers the restore
-	_ = os.Unsetenv("SPARROW_UI_INJECT_KEY")
-	cfg, err := Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !cfg.UIInjectKey {
-		t.Fatal("SPARROW_UI_INJECT_KEY should default to true (existing setups keep working)")
-	}
-	t.Setenv("SPARROW_UI_INJECT_KEY", "false")
-	cfg, err = Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.UIInjectKey {
-		t.Fatal("SPARROW_UI_INJECT_KEY=false was ignored")
+func TestUIInjectKeyIsRetired(t *testing.T) {
+	t.Setenv("SPARROW_UI_INJECT_KEY", "true")
+	cfg := &Config{DatabaseURL: "postgres://localhost/db"}
+	w := cfg.Warnings()
+	if len(w) != 1 || !strings.Contains(w[0], "SPARROW_UI_INJECT_KEY") {
+		t.Fatalf("Warnings() with SPARROW_UI_INJECT_KEY set = %v, want one retirement notice", w)
 	}
 }

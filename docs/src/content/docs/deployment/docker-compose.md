@@ -1,42 +1,38 @@
 ---
-title: Docker Compose Deployment
-description: Deploy Sparrow with Docker Compose
+title: Docker Compose (Local)
+description: Try Sparrow locally with Docker Compose -- no clone, no secrets, no .env.
 ---
 
-The simplest way to run Sparrow. No need to clone the repo -- download the compose file and start it.
+The fastest way to try Sparrow on your own machine. No clone, no secrets, no `.env` needed.
+
+> [!NOTE]
+> This Compose file is for **local evaluation**, not production. The API is
+> open, the encryption key is a well-known all-zeros value, and the port is
+> bound to `127.0.0.1` only. For a real deployment, see
+> [Production Deployment](/sparrow/deployment/production/).
 
 ## Quick Start
 
 ```bash
 curl -O https://raw.githubusercontent.com/sarathsp06/sparrow/main/deploy/docker-compose.yml
-# 32 cryptographically random bytes, hex-encoded as 64 chars
-echo "SPARROW_ENCRYPTION_KEYS=main=$(openssl rand -hex 32)" > .env
-echo "SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" >> .env
 docker compose up -d
 ```
 
-On Windows PowerShell:
-
-```powershell
-"SPARROW_ENCRYPTION_KEYS=main=$(-join (1..32 | % { '{0:x2}' -f (Get-Random -Max 256) }))" | Out-File -Encoding ascii .env
-"SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main" | Out-File -Encoding ascii -Append .env
-docker compose up -d
-```
-
-> [!IMPORTANT]
-> `SPARROW_ENCRYPTION_KEYS` is never stored by Sparrow -- it only decrypts what
-> it already encrypted, and each key value should be a cryptographically random
-> 32-byte (256-bit) key hex-encoded as 64 characters.
-> it already encrypted. Writing it to `.env` (not passing it inline to a
-> single command) is required: an inline `KEY=$(openssl rand -hex 32) docker
-> compose up -d` generates a *new* random key on every invocation and
-> permanently orphans anything encrypted under the previous one. Back up
-> `.env` (or move the key into a secrets manager) before you rely on this
-> instance.
-
-The server is available at:
 - **Web UI:** http://localhost:8080
 - **REST API:** http://localhost:8080/v1
+- **API docs:** http://localhost:8080/docs
+
+SSRF protection is relaxed so webhooks can target services on your machine. Use `http://host.docker.internal:<port>` to reach the host from inside Docker (works on macOS, Windows, and Linux with the Compose file's `extra_hosts` mapping).
+
+### Trying authentication locally
+
+Uncomment `SPARROW_API_KEY` in the Compose file and restart:
+
+```bash
+docker compose up -d
+```
+
+The UI will show a **Sign in to Sparrow** prompt. Paste the key from the Compose file (`local-test-key`) to sign in. API calls now need `-H "X-API-Key: local-test-key"`. You can also try [access tokens and invites](/sparrow/deployment/access/).
 
 To stop:
 

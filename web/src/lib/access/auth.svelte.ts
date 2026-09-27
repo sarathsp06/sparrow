@@ -1,14 +1,13 @@
 // Operator-console credential state.
 //
 // The credential is one of:
-//   - window.__SPARROW_CONFIG__.apiKey: injected by the Go server when it
-//     serves the UI (SPARROW_UI_INJECT_KEY, on by default), or set in the
-//     standalone UI's /config.js.
+//   - window.__SPARROW_CONFIG__.apiKey: set by the operator in a standalone
+//     UI's /config.js (the Sparrow server never injects a key).
 //   - A stored credential (localStorage, remembered across restarts): an
 //     access token from an invite link, a token created when someone pasted
 //     the master key into the sign-in prompt, or whatever was pasted if the
 //     server cannot mint tokens.
-// A stored credential wins over the injected one: it is the more recent,
+// A stored credential wins over the config.js one: it is the more recent,
 // explicit choice.
 //
 // Tokens created for this browser (invite or master-key exchange) are

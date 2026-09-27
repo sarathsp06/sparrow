@@ -190,3 +190,13 @@ right fit for embedding.
   `localStorage`. A successful XSS attack on the Sparrow UI domain can
   exfiltrate it — same risk as the master key injection, but scoped to one
   user's token instead of the master key.
+
+## Amendment (2026-09-27)
+
+`SPARROW_UI_INJECT_KEY` has been removed. The server no longer writes
+`SPARROW_API_KEY` into the embedded UI's pages under any configuration.
+When `SPARROW_API_KEY` is set, the embedded UI always shows the sign-in
+prompt (a pasted master key is exchanged for a browser token). Setting
+`SPARROW_UI_INJECT_KEY` in the environment now has no effect; the server
+logs a deprecation warning if it is still present. Section 8 above
+describes the original design; this amendment supersedes it.

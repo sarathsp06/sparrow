@@ -64,7 +64,7 @@
 
 Optional auth via `SPARROW_API_KEY` env var. When set, every `/v1/*` request must include either the master key or a tenant-wide access token via `X-API-Key` or `Authorization: Bearer`. Consumer-scoped tokens are refused on `/v1` (403); they only work through the portal gateway `/portal/api/*`, pinned to their consumer. When `SPARROW_API_KEY` is unset, all endpoints are open. Excluded paths: `/health`, `/ready`, `/docs`, `/openapi`, UI catch-all. Implementation: `internal/middleware/auth.go` (replaced `apikey.go`).
 
-The embedded UI (`SPARROW_SERVE_UI=true`) gets the key injected at runtime via `window.__SPARROW_CONFIG__` when `SPARROW_UI_INJECT_KEY=true` (the default). Set `SPARROW_UI_INJECT_KEY=false` to show a sign-in prompt instead — a pasted master key is exchanged for a named browser token so the key is never stored. A separately hosted UI instead reads `apiUrl`/`apiKey` from its static `/config.js` (`web/static/config.js`) or, if the server requires a key and none is configured, prompts for a credential on the first 401 and stores it in `localStorage`.
+The embedded UI (`SPARROW_SERVE_UI=true`) is served exactly as built -- the server never writes `SPARROW_API_KEY` into the page. When `SPARROW_API_KEY` is set, the UI shows a sign-in prompt on the first 401: paste the master key (exchanged for a named browser token, never stored) or use an access token or invite link. A separately hosted UI reads `apiUrl`/`apiKey` from its static `/config.js` (`web/static/config.js`) or, if the server requires a key and none is configured, prompts for a credential on the first 401 and stores it in `localStorage`.
 
 ## HTTP Routing (chi)
 

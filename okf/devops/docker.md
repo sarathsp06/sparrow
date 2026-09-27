@@ -20,7 +20,7 @@ timestamp: 2026-06-22T00:00:00Z
 
 Two variants:
 - `docker-compose.dev.yml` — local dev with hot-reload, default dev encryption key
-- `deploy/docker-compose.yml` — standalone deployment, uses published image `ghcr.io/sarathsp06/sparrow:latest`
+- `deploy/docker-compose.yml` — local evaluation (open API, well-known encryption key, loopback-only port), uses published image `ghcr.io/sarathsp06/sparrow:latest`
 
 ## Citations
 
