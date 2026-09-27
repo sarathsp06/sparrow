@@ -53,14 +53,18 @@
 | `internal/webhooks/` | Business logic + store + queue workers |
 | `internal/webhooks/store/` | DB repository (sqlx, WithConn transaction pattern) |
 | `internal/webhooks/queue/` | River job types + workers |
-| `internal/middleware/` | API key auth, CORS, security headers |
+| `internal/middleware/` | Auth (master key + access tokens), CORS, portal gateway, security headers |
+| `internal/accessauth/` | Sparrow adapter for `pkg/access` (realm, scope, prefixes, lifetime rules) |
+| `pkg/access/` | Separate Go module — reusable token/invite library (memstore, pgstore, storetest, httpauth) |
 | `pkg/storage/` | DB abstractions, transaction helpers, error sentinels |
 | `pkg/crypto/` | Envelope encryption (AES-256-GCM) |
 | `pkg/errors/` | Error categories, service errors, retryability |
 
-## API Key Authentication
+## Authentication
 
-Optional shared-secret auth via `SPARROW_API_KEY` env var. When set, every `/v1/*` REST request must include `X-API-Key: <key>`. When unset, all endpoints are open. Excluded paths: `/health`, `/ready`, `/docs`, `/openapi`, UI catch-all. Uses constant-time comparison (`crypto/subtle`). The embedded UI gets the key injected at runtime via `window.__SPARROW_CONFIG__`. A separately hosted UI instead reads `apiUrl`/`apiKey` from its static `/config.js` (`web/static/config.js`) or, if the server requires a key and none is configured, prompts for it on the first 401 and stores it in `localStorage` (key `sparrow_api_key`).
+Optional auth via `SPARROW_API_KEY` env var. When set, every `/v1/*` request must include either the master key or a tenant-wide access token via `X-API-Key` or `Authorization: Bearer`. Consumer-scoped tokens are refused on `/v1` (403); they only work through the portal gateway `/portal/api/*`, pinned to their consumer. When `SPARROW_API_KEY` is unset, all endpoints are open. Excluded paths: `/health`, `/ready`, `/docs`, `/openapi`, UI catch-all. Implementation: `internal/middleware/auth.go` (replaced `apikey.go`).
+
+The embedded UI (`SPARROW_SERVE_UI=true`) gets the key injected at runtime via `window.__SPARROW_CONFIG__` when `SPARROW_UI_INJECT_KEY=true` (the default). Set `SPARROW_UI_INJECT_KEY=false` to show a sign-in prompt instead — a pasted master key is exchanged for a named browser token so the key is never stored. A separately hosted UI instead reads `apiUrl`/`apiKey` from its static `/config.js` (`web/static/config.js`) or, if the server requires a key and none is configured, prompts for a credential on the first 401 and stores it in `localStorage`.
 
 ## HTTP Routing (chi)
 
@@ -69,8 +73,9 @@ Optional shared-secret auth via `SPARROW_API_KEY` env var. When set, every `/v1/
 | `/v1/*` | Huma REST API | Yes | See `internal/rest/` — one file per resource |
 | `/docs`, `/openapi.*` | Huma-served Scalar UI + spec | No | Interactive API reference |
 | `GET /health`, `/ready` | Health check | No | JSON status |
-| `/portal/api/*` | Portal gateway (`internal/middleware/portal_gateway.go`) | Portal bearer token | Re-dispatches to `/v1` scoped to the token's consumer |
-| `POST /access-link/redeem` | One-time admin access links (`internal/accesslink`) | Link token | Returns the API key once; minted via `POST /v1/access-links` / `sparrow access-link create` |
+| `/v1/tokens`, `/v1/invites`, `/v1/whoami` | Access token/invite endpoints (`internal/rest/access.go`) | Yes | Under `/v1` — require master key or tenant-wide token |
+| `/portal/api/*` | Portal gateway (`internal/middleware/portal_gateway.go`) | Portal bearer or consumer token | Re-dispatches to `/v1` scoped to the token's consumer |
+| `POST /invite/redeem` | Invite redemption (`pkg/access/httpauth`) | No (invite is the credential) | Body `{"invite": "..."}` → token; `400 invalid_invite` for bad/used/expired/cancelled |
 | `* (NotFound)` | UI SPA | No | GET/HEAD → HTML; others → JSON 404 |
 
 Route-group middleware (API key auth) wraps only the `/v1/*` group (`r.Group` in `cmd/server/main.go`), not health, docs, or the UI.
@@ -140,12 +145,12 @@ huma.Register(api, huma.Operation{
 - Integration tests (`-tags integration`) use testcontainers — need Docker.
 - E2E tests (Gauge + Python) in `e2e/` — `uv run gauge run specs/`.
 - `make fmt` uses `goimports` with local module grouping — install `go install golang.org/x/tools/cmd/goimports@latest`.
-- The repo is a Go **workspace** (`go.work`): the CLI, `satellites/recipes`, and `pkg/{signature,template}` are separate modules. Root `./...` only tests the root module — `make test` lists the nested modules explicitly (`MODULE_TEST_PATHS`).
+- The repo is a Go **workspace** (`go.work`): the CLI, `satellites/recipes`, `pkg/{signature,template}`, and `pkg/access` are separate modules. Root `./...` only tests the root module — `make test` lists the nested modules explicitly (`MODULE_TEST_PATHS`).
 
 ## Release
 
 - Server + `sinks`/`sources` release under `vX.Y.Z`: `git tag vX.Y.Z && git push origin main --tags`.
-- The CLI (`satellites/sparrow`), `satellites/recipes`, and `pkg/signature`, `pkg/template` are **separate modules** (see `docs/adr/0002-cli-module-split.md`). They use path-prefixed tags (`pkg/signature/vX.Y.Z`, `satellites/recipes/vX.Y.Z`, `satellites/sparrow/vX.Y.Z`) and their working-tree `replace` lines must be stripped before tagging — `scripts/release-submodules.sh` automates it, full recipe in the ADR.
+- The CLI (`satellites/sparrow`), `satellites/recipes`, `pkg/signature`, `pkg/template`, and `pkg/access` are **separate modules** (see `docs/adr/0002-cli-module-split.md`). They use path-prefixed tags (`pkg/signature/vX.Y.Z`, `pkg/access/vX.Y.Z`, `satellites/recipes/vX.Y.Z`, `satellites/sparrow/vX.Y.Z`) and their working-tree `replace` lines must be stripped before tagging — `scripts/release-submodules.sh` automates it, full recipe in the ADR.
 - GoReleaser config at `.goreleaser.yml`; it builds every binary from the checkout via `replace`, so binary releases don't need the tag dance. Release notes are generated by GoReleaser from Conventional Commits (`feat:`/`fix:`/etc.), grouped in `.goreleaser.yml`'s `changelog:` block — no separate CHANGELOG file to maintain.
 - Conventional Commits (`feat:`, `fix:`, etc.) for clean release-note grouping.
 

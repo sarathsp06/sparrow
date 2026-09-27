@@ -234,22 +234,76 @@ sparrow push order.created -d @sample.json
 sparrow tail deliveries
 ```
 
-### `sparrow access-link create`
+### `sparrow tokens`
 
-Mints a one-time link that signs a browser into the web UI, so you can give
-someone admin access without pasting the API key into chat:
+Manage access tokens -- named, revocable credentials for people, CI, and
+services. A tenant-wide token (no `--consumer`) works exactly like
+`SPARROW_API_KEY` and never expires unless `--ttl` is given; a consumer token
+only works through the portal API, limited to that consumer. To give a person
+access to the web UI, prefer `sparrow invite` (next section).
+
+#### `sparrow tokens create`
 
 ```bash
-sparrow access-link create --ttl 15m
-sparrow access-link create --ttl 1h --ui-url https://sparrow.example.com   # UI hosted separately
+sparrow tokens create --name ci-deploy
+sparrow tokens create --name acme-sync --consumer acme --ttl 30d
+sparrow tokens create --name alice -o json
 ```
 
-Prints the link and its expiry. Opening it makes the UI exchange the link for
-the API key once and remember the key in that browser. The link stops working
-after first use, after `--ttl` (default 15 minutes, max 24 hours), or when
-`SPARROW_API_KEY` is rotated. `--ui-url` defaults to the server URL, which is
-right when the server serves the UI itself. Whoever opens the link holds the
-real API key, so only send it to people who should have admin access.
+Prints the secret once. Store it now -- it is not shown again. Send it as
+`X-API-Key` or `Authorization: Bearer`. Durations accept Go syntax plus a `d`
+suffix (e.g. `90d`, `12h`, `15m`). Tenant-wide tokens never expire by default;
+consumer tokens default to 7 days (max 30).
+
+#### `sparrow tokens list`
+
+```bash
+sparrow tokens list                # active tokens
+sparrow tokens list --all          # include revoked and expired
+sparrow tokens list -o json
+```
+
+Table columns: ID, NAME, ACCESS, CREATED BY, LAST USED, EXPIRES, STATUS.
+
+#### `sparrow tokens revoke`
+
+```bash
+sparrow tokens revoke <token-id>
+```
+
+The token stops working immediately on this server and within 30 seconds
+everywhere else. Revoking is permanent and idempotent.
+
+### `sparrow invite`
+
+Invite someone to the web UI (or a consumer's portal) with a one-time link:
+
+```bash
+sparrow invite alice
+sparrow invite "acme support" --consumer acme --ttl 7d
+sparrow invite bob --ttl 15m --ui-url https://sparrow.example.com
+sparrow invite carol --token-ttl 90d -o json
+```
+
+Opening the link creates a named access token for that browser, so nobody
+pastes a key into chat. The link works once, expires after `--ttl` (default
+24 hours, max 7 days), and can be cancelled with `sparrow invites cancel`. With
+`--consumer`, the link opens that consumer's portal instead of the operator
+console. `--ui-url` defaults to the server URL (right when the server serves
+the UI itself); pass the UI's address when it is
+[hosted separately](/sparrow/deployment/separate-ui/).
+
+### `sparrow invites`
+
+List or cancel pending invites:
+
+```bash
+sparrow invites list               # pending invites
+sparrow invites list --all         # include redeemed, cancelled, expired
+sparrow invites cancel <invite-id>
+```
+
+Table columns: ID, FOR, ACCESS, INVITED BY, EXPIRES, STATUS.
 
 ### `sparrow version`
 

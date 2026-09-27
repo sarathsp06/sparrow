@@ -1,32 +1,38 @@
 ---
 type: Go Package
 title: internal/middleware
-description: API key authentication, CORS, and security headers middleware for the REST API
-tags: [middleware, auth, cors, security]
-timestamp: 2026-08-29T00:00:00Z
+description: Authentication (master key + access tokens), CORS, portal gateway, and security headers middleware for the REST API
+tags: [middleware, auth, cors, security, tokens]
+timestamp: 2026-09-27T00:00:00Z
 ---
 
 # internal/middleware
 
-Provides optional API key authentication, CORS, and security headers for the HTTP server.
+Provides authentication (master key + access tokens), CORS, portal gateway, and security headers for the HTTP server.
 
-## APIKeyAuth
+## Auth
 
 ```go
-type APIKeyAuth struct {
-    APIKey               string
+type Auth struct {
+    Enabled              bool
+    Realm                string
+    Authn                *httpauth.Authenticator
     ExcludedPathPrefixes []string
 }
 ```
 
-When `SPARROW_API_KEY` is set, every `/v1/*` request must include the key via the `X-API-Key` header.
+Replaces the former `APIKeyAuth` (`apikey.go` is deleted). When `SPARROW_API_KEY` is set, every `/v1/*` request must include either the master key or a tenant-wide access token via `X-API-Key` or `Authorization: Bearer`. Consumer-scoped tokens are refused with 403 ("consumer-scoped tokens can only call the portal API under /portal/api/"). When auth is disabled, requests get an anonymous principal with root access.
 
-HTTP query-parameter keys are intentionally not accepted; URLs are commonly logged by proxies, stored in browser history, and leaked through referrers. Uses `crypto/subtle.ConstantTimeCompare` to prevent timing attacks. Excluded paths: `/health`, `/ready`, `/docs`, `/openapi`, UI catch-all.
+HTTP query-parameter keys are intentionally not accepted; URLs are commonly logged by proxies, stored in browser history, and leaked through referrers. Excluded paths: `/health`, `/ready`, `/docs`, `/openapi`, UI catch-all.
+
+## PortalVerifier
+
+`NewPortalVerifier(pt, svc, realm)` builds a verifier that accepts both stateless portal tokens (`spt_v2`, minted by `POST /v1/consumers/{c}/portal-token`) and consumer-scoped access tokens. Full-access tokens are rejected with `ErrPortalFullAccessToken` (they should use `/v1` instead). The portal gateway uses this to resolve a bearer credential to a consumer name.
 
 ## PortalGateway
 
 Serves the consumer portal API under one static public prefix, `/portal/api/`.
-It verifies the consumer-scoped bearer token (`PortalTokens.Verify`), derives
+It verifies the consumer-scoped bearer token (stateless portal token or consumer access token via `PortalVerifier`), derives
 the consumer from the token rather than the URL, maps `/portal/api/<rest>` to
 the real `/v1` route (`portalTarget`), marks the request pre-authorized, and
 re-dispatches into the main router so the existing handlers run unchanged.
@@ -36,7 +42,7 @@ allowlists a single API prefix with no per-consumer or deny rules, and
 cross-consumer access is structurally impossible. `portalTarget` refuses event
 injection (`POST events`) and token minting (`portal-token`), and allows the
 read-only global helpers the portal UI needs (event-type catalog, template
-functions, template dry-run). `APIKeyAuth.HTTPMiddleware` honors the
+functions, template dry-run). `Auth.HTTPMiddleware` honors the
 `PortalAuthorized(ctx)` flag the gateway sets, so portal traffic reuses the
 `/v1` handlers without the admin key.
 
@@ -61,11 +67,11 @@ Sets standard security headers:
 
 ## Citations
 
-- `internal/middleware/apikey.go`
+- `internal/middleware/auth.go`
 - `internal/middleware/portal.go`
 - `internal/middleware/portal_gateway.go`
 - `internal/middleware/portal_test.go`
-- `internal/middleware/apikey_test.go`
+- `internal/middleware/auth_test.go`
 - `internal/middleware/security_headers.go`
 - `internal/middleware/cors.go`
 - `internal/middleware/cors_test.go`

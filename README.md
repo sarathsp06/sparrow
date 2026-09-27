@@ -87,7 +87,7 @@ Open <http://localhost:8080> for the UI. The REST API is on the same address, an
 > [!IMPORTANT]
 > `SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` are required for data encrypted at rest. Use a cryptographically random 32-byte (256-bit) key encoded as 64 hex characters per key entry; `openssl rand -hex 32` is a suitable way to generate one. Store the key material in your secret manager and back it up. Lose it and encrypted webhook secrets are unrecoverable.
 
-If you set `SPARROW_API_KEY`, add `X-API-Key: <your-key>` to every API request. The embedded UI gets the key from the server automatically. To host the UI on its own domain instead, see [Hosting the UI separately](https://sarathsp06.github.io/sparrow/deployment/separate-ui/).
+If you set `SPARROW_API_KEY`, add `X-API-Key: <your-key>` to every API request. The embedded UI gets the key from the server automatically. For per-person credentials and one-time invite links instead of sharing the master key, see [Access: Tokens and Invites](https://sarathsp06.github.io/sparrow/deployment/access/). To host the UI on its own domain instead, see [Hosting the UI separately](https://sarathsp06.github.io/sparrow/deployment/separate-ui/).
 
 ## Local Development
 
@@ -195,7 +195,7 @@ Sparrow assumes you run it inside a network you control, then adds application-l
 - **Envelope encryption** — secrets and sensitive headers are encrypted with per-record data keys wrapped by the configured `SPARROW_ENCRYPTION_KEYS` keyring.
 - **Signed deliveries** — every request carries `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers in Standard Webhooks format.
 - **SSRF protection** — private, loopback, link-local, and cloud-metadata IPs are blocked by default, and redirects are re-validated.
-- **Optional shared-secret auth** — set `SPARROW_API_KEY` to require `X-API-Key` on API requests.
+- **Optional shared-secret auth** — set `SPARROW_API_KEY` to require `X-API-Key` on API requests. Per-person [access tokens and one-time invites](https://sarathsp06.github.io/sparrow/deployment/access/) let you stop sharing the master key.
 - **No default telemetry egress** — OpenTelemetry export is off unless you set `OTEL_EXPORTER_OTLP_ENDPOINT`.
 - **Proxy-friendly** — terminate TLS, SSO, and rate limiting at the reverse proxy; Sparrow stays a small HTTP service.
 
@@ -290,6 +290,7 @@ Everything is configured through environment variables.
 10. `CORS_ALLOWED_ORIGINS` — optional. Comma-separated browser origin allowlist. Required when the UI is [hosted separately](https://sarathsp06.github.io/sparrow/deployment/separate-ui/). Unset: all origins in development, none with `ENVIRONMENT=production`.
 11. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP endpoint for traces, metrics, and logs; export is off when unset.
 12. `SPARROW_EVENT_RETENTION_DAYS` — optional. Default: `0` (keep forever). Purges events and their deliveries older than N days; runs hourly.
+13. `SPARROW_UI_INJECT_KEY` — optional. Default: `true`. When `true`, the embedded UI gets `SPARROW_API_KEY` written into its pages so it works without signing in. Set `false` to show a sign-in prompt instead (see [Access: Tokens and Invites](https://sarathsp06.github.io/sparrow/deployment/access/)).
 
 For a single-key deployment, still use the keyring format: for example `SPARROW_ENCRYPTION_KEYS=main=<64-char-hex-key>` with `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main`.
 

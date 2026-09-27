@@ -13,19 +13,49 @@ Sparrow](/sparrow/deployment/security/).
 
 ## API Authentication
 
-A single static API key gates every inbound request -- simple on purpose,
-since Sparrow is a service-to-service webhook relay, not a multi-user
-product.
-
-The key travels in the `X-API-Key` header only, never a query parameter --
-URLs get logged by proxies, kept in browser history, and leaked via
-`Referer`. Key comparison is constant-time, so a wrong guess takes the same
-time regardless of how many characters match, defeating timing
-side-channel attacks.
+The master key (`SPARROW_API_KEY`) or a per-person access token gates every
+inbound `/v1` request. Credentials travel in `X-API-Key` or
+`Authorization: Bearer`, never a query parameter -- URLs get logged by
+proxies, kept in browser history, and leaked via `Referer`. Key and token
+comparison is constant-time, so a wrong guess takes the same time regardless
+of how many characters match, defeating timing side-channel attacks.
 
 Empty `SPARROW_API_KEY` disables auth entirely -- intentional for local dev.
 With `ENVIRONMENT=production`, the server refuses to boot without a key, so
 this can't ship silently misconfigured.
+
+### Access tokens
+
+Named, stored credentials that can be created, listed, and individually
+revoked. See [Access: Tokens and Invites](/sparrow/deployment/access/) for
+the operational guide; this section covers the implementation.
+
+- **Hashing.** Only a SHA-256 hash of the secret is stored. The plaintext is
+  returned once, in the creation response.
+- **Prefixes.** Sparrow tokens start with `sparrow_tk_`; invite secrets with
+  `sparrow_inv_`. The prefixes make leaked secrets easy to spot in log scans
+  and secret-scanning tools.
+- **Scopes.** A token is either tenant-wide (nil scope -- same power as the
+  master key) or pinned to one consumer (non-nil scope -- portal API only,
+  same allow-list as portal tokens). Consumer-scoped tokens get 403 on `/v1`;
+  full-access tokens get 403 on `/portal/api`.
+- **Cache.** Successful lookups are cached for 30 seconds to avoid hitting
+  the database on every request. Revocation clears the cache synchronously on
+  the revoking instance; other instances honour it when their cache entry
+  expires (within 30 seconds).
+- **`last_used_at`.** Updated at most once per minute per token to reduce
+  write load.
+- **401 reasons.** On failure, the JSON body includes a `reason` field:
+  `missing` (no credential), `invalid` (unknown key or token), `expired`,
+  or `revoked`.
+- **503 on DB outage.** If the token store is unreachable, the server returns
+  `503 Service Unavailable` with `Retry-After: 5`, not `401`. Browsers keep
+  their credential and retry. The master key (a root key checked in memory)
+  still works without the database.
+- **Invites.** A single-use, expiring secret redeemed at
+  `POST /invite/redeem` (no auth required -- the invite is the credential).
+  Redeeming creates a token; unknown, expired, cancelled, and used invites
+  all return `400 invalid_invite`.
 
 ### Portal tokens
 

@@ -1,9 +1,9 @@
 ---
 type: UI Component
 title: Frontend Components
-description: Reusable Svelte components for the web UI — tables, badges, dialogs, batch progress
-tags: [svelte, components, ui]
-timestamp: 2026-08-29T00:00:00Z
+description: Reusable Svelte components for the web UI — tables, badges, dialogs, batch progress, access/auth
+tags: [svelte, components, ui, access, auth]
+timestamp: 2026-09-27T00:00:00Z
 ---
 
 # Frontend Components
@@ -25,9 +25,30 @@ All under `web/src/lib/components/`.
 | `ConfirmDialog.svelte` | Confirmation modal |
 | `FloatingAction.svelte` | Floating action button |
 
+## Access Components
+
+Under `web/src/lib/access/`:
+
+| File | Purpose |
+|------|---------|
+| `auth.svelte.ts` | Reactive auth state; stores credential in `localStorage`; master-key-to-token exchange on sign-in |
+| `SignInPrompt.svelte` | Sign-in dialog (replaces former `ApiKeyPrompt.svelte`); accepts master key or token; shows reason on revoked/expired/wrong key |
+| `AccountBadge.svelte` | Sidebar badge: "Signed in as &lt;name&gt;" / "Authentication off", with sign-out button |
+| `client.ts` | Access API client (tokens CRUD, invites CRUD, whoami, redeem) |
+| `client.test.mjs` | Tests for access client |
+| `portal-invite.svelte.ts` | Portal invite redemption (`/portal#invite=...` fragment) |
+
+Under `web/src/routes/access/`:
+
+| File | Purpose |
+|------|---------|
+| `+page.svelte` | Access page in nav: token list with Revoke, pending invites with Cancel, Invite/Create token dialogs |
+
+Invite dialog: name, full access or one consumer's portal, link expiry (1h/24h/7d), access expiry. Create token: shows secret once. Sign-in prompt: on 401, exchanges a pasted master key for a named browser token so the key is never stored. `/#invite=<secret>` redeems an invite, stores the token, reloads without the fragment. Sign out: revokes the browser's own token and forgets it. `/portal#invite=<secret>` redeems a consumer invite and opens that consumer's portal.
+
 ## Service Layer
 
-`web/src/lib/services.ts` — creates a single typed REST client (`openapi-fetch`) against `/v1/*`, typed from the generated `api-types.d.ts`. Base URL and key come from `web/src/lib/runtime-config.ts` + `auth.svelte.ts`: `window.__SPARROW_CONFIG__` (`apiUrl`/`apiKey`, injected inline by the Go server for the embedded UI, or set in the static `/config.js` for a separately hosted UI) > `PUBLIC_API_URL` (build time) > same origin (`http://localhost:8080` under `vite dev`). On a `401` the layout shows `ApiKeyPrompt.svelte`; the typed key is stored in `localStorage` (`sparrow_api_key`) and wins over the injected one. Portal pages use a bearer token and rewrite `/v1/...` to `<apiBase>/portal/api/...`.
+`web/src/lib/services.ts` — creates a single typed REST client (`openapi-fetch`) against `/v1/*`, typed from the generated `api-types.d.ts`. Base URL and key come from `web/src/lib/runtime-config.ts` + `web/src/lib/access/auth.svelte.ts`: `window.__SPARROW_CONFIG__` (`apiUrl`/`apiKey`, injected inline by the Go server for the embedded UI, or set in the static `/config.js` for a separately hosted UI) > `PUBLIC_API_URL` (build time) > same origin (`http://localhost:8080` under `vite dev`). On a `401` the layout shows `SignInPrompt.svelte`; the credential (master key or access token) is stored in `localStorage` and wins over the injected one. A pasted master key is exchanged for a browser token. Portal pages use a bearer token and rewrite `/v1/...` to `<apiBase>/portal/api/...`.
 
 ## Citations
 

@@ -30,7 +30,8 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `SPARROW_API_KEY` | API key for auth, accepted via `X-API-Key`. **Required when `ENVIRONMENT=production`** (`Validate()` refuses to start without it); otherwise optional and all endpoints are open | — (open access) |
+| `SPARROW_API_KEY` | Master key for auth, accepted via `X-API-Key` or `Authorization: Bearer`. Also accepted: tenant-wide access tokens. **Required when `ENVIRONMENT=production`** (`Validate()` refuses to start without it); otherwise optional and all endpoints are open | — (open access) |
+| `SPARROW_UI_INJECT_KEY` | When `true`, the embedded UI gets `SPARROW_API_KEY` written into its pages. Set `false` to show a sign-in prompt instead (pasted master key is exchanged for a browser token) | `true` |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | Allow localhost/private IPs as webhook URLs | `false` |
 
 ## Observability

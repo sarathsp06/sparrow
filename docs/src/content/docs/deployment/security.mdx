@@ -26,7 +26,7 @@ Model](/sparrow/reference/security/) reference page.
 
 | Control | Mechanism |
 |---|---|
-| API authentication | Shared secret: `SPARROW_API_KEY` → `X-API-Key` header, constant-time compare; mandatory in production |
+| API authentication | `SPARROW_API_KEY` (master key) or per-person [access tokens](/sparrow/deployment/access/) → `X-API-Key` or `Authorization: Bearer` header; master key mandatory in production |
 | Secrets at rest | Envelope encryption (AES-256-GCM, per-record DEK) keyed by the `SPARROW_ENCRYPTION_KEYS` keyring |
 | Outbound signing | Standard Webhooks signatures (`v1` HMAC-SHA256, `v1a` Ed25519) on every delivery |
 | SSRF protection | Private/loopback/link-local/metadata IPs blocked at dial time; redirects re-validated |
@@ -34,7 +34,7 @@ Model](/sparrow/reference/security/) reference page.
 
 What it does **not** provide:
 
-- **User accounts.** There is one key. Everyone who has it is equally trusted.
+- **User accounts.** [Access tokens](/sparrow/deployment/access/) give each person and machine their own credential, but identity is possession-based — there are no accounts, passwords, or MFA.
 - **Tenant isolation via consumers.** Consumers organize resources; they are
   *not* a security boundary. Any valid API key can read and write every consumer.
 - **Rate limiting on the API.** Put a reverse proxy in front if you need it.
@@ -66,19 +66,22 @@ public-facing app:
 
 - The dashboard and its assets are served **without authentication** so the
   login-free UI works out of the box.
-- The dashboard needs the API key to call the API, and the server currently
-  injects it into the served HTML (`window.__SPARROW_CONFIG__`). **Anyone who
-  can load the dashboard can read the API key.** Enabling the UI on a network
-  segment is equivalent to sharing the API key with that segment.
-- A [separately hosted UI](/sparrow/deployment/separate-ui/) avoids the
-  injection: with no `apiKey` in its `config.js`, each operator types the key
-  once into a prompt and it stays in their browser. Run the server with
-  `SPARROW_SERVE_UI=false` so the API host serves no key-bearing page.
-- To hand the key to a teammate, send a one-time access link
-  (`sparrow access-link create --ttl 15m`) instead of the key itself. The link
-  lives in the URL fragment, so it never reaches server or proxy logs. It works
-  once, expires, and is invalidated by rotating `SPARROW_API_KEY`. It is a safer
-  way to share the key, not per-user access: whoever redeems it holds the key.
+- The dashboard needs the API key to call the API. By default
+  (`SPARROW_UI_INJECT_KEY=true`) the server injects `SPARROW_API_KEY` into the
+  served HTML (`window.__SPARROW_CONFIG__`). **Anyone who can load the
+  dashboard can read the API key.** Set `SPARROW_UI_INJECT_KEY=false` to
+  disable injection: the UI then shows a sign-in prompt instead. A pasted
+  master key is exchanged for a browser token so the master key is never stored.
+- A [separately hosted UI](/sparrow/deployment/separate-ui/) never gets the
+  key injected. With no `apiKey` in its `config.js`, each operator signs in
+  via the prompt or an invite link.
+- To give a teammate access, create an invite (`sparrow invite alice`) instead
+  of pasting the key into chat. The invite link lives in the URL fragment, so
+  it never reaches server or proxy logs. It works once, expires (default 24
+  hours, max 7 days), and creates a named token the invitee can use. The
+  invite can be cancelled before use; the resulting token can be revoked at any
+  time. See [Access: Tokens and Invites](/sparrow/deployment/access/) for the
+  full guide.
 
 Consequences:
 
@@ -142,9 +145,17 @@ A full worked example of the external topology — nginx and Express proxy
 configs, the mint flow, and the threat analysis — is in [Embedding the
 Consumer Portal](/sparrow/guides/portal-embedding/).
 
-Portal caveats: revocation is expiry-only (default 7 days, max 30 — mint
-shorter-lived tokens for sensitive consumers), and the token rides in the URL
-fragment, so anyone the link is forwarded to can use it until it expires.
+Portal caveats for stateless tokens: revocation is expiry-only (default 7 days,
+max 30 — mint shorter-lived tokens for sensitive consumers), and the token
+rides in the URL fragment, so anyone the link is forwarded to can use it until
+it expires.
+
+For individually revocable portal access, use **consumer-scoped access tokens**
+instead: `sparrow invite "acme support" --consumer acme` creates a one-time
+link that opens the portal and grants a named, revocable token. This is better
+for named individuals; stateless portal tokens remain the right choice for
+iframe embedding at scale (no DB row per page view). See [Access: Tokens and
+Invites](/sparrow/deployment/access/#consumer-portal-access).
 
 ## Recommended: SSO via an identity-aware proxy
 
@@ -242,6 +253,14 @@ Whether or not you add SSO:
       you have any retention policy — the default keeps events forever.
 - [ ] Terminate TLS and apply rate limiting at a reverse proxy; Sparrow serves
       plain HTTP.
+- [ ] Set `SPARROW_UI_INJECT_KEY=false` when the embedded UI is reachable by
+      untrusted users — this stops the master key from being written into the
+      served HTML.
+- [ ] Give people and CI jobs their own [access tokens](/sparrow/deployment/access/)
+      instead of sharing `SPARROW_API_KEY`. Use invites for people, direct
+      token creation for machines.
+- [ ] Revoke tokens when someone leaves or a machine credential is retired
+      (`sparrow tokens revoke <id>` or `DELETE /v1/tokens/{id}`).
 - [ ] Keep `/health`, `/ready`, `/docs`, and `/openapi.*` in mind: they are
       intentionally unauthenticated. Restrict at the proxy if the OpenAPI spec
       is sensitive in your environment.

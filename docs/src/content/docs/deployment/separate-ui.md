@@ -92,11 +92,11 @@ SPARROW_SERVE_UI=false
 
 ## Authentication
 
-When the server has `SPARROW_API_KEY` set, the UI needs the key. Pick one of these options (1 and 3 combine well):
+When the server has `SPARROW_API_KEY` set, the UI needs a credential. Pick one of these options (1 and 3 combine well):
 
-1. **Prompt (default, recommended).** Leave `apiKey` out of `config.js`. On the first `401` the UI shows an **API key required** dialog. The key you enter is kept in that browser's `localStorage` and sent on every request. The **Forget API key** button in the sidebar removes it. If the stored key stops working (e.g. after a key rotation), the dialog opens again.
-2. **`apiKey` in `config.js`.** Nobody has to type anything, but anyone who can load the UI can read the key. This is the same trust model as the embedded UI (see [Security](/sparrow/deployment/security/)). Don't use it if you expose the consumer portal from the same host, because portal visitors can download `config.js` too.
-3. **One-time access link.** Run `sparrow access-link create --ttl 15m --ui-url https://sparrow.example.com` (or `POST /v1/access-links`) and send the printed link. Opening it signs that browser in the same way as the prompt, without the recipient ever seeing the key. Each link works once, expires after its TTL (default 15 minutes, max 24 hours), and dies when `SPARROW_API_KEY` is rotated. The UI exchanges it at `POST /access-link/redeem` on the server, which the CORS allowlist already covers.
+1. **Prompt (default, recommended).** Leave `apiKey` out of `config.js`. On the first `401` the UI shows a **Sign in to Sparrow** prompt. You can paste the master key or an access token. A pasted master key is exchanged for a browser token behind the scenes, so the master key is never stored in the browser. The sidebar shows "Signed in as &lt;name&gt;" with a **Sign out** button. If the stored credential stops working (revoked, expired, or key rotated), the prompt opens again with a clear message.
+2. **`apiKey` in `config.js`.** Nobody has to type anything, but anyone who can load the UI can read the key. This is the same trust model as the embedded UI (see [Security](/sparrow/deployment/security/)). `apiKey` may be the master key or a tenant-wide access token. Don't use it if you expose the consumer portal from the same host, because portal visitors can download `config.js` too.
+3. **One-time invite.** Run `sparrow invite alice --ui-url https://sparrow.example.com` (or `POST /v1/invites`) and send the printed link. Opening it redeems the invite and creates a named access token for that browser -- the recipient never sees the master key. Each link works once, expires after its TTL (default 24 hours, max 7 days), and can be cancelled with `sparrow invites cancel`. Consumer invites (`--consumer acme`) open the portal instead of the console. See [Access: Tokens and Invites](/sparrow/deployment/access/) for the full guide.
 4. **Authenticating proxy.** Put the UI and API behind a proxy that logs users in and adds `X-API-Key` itself (see [Security → auth proxy](/sparrow/deployment/security/)). Leave `apiKey` empty.
 
 ## Consumer portal
