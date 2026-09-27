@@ -183,7 +183,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 			attribute.String("delivery_id", args.DeliveryID),
 			attribute.String("webhook_id", args.WebhookID),
 			attribute.String("event_id", args.EventID),
-			attribute.String("url", webhook.URL),
+			attribute.String("url", client.RedactURL(webhook.URL)),
 			attribute.String("consumer", args.Consumer),
 			attribute.String("event", eventRecord.Event),
 		),
@@ -213,7 +213,7 @@ func (w *WebhookWorker) Work(ctx context.Context, job *river.Job[WebhookArgs]) e
 		return river.JobSnooze(pausedRecheckInterval)
 	}
 
-	log.InfoContext(ctx, "Processing webhook delivery", "event_id", args.EventID, "url", webhook.URL)
+	log.InfoContext(ctx, "Processing webhook delivery", "event_id", args.EventID, "url", client.RedactURL(webhook.URL))
 
 	// Rate limiting: check leaky bucket before sending.
 	// AcquireDeliverySlot atomically advances the bucket and returns the slot

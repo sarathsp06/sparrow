@@ -2,12 +2,17 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
+	"errors"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/sarathsp06/sparrow/pkg/template"
 )
@@ -18,8 +23,12 @@ type WebhookClient struct {
 	// noRedirectClient shares the transport but never follows redirects,
 	// used when a webhook has follow_redirects=false.
 	noRedirectClient *http.Client
-	tmpl             *template.TemplateEngine
-	config           *Config
+	// insecure* skip TLS certificate verification, used when a webhook has
+	// verify_ssl=false (trusted internal endpoints with self-signed certs).
+	insecureClient           *http.Client
+	insecureNoRedirectClient *http.Client
+	tmpl                     *template.TemplateEngine
+	config                   *Config
 }
 
 // NewWebhookClient creates a new webhook client
@@ -52,8 +61,16 @@ func NewWebhookClient(config *Config) *WebhookClient {
 		TLSHandshakeTimeout: 10 * time.Second,
 		DialContext:         dialer.DialContext,
 	}
+	insecureTransport := transport.Clone()
+	// #nosec G402 -- explicit per-webhook verify_ssl=false opt-in for
+	// self-signed internal endpoints; the default transport always verifies.
+	insecureTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
-	instrumented := otelhttp.NewTransport(transport)
+	instrumented := otelhttp.NewTransport(redactSpanURL{transport})
+	insecureInstrumented := otelhttp.NewTransport(redactSpanURL{insecureTransport})
+	noRedirect := func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
 	return &WebhookClient{
 		httpClient: &http.Client{
 			Transport:     instrumented,
@@ -61,11 +78,19 @@ func NewWebhookClient(config *Config) *WebhookClient {
 			CheckRedirect: checkRedirect,
 		},
 		noRedirectClient: &http.Client{
-			Transport: instrumented,
-			Timeout:   config.Timeout,
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
+			Transport:     instrumented,
+			Timeout:       config.Timeout,
+			CheckRedirect: noRedirect,
+		},
+		insecureClient: &http.Client{
+			Transport:     insecureInstrumented,
+			Timeout:       config.Timeout,
+			CheckRedirect: checkRedirect,
+		},
+		insecureNoRedirectClient: &http.Client{
+			Transport:     insecureInstrumented,
+			Timeout:       config.Timeout,
+			CheckRedirect: noRedirect,
 		},
 		tmpl:   template.NewTemplateEngine(),
 		config: config,
@@ -97,7 +122,12 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 	}
 
 	httpClient := c.httpClient
-	if !req.FollowRedirects {
+	switch {
+	case req.SkipTLSVerify && !req.FollowRedirects:
+		httpClient = c.insecureNoRedirectClient
+	case req.SkipTLSVerify:
+		httpClient = c.insecureClient
+	case !req.FollowRedirects:
 		httpClient = c.noRedirectClient
 	}
 
@@ -106,6 +136,14 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 	duration := time.Since(start)
 
 	if err != nil {
+		// *url.Error embeds the full request URL in its message ("Post
+		// \"https://…/<secret>\": …"), which then reaches logs and delivery
+		// records. Redact it in place; the error type and its wrapped cause
+		// are kept so error classification still works.
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			urlErr.URL = RedactURL(urlErr.URL)
+		}
 		return nil, duration, err
 	}
 
@@ -115,12 +153,42 @@ func (c *WebhookClient) Send(ctx context.Context, req *DeliveryRequest) (*http.R
 // Close shuts down the client
 func (c *WebhookClient) Close() error {
 	c.httpClient.CloseIdleConnections()
+	c.insecureClient.CloseIdleConnections()
 	return nil
 }
 
 // TransformPayload transforms the webhook payload using a template
 func (c *WebhookClient) TransformPayload(tmplStr string, data template.WebhookTemplateContext) ([]byte, error) {
 	return c.tmpl.TransformPayload(tmplStr, data)
+}
+
+// redactSpanURL runs inside the otelhttp transport and overwrites the span's
+// url.full attribute, which otelhttp records with the full path and query
+// (it strips only userinfo). Delivery spans would otherwise export webhook
+// secrets to the tracing backend.
+type redactSpanURL struct{ base http.RoundTripper }
+
+func (t redactSpanURL) RoundTrip(req *http.Request) (*http.Response, error) {
+	trace.SpanFromContext(req.Context()).SetAttributes(attribute.String("url.full", RedactURL(req.URL.String())))
+	return t.base.RoundTrip(req)
+}
+
+// RedactURL reduces a webhook URL to scheme and host for logs and traces.
+// Webhook URLs routinely carry secrets beyond userinfo: in the path (Slack's
+// /services/T…/B…/<secret>, Discord) or the query (?token=…), so everything
+// after the host is replaced with "/…". The webhook ID identifies the
+// endpoint in logs; the full URL stays available through the API.
+// Unparseable URLs are fully redacted rather than echoed.
+func RedactURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return "[redacted url]"
+	}
+	out := u.Scheme + "://" + u.Host
+	if (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
+		out += "/…"
+	}
+	return out
 }
 
 // ReadBody reads up to limit bytes of the response body using a pooled buffer,
