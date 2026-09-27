@@ -195,12 +195,14 @@ Sparrow assumes you run it inside a network you control, then adds application-l
 - **Envelope encryption** — secrets and sensitive headers are encrypted with per-record data keys wrapped by the configured `SPARROW_ENCRYPTION_KEYS` keyring.
 - **Signed deliveries** — every request carries `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers in Standard Webhooks format.
 - **SSRF protection** — private, loopback, link-local, and cloud-metadata IPs are blocked by default, and redirects are re-validated.
-- **Optional shared-secret auth** — set `SPARROW_API_KEY` to require `X-API-Key` on API requests. Per-person [access tokens and one-time invites](https://sarathsp06.github.io/sparrow/deployment/access/) let you stop sharing the master key.
+- **TLS verification** — deliveries verify the receiver's certificate. A webhook can opt out with `http_config.verify_ssl: false` for self-signed internal endpoints; SSRF checks still apply.
+- **Optional shared-secret auth** — set `SPARROW_API_KEY` to require a key on API requests. Per-person [access tokens and one-time invites](https://sarathsp06.github.io/sparrow/deployment/access/) let you stop sharing the master key, and each one can be revoked on its own.
+- **No secrets in logs or traces** — webhook URLs are reduced to scheme and host (`https://hooks.slack.com/…`) in logs, spans, and delivery errors, because URLs often carry tokens in the path or query.
 - **No default telemetry egress** — OpenTelemetry export is off unless you set `OTEL_EXPORTER_OTLP_ENDPOINT`.
 - **Proxy-friendly** — terminate TLS, SSO, and rate limiting at the reverse proxy; Sparrow stays a small HTTP service.
 
 > [!WARNING]
-> With `SPARROW_API_KEY` unset, anyone who can reach the port can use the API and dashboard. The embedded dashboard (`SPARROW_SERVE_UI=true`) is served without authentication and exposes the API key to any browser that can load it — treat it as trusted-network-only. On shared or internet-facing networks, set an API key and put Sparrow behind an authenticating proxy.
+> With `SPARROW_API_KEY` unset, anyone who can reach the port can use the API and dashboard. By default the embedded dashboard (`SPARROW_SERVE_UI=true`) gets the API key written into its pages, so any browser that can load it can read the key — treat it as trusted-network-only, or set `SPARROW_UI_INJECT_KEY=false` to make it ask people to sign in. On shared or internet-facing networks, set an API key and put Sparrow behind an authenticating proxy.
 
 Full details — trust model, SSO via an identity-aware proxy (Authentik, oauth2-proxy, Keycloak), and a hardening checklist: [Securing Sparrow](https://sarathsp06.github.io/sparrow/deployment/security/).
 
@@ -208,11 +210,9 @@ Full details — trust model, SSO via an identity-aware proxy (Authentik, oauth2
 
 Each delivery includes:
 
-| Header | Purpose |
-|---|---|
-| `webhook-id` | Stable message identifier |
-| `webhook-timestamp` | Unix timestamp used for replay protection |
-| `webhook-signature` | One or more space-delimited signatures |
+- `webhook-id` — stable message identifier.
+- `webhook-timestamp` — Unix timestamp, used for replay protection.
+- `webhook-signature` — one or more space-delimited signatures.
 
 Sparrow signs the exact message:
 
@@ -227,11 +227,9 @@ Signature formats:
 
 Helpers already live in the repo:
 
-| Language | Helper |
-|---|---|
-| Go | [`pkg/signature`](pkg/signature/signature.go) |
-| Python | [`client/verify/python/sparrow_verify.py`](client/verify/python/sparrow_verify.py) |
-| TypeScript / JavaScript | [`client/verify/js/sparrow-verify.ts`](client/verify/js/sparrow-verify.ts) |
+- **Go** — [`pkg/signature`](pkg/signature/signature.go)
+- **Python** — [`sparrow_verify.py`](client/verify/python/sparrow_verify.py)
+- **TypeScript / JavaScript** — [`sparrow-verify.ts`](client/verify/js/sparrow-verify.ts)
 
 ## Architecture
 
@@ -276,21 +274,41 @@ Use the Compose file in [`deploy/docker-compose.yml`](deploy/docker-compose.yml)
 
 Everything is configured through environment variables.
 
-`SPARROW_ENCRYPTION_KEYS` and `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` are required. Key IDs may contain only `A-Z`, `a-z`, `0-9`, `_`, and `-`.
+**Required**
 
-1. `DATABASE_URL` — **required**. Default: `postgres://localhost/riverqueue?sslmode=disable`. PostgreSQL connection string.
-2. `SPARROW_ENCRYPTION_KEYS` — **required**. Comma-separated keyring entries as `<key-id>=<64-char-hex-key>`, where each value is a cryptographically random 32-byte key hex-encoded to 64 chars.
-3. `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` — **required**. Which configured key ID is primary for new encryption.
-4. `SPARROW_API_KEY` — required only when `ENVIRONMENT=production`. Requires `X-API-Key` on API requests.
-5. `ENVIRONMENT` — optional. Set to `production` to enforce `SPARROW_API_KEY` at startup.
-6. `SPARROW_HTTP_PORT` — optional. Default: `8080`. HTTP listen port.
-7. `SPARROW_SERVE_UI` — optional. Default: `false`. Serves the embedded dashboard.
-8. `SPARROW_ALLOW_PRIVATE_NETWORKS` — optional. Default: `false`. Disables the private-network SSRF guard.
-9. `SPARROW_MAX_BODY_BYTES` — optional. Default: `5242880` (5 MiB). Max request body size; minimum 1 MiB; oversized bodies get `413`.
-10. `CORS_ALLOWED_ORIGINS` — optional. Comma-separated browser origin allowlist. Required when the UI is [hosted separately](https://sarathsp06.github.io/sparrow/deployment/separate-ui/). Unset: all origins in development, none with `ENVIRONMENT=production`.
-11. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP endpoint for traces, metrics, and logs; export is off when unset.
-12. `SPARROW_EVENT_RETENTION_DAYS` — optional. Default: `0` (keep forever). Purges events and their deliveries older than N days; runs hourly.
-13. `SPARROW_UI_INJECT_KEY` — optional. Default: `true`. When `true`, the embedded UI gets `SPARROW_API_KEY` written into its pages so it works without signing in. Set `false` to show a sign-in prompt instead (see [Access: Tokens and Invites](https://sarathsp06.github.io/sparrow/deployment/access/)).
+1. `DATABASE_URL` — PostgreSQL connection string.
+   The built-in fallback, `postgres://localhost/riverqueue?sslmode=disable`, is for local development only.
+2. `SPARROW_ENCRYPTION_KEYS` — the encryption keyring, as comma-separated `<key-id>=<64-char-hex-key>` entries.
+   Each key is a cryptographically random 32-byte value, hex-encoded (`openssl rand -hex 32`). Key IDs may contain only `A-Z`, `a-z`, `0-9`, `_`, and `-`.
+3. `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` — which key ID in the keyring encrypts new data.
+
+**Authentication and environment**
+
+4. `SPARROW_API_KEY` — the master API key. Optional, but required when `ENVIRONMENT=production`.
+   When set, API requests need it, or an [access token](https://sarathsp06.github.io/sparrow/deployment/access/), in `X-API-Key` or `Authorization: Bearer`.
+5. `ENVIRONMENT` — optional. Set to `production` to require `SPARROW_API_KEY` at startup and to block cross-origin requests unless `CORS_ALLOWED_ORIGINS` lists them.
+6. `CORS_ALLOWED_ORIGINS` — optional. Comma-separated browser origins allowed to call the API.
+   Required when the UI is [hosted separately](https://sarathsp06.github.io/sparrow/deployment/separate-ui/). When unset, every origin is allowed in development and none in production.
+
+**Server and UI**
+
+7. `SPARROW_HTTP_PORT` — optional. Default: `8080`. HTTP listen port.
+8. `SPARROW_SERVE_UI` — optional. Default: `false`. Serves the embedded dashboard on the same port.
+9. `SPARROW_UI_INJECT_KEY` — optional. Default: `true`.
+   When `true`, the embedded dashboard gets `SPARROW_API_KEY` written into its pages so it works without signing in. Set `false` to show a sign-in prompt instead (a pasted master key is swapped for a browser token).
+
+**Network and limits**
+
+10. `SPARROW_ALLOW_PRIVATE_NETWORKS` — optional. Default: `false`.
+    Allows loopback and private-network webhook targets (turns off the SSRF network checks).
+11. `SPARROW_MAX_BODY_BYTES` — optional. Default: `5242880` (5 MiB).
+    Maximum request body size, at least 1 MiB; larger bodies get `413`.
+12. `SPARROW_EVENT_RETENTION_DAYS` — optional. Default: `0` (keep forever).
+    Hourly purge of events, and their deliveries, older than this many days.
+
+**Observability**
+
+13. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP endpoint for traces, metrics, and logs. Export is off when unset.
 
 For a single-key deployment, still use the keyring format: for example `SPARROW_ENCRYPTION_KEYS=main=<64-char-hex-key>` with `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main`.
 
@@ -306,15 +324,20 @@ Satellites are companion tools that orbit the core — they use Sparrow, never r
 
 Adapters as config: a recipe is a YAML file pairing a destination URL with a transform template that Sparrow renders server-side per delivery. All shipped recipes are **embedded in the `sparrow` CLI binary** — `sparrow recipes` lists them, `sparrow use <name> --param ... --event ...` applies one from anywhere (use `--file` or `SPARROW_RECIPES_DIR` for your own) — and you get retries, signing, and delivery tracking for free, no glue service to run.
 
-| Recipe | Destination | Params |
-|---|---|---|
-| [`slack`](satellites/recipes/slack.yaml) | Slack incoming webhook (Block Kit message) | `webhook_url` |
-| [`discord`](satellites/recipes/discord.yaml) | Discord channel webhook (embed) | `webhook_url` |
-| [`ntfy`](satellites/recipes/ntfy.yaml) | ntfy topic (push notification) | `topic_url` |
-| [`pagerduty`](satellites/recipes/pagerduty.yaml) | PagerDuty Events API v2 (deduped alerts) | `routing_key` |
-| [`clickhouse`](satellites/recipes/clickhouse.yaml) | ClickHouse HTTP insert (one row per delivery) | `base_url`, `table`, `user`, `password` |
-| [`twilio`](satellites/recipes/twilio.yaml) | Twilio SMS (Messages API) | `account_sid`, `basic_auth`, `from_number`, `to_number` |
-| [`sendgrid`](satellites/recipes/sendgrid.yaml) | SendGrid Mail Send API (transactional email) | `api_key`, `from_email`, `from_name` |
+1. [`slack`](satellites/recipes/slack.yaml) — Slack incoming webhook (Block Kit message).
+   Params: `webhook_url`.
+2. [`discord`](satellites/recipes/discord.yaml) — Discord channel webhook (embed).
+   Params: `webhook_url`.
+3. [`ntfy`](satellites/recipes/ntfy.yaml) — ntfy topic (push notification).
+   Params: `topic_url`.
+4. [`pagerduty`](satellites/recipes/pagerduty.yaml) — PagerDuty Events API v2 (deduplicated alerts).
+   Params: `routing_key`.
+5. [`clickhouse`](satellites/recipes/clickhouse.yaml) — ClickHouse HTTP insert (one row per delivery).
+   Params: `base_url`, `table`, `user`, `password`.
+6. [`twilio`](satellites/recipes/twilio.yaml) — Twilio SMS (Messages API).
+   Params: `account_sid`, `basic_auth`, `from_number`, `to_number`.
+7. [`sendgrid`](satellites/recipes/sendgrid.yaml) — SendGrid Mail Send API (transactional email).
+   Params: `api_key`, `from_email`, `from_name`.
 
 Recipe credentials that map to HTTP headers (Twilio `basic_auth`, ClickHouse `password`, SendGrid `api_key`) are stored as **envelope-encrypted secret headers** and masked in every API response. PagerDuty's `routing_key` is part of the request body the API requires, so it lives in the transform template.
 

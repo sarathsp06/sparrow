@@ -15,15 +15,20 @@ sparrow use slack --param webhook_url=https://hooks.slack.com/services/T000/B000
 
 ## Included recipes
 
-| Recipe | Destination | Params |
-|---|---|---|
-| `slack` | Slack incoming webhook (Block Kit message) | `webhook_url` |
-| `discord` | Discord channel webhook (embed) | `webhook_url` |
-| `ntfy` | ntfy topic (plain-text push notification) | `topic_url` |
-| `pagerduty` | PagerDuty Events API v2 (trigger alert) | `routing_key` |
-| `clickhouse` | ClickHouse HTTP interface (JSONEachRow insert) | `base_url`, `table`, `user`, `password` |
-| `twilio` | Twilio SMS (Messages API) | `account_sid`, `basic_auth`, `from_number`, `to_number` |
-| `sendgrid` | SendGrid v3 Mail Send (per-recipient personalizations) | `api_key`, `from_email`, `from_name` |
+1. `slack` — Slack incoming webhook (Block Kit message).
+   Params: `webhook_url`.
+2. `discord` — Discord channel webhook (embed).
+   Params: `webhook_url`.
+3. `ntfy` — ntfy topic (plain-text push notification).
+   Params: `topic_url`.
+4. `pagerduty` — PagerDuty Events API v2 (trigger alert).
+   Params: `routing_key`.
+5. `clickhouse` — ClickHouse HTTP interface (JSONEachRow insert).
+   Params: `base_url`, `table`, `user`, `password`.
+6. `twilio` — Twilio SMS (Messages API).
+   Params: `account_sid`, `basic_auth`, `from_number`, `to_number`.
+7. `sendgrid` — SendGrid v3 Mail Send (per-recipient personalizations).
+   Params: `api_key`, `from_email`, `from_name`.
 
 ## Schema (version 1)
 
@@ -62,13 +67,11 @@ spaces or pipes. The substituted `transform_template` is then registered
 verbatim on the subscription; Sparrow renders it per delivery with this
 context:
 
-| Key | Meaning |
-|---|---|
-| `.event_id` | Event id |
-| `.event_name` | Event type name |
-| `.timestamp` | Delivery time, RFC3339 |
-| `.attempt` | Delivery attempt number (1-based) |
-| `.payload` | The event payload (`map[string]any`) |
+- `.event_id` — event id.
+- `.event_name` — event type name.
+- `.timestamp` — delivery time, RFC 3339.
+- `.attempt` — delivery attempt number (1-based).
+- `.payload` — the event payload (`map[string]any`).
 
 Template helpers include `json`, `upper`, `lower`, `printf`, `ellipsis`, and
 more — `GET /v1/template-functions` lists them all. Events (`--event`,
