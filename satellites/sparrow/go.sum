@@ -4,6 +4,12 @@ github.com/hashicorp/golang-lru/v2 v2.0.7/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyf
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
+github.com/sarathsp06/sparrow/pkg/signature v0.5.17 h1:suwqr02SQq9T24YJvUyRc+cr8kGrQZe8zW/0CZiorUs=
+github.com/sarathsp06/sparrow/pkg/signature v0.5.17/go.mod h1:lAEXsRWaOV7coW30k3lffeWbTECCt4Kb2syHmFE/sm8=
+github.com/sarathsp06/sparrow/pkg/template v0.5.17 h1:apijP8jiggC9ZwU7SL0OnyLianHZr4ItV+gvCcsSGoc=
+github.com/sarathsp06/sparrow/pkg/template v0.5.17/go.mod h1:Gg6XMs8GQuJLxSTcXVGSdx3E5exu9wAc77VPE9Kp+QE=
+github.com/sarathsp06/sparrow/satellites/recipes v0.5.17 h1:lsRW5w9X8/IBcqEh22JsUE1OmcaSGoIx6cPvSHdZwU8=
+github.com/sarathsp06/sparrow/satellites/recipes v0.5.17/go.mod h1:HWZzEjOVydJ0FaaoujOVmfSvzhJrbw3s6TQ/pBolS6w=
 github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=
 github.com/spf13/cobra v1.10.2/go.mod h1:7C1pvHqHw5A4vrJfjNwvOdzYu0Gml16OCs2GRiTUUS4=
 github.com/spf13/pflag v1.0.9/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
