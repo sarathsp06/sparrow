@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/v1/access-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a one-time link that signs a browser into the UI
+         * @description Creates a signed, single-use, expiring link for sharing admin access to the web UI without pasting the API key anywhere. Opening the link makes the UI exchange its token for the API key once (POST /access-link/redeem) and remember it in that browser. Links are invalidated by use, by expiry, and by rotating SPARROW_API_KEY. Whoever redeems a link holds the real API key. Requires the admin API key; fails with 409 when the server has no SPARROW_API_KEY.
+         */
+        post: operations["createAccessLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/consumers/{consumer}/alert-configs": {
         parameters: {
             query?: never;
@@ -988,6 +1008,23 @@ export interface components {
              */
             total_webhooks: number;
         };
+        CreateAccessLinkOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateAccessLinkOutputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: date-time
+             * @description When the link stops working if it has not been used.
+             */
+            expires_at: string;
+            /** @description UI-relative link with the token in the fragment (never sent to the server or logged). Prepend the base URL the UI is served from and send it to the person who needs access. */
+            path: string;
+            /** @description One-time token. The UI exchanges it for the API key at POST /access-link/redeem. */
+            token: string;
+        };
         CreateAlertConfigBody: {
             /**
              * Format: uri
@@ -1879,6 +1916,65 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    createAccessLink: {
+        parameters: {
+            query?: {
+                /** @description Link lifetime in seconds. Defaults to 15 minutes, capped at 24 hours. */
+                ttl_seconds?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateAccessLinkOutputBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     listAlertConfigs: {
         parameters: {
             query?: {

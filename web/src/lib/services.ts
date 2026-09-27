@@ -1,4 +1,5 @@
 import { dev } from "$app/environment";
+import { replaceState } from "$app/navigation";
 import { env } from "$env/dynamic/public";
 import createClient from "openapi-fetch";
 import type { paths } from "./api-types";
@@ -81,6 +82,44 @@ if (portal) {
   });
 }
 api.use(apiLogMiddleware);
+
+// One-time access link: /#access=<token> (minted with POST /v1/access-links or
+// `sparrow access-link create`). Exchange the token for the API key once,
+// remember the key like one typed into the prompt, and continue on the same
+// page without the token. The token lives in the fragment, so it never
+// reaches server logs.
+//
+// SvelteKit's router re-records the initial URL (fragment included) when it
+// starts, so the fragment is dropped with a real navigation on success and
+// with the router's own replaceState on failure — plain history.replaceState
+// would be undone and a reload would redeem the link a second time.
+async function redeemAccessLink(token: string) {
+  auth.beginRedeem();
+  const clean = location.pathname + location.search;
+  try {
+    const res = await fetch(`${apiBase}/access-link/redeem`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const body = (await res.json().catch(() => ({}))) as { api_key?: string };
+    if (!res.ok || !body.api_key) throw new Error(`status ${res.status}`);
+    auth.save(body.api_key);
+    location.replace(clean); // full load without the fragment
+  } catch {
+    try {
+      replaceState(clean, {});
+    } catch {
+      history.replaceState(history.state, "", clean);
+    }
+    auth.failRedeem("This access link is invalid, expired, or has already been used. Ask for a new one, or enter the API key.");
+  }
+}
+
+if (!portal && typeof window !== "undefined") {
+  const token = window.location.hash.match(/(?:^#|[#&])access=([^&]+)/)?.[1];
+  if (token) void redeemAccessLink(decodeURIComponent(token));
+}
 
 
 /**

@@ -17,6 +17,7 @@ import (
 	slogotel "github.com/remychantenay/slog-otel"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/sarathsp06/sparrow/internal/accesslink"
 	"github.com/sarathsp06/sparrow/internal/config"
 	"github.com/sarathsp06/sparrow/internal/health"
 	"github.com/sarathsp06/sparrow/internal/middleware"
@@ -167,6 +168,10 @@ func main() {
 	// Minted via POST .../portal-token (admin).
 	portalTokens := middleware.NewPortalTokensFromKeyring(encKeyring)
 
+	// One-time links that hand the admin API key to a browser (minted via
+	// POST /v1/access-links, redeemed once by the UI). Inert without SPARROW_API_KEY.
+	accessLinks := accesslink.New(encKeyring, cfg.APIKey, accesslink.PostgresClaims{DB: sqlxDB})
+
 	// Configure optional API key authentication.
 	// When SPARROW_API_KEY is set, all /v1 requests must include the key via
 	// the X-API-Key header. Health/ready, the OpenAPI docs/spec, and static UI
@@ -242,8 +247,12 @@ func main() {
 	// operation plus /openapi.{json,yaml} and the Scalar reference at /docs.
 	r.Group(func(r chi.Router) {
 		r.Use(apiKeyAuth.HTTPMiddleware)
-		rest.Mount(r, tracedWebhookService, portalTokens)
+		rest.Mount(r, tracedWebhookService, portalTokens, accessLinks)
 	})
+
+	// One-time admin access links: the token in the link is the credential,
+	// so redeeming it sits outside the API-key-protected /v1 group.
+	r.Post(accesslink.RedeemPath, accessLinks.RedeemHandler().ServeHTTP)
 
 	// Consumer portal API — one static public prefix. The gateway verifies the
 	// consumer-scoped bearer token, maps /portal/api/<rest> to its real /v1

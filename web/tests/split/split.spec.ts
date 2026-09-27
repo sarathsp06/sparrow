@@ -143,3 +143,53 @@ test('the embedded UI on the same server gets the key injected (no prompt)', asy
   await expectWebhookListed(page, url, consumer);
   await expect(page.getByRole('dialog', { name: 'API key required' })).toHaveCount(0);
 });
+
+async function mintAccessLink(ttlSeconds = 900) {
+  const res = await admin.post(`/v1/access-links?ttl_seconds=${ttlSeconds}`);
+  expect(res.status(), await res.text()).toBe(201);
+  return (await res.json()) as { token: string; path: string; expires_at: string };
+}
+
+test('access link redeem endpoint is single use and needs no API key', async () => {
+  const { token } = await mintAccessLink();
+  const anon = await playwrightRequest.newContext({ baseURL: API });
+  const first = await anon.post('/access-link/redeem', { data: { token } });
+  expect(first.status()).toBe(200);
+  expect(await first.json()).toEqual({ api_key: KEY });
+  expect(first.headers()['cache-control']).toBe('no-store');
+
+  const again = await anon.post('/access-link/redeem', { data: { token } });
+  expect(again.status()).toBe(401);
+  expect(await again.text()).not.toContain(KEY);
+  await anon.dispose();
+});
+
+test('minting an access link requires the API key', async () => {
+  const anon = await playwrightRequest.newContext({ baseURL: API });
+  expect((await anon.post('/v1/access-links')).status()).toBe(401);
+  await anon.dispose();
+});
+
+test('opening an access link signs the browser in once and cleans the URL', async ({ page, browser }) => {
+  const { consumer, url } = await seedWebhook();
+  const { path } = await mintAccessLink();
+  await useConfig(page, { apiUrl: API });
+
+  await page.goto(`${UI}${path}`);
+  await expect(page.getByRole('heading', { level: 1, name: 'Webhooks' })).toBeVisible();
+  await expectWebhookListed(page, url, consumer);
+  await expect(page.getByRole('dialog', { name: 'API key required' })).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('sparrow_api_key'))).toBe(KEY);
+  expect(page.url()).not.toContain('access=');
+
+  // The same link in another browser is rejected with a clear message.
+  const other = await browser.newContext();
+  const page2 = await other.newPage();
+  await useConfig(page2, { apiUrl: API });
+  await page2.goto(`${UI}${path}`);
+  const prompt = page2.getByRole('dialog', { name: 'API key required' });
+  await expect(prompt).toContainText('already been used');
+  expect(await page2.evaluate(() => localStorage.getItem('sparrow_api_key'))).toBeNull();
+  expect(page2.url()).not.toContain('access=');
+  await other.close();
+});

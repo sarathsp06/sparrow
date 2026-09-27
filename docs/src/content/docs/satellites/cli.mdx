@@ -234,6 +234,23 @@ sparrow push order.created -d @sample.json
 sparrow tail deliveries
 ```
 
+### `sparrow access-link create`
+
+Mints a one-time link that signs a browser into the web UI, so you can give
+someone admin access without pasting the API key into chat:
+
+```bash
+sparrow access-link create --ttl 15m
+sparrow access-link create --ttl 1h --ui-url https://sparrow.example.com   # UI hosted separately
+```
+
+Prints the link and its expiry. Opening it makes the UI exchange the link for
+the API key once and remember the key in that browser. The link stops working
+after first use, after `--ttl` (default 15 minutes, max 24 hours), or when
+`SPARROW_API_KEY` is rotated. `--ui-url` defaults to the server URL, which is
+right when the server serves the UI itself. Whoever opens the link holds the
+real API key, so only send it to people who should have admin access.
+
 ### `sparrow version`
 
 Prints the CLI version (set at build time via

@@ -5,8 +5,9 @@
 //     serves the UI (SPARROW_SERVE_UI=true), or set in /config.js for a
 //     standalone deployment.
 //   - localStorage — typed by the operator into the sign-in prompt, which
-//     opens when the API answers 401. This is how a standalone UI talks to a
-//     server with SPARROW_API_KEY set without baking the key into any file.
+//     opens when the API answers 401, or received once from a one-time access
+//     link (#access=<token>, see services.ts). This is how a standalone UI talks
+//     to a server with SPARROW_API_KEY set without baking the key into any file.
 //
 // A key the operator typed wins over the injected one: it is the more recent,
 // explicit choice (e.g. after the server key was rotated).
@@ -29,6 +30,8 @@ function readStored(): string {
 const injected = (typeof window !== "undefined" && window.__SPARROW_CONFIG__?.apiKey) || "";
 let stored = $state(typeof window !== "undefined" ? readStored() : "");
 let required = $state(false);
+let redeeming = $state(false);
+let linkError = $state("");
 
 export const auth = {
   /** The key to send, or "" for none. */
@@ -44,6 +47,20 @@ export const auth = {
     return required;
   },
   markRequired() {
+    // Requests racing an access-link exchange fail with 401; the page reloads
+    // with the key once the exchange succeeds, so don't flash the prompt.
+    if (!redeeming) required = true;
+  },
+  /** Set when an access link could not be used; shown in the sign-in prompt. */
+  get linkError() {
+    return linkError;
+  },
+  beginRedeem() {
+    redeeming = true;
+  },
+  failRedeem(message: string) {
+    redeeming = false;
+    linkError = message;
     required = true;
   },
   dismiss() {

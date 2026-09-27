@@ -74,6 +74,11 @@ public-facing app:
   injection: with no `apiKey` in its `config.js`, each operator types the key
   once into a prompt and it stays in their browser. Run the server with
   `SPARROW_SERVE_UI=false` so the API host serves no key-bearing page.
+- To hand the key to a teammate, send a one-time access link
+  (`sparrow access-link create --ttl 15m`) instead of the key itself. The link
+  lives in the URL fragment, so it never reaches server or proxy logs. It works
+  once, expires, and is invalidated by rotating `SPARROW_API_KEY`. It is a safer
+  way to share the key, not per-user access: whoever redeems it holds the key.
 
 Consequences:
 

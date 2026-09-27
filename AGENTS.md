@@ -69,6 +69,8 @@ Optional shared-secret auth via `SPARROW_API_KEY` env var. When set, every `/v1/
 | `/v1/*` | Huma REST API | Yes | See `internal/rest/` — one file per resource |
 | `/docs`, `/openapi.*` | Huma-served Scalar UI + spec | No | Interactive API reference |
 | `GET /health`, `/ready` | Health check | No | JSON status |
+| `/portal/api/*` | Portal gateway (`internal/middleware/portal_gateway.go`) | Portal bearer token | Re-dispatches to `/v1` scoped to the token's consumer |
+| `POST /access-link/redeem` | One-time admin access links (`internal/accesslink`) | Link token | Returns the API key once; minted via `POST /v1/access-links` / `sparrow access-link create` |
 | `* (NotFound)` | UI SPA | No | GET/HEAD → HTML; others → JSON 404 |
 
 Route-group middleware (API key auth) wraps only the `/v1/*` group (`r.Group` in `cmd/server/main.go`), not health, docs, or the UI.

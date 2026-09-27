@@ -27,7 +27,9 @@
       <span class="eyebrow" style="color:var(--color-beacon)">Authentication</span>
       <h3 id="apikey-title" class="text-lg font-semibold text-text mt-2 mb-2">API key required</h3>
       <p class="text-sm text-muted mb-4 leading-relaxed">
-        {#if rejected}
+        {#if auth.linkError}
+          {auth.linkError}
+        {:else if rejected}
           The Sparrow server rejected the current API key. Enter the server's <span class="mono">SPARROW_API_KEY</span> to continue.
         {:else}
           This Sparrow server requires an API key. Enter its <span class="mono">SPARROW_API_KEY</span> to continue.
