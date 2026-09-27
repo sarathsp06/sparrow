@@ -169,9 +169,11 @@ distinguishable from the fixed mask a decryption failure produces.
 
 Webhook URLs often carry credentials outside the `user:pass@` part: in the
 path (Slack's `/services/T…/B…/<secret>`, Discord's `/api/webhooks/<id>/<token>`)
-or the query string (`?token=`). Sparrow's logs and span attributes therefore
-record only the scheme and host (`https://hooks.slack.com/…`), and delivery
-error messages (e.g. connection refused) have the URL reduced the same way.
+or the query string (`?token=`). Sparrow's logs and trace spans therefore
+record only the scheme and host (`https://hooks.slack.com/…`); this includes
+the `url.full` attribute of each delivery's HTTP span, so secrets never reach
+your OTLP backend. Delivery error messages (e.g. connection refused) have the
+URL reduced the same way.
 Use the webhook ID to find the endpoint; the full URL is still available
 through the API to callers with access.
 

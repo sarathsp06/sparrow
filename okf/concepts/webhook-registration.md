@@ -22,6 +22,23 @@ A webhook registration represents a target URL that receives event deliveries. I
 - `rate_limit_rps` — max deliveries per second
 - HTTP config: max_retries, retry_backoff, request_timeout, follow_redirects, verify_ssl, expected_status_codes, etc.
 
+## HTTP config limits
+
+Checked by `WebhookHTTPConfig.ValidateConfig` on create **and** on update (the
+merged config after a PATCH is validated, so an update cannot bypass them):
+
+| Field | Allowed | Default |
+|---|---|---|
+| `max_retries` | 0–10 | 3 |
+| `retry_backoff_seconds` | 1–3600 | 60 |
+| `request_timeout_seconds` | 1–300 | 30 |
+| `expected_status_codes` | non-empty, each 100–599 | 200, 201, 202, 204 |
+| `content_type` | non-empty | `application/json` |
+| `rate_limit_rps` | unset or > 0 | unset (no limit) |
+| `verify_ssl` | bool | `true` (`false` skips certificate checks; SSRF checks still apply) |
+
+A PATCH changes only the fields it sends.
+
 ## Lifecycle
 
 1. Register → optionally paused → active → unregister
@@ -31,6 +48,8 @@ A webhook registration represents a target URL that receives event deliveries. I
 
 ## Citations
 
+- `internal/webhooks/models.go` — `DefaultWebhookHTTPConfig`, `ValidateConfig`
+- `internal/webhooks/webhook_service_registration.go` — `UpdateWebhookConfig` merge + validation
 - `db/migrations/000001.up.sql` — initial schema
 - `db/migrations/000022.up.sql` — Ed25519 keys
 - `db/migrations/000023.up.sql` — signature_type

@@ -26,16 +26,16 @@ type registerWebhookBody struct {
 // webhookHTTPConfig tunes how deliveries to a single webhook are made and
 // retried; every field is optional and falls back to a server default.
 type webhookHTTPConfig struct {
-	MaxRetries            *int     `json:"max_retries,omitempty" doc:"Maximum delivery attempts before a delivery is marked failed. 0 means no retries."`
-	RetryBackoffSeconds   int      `json:"retry_backoff_seconds,omitempty" doc:"Base delay between retry attempts, in seconds. Backoff grows exponentially from this value."`
+	MaxRetries            *int     `json:"max_retries,omitempty" doc:"Maximum delivery attempts before a delivery is marked failed. 0 means no retries. Between 0 and 10; defaults to 3."`
+	RetryBackoffSeconds   int      `json:"retry_backoff_seconds,omitempty" doc:"Base delay between retry attempts, in seconds. Backoff grows exponentially from this value. Between 1 and 3600; defaults to 60."`
 	CaptureResponseBody   *bool    `json:"capture_response_body,omitempty" doc:"Whether to store the endpoint's response body alongside each delivery attempt, for debugging."`
 	FollowRedirects       *bool    `json:"follow_redirects,omitempty" doc:"Whether to follow HTTP redirects returned by the endpoint."`
-	VerifySSL             *bool    `json:"verify_ssl,omitempty" doc:"Whether to verify the endpoint's TLS certificate. Disable only for trusted internal endpoints with self-signed certs."`
-	RequestTimeoutSeconds int      `json:"request_timeout_seconds,omitempty" doc:"How long to wait for the endpoint to respond before treating the attempt as a timeout."`
-	ExpectedStatusCodes   []int    `json:"expected_status_codes,omitempty" doc:"HTTP status codes treated as a successful delivery. Defaults to 2xx if left empty."`
+	VerifySSL             *bool    `json:"verify_ssl,omitempty" doc:"Whether to verify the endpoint's TLS certificate. Defaults to true. Set false only for trusted internal endpoints with self-signed certificates; SSRF and redirect checks still apply."`
+	RequestTimeoutSeconds int      `json:"request_timeout_seconds,omitempty" doc:"How long to wait for the endpoint to respond before treating the attempt as a timeout, in seconds. Between 1 and 300; defaults to 30."`
+	ExpectedStatusCodes   []int    `json:"expected_status_codes,omitempty" doc:"HTTP status codes treated as a successful delivery, each between 100 and 599. Defaults to 200, 201, 202 and 204."`
 	UserAgent             string   `json:"user_agent,omitempty" doc:"Custom User-Agent header sent with deliveries."`
 	ContentType           string   `json:"content_type,omitempty" doc:"Content-Type header sent with deliveries. Defaults to application/json."`
-	RateLimitRPS          *float64 `json:"rate_limit_rps,omitempty" doc:"Per-webhook delivery rate limit override, in requests per second."`
+	RateLimitRPS          *float64 `json:"rate_limit_rps,omitempty" doc:"Per-webhook delivery rate limit override, in requests per second. Must be positive; unset means no limit."`
 }
 
 func (c *webhookHTTPConfig) toDomain() *webhooks.WebhookHTTPConfig {
@@ -106,7 +106,7 @@ type patchWebhookBody struct {
 	Description   *string            `json:"description,omitempty" doc:"Replace the human-readable description."`
 	SecretHeaders *map[string]string `json:"secret_headers,omitempty" doc:"Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it."`
 	SignatureType *string            `json:"signature_type,omitempty" doc:"Replace the authoritative signature algorithm (hmac or ed25519)."`
-	HTTPConfig    *webhookHTTPConfig `json:"http_config,omitempty" doc:"Replace the HTTP delivery configuration."`
+	HTTPConfig    *webhookHTTPConfig `json:"http_config,omitempty" doc:"Update HTTP delivery settings. Only the fields you send change; the rest keep their current values. The merged result must satisfy the same limits as on create, or the request is rejected with 400."`
 }
 
 type patchWebhookInput struct {

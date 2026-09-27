@@ -635,7 +635,7 @@ components:
           description: Arbitrary key/value metadata for your own tooling.
           type: object
         name:
-          description: Unique event type name, e.g. order.created. Immutable after creation.
+          description: Unique event type name, e.g. order.created. At most 255 characters. Immutable after creation.
           type: string
       type: object
     EventTypeItem:
@@ -1073,7 +1073,7 @@ components:
           type: object
         http_config:
           $ref: "#/components/schemas/WebhookHTTPConfig"
-          description: Replace the HTTP delivery configuration.
+          description: Update HTTP delivery settings. Only the fields you send change; the rest keep their current values. The merged result must satisfy the same limits as on create, or the request is rejected with 400.
         secret_headers:
           additionalProperties:
             type: string
@@ -1579,7 +1579,7 @@ components:
           description: Content-Type header sent with deliveries. Defaults to application/json.
           type: string
         expected_status_codes:
-          description: HTTP status codes treated as a successful delivery. Defaults to 2xx if left empty.
+          description: HTTP status codes treated as a successful delivery, each between 100 and 599. Defaults to 200, 201, 202 and 204.
           items:
             format: int64
             type: integer
@@ -1590,26 +1590,26 @@ components:
           description: Whether to follow HTTP redirects returned by the endpoint.
           type: boolean
         max_retries:
-          description: Maximum delivery attempts before a delivery is marked failed. 0 means no retries.
+          description: Maximum delivery attempts before a delivery is marked failed. 0 means no retries. Between 0 and 10; defaults to 3.
           format: int64
           type: integer
         rate_limit_rps:
-          description: Per-webhook delivery rate limit override, in requests per second.
+          description: Per-webhook delivery rate limit override, in requests per second. Must be positive; unset means no limit.
           format: double
           type: number
         request_timeout_seconds:
-          description: How long to wait for the endpoint to respond before treating the attempt as a timeout.
+          description: How long to wait for the endpoint to respond before treating the attempt as a timeout, in seconds. Between 1 and 300; defaults to 30.
           format: int64
           type: integer
         retry_backoff_seconds:
-          description: Base delay between retry attempts, in seconds. Backoff grows exponentially from this value.
+          description: Base delay between retry attempts, in seconds. Backoff grows exponentially from this value. Between 1 and 3600; defaults to 60.
           format: int64
           type: integer
         user_agent:
           description: Custom User-Agent header sent with deliveries.
           type: string
         verify_ssl:
-          description: Whether to verify the endpoint's TLS certificate. Disable only for trusted internal endpoints with self-signed certs.
+          description: Whether to verify the endpoint's TLS certificate. Defaults to true. Set false only for trusted internal endpoints with self-signed certificates; SSRF and redirect checks still apply.
           type: boolean
       type: object
     WebhookHTTPConfigOut:
@@ -2459,13 +2459,13 @@ paths:
           schema:
             description: Tenant consumer to record the occurrence in.
             type: string
-        - description: Name of a registered event type.
+        - description: Name of a registered event type (at most 255 characters).
           explode: false
           in: query
           name: event
           required: true
           schema:
-            description: Name of a registered event type.
+            description: Name of a registered event type (at most 255 characters).
             type: string
       requestBody:
         content:

@@ -32,6 +32,16 @@ public-key derivation behind the service seam, so transport modules never
 decrypt private-key material directly. Subscription payload transforms run
 through `pkg/template` (extracted from the webhook client).
 
+## Validation notes
+
+- `UpdateWebhookConfig` merges only the HTTP-config fields sent, then runs
+  `ValidateConfig` on the merged result (same bounds as create).
+- Event names are limited to 255 **characters** (`maxEventNameLength`, counted
+  with `utf8.RuneCountInString`) in `PushEvent` and `RegisterEvent`, matching
+  the `VARCHAR(255)` columns; longer names get `InvalidArgument` (400).
+- Webhook URLs are logged and traced only in redacted form
+  (`client.RedactURL`).
+
 ## Key Types
 
 - `WebhookRegistration` — domain model with URL, headers, health, HTTPConfig, secrets

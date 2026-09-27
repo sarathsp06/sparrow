@@ -19,7 +19,7 @@ import (
 // on register; on update it identifies which fields changed (empty/nil
 // fields are left untouched — see registerEventTypeInput/patchEventTypeInput).
 type eventTypeBody struct {
-	Name        string            `json:"name,omitempty" doc:"Unique event type name, e.g. order.created. Immutable after creation."`
+	Name        string            `json:"name,omitempty" doc:"Unique event type name, e.g. order.created. At most 255 characters. Immutable after creation."`
 	Description string            `json:"description,omitempty" doc:"Human-readable summary of what this event represents."`
 	JSONSchema  map[string]any    `json:"event_schema,omitempty" doc:"Optional JSON Schema for the payload. Validation is soft: non-conforming payloads are still accepted, with warnings returned from the push call."`
 	Metadata    map[string]string `json:"metadata,omitempty" doc:"Arbitrary key/value metadata for your own tooling."`
@@ -110,7 +110,7 @@ type pushEventBody struct {
 
 type pushEventInput struct {
 	Consumer string `path:"consumer" doc:"Tenant consumer to record the occurrence in."`
-	Event    string `query:"event" required:"true" doc:"Name of a registered event type."`
+	Event    string `query:"event" required:"true" doc:"Name of a registered event type (at most 255 characters)."`
 	Body     pushEventBody
 }
 

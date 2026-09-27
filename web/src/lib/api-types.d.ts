@@ -1383,7 +1383,7 @@ export interface components {
             metadata?: {
                 [key: string]: string;
             };
-            /** @description Unique event type name, e.g. order.created. Immutable after creation. */
+            /** @description Unique event type name, e.g. order.created. At most 255 characters. Immutable after creation. */
             name?: string;
         };
         EventTypeItem: {
@@ -1624,7 +1624,7 @@ export interface components {
             headers?: {
                 [key: string]: string;
             };
-            /** @description Replace the HTTP delivery configuration. */
+            /** @description Update HTTP delivery settings. Only the fields you send change; the rest keep their current values. The merged result must satisfy the same limits as on create, or the request is rejected with 400. */
             http_config?: components["schemas"]["WebhookHTTPConfig"];
             /** @description Merge-patch encrypted secret headers by name. Send a new value to replace one header, omit a key to leave it untouched, or send an empty string to remove it. */
             secret_headers?: {
@@ -1926,33 +1926,33 @@ export interface components {
             capture_response_body?: boolean;
             /** @description Content-Type header sent with deliveries. Defaults to application/json. */
             content_type?: string;
-            /** @description HTTP status codes treated as a successful delivery. Defaults to 2xx if left empty. */
+            /** @description HTTP status codes treated as a successful delivery, each between 100 and 599. Defaults to 200, 201, 202 and 204. */
             expected_status_codes?: number[] | null;
             /** @description Whether to follow HTTP redirects returned by the endpoint. */
             follow_redirects?: boolean;
             /**
              * Format: int64
-             * @description Maximum delivery attempts before a delivery is marked failed. 0 means no retries.
+             * @description Maximum delivery attempts before a delivery is marked failed. 0 means no retries. Between 0 and 10; defaults to 3.
              */
             max_retries?: number;
             /**
              * Format: double
-             * @description Per-webhook delivery rate limit override, in requests per second.
+             * @description Per-webhook delivery rate limit override, in requests per second. Must be positive; unset means no limit.
              */
             rate_limit_rps?: number;
             /**
              * Format: int64
-             * @description How long to wait for the endpoint to respond before treating the attempt as a timeout.
+             * @description How long to wait for the endpoint to respond before treating the attempt as a timeout, in seconds. Between 1 and 300; defaults to 30.
              */
             request_timeout_seconds?: number;
             /**
              * Format: int64
-             * @description Base delay between retry attempts, in seconds. Backoff grows exponentially from this value.
+             * @description Base delay between retry attempts, in seconds. Backoff grows exponentially from this value. Between 1 and 3600; defaults to 60.
              */
             retry_backoff_seconds?: number;
             /** @description Custom User-Agent header sent with deliveries. */
             user_agent?: string;
-            /** @description Whether to verify the endpoint's TLS certificate. Disable only for trusted internal endpoints with self-signed certs. */
+            /** @description Whether to verify the endpoint's TLS certificate. Defaults to true. Set false only for trusted internal endpoints with self-signed certificates; SSRF and redirect checks still apply. */
             verify_ssl?: boolean;
         };
         WebhookHTTPConfigOut: {
@@ -2661,7 +2661,7 @@ export interface operations {
     pushEvent: {
         parameters: {
             query: {
-                /** @description Name of a registered event type. */
+                /** @description Name of a registered event type (at most 255 characters). */
                 event: string;
             };
             header?: never;
