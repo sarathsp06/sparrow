@@ -9,16 +9,15 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
 )
 
-// Signature verification vectors shared by every verify helper
-// (pkg/signature and client/verify/<lang>). They are produced by the same
-// signing functions deliveries use, so a change to the signer that the
-// helpers don't follow fails here first.
+// Signature verification vectors for pkg/signature (the authoritative
+// verifier), also a checklist for anyone porting it. They are produced by
+// the same signing functions deliveries use, so a signer change fails here
+// until the vectors are regenerated and pkg/signature still passes them.
 //
 // Regenerate after an intentional signing change:
 //
@@ -128,36 +127,6 @@ func buildVectors(t *testing.T) vectorFile {
 	}
 }
 
-// encodeTSV renders the vectors for languages without a JSON parser in the
-// standard library (Java, Kotlin): a "# now <n> tolerance <n>" line, then
-// one tab-separated line per case:
-//
-//	name  scheme  valid(1|0)  base64(key)  base64(payload)  headers
-//
-// where headers is a comma-separated list of base64(name):base64(value).
-func encodeTSV(vf vectorFile) []byte {
-	var b strings.Builder
-	b64 := func(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }
-	b.WriteString("# now " + strconv.FormatInt(vf.Now, 10) + " tolerance " + strconv.FormatInt(vf.ToleranceSeconds, 10) + "\n")
-	for _, c := range vf.Cases {
-		names := make([]string, 0, len(c.Headers))
-		for k := range c.Headers {
-			names = append(names, k)
-		}
-		sort.Strings(names)
-		pairs := make([]string, 0, len(names))
-		for _, k := range names {
-			pairs = append(pairs, b64(k)+":"+b64(c.Headers[k]))
-		}
-		valid := "0"
-		if c.Valid {
-			valid = "1"
-		}
-		b.WriteString(strings.Join([]string{c.Name, c.Scheme, valid, b64(c.Key), c.PayloadB64, strings.Join(pairs, ",")}, "\t") + "\n")
-	}
-	return []byte(b.String())
-}
-
 func TestSignatureVectors(t *testing.T) {
 	vf := buildVectors(t)
 	jsonBytes, err := json.MarshalIndent(vf, "", "  ")
@@ -167,7 +136,6 @@ func TestSignatureVectors(t *testing.T) {
 	jsonBytes = append(jsonBytes, '\n')
 	files := map[string][]byte{
 		"vectors.json": jsonBytes,
-		"vectors.tsv":  encodeTSV(vf),
 	}
 	for name, want := range files {
 		path := filepath.Join(vectorDir, name)

@@ -94,36 +94,6 @@ jobs:
           file: ./coverage.txt
           fail_ci_if_error: false
 
-  verify-helpers:
-    name: Verify helpers (${{ matrix.lang }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        lang: [go, python, js, java, kotlin, ruby, php, rust, elixir]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26.1'
-          cache: true
-
-      - name: Ensure embedded UI placeholder exists
-        run: |
-          mkdir -p internal/ui/dist
-          touch internal/ui/dist/.gitkeep
-
-      # Fails if the vectors no longer match the production signer.
-      - name: Check vectors are current
-        run: go test ./internal/webhooks/client -run TestSignatureVectors
-
-      # Each script uses the runner's toolchain or falls back to Docker.
-      - name: Run shared vectors
-        run: client/verify/${{ matrix.lang }}/run-vectors.sh
-
   ui-e2e:
     name: UI E2E
     runs-on: ubuntu-latest

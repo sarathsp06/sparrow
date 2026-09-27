@@ -74,36 +74,6 @@
       "norm_label": "build.go"
     },
     {
-      "label": "elixir/run-vectors.sh",
-      "file_type": "code",
-      "source_file": "client/verify/elixir/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "file"
-      },
-      "_origin": "ast",
-      "id": "client_verify_elixir_run_vectors",
-      "community": 212,
-      "community_name": "elixir/run-vectors.sh",
-      "norm_label": "elixir/run-vectors.sh"
-    },
-    {
-      "label": "run-vectors.sh script",
-      "file_type": "code",
-      "source_file": "client/verify/elixir/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "bash_entrypoint"
-      },
-      "_origin": "ast",
-      "id": "client_verify_elixir_run_vectors_sh__entry",
-      "community": 212,
-      "community_name": "elixir/run-vectors.sh",
-      "norm_label": "run-vectors.sh script"
-    },
-    {
       "label": "sparrow_verify.ex",
       "file_type": "code",
       "source_file": "client/verify/elixir/sparrow_verify.ex",
@@ -223,47 +193,6 @@
       "community": 201,
       "community_name": "SparrowVerify",
       "norm_label": "decode_signatures()"
-    },
-    {
-      "label": "test_vectors.exs",
-      "file_type": "code",
-      "source_file": "client/verify/elixir/test_vectors.exs",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_elixir_test_vectors",
-      "community": 224,
-      "community_name": "test_vectors.exs",
-      "norm_label": "test_vectors.exs"
-    },
-    {
-      "label": "go/run-vectors.sh",
-      "file_type": "code",
-      "source_file": "client/verify/go/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "file"
-      },
-      "_origin": "ast",
-      "id": "client_verify_go_run_vectors",
-      "community": 214,
-      "community_name": "go/run-vectors.sh",
-      "norm_label": "go/run-vectors.sh"
-    },
-    {
-      "label": "run-vectors.sh script",
-      "file_type": "code",
-      "source_file": "client/verify/go/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "bash_entrypoint"
-      },
-      "_origin": "ast",
-      "id": "client_verify_go_run_vectors_sh__entry",
-      "community": 214,
-      "community_name": "go/run-vectors.sh",
-      "norm_label": "run-vectors.sh script"
     },
     {
       "label": "SparrowVerify.java",
@@ -411,102 +340,6 @@
       "norm_label": ".hexdecode()"
     },
     {
-      "label": "VectorsTest.java",
-      "file_type": "code",
-      "source_file": "client/verify/java/VectorsTest.java",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_java_vectorstest",
-      "community": 210,
-      "community_name": "VectorsTest",
-      "norm_label": "vectorstest.java"
-    },
-    {
-      "label": "VectorsTest",
-      "file_type": "code",
-      "source_file": "client/verify/java/VectorsTest.java",
-      "source_location": "L14",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "id": "client_verify_java_vectorstest_vectorstest",
-      "community": 210,
-      "community_name": "VectorsTest",
-      "norm_label": "vectorstest"
-    },
-    {
-      "label": ".main()",
-      "file_type": "code",
-      "source_file": "client/verify/java/VectorsTest.java",
-      "source_location": "L16",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "client_verify_java_vectorstest_vectorstest_main",
-      "community": 210,
-      "community_name": "VectorsTest",
-      "norm_label": ".main()"
-    },
-    {
-      "label": "java/run-vectors.sh",
-      "file_type": "code",
-      "source_file": "client/verify/java/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "file"
-      },
-      "_origin": "ast",
-      "id": "client_verify_java_run_vectors",
-      "community": 215,
-      "community_name": "java/run-vectors.sh",
-      "norm_label": "java/run-vectors.sh"
-    },
-    {
-      "label": "run-vectors.sh script",
-      "file_type": "code",
-      "source_file": "client/verify/java/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "bash_entrypoint"
-      },
-      "_origin": "ast",
-      "id": "client_verify_java_run_vectors_sh__entry",
-      "community": 215,
-      "community_name": "java/run-vectors.sh",
-      "norm_label": "run-vectors.sh script"
-    },
-    {
-      "label": "js/run-vectors.sh",
-      "file_type": "code",
-      "source_file": "client/verify/js/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "file"
-      },
-      "_origin": "ast",
-      "id": "client_verify_js_run_vectors",
-      "community": 216,
-      "community_name": "js/run-vectors.sh",
-      "norm_label": "js/run-vectors.sh"
-    },
-    {
-      "label": "run-vectors.sh script",
-      "file_type": "code",
-      "source_file": "client/verify/js/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "bash_entrypoint"
-      },
-      "_origin": "ast",
-      "id": "client_verify_js_run_vectors_sh__entry",
-      "community": 216,
-      "community_name": "js/run-vectors.sh",
-      "norm_label": "run-vectors.sh script"
-    },
-    {
       "label": "sparrow-verify.ts",
       "file_type": "code",
       "source_file": "client/verify/js/sparrow-verify.ts",
@@ -613,39 +446,6 @@
       "community": 16,
       "community_name": "sparrow-verify.ts",
       "norm_label": "decodesignatures()"
-    },
-    {
-      "label": "vectors.test.ts",
-      "file_type": "code",
-      "source_file": "client/verify/js/vectors.test.ts",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_js_vectors_test",
-      "community": 16,
-      "community_name": "sparrow-verify.ts",
-      "norm_label": "vectors.test.ts"
-    },
-    {
-      "label": "path",
-      "file_type": "code",
-      "source_file": "client/verify/js/vectors.test.ts",
-      "source_location": "L10",
-      "_origin": "ast",
-      "id": "client_verify_js_vectors_test_path",
-      "community": 16,
-      "community_name": "sparrow-verify.ts",
-      "norm_label": "path"
-    },
-    {
-      "label": "data",
-      "file_type": "code",
-      "source_file": "client/verify/js/vectors.test.ts",
-      "source_location": "L11",
-      "_origin": "ast",
-      "id": "client_verify_js_vectors_test_data",
-      "community": 16,
-      "community_name": "sparrow-verify.ts",
-      "norm_label": "data"
     },
     {
       "label": "SparrowVerify.kt",
@@ -804,59 +604,6 @@
       "norm_label": ".hexdecode()"
     },
     {
-      "label": "VectorsTest.kt",
-      "file_type": "code",
-      "source_file": "client/verify/kotlin/VectorsTest.kt",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_kotlin_vectorstest",
-      "community": 188,
-      "community_name": "SparrowVerify",
-      "norm_label": "vectorstest.kt"
-    },
-    {
-      "label": "main()",
-      "file_type": "code",
-      "source_file": "client/verify/kotlin/VectorsTest.kt",
-      "source_location": "L11",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "client_verify_kotlin_vectorstest_main",
-      "community": 188,
-      "community_name": "SparrowVerify",
-      "norm_label": "main()"
-    },
-    {
-      "label": "kotlin/run-vectors.sh",
-      "file_type": "code",
-      "source_file": "client/verify/kotlin/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "file"
-      },
-      "_origin": "ast",
-      "id": "client_verify_kotlin_run_vectors",
-      "community": 217,
-      "community_name": "kotlin/run-vectors.sh",
-      "norm_label": "kotlin/run-vectors.sh"
-    },
-    {
-      "label": "run-vectors.sh script",
-      "file_type": "code",
-      "source_file": "client/verify/kotlin/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "bash_entrypoint"
-      },
-      "_origin": "ast",
-      "id": "client_verify_kotlin_run_vectors_sh__entry",
-      "community": 217,
-      "community_name": "kotlin/run-vectors.sh",
-      "norm_label": "run-vectors.sh script"
-    },
-    {
       "label": "SparrowVerify.php",
       "file_type": "code",
       "source_file": "client/verify/php/SparrowVerify.php",
@@ -965,77 +712,6 @@
       "norm_label": ".decodesignatures()"
     },
     {
-      "label": "php/run-vectors.sh",
-      "file_type": "code",
-      "source_file": "client/verify/php/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "file"
-      },
-      "_origin": "ast",
-      "id": "client_verify_php_run_vectors",
-      "community": 218,
-      "community_name": "php/run-vectors.sh",
-      "norm_label": "php/run-vectors.sh"
-    },
-    {
-      "label": "run-vectors.sh script",
-      "file_type": "code",
-      "source_file": "client/verify/php/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "bash_entrypoint"
-      },
-      "_origin": "ast",
-      "id": "client_verify_php_run_vectors_sh__entry",
-      "community": 218,
-      "community_name": "php/run-vectors.sh",
-      "norm_label": "run-vectors.sh script"
-    },
-    {
-      "label": "test_vectors.php",
-      "file_type": "code",
-      "source_file": "client/verify/php/test_vectors.php",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_php_test_vectors",
-      "community": 225,
-      "community_name": "test_vectors.php",
-      "norm_label": "test_vectors.php"
-    },
-    {
-      "label": "python/run-vectors.sh",
-      "file_type": "code",
-      "source_file": "client/verify/python/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "file"
-      },
-      "_origin": "ast",
-      "id": "client_verify_python_run_vectors",
-      "community": 219,
-      "community_name": "python/run-vectors.sh",
-      "norm_label": "python/run-vectors.sh"
-    },
-    {
-      "label": "run-vectors.sh script",
-      "file_type": "code",
-      "source_file": "client/verify/python/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "bash_entrypoint"
-      },
-      "_origin": "ast",
-      "id": "client_verify_python_run_vectors_sh__entry",
-      "community": 219,
-      "community_name": "python/run-vectors.sh",
-      "norm_label": "run-vectors.sh script"
-    },
-    {
       "label": "sparrow_verify.py",
       "file_type": "code",
       "source_file": "client/verify/python/sparrow_verify.py",
@@ -1043,7 +719,7 @@
       "_origin": "ast",
       "id": "client_verify_python_sparrow_verify",
       "community": 9,
-      "community_name": "SignatureVerificationError",
+      "community_name": "sparrow_verify.py",
       "norm_label": "sparrow_verify.py"
     },
     {
@@ -1056,7 +732,7 @@
       "_origin": "ast",
       "id": "client_verify_python_sparrow_verify_signatureverificationerror",
       "community": 9,
-      "community_name": "SignatureVerificationError",
+      "community_name": "sparrow_verify.py",
       "norm_label": "signatureverificationerror"
     },
     {
@@ -1067,7 +743,7 @@
       "_origin": "ast",
       "id": "client_verify_python_sparrow_verify_py_exception",
       "community": 9,
-      "community_name": "SignatureVerificationError",
+      "community_name": "sparrow_verify.py",
       "norm_label": "exception"
     },
     {
@@ -1079,7 +755,7 @@
       "_origin": "ast",
       "id": "client_verify_python_sparrow_verify_verify_hmac",
       "community": 9,
-      "community_name": "SignatureVerificationError",
+      "community_name": "sparrow_verify.py",
       "norm_label": "verify_hmac()"
     },
     {
@@ -1091,7 +767,7 @@
       "_origin": "ast",
       "id": "client_verify_python_sparrow_verify_verify_ed25519",
       "community": 9,
-      "community_name": "SignatureVerificationError",
+      "community_name": "sparrow_verify.py",
       "norm_label": "verify_ed25519()"
     },
     {
@@ -1103,7 +779,7 @@
       "_origin": "ast",
       "id": "client_verify_python_sparrow_verify_required_headers",
       "community": 9,
-      "community_name": "SignatureVerificationError",
+      "community_name": "sparrow_verify.py",
       "norm_label": "_required_headers()"
     },
     {
@@ -1115,7 +791,7 @@
       "_origin": "ast",
       "id": "client_verify_python_sparrow_verify_check_timestamp",
       "community": 9,
-      "community_name": "SignatureVerificationError",
+      "community_name": "sparrow_verify.py",
       "norm_label": "_check_timestamp()"
     },
     {
@@ -1127,7 +803,7 @@
       "_origin": "ast",
       "id": "client_verify_python_sparrow_verify_decode_signatures",
       "community": 9,
-      "community_name": "SignatureVerificationError",
+      "community_name": "sparrow_verify.py",
       "norm_label": "_decode_signatures()"
     },
     {
@@ -1138,7 +814,7 @@
       "_origin": "ast",
       "id": "client_verify_python_sparrow_verify_rationale_1",
       "community": 9,
-      "community_name": "SignatureVerificationError",
+      "community_name": "sparrow_verify.py",
       "norm_label": "verify sparrow webhook delivery signatures (standard webhooks format). every..."
     },
     {
@@ -1149,7 +825,7 @@
       "_origin": "ast",
       "id": "client_verify_python_sparrow_verify_rationale_45",
       "community": 9,
-      "community_name": "SignatureVerificationError",
+      "community_name": "sparrow_verify.py",
       "norm_label": "raised when a delivery signature cannot be verified."
     },
     {
@@ -1160,7 +836,7 @@
       "_origin": "ast",
       "id": "client_verify_python_sparrow_verify_rationale_55",
       "community": 9,
-      "community_name": "SignatureVerificationError",
+      "community_name": "sparrow_verify.py",
       "norm_label": "verify the ``v1,`` (hmac-sha256) signature. raises on failure. ``payload`` must..."
     },
     {
@@ -1171,85 +847,8 @@
       "_origin": "ast",
       "id": "client_verify_python_sparrow_verify_rationale_90",
       "community": 9,
-      "community_name": "SignatureVerificationError",
+      "community_name": "sparrow_verify.py",
       "norm_label": "verify the ``v1a,`` (ed25519) signature. raises on failure. ``payload`` must be..."
-    },
-    {
-      "label": "test_vectors.py",
-      "file_type": "code",
-      "source_file": "client/verify/python/test_vectors.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_python_test_vectors",
-      "community": 9,
-      "community_name": "SignatureVerificationError",
-      "norm_label": "test_vectors.py"
-    },
-    {
-      "label": "Vectors",
-      "file_type": "code",
-      "source_file": "client/verify/python/test_vectors.py",
-      "source_location": "L29",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "id": "client_verify_python_test_vectors_vectors",
-      "community": 9,
-      "community_name": "SignatureVerificationError",
-      "norm_label": "vectors"
-    },
-    {
-      "label": ".test_vectors()",
-      "file_type": "code",
-      "source_file": "client/verify/python/test_vectors.py",
-      "source_location": "L30",
-      "_callable": true,
-      "_origin": "ast",
-      "id": "client_verify_python_test_vectors_vectors_test_vectors",
-      "community": 9,
-      "community_name": "SignatureVerificationError",
-      "norm_label": ".test_vectors()"
-    },
-    {
-      "label": "Run the shared signature vectors (pkg/signature/testdata/vectors.json). python3\u2026",
-      "file_type": "rationale",
-      "source_file": "client/verify/python/test_vectors.py",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_python_test_vectors_rationale_1",
-      "community": 9,
-      "community_name": "SignatureVerificationError",
-      "norm_label": "run the shared signature vectors (pkg/signature/testdata/vectors.json). python3..."
-    },
-    {
-      "label": "ruby/run-vectors.sh",
-      "file_type": "code",
-      "source_file": "client/verify/ruby/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "file"
-      },
-      "_origin": "ast",
-      "id": "client_verify_ruby_run_vectors",
-      "community": 220,
-      "community_name": "ruby/run-vectors.sh",
-      "norm_label": "ruby/run-vectors.sh"
-    },
-    {
-      "label": "run-vectors.sh script",
-      "file_type": "code",
-      "source_file": "client/verify/ruby/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "bash_entrypoint"
-      },
-      "_origin": "ast",
-      "id": "client_verify_ruby_run_vectors_sh__entry",
-      "community": 220,
-      "community_name": "ruby/run-vectors.sh",
-      "norm_label": "run-vectors.sh script"
     },
     {
       "label": "sparrow_verify.rb",
@@ -1382,47 +981,6 @@
       "community": 202,
       "community_name": "SparrowVerify",
       "norm_label": ".fixed_length_secure_compare()"
-    },
-    {
-      "label": "test_vectors.rb",
-      "file_type": "code",
-      "source_file": "client/verify/ruby/test_vectors.rb",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_ruby_test_vectors",
-      "community": 226,
-      "community_name": "test_vectors.rb",
-      "norm_label": "test_vectors.rb"
-    },
-    {
-      "label": "rust/run-vectors.sh",
-      "file_type": "code",
-      "source_file": "client/verify/rust/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "file"
-      },
-      "_origin": "ast",
-      "id": "client_verify_rust_run_vectors",
-      "community": 221,
-      "community_name": "rust/run-vectors.sh",
-      "norm_label": "rust/run-vectors.sh"
-    },
-    {
-      "label": "run-vectors.sh script",
-      "file_type": "code",
-      "source_file": "client/verify/rust/run-vectors.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "bash_entrypoint"
-      },
-      "_origin": "ast",
-      "id": "client_verify_rust_run_vectors_sh__entry",
-      "community": 221,
-      "community_name": "rust/run-vectors.sh",
-      "norm_label": "run-vectors.sh script"
     },
     {
       "label": "sparrow_verify.rs",
@@ -1573,7 +1131,7 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "client_verify_rust_sparrow_verify_rs_vec",
+      "id": "vec",
       "community": 41,
       "community_name": "sparrow_verify.rs",
       "norm_label": "vec"
@@ -1628,120 +1186,10 @@
       "source_file": "",
       "source_location": "",
       "_origin": "ast",
-      "id": "client_verify_rust_sparrow_verify_rs_string",
+      "id": "string",
       "community": 41,
       "community_name": "sparrow_verify.rs",
       "norm_label": "string"
-    },
-    {
-      "label": "lib.rs",
-      "file_type": "code",
-      "source_file": "client/verify/rust/src/lib.rs",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_rust_src_lib",
-      "community": 227,
-      "community_name": "lib.rs",
-      "norm_label": "lib.rs"
-    },
-    {
-      "label": "header_map.rs",
-      "file_type": "code",
-      "source_file": "client/verify/rust/tests/header_map.rs",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_rust_tests_header_map",
-      "community": 222,
-      "community_name": "header_map.rs",
-      "norm_label": "header_map.rs"
-    },
-    {
-      "label": "verifies_with_http_header_map()",
-      "file_type": "code",
-      "source_file": "client/verify/rust/tests/header_map.rs",
-      "source_location": "L10",
-      "_origin": "ast",
-      "id": "client_verify_rust_tests_header_map_verifies_with_http_header_map",
-      "community": 222,
-      "community_name": "header_map.rs",
-      "norm_label": "verifies_with_http_header_map()"
-    },
-    {
-      "label": "vectors.rs",
-      "file_type": "code",
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_rust_tests_vectors",
-      "community": 41,
-      "community_name": "sparrow_verify.rs",
-      "norm_label": "vectors.rs"
-    },
-    {
-      "label": "Vectors",
-      "file_type": "code",
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L11",
-      "_origin": "ast",
-      "id": "client_verify_rust_tests_vectors_vectors",
-      "community": 41,
-      "community_name": "sparrow_verify.rs",
-      "norm_label": "vectors"
-    },
-    {
-      "label": "Vec",
-      "file_type": "code",
-      "source_file": "",
-      "source_location": "",
-      "_origin": "ast",
-      "id": "client_verify_rust_tests_vectors_rs_vec",
-      "community": 41,
-      "community_name": "sparrow_verify.rs",
-      "norm_label": "vec"
-    },
-    {
-      "label": "Case",
-      "file_type": "code",
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L18",
-      "_origin": "ast",
-      "id": "client_verify_rust_tests_vectors_case",
-      "community": 41,
-      "community_name": "sparrow_verify.rs",
-      "norm_label": "case"
-    },
-    {
-      "label": "String",
-      "file_type": "code",
-      "source_file": "",
-      "source_location": "",
-      "_origin": "ast",
-      "id": "client_verify_rust_tests_vectors_rs_string",
-      "community": 41,
-      "community_name": "sparrow_verify.rs",
-      "norm_label": "string"
-    },
-    {
-      "label": "HashMap",
-      "file_type": "code",
-      "source_file": "",
-      "source_location": "",
-      "_origin": "ast",
-      "id": "hashmap",
-      "community": 41,
-      "community_name": "sparrow_verify.rs",
-      "norm_label": "hashmap"
-    },
-    {
-      "label": "run_vectors()",
-      "file_type": "code",
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L28",
-      "_origin": "ast",
-      "id": "client_verify_rust_tests_vectors_run_vectors",
-      "community": 41,
-      "community_name": "sparrow_verify.rs",
-      "norm_label": "run_vectors()"
     },
     {
       "label": "migrate/main.go",
@@ -6406,7 +5854,7 @@
       "_origin": "ast",
       "id": "internal_accessauth_accessauth_test_testpgstoreconformance",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "testpgstoreconformance()"
     },
     {
@@ -6746,7 +6194,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "handlerfunc",
-      "community": 0,
+      "community": 159,
       "community_name": "HandlerFunc",
       "norm_label": "handlerfunc"
     },
@@ -6769,7 +6217,7 @@
       "_origin": "ast",
       "id": "internal_integration_cli_e2e_test",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "cli_e2e_test.go"
     },
     {
@@ -6780,7 +6228,7 @@
       "_origin": "ast",
       "id": "internal_integration_cli_e2e_test_buildcli",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "buildcli()"
     },
     {
@@ -6791,7 +6239,7 @@
       "_origin": "ast",
       "id": "internal_integration_cli_e2e_test_go_t",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -6802,7 +6250,7 @@
       "_origin": "ast",
       "id": "internal_integration_cli_e2e_test_runcli",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "runcli()"
     },
     {
@@ -6813,7 +6261,7 @@
       "_origin": "ast",
       "id": "internal_integration_cli_e2e_test_testcli_e2e",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "testcli_e2e()"
     },
     {
@@ -6824,7 +6272,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "e2e_retry_test.go"
     },
     {
@@ -6835,7 +6283,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_startfailthensucceedtarget",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "startfailthensucceedtarget()"
     },
     {
@@ -6846,7 +6294,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_go_t",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -6857,7 +6305,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_go_server",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "server"
     },
     {
@@ -6868,7 +6316,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_go_int32",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "int32"
     },
     {
@@ -6879,7 +6327,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_startalwaysfailtarget",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "startalwaysfailtarget()"
     },
     {
@@ -6890,7 +6338,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_startcountingtarget",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "startcountingtarget()"
     },
     {
@@ -6901,7 +6349,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_registereventtype",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "registereventtype()"
     },
     {
@@ -6912,7 +6360,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_go_context",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -6923,7 +6371,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_registerwebhookpipeline",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "registerwebhookpipeline()"
     },
     {
@@ -6934,7 +6382,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_pushtestevent",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "pushtestevent()"
     },
     {
@@ -6945,7 +6393,7 @@
       "_origin": "ast",
       "id": "integration_deliveryitem",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "deliveryitem"
     },
     {
@@ -6956,7 +6404,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_polldeliverystatus",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "polldeliverystatus()"
     },
     {
@@ -6967,7 +6415,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_pollbatchjob",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "pollbatchjob()"
     },
     {
@@ -6978,7 +6426,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_retryonservererror",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_retryonservererror()"
     },
     {
@@ -6989,7 +6437,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_exhaustedretries",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_exhaustedretries()"
     },
     {
@@ -7000,7 +6448,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_fanoutmultiplesubscribers",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_fanoutmultiplesubscribers()"
     },
     {
@@ -7011,7 +6459,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_pausedwebhooknodelivery",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_pausedwebhooknodelivery()"
     },
     {
@@ -7022,7 +6470,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_deletesubscriptionstopsdelivery",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_deletesubscriptionstopsdelivery()"
     },
     {
@@ -7033,7 +6481,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_singlerepush",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_singlerepush()"
     },
     {
@@ -7044,7 +6492,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_idempotencykeydedup",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_idempotencykeydedup()"
     },
     {
@@ -7055,7 +6503,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_batchretrydeliveries",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_batchretrydeliveries()"
     },
     {
@@ -7066,7 +6514,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_pausewebhookstopsretries",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_pausewebhookstopsretries()"
     },
     {
@@ -7077,7 +6525,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_batchrepushevents",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_batchrepushevents()"
     },
     {
@@ -7088,7 +6536,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_timeoutretry",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_timeoutretry()"
     },
     {
@@ -7099,7 +6547,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_envelopepayloadformat",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_envelopepayloadformat()"
     },
     {
@@ -7110,7 +6558,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_retry_test_teste2e_nulllabelfiltersstilldelivers",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_nulllabelfiltersstilldelivers()"
     },
     {
@@ -7121,7 +6569,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_test",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "e2e_test.go"
     },
     {
@@ -7132,7 +6580,7 @@
       "_origin": "ast",
       "id": "integration_capturedwebhook",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "capturedwebhook"
     },
     {
@@ -7143,7 +6591,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_test_go_header",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "header"
     },
     {
@@ -7154,7 +6602,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_test_startwebhooktarget",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "startwebhooktarget()"
     },
     {
@@ -7165,7 +6613,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_test_go_t",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -7176,7 +6624,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_test_go_server",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "server"
     },
     {
@@ -7187,7 +6635,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_test_go_context",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -7198,7 +6646,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_test_teste2e_happypath",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_happypath()"
     },
     {
@@ -7209,7 +6657,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_test_validatehmac",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "validatehmac()"
     },
     {
@@ -7220,7 +6668,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_test_polldeliverysuccess",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "polldeliverysuccess()"
     },
     {
@@ -7231,7 +6679,7 @@
       "_origin": "ast",
       "id": "internal_integration_e2e_test_go_duration",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "duration"
     },
     {
@@ -7275,7 +6723,7 @@
       "_origin": "ast",
       "id": "internal_integration_rate_limit_slot_test",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "rate_limit_slot_test.go"
     },
     {
@@ -7286,7 +6734,7 @@
       "_origin": "ast",
       "id": "internal_integration_rate_limit_slot_test_testacquiredeliveryslot_busybucketdoesnotburnslots",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "testacquiredeliveryslot_busybucketdoesnotburnslots()"
     },
     {
@@ -7297,7 +6745,7 @@
       "_origin": "ast",
       "id": "internal_integration_rate_limit_slot_test_go_t",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -7308,7 +6756,7 @@
       "_origin": "ast",
       "id": "internal_integration_recipes_e2e_test",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "recipes_e2e_test.go"
     },
     {
@@ -7319,7 +6767,7 @@
       "_origin": "ast",
       "id": "internal_integration_recipes_e2e_test_startbodycapturetarget",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "startbodycapturetarget()"
     },
     {
@@ -7330,7 +6778,7 @@
       "_origin": "ast",
       "id": "internal_integration_recipes_e2e_test_go_t",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -7341,7 +6789,7 @@
       "_origin": "ast",
       "id": "internal_integration_recipes_e2e_test_go_server",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "server"
     },
     {
@@ -7352,7 +6800,7 @@
       "_origin": "ast",
       "id": "internal_integration_recipes_e2e_test_teste2e_slackrecipetransform",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_slackrecipetransform()"
     },
     {
@@ -7363,7 +6811,7 @@
       "_origin": "ast",
       "id": "internal_integration_rest_client_test",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "rest_client_test.go"
     },
     {
@@ -7374,7 +6822,7 @@
       "_origin": "ast",
       "id": "integration_restclient",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "restclient"
     },
     {
@@ -7385,7 +6833,7 @@
       "_origin": "ast",
       "id": "internal_integration_rest_client_test_go_t",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -7396,7 +6844,7 @@
       "_origin": "ast",
       "id": "internal_integration_rest_client_test_newrestclient",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "newrestclient()"
     },
     {
@@ -7407,7 +6855,7 @@
       "_origin": "ast",
       "id": "integration_restclient_do",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": ".do()"
     },
     {
@@ -7418,7 +6866,7 @@
       "_origin": "ast",
       "id": "internal_integration_rest_client_test_go_context",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -7429,7 +6877,7 @@
       "_origin": "ast",
       "id": "internal_integration_rest_client_test_go_response",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "response"
     },
     {
@@ -7440,7 +6888,7 @@
       "_origin": "ast",
       "id": "integration_restclient_post",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": ".post()"
     },
     {
@@ -7451,7 +6899,7 @@
       "_origin": "ast",
       "id": "integration_restclient_get",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": ".get()"
     },
     {
@@ -7462,7 +6910,7 @@
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "sinks_e2e_test.go"
     },
     {
@@ -7473,7 +6921,7 @@
       "_origin": "ast",
       "id": "integration_sinksmtpmessage",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "sinksmtpmessage"
     },
     {
@@ -7484,7 +6932,7 @@
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_startsinksmtpserver",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "startsinksmtpserver()"
     },
     {
@@ -7495,7 +6943,7 @@
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_go_t",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -7506,7 +6954,7 @@
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_freeport",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "freeport()"
     },
     {
@@ -7517,7 +6965,7 @@
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_startsinksbinary",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "startsinksbinary()"
     },
     {
@@ -7528,7 +6976,7 @@
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_go_context",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -7539,7 +6987,7 @@
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_teste2e_emailsink",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_emailsink()"
     },
     {
@@ -7550,7 +6998,7 @@
       "_origin": "ast",
       "id": "internal_integration_sinks_e2e_test_teste2e_otlpsink",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_otlpsink()"
     },
     {
@@ -7561,7 +7009,7 @@
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "sources_e2e_test.go"
     },
     {
@@ -7572,7 +7020,7 @@
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_startwebhook",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "startwebhook()"
     },
     {
@@ -7583,7 +7031,7 @@
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_go_t",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -7594,7 +7042,7 @@
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_go_server",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "server"
     },
     {
@@ -7605,7 +7053,7 @@
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_findeventoccurrence",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "findeventoccurrence()"
     },
     {
@@ -7616,7 +7064,7 @@
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_go_context",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -7627,7 +7075,7 @@
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_teste2e_sourcesstripewebhook",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_sourcesstripewebhook()"
     },
     {
@@ -7638,7 +7086,7 @@
       "_origin": "ast",
       "id": "internal_integration_sources_e2e_test_teste2e_sourcesgithubwebhook",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_sourcesgithubwebhook()"
     },
     {
@@ -7649,7 +7097,7 @@
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "testhelpers_test.go"
     },
     {
@@ -7660,7 +7108,7 @@
       "_origin": "ast",
       "id": "integration_testenv",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "testenv"
     },
     {
@@ -7671,7 +7119,7 @@
       "_origin": "ast",
       "id": "container",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "container"
     },
     {
@@ -7682,7 +7130,7 @@
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_go_pool",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "pool"
     },
     {
@@ -7693,7 +7141,7 @@
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_go_server",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "server"
     },
     {
@@ -7704,7 +7152,7 @@
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_setuptestdb",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "setuptestdb()"
     },
     {
@@ -7715,7 +7163,7 @@
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_go_t",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -7726,7 +7174,7 @@
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_go_context",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -7737,7 +7185,7 @@
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_runmigrations",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "runmigrations()"
     },
     {
@@ -7748,7 +7196,7 @@
       "_origin": "ast",
       "id": "internal_integration_testhelpers_test_setupenv",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "setupenv()"
     },
     {
@@ -7759,7 +7207,7 @@
       "_origin": "ast",
       "id": "internal_integration_webhook_health_alerts_test",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "webhook_health_alerts_test.go"
     },
     {
@@ -7770,7 +7218,7 @@
       "_origin": "ast",
       "id": "internal_integration_webhook_health_alerts_test_pollsystemevent",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "pollsystemevent()"
     },
     {
@@ -7781,7 +7229,7 @@
       "_origin": "ast",
       "id": "internal_integration_webhook_health_alerts_test_go_t",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "t"
     },
     {
@@ -7792,7 +7240,7 @@
       "_origin": "ast",
       "id": "internal_integration_webhook_health_alerts_test_go_context",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -7803,7 +7251,7 @@
       "_origin": "ast",
       "id": "internal_integration_webhook_health_alerts_test_teste2e_webhookhealthalerts",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "teste2e_webhookhealthalerts()"
     },
     {
@@ -7814,7 +7262,7 @@
       "_origin": "ast",
       "id": "internal_integration_webhook_health_alerts_test_asserthasrecipient",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "asserthasrecipient()"
     },
     {
@@ -7825,7 +7273,7 @@
       "_origin": "ast",
       "id": "internal_middleware_auth",
       "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community_name": "PortalGateway",
       "norm_label": "auth.go"
     },
     {
@@ -7835,8 +7283,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "middleware_auth",
-      "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community": 46,
+      "community_name": "newAuth",
       "norm_label": "auth"
     },
     {
@@ -7846,8 +7294,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "internal_middleware_auth_newauth",
-      "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community": 46,
+      "community_name": "newAuth",
       "norm_label": "newauth()"
     },
     {
@@ -7857,8 +7305,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_middleware_auth_go_service",
-      "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community": 46,
+      "community_name": "newAuth",
       "norm_label": "service"
     },
     {
@@ -7869,7 +7317,7 @@
       "_origin": "ast",
       "id": "middleware_auth_httpmiddleware",
       "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community_name": "PortalGateway",
       "norm_label": ".httpmiddleware()"
     },
     {
@@ -7879,8 +7327,8 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "middleware_portalverifier",
-      "community": 116,
-      "community_name": "portal_test.go",
+      "community": 190,
+      "community_name": "PortalGateway",
       "norm_label": "portalverifier"
     },
     {
@@ -7902,7 +7350,7 @@
       "_origin": "ast",
       "id": "internal_middleware_auth_writejsonerror",
       "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community_name": "PortalGateway",
       "norm_label": "writejsonerror()"
     },
     {
@@ -7913,7 +7361,7 @@
       "_origin": "ast",
       "id": "internal_middleware_auth_go_responsewriter",
       "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community_name": "PortalGateway",
       "norm_label": "responsewriter"
     },
     {
@@ -8275,8 +7723,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_middleware_max_body",
-      "community": 70,
-      "community_name": "Handler",
+      "community": 159,
+      "community_name": "HandlerFunc",
       "norm_label": "max_body.go"
     },
     {
@@ -8286,8 +7734,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "internal_middleware_max_body_maxbodybytes",
-      "community": 70,
-      "community_name": "Handler",
+      "community": 159,
+      "community_name": "HandlerFunc",
       "norm_label": "maxbodybytes()"
     },
     {
@@ -8430,7 +7878,7 @@
       "_origin": "ast",
       "id": "internal_middleware_portal_gateway",
       "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community_name": "PortalGateway",
       "norm_label": "portal_gateway.go"
     },
     {
@@ -8441,7 +7889,7 @@
       "_origin": "ast",
       "id": "middleware_portalctxkey",
       "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community_name": "PortalGateway",
       "norm_label": "portalctxkey"
     },
     {
@@ -8452,7 +7900,7 @@
       "_origin": "ast",
       "id": "internal_middleware_portal_gateway_portalauthorized",
       "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community_name": "PortalGateway",
       "norm_label": "portalauthorized()"
     },
     {
@@ -8463,7 +7911,7 @@
       "_origin": "ast",
       "id": "internal_middleware_portal_gateway_go_context",
       "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community_name": "PortalGateway",
       "norm_label": "context"
     },
     {
@@ -8473,8 +7921,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "internal_middleware_portal_gateway_portalgateway",
-      "community": 116,
-      "community_name": "portal_test.go",
+      "community": 190,
+      "community_name": "PortalGateway",
       "norm_label": "portalgateway()"
     },
     {
@@ -8485,7 +7933,7 @@
       "_origin": "ast",
       "id": "internal_middleware_portal_gateway_portaltarget",
       "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community_name": "PortalGateway",
       "norm_label": "portaltarget()"
     },
     {
@@ -8496,7 +7944,7 @@
       "_origin": "ast",
       "id": "internal_middleware_portal_gateway_cleanportalpath",
       "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community_name": "PortalGateway",
       "norm_label": "cleanportalpath()"
     },
     {
@@ -8507,7 +7955,7 @@
       "_origin": "ast",
       "id": "internal_middleware_portal_gateway_writeportalautherror",
       "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community_name": "PortalGateway",
       "norm_label": "writeportalautherror()"
     },
     {
@@ -8518,7 +7966,7 @@
       "_origin": "ast",
       "id": "internal_middleware_portal_gateway_go_responsewriter",
       "community": 190,
-      "community_name": ".HTTPMiddleware",
+      "community_name": "PortalGateway",
       "norm_label": "responsewriter"
     },
     {
@@ -8737,7 +8185,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_middleware_security_headers",
-      "community": 0,
+      "community": 159,
       "community_name": "HandlerFunc",
       "norm_label": "security_headers.go"
     },
@@ -8748,7 +8196,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_buildcsp",
-      "community": 0,
+      "community": 159,
       "community_name": "HandlerFunc",
       "norm_label": "buildcsp()"
     },
@@ -8759,7 +8207,7 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_securityheaders",
-      "community": 0,
+      "community": 159,
       "community_name": "HandlerFunc",
       "norm_label": "securityheaders()"
     },
@@ -8770,7 +8218,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_test",
-      "community": 0,
+      "community": 159,
       "community_name": "HandlerFunc",
       "norm_label": "security_headers_test.go"
     },
@@ -8781,7 +8229,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_test_testsecurityheadersnohashes",
-      "community": 0,
+      "community": 159,
       "community_name": "HandlerFunc",
       "norm_label": "testsecurityheadersnohashes()"
     },
@@ -8792,7 +8240,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_test_go_t",
-      "community": 0,
+      "community": 159,
       "community_name": "HandlerFunc",
       "norm_label": "t"
     },
@@ -8803,7 +8251,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_test_testsecurityheaderswithhashes",
-      "community": 0,
+      "community": 159,
       "community_name": "HandlerFunc",
       "norm_label": "testsecurityheaderswithhashes()"
     },
@@ -8814,7 +8262,7 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_test_testsecurityheadersportalallowsframing",
-      "community": 0,
+      "community": 159,
       "community_name": "HandlerFunc",
       "norm_label": "testsecurityheadersportalallowsframing()"
     },
@@ -8825,7 +8273,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_test_testsecurityheaderspassthrough",
-      "community": 0,
+      "community": 159,
       "community_name": "HandlerFunc",
       "norm_label": "testsecurityheaderspassthrough()"
     },
@@ -8836,7 +8284,7 @@
       "source_location": "L124",
       "_origin": "ast",
       "id": "internal_middleware_security_headers_test_testbuildcsp",
-      "community": 0,
+      "community": 159,
       "community_name": "HandlerFunc",
       "norm_label": "testbuildcsp()"
     },
@@ -9728,7 +9176,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "conversions.go"
     },
     {
@@ -9739,7 +9187,7 @@
       "_origin": "ast",
       "id": "rest_conversionservice",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "conversionservice"
     },
     {
@@ -9750,7 +9198,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_masksecret",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "masksecret()"
     },
     {
@@ -9761,7 +9209,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_maskencryptedsecret",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "maskencryptedsecret()"
     },
     {
@@ -9772,7 +9220,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_masksecretheaders",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "masksecretheaders()"
     },
     {
@@ -9783,7 +9231,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_getwebhookeventsmap",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "getwebhookeventsmap()"
     },
     {
@@ -9794,7 +9242,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_go_context",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "context"
     },
     {
@@ -9805,7 +9253,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_go_webhookregistration",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "webhookregistration"
     },
     {
@@ -9816,7 +9264,7 @@
       "_origin": "ast",
       "id": "rest_webhookhttpconfigout",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "webhookhttpconfigout"
     },
     {
@@ -9827,7 +9275,7 @@
       "_origin": "ast",
       "id": "rest_webhookout",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "webhookout"
     },
     {
@@ -9838,7 +9286,7 @@
       "_origin": "ast",
       "id": "internal_rest_conversions_towebhookout",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "towebhookout()"
     },
     {
@@ -9848,8 +9296,8 @@
       "source_location": "L160",
       "_origin": "ast",
       "id": "internal_rest_conversions_towebhookoutfromdomain",
-      "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community": 10,
+      "community_name": "webhooks/models.go",
       "norm_label": "towebhookoutfromdomain()"
     },
     {
@@ -10464,8 +9912,8 @@
       "source_location": "L534",
       "_origin": "ast",
       "id": "internal_rest_event_listeventoccurrencesimpl",
-      "community": 1,
-      "community_name": "event.go",
+      "community": 153,
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "listeventoccurrencesimpl()"
     },
     {
@@ -10475,8 +9923,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_rest_event_go_context",
-      "community": 1,
-      "community_name": "event.go",
+      "community": 153,
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "context"
     },
     {
@@ -10487,7 +9935,7 @@
       "_origin": "ast",
       "id": "internal_rest_filter_helpers",
       "community": 153,
-      "community_name": "parseDateFilter",
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "filter_helpers.go"
     },
     {
@@ -10498,7 +9946,7 @@
       "_origin": "ast",
       "id": "internal_rest_filter_helpers_parselabelfilter",
       "community": 153,
-      "community_name": "parseDateFilter",
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "parselabelfilter()"
     },
     {
@@ -10509,7 +9957,7 @@
       "_origin": "ast",
       "id": "internal_rest_filter_helpers_parsedatefilter",
       "community": 153,
-      "community_name": "parseDateFilter",
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "parsedatefilter()"
     },
     {
@@ -10520,7 +9968,7 @@
       "_origin": "ast",
       "id": "internal_rest_filter_helpers_go_time",
       "community": 153,
-      "community_name": "parseDateFilter",
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "time"
     },
     {
@@ -10531,7 +9979,7 @@
       "_origin": "ast",
       "id": "internal_rest_filter_helpers_test",
       "community": 153,
-      "community_name": "parseDateFilter",
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "filter_helpers_test.go"
     },
     {
@@ -10542,7 +9990,7 @@
       "_origin": "ast",
       "id": "internal_rest_filter_helpers_test_testparselabelfilter",
       "community": 153,
-      "community_name": "parseDateFilter",
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "testparselabelfilter()"
     },
     {
@@ -10553,7 +10001,7 @@
       "_origin": "ast",
       "id": "internal_rest_filter_helpers_test_go_t",
       "community": 153,
-      "community_name": "parseDateFilter",
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "t"
     },
     {
@@ -10564,7 +10012,7 @@
       "_origin": "ast",
       "id": "internal_rest_filter_helpers_test_testparsedatefilter",
       "community": 153,
-      "community_name": "parseDateFilter",
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "testparsedatefilter()"
     },
     {
@@ -10575,7 +10023,7 @@
       "_origin": "ast",
       "id": "internal_rest_health",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "health.go"
     },
     {
@@ -10586,7 +10034,7 @@
       "_origin": "ast",
       "id": "rest_webhookhealthoutput",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "webhookhealthoutput"
     },
     {
@@ -10597,7 +10045,7 @@
       "_origin": "ast",
       "id": "rest_healthsummaryoutput",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "healthsummaryoutput"
     },
     {
@@ -10608,7 +10056,7 @@
       "_origin": "ast",
       "id": "rest_listwebhooksglobalinput",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "listwebhooksglobalinput"
     },
     {
@@ -10618,8 +10066,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "rest_healthrouteservice",
-      "community": 43,
-      "community_name": "webhook_service.go",
+      "community": 45,
+      "community_name": "conversions.go",
       "norm_label": "healthrouteservice"
     },
     {
@@ -10630,7 +10078,7 @@
       "_origin": "ast",
       "id": "internal_rest_health_registerhealthroutes",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "registerhealthroutes()"
     },
     {
@@ -10641,7 +10089,7 @@
       "_origin": "ast",
       "id": "internal_rest_health_go_api",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "api"
     },
     {
@@ -10684,8 +10132,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_rest_pagination",
-      "community": 1,
-      "community_name": "event.go",
+      "community": 153,
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "pagination.go"
     },
     {
@@ -10695,8 +10143,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "rest_paginationoutput",
-      "community": 1,
-      "community_name": "event.go",
+      "community": 153,
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "paginationoutput"
     },
     {
@@ -10706,8 +10154,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "internal_rest_pagination_newpagination",
-      "community": 1,
-      "community_name": "event.go",
+      "community": 153,
+      "community_name": "listEventOccurrencesImpl",
       "norm_label": "newpagination()"
     },
     {
@@ -11125,7 +10573,7 @@
       "_origin": "ast",
       "id": "rest_webhookoutput",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "webhookoutput"
     },
     {
@@ -11169,7 +10617,7 @@
       "_origin": "ast",
       "id": "rest_listwebhooksoutput",
       "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community_name": "conversions.go",
       "norm_label": "listwebhooksoutput"
     },
     {
@@ -11245,8 +10693,8 @@
       "source_location": "L147",
       "_origin": "ast",
       "id": "rest_webhookrouteservice",
-      "community": 43,
-      "community_name": "webhook_service.go",
+      "community": 8,
+      "community_name": "rest/webhook.go",
       "norm_label": "webhookrouteservice"
     },
     {
@@ -11256,8 +10704,8 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "internal_rest_webhook_registerwebhookroutes",
-      "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community": 8,
+      "community_name": "rest/webhook.go",
       "norm_label": "registerwebhookroutes()"
     },
     {
@@ -11267,8 +10715,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_rest_webhook_go_api",
-      "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community": 8,
+      "community_name": "rest/webhook.go",
       "norm_label": "api"
     },
     {
@@ -11279,7 +10727,7 @@
       "_origin": "ast",
       "id": "internal_tenant_tenant",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "tenant.go"
     },
     {
@@ -11290,7 +10738,7 @@
       "_origin": "ast",
       "id": "internal_tenant_tenant_bootstrap",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "bootstrap()"
     },
     {
@@ -11301,7 +10749,7 @@
       "_origin": "ast",
       "id": "internal_tenant_tenant_go_context",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "context"
     },
     {
@@ -11608,8 +11056,8 @@
       "source_location": "L151",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_createwebhook",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 10,
+      "community_name": "webhooks/models.go",
       "norm_label": ".createwebhook()"
     },
     {
@@ -11619,8 +11067,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhookserviceinterface_otel_go_webhookregistration",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 213,
+      "community_name": ".ListWebhooks",
       "norm_label": "webhookregistration"
     },
     {
@@ -11663,8 +11111,8 @@
       "source_location": "L246",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_getconsumerstats",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": ".getconsumerstats()"
     },
     {
@@ -11718,8 +11166,8 @@
       "source_location": "L371",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_gethealthsummary",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": ".gethealthsummary()"
     },
     {
@@ -11762,8 +11210,8 @@
       "source_location": "L467",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_getwebhookhealth",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": ".getwebhookhealth()"
     },
     {
@@ -11850,8 +11298,8 @@
       "source_location": "L649",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_listwebhooks",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 213,
+      "community_name": ".ListWebhooks",
       "norm_label": ".listwebhooks()"
     },
     {
@@ -12004,8 +11452,8 @@
       "source_location": "L1029",
       "_origin": "ast",
       "id": "webhooks_webhookserviceinterfacewithtracing_updatewebhookconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 215,
+      "community_name": "HTTPConfigUpdate",
       "norm_label": ".updatewebhookconfig()"
     },
     {
@@ -12565,8 +12013,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_client_headers_test",
-      "community": 207,
-      "community_name": "TestBuildRequestHeaderPrecedence",
+      "community": 187,
+      "community_name": "ValidateHeaders",
       "norm_label": "headers_test.go"
     },
     {
@@ -12576,8 +12024,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "internal_webhooks_client_headers_test_testvalidateheaders",
-      "community": 207,
-      "community_name": "TestBuildRequestHeaderPrecedence",
+      "community": 187,
+      "community_name": "ValidateHeaders",
       "norm_label": "testvalidateheaders()"
     },
     {
@@ -12587,8 +12035,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_client_headers_test_go_t",
-      "community": 207,
-      "community_name": "TestBuildRequestHeaderPrecedence",
+      "community": 187,
+      "community_name": "ValidateHeaders",
       "norm_label": "t"
     },
     {
@@ -12598,8 +12046,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "internal_webhooks_client_headers_test_testbuildrequestheaderprecedence",
-      "community": 207,
-      "community_name": "TestBuildRequestHeaderPrecedence",
+      "community": 187,
+      "community_name": "ValidateHeaders",
       "norm_label": "testbuildrequestheaderprecedence()"
     },
     {
@@ -13332,7 +12780,7 @@
       "label": "vector",
       "file_type": "code",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L36",
+      "source_location": "L35",
       "_origin": "ast",
       "id": "client_vector",
       "community": 205,
@@ -13343,7 +12791,7 @@
       "label": "vectorFile",
       "file_type": "code",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L47",
+      "source_location": "L46",
       "_origin": "ast",
       "id": "client_vectorfile",
       "community": 205,
@@ -13354,7 +12802,7 @@
       "label": "buildVectors()",
       "file_type": "code",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L54",
+      "source_location": "L53",
       "_origin": "ast",
       "id": "internal_webhooks_client_vectors_test_buildvectors",
       "community": 205,
@@ -13373,21 +12821,10 @@
       "norm_label": "t"
     },
     {
-      "label": "encodeTSV()",
-      "file_type": "code",
-      "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L138",
-      "_origin": "ast",
-      "id": "internal_webhooks_client_vectors_test_encodetsv",
-      "community": 205,
-      "community_name": "buildVectors",
-      "norm_label": "encodetsv()"
-    },
-    {
       "label": "TestSignatureVectors()",
       "file_type": "code",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L161",
+      "source_location": "L130",
       "_origin": "ast",
       "id": "internal_webhooks_client_vectors_test_testsignaturevectors",
       "community": 205,
@@ -13566,8 +13003,8 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "internal_webhooks_event_filtering_test_testpushevent_withvalidlabels",
-      "community": 102,
-      "community_name": "testContext",
+      "community": 3,
+      "community_name": "event_filtering_test.go",
       "norm_label": "testpushevent_withvalidlabels()"
     },
     {
@@ -13599,8 +13036,8 @@
       "source_location": "L244",
       "_origin": "ast",
       "id": "internal_webhooks_event_filtering_test_testcreatesubscription_withlabelfilters",
-      "community": 102,
-      "community_name": "testContext",
+      "community": 3,
+      "community_name": "event_filtering_test.go",
       "norm_label": "testcreatesubscription_withlabelfilters()"
     },
     {
@@ -13610,8 +13047,8 @@
       "source_location": "L269",
       "_origin": "ast",
       "id": "internal_webhooks_event_filtering_test_testcreatesubscription_withemptylabelfilters",
-      "community": 102,
-      "community_name": "testContext",
+      "community": 3,
+      "community_name": "event_filtering_test.go",
       "norm_label": "testcreatesubscription_withemptylabelfilters()"
     },
     {
@@ -13632,8 +13069,8 @@
       "source_location": "L333",
       "_origin": "ast",
       "id": "internal_webhooks_event_filtering_test_testcreatesubscription_catchallwithlabelfilters",
-      "community": 3,
-      "community_name": "event_filtering_test.go",
+      "community": 102,
+      "community_name": "testContext",
       "norm_label": "testcreatesubscription_catchallwithlabelfilters()"
     },
     {
@@ -13819,8 +13256,8 @@
       "source_location": "L620",
       "_origin": "ast",
       "id": "internal_webhooks_event_filtering_test_testpushevent_eventnamelengthcountscharacters",
-      "community": 102,
-      "community_name": "testContext",
+      "community": 3,
+      "community_name": "event_filtering_test.go",
       "norm_label": "testpushevent_eventnamelengthcountscharacters()"
     },
     {
@@ -13885,8 +13322,8 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "internal_webhooks_models_derefintor",
-      "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community": 10,
+      "community_name": "webhooks/models.go",
       "norm_label": "derefintor()"
     },
     {
@@ -13896,8 +13333,8 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "internal_webhooks_models_derefboolor",
-      "community": 45,
-      "community_name": "registerWebhookRoutes",
+      "community": 10,
+      "community_name": "webhooks/models.go",
       "norm_label": "derefboolor()"
     },
     {
@@ -13907,8 +13344,8 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "internal_webhooks_models_defaultwebhookhttpconfig",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 212,
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "defaultwebhookhttpconfig()"
     },
     {
@@ -14094,8 +13531,8 @@
       "source_location": "L301",
       "_origin": "ast",
       "id": "webhooks_httpconfigupdate",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 215,
+      "community_name": "HTTPConfigUpdate",
       "norm_label": "httpconfigupdate"
     },
     {
@@ -14380,8 +13817,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker",
-      "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "WebhookWorker",
       "norm_label": "events_worker.go"
     },
     {
@@ -14391,8 +13828,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "queue_eventprocessingworker",
-      "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "WebhookWorker",
       "norm_label": "eventprocessingworker"
     },
     {
@@ -14402,8 +13839,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_workerdefaults",
-      "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "WebhookWorker",
       "norm_label": "workerdefaults"
     },
     {
@@ -14413,8 +13850,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_logger",
-      "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "WebhookWorker",
       "norm_label": "logger"
     },
     {
@@ -14424,8 +13861,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_go_jobinserter",
-      "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "WebhookWorker",
       "norm_label": "jobinserter"
     },
     {
@@ -14435,8 +13872,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "internal_webhooks_queue_events_worker_neweventprocessingworker",
-      "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "WebhookWorker",
       "norm_label": "neweventprocessingworker()"
     },
     {
@@ -14986,7 +14423,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker",
       "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RetentionWorker",
       "norm_label": "retention_worker.go"
     },
     {
@@ -14997,7 +14434,7 @@
       "_origin": "ast",
       "id": "queue_retentionargs",
       "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RetentionWorker",
       "norm_label": "retentionargs"
     },
     {
@@ -15008,7 +14445,7 @@
       "_origin": "ast",
       "id": "queue_retentionargs_kind",
       "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RetentionWorker",
       "norm_label": ".kind()"
     },
     {
@@ -15019,7 +14456,7 @@
       "_origin": "ast",
       "id": "queue_retentionargs_insertopts",
       "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RetentionWorker",
       "norm_label": ".insertopts()"
     },
     {
@@ -15030,7 +14467,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_insertopts",
       "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RetentionWorker",
       "norm_label": "insertopts"
     },
     {
@@ -15041,7 +14478,7 @@
       "_origin": "ast",
       "id": "queue_retentionworker",
       "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RetentionWorker",
       "norm_label": "retentionworker"
     },
     {
@@ -15052,7 +14489,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_workerdefaults",
       "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RetentionWorker",
       "norm_label": "workerdefaults"
     },
     {
@@ -15063,7 +14500,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_logger",
       "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RetentionWorker",
       "norm_label": "logger"
     },
     {
@@ -15074,7 +14511,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_newretentionworker",
       "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RetentionWorker",
       "norm_label": "newretentionworker()"
     },
     {
@@ -15085,7 +14522,7 @@
       "_origin": "ast",
       "id": "queue_retentionworker_work",
       "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RetentionWorker",
       "norm_label": ".work()"
     },
     {
@@ -15096,7 +14533,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_context",
       "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RetentionWorker",
       "norm_label": "context"
     },
     {
@@ -15107,7 +14544,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_queue_retention_worker_go_job",
       "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community_name": "RetentionWorker",
       "norm_label": "job"
     },
     {
@@ -15887,8 +15324,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 212,
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "webhooks/rate_limit_test.go"
     },
     {
@@ -15898,8 +15335,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_testvalidateconfig_ratelimitrps",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 212,
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "testvalidateconfig_ratelimitrps()"
     },
     {
@@ -15909,8 +15346,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_go_t",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 212,
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "t"
     },
     {
@@ -15920,8 +15357,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_testapplyconfig_ratelimitrps",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 212,
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "testapplyconfig_ratelimitrps()"
     },
     {
@@ -15931,8 +15368,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_testdefaultwebhookhttpconfig_ratelimitrps",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 212,
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "testdefaultwebhookhttpconfig_ratelimitrps()"
     },
     {
@@ -15942,8 +15379,8 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "internal_webhooks_rate_limit_test_testtowebhookregistration_ratelimitrps",
-      "community": 10,
-      "community_name": "webhooks/models.go",
+      "community": 212,
+      "community_name": "DefaultWebhookHTTPConfig",
       "norm_label": "testtowebhookregistration_ratelimitrps()"
     },
     {
@@ -16096,8 +15533,8 @@
       "source_location": "L186",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_createbatchjob",
-      "community": 5,
-      "community_name": "RepositoryInterfaceWithTracing",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": ".createbatchjob()"
     },
     {
@@ -16217,8 +15654,8 @@
       "source_location": "L452",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_getbatchjob",
-      "community": 5,
-      "community_name": "RepositoryInterfaceWithTracing",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": ".getbatchjob()"
     },
     {
@@ -16261,8 +15698,8 @@
       "source_location": "L560",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_getdeliveryattempts",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": ".getdeliveryattempts()"
     },
     {
@@ -16283,8 +15720,8 @@
       "source_location": "L611",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_geteventbyid",
-      "community": 78,
-      "community_name": "mockRepo",
+      "community": 66,
+      "community_name": "EventRecord",
       "norm_label": ".geteventbyid()"
     },
     {
@@ -16294,8 +15731,8 @@
       "source_location": "L636",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_geteventbyidempotencykey",
-      "community": 78,
-      "community_name": "mockRepo",
+      "community": 66,
+      "community_name": "EventRecord",
       "norm_label": ".geteventbyidempotencykey()"
     },
     {
@@ -16371,8 +15808,8 @@
       "source_location": "L818",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_getsubscriptionswithwebhooksbyevent",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 58,
+      "community_name": "Context",
       "norm_label": ".getsubscriptionswithwebhooksbyevent()"
     },
     {
@@ -16405,7 +15842,7 @@
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_getwebhookhealthstate",
       "community": 23,
-      "community_name": "store/models.go",
+      "community_name": "Time",
       "norm_label": ".getwebhookhealthstate()"
     },
     {
@@ -16416,7 +15853,7 @@
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_getwebhookhealthsummary",
       "community": 23,
-      "community_name": "store/models.go",
+      "community_name": "Time",
       "norm_label": ".getwebhookhealthsummary()"
     },
     {
@@ -16426,8 +15863,8 @@
       "source_location": "L920",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_getwebhookhealthtimeseries",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": ".getwebhookhealthtimeseries()"
     },
     {
@@ -16449,7 +15886,7 @@
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_listdeliveriesfiltered",
       "community": 23,
-      "community_name": "store/models.go",
+      "community_name": "Time",
       "norm_label": ".listdeliveriesfiltered()"
     },
     {
@@ -16471,7 +15908,7 @@
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_listeventreports",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": ".listeventreports()"
     },
     {
@@ -16481,8 +15918,8 @@
       "source_location": "L1055",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_listeventreportsfiltered",
-      "community": 66,
-      "community_name": "EventReportWithStats",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": ".listeventreportsfiltered()"
     },
     {
@@ -16493,7 +15930,7 @@
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_listeventreportswithstats",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": ".listeventreportswithstats()"
     },
     {
@@ -16669,7 +16106,7 @@
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_snapshotdeliveryids",
       "community": 23,
-      "community_name": "store/models.go",
+      "community_name": "Time",
       "norm_label": ".snapshotdeliveryids()"
     },
     {
@@ -16679,8 +16116,8 @@
       "source_location": "L1528",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_snapshoteventids",
-      "community": 66,
-      "community_name": "EventReportWithStats",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": ".snapshoteventids()"
     },
     {
@@ -16690,8 +16127,8 @@
       "source_location": "L1553",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_storeevent",
-      "community": 78,
-      "community_name": "mockRepo",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": ".storeevent()"
     },
     {
@@ -16723,8 +16160,8 @@
       "source_location": "L1626",
       "_origin": "ast",
       "id": "store_repositoryinterfacewithtracing_updatebatchjobstatus",
-      "community": 5,
-      "community_name": "RepositoryInterfaceWithTracing",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": ".updatebatchjobstatus()"
     },
     {
@@ -16811,8 +16248,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 210,
+      "community_name": "AlertConfig",
       "norm_label": "alert_config_repository.go"
     },
     {
@@ -16822,8 +16259,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "store_alertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 210,
+      "community_name": "AlertConfig",
       "norm_label": "alertconfig"
     },
     {
@@ -16833,8 +16270,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository_go_uuid",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 210,
+      "community_name": "AlertConfig",
       "norm_label": "uuid"
     },
     {
@@ -16844,8 +16281,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository_go_time",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 210,
+      "community_name": "AlertConfig",
       "norm_label": "time"
     },
     {
@@ -16866,8 +16303,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository_go_store_repository",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 210,
+      "community_name": "AlertConfig",
       "norm_label": "repository"
     },
     {
@@ -16877,8 +16314,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "store_repository_createalertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 210,
+      "community_name": "AlertConfig",
       "norm_label": ".createalertconfig()"
     },
     {
@@ -16888,8 +16325,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_alert_config_repository_go_context",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 210,
+      "community_name": "AlertConfig",
       "norm_label": "context"
     },
     {
@@ -16899,8 +16336,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "store_repository_listalertconfigs",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 210,
+      "community_name": "AlertConfig",
       "norm_label": ".listalertconfigs()"
     },
     {
@@ -16910,8 +16347,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "store_repository_getalertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 210,
+      "community_name": "AlertConfig",
       "norm_label": ".getalertconfig()"
     },
     {
@@ -16921,8 +16358,8 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "store_repository_deletealertconfig",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 210,
+      "community_name": "AlertConfig",
       "norm_label": ".deletealertconfig()"
     },
     {
@@ -16932,8 +16369,8 @@
       "source_location": "L112",
       "_origin": "ast",
       "id": "store_repository_resolvealertrecipients",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 210,
+      "community_name": "AlertConfig",
       "norm_label": ".resolvealertrecipients()"
     },
     {
@@ -16965,8 +16402,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "internal_webhooks_store_batch_repository_go_store_repository",
-      "community": 107,
-      "community_name": ".CreateBatchJob",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": "repository"
     },
     {
@@ -16976,8 +16413,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "store_repository_createbatchjob",
-      "community": 107,
-      "community_name": ".CreateBatchJob",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": ".createbatchjob()"
     },
     {
@@ -16987,8 +16424,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_batch_repository_go_context",
-      "community": 107,
-      "community_name": ".CreateBatchJob",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": "context"
     },
     {
@@ -16998,8 +16435,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_batch_repository_go_uuid",
-      "community": 107,
-      "community_name": ".CreateBatchJob",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": "uuid"
     },
     {
@@ -17009,8 +16446,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "store_repository_getbatchjob",
-      "community": 107,
-      "community_name": ".CreateBatchJob",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": ".getbatchjob()"
     },
     {
@@ -17020,8 +16457,8 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "store_repository_updatebatchjobstatus",
-      "community": 107,
-      "community_name": ".CreateBatchJob",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": ".updatebatchjobstatus()"
     },
     {
@@ -17031,8 +16468,8 @@
       "source_location": "L117",
       "_origin": "ast",
       "id": "store_repository_updatebatchjobprogress",
-      "community": 107,
-      "community_name": ".CreateBatchJob",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": ".updatebatchjobprogress()"
     },
     {
@@ -17042,8 +16479,8 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "store_repository_cleanupexpiredbatchjobs",
-      "community": 107,
-      "community_name": ".CreateBatchJob",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": ".cleanupexpiredbatchjobs()"
     },
     {
@@ -17053,8 +16490,8 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "store_repository_snapshoteventids",
-      "community": 107,
-      "community_name": ".CreateBatchJob",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": ".snapshoteventids()"
     },
     {
@@ -17064,8 +16501,8 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "store_repository_snapshotdeliveryids",
-      "community": 107,
-      "community_name": ".CreateBatchJob",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": ".snapshotdeliveryids()"
     },
     {
@@ -17262,8 +16699,8 @@
       "source_location": "L434",
       "_origin": "ast",
       "id": "store_repository_getdeliveryattempts",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 40,
+      "community_name": "WebhookDelivery",
       "norm_label": ".getdeliveryattempts()"
     },
     {
@@ -17273,8 +16710,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_event_repository",
-      "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "WebhookWorker",
       "norm_label": "event_repository.go"
     },
     {
@@ -17284,8 +16721,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "store_eventrepository",
-      "community": 86,
-      "community_name": "EventProcessingWorker",
+      "community": 36,
+      "community_name": "WebhookWorker",
       "norm_label": "eventrepository"
     },
     {
@@ -17296,7 +16733,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_event_repository_go_store_repository",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": "repository"
     },
     {
@@ -17307,7 +16744,7 @@
       "_origin": "ast",
       "id": "store_repository_storeevent",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": ".storeevent()"
     },
     {
@@ -17318,7 +16755,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_event_repository_go_context",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": "context"
     },
     {
@@ -17329,7 +16766,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_event_repository_go_uuid",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": "uuid"
     },
     {
@@ -17340,7 +16777,7 @@
       "_origin": "ast",
       "id": "store_repository_geteventbyid",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": ".geteventbyid()"
     },
     {
@@ -17351,7 +16788,7 @@
       "_origin": "ast",
       "id": "store_repository_geteventbyidempotencykey",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": ".geteventbyidempotencykey()"
     },
     {
@@ -17362,7 +16799,7 @@
       "_origin": "ast",
       "id": "store_repository_deleteeventsbefore",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": ".deleteeventsbefore()"
     },
     {
@@ -17373,7 +16810,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_event_repository_go_time",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": "time"
     },
     {
@@ -17384,7 +16821,7 @@
       "_origin": "ast",
       "id": "store_repository_listeventreports",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": ".listeventreports()"
     },
     {
@@ -17395,7 +16832,7 @@
       "_origin": "ast",
       "id": "store_repository_listeventreportswithstats",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": ".listeventreportswithstats()"
     },
     {
@@ -17406,7 +16843,7 @@
       "_origin": "ast",
       "id": "store_repository_listeventreportsfiltered",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": ".listeventreportsfiltered()"
     },
     {
@@ -17417,7 +16854,7 @@
       "_origin": "ast",
       "id": "store_repository_deleteeventbyid",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": ".deleteeventbyid()"
     },
     {
@@ -17428,7 +16865,7 @@
       "_origin": "ast",
       "id": "store_repository_geteventdeliverystats",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": ".geteventdeliverystats()"
     },
     {
@@ -17746,7 +17183,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_store_models",
-      "community": 23,
+      "community": 27,
       "community_name": "store/models.go",
       "norm_label": "store/models.go"
     },
@@ -17769,7 +17206,7 @@
       "_origin": "ast",
       "id": "store_signaturetype",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": "signaturetype"
     },
     {
@@ -17780,7 +17217,7 @@
       "_origin": "ast",
       "id": "store_webhookregistration",
       "community": 23,
-      "community_name": "store/models.go",
+      "community_name": "Time",
       "norm_label": "webhookregistration"
     },
     {
@@ -17791,7 +17228,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_models_go_uuid",
       "community": 23,
-      "community_name": "store/models.go",
+      "community_name": "Time",
       "norm_label": "uuid"
     },
     {
@@ -17802,7 +17239,7 @@
       "_origin": "ast",
       "id": "int64array",
       "community": 23,
-      "community_name": "store/models.go",
+      "community_name": "Time",
       "norm_label": "int64array"
     },
     {
@@ -17813,7 +17250,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_models_go_time",
       "community": 23,
-      "community_name": "store/models.go",
+      "community_name": "Time",
       "norm_label": "time"
     },
     {
@@ -17824,7 +17261,7 @@
       "_origin": "ast",
       "id": "store_webhookregistration_maxdeliveryattempts",
       "community": 23,
-      "community_name": "store/models.go",
+      "community_name": "Time",
       "norm_label": ".maxdeliveryattempts()"
     },
     {
@@ -17834,8 +17271,8 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "store_eventrecord",
-      "community": 78,
-      "community_name": "mockRepo",
+      "community": 66,
+      "community_name": "EventRecord",
       "norm_label": "eventrecord"
     },
     {
@@ -17867,8 +17304,8 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "store_webhookhealthevent",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": "webhookhealthevent"
     },
     {
@@ -17879,7 +17316,7 @@
       "_origin": "ast",
       "id": "store_eventreportwithstats",
       "community": 66,
-      "community_name": "EventReportWithStats",
+      "community_name": "EventRecord",
       "norm_label": "eventreportwithstats"
     },
     {
@@ -17889,8 +17326,8 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "store_eventreportfilter",
-      "community": 66,
-      "community_name": "EventReportWithStats",
+      "community": 5,
+      "community_name": "RepositoryInterfaceWithTracing",
       "norm_label": "eventreportfilter"
     },
     {
@@ -17901,7 +17338,7 @@
       "_origin": "ast",
       "id": "store_deliveryfilter",
       "community": 23,
-      "community_name": "store/models.go",
+      "community_name": "Time",
       "norm_label": "deliveryfilter"
     },
     {
@@ -17912,7 +17349,7 @@
       "_origin": "ast",
       "id": "store_webhookhealthsummary",
       "community": 23,
-      "community_name": "store/models.go",
+      "community_name": "Time",
       "norm_label": "webhookhealthsummary"
     },
     {
@@ -17923,7 +17360,7 @@
       "_origin": "ast",
       "id": "store_webhookhealthmetrics",
       "community": 23,
-      "community_name": "store/models.go",
+      "community_name": "Time",
       "norm_label": "webhookhealthmetrics"
     },
     {
@@ -17944,7 +17381,7 @@
       "source_location": "L230",
       "_origin": "ast",
       "id": "store_webhookupdatefields",
-      "community": 23,
+      "community": 27,
       "community_name": "store/models.go",
       "norm_label": "webhookupdatefields"
     },
@@ -17977,8 +17414,8 @@
       "source_location": "L269",
       "_origin": "ast",
       "id": "store_subscriptionwithwebhook",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 58,
+      "community_name": "Context",
       "norm_label": "subscriptionwithwebhook"
     },
     {
@@ -17988,8 +17425,8 @@
       "source_location": "L275",
       "_origin": "ast",
       "id": "store_batchjobstatus",
-      "community": 5,
-      "community_name": "RepositoryInterfaceWithTracing",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": "batchjobstatus"
     },
     {
@@ -18000,7 +17437,7 @@
       "_origin": "ast",
       "id": "store_batchjobtype",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": "batchjobtype"
     },
     {
@@ -18010,8 +17447,8 @@
       "source_location": "L295",
       "_origin": "ast",
       "id": "store_batchjobdata",
-      "community": 5,
-      "community_name": "RepositoryInterfaceWithTracing",
+      "community": 27,
+      "community_name": "store/models.go",
       "norm_label": "batchjobdata"
     },
     {
@@ -18022,7 +17459,7 @@
       "_origin": "ast",
       "id": "store_batchjob",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": "batchjob"
     },
     {
@@ -18033,7 +17470,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_store_models_go_rawmessage",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": "rawmessage"
     },
     {
@@ -18044,7 +17481,7 @@
       "_origin": "ast",
       "id": "store_batchjob_getdata",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": ".getdata()"
     },
     {
@@ -18054,8 +17491,8 @@
       "source_location": "L338",
       "_origin": "ast",
       "id": "store_jsonmap",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 131,
+      "community_name": "EventRegistration",
       "norm_label": "jsonmap"
     },
     {
@@ -18076,8 +17513,8 @@
       "source_location": "L366",
       "_origin": "ast",
       "id": "store_jsonmap_value",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 131,
+      "community_name": "EventRegistration",
       "norm_label": ".value()"
     },
     {
@@ -18087,8 +17524,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_store_models_go_value",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 131,
+      "community_name": "EventRegistration",
       "norm_label": "value"
     },
     {
@@ -18098,8 +17535,8 @@
       "source_location": "L375",
       "_origin": "ast",
       "id": "store_jsonstringmap",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 131,
+      "community_name": "EventRegistration",
       "norm_label": "jsonstringmap"
     },
     {
@@ -18120,8 +17557,8 @@
       "source_location": "L411",
       "_origin": "ast",
       "id": "store_jsonstringmap_value",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 131,
+      "community_name": "EventRegistration",
       "norm_label": ".value()"
     },
     {
@@ -18770,7 +18207,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_urlvalidation",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": "urlvalidation.go"
     },
     {
@@ -18781,7 +18218,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_urlvalidation_validatewebhookurl",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": "validatewebhookurl()"
     },
     {
@@ -18792,7 +18229,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_urlvalidation_validateheaders",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": "validateheaders()"
     },
     {
@@ -18803,7 +18240,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_urlvalidation_stringheaders",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": "stringheaders()"
     },
     {
@@ -18912,8 +18349,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "webhooks_webhookmanager",
-      "community": 43,
-      "community_name": "webhook_service.go",
+      "community": 8,
+      "community_name": "rest/webhook.go",
       "norm_label": "webhookmanager"
     },
     {
@@ -18934,8 +18371,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "webhooks_subscriptionmanager",
-      "community": 43,
-      "community_name": "webhook_service.go",
+      "community": 4,
+      "community_name": "subscription.go",
       "norm_label": "subscriptionmanager"
     },
     {
@@ -18956,8 +18393,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "webhooks_healthmanager",
-      "community": 43,
-      "community_name": "webhook_service.go",
+      "community": 45,
+      "community_name": "conversions.go",
       "norm_label": "healthmanager"
     },
     {
@@ -18978,8 +18415,8 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "webhooks_alertconfigmanager",
-      "community": 43,
-      "community_name": "webhook_service.go",
+      "community": 113,
+      "community_name": "alert_config.go",
       "norm_label": "alertconfigmanager"
     },
     {
@@ -18989,8 +18426,8 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "webhooks_secretrevealer",
-      "community": 43,
-      "community_name": "webhook_service.go",
+      "community": 45,
+      "community_name": "conversions.go",
       "norm_label": "secretrevealer"
     },
     {
@@ -19077,7 +18514,7 @@
       "source_location": "L182",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_parseuuid",
-      "community": 75,
+      "community": 107,
       "community_name": "parseUUID",
       "norm_label": "parseuuid()"
     },
@@ -19088,7 +18525,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_go_uuid",
-      "community": 75,
+      "community": 107,
       "community_name": "parseUUID",
       "norm_label": "uuid"
     },
@@ -19132,7 +18569,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_alert_config_go_webhooks_webhookservice",
-      "community": 75,
+      "community": 107,
       "community_name": "parseUUID",
       "norm_label": "webhookservice"
     },
@@ -19143,7 +18580,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "webhooks_webhookservice_createalertconfig",
-      "community": 75,
+      "community": 107,
       "community_name": "parseUUID",
       "norm_label": ".createalertconfig()"
     },
@@ -19154,7 +18591,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_alert_config_go_context",
-      "community": 75,
+      "community": 107,
       "community_name": "parseUUID",
       "norm_label": "context"
     },
@@ -19165,7 +18602,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "webhooks_webhookservice_listalertconfigs",
-      "community": 75,
+      "community": 107,
       "community_name": "parseUUID",
       "norm_label": ".listalertconfigs()"
     },
@@ -19176,7 +18613,7 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "webhooks_webhookservice_deletealertconfig",
-      "community": 75,
+      "community": 107,
       "community_name": "parseUUID",
       "norm_label": ".deletealertconfig()"
     },
@@ -19364,7 +18801,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_batch_go_webhooks_webhookservice",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": "webhookservice"
     },
     {
@@ -19375,7 +18812,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_loadandvalidatebatch",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": ".loadandvalidatebatch()"
     },
     {
@@ -19386,7 +18823,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_batch_go_context",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": "context"
     },
     {
@@ -19397,7 +18834,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_startbatch",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": ".startbatch()"
     },
     {
@@ -19408,7 +18845,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_cancelbatch",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": ".cancelbatch()"
     },
     {
@@ -19419,7 +18856,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_repushevents",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": ".repushevents()"
     },
     {
@@ -19430,7 +18867,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_getrepushstatus",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": ".getrepushstatus()"
     },
     {
@@ -19441,7 +18878,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_cancelrepush",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": ".cancelrepush()"
     },
     {
@@ -19452,7 +18889,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_retrydeliveries",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": ".retrydeliveries()"
     },
     {
@@ -19463,7 +18900,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_getretrystatus",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": ".getretrystatus()"
     },
     {
@@ -19474,7 +18911,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_cancelretry",
       "community": 27,
-      "community_name": "BatchJob",
+      "community_name": "store/models.go",
       "norm_label": ".cancelretry()"
     },
     {
@@ -19485,7 +18922,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_crypto",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": "webhook_service_crypto.go"
     },
     {
@@ -19573,7 +19010,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_crypto_generatewebhooksecret",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": "generatewebhooksecret()"
     },
     {
@@ -19594,8 +19031,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_delivery_go_webhooks_webhookservice",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 107,
+      "community_name": "parseUUID",
       "norm_label": "webhookservice"
     },
     {
@@ -19605,8 +19042,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "webhooks_webhookservice_getdeliverystatus",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 107,
+      "community_name": "parseUUID",
       "norm_label": ".getdeliverystatus()"
     },
     {
@@ -19616,8 +19053,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_delivery_go_context",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 107,
+      "community_name": "parseUUID",
       "norm_label": "context"
     },
     {
@@ -19627,8 +19064,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "webhooks_webhookservice_getdeliveryattempts",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 107,
+      "community_name": "parseUUID",
       "norm_label": ".getdeliveryattempts()"
     },
     {
@@ -19638,8 +19075,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "webhooks_webhookservice_listdeliveries",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 107,
+      "community_name": "parseUUID",
       "norm_label": ".listdeliveries()"
     },
     {
@@ -19649,8 +19086,8 @@
       "source_location": "L145",
       "_origin": "ast",
       "id": "webhooks_webhookservice_retrydelivery",
-      "community": 33,
-      "community_name": "Errorf",
+      "community": 107,
+      "community_name": "parseUUID",
       "norm_label": ".retrydelivery()"
     },
     {
@@ -19858,8 +19295,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_health",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": "webhook_service_health.go"
     },
     {
@@ -19869,8 +19306,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "webhooks_webhookhealthdata",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": "webhookhealthdata"
     },
     {
@@ -19880,8 +19317,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_health_go_time",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": "time"
     },
     {
@@ -19891,8 +19328,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "webhooks_healthsummarydata",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": "healthsummarydata"
     },
     {
@@ -19902,8 +19339,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "webhooks_consumerstatsdata",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": "consumerstatsdata"
     },
     {
@@ -19913,8 +19350,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_health_go_webhooks_webhookservice",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": "webhookservice"
     },
     {
@@ -19924,8 +19361,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "webhooks_webhookservice_getwebhookhealth",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": ".getwebhookhealth()"
     },
     {
@@ -19935,8 +19372,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_health_go_context",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": "context"
     },
     {
@@ -19946,8 +19383,8 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "webhooks_webhookservice_gethealthsummary",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": ".gethealthsummary()"
     },
     {
@@ -19957,8 +19394,8 @@
       "source_location": "L200",
       "_origin": "ast",
       "id": "webhooks_webhookservice_getconsumerstats",
-      "community": 12,
-      "community_name": "WebhookServiceInterfaceWithTracing",
+      "community": 207,
+      "community_name": ".GetWebhookHealth",
       "norm_label": ".getconsumerstats()"
     },
     {
@@ -19980,7 +19417,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_registration_go_webhooks_webhookservice",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": "webhookservice"
     },
     {
@@ -19991,7 +19428,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_setwebhookactive",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": ".setwebhookactive()"
     },
     {
@@ -20002,7 +19439,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_registration_go_context",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": "context"
     },
     {
@@ -20013,7 +19450,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_registerwebhook",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": ".registerwebhook()"
     },
     {
@@ -20024,7 +19461,7 @@
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_registration_go_time",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": "time"
     },
     {
@@ -20035,7 +19472,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_createwebhook",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": ".createwebhook()"
     },
     {
@@ -20045,7 +19482,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "internal_webhooks_webhook_service_registration_go_webhookregistration",
-      "community": 75,
+      "community": 107,
       "community_name": "parseUUID",
       "norm_label": "webhookregistration"
     },
@@ -20057,7 +19494,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_unregisterwebhook",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": ".unregisterwebhook()"
     },
     {
@@ -20067,7 +19504,7 @@
       "source_location": "L449",
       "_origin": "ast",
       "id": "webhooks_webhookservice_listwebhooks",
-      "community": 75,
+      "community": 107,
       "community_name": "parseUUID",
       "norm_label": ".listwebhooks()"
     },
@@ -20079,7 +19516,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_pausewebhook",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": ".pausewebhook()"
     },
     {
@@ -20090,7 +19527,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_resumewebhook",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": ".resumewebhook()"
     },
     {
@@ -20101,7 +19538,7 @@
       "_origin": "ast",
       "id": "webhooks_webhookservice_updatewebhookconfig",
       "community": 75,
-      "community_name": "parseUUID",
+      "community_name": ".CreateWebhook",
       "norm_label": ".updatewebhookconfig()"
     },
     {
@@ -20540,8 +19977,8 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "webhooks_mockrepo_listdeliveriesfiltered",
-      "community": 23,
-      "community_name": "store/models.go",
+      "community": 78,
+      "community_name": "mockRepo",
       "norm_label": ".listdeliveriesfiltered()"
     },
     {
@@ -20551,8 +19988,8 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "webhooks_mockrepo_listeventreportsfiltered",
-      "community": 66,
-      "community_name": "EventReportWithStats",
+      "community": 78,
+      "community_name": "mockRepo",
       "norm_label": ".listeventreportsfiltered()"
     },
     {
@@ -21081,8 +20518,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_fromcontext",
-      "community": 156,
-      "community_name": "FromContext",
+      "community": 149,
+      "community_name": "rest/access.go",
       "norm_label": "fromcontext()"
     },
     {
@@ -21247,7 +20684,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "httpauth_test.go"
     },
     {
@@ -21258,7 +20695,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test_newsvc",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "newsvc()"
     },
     {
@@ -21269,7 +20706,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test_go_t",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "t"
     },
     {
@@ -21280,7 +20717,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test_go_store",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "store"
     },
     {
@@ -21291,7 +20728,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test_go_service",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "service"
     },
     {
@@ -21302,7 +20739,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test_testcredential",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "testcredential()"
     },
     {
@@ -21313,7 +20750,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test_serve",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "serve()"
     },
     {
@@ -21324,7 +20761,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test_go_responserecorder",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "responserecorder"
     },
     {
@@ -21335,7 +20772,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test_testmiddleware",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "testmiddleware()"
     },
     {
@@ -21346,7 +20783,7 @@
       "_origin": "ast",
       "id": "httpauth_downstore",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "downstore"
     },
     {
@@ -21357,7 +20794,7 @@
       "_origin": "ast",
       "id": "httpauth_downstore_tokenbyhash",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": ".tokenbyhash()"
     },
     {
@@ -21368,7 +20805,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test_go_context",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "context"
     },
     {
@@ -21379,7 +20816,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test_testmiddlewareoutageis503",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "testmiddlewareoutageis503()"
     },
     {
@@ -21390,7 +20827,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test_testextraverifier",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "testextraverifier()"
     },
     {
@@ -21401,7 +20838,7 @@
       "_origin": "ast",
       "id": "pkg_access_httpauth_httpauth_test_testredeemhandler",
       "community": 156,
-      "community_name": "FromContext",
+      "community_name": "httpauth_test.go",
       "norm_label": "testredeemhandler()"
     },
     {
@@ -24273,7 +23710,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "pkg_storage_errors",
-      "community": 75,
+      "community": 107,
       "community_name": "parseUUID",
       "norm_label": "storage/errors.go"
     },
@@ -24284,7 +23721,7 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "pkg_storage_errors_isnotfound",
-      "community": 75,
+      "community": 107,
       "community_name": "parseUUID",
       "norm_label": "isnotfound()"
     },
@@ -24295,7 +23732,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "pkg_storage_errors_error",
-      "community": 75,
+      "community": 107,
       "community_name": "parseUUID",
       "norm_label": "error()"
     },
@@ -24307,7 +23744,7 @@
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "sqlx.go"
     },
     {
@@ -24318,7 +23755,7 @@
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx_open",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "open()"
     },
     {
@@ -24329,7 +23766,7 @@
       "_origin": "ast",
       "id": "postgres_openconnectionoption",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "openconnectionoption"
     },
     {
@@ -24340,7 +23777,7 @@
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx_withconnectionmaxlifetime",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "withconnectionmaxlifetime()"
     },
     {
@@ -24351,7 +23788,7 @@
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx_go_duration",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "duration"
     },
     {
@@ -24362,7 +23799,7 @@
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx_withmaxopenconnections",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "withmaxopenconnections()"
     },
     {
@@ -24373,7 +23810,7 @@
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx_withmaxidleconnections",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "withmaxidleconnections()"
     },
     {
@@ -24384,7 +23821,7 @@
       "_origin": "ast",
       "id": "pkg_storage_postgres_sqlx_withsetconnmaxidletime",
       "community": 0,
-      "community_name": "HandlerFunc",
+      "community_name": "setupEnv",
       "norm_label": "withsetconnmaxidletime()"
     },
     {
@@ -30119,36 +29556,6 @@
       "norm_label": "wait_for_static()"
     },
     {
-      "label": "verify-conformance.sh",
-      "file_type": "code",
-      "source_file": "scripts/verify-conformance.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "file"
-      },
-      "_origin": "ast",
-      "id": "scripts_verify_conformance",
-      "community": 223,
-      "community_name": "verify-conformance.sh",
-      "norm_label": "verify-conformance.sh"
-    },
-    {
-      "label": "verify-conformance.sh script",
-      "file_type": "code",
-      "source_file": "scripts/verify-conformance.sh",
-      "source_location": "L1",
-      "metadata": {
-        "language": "bash",
-        "kind": "bash_entrypoint"
-      },
-      "_origin": "ast",
-      "id": "scripts_verify_conformance_sh__entry",
-      "community": 223,
-      "community_name": "verify-conformance.sh",
-      "norm_label": "verify-conformance.sh script"
-    },
-    {
       "label": "web/package.json",
       "file_type": "code",
       "source_file": "web/package.json",
@@ -30507,8 +29914,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "web_package_devdependencies_openapi_typescript",
-      "community": 62,
-      "community_name": "devDependencies",
+      "community": 214,
+      "community_name": "openapi-typescript",
       "norm_label": "openapi-typescript"
     },
     {
@@ -30518,8 +29925,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "openapi_typescript",
-      "community": 62,
-      "community_name": "devDependencies",
+      "community": 214,
+      "community_name": "openapi-typescript",
       "norm_label": "openapi-typescript"
     },
     {
@@ -30573,8 +29980,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "web_package_devdependencies_tailwindcss",
-      "community": 159,
-      "community_name": "tailwindcss",
+      "community": 62,
+      "community_name": "devDependencies",
       "norm_label": "tailwindcss"
     },
     {
@@ -30584,8 +29991,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "tailwindcss",
-      "community": 159,
-      "community_name": "tailwindcss",
+      "community": 62,
+      "community_name": "devDependencies",
       "norm_label": "tailwindcss"
     },
     {
@@ -33222,28 +32629,6 @@
       "norm_label": "vite.config.ts"
     },
     {
-      "label": "go/README.md",
-      "file_type": "document",
-      "source_file": "client/verify/go/README.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_go_readme",
-      "community": 213,
-      "community_name": "go/README.md",
-      "norm_label": "go/readme.md"
-    },
-    {
-      "label": "Go",
-      "file_type": "document",
-      "source_file": "client/verify/go/README.md",
-      "source_location": "L1",
-      "_origin": "ast",
-      "id": "client_verify_go_readme_go",
-      "community": 213,
-      "community_name": "go/README.md",
-      "norm_label": "go"
-    },
-    {
       "label": "0001-payload-transform-engine.md",
       "file_type": "document",
       "source_file": "docs/adr/0001-payload-transform-engine.md",
@@ -34534,7 +33919,7 @@
       "label": "What gets signed",
       "file_type": "document",
       "source_file": "docs/src/content/docs/guides/verify-signatures.mdx",
-      "source_location": "L15",
+      "source_location": "L24",
       "_origin": "ast",
       "id": "docs_src_content_docs_guides_verify_signatures_what_gets_signed",
       "community": 206,
@@ -34545,7 +33930,7 @@
       "label": "Get the helper and verify",
       "file_type": "document",
       "source_file": "docs/src/content/docs/guides/verify-signatures.mdx",
-      "source_location": "L51",
+      "source_location": "L60",
       "_origin": "ast",
       "id": "docs_src_content_docs_guides_verify_signatures_get_the_helper_and_verify",
       "community": 206,
@@ -34556,23 +33941,12 @@
       "label": "Testing your receiver",
       "file_type": "document",
       "source_file": "docs/src/content/docs/guides/verify-signatures.mdx",
-      "source_location": "L353",
+      "source_location": "L363",
       "_origin": "ast",
       "id": "docs_src_content_docs_guides_verify_signatures_testing_your_receiver",
       "community": 206,
       "community_name": "verify-signatures.mdx",
       "norm_label": "testing your receiver"
-    },
-    {
-      "label": "How the helpers stay correct",
-      "file_type": "document",
-      "source_file": "docs/src/content/docs/guides/verify-signatures.mdx",
-      "source_location": "L362",
-      "_origin": "ast",
-      "id": "docs_src_content_docs_guides_verify_signatures_how_the_helpers_stay_correct",
-      "community": 206,
-      "community_name": "verify-signatures.mdx",
-      "norm_label": "how the helpers stay correct"
     },
     {
       "label": "webhook-health-alerts.mdx",
@@ -34743,7 +34117,7 @@
       "label": "Consumer Isolation",
       "file_type": "document",
       "source_file": "docs/src/content/docs/reference/security.mdx",
-      "source_location": "L178",
+      "source_location": "L180",
       "_origin": "ast",
       "id": "docs_src_content_docs_reference_security_consumer_isolation",
       "community": 85,
@@ -34754,7 +34128,7 @@
       "label": "Production Config Checklist",
       "file_type": "document",
       "source_file": "docs/src/content/docs/reference/security.mdx",
-      "source_location": "L194",
+      "source_location": "L196",
       "_origin": "ast",
       "id": "docs_src_content_docs_reference_security_production_config_checklist",
       "community": 85,
@@ -36184,7 +35558,7 @@
       "label": "Schema (version 1)",
       "file_type": "document",
       "source_file": "satellites/recipes/README.md",
-      "source_location": "L28",
+      "source_location": "L33",
       "_origin": "ast",
       "id": "satellites_recipes_readme_schema_version_1",
       "community": 93,
@@ -36195,7 +35569,7 @@
       "label": "How params work",
       "file_type": "document",
       "source_file": "satellites/recipes/README.md",
-      "source_location": "L55",
+      "source_location": "L60",
       "_origin": "ast",
       "id": "satellites_recipes_readme_how_params_work",
       "community": 93,
@@ -36206,7 +35580,7 @@
       "label": "Contributing a recipe",
       "file_type": "document",
       "source_file": "satellites/recipes/README.md",
-      "source_location": "L78",
+      "source_location": "L81",
       "_origin": "ast",
       "id": "satellites_recipes_readme_contributing_a_recipe",
       "community": 93,
@@ -36305,7 +35679,7 @@
       "label": "Tech Stack",
       "file_type": "document",
       "source_file": "web/README.md",
-      "source_location": "L73",
+      "source_location": "L79",
       "_origin": "ast",
       "id": "web_readme_tech_stack",
       "community": 144,
@@ -37337,17 +36711,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "client/verify/elixir/run-vectors.sh",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_elixir_run_vectors",
-      "target": "client_verify_elixir_run_vectors_sh__entry",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "client/verify/elixir/sparrow_verify.ex",
       "source_location": "L42",
       "weight": 1.0,
@@ -37561,17 +36924,6 @@
       "_origin": "ast",
       "source": "client_verify_elixir_sparrow_verify_sparrowverify_decode_public_key",
       "target": "client_verify_elixir_sparrow_verify_sparrowverify_safe_hex_decode",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/go/run-vectors.sh",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_go_run_vectors",
-      "target": "client_verify_go_run_vectors_sh__entry",
       "confidence_score": 1.0
     },
     {
@@ -37854,50 +37206,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "client/verify/java/VectorsTest.java",
-      "source_location": "L14",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_java_vectorstest",
-      "target": "client_verify_java_vectorstest_vectorstest",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/java/VectorsTest.java",
-      "source_location": "L16",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_java_vectorstest_vectorstest",
-      "target": "client_verify_java_vectorstest_vectorstest_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/java/run-vectors.sh",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_java_run_vectors",
-      "target": "client_verify_java_run_vectors_sh__entry",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/js/run-vectors.sh",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_js_run_vectors",
-      "target": "client_verify_js_run_vectors_sh__entry",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "client/verify/js/sparrow-verify.ts",
       "source_location": "L157",
       "weight": 1.0,
@@ -37984,30 +37292,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports_from",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/js/vectors.test.ts",
-      "source_location": "L8",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_js_vectors_test",
-      "target": "client_verify_js_sparrow_verify",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/js/vectors.test.ts",
-      "source_location": "L8",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_js_vectors_test",
-      "target": "client_verify_js_sparrow_verify_signatureverificationerror",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -38044,18 +37328,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/js/vectors.test.ts",
-      "source_location": "L8",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_js_vectors_test",
-      "target": "client_verify_js_sparrow_verify_verifyhmac",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -38080,18 +37352,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/js/vectors.test.ts",
-      "source_location": "L8",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_js_vectors_test",
-      "target": "client_verify_js_sparrow_verify_verifyed25519",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -38101,28 +37361,6 @@
       "_origin": "ast",
       "source": "client_verify_js_sparrow_verify_decodesignatures",
       "target": "client_verify_js_sparrow_verify_decodebase64strict",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/js/vectors.test.ts",
-      "source_location": "L11",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_js_vectors_test",
-      "target": "client_verify_js_vectors_test_data",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/js/vectors.test.ts",
-      "source_location": "L10",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_js_vectors_test",
-      "target": "client_verify_js_vectors_test_path",
       "confidence_score": 1.0
     },
     {
@@ -38405,18 +37643,6 @@
     {
       "relation": "calls",
       "context": "call",
-      "confidence": "INFERRED",
-      "confidence_score": 0.8,
-      "source_file": "client/verify/kotlin/VectorsTest.kt",
-      "source_location": "L46",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_kotlin_vectorstest_main",
-      "target": "bytearray"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client/verify/kotlin/SparrowVerify.kt",
       "source_location": "L120",
@@ -38484,28 +37710,6 @@
       "_origin": "ast",
       "source": "client_verify_kotlin_sparrowverify_sparrowverify_requiredheaders",
       "target": "client_verify_kotlin_sparrowverify_parsedheaders",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/kotlin/VectorsTest.kt",
-      "source_location": "L11",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_kotlin_vectorstest",
-      "target": "client_verify_kotlin_vectorstest_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/kotlin/run-vectors.sh",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_kotlin_run_vectors",
-      "target": "client_verify_kotlin_run_vectors_sh__entry",
       "confidence_score": 1.0
     },
     {
@@ -38594,28 +37798,6 @@
       "_origin": "ast",
       "source": "client_verify_php_sparrowverify_sparrowverify",
       "target": "client_verify_php_sparrowverify_sparrowverify_verifyhmac",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/php/run-vectors.sh",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_php_run_vectors",
-      "target": "client_verify_php_run_vectors_sh__entry",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/python/run-vectors.sh",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_python_run_vectors",
-      "target": "client_verify_python_run_vectors_sh__entry",
       "confidence_score": 1.0
     },
     {
@@ -38766,29 +37948,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/python/test_vectors.py",
-      "source_location": "L17",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_python_test_vectors",
-      "target": "client_verify_python_sparrow_verify_signatureverificationerror",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "uses",
-      "confidence": "INFERRED",
-      "source_file": "client/verify/python/test_vectors.py",
-      "source_location": "L17",
-      "weight": 0.8,
-      "_origin": "ast",
-      "source": "client_verify_python_test_vectors_vectors",
-      "target": "client_verify_python_sparrow_verify_signatureverificationerror",
-      "confidence_score": 0.5
-    },
-    {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "client/verify/python/sparrow_verify.py",
@@ -38836,18 +37995,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/python/test_vectors.py",
-      "source_location": "L17",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_python_test_vectors",
-      "target": "client_verify_python_sparrow_verify_verify_hmac",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "client/verify/python/sparrow_verify.py",
@@ -38892,62 +38039,6 @@
       "_origin": "ast",
       "source": "client_verify_python_sparrow_verify_verify_ed25519",
       "target": "client_verify_python_sparrow_verify_required_headers",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports",
-      "context": "import",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/python/test_vectors.py",
-      "source_location": "L17",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_python_test_vectors",
-      "target": "client_verify_python_sparrow_verify_verify_ed25519",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/python/test_vectors.py",
-      "source_location": "L29",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_python_test_vectors",
-      "target": "client_verify_python_test_vectors_vectors",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "rationale_for",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/python/test_vectors.py",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_python_test_vectors_rationale_1",
-      "target": "client_verify_python_test_vectors",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/python/test_vectors.py",
-      "source_location": "L30",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_python_test_vectors_vectors",
-      "target": "client_verify_python_test_vectors_vectors_test_vectors",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/ruby/run-vectors.sh",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_ruby_run_vectors",
-      "target": "client_verify_ruby_run_vectors_sh__entry",
       "confidence_score": 1.0
     },
     {
@@ -39166,17 +38257,6 @@
       "_origin": "ast",
       "source": "client_verify_ruby_sparrow_verify_sparrowverify_decode_signatures",
       "target": "client_verify_ruby_sparrow_verify_sparrowverify_strict_base64_decode",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/rust/run-vectors.sh",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_rust_run_vectors",
-      "target": "client_verify_rust_run_vectors_sh__entry",
       "confidence_score": 1.0
     },
     {
@@ -39554,18 +38634,6 @@
     {
       "relation": "calls",
       "context": "call",
-      "confidence": "INFERRED",
-      "confidence_score": 0.8,
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L43",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_rust_tests_vectors_run_vectors",
-      "target": "client_verify_rust_sparrow_verify_verify_hmac_at"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "client/verify/rust/sparrow_verify.rs",
       "source_location": "L188",
@@ -39612,18 +38680,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "INFERRED",
-      "confidence_score": 0.8,
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L50",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_rust_tests_vectors_run_vectors",
-      "target": "client_verify_rust_sparrow_verify_verify_ed25519_at"
-    },
-    {
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "client/verify/rust/sparrow_verify.rs",
@@ -39632,7 +38688,7 @@
       "context": "return_type",
       "_origin": "ast",
       "source": "client_verify_rust_sparrow_verify_signed_message",
-      "target": "client_verify_rust_sparrow_verify_rs_vec",
+      "target": "vec",
       "confidence_score": 1.0
     },
     {
@@ -39644,7 +38700,7 @@
       "context": "generic_arg",
       "_origin": "ast",
       "source": "client_verify_rust_sparrow_verify_hex_decode",
-      "target": "client_verify_rust_sparrow_verify_rs_vec",
+      "target": "vec",
       "confidence_score": 1.0
     },
     {
@@ -39656,7 +38712,7 @@
       "context": "generic_arg",
       "_origin": "ast",
       "source": "client_verify_rust_sparrow_verify_parse_headers",
-      "target": "client_verify_rust_sparrow_verify_rs_vec",
+      "target": "vec",
       "confidence_score": 1.0
     },
     {
@@ -39704,111 +38760,7 @@
       "context": "generic_arg",
       "_origin": "ast",
       "source": "client_verify_rust_sparrow_verify_parse_headers",
-      "target": "client_verify_rust_sparrow_verify_rs_string",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/rust/tests/header_map.rs",
-      "source_location": "L10",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_rust_tests_header_map",
-      "target": "client_verify_rust_tests_header_map_verifies_with_http_header_map",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L18",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_rust_tests_vectors",
-      "target": "client_verify_rust_tests_vectors_case",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L28",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_rust_tests_vectors",
-      "target": "client_verify_rust_tests_vectors_run_vectors",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L11",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_rust_tests_vectors",
-      "target": "client_verify_rust_tests_vectors_vectors",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "imports_from",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L3",
-      "weight": 1.0,
-      "context": "import",
-      "_origin": "ast",
-      "source": "client_verify_rust_tests_vectors",
-      "target": "hashmap",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L14",
-      "weight": 1.0,
-      "context": "generic_arg",
-      "_origin": "ast",
-      "source": "client_verify_rust_tests_vectors_vectors",
-      "target": "client_verify_rust_tests_vectors_case",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L14",
-      "weight": 1.0,
-      "context": "field",
-      "_origin": "ast",
-      "source": "client_verify_rust_tests_vectors_vectors",
-      "target": "client_verify_rust_tests_vectors_rs_vec",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L23",
-      "weight": 1.0,
-      "context": "field",
-      "_origin": "ast",
-      "source": "client_verify_rust_tests_vectors_case",
-      "target": "client_verify_rust_tests_vectors_rs_string",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "source_file": "client/verify/rust/tests/vectors.rs",
-      "source_location": "L22",
-      "weight": 1.0,
-      "context": "field",
-      "_origin": "ast",
-      "source": "client_verify_rust_tests_vectors_case",
-      "target": "hashmap",
+      "target": "string",
       "confidence_score": 1.0
     },
     {
@@ -65693,7 +64645,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L71",
+      "source_location": "L70",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_webhooks_client_vectors_test_buildvectors",
@@ -65705,7 +64657,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L78",
+      "source_location": "L77",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_webhooks_client_vectors_test_buildvectors",
@@ -66757,7 +65709,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L36",
+      "source_location": "L35",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_webhooks_client_vectors_test",
@@ -66768,7 +65720,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L47",
+      "source_location": "L46",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_webhooks_client_vectors_test",
@@ -66779,7 +65731,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L54",
+      "source_location": "L53",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_webhooks_client_vectors_test",
@@ -66790,18 +65742,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L138",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "internal_webhooks_client_vectors_test",
-      "target": "internal_webhooks_client_vectors_test_encodetsv",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L161",
+      "source_location": "L130",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_webhooks_client_vectors_test",
@@ -66812,7 +65753,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L51",
+      "source_location": "L50",
       "weight": 1.0,
       "context": "field",
       "_origin": "ast",
@@ -66824,7 +65765,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L54",
+      "source_location": "L53",
       "weight": 1.0,
       "context": "return_type",
       "_origin": "ast",
@@ -66836,19 +65777,7 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L138",
-      "weight": 1.0,
-      "context": "parameter_type",
-      "_origin": "ast",
-      "source": "internal_webhooks_client_vectors_test_encodetsv",
-      "target": "client_vectorfile",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "references",
-      "confidence": "EXTRACTED",
-      "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L54",
+      "source_location": "L53",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
@@ -66861,7 +65790,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L162",
+      "source_location": "L131",
       "weight": 1.0,
       "_origin": "ast",
       "source": "internal_webhooks_client_vectors_test_testsignaturevectors",
@@ -66872,24 +65801,12 @@
       "relation": "references",
       "confidence": "EXTRACTED",
       "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L161",
+      "source_location": "L130",
       "weight": 1.0,
       "context": "parameter_type",
       "_origin": "ast",
       "source": "internal_webhooks_client_vectors_test_testsignaturevectors",
       "target": "internal_webhooks_client_vectors_test_go_t",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "internal/webhooks/client/vectors_test.go",
-      "source_location": "L170",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "internal_webhooks_client_vectors_test_testsignaturevectors",
-      "target": "internal_webhooks_client_vectors_test_encodetsv",
       "confidence_score": 1.0
     },
     {
@@ -108859,17 +107776,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "scripts/verify-conformance.sh",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "scripts_verify_conformance",
-      "target": "scripts_verify_conformance_sh__entry",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "web/package.json",
       "source_location": "L34",
       "weight": 1.0,
@@ -113730,17 +112636,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "client/verify/go/README.md",
-      "source_location": "L1",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "client_verify_go_readme",
-      "target": "client_verify_go_readme_go",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "docs/adr/0001-payload-transform-engine.md",
       "source_location": "L1",
       "weight": 1.0,
@@ -114908,7 +113803,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/src/content/docs/guides/verify-signatures.mdx",
-      "source_location": "L51",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast",
       "source": "docs_src_content_docs_guides_verify_signatures",
@@ -114919,18 +113814,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/src/content/docs/guides/verify-signatures.mdx",
-      "source_location": "L362",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "docs_src_content_docs_guides_verify_signatures",
-      "target": "docs_src_content_docs_guides_verify_signatures_how_the_helpers_stay_correct",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "docs/src/content/docs/guides/verify-signatures.mdx",
-      "source_location": "L353",
+      "source_location": "L363",
       "weight": 1.0,
       "_origin": "ast",
       "source": "docs_src_content_docs_guides_verify_signatures",
@@ -114941,7 +113825,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/src/content/docs/guides/verify-signatures.mdx",
-      "source_location": "L15",
+      "source_location": "L24",
       "weight": 1.0,
       "_origin": "ast",
       "source": "docs_src_content_docs_guides_verify_signatures",
@@ -115007,7 +113891,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/src/content/docs/reference/security.mdx",
-      "source_location": "L178",
+      "source_location": "L180",
       "weight": 1.0,
       "_origin": "ast",
       "source": "docs_src_content_docs_reference_security",
@@ -115029,7 +113913,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "docs/src/content/docs/reference/security.mdx",
-      "source_location": "L194",
+      "source_location": "L196",
       "weight": 1.0,
       "_origin": "ast",
       "source": "docs_src_content_docs_reference_security",
@@ -116382,7 +115266,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/recipes/README.md",
-      "source_location": "L78",
+      "source_location": "L81",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_recipes_readme_sparrow_recipes",
@@ -116393,7 +115277,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/recipes/README.md",
-      "source_location": "L55",
+      "source_location": "L60",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_recipes_readme_sparrow_recipes",
@@ -116415,7 +115299,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "satellites/recipes/README.md",
-      "source_location": "L28",
+      "source_location": "L33",
       "weight": 1.0,
       "_origin": "ast",
       "source": "satellites_recipes_readme_sparrow_recipes",
@@ -116503,7 +115387,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "web/README.md",
-      "source_location": "L73",
+      "source_location": "L79",
       "weight": 1.0,
       "_origin": "ast",
       "source": "web_readme_sparrow_web_dashboard",
@@ -117361,5 +116245,5 @@
       "source_file": "docs/src/content/docs/getting-started/why-sparrow.mdx"
     }
   ],
-  "built_at_commit": "caa4a8cc41a6581df058e713efc37f03778aff2f"
+  "built_at_commit": "bb348eb20a57e45e9c747247a2c41f0b076fc2db"
 }
