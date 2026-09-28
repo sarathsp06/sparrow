@@ -1,7 +1,7 @@
 ---
 type: REST Resource
 title: Webhooks
-description: Register, configure, pause/resume, and inspect consumer webhook endpoints; delivery stats and portal-token minting
+description: Register, configure, pause/resume, and inspect consumer webhook endpoints; delivery stats
 tags: [rest, webhooks]
 timestamp: 2026-09-16T00:00:00Z
 ---

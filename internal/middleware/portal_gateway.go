@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/sarathsp06/sparrow/internal/accessauth"
 	"github.com/sarathsp06/sparrow/pkg/access"
 	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
 )
@@ -48,6 +49,12 @@ func PortalGateway(verify PortalVerifier, next http.Handler) http.Handler {
 			writePortalAuthError(w, err)
 			return
 		}
+		// The consumer becomes one path segment of the /v1 target, so it
+		// must be one literal segment whoever minted the token.
+		if accessauth.ValidateConsumer(consumer) != nil {
+			writeJSONError(w, http.StatusForbidden, "forbidden", "not permitted for portal tokens")
+			return
+		}
 		target, ok := portalTarget(r.Method, strings.TrimPrefix(r.URL.Path, portalAPIPrefix), consumer)
 		if !ok {
 			writeJSONError(w, http.StatusForbidden, "forbidden", "not permitted for portal tokens")
@@ -70,7 +77,7 @@ func PortalGateway(verify PortalVerifier, next http.Handler) http.Handler {
 // portalTarget is the entire portal authorization model, in one place: it maps
 // a portal-relative path to its real /v1 path, or returns ok=false to deny.
 // A token for consumer C may reach anything under /v1/consumers/C/ except
-// minting further tokens and injecting events (the producer's job), plus the
+// injecting events (the producer's job), plus the
 // read-only global helpers the portal UI needs (event-type catalog, template
 // function list, and the stateless template dry-run).
 func portalTarget(method, rest, consumer string) (string, bool) {
@@ -78,7 +85,7 @@ func portalTarget(method, rest, consumer string) (string, bool) {
 		return "", false
 	}
 	switch {
-	case rest == "portal-token", method == http.MethodPost && rest == "events":
+	case method == http.MethodPost && rest == "events":
 		return "", false
 	case method == http.MethodGet && (rest == "event-types" || strings.HasPrefix(rest, "event-types/")):
 		return "/v1/" + rest, true

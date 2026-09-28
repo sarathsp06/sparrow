@@ -94,9 +94,9 @@ Consequences:
 ## The consumer portal
 
 The portal (`/portal`) uses a different trust model: each visitor carries a
-**portal token** — a
-signed, expiring, consumer-scoped bearer credential minted with the admin key
-(`POST /v1/consumers/{consumer}/portal-token`). Portal users never log in and
+**portal token** — an
+expiring, revocable, consumer-scoped access token minted with the admin key
+(`POST /v1/tokens` with a `consumer`). Portal users never log in and
 need no accounts; the magic link *is* the credential, and it can only touch
 that one consumer's webhooks, subscriptions, and deliveries (never event
 injection, other consumers, or admin routes). The `/portal` HTML is served
@@ -146,16 +146,13 @@ A full worked example of the external topology — nginx and Express proxy
 configs, the mint flow, and the threat analysis — is in [Embedding the
 Consumer Portal](/sparrow/guides/portal-embedding/).
 
-Portal caveats for stateless tokens: revocation is expiry-only (default 7 days,
-max 30 — mint shorter-lived tokens for sensitive consumers), and the token
-rides in the URL fragment, so anyone the link is forwarded to can use it until
-it expires.
+Portal caveats: the token rides in the URL fragment, so anyone the link is
+forwarded to can use it until it expires (default 7 days, max 30 — use a short
+`ttl_seconds` for embedding) or you revoke it with `DELETE /v1/tokens/{id}`.
 
-For individually revocable portal access, use **consumer-scoped access tokens**
-instead: `sparrow invite "acme support" --consumer acme` creates a one-time
-link that opens the portal and grants a named, revocable token. This is better
-for named individuals; stateless portal tokens remain the right choice for
-iframe embedding at scale (no DB row per page view). See [Access: Tokens and
+For named individuals, `sparrow invite "acme support" --consumer acme` creates
+a one-time link that opens the portal and grants a named token of the same
+kind. See [Access: Tokens and
 Invites](/sparrow/deployment/access/#consumer-portal-access).
 
 ## Recommended: SSO via an identity-aware proxy
@@ -180,7 +177,7 @@ Rules for this topology:
 3. Set `CORS_ALLOWED_ORIGINS` to the proxy's public origin (or leave unset if
    the UI is served through the same origin).
 4. **Never inject `X-API-Key` on `/portal` or `/portal/api/*` if portal
-   users go through the same proxy.** A valid API key outranks portal-token
+   users go through the same proxy.** A valid API key outranks portal token
    scoping, so blanket header injection silently escalates every portal
    visitor to admin. Exclude those paths from injection, or serve the portal
    on a separate route/vhost without the overlay.

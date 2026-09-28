@@ -27,12 +27,12 @@ HTTP query-parameter keys are intentionally not accepted; URLs are commonly logg
 
 ## PortalVerifier
 
-`NewPortalVerifier(pt, svc, realm)` builds a verifier that accepts both stateless portal tokens (`spt_v2`, minted by `POST /v1/consumers/{c}/portal-token`) and consumer-scoped access tokens. Full-access tokens are rejected with `ErrPortalFullAccessToken` (they should use `/v1` instead). The portal gateway uses this to resolve a bearer credential to a consumer name.
+`NewPortalVerifier(svc, realm)` builds a verifier that accepts consumer-scoped access tokens (what `POST /v1/tokens` with a consumer and consumer invites mint). Full-access tokens are rejected with `ErrPortalFullAccessToken` (they should use `/v1` instead). The portal gateway uses this to resolve a bearer credential to a consumer name.
 
 ## PortalGateway
 
 Serves the consumer portal API under one static public prefix, `/portal/api/`.
-It verifies the consumer-scoped bearer token (stateless portal token or consumer access token via `PortalVerifier`), derives
+It verifies the consumer-scoped bearer token (a consumer access token, via `PortalVerifier`), rejects consumers that are not one literal path segment, derives
 the consumer from the token rather than the URL, maps `/portal/api/<rest>` to
 the real `/v1` route (`portalTarget`), marks the request pre-authorized, and
 re-dispatches into the main router so the existing handlers run unchanged.
@@ -40,7 +40,7 @@ re-dispatches into the main router so the existing handlers run unchanged.
 Because the consumer rides in the token, an operator exposing the portal
 allowlists a single API prefix with no per-consumer or deny rules, and
 cross-consumer access is structurally impossible. `portalTarget` refuses event
-injection (`POST events`) and token minting (`portal-token`), and allows the
+injection (`POST events`), and allows the
 read-only global helpers the portal UI needs (event-type catalog, template
 functions, template dry-run). `Auth.HTTPMiddleware` honors the
 `PortalAuthorized(ctx)` flag the gateway sets, so portal traffic reuses the

@@ -324,11 +324,51 @@ def get_recipes_catalog():
 
 @step("Mint portal token for current consumer")
 def mint_portal_token():
-    resp = requests.post(f"{_base()}/v1/consumers/{_ns()}/portal-token")
+    body = _mint_portal_token()
+    assert body.get("secret"), f"no token in response: {body}"
+    assert body.get("portal_path", "").startswith("/portal#token="), f"no portal link: {body}"
+    data_store.scenario["portal_token"] = body["secret"]
+    data_store.scenario["portal_token_id"] = body["token"]["id"]
+
+
+def _mint_portal_token(**extra):
+    """A portal link is a consumer-scoped access token: POST /v1/tokens with a consumer."""
+    resp = requests.post(f"{_base()}/v1/tokens", json={"name": "e2e portal", "consumer": _ns(), **extra})
     assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
-    body = resp.json()
-    assert body.get("token"), f"no token in response: {body}"
-    data_store.scenario["portal_token"] = body["token"]
+    return resp.json()
+
+
+def _mint_with_key(key):
+    return _mint_portal_token(idempotency_key=key)
+
+
+@step("Mint portal token for current consumer with idempotency key <key>")
+def mint_portal_token_with_key(key):
+    body = _mint_with_key(key)
+    assert body["reused"] is False, f"first mint was reused: {body}"
+    data_store.scenario["portal_token"] = body["secret"]
+    data_store.scenario["portal_token_id"] = body["token"]["id"]
+
+
+@step("Mint portal token for current consumer with idempotency key <key> should reuse the previous token")
+def mint_portal_token_reused(key):
+    body = _mint_with_key(key)
+    assert body["reused"] is True, f"expected reuse: {body}"
+    assert body["token"]["id"] == data_store.scenario["portal_token_id"], f"different token: {body}"
+    assert body["secret"] == data_store.scenario["portal_token"], "different secret"
+
+
+@step("Mint portal token for current consumer with idempotency key <key> should mint a new token")
+def mint_portal_token_fresh(key):
+    body = _mint_with_key(key)
+    assert body["reused"] is False, f"expected a new token: {body}"
+    assert body["token"]["id"] != data_store.scenario["portal_token_id"], f"old token returned: {body}"
+
+
+@step("Revoke the portal token")
+def revoke_portal_token():
+    resp = requests.delete(f"{_base()}/v1/tokens/{data_store.scenario['portal_token_id']}")
+    assert resp.status_code == 204, f"Expected 204, got {resp.status_code}: {resp.text}"
 
 
 @step("Portal GET <suffix> should return status <code>")

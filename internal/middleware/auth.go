@@ -87,19 +87,17 @@ var (
 	// ErrPortalFullAccessToken rejects full-access tokens at the portal
 	// gateway: the portal needs a consumer to scope to.
 	ErrPortalFullAccessToken = errors.New("full-access tokens cannot use the portal API; use /v1 instead")
+	// ErrPortalTokenInvalid rejects a token from another realm.
+	ErrPortalTokenInvalid = errors.New("invalid or expired portal token")
 )
 
 // PortalVerifier resolves a portal bearer token to the consumer it is scoped to.
 type PortalVerifier func(ctx context.Context, token string) (consumer string, err error)
 
-// NewPortalVerifier accepts stateless portal tokens (spt_v2, minted by
-// POST /v1/consumers/{c}/portal-token) and consumer-scoped access tokens.
-// svc may be nil to accept portal tokens only.
-func NewPortalVerifier(pt *PortalTokens, svc *access.Service, realm string) PortalVerifier {
+// NewPortalVerifier accepts consumer-scoped access tokens (minted by
+// POST /v1/tokens with a consumer, or by consumer invites).
+func NewPortalVerifier(svc *access.Service, realm string) PortalVerifier {
 	return func(ctx context.Context, token string) (string, error) {
-		if strings.HasPrefix(token, portalTokenPrefixV2+".") || svc == nil {
-			return pt.Verify(token)
-		}
 		p, err := svc.Authenticate(ctx, token)
 		if err != nil {
 			return "", err

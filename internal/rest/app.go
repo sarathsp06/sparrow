@@ -5,7 +5,6 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
 
-	"github.com/sarathsp06/sparrow/internal/middleware"
 	"github.com/sarathsp06/sparrow/internal/webhooks"
 )
 
@@ -16,7 +15,7 @@ const APIVersion = "1.0.0"
 // the OpenAPI document at /openapi.{json,yaml} (+ 3.0 variants), and the
 // Scalar interactive reference at /docs. Returns the huma.API so callers can
 // export the spec (see cmd/openapi-export).
-func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, portal *middleware.PortalTokens, accessDeps AccessDeps) huma.API {
+func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps AccessDeps) huma.API {
 	config := huma.DefaultConfig("Sparrow", APIVersion)
 	config.Info.Description = "Sparrow is a self-hosted webhook delivery platform: register the " +
 		"events your system produces, register the webhooks that should receive them, then push " +
@@ -44,7 +43,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, portal *middlewar
 		"## Authentication\n\n" +
 		"Optional. When the server is started with `SPARROW_API_KEY` set, every `/v1/*` request " +
 		"must include it in the `X-API-Key` header. When unset, all endpoints are open.\n\n" +
-		"Alternatively, a consumer-scoped **portal token** (minted via `createPortalToken`) " +
+		"Alternatively, a consumer-scoped access token (`createToken` with a `consumer`) " +
 		"powers the embedded portal at `/portal`, whose API calls are served under the single " +
 		"`/portal/api/` prefix — the consumer is carried by the token, not the URL, so exposing " +
 		"the portal means allowlisting only `/portal`, `/_app`, and `/portal/api`. Portal tokens " +
@@ -104,7 +103,6 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, portal *middlewar
 	registerHealthRoutes(api, svc)
 	registerAlertConfigRoutes(api, svc)
 	registerRecipeRoutes(api)
-	registerPortalRoutes(api, portal)
 	registerAccessRoutes(api, accessDeps)
 
 	return api

@@ -89,6 +89,171 @@ func Run(t *testing.T, newStore func(t *testing.T) access.Store) {
 		}
 	})
 
+	t.Run("purge deletes only tokens expired or revoked before the cutoff", func(t *testing.T) {
+		s := newStore(t)
+		old, recent := now.Add(-48*time.Hour), now.Add(-time.Hour)
+		future := now.Add(time.Hour)
+		cutoff := now.Add(-24 * time.Hour)
+		must(t, s.CreateToken(ctx, access.Token{ID: "tok_old_exp", Realm: "r1", Name: "a", CreatedBy: "x", CreatedAt: old.Add(-time.Hour), ExpiresAt: &old}, []byte("h1")))
+		must(t, s.CreateToken(ctx, access.Token{ID: "tok_recent_exp", Realm: "r1", Name: "b", CreatedBy: "x", CreatedAt: old, ExpiresAt: &recent}, []byte("h2")))
+		must(t, s.CreateToken(ctx, access.Token{ID: "tok_old_rev", Realm: "r2", Name: "c", CreatedBy: "x", CreatedAt: old.Add(-time.Hour), ExpiresAt: &future}, []byte("h3")))
+		must(t, s.RevokeToken(ctx, "r2", "tok_old_rev", old))
+		must(t, s.CreateToken(ctx, access.Token{ID: "tok_live", Realm: "r1", Name: "d", CreatedBy: "x", CreatedAt: old}, []byte("h4")))
+
+		// A redeemed invite whose token is purged survives, without its token.
+		must(t, s.CreateInvite(ctx, access.Invite{ID: "inv_1", Realm: "r1", Name: "e", CreatedBy: "x", CreatedAt: old, ExpiresAt: now}, []byte("ih")))
+		_, _, err := s.RedeemInvite(ctx, []byte("ih"), old, func(inv access.Invite) (access.Token, []byte, error) {
+			exp := old.Add(time.Minute)
+			return access.Token{ID: "tok_inv", Realm: inv.Realm, Name: inv.Name, CreatedBy: inv.CreatedBy, CreatedAt: old, ExpiresAt: &exp}, []byte("h5"), nil
+		})
+		must(t, err)
+
+		n, err := s.PurgeTokens(ctx, cutoff)
+		must(t, err)
+		if n != 3 {
+			t.Fatalf("purged %d tokens, want 3 (old expired, old revoked, invite token)", n)
+		}
+		for _, h := range []string{"h1", "h3", "h5"} {
+			if _, err := s.TokenByHash(ctx, []byte(h)); !errors.Is(err, access.ErrNotFound) {
+				t.Fatalf("token %s still present: err = %v", h, err)
+			}
+		}
+		for _, h := range []string{"h2", "h4"} {
+			if _, err := s.TokenByHash(ctx, []byte(h)); err != nil {
+				t.Fatalf("token %s purged too early: %v", h, err)
+			}
+		}
+		invites, err := s.ListInvites(ctx, "r1")
+		must(t, err)
+		if len(invites) != 1 || invites[0].TokenID != nil || invites[0].RedeemedAt == nil {
+			t.Fatalf("invite after purge = %+v", invites)
+		}
+	})
+
+	idem := func(id, realm, scope, key string, exp time.Time) access.Token {
+		tok := access.Token{ID: id, Realm: realm, Name: "portal", CreatedBy: "x", CreatedAt: now, ExpiresAt: &exp, IdempotencyKey: key}
+		if scope != "" {
+			tok.Scope = &scope
+		}
+		return tok
+	}
+
+	t.Run("idempotent create returns the active holder of a key", func(t *testing.T) {
+		s := newStore(t)
+		exp := now.Add(time.Hour)
+		got, sealed, created, err := s.CreateTokenIdempotent(ctx, idem("tok_1", "r1", "acme", "user-1", exp), []byte("h1"), []byte("sealed-1"), now)
+		must(t, err)
+		if !created || got.ID != "tok_1" || string(sealed) != "sealed-1" || got.IdempotencyKey != "user-1" {
+			t.Fatalf("first create = %+v %q %v", got, sealed, created)
+		}
+		got, sealed, created, err = s.CreateTokenIdempotent(ctx, idem("tok_2", "r1", "acme", "user-1", exp), []byte("h2"), []byte("sealed-2"), now)
+		must(t, err)
+		if created || got.ID != "tok_1" || string(sealed) != "sealed-1" {
+			t.Fatalf("second create = %+v %q %v, want tok_1 reused", got, sealed, created)
+		}
+		if _, err := s.TokenByHash(ctx, []byte("h2")); !errors.Is(err, access.ErrNotFound) {
+			t.Fatalf("reused call stored its token: err = %v", err)
+		}
+
+		// The key is per realm and scope, and a nil scope is its own scope.
+		for i, c := range []struct{ realm, scope string }{{"r1", "globex"}, {"r2", "acme"}, {"r1", ""}} {
+			id := fmt.Sprintf("tok_other_%d", i)
+			_, _, created, err := s.CreateTokenIdempotent(ctx, idem(id, c.realm, c.scope, "user-1", exp), []byte(id), []byte("s"), now)
+			must(t, err)
+			if !created {
+				t.Fatalf("realm %q scope %q reused another scope's token", c.realm, c.scope)
+			}
+		}
+	})
+
+	t.Run("idempotent create replaces an expired or revoked holder", func(t *testing.T) {
+		s := newStore(t)
+		soon, later := now.Add(time.Minute), now.Add(time.Hour)
+		_, _, _, err := s.CreateTokenIdempotent(ctx, idem("tok_old", "r1", "acme", "k", soon), []byte("h1"), []byte("s1"), now)
+		must(t, err)
+
+		got, sealed, created, err := s.CreateTokenIdempotent(ctx, idem("tok_new", "r1", "acme", "k", later), []byte("h2"), []byte("s2"), soon)
+		must(t, err)
+		if !created || got.ID != "tok_new" || string(sealed) != "s2" {
+			t.Fatalf("after expiry = %+v %q %v, want tok_new", got, sealed, created)
+		}
+		old, err := s.TokenByHash(ctx, []byte("h1"))
+		must(t, err)
+		if old.IdempotencyKey != "" {
+			t.Fatalf("expired holder kept its key: %+v", old)
+		}
+
+		must(t, s.RevokeToken(ctx, "r1", "tok_new", now))
+		revoked, _ := s.TokenByHash(ctx, []byte("h2"))
+		if revoked.IdempotencyKey != "" {
+			t.Fatalf("revoked token kept its key: %+v", revoked)
+		}
+		got, _, created, err = s.CreateTokenIdempotent(ctx, idem("tok_3", "r1", "acme", "k", later), []byte("h3"), []byte("s3"), now)
+		must(t, err)
+		if !created || got.ID != "tok_3" {
+			t.Fatalf("after revoke = %+v %v, want tok_3", got, created)
+		}
+	})
+
+	t.Run("concurrent idempotent creates: exactly one wins", func(t *testing.T) {
+		s := newStore(t)
+		exp := now.Add(time.Hour)
+		const n = 8
+		var wg sync.WaitGroup
+		ids := make([]string, n)
+		createdCount := make([]bool, n)
+		errs := make([]error, n)
+		for i := range n {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				id := fmt.Sprintf("tok_%d", i)
+				got, _, created, err := s.CreateTokenIdempotent(ctx, idem(id, "r1", "acme", "race", exp), []byte(id), []byte("s"), now)
+				ids[i], createdCount[i], errs[i] = got.ID, created, err
+			}()
+		}
+		wg.Wait()
+		wins := 0
+		for i := range n {
+			must(t, errs[i])
+			if createdCount[i] {
+				wins++
+			}
+			if ids[i] != ids[0] {
+				t.Fatalf("callers got different tokens: %v", ids)
+			}
+		}
+		if wins != 1 {
+			t.Fatalf("%d callers created a token, want 1", wins)
+		}
+
+		// Same race once the holder has expired: exactly one replaces it.
+		expired := ids[0]
+		wins = 0
+		for i := range n {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				id := fmt.Sprintf("tok_late_%d", i)
+				got, _, created, err := s.CreateTokenIdempotent(ctx, idem(id, "r1", "acme", "race", exp.Add(time.Hour)), []byte(id), []byte("s"), exp)
+				ids[i], createdCount[i], errs[i] = got.ID, created, err
+			}()
+		}
+		wg.Wait()
+		for i := range n {
+			must(t, errs[i])
+			if createdCount[i] {
+				wins++
+			}
+			if ids[i] != ids[0] || ids[i] == expired {
+				t.Fatalf("callers after expiry got %v, want one shared replacement", ids)
+			}
+		}
+		if wins != 1 {
+			t.Fatalf("%d callers replaced the expired token, want 1", wins)
+		}
+	})
+
 	t.Run("invite round trip and cancel", func(t *testing.T) {
 		s := newStore(t)
 		scope, ttl := "acme", 48*time.Hour

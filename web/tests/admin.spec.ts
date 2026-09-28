@@ -112,3 +112,20 @@ test('the Access page warns when authentication is off and still manages tokens'
   await dialog.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByTestId('token-row').filter({ hasText: name })).toContainText('anonymous');
 });
+
+test('a consumer token created on the Access page comes as a portal link that opens the portal', async ({ page }) => {
+  const consumer = `pw-access-${Date.now()}`;
+  await page.goto('/access');
+  await page.getByRole('button', { name: 'Create token' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create a token' });
+  await dialog.getByLabel('Name').fill(`${consumer} staff`);
+  await dialog.getByLabel("One consumer's portal only").check();
+  await dialog.getByRole('textbox', { name: 'Consumer' }).fill(consumer);
+  await dialog.getByRole('button', { name: 'Create token' }).click();
+  const link = await dialog.getByLabel('Portal link').inputValue();
+  expect(link).toContain('/portal#token=sparrow_tk_');
+
+  await page.goto(link);
+  await expect(page.getByRole('heading', { name: 'Your Endpoints' })).toBeVisible();
+  await expect(page).toHaveTitle(new RegExp(consumer));
+});

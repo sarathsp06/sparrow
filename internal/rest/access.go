@@ -5,6 +5,9 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -90,12 +93,17 @@ type createTokenBody struct {
 	Consumer     string `json:"consumer,omitempty" doc:"Limit the token to one consumer (portal API only). Omit for a tenant-wide token with the same power as SPARROW_API_KEY."`
 	TTLSeconds   int64  `json:"ttl_seconds,omitempty" minimum:"0" doc:"Lifetime in seconds. Tenant-wide tokens default to the server's SPARROW_TOKEN_DEFAULT_TTL (90 days unless changed); consumer tokens default to 7 days and allow at most 30."`
 	NeverExpires bool   `json:"never_expires,omitempty" doc:"Create a tenant-wide token that never expires (revoke it when no longer needed). Not allowed with ttl_seconds or for consumer tokens."`
+	// IdempotencyKey needs a consumer: a tenant-wide secret is never stored
+	// in a recoverable form.
+	IdempotencyKey string `json:"idempotency_key,omitempty" maxLength:"200" doc:"Consumer tokens only. Your id for who the token is for (e.g. your user id when embedding the portal). While a token created for this consumer with the same key is still valid, it is returned again, secret included, instead of a new one (reused: true; name and ttl_seconds are ignored); once it expires or is revoked, a new one is created. Makes minting a portal link on every page view safe."`
 }
 
 type createTokenOutput struct {
 	Body struct {
-		Token  TokenOut `json:"token"`
-		Secret string   `json:"secret" doc:"The credential. Shown only in this response; send it as X-API-Key or Authorization: Bearer."`
+		Token      TokenOut `json:"token"`
+		Secret     string   `json:"secret" doc:"The credential. Shown only in this response (and again for the same idempotency_key); send it as X-API-Key or Authorization: Bearer."`
+		Reused     bool     `json:"reused" doc:"True when idempotency_key matched a still-valid token, which is returned instead of a new one."`
+		PortalPath string   `json:"portal_path,omitempty" doc:"Consumer tokens only: server-relative portal URL with the token in the fragment (never sent to the server or logged). Prepend the base URL the UI is served from (the Sparrow server with SPARROW_SERVE_UI=true, or your separately hosted UI) and hand it to the end consumer."`
 	}
 }
 
@@ -168,6 +176,23 @@ func mapAccessError(ctx context.Context, err error) error {
 	}
 }
 
+// portalLinkPath is the portal URL for a consumer token. The consumer and
+// expiry ride along in the fragment for display only: the server pins every
+// request to the token's own consumer.
+func portalLinkPath(secret, consumer string, expiresAt *time.Time) string {
+	path := "/portal#token=" + secret + "&consumer=" + fragmentEscape(consumer)
+	if expiresAt != nil {
+		path += "&expires=" + strconv.FormatInt(expiresAt.Unix(), 10)
+	}
+	return path
+}
+
+// fragmentEscape percent-encodes s so the UI's decodeURIComponent restores it
+// (QueryEscape's "+" for space is not decoded there).
+func fragmentEscape(s string) string {
+	return strings.ReplaceAll(url.QueryEscape(s), "+", "%20")
+}
+
 // consumerScope validates an optional consumer from a request body.
 func consumerScope(c string) (*string, error) {
 	if c == "" {
@@ -210,7 +235,9 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		Summary:     "Create an access token",
 		Description: "Creates a named token. A tenant-wide token (no consumer) works exactly like SPARROW_API_KEY " +
 			"but can be revoked on its own and never needs the master key to be shared. A consumer token only " +
-			"works through the portal API (/portal/api/), limited to that consumer. The secret is returned once.",
+			"works through the portal API (/portal/api/), limited to that consumer, and comes with a ready-made " +
+			"portal link (portal_path) to embed or hand to the end consumer. The secret is returned once, or again " +
+			"for the same idempotency_key while the token is valid.",
 		Errors:        []int{400, 503},
 		Tags:          []string{"Access"},
 		DefaultStatus: http.StatusCreated,
@@ -226,14 +253,30 @@ func registerAccessRoutes(api huma.API, deps AccessDeps) {
 		if err != nil {
 			return nil, huma.Error400BadRequest(err.Error())
 		}
-		t, secret, err := svc.CreateToken(ctx, access.CreateTokenRequest{
-			Realm: realm, Scope: consumer, Name: in.Body.Name, TTL: ttl, CreatedBy: principalName(ctx),
-		})
+		key := in.Body.IdempotencyKey
+		if key != "" && consumer == nil {
+			return nil, huma.Error400BadRequest("idempotency_key needs a consumer")
+		}
+		req := access.CreateTokenRequest{Realm: realm, Scope: consumer, Name: in.Body.Name, TTL: ttl, CreatedBy: principalName(ctx)}
+		var t access.Token
+		var secret string
+		created := true
+		if key != "" {
+			t, secret, created, err = svc.CreateTokenIdempotent(ctx, req, key)
+		} else {
+			t, secret, err = svc.CreateToken(ctx, req)
+		}
+		if errors.Is(err, access.ErrNoSealer) {
+			return nil, huma.Error503ServiceUnavailable("idempotent tokens are not configured")
+		}
 		if err != nil {
 			return nil, mapAccessError(ctx, err)
 		}
 		out := &createTokenOutput{}
-		out.Body.Token, out.Body.Secret = toTokenOut(t, time.Now()), secret
+		out.Body.Token, out.Body.Secret, out.Body.Reused = toTokenOut(t, time.Now()), secret, !created
+		if consumer != nil {
+			out.Body.PortalPath = portalLinkPath(secret, *consumer, t.ExpiresAt)
+		}
 		return out, nil
 	})
 

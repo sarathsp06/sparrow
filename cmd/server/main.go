@@ -163,17 +163,10 @@ func main() {
 	}
 	fmt.Println("🔐 Encryption enabled (envelope encryption with per-record DEK)")
 
-	// Consumer portal tokens: signed with the primary encryption key for new
-	// tokens, while verification can accept any configured key in the ring.
-	// They grant an end consumer scoped access to their consumer's routes via
-	// the portal gateway at /portal/api and the embedded portal UI at /portal.
-	// Minted via POST .../portal-token (admin).
-	portalTokens := middleware.NewPortalTokensFromKeyring(encKeyring)
-
 	// Access tokens and invites (pkg/access, adapted in internal/accessauth).
 	// SPARROW_API_KEY is the root key; named tokens created from it can each
 	// be revoked. Consumer-scoped tokens only work through the portal gateway.
-	accessSvc, err := accessauth.New(sqlxDB.DB, cfg.APIKey)
+	accessSvc, err := accessauth.New(sqlxDB.DB, cfg.APIKey, accessauth.Sealer(cryptoSvc))
 	if err != nil {
 		log.Fatalf("Failed to create access service: %v", err)
 	}
@@ -223,6 +216,9 @@ func main() {
 	}
 	defer func() { _ = queueManager.Stop(ctx) }()
 
+	// Portal links are access tokens minted per visit; purge dead ones daily.
+	queueManager.EnableTokenPurge(accessSvc, accessauth.TokenRetention)
+
 	// Start the queue processing
 	if err := queueManager.Start(ctx); err != nil {
 		log.Fatalf("Failed to start queue manager: %v", err)
@@ -250,7 +246,7 @@ func main() {
 	// operation plus /openapi.{json,yaml} and the Scalar reference at /docs.
 	r.Group(func(r chi.Router) {
 		r.Use(auth.HTTPMiddleware)
-		rest.Mount(r, tracedWebhookService, portalTokens, rest.AccessDeps{Service: accessSvc, AuthEnabled: auth.Enabled, TokenDefaultTTL: cfg.TokenDefaultTTL})
+		rest.Mount(r, tracedWebhookService, rest.AccessDeps{Service: accessSvc, AuthEnabled: auth.Enabled, TokenDefaultTTL: cfg.TokenDefaultTTL})
 	})
 
 	// Invite redemption: the invite in the request is the credential, so it
@@ -262,7 +258,7 @@ func main() {
 	// path, and re-dispatches into the router so the same handlers run. The
 	// consumer is carried by the token, never the URL, so an operator exposing
 	// the portal allowlists just /portal, /_app, and /portal/api.
-	r.Handle("/portal/api/*", middleware.PortalGateway(middleware.NewPortalVerifier(portalTokens, accessSvc, accessauth.Realm()), r))
+	r.Handle("/portal/api/*", middleware.PortalGateway(middleware.NewPortalVerifier(accessSvc, accessauth.Realm()), r))
 
 	// Initialize health checker
 	healthChecker := health.NewChecker(dbPool, startTime)

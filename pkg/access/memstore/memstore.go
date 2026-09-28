@@ -17,6 +17,7 @@ type Store struct {
 	mu      sync.Mutex
 	tokens  map[string]access.Token  // by id
 	tokHash map[string]string        // hex(hash) -> id
+	sealed  map[string][]byte        // token id -> sealed secret (idempotent tokens)
 	invites map[string]access.Invite // by id
 	invHash map[string]string        // hex(hash) -> id
 }
@@ -26,7 +27,7 @@ func New() *Store { return &Store{} }
 
 func (s *Store) init() {
 	if s.tokens == nil {
-		s.tokens, s.tokHash = map[string]access.Token{}, map[string]string{}
+		s.tokens, s.tokHash, s.sealed = map[string]access.Token{}, map[string]string{}, map[string][]byte{}
 		s.invites, s.invHash = map[string]access.Invite{}, map[string]string{}
 	}
 }
@@ -84,9 +85,39 @@ func (s *Store) RevokeToken(_ context.Context, realm, id string, at time.Time) e
 	if t.RevokedAt == nil {
 		at := at.UTC()
 		t.RevokedAt = &at
-		s.tokens[id] = t
 	}
+	t.IdempotencyKey = ""
+	s.tokens[id] = t
+	delete(s.sealed, id)
 	return nil
+}
+
+// CreateTokenIdempotent implements access.Store.
+func (s *Store) CreateTokenIdempotent(_ context.Context, t access.Token, secretHash, sealedSecret []byte, now time.Time) (access.Token, []byte, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.init()
+	for id, held := range s.tokens {
+		if held.IdempotencyKey != t.IdempotencyKey || held.Realm != t.Realm || !sameScope(held.Scope, t.Scope) {
+			continue
+		}
+		if held.Status(now) == access.StatusActive {
+			return held, s.sealed[id], false, nil
+		}
+		held.IdempotencyKey = ""
+		s.tokens[id] = held
+		delete(s.sealed, id)
+	}
+	s.putToken(t, secretHash)
+	s.sealed[t.ID] = sealedSecret
+	return t, sealedSecret, true, nil
+}
+
+func sameScope(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // TouchToken implements access.Store.
@@ -100,6 +131,33 @@ func (s *Store) TouchToken(_ context.Context, id string, at time.Time) error {
 		s.tokens[id] = t
 	}
 	return nil
+}
+
+// PurgeTokens implements access.Store.
+func (s *Store) PurgeTokens(_ context.Context, cutoff time.Time) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.init()
+	purged := map[string]bool{}
+	for id, t := range s.tokens {
+		if (t.ExpiresAt != nil && t.ExpiresAt.Before(cutoff)) || (t.RevokedAt != nil && t.RevokedAt.Before(cutoff)) {
+			purged[id] = true
+			delete(s.tokens, id)
+			delete(s.sealed, id)
+		}
+	}
+	for h, id := range s.tokHash {
+		if purged[id] {
+			delete(s.tokHash, h)
+		}
+	}
+	for id, inv := range s.invites {
+		if inv.TokenID != nil && purged[*inv.TokenID] {
+			inv.TokenID = nil
+			s.invites[id] = inv
+		}
+	}
+	return int64(len(purged)), nil
 }
 
 // CreateInvite implements access.Store.

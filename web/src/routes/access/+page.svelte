@@ -122,11 +122,17 @@
             },
           }),
         );
-        result = {
-          label: "Token",
-          value: res.secret,
-          note: `Copy it now: it won't be shown again. Send it as the X-API-Key header or "Authorization: Bearer".${c ? " It only works through the portal API (/portal/api/)." : ""}`,
-        };
+        result = res.portal_path
+          ? {
+              label: "Portal link",
+              value: location.origin + res.portal_path,
+              note: `Copy it now: it won't be shown again. It opens ${c}'s portal (and the token in it only works through the portal API, /portal/api/).`,
+            }
+          : {
+              label: "Token",
+              value: res.secret,
+              note: `Copy it now: it won't be shown again. Send it as the X-API-Key header or "Authorization: Bearer".`,
+            };
       }
       await load();
     } catch (err) {

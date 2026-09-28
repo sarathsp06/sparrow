@@ -37,9 +37,12 @@ export async function pushEvent(api: APIRequestContext, consumer: string, event:
   return res.json();
 }
 
+// A portal link is a consumer-scoped access token (POST /v1/tokens with a consumer).
 export async function mintPortalToken(api: APIRequestContext, consumer: string, ttlSeconds?: number) {
-  const q = ttlSeconds ? `?ttl_seconds=${ttlSeconds}` : '';
-  const res = await api.post(`/v1/consumers/${encodeURIComponent(consumer)}/portal-token${q}`);
+  const res = await api.post('/v1/tokens', {
+    data: { name: 'pw portal', consumer, ...(ttlSeconds ? { ttl_seconds: ttlSeconds } : {}) },
+  });
   expect(res.ok(), await res.text()).toBeTruthy();
-  return (await res.json()) as { token: string; expires_at: string; path: string };
+  const body = (await res.json()) as { secret: string; portal_path: string; token: { expires_at: string } };
+  return { token: body.secret, path: body.portal_path, expires_at: body.token.expires_at };
 }

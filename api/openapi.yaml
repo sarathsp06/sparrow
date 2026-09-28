@@ -292,31 +292,6 @@ components:
         - secret
         - path
       type: object
-    CreatePortalTokenOutputBody:
-      additionalProperties: false
-      properties:
-        $schema:
-          description: A URL to the JSON Schema for this object.
-          examples:
-            - https://example.com/schemas/CreatePortalTokenOutputBody.json
-          format: uri
-          readOnly: true
-          type: string
-        expires_at:
-          description: When the token stops working. Tokens are stateless — the only revocation is expiry.
-          format: date-time
-          type: string
-        path:
-          description: Server-relative portal URL with the token in the fragment (never sent to the server or logged). Prepend the base URL the UI is served from (the Sparrow server with SPARROW_SERVE_UI=true, or your separately hosted UI) and hand it to the end consumer.
-          type: string
-        token:
-          description: "Bearer token for the consumer portal. Send as 'Authorization: Bearer <token>'."
-          type: string
-      required:
-        - token
-        - expires_at
-        - path
-      type: object
     CreateSubscriptionBody:
       additionalProperties: false
       properties:
@@ -373,6 +348,10 @@ components:
         consumer:
           description: Limit the token to one consumer (portal API only). Omit for a tenant-wide token with the same power as SPARROW_API_KEY.
           type: string
+        idempotency_key:
+          description: "Consumer tokens only. Your id for who the token is for (e.g. your user id when embedding the portal). While a token created for this consumer with the same key is still valid, it is returned again, secret included, instead of a new one (reused: true; name and ttl_seconds are ignored); once it expires or is revoked, a new one is created. Makes minting a portal link on every page view safe."
+          maxLength: 200
+          type: string
         name:
           description: Who or what the token is for, e.g. "alice" or "ci-deploy".
           maxLength: 200
@@ -399,14 +378,21 @@ components:
           format: uri
           readOnly: true
           type: string
+        portal_path:
+          description: "Consumer tokens only: server-relative portal URL with the token in the fragment (never sent to the server or logged). Prepend the base URL the UI is served from (the Sparrow server with SPARROW_SERVE_UI=true, or your separately hosted UI) and hand it to the end consumer."
+          type: string
+        reused:
+          description: True when idempotency_key matched a still-valid token, which is returned instead of a new one.
+          type: boolean
         secret:
-          description: "The credential. Shown only in this response; send it as X-API-Key or Authorization: Bearer."
+          description: "The credential. Shown only in this response (and again for the same idempotency_key); send it as X-API-Key or Authorization: Bearer."
           type: string
         token:
           $ref: "#/components/schemas/TokenOut"
       required:
         - token
         - secret
+        - reused
       type: object
     DeliveryItem:
       additionalProperties: false
@@ -1891,7 +1877,7 @@ info:
 
     Optional. When the server is started with `SPARROW_API_KEY` set, every `/v1/*` request must include it in the `X-API-Key` header. When unset, all endpoints are open.
 
-    Alternatively, a consumer-scoped **portal token** (minted via `createPortalToken`) powers the embedded portal at `/portal`, whose API calls are served under the single `/portal/api/` prefix — the consumer is carried by the token, not the URL, so exposing the portal means allowlisting only `/portal`, `/_app`, and `/portal/api`. Portal tokens reach their own consumer's webhooks, subscriptions, and deliveries (never event injection, token minting, other consumers, or admin routes).
+    Alternatively, a consumer-scoped access token (`createToken` with a `consumer`) powers the embedded portal at `/portal`, whose API calls are served under the single `/portal/api/` prefix — the consumer is carried by the token, not the URL, so exposing the portal means allowlisting only `/portal`, `/_app`, and `/portal/api`. Portal tokens reach their own consumer's webhooks, subscriptions, and deliveries (never event injection, token minting, other consumers, or admin routes).
   license:
     identifier: MIT
     name: MIT
@@ -2563,60 +2549,6 @@ paths:
       summary: Start a batch re-push job from a prepared snapshot
       tags:
         - Events
-  /v1/consumers/{consumer}/portal-token:
-    post:
-      description: "Creates a signed, expiring bearer token that lets an end consumer use the embedded portal UI scoped to this consumer only: manage their webhooks and subscriptions, and inspect/retry their deliveries. The portal serves its API under the single `/portal/api/` prefix (the consumer rides in the token, not the URL). Portal tokens cannot push events or mint further tokens. Requires the admin API key; hand the returned path (with the token in the URL fragment) to the end consumer."
-      operationId: createPortalToken
-      parameters:
-        - in: path
-          name: consumer
-          required: true
-          schema:
-            type: string
-        - description: Token lifetime in seconds. Defaults to 7 days, capped at 30 days.
-          explode: false
-          in: query
-          name: ttl_seconds
-          schema:
-            description: Token lifetime in seconds. Defaults to 7 days, capped at 30 days.
-            format: int64
-            maximum: 2592000
-            minimum: 1
-            type: integer
-      responses:
-        "201":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CreatePortalTokenOutputBody"
-          description: Created
-        "400":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Bad Request
-        "422":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Unprocessable Entity
-        "500":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Internal Server Error
-        "503":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/ErrorModel"
-          description: Service Unavailable
-      summary: Mint a consumer-scoped portal access token
-      tags:
-        - Webhooks
   /v1/consumers/{consumer}/repush-jobs/{job_id}:
     get:
       description: Returns a batch re-push job's status and processed/failed/total counts.
@@ -4476,7 +4408,7 @@ paths:
       tags:
         - Access
     post:
-      description: Creates a named token. A tenant-wide token (no consumer) works exactly like SPARROW_API_KEY but can be revoked on its own and never needs the master key to be shared. A consumer token only works through the portal API (/portal/api/), limited to that consumer. The secret is returned once.
+      description: Creates a named token. A tenant-wide token (no consumer) works exactly like SPARROW_API_KEY but can be revoked on its own and never needs the master key to be shared. A consumer token only works through the portal API (/portal/api/), limited to that consumer, and comes with a ready-made portal link (portal_path) to embed or hand to the end consumer. The secret is returned once, or again for the same idempotency_key while the token is valid.
       operationId: createToken
       requestBody:
         content:

@@ -28,12 +28,12 @@ func (brokenStore) CreateToken(context.Context, access.Token, []byte) error {
 
 func accessRouter(t *testing.T, store access.Store) http.Handler {
 	t.Helper()
-	svc, err := accessauth.NewWithStore(store, "")
+	svc, err := accessauth.NewWithStore(store, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	r := chi.NewRouter()
-	rest.Mount(r, nil, nil, rest.AccessDeps{Service: svc})
+	rest.Mount(r, nil, rest.AccessDeps{Service: svc})
 	return r
 }
 
@@ -88,12 +88,12 @@ func TestInvitePathsPointAtConsoleOrPortal(t *testing.T) {
 }
 
 func TestTenantTokenLifetimeDefaultsAndNeverExpires(t *testing.T) {
-	svc, err := accessauth.NewWithStore(memstore.New(), "")
+	svc, err := accessauth.NewWithStore(memstore.New(), "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	r := chi.NewRouter()
-	rest.Mount(r, nil, nil, rest.AccessDeps{Service: svc, TokenDefaultTTL: accessauth.TenantTokenDefaultTTL})
+	rest.Mount(r, nil, rest.AccessDeps{Service: svc, TokenDefaultTTL: accessauth.TenantTokenDefaultTTL})
 
 	var out struct {
 		Token struct {

@@ -7,7 +7,7 @@ import { apiLogMiddleware } from "./apiConsole.svelte";
 import { auth } from "./access/auth.svelte";
 import { browserTokenName, fragmentParam, InviteError, redeemInvite, rejectReason, TOKEN_PREFIX } from "./access/client";
 import { portalInvite } from "./access/portal-invite.svelte";
-import { parsePortalToken, type PortalSession } from "./portal-token";
+import { parsePortalLink, type PortalSession } from "./portal-link";
 import { apiHref, portalGatewayURL, resolveApiBase, type SparrowConfig } from "./runtime-config";
 
 // Runtime config: set in the static /config.js. See runtime-config.ts for
@@ -31,11 +31,12 @@ export const serverHref = (path: string) => apiHref(apiBase, path);
 // bearer token instead of the admin API key (which is never injected into
 // portal HTML). Tokens arrive in the URL fragment, so they never hit server
 // logs:
-//   - #token=spt_v2... : a stateless portal link (POST .../portal-token),
-//     kept in sessionStorage to survive reloads;
+//   - #token=sparrow_tk_...&consumer=...&expires=... : a portal link
+//     (portal_path of a consumer token from POST /v1/tokens), kept in
+//     sessionStorage to survive reloads;
 //   - #invite=sparrow_inv_... : a one-time invite, exchanged below for a
 //     consumer access token that is remembered in localStorage.
-const PORTAL_TOKEN_STORAGE = "sparrow_portal_token";
+const PORTAL_LINK_STORAGE = "sparrow_portal_link";
 const PORTAL_SESSION_STORAGE = "sparrow_portal_session";
 
 function storedPortalSession(): PortalSession | null {
@@ -52,9 +53,9 @@ function storedPortalSession(): PortalSession | null {
 
 function initPortal(): PortalSession | null {
   if (typeof window === "undefined" || !window.location.pathname.startsWith("/portal")) return null;
-  const fromHash = fragmentParam(window.location.hash, "token");
-  if (fromHash) sessionStorage.setItem(PORTAL_TOKEN_STORAGE, fromHash);
-  const link = parsePortalToken(fromHash || sessionStorage.getItem(PORTAL_TOKEN_STORAGE) || "");
+  const fromHash = fragmentParam(window.location.hash, "token") ? window.location.hash : "";
+  if (fromHash) sessionStorage.setItem(PORTAL_LINK_STORAGE, fromHash);
+  const link = parsePortalLink(fromHash || sessionStorage.getItem(PORTAL_LINK_STORAGE) || "");
   return link ?? storedPortalSession();
 }
 
@@ -146,7 +147,7 @@ async function redeemPortalInvite(secret: string) {
     const res = await redeemInvite(apiBase, secret);
     if (!res.scope) throw new InviteError("This invite is for the operator console, not a portal.");
     localStorage.setItem(PORTAL_SESSION_STORAGE, JSON.stringify({ token: res.token, consumer: res.scope, expiresAt: res.expires_at }));
-    sessionStorage.removeItem(PORTAL_TOKEN_STORAGE);
+    sessionStorage.removeItem(PORTAL_LINK_STORAGE);
     location.replace("/portal");
   } catch (e) {
     dropFragment();

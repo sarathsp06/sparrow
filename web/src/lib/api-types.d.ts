@@ -212,26 +212,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/consumers/{consumer}/portal-token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Mint a consumer-scoped portal access token
-         * @description Creates a signed, expiring bearer token that lets an end consumer use the embedded portal UI scoped to this consumer only: manage their webhooks and subscriptions, and inspect/retry their deliveries. The portal serves its API under the single `/portal/api/` prefix (the consumer rides in the token, not the URL). Portal tokens cannot push events or mint further tokens. Requires the admin API key; hand the returned path (with the token in the URL fragment) to the end consumer.
-         */
-        post: operations["createPortalToken"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/consumers/{consumer}/repush-jobs/{job_id}": {
         parameters: {
             query?: never;
@@ -884,7 +864,7 @@ export interface paths {
         put?: never;
         /**
          * Create an access token
-         * @description Creates a named token. A tenant-wide token (no consumer) works exactly like SPARROW_API_KEY but can be revoked on its own and never needs the master key to be shared. A consumer token only works through the portal API (/portal/api/), limited to that consumer. The secret is returned once.
+         * @description Creates a named token. A tenant-wide token (no consumer) works exactly like SPARROW_API_KEY but can be revoked on its own and never needs the master key to be shared. A consumer token only works through the portal API (/portal/api/), limited to that consumer, and comes with a ready-made portal link (portal_path) to embed or hand to the end consumer. The secret is returned once, or again for the same idempotency_key while the token is valid.
          */
         post: operations["createToken"];
         delete?: never;
@@ -1144,23 +1124,6 @@ export interface components {
             /** @description The invite secret. Shown only in this response. */
             secret: string;
         };
-        CreatePortalTokenOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreatePortalTokenOutputBody.json
-             */
-            readonly $schema?: string;
-            /**
-             * Format: date-time
-             * @description When the token stops working. Tokens are stateless — the only revocation is expiry.
-             */
-            expires_at: string;
-            /** @description Server-relative portal URL with the token in the fragment (never sent to the server or logged). Prepend the base URL the UI is served from (the Sparrow server with SPARROW_SERVE_UI=true, or your separately hosted UI) and hand it to the end consumer. */
-            path: string;
-            /** @description Bearer token for the consumer portal. Send as 'Authorization: Bearer <token>'. */
-            token: string;
-        };
         CreateSubscriptionBody: {
             /**
              * Format: uri
@@ -1201,6 +1164,8 @@ export interface components {
             readonly $schema?: string;
             /** @description Limit the token to one consumer (portal API only). Omit for a tenant-wide token with the same power as SPARROW_API_KEY. */
             consumer?: string;
+            /** @description Consumer tokens only. Your id for who the token is for (e.g. your user id when embedding the portal). While a token created for this consumer with the same key is still valid, it is returned again, secret included, instead of a new one (reused: true; name and ttl_seconds are ignored); once it expires or is revoked, a new one is created. Makes minting a portal link on every page view safe. */
+            idempotency_key?: string;
             /** @description Who or what the token is for, e.g. "alice" or "ci-deploy". */
             name: string;
             /** @description Create a tenant-wide token that never expires (revoke it when no longer needed). Not allowed with ttl_seconds or for consumer tokens. */
@@ -1218,7 +1183,11 @@ export interface components {
              * @example https://example.com/schemas/CreateTokenOutputBody.json
              */
             readonly $schema?: string;
-            /** @description The credential. Shown only in this response; send it as X-API-Key or Authorization: Bearer. */
+            /** @description Consumer tokens only: server-relative portal URL with the token in the fragment (never sent to the server or logged). Prepend the base URL the UI is served from (the Sparrow server with SPARROW_SERVE_UI=true, or your separately hosted UI) and hand it to the end consumer. */
+            portal_path?: string;
+            /** @description True when idempotency_key matched a still-valid token, which is returned instead of a new one. */
+            reused: boolean;
+            /** @description The credential. Shown only in this response (and again for the same idempotency_key); send it as X-API-Key or Authorization: Bearer. */
             secret: string;
             token: components["schemas"]["TokenOut"];
         };
@@ -2781,67 +2750,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    createPortalToken: {
-        parameters: {
-            query?: {
-                /** @description Token lifetime in seconds. Defaults to 7 days, capped at 30 days. */
-                ttl_seconds?: number;
-            };
-            header?: never;
-            path: {
-                consumer: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreatePortalTokenOutputBody"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
                 headers: {
                     [name: string]: unknown;
                 };

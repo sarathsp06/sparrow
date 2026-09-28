@@ -37,6 +37,13 @@ test("portalGatewayURL: same origin", () => {
   assert.equal(portalGatewayURL("https://ui.example.com/v1/event-types", "", "acme", UI), "https://ui.example.com/portal/api/event-types");
 });
 
+test("portalGatewayURL: unknown consumer (bare #token= link) still routes by the token", () => {
+  assert.equal(
+    portalGatewayURL("https://ui.example.com/v1/consumers//webhooks", "", "", UI),
+    "https://ui.example.com/portal/api/webhooks",
+  );
+});
+
 test("portalGatewayURL: cross-origin API keeps the API host", () => {
   assert.equal(
     portalGatewayURL("https://api.example.com/v1/consumers/acme/webhooks", "https://api.example.com", "acme", UI),

@@ -25,7 +25,7 @@ browser is a token that can touch one consumer and nothing more.
 <ThemeDiagram
   light={portalFlowLight}
   dark={portalFlowDark}
-  alt="Sequence diagram: the consumer's browser logs in to yourapp.com; yourapp mints a portal token from sparrow:8080 over the private network with the admin API key; the token link is handed back to the browser; the browser loads the portal HTML and SPA bundle proxied from Sparrow; then the browser calls the API with a bearer token, which the proxy forwards and Sparrow verifies and scopes to the consumer."
+  alt="Sequence diagram: the consumer's browser logs in to yourapp.com; yourapp mints a consumer token (POST /v1/tokens) from sparrow:8080 over the private network with the admin API key; the token link is handed back to the browser; the browser loads the portal HTML and SPA bundle proxied from Sparrow; then the browser calls the API with a bearer token, which the proxy forwards and Sparrow verifies and scopes to the consumer."
 />
 
 1. **Your app authenticates the user** with whatever login it already has.
@@ -33,14 +33,22 @@ browser is a token that can touch one consumer and nothing more.
 2. **Your backend mints a token** over the private network:
 
    ```bash
-   curl -s -X POST \
-     -H "X-API-Key: $SPARROW_API_KEY" \
-     "http://sparrow:8080/v1/consumers/acme/portal-token?ttl_seconds=3600"
-   # → { "token": "spt_v2....", "expires_at": "...", "path": "/portal#token=spt_v2...." }
+   curl -s -X POST http://sparrow:8080/v1/tokens \
+     -H "X-API-Key: $SPARROW_API_KEY" -H "Content-Type: application/json" \
+     -d '{"name": "portal", "consumer": "acme", "ttl_seconds": 3600, "idempotency_key": "user-42"}'
+   # → { "token": { "id": "tok_...", "expires_at": "...", ... }, "secret": "sparrow_tk_...",
+   #     "reused": false, "portal_path": "/portal#token=sparrow_tk_...&consumer=acme&expires=..." }
    ```
 
    This is the **only** call that uses the admin key, and it happens
-   server-to-server — the key never crosses the network boundary.
+   server-to-server — the key never crosses the network boundary. The link
+   is a consumer-scoped access token (the same kind `sparrow tokens create
+   --consumer` makes): pick a short `ttl_seconds` (the default is 7 days),
+   and revoke it early with `DELETE /v1/tokens/{id}`.
+   `idempotency_key` (your user id, say) makes the call safe to repeat on
+   every page view: while that user's link is valid, Sparrow returns the
+   same token (`"reused": true`) instead of minting another, and mints a
+   fresh one once it has expired or been revoked.
 3. **Your app hands the link to the browser** — redirect to
    `https://yourapp.com/portal#token=...`, or render it in an `<iframe>`
    (the portal's headers permit framing; the rest of Sparrow forbids it).
@@ -51,8 +59,9 @@ browser is a token that can touch one consumer and nothing more.
    *without* the admin API key (neither the portal nor the dashboard receives it).
 5. **The portal calls the API through the same proxy**, under the single
    `/portal/api/` prefix, sending `Authorization: Bearer <token>` on every
-   request. Sparrow's portal gateway verifies the HMAC signature, key ID, and expiry
-   statelessly, derives the consumer *from the token* (never the URL), and
+   request. Sparrow's portal gateway looks the token up (by its SHA-256 hash,
+   cached for 30 seconds), checks it is active, derives the consumer *from
+   the token* (never the URL), and
    maps `/portal/api/<rest>` to that consumer's real route — so cross-consumer
    access is structurally impossible, and event injection and token minting
    are refused. No token, bad token, or a denied action is a 401/403.
@@ -76,7 +85,7 @@ Trace one real request through it:
 <ThemeDiagram
   light={portalTraceLight}
   dark={portalTraceDark}
-  alt="Sequence diagram tracing one request: the browser sends a bearer-authenticated GET to the proxy under /portal/api; the proxy matches the single /portal/api allowlist and forwards to Sparrow over the VPN; Sparrow's portal gateway verifies the token signature and expiry, derives the consumer from the token, maps the call to that consumer's route, then returns 200 and JSON; the proxy streams the response back to the browser unchanged."
+  alt="Sequence diagram tracing one request: the browser sends a bearer-authenticated GET to the proxy under /portal/api; the proxy matches the single /portal/api allowlist and forwards to Sparrow over the VPN; Sparrow's portal gateway checks the token is active (a cached lookup by its hash), derives the consumer from the token, maps the call to that consumer's route, then returns 200 and JSON; the proxy streams the response back to the browser unchanged."
 />
 
 The browser never learns Sparrow's address, never joins the VPN, and never
@@ -108,8 +117,8 @@ Forward exactly these three prefixes, deny everything else:
 
 That single `/portal/api/*` prefix replaces every per-consumer and per-helper
 `/v1` rule. You need **no deny rules**: the portal gateway derives the consumer
-from the token, and refuses event injection and token minting itself. Token
-minting (`POST /v1/consumers/{consumer}/portal-token`), event injection, the
+from the token, and refuses event injection itself. Token minting
+(`POST /v1/tokens`), event injection, the
 admin dashboard (`/`), the global `/v1` API, `/docs`, and `/openapi.*` are
 simply never forwarded, so they stay unreachable from the internet.
 
@@ -165,7 +174,7 @@ server {
 ```
 
 Never add `proxy_set_header X-API-Key ...` in this vhost — a valid admin key
-outranks portal-token scoping, so injecting it would silently make every
+outranks portal token scoping, so injecting it would silently make every
 portal visitor an admin.
 
 ## Example: Express (your app's backend as the proxy)
@@ -187,12 +196,14 @@ app.use(portalSlice, createProxyMiddleware({ target: SPARROW, changeOrigin: true
 // Minting stays server-side, behind YOUR auth:
 app.post("/api/webhook-portal-link", requireLogin, async (req, res) => {
   const consumer = req.user.tenantId; // however you map users → consumers
-  const r = await fetch(
-    `${SPARROW}/v1/consumers/${consumer}/portal-token?ttl_seconds=3600`,
-    { method: "POST", headers: { "X-API-Key": process.env.SPARROW_API_KEY } },
-  );
-  const { path } = await r.json();
-  res.json({ url: path }); // same-origin: /portal#token=...
+  const r = await fetch(`${SPARROW}/v1/tokens`, {
+    method: "POST",
+    headers: { "X-API-Key": process.env.SPARROW_API_KEY, "Content-Type": "application/json" },
+    // idempotency_key: the same user gets the same link back while it is valid.
+    body: JSON.stringify({ name: "portal", consumer, ttl_seconds: 3600, idempotency_key: req.user.id }),
+  });
+  const { portal_path } = await r.json();
+  res.json({ url: portal_path }); // same-origin: /portal#token=...
 });
 ```
 
@@ -207,17 +218,17 @@ What each party can and cannot do:
 |---|---|---|
 | Portal visitor with a valid token for `acme` | Manage `acme`'s webhooks/subscriptions, view and retry `acme`'s deliveries | Read any other consumer, inject events, mint tokens, reach the admin UI/API |
 | Anyone hitting the public vhost without a token | Load the portal shell (renders "missing access link") | Call any API route — everything under `/portal/api` returns 401 |
-| Someone who steals a portal link | Everything the legitimate holder can, until expiry | Escalate beyond that consumer |
+| Someone who steals a portal link | Everything the legitimate holder can, until it expires or you revoke it | Escalate beyond that consumer |
 | Your backend | Mint tokens for any consumer (it holds the admin key) | — (it is fully trusted; keep the key server-side) |
 
 Why the pieces hold:
 
-- **Token integrity** — tokens are HMAC-SHA256 signed with
-  the primary configured encryption key from `SPARROW_ENCRYPTION_KEYS` and verified in constant time. Tampering with the
-  consumer name or expiry invalidates the signature; forging one requires
-  the server's key.
+- **Token integrity** — a portal token is 256 random bits; Sparrow stores
+  only its SHA-256 hash, together with the consumer and expiry. The
+  `consumer` and `expires` in the link fragment are for display only —
+  editing them changes nothing the server enforces.
 - **Scope is enforced by Sparrow, not the proxy.** The consumer comes from
-  the signed token, never the URL, so the portal gateway maps every
+  the stored token, never the URL, so the portal gateway maps every
   `/portal/api` call to that consumer's own route and refuses minting and
   event injection — the proxy needs no deny rules and cross-consumer access
   is impossible even if the whole prefix is forwarded.
@@ -228,10 +239,16 @@ Why the pieces hold:
 - **Fragment tokens don't leak into logs.** `#token=...` is never sent in
   HTTP requests; the portal moves it to `sessionStorage` and sends it only
   as an `Authorization` header over TLS.
-- **Blast radius of a leaked link is bounded** by consumer + TTL. Mint short
-  (`ttl_seconds=3600`-ish) tokens on demand — your users are already logged
-  in, so a fresh link per visit costs nothing. Revocation is expiry-only;
-  there is no denylist.
+- **Blast radius of a leaked link is bounded** by consumer + TTL, and you
+  can cut it short: revoke the link's token id and it stops working
+  within 30 seconds on every instance. With `idempotency_key`, each of your
+  users holds at most one live link per consumer; expired and revoked links
+  are deleted from the database a week later by a daily purge.
+- **Reusable links are stored encrypted.** To hand the same link back,
+  Sparrow keeps the secret of a token minted with `idempotency_key`,
+  envelope-encrypted with `SPARROW_ENCRYPTION_KEYS` like webhook secrets.
+  Tokens minted without a key are stored as a SHA-256 hash only. Revoking a
+  token deletes its stored secret.
 
 Checklist before going live:
 
@@ -241,7 +258,9 @@ Checklist before going live:
       secret manager.
 - [ ] Proxy forwards **only** the allowlist; default route denies.
 - [ ] No `X-API-Key` injection anywhere on the public vhost.
-- [ ] Short `ttl_seconds`, minted per visit behind your login.
+- [ ] Short `ttl_seconds` (e.g. 3600; the default is 7 days), minted behind your
+      login with `idempotency_key` set to your user id; revoke a link's
+      token when the user logs out or loses access.
 - [ ] TLS terminated at the proxy; rate limiting on `/portal/api/`.
 ## Alternative: no Sparrow UI at all
 

@@ -146,13 +146,13 @@ test('consumer portal works from the standalone UI through the API gateway', asy
   const consumer = newConsumer();
   const url = `https://example.com/pw-split-portal-${Date.now()}`;
   await registerWebhook(admin, consumer, url);
-  const { token } = await mintPortalToken(admin, consumer);
+  const { path } = await mintPortalToken(admin, consumer);
   await useConfig(page, { apiUrl: API });
 
   const calls: string[] = [];
   page.on('request', (r) => r.url().includes('/api/') && calls.push(r.url()));
 
-  await page.goto(`${UI}/portal#token=${token}`);
+  await page.goto(`${UI}${path}`);
   await expect(page.getByRole('heading', { name: 'Your Endpoints' })).toBeVisible();
   await expect(page.getByRole('button', { name: new RegExp(url) })).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Sign in to Sparrow' })).toHaveCount(0);

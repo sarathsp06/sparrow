@@ -18,7 +18,7 @@ Critical security rules:
 - Sparrow now uses keyring-based encryption config:
   - \`SPARROW_ENCRYPTION_KEYS\`
   - \`SPARROW_ENCRYPTION_PRIMARY_KEY_ID\`
-- Current portal tokens are \`spt_v2\`.
+- Portal tokens are consumer-scoped access tokens (\`sparrow_tk_...\`) minted by \`POST /v1/tokens\` with a \`consumer\` (the response includes \`portal_path\`): revocable via \`DELETE /v1/tokens/{id}\`, 7-day default TTL (use a short \`ttl_seconds\` for embedding), and \`idempotency_key\` returns the still-valid token instead of minting a new one. There is no separate portal-token endpoint.
 - If the use case involves PHI/PII/compliance, explicitly mention retention, DB/storage-layer encryption, and response-body capture tradeoffs.
 
 Answering style:

@@ -27,6 +27,9 @@ type RootKey struct {
 type Config struct {
 	Store    Store
 	RootKeys []RootKey
+	// Sealer encrypts the stored secrets of idempotent tokens. Optional;
+	// without it CreateTokenIdempotent returns ErrNoSealer.
+	Sealer SecretSealer
 	// TokenPrefix and InvitePrefix start every secret, making leaked secrets
 	// easy to recognize (and to scan for). Defaults: "tk_" and "inv_".
 	TokenPrefix  string
@@ -44,6 +47,7 @@ type Config struct {
 // Service issues and checks tokens and invites.
 type Service struct {
 	store         Store
+	sealer        SecretSealer
 	roots         []rootKey
 	tokenPrefix   string
 	invitePrefix  string
@@ -82,6 +86,7 @@ func New(cfg Config) (*Service, error) {
 	}
 	s := &Service{
 		store:         cfg.Store,
+		sealer:        cfg.Sealer,
 		tokenPrefix:   cmp.Or(cfg.TokenPrefix, "tk_"),
 		invitePrefix:  cmp.Or(cfg.InvitePrefix, "inv_"),
 		cacheTTL:      cfg.CacheTTL,
@@ -130,6 +135,59 @@ func (s *Service) CreateToken(ctx context.Context, req CreateTokenRequest) (Toke
 	return t, secret, nil
 }
 
+// maxIdempotencyKeyLen bounds caller-chosen idempotency keys.
+const maxIdempotencyKeyLen = 200
+
+// CreateTokenIdempotent is CreateToken keyed by key: while a token created
+// with the same key in the same realm and scope is active, it returns that
+// token and its secret (created=false) and ignores the rest of req (its TTL
+// in particular). If there is none, or it expired or was revoked, it creates
+// a new token that takes over the key (created=true).
+//
+// The secret of such a token is stored sealed by Config.Sealer. If it can no
+// longer be opened (the sealing key is gone), that token is revoked and
+// replaced.
+func (s *Service) CreateTokenIdempotent(ctx context.Context, req CreateTokenRequest, key string) (Token, string, bool, error) {
+	if err := validate(req.Realm, req.Scope, req.Name, req.TTL); err != nil {
+		return Token{}, "", false, err
+	}
+	switch {
+	case strings.TrimSpace(key) != key || key == "":
+		return Token{}, "", false, invalidRequest("idempotency key must be non-empty with no leading or trailing spaces")
+	case len(key) > maxIdempotencyKeyLen:
+		return Token{}, "", false, invalidRequest("idempotency key is longer than %d characters", maxIdempotencyKeyLen)
+	case s.sealer == nil:
+		return Token{}, "", false, ErrNoSealer
+	}
+	// Two rounds: the second one runs only after revoking a holder whose
+	// secret could not be opened, so it always creates.
+	for range 2 {
+		t, secret, hash, err := s.newToken(req.Realm, req.Scope, req.Name, req.CreatedBy, req.TTL)
+		if err != nil {
+			return Token{}, "", false, err
+		}
+		t.IdempotencyKey = key
+		sealed, err := s.sealer.Seal([]byte(secret))
+		if err != nil {
+			return Token{}, "", false, fmt.Errorf("access: seal secret: %w", err)
+		}
+		got, gotSealed, created, err := s.store.CreateTokenIdempotent(ctx, t, hash, sealed, s.now())
+		if err != nil {
+			return Token{}, "", false, err
+		}
+		if created {
+			return got, secret, true, nil
+		}
+		if plain, err := s.sealer.Open(gotSealed); err == nil {
+			return got, string(plain), false, nil
+		}
+		if err := s.RevokeToken(ctx, got.Realm, got.ID); err != nil {
+			return Token{}, "", false, err
+		}
+	}
+	return Token{}, "", false, errors.New("access: could not replace an idempotent token with an unreadable secret")
+}
+
 // ListTokens returns the realm's tokens, newest first.
 func (s *Service) ListTokens(ctx context.Context, realm string) ([]Token, error) {
 	return s.store.ListTokens(ctx, realm)
@@ -149,6 +207,15 @@ func (s *Service) RevokeToken(ctx context.Context, realm, id string) error {
 	}
 	s.mu.Unlock()
 	return nil
+}
+
+// PurgeTokens deletes tokens that expired or were revoked more than
+// retention ago (retention < 0 is treated as 0) and returns how many. Keeping
+// them for a while lets listings still show recently expired or revoked
+// tokens; purged tokens are unknown afterwards, which Authenticate already
+// rejects as invalid.
+func (s *Service) PurgeTokens(ctx context.Context, retention time.Duration) (int64, error) {
+	return s.store.PurgeTokens(ctx, s.now().Add(-max(retention, 0)))
 }
 
 // CreateInviteRequest describes a new invite.

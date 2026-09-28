@@ -17,15 +17,21 @@ import (
 	"github.com/sarathsp06/sparrow/pkg/access/storetest"
 )
 
-// The migration must ship exactly the library's schema, or pgstore queries
-// could drift from the tables Sparrow creates.
-func TestMigrationMatchesPgstoreSchema(t *testing.T) {
-	b, err := os.ReadFile("../../db/migrations/000027_access_tokens.up.sql")
-	if err != nil {
-		t.Fatal(err)
+// The migrations must ship exactly the library's schema, one part each, or
+// pgstore queries could drift from the tables Sparrow creates.
+func TestMigrationsMatchPgstoreSchema(t *testing.T) {
+	migrations := []string{"000027_access_tokens.up.sql", "000028_access_token_idempotency.up.sql"}
+	if len(migrations) != len(pgstore.SchemaParts) {
+		t.Fatalf("pgstore has %d schema parts but %d migrations are checked; add the new migration here", len(pgstore.SchemaParts), len(migrations))
 	}
-	if !strings.Contains(string(b), pgstore.Schema) {
-		t.Fatal("db/migrations/000027_access_tokens.up.sql no longer contains pkg/access/pgstore/schema.sql verbatim; copy it over")
+	for i, name := range migrations {
+		b, err := os.ReadFile("../../db/migrations/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(b), pgstore.SchemaParts[i]) {
+			t.Fatalf("db/migrations/%s no longer contains pgstore schema part %d verbatim; copy it over", name, i+1)
+		}
 	}
 }
 
@@ -67,7 +73,7 @@ func TestTTLRules(t *testing.T) {
 }
 
 func TestMasterKeyIsRootInDefaultTenant(t *testing.T) {
-	svc, err := NewWithStore(memstore.New(), "master")
+	svc, err := NewWithStore(memstore.New(), "master", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +82,7 @@ func TestMasterKeyIsRootInDefaultTenant(t *testing.T) {
 		t.Fatalf("master key principal = %+v, %v", p, err)
 	}
 
-	open, _ := NewWithStore(memstore.New(), "")
+	open, _ := NewWithStore(memstore.New(), "", nil)
 	if _, err := open.Authenticate(context.Background(), ""); err == nil {
 		t.Fatal("empty credential authenticated without a master key")
 	}

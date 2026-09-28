@@ -17,6 +17,7 @@ import (
 	"github.com/sarathsp06/sparrow/internal/tenant"
 	"github.com/sarathsp06/sparrow/pkg/access"
 	"github.com/sarathsp06/sparrow/pkg/access/pgstore"
+	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
 // Secret prefixes. Distinctive so leaked secrets are easy to spot and scan for.
@@ -43,6 +44,9 @@ const (
 	ConsumerTokenMaxTTL     = 30 * 24 * time.Hour
 	InviteDefaultTTL        = 24 * time.Hour
 	InviteMaxTTL            = 7 * 24 * time.Hour
+	// TokenRetention is how long expired and revoked tokens stay listed
+	// before the daily purge deletes them.
+	TokenRetention = 7 * 24 * time.Hour
 )
 
 // TokenTTL applies the lifetime rules to a requested TTL (0 = default).
@@ -108,16 +112,27 @@ func ValidateConsumer(consumer string) error {
 }
 
 // New builds the access service over Postgres. apiKey (SPARROW_API_KEY) is
-// registered as the root key when set.
-func New(db *sql.DB, apiKey string) (*access.Service, error) {
-	return NewWithStore(pgstore.New(db), apiKey)
+// registered as the root key when set; sealer (see Sealer) stores the secrets
+// of idempotent tokens and may be nil to disable them.
+func New(db *sql.DB, apiKey string, sealer access.SecretSealer) (*access.Service, error) {
+	return NewWithStore(pgstore.New(db), apiKey, sealer)
 }
 
 // NewWithStore is New with any store (tests use memstore).
-func NewWithStore(store access.Store, apiKey string) (*access.Service, error) {
+func NewWithStore(store access.Store, apiKey string, sealer access.SecretSealer) (*access.Service, error) {
 	var roots []access.RootKey
 	if apiKey != "" {
 		roots = []access.RootKey{{Secret: apiKey, Realm: Realm(), Name: MasterKeyName}}
 	}
-	return access.New(access.Config{Store: store, RootKeys: roots, TokenPrefix: TokenPrefix, InvitePrefix: InvitePrefix})
+	return access.New(access.Config{Store: store, RootKeys: roots, Sealer: sealer, TokenPrefix: TokenPrefix, InvitePrefix: InvitePrefix})
 }
+
+// Sealer seals the stored secrets of idempotent tokens with Sparrow's
+// envelope encryption (the SPARROW_ENCRYPTION_KEYS keyring), like every other
+// secret at rest.
+func Sealer(svc *crypto.Service) access.SecretSealer { return cryptoSealer{svc} }
+
+type cryptoSealer struct{ svc *crypto.Service }
+
+func (c cryptoSealer) Seal(p []byte) ([]byte, error) { return c.svc.EnvelopeEncrypt(p) }
+func (c cryptoSealer) Open(s []byte) ([]byte, error) { return c.svc.EnvelopeDecrypt(s) }

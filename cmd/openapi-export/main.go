@@ -26,7 +26,7 @@ func main() {
 
 	// A nil service is fine: exporting the spec only walks operation/schema
 	// registration, it never invokes a handler. Same for the nil portal signer.
-	api := rest.Mount(chi.NewRouter(), nil, nil, rest.AccessDeps{})
+	api := rest.Mount(chi.NewRouter(), nil, rest.AccessDeps{})
 
 	yamlBytes, err := api.OpenAPI().YAML()
 	if err != nil {

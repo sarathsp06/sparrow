@@ -87,38 +87,49 @@ days, allow at most 30, and always expire.
 
 ## Consumer (portal) access
 
-Two options for giving consumers access to the portal:
+Two ways to give consumers access to the portal. Both produce a
+consumer-scoped access token: listed in `sparrow tokens list`, revocable on its
+own, and limited to that consumer's portal.
 
-### Stored tokens via invite (revocable)
+### Invites (for named people)
 
 ```bash
 sparrow invite "acme support" --consumer acme
 ```
 
-The link opens the consumer's portal. The resulting token is individually
-revocable and shows up in `sparrow tokens list`.
+The link works once and opens the consumer's portal with a token named after
+the invitee.
 
-### Stateless portal-token links (for embedding)
+### Portal links (for embedding)
 
 ```bash
-curl -X POST http://localhost:8080/v1/consumers/acme/portal-token \
-  -H "X-API-Key: $SPARROW_API_KEY"
+curl -X POST http://localhost:8080/v1/tokens \
+  -H "X-API-Key: $SPARROW_API_KEY" -H "Content-Type: application/json" \
+  -d '{"name": "portal", "consumer": "acme", "ttl_seconds": 3600, "idempotency_key": "user-42"}'
 ```
 
-These are HMAC-SHA256 signed, consumer-scoped, and need no database row per
-page view — the right choice for embedding the portal in an iframe. Revocation
-is expiry-only (default 7 days, max 30).
+Every consumer token comes with a ready-made `portal_path`. Your backend mints
+one for a user who is already signed in to your product and hands them that
+link; revoke it early with `DELETE /v1/tokens/{id}` (for example on logout).
+Use a short `ttl_seconds` for embedding.
 
-Choose stored tokens when you want per-person revocability; choose stateless
-portal tokens when you embed the portal at scale.
+`idempotency_key` (for example your user id; consumer tokens only) makes the
+call safe to repeat on every page view: while a token created for that
+consumer with the same key is still valid, the same token and link come back
+(`"reused": true`; `name` and `ttl_seconds` are ignored); once it has expired
+or been revoked, a new one is created. The secret of such a token is kept envelope-encrypted with
+`SPARROW_ENCRYPTION_KEYS` so it can be returned again; tokens without a key
+store only a hash.
+
+Expired and revoked tokens stay listed for 7 days, then a daily job deletes
+them, so frequently minted portal links do not grow the tokens table without
+bound.
 
 ## What happens on master-key rotation
 
 Rotating `SPARROW_API_KEY` invalidates the old master key but **does not
 invalidate existing tokens or pending invites**. Tokens are verified by their
-stored hash, not by a relationship to the master key. Stateless portal tokens
-(`spt_v2`) are also unaffected — they are signed by the encryption key, not
-the API key.
+stored hash, not by a relationship to the master key.
 
 ## Lifetimes
 

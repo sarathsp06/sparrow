@@ -125,8 +125,7 @@ networks should set it to `false`.
   Alice opens it and gets her own token without seeing the master key.
 - **Consumer tokens for the portal.** A consumer invite creates a token scoped
   to that consumer's portal — revocable, unlike stateless portal tokens.
-  Stateless portal tokens (`spt_v2`) remain available and are still the right
-  choice for embedding the portal in an iframe (no DB row per page view).
+  (Superseded, see "Update: portal links are access tokens" below.)
 - **30-second revocation window on other instances.** The 30-second cache TTL
   means a revoked token may still work on instances that cached it. Immediate
   on the revoking instance (cache is cleared synchronously).
@@ -176,7 +175,8 @@ added later as another `httpauth.Verifier` without changing tokens or invites.
 Replace stateless `spt_v2` portal tokens with stored consumer tokens for
 iframe embedding. Rejected: each portal page view would create or look up a
 stored row, which is wasteful at scale. Stateless portal tokens remain the
-right fit for embedding.
+right fit for embedding. (Later adopted, see "Update: portal links are access
+tokens" below.)
 
 ## Known limits
 
@@ -200,3 +200,27 @@ prompt (a pasted master key is exchanged for a browser token). Setting
 `SPARROW_UI_INJECT_KEY` in the environment now has no effect; the server
 logs a deprecation warning if it is still present. Section 8 above
 describes the original design; this amendment supersedes it.
+
+## Update: portal links are access tokens (2026-09-28)
+
+Portal links are now consumer-scoped access tokens from `POST /v1/tokens`
+(which returns a `portal_path` for them); the separate
+`POST /v1/consumers/{consumer}/portal-token` endpoint and stateless `spt_v2`
+tokens are gone (nothing had shipped to production). One endpoint means one
+set of lifetime, validation and idempotency rules. A security review found that `spt_v2` tokens, signed with the
+data-encryption key and valid for up to 30 days, could only be revoked by
+removing that key, which also breaks decryption.
+
+The scale concern that rejected stored tokens above is handled by:
+
+- `idempotency_key` (consumer tokens only): while a token minted for a consumer with the same key is
+  valid, the call returns it (secret included) instead of storing a new row.
+  To make that possible, such a token's secret is stored envelope-encrypted
+  (`access.SecretSealer`, backed by the `SPARROW_ENCRYPTION_KEYS` keyring) and
+  deleted on revocation. Tokens without a key still store only a hash.
+- A daily purge (River job) deletes tokens expired or revoked more than 7 days
+  ago.
+- Short lifetimes chosen by the embedding backend (`ttl_seconds`).
+
+Lookups hit the database at most once per token per 30 seconds (the existing
+cache), which the portal's traffic easily absorbs.

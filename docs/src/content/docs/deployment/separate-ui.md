@@ -100,7 +100,7 @@ When the server has `SPARROW_API_KEY` set, the UI needs a credential. Pick one o
 
 ## Consumer portal
 
-The portal (`/portal`) works from a separately hosted UI. Its API calls go to `<apiUrl>/portal/api/...` with the consumer's bearer token, never the admin key. When you mint a link with `POST /v1/consumers/{consumer}/portal-token`, the response's `path` (`/portal#token=...`) is relative. Prepend the **UI's** base URL (`https://sparrow.example.com/portal#token=...`), not the API's.
+The portal (`/portal`) works from a separately hosted UI. Its API calls go to `<apiUrl>/portal/api/...` with the consumer's bearer token, never the admin key. When you mint a link with `POST /v1/tokens` and a `consumer`, the response's `portal_path` (`/portal#token=...`) is relative. Prepend the **UI's** base URL (`https://sparrow.example.com/portal#token=...`), not the API's.
 
 ## Local development
 

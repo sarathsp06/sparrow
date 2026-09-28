@@ -17,10 +17,22 @@ type Store interface {
 	TokenByHash(ctx context.Context, secretHash []byte) (Token, error)
 	// ListTokens returns every token in realm, newest first.
 	ListTokens(ctx context.Context, realm string) ([]Token, error)
-	// RevokeToken marks a token revoked (idempotent). ErrNotFound if it is not in realm.
+	// RevokeToken marks a token revoked (idempotent) and drops its idempotency
+	// key and sealed secret. ErrNotFound if it is not in realm.
 	RevokeToken(ctx context.Context, realm, id string, at time.Time) error
 	// TouchToken records a use of the token. Best effort.
 	TouchToken(ctx context.Context, id string, at time.Time) error
+	// CreateTokenIdempotent stores t (whose IdempotencyKey is set) with the
+	// hash and the sealed form of its secret, unless a token in t.Realm and
+	// t.Scope holding the same key is active at now: then it stores nothing
+	// and returns that token and its sealed secret with created=false. A
+	// holder that is no longer active gives up the key first. Concurrent
+	// calls with one key must leave exactly one active holder.
+	CreateTokenIdempotent(ctx context.Context, t Token, secretHash, sealedSecret []byte, now time.Time) (got Token, gotSealed []byte, created bool, err error)
+	// PurgeTokens deletes every token that expired or was revoked before
+	// cutoff, in all realms, and returns how many it deleted. Invites that
+	// created a purged token keep their other fields; their TokenID becomes nil.
+	PurgeTokens(ctx context.Context, cutoff time.Time) (int64, error)
 
 	// CreateInvite stores inv with the hash of its secret.
 	CreateInvite(ctx context.Context, inv Invite, secretHash []byte) error

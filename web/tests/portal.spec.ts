@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { mintPortalToken, newConsumer } from './api';
+import { mintPortalToken, newConsumer, registerWebhook } from './api';
 
 // The consumer portal authenticates purely from the URL fragment (#token=...),
-// so every test mints a token via the admin API and visits /portal#token=<t>.
+// so every test mints a link via the admin API and visits its path
+// (/portal#token=<t>&consumer=<c>&expires=<unix>).
 
 test('portal without a token shows the missing-link empty state', async ({ page }) => {
   await page.goto('/portal');
@@ -11,8 +12,8 @@ test('portal without a token shows the missing-link empty state', async ({ page 
 
 test('a valid token opens the portal scoped to its consumer', async ({ page, request }) => {
   const consumer = newConsumer();
-  const { token } = await mintPortalToken(request, consumer);
-  await page.goto(`/portal#token=${token}`);
+  const { path } = await mintPortalToken(request, consumer);
+  await page.goto(path);
   await expect(page.getByRole('heading', { name: 'Your Endpoints' })).toBeVisible();
   await expect(page).toHaveTitle(new RegExp(consumer));
   await expect(page.getByRole('link', { name: 'Sparrow' })).toHaveAttribute('href', 'https://github.com/sarathsp06/sparrow');
@@ -22,11 +23,11 @@ test('a valid token opens the portal scoped to its consumer', async ({ page, req
 
 test('a consumer can add and pause an endpoint from the portal', async ({ page, request }) => {
   const consumer = newConsumer();
-  const { token } = await mintPortalToken(request, consumer);
+  const { path } = await mintPortalToken(request, consumer);
   const url = `https://example.com/pw-portal-${Date.now()}`;
   const alertEmail = `alerts-${Date.now()}@example.com`;
 
-  await page.goto(`/portal#token=${token}`);
+  await page.goto(path);
   await page.getByRole('button', { name: 'Add Endpoint' }).click();
   await page.getByLabel('Endpoint URL').fill(url);
   await page.getByLabel(/Health alert email/).fill(alertEmail);
@@ -45,8 +46,8 @@ test('a consumer can add and pause an endpoint from the portal', async ({ page, 
 });
 
 test('the theme toggle flips and persists the color scheme', async ({ page, request }) => {
-  const { token } = await mintPortalToken(request, newConsumer());
-  await page.goto(`/portal#token=${token}`);
+  const { path } = await mintPortalToken(request, newConsumer());
+  await page.goto(path);
 
   const before = await page.evaluate(() => document.documentElement.dataset.theme);
   await page.getByRole('button', { name: 'Toggle color theme' }).click();
@@ -56,8 +57,17 @@ test('the theme toggle flips and persists the color scheme', async ({ page, requ
 });
 
 test('an expired token shows the expired empty state', async ({ page, request }) => {
-  const { token } = await mintPortalToken(request, newConsumer(), 1);
+  const { path } = await mintPortalToken(request, newConsumer(), 1);
   await page.waitForTimeout(1500);
-  await page.goto(`/portal#token=${token}`);
+  await page.goto(path);
   await expect(page.getByText('Access link expired')).toBeVisible();
+});
+
+test('a bare #token= link (no consumer in the fragment) still reaches the consumer', async ({ page, request }) => {
+  const consumer = newConsumer();
+  const url = `https://example.com/pw-portal-bare-${Date.now()}`;
+  await registerWebhook(request, consumer, url);
+  const { token } = await mintPortalToken(request, consumer);
+  await page.goto(`/portal#token=${token}`);
+  await expect(page.getByRole('button', { name: new RegExp(url) })).toBeVisible();
 });

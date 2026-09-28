@@ -326,3 +326,94 @@ func TestConcurrentAuthenticate(t *testing.T) {
 		}
 	}
 }
+
+// xorSealer is a test SecretSealer; broken makes Open fail, as after the
+// sealing key is removed.
+type xorSealer struct{ broken bool }
+
+func (xorSealer) Seal(p []byte) ([]byte, error) {
+	out := make([]byte, len(p))
+	for i, b := range p {
+		out[i] = b ^ 0x5a
+	}
+	return out, nil
+}
+
+func (x *xorSealer) Open(s []byte) ([]byte, error) {
+	if x.broken {
+		return nil, errors.New("unknown key")
+	}
+	return xorSealer{}.Seal(s)
+}
+
+func newSealedService(t *testing.T, c *clock, sealer access.SecretSealer) *access.Service {
+	t.Helper()
+	svc, err := access.New(access.Config{Store: memstore.New(), TokenPrefix: "app_tk_", Now: c.now, Sealer: sealer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return svc
+}
+
+func TestCreateTokenIdempotentReturnsTheSameSecretUntilExpiry(t *testing.T) {
+	c := newClock()
+	svc := newSealedService(t, c, &xorSealer{})
+	req := access.CreateTokenRequest{Realm: "r1", Scope: ptr("acme"), Name: "portal", TTL: time.Hour, CreatedBy: "root"}
+
+	first, secret, created, err := svc.CreateTokenIdempotent(ctx, req, "user-42")
+	if err != nil || !created || !strings.HasPrefix(secret, "app_tk_") {
+		t.Fatalf("first = %+v %q %v %v", first, secret, created, err)
+	}
+	c.advance(30 * time.Minute)
+	req.TTL = 5 * time.Hour // ignored while the holder is active
+	again, secret2, created, err := svc.CreateTokenIdempotent(ctx, req, "user-42")
+	if err != nil || created || again.ID != first.ID || secret2 != secret || !again.ExpiresAt.Equal(*first.ExpiresAt) {
+		t.Fatalf("again = %+v %q %v %v, want the first token and secret", again, secret2, created, err)
+	}
+	if p, err := svc.Authenticate(ctx, secret2); err != nil || p.TokenID != first.ID {
+		t.Fatalf("returned secret does not authenticate: %+v %v", p, err)
+	}
+
+	c.advance(time.Hour) // first token expired
+	fresh, secret3, created, err := svc.CreateTokenIdempotent(ctx, req, "user-42")
+	if err != nil || !created || fresh.ID == first.ID || secret3 == secret {
+		t.Fatalf("after expiry = %+v %v %v, want a new token", fresh, created, err)
+	}
+	if got := fresh.ExpiresAt.Sub(c.now()); got != 5*time.Hour {
+		t.Fatalf("new token lifetime = %s, want the requested 5h", got)
+	}
+}
+
+func TestCreateTokenIdempotentReplacesAnUnreadableSecret(t *testing.T) {
+	c := newClock()
+	sealer := &xorSealer{}
+	svc := newSealedService(t, c, sealer)
+	req := access.CreateTokenRequest{Realm: "r1", Scope: ptr("acme"), Name: "portal", TTL: time.Hour, CreatedBy: "root"}
+	old, oldSecret, _, err := svc.CreateTokenIdempotent(ctx, req, "k")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sealer.broken = true
+	fresh, _, created, err := svc.CreateTokenIdempotent(ctx, req, "k")
+	if err != nil || !created || fresh.ID == old.ID {
+		t.Fatalf("unreadable holder: %+v %v %v, want a replacement", fresh, created, err)
+	}
+	if _, err := svc.Authenticate(ctx, oldSecret); reason(err) != access.ReasonRevoked {
+		t.Fatalf("unreadable holder not revoked: %v", err)
+	}
+}
+
+func TestCreateTokenIdempotentValidation(t *testing.T) {
+	c := newClock()
+	req := access.CreateTokenRequest{Realm: "r1", Scope: ptr("acme"), Name: "portal", TTL: time.Hour, CreatedBy: "root"}
+	if _, _, _, err := newSealedService(t, c, nil).CreateTokenIdempotent(ctx, req, "k"); !errors.Is(err, access.ErrNoSealer) {
+		t.Fatalf("no sealer err = %v, want ErrNoSealer", err)
+	}
+	svc := newSealedService(t, c, &xorSealer{})
+	for _, key := range []string{"", " k", strings.Repeat("k", 201)} {
+		if _, _, _, err := svc.CreateTokenIdempotent(ctx, req, key); !errors.Is(err, access.ErrInvalidRequest) {
+			t.Errorf("key %q err = %v, want ErrInvalidRequest", key, err)
+		}
+	}
+}

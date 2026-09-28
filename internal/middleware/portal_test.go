@@ -7,18 +7,35 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/sarathsp06/sparrow/pkg/access"
 	"github.com/sarathsp06/sparrow/pkg/access/memstore"
-	"github.com/sarathsp06/sparrow/pkg/crypto"
 )
 
-func newPortalGateway(t *testing.T) (*PortalTokens, http.Handler, *string) {
+func newPortalService(t *testing.T) *access.Service {
 	t.Helper()
-	pt := NewPortalTokens([]byte("test-key-32-bytes-test-key-32-by"))
+	svc, err := access.New(access.Config{Store: memstore.New(), TokenPrefix: "sparrow_tk_"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return svc
+}
+
+// mintConsumerToken returns the secret of a new token scoped to consumer.
+func mintConsumerToken(t *testing.T, svc *access.Service, consumer string) string {
+	t.Helper()
+	_, secret, err := svc.CreateToken(context.Background(), access.CreateTokenRequest{Realm: testRealm, Scope: &consumer, Name: "portal", CreatedBy: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return secret
+}
+
+func newPortalGateway(t *testing.T) (*access.Service, http.Handler, *string) {
+	t.Helper()
+	svc := newPortalService(t)
 	seen := new(string)
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !PortalAuthorized(r.Context()) {
@@ -28,7 +45,7 @@ func newPortalGateway(t *testing.T) (*PortalTokens, http.Handler, *string) {
 		*seen = r.URL.Path
 		w.WriteHeader(http.StatusNoContent)
 	})
-	return pt, PortalGateway(NewPortalVerifier(pt, nil, testRealm), next), seen
+	return svc, PortalGateway(NewPortalVerifier(svc, testRealm), next), seen
 }
 
 func doBearer(handler http.Handler, method, path, token string) int {
@@ -41,115 +58,9 @@ func doBearer(handler http.Handler, method, path, token string) int {
 	return rr.Code
 }
 
-func testPortalKeyring(t *testing.T, primary string) *crypto.Keyring {
-	t.Helper()
-	keyring, err := crypto.NewKeyring([]crypto.Key{
-		{ID: "old", Material: []byte("01234567890123456789012345678901")},
-		{ID: "new", Material: []byte("abcdefghijklmnopqrstuvwxyz012345")},
-	}, primary)
-	if err != nil {
-		t.Fatalf("NewKeyring() error = %v", err)
-	}
-	return keyring
-}
-
-func TestPortalTokens_V2MintIncludesKeyID(t *testing.T) {
-	pt := NewPortalTokensFromKeyring(testPortalKeyring(t, "new"))
-	token, _, err := pt.Mint("acme", time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
-	parts := strings.Split(token, ".")
-	if len(parts) != 5 {
-		t.Fatalf("token parts = %d, want 5", len(parts))
-	}
-	if parts[0] != portalTokenPrefixV2 {
-		t.Fatalf("token prefix = %q, want %q", parts[0], portalTokenPrefixV2)
-	}
-	if parts[1] != "new" {
-		t.Fatalf("token key id = %q, want new", parts[1])
-	}
-}
-
-func TestPortalTokens_RejectLegacyV1Tokens(t *testing.T) {
-	pt := NewPortalTokensFromKeyring(testPortalKeyring(t, "new"))
-	if _, err := pt.Verify("spt_v1.YWNtZQ.1735689600.signature"); err == nil {
-		t.Fatal("legacy token verified")
-	}
-}
-
-func TestPortalTokens_VerifyV2WithKnownSecondaryKey(t *testing.T) {
-	beforeRotation := NewPortalTokensFromKeyring(testPortalKeyring(t, "old"))
-	afterRotation := NewPortalTokensFromKeyring(testPortalKeyring(t, "new"))
-
-	token, _, err := beforeRotation.Mint("acme", time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
-	consumer, err := afterRotation.Verify(token)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if consumer != "acme" {
-		t.Fatalf("consumer = %q, want acme", consumer)
-	}
-}
-
-func TestPortalTokenMintVerifyRoundTrip(t *testing.T) {
-	pt := NewPortalTokens([]byte("01234567890123456789012345678901"))
-	token, exp, err := pt.Mint("acme", time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if until := time.Until(exp); until <= 0 || until > time.Hour {
-		t.Fatalf("expiry out of range: %v", exp)
-	}
-	consumer, err := pt.Verify(token)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if consumer != "acme" {
-		t.Fatalf("consumer = %q, want acme", consumer)
-	}
-	parts := strings.Split(token, ".")
-	if len(parts) != 5 || parts[0] != portalTokenPrefixV2 {
-		t.Fatalf("token = %q, want v2 format", token)
-	}
-}
-
-func TestPortalTokenRejectsTamperedAndExpired(t *testing.T) {
-	pt := NewPortalTokens([]byte("01234567890123456789012345678901"))
-	token, _, _ := pt.Mint("acme", time.Hour)
-
-	// Tampered consumer segment: signature no longer matches.
-	parts := strings.Split(token, ".")
-	parts[2] = "ZXZpbA" // base64url("evil")
-	if _, err := pt.Verify(strings.Join(parts, ".")); err == nil {
-		t.Fatal("tampered token verified")
-	}
-
-	// Different key: signature invalid.
-	other := NewPortalTokens([]byte("abcdefghijklmnopqrstuvwxyz012345"))
-	if _, err := other.Verify(token); err == nil {
-		t.Fatal("cross-key token verified")
-	}
-
-	// Expired: mint with 1s TTL then verify past expiry is covered by unit
-	// clock; simulate by hand-crafting an already-expired token.
-	expired, _, _ := pt.Mint("acme", time.Second)
-	partsExp := strings.Split(expired, ".")
-	partsExp[3] = "1000000000" // year 2001 — signature won't match, also expired
-	if _, err := pt.Verify(strings.Join(partsExp, ".")); err == nil {
-		t.Fatal("expired/tampered token verified")
-	}
-}
-
 func TestPortalGatewayScopesToTokenConsumer(t *testing.T) {
-	pt, handler, seen := newPortalGateway(t)
-	token, _, err := pt.Mint("acme", time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
+	svc, handler, seen := newPortalGateway(t)
+	token := mintConsumerToken(t, svc, "acme")
 
 	// Every allowed call rewrites to a /v1 path scoped to the token's consumer.
 	// The consumer never appears in the request URL, so cross-consumer access
@@ -165,9 +76,10 @@ func TestPortalGatewayScopesToTokenConsumer(t *testing.T) {
 		{http.MethodGet, "/portal/api/deliveries", http.StatusNoContent, "/v1/consumers/acme/deliveries"},
 		{http.MethodPost, "/portal/api/deliveries/abc:retry", http.StatusNoContent, "/v1/consumers/acme/deliveries/abc:retry"},
 		{http.MethodGet, "/portal/api/events", http.StatusNoContent, "/v1/consumers/acme/events"},
-		// Event injection and token minting are denied for portal tokens.
+		// Event injection is denied for portal tokens (token minting lives
+		// under the global /v1/tokens, which no portal path maps to).
 		{http.MethodPost, "/portal/api/events", http.StatusForbidden, ""},
-		{http.MethodPost, "/portal/api/portal-token", http.StatusForbidden, ""},
+		{http.MethodPost, "/portal/api/tokens", http.StatusNoContent, "/v1/consumers/acme/tokens"},
 		// Read-only global helpers the portal UI needs: allowed, not consumer-scoped.
 		{http.MethodGet, "/portal/api/event-types", http.StatusNoContent, "/v1/event-types"},
 		{http.MethodGet, "/portal/api/event-types/order.created", http.StatusNoContent, "/v1/event-types/order.created"},
@@ -196,7 +108,7 @@ func TestPortalGatewayScopesToTokenConsumer(t *testing.T) {
 
 func TestPortalGatewayRejectsGarbageToken(t *testing.T) {
 	_, handler, _ := newPortalGateway(t)
-	if got := doBearer(handler, http.MethodGet, "/portal/api/webhooks", "spt_v1.garbage"); got != http.StatusUnauthorized {
+	if got := doBearer(handler, http.MethodGet, "/portal/api/webhooks", "sparrow_tk_garbage"); got != http.StatusUnauthorized {
 		t.Fatalf("garbage token status = %d, want 401", got)
 	}
 	if got := doBearer(handler, http.MethodGet, "/portal/api/webhooks", ""); got != http.StatusUnauthorized {
@@ -209,8 +121,7 @@ func TestPortalGatewayRejectsGarbageToken(t *testing.T) {
 // from the token — proving the fresh route context and the auth-bypass flag
 // both work through an actual router (the wiring in cmd/server/main.go).
 func TestPortalGatewayReDispatchesThroughRouter(t *testing.T) {
-	pt := NewPortalTokens([]byte("test-key-32-bytes-test-key-32-by"))
-	auth, _ := newAuth(t, "admin-secret")
+	auth, svc := newAuth(t, "admin-secret")
 
 	r := chi.NewRouter()
 	r.Group(func(gr chi.Router) {
@@ -219,12 +130,9 @@ func TestPortalGatewayReDispatchesThroughRouter(t *testing.T) {
 			_, _ = w.Write([]byte(chi.URLParam(req, "consumer")))
 		})
 	})
-	r.Handle("/portal/api/*", PortalGateway(NewPortalVerifier(pt, nil, testRealm), r))
+	r.Handle("/portal/api/*", PortalGateway(NewPortalVerifier(svc, testRealm), r))
 
-	token, _, err := pt.Mint("acme", time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
+	token := mintConsumerToken(t, svc, "acme")
 
 	// Portal call: no admin key, only the bearer token.
 	req := httptest.NewRequest(http.MethodGet, "/portal/api/webhooks", nil)
@@ -252,13 +160,9 @@ func (downStore) TokenByHash(context.Context, []byte) (access.Token, error) {
 }
 
 func TestPortalGatewayAcceptsConsumerAccessTokens(t *testing.T) {
-	pt := NewPortalTokens([]byte("test-key-32-bytes-test-key-32-by"))
-	svc, err := access.New(access.Config{Store: memstore.New(), TokenPrefix: "sparrow_tk_"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	svc := newPortalService(t)
 	seen := new(string)
-	gw := PortalGateway(NewPortalVerifier(pt, svc, testRealm), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	gw := PortalGateway(NewPortalVerifier(svc, testRealm), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		*seen = r.URL.Path
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -292,18 +196,25 @@ func TestPortalGatewayAcceptsConsumerAccessTokens(t *testing.T) {
 	if rr.Code != http.StatusUnauthorized || !strings.Contains(rr.Body.String(), `"reason":"revoked"`) {
 		t.Fatalf("revoked: %d %s", rr.Code, rr.Body)
 	}
-
-	// Stateless portal tokens keep working next to access tokens.
-	legacy, _, _ := pt.Mint("globex", time.Hour)
-	if code := doBearer(gw, http.MethodGet, "/portal/api/webhooks", legacy); code != http.StatusNoContent || *seen != "/v1/consumers/globex/webhooks" {
-		t.Fatalf("spt_v2 token: %d %q", code, *seen)
-	}
 }
 
 func TestPortalGatewayStoreOutageIs503(t *testing.T) {
 	svc, _ := access.New(access.Config{Store: downStore{memstore.New()}, TokenPrefix: "sparrow_tk_"})
-	gw := PortalGateway(NewPortalVerifier(nil, svc, testRealm), http.NotFoundHandler())
+	gw := PortalGateway(NewPortalVerifier(svc, testRealm), http.NotFoundHandler())
 	if code := doBearer(gw, http.MethodGet, "/portal/api/webhooks", "sparrow_tk_anything"); code != http.StatusServiceUnavailable {
 		t.Fatalf("outage: %d, want 503", code)
+	}
+}
+
+func TestPortalGatewayRejectsUnsafeTokenConsumers(t *testing.T) {
+	// pkg/access does not validate scope names (the REST layer does); the
+	// gateway must still never build a multi-segment /v1 path from one.
+	svc, gw, seen := newPortalGateway(t)
+	for _, consumer := range []string{"a/../b", "..", "a%2Fb"} {
+		token := mintConsumerToken(t, svc, consumer)
+		*seen = ""
+		if code := doBearer(gw, http.MethodGet, "/portal/api/webhooks", token); code != http.StatusForbidden || *seen != "" {
+			t.Errorf("consumer %q = %d (reached %q), want 403", consumer, code, *seen)
+		}
 	}
 }

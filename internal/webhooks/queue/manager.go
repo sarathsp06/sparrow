@@ -18,9 +18,10 @@ import (
 
 // Manager handles the River queue management
 type Manager struct {
-	client *river.Client[pgx.Tx]
-	dbPool *pgxpool.Pool
-	logger *slog.Logger
+	client  *river.Client[pgx.Tx]
+	workers *river.Workers
+	dbPool  *pgxpool.Pool
+	logger  *slog.Logger
 }
 
 // NewManager creates a new queue manager. retentionDays > 0 enables an hourly
@@ -55,9 +56,10 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 	}
 
 	manager := &Manager{
-		client: riverClient,
-		dbPool: dbPool,
-		logger: slog.Default().With("component", "queue-manager"),
+		client:  riverClient,
+		workers: riverWorkers,
+		dbPool:  dbPool,
+		logger:  slog.Default().With("component", "queue-manager"),
 	}
 
 	// Add workers with explicit generic types.
@@ -68,6 +70,17 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 	river.AddWorker(riverWorkers, NewRetentionWorker(webhookRepo, retentionDays))
 
 	return manager, nil
+}
+
+// EnableTokenPurge schedules a daily job deleting access tokens that expired
+// or were revoked more than retention ago. Call it before Start.
+func (m *Manager) EnableTokenPurge(purger TokenPurger, retention time.Duration) {
+	river.AddWorker(m.workers, NewTokenPurgeWorker(purger, retention))
+	m.client.PeriodicJobs().Add(river.NewPeriodicJob(
+		river.PeriodicInterval(tokenPurgeInterval),
+		func() (river.JobArgs, *river.InsertOpts) { return TokenPurgeArgs{}, nil },
+		&river.PeriodicJobOpts{RunOnStart: true},
+	))
 }
 
 // Start starts the queue processing

@@ -8,15 +8,24 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sarathsp06/sparrow/pkg/access"
 )
 
-// Schema creates the access_tokens and access_invites tables.
-//
+// Schema creates the access_tokens and access_invites tables: SchemaParts
+// joined, in order. Apply the parts as separate migrations when upgrading.
+var Schema = strings.Join(SchemaParts, "\n")
+
+// SchemaParts are the schema changes in the order they were introduced.
+var SchemaParts = []string{schemaBase, schemaIdempotency}
+
 //go:embed schema.sql
-var Schema string
+var schemaBase string
+
+//go:embed schema_002_idempotency.sql
+var schemaIdempotency string
 
 // Store is a PostgreSQL access.Store.
 type Store struct {
@@ -26,7 +35,7 @@ type Store struct {
 // New returns a Store on db. The driver must accept $n placeholders.
 func New(db *sql.DB) *Store { return &Store{db: db} }
 
-const tokenCols = `id, realm, scope, name, created_by, created_at, expires_at, revoked_at, last_used_at`
+const tokenCols = `id, realm, scope, name, created_by, created_at, expires_at, revoked_at, last_used_at, idempotency_key`
 const inviteCols = `id, realm, scope, name, token_ttl_seconds, created_by, created_at, expires_at, redeemed_at, cancelled_at, token_id`
 
 type scanner interface{ Scan(dest ...any) error }
@@ -49,6 +58,66 @@ func insertToken(ctx context.Context, db execer, t access.Token, secretHash []by
 		return fmt.Errorf("pgstore: create token: %w", err)
 	}
 	return nil
+}
+
+// CreateTokenIdempotent implements access.Store. The holder row is locked
+// while it is checked; a concurrent first insert of the same key loses on the
+// unique index and returns the winner's token instead.
+func (s *Store) CreateTokenIdempotent(ctx context.Context, t access.Token, secretHash, sealedSecret []byte, now time.Time) (access.Token, []byte, bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return access.Token{}, nil, false, fmt.Errorf("pgstore: create idempotent token: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	scope := ""
+	if t.Scope != nil {
+		scope = *t.Scope
+	}
+	holder := func(lock string) (access.Token, []byte, error) {
+		var sealed []byte
+		got, err := scanToken(tx.QueryRowContext(ctx,
+			`SELECT `+tokenCols+`, sealed_secret FROM access_tokens
+			 WHERE realm = $1 AND COALESCE(scope, '') = $2 AND idempotency_key = $3`+lock,
+			t.Realm, scope, t.IdempotencyKey), &sealed)
+		return got, sealed, err
+	}
+
+	got, sealed, err := holder(" FOR UPDATE")
+	switch {
+	case err == nil && got.Status(now) == access.StatusActive:
+		return got, sealed, false, tx.Commit()
+	case err == nil:
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE access_tokens SET idempotency_key = NULL, sealed_secret = NULL WHERE id = $1`, got.ID); err != nil {
+			return access.Token{}, nil, false, fmt.Errorf("pgstore: release idempotency key: %w", err)
+		}
+	case !errors.Is(err, sql.ErrNoRows):
+		return access.Token{}, nil, false, err
+	}
+
+	res, err := tx.ExecContext(ctx,
+		`INSERT INTO access_tokens (id, realm, scope, name, secret_hash, created_by, created_at, expires_at, idempotency_key, sealed_secret)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		 ON CONFLICT (realm, COALESCE(scope, ''), idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
+		t.ID, t.Realm, t.Scope, t.Name, secretHash, t.CreatedBy, t.CreatedAt, t.ExpiresAt, t.IdempotencyKey, sealedSecret)
+	if err != nil {
+		return access.Token{}, nil, false, fmt.Errorf("pgstore: create idempotent token: %w", err)
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return access.Token{}, nil, false, err
+	} else if n == 0 {
+		// A concurrent call inserted the key first and has committed.
+		got, sealed, err := holder("")
+		if err != nil {
+			return access.Token{}, nil, false, err
+		}
+		return got, sealed, false, tx.Commit()
+	}
+	if err := tx.Commit(); err != nil {
+		return access.Token{}, nil, false, fmt.Errorf("pgstore: create idempotent token: %w", err)
+	}
+	return t, sealedSecret, true, nil
 }
 
 // TokenByHash implements access.Store.
@@ -81,7 +150,8 @@ func (s *Store) ListTokens(ctx context.Context, realm string) ([]access.Token, e
 // RevokeToken implements access.Store.
 func (s *Store) RevokeToken(ctx context.Context, realm, id string, at time.Time) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE access_tokens SET revoked_at = COALESCE(revoked_at, $3) WHERE realm = $1 AND id = $2`, realm, id, at)
+		`UPDATE access_tokens SET revoked_at = COALESCE(revoked_at, $3), idempotency_key = NULL, sealed_secret = NULL
+		 WHERE realm = $1 AND id = $2`, realm, id, at)
 	if err != nil {
 		return fmt.Errorf("pgstore: revoke token: %w", err)
 	}
@@ -92,6 +162,16 @@ func (s *Store) RevokeToken(ctx context.Context, realm, id string, at time.Time)
 func (s *Store) TouchToken(ctx context.Context, id string, at time.Time) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE access_tokens SET last_used_at = $2 WHERE id = $1`, id, at)
 	return err
+}
+
+// PurgeTokens implements access.Store. access_invites.token_id is
+// ON DELETE SET NULL, so redeemed invites survive their token.
+func (s *Store) PurgeTokens(ctx context.Context, cutoff time.Time) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM access_tokens WHERE expires_at < $1 OR revoked_at < $1`, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("pgstore: purge tokens: %w", err)
+	}
+	return res.RowsAffected()
 }
 
 // CreateInvite implements access.Store.
@@ -190,11 +270,12 @@ func (s *Store) RedeemInvite(ctx context.Context, inviteHash []byte, at time.Tim
 	return inv, t, nil
 }
 
-func scanToken(row scanner) (access.Token, error) {
+// scanToken scans tokenCols, then any extra columns into extra.
+func scanToken(row scanner, extra ...any) (access.Token, error) {
 	var t access.Token
-	var scope sql.NullString
+	var scope, key sql.NullString
 	var exp, rev, used sql.NullTime
-	if err := row.Scan(&t.ID, &t.Realm, &scope, &t.Name, &t.CreatedBy, &t.CreatedAt, &exp, &rev, &used); err != nil {
+	if err := row.Scan(append([]any{&t.ID, &t.Realm, &scope, &t.Name, &t.CreatedBy, &t.CreatedAt, &exp, &rev, &used, &key}, extra...)...); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return t, err
 		}
@@ -202,6 +283,7 @@ func scanToken(row scanner) (access.Token, error) {
 	}
 	t.CreatedAt = t.CreatedAt.UTC()
 	t.Scope, t.ExpiresAt, t.RevokedAt, t.LastUsedAt = str(scope), tm(exp), tm(rev), tm(used)
+	t.IdempotencyKey = key.String
 	return t, nil
 }
 

@@ -60,13 +60,17 @@ the operational guide; this section covers the implementation.
 ### Portal tokens
 
 The one scoped exception to Sparrow's instance-wide auth model: `POST
-/v1/consumers/{consumer}/portal-token` (admin key required) mints a signed,
-expiring bearer token for one consumer — the credential behind the embeddable
-[consumer portal](/sparrow/deployment/security/#the-consumer-portal). Tokens
-are stateless HMAC-SHA256 values signed by the primary configured encryption
-key from `SPARROW_ENCRYPTION_KEYS`. Every token carries a key ID so
-verification remains deterministic during rotations. Tokens are default 7-day /
-maximum 30-day TTL, and travel in the `Authorization: Bearer` header — or the
+/v1/tokens` with a `consumer` (admin key or tenant-wide token required) mints
+an expiring, revocable bearer token for one consumer — the credential behind
+the embeddable [consumer portal](/sparrow/deployment/security/#the-consumer-portal),
+returned together with a ready-made `portal_path`. It is an ordinary access
+token (see above): 256 random bits, stored only as a SHA-256 hash, listed by
+`GET /v1/tokens` and revoked with `DELETE /v1/tokens/{id}`. With
+`idempotency_key` (consumer tokens only), a repeat call returns the
+still-valid token for that consumer and key instead of minting one, so the
+secret of such a token is also stored, envelope-encrypted with the keyring
+(and deleted on revocation). Consumer tokens default to a 7-day / maximum
+30-day TTL, and travel in the `Authorization: Bearer` header — or the
 `/portal#token=...` URL *fragment*, which browsers never send to the server,
 so it stays out of access logs.
 
@@ -76,8 +80,7 @@ helpers the portal UI needs (event-type catalog, template functions, template
 dry-run). The portal calls these through the single `/portal/api/` gateway
 prefix — the consumer is carried by the token, not the URL, so cross-consumer
 access is structurally impossible and event injection, token minting, other
-consumers, global routes, and admin operations all return 401/403. Revocation
-is expiry-only: mint short-lived tokens if links may leak.
+consumers, global routes, and admin operations all return 401/403.
 
 :::note
 Sparrow does not rate-limit or lock out inbound API requests itself. If the
@@ -200,7 +203,7 @@ What Sparrow enforces before the server will boot, and what you should set:
 | Variable | Requirement |
 |---|---|
 | `SPARROW_ENCRYPTION_KEYS` | Always required. Comma-separated `<key-id>=<64-char-hex-key>` entries. |
-| `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Always required. Selects the primary key for new encryption and portal token signing. |
+| `SPARROW_ENCRYPTION_PRIMARY_KEY_ID` | Always required. Selects the primary key for new encryption. |
 | `SPARROW_API_KEY` | Required when `ENVIRONMENT=production`. Empty is fine for local dev only. |
 | `DATABASE_URL` | Always required. |
 | `SPARROW_MAX_BODY_BYTES` | Optional, default 5 MiB. Values below 1 MiB are rejected at startup. |
