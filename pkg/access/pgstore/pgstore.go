@@ -19,13 +19,16 @@ import (
 var Schema = strings.Join(SchemaParts, "\n")
 
 // SchemaParts are the schema changes in the order they were introduced.
-var SchemaParts = []string{schemaBase, schemaIdempotency}
+var SchemaParts = []string{schemaBase, schemaIdempotency, schemaExternalID}
 
 //go:embed schema.sql
 var schemaBase string
 
 //go:embed schema_002_idempotency.sql
 var schemaIdempotency string
+
+//go:embed schema_003_external_id.sql
+var schemaExternalID string
 
 // Store is a PostgreSQL access.Store.
 type Store struct {
@@ -35,7 +38,7 @@ type Store struct {
 // New returns a Store on db. The driver must accept $n placeholders.
 func New(db *sql.DB) *Store { return &Store{db: db} }
 
-const tokenCols = `id, realm, scope, name, created_by, created_at, expires_at, revoked_at, last_used_at, idempotency_key`
+const tokenCols = `id, realm, scope, name, created_by, created_at, expires_at, revoked_at, last_used_at, external_id`
 const inviteCols = `id, realm, scope, name, token_ttl_seconds, created_by, created_at, expires_at, redeemed_at, cancelled_at, token_id`
 
 type scanner interface{ Scan(dest ...any) error }
@@ -60,13 +63,13 @@ func insertToken(ctx context.Context, db execer, t access.Token, secretHash []by
 	return nil
 }
 
-// CreateTokenIdempotent implements access.Store. The holder row is locked
-// while it is checked; a concurrent first insert of the same key loses on the
+// GetOrCreateToken implements access.Store. The holder row is locked
+// while it is checked; a concurrent first insert of the same external id loses on the
 // unique index and returns the winner's token instead.
-func (s *Store) CreateTokenIdempotent(ctx context.Context, t access.Token, secretHash, sealedSecret []byte, now time.Time) (access.Token, []byte, bool, error) {
+func (s *Store) GetOrCreateToken(ctx context.Context, t access.Token, secretHash, sealedSecret []byte, now time.Time) (access.Token, []byte, bool, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return access.Token{}, nil, false, fmt.Errorf("pgstore: create idempotent token: %w", err)
+		return access.Token{}, nil, false, fmt.Errorf("pgstore: get or create token: %w", err)
 	}
 	defer tx.Rollback() //nolint:errcheck
 
@@ -78,8 +81,8 @@ func (s *Store) CreateTokenIdempotent(ctx context.Context, t access.Token, secre
 		var sealed []byte
 		got, err := scanToken(tx.QueryRowContext(ctx,
 			`SELECT `+tokenCols+`, sealed_secret FROM access_tokens
-			 WHERE realm = $1 AND COALESCE(scope, '') = $2 AND idempotency_key = $3`+lock,
-			t.Realm, scope, t.IdempotencyKey), &sealed)
+			 WHERE realm = $1 AND COALESCE(scope, '') = $2 AND external_id = $3`+lock,
+			t.Realm, scope, t.ExternalID), &sealed)
 		return got, sealed, err
 	}
 
@@ -89,25 +92,25 @@ func (s *Store) CreateTokenIdempotent(ctx context.Context, t access.Token, secre
 		return got, sealed, false, tx.Commit()
 	case err == nil:
 		if _, err := tx.ExecContext(ctx,
-			`UPDATE access_tokens SET idempotency_key = NULL, sealed_secret = NULL WHERE id = $1`, got.ID); err != nil {
-			return access.Token{}, nil, false, fmt.Errorf("pgstore: release idempotency key: %w", err)
+			`UPDATE access_tokens SET external_id = NULL, sealed_secret = NULL WHERE id = $1`, got.ID); err != nil {
+			return access.Token{}, nil, false, fmt.Errorf("pgstore: release external id: %w", err)
 		}
 	case !errors.Is(err, sql.ErrNoRows):
 		return access.Token{}, nil, false, err
 	}
 
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO access_tokens (id, realm, scope, name, secret_hash, created_by, created_at, expires_at, idempotency_key, sealed_secret)
+		`INSERT INTO access_tokens (id, realm, scope, name, secret_hash, created_by, created_at, expires_at, external_id, sealed_secret)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		 ON CONFLICT (realm, COALESCE(scope, ''), idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING`,
-		t.ID, t.Realm, t.Scope, t.Name, secretHash, t.CreatedBy, t.CreatedAt, t.ExpiresAt, t.IdempotencyKey, sealedSecret)
+		 ON CONFLICT (realm, COALESCE(scope, ''), external_id) WHERE external_id IS NOT NULL DO NOTHING`,
+		t.ID, t.Realm, t.Scope, t.Name, secretHash, t.CreatedBy, t.CreatedAt, t.ExpiresAt, t.ExternalID, sealedSecret)
 	if err != nil {
-		return access.Token{}, nil, false, fmt.Errorf("pgstore: create idempotent token: %w", err)
+		return access.Token{}, nil, false, fmt.Errorf("pgstore: get or create token: %w", err)
 	}
 	if n, err := res.RowsAffected(); err != nil {
 		return access.Token{}, nil, false, err
 	} else if n == 0 {
-		// A concurrent call inserted the key first and has committed.
+		// A concurrent call inserted this external id first and has committed.
 		got, sealed, err := holder("")
 		if err != nil {
 			return access.Token{}, nil, false, err
@@ -115,7 +118,7 @@ func (s *Store) CreateTokenIdempotent(ctx context.Context, t access.Token, secre
 		return got, sealed, false, tx.Commit()
 	}
 	if err := tx.Commit(); err != nil {
-		return access.Token{}, nil, false, fmt.Errorf("pgstore: create idempotent token: %w", err)
+		return access.Token{}, nil, false, fmt.Errorf("pgstore: get or create token: %w", err)
 	}
 	return t, sealedSecret, true, nil
 }
@@ -150,7 +153,7 @@ func (s *Store) ListTokens(ctx context.Context, realm string) ([]access.Token, e
 // RevokeToken implements access.Store.
 func (s *Store) RevokeToken(ctx context.Context, realm, id string, at time.Time) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE access_tokens SET revoked_at = COALESCE(revoked_at, $3), idempotency_key = NULL, sealed_secret = NULL
+		`UPDATE access_tokens SET revoked_at = COALESCE(revoked_at, $3), external_id = NULL, sealed_secret = NULL
 		 WHERE realm = $1 AND id = $2`, realm, id, at)
 	if err != nil {
 		return fmt.Errorf("pgstore: revoke token: %w", err)
@@ -283,7 +286,7 @@ func scanToken(row scanner, extra ...any) (access.Token, error) {
 	}
 	t.CreatedAt = t.CreatedAt.UTC()
 	t.Scope, t.ExpiresAt, t.RevokedAt, t.LastUsedAt = str(scope), tm(exp), tm(rev), tm(used)
-	t.IdempotencyKey = key.String
+	t.ExternalID = key.String
 	return t, nil
 }
 

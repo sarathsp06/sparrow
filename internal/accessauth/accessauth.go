@@ -113,7 +113,7 @@ func ValidateConsumer(consumer string) error {
 
 // New builds the access service over Postgres. apiKey (SPARROW_API_KEY) is
 // registered as the root key when set; sealer (see Sealer) stores the secrets
-// of idempotent tokens and may be nil to disable them.
+// of tokens with an external id and may be nil to disable them.
 func New(db *sql.DB, apiKey string, sealer access.SecretSealer) (*access.Service, error) {
 	return NewWithStore(pgstore.New(db), apiKey, sealer)
 }
@@ -127,7 +127,7 @@ func NewWithStore(store access.Store, apiKey string, sealer access.SecretSealer)
 	return access.New(access.Config{Store: store, RootKeys: roots, Sealer: sealer, TokenPrefix: TokenPrefix, InvitePrefix: InvitePrefix})
 }
 
-// Sealer seals the stored secrets of idempotent tokens with Sparrow's
+// Sealer seals the stored secrets of tokens with an external id with Sparrow's
 // envelope encryption (the SPARROW_ENCRYPTION_KEYS keyring), like every other
 // secret at rest.
 func Sealer(svc *crypto.Service) access.SecretSealer { return cryptoSealer{svc} }

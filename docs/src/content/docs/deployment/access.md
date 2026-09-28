@@ -105,7 +105,7 @@ the invitee.
 ```bash
 curl -X POST http://localhost:8080/v1/tokens \
   -H "X-API-Key: $SPARROW_API_KEY" -H "Content-Type: application/json" \
-  -d '{"name": "portal", "consumer": "acme", "ttl_seconds": 3600, "idempotency_key": "user-42"}'
+  -d '{"name": "portal", "consumer": "acme", "ttl_seconds": 3600, "external_id": "user-42"}'
 ```
 
 Every consumer token comes with a ready-made `portal_path`. Your backend mints
@@ -113,13 +113,14 @@ one for a user who is already signed in to your product and hands them that
 link; revoke it early with `DELETE /v1/tokens/{id}` (for example on logout).
 Use a short `ttl_seconds` for embedding.
 
-`idempotency_key` (for example your user id; consumer tokens only) makes the
-call safe to repeat on every page view: while a token created for that
-consumer with the same key is still valid, the same token and link come back
-(`"reused": true`; `name` and `ttl_seconds` are ignored); once it has expired
-or been revoked, a new one is created. The secret of such a token is kept envelope-encrypted with
-`SPARROW_ENCRYPTION_KEYS` so it can be returned again; tokens without a key
-store only a hash.
+`external_id` (consumer tokens only) is your id for who the token is for, for
+example your user id. There is at most one active token per consumer and
+`external_id`, so the call is safe to repeat on every page view: while that
+token is valid, the same token and link come back (`"reused": true`; `name`
+and `ttl_seconds` are ignored); once it has expired or been revoked, a new one
+is created. The secret of such a token is kept envelope-encrypted with
+`SPARROW_ENCRYPTION_KEYS` so it can be returned again; tokens without an
+`external_id` store only a hash. The `external_id` itself is not a secret.
 
 Expired and revoked tokens stay listed for 7 days, then a daily job deletes
 them, so frequently minted portal links do not grow the tokens table without

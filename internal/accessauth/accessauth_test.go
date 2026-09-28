@@ -20,7 +20,7 @@ import (
 // The migrations must ship exactly the library's schema, one part each, or
 // pgstore queries could drift from the tables Sparrow creates.
 func TestMigrationsMatchPgstoreSchema(t *testing.T) {
-	migrations := []string{"000027_access_tokens.up.sql", "000028_access_token_idempotency.up.sql"}
+	migrations := []string{"000027_access_tokens.up.sql", "000028_access_token_idempotency.up.sql", "000029_access_token_external_id.up.sql"}
 	if len(migrations) != len(pgstore.SchemaParts) {
 		t.Fatalf("pgstore has %d schema parts but %d migrations are checked; add the new migration here", len(pgstore.SchemaParts), len(migrations))
 	}

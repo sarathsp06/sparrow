@@ -1,7 +1,7 @@
 # Graph Report - svix-webhooks-security-review-fdc8e0  (2026-09-28)
 
 ## Corpus Check
-- 414 files · ~366,197 words
+- 417 files · ~366,550 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `767fed4a`
+- Built from commit: `9685e8cb`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -58,7 +58,7 @@
 - jobInserter
 - webhook_service.go
 - lib/utils.ts
-- conversions.go
+- registerWebhookRoutes
 - newAuth
 - dependencies
 - NewWebhookClient
@@ -147,7 +147,7 @@
 - typescript
 - ParseNetworks
 - web/package.json
-- svelte
+- @playwright/test
 - PrepareDeliveryRequest
 - test-ui.sh
 - manifest.json
@@ -167,7 +167,7 @@
 - parseDateFilter
 - NetworkPolicy
 - NewWebhookTemplateContext
-- FromContext
+- httpauth_test.go
 - svelte-check
 - @sveltejs/vite-plugin-svelte
 - Mount
@@ -303,8 +303,8 @@ Cohesion: 0.08
 Nodes (59): delivery_has_signature_headers(), SignatureVerifier -- Verifies HMAC-SHA256 (v1,) and Ed25519 (v1a,) signatures…, Return the exact body bytes (as text) that Sparrow signed. Standard Webhooks…, Verify HMAC-SHA256 signature (v1, prefix)., Verify Ed25519 signature (v1a, prefix)., Assert delivery has Standard Webhooks signature headers., _signed_body(), verify_ed25519_signature() (+51 more)
 
 ### Community 8 - "rest/webhook.go"
-Cohesion: 0.16
-Nodes (16): API, registerWebhookRoutes(), consumerOnlyInput, consumerStatsOutput, emptyOutput, listWebhooksInput, patchWebhookBody, patchWebhookInput (+8 more)
+Cohesion: 0.20
+Nodes (12): consumerOnlyInput, consumerStatsOutput, emptyOutput, listWebhooksInput, patchWebhookBody, patchWebhookInput, registerWebhookBody, registerWebhookInput (+4 more)
 
 ### Community 9 - "sparrow_verify.py"
 Cohesion: 0.32
@@ -415,16 +415,16 @@ Cohesion: 0.21
 Nodes (9): Context, InsertOpts, JobArgs, JobInsertResult, Logger, Tx, NewJobInserter(), BatchJobArgs (+1 more)
 
 ### Community 43 - "webhook_service.go"
-Cohesion: 0.24
-Nodes (11): IPNet, WithAllowedNetworks(), WithAllowPrivateNetworks(), deliveryRouteService, eventRouteService, BatchManager, DeliveryManager, EventManager (+3 more)
+Cohesion: 0.14
+Nodes (18): IPNet, WithAllowedNetworks(), WithAllowPrivateNetworks(), deliveryRouteService, eventRouteService, healthRouteService, healthSummaryOutput, listWebhooksGlobalInput (+10 more)
 
 ### Community 44 - "lib/utils.ts"
-Cohesion: 0.15
-Nodes (9): $lib/api-types, ERROR_CATEGORIES, getCategoryBadge(), getCategoryDisplay(), inferType(), JSONSchemaMetaSchema, jsonToJsonSchema(), RFC-9457 (+1 more)
+Cohesion: 0.13
+Nodes (8): $lib/api-types, ERROR_CATEGORIES, getCategoryBadge(), getCategoryDisplay(), inferType(), JSONSchemaMetaSchema, jsonToJsonSchema(), RFC-9457
 
-### Community 45 - "conversions.go"
-Cohesion: 0.15
-Nodes (21): getWebhookEventsMap(), Context, WebhookRegistration, maskEncryptedSecret(), maskSecret(), maskSecretHeaders(), toWebhookOut(), toWebhookOutFromDomain() (+13 more)
+### Community 45 - "registerWebhookRoutes"
+Cohesion: 0.20
+Nodes (18): getWebhookEventsMap(), Context, WebhookRegistration, maskEncryptedSecret(), maskSecret(), maskSecretHeaders(), toWebhookOut(), toWebhookOutFromDomain() (+10 more)
 
 ### Community 46 - "newAuth"
 Cohesion: 0.24
@@ -492,7 +492,7 @@ Nodes (10): Context, logsURL(), newOTLPSink(), otlpPayload(), T, TestLogsURL(), 
 
 ### Community 62 - "devDependencies"
 Cohesion: 0.15
-Nodes (13): @playwright/test, @tailwindcss/forms, @tailwindcss/typography, @tailwindcss/vite, @types/node, vite, devDependencies, @playwright/test (+5 more)
+Nodes (13): @tailwindcss/forms, @tailwindcss/typography, @tailwindcss/vite, @types/node, vite, devDependencies, svelte, @tailwindcss/forms (+5 more)
 
 ### Community 63 - "newPalette"
 Cohesion: 0.14
@@ -575,8 +575,8 @@ Cohesion: 0.50
 Nodes (4): Conventional Commits Convention, Release Docker Image Job, Release GoReleaser Job, GoReleaser Config
 
 ### Community 83 - "portal/+page.svelte"
-Cohesion: 0.16
-Nodes (23): unwrap(), formatAPIError(), cancelInvite(), create(), revoke(), deliveriesLoading, error, executeDelete() (+15 more)
+Cohesion: 0.15
+Nodes (24): unwrap(), formatAPIError(), cancelInvite(), create(), revoke(), deliveriesLoading, error, executeDelete() (+16 more)
 
 ### Community 84 - "access/service_test.go"
 Cohesion: 0.17
@@ -675,7 +675,7 @@ Cohesion: 0.33
 Nodes (5): 1. Payload transform engine: Go `text/template`, not embedded JavaScript, Consequences, Context, Decision, Trigger to revisit
 
 ### Community 109 - "consumer.svelte.ts"
-Cohesion: 0.16
+Cohesion: 0.22
 Nodes (5): consumerStore, current, known, Recipe, RecipeParam
 
 ### Community 110 - "runTemplateTest"
@@ -807,8 +807,8 @@ Cohesion: 0.27
 Nodes (13): DefaultConfig(), GetTracer(), Context, Tracer, newLoggerProvider(), Setup(), setupMetrics(), setupTracing() (+5 more)
 
 ### Community 148 - "httpauth.go"
-Cohesion: 0.14
-Nodes (19): AuthError, Reason, Authenticator, ctxKey, ErrorBody, RedeemRequest, RedeemResponse, Verifier (+11 more)
+Cohesion: 0.13
+Nodes (21): AuthError, Reason, Authenticator, ctxKey, ErrorBody, RedeemRequest, RedeemResponse, Verifier (+13 more)
 
 ### Community 149 - "rest/access.go"
 Cohesion: 0.13
@@ -834,9 +834,9 @@ Nodes (10): NetworkPolicy, embeddedIPv4(), IPNet, Request, isMetadataIP(), mustC
 Cohesion: 0.67
 Nodes (6): NewWebhookTemplateContext(), T, loadSendgridTemplate(), TestSendgridRecipe_CustomEvent(), TestSendgridRecipe_DeliveryFailed(), TestSendgridRecipe_HealthChanged()
 
-### Community 156 - "FromContext"
-Cohesion: 0.26
-Nodes (14): downStore, FromContext(), Context, ResponseRecorder, Service, Store, T, newSvc() (+6 more)
+### Community 156 - "httpauth_test.go"
+Cohesion: 0.30
+Nodes (12): downStore, Context, ResponseRecorder, Service, Store, T, newSvc(), serve() (+4 more)
 
 ### Community 159 - "Mount"
 Cohesion: 0.22
@@ -848,7 +848,7 @@ Nodes (3): Dual Webhook Signing (HMAC-SHA256 + Ed25519), Timestamp Replay Protec
 
 ### Community 168 - "sealedRouter"
 Cohesion: 0.50
-Nodes (8): Service, T, mintToken(), sealedRouter(), TestConsumerTokenComesWithAPortalLink(), TestIdempotencyKeyReturnsTheValidConsumerToken(), TestIdempotencyKeyRules(), mintedToken
+Nodes (8): Service, T, mintToken(), sealedRouter(), TestConsumerTokenComesWithAPortalLink(), TestExternalIDReturnsTheValidConsumerToken(), TestExternalIDRules(), mintedToken
 
 ### Community 173 - "newAlertConfigService"
 Cohesion: 0.35
@@ -994,9 +994,9 @@ _Questions this graph is uniquely positioned to answer:_
   _High betweenness centrality (0.228) - this node is a cross-community bridge._
 - **Why does `New()` connect `New` to `HandlerFunc`, `event_filtering_test.go`, `PrepareDeliveryRequest`, `Context`, `RunAllMigrations`, `otel.go`, `corsChain`, `BatchJob`, `Mount`, `Errorf`, `EventProcessingWorker`, `NewWithStore`, `sealedRouter`, `newAlertConfigService`, `newAuth`, `IsNotFound`, `NewWebhookClient`, `pushSystemEvent`, `EventRecord`, `BatchJobWorker`, `accessRouter`, `Handler`, `.CreateWebhook`, `mockRepo`, `NewManager`, `testContext`, `PortalGateway`?**
   _High betweenness centrality (0.083) - this node is a cross-community bridge._
-- **Why does `Mount()` connect `Mount` to `HandlerFunc`, `event.go`, `subscription.go`, `accessRouter`, `delivery.go`, `rest/webhook.go`, `sealedRouter`, `webhook_service.go`, `conversions.go`, `New`, `alert_config.go`, `rest/access.go`, `mapError`?**
+- **Why does `Mount()` connect `Mount` to `HandlerFunc`, `event.go`, `subscription.go`, `accessRouter`, `delivery.go`, `sealedRouter`, `webhook_service.go`, `registerWebhookRoutes`, `New`, `alert_config.go`, `rest/access.go`, `mapError`?**
   _High betweenness centrality (0.038) - this node is a cross-community bridge._
-- **Are the 183 inferred relationships involving `Errorf()` (e.g. with `.Authenticate()` and `.CreateTokenIdempotent()`) actually correct?**
+- **Are the 183 inferred relationships involving `Errorf()` (e.g. with `.Authenticate()` and `.GetOrCreateToken()`) actually correct?**
   _`Errorf()` has 183 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 92 inferred relationships involving `New()` (e.g. with `TestMasterKeyIsRootInDefaultTenant()` and `TestPgstoreConformance()`) actually correct?**
   _`New()` has 92 INFERRED edges - model-reasoned connections that need verification._

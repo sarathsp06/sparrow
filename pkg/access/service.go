@@ -27,8 +27,8 @@ type RootKey struct {
 type Config struct {
 	Store    Store
 	RootKeys []RootKey
-	// Sealer encrypts the stored secrets of idempotent tokens. Optional;
-	// without it CreateTokenIdempotent returns ErrNoSealer.
+	// Sealer encrypts the stored secrets of tokens with an external id. Optional;
+	// without it GetOrCreateToken returns ErrNoSealer.
 	Sealer SecretSealer
 	// TokenPrefix and InvitePrefix start every secret, making leaked secrets
 	// easy to recognize (and to scan for). Defaults: "tk_" and "inv_".
@@ -135,27 +135,28 @@ func (s *Service) CreateToken(ctx context.Context, req CreateTokenRequest) (Toke
 	return t, secret, nil
 }
 
-// maxIdempotencyKeyLen bounds caller-chosen idempotency keys.
-const maxIdempotencyKeyLen = 200
+// maxExternalIDLen bounds caller-chosen external ids.
+const maxExternalIDLen = 200
 
-// CreateTokenIdempotent is CreateToken keyed by key: while a token created
-// with the same key in the same realm and scope is active, it returns that
-// token and its secret (created=false) and ignores the rest of req (its TTL
-// in particular). If there is none, or it expired or was revoked, it creates
-// a new token that takes over the key (created=true).
+// GetOrCreateToken is CreateToken keyed by externalID, the caller's id for
+// what the token is for (e.g. a user id): while a token created with the same
+// external id in the same realm and scope is active, it returns that token
+// and its secret (created=false) and ignores the rest of req (its TTL in
+// particular). If there is none, or it expired or was revoked, it creates a
+// new token for that external id (created=true).
 //
 // The secret of such a token is stored sealed by Config.Sealer. If it can no
 // longer be opened (the sealing key is gone), that token is revoked and
 // replaced.
-func (s *Service) CreateTokenIdempotent(ctx context.Context, req CreateTokenRequest, key string) (Token, string, bool, error) {
+func (s *Service) GetOrCreateToken(ctx context.Context, req CreateTokenRequest, externalID string) (Token, string, bool, error) {
 	if err := validate(req.Realm, req.Scope, req.Name, req.TTL); err != nil {
 		return Token{}, "", false, err
 	}
 	switch {
-	case strings.TrimSpace(key) != key || key == "":
-		return Token{}, "", false, invalidRequest("idempotency key must be non-empty with no leading or trailing spaces")
-	case len(key) > maxIdempotencyKeyLen:
-		return Token{}, "", false, invalidRequest("idempotency key is longer than %d characters", maxIdempotencyKeyLen)
+	case strings.TrimSpace(externalID) != externalID || externalID == "":
+		return Token{}, "", false, invalidRequest("external id must be non-empty with no leading or trailing spaces")
+	case len(externalID) > maxExternalIDLen:
+		return Token{}, "", false, invalidRequest("external id is longer than %d characters", maxExternalIDLen)
 	case s.sealer == nil:
 		return Token{}, "", false, ErrNoSealer
 	}
@@ -166,12 +167,12 @@ func (s *Service) CreateTokenIdempotent(ctx context.Context, req CreateTokenRequ
 		if err != nil {
 			return Token{}, "", false, err
 		}
-		t.IdempotencyKey = key
+		t.ExternalID = externalID
 		sealed, err := s.sealer.Seal([]byte(secret))
 		if err != nil {
 			return Token{}, "", false, fmt.Errorf("access: seal secret: %w", err)
 		}
-		got, gotSealed, created, err := s.store.CreateTokenIdempotent(ctx, t, hash, sealed, s.now())
+		got, gotSealed, created, err := s.store.GetOrCreateToken(ctx, t, hash, sealed, s.now())
 		if err != nil {
 			return Token{}, "", false, err
 		}
@@ -185,7 +186,7 @@ func (s *Service) CreateTokenIdempotent(ctx context.Context, req CreateTokenRequ
 			return Token{}, "", false, err
 		}
 	}
-	return Token{}, "", false, errors.New("access: could not replace an idempotent token with an unreadable secret")
+	return Token{}, "", false, errors.New("access: could not replace a token with an unreadable secret")
 }
 
 // ListTokens returns the realm's tokens, newest first.

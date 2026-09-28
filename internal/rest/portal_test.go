@@ -72,18 +72,18 @@ func TestConsumerTokenComesWithAPortalLink(t *testing.T) {
 	}
 }
 
-func TestIdempotencyKeyReturnsTheValidConsumerToken(t *testing.T) {
+func TestExternalIDReturnsTheValidConsumerToken(t *testing.T) {
 	h, svc := sealedRouter(t)
 
-	first := mintToken(t, h, `{"name":"portal","consumer":"acme","idempotency_key":"user-1"}`)
-	again := mintToken(t, h, `{"name":"portal","consumer":"acme","idempotency_key":"user-1","ttl_seconds":60}`)
+	first := mintToken(t, h, `{"name":"portal","consumer":"acme","external_id":"user-1"}`)
+	again := mintToken(t, h, `{"name":"portal","consumer":"acme","external_id":"user-1","ttl_seconds":60}`)
 	if first.Reused || !again.Reused || again.Secret != first.Secret || again.Token.ID != first.Token.ID || again.PortalPath != first.PortalPath {
 		t.Fatalf("same key: first %+v, again %+v; want the same token reused", first, again)
 	}
-	if other := mintToken(t, h, `{"name":"portal","consumer":"acme","idempotency_key":"user-2"}`); other.Reused || other.Token.ID == first.Token.ID {
+	if other := mintToken(t, h, `{"name":"portal","consumer":"acme","external_id":"user-2"}`); other.Reused || other.Token.ID == first.Token.ID {
 		t.Fatalf("other key reused %+v", other)
 	}
-	if otherConsumer := mintToken(t, h, `{"name":"portal","consumer":"globex","idempotency_key":"user-1"}`); otherConsumer.Reused {
+	if otherConsumer := mintToken(t, h, `{"name":"portal","consumer":"globex","external_id":"user-1"}`); otherConsumer.Reused {
 		t.Fatalf("key reused across consumers %+v", otherConsumer)
 	}
 	if plain := mintToken(t, h, `{"name":"portal","consumer":"acme"}`); plain.Reused || plain.Token.ID == first.Token.ID {
@@ -100,17 +100,17 @@ func TestIdempotencyKeyReturnsTheValidConsumerToken(t *testing.T) {
 	if _, err := svc.Authenticate(context.Background(), first.Secret); !errors.As(err, &authErr) || authErr.Reason != access.ReasonRevoked {
 		t.Fatalf("after revoke err = %v, want revoked", err)
 	}
-	if fresh := mintToken(t, h, `{"name":"portal","consumer":"acme","idempotency_key":"user-1"}`); fresh.Reused || fresh.Token.ID == first.Token.ID {
+	if fresh := mintToken(t, h, `{"name":"portal","consumer":"acme","external_id":"user-1"}`); fresh.Reused || fresh.Token.ID == first.Token.ID {
 		t.Fatalf("after revoke %+v, want a new token", fresh)
 	}
 }
 
-func TestIdempotencyKeyRules(t *testing.T) {
+func TestExternalIDRules(t *testing.T) {
 	h, _ := sealedRouter(t)
-	if rec := post(h, "/v1/tokens", `{"name":"ci","idempotency_key":"k"}`); rec.Code != http.StatusBadRequest {
+	if rec := post(h, "/v1/tokens", `{"name":"ci","external_id":"k"}`); rec.Code != http.StatusBadRequest {
 		t.Fatalf("tenant-wide with key = %d %s, want 400", rec.Code, rec.Body)
 	}
-	if rec := post(accessRouter(t, memstore.New()), "/v1/tokens", `{"name":"p","consumer":"acme","idempotency_key":"k"}`); rec.Code != http.StatusServiceUnavailable {
+	if rec := post(accessRouter(t, memstore.New()), "/v1/tokens", `{"name":"p","consumer":"acme","external_id":"k"}`); rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("without sealer = %d %s, want 503", rec.Code, rec.Body)
 	}
 }

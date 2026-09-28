@@ -338,29 +338,29 @@ def _mint_portal_token(**extra):
     return resp.json()
 
 
-def _mint_with_key(key):
-    return _mint_portal_token(idempotency_key=key)
+def _mint_with_external_id(external_id):
+    return _mint_portal_token(external_id=external_id)
 
 
-@step("Mint portal token for current consumer with idempotency key <key>")
-def mint_portal_token_with_key(key):
-    body = _mint_with_key(key)
+@step("Mint portal token for current consumer with external id <external_id>")
+def mint_portal_token_with_external_id(external_id):
+    body = _mint_with_external_id(external_id)
     assert body["reused"] is False, f"first mint was reused: {body}"
     data_store.scenario["portal_token"] = body["secret"]
     data_store.scenario["portal_token_id"] = body["token"]["id"]
 
 
-@step("Mint portal token for current consumer with idempotency key <key> should reuse the previous token")
-def mint_portal_token_reused(key):
-    body = _mint_with_key(key)
+@step("Mint portal token for current consumer with external id <external_id> should reuse the previous token")
+def mint_portal_token_reused(external_id):
+    body = _mint_with_external_id(external_id)
     assert body["reused"] is True, f"expected reuse: {body}"
     assert body["token"]["id"] == data_store.scenario["portal_token_id"], f"different token: {body}"
     assert body["secret"] == data_store.scenario["portal_token"], "different secret"
 
 
-@step("Mint portal token for current consumer with idempotency key <key> should mint a new token")
-def mint_portal_token_fresh(key):
-    body = _mint_with_key(key)
+@step("Mint portal token for current consumer with external id <external_id> should mint a new token")
+def mint_portal_token_fresh(external_id):
+    body = _mint_with_external_id(external_id)
     assert body["reused"] is False, f"expected a new token: {body}"
     assert body["token"]["id"] != data_store.scenario["portal_token_id"], f"old token returned: {body}"
 

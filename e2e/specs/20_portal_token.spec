@@ -24,9 +24,9 @@ caller, and stop working once revoked.
 * Revoke the portal token
 * Portal GET "webhooks" should return status "401"
 
-## Minting With An Idempotency Key Returns The Valid Token
+## Minting With An External Id Returns The Valid Token
 * Use consumer "portal-idem"
-* Mint portal token for current consumer with idempotency key "user-1"
-* Mint portal token for current consumer with idempotency key "user-1" should reuse the previous token
+* Mint portal token for current consumer with external id "user-1"
+* Mint portal token for current consumer with external id "user-1" should reuse the previous token
 * Revoke the portal token
-* Mint portal token for current consumer with idempotency key "user-1" should mint a new token
+* Mint portal token for current consumer with external id "user-1" should mint a new token

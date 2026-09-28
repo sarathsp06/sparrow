@@ -131,22 +131,22 @@ func Run(t *testing.T, newStore func(t *testing.T) access.Store) {
 	})
 
 	idem := func(id, realm, scope, key string, exp time.Time) access.Token {
-		tok := access.Token{ID: id, Realm: realm, Name: "portal", CreatedBy: "x", CreatedAt: now, ExpiresAt: &exp, IdempotencyKey: key}
+		tok := access.Token{ID: id, Realm: realm, Name: "portal", CreatedBy: "x", CreatedAt: now, ExpiresAt: &exp, ExternalID: key}
 		if scope != "" {
 			tok.Scope = &scope
 		}
 		return tok
 	}
 
-	t.Run("idempotent create returns the active holder of a key", func(t *testing.T) {
+	t.Run("get-or-create returns the active token for an external id", func(t *testing.T) {
 		s := newStore(t)
 		exp := now.Add(time.Hour)
-		got, sealed, created, err := s.CreateTokenIdempotent(ctx, idem("tok_1", "r1", "acme", "user-1", exp), []byte("h1"), []byte("sealed-1"), now)
+		got, sealed, created, err := s.GetOrCreateToken(ctx, idem("tok_1", "r1", "acme", "user-1", exp), []byte("h1"), []byte("sealed-1"), now)
 		must(t, err)
-		if !created || got.ID != "tok_1" || string(sealed) != "sealed-1" || got.IdempotencyKey != "user-1" {
+		if !created || got.ID != "tok_1" || string(sealed) != "sealed-1" || got.ExternalID != "user-1" {
 			t.Fatalf("first create = %+v %q %v", got, sealed, created)
 		}
-		got, sealed, created, err = s.CreateTokenIdempotent(ctx, idem("tok_2", "r1", "acme", "user-1", exp), []byte("h2"), []byte("sealed-2"), now)
+		got, sealed, created, err = s.GetOrCreateToken(ctx, idem("tok_2", "r1", "acme", "user-1", exp), []byte("h2"), []byte("sealed-2"), now)
 		must(t, err)
 		if created || got.ID != "tok_1" || string(sealed) != "sealed-1" {
 			t.Fatalf("second create = %+v %q %v, want tok_1 reused", got, sealed, created)
@@ -158,7 +158,7 @@ func Run(t *testing.T, newStore func(t *testing.T) access.Store) {
 		// The key is per realm and scope, and a nil scope is its own scope.
 		for i, c := range []struct{ realm, scope string }{{"r1", "globex"}, {"r2", "acme"}, {"r1", ""}} {
 			id := fmt.Sprintf("tok_other_%d", i)
-			_, _, created, err := s.CreateTokenIdempotent(ctx, idem(id, c.realm, c.scope, "user-1", exp), []byte(id), []byte("s"), now)
+			_, _, created, err := s.GetOrCreateToken(ctx, idem(id, c.realm, c.scope, "user-1", exp), []byte(id), []byte("s"), now)
 			must(t, err)
 			if !created {
 				t.Fatalf("realm %q scope %q reused another scope's token", c.realm, c.scope)
@@ -166,36 +166,36 @@ func Run(t *testing.T, newStore func(t *testing.T) access.Store) {
 		}
 	})
 
-	t.Run("idempotent create replaces an expired or revoked holder", func(t *testing.T) {
+	t.Run("get-or-create replaces an expired or revoked token", func(t *testing.T) {
 		s := newStore(t)
 		soon, later := now.Add(time.Minute), now.Add(time.Hour)
-		_, _, _, err := s.CreateTokenIdempotent(ctx, idem("tok_old", "r1", "acme", "k", soon), []byte("h1"), []byte("s1"), now)
+		_, _, _, err := s.GetOrCreateToken(ctx, idem("tok_old", "r1", "acme", "k", soon), []byte("h1"), []byte("s1"), now)
 		must(t, err)
 
-		got, sealed, created, err := s.CreateTokenIdempotent(ctx, idem("tok_new", "r1", "acme", "k", later), []byte("h2"), []byte("s2"), soon)
+		got, sealed, created, err := s.GetOrCreateToken(ctx, idem("tok_new", "r1", "acme", "k", later), []byte("h2"), []byte("s2"), soon)
 		must(t, err)
 		if !created || got.ID != "tok_new" || string(sealed) != "s2" {
 			t.Fatalf("after expiry = %+v %q %v, want tok_new", got, sealed, created)
 		}
 		old, err := s.TokenByHash(ctx, []byte("h1"))
 		must(t, err)
-		if old.IdempotencyKey != "" {
+		if old.ExternalID != "" {
 			t.Fatalf("expired holder kept its key: %+v", old)
 		}
 
 		must(t, s.RevokeToken(ctx, "r1", "tok_new", now))
 		revoked, _ := s.TokenByHash(ctx, []byte("h2"))
-		if revoked.IdempotencyKey != "" {
+		if revoked.ExternalID != "" {
 			t.Fatalf("revoked token kept its key: %+v", revoked)
 		}
-		got, _, created, err = s.CreateTokenIdempotent(ctx, idem("tok_3", "r1", "acme", "k", later), []byte("h3"), []byte("s3"), now)
+		got, _, created, err = s.GetOrCreateToken(ctx, idem("tok_3", "r1", "acme", "k", later), []byte("h3"), []byte("s3"), now)
 		must(t, err)
 		if !created || got.ID != "tok_3" {
 			t.Fatalf("after revoke = %+v %v, want tok_3", got, created)
 		}
 	})
 
-	t.Run("concurrent idempotent creates: exactly one wins", func(t *testing.T) {
+	t.Run("concurrent get-or-creates: exactly one wins", func(t *testing.T) {
 		s := newStore(t)
 		exp := now.Add(time.Hour)
 		const n = 8
@@ -208,7 +208,7 @@ func Run(t *testing.T, newStore func(t *testing.T) access.Store) {
 			go func() {
 				defer wg.Done()
 				id := fmt.Sprintf("tok_%d", i)
-				got, _, created, err := s.CreateTokenIdempotent(ctx, idem(id, "r1", "acme", "race", exp), []byte(id), []byte("s"), now)
+				got, _, created, err := s.GetOrCreateToken(ctx, idem(id, "r1", "acme", "race", exp), []byte(id), []byte("s"), now)
 				ids[i], createdCount[i], errs[i] = got.ID, created, err
 			}()
 		}
@@ -235,7 +235,7 @@ func Run(t *testing.T, newStore func(t *testing.T) access.Store) {
 			go func() {
 				defer wg.Done()
 				id := fmt.Sprintf("tok_late_%d", i)
-				got, _, created, err := s.CreateTokenIdempotent(ctx, idem(id, "r1", "acme", "race", exp.Add(time.Hour)), []byte(id), []byte("s"), exp)
+				got, _, created, err := s.GetOrCreateToken(ctx, idem(id, "r1", "acme", "race", exp.Add(time.Hour)), []byte(id), []byte("s"), exp)
 				ids[i], createdCount[i], errs[i] = got.ID, created, err
 			}()
 		}

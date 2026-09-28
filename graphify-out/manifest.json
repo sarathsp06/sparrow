@@ -345,7 +345,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/WebhookServiceInterface_otel.go": {
-    "mtime": 1790591309.1486006,
+    "mtime": 1790600100.0628164,
     "ast_hash": "81857bb9066a95c0f94f0b4f8d7f60f8",
     "semantic_hash": ""
   },
@@ -405,7 +405,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/queue/JobInserter_otel.go": {
-    "mtime": 1790591306.0743368,
+    "mtime": 1790600096.9279907,
     "ast_hash": "68656aa23b9ee0ef2b6509ca6284e84e",
     "semantic_hash": "68656aa23b9ee0ef2b6509ca6284e84e"
   },
@@ -455,7 +455,7 @@
     "semantic_hash": ""
   },
   "internal/webhooks/store/RepositoryInterface_otel.go": {
-    "mtime": 1790591309.134285,
+    "mtime": 1790600100.0482368,
     "ast_hash": "121ff1fc7b173d7c2f0cc5a6a1916775",
     "semantic_hash": ""
   },
@@ -920,8 +920,8 @@
     "semantic_hash": ""
   },
   "api/openapi.json": {
-    "mtime": 1790591302.9997683,
-    "ast_hash": "5b8bc2ee35f2de5ccdb6587d903da76b",
+    "mtime": 1790600093.7107265,
+    "ast_hash": "5dd9f7bf862eb883240995f854006145",
     "semantic_hash": ""
   },
   "client/verify/js/sparrow-verify.ts": {
@@ -1025,8 +1025,8 @@
     "semantic_hash": ""
   },
   "web/src/lib/api-types.d.ts": {
-    "mtime": 1790591309.786774,
-    "ast_hash": "acb95b7a4e6980d65dea5183fb267e20",
+    "mtime": 1790600100.6975422,
+    "ast_hash": "62bd6a21c934de75446b0d067bf9a02b",
     "semantic_hash": ""
   },
   "web/src/lib/components/Pulse.svelte": {
@@ -1040,8 +1040,8 @@
     "semantic_hash": ""
   },
   "api/openapi.yaml": {
-    "mtime": 1790591302.9943123,
-    "ast_hash": "508826525624a7bb188df9e75f8e95eb",
+    "mtime": 1790600093.7045658,
+    "ast_hash": "e1f98411edfd741853919cd9bf32aafb",
     "semantic_hash": ""
   },
   "docs/public/diagrams/sparrow-layered-architecture.html": {
@@ -1680,8 +1680,8 @@
     "semantic_hash": ""
   },
   "e2e/step_impl/steps_surface.py": {
-    "mtime": 1790591350.0820515,
-    "ast_hash": "a3c8940b12bf7066b11d742e609d8c94",
+    "mtime": 1790600100.7516317,
+    "ast_hash": "ca036f959e8fd482f332287e7c408deb",
     "semantic_hash": ""
   },
   "e2e/NOT-TESTING.md": {
@@ -1710,8 +1710,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/reference/security.mdx": {
-    "mtime": 1790591407.8945568,
-    "ast_hash": "2197deb81125dca7166e950a22006e29",
+    "mtime": 1790600138.9267664,
+    "ast_hash": "4812c4878942dcce4248a6aeedc4e8a4",
     "semantic_hash": ""
   },
   "docs/scripts/gen-og.mjs": {
@@ -1780,8 +1780,8 @@
     "semantic_hash": ""
   },
   "docs/src/content/docs/guides/portal-embedding.mdx": {
-    "mtime": 1790591446.5121024,
-    "ast_hash": "025b5f54f49188fce1c010062f49c2d3",
+    "mtime": 1790600138.9261456,
+    "ast_hash": "da158718008a27d98cc089c41609a7f5",
     "semantic_hash": ""
   },
   "docs/public/og.png": {
@@ -1870,8 +1870,8 @@
     "semantic_hash": ""
   },
   "docs/src/lib/llms/prompts.mjs": {
-    "mtime": 1790591407.8951871,
-    "ast_hash": "32b6a19e8b7d9cfa4b7fa8050285c6fa",
+    "mtime": 1790600138.9269395,
+    "ast_hash": "48cb39a49f96e2bb3155ef8a0de7b2d0",
     "semantic_hash": ""
   },
   "docs/src/lib/llms/starlight-llms-txt/entryToSimpleMarkdown.ts": {
@@ -1990,13 +1990,13 @@
     "semantic_hash": ""
   },
   "internal/accessauth/accessauth.go": {
-    "mtime": 1790591241.8575158,
-    "ast_hash": "99523dfae410686bf525970fe9152abd",
+    "mtime": 1790600053.0925138,
+    "ast_hash": "92a409889bf995a2d546f712f3912640",
     "semantic_hash": ""
   },
   "internal/accessauth/accessauth_test.go": {
-    "mtime": 1790590411.1205292,
-    "ast_hash": "968c326f56f5b16dfc5f457de35f5a81",
+    "mtime": 1790600029.8084908,
+    "ast_hash": "d5a51036f2d3fe6f54ad1923b85b95e8",
     "semantic_hash": ""
   },
   "internal/middleware/auth.go": {
@@ -2020,8 +2020,8 @@
     "semantic_hash": ""
   },
   "internal/rest/access.go": {
-    "mtime": 1790591241.8572514,
-    "ast_hash": "97e6355dd7d9a6f56da4cac3bfb1d8d1",
+    "mtime": 1790600043.5876346,
+    "ast_hash": "1c7d7b6897771fc38c229f3c97c46888",
     "semantic_hash": ""
   },
   "internal/rest/access_test.go": {
@@ -2050,8 +2050,8 @@
     "semantic_hash": ""
   },
   "pkg/access/access.go": {
-    "mtime": 1790590285.1469114,
-    "ast_hash": "f87cac92383bad6d756cf6c8f28a1784",
+    "mtime": 1790600017.2307632,
+    "ast_hash": "a5b669f45705ca4a70fee27baad70da2",
     "semantic_hash": ""
   },
   "pkg/access/boundary_test.go": {
@@ -2075,8 +2075,8 @@
     "semantic_hash": ""
   },
   "pkg/access/memstore/memstore.go": {
-    "mtime": 1790590297.3864515,
-    "ast_hash": "54476e4a35eaedbb2a031197d8320ab4",
+    "mtime": 1790600017.2312622,
+    "ast_hash": "d207f0ba0fa4efb0d7dfcbac7c696fd2",
     "semantic_hash": ""
   },
   "pkg/access/memstore/memstore_test.go": {
@@ -2085,8 +2085,8 @@
     "semantic_hash": ""
   },
   "pkg/access/pgstore/pgstore.go": {
-    "mtime": 1790590329.709575,
-    "ast_hash": "78b949806f0dff55b51aaa93fdb2d42d",
+    "mtime": 1790600017.2313788,
+    "ast_hash": "833fb3eecf726b7599402bb463a363b3",
     "semantic_hash": ""
   },
   "pkg/access/pgstore/schema.sql": {
@@ -2095,23 +2095,23 @@
     "semantic_hash": ""
   },
   "pkg/access/service.go": {
-    "mtime": 1790590285.1475985,
-    "ast_hash": "84ff5d616bd5abc6d528fc0e0588c220",
+    "mtime": 1790600017.231166,
+    "ast_hash": "cf026e888ccc9b4dfd8f0df77a16298c",
     "semantic_hash": ""
   },
   "pkg/access/service_test.go": {
-    "mtime": 1790590381.8305743,
-    "ast_hash": "6d4dab69f2f4fff12e1a5763483ad5a6",
+    "mtime": 1790599982.1803396,
+    "ast_hash": "6c46b2f8db5797c301e73b80f2fb5348",
     "semantic_hash": ""
   },
   "pkg/access/store.go": {
-    "mtime": 1790590285.147247,
-    "ast_hash": "4a097284698f48ca72a8ff892a7a2588",
+    "mtime": 1790600017.2310243,
+    "ast_hash": "ba669c15afa5441bc0aaf7d93ed086c3",
     "semantic_hash": ""
   },
   "pkg/access/storetest/storetest.go": {
-    "mtime": 1790590495.7376945,
-    "ast_hash": "cf5dc31a8581e71ba641535b007354fb",
+    "mtime": 1790600053.0899613,
+    "ast_hash": "2e28f892e8a2427a7e60e8c9c2dee2b2",
     "semantic_hash": ""
   },
   "satellites/sparrow/access.go": {
@@ -2195,13 +2195,13 @@
     "semantic_hash": ""
   },
   "docs/adr/0003-access-tokens.md": {
-    "mtime": 1790591407.8961728,
-    "ast_hash": "af10b431a495526c7cabd75921ff874b",
+    "mtime": 1790600138.9270897,
+    "ast_hash": "1da45f836fe72a978c5166287cc4e78d",
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/access.md": {
-    "mtime": 1790591388.382079,
-    "ast_hash": "0480a8d28ab9ce453e4a1ef03fe969b9",
+    "mtime": 1790600138.9265919,
+    "ast_hash": "e578c1f25dc95cd94537040d9a40b5ec",
     "semantic_hash": ""
   },
   "docs/src/content/docs/deployment/production.md": {
@@ -2265,8 +2265,8 @@
     "semantic_hash": ""
   },
   "internal/rest/portal_test.go": {
-    "mtime": 1790591278.923862,
-    "ast_hash": "b49db52ae8ef6f51b066daed932ee52b",
+    "mtime": 1790599982.1817353,
+    "ast_hash": "149e67acc1ee7d5acf3dccfc9f30b735",
     "semantic_hash": ""
   },
   "internal/webhooks/queue/token_purge_worker.go": {
@@ -2297,6 +2297,21 @@
   "web/src/lib/portal-link.ts": {
     "mtime": 1790591429.0797472,
     "ast_hash": "919c5ddf13304ced01189762c0cb1fac",
+    "semantic_hash": ""
+  },
+  "db/migrations/000029_access_token_external_id.down.sql": {
+    "mtime": 1790600029.805374,
+    "ast_hash": "2000be3bac32bcde96c1a325189afdcd",
+    "semantic_hash": ""
+  },
+  "db/migrations/000029_access_token_external_id.up.sql": {
+    "mtime": 1790600029.8034844,
+    "ast_hash": "7d6615a55a33e58e3793b8392fe48aeb",
+    "semantic_hash": ""
+  },
+  "pkg/access/pgstore/schema_003_external_id.sql": {
+    "mtime": 1790600029.80156,
+    "ast_hash": "378d7ffcff8ab8e2aa24793c35b604dd",
     "semantic_hash": ""
   }
 }

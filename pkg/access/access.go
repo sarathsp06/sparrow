@@ -13,11 +13,12 @@
 //     authenticates as a full-access principal and needs no storage.
 //   - Token: a stored, named, optionally expiring credential that can be
 //     revoked individually. Only a SHA-256 hash of its secret is stored.
-//   - Idempotency key: an optional caller-chosen key on a token. Asking for a
-//     token with the same key (in the same realm and scope) returns the one
-//     that is still active, secret included, instead of creating another. The
-//     secret of such a token is also stored, encrypted by a SecretSealer, so
-//     it can be handed out again.
+//   - External id: an optional caller-chosen id on a token, naming what it is
+//     for in the caller's system (e.g. a user id). Asking for a token with the
+//     same external id (in the same realm and scope) returns the one that is
+//     still active, secret included, instead of creating another. The secret
+//     of such a token is also stored, encrypted by a SecretSealer, so it can
+//     be handed out again.
 //   - Invite: a stored, single-use, expiring secret meant to travel in a link.
 //     Redeeming it creates a token for the invitee; the invite is then spent.
 //
@@ -58,14 +59,14 @@ type Token struct {
 	ExpiresAt  *time.Time // nil = never expires
 	RevokedAt  *time.Time
 	LastUsedAt *time.Time
-	// IdempotencyKey is set on tokens created by CreateTokenIdempotent while
-	// they hold their key; it is cleared when the token is revoked, or
-	// replaced after it expires.
-	IdempotencyKey string
+	// ExternalID is set on tokens created by GetOrCreateToken while they
+	// are the active token for it; it is cleared when the token is revoked,
+	// or replaced after it expires.
+	ExternalID string
 }
 
-// SecretSealer encrypts the stored secrets of idempotent tokens, so they can
-// be returned again without being kept in plaintext. Open must reject data it
+// SecretSealer encrypts the stored secrets of tokens with an external id, so
+// they can be returned again without being kept in plaintext. Open must reject data it
 // did not seal (e.g. after the sealing key was removed).
 type SecretSealer interface {
 	Seal(plaintext []byte) ([]byte, error)
@@ -139,9 +140,9 @@ var (
 	ErrUnavailable = errors.New("access: credential store unavailable")
 	// ErrInvalidRequest is returned for malformed create requests.
 	ErrInvalidRequest = errors.New("access: invalid request")
-	// ErrNoSealer is returned by CreateTokenIdempotent when the Service has
+	// ErrNoSealer is returned by GetOrCreateToken when the Service has
 	// no Config.Sealer to store the secret with.
-	ErrNoSealer = errors.New("access: idempotent tokens need a SecretSealer")
+	ErrNoSealer = errors.New("access: tokens with an external id need a SecretSealer")
 )
 
 // Reason says why a credential was rejected. Revealing it is safe: only the

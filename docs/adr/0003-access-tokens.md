@@ -207,17 +207,25 @@ Portal links are now consumer-scoped access tokens from `POST /v1/tokens`
 (which returns a `portal_path` for them); the separate
 `POST /v1/consumers/{consumer}/portal-token` endpoint and stateless `spt_v2`
 tokens are gone (nothing had shipped to production). One endpoint means one
-set of lifetime, validation and idempotency rules. A security review found that `spt_v2` tokens, signed with the
+set of lifetime, validation and reuse rules. A security review found that `spt_v2` tokens, signed with the
 data-encryption key and valid for up to 30 days, could only be revoked by
 removing that key, which also breaks decryption.
 
 The scale concern that rejected stored tokens above is handled by:
 
-- `idempotency_key` (consumer tokens only): while a token minted for a consumer with the same key is
-  valid, the call returns it (secret included) instead of storing a new row.
+- `external_id` (consumer tokens only): the caller's id for who the token is
+  for, e.g. a user id. While a token minted for a consumer with the same
+  `external_id` is valid, the call returns it (secret included) instead of
+  storing a new row.
   To make that possible, such a token's secret is stored envelope-encrypted
   (`access.SecretSealer`, backed by the `SPARROW_ENCRYPTION_KEYS` keyring) and
-  deleted on revocation. Tokens without a key still store only a hash.
+  deleted on revocation. Tokens without an `external_id` still store only a hash.
+
+  First released as `idempotency_key` (v0.6.0) and renamed in v0.6.1: an
+  idempotency key is conventionally a random per-request value for safe
+  retries, where a different request with the same key is an error. This one
+  is a stable caller identity that is reused on purpose, and a different TTL
+  is ignored, so `external_id` names it honestly.
 - A daily purge (River job) deletes tokens expired or revoked more than 7 days
   ago.
 - Short lifetimes chosen by the embedding backend (`ttl_seconds`).

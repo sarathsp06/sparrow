@@ -66,8 +66,8 @@ the embeddable [consumer portal](/sparrow/deployment/security/#the-consumer-port
 returned together with a ready-made `portal_path`. It is an ordinary access
 token (see above): 256 random bits, stored only as a SHA-256 hash, listed by
 `GET /v1/tokens` and revoked with `DELETE /v1/tokens/{id}`. With
-`idempotency_key` (consumer tokens only), a repeat call returns the
-still-valid token for that consumer and key instead of minting one, so the
+`external_id` (consumer tokens only), a repeat call returns the
+still-valid token for that consumer and external id instead of minting one, so the
 secret of such a token is also stored, envelope-encrypted with the keyring
 (and deleted on revocation). Consumer tokens default to a 7-day / maximum
 30-day TTL, and travel in the `Authorization: Bearer` header — or the

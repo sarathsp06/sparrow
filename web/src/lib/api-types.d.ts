@@ -864,7 +864,7 @@ export interface paths {
         put?: never;
         /**
          * Create an access token
-         * @description Creates a named token. A tenant-wide token (no consumer) works exactly like SPARROW_API_KEY but can be revoked on its own and never needs the master key to be shared. A consumer token only works through the portal API (/portal/api/), limited to that consumer, and comes with a ready-made portal link (portal_path) to embed or hand to the end consumer. The secret is returned once, or again for the same idempotency_key while the token is valid.
+         * @description Creates a named token. A tenant-wide token (no consumer) works exactly like SPARROW_API_KEY but can be revoked on its own and never needs the master key to be shared. A consumer token only works through the portal API (/portal/api/), limited to that consumer, and comes with a ready-made portal link (portal_path) to embed or hand to the end consumer. The secret is returned once, or again for the same external_id while the token is valid.
          */
         post: operations["createToken"];
         delete?: never;
@@ -1164,8 +1164,8 @@ export interface components {
             readonly $schema?: string;
             /** @description Limit the token to one consumer (portal API only). Omit for a tenant-wide token with the same power as SPARROW_API_KEY. */
             consumer?: string;
-            /** @description Consumer tokens only. Your id for who the token is for (e.g. your user id when embedding the portal). While a token created for this consumer with the same key is still valid, it is returned again, secret included, instead of a new one (reused: true; name and ttl_seconds are ignored); once it expires or is revoked, a new one is created. Makes minting a portal link on every page view safe. */
-            idempotency_key?: string;
+            /** @description Consumer tokens only. Your id for who or what the token is for, e.g. your user id when embedding the portal. There is at most one active token per consumer and external_id: while it is valid, asking again returns it, secret included (reused: true; name and ttl_seconds are ignored), instead of creating another; once it expires or is revoked, a new one is created. This makes minting a portal link on every page view safe. Not a secret: it is fine to log. */
+            external_id?: string;
             /** @description Who or what the token is for, e.g. "alice" or "ci-deploy". */
             name: string;
             /** @description Create a tenant-wide token that never expires (revoke it when no longer needed). Not allowed with ttl_seconds or for consumer tokens. */
@@ -1185,9 +1185,9 @@ export interface components {
             readonly $schema?: string;
             /** @description Consumer tokens only: server-relative portal URL with the token in the fragment (never sent to the server or logged). Prepend the base URL the UI is served from (the Sparrow server with SPARROW_SERVE_UI=true, or your separately hosted UI) and hand it to the end consumer. */
             portal_path?: string;
-            /** @description True when idempotency_key matched a still-valid token, which is returned instead of a new one. */
+            /** @description True when external_id matched a still-valid token, which is returned instead of a new one. */
             reused: boolean;
-            /** @description The credential. Shown only in this response (and again for the same idempotency_key); send it as X-API-Key or Authorization: Bearer. */
+            /** @description The credential. Shown only in this response (and again for the same external_id); send it as X-API-Key or Authorization: Bearer. */
             secret: string;
             token: components["schemas"]["TokenOut"];
         };

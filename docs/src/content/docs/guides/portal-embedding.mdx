@@ -35,7 +35,7 @@ browser is a token that can touch one consumer and nothing more.
    ```bash
    curl -s -X POST http://sparrow:8080/v1/tokens \
      -H "X-API-Key: $SPARROW_API_KEY" -H "Content-Type: application/json" \
-     -d '{"name": "portal", "consumer": "acme", "ttl_seconds": 3600, "idempotency_key": "user-42"}'
+     -d '{"name": "portal", "consumer": "acme", "ttl_seconds": 3600, "external_id": "user-42"}'
    # → { "token": { "id": "tok_...", "expires_at": "...", ... }, "secret": "sparrow_tk_...",
    #     "reused": false, "portal_path": "/portal#token=sparrow_tk_...&consumer=acme&expires=..." }
    ```
@@ -45,10 +45,12 @@ browser is a token that can touch one consumer and nothing more.
    is a consumer-scoped access token (the same kind `sparrow tokens create
    --consumer` makes): pick a short `ttl_seconds` (the default is 7 days),
    and revoke it early with `DELETE /v1/tokens/{id}`.
-   `idempotency_key` (your user id, say) makes the call safe to repeat on
-   every page view: while that user's link is valid, Sparrow returns the
-   same token (`"reused": true`) instead of minting another, and mints a
-   fresh one once it has expired or been revoked.
+   `external_id` is your id for who the link is for (your user id, say).
+   There is at most one active token per consumer and `external_id`, which
+   makes the call safe to repeat on every page view: while that user's link
+   is valid, Sparrow returns the same token (`"reused": true`) instead of
+   minting another, and mints a fresh one once it has expired or been
+   revoked.
 3. **Your app hands the link to the browser** — redirect to
    `https://yourapp.com/portal#token=...`, or render it in an `<iframe>`
    (the portal's headers permit framing; the rest of Sparrow forbids it).
@@ -199,8 +201,8 @@ app.post("/api/webhook-portal-link", requireLogin, async (req, res) => {
   const r = await fetch(`${SPARROW}/v1/tokens`, {
     method: "POST",
     headers: { "X-API-Key": process.env.SPARROW_API_KEY, "Content-Type": "application/json" },
-    // idempotency_key: the same user gets the same link back while it is valid.
-    body: JSON.stringify({ name: "portal", consumer, ttl_seconds: 3600, idempotency_key: req.user.id }),
+    // external_id: the same user gets the same link back while it is valid.
+    body: JSON.stringify({ name: "portal", consumer, ttl_seconds: 3600, external_id: req.user.id }),
   });
   const { portal_path } = await r.json();
   res.json({ url: portal_path }); // same-origin: /portal#token=...
@@ -241,13 +243,13 @@ Why the pieces hold:
   as an `Authorization` header over TLS.
 - **Blast radius of a leaked link is bounded** by consumer + TTL, and you
   can cut it short: revoke the link's token id and it stops working
-  within 30 seconds on every instance. With `idempotency_key`, each of your
+  within 30 seconds on every instance. With `external_id`, each of your
   users holds at most one live link per consumer; expired and revoked links
   are deleted from the database a week later by a daily purge.
 - **Reusable links are stored encrypted.** To hand the same link back,
-  Sparrow keeps the secret of a token minted with `idempotency_key`,
+  Sparrow keeps the secret of a token minted with an `external_id`,
   envelope-encrypted with `SPARROW_ENCRYPTION_KEYS` like webhook secrets.
-  Tokens minted without a key are stored as a SHA-256 hash only. Revoking a
+  Tokens minted without one are stored as a SHA-256 hash only. Revoking a
   token deletes its stored secret.
 
 Checklist before going live:
@@ -259,7 +261,7 @@ Checklist before going live:
 - [ ] Proxy forwards **only** the allowlist; default route denies.
 - [ ] No `X-API-Key` injection anywhere on the public vhost.
 - [ ] Short `ttl_seconds` (e.g. 3600; the default is 7 days), minted behind your
-      login with `idempotency_key` set to your user id; revoke a link's
+      login with `external_id` set to your user id; revoke a link's
       token when the user logs out or loses access.
 - [ ] TLS terminated at the proxy; rate limiting on `/portal/api/`.
 ## Alternative: no Sparrow UI at all

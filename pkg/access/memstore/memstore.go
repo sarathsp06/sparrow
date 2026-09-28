@@ -17,7 +17,7 @@ type Store struct {
 	mu      sync.Mutex
 	tokens  map[string]access.Token  // by id
 	tokHash map[string]string        // hex(hash) -> id
-	sealed  map[string][]byte        // token id -> sealed secret (idempotent tokens)
+	sealed  map[string][]byte        // token id -> sealed secret (tokens with an external id)
 	invites map[string]access.Invite // by id
 	invHash map[string]string        // hex(hash) -> id
 }
@@ -86,25 +86,25 @@ func (s *Store) RevokeToken(_ context.Context, realm, id string, at time.Time) e
 		at := at.UTC()
 		t.RevokedAt = &at
 	}
-	t.IdempotencyKey = ""
+	t.ExternalID = ""
 	s.tokens[id] = t
 	delete(s.sealed, id)
 	return nil
 }
 
-// CreateTokenIdempotent implements access.Store.
-func (s *Store) CreateTokenIdempotent(_ context.Context, t access.Token, secretHash, sealedSecret []byte, now time.Time) (access.Token, []byte, bool, error) {
+// GetOrCreateToken implements access.Store.
+func (s *Store) GetOrCreateToken(_ context.Context, t access.Token, secretHash, sealedSecret []byte, now time.Time) (access.Token, []byte, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.init()
 	for id, held := range s.tokens {
-		if held.IdempotencyKey != t.IdempotencyKey || held.Realm != t.Realm || !sameScope(held.Scope, t.Scope) {
+		if held.ExternalID != t.ExternalID || held.Realm != t.Realm || !sameScope(held.Scope, t.Scope) {
 			continue
 		}
 		if held.Status(now) == access.StatusActive {
 			return held, s.sealed[id], false, nil
 		}
-		held.IdempotencyKey = ""
+		held.ExternalID = ""
 		s.tokens[id] = held
 		delete(s.sealed, id)
 	}
