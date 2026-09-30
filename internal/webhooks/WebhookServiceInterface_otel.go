@@ -11,11 +11,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-
-	"github.com/sarathsp06/sparrow/internal/webhooks/store"
 
 	_codes "go.opentelemetry.io/otel/codes"
 )
@@ -195,29 +194,6 @@ func (_d WebhookServiceInterfaceWithTracing) DeleteAlertConfig(ctx context.Conte
 	return _d.WebhookServiceInterface.DeleteAlertConfig(ctx, consumer, id)
 }
 
-// DeleteEvent implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) DeleteEvent(ctx context.Context, name string) (err error) {
-	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.DeleteEvent")
-	defer func() {
-		if _d._spanDecorator != nil {
-			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":  ctx,
-				"name": name}, map[string]interface{}{
-				"err": err})
-		} else if err != nil {
-			_span.RecordError(err)
-			_span.SetStatus(_codes.Error, err.Error())
-			_span.SetAttributes(
-				attribute.String("event", "error"),
-				attribute.String("message", err.Error()),
-			)
-		}
-
-		_span.End()
-	}()
-	return _d.WebhookServiceInterface.DeleteEvent(ctx, name)
-}
-
 // DeleteSubscription implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) DeleteSubscription(ctx context.Context, subscriptionID string, consumer string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.DeleteSubscription")
@@ -365,6 +341,31 @@ func (_d WebhookServiceInterfaceWithTracing) GetEventRecord(ctx context.Context,
 		_span.End()
 	}()
 	return _d.WebhookServiceInterface.GetEventRecord(ctx, eventID)
+}
+
+// GetEventTypeVersion implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) GetEventTypeVersion(ctx context.Context, name string, version int) (ep1 *store.EventRegistrationVersion, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetEventTypeVersion")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":     ctx,
+				"name":    name,
+				"version": version}, map[string]interface{}{
+				"ep1": ep1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.GetEventTypeVersion(ctx, name, version)
 }
 
 // GetHealthSummary implements WebhookServiceInterface
@@ -563,6 +564,30 @@ func (_d WebhookServiceInterfaceWithTracing) ListEventReports(ctx context.Contex
 		_span.End()
 	}()
 	return _d.WebhookServiceInterface.ListEventReports(ctx, filter)
+}
+
+// ListEventTypeVersions implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) ListEventTypeVersions(ctx context.Context, name string) (epa1 []*store.EventRegistrationVersion, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListEventTypeVersions")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":  ctx,
+				"name": name}, map[string]interface{}{
+				"epa1": epa1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.ListEventTypeVersions(ctx, name)
 }
 
 // ListEvents implements WebhookServiceInterface
@@ -969,7 +994,7 @@ func (_d WebhookServiceInterfaceWithTracing) UnregisterWebhook(ctx context.Conte
 }
 
 // UpdateEvent implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (err error) {
+func (_d WebhookServiceInterfaceWithTracing) UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (ep1 *EventTypeSaveResult, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.UpdateEvent")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -980,6 +1005,7 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateEvent(ctx context.Context, na
 				"schema":      schema,
 				"metadata":    metadata,
 				"active":      active}, map[string]interface{}{
+				"ep1": ep1,
 				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)

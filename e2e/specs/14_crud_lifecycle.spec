@@ -30,10 +30,13 @@ subscription, and finally tears everything down.
 * DELETE webhook "primary"
 * GET webhook "primary" should return status "404"
 
-## Event Type Round-Trip From Register To Delete
+## Event Type Round-Trip From Register To Deactivate
+Event types are never deleted; retiring one deactivates it and keeps its history.
 * Use consumer "crud-events"
 * Register event type "crud.report.ready"
 * GET event type "crud.report.ready" should return status "200"
 * PATCH event type "crud.report.ready" description to "Nightly report finished rendering"
-* DELETE event type "crud.report.ready"
-* GET event type "crud.report.ready" should return status "404"
+* DELETE event type "crud.report.ready" is not supported
+* Deactivate event type "crud.report.ready"
+* GET event type "crud.report.ready" should return status "200"
+* Push event "crud.report.ready" with payload "{}" expecting status "409"

@@ -90,6 +90,9 @@ type EventRecord struct {
 	Metadata       JSONStringMap `json:"metadata" db:"metadata"`
 	Labels         JSONStringMap `json:"labels" db:"labels"`
 	SchemaValid    bool          `json:"schema_valid" db:"schema_valid"`
+	// EventVersion is the event type version the occurrence was accepted
+	// under. Occurrences stored before versioning read back as 1.
+	EventVersion   int           `json:"event_version" db:"event_version"`
 	IdempotencyKey *string       `json:"idempotency_key,omitempty" db:"idempotency_key"`
 	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
 	ExpiresAt      time.Time     `json:"expires_at" db:"expires_at"`
@@ -222,8 +225,28 @@ type EventRegistration struct {
 	SamplePayload JSONMap       `json:"sample_payload" db:"sample_payload"` // Auto-generated sample payload
 	Metadata      JSONStringMap `json:"metadata" db:"metadata"`
 	Active        bool          `json:"active" db:"active"`
-	CreatedAt     time.Time     `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time     `json:"updated_at" db:"updated_at"`
+	// Version is the current schema version. It starts at 1 and increases
+	// only when the schema changes; see EventRegistrationVersion.
+	Version   int       `json:"version" db:"version"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// EventRegistrationVersion is one version of an event type definition. Every
+// version ever created is kept, including the current one, so the history of
+// a contract can always be read back.
+type EventRegistrationVersion struct {
+	TenantID      uuid.UUID `json:"tenant_id" db:"tenant_id"`
+	Name          string    `json:"name" db:"name"`
+	Version       int       `json:"version" db:"version"`
+	Description   string    `json:"description" db:"description"`
+	Schema        JSONMap   `json:"schema" db:"schema"`
+	SamplePayload JSONMap   `json:"sample_payload" db:"sample_payload"`
+	// SchemaDefinedAt is set when a schema was added to a version that had
+	// none. Filling in a first schema defines the contract rather than
+	// changing it, so it updates the version in place.
+	SchemaDefinedAt *time.Time `json:"schema_defined_at,omitempty" db:"schema_defined_at"`
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 }
 
 // WebhookUpdateFields represents fields that can be updated for a webhook

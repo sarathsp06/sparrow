@@ -594,18 +594,54 @@ export interface paths {
         get: operations["getEventType"];
         put?: never;
         post?: never;
-        /**
-         * Delete an event type definition
-         * @description Permanently deletes an event type definition. Existing pushed occurrences of this type are not deleted.
-         */
-        delete: operations["deleteEventType"];
+        delete?: never;
         options?: never;
         head?: never;
         /**
          * Update an event type definition
-         * @description Merge-patches an event type: only fields present in the request body are changed.
+         * @description Merge-patches an event type: only fields present in the request body are changed. A schema change creates a new version and keeps the previous one; adding a first schema to a schema-less version, and any change to description, metadata or active, updates the current version in place. The response's change field says which happened.
          */
         patch: operations["updateEventType"];
+        trace?: never;
+    };
+    "/v1/event-types/{name}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List every version of an event type
+         * @description Returns the version history of an event type, newest first. Event types are never deleted; to retire one, set active to false.
+         */
+        get: operations["listEventTypeVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/event-types/{name}/versions/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one version of an event type
+         * @description Fetches a specific version's schema, sample payload and description.
+         */
+        get: operations["getEventTypeVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/event-types/{name}:validate": {
@@ -1303,6 +1339,11 @@ export interface components {
             /** @description Event occurrence id (UUID). */
             event_id: string;
             /**
+             * Format: int64
+             * @description Event type version this occurrence was accepted under.
+             */
+            event_version: number;
+            /**
              * Format: int32
              * @description Deliveries that failed (exhausted retries or non-retryable error).
              */
@@ -1359,6 +1400,30 @@ export interface components {
             /** @description Unique event type name, e.g. order.created. At most 255 characters. Immutable after creation. */
             name?: string;
         };
+        EventTypeChange: {
+            /**
+             * @description created: new event type at version 1. new_version: the schema changed, so a new version was created and the previous one kept. updated: the current version changed in place (description, metadata, active, or a first schema added to a schema-less version). unchanged: nothing was written.
+             * @enum {string}
+             */
+            action: "created" | "new_version" | "updated" | "unchanged";
+            /**
+             * @description Set when the write flips the active flag.
+             * @enum {string}
+             */
+            active_change?: "deactivates" | "reactivates" | "";
+            /** @description Fields that changed: schema, schema_defined (a first schema was added in place), description, metadata, active. */
+            changes?: string[] | null;
+            /**
+             * Format: int64
+             * @description Version before the write; absent when the event type was created.
+             */
+            previous_version?: number;
+            /**
+             * Format: int64
+             * @description Version after the write.
+             */
+            version: number;
+        };
         EventTypeItem: {
             /**
              * Format: uri
@@ -1388,6 +1453,40 @@ export interface components {
             };
             /** @description Last-modified timestamp, RFC3339. */
             updated_at: string;
+            /**
+             * Format: int64
+             * @description Current schema version. Starts at 1 and increases only when the schema changes; every version is kept (see listEventTypeVersions).
+             */
+            version: number;
+        };
+        EventTypeVersionItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/EventTypeVersionItem.json
+             */
+            readonly $schema?: string;
+            /** @description When this version was created, RFC3339. */
+            created_at: string;
+            /** @description Description as it was when this version was created. */
+            description?: string;
+            /** @description JSON Schema of this version. Absent for a schema-less version. */
+            event_schema?: {
+                [key: string]: unknown;
+            };
+            /** @description Event type name. */
+            name: string;
+            /** @description Example payload generated from this version's schema. */
+            sample_payload?: {
+                [key: string]: unknown;
+            };
+            /** @description When a first schema was added to this version in place, RFC3339. Events pushed before this time were accepted while the version had no schema. */
+            schema_defined_at?: string;
+            /**
+             * Format: int64
+             * @description Version number.
+             */
+            version: number;
         };
         HealthSummaryOutputBody: {
             /**
@@ -1477,6 +1576,16 @@ export interface components {
             pagination: components["schemas"]["PaginationOutput"];
             /** @description Snapshot id for the batch re-push endpoint, present when prepare_repush was set. */
             repush_id?: string;
+        };
+        ListEventTypeVersionsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListEventTypeVersionsOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Every version of the event type, newest first. */
+            items: components["schemas"]["EventTypeVersionItem"][] | null;
         };
         ListEventTypesOutputBody: {
             /**
@@ -1860,6 +1969,43 @@ export interface components {
             revoked_at: string | null;
             /** @enum {string} */
             status: "active" | "revoked" | "expired";
+        };
+        UpdateEventTypeOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/UpdateEventTypeOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Whether events of this type can currently be pushed. */
+            active: boolean;
+            /** @description What this update did. */
+            change: components["schemas"]["EventTypeChange"];
+            /** @description Creation timestamp, RFC3339. */
+            created_at: string;
+            /** @description Human-readable summary of what this event represents. */
+            description?: string;
+            /** @description JSON Schema payloads are softly validated against, if one is registered. */
+            event_schema?: {
+                [key: string]: unknown;
+            };
+            /** @description Arbitrary key/value metadata. */
+            metadata?: {
+                [key: string]: string;
+            };
+            /** @description Event type name, e.g. order.created. */
+            name: string;
+            /** @description Example payload derived from the schema, used to preview subscription transform templates. */
+            sample_payload?: {
+                [key: string]: unknown;
+            };
+            /** @description Last-modified timestamp, RFC3339. */
+            updated_at: string;
+            /**
+             * Format: int64
+             * @description Current schema version. Starts at 1 and increases only when the schema changes; every version is kept (see listEventTypeVersions).
+             */
+            version: number;
         };
         ValidateEventPayloadInputBody: {
             /**
@@ -4034,7 +4180,7 @@ export interface operations {
             };
         };
     };
-    deleteEventType: {
+    updateEventType: {
         parameters: {
             query?: never;
             header?: never;
@@ -4043,14 +4189,29 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventTypeBody"];
+            };
+        };
         responses: {
-            /** @description No Content */
-            204: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["UpdateEventTypeOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
             };
             /** @description Not Found */
             404: {
@@ -4081,7 +4242,7 @@ export interface operations {
             };
         };
     };
-    updateEventType: {
+    listEventTypeVersions: {
         parameters: {
             query?: never;
             header?: never;
@@ -4090,11 +4251,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EventTypeBody"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -4102,16 +4259,58 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EventTypeItem"];
+                    "application/json": components["schemas"]["ListEventTypeVersionsOutputBody"];
                 };
             };
-            /** @description Bad Request */
-            400: {
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    getEventTypeVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                /** @description Version number. */
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventTypeVersionItem"];
                 };
             };
             /** @description Not Found */
