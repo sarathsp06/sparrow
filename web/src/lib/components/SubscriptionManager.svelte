@@ -60,6 +60,8 @@
     timeout: 30,
     headers: {} as Record<string, string>,
     labelFilters: {} as Record<string, string>,
+    onTransformError: "fail" as "fail" | "fallback",
+    templateMissingKey: "error" as "error" | "zero",
   });
 
   const WORKBENCH_URL = "https://sarathsp06.github.io/sparrow/tools/recipe-workbench/";
@@ -97,6 +99,8 @@
       timeout: 30,
       headers: {},
       labelFilters: {},
+      onTransformError: "fail",
+      templateMissingKey: "error",
     };
     catchAllEnabled = false;
     advancedOpen = false;
@@ -173,7 +177,7 @@
       dryRunError = "";
       dryRunResult = "";
       const response = unwrap(await api.POST('/v1/subscriptions:testTemplate', {
-        body: { event_name: form.eventName, template: form.transformTemplate },
+        body: { event_name: form.eventName, template: form.transformTemplate, template_missing_key: form.templateMissingKey },
       }));
       dryRunResult = response.rendered;
     } catch (e: any) {
@@ -216,6 +220,8 @@
             timeout: form.timeout,
             headers: form.headers,
             label_filters: form.labelFilters,
+            on_transform_error: form.onTransformError,
+            template_missing_key: form.templateMissingKey,
           },
         }));
       } else {
@@ -228,6 +234,8 @@
             transform_enabled: form.transformEnabled,
             transform_template: form.transformTemplate,
             label_filters: form.labelFilters,
+            on_transform_error: form.onTransformError,
+            template_missing_key: form.templateMissingKey,
           },
         }));
       }
@@ -257,6 +265,8 @@
       timeout: subscription.timeout || 30,
       headers: { ...(subscription.headers || {}) },
       labelFilters: { ...(subscription.label_filters || {}) },
+      onTransformError: subscription.on_transform_error ?? "fail",
+      templateMissingKey: subscription.template_missing_key ?? "error",
     };
     handleEventChange(subscription.event_name);
     advancedOpen =
@@ -266,6 +276,68 @@
       Object.keys(form.labelFilters).length > 0;
     modalMode = "edit";
     modalOpen = true;
+  }
+
+  // Pause and resume. A paused subscription's deliveries are recorded as
+  // paused and not sent; resuming does not send them, so after a resume we
+  // offer to retry them.
+  let pauseTarget = $state<SubscriptionItem | null>(null);
+  let pauseReason = $state("");
+  let resumeNotice = $state<{ count: number; since: string; subscriptionId: string } | null>(null);
+
+  async function pauseSubscription() {
+    if (!pauseTarget) return;
+    try {
+      unwrap(await api.POST('/v1/consumers/{consumer}/subscriptions/{subscription_id}:pause', {
+        params: { path: { consumer: pauseTarget.consumer, subscription_id: pauseTarget.subscription_id } },
+        body: { reason: pauseReason.trim() || undefined },
+      }));
+      pauseTarget = null;
+      pauseReason = "";
+      await fetchSubscriptions();
+    } catch (e: any) {
+      error = formatAPIError(e, 'Failed to pause subscription');
+    }
+  }
+
+  async function resumeSubscription(subscription: SubscriptionItem) {
+    try {
+      const res = unwrap(await api.POST('/v1/consumers/{consumer}/subscriptions/{subscription_id}:resume', {
+        params: { path: { consumer: subscription.consumer, subscription_id: subscription.subscription_id } },
+      }));
+      resumeNotice = res.paused_deliveries > 0
+        ? { count: res.paused_deliveries, since: res.paused_since ?? "", subscriptionId: subscription.subscription_id }
+        : null;
+      await fetchSubscriptions();
+    } catch (e: any) {
+      error = formatAPIError(e, 'Failed to resume subscription');
+    }
+  }
+
+  let retryingPaused = $state(false);
+  async function retryPaused() {
+    if (!resumeNotice) return;
+    retryingPaused = true;
+    try {
+      const ns = consumer || "default";
+      const list = unwrap(await api.GET('/v1/consumers/{consumer}/deliveries', {
+        params: {
+          path: { consumer: ns },
+          query: { status: "paused", subscription_id: resumeNotice.subscriptionId, created_after: resumeNotice.since || undefined, prepare_retry: true, limit: 1 },
+        },
+      }));
+      if (list.retry_id) {
+        unwrap(await api.POST('/v1/consumers/{consumer}/deliveries:retryBatch', {
+          params: { path: { consumer: ns } },
+          body: { repush_id: list.retry_id },
+        }));
+      }
+      resumeNotice = null;
+    } catch (e: any) {
+      error = formatAPIError(e, 'Failed to retry paused deliveries');
+    } finally {
+      retryingPaused = false;
+    }
   }
 
   function promptDelete(subscriptionId: string) {
@@ -418,6 +490,34 @@
       </EmptyState>
     </div>
   {:else}
+    {#if resumeNotice}
+      <div class="panel-2 p-3 mb-3 flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm text-text">
+          {resumeNotice.count === 1
+            ? "1 delivery was held while paused. It is not sent automatically."
+            : `${resumeNotice.count} deliveries were held while paused. They are not sent automatically.`}
+        </p>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost !px-3 !py-1.5" onclick={() => (resumeNotice = null)}>Leave them</button>
+          <button class="btn btn-beacon !px-3 !py-1.5" disabled={retryingPaused} onclick={retryPaused}>Retry paused deliveries</button>
+        </div>
+      </div>
+    {/if}
+    {#if pauseTarget}
+      <div class="panel-2 p-4 mb-3 space-y-3">
+        <p class="text-sm text-text">
+          Pause <span class="mono">{pauseTarget.event_name}</span>? Events keep arriving and are recorded as paused deliveries, not sent. The webhook's health is not affected.
+        </p>
+        <label class="block">
+          <span class="field-label">Reason (optional)</span>
+          <input class="input" maxlength="500" placeholder="Receiver maintenance until Friday" bind:value={pauseReason} />
+        </label>
+        <div class="flex justify-end gap-2">
+          <button class="btn btn-ghost !px-3 !py-1.5" onclick={() => (pauseTarget = null)}>Cancel</button>
+          <button class="btn btn-danger !px-3 !py-1.5" onclick={pauseSubscription}>Pause subscription</button>
+        </div>
+      </div>
+    {/if}
     <div class="space-y-3">
       {#each subscriptions as subscription}
         <div class="panel-2 hover:border-line-strong transition">
@@ -447,8 +547,21 @@
                     <span class="chip" style="color:var(--color-ok);border-color:color-mix(in srgb,var(--color-ok) 35%,transparent);background:color-mix(in srgb,var(--color-ok) 12%,var(--color-panel))">
                       Template
                     </span>
+                    {#if subscription.on_transform_error === "fallback"}
+                      <span class="chip" title="If the template fails, the default envelope is sent instead">Fallback on error</span>
+                    {/if}
+                  {/if}
+                  {#if subscription.paused}
+                    <span class="chip" style="color:var(--color-warn);border-color:color-mix(in srgb,var(--color-warn) 35%,transparent);background:color-mix(in srgb,var(--color-warn) 12%,var(--color-panel))">
+                      Paused
+                    </span>
                   {/if}
                 </div>
+                {#if subscription.paused}
+                  <p class="text-xs text-muted mb-2">
+                    Paused {subscription.paused_at ? formatCreatedAt(subscription.paused_at) : ""}{subscription.paused_reason ? `: ${subscription.paused_reason}` : ""}. New deliveries are recorded as paused and not sent.
+                  </p>
+                {/if}
 
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted mono tnum">
                   <span>Timeout: {subscription.timeout || 30}s</span>
@@ -495,6 +608,11 @@
                 <button onclick={() => openEditModal(subscription)} class="btn btn-ghost !px-3 !py-1.5">
                   Edit
                 </button>
+                {#if subscription.paused}
+                  <button onclick={() => resumeSubscription(subscription)} class="btn btn-ghost !px-3 !py-1.5">Resume</button>
+                {:else}
+                  <button onclick={() => { pauseTarget = subscription; pauseReason = ""; }} class="btn btn-ghost !px-3 !py-1.5">Pause</button>
+                {/if}
                 <button onclick={() => promptDelete(subscription.subscription_id)} class="btn btn-danger !px-3 !py-1.5">
                   Delete
                 </button>
@@ -684,6 +802,35 @@
                   </div>
                 </div>
               {/if}
+            </div>
+          </div>
+        {/if}
+
+        {#if form.transformEnabled}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="modal-on-error" class="field-label">If the template fails</label>
+              <select id="modal-on-error" bind:value={form.onTransformError} class="select">
+                <option value="fail">Fail the delivery (recommended)</option>
+                <option value="fallback">Send the default envelope</option>
+              </select>
+              <p class="text-xs text-muted mt-1">
+                {form.onTransformError === "fail"
+                  ? "Nothing is sent and the delivery is marked template_error. It is not retried automatically and does not affect the webhook's health; retry it after fixing the template."
+                  : "The default envelope is sent instead. The template error is still recorded on the delivery."}
+              </p>
+            </div>
+            <div>
+              <label for="modal-missing-key" class="field-label">Missing fields</label>
+              <select id="modal-missing-key" bind:value={form.templateMissingKey} class="select">
+                <option value="error">Treat as an error (recommended)</option>
+                <option value="zero">Render as &lt;no value&gt;</option>
+              </select>
+              <p class="text-xs text-muted mt-1">
+                {form.templateMissingKey === "error"
+                  ? "Reading a field the payload does not have fails the template, so a removed field is caught. Read optional fields with index, dig or default, e.g. {{ dig \"coupon\" \"\" .payload }}."
+                  : "A missing field renders as <no value> and the delivery goes out."}
+              </p>
             </div>
           </div>
         {/if}

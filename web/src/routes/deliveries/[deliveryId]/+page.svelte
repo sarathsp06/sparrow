@@ -114,7 +114,25 @@
             {#if delivery.error_category && delivery.error_category !== 'success'}
                 <div class="px-6 py-4 border-t border-line">
                     <p class="eyebrow mb-1.5">Error</p>
-                    <p class="text-sm" style="color:var(--color-bad)">{getCategoryDisplay(delivery.error_category)}: {delivery.error_message || 'No details'}</p>
+                    <p class="text-sm" style="color:var(--color-bad)">{getCategoryDisplay(delivery.error_category).label}: {delivery.error_message || 'No details'}</p>
+                    {#if delivery.error_category === 'template_error'}
+                        <p class="text-xs text-muted mt-1.5">The subscription's transform failed to render, so nothing was sent. This is not retried automatically and does not affect the webhook's health. Fix the template, then retry this delivery.</p>
+                    {/if}
+                </div>
+            {/if}
+            {#if delivery.template_error}
+                <div class="px-6 py-4 border-t border-line">
+                    <p class="eyebrow mb-1.5">Template error</p>
+                    <pre class="panel-2 mono text-xs p-3 overflow-auto whitespace-pre-wrap text-text">{delivery.template_error}</pre>
+                    {#if delivery.error_category !== 'template_error'}
+                        <p class="text-xs text-muted mt-1.5">The subscription uses on_transform_error=fallback, so the default envelope was sent instead.</p>
+                    {/if}
+                </div>
+            {/if}
+            {#if delivery.status === 'paused'}
+                <div class="px-6 py-4 border-t border-line">
+                    <p class="eyebrow mb-1.5">Paused</p>
+                    <p class="text-sm text-muted">Created while its subscription was paused. It has not been sent and will not be sent until it is retried.</p>
                 </div>
             {/if}
             <div class="px-6 py-4 border-t border-line">
