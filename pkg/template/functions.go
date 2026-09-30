@@ -137,7 +137,7 @@ func GetTemplateFunctions() []TemplateFunc {
 				}
 				return val
 			},
-			Description: "# default\n\nReturns default value if the input value is nil or empty string.\n\n## Usage\n```\n{{ .optionalField | default \"N/A\" }}\n{{ default \"Unknown\" .name }}\n```\n\n## Example\n```\nInput: \"N/A\", \"\"\nOutput: \"N/A\"\n\nInput: \"N/A\", \"John\"\nOutput: \"John\"\n```",
+			Description: "# default\n\nReturns default value if the input value is nil or empty string.\n\nSubscriptions render strictly by default (template_missing_key=error), so a key the payload does not have fails before default runs. For a field that may be absent, use dig or index instead: `{{ dig \"plan\" \"free\" .payload }}`.\n\n## Usage\n```\n{{ .optionalField | default \"N/A\" }}\n{{ default \"Unknown\" .name }}\n```\n\n## Example\n```\nInput: \"N/A\", \"\"\nOutput: \"N/A\"\n\nInput: \"N/A\", \"John\"\nOutput: \"John\"\n```",
 		},
 		{
 			Name: "slice",
