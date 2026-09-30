@@ -326,7 +326,7 @@ func TestWebhookService_TestSubscriptionTemplate(t *testing.T) {
 func TestWebhookService_PushEvent_AutoRegister(t *testing.T) {
 	repo := new(mockRepo)
 	inserter := new(mockJobInserter)
-	service := NewWebhookService(inserter, repo, nil)
+	service := NewWebhookService(inserter, repo, nil, WithAutoRegisterEvents(true))
 
 	ctx := testContext()
 	consumer := "default"

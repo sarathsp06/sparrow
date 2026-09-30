@@ -139,6 +139,7 @@ func pushSystemEvent(ctx context.Context, log *slog.Logger, eventRepo systemEven
 			Schema:        schema,
 			SamplePayload: systemEventSamplePayload(schema),
 			Active:        true,
+			Version:       1,
 		}
 		if err := eventRepo.RegisterEvent(ctx, tenantID, eventReg); err != nil {
 			log.ErrorContext(ctx, "Failed to auto-register system event", "event", event, "error", err)
@@ -149,12 +150,13 @@ func pushSystemEvent(ctx context.Context, log *slog.Logger, eventRepo systemEven
 	eventID := uuid.New()
 	createdAt := time.Now()
 	record := &store.EventRecord{
-		ID:          eventID,
-		Consumer:    SystemEventConsumer,
-		Event:       event,
-		Payload:     payload,
-		SchemaValid: true,
-		CreatedAt:   createdAt,
+		ID:           eventID,
+		Consumer:     SystemEventConsumer,
+		Event:        event,
+		Payload:      payload,
+		SchemaValid:  true,
+		EventVersion: eventReg.Version,
+		CreatedAt:    createdAt,
 	}
 	if err := eventRepo.StoreEvent(ctx, tenantID, record); err != nil {
 		log.ErrorContext(ctx, "Failed to store system event", "event", event, "error", err)

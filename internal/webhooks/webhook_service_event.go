@@ -75,6 +75,13 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		span.SetStatus(otelcodes.Error, "invalid labels")
 		return "", false, false, nil, err
 	}
+	if IsReservedEventName(event) {
+		// Only Sparrow itself emits sparrow.* events (see queue.pushSystemEvent).
+		err := reservedEventNameError(event)
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "reserved event name")
+		return "", false, false, nil, err
+	}
 
 	// Idempotency check: if the caller provided an idempotency key, look up
 	// an existing event with the same key in this (tenant, consumer). When
@@ -100,7 +107,9 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		}
 	}
 
-	// Lookup registered event, auto-registering if it doesn't exist yet.
+	// Look up the registered event type. Unknown names are rejected unless
+	// auto-registration is enabled (a development convenience; production
+	// definitions arrive by register or import).
 	eventReg, err := s.webhookRepo.GetEventByName(ctx, tenantID, event)
 	if err != nil {
 		span.RecordError(err)
@@ -109,21 +118,18 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		return "", false, false, nil, fmt.Errorf("failed to lookup event registration: %w", err)
 	}
 	if eventReg == nil {
-		// Auto-register the event so callers don't have to pre-register every
-		// event type. The registration is created without a schema, so any
-		// payload is accepted. Users can later update it with a description and
-		// JSON schema via the RegisterEvent / UpdateEvent API.
-		eventReg = &store.EventRegistration{
-			Name:   event,
-			Active: true,
+		if !s.autoRegisterEvents {
+			err := svcerrors.Errorf(svcerrors.NotFound, "event type %q is not registered; register or import it before pushing", event)
+			span.RecordError(err)
+			span.SetStatus(otelcodes.Error, "event type not registered")
+			return "", false, false, nil, err
 		}
-		if err := s.webhookRepo.RegisterEvent(ctx, tenantID, eventReg); err != nil {
+		eventReg, err = s.autoRegisterEvent(ctx, tenantID, event)
+		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(otelcodes.Error, "auto-registration failed")
-			s.logger.ErrorContext(ctx, "Failed to auto-register event", "event", event, "error", err)
-			return "", false, false, nil, fmt.Errorf("failed to auto-register event: %w", err)
+			return "", false, false, nil, err
 		}
-		s.logger.InfoContext(ctx, "Auto-registered new event type", "event", event)
 	}
 	if !eventReg.Active {
 		err := svcerrors.Errorf(svcerrors.FailedPrecondition, "event '%s' is inactive", event)
@@ -180,6 +186,7 @@ func (s *WebhookService) PushEvent(ctx context.Context, consumer string, event s
 		Metadata:       metadata,
 		Labels:         labels,
 		SchemaValid:    schemaValid,
+		EventVersion:   eventReg.Version,
 		IdempotencyKey: idempotencyKey,
 		CreatedAt:      time.Now(),
 	}
@@ -399,59 +406,50 @@ func generateSamplePayload(schema map[string]any) (map[string]any, error) {
 	return map[string]any{}, nil
 }
 
-// RegisterEvent registers a new event type
+// autoRegisterEvent creates a schema-less event type on first push, when
+// SPARROW_AUTO_REGISTER_EVENTS is on. A later register or import that adds a
+// schema fills in this version 1 rather than creating version 2.
+func (s *WebhookService) autoRegisterEvent(ctx context.Context, tenantID uuid.UUID, event string) (*store.EventRegistration, error) {
+	reg := &store.EventRegistration{Name: event, Active: true, Version: 1}
+	err := s.webhookRepo.RegisterEvent(ctx, tenantID, reg)
+	if errors.Is(err, storage.ErrAlreadyExists) {
+		// A concurrent push registered it first; use that one.
+		existing, getErr := s.webhookRepo.GetEventByName(ctx, tenantID, event)
+		if getErr != nil {
+			return nil, fmt.Errorf("failed to reload auto-registered event: %w", getErr)
+		}
+		if existing != nil {
+			return existing, nil
+		}
+	}
+	if err != nil {
+		s.logger.ErrorContext(ctx, "Failed to auto-register event", "event", event, "error", err)
+		return nil, fmt.Errorf("failed to auto-register event: %w", err)
+	}
+	s.logger.InfoContext(ctx, "Auto-registered new event type", "event", event)
+	return reg, nil
+}
+
+// RegisterEvent registers a new event type at version 1. It fails with
+// AlreadyExists if the name is taken; use UpdateEvent to change a type.
 func (s *WebhookService) RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, time.Time, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.RegisterEvent")
 	defer span.End()
 
 	s.logger.InfoContext(ctx, "Processing event registration request", "name", name, "description", description)
-	if name == "" {
-		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
-	}
-	if utf8.RuneCountInString(name) > maxEventNameLength {
-		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, eventNameTooLong)
-	}
-
-	tenantID := tenant.DefaultTenantID
-
-	// Event types are tenant-scoped (shared across consumers)
-
-	existingEvent, err := s.webhookRepo.GetEventByName(ctx, tenantID, name)
+	res, err := s.saveEventType(ctx, EventTypeDefinition{
+		Name:        name,
+		Description: description,
+		Schema:      schema,
+		Metadata:    metadata,
+		Active:      active,
+	}, saveCreateOnly)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to check existing event", "error", err)
-		return "", time.Time{}, fmt.Errorf("failed to check existing event: %w", err)
+		s.logger.ErrorContext(ctx, "Failed to register event", "name", name, "error", err)
+		return "", time.Time{}, err
 	}
-	if existingEvent != nil {
-		return "", time.Time{}, svcerrors.Error(svcerrors.InvalidArgument, "event already exists")
-	}
-
-	// Generate sample payload from schema
-	samplePayload, err := generateSamplePayload(schema)
-	if err != nil {
-		s.logger.WarnContext(ctx, "Failed to generate sample payload, using empty payload", "error", err)
-		samplePayload = map[string]any{}
-	}
-
-	event := &store.EventRegistration{
-		Name:          name,
-		Description:   description,
-		Schema:        schema,
-		SamplePayload: samplePayload,
-		Metadata:      metadata,
-		Active:        active,
-	}
-	if err := s.webhookRepo.RegisterEvent(ctx, tenantID, event); err != nil {
-		s.logger.ErrorContext(ctx, "Failed to register event",
-			"name", name,
-			"error", err,
-		)
-		return "", time.Time{}, fmt.Errorf("failed to register event: %w", err)
-	}
-	s.logger.InfoContext(ctx, "Event registered successfully",
-		"name", name,
-		"description", description,
-	)
-	return event.Name, event.CreatedAt, nil
+	s.logger.InfoContext(ctx, "Event registered successfully", "name", name, "version", res.Version)
+	return res.Name, res.Event.CreatedAt, nil
 }
 
 // ListEvents lists all registered events
@@ -481,100 +479,60 @@ func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, limit,
 	return events, int32(totalCount), nil
 }
 
-// UpdateEvent updates an event registration
-func (s *WebhookService) UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error {
+// UpdateEvent replaces an existing event type's definition. A schema change
+// creates a new version; everything else changes the current version in
+// place. See planEventTypeSave for the exact rules.
+func (s *WebhookService) UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (*EventTypeSaveResult, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateEvent")
 	defer span.End()
 
-	s.logger.InfoContext(ctx, "Processing event update request",
-		"name", name,
-		"description", description)
-
-	// Validate required fields
-	if name == "" {
-		return svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
-	}
-
-	tenantID := tenant.DefaultTenantID
-
-	// Event types are tenant-scoped
-
-	// Check if event exists
-	existingEvent, err := s.webhookRepo.GetEventByName(ctx, tenantID, name)
+	s.logger.InfoContext(ctx, "Processing event update request", "name", name)
+	res, err := s.saveEventType(ctx, EventTypeDefinition{
+		Name:        name,
+		Description: description,
+		Schema:      schema,
+		Metadata:    metadata,
+		Active:      active,
+	}, saveMustExist)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to get event", "error", err)
-		return fmt.Errorf("failed to retrieve event: %w", err)
+		s.logger.ErrorContext(ctx, "Failed to update event", "name", name, "error", err)
+		return nil, err
 	}
-
-	if existingEvent == nil {
-		return svcerrors.Error(svcerrors.NotFound, "event not found")
-	}
-
-	// Update event fields
-	existingEvent.Description = description
-	existingEvent.Schema = schema
-	existingEvent.Metadata = metadata
-	existingEvent.Active = active
-
-	// Generate sample payload from schema
-	samplePayload, err := generateSamplePayload(schema)
-	if err != nil {
-		s.logger.WarnContext(ctx, "Failed to generate sample payload, using empty payload", "error", err)
-		samplePayload = map[string]any{}
-	}
-	existingEvent.SamplePayload = samplePayload
-
-	// Update the event
-	if err := s.webhookRepo.UpdateEvent(ctx, tenantID, existingEvent); err != nil {
-		s.logger.ErrorContext(ctx, "Failed to update event",
-			"name", name,
-			"error", err,
-		)
-		return fmt.Errorf("failed to update event: %w", err)
-	}
-
-	s.logger.InfoContext(ctx, "Event updated successfully", "name", name)
-	return nil
+	s.logger.InfoContext(ctx, "Event updated", "name", name, "action", res.Action, "version", res.Version)
+	return res, nil
 }
 
-// DeleteEvent deletes an event registration
-func (s *WebhookService) DeleteEvent(ctx context.Context, name string) error {
-	ctx, span := s.tracer.Start(ctx, "WebhookService.DeleteEvent")
+// ListEventTypeVersions returns every version of an event type, newest first.
+func (s *WebhookService) ListEventTypeVersions(ctx context.Context, name string) ([]*store.EventRegistrationVersion, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.ListEventTypeVersions")
 	defer span.End()
 
-	s.logger.InfoContext(ctx, "Processing event deletion request", "name", name)
-
-	// Validate required fields
-	if name == "" {
-		return svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
+	if _, err := s.GetEvent(ctx, name); err != nil {
+		return nil, err
 	}
-
-	tenantID := tenant.DefaultTenantID
-
-	// Event types are tenant-scoped
-
-	// Check if event exists
-	existingEvent, err := s.webhookRepo.GetEventByName(ctx, tenantID, name)
+	versions, err := s.webhookRepo.ListEventTypeVersions(ctx, tenant.DefaultTenantID, name)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to get event", "error", err)
-		return fmt.Errorf("failed to retrieve event: %w", err)
+		return nil, fmt.Errorf("failed to list event type versions: %w", err)
 	}
+	return versions, nil
+}
 
-	if existingEvent == nil {
-		return svcerrors.Error(svcerrors.NotFound, "event not found")
+// GetEventTypeVersion returns one version of an event type.
+func (s *WebhookService) GetEventTypeVersion(ctx context.Context, name string, version int) (*store.EventRegistrationVersion, error) {
+	ctx, span := s.tracer.Start(ctx, "WebhookService.GetEventTypeVersion")
+	defer span.End()
+
+	if name == "" {
+		return nil, svcerrors.Error(svcerrors.InvalidArgument, "event name is required")
 	}
-
-	// Delete the event
-	if err := s.webhookRepo.DeleteEvent(ctx, tenantID, name); err != nil {
-		s.logger.ErrorContext(ctx, "Failed to delete event",
-			"name", name,
-			"error", err,
-		)
-		return fmt.Errorf("failed to delete event: %w", err)
+	v, err := s.webhookRepo.GetEventTypeVersion(ctx, tenant.DefaultTenantID, name, version)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get event type version: %w", err)
 	}
-
-	s.logger.InfoContext(ctx, "Event deleted successfully", "name", name)
-	return nil
+	if v == nil {
+		return nil, svcerrors.Errorf(svcerrors.NotFound, "event type %q has no version %d", name, version)
+	}
+	return v, nil
 }
 
 // GetEvent retrieves an event registration by name

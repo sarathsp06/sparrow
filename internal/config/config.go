@@ -108,6 +108,12 @@ type Config struct {
 	// kept forever. Runs hourly as a background job.
 	// Env: SPARROW_EVENT_RETENTION_DAYS
 	EventRetentionDays int `envconfig:"SPARROW_EVENT_RETENTION_DAYS" default:"0"`
+
+	// AutoRegisterEvents lets a push to an unregistered event name create a
+	// schema-less event type instead of returning 404. Off by default: event
+	// types are never deleted, so in production a producer typo would become
+	// a permanent name. Turn it on for local development.
+	AutoRegisterEvents bool `envconfig:"SPARROW_AUTO_REGISTER_EVENTS" default:"false"`
 }
 
 // Load populates a Config struct from environment variables.

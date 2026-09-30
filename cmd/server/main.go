@@ -226,7 +226,7 @@ func main() {
 
 	fmt.Println("🚀 River queue started successfully")
 
-	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks), webhooks.WithAllowedNetworks(cfg.AllowedNetworkList()))
+	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks), webhooks.WithAllowedNetworks(cfg.AllowedNetworkList()), webhooks.WithAutoRegisterEvents(cfg.AutoRegisterEvents))
 	tracedWebhookService := webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, "")
 
 	// Create chi router for the REST API, health endpoints, and embedded UI.

@@ -39,19 +39,87 @@ type patchEventTypeInput struct {
 	Body eventTypeBody
 }
 
-type eventTypeItem struct {
+type EventTypeItem struct {
 	Name          string            `json:"name" doc:"Event type name, e.g. order.created."`
 	Description   string            `json:"description,omitempty" doc:"Human-readable summary of what this event represents."`
 	JSONSchema    map[string]any    `json:"event_schema,omitempty" doc:"JSON Schema payloads are softly validated against, if one is registered."`
 	SamplePayload map[string]any    `json:"sample_payload,omitempty" doc:"Example payload derived from the schema, used to preview subscription transform templates."`
 	Metadata      map[string]string `json:"metadata,omitempty" doc:"Arbitrary key/value metadata."`
 	Active        bool              `json:"active" doc:"Whether events of this type can currently be pushed."`
+	Version       int               `json:"version" doc:"Current schema version. Starts at 1 and increases only when the schema changes; every version is kept (see listEventTypeVersions)."`
 	CreatedAt     string            `json:"created_at" doc:"Creation timestamp, RFC3339."`
 	UpdatedAt     string            `json:"updated_at" doc:"Last-modified timestamp, RFC3339."`
 }
 
 type eventTypeOutput struct {
-	Body eventTypeItem
+	Body EventTypeItem
+}
+
+// eventTypeChange reports what a write did to an event type.
+type eventTypeChange struct {
+	Action          string   `json:"action" enum:"created,new_version,updated,unchanged" doc:"created: new event type at version 1. new_version: the schema changed, so a new version was created and the previous one kept. updated: the current version changed in place (description, metadata, active, or a first schema added to a schema-less version). unchanged: nothing was written."`
+	Version         int      `json:"version" doc:"Version after the write."`
+	PreviousVersion int      `json:"previous_version,omitempty" doc:"Version before the write; absent when the event type was created."`
+	Changes         []string `json:"changes,omitempty" doc:"Fields that changed: schema, schema_defined (a first schema was added in place), description, metadata, active."`
+	ActiveChange    string   `json:"active_change,omitempty" enum:"deactivates,reactivates," doc:"Set when the write flips the active flag."`
+}
+
+func toEventTypeChange(r *webhooks.EventTypeSaveResult) eventTypeChange {
+	return eventTypeChange{
+		Action:          string(r.Action),
+		Version:         r.Version,
+		PreviousVersion: r.PreviousVersion,
+		Changes:         r.Changes,
+		ActiveChange:    r.ActiveChange,
+	}
+}
+
+type updateEventTypeOutput struct {
+	Body struct {
+		EventTypeItem
+		Change eventTypeChange `json:"change" doc:"What this update did."`
+	}
+}
+
+type eventTypeVersionItem struct {
+	Name            string         `json:"name" doc:"Event type name."`
+	Version         int            `json:"version" doc:"Version number."`
+	Description     string         `json:"description,omitempty" doc:"Description as it was when this version was created."`
+	JSONSchema      map[string]any `json:"event_schema,omitempty" doc:"JSON Schema of this version. Absent for a schema-less version."`
+	SamplePayload   map[string]any `json:"sample_payload,omitempty" doc:"Example payload generated from this version's schema."`
+	SchemaDefinedAt *string        `json:"schema_defined_at,omitempty" doc:"When a first schema was added to this version in place, RFC3339. Events pushed before this time were accepted while the version had no schema."`
+	CreatedAt       string         `json:"created_at" doc:"When this version was created, RFC3339."`
+}
+
+func toEventTypeVersionItem(v *store.EventRegistrationVersion) eventTypeVersionItem {
+	item := eventTypeVersionItem{
+		Name:          v.Name,
+		Version:       v.Version,
+		Description:   v.Description,
+		JSONSchema:    v.Schema,
+		SamplePayload: v.SamplePayload,
+		CreatedAt:     v.CreatedAt.Format(time.RFC3339Nano),
+	}
+	if v.SchemaDefinedAt != nil {
+		t := v.SchemaDefinedAt.Format(time.RFC3339Nano)
+		item.SchemaDefinedAt = &t
+	}
+	return item
+}
+
+type eventTypeVersionInput struct {
+	Name    string `path:"name"`
+	Version int    `path:"version" minimum:"1" doc:"Version number."`
+}
+
+type eventTypeVersionOutput struct {
+	Body eventTypeVersionItem
+}
+
+type listEventTypeVersionsOutput struct {
+	Body struct {
+		Items []eventTypeVersionItem `json:"items" doc:"Every version of the event type, newest first."`
+	}
 }
 
 type validateEventPayloadInput struct {
@@ -68,14 +136,15 @@ type validateEventPayloadOutput struct {
 	}
 }
 
-func toEventTypeItem(e *store.EventRegistration) eventTypeItem {
-	return eventTypeItem{
+func toEventTypeItem(e *store.EventRegistration) EventTypeItem {
+	return EventTypeItem{
 		Name:          e.Name,
 		Description:   e.Description,
 		JSONSchema:    e.Schema,
 		SamplePayload: e.SamplePayload,
 		Metadata:      e.Metadata,
 		Active:        e.Active,
+		Version:       e.Version,
 		CreatedAt:     e.CreatedAt.Format(time.RFC3339Nano),
 		UpdatedAt:     e.UpdatedAt.Format(time.RFC3339Nano),
 	}
@@ -93,7 +162,7 @@ type listEventTypesInput struct {
 
 type listEventTypesOutput struct {
 	Body struct {
-		Items      []eventTypeItem  `json:"items"`
+		Items      []EventTypeItem  `json:"items"`
 		Pagination PaginationOutput `json:"pagination"`
 	}
 }
@@ -137,6 +206,7 @@ type eventOccurrenceItem struct {
 	Metadata             map[string]string `json:"metadata,omitempty" doc:"Arbitrary key/value metadata stored with the occurrence."`
 	Labels               map[string]string `json:"labels,omitempty" doc:"Key/value labels used to match against subscription label filters."`
 	SchemaValid          bool              `json:"schema_valid" doc:"Whether the payload validated against the event type's JSON Schema at push time."`
+	EventVersion         int               `json:"event_version" doc:"Event type version this occurrence was accepted under."`
 	WebhookCount         int32             `json:"webhook_count" doc:"Number of webhooks whose subscriptions matched this occurrence."`
 	SuccessfulDeliveries int32             `json:"successful_deliveries" doc:"Deliveries that succeeded."`
 	FailedDeliveries     int32             `json:"failed_deliveries" doc:"Deliveries that failed (exhausted retries or non-retryable error)."`
@@ -273,7 +343,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 			return nil, mapError(ctx, err, "failed to list event types")
 		}
 		out := &listEventTypesOutput{}
-		out.Body.Items = make([]eventTypeItem, 0, len(regs))
+		out.Body.Items = make([]EventTypeItem, 0, len(regs))
 		for _, e := range regs {
 			out.Body.Items = append(out.Body.Items, toEventTypeItem(e))
 		}
@@ -302,10 +372,10 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Method:      http.MethodPatch,
 		Path:        "/v1/event-types/{name}",
 		Summary:     "Update an event type definition",
-		Description: "Merge-patches an event type: only fields present in the request body are changed.",
+		Description: "Merge-patches an event type: only fields present in the request body are changed. A schema change creates a new version and keeps the previous one; adding a first schema to a schema-less version, and any change to description, metadata or active, updates the current version in place. The response's change field says which happened.",
 		Errors:      []int{400, 404},
 		Tags:        []string{"Event Types"},
-	}, func(ctx context.Context, in *patchEventTypeInput) (*eventTypeOutput, error) {
+	}, func(ctx context.Context, in *patchEventTypeInput) (*updateEventTypeOutput, error) {
 		existing, err := svc.GetEvent(ctx, in.Name)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to get event type")
@@ -326,30 +396,51 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		if in.Body.Active != nil {
 			active = *in.Body.Active
 		}
-		if err := svc.UpdateEvent(ctx, in.Name, desc, schema, meta, active); err != nil {
+		res, err := svc.UpdateEvent(ctx, in.Name, desc, schema, meta, active)
+		if err != nil {
 			return nil, mapError(ctx, err, "failed to update event type")
 		}
-		updated, err := svc.GetEvent(ctx, in.Name)
-		if err != nil {
-			return nil, mapError(ctx, err, "failed to reload event type")
-		}
-		return toEventTypeOutput(updated), nil
+		out := &updateEventTypeOutput{}
+		out.Body.EventTypeItem = toEventTypeItem(res.Event)
+		out.Body.Change = toEventTypeChange(res)
+		return out, nil
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID:   "deleteEventType",
-		Method:        http.MethodDelete,
-		Path:          "/v1/event-types/{name}",
-		Summary:       "Delete an event type definition",
-		Description:   "Permanently deletes an event type definition. Existing pushed occurrences of this type are not deleted.",
-		Errors:        []int{404},
-		Tags:          []string{"Event Types"},
-		DefaultStatus: http.StatusNoContent,
-	}, func(ctx context.Context, in *eventTypeNameInput) (*emptyOutput, error) {
-		if err := svc.DeleteEvent(ctx, in.Name); err != nil {
-			return nil, mapError(ctx, err, "failed to delete event type")
+		OperationID: "listEventTypeVersions",
+		Method:      http.MethodGet,
+		Path:        "/v1/event-types/{name}/versions",
+		Summary:     "List every version of an event type",
+		Description: "Returns the version history of an event type, newest first. Event types are never deleted; to retire one, set active to false.",
+		Errors:      []int{404},
+		Tags:        []string{"Event Types"},
+	}, func(ctx context.Context, in *eventTypeNameInput) (*listEventTypeVersionsOutput, error) {
+		versions, err := svc.ListEventTypeVersions(ctx, in.Name)
+		if err != nil {
+			return nil, mapError(ctx, err, "failed to list event type versions")
 		}
-		return &emptyOutput{Status: http.StatusNoContent}, nil
+		out := &listEventTypeVersionsOutput{}
+		out.Body.Items = make([]eventTypeVersionItem, 0, len(versions))
+		for _, v := range versions {
+			out.Body.Items = append(out.Body.Items, toEventTypeVersionItem(v))
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "getEventTypeVersion",
+		Method:      http.MethodGet,
+		Path:        "/v1/event-types/{name}/versions/{version}",
+		Summary:     "Get one version of an event type",
+		Description: "Fetches a specific version's schema, sample payload and description.",
+		Errors:      []int{404},
+		Tags:        []string{"Event Types"},
+	}, func(ctx context.Context, in *eventTypeVersionInput) (*eventTypeVersionOutput, error) {
+		v, err := svc.GetEventTypeVersion(ctx, in.Name, in.Version)
+		if err != nil {
+			return nil, mapError(ctx, err, "failed to get event type version")
+		}
+		return &eventTypeVersionOutput{Body: toEventTypeVersionItem(v)}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -448,6 +539,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		out.Body.Metadata = rec.Metadata
 		out.Body.Labels = rec.Labels
 		out.Body.SchemaValid = rec.SchemaValid
+		out.Body.EventVersion = rec.EventVersion
 		out.Body.WebhookCount = webhookCount
 		out.Body.SuccessfulDeliveries = successCount
 		out.Body.FailedDeliveries = failedCount
@@ -582,6 +674,7 @@ func listEventOccurrencesImpl(ctx context.Context, svc eventRouteService, consum
 		o.Body.Metadata = r.Metadata
 		o.Body.Labels = r.Labels
 		o.Body.SchemaValid = r.SchemaValid
+		o.Body.EventVersion = r.EventVersion
 		o.Body.WebhookCount = r.WebhookCount
 		o.Body.SuccessfulDeliveries = r.SuccessfulDeliveries
 		o.Body.FailedDeliveries = r.FailedDeliveries

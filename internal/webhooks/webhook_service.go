@@ -26,6 +26,9 @@ type WebhookService struct {
 	tracer        trace.Tracer
 	metrics       *observability.SparrowMetrics
 	networkPolicy client.NetworkPolicy
+	// autoRegisterEvents lets a push to an unknown event name create a
+	// schema-less event type instead of failing with NotFound.
+	autoRegisterEvents bool
 }
 
 // WebhookManager manages webhook registrations and their lifecycle.
@@ -44,9 +47,10 @@ type WebhookManager interface {
 type EventManager interface {
 	RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, time.Time, error)
 	ListEvents(ctx context.Context, activeOnly bool, limit, offset int32) ([]*store.EventRegistration, int32, error)
-	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) error
-	DeleteEvent(ctx context.Context, name string) error
+	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (*EventTypeSaveResult, error)
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
+	ListEventTypeVersions(ctx context.Context, name string) ([]*store.EventRegistrationVersion, error)
+	GetEventTypeVersion(ctx context.Context, name string, version int) (*store.EventRegistrationVersion, error)
 	// PushEvent returns (eventID, isDuplicate, schemaValid, warnings, err).
 	// isDuplicate is true when idempotencyKey matched an existing event; the
 	// other fields then describe that existing event, not a new one.
@@ -151,6 +155,16 @@ func WithAllowPrivateNetworks(allow bool) WebhookServiceOption {
 func WithAllowedNetworks(nets []*net.IPNet) WebhookServiceOption {
 	return func(s *WebhookService) {
 		s.networkPolicy.AllowedNetworks = nets
+	}
+}
+
+// WithAutoRegisterEvents makes a push to an unregistered event name create a
+// schema-less event type instead of returning NotFound. Off by default: it is
+// a development convenience, and in production it turns typos into permanent
+// event type names, since event types are never deleted.
+func WithAutoRegisterEvents(enabled bool) WebhookServiceOption {
+	return func(s *WebhookService) {
+		s.autoRegisterEvents = enabled
 	}
 }
 
