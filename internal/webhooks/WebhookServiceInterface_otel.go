@@ -219,6 +219,31 @@ func (_d WebhookServiceInterfaceWithTracing) DeleteSubscription(ctx context.Cont
 	return _d.WebhookServiceInterface.DeleteSubscription(ctx, subscriptionID, consumer)
 }
 
+// ExportEventTypes implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) ExportEventTypes(ctx context.Context, sel EventTypeExportSelection) (ea1 []EventTypeDefinition, b1 BundleStamp, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ExportEventTypes")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx": ctx,
+				"sel": sel}, map[string]interface{}{
+				"ea1": ea1,
+				"b1":  b1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.ExportEventTypes(ctx, sel)
+}
+
 // GetConsumerStats implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) GetConsumerStats(ctx context.Context, consumer string) (cp1 *ConsumerStatsData, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.GetConsumerStats")
@@ -488,6 +513,32 @@ func (_d WebhookServiceInterfaceWithTracing) GetWebhookHealth(ctx context.Contex
 		_span.End()
 	}()
 	return _d.WebhookServiceInterface.GetWebhookHealth(ctx, webhookID, consumer)
+}
+
+// ImportEventTypes implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) ImportEventTypes(ctx context.Context, items []EventTypeDefinition, stamp *BundleStamp, opts EventTypeImportOptions) (ep1 *EventTypeImportResult, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ImportEventTypes")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":   ctx,
+				"items": items,
+				"stamp": stamp,
+				"opts":  opts}, map[string]interface{}{
+				"ep1": ep1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.ImportEventTypes(ctx, items, stamp, opts)
 }
 
 // ListAlertConfigs implements WebhookServiceInterface
