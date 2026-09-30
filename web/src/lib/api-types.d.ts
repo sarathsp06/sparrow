@@ -1292,7 +1292,7 @@ export interface components {
              */
             on_transform_error?: "fail" | "fallback";
             /**
-             * @description How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into "<no value>" in the body; read optional fields with index, dig or default. zero: the key renders as "<no value>".
+             * @description How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into "<no value>" in the body; read optional fields with index or dig (default only fills a key that is present but empty). zero: the key renders as "<no value>".
              * @enum {string}
              */
             template_missing_key?: "error" | "zero";
@@ -2149,7 +2149,7 @@ export interface components {
             /** @description Subscription id (UUID). */
             subscription_id: string;
             /**
-             * @description How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into "<no value>" in the body; read optional fields with index, dig or default. zero: the key renders as "<no value>".
+             * @description How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into "<no value>" in the body; read optional fields with index or dig (default only fills a key that is present but empty). zero: the key renders as "<no value>".
              * @enum {string}
              */
             template_missing_key: "error" | "zero";
@@ -2259,7 +2259,7 @@ export interface components {
             /** @description Subscription id (UUID). */
             subscription_id: string;
             /**
-             * @description How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into "<no value>" in the body; read optional fields with index, dig or default. zero: the key renders as "<no value>".
+             * @description How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into "<no value>" in the body; read optional fields with index or dig (default only fills a key that is present but empty). zero: the key renders as "<no value>".
              * @enum {string}
              */
             template_missing_key: "error" | "zero";

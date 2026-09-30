@@ -828,7 +828,7 @@
               </select>
               <p class="text-xs text-muted mt-1">
                 {form.templateMissingKey === "error"
-                  ? "Reading a field the payload does not have fails the template, so a removed field is caught. Read optional fields with index, dig or default, e.g. {{ dig \"coupon\" \"\" .payload }}."
+                  ? "Reading a field the payload does not have fails the template, so a removed field is caught. Read optional fields with index or dig, e.g. {{ dig \"coupon\" \"\" .payload }}."
                   : "A missing field renders as <no value> and the delivery goes out."}
               </p>
             </div>

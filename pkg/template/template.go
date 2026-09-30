@@ -67,7 +67,9 @@ type ExecOptions struct {
 	// (text/template's missingkey=error) instead of rendering "<no value>".
 	// With it, a template that reads a field removed from the payload fails
 	// instead of silently producing a wrong body. Read optional fields with
-	// index, dig or default, which never error on a missing key.
+	// index or dig, which never error on a missing key. default does not
+	// help here: the lookup in `default "x" .payload.plan` fails before
+	// default runs; use `dig "plan" "x" .payload` instead.
 	StrictMissingKeys bool
 }
 

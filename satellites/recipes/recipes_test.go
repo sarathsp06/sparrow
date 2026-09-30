@@ -203,5 +203,5 @@ func TestPagerdutyRecipe_Severity(t *testing.T) {
 
 // strictRender renders recipe templates the way a subscription created from
 // them renders at delivery time: template_missing_key=error is the default,
-// so a template must read optional payload fields with index, dig or default.
+// so a template must read optional payload fields with index or dig.
 var strictRender = template.ExecOptions{StrictMissingKeys: true}
