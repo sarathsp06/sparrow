@@ -399,7 +399,7 @@ func (r *Repository) GetRetriableDeliveries(ctx context.Context, tenantID uuid.U
 		WHERE wd.webhook_id = $1
 		  AND wr.tenant_id = $2
 		  AND wr.consumer = $3
-		  AND ($4 IS TRUE OR wd.status IN ('failed', 'pending', 'retrying'))
+		  AND ($4 IS TRUE OR wd.status IN ('failed', 'pending', 'retrying', 'paused'))
 		ORDER BY wd.created_at DESC
 	`
 

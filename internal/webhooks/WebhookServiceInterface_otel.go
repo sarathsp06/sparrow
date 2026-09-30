@@ -753,6 +753,32 @@ func (_d WebhookServiceInterfaceWithTracing) ListWebhooks(ctx context.Context, c
 	return _d.WebhookServiceInterface.ListWebhooks(ctx, consumer, webhookID, event, activeOnly, health, limit, offset)
 }
 
+// PauseSubscription implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) PauseSubscription(ctx context.Context, subscriptionID string, consumer string, reason string) (ep1 *store.EventSubscription, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.PauseSubscription")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":            ctx,
+				"subscriptionID": subscriptionID,
+				"consumer":       consumer,
+				"reason":         reason}, map[string]interface{}{
+				"ep1": ep1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.PauseSubscription(ctx, subscriptionID, consumer, reason)
+}
+
 // PauseWebhook implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) PauseWebhook(ctx context.Context, webhookID string, consumer string, reason string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.PauseWebhook")
@@ -918,6 +944,31 @@ func (_d WebhookServiceInterfaceWithTracing) RegisterWebhook(ctx context.Context
 		_span.End()
 	}()
 	return _d.WebhookServiceInterface.RegisterWebhook(ctx, consumer, events, url, headers, timeout, active, description, secretHeaders)
+}
+
+// ResumeSubscription implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) ResumeSubscription(ctx context.Context, subscriptionID string, consumer string) (rp1 *ResumeResult, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ResumeSubscription")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":            ctx,
+				"subscriptionID": subscriptionID,
+				"consumer":       consumer}, map[string]interface{}{
+				"rp1": rp1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.ResumeSubscription(ctx, subscriptionID, consumer)
 }
 
 // ResumeWebhook implements WebhookServiceInterface

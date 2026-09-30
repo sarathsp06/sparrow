@@ -1624,6 +1624,33 @@ func (_d RepositoryInterfaceWithTracing) ResolveAlertRecipients(ctx context.Cont
 	return _d.RepositoryInterface.ResolveAlertRecipients(ctx, tenantID, webhookID, consumer, eventType)
 }
 
+// SetSubscriptionPaused implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) SetSubscriptionPaused(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, paused bool, reason string) (tp1 *time.Time, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.SetSubscriptionPaused")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"tenantID": tenantID,
+				"id":       id,
+				"paused":   paused,
+				"reason":   reason}, map[string]interface{}{
+				"tp1": tp1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.SetSubscriptionPaused(ctx, tenantID, id, paused, reason)
+}
+
 // SnapshotDeliveryIDs implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) SnapshotDeliveryIDs(ctx context.Context, tenantID uuid.UUID, filter DeliveryFilter) (sa1 []string, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.SnapshotDeliveryIDs")

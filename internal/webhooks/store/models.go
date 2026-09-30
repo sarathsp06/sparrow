@@ -131,6 +131,9 @@ const (
 	StatusFailed   WebhookDeliveryStatus = "failed"
 	StatusRetrying WebhookDeliveryStatus = "retrying"
 	StatusExpired  WebhookDeliveryStatus = "expired"
+	// StatusPaused is a delivery created while its subscription was paused.
+	// It is never attempted until retried, and does not affect health.
+	StatusPaused WebhookDeliveryStatus = "paused"
 )
 
 // WebhookHealthEvent represents a single delivery event for time-series tracking
@@ -281,9 +284,13 @@ type EventSubscription struct {
 	OnTransformError string `json:"on_transform_error" db:"on_transform_error"`
 	// TemplateMissingKey is how TransformTemplate reads a key the payload
 	// does not have: TemplateMissingKeyError or TemplateMissingKeyZero.
-	TemplateMissingKey string    `json:"template_missing_key" db:"template_missing_key"`
-	CreatedAt          time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
+	TemplateMissingKey string `json:"template_missing_key" db:"template_missing_key"`
+	// PausedAt is set while the subscription is paused. Fan-out then creates
+	// its deliveries with StatusPaused and queues nothing.
+	PausedAt     *time.Time `json:"paused_at,omitempty" db:"paused_at"`
+	PausedReason string     `json:"paused_reason,omitempty" db:"paused_reason"`
+	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // Values of EventSubscription.OnTransformError.
@@ -307,6 +314,11 @@ const (
 // missing keys as errors.
 func (s *EventSubscription) StrictTemplate() bool {
 	return s.TemplateMissingKey != TemplateMissingKeyZero
+}
+
+// Paused reports whether the subscription is paused.
+func (s *EventSubscription) Paused() bool {
+	return s.PausedAt != nil
 }
 
 // ApplyTemplateDefaults fills unset template settings with their defaults.

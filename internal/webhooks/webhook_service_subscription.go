@@ -207,6 +207,69 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 	return s.webhookRepo.UpdateSubscription(ctx, tenant.DefaultTenantID, sub)
 }
 
+// maxPauseReasonLength bounds the free-text reason stored with a pause.
+const maxPauseReasonLength = 500
+
+// PauseSubscription stops a subscription's deliveries from being attempted.
+// Events keep fanning out to it, but each delivery is recorded with status
+// paused and nothing is queued, so nothing is lost and nothing counts
+// against the webhook's health. Pausing an already paused subscription
+// updates the reason and keeps the original pause time.
+func (s *WebhookService) PauseSubscription(ctx context.Context, subscriptionID, consumer, reason string) (*store.EventSubscription, error) {
+	if len([]rune(reason)) > maxPauseReasonLength {
+		return nil, svcerrors.Errorf(svcerrors.InvalidArgument, "reason must be at most %d characters", maxPauseReasonLength)
+	}
+	sub, err := s.getSubscriptionInConsumer(ctx, subscriptionID, consumer)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.webhookRepo.SetSubscriptionPaused(ctx, tenant.DefaultTenantID, sub.ID, true, reason); err != nil {
+		return nil, fmt.Errorf("failed to pause subscription: %w", err)
+	}
+	s.logger.InfoContext(ctx, "Subscription paused", "subscription_id", sub.ID, "reason", reason)
+	return s.webhookRepo.GetSubscription(ctx, tenant.DefaultTenantID, sub.ID)
+}
+
+// ResumeResult describes a resumed subscription.
+type ResumeResult struct {
+	Subscription *store.EventSubscription
+	// PausedSince is when the pause began; nil if it was not paused.
+	PausedSince *time.Time
+	// PausedDeliveries counts the deliveries recorded while paused. They stay
+	// paused until retried, so the caller can decide what to replay.
+	PausedDeliveries int
+}
+
+// ResumeSubscription lets a subscription's new deliveries be attempted again.
+// Deliveries recorded while it was paused are not sent automatically; retry
+// them (all, or since a time) to deliver them.
+func (s *WebhookService) ResumeSubscription(ctx context.Context, subscriptionID, consumer string) (*ResumeResult, error) {
+	sub, err := s.getSubscriptionInConsumer(ctx, subscriptionID, consumer)
+	if err != nil {
+		return nil, err
+	}
+	pausedSince, err := s.webhookRepo.SetSubscriptionPaused(ctx, tenant.DefaultTenantID, sub.ID, false, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to resume subscription: %w", err)
+	}
+	status := string(store.StatusPaused)
+	_, count, err := s.webhookRepo.ListDeliveriesFiltered(ctx, tenant.DefaultTenantID, store.DeliveryFilter{
+		Consumer:       consumer,
+		SubscriptionID: &sub.ID,
+		Status:         &status,
+		Limit:          1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to count paused deliveries: %w", err)
+	}
+	updated, err := s.webhookRepo.GetSubscription(ctx, tenant.DefaultTenantID, sub.ID)
+	if err != nil {
+		return nil, err
+	}
+	s.logger.InfoContext(ctx, "Subscription resumed", "subscription_id", sub.ID, "paused_deliveries", count)
+	return &ResumeResult{Subscription: updated, PausedSince: pausedSince, PausedDeliveries: count}, nil
+}
+
 func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID string, consumer string) error {
 	sub, err := s.getSubscriptionInConsumer(ctx, subscriptionID, consumer)
 	if err != nil {

@@ -25,6 +25,7 @@ type SubscriptionRepository interface {
 	GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*SubscriptionWithWebhook, error)
 	ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID uuid.UUID, webhookIDs []uuid.UUID) ([]*EventSubscription, error)
 	ListSubscriptionsTargetingEvent(ctx context.Context, tenantID uuid.UUID, event string) ([]*EventSubscription, error)
+	SetSubscriptionPaused(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, paused bool, reason string) (*time.Time, error)
 }
 
 // CreateSubscription creates a new event subscription within a tenant
@@ -36,7 +37,7 @@ func (r *Repository) CreateSubscription(ctx context.Context, tenantID uuid.UUID,
 func (r *Repository) GetSubscription(ctx context.Context, tenantID uuid.UUID, id uuid.UUID) (*EventSubscription, error) {
 	query := `
 		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
-		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, created_at, updated_at
+		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, paused_at, COALESCE(paused_reason, '') AS paused_reason, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND id = $2
 	`
@@ -102,7 +103,7 @@ func (r *Repository) DeleteSubscription(ctx context.Context, tenantID uuid.UUID,
 func (r *Repository) ListSubscriptions(ctx context.Context, tenantID uuid.UUID, webhookID uuid.UUID) ([]*EventSubscription, error) {
 	query := `
 		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
-		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, created_at, updated_at
+		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, paused_at, COALESCE(paused_reason, '') AS paused_reason, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND webhook_id = $2
 		ORDER BY created_at DESC
@@ -130,7 +131,7 @@ func (r *Repository) ListSubscriptionsByConsumer(ctx context.Context, tenantID u
 
 	query := `
 		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
-		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, created_at, updated_at
+		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, paused_at, COALESCE(paused_reason, '') AS paused_reason, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND ($2::text IS NULL OR consumer = $2)
 		ORDER BY created_at DESC
@@ -155,7 +156,7 @@ func (r *Repository) ListSubscriptionsByEvent(ctx context.Context, tenantID uuid
 	}
 	query := `
 		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
-		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, created_at, updated_at
+		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, paused_at, COALESCE(paused_reason, '') AS paused_reason, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND ($2::text IS NULL OR consumer = $2) AND event_name = $3
 		ORDER BY created_at DESC
@@ -167,6 +168,38 @@ func (r *Repository) ListSubscriptionsByEvent(ctx context.Context, tenantID uuid
 	return subs, nil
 }
 
+// SetSubscriptionPaused pauses (paused=true, recording reason) or resumes a
+// subscription. Pausing an already paused subscription keeps its original
+// paused_at and updates the reason. It returns paused_at as it was before
+// the call, which on resume is when the pause began. Returns
+// storage.ErrNotFound for an unknown subscription.
+func (r *Repository) SetSubscriptionPaused(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, paused bool, reason string) (*time.Time, error) {
+	var query string
+	var args []any
+	if paused {
+		query = `
+			UPDATE event_subscriptions es
+			SET paused_at = COALESCE(es.paused_at, NOW()), paused_reason = $3, updated_at = NOW()
+			FROM (SELECT paused_at FROM event_subscriptions WHERE tenant_id = $1 AND id = $2 FOR UPDATE) prev
+			WHERE es.tenant_id = $1 AND es.id = $2
+			RETURNING prev.paused_at`
+		args = []any{tenantID, id, reason}
+	} else {
+		query = `
+			UPDATE event_subscriptions es
+			SET paused_at = NULL, paused_reason = NULL, updated_at = NOW()
+			FROM (SELECT paused_at FROM event_subscriptions WHERE tenant_id = $1 AND id = $2 FOR UPDATE) prev
+			WHERE es.tenant_id = $1 AND es.id = $2
+			RETURNING prev.paused_at`
+		args = []any{tenantID, id}
+	}
+	var prev *time.Time
+	if err := r.conn.GetContext(ctx, &prev, query, args...); err != nil {
+		return nil, storage.Error(err)
+	}
+	return prev, nil
+}
+
 // ListSubscriptionsTargetingEvent returns every subscription, across all
 // consumers, that would receive the event type: those subscribed to it by
 // name and catch-all ("*") subscriptions. Used to judge the impact of a
@@ -174,7 +207,7 @@ func (r *Repository) ListSubscriptionsByEvent(ctx context.Context, tenantID uuid
 func (r *Repository) ListSubscriptionsTargetingEvent(ctx context.Context, tenantID uuid.UUID, event string) ([]*EventSubscription, error) {
 	query := `
 		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
-		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, created_at, updated_at
+		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, paused_at, COALESCE(paused_reason, '') AS paused_reason, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND (event_name = $2 OR event_name = '*')
 		ORDER BY consumer, created_at
@@ -194,7 +227,7 @@ func (r *Repository) ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID
 	}
 	query := `
 		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
-		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, created_at, updated_at
+		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, paused_at, COALESCE(paused_reason, '') AS paused_reason, created_at, updated_at
 		FROM event_subscriptions
 		WHERE tenant_id = $1 AND webhook_id = ANY($2)
 		ORDER BY webhook_id, created_at DESC
@@ -218,7 +251,7 @@ func (r *Repository) ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID
 func (r *Repository) GetSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*EventSubscription, error) {
 	query := `
 		SELECT es.id, es.tenant_id, es.webhook_id, es.event_name, es.consumer, es.headers, es.method, 
-		       es.transform_enabled, es.transform_template, es.timeout, es.label_filters, es.on_transform_error, es.template_missing_key, es.created_at, es.updated_at
+		       es.transform_enabled, es.transform_template, es.timeout, es.label_filters, es.on_transform_error, es.template_missing_key, es.paused_at, COALESCE(es.paused_reason, '') AS paused_reason, es.created_at, es.updated_at
 		FROM event_subscriptions es
 		JOIN webhook_registrations wr ON es.webhook_id = wr.id
 		WHERE es.tenant_id = $1 AND es.consumer = $2
@@ -247,7 +280,7 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 	query := `
 		SELECT
 			es.id, es.webhook_id, es.event_name, es.consumer, es.headers as es_headers, es.method,
-			es.transform_enabled, es.transform_template, es.timeout, es.label_filters, es.on_transform_error, es.template_missing_key, es.created_at, es.updated_at,
+			es.transform_enabled, es.transform_template, es.timeout, es.label_filters, es.on_transform_error, es.template_missing_key, es.paused_at, COALESCE(es.paused_reason, '') AS paused_reason, es.created_at, es.updated_at,
 			wr.id as wr_id, wr.consumer as wr_consumer, wr.url, wr.headers as wr_headers,
 			wr.timeout as wr_timeout, wr.active, wr.description, wr.health,
 			wr.max_retries, wr.retry_backoff_seconds, wr.capture_response_body, wr.follow_redirects,
@@ -268,20 +301,22 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 
 	type rowStruct struct {
 		// Subscription fields
-		ID                uuid.UUID `db:"id"`
-		WebhookID         uuid.UUID `db:"webhook_id"`
-		EventName         string    `db:"event_name"`
-		Consumer          string    `db:"consumer"`
-		HeadersJSON       []byte    `db:"es_headers"`
-		Method            string    `db:"method"`
-		TransformEnabled  bool      `db:"transform_enabled"`
-		TransformTemplate string    `db:"transform_template"`
-		Timeout           int       `db:"timeout"`
-		LabelFiltersJSON  []byte    `db:"label_filters"`
-		OnTransformError  string    `db:"on_transform_error"`
-		MissingKey        string    `db:"template_missing_key"`
-		CreatedAt         time.Time `db:"created_at"`
-		UpdatedAt         time.Time `db:"updated_at"`
+		ID                uuid.UUID  `db:"id"`
+		WebhookID         uuid.UUID  `db:"webhook_id"`
+		EventName         string     `db:"event_name"`
+		Consumer          string     `db:"consumer"`
+		HeadersJSON       []byte     `db:"es_headers"`
+		Method            string     `db:"method"`
+		TransformEnabled  bool       `db:"transform_enabled"`
+		TransformTemplate string     `db:"transform_template"`
+		Timeout           int        `db:"timeout"`
+		LabelFiltersJSON  []byte     `db:"label_filters"`
+		OnTransformError  string     `db:"on_transform_error"`
+		MissingKey        string     `db:"template_missing_key"`
+		PausedAt          *time.Time `db:"paused_at"`
+		PausedReason      string     `db:"paused_reason"`
+		CreatedAt         time.Time  `db:"created_at"`
+		UpdatedAt         time.Time  `db:"updated_at"`
 
 		// Webhook fields
 		WRID                    uuid.UUID     `db:"wr_id"`
@@ -327,6 +362,8 @@ func (r *Repository) GetSubscriptionsWithWebhooksByEvent(ctx context.Context, te
 			Timeout:            row.Timeout,
 			OnTransformError:   row.OnTransformError,
 			TemplateMissingKey: row.MissingKey,
+			PausedAt:           row.PausedAt,
+			PausedReason:       row.PausedReason,
 			CreatedAt:          row.CreatedAt,
 			UpdatedAt:          row.UpdatedAt,
 		}
