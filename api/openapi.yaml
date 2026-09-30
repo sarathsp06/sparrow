@@ -670,6 +670,10 @@ components:
             - reactivates
             - ""
           type: string
+        affected_subscriptions:
+          description: "For new_version: subscriptions that receive this event type, by name or catch-all."
+          format: int64
+          type: integer
         changes:
           description: "Fields that changed: schema, schema_defined (a first schema was added in place), description, metadata, active."
           items:
@@ -677,6 +681,9 @@ components:
           type:
             - array
             - "null"
+        compatibility:
+          $ref: "#/components/schemas/SchemaCompatibilityItem"
+          description: "For new_version: whether the schema change could break a subscription's payload transformation."
         previous_version:
           description: Version before the write; absent when the event type was created.
           format: int64
@@ -1443,6 +1450,25 @@ components:
             - "null"
       required:
         - count
+      type: object
+    SchemaCompatibilityItem:
+      additionalProperties: false
+      properties:
+        reasons:
+          description: Each breaking change with the path it affects.
+          items:
+            type: string
+          type:
+            - array
+            - "null"
+        result:
+          description: "breaking when the change could break a payload transformation: a required property removed or made optional, a type widened, the schema removed, or a change under oneOf/anyOf/allOf/$ref/patternProperties that cannot be checked."
+          enum:
+            - compatible
+            - breaking
+          type: string
+      required:
+        - result
       type: object
     Subscription:
       additionalProperties: false
@@ -3956,7 +3982,7 @@ paths:
       tags:
         - Event Types
     patch:
-      description: "Merge-patches an event type: only fields present in the request body are changed. A schema change creates a new version and keeps the previous one; adding a first schema to a schema-less version, and any change to description, metadata or active, updates the current version in place. The response's change field says which happened."
+      description: "Merge-patches an event type: only fields present in the request body are changed. A schema change creates a new version and keeps the previous one; adding a first schema to a schema-less version, and any change to description, metadata or active, updates the current version in place. The response's change field says which happened. A breaking schema change (see change.compatibility) to an event type that subscriptions receive is refused with 409 unless allow_breaking=true."
       operationId: updateEventType
       parameters:
         - in: path
@@ -3964,6 +3990,14 @@ paths:
           required: true
           schema:
             type: string
+        - description: Apply a breaking schema change even though subscriptions receive this event type. Without it, a breaking change to a subscribed type is refused with 409 and the reasons.
+          explode: false
+          in: query
+          name: allow_breaking
+          schema:
+            default: false
+            description: Apply a breaking schema change even though subscriptions receive this event type. Without it, a breaking change to a subscribed type is refused with 409 and the reasons.
+            type: boolean
       requestBody:
         content:
           application/json:
@@ -3989,6 +4023,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorModel"
           description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Conflict
         "422":
           content:
             application/problem+json:

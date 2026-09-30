@@ -443,7 +443,7 @@ func (s *WebhookService) RegisterEvent(ctx context.Context, name string, descrip
 		Schema:      schema,
 		Metadata:    metadata,
 		Active:      active,
-	}, saveCreateOnly)
+	}, saveCreateOnly, saveEventTypeOptions{})
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to register event", "name", name, "error", err)
 		return "", time.Time{}, err
@@ -482,7 +482,10 @@ func (s *WebhookService) ListEvents(ctx context.Context, activeOnly bool, limit,
 // UpdateEvent replaces an existing event type's definition. A schema change
 // creates a new version; everything else changes the current version in
 // place. See planEventTypeSave for the exact rules.
-func (s *WebhookService) UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (*EventTypeSaveResult, error) {
+//
+// A breaking schema change (see ClassifySchemaChange) to an event type that
+// subscriptions receive fails with FailedPrecondition unless allowBreaking.
+func (s *WebhookService) UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool, allowBreaking bool) (*EventTypeSaveResult, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.UpdateEvent")
 	defer span.End()
 
@@ -493,7 +496,7 @@ func (s *WebhookService) UpdateEvent(ctx context.Context, name string, descripti
 		Schema:      schema,
 		Metadata:    metadata,
 		Active:      active,
-	}, saveMustExist)
+	}, saveMustExist, saveEventTypeOptions{AllowBreaking: allowBreaking})
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to update event", "name", name, "error", err)
 		return nil, err

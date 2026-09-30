@@ -996,17 +996,18 @@ func (_d WebhookServiceInterfaceWithTracing) UnregisterWebhook(ctx context.Conte
 }
 
 // UpdateEvent implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (ep1 *EventTypeSaveResult, err error) {
+func (_d WebhookServiceInterfaceWithTracing) UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool, allowBreaking bool) (ep1 *EventTypeSaveResult, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.UpdateEvent")
 	defer func() {
 		if _d._spanDecorator != nil {
 			_d._spanDecorator(_span, map[string]interface{}{
-				"ctx":         ctx,
-				"name":        name,
-				"description": description,
-				"schema":      schema,
-				"metadata":    metadata,
-				"active":      active}, map[string]interface{}{
+				"ctx":           ctx,
+				"name":          name,
+				"description":   description,
+				"schema":        schema,
+				"metadata":      metadata,
+				"active":        active,
+				"allowBreaking": allowBreaking}, map[string]interface{}{
 				"ep1": ep1,
 				"err": err})
 		} else if err != nil {
@@ -1020,7 +1021,7 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateEvent(ctx context.Context, na
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.UpdateEvent(ctx, name, description, schema, metadata, active)
+	return _d.WebhookServiceInterface.UpdateEvent(ctx, name, description, schema, metadata, active, allowBreaking)
 }
 
 // UpdateSubscription implements WebhookServiceInterface

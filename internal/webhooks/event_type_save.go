@@ -72,8 +72,26 @@ type EventTypeSaveResult struct {
 	// ActiveChange is "deactivates" or "reactivates" when the active flag
 	// flips, and empty otherwise.
 	ActiveChange string
-	// Event is the resulting current definition.
+	// Event is the resulting current definition. For a blocked save it is
+	// the unchanged current definition.
 	Event *store.EventRegistration
+	// Compatibility is set for new_version: how the schema change looks from
+	// a subscriber's point of view.
+	Compatibility *SchemaCompatibility
+	// AffectedSubscriptions are the subscriptions that receive this event
+	// type (by name or catch-all), set for new_version.
+	AffectedSubscriptions []*store.EventSubscription
+	// Blocked is true when the change is breaking, subscriptions receive the
+	// event type, and the caller did not allow breaking changes. Nothing was
+	// written.
+	Blocked bool
+}
+
+// saveEventTypeOptions are per-call choices for a save.
+type saveEventTypeOptions struct {
+	// AllowBreaking applies a breaking schema change even though
+	// subscriptions receive the event type.
+	AllowBreaking bool
 }
 
 // eventTypeSaveMode restricts which outcomes a save may have.
@@ -176,7 +194,7 @@ func reservedEventNameError(name string) error {
 }
 
 // saveEventType validates def and saves it in its own transaction.
-func (s *WebhookService) saveEventType(ctx context.Context, def EventTypeDefinition, mode eventTypeSaveMode) (*EventTypeSaveResult, error) {
+func (s *WebhookService) saveEventType(ctx context.Context, def EventTypeDefinition, mode eventTypeSaveMode, opts saveEventTypeOptions) (*EventTypeSaveResult, error) {
 	if err := validateEventTypeName(def.Name); err != nil {
 		return nil, err
 	}
@@ -186,7 +204,7 @@ func (s *WebhookService) saveEventType(ctx context.Context, def EventTypeDefinit
 	run := func() error {
 		return s.webhookRepo.RunInTransaction(func(tx store.RepositoryInterface) error {
 			var err error
-			res, err = s.saveEventTypeTx(ctx, tx, tenantID, def, mode)
+			res, err = s.saveEventTypeTx(ctx, tx, tenantID, def, mode, opts)
 			return err
 		})
 	}
@@ -200,13 +218,23 @@ func (s *WebhookService) saveEventType(ctx context.Context, def EventTypeDefinit
 	if err != nil {
 		return nil, err
 	}
+	if res.Blocked {
+		return res, breakingChangeError(res)
+	}
 	return res, nil
+}
+
+// breakingChangeError explains why a save was refused.
+func breakingChangeError(res *EventTypeSaveResult) error {
+	return svcerrors.Errorf(svcerrors.FailedPrecondition,
+		"schema change to %q is breaking for %d subscription(s): %s. Pass allow_breaking=true to apply it anyway",
+		res.Name, len(res.AffectedSubscriptions), strings.Join(res.Compatibility.Reasons, "; "))
 }
 
 // saveEventTypeTx applies def inside the transaction tx. It locks the current
 // row, so concurrent writers to one event type are serialized and cannot
 // claim the same next version.
-func (s *WebhookService) saveEventTypeTx(ctx context.Context, tx store.RepositoryInterface, tenantID uuid.UUID, def EventTypeDefinition, mode eventTypeSaveMode) (*EventTypeSaveResult, error) {
+func (s *WebhookService) saveEventTypeTx(ctx context.Context, tx store.RepositoryInterface, tenantID uuid.UUID, def EventTypeDefinition, mode eventTypeSaveMode, opts saveEventTypeOptions) (*EventTypeSaveResult, error) {
 	current, err := tx.GetEventByNameForUpdate(ctx, tenantID, def.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load event type: %w", err)
@@ -220,6 +248,24 @@ func (s *WebhookService) saveEventTypeTx(ctx context.Context, tx store.Repositor
 
 	plan := planEventTypeSave(current, def)
 	res := &plan
+
+	// A schema change is checked from the subscribers' side before anything
+	// is written. A breaking change with nobody receiving the type needs no
+	// opt-in: there is nothing to break.
+	if plan.Action == EventTypeNewVersion {
+		compat := ClassifySchemaChange(current.Schema, def.Schema)
+		res.Compatibility = &compat
+		subs, err := tx.ListSubscriptionsTargetingEvent(ctx, tenantID, def.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list affected subscriptions: %w", err)
+		}
+		res.AffectedSubscriptions = subs
+		if compat.Breaking && len(subs) > 0 && !opts.AllowBreaking {
+			res.Blocked = true
+			res.Event = current
+			return res, nil
+		}
+	}
 
 	next := &store.EventRegistration{
 		Name:        def.Name,

@@ -599,7 +599,7 @@ export interface paths {
         head?: never;
         /**
          * Update an event type definition
-         * @description Merge-patches an event type: only fields present in the request body are changed. A schema change creates a new version and keeps the previous one; adding a first schema to a schema-less version, and any change to description, metadata or active, updates the current version in place. The response's change field says which happened.
+         * @description Merge-patches an event type: only fields present in the request body are changed. A schema change creates a new version and keeps the previous one; adding a first schema to a schema-less version, and any change to description, metadata or active, updates the current version in place. The response's change field says which happened. A breaking schema change (see change.compatibility) to an event type that subscriptions receive is refused with 409 unless allow_breaking=true.
          */
         patch: operations["updateEventType"];
         trace?: never;
@@ -1423,8 +1423,15 @@ export interface components {
              * @enum {string}
              */
             active_change?: "deactivates" | "reactivates" | "";
+            /**
+             * Format: int64
+             * @description For new_version: subscriptions that receive this event type, by name or catch-all.
+             */
+            affected_subscriptions?: number;
             /** @description Fields that changed: schema, schema_defined (a first schema was added in place), description, metadata, active. */
             changes?: string[] | null;
+            /** @description For new_version: whether the schema change could break a subscription's payload transformation. */
+            compatibility?: components["schemas"]["SchemaCompatibilityItem"];
             /**
              * Format: int64
              * @description Version before the write; absent when the event type was created.
@@ -1883,6 +1890,15 @@ export interface components {
             count: number;
             /** @description Ids of the deliveries that were retried. */
             delivery_ids?: string[] | null;
+        };
+        SchemaCompatibilityItem: {
+            /** @description Each breaking change with the path it affects. */
+            reasons?: string[] | null;
+            /**
+             * @description breaking when the change could break a payload transformation: a required property removed or made optional, a type widened, the schema removed, or a change under oneOf/anyOf/allOf/$ref/patternProperties that cannot be checked.
+             * @enum {string}
+             */
+            result: "compatible" | "breaking";
         };
         Subscription: {
             transform_template: string;
@@ -4219,7 +4235,10 @@ export interface operations {
     };
     updateEventType: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Apply a breaking schema change even though subscriptions receive this event type. Without it, a breaking change to a subscribed type is refused with 409 and the reasons. */
+                allow_breaking?: boolean;
+            };
             header?: never;
             path: {
                 name: string;
@@ -4252,6 +4271,15 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
