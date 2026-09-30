@@ -33,6 +33,7 @@ argument, show that event type's schema and sample payload.`,
 	}
 	cmd.Flags().BoolVar(&activeOnly, "active", false, "only show active event types")
 	addOutputFlag(cmd)
+	cmd.AddCommand(newEventsExportCmd(), newEventsImportCmd(), newEventsVersionsCmd())
 	return cmd
 }
 
@@ -63,9 +64,9 @@ func runEvents(ctx context.Context, out io.Writer, client *apiClient, name strin
 	sort.Slice(types, func(i, j int) bool { return types[i].Name < types[j].Name })
 
 	pal := newPalette(out)
-	_, _ = fmt.Fprintln(out, pal.bold(fmt.Sprintf("%-32s %-7s %s", "EVENT", "ACTIVE", "DESCRIPTION")))
+	_, _ = fmt.Fprintln(out, pal.bold(fmt.Sprintf("%-32s %-8s %-7s %s", "EVENT", "VERSION", "ACTIVE", "DESCRIPTION")))
 	for _, et := range types {
-		_, _ = fmt.Fprintf(out, "%-32s %-7s %s\n", et.Name, yesNo(et.Active), et.Description)
+		_, _ = fmt.Fprintf(out, "%-32s %-8s %-7s %s\n", et.Name, fmt.Sprintf("v%d", et.Version), yesNo(et.Active), et.Description)
 	}
 	return nil
 }
@@ -78,6 +79,9 @@ func printEventType(out io.Writer, et eventTypeItem) error {
 		_, _ = fmt.Fprintln(out, et.Description)
 	}
 	_, _ = fmt.Fprintf(out, "active: %s\n", yesNo(et.Active))
+	if et.Version > 0 {
+		_, _ = fmt.Fprintf(out, "version: v%d (history: sparrow events versions %s)\n", et.Version, et.Name)
+	}
 	if len(et.JSONSchema) > 0 {
 		_, _ = fmt.Fprintf(out, "\n%s\n%s\n", pal.dim("schema:"), indentJSON(et.JSONSchema))
 	}

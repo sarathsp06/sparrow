@@ -138,3 +138,37 @@ func TestCLI_E2E(t *testing.T) {
 	}, 30*time.Second, time.Second, "tail --once should print the successful delivery, last output:\n%s", out)
 	assert.Contains(t, out, receiver.URL, "tail should resolve webhook_id to the destination URL")
 }
+
+// TestCLI_EventTypeExportImport exports definitions from one server with the
+// CLI and imports the file into another, the way a promotion between
+// environments works.
+func TestCLI_EventTypeExportImport(t *testing.T) {
+	dev, prod := setupEnv(t), setupEnv(t)
+	ctx := context.Background()
+	bin := buildCLI(t)
+	devC := newRESTClient(t, dev)
+
+	for _, et := range []map[string]any{
+		{"name": "shop.order.created", "event_schema": totalSchema("number")},
+		{"name": "shop.order.shipped"},
+	} {
+		_, err := devC.post(ctx, "/v1/event-types", et, nil)
+		require.NoError(t, err)
+	}
+
+	file := filepath.Join(t.TempDir(), "events.json")
+	out := runCLI(t, dev, bin, "", "events", "export", "--prefix", "shop.", "-f", file)
+	assert.Contains(t, out, "wrote 2 event type(s)")
+
+	out = runCLI(t, prod, bin, "", "events", "import", "-f", file, "--dry-run")
+	assert.Contains(t, out, "dry run: nothing was written")
+	resp, err := newRESTClient(t, prod).get(ctx, "/v1/event-types/shop.order.created", nil)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	out = runCLI(t, prod, bin, "", "events", "import", "-f", file)
+	assert.Contains(t, out, "imported 2 event type(s)")
+
+	out = runCLI(t, prod, bin, "", "events", "versions", "shop.order.created")
+	assert.Contains(t, out, "v1")
+}
