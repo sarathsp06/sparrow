@@ -228,3 +228,53 @@ func TestEventTypeVersions_AutoRegisterThenFillIn(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, 1, patched.Version, "the first real definition fills in the blank v1, so environments stay aligned")
 }
+
+func TestEventTypeVersions_BreakingChangeNeedsOptIn(t *testing.T) {
+	env := setupEnv(t)
+	ctx := context.Background()
+	c := newRESTClient(t, env)
+	const name = "invoice.issued"
+
+	_, err := c.post(ctx, "/v1/event-types", map[string]any{"name": name, "event_schema": totalSchema("number")}, nil)
+	require.NoError(t, err)
+	srv, _ := startBodyRecorder(t)
+	registerWebhookPipeline(t, c, ctx, "billing", name, srv.URL, 0)
+
+	// Removing the required "total" could break a subscriber: refused.
+	breaking := map[string]any{"type": "object", "properties": map[string]any{"id": map[string]any{"type": "string"}}}
+	resp, err := c.do(ctx, http.MethodPatch, "/v1/event-types/"+name, map[string]any{"event_schema": breaking}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusConflict, resp.StatusCode)
+
+	var head eventTypeResp
+	_, err = c.get(ctx, "/v1/event-types/"+name, &head)
+	require.NoError(t, err)
+	assert.Equal(t, 1, head.Version, "a refused change writes nothing")
+
+	// A compatible change (adding an optional field) goes through.
+	compatible := totalSchema("number")
+	compatible["properties"].(map[string]any)["note"] = map[string]any{"type": "string"}
+	var out struct {
+		eventTypeResp
+		Change struct {
+			Action        string `json:"action"`
+			Compatibility struct {
+				Result string `json:"result"`
+			} `json:"compatibility"`
+			AffectedSubscriptions int `json:"affected_subscriptions"`
+		} `json:"change"`
+	}
+	resp, err = c.do(ctx, http.MethodPatch, "/v1/event-types/"+name, map[string]any{"event_schema": compatible}, &out)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "new_version", out.Change.Action)
+	assert.Equal(t, "compatible", out.Change.Compatibility.Result)
+	assert.Equal(t, 1, out.Change.AffectedSubscriptions)
+
+	// The breaking change applies with the explicit opt-in.
+	resp, err = c.do(ctx, http.MethodPatch, "/v1/event-types/"+name+"?allow_breaking=true", map[string]any{"event_schema": breaking}, &out)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "breaking", out.Change.Compatibility.Result)
+	assert.Equal(t, 3, out.Version)
+}

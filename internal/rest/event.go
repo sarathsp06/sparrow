@@ -35,8 +35,9 @@ type eventTypeNameInput struct {
 }
 
 type patchEventTypeInput struct {
-	Name string `path:"name"`
-	Body eventTypeBody
+	Name          string `path:"name"`
+	AllowBreaking bool   `query:"allow_breaking" default:"false" doc:"Apply a breaking schema change even though subscriptions receive this event type. Without it, a breaking change to a subscribed type is refused with 409 and the reasons."`
+	Body          eventTypeBody
 }
 
 type EventTypeItem struct {
@@ -57,21 +58,33 @@ type eventTypeOutput struct {
 
 // eventTypeChange reports what a write did to an event type.
 type eventTypeChange struct {
-	Action          string   `json:"action" enum:"created,new_version,updated,unchanged" doc:"created: new event type at version 1. new_version: the schema changed, so a new version was created and the previous one kept. updated: the current version changed in place (description, metadata, active, or a first schema added to a schema-less version). unchanged: nothing was written."`
-	Version         int      `json:"version" doc:"Version after the write."`
-	PreviousVersion int      `json:"previous_version,omitempty" doc:"Version before the write; absent when the event type was created."`
-	Changes         []string `json:"changes,omitempty" doc:"Fields that changed: schema, schema_defined (a first schema was added in place), description, metadata, active."`
-	ActiveChange    string   `json:"active_change,omitempty" enum:"deactivates,reactivates," doc:"Set when the write flips the active flag."`
+	Action                string                   `json:"action" enum:"created,new_version,updated,unchanged" doc:"created: new event type at version 1. new_version: the schema changed, so a new version was created and the previous one kept. updated: the current version changed in place (description, metadata, active, or a first schema added to a schema-less version). unchanged: nothing was written."`
+	Version               int                      `json:"version" doc:"Version after the write."`
+	PreviousVersion       int                      `json:"previous_version,omitempty" doc:"Version before the write; absent when the event type was created."`
+	Changes               []string                 `json:"changes,omitempty" doc:"Fields that changed: schema, schema_defined (a first schema was added in place), description, metadata, active."`
+	ActiveChange          string                   `json:"active_change,omitempty" enum:"deactivates,reactivates," doc:"Set when the write flips the active flag."`
+	Compatibility         *schemaCompatibilityItem `json:"compatibility,omitempty" doc:"For new_version: whether the schema change could break a subscription's payload transformation."`
+	AffectedSubscriptions int                      `json:"affected_subscriptions,omitempty" doc:"For new_version: subscriptions that receive this event type, by name or catch-all."`
+}
+
+type schemaCompatibilityItem struct {
+	Result  string   `json:"result" enum:"compatible,breaking" doc:"breaking when the change could break a payload transformation: a required property removed or made optional, a type widened, the schema removed, or a change under oneOf/anyOf/allOf/$ref/patternProperties that cannot be checked."`
+	Reasons []string `json:"reasons,omitempty" doc:"Each breaking change with the path it affects."`
 }
 
 func toEventTypeChange(r *webhooks.EventTypeSaveResult) eventTypeChange {
-	return eventTypeChange{
+	c := eventTypeChange{
 		Action:          string(r.Action),
 		Version:         r.Version,
 		PreviousVersion: r.PreviousVersion,
 		Changes:         r.Changes,
 		ActiveChange:    r.ActiveChange,
 	}
+	if r.Compatibility != nil {
+		c.Compatibility = &schemaCompatibilityItem{Result: r.Compatibility.Result(), Reasons: r.Compatibility.Reasons}
+		c.AffectedSubscriptions = len(r.AffectedSubscriptions)
+	}
+	return c
 }
 
 type updateEventTypeOutput struct {
@@ -372,8 +385,8 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		Method:      http.MethodPatch,
 		Path:        "/v1/event-types/{name}",
 		Summary:     "Update an event type definition",
-		Description: "Merge-patches an event type: only fields present in the request body are changed. A schema change creates a new version and keeps the previous one; adding a first schema to a schema-less version, and any change to description, metadata or active, updates the current version in place. The response's change field says which happened.",
-		Errors:      []int{400, 404},
+		Description: "Merge-patches an event type: only fields present in the request body are changed. A schema change creates a new version and keeps the previous one; adding a first schema to a schema-less version, and any change to description, metadata or active, updates the current version in place. The response's change field says which happened. A breaking schema change (see change.compatibility) to an event type that subscriptions receive is refused with 409 unless allow_breaking=true.",
+		Errors:      []int{400, 404, 409},
 		Tags:        []string{"Event Types"},
 	}, func(ctx context.Context, in *patchEventTypeInput) (*updateEventTypeOutput, error) {
 		existing, err := svc.GetEvent(ctx, in.Name)
@@ -396,7 +409,7 @@ func registerEventRoutes(api huma.API, svc eventRouteService) {
 		if in.Body.Active != nil {
 			active = *in.Body.Active
 		}
-		res, err := svc.UpdateEvent(ctx, in.Name, desc, schema, meta, active)
+		res, err := svc.UpdateEvent(ctx, in.Name, desc, schema, meta, active, in.AllowBreaking)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to update event type")
 		}

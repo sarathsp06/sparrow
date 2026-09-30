@@ -24,6 +24,7 @@ type SubscriptionRepository interface {
 	ListSubscriptionsByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string) ([]*EventSubscription, error)
 	GetSubscriptionsWithWebhooksByEvent(ctx context.Context, tenantID uuid.UUID, consumer, event string, labels map[string]string) ([]*SubscriptionWithWebhook, error)
 	ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID uuid.UUID, webhookIDs []uuid.UUID) ([]*EventSubscription, error)
+	ListSubscriptionsTargetingEvent(ctx context.Context, tenantID uuid.UUID, event string) ([]*EventSubscription, error)
 }
 
 // CreateSubscription creates a new event subscription within a tenant
@@ -161,6 +162,25 @@ func (r *Repository) ListSubscriptionsByEvent(ctx context.Context, tenantID uuid
 	`
 	var subs []*EventSubscription
 	if err := r.conn.SelectContext(ctx, &subs, query, tenantID, ns, event); err != nil {
+		return nil, storage.Error(err)
+	}
+	return subs, nil
+}
+
+// ListSubscriptionsTargetingEvent returns every subscription, across all
+// consumers, that would receive the event type: those subscribed to it by
+// name and catch-all ("*") subscriptions. Used to judge the impact of a
+// schema change.
+func (r *Repository) ListSubscriptionsTargetingEvent(ctx context.Context, tenantID uuid.UUID, event string) ([]*EventSubscription, error) {
+	query := `
+		SELECT id, tenant_id, webhook_id, event_name, consumer, headers, method,
+		       transform_enabled, transform_template, timeout, label_filters, on_transform_error, template_missing_key, created_at, updated_at
+		FROM event_subscriptions
+		WHERE tenant_id = $1 AND (event_name = $2 OR event_name = '*')
+		ORDER BY consumer, created_at
+	`
+	var subs []*EventSubscription
+	if err := r.conn.SelectContext(ctx, &subs, query, tenantID, event); err != nil {
 		return nil, storage.Error(err)
 	}
 	return subs, nil

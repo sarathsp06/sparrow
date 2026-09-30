@@ -47,7 +47,7 @@ type WebhookManager interface {
 type EventManager interface {
 	RegisterEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (string, time.Time, error)
 	ListEvents(ctx context.Context, activeOnly bool, limit, offset int32) ([]*store.EventRegistration, int32, error)
-	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool) (*EventTypeSaveResult, error)
+	UpdateEvent(ctx context.Context, name string, description string, schema map[string]any, metadata map[string]string, active bool, allowBreaking bool) (*EventTypeSaveResult, error)
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
 	ListEventTypeVersions(ctx context.Context, name string) ([]*store.EventRegistrationVersion, error)
 	GetEventTypeVersion(ctx context.Context, name string, version int) (*store.EventRegistrationVersion, error)

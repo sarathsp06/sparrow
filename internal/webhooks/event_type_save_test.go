@@ -22,6 +22,7 @@ type fakeEventTypeRepo struct {
 	store.RepositoryInterface
 	heads    map[string]*store.EventRegistration
 	versions map[string][]*store.EventRegistrationVersion
+	subs     []*store.EventSubscription
 }
 
 func newFakeEventTypeRepo() *fakeEventTypeRepo {
@@ -83,6 +84,16 @@ func (f *fakeEventTypeRepo) AddEventTypeVersion(_ context.Context, _ uuid.UUID, 
 	cp := *v
 	f.versions[v.Name] = append(f.versions[v.Name], &cp)
 	return nil
+}
+
+func (f *fakeEventTypeRepo) ListSubscriptionsTargetingEvent(_ context.Context, _ uuid.UUID, event string) ([]*store.EventSubscription, error) {
+	var out []*store.EventSubscription
+	for _, sub := range f.subs {
+		if sub.EventName == event || sub.EventName == store.CatchAllEventName {
+			out = append(out, sub)
+		}
+	}
+	return out, nil
 }
 
 func (f *fakeEventTypeRepo) FillInEventTypeVersion(_ context.Context, _ uuid.UUID, v *store.EventRegistrationVersion) error {
@@ -229,13 +240,13 @@ func TestSaveEventType_VersionLifecycle(t *testing.T) {
 	svc := NewWebhookService(nil, repo, nil)
 	ctx := testContext()
 
-	res, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true}, saveUpsert)
+	res, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true}, saveUpsert, saveEventTypeOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, EventTypeCreated, res.Action)
 	assert.Equal(t, 1, res.Event.Version)
 
 	// A first schema fills in v1 rather than creating v2.
-	res, err = svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: orderSchema("number")}, saveUpsert)
+	res, err = svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: orderSchema("number")}, saveUpsert, saveEventTypeOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, EventTypeUpdated, res.Action)
 	assert.Equal(t, []string{ChangeSchemaDefined}, res.Changes)
@@ -247,14 +258,14 @@ func TestSaveEventType_VersionLifecycle(t *testing.T) {
 
 	// A description change stays on v1 and keeps the sample.
 	sample := res.Event.SamplePayload
-	res, err = svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: orderSchema("number"), Description: "An order"}, saveUpsert)
+	res, err = svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: orderSchema("number"), Description: "An order"}, saveUpsert, saveEventTypeOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, EventTypeUpdated, res.Action)
 	assert.Equal(t, 1, res.Event.Version)
 	assert.Equal(t, sample, res.Event.SamplePayload)
 
 	// A schema change creates v2 and keeps v1.
-	res, err = svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: orderSchema("string"), Description: "An order"}, saveUpsert)
+	res, err = svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: orderSchema("string"), Description: "An order"}, saveUpsert, saveEventTypeOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, EventTypeNewVersion, res.Action)
 	assert.Equal(t, 2, res.Event.Version)
@@ -263,7 +274,7 @@ func TestSaveEventType_VersionLifecycle(t *testing.T) {
 	assert.Equal(t, "number", repo.versions["order.created"][0].Schema["properties"].(map[string]any)["total"].(map[string]any)["type"], "v1 is kept as it was")
 
 	// Saving the same thing again writes nothing.
-	res, err = svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: orderSchema("string"), Description: "An order"}, saveUpsert)
+	res, err = svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: orderSchema("string"), Description: "An order"}, saveUpsert, saveEventTypeOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, EventTypeUnchanged, res.Action)
 	assert.Len(t, repo.versions["order.created"], 2)
@@ -275,15 +286,15 @@ func TestSaveEventType_Modes(t *testing.T) {
 	t.Run("create-only rejects an existing name", func(t *testing.T) {
 		repo := newFakeEventTypeRepo()
 		svc := NewWebhookService(nil, repo, nil)
-		_, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "a.b", Active: true}, saveCreateOnly)
+		_, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "a.b", Active: true}, saveCreateOnly, saveEventTypeOptions{})
 		require.NoError(t, err)
-		_, err = svc.saveEventType(ctx, EventTypeDefinition{Name: "a.b", Active: true}, saveCreateOnly)
+		_, err = svc.saveEventType(ctx, EventTypeDefinition{Name: "a.b", Active: true}, saveCreateOnly, saveEventTypeOptions{})
 		assertStatus(t, err, svcerrors.AlreadyExists)
 	})
 
 	t.Run("must-exist rejects an unknown name", func(t *testing.T) {
 		svc := NewWebhookService(nil, newFakeEventTypeRepo(), nil)
-		_, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "a.b", Active: true}, saveMustExist)
+		_, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "a.b", Active: true}, saveMustExist, saveEventTypeOptions{})
 		assertStatus(t, err, svcerrors.NotFound)
 	})
 
@@ -291,7 +302,7 @@ func TestSaveEventType_Modes(t *testing.T) {
 		repo := newFakeEventTypeRepo()
 		svc := NewWebhookService(nil, repo, nil)
 		for _, name := range []string{"sparrow.webhook.health_changed", "Sparrow.custom", ""} {
-			_, err := svc.saveEventType(ctx, EventTypeDefinition{Name: name, Active: true}, saveUpsert)
+			_, err := svc.saveEventType(ctx, EventTypeDefinition{Name: name, Active: true}, saveUpsert, saveEventTypeOptions{})
 			assertStatus(t, err, svcerrors.InvalidArgument)
 		}
 		assert.Empty(t, repo.heads)
@@ -303,7 +314,7 @@ func TestSaveEventType_Modes(t *testing.T) {
 			createOnFirstRegister: &store.EventRegistration{Name: "a.b", Active: true, Version: 1},
 		}
 		svc := NewWebhookService(nil, repo, nil)
-		res, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "a.b", Active: true, Description: "mine"}, saveUpsert)
+		res, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "a.b", Active: true, Description: "mine"}, saveUpsert, saveEventTypeOptions{})
 		require.NoError(t, err)
 		assert.Equal(t, EventTypeUpdated, res.Action, "the retry applies the change on top of the row that won")
 		assert.Equal(t, "mine", res.Event.Description)
@@ -377,4 +388,66 @@ func TestPushEvent_PinsTheCurrentVersion(t *testing.T) {
 	_, _, _, _, err := svc.PushEvent(testContext(), "default", "order.created", map[string]any{}, 0, nil, nil, nil)
 	require.NoError(t, err)
 	repo.AssertExpectations(t)
+}
+
+func TestSaveEventType_BreakingChanges(t *testing.T) {
+	ctx := testContext()
+	v1 := orderSchema("number")
+	breaking := map[string]any{"type": "object", "properties": map[string]any{"order_id": map[string]any{"type": "string"}}}
+	compatible := orderSchema("number")
+	compatible["properties"].(map[string]any)["coupon"] = map[string]any{"type": "string"}
+
+	setup := func(subs ...*store.EventSubscription) (*WebhookService, *fakeEventTypeRepo) {
+		repo := newFakeEventTypeRepo()
+		repo.subs = subs
+		svc := NewWebhookService(nil, repo, nil)
+		_, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: v1}, saveUpsert, saveEventTypeOptions{})
+		require.NoError(t, err)
+		return svc, repo
+	}
+	sub := &store.EventSubscription{EventName: "order.created", Consumer: "shop"}
+
+	t.Run("breaking change to a subscribed type is refused and writes nothing", func(t *testing.T) {
+		svc, repo := setup(sub)
+		res, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: breaking}, saveMustExist, saveEventTypeOptions{})
+		assertStatus(t, err, svcerrors.FailedPrecondition)
+		assert.Contains(t, err.Error(), "total: removed required property")
+		assert.Contains(t, err.Error(), "allow_breaking")
+		require.NotNil(t, res)
+		assert.True(t, res.Blocked)
+		assert.Equal(t, 1, repo.heads["order.created"].Version)
+		assert.Len(t, repo.versions["order.created"], 1)
+	})
+
+	t.Run("allow_breaking applies it", func(t *testing.T) {
+		svc, repo := setup(sub)
+		res, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: breaking}, saveMustExist, saveEventTypeOptions{AllowBreaking: true})
+		require.NoError(t, err)
+		assert.Equal(t, EventTypeNewVersion, res.Action)
+		assert.True(t, res.Compatibility.Breaking)
+		assert.Len(t, res.AffectedSubscriptions, 1)
+		assert.Equal(t, 2, repo.heads["order.created"].Version)
+	})
+
+	t.Run("catch-all subscriptions count as receivers", func(t *testing.T) {
+		svc, _ := setup(&store.EventSubscription{EventName: store.CatchAllEventName, Consumer: "audit"})
+		_, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: breaking}, saveMustExist, saveEventTypeOptions{})
+		assertStatus(t, err, svcerrors.FailedPrecondition)
+	})
+
+	t.Run("breaking change with no subscriptions needs no opt-in", func(t *testing.T) {
+		svc, _ := setup(&store.EventSubscription{EventName: "other.event"})
+		res, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: breaking}, saveMustExist, saveEventTypeOptions{})
+		require.NoError(t, err)
+		assert.True(t, res.Compatibility.Breaking, "still classified and reported")
+		assert.Empty(t, res.AffectedSubscriptions)
+	})
+
+	t.Run("compatible change goes through with subscriptions", func(t *testing.T) {
+		svc, _ := setup(sub)
+		res, err := svc.saveEventType(ctx, EventTypeDefinition{Name: "order.created", Active: true, Schema: compatible}, saveMustExist, saveEventTypeOptions{})
+		require.NoError(t, err)
+		assert.Equal(t, EventTypeNewVersion, res.Action)
+		assert.False(t, res.Compatibility.Breaking)
+	})
 }
