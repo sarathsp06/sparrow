@@ -26,6 +26,7 @@ All configuration is done via environment variables. No config files needed.
 | `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of exact browser origins allowed to call the API (e.g. `https://ui.example.com,https://admin.example.com`; trailing slashes are ignored). Required when the UI is [hosted separately](/sparrow/deployment/separate-ui/). When unset: with `ENVIRONMENT=production` every cross-origin request is rejected; otherwise every origin is allowed (local development only). |
 | `SPARROW_MAX_BODY_BYTES` | No | `5242880` (5 MiB) | Maximum request body size in bytes. Minimum 1 MiB; larger bodies get `413`. |
 | `SPARROW_EVENT_RETENTION_DAYS` | No | `0` (keep forever) | Purge events — and, via cascade, their deliveries — older than this many days. Runs hourly in the background. |
+| `SPARROW_AUTO_REGISTER_EVENTS` | No | `false` | When `true`, pushing an event whose type is not registered creates a schema-less event type instead of returning `404`. Meant for local development (`make run` turns it on); event types are never deleted, so in production a producer typo would become a permanent name. See [Event Type Versions](/sparrow/guides/event-type-versioning/#unregistered-event-names). |
 For a single-key deployment, still use the keyring format: `SPARROW_ENCRYPTION_KEYS=main=<64-char-hex-key>` with `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main`.
 
 ### Web UI Variables

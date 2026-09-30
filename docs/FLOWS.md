@@ -68,80 +68,85 @@ RegisterWebhook(proto request)
 
 ## 2. Event Registration
 
-**Entry point:** `internal/grpc/event_handlers.go:44` — `WebhookServer.RegisterEvent()`
+**Entry points:** `internal/rest/event.go` (`registerEventType`, `updateEventType`) and `internal/rest/event_bundle.go` (`importEventTypes`). All of them, plus auto-register on push, go through one save path in `internal/webhooks/event_type_save.go`.
 
 ### Flow
 
 ```
-RegisterEvent(proto request)
+saveEventType(def, mode)                      mode: create-only (POST), must-exist (PATCH), upsert (import)
   │
-  ├─ :47-49 — Convert proto Schema Struct → map[string]any
+  ├─ validateEventTypeName — non-empty, ≤255 chars, not "sparrow." (case-insensitive)
   │
-  └─ webhook_service.go:1405 — RegisterEvent()
-       ├─ :1410 — Validate name not empty
-       ├─ :1418 — GetEventByName() — check for duplicate
-       ├─ :1423 — If exists → InvalidInput("event already exists")
-       ├─ :1428 — generateSamplePayload(schema) — uses schemagen to create example payload
-       ├─ :1434 — Build store.EventRegistration struct
-       └─ :1442 — INSERT INTO event_registrations (9 columns)
+  └─ RunInTransaction → saveEventTypeTx
+       ├─ GetEventByNameForUpdate() — SELECT … FOR UPDATE on event_registrations
+       ├─ mode check: exists + create-only → AlreadyExists (409); missing + must-exist → NotFound
+       ├─ planEventTypeSave(current, def) — pure decision:
+       │    missing                        → created (v1)
+       │    no schema → schema             → updated (fill in v1, schema_defined_at)
+       │    schema differs by value        → new_version (v+1)
+       │    only description/metadata/active → updated (same version)
+       │    identical                      → unchanged
+       ├─ new_version only:
+       │    ClassifySchemaChange(old, new) — subscriber-side compatibility (schema_compat.go)
+       │    ListSubscriptionsTargetingEvent() — by name or catch-all "*"
+       │    breaking + subscriptions + !allow_breaking → Blocked, nothing written (409)
+       └─ writes:
+            created     → RegisterEvent(): one statement inserts the head row and the v1 history row
+            new_version → UpdateEvent() (head, version+1) + AddEventTypeVersion() (history)
+            updated     → UpdateEvent(); fill-in also FillInEventTypeVersion()
 ```
+
+On a unique violation from a concurrent create, an upsert runs once more.
 
 ### DB Writes
 
 | Table | Operation | Condition |
 |-------|-----------|-----------|
-| `event_registrations` | INSERT (1 row) | Always |
+| `event_registrations` | INSERT or UPDATE (1 row) | created / new_version / updated |
+| `event_registration_versions` | INSERT (1 row) | created / new_version |
+| `event_registration_versions` | UPDATE (1 row) | fill-in only |
+
+Nothing ever deletes from either table; a foreign key from the history to the head row blocks it.
 
 ---
 
 ## 3. Event Push (PushEvent)
 
-**Entry point:** `internal/grpc/event_handlers.go:19` — `WebhookServer.PushEvent()`
+**Entry point:** `internal/rest/event.go` (`pushEvent`) → `WebhookService.PushEvent` in `internal/webhooks/webhook_service_event.go`.
 
 ### Flow
 
 ```
-PushEvent(proto request)
+PushEvent(consumer, event, payload, ttl, metadata, labels, idempotencyKey)
   │
-  ├─ :20-30 — Convert payload, extract optional idempotency key from req.Id
+  ├─ Validate consumer, event name (≤255 chars), labels
+  ├─ Reject "sparrow.*" names: only Sparrow emits them (queue.pushSystemEvent)
   │
-  └─ webhook_service.go:728 — PushEvent()
-       ├─ :745-761 — Validate consumer, event name, labels (max 20, key≤64, value≤256)
-       │
-       ├─ :768-785 — IDEMPOTENCY CHECK (when key provided):
-       │    GetEventByIdempotencyKey() → SELECT by tenant+consumer+key
-       │    If found → return (existingID, duplicate=true) ← SHORT CIRCUIT
-       │
-       ├─ :788-811 — Event lookup / auto-register:
-       │    GetEventByName() → SELECT
-       │    If nil → auto-register event (INSERT INTO event_registrations)
-       │    If inactive → FailedPrecondition error
-       │
-       ├─ :825-846 — SOFT SCHEMA VALIDATION (when schema present):
-       │    ValidateJSONSchema() → compile + validate
-       │    On mismatch: schema_valid=false, extract per-field warnings
-       │    EVENT IS STILL ACCEPTED (warnings only)
-       │
-       ├─ :854-869 — Build store.EventRecord (uuid, payload, ttl, labels, schema_valid, idempotency_key)
-       ├─ :871 — INSERT INTO event_records (12 columns)
-       │
-       ├─ :896 — ENQUEUE River job:
-       │    EventArgs{TenantID, EventID, Consumer, Event, TTL, Metadata, Labels}
-       │    → river.Insert() → queue="events", kind="event_processing"
-       │    OTel trace context injected into job.Metadata
-       │
-       ├─ :907-912 — COMPENSATION on enqueue failure:
-       │    DeleteEventByID() — remove orphaned event record
-       │
-       └─ :917-919 — OTel: EventsPushed+1
+  ├─ IDEMPOTENCY CHECK (when key provided):
+  │    GetEventByIdempotencyKey() → found → return (existingID, duplicate=true) ← SHORT CIRCUIT
+  │
+  ├─ Event type lookup: GetEventByName()
+  │    missing + SPARROW_AUTO_REGISTER_EVENTS off (default) → NotFound (404)
+  │    missing + on → autoRegisterEvent(): schema-less v1 (re-read on a concurrent create)
+  │    inactive → FailedPrecondition (409)
+  │
+  ├─ SOFT SCHEMA VALIDATION against the current version's schema:
+  │    mismatch → schema_valid=false + per-field warnings; EVENT IS STILL ACCEPTED
+  │
+  ├─ INSERT INTO event_records (… schema_valid, event_version = current version …)
+  │
+  ├─ ENQUEUE River job EventArgs → queue="events"
+  │
+  └─ COMPENSATION on enqueue failure: DeleteEventByID()
 ```
 
 ### Key Decision Points
 
-- **Idempotency**: If a key matches an existing event, the entire flow short-circuits — no new record, no new job. Response includes `duplicate=true`.
-- **Schema validation**: Failures produce warnings but never reject the event. The `schema_valid` flag is set to `false` on the record.
-- **Auto-registration**: If the event type doesn't exist yet, it's automatically created. This means `PushEvent` never fails due to a missing event type.
-- **Compensation**: If River job insertion fails after the event record is written, the orphaned record is deleted to maintain consistency.
+- **Idempotency**: If a key matches an existing event, the flow short-circuits — no new record, no new job. Response includes `duplicate=true`.
+- **Unknown event types**: Rejected with 404 unless `SPARROW_AUTO_REGISTER_EVENTS=true`. The CLI and sparrow-sources register on 404 and retry.
+- **Version pinning**: `event_version` records the version whose schema the payload was validated against. Rows from before versioning read back as 1.
+- **Schema validation**: Failures produce warnings but never reject the event.
+- **Compensation**: If River job insertion fails after the event record is written, the orphaned record is deleted.
 
 ### DB Writes
 
@@ -149,7 +154,7 @@ PushEvent(proto request)
 |-------|-----------|-----------|
 | `event_records` | INSERT (1 row) | Always (unless idempotency hit) |
 | River job table | INSERT (1 row) | Always (unless idempotency hit) |
-| `event_registrations` | INSERT (1 row) | Only if event type auto-registered |
+| `event_registrations` + `event_registration_versions` | INSERT (1 row each) | Only if auto-registered |
 
 ---
 
@@ -180,8 +185,9 @@ EventProcessingWorker.Work(job)
   │    For each SubscriptionWithWebhook:
   │      deliveryID = uuid.New()
   │      maxAttempts = webhook.MaxRetries + 1 (min 3)
-  │      → WebhookDelivery{status=pending, maxAttempts, expiresAt}
-  │      → WebhookArgs{deliveryID, webhookID, subscriptionID, eventID, expiresAt, maxAttempts}
+  │      subscription paused → WebhookDelivery{status=paused}, no job
+  │      otherwise → WebhookDelivery{status=pending, maxAttempts, expiresAt}
+  │                + WebhookArgs{deliveryID, webhookID, subscriptionID, eventID, expiresAt, maxAttempts}
   │
   ├─ :135 — BatchCreateDeliveries() — single multi-row INSERT INTO webhook_deliveries
   │
@@ -195,6 +201,7 @@ EventProcessingWorker.Work(job)
 - **Catch-all subscriptions**: Subscriptions with `event_name = '*'` match every event in the consumer.
 - **Label filtering**: Uses PostgreSQL JSONB containment (`<@`) — the subscription's label_filters must be a subset of the event's labels.
 - **Batch efficiency**: All deliveries and River jobs are inserted in a single batch operation each, not one-by-one.
+- **Paused subscriptions**: Still get a delivery row, with status `paused` and no job, so held deliveries stay visible and retryable. If every match is paused, no River insert happens.
 - **MaxAttempts**: Calculated as `webhook.MaxRetries + 1` with a floor of 3. This means even a webhook with `max_retries=0` gets at least 3 delivery attempts.
 
 ### DB Writes
@@ -202,7 +209,7 @@ EventProcessingWorker.Work(job)
 | Table | Operation | Condition |
 |-------|-----------|-----------|
 | `webhook_deliveries` | Batch INSERT (N rows) | 1 per matching subscription |
-| River job table | Batch INSERT (N rows) | 1 per matching subscription |
+| River job table | Batch INSERT (N rows) | 1 per matching subscription that is not paused |
 
 ---
 
@@ -227,10 +234,13 @@ WebhookWorker.Work(job)
   │    AcquireDeliverySlot() → atomic UPDATE on webhook_rate_limit_state (leaky bucket)
   │    If slot is in the future → river.JobSnooze(delay) ← RE-ENQUEUE WITH DELAY
   │
-  ├─ :161-207 — PAYLOAD CONSTRUCTION:
+  ├─ renderPayload() — runs BEFORE rate limiting, so a failing template never takes a slot:
   │    IF subscription has transform_enabled + template:
-  │      TransformPayload() — Go template execution
-  │      ON TEMPLATE FAILURE → graceful degradation: BuildEnvelopePayload() (fallback)
+  │      TransformPayloadWith(strict = template_missing_key != "zero")
+  │      ON TEMPLATE FAILURE → UpdateDeliveryTemplateError(); sparrow_template_errors_total+1
+  │        on_transform_error=fail (default) → status=failed, category=template_error,
+  │                                            no health event, return nil (no River retry)
+  │        on_transform_error=fallback       → BuildEnvelopePayload()
   │    ELSE:
   │      BuildEnvelopePayload() → JSON envelope:
   │        {version, event_id, event_name, timestamp, attempt, payload}
@@ -289,7 +299,7 @@ WebhookWorker.Work(job)
 
 - **TTL expiry**: Checked before any work. Expired deliveries are marked and abandoned.
 - **Rate limiting**: Uses a leaky bucket stored in PostgreSQL. If no slot is available, the job is snoozed (re-enqueued) without counting as an attempt.
-- **Template failure**: Never fails the delivery — falls back to the standard envelope payload.
+- **Template failure**: Per subscription. `fail` (default) marks the delivery failed with `template_error`, sends nothing and is not retried automatically; `fallback` sends the envelope. The error is stored on the delivery either way, and it is never recorded as a health event.
 - **Signing**: Only one scheme is used per webhook, determined by `signature_type` ("hmac" or "ed25519").
 - **HTTP 429**: Uniquely handled — the job is snoozed for the `Retry-After` duration without counting as a retry attempt. This prevents exhausting retries against rate-limited endpoints.
 - **Error classification**: Determines retryability. DNS and TLS errors are terminal (endpoint is misconfigured). Server errors, timeouts, and network errors trigger retries.
@@ -308,14 +318,15 @@ WebhookWorker.Work(job)
 | `network_error` | Yes | Other network errors |
 | `unexpected_status` | No | HTTP 2xx/3xx not in expected_status_codes |
 | `rate_limited` | Yes | HTTP 429 |
+| `template_error` | No | Subscription transform failed to render (not a health event) |
 
 ### DB Writes (per attempt)
 
 | Table | Operation | Condition |
 |-------|-----------|-----------|
 | `webhook_deliveries` | UPDATE (status, response_code, response_body, error_message, error_category) | Always |
-| `webhook_health_events` | INSERT (1 row) | Always |
-| `webhook_health_state` | UPDATE (consecutive_failures, last_success/failure) | Always |
+| `webhook_health_events` | INSERT (1 row) | Every receiver outcome; never for template_error |
+| `webhook_health_state` | UPDATE (consecutive_failures, last_success/failure) | Every receiver outcome; never for template_error |
 
 ---
 

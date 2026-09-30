@@ -1,0 +1,85 @@
+---
+title: Pausing a Subscription
+description: Stop a subscription's deliveries without losing them, then resume and retry what was held.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import ThemeDiagram from '../../../components/ThemeDiagram.astro';
+import outcomesLight from '../../../assets/diagrams/delivery-outcomes-light.svg';
+import outcomesDark from '../../../assets/diagrams/delivery-outcomes-dark.svg';
+
+Pause a subscription when its deliveries should stop for a while: the
+receiving system is under maintenance, its template is being fixed after a
+schema change, or you are investigating something. Nothing is lost.
+
+## What a pause does
+
+- Events keep fanning out to the subscription. Each delivery is recorded with
+  status **paused**, and nothing is queued or attempted.
+- Deliveries that were already queued when you paused still go out.
+- Other subscriptions on the same webhook are unaffected. (Pausing the whole
+  webhook stops all of them, and records nothing for events that arrive while
+  it is paused.)
+- A pause is not a failure of the receiving system, so it **never affects the
+  webhook's health** or raises health alerts.
+
+```bash
+curl -X POST http://localhost:8080/v1/consumers/acme/subscriptions/{subscription_id}:pause \
+  -H 'Content-Type: application/json' \
+  -d '{"reason": "receiver maintenance until Friday"}'
+```
+
+The subscription then shows `paused: true`, `paused_at` and `paused_reason`.
+Pausing again updates the reason and keeps the original time. In the UI, use
+**Pause** on the subscription; its card shows the reason while it is paused.
+
+## Resuming
+
+```bash
+curl -X POST http://localhost:8080/v1/consumers/acme/subscriptions/{subscription_id}:resume
+```
+
+New deliveries are attempted again straight away. **Deliveries held during the
+pause are not sent automatically**: you decide what to replay. The response
+tells you how many there are and when the pause began:
+
+```json
+{ "subscription_id": "…", "paused": false, "paused_since": "2026-09-30T10:00:00Z", "paused_deliveries": 42 }
+```
+
+To send them, snapshot them with the delivery list and start a batch retry:
+
+```bash
+curl "http://localhost:8080/v1/consumers/acme/deliveries?status=paused&subscription_id={subscription_id}&created_after=2026-09-30T10:00:00Z&prepare_retry=true"
+# -> {"retry_id": "…", …}
+curl -X POST http://localhost:8080/v1/consumers/acme/deliveries:retryBatch \
+  -H 'Content-Type: application/json' -d '{"repush_id": "…"}'
+```
+
+Narrow `created_after` (or add `created_before`) to replay only part of the
+window. In the UI, resuming a subscription that held deliveries offers
+**Retry paused deliveries**.
+
+<Aside type="note" title="How long held deliveries last">
+A paused delivery is kept until it is retried, or until
+`SPARROW_EVENT_RETENTION_DAYS` removes its event. Like any manual retry,
+retrying a paused delivery sends it even if the event's TTL has passed.
+</Aside>
+
+## Pausing from an import
+
+When importing event types, `--pause-affected` (API:
+`subscription_policy: "pause"`) pauses every subscription whose template fails
+against the new schema, in the same transaction, with the import as the
+reason. See [Moving Event Types Between Environments](/sparrow/guides/event-type-export-import/#subscriptions-whose-template-fails).
+
+## Where pause fits in a delivery
+
+<ThemeDiagram
+  light={outcomesLight}
+  dark={outcomesDark}
+  alt="Delivery outcomes: an accepted event fans out; inactive webhooks get nothing; paused subscriptions get a paused delivery with no job until resumed and retried; otherwise a job runs, the transform renders or fails (fail marks template_error, fallback sends the envelope), the request is sent, and only receiver responses count toward webhook health."
+/>
+
+Only the receiving system's responses count toward the webhook's health.
+Paused deliveries and template errors never do.

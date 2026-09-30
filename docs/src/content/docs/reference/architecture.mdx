@@ -52,7 +52,7 @@ See the [API Reference](/sparrow/reference/api/) for the full endpoint list.
 <ThemeDiagram
   light={eventProcessingLight}
   dark={eventProcessingDark}
-  alt="Event processing pipeline: a POST to the consumer events endpoint hits the Events REST handler (dedup, schema validation, insert event_record, enqueue EventArgs); EventProcessingWorker loads the event, queries matching subscriptions, applies template transforms, batch-inserts webhook_delivery rows and batch-enqueues WebhookArgs; WebhookWorker loads each delivery, checks the rate limit, HTTP POSTs with Standard Webhooks signing, records the attempt, updates delivery status and health state, and re-enqueues with backoff on retryable failure; the target URL then receives the webhook payload."
+  alt="Event processing pipeline: a push rejects unknown event types unless auto-register is on, dedups, validates softly, stores the event with its event_version and enqueues it; EventProcessingWorker matches subscriptions and batch-inserts deliveries, paused ones for paused subscriptions, and enqueues jobs for the rest; WebhookWorker renders the transform strictly (failing with template_error or falling back), applies the rate limit, sends the signed request, updates the delivery, records health for receiver outcomes only, and retries retryable failures with backoff."
 />
 
 ---
@@ -118,7 +118,7 @@ Every webhook delivery sends a JSON envelope with snake_case field names:
 - `attempt` -- Delivery attempt number (1 = first attempt, 2+ = retries).
 - `payload` -- The original event payload as submitted by the producer.
 
-When a subscription has `transform_enabled = true` and a `transform_template`, the template output replaces the entire body.
+When a subscription has `transform_enabled = true` and a `transform_template`, the template output replaces the entire body. If the template fails to render, the subscription's `on_transform_error` decides: `fail` (default) marks the delivery failed with `template_error` and sends nothing; `fallback` sends this envelope instead. Either way the error is recorded on the delivery, and it never counts toward webhook health.
 
 ### HTTP Headers
 

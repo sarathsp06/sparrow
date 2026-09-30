@@ -1,0 +1,150 @@
+---
+title: Event Type Versions
+description: How event type definitions change over time, why they are never deleted, and what Sparrow checks before a schema change reaches subscribers.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import ThemeDiagram from '../../../components/ThemeDiagram.astro';
+import lifecycleLight from '../../../assets/diagrams/event-type-lifecycle-light.svg';
+import lifecycleDark from '../../../assets/diagrams/event-type-lifecycle-dark.svg';
+import saveRulesLight from '../../../assets/diagrams/event-type-save-rules-light.svg';
+import saveRulesDark from '../../../assets/diagrams/event-type-save-rules-dark.svg';
+
+An event type is a contract between the systems that push events and the
+subscriptions that receive them. Sparrow treats it that way: every schema the
+type has ever had is kept as a numbered version, each pushed event records the
+version it was accepted under, and a type is never deleted.
+
+You always refer to an event type by its name. The version is bookkeeping:
+push, subscriptions and the API resolve the name to the current version.
+
+<ThemeDiagram
+  light={lifecycleLight}
+  dark={lifecycleDark}
+  alt="Lifecycle of an event type: unregistered, then version 1 (blank if auto-registered, filled in by the first schema without a new version), then version 2 on a compatible schema change, version 3 on a breaking change applied with allow_breaking, then deactivated and reactivated without changing the version."
+/>
+
+## What creates a new version
+
+Only a change to the schema creates a new version. Everything else changes the
+current version in place.
+
+| Change | Result |
+|--------|--------|
+| The name does not exist yet | `created`: version 1 |
+| A schema is added to a type that had none | `updated`: version 1 is filled in, and `schema_defined_at` records when |
+| The schema changes (compared by value, so key order and whitespace never count) | `new_version`: the version number goes up and the previous version is kept |
+| The schema is removed | `new_version`, and it is a breaking change |
+| Only the description, metadata or `active` changes | `updated`: same version |
+| Nothing changes | `unchanged`: nothing is written |
+
+`PATCH /v1/event-types/{name}` returns a `change` object saying which of these
+happened, with `version`, `previous_version` and the list of changed fields.
+
+<Aside type="note" title="Why filling in a schema is not a new version">
+A type with no schema has no contract, so adding the first schema defines the
+contract rather than changing it. This keeps environments aligned: a type
+auto-registered in development, then imported with its real schema, is at
+version 1 everywhere.
+</Aside>
+
+<ThemeDiagram
+  light={saveRulesLight}
+  dark={saveRulesDark}
+  alt="Decision flow for saving an event type: reserved names are rejected, the current row is locked, a missing type is created at v1, a first schema fills in v1, a changed schema is classified and either refused with 409 when breaking for subscribers or saved as a new version, other changes update in place, and identical definitions write nothing."
+/>
+
+Every write (register, PATCH, import, and auto-register on push) goes through
+the same rules, in a transaction that locks the event type's row, so two
+concurrent changes can never claim the same version number.
+
+## Reading the history
+
+```bash
+# Every version, newest first
+curl http://localhost:8080/v1/event-types/order.created/versions
+
+# One version's schema and sample payload
+curl http://localhost:8080/v1/event-types/order.created/versions/2
+```
+
+The event type's own response carries `version`, and every pushed event
+carries `event_version`: the version whose schema it was validated against.
+A batch re-push keeps the original event's version.
+
+In the UI, the version in the event list links to the type's history.
+
+## Breaking changes
+
+Before a new version is written, Sparrow compares the old and new schemas from
+a subscriber's point of view. The rule is strict: **anything that could break a
+subscription's payload transformation is breaking**, and anything Sparrow
+cannot prove safe counts as breaking.
+
+| Compatible | Breaking |
+|------------|----------|
+| Adding a property, optional or required | Removing a required property |
+| Removing an optional property | Making a required property optional |
+| Narrowing a type (`number` to `integer`, or adding a type where there was none) | A type that admits a new kind of value (`string` to `integer`, `integer` to `number`, object to array) |
+| Changing value constraints: `enum`, `minimum`, `maxLength`, `pattern`, `format`, … | Removing the schema |
+| | Any change under `oneOf`, `anyOf`, `allOf`, `not`, `$ref`, `patternProperties`, `if`/`then`/`else` or `dependentSchemas` |
+
+Nested objects and array items are checked the same way, and every reason
+names its path, for example `customer.email: removed required property`.
+
+A breaking change to an event type that **any subscription receives** (by
+name, or through a catch-all `*` subscription) is refused with `409 Conflict`
+and the reasons, and nothing is written. To apply it anyway, say so
+explicitly:
+
+```bash
+curl -X PATCH 'http://localhost:8080/v1/event-types/order.created?allow_breaking=true' \
+  -H 'Content-Type: application/json' \
+  -d '{"event_schema": {"type": "object", "properties": {"id": {"type": "string"}}}}'
+```
+
+In the UI, saving a breaking change asks you to type the event type's name. If
+no subscription receives the type there is nothing to break, so no opt-in is
+needed; the change is still classified and reported.
+
+<Aside type="caution" title="Subscriptions without a transform">
+The check is about transform templates, which Sparrow can see. A subscription
+without a transform sends the payload as is, and Sparrow cannot tell whether
+the receiving system copes with the new shape. Those subscriptions are counted
+in the result so you can check them yourself.
+</Aside>
+
+When a schema change does reach a subscription whose template no longer fits,
+the delivery fails visibly with error category `template_error`; see
+[Transforming Payloads](/sparrow/guides/payload-transformation/#when-a-template-fails).
+
+## Retiring an event type
+
+Event types are never deleted, and there is no delete endpoint. A definition
+with history cannot be removed at the database level either. To retire one,
+deactivate it:
+
+```bash
+curl -X PATCH http://localhost:8080/v1/event-types/order.legacy \
+  -H 'Content-Type: application/json' -d '{"active": false}'
+```
+
+Pushes of an inactive type are rejected with `409`. Its versions and past
+events are kept, and setting `active` back to `true` reactivates it.
+
+## Unregistered event names
+
+By default, pushing an event whose type is not registered fails with `404`:
+production event types arrive by registering or [importing](/sparrow/guides/event-type-export-import/)
+them. Because event types are never deleted, creating them implicitly would
+turn every producer typo into a permanent name.
+
+For local development, set `SPARROW_AUTO_REGISTER_EVENTS=true` (`make run`
+does) to create a schema-less type on first push instead. The CLI's
+`sparrow push` registers an unknown type and retries on its own.
+
+## Reserved names
+
+Names starting with `sparrow.` (in any case) belong to Sparrow's own system
+events, such as `sparrow.webhook.health_changed`. You can subscribe to them,
+but you cannot register, change, import, export or push them.

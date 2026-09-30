@@ -20,8 +20,8 @@ gowrap -i WebhookServiceInterface`); new consumers should depend on a single
 domain interface instead.
 
 - **WebhookManager**: RegisterWebhook, CreateWebhook, UnregisterWebhook, ListWebhooks, UpdateWebhookConfig, PauseWebhook, ResumeWebhook, GetConsumerStats
-- **EventManager**: RegisterEvent, ListEvents, UpdateEvent, DeleteEvent, GetEvent, PushEvent, RePushEvent, GetEventRecord, ListEventReports
-- **SubscriptionManager**: CreateSubscription, GetSubscription, ListSubscriptions, UpdateSubscription, DeleteSubscription, TestSubscriptionTemplate, ListSubscriptionsByWebhookIDs, GetTemplateFunctions
+- **EventManager**: RegisterEvent, ListEvents, UpdateEvent, GetEvent, ListEventTypeVersions, GetEventTypeVersion, ExportEventTypes, ImportEventTypes, PushEvent, RePushEvent, GetEventRecord, ListEventReports (no delete: event types are versioned and retired with active=false)
+- **SubscriptionManager**: CreateSubscription, GetSubscription, ListSubscriptions, UpdateSubscription, DeleteSubscription, PauseSubscription, ResumeSubscription, TestSubscriptionTemplate, ListSubscriptionsByWebhookIDs, GetTemplateFunctions
 - **DeliveryManager**: GetDeliveryStatus, GetDeliveryAttempts, ListDeliveries, RetryDelivery
 - **HealthManager**: GetWebhookHealth, GetHealthSummary
 - **BatchManager**: RePushEvents, GetRepushStatus, CancelRepush, RetryDeliveries, GetRetryStatus, CancelRetry

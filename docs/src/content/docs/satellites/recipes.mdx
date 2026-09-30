@@ -60,10 +60,13 @@ Two consequences worth knowing:
 - **Retries re-render.** A failed delivery retries with the same template;
   `{{.attempt}}` reflects the retry count (PagerDuty's recipe uses the stable
   `{{.event_id}}` as `dedup_key` so retries never open duplicate incidents).
-- **Template errors degrade, not drop.** If rendering fails at delivery time,
-  the server logs a warning and falls back to the plain envelope rather than
-  failing the delivery — which is why you iterate with `sparrow template test`
-  before applying.
+- **Template errors are visible.** If rendering fails at delivery time, the
+  delivery fails with error category `template_error` and nothing is sent
+  (set `on_transform_error: fallback` on the subscription to send the plain
+  envelope instead). A field the payload lacks counts as an error, so the
+  included recipes read optional fields with `dig` or `index`. Iterate with
+  `sparrow template test`, which renders the same way, before applying. See
+  [When a template fails](/sparrow/guides/payload-transformation/#when-a-template-fails).
 
 ## Included recipes
 
@@ -220,11 +223,13 @@ delivery with `.event_id`, `.event_name`, `.timestamp` (RFC3339), `.attempt`,
 and `.payload`. Helpers like `json`, `printf`, `upper`, and `ellipsis` are
 available — see [template functions](/sparrow/reference/template-functions/).
 
-Two rules keep templates robust:
+Three rules keep templates robust:
 
 1. Quote every interpolated value through `json` (e.g. `{{.event_name | json}}`)
    so quotes or newlines in payloads can't corrupt the output.
-2. Iterate locally with `sparrow template test`, which renders the template
+2. Read fields that may be absent with `dig` or `index`
+   (`{{ dig "severity" "error" .payload }}`): a missing field fails the render.
+3. Iterate locally with `sparrow template test`, which renders the template
    entirely client-side (no API call) against a synthetic sample context,
    without creating anything.
 

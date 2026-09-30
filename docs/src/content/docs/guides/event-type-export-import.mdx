@@ -1,0 +1,160 @@
+---
+title: Moving Event Types Between Environments
+description: Export event type definitions from one Sparrow environment and import them into another, from the UI, the CLI or the API.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+import ThemeDiagram from '../../../components/ThemeDiagram.astro';
+import importFlowLight from '../../../assets/diagrams/event-type-import-flow-light.svg';
+import importFlowDark from '../../../assets/diagrams/event-type-import-flow-dark.svg';
+
+An event type is usually designed and tested in development, then promoted
+through staging to production. Sparrow moves definitions between environments
+as one JSON file: select some or all event types in one environment, export
+them, and import the file in the next.
+
+<Steps>
+
+1. **Export** from the environment where the definitions are right.
+
+   In the UI, tick the event types on the Events page and choose
+   **Export selected**, or choose **Export all**. The browser downloads
+   `event-types.json`. From the CLI:
+
+   ```bash
+   sparrow events export --prefix order. -f event-types.json
+   ```
+
+2. **Preview** the import in the target environment. Nothing is written.
+
+   ```bash
+   sparrow events import -f event-types.json --dry-run
+   ```
+
+   In the UI, choose **Import** on the Events page and pick the file; the
+   preview appears straight away.
+
+3. **Import.** Confirm in the UI, or run the command without `--dry-run`.
+
+</Steps>
+
+## The bundle file
+
+```json
+{
+  "apiVersion": "sparrow/v1",
+  "kind": "EventTypeList",
+  "stamp": { "sparrow_version": "1.4.0", "format": 1, "sha256": "9f2c…" },
+  "items": [
+    {
+      "name": "order.created",
+      "description": "A customer placed an order.",
+      "event_schema": { "type": "object", "required": ["order_id", "total"], "properties": { "…": {} } },
+      "metadata": { "owner": "payments" },
+      "active": true
+    }
+  ]
+}
+```
+
+- One file holds any number of event types (up to 500 per import), sorted by
+  name.
+- The file carries no version numbers, timestamps or sample payloads. Version
+  numbers are per environment: development may be on v7 while production is on
+  v3 of the same schema. Leaving them out means the same definitions always
+  export to the same file, so it can be reviewed and diffed in a pull request.
+- Sparrow's own `sparrow.*` event types are never exported or imported.
+- A file can be written by hand. Only `items` is required, and within each item
+  only `name`.
+
+## What an import does
+
+Each entry **replaces** the event type with the same name, using the usual
+[version rules](/sparrow/guides/event-type-versioning/): a changed schema
+creates a new version, a first schema fills in version 1, other changes update
+in place, and an identical entry writes nothing. A field left out of an entry
+is cleared (a missing `event_schema` removes the schema, which is a breaking
+change), except `active`, which defaults to `true`.
+
+Event types that are **not in the file are never touched**. An import never
+deletes anything; there is no prune option.
+
+The whole file is applied in one transaction: every entry, or none.
+
+<ThemeDiagram
+  light={importFlowLight}
+  dark={importFlowDark}
+  alt="Import flow: validate every item, check the stamp, apply every item in one transaction, render affected templates for new versions, then either roll back and return the result (dry run, unacknowledged warning or unapproved breaking change) or optionally pause failing subscriptions and commit."
+/>
+
+### The preview
+
+Every import returns the full result, whether or not it was written:
+
+- each entry's action (`created`, `new_version`, `updated`, `unchanged`), its
+  version before and after, and which fields change, including whether it
+  deactivates or reactivates the type;
+- for a new version, whether the change is
+  [breaking](/sparrow/guides/event-type-versioning/#breaking-changes) and why;
+- for a new version, every subscription that receives the type, with its
+  transform template rendered strictly against the new schema, twice: with a
+  full sample payload and with only the required fields. The second catches a
+  template that reads an optional field without checking it is there.
+  Subscriptions without a transform are counted, since Sparrow cannot check
+  what the receiving system does with the payload.
+
+### When nothing is written
+
+An import writes nothing, and says why in `blocked_by`, when:
+
+| Reason | Meaning | To proceed |
+|--------|---------|------------|
+| dry run | You asked for a preview. | Run it again without `dry_run`. |
+| `version_differs` | The file was exported by a different Sparrow version. | UI checkbox, `--accept-version-mismatch`, or `acknowledge: ["version_differs"]` |
+| `format_unsupported` | The file uses a bundle format newer than this server. | UI checkbox, `--accept-version-mismatch`, or `acknowledge: ["format_unsupported"]` |
+| `items_changed` | The items were edited after export. | UI checkbox, `--accept-edited`, or `acknowledge: ["items_changed"]` |
+| `breaking` | A schema change is breaking for existing subscriptions. | Type each event type's name in the UI, `--allow-breaking`, or `allow_breaking: true` |
+
+The CLI exits non-zero when an import is blocked, and when a dry run would be
+blocked, so a promotion script stops at the right point.
+
+<Aside type="note" title="The stamp is a compatibility hint, not a signature">
+Each export is stamped with the exporting Sparrow version, the bundle format,
+and a sha256 of its items, computed from their content so reformatting the
+file does not change it. It tells you whether the file came from a matching
+Sparrow and whether someone edited it. It does not prove who made the file:
+anyone can edit a file and recompute the digest. A file with no stamp, such as
+a hand-written one, imports with a notice and needs no acknowledgement.
+</Aside>
+
+### Subscriptions whose template fails
+
+By default subscriptions keep running after an import. A template that no
+longer fits the new schema then fails its deliveries with error category
+`template_error`: nothing wrong is sent, nothing is retried automatically, and
+the webhook's health is unaffected. Fix the template, then retry the failed
+deliveries.
+
+To hold deliveries instead, import with `--pause-affected` (UI: **Pause the
+subscriptions whose template fails**; API: `subscription_policy: "pause"`).
+Each failing subscription is paused in the same transaction, with the import
+as the reason. See [Pausing a Subscription](/sparrow/guides/subscription-pause/).
+
+## API
+
+```bash
+# Export by name, by prefix, or everything
+curl -X POST http://localhost:8080/v1/event-types:export \
+  -H 'Content-Type: application/json' -d '{"names": ["order.created", "order.shipped"]}'
+
+# Import: the exported file as-is, plus options
+jq '. + {dry_run: true}' event-types.json | curl -X POST http://localhost:8080/v1/event-types:import \
+  -H 'Content-Type: application/json' -d @-
+```
+
+Import options: `dry_run`, `acknowledge` (a list of stamp warnings you
+accept), `allow_breaking`, and `subscription_policy` (`keep_active` or
+`pause`). The response has `applied`, `imported_at`, `stamp`, `blocked_by` and
+one entry per item in `items`. An invalid file (duplicate names, reserved
+names, a schema that does not compile, too many items) is rejected with `400`
+listing every problem, and nothing is imported.

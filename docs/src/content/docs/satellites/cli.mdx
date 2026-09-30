@@ -130,7 +130,8 @@ sparrow init --url https://sparrow.example.com --api-key $KEY --consumer payment
 ### `sparrow push <event-name>`
 
 Pushes one event occurrence and prints its event ID. If the event type isn't
-registered yet, it is created automatically and the push retried once.
+registered yet (the server answers `404`), the CLI registers it and retries
+the push once.
 
 ```bash
 sparrow push order.created -d '{"order_id":"ord_1"}'          # inline JSON
@@ -138,6 +139,48 @@ sparrow push order.created -d @payload.json                    # from a file
 sparrow push order.created -l env=prod -l region=eu            # labels for label_filters
 sparrow push order.created --idempotency-key ord_1-created     # dedup: same key returns the original event id
 ```
+
+### `sparrow events`
+
+Lists event types with their current version, or shows one type's schema and
+sample payload.
+
+```bash
+sparrow events                  # every event type
+sparrow events order.created    # one type's detail
+sparrow events versions order.created
+```
+
+### `sparrow events export` and `sparrow events import`
+
+Move event type definitions between environments as one JSON bundle. See
+[Moving Event Types Between Environments](/sparrow/guides/event-type-export-import/).
+
+```bash
+# export by name, by prefix, or everything (stdout by default)
+sparrow events export order.created order.shipped -f event-types.json
+sparrow events export --prefix order. > event-types.json
+sparrow events export --all -f event-types.json
+
+# preview, then import ("-f -" reads stdin)
+sparrow events import -f event-types.json --dry-run
+sparrow events import -f event-types.json
+```
+
+The import prints what each entry does (created, a new version `v2→v3`,
+updated, unchanged), the reasons a schema change is breaking, and each
+subscription whose template fails against the new schema. It writes nothing,
+and exits non-zero, until every block is acknowledged:
+
+| Flag | Accepts |
+|------|---------|
+| `--accept-version-mismatch` | a bundle exported by a different Sparrow version or format |
+| `--accept-edited` | a bundle edited after it was exported |
+| `--allow-breaking` | schema changes that are breaking for existing subscriptions |
+| `--pause-affected` | also pause the subscriptions whose template fails |
+
+A dry run that would be blocked also exits non-zero, so a promotion job can run
+`--dry-run` as a check.
 
 ### `sparrow tail deliveries`
 
@@ -231,7 +274,9 @@ sparrow template test slack.tmpl --event-name order.created --payload '{"order_i
 sparrow template test slack.tmpl --payload @sample-event.json
 ```
 
-Prints the rendered output, or the parse/render error. The template context is
+Prints the rendered output, or the parse/render error. Like a subscription, it
+treats a field the payload lacks as an error; pass `--missing-key zero` to
+render it as `<no value>` instead. The template context is
 `{{.event_id}}`, `{{.event_name}}`, `{{.timestamp}}`, `{{.attempt}}`, and
 `{{.payload}}`, with helper functions like `json` and `upper`
 (`GET /v1/template-functions` lists them all).

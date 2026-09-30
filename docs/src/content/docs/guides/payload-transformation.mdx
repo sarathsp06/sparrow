@@ -49,6 +49,16 @@ becomes the delivered body. Your event is available through these fields:
 So `{{ .payload.customer.email }}` reads the `customer.email` field out of your
 event, and `{{ .event_name }}` prints the event type.
 
+<Aside type="caution" title="A missing field is an error">
+By default a template that reads a field the payload does not have **fails**
+instead of printing `<no value>`, so a field removed from an event type's
+schema cannot silently put a wrong value in the body. Read fields that may be
+absent with `dig` or `index`, which never fail on a missing key:
+`{{ dig "coupon" "" .payload }}` or `{{ index .payload "coupon" }}`.
+`default` does not help here: in `default "x" .payload.coupon` the lookup fails
+before `default` runs. See [When a template fails](#when-a-template-fails).
+</Aside>
+
 <Aside type="caution" title="Templates print text — use `json` for JSON">
 A template outputs raw text. If you want to deliver **valid JSON**, build a map
 or list and pipe it through the `json` function (shown below). Don't hand-write
@@ -68,14 +78,15 @@ You don't have to guess. Test any template against a sample event:
    curl http://localhost:8080/v1/template-functions
    ```
 
-2. **Test a template against a sample payload** (returns the rendered output):
+2. **Test a template against an event type's sample payload** (returns the
+   rendered output; it renders strictly, as a subscription does by default):
 
    ```bash
    curl -X POST http://localhost:8080/v1/subscriptions:testTemplate \
      -H 'Content-Type: application/json' \
      -d '{
-       "template": "{{ dict \"id\" .event_id \"type\" .event_name | json }}",
-       "payload": { "amount": 4200 }
+       "event_name": "payment.succeeded",
+       "template": "{{ dict \"id\" .event_id \"amount\" .payload.amount | json }}"
      }'
    ```
 
@@ -85,6 +96,9 @@ You don't have to guess. Test any template against a sample event:
    ```bash
    sparrow template test partner.tmpl --payload '{"amount": 4200}'
    ```
+
+   Add `--missing-key zero` to render missing fields as `<no value>`, like a
+   subscription with `template_missing_key: zero`.
 
 </Steps>
 
@@ -239,25 +253,57 @@ fallbacks instead of empty values.
 **Template:**
 
 ```go
-{{ dict "name" (dig "customer" "name" "Guest" .payload) "plan" (default "free" .payload.plan) | json }}
+{{ dict "name" (dig "customer" "name" "Guest" .payload) "plan" (default "free" (index .payload "plan")) | json }}
 ```
 
-`dig` covers missing nested keys; `default` covers a field that's present but
-empty.
+`dig` covers missing nested keys. `index` reads a top-level key without failing
+when it is absent, and `default` then covers a field that is missing or
+present but empty.
 
 ## Good to know
 
 - **Transforms run at delivery**, on the way out. They don't change what Sparrow
   stores or how it fans out — only the body each subscription receives.
-- **Bad template? Delivery still happens.** If a template fails to render,
-  Sparrow falls back to the standard event envelope rather than dropping the
-  delivery.
+- **A template that fails is visible.** See [When a template fails](#when-a-template-fails).
 - **There are limits.** Output is capped at **1 MB** and execution at **5
   seconds** per transform, so a runaway template can't stall a worker.
 - **Why Go templates and not JavaScript?** They're parsed once and cached, run
   with almost no overhead, add zero dependencies, and are safe to share across
   every delivery worker — a deliberate choice for a small memory footprint and
   high throughput. See [Why Sparrow](/sparrow/getting-started/why-sparrow/).
+
+## When a template fails
+
+A template fails when it reads a field the payload does not have (with the
+default `template_missing_key: error`), calls a function with the wrong kind of
+value, or exceeds the limits above. Two settings on the subscription decide
+what happens.
+
+| Setting | Values |
+|---------|--------|
+| `on_transform_error` | `fail` (default): nothing is sent. The delivery is marked failed with error category `template_error`, is **not retried automatically**, and keeps the error in `template_error`. `fallback`: the standard event envelope is sent instead, and the error is still recorded on the delivery. |
+| `template_missing_key` | `error` (default): reading a missing field fails the template. `zero`: it prints `<no value>` and the delivery goes out. |
+
+```bash
+curl -X PATCH http://localhost:8080/v1/consumers/acme/subscriptions/{subscription_id} \
+  -H 'Content-Type: application/json' \
+  -d '{"on_transform_error": "fallback", "template_missing_key": "zero"}'
+```
+
+A template error is a problem on the sending side, not with the receiving
+system, so it **never counts toward the webhook's health** and raises no health
+alert. It is counted in the `sparrow_template_errors_total` metric.
+
+To recover, fix the template, then retry: one delivery with
+`POST /v1/consumers/{consumer}/deliveries/{delivery_id}:retry`, or all of them
+by listing `?status=failed&error_category=template_error&prepare_retry=true`
+and starting a batch retry. Every attempt renders the subscription's current
+template, so the retry uses the fixed one. In the UI, filter Deliveries by the
+**Template Error** category.
+
+When an event type's schema changes, Sparrow checks every subscription's
+template against the new schema before the change is written; see
+[Event Type Versions](/sparrow/guides/event-type-versioning/#breaking-changes).
 
 ## Where to go next
 
