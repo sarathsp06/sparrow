@@ -279,6 +279,11 @@ Returns a default value if the input is nil or empty string.
 {{ default "Unknown" .name }}
 ```
 
+Subscriptions render strictly by default (`template_missing_key: error`), so
+reading a key the payload does not have fails before `default` runs. For a
+field that may be absent, read it with `dig` or `index` first:
+`{{ dig "plan" "free" .payload }}` or `{{ default "free" (index .payload "plan") }}`.
+
 **Example:**
 ```
 Input:  "N/A", ""      -> "N/A"

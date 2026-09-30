@@ -115,6 +115,10 @@ recipes are applied and parameterized.
   Nothing is sent unless a webhook subscribes to these events; with the
   SendGrid recipe, an empty list goes to its `default_recipient` (typically
   your ops inbox) as a catch-all.
+- **Health measures the receiving system only.** Deliveries that fail
+  because a subscription's template did not render (`template_error`), and
+  deliveries held by a paused subscription, are faults or choices on the
+  sending side. They never change a webhook's health or trigger these events.
 - **Errors here never affect delivery.** If emitting a system event fails,
   Sparrow logs it and moves on; it never retries or blocks the webhook
   delivery that triggered it.

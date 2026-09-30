@@ -73,6 +73,7 @@ The embedded UI (`SPARROW_SERVE_UI=true`) is served exactly as built -- the serv
 | `/v1/*` | Huma REST API | Yes | See `internal/rest/` — one file per resource |
 | `/docs`, `/openapi.*` | Huma-served Scalar UI + spec | No | Interactive API reference |
 | `GET /health`, `/ready` | Health check | No | JSON status |
+| `/v1/event-types:export`, `/v1/event-types:import` | Event type bundles (`internal/rest/event_bundle.go`) | Yes | Move definitions between environments; import is all-or-nothing with dry run. There is no event type delete |
 | `/v1/tokens`, `/v1/invites`, `/v1/whoami` | Access token/invite endpoints (`internal/rest/access.go`) | Yes | Under `/v1` — require master key or tenant-wide token |
 | `/portal/api/*` | Portal gateway (`internal/middleware/portal_gateway.go`) | Portal bearer or consumer token | Re-dispatches to `/v1` scoped to the token's consumer |
 | `POST /invite/redeem` | Invite redemption (`pkg/access/httpauth`) | No (invite is the credential) | Body `{"invite": "..."}` → token; `400 invalid_invite` for bad/used/expired/cancelled |
@@ -87,6 +88,7 @@ Route-group middleware (API key auth) wraps only the `/v1/*` group (`r.Group` in
 - **No direct SQL in handlers** — all DB access through RepositoryInterface methods.
 - **REST errors**: use `mapError(ctx, err, msg)` from `internal/rest/errors.go`.
 - **Tenant scoping**: always filter by `tenant.DefaultTenantID` in queries.
+- **Event type writes**: go through `saveEventType` (`internal/webhooks/event_type_save.go`). The only other writer is `store.RegisterEvent` for creation (auto-register, system events), which inserts the version-history row in the same statement. Never update `event_registrations` directly, or the history drifts. Event types are never deleted.
 - **Naming**: files `snake_case.go`, packages lowercase single word, REST OperationIDs `camelCase` verb-first (e.g. `registerWebhook`, `listDeliveries`).
 - **OTel wrappers**: generated via `//go:generate gowrap gen -i InterfaceName ...` — do not hand-edit `*_otel.go` files.
 - **OpenAPI spec**: exported from Go via `cmd/openapi-export`, committed at `api/openapi.{yaml,json}` — regenerate with `make generate` after any handler change; `internal/rest/openapi_drift_test.go` fails CI if it's stale.

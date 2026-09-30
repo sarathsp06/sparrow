@@ -17,12 +17,14 @@ pending → sending → success
                 → failed (terminal, if max_attempts reached)
                 → retrying → sending → ...
                 → expired
+paused (subscription paused; no job) → retried → pending → ...
 ```
 
 ## Key Fields (16 columns)
 
 - `webhook_id`, `event_id`, `subscription_id` — FKs
-- `status` — pending, sending, success, failed, retrying, expired
+- `status` — pending, sending, success, failed, retrying, expired, paused
+- `template_error` — last transform error, if the subscription's template failed
 - `attempts` — current attempt count
 - `max_attempts` — retry limit from HTTP config
 - `error_category` — [classified error](/concepts/error-classification.md)
