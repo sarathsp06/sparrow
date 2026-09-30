@@ -37,7 +37,7 @@
 
 1. **Deterministic bulk operations** — Batch actions snapshot matching IDs into `batch_jobs` at query time. The bulk action operates on that snapshot, NOT a live re-query.
 2. **Soft validation over hard rejection** — Schema validation produces warnings, not errors. Events tagged `schema_valid=false`, never discarded.
-3. **Graceful degradation** — When a non-critical step fails (e.g., Go template transform), fall back to a safe default (envelope payload).
+3. **Fail visibly, never silently** — A step that cannot do what the subscription asked (e.g., a Go template transform that errors) fails the delivery with a permanent, non-retryable error recorded on the delivery row. Fallbacks are opt-in per subscription and still record the error. Faults on the sending side never count against a receiver's health.
 4. **Generic infrastructure over per-feature tables** — Shared concerns use generic tables with `job_type` + JSONB `data` columns.
 5. **Implicit infrastructure, explicit actions** — Batch jobs are an implementation detail. Users see "re-push ID" and "retry ID", not "batch job IDs".
 6. **Postgres-only, no Redis** — All queuing, state, and caching uses PostgreSQL. Don't introduce Redis or other external dependencies without strong justification.

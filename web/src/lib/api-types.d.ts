@@ -995,7 +995,7 @@ export interface components {
              * @description Failure classification for this attempt.
              * @enum {string}
              */
-            error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "unknown" | "";
+            error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "template_error" | "unknown" | "";
             /** @description Human-readable failure reason for this attempt. */
             error_message?: string;
             /**
@@ -1180,6 +1180,16 @@ export interface components {
             /** @description HTTP method used for deliveries from this subscription. Defaults to POST. */
             method?: string;
             /**
+             * @description What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery.
+             * @enum {string}
+             */
+            on_transform_error?: "fail" | "fallback";
+            /**
+             * @description How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into "<no value>" in the body; read optional fields with index, dig or default. zero: the key renders as "<no value>".
+             * @enum {string}
+             */
+            template_missing_key?: "error" | "zero";
+            /**
              * Format: int64
              * @description Per-delivery request timeout in seconds, overriding the webhook's default.
              */
@@ -1244,10 +1254,10 @@ export interface components {
             /** @description Delivery id (UUID). */
             delivery_id: string;
             /**
-             * @description Failure classification from the most recent attempt, used to decide retryability.
+             * @description Failure classification from the most recent attempt, used to decide retryability. template_error means the subscription's transform failed to render; it is not retried automatically and does not count against the webhook's health.
              * @enum {string}
              */
-            error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "unknown" | "";
+            error_category?: "success" | "client_error" | "server_error" | "timeout" | "dns_error" | "tls_error" | "connection_refused" | "network_error" | "rate_limited" | "unexpected_status" | "template_error" | "unknown" | "";
             /** @description Human-readable failure reason from the most recent attempt. */
             error_message?: string;
             /** @description Pushed event occurrence this delivery originated from. */
@@ -1273,6 +1283,8 @@ export interface components {
              * @enum {string}
              */
             status: "pending" | "sending" | "success" | "failed" | "retrying" | "expired";
+            /** @description The payload transform error, when the subscription's template failed to render. Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope was sent instead. */
+            template_error?: string;
             /** @description Webhook this delivery was sent to. */
             webhook_id: string;
         };
@@ -1680,6 +1692,16 @@ export interface components {
             /** @description Replace the HTTP method. */
             method?: string;
             /**
+             * @description Replace what happens when the template fails to render.
+             * @enum {string}
+             */
+            on_transform_error?: "fail" | "fallback";
+            /**
+             * @description Replace how the template reads a missing key.
+             * @enum {string}
+             */
+            template_missing_key?: "error" | "zero";
+            /**
              * Format: int64
              * @description Replace the per-delivery timeout override, in seconds.
              */
@@ -1891,8 +1913,18 @@ export interface components {
              * @enum {string}
              */
             method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+            /**
+             * @description What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery.
+             * @enum {string}
+             */
+            on_transform_error: "fail" | "fallback";
             /** @description Subscription id (UUID). */
             subscription_id: string;
+            /**
+             * @description How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into "<no value>" in the body; read optional fields with index, dig or default. zero: the key renders as "<no value>".
+             * @enum {string}
+             */
+            template_missing_key: "error" | "zero";
             /**
              * Format: int64
              * @description Per-delivery request timeout in seconds, overriding the webhook's default.
@@ -1933,6 +1965,11 @@ export interface components {
             event_name: string;
             /** @description Go template to render, in the same syntax used by transform_template. */
             template: string;
+            /**
+             * @description Render as a subscription with this template_missing_key would. Defaults to error, the subscription default.
+             * @enum {string}
+             */
+            template_missing_key?: "error" | "zero";
         };
         TestTemplateOutputBody: {
             /**

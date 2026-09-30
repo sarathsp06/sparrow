@@ -139,7 +139,7 @@ class SparrowAPI:
     def wait_for_all_deliveries_terminal(self, consumer: str, expected_count: int = 1,
                                           timeout: float = 60.0) -> list[dict]:
         """Poll until all deliveries reach terminal status."""
-        non_retryable = {"client_error", "dns_error", "tls_error", "unexpected_status"}
+        non_retryable = {"client_error", "dns_error", "tls_error", "unexpected_status", "template_error"}
         deadline = time.time() + timeout
         while True:
             resp = self.list_deliveries(consumer=consumer)

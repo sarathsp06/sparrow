@@ -275,7 +275,7 @@ func TestWebhookService_CreateSubscription(t *testing.T) {
 
 	repo.On("CreateSubscription", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	id, createdAt, err := service.CreateSubscription(ctx, webhookID, eventName, consumer, nil, "POST", 30, false, "", nil)
+	id, createdAt, err := service.CreateSubscription(ctx, webhookID, eventName, consumer, nil, "POST", 30, false, "", nil, SubscriptionTemplateSettings{})
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
@@ -317,7 +317,7 @@ func TestWebhookService_TestSubscriptionTemplate(t *testing.T) {
 	repo.On("GetEventByName", mock.Anything, mock.Anything, eventName).Return(event, nil)
 
 	template := `{"new_id": "{{ .payload.id }}"}`
-	res, err := service.TestSubscriptionTemplate(ctx, eventName, template, "default")
+	res, err := service.TestSubscriptionTemplate(ctx, eventName, template, "default", true)
 	assert.NoError(t, err)
 	assert.Equal(t, `{"new_id": "123"}`, res)
 	repo.AssertExpectations(t)
@@ -410,7 +410,7 @@ func TestWebhookService_CreateSubscription_CatchAll(t *testing.T) {
 		return sub.EventName == store.CatchAllEventName
 	})).Return(nil)
 
-	id, createdAt, err := service.CreateSubscription(ctx, webhookID, store.CatchAllEventName, consumer, nil, "POST", 30, false, "", nil)
+	id, createdAt, err := service.CreateSubscription(ctx, webhookID, store.CatchAllEventName, consumer, nil, "POST", 30, false, "", nil, SubscriptionTemplateSettings{})
 
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)

@@ -81,21 +81,21 @@ func (w *WebhookRegistration) MaxDeliveryAttempts() int {
 
 // EventRecord represents an event that was pushed
 type EventRecord struct {
-	ID             uuid.UUID     `json:"id" db:"id"`
-	TenantID       uuid.UUID     `json:"tenant_id" db:"tenant_id"`
-	Consumer       string        `json:"consumer" db:"consumer"`
-	Event          string        `json:"event" db:"event"`
-	Payload        JSONMap       `json:"payload" db:"payload"`
-	TTL            int64         `json:"ttl" db:"ttl"`
-	Metadata       JSONStringMap `json:"metadata" db:"metadata"`
-	Labels         JSONStringMap `json:"labels" db:"labels"`
-	SchemaValid    bool          `json:"schema_valid" db:"schema_valid"`
+	ID          uuid.UUID     `json:"id" db:"id"`
+	TenantID    uuid.UUID     `json:"tenant_id" db:"tenant_id"`
+	Consumer    string        `json:"consumer" db:"consumer"`
+	Event       string        `json:"event" db:"event"`
+	Payload     JSONMap       `json:"payload" db:"payload"`
+	TTL         int64         `json:"ttl" db:"ttl"`
+	Metadata    JSONStringMap `json:"metadata" db:"metadata"`
+	Labels      JSONStringMap `json:"labels" db:"labels"`
+	SchemaValid bool          `json:"schema_valid" db:"schema_valid"`
 	// EventVersion is the event type version the occurrence was accepted
 	// under. Occurrences stored before versioning read back as 1.
-	EventVersion   int           `json:"event_version" db:"event_version"`
-	IdempotencyKey *string       `json:"idempotency_key,omitempty" db:"idempotency_key"`
-	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
-	ExpiresAt      time.Time     `json:"expires_at" db:"expires_at"`
+	EventVersion   int       `json:"event_version" db:"event_version"`
+	IdempotencyKey *string   `json:"idempotency_key,omitempty" db:"idempotency_key"`
+	CreatedAt      time.Time `json:"created_at" db:"created_at"`
+	ExpiresAt      time.Time `json:"expires_at" db:"expires_at"`
 }
 
 // WebhookDelivery represents a webhook delivery attempt
@@ -116,6 +116,9 @@ type WebhookDelivery struct {
 	ErrorMessage    string                `json:"error_message" db:"error_message"`
 	RequestBody     string                `json:"request_body" db:"request_body"`
 	ErrorCategory   string                `json:"error_category" db:"error_category"`
+	// TemplateError is the last payload transform error, empty when the
+	// transform rendered (or the subscription has none).
+	TemplateError string `json:"template_error" db:"template_error"`
 }
 
 // WebhookDeliveryStatus represents the status of a webhook delivery
@@ -273,8 +276,53 @@ type EventSubscription struct {
 	TransformTemplate string        `json:"transform_template" db:"transform_template"`
 	Timeout           int           `json:"timeout" db:"timeout"`
 	LabelFilters      JSONStringMap `json:"label_filters" db:"label_filters"`
-	CreatedAt         time.Time     `json:"created_at" db:"created_at"`
-	UpdatedAt         time.Time     `json:"updated_at" db:"updated_at"`
+	// OnTransformError is what happens when TransformTemplate fails to
+	// render: OnTransformErrorFail or OnTransformErrorFallback.
+	OnTransformError string `json:"on_transform_error" db:"on_transform_error"`
+	// TemplateMissingKey is how TransformTemplate reads a key the payload
+	// does not have: TemplateMissingKeyError or TemplateMissingKeyZero.
+	TemplateMissingKey string    `json:"template_missing_key" db:"template_missing_key"`
+	CreatedAt          time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Values of EventSubscription.OnTransformError.
+const (
+	// OnTransformErrorFail fails the delivery with error category
+	// template_error: no automatic retries, retryable by hand.
+	OnTransformErrorFail = "fail"
+	// OnTransformErrorFallback sends the default envelope payload instead.
+	OnTransformErrorFallback = "fallback"
+)
+
+// Values of EventSubscription.TemplateMissingKey.
+const (
+	// TemplateMissingKeyError makes reading a missing key fail the render.
+	TemplateMissingKeyError = "error"
+	// TemplateMissingKeyZero renders a missing key as "<no value>".
+	TemplateMissingKeyZero = "zero"
+)
+
+// StrictTemplate reports whether the subscription's template renders with
+// missing keys as errors.
+func (s *EventSubscription) StrictTemplate() bool {
+	return s.TemplateMissingKey != TemplateMissingKeyZero
+}
+
+// ApplyTemplateDefaults fills unset template settings with their defaults.
+func (s *EventSubscription) ApplyTemplateDefaults() {
+	if s.OnTransformError == "" {
+		s.OnTransformError = OnTransformErrorFail
+	}
+	if s.TemplateMissingKey == "" {
+		s.TemplateMissingKey = TemplateMissingKeyError
+	}
+}
+
+// FallbackOnTransformError reports whether a failed transform should send
+// the default envelope instead of failing the delivery.
+func (s *EventSubscription) FallbackOnTransformError() bool {
+	return s.OnTransformError == OnTransformErrorFallback
 }
 
 // ConsumerStats represents statistics for a consumer

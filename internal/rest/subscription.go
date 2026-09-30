@@ -12,14 +12,16 @@ import (
 )
 
 type createSubscriptionBody struct {
-	WebhookID         string            `json:"webhook_id" required:"true" doc:"Webhook to deliver matching events to."`
-	EventName         string            `json:"event_name" required:"true" doc:"Event type name to subscribe to, or \"*\" to receive every event in the consumer (catch-all)."`
-	Headers           map[string]string `json:"headers,omitempty" doc:"Extra HTTP headers to send with deliveries created by this subscription, merged with the webhook's own headers."`
-	Method            string            `json:"method,omitempty" doc:"HTTP method used for deliveries from this subscription. Defaults to POST."`
-	Timeout           int               `json:"timeout,omitempty" doc:"Per-delivery request timeout in seconds, overriding the webhook's default."`
-	TransformEnabled  bool              `json:"transform_enabled,omitempty" doc:"Whether to render transform_template into the delivered payload instead of sending the raw event payload."`
-	TransformTemplate string            `json:"transform_template,omitempty" doc:"Go template rendered against the event to produce the delivered body. See GET /v1/template-functions for available helpers; test it with POST /v1/subscriptions:testTemplate."`
-	LabelFilters      map[string]string `json:"label_filters,omitempty" doc:"Key/value pairs that must ALL be present in an event's labels for this subscription to receive it. Empty means match every event of event_name."`
+	WebhookID          string            `json:"webhook_id" required:"true" doc:"Webhook to deliver matching events to."`
+	EventName          string            `json:"event_name" required:"true" doc:"Event type name to subscribe to, or \"*\" to receive every event in the consumer (catch-all)."`
+	Headers            map[string]string `json:"headers,omitempty" doc:"Extra HTTP headers to send with deliveries created by this subscription, merged with the webhook's own headers."`
+	Method             string            `json:"method,omitempty" doc:"HTTP method used for deliveries from this subscription. Defaults to POST."`
+	Timeout            int               `json:"timeout,omitempty" doc:"Per-delivery request timeout in seconds, overriding the webhook's default."`
+	TransformEnabled   bool              `json:"transform_enabled,omitempty" doc:"Whether to render transform_template into the delivered payload instead of sending the raw event payload."`
+	TransformTemplate  string            `json:"transform_template,omitempty" doc:"Go template rendered against the event to produce the delivered body. See GET /v1/template-functions for available helpers; test it with POST /v1/subscriptions:testTemplate."`
+	LabelFilters       map[string]string `json:"label_filters,omitempty" doc:"Key/value pairs that must ALL be present in an event's labels for this subscription to receive it. Empty means match every event of event_name."`
+	OnTransformError   string            `json:"on_transform_error,omitempty" enum:"fail,fallback" doc:"What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery."`
+	TemplateMissingKey string            `json:"template_missing_key,omitempty" enum:"error,zero" doc:"How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into \"<no value>\" in the body; read optional fields with index, dig or default. zero: the key renders as \"<no value>\"."`
 }
 
 type createSubscriptionInput struct {
@@ -33,18 +35,20 @@ type subscriptionIDInput struct {
 }
 
 type subscriptionItem struct {
-	SubscriptionID    string            `json:"subscription_id" doc:"Subscription id (UUID)."`
-	Consumer          string            `json:"consumer" doc:"Tenant consumer this subscription belongs to."`
-	WebhookID         string            `json:"webhook_id" doc:"Webhook this subscription delivers to."`
-	EventName         string            `json:"event_name" doc:"Event type name this subscription matches, or \"*\" for catch-all."`
-	Headers           map[string]string `json:"headers,omitempty" doc:"Extra HTTP headers sent with deliveries from this subscription."`
-	Method            string            `json:"method,omitempty" enum:"GET,POST,PUT,PATCH,DELETE" doc:"HTTP method used for deliveries from this subscription."`
-	Timeout           int               `json:"timeout,omitempty" doc:"Per-delivery request timeout in seconds, overriding the webhook's default."`
-	TransformEnabled  bool              `json:"transform_enabled" doc:"Whether transform_template is rendered into the delivered payload."`
-	TransformTemplate string            `json:"transform_template,omitempty" doc:"Go template rendered against the event to produce the delivered body."`
-	LabelFilters      map[string]string `json:"label_filters,omitempty" doc:"Key/value pairs that must all be present in an event's labels for this subscription to receive it."`
-	CreatedAt         string            `json:"created_at" doc:"Creation timestamp, RFC3339."`
-	UpdatedAt         string            `json:"updated_at" doc:"Last-modified timestamp, RFC3339."`
+	SubscriptionID     string            `json:"subscription_id" doc:"Subscription id (UUID)."`
+	Consumer           string            `json:"consumer" doc:"Tenant consumer this subscription belongs to."`
+	WebhookID          string            `json:"webhook_id" doc:"Webhook this subscription delivers to."`
+	EventName          string            `json:"event_name" doc:"Event type name this subscription matches, or \"*\" for catch-all."`
+	Headers            map[string]string `json:"headers,omitempty" doc:"Extra HTTP headers sent with deliveries from this subscription."`
+	Method             string            `json:"method,omitempty" enum:"GET,POST,PUT,PATCH,DELETE" doc:"HTTP method used for deliveries from this subscription."`
+	Timeout            int               `json:"timeout,omitempty" doc:"Per-delivery request timeout in seconds, overriding the webhook's default."`
+	TransformEnabled   bool              `json:"transform_enabled" doc:"Whether transform_template is rendered into the delivered payload."`
+	TransformTemplate  string            `json:"transform_template,omitempty" doc:"Go template rendered against the event to produce the delivered body."`
+	LabelFilters       map[string]string `json:"label_filters,omitempty" doc:"Key/value pairs that must all be present in an event's labels for this subscription to receive it."`
+	OnTransformError   string            `json:"on_transform_error" enum:"fail,fallback" doc:"What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery."`
+	TemplateMissingKey string            `json:"template_missing_key" enum:"error,zero" doc:"How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into \"<no value>\" in the body; read optional fields with index, dig or default. zero: the key renders as \"<no value>\"."`
+	CreatedAt          string            `json:"created_at" doc:"Creation timestamp, RFC3339."`
+	UpdatedAt          string            `json:"updated_at" doc:"Last-modified timestamp, RFC3339."`
 }
 
 type subscriptionOutput struct {
@@ -53,18 +57,20 @@ type subscriptionOutput struct {
 
 func toSubscriptionItem(s *store.EventSubscription) subscriptionItem {
 	return subscriptionItem{
-		SubscriptionID:    s.ID.String(),
-		Consumer:          s.Consumer,
-		WebhookID:         s.WebhookID.String(),
-		EventName:         s.EventName,
-		Headers:           s.Headers,
-		Method:            s.Method,
-		Timeout:           s.Timeout,
-		TransformEnabled:  s.TransformEnabled,
-		TransformTemplate: s.TransformTemplate,
-		LabelFilters:      s.LabelFilters,
-		CreatedAt:         s.CreatedAt.Format(time.RFC3339Nano),
-		UpdatedAt:         s.UpdatedAt.Format(time.RFC3339Nano),
+		SubscriptionID:     s.ID.String(),
+		Consumer:           s.Consumer,
+		WebhookID:          s.WebhookID.String(),
+		EventName:          s.EventName,
+		Headers:            s.Headers,
+		Method:             s.Method,
+		Timeout:            s.Timeout,
+		TransformEnabled:   s.TransformEnabled,
+		TransformTemplate:  s.TransformTemplate,
+		LabelFilters:       s.LabelFilters,
+		OnTransformError:   s.OnTransformError,
+		TemplateMissingKey: s.TemplateMissingKey,
+		CreatedAt:          s.CreatedAt.Format(time.RFC3339Nano),
+		UpdatedAt:          s.UpdatedAt.Format(time.RFC3339Nano),
 	}
 }
 
@@ -102,12 +108,14 @@ type listSubscriptionsOutput struct {
 // request JSON are changed. webhook_id and event_name are immutable —
 // delete and recreate the subscription to change either.
 type patchSubscriptionBody struct {
-	Headers           *map[string]string `json:"headers,omitempty" doc:"Replace the extra HTTP headers."`
-	Method            *string            `json:"method,omitempty" doc:"Replace the HTTP method."`
-	Timeout           *int               `json:"timeout,omitempty" doc:"Replace the per-delivery timeout override, in seconds."`
-	TransformEnabled  *bool              `json:"transform_enabled,omitempty" doc:"Enable or disable payload transformation."`
-	TransformTemplate *string            `json:"transform_template,omitempty" doc:"Replace the transform template."`
-	LabelFilters      *map[string]string `json:"label_filters,omitempty" doc:"Replace the label filters."`
+	Headers            *map[string]string `json:"headers,omitempty" doc:"Replace the extra HTTP headers."`
+	Method             *string            `json:"method,omitempty" doc:"Replace the HTTP method."`
+	Timeout            *int               `json:"timeout,omitempty" doc:"Replace the per-delivery timeout override, in seconds."`
+	TransformEnabled   *bool              `json:"transform_enabled,omitempty" doc:"Enable or disable payload transformation."`
+	TransformTemplate  *string            `json:"transform_template,omitempty" doc:"Replace the transform template."`
+	LabelFilters       *map[string]string `json:"label_filters,omitempty" doc:"Replace the label filters."`
+	OnTransformError   *string            `json:"on_transform_error,omitempty" enum:"fail,fallback" doc:"Replace what happens when the template fails to render."`
+	TemplateMissingKey *string            `json:"template_missing_key,omitempty" enum:"error,zero" doc:"Replace how the template reads a missing key."`
 }
 
 type patchSubscriptionInput struct {
@@ -117,8 +125,9 @@ type patchSubscriptionInput struct {
 }
 
 type testTemplateBody struct {
-	EventName string `json:"event_name" required:"true" doc:"Registered event type whose sample payload the template is rendered against."`
-	Template  string `json:"template" required:"true" doc:"Go template to render, in the same syntax used by transform_template."`
+	EventName          string `json:"event_name" required:"true" doc:"Registered event type whose sample payload the template is rendered against."`
+	Template           string `json:"template" required:"true" doc:"Go template to render, in the same syntax used by transform_template."`
+	TemplateMissingKey string `json:"template_missing_key,omitempty" enum:"error,zero" required:"false" doc:"Render as a subscription with this template_missing_key would. Defaults to error, the subscription default."`
 }
 
 type testTemplateInput struct {
@@ -142,7 +151,10 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 		Tags:          []string{"Subscriptions"},
 		DefaultStatus: http.StatusCreated,
 	}, func(ctx context.Context, in *createSubscriptionInput) (*subscriptionOutput, error) {
-		id, _, err := svc.CreateSubscription(ctx, in.Body.WebhookID, in.Body.EventName, in.Consumer, in.Body.Headers, in.Body.Method, in.Body.Timeout, in.Body.TransformEnabled, in.Body.TransformTemplate, in.Body.LabelFilters)
+		id, _, err := svc.CreateSubscription(ctx, in.Body.WebhookID, in.Body.EventName, in.Consumer, in.Body.Headers, in.Body.Method, in.Body.Timeout, in.Body.TransformEnabled, in.Body.TransformTemplate, in.Body.LabelFilters, webhooks.SubscriptionTemplateSettings{
+			OnTransformError:   in.Body.OnTransformError,
+			TemplateMissingKey: in.Body.TemplateMissingKey,
+		})
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to create subscription")
 		}
@@ -228,7 +240,17 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 		if in.Body.LabelFilters != nil {
 			labelFilters = *in.Body.LabelFilters
 		}
-		if err := svc.UpdateSubscription(ctx, in.SubscriptionID, in.Consumer, headers, method, timeout, transformEnabled, transformTemplate, labelFilters); err != nil {
+		settings := webhooks.SubscriptionTemplateSettings{
+			OnTransformError:   existing.OnTransformError,
+			TemplateMissingKey: existing.TemplateMissingKey,
+		}
+		if in.Body.OnTransformError != nil {
+			settings.OnTransformError = *in.Body.OnTransformError
+		}
+		if in.Body.TemplateMissingKey != nil {
+			settings.TemplateMissingKey = *in.Body.TemplateMissingKey
+		}
+		if err := svc.UpdateSubscription(ctx, in.SubscriptionID, in.Consumer, headers, method, timeout, transformEnabled, transformTemplate, labelFilters, settings); err != nil {
 			return nil, mapError(ctx, err, "failed to update subscription")
 		}
 		updated, err := svc.GetSubscription(ctx, in.SubscriptionID, in.Consumer)
@@ -263,7 +285,7 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 		Errors:      []int{400, 404},
 		Tags:        []string{"Subscriptions"},
 	}, func(ctx context.Context, in *testTemplateInput) (*testTemplateOutput, error) {
-		rendered, err := svc.TestSubscriptionTemplate(ctx, in.Body.EventName, in.Body.Template, "")
+		rendered, err := svc.TestSubscriptionTemplate(ctx, in.Body.EventName, in.Body.Template, "", in.Body.TemplateMissingKey != store.TemplateMissingKeyZero)
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to test template")
 		}
