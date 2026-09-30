@@ -62,12 +62,12 @@ type EventManager interface {
 
 // SubscriptionManager manages event subscriptions and payload-transform templates.
 type SubscriptionManager interface {
-	CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error)
+	CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings) (string, time.Time, error)
 	GetSubscription(ctx context.Context, subscriptionID string, consumer string) (*store.EventSubscription, error)
 	ListSubscriptions(ctx context.Context, consumer string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
-	UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error
+	UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings) error
 	DeleteSubscription(ctx context.Context, subscriptionID string, consumer string) error
-	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string) (string, error)
+	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string, strict bool) (string, error)
 	ListSubscriptionsByWebhookIDs(ctx context.Context, webhookIDs []uuid.UUID) ([]*store.EventSubscription, error)
 	GetTemplateFunctions() []TemplateFunctionInfo
 }

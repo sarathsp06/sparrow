@@ -402,10 +402,12 @@ func insertSubscription(ctx context.Context, conn storage.DBTX, tenantID uuid.UU
 	query := `
 		INSERT INTO event_subscriptions (
 			id, tenant_id, webhook_id, event_name, consumer, headers, method,
-			transform_enabled, transform_template, timeout, label_filters, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			transform_enabled, transform_template, timeout, label_filters, created_at, updated_at,
+			on_transform_error, template_missing_key
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 	`
 
+	sub.ApplyTemplateDefaults()
 	_, err = conn.ExecContext(ctx, query,
 		sub.ID,
 		sub.TenantID,
@@ -420,6 +422,8 @@ func insertSubscription(ctx context.Context, conn storage.DBTX, tenantID uuid.UU
 		labelFiltersJSON,
 		sub.CreatedAt,
 		sub.UpdatedAt,
+		sub.OnTransformError,
+		sub.TemplateMissingKey,
 	)
 	return storage.Error(err)
 }

@@ -158,6 +158,12 @@ func (c *WebhookClient) TransformPayload(tmplStr string, data template.WebhookTe
 	return c.tmpl.TransformPayload(tmplStr, data)
 }
 
+// TransformPayloadWith transforms the webhook payload using a template and
+// execution options (for example strict missing-key handling).
+func (c *WebhookClient) TransformPayloadWith(tmplStr string, data template.WebhookTemplateContext, opts template.ExecOptions) ([]byte, error) {
+	return c.tmpl.TransformPayloadWith(tmplStr, data, opts)
+}
+
 // redactSpanURL runs inside the otelhttp transport and overwrites the span's
 // url.full attribute, which otelhttp records with the full path and query
 // (it strips only userinfo). Delivery spans would otherwise export webhook

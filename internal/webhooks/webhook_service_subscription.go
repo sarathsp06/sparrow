@@ -44,9 +44,32 @@ func (s *WebhookService) ListSubscriptionsByWebhookIDs(ctx context.Context, webh
 	return s.webhookRepo.ListSubscriptionsByWebhookIDs(ctx, tenant.DefaultTenantID, webhookIDs)
 }
 
+// SubscriptionTemplateSettings controls how a subscription's transform
+// template is rendered and what happens when it fails. Empty fields take the
+// defaults: on_transform_error=fail, template_missing_key=error.
+type SubscriptionTemplateSettings struct {
+	OnTransformError   string
+	TemplateMissingKey string
+}
+
+// validate rejects unknown values; empty means "use the default".
+func (t SubscriptionTemplateSettings) validate() error {
+	switch t.OnTransformError {
+	case "", store.OnTransformErrorFail, store.OnTransformErrorFallback:
+	default:
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "on_transform_error must be %q or %q", store.OnTransformErrorFail, store.OnTransformErrorFallback)
+	}
+	switch t.TemplateMissingKey {
+	case "", store.TemplateMissingKeyError, store.TemplateMissingKeyZero:
+	default:
+		return svcerrors.Errorf(svcerrors.InvalidArgument, "template_missing_key must be %q or %q", store.TemplateMissingKeyError, store.TemplateMissingKeyZero)
+	}
+	return nil
+}
+
 // Subscription Management Implementation
 
-func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error) {
+func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings) (string, time.Time, error) {
 	s.logger.InfoContext(ctx, "Creating subscription", "webhook_id", webhookID, "event_name", eventName, "consumer", consumer)
 
 	if consumer == "" {
@@ -66,17 +89,22 @@ func (s *WebhookService) CreateSubscription(ctx context.Context, webhookID, even
 	if err := validateLabels(labelFilters, "label_filters"); err != nil {
 		return "", time.Time{}, err
 	}
+	if err := settings.validate(); err != nil {
+		return "", time.Time{}, err
+	}
 
 	sub := &store.EventSubscription{
-		WebhookID:         id,
-		EventName:         eventName,
-		Consumer:          consumer,
-		Headers:           headers,
-		Method:            method,
-		Timeout:           timeout,
-		TransformEnabled:  transformEnabled,
-		TransformTemplate: transformTemplate,
-		LabelFilters:      labelFilters,
+		OnTransformError:   settings.OnTransformError,
+		TemplateMissingKey: settings.TemplateMissingKey,
+		WebhookID:          id,
+		EventName:          eventName,
+		Consumer:           consumer,
+		Headers:            headers,
+		Method:             method,
+		Timeout:            timeout,
+		TransformEnabled:   transformEnabled,
+		TransformTemplate:  transformTemplate,
+		LabelFilters:       labelFilters,
 	}
 
 	if err := s.webhookRepo.CreateSubscription(ctx, tenantID, sub); err != nil {
@@ -151,8 +179,11 @@ func paginateSubscriptions(subs []*store.EventSubscription, offset, limit int32)
 	return subs[start:end]
 }
 
-func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error {
+func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings) error {
 	if err := validateLabels(labelFilters, "label_filters"); err != nil {
+		return err
+	}
+	if err := settings.validate(); err != nil {
 		return err
 	}
 	if err := validateHeaders("headers", headers); err != nil {
@@ -170,6 +201,8 @@ func (s *WebhookService) UpdateSubscription(ctx context.Context, subscriptionID 
 	sub.TransformEnabled = transformEnabled
 	sub.TransformTemplate = transformTemplate
 	sub.LabelFilters = labelFilters
+	sub.OnTransformError = settings.OnTransformError
+	sub.TemplateMissingKey = settings.TemplateMissingKey
 
 	return s.webhookRepo.UpdateSubscription(ctx, tenant.DefaultTenantID, sub)
 }
@@ -182,7 +215,10 @@ func (s *WebhookService) DeleteSubscription(ctx context.Context, subscriptionID 
 	return s.webhookRepo.DeleteSubscription(ctx, tenant.DefaultTenantID, sub.ID)
 }
 
-func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string) (string, error) {
+// TestSubscriptionTemplate renders transformTemplate against the event type's
+// sample payload. strict renders missing keys as errors, as a subscription
+// with template_missing_key=error does at delivery time.
+func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string, strict bool) (string, error) {
 	ctx, span := s.tracer.Start(ctx, "WebhookService.TestSubscriptionTemplate")
 	defer span.End()
 
@@ -213,7 +249,7 @@ func (s *WebhookService) TestSubscriptionTemplate(ctx context.Context, eventName
 		event.SamplePayload,
 	)
 
-	result, err := engine.TransformPayload(transformTemplate, data)
+	result, err := engine.TransformPayloadWith(transformTemplate, data, template.ExecOptions{StrictMissingKeys: strict})
 	if err != nil {
 		return "", svcerrors.Wrapf(err, svcerrors.InvalidArgument, "template transformation failed: %v", err)
 	}

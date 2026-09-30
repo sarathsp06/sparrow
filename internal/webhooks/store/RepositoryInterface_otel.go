@@ -1799,6 +1799,30 @@ func (_d RepositoryInterfaceWithTracing) UpdateDeliveryStatus(ctx context.Contex
 	return _d.RepositoryInterface.UpdateDeliveryStatus(ctx, deliveryID, status, responseCode, responseBody, errorMessage, errorCategory)
 }
 
+// UpdateDeliveryTemplateError implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) UpdateDeliveryTemplateError(ctx context.Context, deliveryID uuid.UUID, msg string) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.UpdateDeliveryTemplateError")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":        ctx,
+				"deliveryID": deliveryID,
+				"msg":        msg}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.UpdateDeliveryTemplateError(ctx, deliveryID, msg)
+}
+
 // UpdateEvent implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) UpdateEvent(ctx context.Context, tenantID uuid.UUID, event *EventRegistration) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.UpdateEvent")

@@ -50,7 +50,7 @@ func TestSendgridRecipe_HealthChanged(t *testing.T) {
 		},
 	)
 
-	out, err := template.NewTemplateEngine().Execute(tmpl, ctx)
+	out, err := template.NewTemplateEngine().ExecuteWith(tmpl, ctx, strictRender)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestSendgridRecipe_DeliveryFailed(t *testing.T) {
 		},
 	)
 
-	out, err := template.NewTemplateEngine().Execute(tmpl, ctx)
+	out, err := template.NewTemplateEngine().ExecuteWith(tmpl, ctx, strictRender)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestSendgridRecipe_CustomEvent(t *testing.T) {
 		map[string]any{"order_id": "ord_1", "total": 42.5},
 	)
 
-	out, err := template.NewTemplateEngine().Execute(tmpl, ctx)
+	out, err := template.NewTemplateEngine().ExecuteWith(tmpl, ctx, strictRender)
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}

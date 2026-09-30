@@ -115,6 +115,25 @@ def subscribe_with_broken_template(name, event, template):
     subscribe_with_template(name, event, template)
 
 
+@step("Subscribe webhook <name> to <event> with broken template <template> and on_transform_error <mode>")
+def subscribe_with_broken_template_mode(name, event, template, mode):
+    import requests
+
+    webhook_id = data_store.scenario[f"webhook_id_{name}"]
+    ns = data_store.scenario["consumer"]
+    resp = requests.post(
+        f"{data_store.suite['sparrow_url']}/v1/consumers/{ns}/subscriptions",
+        json={
+            "webhook_id": webhook_id,
+            "event_name": event,
+            "transform_enabled": True,
+            "transform_template": template,
+            "on_transform_error": mode,
+        },
+    )
+    assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
+
+
 # ---------------------------------------------------------------------------
 # Push event
 # ---------------------------------------------------------------------------

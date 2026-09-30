@@ -33,7 +33,8 @@ type deliveryItem struct {
 	ResponseCode    int     `json:"response_code,omitempty" doc:"HTTP status code returned by the endpoint on the most recent attempt, if any."`
 	ResponseBody    string  `json:"response_body,omitempty" doc:"Endpoint response body from the most recent attempt, if capture_response_body is enabled."`
 	ErrorMessage    string  `json:"error_message,omitempty" doc:"Human-readable failure reason from the most recent attempt."`
-	ErrorCategory   string  `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,unknown," doc:"Failure classification from the most recent attempt, used to decide retryability."`
+	ErrorCategory   string  `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,template_error,unknown," doc:"Failure classification from the most recent attempt, used to decide retryability. template_error means the subscription's transform failed to render; it is not retried automatically and does not count against the webhook's health."`
+	TemplateError   string  `json:"template_error,omitempty" doc:"The payload transform error, when the subscription's template failed to render. Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope was sent instead."`
 	CreatedAt       string  `json:"created_at" doc:"Creation timestamp, RFC3339."`
 	LastAttemptedAt *string `json:"last_attempted_at,omitempty" doc:"Timestamp of the most recent attempt, RFC3339."`
 	NextRetryAt     *string `json:"next_retry_at,omitempty" doc:"Timestamp of the next scheduled retry, RFC3339, if one is pending."`
@@ -55,6 +56,7 @@ func toDeliveryItem(dl *store.WebhookDelivery) deliveryItem {
 		ResponseBody:  dl.ResponseBody,
 		ErrorMessage:  dl.ErrorMessage,
 		ErrorCategory: dl.ErrorCategory,
+		TemplateError: dl.TemplateError,
 		CreatedAt:     dl.CreatedAt.Format(time.RFC3339Nano),
 	}
 	if dl.LastAttemptedAt != nil {
@@ -129,7 +131,7 @@ type attemptItem struct {
 	ResponseTime  int    `json:"response_time" doc:"Round-trip time of this attempt, in milliseconds."`
 	ResponseCode  int    `json:"response_code" doc:"HTTP status code returned by the endpoint on this attempt."`
 	ErrorMessage  string `json:"error_message,omitempty" doc:"Human-readable failure reason for this attempt."`
-	ErrorCategory string `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,unknown," doc:"Failure classification for this attempt."`
+	ErrorCategory string `json:"error_category,omitempty" enum:"success,client_error,server_error,timeout,dns_error,tls_error,connection_refused,network_error,rate_limited,unexpected_status,template_error,unknown," doc:"Failure classification for this attempt."`
 	Timestamp     string `json:"timestamp" doc:"When this attempt was made, RFC3339."`
 }
 
