@@ -146,6 +146,7 @@ type eventTypeItem struct {
 	JSONSchema    map[string]any `json:"event_schema"`
 	SamplePayload map[string]any `json:"sample_payload"`
 	Active        bool           `json:"active"`
+	Version       int            `json:"version"`
 }
 
 // ── Typed helpers ───────────────────────────────────────────────────────────
