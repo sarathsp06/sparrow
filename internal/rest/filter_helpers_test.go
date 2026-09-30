@@ -43,3 +43,13 @@ func TestParseDateFilter(t *testing.T) {
 		t.Fatal("expected invalid date filter to fail")
 	}
 }
+
+func TestParseDateFilter_AcceptsRFC3339(t *testing.T) {
+	ts, err := parseDateFilter("2026-09-18T10:30:00.5Z", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := ts.Format(time.RFC3339Nano), "2026-09-18T10:30:00.5Z"; got != want {
+		t.Fatalf("got %q, want %q (an exact timestamp is not moved to the end of day)", got, want)
+	}
+}

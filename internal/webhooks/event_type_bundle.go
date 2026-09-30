@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	jsonschema "github.com/kaptinlin/jsonschema"
 	"github.com/sarathsp06/schemagen"
 
@@ -72,6 +73,10 @@ type EventTypeImportOptions struct {
 	Acknowledge []string
 	// AllowBreaking applies breaking schema changes to subscribed types.
 	AllowBreaking bool
+	// PauseFailing pauses, in the same transaction, every subscription whose
+	// template fails the pre-check against the new version. Off by default:
+	// a mismatched template then fails its deliveries visibly instead.
+	PauseFailing bool
 }
 
 // StampCheck is the outcome of comparing an import's stamp with this server.
@@ -101,6 +106,8 @@ type TemplateCheck struct {
 	Passed           int
 	WithoutTransform int
 	CatchAll         int
+	// Paused lists subscriptions this import paused (PauseFailing).
+	Paused []string
 }
 
 // EventTypeImportItem is the result for one bundle entry.
@@ -336,6 +343,11 @@ func (s *WebhookService) ImportEventTypes(ctx context.Context, items []EventType
 				item := EventTypeImportItem{EventTypeSaveResult: res}
 				if res.Action == EventTypeNewVersion {
 					item.Templates = checkTemplates(def, res.AffectedSubscriptions)
+					if opts.PauseFailing && !res.Blocked {
+						if err := pauseFailing(ctx, tx, tenantID, res, item.Templates); err != nil {
+							return err
+						}
+					}
 				}
 				breaking = breaking || res.Blocked
 				result.Items = append(result.Items, item)
@@ -365,6 +377,28 @@ func (s *WebhookService) ImportEventTypes(ctx context.Context, items []EventType
 	result.ImportedAt = time.Now().UTC()
 	s.logger.InfoContext(ctx, "Imported event types", "count", len(result.Items))
 	return result, nil
+}
+
+// pauseFailing pauses each subscription that failed the template check,
+// recording the import as the reason.
+func pauseFailing(ctx context.Context, tx store.RepositoryInterface, tenantID uuid.UUID, res *EventTypeSaveResult, check *TemplateCheck) error {
+	reason := fmt.Sprintf("event type %s moved to v%d by import; its template failed the pre-check", res.Name, res.Version)
+	seen := map[string]bool{}
+	for _, f := range check.Failures {
+		if seen[f.SubscriptionID] {
+			continue
+		}
+		seen[f.SubscriptionID] = true
+		id, err := uuid.Parse(f.SubscriptionID)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.SetSubscriptionPaused(ctx, tenantID, id, true, reason); err != nil {
+			return fmt.Errorf("pause subscription %s: %w", id, err)
+		}
+		check.Paused = append(check.Paused, f.SubscriptionID)
+	}
+	return nil
 }
 
 // checkTemplates renders every affected subscription's transform against the

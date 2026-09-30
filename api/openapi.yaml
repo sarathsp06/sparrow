@@ -512,7 +512,7 @@ components:
           format: int64
           type: integer
         status:
-          description: Current delivery status.
+          description: "Current delivery status. paused: created while its subscription was paused; not attempted until retried."
           enum:
             - pending
             - sending
@@ -520,6 +520,7 @@ components:
             - failed
             - retrying
             - expired
+            - paused
           type: string
         template_error:
           description: "The payload transform error, when the subscription's template failed to render. Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope was sent instead."
@@ -969,6 +970,12 @@ components:
         stamp:
           $ref: "#/components/schemas/BundleStampBody"
           description: The bundle's stamp. Absent for a hand-written bundle, which imports with a notice.
+        subscription_policy:
+          description: "keep_active (default): subscriptions keep running; a template that no longer fits fails its deliveries visibly with template_error. pause: in the same transaction, pause each subscription whose template fails the pre-check, with the import as the reason."
+          enum:
+            - keep_active
+            - pause
+          type: string
       required:
         - items
       type: object
@@ -1472,6 +1479,21 @@ components:
           description: Replace the delivery endpoint URL.
           type: string
       type: object
+    PauseSubscriptionInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/PauseSubscriptionInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        reason:
+          description: "Why the subscription is paused, shown next to it, for example: receiver maintenance until Friday."
+          maxLength: 500
+          type: string
+      type: object
     PushEventBody:
       additionalProperties: false
       properties:
@@ -1656,6 +1678,104 @@ components:
       required:
         - event_id
       type: object
+    ResumeSubscriptionOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - https://example.com/schemas/ResumeSubscriptionOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        consumer:
+          description: Tenant consumer this subscription belongs to.
+          type: string
+        created_at:
+          description: Creation timestamp, RFC3339.
+          type: string
+        event_name:
+          description: Event type name this subscription matches, or "*" for catch-all.
+          type: string
+        headers:
+          additionalProperties:
+            type: string
+          description: Extra HTTP headers sent with deliveries from this subscription.
+          type: object
+        label_filters:
+          additionalProperties:
+            type: string
+          description: Key/value pairs that must all be present in an event's labels for this subscription to receive it.
+          type: object
+        method:
+          description: HTTP method used for deliveries from this subscription.
+          enum:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+          type: string
+        on_transform_error:
+          description: "What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery."
+          enum:
+            - fail
+            - fallback
+          type: string
+        paused:
+          description: Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health.
+          type: boolean
+        paused_at:
+          description: When the current pause began, RFC3339.
+          type: string
+        paused_deliveries:
+          description: Deliveries recorded while paused. They are not sent automatically; retry them to deliver.
+          format: int64
+          type: integer
+        paused_reason:
+          description: Why the subscription was paused.
+          type: string
+        paused_since:
+          description: When the pause that just ended began, RFC3339. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>.
+          type: string
+        subscription_id:
+          description: Subscription id (UUID).
+          type: string
+        template_missing_key:
+          description: "How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into \"<no value>\" in the body; read optional fields with index, dig or default. zero: the key renders as \"<no value>\"."
+          enum:
+            - error
+            - zero
+          type: string
+        timeout:
+          description: Per-delivery request timeout in seconds, overriding the webhook's default.
+          format: int64
+          type: integer
+        transform_enabled:
+          description: Whether transform_template is rendered into the delivered payload.
+          type: boolean
+        transform_template:
+          description: Go template rendered against the event to produce the delivered body.
+          type: string
+        updated_at:
+          description: Last-modified timestamp, RFC3339.
+          type: string
+        webhook_id:
+          description: Webhook this subscription delivers to.
+          type: string
+      required:
+        - paused_deliveries
+        - subscription_id
+        - consumer
+        - webhook_id
+        - event_name
+        - transform_enabled
+        - on_transform_error
+        - template_missing_key
+        - paused
+        - created_at
+        - updated_at
+      type: object
     RetryDeliveriesByWebhookInputBody:
       additionalProperties: false
       properties:
@@ -1797,6 +1917,15 @@ components:
             - fail
             - fallback
           type: string
+        paused:
+          description: Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health.
+          type: boolean
+        paused_at:
+          description: When the current pause began, RFC3339.
+          type: string
+        paused_reason:
+          description: Why the subscription was paused.
+          type: string
         subscription_id:
           description: Subscription id (UUID).
           type: string
@@ -1830,6 +1959,7 @@ components:
         - transform_enabled
         - on_transform_error
         - template_missing_key
+        - paused
         - created_at
         - updated_at
       type: object
@@ -1851,6 +1981,13 @@ components:
           description: Subscriptions whose transform renders.
           format: int64
           type: integer
+        paused:
+          description: Subscriptions this import paused (subscription_policy=pause).
+          items:
+            type: string
+          type:
+            - array
+            - "null"
         without_transform:
           description: Subscriptions with no transform. Sparrow passes the payload through and cannot tell whether the receiver copes.
           format: int64
@@ -2598,12 +2735,12 @@ paths:
           schema:
             description: Filter to deliveries for one pushed event occurrence.
             type: string
-        - description: Filter by delivery status (e.g. pending, success, failed, retrying).
+        - description: Filter by delivery status (e.g. pending, success, failed, retrying, paused).
           explode: false
           in: query
           name: status
           schema:
-            description: Filter by delivery status (e.g. pending, success, failed, retrying).
+            description: Filter by delivery status (e.g. pending, success, failed, retrying, paused).
             type: string
         - description: Filter by failure classification (e.g. server_error, client_error, timeout).
           explode: false
@@ -2612,19 +2749,26 @@ paths:
           schema:
             description: Filter by failure classification (e.g. server_error, client_error, timeout).
             type: string
-        - description: Filter to deliveries created on or after this date (YYYY-MM-DD).
+        - description: Filter to deliveries created by one subscription, e.g. its paused deliveries.
+          explode: false
+          in: query
+          name: subscription_id
+          schema:
+            description: Filter to deliveries created by one subscription, e.g. its paused deliveries.
+            type: string
+        - description: Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at).
           explode: false
           in: query
           name: created_after
           schema:
-            description: Filter to deliveries created on or after this date (YYYY-MM-DD).
+            description: Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at).
             type: string
-        - description: Filter to deliveries created on or before this date (YYYY-MM-DD).
+        - description: Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339).
           explode: false
           in: query
           name: created_before
           schema:
-            description: Filter to deliveries created on or before this date (YYYY-MM-DD).
+            description: Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339).
             type: string
         - description: If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint.
           explode: false
@@ -3561,6 +3705,104 @@ paths:
       summary: Partially update a subscription
       tags:
         - Subscriptions
+  /v1/consumers/{consumer}/subscriptions/{subscription_id}:pause:
+    post:
+      description: "Stops the subscription's deliveries from being attempted, for any reason (receiver maintenance, a template being fixed, an investigation). Events keep fanning out to it: each delivery is recorded with status paused and nothing is queued, so nothing is lost. Deliveries already queued finish. A pause never affects the webhook's health. Pausing again updates the reason and keeps the original pause time."
+      operationId: pauseSubscription
+      parameters:
+        - in: path
+          name: consumer
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: subscription_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PauseSubscriptionInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionItem"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Bad Request
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Pause a subscription
+      tags:
+        - Subscriptions
+  /v1/consumers/{consumer}/subscriptions/{subscription_id}:resume:
+    post:
+      description: "New deliveries are attempted again. Deliveries recorded while paused stay paused and are never sent automatically: the response says how many there are and when the pause began, so you can retry all of them or only those since a time with the delivery retry endpoints."
+      operationId: resumeSubscription
+      parameters:
+        - in: path
+          name: consumer
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: subscription_id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumeSubscriptionOutputBody"
+          description: OK
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorModel"
+          description: Internal Server Error
+      summary: Resume a paused subscription
+      tags:
+        - Subscriptions
   /v1/consumers/{consumer}/webhooks:
     get:
       description: Lists webhooks in a consumer, optionally filtered by id, subscribed event, active flag, or computed health status.
@@ -3995,12 +4237,12 @@ paths:
           schema:
             description: Filter to deliveries for one pushed event occurrence.
             type: string
-        - description: Filter by delivery status (e.g. pending, success, failed, retrying).
+        - description: Filter by delivery status (e.g. pending, success, failed, retrying, paused).
           explode: false
           in: query
           name: status
           schema:
-            description: Filter by delivery status (e.g. pending, success, failed, retrying).
+            description: Filter by delivery status (e.g. pending, success, failed, retrying, paused).
             type: string
         - description: Filter by failure classification (e.g. server_error, client_error, timeout).
           explode: false
@@ -4009,19 +4251,26 @@ paths:
           schema:
             description: Filter by failure classification (e.g. server_error, client_error, timeout).
             type: string
-        - description: Filter to deliveries created on or after this date (YYYY-MM-DD).
+        - description: Filter to deliveries created by one subscription, e.g. its paused deliveries.
+          explode: false
+          in: query
+          name: subscription_id
+          schema:
+            description: Filter to deliveries created by one subscription, e.g. its paused deliveries.
+            type: string
+        - description: Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at).
           explode: false
           in: query
           name: created_after
           schema:
-            description: Filter to deliveries created on or after this date (YYYY-MM-DD).
+            description: Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at).
             type: string
-        - description: Filter to deliveries created on or before this date (YYYY-MM-DD).
+        - description: Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339).
           explode: false
           in: query
           name: created_before
           schema:
-            description: Filter to deliveries created on or before this date (YYYY-MM-DD).
+            description: Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339).
             type: string
         - description: If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint.
           explode: false

@@ -73,13 +73,14 @@ type exportEventTypesOutput struct {
 
 type importEventTypesInput struct {
 	Body struct {
-		APIVersion    string           `json:"apiVersion,omitempty" enum:"sparrow/v1" doc:"Bundle schema version, if the body is an exported bundle."`
-		Kind          string           `json:"kind,omitempty" enum:"EventTypeList" doc:"Bundle kind, if the body is an exported bundle."`
-		Stamp         *bundleStampBody `json:"stamp,omitempty" doc:"The bundle's stamp. Absent for a hand-written bundle, which imports with a notice."`
-		Items         []bundleItem     `json:"items" minItems:"1" maxItems:"500" doc:"Definitions to import. Each replaces the named event type; types not listed are never touched."`
-		DryRun        bool             `json:"dry_run,omitempty" doc:"Compute the full result without writing anything."`
-		Acknowledge   []string         `json:"acknowledge,omitempty" enum:"version_differs,format_unsupported,items_changed" doc:"Stamp warnings you accept. Each unacknowledged warning blocks the write."`
-		AllowBreaking bool             `json:"allow_breaking,omitempty" doc:"Apply breaking schema changes to event types that subscriptions receive."`
+		APIVersion         string           `json:"apiVersion,omitempty" enum:"sparrow/v1" doc:"Bundle schema version, if the body is an exported bundle."`
+		Kind               string           `json:"kind,omitempty" enum:"EventTypeList" doc:"Bundle kind, if the body is an exported bundle."`
+		Stamp              *bundleStampBody `json:"stamp,omitempty" doc:"The bundle's stamp. Absent for a hand-written bundle, which imports with a notice."`
+		Items              []bundleItem     `json:"items" minItems:"1" maxItems:"500" doc:"Definitions to import. Each replaces the named event type; types not listed are never touched."`
+		DryRun             bool             `json:"dry_run,omitempty" doc:"Compute the full result without writing anything."`
+		Acknowledge        []string         `json:"acknowledge,omitempty" enum:"version_differs,format_unsupported,items_changed" doc:"Stamp warnings you accept. Each unacknowledged warning blocks the write."`
+		AllowBreaking      bool             `json:"allow_breaking,omitempty" doc:"Apply breaking schema changes to event types that subscriptions receive."`
+		SubscriptionPolicy string           `json:"subscription_policy,omitempty" enum:"keep_active,pause" doc:"keep_active (default): subscriptions keep running; a template that no longer fits fails its deliveries visibly with template_error. pause: in the same transaction, pause each subscription whose template fails the pre-check, with the import as the reason."`
 	}
 }
 
@@ -98,6 +99,7 @@ type templateCheckItem struct {
 	Passed           int                   `json:"passed" doc:"Subscriptions whose transform renders."`
 	WithoutTransform int                   `json:"without_transform" doc:"Subscriptions with no transform. Sparrow passes the payload through and cannot tell whether the receiver copes."`
 	CatchAll         int                   `json:"catch_all" doc:"How many of the affected subscriptions are catch-all (\"*\")."`
+	Paused           []string              `json:"paused,omitempty" doc:"Subscriptions this import paused (subscription_policy=pause)."`
 }
 
 type importItemResult struct {
@@ -170,6 +172,7 @@ func registerEventBundleRoutes(api huma.API, svc eventRouteService) {
 			DryRun:        in.Body.DryRun,
 			Acknowledge:   in.Body.Acknowledge,
 			AllowBreaking: in.Body.AllowBreaking,
+			PauseFailing:  in.Body.SubscriptionPolicy == "pause",
 		})
 		if err != nil {
 			return nil, mapError(ctx, err, "failed to import event types")
@@ -202,7 +205,7 @@ func toImportOutput(res *webhooks.EventTypeImportResult) *importEventTypesOutput
 			item.Compatibility = &schemaCompatibilityOut{Result: it.Compatibility.Result(), Reasons: it.Compatibility.Reasons}
 		}
 		if t := it.Templates; t != nil {
-			sc := &templateCheckItem{Passed: t.Passed, WithoutTransform: t.WithoutTransform, CatchAll: t.CatchAll}
+			sc := &templateCheckItem{Passed: t.Passed, WithoutTransform: t.WithoutTransform, CatchAll: t.CatchAll, Paused: t.Paused}
 			for _, f := range t.Failures {
 				sc.Failures = append(sc.Failures, templateFailureItem{SubscriptionID: f.SubscriptionID, Consumer: f.Consumer, WebhookID: f.WebhookID, Payload: f.Payload, Error: f.Error})
 			}

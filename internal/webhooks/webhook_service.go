@@ -69,6 +69,8 @@ type SubscriptionManager interface {
 	ListSubscriptions(ctx context.Context, consumer string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
 	UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings) error
 	DeleteSubscription(ctx context.Context, subscriptionID string, consumer string) error
+	PauseSubscription(ctx context.Context, subscriptionID, consumer, reason string) (*store.EventSubscription, error)
+	ResumeSubscription(ctx context.Context, subscriptionID, consumer string) (*ResumeResult, error)
 	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string, strict bool) (string, error)
 	ListSubscriptionsByWebhookIDs(ctx context.Context, webhookIDs []uuid.UUID) ([]*store.EventSubscription, error)
 	GetTemplateFunctions() []TemplateFunctionInfo

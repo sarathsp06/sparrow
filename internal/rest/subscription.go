@@ -34,7 +34,7 @@ type subscriptionIDInput struct {
 	SubscriptionID string `path:"subscription_id"`
 }
 
-type subscriptionItem struct {
+type SubscriptionItem struct {
 	SubscriptionID     string            `json:"subscription_id" doc:"Subscription id (UUID)."`
 	Consumer           string            `json:"consumer" doc:"Tenant consumer this subscription belongs to."`
 	WebhookID          string            `json:"webhook_id" doc:"Webhook this subscription delivers to."`
@@ -47,16 +47,19 @@ type subscriptionItem struct {
 	LabelFilters       map[string]string `json:"label_filters,omitempty" doc:"Key/value pairs that must all be present in an event's labels for this subscription to receive it."`
 	OnTransformError   string            `json:"on_transform_error" enum:"fail,fallback" doc:"What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery."`
 	TemplateMissingKey string            `json:"template_missing_key" enum:"error,zero" doc:"How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into \"<no value>\" in the body; read optional fields with index, dig or default. zero: the key renders as \"<no value>\"."`
+	Paused             bool              `json:"paused" doc:"Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health."`
+	PausedAt           *string           `json:"paused_at,omitempty" doc:"When the current pause began, RFC3339."`
+	PausedReason       string            `json:"paused_reason,omitempty" doc:"Why the subscription was paused."`
 	CreatedAt          string            `json:"created_at" doc:"Creation timestamp, RFC3339."`
 	UpdatedAt          string            `json:"updated_at" doc:"Last-modified timestamp, RFC3339."`
 }
 
 type subscriptionOutput struct {
-	Body subscriptionItem
+	Body SubscriptionItem
 }
 
-func toSubscriptionItem(s *store.EventSubscription) subscriptionItem {
-	return subscriptionItem{
+func toSubscriptionItem(s *store.EventSubscription) SubscriptionItem {
+	item := SubscriptionItem{
 		SubscriptionID:     s.ID.String(),
 		Consumer:           s.Consumer,
 		WebhookID:          s.WebhookID.String(),
@@ -69,8 +72,31 @@ func toSubscriptionItem(s *store.EventSubscription) subscriptionItem {
 		LabelFilters:       s.LabelFilters,
 		OnTransformError:   s.OnTransformError,
 		TemplateMissingKey: s.TemplateMissingKey,
+		Paused:             s.Paused(),
+		PausedReason:       s.PausedReason,
 		CreatedAt:          s.CreatedAt.Format(time.RFC3339Nano),
 		UpdatedAt:          s.UpdatedAt.Format(time.RFC3339Nano),
+	}
+	if s.PausedAt != nil {
+		t := s.PausedAt.Format(time.RFC3339Nano)
+		item.PausedAt = &t
+	}
+	return item
+}
+
+type pauseSubscriptionInput struct {
+	Consumer       string `path:"consumer"`
+	SubscriptionID string `path:"subscription_id"`
+	Body           struct {
+		Reason string `json:"reason,omitempty" maxLength:"500" doc:"Why the subscription is paused, shown next to it, for example: receiver maintenance until Friday."`
+	}
+}
+
+type resumeSubscriptionOutput struct {
+	Body struct {
+		SubscriptionItem
+		PausedSince      *string `json:"paused_since,omitempty" doc:"When the pause that just ended began, RFC3339. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>."`
+		PausedDeliveries int     `json:"paused_deliveries" doc:"Deliveries recorded while paused. They are not sent automatically; retry them to deliver."`
 	}
 }
 
@@ -99,7 +125,7 @@ type listSubscriptionsGlobalInput struct {
 
 type listSubscriptionsOutput struct {
 	Body struct {
-		Items      []subscriptionItem `json:"items"`
+		Items      []SubscriptionItem `json:"items"`
 		Pagination PaginationOutput   `json:"pagination"`
 	}
 }
@@ -261,6 +287,45 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 	})
 
 	huma.Register(api, huma.Operation{
+		OperationID: "pauseSubscription",
+		Method:      http.MethodPost,
+		Path:        "/v1/consumers/{consumer}/subscriptions/{subscription_id}:pause",
+		Summary:     "Pause a subscription",
+		Description: "Stops the subscription's deliveries from being attempted, for any reason (receiver maintenance, a template being fixed, an investigation). Events keep fanning out to it: each delivery is recorded with status paused and nothing is queued, so nothing is lost. Deliveries already queued finish. A pause never affects the webhook's health. Pausing again updates the reason and keeps the original pause time.",
+		Errors:      []int{400, 404},
+		Tags:        []string{"Subscriptions"},
+	}, func(ctx context.Context, in *pauseSubscriptionInput) (*subscriptionOutput, error) {
+		sub, err := svc.PauseSubscription(ctx, in.SubscriptionID, in.Consumer, in.Body.Reason)
+		if err != nil {
+			return nil, mapError(ctx, err, "failed to pause subscription")
+		}
+		return toSubscriptionOutput(sub), nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "resumeSubscription",
+		Method:      http.MethodPost,
+		Path:        "/v1/consumers/{consumer}/subscriptions/{subscription_id}:resume",
+		Summary:     "Resume a paused subscription",
+		Description: "New deliveries are attempted again. Deliveries recorded while paused stay paused and are never sent automatically: the response says how many there are and when the pause began, so you can retry all of them or only those since a time with the delivery retry endpoints.",
+		Errors:      []int{404},
+		Tags:        []string{"Subscriptions"},
+	}, func(ctx context.Context, in *subscriptionIDInput) (*resumeSubscriptionOutput, error) {
+		res, err := svc.ResumeSubscription(ctx, in.SubscriptionID, in.Consumer)
+		if err != nil {
+			return nil, mapError(ctx, err, "failed to resume subscription")
+		}
+		out := &resumeSubscriptionOutput{}
+		out.Body.SubscriptionItem = toSubscriptionItem(res.Subscription)
+		out.Body.PausedDeliveries = res.PausedDeliveries
+		if res.PausedSince != nil {
+			t := res.PausedSince.Format(time.RFC3339Nano)
+			out.Body.PausedSince = &t
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
 		OperationID:   "deleteSubscription",
 		Method:        http.MethodDelete,
 		Path:          "/v1/consumers/{consumer}/subscriptions/{subscription_id}",
@@ -303,7 +368,7 @@ func listSubscriptionsImpl(ctx context.Context, svc webhooks.SubscriptionManager
 		return nil, mapError(ctx, err, "failed to list subscriptions")
 	}
 	out := &listSubscriptionsOutput{}
-	out.Body.Items = make([]subscriptionItem, 0, len(subs))
+	out.Body.Items = make([]SubscriptionItem, 0, len(subs))
 	for _, s := range subs {
 		out.Body.Items = append(out.Body.Items, toSubscriptionItem(s))
 	}

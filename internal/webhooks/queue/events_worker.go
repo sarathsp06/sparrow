@@ -106,6 +106,7 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	// Build all deliveries and job args in memory first, then batch-insert.
 	deliveries := make([]*store.WebhookDelivery, 0, len(subscriptions))
 	jobArgs := make([]river.JobArgs, 0, len(subscriptions))
+	paused := 0
 
 	for _, result := range subscriptions {
 		sub := result.Subscription
@@ -125,6 +126,14 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 			ExpiresAt:      expiresAt,
 		}
 		deliveries = append(deliveries, delivery)
+
+		// A paused subscription still gets its delivery row, so what was
+		// not delivered stays visible and retryable, but nothing is queued.
+		if sub.Paused() {
+			delivery.Status = store.StatusPaused
+			paused++
+			continue
+		}
 
 		jobArgs = append(jobArgs, &WebhookArgs{
 			TenantID:            args.TenantID,
@@ -149,6 +158,11 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	// ponytail: delivery rows (sqlx) and River jobs (pgx) are inserted in
 	// separate transactions with delete-based compensation. Upgrade path:
 	// run both on a single pgx connection and use river.InsertManyTx.
+	if len(jobArgs) == 0 {
+		w.logger.InfoContext(ctx, "All matching subscriptions are paused; deliveries recorded as paused",
+			"event_id", args.EventID, "paused", paused)
+		return nil
+	}
 	if _, err := w.jobInserter.BatchInsert(ctx, jobArgs); err != nil {
 		w.logger.ErrorContext(ctx, "Failed to batch-insert webhook delivery jobs",
 			"error", err,
@@ -157,6 +171,8 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 		// Compensation: remove orphaned delivery records since the jobs
 		// that would process them could not be created.
 		var undeleted []uuid.UUID
+		// Paused rows go too: River retries the whole fan-out, which
+		// recreates them.
 		for _, d := range deliveries {
 			if delErr := w.deliveryRepo.DeleteDeliveryByID(ctx, d.ID); delErr != nil {
 				w.logger.ErrorContext(ctx, "Failed to delete orphaned delivery record",
@@ -179,7 +195,8 @@ func (w *EventProcessingWorker) Work(ctx context.Context, job *river.Job[EventAr
 	}
 
 	w.logger.InfoContext(ctx, "Scheduled webhook deliveries",
-		"count", len(deliveries),
+		"count", len(jobArgs),
+		"paused", paused,
 		"consumer", args.Consumer,
 		"event", args.Event,
 	)

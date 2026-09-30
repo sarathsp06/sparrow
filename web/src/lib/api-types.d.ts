@@ -364,6 +364,46 @@ export interface paths {
         patch: operations["updateSubscription"];
         trace?: never;
     };
+    "/v1/consumers/{consumer}/subscriptions/{subscription_id}:pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause a subscription
+         * @description Stops the subscription's deliveries from being attempted, for any reason (receiver maintenance, a template being fixed, an investigation). Events keep fanning out to it: each delivery is recorded with status paused and nothing is queued, so nothing is lost. Deliveries already queued finish. A pause never affects the webhook's health. Pausing again updates the reason and keeps the original pause time.
+         */
+        post: operations["pauseSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/subscriptions/{subscription_id}:resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resume a paused subscription
+         * @description New deliveries are attempted again. Deliveries recorded while paused stay paused and are never sent automatically: the response says how many there are and when the pause began, so you can retry all of them or only those since a time with the delivery retry endpoints.
+         */
+        post: operations["resumeSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/consumers/{consumer}/webhooks": {
         parameters: {
             query?: never;
@@ -1346,10 +1386,10 @@ export interface components {
              */
             response_code?: number;
             /**
-             * @description Current delivery status.
+             * @description Current delivery status. paused: created while its subscription was paused; not attempted until retried.
              * @enum {string}
              */
-            status: "pending" | "sending" | "success" | "failed" | "retrying" | "expired";
+            status: "pending" | "sending" | "success" | "failed" | "retrying" | "expired" | "paused";
             /** @description The payload transform error, when the subscription's template failed to render. Set for both on_transform_error modes: with fail the delivery was not sent; with fallback the default envelope was sent instead. */
             template_error?: string;
             /** @description Webhook this delivery was sent to. */
@@ -1665,6 +1705,11 @@ export interface components {
             kind?: "EventTypeList";
             /** @description The bundle's stamp. Absent for a hand-written bundle, which imports with a notice. */
             stamp?: components["schemas"]["BundleStampBody"];
+            /**
+             * @description keep_active (default): subscriptions keep running; a template that no longer fits fails its deliveries visibly with template_error. pause: in the same transaction, pause each subscription whose template fails the pre-check, with the import as the reason.
+             * @enum {string}
+             */
+            subscription_policy?: "keep_active" | "pause";
         };
         ImportEventTypesOutputBody: {
             /**
@@ -1934,6 +1979,16 @@ export interface components {
             /** @description Replace the delivery endpoint URL. */
             url?: string;
         };
+        PauseSubscriptionInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/PauseSubscriptionInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Why the subscription is paused, shown next to it, for example: receiver maintenance until Friday. */
+            reason?: string;
+        };
         PushEventBody: {
             /**
              * Format: uri
@@ -2047,6 +2102,71 @@ export interface components {
             /** @description Non-fatal schema validation warnings from re-validating the stored payload. */
             warnings?: string[] | null;
         };
+        ResumeSubscriptionOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ResumeSubscriptionOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Tenant consumer this subscription belongs to. */
+            consumer: string;
+            /** @description Creation timestamp, RFC3339. */
+            created_at: string;
+            /** @description Event type name this subscription matches, or "*" for catch-all. */
+            event_name: string;
+            /** @description Extra HTTP headers sent with deliveries from this subscription. */
+            headers?: {
+                [key: string]: string;
+            };
+            /** @description Key/value pairs that must all be present in an event's labels for this subscription to receive it. */
+            label_filters?: {
+                [key: string]: string;
+            };
+            /**
+             * @description HTTP method used for deliveries from this subscription.
+             * @enum {string}
+             */
+            method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+            /**
+             * @description What happens when transform_template fails to render. fail (default): the delivery fails with error category template_error, is not retried automatically, and can be retried once the template is fixed; it does not affect the webhook's health. fallback: the default envelope payload is sent instead, and the error is still recorded on the delivery.
+             * @enum {string}
+             */
+            on_transform_error: "fail" | "fallback";
+            /** @description Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health. */
+            paused: boolean;
+            /** @description When the current pause began, RFC3339. */
+            paused_at?: string;
+            /**
+             * Format: int64
+             * @description Deliveries recorded while paused. They are not sent automatically; retry them to deliver.
+             */
+            paused_deliveries: number;
+            /** @description Why the subscription was paused. */
+            paused_reason?: string;
+            /** @description When the pause that just ended began, RFC3339. List or retry what was held with status=paused&subscription_id=...&created_after=<paused_since>. */
+            paused_since?: string;
+            /** @description Subscription id (UUID). */
+            subscription_id: string;
+            /**
+             * @description How transform_template reads a key the payload does not have. error (default): the render fails, so a field removed from the event schema cannot silently turn into "<no value>" in the body; read optional fields with index, dig or default. zero: the key renders as "<no value>".
+             * @enum {string}
+             */
+            template_missing_key: "error" | "zero";
+            /**
+             * Format: int64
+             * @description Per-delivery request timeout in seconds, overriding the webhook's default.
+             */
+            timeout?: number;
+            /** @description Whether transform_template is rendered into the delivered payload. */
+            transform_enabled: boolean;
+            /** @description Go template rendered against the event to produce the delivered body. */
+            transform_template?: string;
+            /** @description Last-modified timestamp, RFC3339. */
+            updated_at: string;
+            /** @description Webhook this subscription delivers to. */
+            webhook_id: string;
+        };
         RetryDeliveriesByWebhookInputBody: {
             /**
              * Format: uri
@@ -2130,6 +2250,12 @@ export interface components {
              * @enum {string}
              */
             on_transform_error: "fail" | "fallback";
+            /** @description Whether the subscription is paused. While paused, events still fan out to it, but each delivery is recorded with status paused and not attempted until retried. A pause never affects the webhook's health. */
+            paused: boolean;
+            /** @description When the current pause began, RFC3339. */
+            paused_at?: string;
+            /** @description Why the subscription was paused. */
+            paused_reason?: string;
             /** @description Subscription id (UUID). */
             subscription_id: string;
             /**
@@ -2164,6 +2290,8 @@ export interface components {
              * @description Subscriptions whose transform renders.
              */
             passed: number;
+            /** @description Subscriptions this import paused (subscription_policy=pause). */
+            paused?: string[] | null;
             /**
              * Format: int64
              * @description Subscriptions with no transform. Sparrow passes the payload through and cannot tell whether the receiver copes.
@@ -2686,13 +2814,15 @@ export interface operations {
                 webhook_id?: string;
                 /** @description Filter to deliveries for one pushed event occurrence. */
                 event_id?: string;
-                /** @description Filter by delivery status (e.g. pending, success, failed, retrying). */
+                /** @description Filter by delivery status (e.g. pending, success, failed, retrying, paused). */
                 status?: string;
                 /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
                 error_category?: string;
-                /** @description Filter to deliveries created on or after this date (YYYY-MM-DD). */
+                /** @description Filter to deliveries created by one subscription, e.g. its paused deliveries. */
+                subscription_id?: string;
+                /** @description Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at). */
                 created_after?: string;
-                /** @description Filter to deliveries created on or before this date (YYYY-MM-DD). */
+                /** @description Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339). */
                 created_before?: string;
                 /** @description If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint. */
                 prepare_retry?: boolean;
@@ -3697,6 +3827,119 @@ export interface operations {
             };
         };
     };
+    pauseSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PauseSubscriptionInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionItem"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    resumeSubscription: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                consumer: string;
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumeSubscriptionOutputBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     listWebhooks: {
         parameters: {
             query?: {
@@ -4130,13 +4373,15 @@ export interface operations {
                 webhook_id?: string;
                 /** @description Filter to deliveries for one pushed event occurrence. */
                 event_id?: string;
-                /** @description Filter by delivery status (e.g. pending, success, failed, retrying). */
+                /** @description Filter by delivery status (e.g. pending, success, failed, retrying, paused). */
                 status?: string;
                 /** @description Filter by failure classification (e.g. server_error, client_error, timeout). */
                 error_category?: string;
-                /** @description Filter to deliveries created on or after this date (YYYY-MM-DD). */
+                /** @description Filter to deliveries created by one subscription, e.g. its paused deliveries. */
+                subscription_id?: string;
+                /** @description Filter to deliveries created on or after this date (YYYY-MM-DD) or exact time (RFC3339, e.g. an import's imported_at). */
                 created_after?: string;
-                /** @description Filter to deliveries created on or before this date (YYYY-MM-DD). */
+                /** @description Filter to deliveries created on or before this date (YYYY-MM-DD) or exact time (RFC3339). */
                 created_before?: string;
                 /** @description If true, snapshot the matching deliveries into a retry_id you can pass to the batch retry endpoint. */
                 prepare_retry?: boolean;
