@@ -664,6 +664,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/event-types:export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export event type definitions as a bundle
+         * @description Returns the current definitions of the selected event types as one JSON bundle, ready to import into another environment with importEventTypes. Choose exactly one of names, prefix or all. An unknown name fails the whole export. Sparrow's own sparrow.* event types are never exported.
+         */
+        post: operations["exportEventTypes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/event-types:import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a bundle of event type definitions
+         * @description Applies a bundle in one transaction: each item replaces the named event type using the usual version rules, or nothing is written. Event types not in the bundle are never touched; an import does not delete. The full per-item result is returned either way. Nothing is written for a dry run, when a stamp warning is not acknowledged, or when a change is breaking for subscriptions and allow_breaking is not set; blocked_by says why. The body may be an exported bundle as-is, plus the options.
+         */
+        post: operations["importEventTypes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/events": {
         parameters: {
             query?: never;
@@ -1063,6 +1103,33 @@ export interface components {
              */
             total: number;
         };
+        BundleItem: {
+            /** @description Whether events of this type can be pushed. Omitted means true. */
+            active?: boolean;
+            /** @description Human-readable summary. Omitted means empty: an import replaces the definition. */
+            description?: string;
+            /** @description JSON Schema. Omitted means no schema, which removes an existing schema (a breaking change). */
+            event_schema?: {
+                [key: string]: unknown;
+            };
+            /** @description Arbitrary key/value metadata. Omitted means none. */
+            metadata?: {
+                [key: string]: string;
+            };
+            /** @description Event type name. */
+            name: string;
+        };
+        BundleStampBody: {
+            /**
+             * Format: int64
+             * @description Bundle format number.
+             */
+            format: number;
+            /** @description sha256 of the canonical encoding of items, to tell whether they changed after export. */
+            sha256: string;
+            /** @description Version of the Sparrow server that exported the bundle. */
+            sparrow_version: string;
+        };
         ConsumerStatsOutputBody: {
             /**
              * Format: uri
@@ -1412,6 +1479,28 @@ export interface components {
             /** @description Unique event type name, e.g. order.created. At most 255 characters. Immutable after creation. */
             name?: string;
         };
+        EventTypeBundle: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/EventTypeBundle.json
+             */
+            readonly $schema?: string;
+            /**
+             * @description Bundle schema version.
+             * @enum {string}
+             */
+            apiVersion: "sparrow/v1";
+            /** @description Event type definitions, sorted by name. */
+            items: components["schemas"]["BundleItem"][] | null;
+            /**
+             * @description Bundle kind.
+             * @enum {string}
+             */
+            kind: "EventTypeList";
+            /** @description Which Sparrow produced this bundle. A compatibility hint, not a signature. */
+            stamp: components["schemas"]["BundleStampBody"];
+        };
         EventTypeChange: {
             /**
              * @description created: new event type at version 1. new_version: the schema changed, so a new version was created and the previous one kept. updated: the current version changed in place (description, metadata, active, or a first schema added to a schema-less version). unchanged: nothing was written.
@@ -1507,6 +1596,20 @@ export interface components {
              */
             version: number;
         };
+        ExportEventTypesInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ExportEventTypesInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Export every event type. */
+            all?: boolean;
+            /** @description Export these event types. Each must exist. */
+            names?: string[] | null;
+            /** @description Export every event type whose name starts with this prefix. */
+            prefix?: string;
+        };
         HealthSummaryOutputBody: {
             /**
              * Format: uri
@@ -1534,6 +1637,86 @@ export interface components {
              * @description Webhooks with no recent delivery attempts, across all consumers.
              */
             unknown_count: number;
+        };
+        ImportEventTypesInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ImportEventTypesInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Stamp warnings you accept. Each unacknowledged warning blocks the write. */
+            acknowledge?: ("version_differs" | "format_unsupported" | "items_changed")[] | null;
+            /** @description Apply breaking schema changes to event types that subscriptions receive. */
+            allow_breaking?: boolean;
+            /**
+             * @description Bundle schema version, if the body is an exported bundle.
+             * @enum {string}
+             */
+            apiVersion?: "sparrow/v1";
+            /** @description Compute the full result without writing anything. */
+            dry_run?: boolean;
+            /** @description Definitions to import. Each replaces the named event type; types not listed are never touched. */
+            items: components["schemas"]["BundleItem"][] | null;
+            /**
+             * @description Bundle kind, if the body is an exported bundle.
+             * @enum {string}
+             */
+            kind?: "EventTypeList";
+            /** @description The bundle's stamp. Absent for a hand-written bundle, which imports with a notice. */
+            stamp?: components["schemas"]["BundleStampBody"];
+        };
+        ImportEventTypesOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ImportEventTypesOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description True when the import was written. False for a dry run or when blocked_by is non-empty. */
+            applied: boolean;
+            /** @description Why nothing was written: unacknowledged stamp warnings, and breaking when a breaking change needs allow_breaking. */
+            blocked_by?: string[] | null;
+            /** @description Whether this was a dry run. */
+            dry_run: boolean;
+            /** @description When the import was written, RFC3339. Use it to find deliveries that failed after the change. */
+            imported_at?: string;
+            /** @description One result per bundle item, sorted by name. */
+            items: components["schemas"]["ImportItemResult"][] | null;
+            /** @description The bundle's stamp compared with this server. */
+            stamp: components["schemas"]["StampCheckItem"];
+        };
+        ImportItemResult: {
+            /**
+             * @description What the import does to this event type. See updateEventType's change.action.
+             * @enum {string}
+             */
+            action: "created" | "new_version" | "updated" | "unchanged";
+            /**
+             * @description Set when the import flips the active flag.
+             * @enum {string}
+             */
+            active_change?: "deactivates" | "reactivates" | "";
+            /** @description The change is breaking for subscriptions and allow_breaking was not set. */
+            blocked?: boolean;
+            /** @description Fields that change: schema, schema_defined, description, metadata, active. */
+            changes?: string[] | null;
+            /** @description For new_version: whether the change could break a subscription's payload transformation. */
+            compatibility?: components["schemas"]["SchemaCompatibilityItem"];
+            /** @description Event type name. */
+            name: string;
+            /**
+             * Format: int64
+             * @description Version before the import.
+             */
+            previous_version?: number;
+            /** @description For new_version: every affected subscription's transform rendered strictly against the new version. */
+            subscriptions?: components["schemas"]["TemplateCheckItem"];
+            /**
+             * Format: int64
+             * @description Version after the import (or that it would have, for a dry run).
+             */
+            version: number;
         };
         InviteOut: {
             /** Format: date-time */
@@ -1900,6 +2083,19 @@ export interface components {
              */
             result: "compatible" | "breaking";
         };
+        StampCheckItem: {
+            /** @description Sparrow version that exported the file. */
+            exported_by?: string;
+            /** @description This server's Sparrow version. */
+            server: string;
+            /**
+             * @description valid: stamp present and matching. unsigned: no stamp (hand-written file). warning: see warnings.
+             * @enum {string}
+             */
+            status: "valid" | "unsigned" | "warning";
+            /** @description version_differs, format_unsupported, items_changed. Each must be acknowledged for the import to write. */
+            warnings?: string[] | null;
+        };
         Subscription: {
             transform_template: string;
         };
@@ -1953,6 +2149,40 @@ export interface components {
             /** @description Last-modified timestamp, RFC3339. */
             updated_at: string;
             /** @description Webhook this subscription delivers to. */
+            webhook_id: string;
+        };
+        TemplateCheckItem: {
+            /**
+             * Format: int64
+             * @description How many of the affected subscriptions are catch-all ("*").
+             */
+            catch_all: number;
+            /** @description Subscriptions whose transform no longer renders against the new version. */
+            failures?: components["schemas"]["TemplateFailureItem"][] | null;
+            /**
+             * Format: int64
+             * @description Subscriptions whose transform renders.
+             */
+            passed: number;
+            /**
+             * Format: int64
+             * @description Subscriptions with no transform. Sparrow passes the payload through and cannot tell whether the receiver copes.
+             */
+            without_transform: number;
+        };
+        TemplateFailureItem: {
+            /** @description Consumer the subscription belongs to. */
+            consumer: string;
+            /** @description The render error. */
+            error: string;
+            /**
+             * @description Which generated payload failed: every field, or only required fields (a template reading an optional field without guarding for it).
+             * @enum {string}
+             */
+            payload: "sample" | "required_only";
+            /** @description Subscription whose template failed. */
+            subscription_id: string;
+            /** @description Webhook the subscription delivers to. */
             webhook_id: string;
         };
         TemplateFunctionItem: {
@@ -4433,6 +4663,117 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    exportEventTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportEventTypesInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventTypeBundle"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    importEventTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportEventTypesInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportEventTypesOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

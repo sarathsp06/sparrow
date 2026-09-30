@@ -51,6 +51,8 @@ type EventManager interface {
 	GetEvent(ctx context.Context, name string) (*store.EventRegistration, error)
 	ListEventTypeVersions(ctx context.Context, name string) ([]*store.EventRegistrationVersion, error)
 	GetEventTypeVersion(ctx context.Context, name string, version int) (*store.EventRegistrationVersion, error)
+	ExportEventTypes(ctx context.Context, sel EventTypeExportSelection) ([]EventTypeDefinition, BundleStamp, error)
+	ImportEventTypes(ctx context.Context, items []EventTypeDefinition, stamp *BundleStamp, opts EventTypeImportOptions) (*EventTypeImportResult, error)
 	// PushEvent returns (eventID, isDuplicate, schemaValid, warnings, err).
 	// isDuplicate is true when idempotencyKey matched an existing event; the
 	// other fields then describe that existing event, not a new one.
