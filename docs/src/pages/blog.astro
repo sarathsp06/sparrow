@@ -1,0 +1,36 @@
+---
+import BlogLayout from '../layouts/BlogLayout.astro';
+import BlogPost from '../components/BlogPost.astro';
+
+const allPosts = Object.values(import.meta.glob('./posts/*.md', { eager: true })) as Array<{
+  url: string;
+  frontmatter: {
+    title: string;
+    description?: string;
+    pubDate?: string | Date;
+    tags?: string[];
+  };
+}>;
+
+allPosts.sort((a, b) => new Date(b.frontmatter.pubDate ?? 0).valueOf() - new Date(a.frontmatter.pubDate ?? 0).valueOf());
+---
+
+<BlogLayout title="Blog" description="Notes from the Sparrow project.">
+  <section class="blog-hero">
+    <span class="eyebrow">Dispatches</span>
+    <h1>Building Sparrow in the open.</h1>
+    <p>Engineering notes on reliable webhook delivery, self-hosting, and the systems behind Sparrow.</p>
+  </section>
+
+  <section class="post-grid" aria-label="Blog posts">
+    {allPosts.map((post) => (
+      <BlogPost
+        url={post.url}
+        title={post.frontmatter.title}
+        description={post.frontmatter.description}
+        pubDate={post.frontmatter.pubDate}
+        tags={post.frontmatter.tags}
+      />
+    ))}
+  </section>
+</BlogLayout>
