@@ -219,6 +219,18 @@
         }
     }
 
+    // Dismissing the confirm dialog cancels the prepared snapshot so it
+    // doesn't linger as a pending batch job. Best effort: it expires anyway.
+    function dismissRetry() {
+        confirmRetry = false;
+        const id = retryId;
+        retryId = '';
+        if (!id) return;
+        api.POST('/v1/consumers/{consumer}/retry-jobs/{job_id}:cancel', {
+            params: { path: { consumer: consumerStore.value || 'default', job_id: id } },
+        }).catch(() => {});
+    }
+
     function onBatchDone() {
         fetchDeliveries(currentPage);
     }
@@ -411,5 +423,5 @@
     confirmLabel="Re-deliver"
     variant="warning"
     onconfirm={executeRetry}
-    oncancel={() => { confirmRetry = false; retryId = ''; }}
+    oncancel={dismissRetry}
 />
