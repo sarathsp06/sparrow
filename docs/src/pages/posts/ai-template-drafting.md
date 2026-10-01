@@ -1,7 +1,9 @@
 ---
 layout: ../../layouts/BlogArticleLayout.astro
-title: "Describe the payload, get the template: AI-assisted transforms in Sparrow"
+title: Describe the payload, get the template
+kicker: On AI-assisted transforms
 author: Sparrow team
+tags: [templates, ai, subscriptions]
 description: Draft a subscription's transform template from a plain-language description, verified by rendering and repaired until it works, with Anthropic, any OpenAI-compatible server, or a copy-and-paste prompt.
 pubDate: 2026-10-01
 ---
