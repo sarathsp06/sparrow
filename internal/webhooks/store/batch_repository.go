@@ -127,13 +127,15 @@ func (r *Repository) UpdateBatchJobProgress(ctx context.Context, batchID uuid.UU
 	return storage.Error(err)
 }
 
-// CleanupExpiredBatchJobs deletes batch jobs that have expired and are not in a terminal state.
+// CleanupExpiredBatchJobs deletes expired batch jobs that were never started
+// (prepared snapshots the user abandoned). Processing jobs are left alone even
+// past expiry: a large batch can outlive its TTL and the worker still owns it.
 // Returns the number of deleted rows.
 func (r *Repository) CleanupExpiredBatchJobs(ctx context.Context) (int, error) {
 	query := `
 		DELETE FROM batch_jobs
 		WHERE expires_at < NOW()
-		  AND status NOT IN ('completed', 'cancelled')
+		  AND status = 'pending'
 	`
 
 	result, err := r.conn.ExecContext(ctx, query)
