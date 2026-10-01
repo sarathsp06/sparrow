@@ -14,8 +14,9 @@ const APIVersion = "1.0.0"
 // Mount registers Huma on the given chi router: every /v1 REST operation,
 // the OpenAPI document at /openapi.{json,yaml} (+ 3.0 variants), and the
 // Scalar interactive reference at /docs. Returns the huma.API so callers can
-// export the spec (see cmd/openapi-export).
-func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps AccessDeps) huma.API {
+// export the spec (see cmd/openapi-export). aiDeps is optional: a zero
+// value registers the AI routes in their disabled state.
+func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps AccessDeps, aiDeps AIDeps) huma.API {
 	config := huma.DefaultConfig("Sparrow", APIVersion)
 	config.Info.Description = "Sparrow is a self-hosted webhook delivery platform: register the " +
 		"events your system produces, register the webhooks that should receive them, then push " +
@@ -75,6 +76,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 		{Name: "Alert Configs", Description: "Opt-in email recipients for Sparrow's own self-generated " +
 			"webhook.health_changed and webhook.delivery_failed system events."},
 		{Name: "Recipes", Description: "Shipped webhook adapter recipes that pre-fill destinations, headers, and payload transforms."},
+		{Name: "Server", Description: "Deployment-level information about this server, such as which optional features are configured."},
 	}
 	config.DocsPath = "/docs"
 	config.DocsRenderer = huma.DocsRendererScalar
@@ -104,6 +106,7 @@ func Mount(r chi.Router, svc webhooks.WebhookServiceInterface, accessDeps Access
 	registerAlertConfigRoutes(api, svc)
 	registerRecipeRoutes(api)
 	registerAccessRoutes(api, accessDeps)
+	registerAIRoutes(api, svc, aiDeps)
 
 	return api
 }

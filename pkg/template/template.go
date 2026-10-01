@@ -44,8 +44,9 @@ func (w *limitedWriter) Write(p []byte) (int, error) {
 
 // TemplateEngine handles payload transformations using Go templates
 type TemplateEngine struct {
-	funcs template.FuncMap
-	cache *TemplateCache
+	funcs  template.FuncMap
+	cache  *TemplateCache
+	strict bool
 }
 
 // NewTemplateEngine creates a new template engine with default helpers
@@ -60,6 +61,23 @@ func NewTemplateEngineWithCacheSize(maxSize int) *TemplateEngine {
 		cache: NewTemplateCache(maxSize),
 	}
 }
+
+// NewStrictTemplateEngine creates an engine that fails when a template reads
+// a map key that is not in the data (text/template's missingkey=error),
+// instead of rendering "<no value>". Deliveries use the lenient engine so a
+// payload missing an optional field still produces a body; drafting and
+// validation use this one so a misspelled or mis-cased field is an error
+// that names the key. Note that missingkey=error also applies inside
+// {{ if .payload.optional }}: templates that must tolerate absent fields
+// should read them with (index .payload "optional").
+func NewStrictTemplateEngine() *TemplateEngine {
+	e := NewTemplateEngineWithCacheSize(DefaultCacheSize)
+	e.strict = true
+	return e
+}
+
+// Strict reports whether missing map keys are errors for this engine.
+func (e *TemplateEngine) Strict() bool { return e.strict }
 
 // Execute processes a template with the given data.
 // Output is limited to MaxTemplateOutputBytes and execution time is limited
@@ -125,7 +143,11 @@ func (e *TemplateEngine) getOrParseTemplate(tmplStr string) (*template.Template,
 	}
 
 	// Parse new template
-	tmpl, err := template.New("webhook").Funcs(e.funcs).Parse(tmplStr)
+	t := template.New("webhook").Funcs(e.funcs)
+	if e.strict {
+		t = t.Option("missingkey=error")
+	}
+	tmpl, err := t.Parse(tmplStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template: %w", err)
 	}

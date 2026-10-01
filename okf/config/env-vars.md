@@ -58,6 +58,21 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 |----------|---------|---------|
 | `SPARROW_EVENT_RETENTION_DAYS` | Purge events (and cascaded deliveries) older than N days via an hourly background job; `0` disables retention (data kept forever) | `0` |
 
+## Template history
+
+No configuration. `subscription_template_versions` keeps the last 20 saved templates per subscription (migration 000030); listed at `GET /v1/consumers/{c}/subscriptions/{id}/templateVersions`.
+
+## AI-assisted template drafting
+
+No variables set: prompt-only mode. `GET /v1/capabilities` reports `ai_drafting.prompt_only=true` and `POST /v1/subscriptions:draftTemplatePrompt` builds the grounded prompt for any chat assistant; `:draftTemplate` answers 503.
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `SPARROW_AI_PROVIDER` | `anthropic` (Anthropic SDK) or `openai` (plain HTTP to any OpenAI-compatible `/v1/chat/completions`: Ollama, vLLM, LM Studio, llama.cpp, OpenRouter, OpenAI) | `anthropic` |
+| `SPARROW_AI_API_KEY` | Provider key. Enables drafting for `anthropic`; optional Bearer token for `openai`. `GET /v1/capabilities` reports `ai_drafting.{enabled,provider,model}` | -- |
+| `SPARROW_AI_MODEL` | Model id. Required for `openai` | `claude-haiku-4-5` (anthropic) |
+| `SPARROW_AI_BASE_URL` | API base URL. Required for `openai` (enables drafting); optional gateway override for `anthropic` | -- |
+
 ## Database Pools
 
 | Pool | Library | Config | Purpose |

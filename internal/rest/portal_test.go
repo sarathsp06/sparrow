@@ -51,7 +51,7 @@ func sealedRouter(t *testing.T) (http.Handler, *access.Service) {
 		t.Fatal(err)
 	}
 	r := chi.NewRouter()
-	rest.Mount(r, nil, rest.AccessDeps{Service: svc})
+	rest.Mount(r, nil, rest.AccessDeps{Service: svc}, rest.AIDeps{})
 	return r, svc
 }
 

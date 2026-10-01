@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/v1/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List optional server features
+         * @description Reports which optional, deployment-configured features this server offers so clients can show or hide the matching UI. Currently: AI-assisted transform template drafting, with the provider and model in use.
+         */
+        get: operations["getCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/consumers/{consumer}/alert-configs": {
         parameters: {
             query?: never;
@@ -362,6 +382,26 @@ export interface paths {
          * @description Merge-patches a subscription's headers, method, timeout, transform, or label filters. The linked webhook_id and event_name cannot be changed — delete and recreate instead.
          */
         patch: operations["updateSubscription"];
+        trace?: never;
+    };
+    "/v1/consumers/{consumer}/subscriptions/{subscription_id}/templateVersions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a subscription's saved template history
+         * @description Returns the transform templates this subscription has been saved with, newest first; the newest is the current one. A version is recorded whenever a save changes the template, with how it was produced (manual or ai_draft), an optional note, and who saved it. The last 20 are kept. There is no restore endpoint: load a version into the editor and save the subscription, which records it as a new version.
+         */
+        get: operations["listSubscriptionTemplateVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/consumers/{consumer}/webhooks": {
@@ -809,6 +849,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/subscriptions:draftTemplate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft a transform template with AI
+         * @description Drafts a transform_template from a plain-language description, grounded in the event type's JSON Schema and sample payload, the template helper catalog, and optionally a shipped recipe's destination format or an example body the receiver expects. Every draft is rendered against the sample payload (as POST /v1/subscriptions:testTemplate does) and repaired until it renders, so the returned template is known to work. Nothing is saved: put the template into a subscription's transform_template. Requires AI drafting to be configured on the server (SPARROW_AI_API_KEY for Anthropic, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL for any OpenAI-compatible server); otherwise 503. Only the sample payload (registered or provided in the request), the schema, and the request's own text are sent to the model, never stored events, headers, or secrets.
+         */
+        post: operations["draftSubscriptionTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/subscriptions:draftTemplatePrompt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Build the AI drafting prompt without calling a model
+         * @description Returns the same prompt POST /v1/subscriptions:draftTemplate would send, as one self-contained text to paste into any chat assistant (ChatGPT, Claude, a local model). Works whether or not the server has an AI provider configured, so installs without SPARROW_AI_* still get a one-click prompt. The user pastes the assistant's template back into the subscription editor and checks it with Run Preview. Nothing is sent anywhere by Sparrow; a docs_url, if given, is fetched under the delivery network policy to include an excerpt.
+         */
+        post: operations["buildSubscriptionTemplatePrompt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/subscriptions:testTemplate": {
         parameters: {
             query?: never;
@@ -934,6 +1014,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AIDraftingStruct: {
+            /** @description True when the server is started with SPARROW_AI_API_KEY and POST /v1/subscriptions:draftTemplate is usable. */
+            enabled: boolean;
+            /** @description Model id used for drafting, when enabled. */
+            model?: string;
+            /** @description True when no provider is configured: POST /v1/subscriptions:draftTemplatePrompt still builds the prompt for pasting into any chat assistant, while :draftTemplate answers 503. */
+            prompt_only: boolean;
+            /**
+             * @description Chat API behind drafting: anthropic, or openai for any OpenAI-compatible server (Ollama, vLLM, OpenRouter, OpenAI).
+             * @enum {string}
+             */
+            provider?: "anthropic" | "openai";
+        };
         AlertConfigItem: {
             /**
              * Format: uri
@@ -1026,6 +1119,16 @@ export interface components {
              * @description Total items in the batch snapshot.
              */
             total: number;
+        };
+        CapabilitiesOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CapabilitiesOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description AI-assisted transform template drafting. */
+            ai_drafting: components["schemas"]["AIDraftingStruct"];
         };
         ConsumerStatsOutputBody: {
             /**
@@ -1239,6 +1342,74 @@ export interface components {
             status: "pending" | "sending" | "success" | "failed" | "retrying" | "expired";
             /** @description Webhook this delivery was sent to. */
             webhook_id: string;
+        };
+        DraftTemplateBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/DraftTemplateBody.json
+             */
+            readonly $schema?: string;
+            /** @description Optional existing template to refine instead of drafting from scratch. */
+            current_template?: string;
+            /**
+             * Format: uri
+             * @description Optional http(s) page documenting the receiver's payload. Sparrow fetches it (subject to the same network policy as webhook deliveries, so private and cloud-metadata addresses are refused unless allowed) and gives the model an excerpt of its text.
+             */
+            docs_url?: string;
+            /** @description Registered event type whose schema and sample payload ground the draft, and against which it is verified. */
+            event_name: string;
+            /** @description Plain-language description of the body the receiver should get, e.g. "a short Slack message with the order id and total, flagged when refunded". */
+            instructions: string;
+            /** @description Name of a shipped recipe (see GET /v1/recipes) whose destination format the draft should follow, e.g. "slack". Omit for a custom receiver. */
+            recipe?: string;
+            /** @description Optional payload to ground and verify the draft against instead of the event type's registered sample. Does not change the event type. */
+            sample_payload?: {
+                [key: string]: unknown;
+            };
+            /** @description Optional: what the receiver expects, either an example body (the draft maps event fields onto that exact structure) or a plain-language description of its shape. */
+            target_example?: string;
+        };
+        DraftTemplateOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/DraftTemplateOutputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: int64
+             * @description Draft/render rounds it took; more than 1 means an earlier draft failed to render and was repaired.
+             */
+            attempts: number;
+            /** @description Model id that produced the draft. */
+            model: string;
+            /** @description Short explanation from the model of the fields used and assumptions made. */
+            notes?: string;
+            /** @description The template rendered against the sample payload used (provided or registered), proving it renders. */
+            rendered: string;
+            /**
+             * @description Which sample payload grounded and verified the draft.
+             * @enum {string}
+             */
+            sample_source: "registered" | "provided";
+            /** @description The drafted Go template, ready to save as transform_template. */
+            template: string;
+        };
+        DraftTemplatePromptOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/DraftTemplatePromptOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description A self-contained prompt to paste into any chat assistant: the template data model, rules, helper catalog, the event's schema and sample payload, any recipe, receiver example, docs excerpt, current template, and the instructions. Asks for the template in a code block. */
+            prompt: string;
+            /**
+             * @description Which sample payload the prompt carries.
+             * @enum {string}
+             */
+            sample_source: "registered" | "provided";
         };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -1516,6 +1687,15 @@ export interface components {
             items: components["schemas"]["SubscriptionItem"][] | null;
             pagination: components["schemas"]["PaginationOutput"];
         };
+        ListTemplateVersionsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListTemplateVersionsOutputBody.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["TemplateVersionItem"][] | null;
+        };
         ListTokensOutputBody: {
             /**
              * Format: uri
@@ -1570,6 +1750,13 @@ export interface components {
             };
             /** @description Replace the HTTP method. */
             method?: string;
+            /** @description Optional note stored with the template version, e.g. the AI drafter's summary. */
+            template_notes?: string;
+            /**
+             * @description How a changed transform_template was produced, recorded in the subscription's template history. Defaults to manual.
+             * @enum {string}
+             */
+            template_source?: "manual" | "ai_draft";
             /**
              * Format: int64
              * @description Replace the per-delivery timeout override, in seconds.
@@ -1813,6 +2000,28 @@ export interface components {
             readonly $schema?: string;
             items: components["schemas"]["TemplateFunctionItem"][] | null;
         };
+        TemplateVersionItem: {
+            /**
+             * Format: date-time
+             * @description When it was saved.
+             */
+            created_at: string;
+            /** @description True for the newest version, which is the subscription's current template. */
+            current: boolean;
+            /** @description Note stored with the version. */
+            notes?: string;
+            /** @description Credential name that saved it, when auth is on. */
+            saved_by?: string;
+            /**
+             * @description How the template was produced.
+             * @enum {string}
+             */
+            source: "manual" | "ai_draft";
+            /** @description The template as saved. */
+            template: string;
+            /** @description Version id (UUID). */
+            version_id: string;
+        };
         TestTemplateBody: {
             /**
              * Format: uri
@@ -1822,6 +2031,8 @@ export interface components {
             readonly $schema?: string;
             /** @description Registered event type whose sample payload the template is rendered against. */
             event_name: string;
+            /** @description Fail when the template reads a payload key the sample does not have (missingkey=error), naming the key, instead of rendering <no value> as a live delivery would. Use it to catch misspelled fields; note it also applies inside {{ if .payload.optional }}, so optional fields should be read with (index .payload "optional"). */
+            strict?: boolean;
             /** @description Go template to render, in the same syntax used by transform_template. */
             template: string;
         };
@@ -2105,6 +2316,35 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getCapabilities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapabilitiesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     listAlertConfigs: {
         parameters: {
             query?: {
@@ -3237,6 +3477,59 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    listSubscriptionTemplateVersions: {
+        parameters: {
+            query?: {
+                /** @description Max versions to return, newest first. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                consumer: string;
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListTemplateVersionsOutputBody"];
                 };
             };
             /** @description Not Found */
@@ -4644,6 +4937,144 @@ export interface operations {
             };
             /** @description Error */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    draftSubscriptionTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftTemplateBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftTemplateOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    buildSubscriptionTemplatePrompt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftTemplateBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftTemplatePromptOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

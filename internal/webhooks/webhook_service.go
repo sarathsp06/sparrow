@@ -61,9 +61,15 @@ type SubscriptionManager interface {
 	CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (string, time.Time, error)
 	GetSubscription(ctx context.Context, subscriptionID string, consumer string) (*store.EventSubscription, error)
 	ListSubscriptions(ctx context.Context, consumer string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
-	UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) error
+	UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, meta TemplateSaveMeta) error
+	// ListSubscriptionTemplateVersions returns the saved template history of a
+	// subscription, newest (current) first.
+	ListSubscriptionTemplateVersions(ctx context.Context, subscriptionID string, consumer string, limit int) ([]*store.SubscriptionTemplateVersion, error)
 	DeleteSubscription(ctx context.Context, subscriptionID string, consumer string) error
 	TestSubscriptionTemplate(ctx context.Context, eventName, transformTemplate, consumer string) (string, error)
+	// TestSubscriptionTemplateStrict is TestSubscriptionTemplate with
+	// missingkey=error: a reference to a key the sample lacks fails naming it.
+	TestSubscriptionTemplateStrict(ctx context.Context, eventName, transformTemplate string) (string, error)
 	ListSubscriptionsByWebhookIDs(ctx context.Context, webhookIDs []uuid.UUID) ([]*store.EventSubscription, error)
 	GetTemplateFunctions() []TemplateFunctionInfo
 }

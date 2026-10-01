@@ -592,6 +592,32 @@ func (_d WebhookServiceInterfaceWithTracing) ListEvents(ctx context.Context, act
 	return _d.WebhookServiceInterface.ListEvents(ctx, activeOnly, limit, offset)
 }
 
+// ListSubscriptionTemplateVersions implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) ListSubscriptionTemplateVersions(ctx context.Context, subscriptionID string, consumer string, limit int) (spa1 []*store.SubscriptionTemplateVersion, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListSubscriptionTemplateVersions")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":            ctx,
+				"subscriptionID": subscriptionID,
+				"consumer":       consumer,
+				"limit":          limit}, map[string]interface{}{
+				"spa1": spa1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.ListSubscriptionTemplateVersions(ctx, subscriptionID, consumer, limit)
+}
+
 // ListSubscriptions implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) ListSubscriptions(ctx context.Context, consumer string, webhookID string, eventName string, limit int32, offset int32) (epa1 []*store.EventSubscription, i1 int32, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.ListSubscriptions")
@@ -944,6 +970,31 @@ func (_d WebhookServiceInterfaceWithTracing) TestSubscriptionTemplate(ctx contex
 	return _d.WebhookServiceInterface.TestSubscriptionTemplate(ctx, eventName, transformTemplate, consumer)
 }
 
+// TestSubscriptionTemplateStrict implements WebhookServiceInterface
+func (_d WebhookServiceInterfaceWithTracing) TestSubscriptionTemplateStrict(ctx context.Context, eventName string, transformTemplate string) (s1 string, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.TestSubscriptionTemplateStrict")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":               ctx,
+				"eventName":         eventName,
+				"transformTemplate": transformTemplate}, map[string]interface{}{
+				"s1":  s1,
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.WebhookServiceInterface.TestSubscriptionTemplateStrict(ctx, eventName, transformTemplate)
+}
+
 // UnregisterWebhook implements WebhookServiceInterface
 func (_d WebhookServiceInterfaceWithTracing) UnregisterWebhook(ctx context.Context, webhookID string, consumer string) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.UnregisterWebhook")
@@ -996,7 +1047,7 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateEvent(ctx context.Context, na
 }
 
 // UpdateSubscription implements WebhookServiceInterface
-func (_d WebhookServiceInterfaceWithTracing) UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string) (err error) {
+func (_d WebhookServiceInterfaceWithTracing) UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, meta TemplateSaveMeta) (err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "WebhookServiceInterface.UpdateSubscription")
 	defer func() {
 		if _d._spanDecorator != nil {
@@ -1009,7 +1060,8 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateSubscription(ctx context.Cont
 				"timeout":           timeout,
 				"transformEnabled":  transformEnabled,
 				"transformTemplate": transformTemplate,
-				"labelFilters":      labelFilters}, map[string]interface{}{
+				"labelFilters":      labelFilters,
+				"meta":              meta}, map[string]interface{}{
 				"err": err})
 		} else if err != nil {
 			_span.RecordError(err)
@@ -1022,7 +1074,7 @@ func (_d WebhookServiceInterfaceWithTracing) UpdateSubscription(ctx context.Cont
 
 		_span.End()
 	}()
-	return _d.WebhookServiceInterface.UpdateSubscription(ctx, subscriptionID, consumer, headers, method, timeout, transformEnabled, transformTemplate, labelFilters)
+	return _d.WebhookServiceInterface.UpdateSubscription(ctx, subscriptionID, consumer, headers, method, timeout, transformEnabled, transformTemplate, labelFilters, meta)
 }
 
 // UpdateWebhookConfig implements WebhookServiceInterface

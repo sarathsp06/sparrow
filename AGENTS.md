@@ -49,11 +49,12 @@
 |------|---------|
 | `cmd/server/` | Server entrypoint + DI wiring |
 | `cmd/migrate/` | Standalone migration runner |
-| `internal/rest/` | Huma REST handler layer (thin, calls webhook service) — one file per resource (`webhook.go`, `event.go`, `subscription.go`, `delivery.go`, `health.go`) |
+| `internal/rest/` | Huma REST handler layer (thin, calls webhook service) — one file per resource (`webhook.go`, `event.go`, `subscription.go`, `delivery.go`, `health.go`, `ai.go`) |
 | `internal/webhooks/` | Business logic + store + queue workers |
 | `internal/webhooks/store/` | DB repository (sqlx, WithConn transaction pattern) |
 | `internal/webhooks/queue/` | River job types + workers |
 | `internal/middleware/` | Auth (master key + access tokens), CORS, portal gateway, security headers |
+| `internal/ai/` | AI-assisted transform template drafting behind a `completer` seam: `provider_anthropic.go` (SDK) and `provider_openai.go` (plain HTTP, any OpenAI-compatible server incl. Ollama/vLLM). Off unless configured (`SPARROW_AI_PROVIDER`, `SPARROW_AI_API_KEY`, `SPARROW_AI_BASE_URL`); exposed as `POST /v1/subscriptions:draftTemplate`, `POST /v1/subscriptions:draftTemplatePrompt` (prompt only, works with no provider: the UI's "Copy prompt for AI") + `GET /v1/capabilities` in `internal/rest/ai.go`. Drafts are verified through `TestSubscriptionTemplate` before being returned |
 | `internal/accessauth/` | Sparrow adapter for `pkg/access` (realm, scope, prefixes, lifetime rules) |
 | `pkg/access/` | Separate Go module — reusable token/invite library (memstore, pgstore, storetest, httpauth) |
 | `pkg/storage/` | DB abstractions, transaction helpers, error sentinels |
@@ -73,6 +74,7 @@ The embedded UI (`SPARROW_SERVE_UI=true`) is served exactly as built -- the serv
 | `/v1/*` | Huma REST API | Yes | See `internal/rest/` — one file per resource |
 | `/docs`, `/openapi.*` | Huma-served Scalar UI + spec | No | Interactive API reference |
 | `GET /health`, `/ready` | Health check | No | JSON status |
+| `/v1/consumers/{c}/subscriptions/{id}/templateVersions` | Saved template history (`internal/rest/subscription.go`) | Yes | Newest = current; last 20 kept; written when a save changes `transform_template` |
 | `/v1/tokens`, `/v1/invites`, `/v1/whoami` | Access token/invite endpoints (`internal/rest/access.go`) | Yes | Under `/v1` — require master key or tenant-wide token |
 | `/portal/api/*` | Portal gateway (`internal/middleware/portal_gateway.go`) | Portal bearer or consumer token | Re-dispatches to `/v1` scoped to the token's consumer |
 | `POST /invite/redeem` | Invite redemption (`pkg/access/httpauth`) | No (invite is the credential) | Body `{"invite": "..."}` → token; `400 invalid_invite` for bad/used/expired/cancelled |
@@ -88,6 +90,8 @@ Route-group middleware (API key auth) wraps only the `/v1/*` group (`r.Group` in
 - **REST errors**: use `mapError(ctx, err, msg)` from `internal/rest/errors.go`.
 - **Tenant scoping**: always filter by `tenant.DefaultTenantID` in queries.
 - **Naming**: files `snake_case.go`, packages lowercase single word, REST OperationIDs `camelCase` verb-first (e.g. `registerWebhook`, `listDeliveries`).
+- **Template history**: `subscription_template_versions` (migration 000030). `UpdateSubscription` records a version in the same transaction when the template changes, with `TemplateSaveMeta{Source: manual|ai_draft, Notes, SavedBy}`; `CreateSubscription` records the first. No restore endpoint by design: the UI loads a version into the editor and saves normally.
+- **Subscription UI**: create/edit are pages (`/webhooks/{id}/subscriptions/new`, `/{sub}/edit`, `SubscriptionForm.svelte`); the template is edited in `TemplateEditor.svelte` (full-viewport modal: live strict render, AI drawer or copy-prompt mode, history, helper reference). `SubscriptionManager.svelte` is the list only.
 - **OTel wrappers**: generated via `//go:generate gowrap gen -i InterfaceName ...` — do not hand-edit `*_otel.go` files.
 - **OpenAPI spec**: exported from Go via `cmd/openapi-export`, committed at `api/openapi.{yaml,json}` — regenerate with `make generate` after any handler change; `internal/rest/openapi_drift_test.go` fails CI if it's stale.
 

@@ -6,7 +6,7 @@
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-types';
   import { substituteParams, type Recipe, type RecipeParam } from '$lib/recipes';
-  import ExpandableEditor from '$lib/components/ExpandableEditor.svelte';
+  import TemplateEditor from '$lib/components/TemplateEditor.svelte';
 
   type EventTypeItem = components["schemas"]["EventTypeItem"];
   const ALERT_EVENT_TYPES = ["sparrow.webhook.health_changed", "sparrow.webhook.delivery_failed"];
@@ -50,7 +50,7 @@
   let appliedRecipe = $state('');
   let recipeError = $state('');
   let transformTemplate = $state('');
-  let templateExpanded = $state(false);
+  let templateEditorOpen = $state(false);
   let recipes: Recipe[] = $state([]);
 
   // Validation
@@ -381,15 +381,18 @@
         <button type="button" onclick={addSecretHeader} class="btn btn-ghost !px-3 !py-1.5">+ Add Secret Header</button>
       </section>
 
-      {#if transformTemplate}
-        <section class="panel p-5">
-          <label for="transformTemplate" class="field-label">Transform template (applied to each created subscription)</label>
-          <ExpandableEditor bind:expanded={templateExpanded} label="Transform Template">
-            <textarea id="transformTemplate" bind:value={transformTemplate} rows="14" class="input mono !text-xs w-full" style="resize:vertical;min-height:10rem;{templateExpanded ? 'height:100%' : ''}"></textarea>
-          </ExpandableEditor>
-          <p class="text-muted text-xs mt-2">Editable — rendered server-side per delivery. Clear the recipe above to drop it.</p>
-        </section>
-      {/if}
+      <section class="panel p-5">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <span class="field-label !mb-0">Transform template</span>
+            <p class="text-muted text-xs">Applied to each created subscription. {transformTemplate.trim() ? `${transformTemplate.split('\n').length} lines${appliedRecipe ? ` from the ${appliedRecipe} recipe` : ''}.` : 'Optional: deliver the raw event, or write, draft, or paste one.'}</p>
+          </div>
+          <button type="button" onclick={() => (templateEditorOpen = true)} class="btn btn-ghost !px-3 !py-1.5" disabled={events.length === 0 && !transformTemplate.trim()} title={events.length === 0 ? 'Pick at least one event first' : ''}>{transformTemplate.trim() ? 'Edit template' : 'Write template'}</button>
+        </div>
+        {#if transformTemplate.trim()}
+          <pre class="mt-3 panel-2 p-3 text-xs mono overflow-x-auto max-h-32">{transformTemplate}</pre>
+        {/if}
+      </section>
 
       <section class="panel">
         <button type="button" onclick={() => (showAdvanced = !showAdvanced)} class="w-full flex items-center justify-between p-5 text-left">
@@ -456,4 +459,11 @@
         </button>
       </div>
     </form>
+<TemplateEditor
+  bind:open={templateEditorOpen}
+  template={transformTemplate}
+  eventName={events[0] ?? ''}
+  {consumer}
+  onSave={(t) => { transformTemplate = t; }}
+/>
 </main>

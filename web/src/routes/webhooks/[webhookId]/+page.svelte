@@ -28,7 +28,8 @@
   let error = $state('');
   let expandedDeliveries: Set<string> = $state(new Set());
   let deliveryDetails: Map<string, DeliveryItem> = $state(new Map());
-  let activeTab = $state<'deliveries' | 'config' | 'subscriptions'>('deliveries');
+  const initialTab = (page.url.searchParams.get('tab') as 'deliveries' | 'config' | 'subscriptions' | null) ?? 'deliveries';
+  let activeTab = $state<'deliveries' | 'config' | 'subscriptions'>(['deliveries', 'config', 'subscriptions'].includes(initialTab) ? initialTab : 'deliveries');
 
   // Inline URL editing
   let editingUrl = $state(false);

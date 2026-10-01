@@ -254,6 +254,22 @@ type EventSubscription struct {
 	UpdatedAt         time.Time     `json:"updated_at" db:"updated_at"`
 }
 
+// SubscriptionTemplateVersion is one saved transform template of a
+// subscription. The newest row is the current template.
+type SubscriptionTemplateVersion struct {
+	ID             uuid.UUID `json:"id" db:"id"`
+	TenantID       uuid.UUID `json:"tenant_id" db:"tenant_id"`
+	SubscriptionID uuid.UUID `json:"subscription_id" db:"subscription_id"`
+	Template       string    `json:"template" db:"template"`
+	Source         string    `json:"source" db:"source"` // "manual" or "ai_draft"
+	Notes          string    `json:"notes" db:"notes"`
+	SavedBy        string    `json:"saved_by" db:"saved_by"`
+	CreatedAt      time.Time `json:"created_at" db:"created_at"`
+}
+
+// TemplateVersionsKept is how many versions are retained per subscription.
+const TemplateVersionsKept = 20
+
 // ConsumerStats represents statistics for a consumer
 type ConsumerStats struct {
 	TotalWebhooks        int     `db:"total_webhooks"`

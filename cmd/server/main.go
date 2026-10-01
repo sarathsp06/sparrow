@@ -19,6 +19,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/sarathsp06/sparrow/internal/accessauth"
+	"github.com/sarathsp06/sparrow/internal/ai"
 	"github.com/sarathsp06/sparrow/internal/config"
 	"github.com/sarathsp06/sparrow/internal/health"
 	"github.com/sarathsp06/sparrow/internal/middleware"
@@ -229,6 +230,30 @@ func main() {
 	webhookService := webhooks.NewWebhookService(queueManager.GetJobInserter(), webhookRepo, cryptoSvc, webhooks.WithAllowPrivateNetworks(cfg.AllowPrivateNetworks), webhooks.WithAllowedNetworks(cfg.AllowedNetworkList()))
 	tracedWebhookService := webhooks.NewWebhookServiceInterfaceWithTracing(webhookService, "")
 
+	// AI-assisted template drafting is opt-in (SPARROW_AI_*). Drafts are
+	// verified through the same dry-run the editor's preview uses. The
+	// prompt endpoint and its docs_url fetch work without a provider, so an
+	// install with no AI still gets a copy-and-paste prompt.
+	// docs_url fetches obey the delivery network policy (SSRF guard).
+	fetch := ai.NewDocFetcher(client.NetworkPolicy{AllowPrivate: cfg.AllowPrivateNetworks, AllowedNetworks: cfg.AllowedNetworkList()})
+	aiDeps := rest.AIDeps{Fetch: fetch}
+	if cfg.AIEnabled() {
+		helpers := make([]ai.HelperFunc, 0)
+		for _, f := range tracedWebhookService.GetTemplateFunctions() {
+			helpers = append(helpers, ai.HelperFunc{Name: f.Name, Description: f.Description})
+		}
+		// Drafts are verified strictly: a field the sample lacks is an error
+		// naming the key, which the repair loop feeds back to the model.
+		render := func(_ context.Context, eventName, tmpl string, payload map[string]any) (string, error) {
+			return webhooks.RenderTemplatePreview(eventName, tmpl, payload, true)
+		}
+		drafter, err := ai.New(ai.Config{Provider: ai.Provider(cfg.AIProviderName()), APIKey: cfg.AIAPIKey, Model: cfg.AIModelOrDefault(), BaseURL: cfg.AIBaseURL}, render, helpers, fetch)
+		if err != nil {
+			log.Fatalf("Failed to configure AI drafting: %v", err)
+		}
+		aiDeps.Drafter = drafter
+	}
+
 	// Create chi router for the REST API, health endpoints, and embedded UI.
 	// Chi provides clean route grouping: API routes get auth middleware,
 	// health endpoints and UI are open.
@@ -246,7 +271,7 @@ func main() {
 	// operation plus /openapi.{json,yaml} and the Scalar reference at /docs.
 	r.Group(func(r chi.Router) {
 		r.Use(auth.HTTPMiddleware)
-		rest.Mount(r, tracedWebhookService, rest.AccessDeps{Service: accessSvc, AuthEnabled: auth.Enabled, TokenDefaultTTL: cfg.TokenDefaultTTL})
+		rest.Mount(r, tracedWebhookService, rest.AccessDeps{Service: accessSvc, AuthEnabled: auth.Enabled, TokenDefaultTTL: cfg.TokenDefaultTTL}, aiDeps)
 	})
 
 	// Invite redemption: the invite in the request is the credential, so it
@@ -331,6 +356,11 @@ func main() {
 		fmt.Println("   Auth: API key or access token required (X-API-Key or Authorization: Bearer)")
 	} else {
 		fmt.Println("   Auth: disabled (set SPARROW_API_KEY to enable)")
+	}
+	if cfg.AIEnabled() {
+		fmt.Printf("   AI drafting: enabled (%s via %s)\n", cfg.AIModelOrDefault(), cfg.AIProviderName())
+	} else {
+		fmt.Println("   AI drafting: prompt-only (the editor offers a copy-and-paste prompt; set SPARROW_AI_API_KEY, or SPARROW_AI_PROVIDER=openai with SPARROW_AI_BASE_URL, to draft in place)")
 	}
 	if otelShutdown != nil {
 		fmt.Printf("   OTLP endpoint: %s\n", otelConfig.OTLPEndpoint)
