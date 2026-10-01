@@ -67,7 +67,10 @@ type SubscriptionManager interface {
 	CreateSubscription(ctx context.Context, webhookID, eventName, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings) (string, time.Time, error)
 	GetSubscription(ctx context.Context, subscriptionID string, consumer string) (*store.EventSubscription, error)
 	ListSubscriptions(ctx context.Context, consumer string, webhookID string, eventName string, limit, offset int32) ([]*store.EventSubscription, int32, error)
-	UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings) error
+	UpdateSubscription(ctx context.Context, subscriptionID string, consumer string, headers map[string]string, method string, timeout int, transformEnabled bool, transformTemplate string, labelFilters map[string]string, settings SubscriptionTemplateSettings, meta TemplateSaveMeta) error
+	// ListSubscriptionTemplateVersions returns the saved template history of a
+	// subscription, newest (current) first.
+	ListSubscriptionTemplateVersions(ctx context.Context, subscriptionID string, consumer string, limit int) ([]*store.SubscriptionTemplateVersion, error)
 	DeleteSubscription(ctx context.Context, subscriptionID string, consumer string) error
 	PauseSubscription(ctx context.Context, subscriptionID, consumer, reason string) (*store.EventSubscription, error)
 	ResumeSubscription(ctx context.Context, subscriptionID, consumer string) (*ResumeResult, error)

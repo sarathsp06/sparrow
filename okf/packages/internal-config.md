@@ -26,6 +26,10 @@ type Config struct {
     CORSAllowedOrigins     []string // CORS_ALLOWED_ORIGINS
     MaxBodyBytes           int64    // default 5 MiB, min 1 MiB (SPARROW_MAX_BODY_BYTES)
     EventRetentionDays     int      // 0 = keep forever (SPARROW_EVENT_RETENTION_DAYS)
+    AIProvider             string   // anthropic | openai (SPARROW_AI_PROVIDER)
+    AIAPIKey               string   // provider key; enables drafting for anthropic (SPARROW_AI_API_KEY)
+    AIModel                string   // model id; AIModelOrDefault() → claude-haiku-4-5 for anthropic (SPARROW_AI_MODEL)
+    AIBaseURL              string   // required for openai, optional gateway for anthropic (SPARROW_AI_BASE_URL)
 }
 ```
 

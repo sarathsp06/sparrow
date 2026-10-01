@@ -33,7 +33,7 @@ func accessRouter(t *testing.T, store access.Store) http.Handler {
 		t.Fatal(err)
 	}
 	r := chi.NewRouter()
-	rest.Mount(r, nil, rest.AccessDeps{Service: svc})
+	rest.Mount(r, nil, rest.AccessDeps{Service: svc}, rest.AIDeps{})
 	return r
 }
 
@@ -93,7 +93,7 @@ func TestTenantTokenLifetimeDefaultsAndNeverExpires(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := chi.NewRouter()
-	rest.Mount(r, nil, rest.AccessDeps{Service: svc, TokenDefaultTTL: accessauth.TenantTokenDefaultTTL})
+	rest.Mount(r, nil, rest.AccessDeps{Service: svc, TokenDefaultTTL: accessauth.TenantTokenDefaultTTL}, rest.AIDeps{})
 
 	var out struct {
 		Token struct {

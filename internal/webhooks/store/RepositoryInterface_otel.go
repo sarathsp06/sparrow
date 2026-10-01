@@ -1017,6 +1017,30 @@ func (_d RepositoryInterfaceWithTracing) GetWebhookHealthTimeSeries(ctx context.
 	return _d.RepositoryInterface.GetWebhookHealthTimeSeries(ctx, webhookID, hours, bucketSize)
 }
 
+// InsertTemplateVersion implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) InsertTemplateVersion(ctx context.Context, tenantID uuid.UUID, v *SubscriptionTemplateVersion) (err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.InsertTemplateVersion")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":      ctx,
+				"tenantID": tenantID,
+				"v":        v}, map[string]interface{}{
+				"err": err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.InsertTemplateVersion(ctx, tenantID, v)
+}
+
 // ListAlertConfigs implements RepositoryInterface
 func (_d RepositoryInterfaceWithTracing) ListAlertConfigs(ctx context.Context, tenantID uuid.UUID, consumer string, webhookID *uuid.UUID) (apa1 []*AlertConfig, err error) {
 	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListAlertConfigs")
@@ -1386,6 +1410,32 @@ func (_d RepositoryInterfaceWithTracing) ListSubscriptionsTargetingEvent(ctx con
 		_span.End()
 	}()
 	return _d.RepositoryInterface.ListSubscriptionsTargetingEvent(ctx, tenantID, event)
+}
+
+// ListTemplateVersions implements RepositoryInterface
+func (_d RepositoryInterfaceWithTracing) ListTemplateVersions(ctx context.Context, tenantID uuid.UUID, subscriptionID uuid.UUID, limit int) (spa1 []*SubscriptionTemplateVersion, err error) {
+	ctx, _span := otel.Tracer(_d._instance).Start(ctx, "RepositoryInterface.ListTemplateVersions")
+	defer func() {
+		if _d._spanDecorator != nil {
+			_d._spanDecorator(_span, map[string]interface{}{
+				"ctx":            ctx,
+				"tenantID":       tenantID,
+				"subscriptionID": subscriptionID,
+				"limit":          limit}, map[string]interface{}{
+				"spa1": spa1,
+				"err":  err})
+		} else if err != nil {
+			_span.RecordError(err)
+			_span.SetStatus(_codes.Error, err.Error())
+			_span.SetAttributes(
+				attribute.String("event", "error"),
+				attribute.String("message", err.Error()),
+			)
+		}
+
+		_span.End()
+	}()
+	return _d.RepositoryInterface.ListTemplateVersions(ctx, tenantID, subscriptionID, limit)
 }
 
 // ListWebhooks implements RepositoryInterface

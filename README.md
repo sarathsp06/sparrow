@@ -319,6 +319,17 @@ Everything is configured through environment variables.
 
 16. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP endpoint for traces, metrics, and logs. Export is off when unset.
 
+**Template history**: every save that changes a subscription's `transform_template` records a version (`GET /v1/consumers/{c}/subscriptions/{id}/templateVersions`, last 20, with `manual`/`ai_draft` source, notes, and who saved it). The template editor lists them and can load one back; saving records it again.
+
+**AI-assisted template drafting** (optional)
+
+Without any of these set, the subscription editor still offers **Copy prompt for AI**: `POST /v1/subscriptions:draftTemplatePrompt` builds the same grounded prompt (data model, helper catalog, the event's sample payload, recipe or receiver details, your instructions) for pasting into any chat assistant; paste the returned template back and check it with Run Preview. Configure a provider to draft and verify in place instead.
+
+16. `SPARROW_AI_PROVIDER` — optional. Default: `anthropic`. Set `openai` to use any OpenAI-compatible `/v1/chat/completions` server: a local Ollama, vLLM, LM Studio or llama.cpp, a router like OpenRouter, or OpenAI itself. Drafts stay small and every draft is render-verified and repaired, so a light local model is enough for most templates.
+17. `SPARROW_AI_API_KEY` — optional. The provider API key. With the `anthropic` provider, setting it is what turns the feature on; with `openai` it is sent as a Bearer token when present (local servers usually need none). When drafting is on, the subscription editor gains a "Draft with AI" panel (and `POST /v1/subscriptions:draftTemplate`) that writes a `transform_template` from a plain-language description, grounded in the event type's schema and sample payload and verified by rendering before it is shown. Grounding can also use a sample payload you paste, a description or example of what the receiver expects, or a documentation URL that Sparrow fetches under the same network policy as deliveries. Only the schema, that sample payload, and the request's own text are sent to the model, never stored events, headers, or secrets. Off when unset.
+18. `SPARROW_AI_MODEL` — optional for `anthropic` (default `claude-haiku-4-5`; raise it if drafts need many repair rounds), required for `openai` (e.g. `llama3.2`, `qwen2.5-coder`, `gpt-4o-mini`).
+19. `SPARROW_AI_BASE_URL` — required for `openai` (e.g. `http://localhost:11434/v1` for Ollama); optional for `anthropic` (an internal gateway or proxy). Setting it with `openai` is what turns the feature on.
+
 For a single-key deployment, still use the keyring format: for example `SPARROW_ENCRYPTION_KEYS=main=<64-char-hex-key>` with `SPARROW_ENCRYPTION_PRIMARY_KEY_ID=main`.
 
 Full reference: [`okf/config/env-vars.md`](okf/config/env-vars.md).

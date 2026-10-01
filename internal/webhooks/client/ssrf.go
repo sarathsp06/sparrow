@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // maxRedirects is the maximum number of HTTP redirects allowed per request.
@@ -231,6 +232,24 @@ func (p NetworkPolicy) validateRedirectURL(u *url.URL) error {
 		return fmt.Errorf("redirect: %w", err)
 	}
 	return nil
+}
+
+// NewHTTPClient returns an http.Client whose dialer and redirect handling
+// enforce this policy, for server-initiated fetches other than deliveries
+// (e.g. reading a receiver's documentation page for AI drafting). Callers
+// should still CheckHost the initial URL so a blocked destination fails
+// before any connection is attempted.
+func (p NetworkPolicy) NewHTTPClient(timeout time.Duration) *http.Client {
+	dialer := &net.Dialer{Timeout: 10 * time.Second, Control: p.dialControl}
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			DialContext:         dialer.DialContext,
+			TLSHandshakeTimeout: 10 * time.Second,
+			MaxIdleConns:        4,
+		},
+		CheckRedirect: p.checkRedirect,
+	}
 }
 
 // dialControl returns a net.Dialer Control function that validates resolved

@@ -26,6 +26,58 @@ type SubscriptionRepository interface {
 	ListSubscriptionsByWebhookIDs(ctx context.Context, tenantID uuid.UUID, webhookIDs []uuid.UUID) ([]*EventSubscription, error)
 	ListSubscriptionsTargetingEvent(ctx context.Context, tenantID uuid.UUID, event string) ([]*EventSubscription, error)
 	SetSubscriptionPaused(ctx context.Context, tenantID uuid.UUID, id uuid.UUID, paused bool, reason string) (*time.Time, error)
+	// InsertTemplateVersion records a saved template and prunes the
+	// subscription's history to TemplateVersionsKept rows.
+	InsertTemplateVersion(ctx context.Context, tenantID uuid.UUID, v *SubscriptionTemplateVersion) error
+	// ListTemplateVersions returns up to limit versions, newest first.
+	ListTemplateVersions(ctx context.Context, tenantID uuid.UUID, subscriptionID uuid.UUID, limit int) ([]*SubscriptionTemplateVersion, error)
+}
+
+// InsertTemplateVersion records a saved template and prunes older history.
+func (r *Repository) InsertTemplateVersion(ctx context.Context, tenantID uuid.UUID, v *SubscriptionTemplateVersion) error {
+	if v.ID == uuid.Nil {
+		v.ID = uuid.New()
+	}
+	if v.Source == "" {
+		v.Source = "manual"
+	}
+	v.TenantID = tenantID
+	v.CreatedAt = time.Now()
+	_, err := r.conn.ExecContext(ctx, `
+		INSERT INTO subscription_template_versions (id, tenant_id, subscription_id, template, source, notes, saved_by, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		v.ID, tenantID, v.SubscriptionID, v.Template, v.Source, v.Notes, v.SavedBy, v.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("failed to insert template version: %w", err)
+	}
+	_, err = r.conn.ExecContext(ctx, `
+		DELETE FROM subscription_template_versions
+		WHERE tenant_id = $1 AND subscription_id = $2 AND id NOT IN (
+			SELECT id FROM subscription_template_versions
+			WHERE tenant_id = $1 AND subscription_id = $2
+			ORDER BY created_at DESC, id DESC LIMIT $3)`,
+		tenantID, v.SubscriptionID, TemplateVersionsKept)
+	if err != nil {
+		return fmt.Errorf("failed to prune template versions: %w", err)
+	}
+	return nil
+}
+
+// ListTemplateVersions returns the newest versions first.
+func (r *Repository) ListTemplateVersions(ctx context.Context, tenantID uuid.UUID, subscriptionID uuid.UUID, limit int) ([]*SubscriptionTemplateVersion, error) {
+	if limit <= 0 || limit > TemplateVersionsKept {
+		limit = TemplateVersionsKept
+	}
+	var out []*SubscriptionTemplateVersion
+	err := r.conn.SelectContext(ctx, &out, `
+		SELECT id, tenant_id, subscription_id, template, source, notes, saved_by, created_at
+		FROM subscription_template_versions
+		WHERE tenant_id = $1 AND subscription_id = $2
+		ORDER BY created_at DESC, id DESC LIMIT $3`, tenantID, subscriptionID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list template versions: %w", err)
+	}
+	return out, nil
 }
 
 // CreateSubscription creates a new event subscription within a tenant

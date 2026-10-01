@@ -114,6 +114,34 @@ type Config struct {
 	// types are never deleted, so in production a producer typo would become
 	// a permanent name. Turn it on for local development.
 	AutoRegisterEvents bool `envconfig:"SPARROW_AUTO_REGISTER_EVENTS" default:"false"`
+	// AIProvider selects the chat API behind AI-assisted template drafting:
+	// "anthropic" (default; needs SPARROW_AI_API_KEY) or "openai" for any
+	// OpenAI-compatible /v1/chat/completions server such as Ollama, vLLM,
+	// LM Studio, llama.cpp, OpenRouter or OpenAI itself (needs
+	// SPARROW_AI_BASE_URL and SPARROW_AI_MODEL; the key is optional for
+	// local servers).
+	// Env: SPARROW_AI_PROVIDER
+	AIProvider string `envconfig:"SPARROW_AI_PROVIDER" default:"anthropic"`
+
+	// AIAPIKey is the provider API key. For the anthropic provider setting
+	// it enables the feature (POST /v1/subscriptions:draftTemplate and the
+	// "Draft with AI" panel). For the openai provider it is sent as a Bearer
+	// token when set.
+	// Env: SPARROW_AI_API_KEY
+	AIAPIKey string `envconfig:"SPARROW_AI_API_KEY" default:""`
+
+	// AIModel is the model used for drafting. Drafts are short and every
+	// draft is render-verified and repaired, so a light model is the
+	// default; set a larger one if drafts need more than a couple of
+	// repair rounds. Required for the openai provider.
+	// Env: SPARROW_AI_MODEL
+	AIModel string `envconfig:"SPARROW_AI_MODEL" default:""`
+
+	// AIBaseURL is the API base URL. Required for the openai provider
+	// (e.g. http://localhost:11434/v1 for Ollama); optional for anthropic
+	// (an internal gateway or proxy).
+	// Env: SPARROW_AI_BASE_URL
+	AIBaseURL string `envconfig:"SPARROW_AI_BASE_URL" default:""`
 }
 
 // Load populates a Config struct from environment variables.
@@ -165,12 +193,69 @@ func (c *Config) Validate() error {
 	if c.EventRetentionDays < 0 {
 		return fmt.Errorf("SPARROW_EVENT_RETENTION_DAYS: must be >= 0, got %d", c.EventRetentionDays)
 	}
+	switch c.aiProvider() {
+	case "anthropic":
+	case "openai":
+		if c.AIBaseURL == "" && c.AIEnabled() {
+			return fmt.Errorf("SPARROW_AI_BASE_URL is required when SPARROW_AI_PROVIDER=openai (e.g. http://localhost:11434/v1)")
+		}
+		if c.AIEnabled() && strings.TrimSpace(c.AIModel) == "" {
+			return fmt.Errorf("SPARROW_AI_MODEL is required when SPARROW_AI_PROVIDER=openai (e.g. llama3.2, qwen2.5-coder, gpt-4o-mini)")
+		}
+	default:
+		return fmt.Errorf("SPARROW_AI_PROVIDER: %q is not supported (want anthropic or openai)", c.AIProvider)
+	}
+	if c.AIBaseURL != "" {
+		if u, err := url.Parse(c.AIBaseURL); err != nil || u.Scheme == "" || u.Host == "" {
+			return fmt.Errorf("SPARROW_AI_BASE_URL: %q is not an absolute URL", c.AIBaseURL)
+		}
+	}
 	return nil
 }
 
 // MinAPIKeyLength is the shortest master key accepted in production. 32
 // characters is 128+ bits for a random hex or base64 key.
 const MinAPIKeyLength = 32
+
+// DefaultAnthropicModel is the drafting model when SPARROW_AI_MODEL is unset
+// with the anthropic provider. Drafts are short and render-verified, so a
+// light model does the job; operators can raise it.
+const DefaultAnthropicModel = "claude-haiku-4-5"
+
+// aiProvider normalises an unset provider to the default, so a Config built
+// in code without envconfig defaults behaves like one loaded from the env.
+func (c *Config) aiProvider() string {
+	if strings.TrimSpace(c.AIProvider) == "" {
+		return "anthropic"
+	}
+	return strings.ToLower(strings.TrimSpace(c.AIProvider))
+}
+
+// AIProviderName returns the effective provider: "anthropic" or "openai".
+func (c *Config) AIProviderName() string { return c.aiProvider() }
+
+// AIEnabled reports whether AI-assisted template drafting is configured:
+// an API key for the anthropic provider, or a base URL (key optional) for an
+// OpenAI-compatible server.
+func (c *Config) AIEnabled() bool {
+	switch c.aiProvider() {
+	case "openai":
+		return c.AIBaseURL != "" || c.AIAPIKey != ""
+	default:
+		return c.AIAPIKey != ""
+	}
+}
+
+// AIModelOrDefault returns the configured model, or the provider default.
+func (c *Config) AIModelOrDefault() string {
+	if m := strings.TrimSpace(c.AIModel); m != "" {
+		return m
+	}
+	if c.aiProvider() == "anthropic" {
+		return DefaultAnthropicModel
+	}
+	return ""
+}
 
 // AllowedNetworkList returns the parsed SPARROW_ALLOWED_NETWORKS entries.
 // Validate reports parse errors, so callers after Validate can ignore them.

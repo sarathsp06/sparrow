@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"github.com/sarathsp06/sparrow/pkg/access/httpauth"
 	"net/http"
 	"time"
 
@@ -142,6 +143,30 @@ type patchSubscriptionBody struct {
 	LabelFilters       *map[string]string `json:"label_filters,omitempty" doc:"Replace the label filters."`
 	OnTransformError   *string            `json:"on_transform_error,omitempty" enum:"fail,fallback" doc:"Replace what happens when the template fails to render."`
 	TemplateMissingKey *string            `json:"template_missing_key,omitempty" enum:"error,zero" doc:"Replace how the template reads a missing key."`
+	TemplateSource     string             `json:"template_source,omitempty" enum:"manual,ai_draft" doc:"How a changed transform_template was produced, recorded in the subscription's template history. Defaults to manual."`
+	TemplateNotes      string             `json:"template_notes,omitempty" maxLength:"2000" doc:"Optional note stored with the template version, e.g. the AI drafter's summary."`
+}
+
+type templateVersionItem struct {
+	VersionID string    `json:"version_id" doc:"Version id (UUID)."`
+	Template  string    `json:"template" doc:"The template as saved."`
+	Source    string    `json:"source" enum:"manual,ai_draft" doc:"How the template was produced."`
+	Notes     string    `json:"notes,omitempty" doc:"Note stored with the version."`
+	SavedBy   string    `json:"saved_by,omitempty" doc:"Credential name that saved it, when auth is on."`
+	CreatedAt time.Time `json:"created_at" doc:"When it was saved."`
+	Current   bool      `json:"current" doc:"True for the newest version, which is the subscription's current template."`
+}
+
+type listTemplateVersionsInput struct {
+	Consumer       string `path:"consumer"`
+	SubscriptionID string `path:"subscription_id"`
+	Limit          int    `query:"limit" minimum:"1" maximum:"20" default:"20" doc:"Max versions to return, newest first."`
+}
+
+type listTemplateVersionsOutput struct {
+	Body struct {
+		Items []templateVersionItem `json:"items"`
+	}
 }
 
 type patchSubscriptionInput struct {
@@ -276,7 +301,13 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 		if in.Body.TemplateMissingKey != nil {
 			settings.TemplateMissingKey = *in.Body.TemplateMissingKey
 		}
-		if err := svc.UpdateSubscription(ctx, in.SubscriptionID, in.Consumer, headers, method, timeout, transformEnabled, transformTemplate, labelFilters, settings); err != nil {
+		meta := webhooks.TemplateSaveMeta{Source: in.Body.TemplateSource, Notes: in.Body.TemplateNotes}
+		// Record who saved it only for a real credential; with auth off the
+		// middleware supplies an anonymous placeholder that is not worth storing.
+		if p, ok := httpauth.FromContext(ctx); ok && (p.Root || p.TokenID != "") {
+			meta.SavedBy = p.Name
+		}
+		if err := svc.UpdateSubscription(ctx, in.SubscriptionID, in.Consumer, headers, method, timeout, transformEnabled, transformTemplate, labelFilters, settings, meta); err != nil {
 			return nil, mapError(ctx, err, "failed to update subscription")
 		}
 		updated, err := svc.GetSubscription(ctx, in.SubscriptionID, in.Consumer)
@@ -321,6 +352,30 @@ func registerSubscriptionRoutes(api huma.API, svc webhooks.SubscriptionManager) 
 		if res.PausedSince != nil {
 			t := res.PausedSince.Format(time.RFC3339Nano)
 			out.Body.PausedSince = &t
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listSubscriptionTemplateVersions",
+		Method:      http.MethodGet,
+		Path:        "/v1/consumers/{consumer}/subscriptions/{subscription_id}/templateVersions",
+		Summary:     "List a subscription's saved template history",
+		Description: "Returns the transform templates this subscription has been saved with, newest first; the newest is the current one. A version is recorded whenever a save changes the template, with how it was produced (manual or ai_draft), an optional note, and who saved it. The last 20 are kept. There is no restore endpoint: load a version into the editor and save the subscription, which records it as a new version.",
+		Errors:      []int{404},
+		Tags:        []string{"Subscriptions"},
+	}, func(ctx context.Context, in *listTemplateVersionsInput) (*listTemplateVersionsOutput, error) {
+		versions, err := svc.ListSubscriptionTemplateVersions(ctx, in.SubscriptionID, in.Consumer, in.Limit)
+		if err != nil {
+			return nil, mapError(ctx, err, "failed to list template versions")
+		}
+		out := &listTemplateVersionsOutput{}
+		out.Body.Items = make([]templateVersionItem, 0, len(versions))
+		for i, v := range versions {
+			out.Body.Items = append(out.Body.Items, templateVersionItem{
+				VersionID: v.ID.String(), Template: v.Template, Source: v.Source, Notes: v.Notes,
+				SavedBy: v.SavedBy, CreatedAt: v.CreatedAt, Current: i == 0,
+			})
 		}
 		return out, nil
 	})

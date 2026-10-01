@@ -22,7 +22,7 @@ Set these environment variables on the Sparrow container. Keep them in a secret 
 | `DATABASE_URL` | — | PostgreSQL connection string. Use `sslmode=require` or `sslmode=verify-full` when the database is not on localhost. |
 | `SPARROW_SERVE_UI` | `true` or `false` | Serve the embedded web dashboard. |
 
-Other variables (`SPARROW_ALLOWED_NETWORKS`, `CORS_ALLOWED_ORIGINS`, `SPARROW_EVENT_RETENTION_DAYS`, `OTEL_EXPORTER_OTLP_ENDPOINT`, etc.) are documented in [Configuration](/sparrow/getting-started/configuration/).
+Other variables (`SPARROW_ALLOWED_NETWORKS`, `CORS_ALLOWED_ORIGINS`, `SPARROW_EVENT_RETENTION_DAYS`, `SPARROW_AI_API_KEY`, `OTEL_EXPORTER_OTLP_ENDPOINT`, etc.) are documented in [Configuration](/sparrow/getting-started/configuration/).
 
 ## Kubernetes manifests
 

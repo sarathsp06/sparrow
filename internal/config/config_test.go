@@ -105,3 +105,49 @@ func TestUIInjectKeyIsRetired(t *testing.T) {
 		t.Fatalf("Warnings() with SPARROW_UI_INJECT_KEY set = %v, want one retirement notice", w)
 	}
 }
+
+func TestAIConfig(t *testing.T) {
+	base := func() *Config {
+		return &Config{HTTPPort: "8080", DatabaseURL: "postgres://localhost/x", EncryptionKeys: []string{"main=" + strings.Repeat("00", 32)}, EncryptionPrimaryKeyID: "main", MaxCapturedResponseBytes: 1024, MaxBodyBytes: 1 << 20}
+	}
+	cases := []struct {
+		name    string
+		mut     func(c *Config)
+		wantErr string
+		enabled bool
+		model   string
+	}{
+		{"unset is off", func(c *Config) {}, "", false, "claude-haiku-4-5"},
+		{"anthropic key enables with default model", func(c *Config) { c.AIAPIKey = "k" }, "", true, "claude-haiku-4-5"},
+		{"anthropic explicit model", func(c *Config) { c.AIAPIKey = "k"; c.AIModel = "claude-sonnet-5-5" }, "", true, "claude-sonnet-5-5"},
+		{"openai without base url is off", func(c *Config) { c.AIProvider = "openai" }, "", false, ""},
+		{"openai with base url needs model", func(c *Config) { c.AIProvider = "openai"; c.AIBaseURL = "http://localhost:11434/v1" }, "SPARROW_AI_MODEL is required", true, ""},
+		{"openai local server, no key", func(c *Config) {
+			c.AIProvider = "openai"
+			c.AIBaseURL = "http://localhost:11434/v1"
+			c.AIModel = "llama3.2"
+		}, "", true, "llama3.2"},
+		{"openai key without base url", func(c *Config) { c.AIProvider = "openai"; c.AIAPIKey = "k"; c.AIModel = "m" }, "SPARROW_AI_BASE_URL is required", true, "m"},
+		{"unknown provider", func(c *Config) { c.AIProvider = "gemini" }, "not supported", false, ""},
+		{"bad base url", func(c *Config) { c.AIAPIKey = "k"; c.AIBaseURL = "localhost:11434" }, "not an absolute URL", true, "claude-haiku-4-5"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := base()
+			tc.mut(c)
+			err := c.Validate()
+			switch {
+			case tc.wantErr == "" && err != nil:
+				t.Fatalf("Validate() = %v", err)
+			case tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)):
+				t.Fatalf("Validate() = %v, want containing %q", err, tc.wantErr)
+			}
+			if c.AIEnabled() != tc.enabled {
+				t.Fatalf("AIEnabled() = %v, want %v", c.AIEnabled(), tc.enabled)
+			}
+			if c.AIModelOrDefault() != tc.model {
+				t.Fatalf("AIModelOrDefault() = %q, want %q", c.AIModelOrDefault(), tc.model)
+			}
+		})
+	}
+}
