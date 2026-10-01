@@ -1,5 +1,5 @@
 ---
-import BlogLayout from '../../../layouts/BlogLayout.astro';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import BlogIndex from '../../../components/BlogIndex.astro';
 import { allTags, base, getPosts, tagSlug } from '../../../lib/blog/posts';
 
@@ -12,11 +12,15 @@ const posts = await getPosts();
 const tagged = posts.filter((p) => p.tags.includes(tag));
 ---
 
-<BlogLayout title={`Notes on ${tag}`} description={`Sparrow field notes tagged “${tag}”.`}>
-  <section class="blog-hero blog-hero--compact">
-    <a class="eyebrow" href={`${base}blog/`}>← All field notes</a>
-    <h1>{tag}</h1>
-    <p>{tagged.length} {tagged.length === 1 ? 'note' : 'notes'} on this topic.</p>
-  </section>
+<StarlightPage
+  frontmatter={{
+    title: `Field notes on ${tag}`,
+    description: `Sparrow field notes tagged “${tag}”.`,
+    tableOfContents: false,
+    prev: { link: `${base}blog/`, label: 'All field notes' },
+    next: false,
+  }}
+>
+  <p class="blog-standfirst">{tagged.length} {tagged.length === 1 ? 'note' : 'notes'} on this topic.</p>
   <BlogIndex posts={tagged} activeTag={tag} />
-</BlogLayout>
+</StarlightPage>

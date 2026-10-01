@@ -1,5 +1,4 @@
 ---
-layout: ../../layouts/BlogArticleLayout.astro
 title: Keep the record close
 kicker: On self-hosting
 author: Sparrow team

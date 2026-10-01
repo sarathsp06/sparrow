@@ -1,5 +1,4 @@
 ---
-layout: ../../layouts/BlogArticleLayout.astro
 title: Speak the receiver's language
 kicker: On Go templates
 author: Sparrow team

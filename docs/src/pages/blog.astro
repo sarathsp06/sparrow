@@ -1,11 +1,12 @@
 ---
-import BlogLayout from '../layouts/BlogLayout.astro';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import BlogIndex from '../components/BlogIndex.astro';
 import { getPosts, base } from '../lib/blog/posts';
+import { blogHead } from '../lib/blog/head';
 
 const posts = await getPosts();
 const site = Astro.site!;
-const jsonLd = {
+const head = blogHead(site, base, {
   '@context': 'https://schema.org',
   '@type': 'Blog',
   name: 'Sparrow field notes',
@@ -16,14 +17,19 @@ const jsonLd = {
     datePublished: p.date.toISOString(),
     url: new URL(p.url, site).href,
   })),
-};
+});
 ---
 
-<BlogLayout title="Field notes" description="Stories and engineering notes from the people building Sparrow, a self-hosted webhook delivery server." jsonLd={jsonLd}>
-  <section class="blog-hero">
-    <span class="eyebrow">Field notes</span>
-    <h1>Small promises, kept carefully.</h1>
-    <p>A webhook is a promise: when this happens, I will tell you. These are notes on what it takes to keep that promise, and on the people at either end of it.</p>
-  </section>
-  <BlogIndex posts={posts} featureFirst />
-</BlogLayout>
+<StarlightPage
+  frontmatter={{
+    title: 'Field notes',
+    description: 'Stories and engineering notes from the people building Sparrow, a self-hosted webhook delivery server.',
+    head,
+    tableOfContents: false,
+    prev: false,
+    next: false,
+  }}
+>
+  <p class="blog-standfirst">A webhook is a promise: when this happens, I will tell you. These are notes on what it takes to keep that promise, and on the people at either end of it.</p>
+  <BlogIndex posts={posts} />
+</StarlightPage>

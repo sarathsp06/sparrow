@@ -1,5 +1,4 @@
 ---
-layout: ../../layouts/BlogArticleLayout.astro
 title: A letter that keeps its own secret
 kicker: On envelope encryption
 author: Sparrow team

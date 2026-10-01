@@ -1,5 +1,4 @@
 ---
-layout: ../../layouts/BlogArticleLayout.astro
 title: Write it down once
 kicker: On recipes
 author: Sparrow team

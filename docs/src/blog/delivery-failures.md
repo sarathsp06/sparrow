@@ -1,5 +1,4 @@
 ---
-layout: ../../layouts/BlogArticleLayout.astro
 title: Knowing when to knock again
 kicker: On retries and failure
 author: Sparrow team
