@@ -37,6 +37,8 @@ const head = blogHead(site, base, {
 
 <StarlightPage
   frontmatter={{
+    // Field notes stay out of the docs search so stories don't crowd reference pages.
+    pagefind: false,
     title: frontmatter.title,
     description: frontmatter.description,
     head,

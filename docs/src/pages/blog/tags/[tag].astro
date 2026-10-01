@@ -14,6 +14,8 @@ const tagged = posts.filter((p) => p.tags.includes(tag));
 
 <StarlightPage
   frontmatter={{
+    // Field notes stay out of the docs search so stories don't crowd reference pages.
+    pagefind: false,
     title: `Field notes on ${tag}`,
     description: `Sparrow field notes tagged “${tag}”.`,
     tableOfContents: false,
