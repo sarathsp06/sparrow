@@ -1,11 +1,10 @@
 ---
+layout: ../../layouts/BlogArticleLayout.astro
 title: "Describe the payload, get the template: AI-assisted transforms in Sparrow"
-date: 2026-10-01
-draft: true
+author: Sparrow team
+description: Draft a subscription's transform template from a plain-language description, verified by rendering and repaired until it works, with Anthropic, any OpenAI-compatible server, or a copy-and-paste prompt.
+pubDate: 2026-10-01
 ---
-
-# Describe the payload, get the template
-
 Sparrow delivers webhooks. Between the event your system produces and the body a receiver wants to see sits a transform template: a Go `text/template` that runs once per delivery and shapes the payload into whatever Slack, PagerDuty, or your internal order service expects. Templates are the most useful knob in Sparrow and, until now, the most annoying one to turn.
 
 This post is about what we built to fix that, why it took the shape it did, and how it works under the hood.
