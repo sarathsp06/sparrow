@@ -41,7 +41,8 @@ All configuration via environment variables using `kelseyhightower/envconfig`.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP export endpoint | — |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector URL (scheme sets TLS); empty disables export | — |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` or `grpc` | `http/protobuf` |
 | `ENVIRONMENT` | `development` or `production`; `production` enforces `SPARROW_API_KEY` | — |
 
 `Warnings()` also logs a non-fatal advisory if `DATABASE_URL` uses `sslmode=disable` against a non-local host.

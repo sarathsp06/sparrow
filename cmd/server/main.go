@@ -73,6 +73,7 @@ func main() {
 	if cfg.OTLPEndpoint != "" {
 		otelConfig.OTLPEndpoint = cfg.OTLPEndpoint
 	}
+	otelConfig.OTLPProtocol = cfg.OTLPProtocol
 
 	// Initialize OpenTelemetry (no-op when OTEL_EXPORTER_OTLP_ENDPOINT is unset)
 	otelShutdown, err := observability.Setup(ctx, otelConfig)
@@ -88,7 +89,7 @@ func main() {
 			}
 		}()
 		if otelConfig.OTLPEndpoint != "" {
-			fmt.Printf("🔭 OpenTelemetry enabled (endpoint: %s, env: %s)\n", otelConfig.OTLPEndpoint, otelConfig.Environment)
+			fmt.Printf("🔭 OpenTelemetry enabled (endpoint: %s, protocol: %s, env: %s)\n", otelConfig.OTLPEndpoint, otelConfig.OTLPProtocol, otelConfig.Environment)
 		} else {
 			fmt.Println("🔭 OpenTelemetry disabled (set OTEL_EXPORTER_OTLP_ENDPOINT to enable)")
 		}

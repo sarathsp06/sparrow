@@ -4,11 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/metric"
@@ -26,12 +30,24 @@ import (
 // metricExportInterval is how often the OTLP metric reader flushes.
 const metricExportInterval = 30 * time.Second
 
+// OTLP transport protocols, as spelled by OTEL_EXPORTER_OTLP_PROTOCOL.
+const (
+	ProtocolHTTPProtobuf = "http/protobuf"
+	ProtocolGRPC         = "grpc"
+)
+
 // Config holds OpenTelemetry configuration
 type Config struct {
 	ServiceName    string
 	ServiceVersion string
 	Environment    string
-	OTLPEndpoint   string
+	// OTLPEndpoint gates export: empty disables it. The exporters read the
+	// standard OTEL_EXPORTER_OTLP_* env vars themselves (endpoint URL,
+	// headers, TLS, timeouts, per-signal overrides). A bare host:port
+	// without a scheme is still accepted and sent over plaintext.
+	OTLPEndpoint string
+	// OTLPProtocol is ProtocolHTTPProtobuf (default when empty) or ProtocolGRPC.
+	OTLPProtocol string
 }
 
 // DefaultConfig returns a default OpenTelemetry configuration.
@@ -62,6 +78,15 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 			propagation.Baggage{},
 		))
 		return noop, nil
+	}
+
+	switch config.OTLPProtocol {
+	case "":
+		config.OTLPProtocol = ProtocolHTTPProtobuf
+	case ProtocolHTTPProtobuf, ProtocolGRPC:
+	default:
+		return nil, fmt.Errorf("unsupported OTLP protocol %q (use %q or %q)",
+			config.OTLPProtocol, ProtocolGRPC, ProtocolHTTPProtobuf)
 	}
 
 	// Create resource with service information
@@ -131,12 +156,31 @@ func Setup(ctx context.Context, config *Config) (func(context.Context) error, er
 	}, nil
 }
 
+// legacyEndpoint reports whether endpoint is a bare host:port (the form
+// Sparrow originally required). Those are passed explicitly as a plaintext
+// endpoint; URL-form endpoints are left to the exporters' own env parsing,
+// which derives TLS from the scheme.
+func legacyEndpoint(endpoint string) bool {
+	return !strings.Contains(endpoint, "://")
+}
+
 // setupTracing configures OpenTelemetry tracing
 func setupTracing(ctx context.Context, res *resource.Resource, config *Config) (*sdktrace.TracerProvider, error) {
-	exporter, err := otlptracehttp.New(ctx,
-		otlptracehttp.WithEndpoint(config.OTLPEndpoint),
-		otlptracehttp.WithInsecure(), // Use HTTP instead of HTTPS for local development
-	)
+	var exporter sdktrace.SpanExporter
+	var err error
+	if config.OTLPProtocol == ProtocolGRPC {
+		var opts []otlptracegrpc.Option
+		if legacyEndpoint(config.OTLPEndpoint) {
+			opts = append(opts, otlptracegrpc.WithEndpoint(config.OTLPEndpoint), otlptracegrpc.WithInsecure())
+		}
+		exporter, err = otlptracegrpc.New(ctx, opts...)
+	} else {
+		var opts []otlptracehttp.Option
+		if legacyEndpoint(config.OTLPEndpoint) {
+			opts = append(opts, otlptracehttp.WithEndpoint(config.OTLPEndpoint), otlptracehttp.WithInsecure())
+		}
+		exporter, err = otlptracehttp.New(ctx, opts...)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP trace exporter: %w", err)
 	}
@@ -152,10 +196,21 @@ func setupTracing(ctx context.Context, res *resource.Resource, config *Config) (
 }
 
 func newLoggerProvider(ctx context.Context, config *Config) (*log.LoggerProvider, error) {
-	exporter, err := otlploghttp.New(ctx,
-		otlploghttp.WithEndpoint(config.OTLPEndpoint),
-		otlploghttp.WithInsecure(), // Use HTTP instead of HTTPS for local development
-	)
+	var exporter log.Exporter
+	var err error
+	if config.OTLPProtocol == ProtocolGRPC {
+		var opts []otlploggrpc.Option
+		if legacyEndpoint(config.OTLPEndpoint) {
+			opts = append(opts, otlploggrpc.WithEndpoint(config.OTLPEndpoint), otlploggrpc.WithInsecure())
+		}
+		exporter, err = otlploggrpc.New(ctx, opts...)
+	} else {
+		var opts []otlploghttp.Option
+		if legacyEndpoint(config.OTLPEndpoint) {
+			opts = append(opts, otlploghttp.WithEndpoint(config.OTLPEndpoint), otlploghttp.WithInsecure())
+		}
+		exporter, err = otlploghttp.New(ctx, opts...)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP log exporter: %w", err)
 	}
@@ -168,10 +223,21 @@ func newLoggerProvider(ctx context.Context, config *Config) (*log.LoggerProvider
 
 // setupMetrics configures OpenTelemetry metrics
 func setupMetrics(ctx context.Context, res *resource.Resource, config *Config) (*sdkmetric.MeterProvider, error) {
-	exporter, err := otlpmetrichttp.New(ctx,
-		otlpmetrichttp.WithEndpoint(config.OTLPEndpoint),
-		otlpmetrichttp.WithInsecure(), // Use HTTP instead of HTTPS for local development
-	)
+	var exporter sdkmetric.Exporter
+	var err error
+	if config.OTLPProtocol == ProtocolGRPC {
+		var opts []otlpmetricgrpc.Option
+		if legacyEndpoint(config.OTLPEndpoint) {
+			opts = append(opts, otlpmetricgrpc.WithEndpoint(config.OTLPEndpoint), otlpmetricgrpc.WithInsecure())
+		}
+		exporter, err = otlpmetricgrpc.New(ctx, opts...)
+	} else {
+		var opts []otlpmetrichttp.Option
+		if legacyEndpoint(config.OTLPEndpoint) {
+			opts = append(opts, otlpmetrichttp.WithEndpoint(config.OTLPEndpoint), otlpmetrichttp.WithInsecure())
+		}
+		exporter, err = otlpmetrichttp.New(ctx, opts...)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP metric exporter: %w", err)
 	}

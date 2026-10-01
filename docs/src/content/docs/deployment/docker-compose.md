@@ -78,7 +78,7 @@ SPARROW_SERVE_UI=true ./build/server-*
 
 ## Observability
 
-Sparrow exports traces, metrics, and logs via OpenTelemetry (OTLP). Set `OTEL_EXPORTER_OTLP_ENDPOINT` to point to your collector:
+Sparrow exports traces, metrics, and logs via OpenTelemetry (OTLP). Set `OTEL_EXPORTER_OTLP_ENDPOINT` to point to your collector (set `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` and port `4317` for OTLP/gRPC; see [Configuration](/sparrow/getting-started/configuration/#observability)):
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4318

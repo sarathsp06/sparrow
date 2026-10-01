@@ -86,10 +86,18 @@ type Config struct {
 	// Env: SPARROW_ENCRYPTION_PRIMARY_KEY_ID
 	EncryptionPrimaryKeyID string `envconfig:"SPARROW_ENCRYPTION_PRIMARY_KEY_ID" default:""`
 
-	// OTLPEndpoint is the OpenTelemetry OTLP HTTP export endpoint.
-	// When empty, OTel export is disabled.
+	// OTLPEndpoint is the OpenTelemetry OTLP export endpoint, as a URL
+	// (http://collector:4318, https://... for TLS). When empty, OTel export
+	// is disabled. The other standard OTEL_EXPORTER_OTLP_* variables
+	// (headers, TLS certificates, per-signal endpoints) are read directly by
+	// the exporters.
 	// Env: OTEL_EXPORTER_OTLP_ENDPOINT
 	OTLPEndpoint string `envconfig:"OTEL_EXPORTER_OTLP_ENDPOINT" default:""`
+
+	// OTLPProtocol selects the OTLP transport: "http/protobuf" (default) or
+	// "grpc".
+	// Env: OTEL_EXPORTER_OTLP_PROTOCOL
+	OTLPProtocol string `envconfig:"OTEL_EXPORTER_OTLP_PROTOCOL" default:""`
 
 	// CORSAllowedOrigins is a comma-separated list of allowed CORS origins.
 	// When empty in production, cross-origin requests are blocked.

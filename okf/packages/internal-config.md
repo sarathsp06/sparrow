@@ -22,7 +22,8 @@ type Config struct {
     AllowPrivateNetworks   bool     // SPARROW_ALLOW_PRIVATE_NETWORKS
     EncryptionKeys         []string // "<key-id>=<64-char-hex>" entries (SPARROW_ENCRYPTION_KEYS)
     EncryptionPrimaryKeyID string   // selects the active key (SPARROW_ENCRYPTION_PRIMARY_KEY_ID)
-    OTLPEndpoint           string   // OTLP HTTP exporter (OTEL_EXPORTER_OTLP_ENDPOINT)
+    OTLPEndpoint           string   // OTLP collector URL; empty disables export (OTEL_EXPORTER_OTLP_ENDPOINT)
+    OTLPProtocol           string   // "http/protobuf" (default) or "grpc" (OTEL_EXPORTER_OTLP_PROTOCOL)
     CORSAllowedOrigins     []string // CORS_ALLOWED_ORIGINS
     MaxBodyBytes           int64    // default 5 MiB, min 1 MiB (SPARROW_MAX_BODY_BYTES)
     EventRetentionDays     int      // 0 = keep forever (SPARROW_EVENT_RETENTION_DAYS)

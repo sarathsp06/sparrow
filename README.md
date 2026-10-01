@@ -317,7 +317,8 @@ Everything is configured through environment variables.
 
 **Observability**
 
-16. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP endpoint for traces, metrics, and logs. Export is off when unset.
+16. `OTEL_EXPORTER_OTLP_ENDPOINT` — optional. OTLP collector URL for traces, metrics, and logs (`https://` for TLS). Export is off when unset.
+17. `OTEL_EXPORTER_OTLP_PROTOCOL` — optional. `http/protobuf` (default) or `grpc`.
 
 **Template history**: every save that changes a subscription's `transform_template` records a version (`GET /v1/consumers/{c}/subscriptions/{id}/templateVersions`, last 20, with `manual`/`ai_draft` source, notes, and who saved it). The template editor lists them and can load one back; saving records it again.
 

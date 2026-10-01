@@ -22,7 +22,8 @@ All configuration is done via environment variables. No config files needed.
 | `SPARROW_ALLOWED_NETWORKS` | No | -- | Comma-separated CIDRs or bare IPs (e.g. `10.20.0.0/16,fd12::/48`). Webhook deliveries may reach these networks in addition to public addresses; loopback, cloud metadata, and the rest of private space stay blocked. This is the recommended way to deliver to internal services on a VPN. Invalid entries fail startup. When an allowlist is set, `.internal` and `.local` hostnames are no longer blocked by name; their resolved addresses are checked instead. |
 | `SPARROW_ALLOW_PRIVATE_NETWORKS` | No | `false` | Allow all private IP addresses as webhook URLs (for local development and testing). Cloud metadata endpoints are still blocked; use `SPARROW_ALLOWED_NETWORKS` for targeted access in production. |
 | `ENVIRONMENT` | No | -- | Deployment tag; any value is accepted. Set to `production` to block cross-origin requests by default (see `CORS_ALLOWED_ORIGINS`) and tag logs/OTel; any other value behaves as development. |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP HTTP endpoint for traces, metrics, and logs |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | -- | OTLP collector URL for traces, metrics, and logs (e.g. `http://collector:4318`; `https://` for TLS). Export is off when unset. See [Observability](#observability). |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | No | `http/protobuf` | OTLP transport: `http/protobuf` or `grpc`. Any other value disables export and logs a warning at startup. |
 | `CORS_ALLOWED_ORIGINS` | No | -- | Comma-separated list of exact browser origins allowed to call the API (e.g. `https://ui.example.com,https://admin.example.com`; trailing slashes are ignored). Required when the UI is [hosted separately](/sparrow/deployment/separate-ui/). When unset: with `ENVIRONMENT=production` every cross-origin request is rejected; otherwise every origin is allowed (local development only). |
 | `SPARROW_MAX_BODY_BYTES` | No | `5242880` (5 MiB) | Maximum request body size in bytes. Minimum 1 MiB; larger bodies get `413`. |
 | `SPARROW_EVENT_RETENTION_DAYS` | No | `0` (keep forever) | Purge events — and, via cascade, their deliveries — older than this many days. Runs hourly in the background. |
@@ -88,11 +89,20 @@ Sparrow uses two connection pools:
 
 ## Observability
 
-Sparrow exports traces, metrics, and logs via OpenTelemetry (OTLP). Set `OTEL_EXPORTER_OTLP_ENDPOINT` to point to your collector:
+Sparrow exports traces, metrics, and logs via OpenTelemetry (OTLP). Set `OTEL_EXPORTER_OTLP_ENDPOINT` to point to your collector. OTLP/HTTP is the default:
 
 ```bash
 OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4318
 ```
+
+To export over OTLP/gRPC instead, set the protocol and use the collector's gRPC port:
+
+```bash
+OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-otel-collector:4317
+```
+
+The URL scheme controls TLS: `http://` sends plaintext, `https://` uses TLS. The other standard OpenTelemetry exporter variables work as well, for example `OTEL_EXPORTER_OTLP_HEADERS` for a hosted backend's API key, `OTEL_EXPORTER_OTLP_CERTIFICATE` for a private CA, or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` to send one signal somewhere else. A bare `host:port` without a scheme is still accepted and is sent as plaintext.
 
 ### Exported Metrics
 
