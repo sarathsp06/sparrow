@@ -30,7 +30,13 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 	// Initialize River workers
 	riverWorkers := river.NewWorkers()
 
-	var periodicJobs []*river.PeriodicJob
+	periodicJobs := []*river.PeriodicJob{
+		river.NewPeriodicJob(
+			river.PeriodicInterval(batchCleanupInterval),
+			func() (river.JobArgs, *river.InsertOpts) { return BatchCleanupArgs{}, nil },
+			&river.PeriodicJobOpts{RunOnStart: true},
+		),
+	}
 	if retentionDays > 0 {
 		periodicJobs = append(periodicJobs, river.NewPeriodicJob(
 			river.PeriodicInterval(time.Hour),
@@ -68,6 +74,7 @@ func NewManager(ctx context.Context, webhookRepo store.RepositoryInterface, cryp
 	river.AddWorker(riverWorkers, NewEventProcessingWorker(webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
 	river.AddWorker(riverWorkers, NewBatchJobWorker(webhookRepo, webhookRepo, webhookRepo, webhookRepo, manager.GetJobInserter()))
 	river.AddWorker(riverWorkers, NewRetentionWorker(webhookRepo, retentionDays))
+	river.AddWorker(riverWorkers, NewBatchCleanupWorker(webhookRepo))
 
 	return manager, nil
 }
