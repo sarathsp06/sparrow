@@ -1,0 +1,195 @@
+1
+00:00:00,467 --> 00:00:01,733
+Your app emits events.
+
+2
+00:00:01,733 --> 00:00:03,833
+The rest of your stack expects webhooks.
+
+3
+00:00:03,867 --> 00:00:07,800
+Which means retries. Signing. Health checks. Every time.
+
+4
+00:00:08,967 --> 00:00:14,733
+So teams build it: a Redis queue, retry crons, signing code, dashboards, alerts.
+
+5
+00:00:14,733 --> 00:00:16,900
+And events still quietly get lost.
+
+6
+00:00:16,900 --> 00:00:18,800
+With Sparrow, it's just Postgres.
+
+7
+00:00:18,833 --> 00:00:21,533
+Sparrow: webhook delivery you run yourself.
+
+8
+00:00:22,700 --> 00:00:26,167
+Let's follow one event, item.shipped, through three nights.
+
+9
+00:00:26,200 --> 00:00:30,733
+The happy path. The night the partner went dark. And the Tuesday you shipped a bug.
+
+10
+00:00:31,900 --> 00:00:35,900
+Night one. Your warehouse app pushes item.shipped: one POST.
+
+11
+00:00:35,900 --> 00:00:40,533
+Sparrow stores it and answers in the same breath: 201, event ID.
+
+12
+00:00:40,567 --> 00:00:46,133
+Same parcel pushed twice? Same idempotency key, same event, no duplicate.
+
+13
+00:00:46,133 --> 00:00:53,100
+Then fan-out: every subscription that matches, by name, consumer, even labels like region=eu.
+
+14
+00:00:53,133 --> 00:01:01,633
+For each match, one request: your envelope or your own template, secret headers encrypted at rest, any HTTP method.
+
+15
+00:01:01,633 --> 00:01:06,267
+Signed, and out the door. Three parcels, three docks, three green ticks.
+
+16
+00:01:07,433 --> 00:01:10,267
+On the other side, your customer checks the signature.
+
+17
+00:01:10,267 --> 00:01:15,400
+One file to copy in: Python, TypeScript, Java, Ruby, and five more.
+
+18
+00:01:15,400 --> 00:01:20,100
+Wrong key, replayed, or older than five minutes? Rejected at the door.
+
+19
+00:01:21,267 --> 00:01:26,067
+Night two. 3:12 a.m. The partner's dock is closed: 503.
+
+20
+00:01:26,100 --> 00:01:33,167
+Sparrow reads the answer. Server error? Worth another try. DNS, TLS, 4xx? It stops.
+
+21
+00:01:33,167 --> 00:01:37,333
+So it backs off: one minute, two, four, doubling, capped at a day.
+
+22
+00:01:37,333 --> 00:01:42,867
+A 429 with Retry-After? It waits exactly that long, and it doesn't count as an attempt.
+
+23
+00:01:42,900 --> 00:01:47,933
+Fail after fail, the webhook's health slides: healthy, degraded, unhealthy.
+
+24
+00:01:47,933 --> 00:01:52,000
+Five in a row, and your on-call gets an email. You? You're asleep.
+
+25
+00:01:52,067 --> 00:01:58,367
+6:40. The partner is back. Every failed delivery from tonight: one snapshot, one retry.
+
+26
+00:01:58,367 --> 00:02:03,167
+A snapshot, not a live query: what you saw is exactly what gets retried.
+
+27
+00:02:03,200 --> 00:02:08,567
+And every attempt is on record: status, timing, category. Nothing is a mystery.
+
+28
+00:02:09,733 --> 00:02:13,833
+Night three. Tuesday's deploy put the wrong weight on every parcel.
+
+29
+00:02:13,833 --> 00:02:19,767
+Fix the bug. Then re-push every item.shipped from Tuesday: one snapshot, one job.
+
+30
+00:02:19,800 --> 00:02:24,633
+Partner mid-deploy? Pause their webhook. Deliveries wait. Resume when they're ready.
+
+31
+00:02:24,633 --> 00:02:29,267
+And your customers watch all of it themselves, in a portal you hand them with one link.
+
+32
+00:02:30,433 --> 00:02:36,100
+What goes out is yours to shape. A Go template turns the envelope into whatever the receiver expects.
+
+33
+00:02:36,100 --> 00:02:43,200
+Add your own headers, even an API token, encrypted at rest. Any method: POST, PUT, PATCH, DELETE.
+
+34
+00:02:43,233 --> 00:02:47,867
+So one event can call almost any HTTP API, not just a webhook.
+
+35
+00:02:47,867 --> 00:02:56,000
+Recipes are those templates, pre-built: PagerDuty, Twilio, SendGrid, ClickHouse and more, one YAML file each.
+
+36
+00:02:56,033 --> 00:02:59,033
+One command: sparrow use pagerduty.
+
+37
+00:03:00,200 --> 00:03:05,167
+A dashboard ships inside the same binary: webhooks, events, deliveries, health.
+
+38
+00:03:05,167 --> 00:03:08,633
+And OpenTelemetry traces every parcel, push to dock.
+
+39
+00:03:09,833 --> 00:03:10,767
+So what does it need to run?
+
+40
+00:03:10,767 --> 00:03:15,233
+Just PostgreSQL. The queue lives there too. No Redis, no broker.
+
+41
+00:03:15,233 --> 00:03:20,267
+MIT licensed: free to run, fork and ship. No per-message pricing.
+
+42
+00:03:21,467 --> 00:03:22,300
+How does that stack up?
+
+43
+00:03:22,300 --> 00:03:26,367
+Svix and Convoy add Redis. Hookdeck's core is SaaS.
+
+44
+00:03:26,367 --> 00:03:32,400
+Sparrow is fully MIT, with dual signing, recipes, a portal and self-monitoring.
+
+45
+00:03:33,600 --> 00:03:35,667
+So, where did item.shipped end up?
+
+46
+00:03:35,667 --> 00:03:38,800
+Every dock. Every time. Even the nights you slept.
+
+47
+00:03:38,800 --> 00:03:41,033
+Push once. Sparrow does the rest.
+
+48
+00:03:42,200 --> 00:03:44,433
+One Go binary. One Postgres.
+
+49
+00:03:44,433 --> 00:03:46,500
+docker compose up, and you're delivering.

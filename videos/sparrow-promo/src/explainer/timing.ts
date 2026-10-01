@@ -41,6 +41,29 @@ export const cueEndFrame = (id: string, i: number) => {
   return Math.round((c.start + c.dur) * FPS);
 };
 
+// Local frame at which a given word inside cue `i` is (approximately) spoken.
+// Words are weighted by length so the estimate tracks the caption highlight.
+// `word` is matched case-insensitively against the cue text with punctuation
+// stripped; `nth` picks a repeated word. Falls back to the cue start.
+export const wordFrame = (id: string, i: number, word: string, nth = 0) => {
+  const c = frameTiming(id).cues[i];
+  const words = c.text.split(" ");
+  const norm = (w: string) => w.replace(/[.,?!:;()"']/g, "").toLowerCase();
+  const target = norm(word);
+  const weights = words.map((w) => w.length + 2);
+  const total = weights.reduce((a, b) => a + b, 0);
+  let seen = 0;
+  let acc = 0;
+  for (let k = 0; k < words.length; k++) {
+    if (norm(words[k]).startsWith(target)) {
+      if (seen === nth) return Math.round((c.start + (acc / total) * c.dur) * FPS);
+      seen++;
+    }
+    acc += weights[k];
+  }
+  return cueFrame(id, i);
+};
+
 // Smooth long-tail settle (critically damped) — the house entrance curve.
 export const useReveal = () => {
   const frame = useCurrentFrame();

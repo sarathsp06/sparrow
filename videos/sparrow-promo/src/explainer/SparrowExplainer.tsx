@@ -10,17 +10,19 @@ import { Captions } from "./Captions";
 import { FPS, FRAMES, sceneFrames, sceneStart, TOTAL_FRAMES, XFADE } from "./timing";
 import { SCENES } from "./scenes";
 
-// "The life of one webhook" — a faceless explainer built with the
+// "Three nights of one webhook" — a faceless explainer built with the
 // faceless-explainer method (see explainer/STORYBOARD.md). Scene lengths come
 // from the generated narration (timing.json), so re-running the voiceover
 // script re-times the whole film.
 
-// Seam per scene index (the transition INTO scene i). The five-step run
-// pushes left on one stage; everything else blur-fades.
-const PUSH = new Set([4, 5, 6, 7, 8]);
+// Seam per scene index (the transition INTO scene i). The chapter run pushes
+// left on one stage; everything else blur-fades. Scene 1 slides up (promo).
+const PUSH = new Set([3, 4, 6, 7]);
 
 // Scene 0 sits on the dark ground; captions switch skin there.
 const DARK_UNTIL = sceneStart(1) + XFADE / 2;
+
+const TAKEAWAY = FRAMES.findIndex((f) => f.id === "12-takeaway");
 
 export const SparrowExplainer: React.FC = () => (
   <AbsoluteFill>
@@ -31,23 +33,11 @@ export const SparrowExplainer: React.FC = () => (
           ? []
           : [
               i === 1 ? (
-                <TransitionSeries.Transition
-                  key={`t${i}`}
-                  presentation={slide({ direction: "from-bottom" })}
-                  timing={linearTiming({ durationInFrames: XFADE })}
-                />
+                <TransitionSeries.Transition key={`t${i}`} presentation={slide({ direction: "from-bottom" })} timing={linearTiming({ durationInFrames: XFADE })} />
               ) : PUSH.has(i) ? (
-                <TransitionSeries.Transition
-                  key={`t${i}`}
-                  presentation={slide({ direction: "from-right" })}
-                  timing={linearTiming({ durationInFrames: XFADE })}
-                />
+                <TransitionSeries.Transition key={`t${i}`} presentation={slide({ direction: "from-right" })} timing={linearTiming({ durationInFrames: XFADE })} />
               ) : (
-                <TransitionSeries.Transition
-                  key={`t${i}`}
-                  presentation={blurFade()}
-                  timing={linearTiming({ durationInFrames: XFADE })}
-                />
+                <TransitionSeries.Transition key={`t${i}`} presentation={blurFade()} timing={linearTiming({ durationInFrames: XFADE })} />
               ),
             ]),
         <TransitionSeries.Sequence key={FRAMES[i].id} durationInFrames={sceneFrames(i)} name={FRAMES[i].id}>
@@ -60,7 +50,7 @@ export const SparrowExplainer: React.FC = () => (
     <Sequence from={sceneStart(2) - XFADE} durationInFrames={26} name="Sparrow fly-by">
       <FlyBy y={220} />
     </Sequence>
-    <Sequence from={sceneStart(14) - XFADE} durationInFrames={26} name="Sparrow fly-by">
+    <Sequence from={sceneStart(TAKEAWAY) - XFADE} durationInFrames={26} name="Sparrow fly-by">
       <FlyBy y={700} reverse />
     </Sequence>
 

@@ -40,186 +40,144 @@
       ]
     },
     {
-      "id": "03-meet",
+      "id": "03-three",
       "cues": [
         {
-          "text": "Let's follow one event, order.created,",
-          "say": "Let's follow one event, order dot created,"
+          "text": "Let's follow one event, item.shipped, through three nights.",
+          "say": "Let's follow one event, item dot shipped, through three nights."
         },
         {
-          "text": "from push, to delivered."
+          "text": "The happy path. The night the partner went dark. And the Tuesday you shipped a bug."
         }
       ]
     },
     {
-      "id": "04-push",
+      "id": "04-happy",
       "cues": [
         {
-          "text": "Step one: your service pushes the event."
+          "text": "Night one. Your warehouse app pushes item.shipped: one POST.",
+          "say": "Night one. Your warehouse app pushes item dot shipped: one POST."
         },
         {
-          "text": "One POST. Sparrow stores it and answers right away."
+          "text": "Sparrow stores it and answers in the same breath: 201, event ID."
         },
         {
-          "text": "Push it again with the same idempotency key?"
+          "text": "Same parcel pushed twice? Same idempotency key, same event, no duplicate."
         },
         {
-          "text": "You get the original back. No duplicate."
+          "text": "Then fan-out: every subscription that matches, by name, consumer, even labels like region=eu.",
+          "say": "Then fan-out: every subscription that matches, by name, consumer, even labels like region equals E-U."
+        },
+        {
+          "text": "For each match, one request: your envelope or your own template, secret headers encrypted at rest, any HTTP method."
+        },
+        {
+          "text": "Signed, and out the door. Three parcels, three docks, three green ticks."
         }
       ]
     },
     {
-      "id": "05-fanout",
+      "id": "05-verify",
       "cues": [
         {
-          "text": "Step two: fan-out."
+          "text": "On the other side, your customer checks the signature."
         },
         {
-          "text": "Sparrow finds every subscription that matches:"
+          "text": "One file to copy in: Python, TypeScript, Java, Ruby, and five more."
         },
         {
-          "text": "the event name, the consumer, even labels like env=prod,",
-          "say": "the event name, the consumer, even labels like env equals prod,"
-        },
-        {
-          "text": "and queues one delivery for each. Right in Postgres."
+          "text": "Wrong key, replayed, or older than five minutes? Rejected at the door."
         }
       ]
     },
     {
-      "id": "06-sign",
+      "id": "06-night",
       "cues": [
         {
-          "text": "Step three: build the request."
+          "text": "Night two. 3:12 a.m. The partner's dock is closed: 503.",
+          "say": "Night two. Three twelve A-M. The partner's dock is closed: five-oh-three."
         },
         {
-          "text": "The standard envelope, or your own shape with a Go template."
+          "text": "Sparrow reads the answer. Server error? Worth another try. DNS, TLS, 4xx? It stops.",
+          "say": "Sparrow reads the answer. Server error? Worth another try. DNS, TLS, four-hundreds? It stops."
         },
         {
-          "text": "Headers too, even an API token, encrypted at rest."
+          "text": "So it backs off: one minute, two, four, doubling, capped at a day."
         },
         {
-          "text": "Any method: POST, PUT, PATCH, DELETE."
+          "text": "A 429 with Retry-After? It waits exactly that long, and it doesn't count as an attempt.",
+          "say": "A four twenty-nine with Retry-After? It waits exactly that long, and it doesn't count as an attempt."
         },
         {
-          "text": "So one event can call almost any HTTP API."
+          "text": "Fail after fail, the webhook's health slides: healthy, degraded, unhealthy."
         },
         {
-          "text": "And every request is signed: HMAC or Ed25519.",
-          "say": "And every request is signed: H-MAC, or E-D twenty-five-five-nineteen."
+          "text": "Five in a row, and your on-call gets an email. You? You're asleep."
+        },
+        {
+          "text": "6:40. The partner is back. Every failed delivery from tonight: one snapshot, one retry.",
+          "say": "Six forty. The partner is back. Every failed delivery from tonight: one snapshot, one retry."
+        },
+        {
+          "text": "A snapshot, not a live query: what you saw is exactly what gets retried."
+        },
+        {
+          "text": "And every attempt is on record: status, timing, category. Nothing is a mystery."
         }
       ]
     },
     {
-      "id": "06b-recipes",
+      "id": "07-tuesday",
       "cues": [
         {
-          "text": "Recipes are exactly that, pre-packaged."
+          "text": "Night three. Tuesday's deploy put the wrong weight on every parcel."
         },
         {
-          "text": "PagerDuty, Twilio, SendGrid, ClickHouse and more, one YAML file each."
+          "text": "Fix the bug. Then re-push every item.shipped from Tuesday: one snapshot, one job.",
+          "say": "Fix the bug. Then re-push every item dot shipped from Tuesday: one snapshot, one job."
         },
         {
-          "text": "One command applies one: sparrow use pagerduty.",
-          "say": "One command applies one. Sparrow, use PagerDuty."
+          "text": "Partner mid-deploy? Pause their webhook. Deliveries wait. Resume when they're ready."
+        },
+        {
+          "text": "And your customers watch all of it themselves, in a portal you hand them with one link."
         }
       ]
     },
     {
-      "id": "07-classify",
+      "id": "08-recipes",
       "cues": [
         {
-          "text": "Step four: send, and read the answer."
+          "text": "What goes out is yours to shape. A Go template turns the envelope into whatever the receiver expects."
         },
         {
-          "text": "Every failure lands in one of ten categories."
+          "text": "Add your own headers, even an API token, encrypted at rest. Any method: POST, PUT, PATCH, DELETE."
         },
         {
-          "text": "Server errors and timeouts? Worth another try."
+          "text": "So one event can call almost any HTTP API, not just a webhook."
         },
         {
-          "text": "DNS, TLS, or a 4xx? Retrying won't help,",
-          "say": "DNS, TLS, or a four-hundred error? Retrying won't help,"
+          "text": "Recipes are those templates, pre-built: PagerDuty, Twilio, SendGrid, ClickHouse and more, one YAML file each."
         },
         {
-          "text": "so Sparrow stops."
+          "text": "One command: sparrow use pagerduty.",
+          "say": "One command: Sparrow, use PagerDuty."
         }
       ]
     },
     {
-      "id": "08-backoff",
+      "id": "09-seeing",
       "cues": [
-        {
-          "text": "Step five: back off."
-        },
-        {
-          "text": "By default, three retries: one minute, two, then four."
-        },
-        {
-          "text": "Doubling every time."
-        },
-        {
-          "text": "And a 429, slow down?",
-          "say": "And a four twenty-nine, slow down?"
-        },
-        {
-          "text": "Sparrow waits out Retry-After, without spending an attempt."
-        }
-      ]
-    },
-    {
-      "id": "09-health",
-      "cues": [
-        {
-          "text": "Meanwhile, every webhook carries a health state."
-        },
-        {
-          "text": "Healthy, above ninety percent success."
-        },
-        {
-          "text": "Degraded, between eighty and ninety."
-        },
-        {
-          "text": "Five failures in a row? Unhealthy."
-        },
-        {
-          "text": "And every change can email your on-call."
-        }
-      ]
-    },
-    {
-      "id": "10-record",
-      "cues": [
-        {
-          "text": "Nothing is a mystery."
-        },
-        {
-          "text": "Every attempt is recorded: status, timing, error category."
-        },
-        {
-          "text": "When the partner is back, retry it by ID."
-        }
-      ]
-    },
-    {
-      "id": "10b-dashboard",
-      "cues": [
-        {
-          "text": "And you don't have to dig through logs."
-        },
         {
           "text": "A dashboard ships inside the same binary: webhooks, events, deliveries, health."
         },
         {
-          "text": "Plus a consumer portal, so your customers manage their own webhooks."
-        },
-        {
-          "text": "And OpenTelemetry traces every event, end to end."
+          "text": "And OpenTelemetry traces every parcel, push to dock."
         }
       ]
     },
     {
-      "id": "12a-open",
+      "id": "10-needs",
       "cues": [
         {
           "text": "So what does it need to run?"
@@ -228,12 +186,12 @@
           "text": "Just PostgreSQL. The queue lives there too. No Redis, no broker."
         },
         {
-          "text": "And it's MIT licensed: free to run, fork and ship. No per-message pricing."
+          "text": "MIT licensed: free to run, fork and ship. No per-message pricing."
         }
       ]
     },
     {
-      "id": "12b-compare",
+      "id": "11-compare",
       "cues": [
         {
           "text": "How does that stack up?"
@@ -247,14 +205,14 @@
       ]
     },
     {
-      "id": "11-takeaway",
+      "id": "12-takeaway",
       "cues": [
         {
-          "text": "So, where did order.created end up?",
-          "say": "So, where did order dot created end up?"
+          "text": "So, where did item.shipped end up?",
+          "say": "So, where did item dot shipped end up?"
         },
         {
-          "text": "Exactly where you sent it."
+          "text": "Every dock. Every time. Even the nights you slept."
         },
         {
           "text": "Push once. Sparrow does the rest."
@@ -262,7 +220,7 @@
       ]
     },
     {
-      "id": "12-cta",
+      "id": "13-cta",
       "cues": [
         {
           "text": "One Go binary. One Postgres."

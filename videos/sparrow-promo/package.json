@@ -30,8 +30,9 @@
     "upgrade": "remotion upgrade",
     "lint": "eslint src && tsc",
     "voiceover": "node scripts/voiceover.mjs",
-    "bgm": "python3 scripts/bgm.py 200 && ffmpeg -y -loglevel error -i public/bgm/pad.wav -b:a 160k public/bgm/pad.mp3 && rm public/bgm/pad.wav",
-    "render:explainer": "remotion render SparrowExplainer out/explainer.mp4"
+    "bgm": "python3 scripts/bgm.py 240 && ffmpeg -y -loglevel error -i public/bgm/pad.wav -b:a 160k public/bgm/pad.mp3 && rm public/bgm/pad.wav",
+    "render:explainer": "remotion render SparrowExplainer out/explainer.mp4",
+    "youtube": "node scripts/youtube.mjs"
   },
   "sideEffects": [
     "*.css"

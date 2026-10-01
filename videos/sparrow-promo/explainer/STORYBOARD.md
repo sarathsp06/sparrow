@@ -1,287 +1,208 @@
 ---
-title: The life of one webhook
+title: Three nights of one webhook
 format: 1920x1080 @ 30fps
-duration: ~3:00 (derived from narration — src/explainer/timing.json)
-arc: concept-explainer with process
+duration: ~3:25 (derived from narration — src/explainer/timing.json)
+arc: story-explainer with process
 audience: backend engineers who send (or are about to send) webhooks and have been burned by lost ones
-message: Push an event once; Sparrow makes sure it lands — or tells you exactly why it didn't.
+message: Push an event once; Sparrow makes sure it lands, tells you exactly why when it doesn't, and lets you fix history in one command.
 music: soft ambient pad (public/bgm/pad.mp3, synthesized by scripts/bgm.py)
 voice: Edge neural · en-US-AndrewMultilingualNeural (scripts/voiceover.mjs)
 ---
 
-# The life of one webhook — storyboard
+# Three nights of one webhook — storyboard
 
-Built with the **faceless-explainer** method (`.agents/skills/faceless-explainer`),
-rendered with Remotion instead of HyperFrames so it reuses this project's
-design system, components and SFX. Narration lives in `src/explainer/script.json`
-(the SCRIPT); `scripts/voiceover.mjs` turns every cue into a clip and writes
-`timing.json`, so **scene lengths and every reveal follow the voice**.
+Built with the **faceless-explainer** method, rendered with Remotion so it reuses
+this project's design system, components and SFX. Narration lives in
+`src/explainer/script.json` (the SCRIPT); `scripts/voiceover.mjs` turns every cue
+into a clip and writes `timing.json`, so **scene lengths and every reveal follow
+the voice** (`cueFrame` / `wordFrame` in `src/explainer/timing.ts`).
+
+The hero is one event, `item.shipped` — a parcel that has to reach every dock.
+Frames 1–2 are the promo's opening, unchanged. The body is three short stories
+about that parcel, each landing an outcome, instead of a feature tour.
 
 Every claim is repo-verifiable:
 
 | Claim | Source |
 |---|---|
-| `POST /v1/consumers/{consumer}/events` returns immediately (201), async delivery | `internal/rest/event.go` (`pushEvent`) |
-| idempotency key → original event back, `duplicate: true` | `internal/rest/event.go` `pushEventOutput` |
-| fan-out by event name + consumer + label filters, one delivery job each, River in Postgres | `docs/.../how-it-works.mdx`, `internal/webhooks/queue/events_worker.go` |
-| Go-template transform, fallback envelope `{version,event_id,event_name,timestamp,attempt,payload}` | `docs/FLOWS.md §5`, `internal/webhooks/queue/webhook_worker.go` |
-| Standard Webhooks: `webhook-id` / `webhook-timestamp` / `webhook-signature`, `v1,` HMAC-SHA256 or `v1a,` Ed25519 over `{id}.{timestamp}.{payload}` | `internal/webhooks/client/request.go` |
-| 10 error categories; retryable: server_error, timeout, connection_refused, network_error, rate_limited; terminal: client_error, dns_error, tls_error, unexpected_status | `docs/.../reference/error-classification.md`, `docs/FLOWS.md` |
-| defaults max_retries 3, backoff 60s, delay = base·2^(n-1), capped 24h | `internal/webhooks/models.go:80`, `webhook_worker.go NextRetry` |
-| 429 → snooze for Retry-After, not counted as an attempt | `docs/FLOWS.md §5` |
-| health: healthy >90% & <5 consecutive fails; degraded 80–90%; unhealthy <80% or ≥5 consecutive | `internal/webhooks/store/health_repository.go` |
-| `sparrow.webhook.health_changed` / `delivery_failed` → alert email | `guides/webhook-health-alerts.mdx` |
-| retry a delivery by ID | `internal/rest/delivery.go` (`retryDelivery`) |
-| recipes: slack, discord, sendgrid, twilio, ntfy, pagerduty, clickhouse; `sparrow use slack --event order.created` | `satellites/recipes/*.yaml`, `docs/.../satellites/cli.mdx` |
-| embedded Svelte dashboard in the same binary (webhooks, events, deliveries, health), opt-in `SPARROW_SERVE_UI=true` | `README.md`, `web/src/routes/`, `internal/ui` |
-| consumer portal `/portal` — consumers manage their own webhooks, subscriptions, deliveries via scoped expiring token | `docs/.../guides/portal-embedding.mdx` |
-| PostgreSQL is the only required dependency; River queue in the same DB; no Redis/broker | `README.md` |
-| OpenTelemetry traces propagate through every queue job; metrics + logs via OTLP | docs landing (`docs/src/pages/index.astro`), `why-sparrow.mdx` |
-| comparison vs Svix / Convoy / Hookdeck / DIY (directional snapshot) | docs landing "How Sparrow stacks up", `why-sparrow.mdx` |
-| MIT licensed; no per-message pricing | `LICENSE`, `why-sparrow.mdx` (promo Compare scene) |
+| `POST /v1/consumers/{consumer}/events` returns 201 immediately; `idempotency_key` → original event, `duplicate: true` | `internal/rest/event.go` (`pushEvent`, `pushEventOutput`) |
+| fan-out by event name + consumer + labels; one delivery job each, River in Postgres | `docs/FLOWS.md`, `internal/webhooks/queue/events_worker.go` |
+| envelope `{version,event_id,event_name,timestamp,attempt,payload}` or Go-template body; secret headers envelope-encrypted (AES-256-GCM); method GET/POST/PUT/PATCH/DELETE | `docs/FLOWS.md §5`, `internal/rest/conversions.go`, `internal/rest/subscription.go` |
+| Standard Webhooks `webhook-id` / `webhook-timestamp` / `webhook-signature`; `v1,` HMAC-SHA256 and `v1a,` Ed25519 | `internal/webhooks/client/request.go` |
+| one copy-in verify helper per language: Python, TypeScript, Java, Kotlin, Ruby, PHP, Rust, Elixir (+ the Go module); rejects missing headers, ±5 min timestamps, bad signatures | `client/verify/*`, `docs/.../guides/verify-signatures.mdx` |
+| retryable: server_error, timeout, connection_refused, network_error, rate_limited; terminal: client_error, dns_error, tls_error, unexpected_status | `pkg/errors/category.go`, `docs/.../reference/error-classification.md` |
+| defaults max_retries 3, backoff 60s, delay = base·2^(n-1), capped 24h | `internal/webhooks/models.go`, `webhook_worker.go NextRetry` |
+| 429 → snooze for Retry-After, not counted as an attempt | `webhook_worker.go` ("Handle 429") |
+| health: healthy >90% & <5 consecutive; degraded 80–90%; unhealthy <80% or ≥5 consecutive | `internal/webhooks/store/health_repository.go` |
+| `sparrow.webhook.health_changed` → alert email | `internal/webhooks/queue/system_events.go`, `internal/rest/alert_config.go` |
+| bulk retry: `GET …/deliveries?status=failed&created_after=…&prepare_retry=true` → `retry_id`; `POST …/deliveries:retry`; snapshot semantics | `internal/rest/delivery.go` (`DeliveryListParams`, `retryDeliveriesByWebhook`), AGENTS.md principle 1 |
+| bulk re-push: `GET …/events?event=…&created_after&created_before&prepare_repush=true` → `repush_id`; `POST …/events:rePush`; job_type `event_repush` | `internal/rest/event.go` (`EventOccurrenceListParams`, `rePushEvents`) |
+| pause / resume a webhook; paused deliveries snooze and resume | `internal/rest/webhook.go` (`pauseWebhook`, `resumeWebhook`), `webhook_worker.go` |
+| consumer portal `/portal` with a scoped, expiring token link | `docs/.../guides/portal-embedding.mdx`, `internal/rest/access.go` |
+| recipes: pagerduty, twilio, sendgrid, clickhouse, discord, ntfy, slack; `sparrow use <recipe> --event …` | `satellites/recipes/*.yaml`, `satellites/sparrow/use.go` |
+| embedded dashboard, `SPARROW_SERVE_UI=true`; OpenTelemetry traces through every queue job | `README.md`, `internal/ui`, `docs/src/pages/index.astro` |
+| PostgreSQL only; River queue in the same DB; MIT; no per-message pricing | `README.md`, `LICENSE`, `why-sparrow.mdx` |
+| comparison vs Svix / Convoy / Hookdeck / DIY (directional snapshot) | docs landing "How Sparrow stacks up" |
 
 ## Video direction
 
 - **Palette** (`src/theme.ts`): cream paper ground (persistent `Backdrop`), ink text,
   navy for terminals and the dark opening, **teal = success / Sparrow's path**,
-  **coral = the event / attention / the current step**, red only for failure.
-- **Type**: Inter display (hero words 96–180px, titles 76px), Fira Code for
-  code / kickers / labels, Instrument Serif for the one human aside (Frame 2).
+  **coral = the parcel / attention / the current step**, red only for failure.
+  Night two adds a translucent indigo wash that lifts into a coral dawn.
+- **Type**: Inter display (hero words 92–156px, titles 40–64px), Fira Code for
+  code / kickers / labels (never below 17px; body code 19–26px), Instrument Serif
+  for the two human asides ("DIY means…", "you: asleep").
+- **Scale rule** (from the review): the hero of every frame fills 40–60% of the
+  canvas; nothing important sits in the caption band (y > 880); no scene opens
+  on an empty stage.
 - **Motion grammar**: critically-damped settles (`useReveal`, damping 200) —
-  never bouncy. **Every piece reveals on the cue that names it** (`cueFrame(id, i)`);
+  never bouncy. **Every piece reveals on the word that names it** (`wordFrame`);
   nothing is on screen before the VO reaches it. Holds are still; the only
-  permitted aliveness is flowing wire dashes and comet packets (the subject doing
-  something), not breathing cards. No back-half camera pushes.
-- **Consistent stage**: Frames 4–8 (plus 6b) are the five-step run — `StepRail` across the
-  top, `StepTitle` upper-left, the working diagram in the centre-right 60%.
-  Seam = push-slide from the right, repeated. Everything else = blur-crossfade.
-- **Held beats**: end of Frame 3 (the event pill sits alone), end of Frame 8
-  (the timeline resolves ✓), Frame 11 (the callback lands, still).
-- **Caption band**: bottom 17% (y > 880) is the caption pill; primary content
-  stays above it.
-- **Negative list**: no purple/blue AI gradients, no bokeh, no invented metrics or
-  logos, no screensaver float, no front-load-then-freeze, no `Math.random`
-  (use Remotion `random(seed)`).
+  aliveness is flowing wire dashes, comets and the parcel travelling.
+- **Recurring props**: the coral `Parcel`, receiving `Dock` cards with a lamp and
+  shutter, the `NightKicker` with a clock, navy `Terminal`s.
+- **Seams**: push-slide from the right into and between the three nights
+  (frames 4, 5, 7, 8); blur-crossfade everywhere else; night two enters on a
+  blur-crossfade so the tint can settle.
+- **Held beats**: end of Frame 4 (three green ticks), the "you: asleep" beat in
+  Frame 6, Frame 12 (the headline).
+- **Negative list**: no purple/blue AI gradients, no bokeh, no invented metrics
+  beyond the illustrative counts (128, 2417), no logos except the recipe icons,
+  no `Math.random`.
 
 ---
 
-## Frame 1 — Webhooks, again (follows the promo Hook — src/scenes/Hook.tsx)
+## Frame 1 — Webhooks, again
 - id: 01-hook · transition_in: cut · type: hook · beat: recognition + mild dread
-- hook strategy: Direct address → pain validation
-- persuasion: Pain validation + rule of three
-- focal: the two-line headline · roles: navy ground with the promo's scrolling ghost DIY delivery log (503 / timeout / 429 / retry n/5 / dead-letter) = background, "WEBHOOK DELIVERY" kicker = supporting
+- Unchanged from the previous cut (promo Hook, retimed to VO).
 
-narrativeRole: Positions the video immediately as being about webhook delivery, in the viewer's own words.
-keyMessage: Every product that emits events ends up owning webhook delivery — and its chores.
+## Frame 2 — The DIY stack collapses
+- id: 02-pain · transition_in: push-slide UP · type: pain_point → product_intro · beat: recognition → relief
+- Unchanged from the previous cut (promo OldWay chips → "just PostgreSQL" → lockup).
 
-Reproduce the promo Hook's look exactly (dark ground, scrolling ghost log, radial dim, grain, `Kicker text="WEBHOOK DELIVERY"` visible from frame 0 so frame 1 reads without sound), but retimed to the VO:
-- c0 "Your app emits events.": line 1 word-reveals (cream at 70%).
-- c1 "The rest of your stack expects webhooks.": line 2 word-reveals, "webhooks." in coral.
-- c2 "Which means retries. Signing. Health checks. Every time.": the mono pain line reveals one item per spoken word — `Retries.` `Signing.` `Health checks.` `Every time.` (last in coral) — then the coral underline sweeps under it. Hold.
+## Frame 3 — Three nights
+- id: 03-three · transition_in: blur-crossfade · type: product_intro · beat: orientation + stakes
+- persuasion: Frame-then-fill + stakes
+- focal: the parcel + `item.shipped` pill · roles: lockup (continuity) shrinks to the top, three chapter cards = supporting
 
-## Frame 2 — The DIY stack collapses (follows the promo OldWay — src/scenes/OldWay.tsx)
-- id: 02-pain · transition_in: push-slide UP (slide from-bottom, as in the promo) · type: pain_point → product_intro · beat: recognition → relief
-- persuasion: Subtractive framing + concept announcement
-- focal: the pile of DIY chips, then the Sparrow lockup · roles: cream backdrop; PostgreSQL chip = the survivor
+narrativeRole: Promises the arc: a happy path, a bad night, a bad deploy.
+keyMessage: We'll follow one parcel through three nights.
 
-narrativeRole: Shows the homemade stack teams build, then collapses it to "just Postgres" and names Sparrow.
-keyMessage: Sparrow replaces the whole DIY delivery stack with one binary on Postgres.
+- c0 "Let's follow one event, item.shipped, through three nights.": lockup lifts; on "item" the coral parcel + pill pop centre with the payload.
+- c1 "The happy path. The night the partner went dark. And the Tuesday you shipped a bug.": three 540px chapter cards land on their phrases (teal / indigo / coral tops). Hold.
 
-Reproduce the promo OldWay's chips, wobble, drop-out and lockup, retimed to the VO:
-- c0 "So teams build it: a Redis queue, retry crons, signing code, dashboards, alerts.": the promo's chip board piles up; chips named in the line land on their words (Redis · queues, retry cron jobs, HMAC signing code, consumer dashboard, monitoring + alerts); the rest (client SDKs, RabbitMQ · retries, rate limiting, payload audit logs, PostgreSQL, dead-letter queue, key rotation) fill in between, staggered across the cue.
-- c1 "And events still quietly get lost.": the board wobbles/tilts with rising stress (as promo), a couple of chips flicker.
-- c2 "With Sparrow, it's just Postgres.": everything but the PostgreSQL chip drops out of frame; the line "With Sparrow, it's just [PostgreSQL]" forms around the surviving chip (as promo).
-- c3 "Sparrow: webhook delivery you run yourself.": the lockup lands — logo + "Sparrow" wordmark, subtitle **"webhook delivery you run yourself"** (the docs landing hero), and chips `MIT licensed` · `Go + PostgreSQL` · `OpenAPI 3.1` (landing hero badges). Hold.
+## Frame 4 — Night one: the happy path
+- id: 04-happy · transition_in: push-slide LEFT · type: feature_showcase · beat: comprehension → satisfaction
+- persuasion: Demonstration on one stage + build-up
+- focal: the three-column stage (terminal · request card · docks)
 
-## Frame 3 — Follow one event
-- id: 03-meet · transition_in: blur-crossfade · type: product_intro · beat: orientation
-- persuasion: Frame-then-fill
-- focal: the `order.created` event pill · roles: small Sparrow lockup (continuity from Frame 2) upper third, journey line = supporting
+narrativeRole: Shows the whole pipeline once, fast, at readable scale.
+keyMessage: One POST; idempotent; fan-out by name/consumer/labels; a fully-shaped, signed request per dock.
 
-narrativeRole: Promises the path the body follows.
-keyMessage: We'll follow one event from push to delivered.
+- c0 "Night one … one POST.": kicker NIGHT ONE · 22:04; the warehouse-app terminal types the POST with `idempotency_key: pkg_88a1`.
+- c1 "…answers in the same breath: 201, event ID.": `201 Created` response, `event_id` glows on the word.
+- c2 "Same parcel pushed twice? … no duplicate.": ghost re-type, `duplicate: true` in coral, stamp "same event · no duplicate".
+- c3 "Then fan-out … even labels like region=eu": four docks slide in at right; chips `event ✓` `consumer ✓` `labels region=eu` land on their words; `analytics-us` greys with ✕ on "region".
+- c4 "For each match, one request …": the request card assembles in the middle column: body envelope → template morph on "template", headers + lock on "secret"/"encrypted", the method token cycles on "any HTTP method".
+- c5 "Signed, and out the door. Three parcels, three docks, three green ticks.": signature headers + seal on "signed"; three parcels ride comets to the three open docks, lamps go teal with ✓ on "three green ticks"; chip "3 / 3 delivered". Hold.
 
-- start (before c0): the Sparrow lockup is already present, centred (match-cut from Frame 2's end), no subtitle.
-- c0 "Let's follow one event, order.created,": lockup lifts to the upper third and shrinks; the coral `order.created` pill with its JSON preview pops in centre.
-- c1 "from push, to delivered.": journey line draws with `push` / `delivered ✓` ends and five faint station dots. Hold.
+## Frame 5 — Night one: the other side
+- id: 05-verify · transition_in: push-slide LEFT · type: benefit_highlight · beat: reassurance
+- persuasion: Generalization (the receiver is solved too) + enumeration
+- focal: the three signed headers at 28px · roles: customer dock (right), copy-in file (bottom-left), language chips
 
-## Frame 4 — Step 1: Push
-- id: 04-push · transition_in: push-slide LEFT · type: feature_showcase · beat: comprehension
-- persuasion: Demonstration + question→answer
-- focal: terminal with the POST and its response · roles: StepRail (active 0), StepTitle "Push", Postgres drum = supporting
+narrativeRole: Closes the loop: the customer can trust and verify the parcel with one file.
+keyMessage: Standard Webhooks headers, one copy-in helper in nine languages, replay-safe.
 
-narrativeRole: Shows the push is one fast, safe call.
-keyMessage: One POST; Sparrow stores it and answers immediately — and retries of the push itself are deduplicated.
+- c0 "On the other side, your customer checks the signature.": parcel travels to the customer dock; `webhook-id` / `webhook-timestamp` / `webhook-signature` reveal on "signature".
+- c1 "One file to copy in: Python, TypeScript, Java, Ruby, and five more.": `sparrow_verify.py` card (three lines); chips land on the four names, five ghost chips on "five more".
+- c2 "Wrong key, replayed, or older than five minutes? Rejected at the door.": three red stamps slam onto the dock on their words; shutter closes red on "Rejected", then reopens teal "✓ verified". Hold.
 
-- c0: StepRail + StepTitle "Push" in.
-- c1 "One POST. … answers right away.": right 60%: Terminal types
-  `curl -X POST /v1/consumers/acme/events?event=order.created` then `-d '{"payload":{…},"idempotency_key":"idem_ord_123"}'`; response block pops: `201 Created` · `{"event_id":"evt_7c1…","duplicate":false}`; a small "stored" drum (Postgres) left of terminal receives the packet (teal ripple). A tiny "≈ ms" is NOT shown (no invented metric).
-- c2 "Push it again with the same idempotency key?": the same command re-types quickly (ghost second line).
-- c3 "You get the original back. No duplicate.": response 2: `{"event_id":"evt_7c1…","duplicate":true}` — `duplicate:true` highlighted coral, matching event_id underlined in both responses; a "✕ no second delivery" stamp.
+## Frame 6 — Night two: the partner went dark
+- id: 06-night · transition_in: blur-crossfade · type: feature_showcase → social_proof · beat: tension → relief
+- persuasion: Story (setup → tension → turn → resolution) + worked example with real numbers
+- focal: hub → partner dock on top; night stage = classify bins + retry timeline + health; dawn stage = the one-shot bulk retry terminal + attempt log
 
-## Frame 5 — Step 2: Fan-out
-- id: 05-fanout · transition_in: push-slide LEFT · type: feature_showcase · beat: "aha"
-- persuasion: Progressive disclosure (one filter at a time) + causal chain
-- focal: the event node splitting into delivery lanes · roles: StepRail (active 1), subscription cards = foreground, Postgres queue strip = supporting
+narrativeRole: Lives through an outage so the retry, health and recovery features are felt, not listed.
+keyMessage: Sparrow classifies, backs off, honours 429, degrades health, wakes on-call, and lets you retry the whole night in one snapshot.
 
-narrativeRole: Explains how one event becomes N deliveries — and why some subscribers don't get it.
-keyMessage: Matching is by event name, consumer and labels; each match becomes its own queued delivery.
+- c0 "Night two. 3:12 a.m. The partner's dock is closed: 503.": indigo wash, moon, clock 03:12; the parcel comet hits the dock, the shutter slams (red lamp), `503` badge, comet bounces back.
+- c1 "Sparrow reads the answer. Server error? Worth another try. DNS, TLS, 4xx? It stops.": two bins under the hub: `↻ retry` (5xx · timeout · refused · network · 429) on "worth", `■ stop` (4xx · DNS · TLS) on "stops".
+- c2 "So it backs off: one minute, two, four, doubling, capped at a day.": full-width timeline; ✕ #1, `+1m` #2, `+2m` #3, `+4m` on their words; clock ticks 03:13 → 03:15 → 03:19; chip `delay = 60s × 2ⁿ⁻¹ · max 24h` on "capped".
+- c3 "A 429 with Retry-After? It waits exactly that long, and it doesn't count as an attempt.": `429 · Retry-After: 120` chip; dashed snooze arc on "waits"; `#4 · still 3 / 4 attempts` on "doesn't".
+- c4 "Fail after fail, the webhook's health slides: healthy, degraded, unhealthy.": a health bar under the dock; badge + colour change on each word (96% → 86% → 71%).
+- c5 "Five in a row, and your on-call gets an email. You? You're asleep.": five ✕ dots on "five"; the email card (`sparrow.webhook.health_changed`, to oncall@) on "email"; serif "you: asleep · z z z" on "asleep". Held beat.
+- c6 "6:40. The partner is back. Every failed delivery from tonight: one snapshot, one retry.": wash lifts to a coral dawn, clock 06:40, sun; shutter opens, teal ripple on "back"; terminal types `GET …/deliveries?status=failed&created_after=…&prepare_retry=true` → `{ retry_id, total: 128 }` on "snapshot"; `POST …/deliveries:retry` on "retry"; a stream of comets, counter `128 / 128 ✓` on the dock.
+- c7 "A snapshot, not a live query: what you saw is exactly what gets retried.": SNAPSHOT card: "128 deliveries, frozen at 06:40 · new failures after 06:40 → not included" on "exactly".
+- c8 "And every attempt is on record: status, timing, category. Nothing is a mystery.": attempt log strip (#1–#5 with times, status, category); column headers brighten on their words. Hold.
 
-- c0: StepRail + StepTitle "Fan-out".
-- c1 "…every subscription that matches:": the `order.created` pill (with label chip `env=prod`) at left-centre; four subscription cards fan out on the right: `billing-svc · order.created`, `partner-acme · order.created`, `slack-ops · order.created`, `analytics · order.created · env=staging`.
-- c2 "the event name, the consumer, even labels like env=prod,": three filter chips light in sequence on the pill → cards: `event ✓`, `consumer: acme ✓`, `labels env=prod` — the `analytics` card (env=staging) greys out with a ✕.
-- c3 "…queues one delivery for each. Right in Postgres.": wires draw from pill to the three matching cards; three comets travel; beneath, a "river · postgres" queue strip receives three job tiles `delivery #1..#3`. Label "no broker · no Redis".
+## Frame 7 — Night three: Tuesday's bug
+- id: 07-tuesday · transition_in: push-slide LEFT · type: feature_showcase → benefit_highlight · beat: relief + control
+- persuasion: Worked example + callback (same snapshot mechanism as Frame 6)
+- focal: the re-push terminal · roles: parcel row with weights (top), partner dock with pause/resume (right), portal card (bottom-right)
 
-## Frame 6 — Step 3: Build the request
-- id: 06-sign · transition_in: push-slide LEFT · type: feature_showcase · beat: fascination → "aha"
-- persuasion: Build-up (one request assembles part by part) + generalization (webhook → any HTTP API)
-- focal: ONE outgoing HTTP request card · roles: StepRail (active 2), StepTitle "Build the request", three generic destination endpoints = supporting, signature seal = hero at the end
-- no brand logos, no Slack. Endpoints are generic: `hooks.partner.example`, `api.crm.example`, `billing.internal`.
+narrativeRole: Shows Sparrow fixes history and gives operators and customers control.
+keyMessage: Re-push a whole day from a snapshot; pause/resume a partner; customers self-serve in the portal.
 
-narrativeRole: Shows that what Sparrow sends is a fully configurable HTTP request — shaped body, secret headers, any method — so it can call real APIs, not just webhooks; and it's always signed.
-keyMessage: Envelope or template body + encrypted secret headers + any method = one event can drive almost any HTTP API, signed.
+- c0 "Night three. Tuesday's deploy put the wrong weight on every parcel.": six parcel cards; on "wrong" they turn red with `weight_kg: 0`; deploy tag + diff on the same word; "× every parcel, all day" on "every".
+- c1 "Fix the bug. Then re-push every item.shipped from Tuesday: one snapshot, one job.": diff resolves green + `✓ fixed` on "fix"; row shrinks up; terminal types `GET …/events?event=item.shipped&created_after&created_before&prepare_repush=true` → `{ repush_id, total: 2417 }` on "snapshot"; `POST …/events:rePush` on "job"; progress bar `event_repush · 2417 / 2417 ✓`; parcels turn teal as the bar passes them.
+- c2 "Partner mid-deploy? Pause their webhook. Deliveries wait. Resume when they're ready.": partner dock with `⏸ paused` on "pause"; queued bars count up to 37 on "wait"; `▶ resumed`, bars drain on "resume"; footnote `POST …/webhooks/{id}:pause · :resume`.
+- c3 "And your customers watch all of it themselves, in a portal you hand them with one link.": portal browser card (`/portal#token=spt_…`, DHL · consumer portal, their webhook, "128 retried · 2417 re-pushed"); "one scoped, expiring link" line on "link". Hold.
 
-Sources: transform + envelope (FLOWS.md §5), secret headers envelope-encrypted and merged last (`internal/rest/conversions.go`, FLOWS.md §5), subscription method enum GET/POST/PUT/PATCH/DELETE (`internal/rest/subscription.go`), Standard Webhooks signing (`client/request.go`).
+## Frame 8 — Shape the request → any HTTP API → recipes
+- id: 08-recipes · transition_in: push-slide LEFT · type: feature_showcase → benefit_highlight · beat: fascination → delight
+- persuasion: Build-up (one request assembles part by part) → generalization (webhook → any HTTP API) → callback ("recipes are those templates, pre-built")
+- focal: act 1 = ONE outgoing request card (780px) + its Go template; act 2 = the 7-tile recipe grid · roles: three generic endpoints = supporting, `pagerduty.yaml` = the template, pre-packaged
 
-- c0 "Step three: build the request.": StepRail + StepTitle; an empty request card (≈55% of frame, centre-right) outlines itself: a method line slot, a HEADERS block, a BODY block.
-- c1 "The standard envelope, or your own shape with a Go template.": BODY fills with the envelope JSON (`version`, `event_id`, `event_name`, `timestamp`, `attempt`, `payload`) key by key; on "your own shape" a small Go-template chip (`{{ .payload.order_id }}` …) slides over and the body morphs into a custom JSON (`{"order": "ord_123", "amount": 49.99, "status": "created"}`).
-- c2 "Headers too, even an API token, encrypted at rest.": HEADERS fill: `Content-Type: application/json`, `X-Tenant: acme`, then `Authorization: Bearer ••••••••` with a lock icon and a small teal "encrypted at rest · AES-256-GCM" tag.
-- c3 "Any method: POST, PUT, PATCH, DELETE.": the method token cycles POST → PUT → PATCH → DELETE on the spoken words (in-place token swap), then settles on `PUT https://api.crm.example/orders/ord_123`.
-- c4 "So one event can call almost any HTTP API.": three generic destination endpoints appear to the right/below (partner webhook `POST hooks.partner.example`, CRM API `PUT api.crm.example`, internal `PATCH billing.internal`); dotted wires draw from the card and comets travel to each.
-- c5 "And every request is signed: HMAC or Ed25519.": `webhook-id: msg_…`, `webhook-timestamp: …`, `webhook-signature: v1,K5o…=` stamp onto the headers block; two chips `HMAC-SHA256` · `Ed25519`; teal "signed" seal. Hold.
+narrativeRole: Explains, in order, that the body is shaped by a Go template, headers and method are yours, so any HTTP API is reachable; then names recipes as those templates pre-built.
+keyMessage: Template + your headers + any method = any HTTP API; recipes are that, packaged per destination.
 
-## Frame 6b — Recipes
-- id: 06b-recipes · transition_in: push-slide LEFT · type: benefit_highlight · beat: delight
-- persuasion: Callback to Frame 6 ("exactly that, pre-packaged") + enumeration
-- focal: the request card from Frame 6 collapsing into a recipe file, then the recipe grid · roles: StepRail (active 2), terminal = supporting
-- Slack must NOT lead: it's just one tile among seven, never highlighted.
+- c0 "What goes out is yours to shape. A Go template turns the envelope into whatever the receiver expects.": request card with the envelope body on "shape"; the dark Go-template card (`{{ .payload.parcel }}`…) slides in on "template"; a coral comet crosses into the body and it morphs into the rendered JSON on "whatever".
+- c1 "Add your own headers, even an API token, encrypted at rest. Any method: POST, PUT, PATCH, DELETE.": headers fill on "headers", `authorization: Bearer ••••` on "token", lock + `encrypted at rest · AES-256-GCM` on "encrypted"; the method token cycles POST → PUT → PATCH → DELETE on the words.
+- c2 "So one event can call almost any HTTP API, not just a webhook.": template card leaves; three generic endpoints (POST hooks.partner / PUT api.crm / PATCH billing.internal) land at right, wires + comets on "almost"; chip "any HTTP API · not just a webhook" on "not".
+- c3 "Recipes are those templates, pre-built: PagerDuty, Twilio, SendGrid, ClickHouse and more, one YAML file each.": act 1 recedes; tiles land on their names, Discord / ntfy / Slack on "more"; chip "same template + headers, pre-built per destination" on "pre-built"; `pagerduty.yaml` (url, Authorization header, transform_template) lands with "Recipes".
+- c4 "One command: sparrow use pagerduty.": terminal types `sparrow use pagerduty --event item.shipped`; wire + comet to the PagerDuty tile, which glows teal. Hold.
 
-narrativeRole: Recipes are Frame 6's configurable request, pre-packaged per destination — no template writing.
-keyMessage: One YAML file per destination bundles URL + headers + transform template; one CLI command applies it.
+## Frame 9 — Seeing it
+- id: 09-seeing · transition_in: blur-crossfade · type: benefit_highlight · beat: relief
+- persuasion: Demonstration (UI reconstruction) + rule of three
+- focal: the dashboard mock at 1380×540 · roles: OpenTelemetry strip full width
 
-- c0 "Recipes are exactly that, pre-packaged.": a compact version of Frame 6's request card (method · headers · body) sits left and folds into a `pagerduty.yaml` file card mirroring `satellites/recipes/pagerduty.yaml`: `webhook:` → `url: https://events.pagerduty.com/v2/enqueue`, `headers:`; `subscription:` → `transform_template: |` with 2–3 template lines (`"event_action": "trigger",` · `"dedup_key": {{.event_id | json}},`).
-- c1 "PagerDuty, Twilio, SendGrid, ClickHouse and more, one YAML file each.": the recipe grid pops in — PagerDuty, Twilio, SendGrid, ClickHouse land on their spoken names; Discord, ntfy, Slack fill in together on "and more" — each tile with icon + label + output format (Events API v2 · Twilio Messages · SendGrid v3 · JSONEachRow · embeds · ntfy topic · Block Kit).
-- c2 "One command applies one: sparrow use pagerduty.": Terminal types `$ sparrow use pagerduty --event order.created`; the PagerDuty tile lights teal, wire + comet from terminal to it; footnote "helper CLI · satellites/sparrow". Hold.
+- c0 "A dashboard ships inside the same binary: webhooks, events, deliveries, health.": browser frame rises; each nav item lights on its word.
+- c1 "And OpenTelemetry traces every parcel, push to dock.": four spans draw left→right across the full width. Hold.
 
-## Frame 7 — Step 4: Send & classify
-- id: 07-classify · transition_in: push-slide LEFT · type: feature_showcase · beat: clarity
-- persuasion: Comparison of two options (sorting into two bins) + numbered enumeration
-- focal: two bins — RETRY vs STOP · roles: StepRail (active 3), response tokens = foreground
+## Frame 10 — What it needs
+- id: 10-needs · transition_in: blur-crossfade · type: benefit_highlight · beat: conviction
+- persuasion: Subtractive framing + distillation
+- focal: the PostgreSQL drum (420px) · roles: struck ghosts (Redis, message broker, worker fleet, per-message pricing), MIT stamp
 
-narrativeRole: Teaches that Sparrow reads *why* a delivery failed and decides whether retrying can help.
-keyMessage: Retryable failures get another try; terminal ones stop immediately.
+- c0 "So what does it need to run?": headline word-reveals.
+- c1 "Just PostgreSQL. The queue lives there too. No Redis, no broker.": drum on "just"; "River queue · in here" on "queue"; ghosts struck on "Redis" / "broker".
+- c2 "MIT licensed: free to run, fork and ship. No per-message pricing.": MIT stamp on "MIT"; run · fork · ship on their words; "per-message pricing" ghost struck. Hold.
 
-- c0: StepRail + StepTitle "Send & classify". A request arrow leaves towards an endpoint.
-- c1 "…one of ten categories.": ten category tokens spray in (mono chips) in a loose cloud: success, server_error, timeout, connection_refused, network_error, rate_limited, client_error, dns_error, tls_error, unexpected_status — a count "10" ticks up.
-- c2 "Server errors and timeouts? Worth another try.": left bin "↻ retry" (teal) — server_error (5xx), timeout, connection_refused, network_error, rate_limited (429) fly into it.
-- c3 "DNS, TLS, or a 4xx? Retrying won't help,": right bin "■ stop" (red-ish) — dns_error, tls_error, client_error (4xx), unexpected_status fly in.
-- c4 "so Sparrow stops.": the stop bin locks (lid), `success` token goes to a small ✓ at top. Hold.
-
-## Frame 8 — Step 5: Back off
-- id: 08-backoff · transition_in: push-slide LEFT · type: feature_showcase · beat: confidence
-- persuasion: Worked example with real numbers + value-scaled timeline
-- focal: an exponential retry timeline · roles: StepRail (active 4), attempt markers = foreground, Retry-After snooze = supporting
-
-narrativeRole: Makes the retry schedule concrete and shows 429s are respected.
-keyMessage: 1m → 2m → 4m by default, doubling (capped at 24h); a 429 waits Retry-After without burning an attempt.
-
-- c0: StepRail + StepTitle "Back off".
-- c1 "three retries: one minute, two, then four.": a long horizontal timeline (full width strip, y≈520). Attempt 1 ✕ at t0; gaps draw proportional to 60s, 120s, 240s with labels `+1m`, `+2m`, `+4m` revealed with the words "one", "two", "four"; attempts 2 and 3 ✕.
-- c2 "Doubling every time.": formula card `delay = 60s × 2ⁿ⁻¹  (max 24h)`; the gap brackets pulse once in sequence.
-- c3 "And a 429, slow down?": above the timeline, a `429 Too Many Requests · Retry-After: 30` response chip appears on a side lane.
-- c4 "Sparrow waits out Retry-After, without spending an attempt.": a snooze arc (dashed, "zZ") jumps over, attempt counter stays `3 / 4` (not incremented); attempt 4 lands ✓ teal with a ripple. Hold.
-
-## Frame 9 — Health
-- id: 09-health · transition_in: blur-crossfade · type: benefit_highlight · beat: foresight
-- persuasion: Frame-then-fill (three states) + thresholds as data-viz
-- focal: a health gauge / segmented arc · roles: state chips, alert email card = supporting
-
-narrativeRole: Zooms out from one delivery to the webhook's overall health, and shows ops gets told.
-keyMessage: Each webhook has a health state computed from success rate and consecutive failures; changes can alert on-call.
-
-- c0: kicker "PER-WEBHOOK HEALTH"; a webhook card `partner-acme · https://api.acme.example/hooks` with a small state badge "unknown".
-- c1 "Healthy, above ninety percent success.": large semicircular gauge draws; teal segment 90–100% labelled `healthy > 90%`; needle sweeps to 96%, badge → healthy.
-- c2 "Degraded, between eighty and ninety.": amber segment 80–90 draws; needle drops to 86%, badge → degraded.
-- c3 "Five failures in a row? Unhealthy.": five ✕ dots tick in a row under the gauge; red segment <80 draws; needle → unhealthy.
-- c4 "And every change can email your on-call.": an email card slides in right: `sparrow.webhook.health_changed` · "partner-acme: degraded → unhealthy" · to `oncall@acme.example.com`.
-
-## Frame 10 — The receipt
-- id: 10-record · transition_in: blur-crossfade · type: social_proof · beat: trust
-- persuasion: Demonstration (a delivery log) + callback
-- focal: delivery attempts table · roles: retry button = supporting
-
-narrativeRole: Proves nothing is hidden — every attempt is inspectable and re-drivable.
-keyMessage: Every attempt is recorded, and you can retry any delivery by ID.
-
-- c0 "Nothing is a mystery.": kicker "DELIVERY dlv_4e9…" and a table header fades in.
-- c1 "Every attempt is recorded: status, timing, error category.": rows reveal one per word-group: `#1 503 · 1.2s · server_error`, `#2 —  · 30.0s · timeout`, `#3 connection refused · connection_refused`, `#4 200 · 84ms · success ✓`; column headers "status / time / category" highlight as named.
-- c2 "When the partner is back, retry it by ID.": a mono command chip `POST /v1/consumers/acme/deliveries/dlv_4e9…:retry` appears with a button press; a fresh row `#5 200 ✓` slides in.
-
-## Frame 10b — The dashboard
-- id: 10b-dashboard · transition_in: blur-crossfade · type: benefit_highlight · beat: relief + delight
-- persuasion: Demonstration (a UI reconstruction — the topic IS the interface here) + rule of three
-- focal: a browser-framed dashboard mock · roles: sidebar nav = supporting, portal card = supporting
-
-narrativeRole: Shows the operator view comes free — no extra service to deploy.
-keyMessage: The dashboard ships in the same binary; the consumer portal lets customers self-serve.
-
-- c0 "And you don't have to dig through logs.": a small mono log tail (a few grey JSON log lines) at left, quickly blurring/dimming.
-- c1 "A dashboard ships inside the same binary: webhooks, events, deliveries, health.": a browser frame (`localhost:8080`) rises into the centre (≈60% of frame) showing a reconstruction of Sparrow's Svelte dashboard: left sidebar (Dashboard, Webhooks, Events, Deliveries, Portal — from web/src/routes), main area with a webhooks table (partner-acme healthy, billing-svc healthy, slack-ops degraded) and a delivery sparkline. Each of the four spoken nouns highlights its sidebar item / panel in turn. A chip "same binary · SPARROW_SERVE_UI=true".
-- c2 "Plus a consumer portal, so your customers manage their own webhooks.": a second, smaller card slides in front-right: "acme · consumer portal" at `/portal#token=spt_…` showing only acme's webhooks + "Add endpoint" button.
-- c3 "And OpenTelemetry traces every event, end to end.": a compact trace waterfall strip (OpenTelemetry) draws beneath/over the browser: spans `POST /v1/…/events` → `event.fanout` → `webhook.deliver` → `http.post partner-acme`, each bar extending left→right in sequence; label "OpenTelemetry · traces + metrics + logs". Hold.
-
-## Frame 11 — Callback (plays after Frame 12b)
-- id: 11-takeaway · transition_in: blur-crossfade · type: branding · beat: "now I get it"
-- persuasion: Callback (the hook's packet) + distillation
-- focal: the packet landing · roles: wire from hook = supporting
-
-narrativeRole: Answers the hook's question with the image that opened it.
-keyMessage: Push once; Sparrow does the rest.
-
-- c0 "So, where did order.created end up?": the hook's composition returns in cream: service chip left, endpoint right, dotted wire; question in small mono above.
-- c1 "Exactly where you sent it.": the coral packet travels, the endpoint is green now, packet lands with teal ripple and ✓ "delivered · attempt 4".
-- c2 "Push once. Sparrow does the rest.": the headline "Push once. Sparrow does the rest." word-reveals (Inter 96px), "Sparrow" in teal. Hold still.
-
-## Frame 12a — What it needs
-- id: 12a-open · transition_in: blur-crossfade · type: benefit_highlight · beat: conviction
-- persuasion: Subtractive framing (what you *don't* need) + distillation
-- focal: a single PostgreSQL drum as the only dependency, then the MIT badge · roles: struck-through Redis/broker/worker tiles = supporting
-
-narrativeRole: Removes the last objection — operational cost and licensing.
-keyMessage: PostgreSQL is the only dependency, and it's MIT — no per-message pricing.
-
-- c0 "So what does it need to run?": question in Inter 88px centred-upper.
-- c1 "Just PostgreSQL. The queue lives there too. No Redis, no broker.": a single "PostgreSQL" database drum grows centre-left; inside it a "River queue" layer fills in on "the queue lives there too"; to the right, three ghost tiles `Redis`, `message broker`, `worker fleet` each get struck through (coral line) on "No Redis, no broker" (third on the same beat).
-- c2 "And it's MIT licensed: free to run, fork and ship. No per-message pricing.": an "MIT License" badge stamps in (teal seal), three small verbs `run · fork · ship` reveal per word, and a price-tag chip "per-message pricing" struck through. Hold.
-
-## Frame 12b — How it stacks up (adapts the promo Compare — src/scenes/Compare.tsx)
-- id: 12b-compare · transition_in: blur-crossfade · type: social_proof · beat: conviction
+## Frame 11 — How it compares
+- id: 11-compare · transition_in: blur-crossfade · type: social_proof · beat: conviction
 - persuasion: Comparison of options + progressive disclosure
-- focal: comparison table, Sparrow column highlighted · roles: vendor columns = supporting, footnote = supporting
+- focal: full-width table (1850px), Sparrow column band · roles: footnote (21px)
 
-narrativeRole: Positions Sparrow against the alternatives buyers already know.
-keyMessage: Sparrow is the fully-MIT, Postgres-only option with dual signing, recipes, a portal and self-monitoring built in.
+- c0 "How does that stack up?": kicker, header row, Sparrow band.
+- c1 "Svix and Convoy add Redis. Hookdeck's core is SaaS.": rows 1–2; Redis / SaaS cells go coral on their words.
+- c2 "Sparrow is fully MIT, with dual signing, recipes, a portal and self-monitoring.": remaining rows reveal on their words; MIT cell pulses teal. Hold.
 
-Table (docs landing "How Sparrow stacks up", verbatim values): columns Sparrow · Svix · Convoy · Hookdeck · DIY. Rows:
-- Fully open source (MIT): Yes · Partial · No (Elastic 2.0) · Partial · Yes
-- Core infrastructure: PostgreSQL only · PostgreSQL + Redis · PostgreSQL + Redis · SaaS · Varies
-- Webhook signing: HMAC-SHA256 + Ed25519 · HMAC-SHA256 · HMAC-SHA256 · HMAC-SHA256 · Manual
-- Prebuilt integrations: Recipes · Limited · Limited · Yes · Manual
-- Consumer portal: Yes, self-hosted · Yes · Yes · Yes · No
-- Self-monitoring alerts: System events + email · Operational webhooks · Alert configs · Issue alerts · Manual
-Footnote (always, small): "Directional snapshot — vendors change packaging often; verify against their docs."
+## Frame 12 — Callback
+- id: 12-takeaway · transition_in: blur-crossfade · type: branding · beat: "now I get it"
+- persuasion: Callback + distillation
+- focal: the headline · roles: warehouse-app parcel → three docks
 
-- c0 "How does that stack up?": kicker "HOW IT COMPARES", header row + Sparrow column highlight band.
-- c1 "Svix and Convoy add Redis. Hookdeck's core is SaaS.": rows 1–2 reveal; the "PostgreSQL + Redis" cells (Svix, Convoy) and "SaaS" (Hookdeck) get a coral emphasis as named, Sparrow's "PostgreSQL only" teal.
-- c2 "Sparrow is fully MIT, with dual signing, recipes, a portal and self-monitoring.": rows reveal on their spoken words — MIT (row 1 Sparrow cell pulses teal), signing, integrations, portal, self-monitoring. Hold.
+- c0 "So, where did item.shipped end up?": parcel + warehouse-app chip at left, three docks at right, wires draw.
+- c1 "Every dock. Every time. Even the nights you slept.": a comet lands on each dock on "Every" / "Every" / "Even"; lamps teal, `✓ delivered`.
+- c2 "Push once. Sparrow does the rest.": 104px headline word-reveals, "Sparrow" teal. Hold still.
 
-## Frame 12 — Run it
-- id: 12-cta · transition_in: blur-crossfade · type: cta · beat: resolve
+## Frame 13 — Run it
+- id: 13-cta · transition_in: blur-crossfade · type: cta · beat: resolve
 - persuasion: Distillation + direct call to act
-- focal: typed `docker compose up -d` · roles: logo lockup, github URL = supporting
+- focal: `github.com/sarathsp06/sparrow` at 64px · roles: `1 × Go binary + 1 × PostgreSQL = Sparrow`, the typed `docker compose up -d`
 
-narrativeRole: Gives the one action to take.
-keyMessage: One binary, one Postgres, one command.
-
-- c0 "One Go binary. One Postgres.": two tokens slam in side-by-side: `1 × Go binary` and `1 × PostgreSQL` with a "+" and "= Sparrow" lockup.
-- c1 "docker compose up, and you're delivering.": terminal types `$ docker compose up -d`; beneath: "MIT licensed · github.com/sarathsp06/sparrow". Final frame is the only exit: gentle fade at the very end.
+- c0 "One Go binary. One Postgres.": tokens slam in on "One" / "One", "= Sparrow" after "Postgres".
+- c1 "docker compose up, and you're delivering.": terminal types the command; the GitHub URL and badges land on "delivering". Gentle fade at the very end.
